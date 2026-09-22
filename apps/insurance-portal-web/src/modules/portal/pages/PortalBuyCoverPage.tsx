@@ -3,7 +3,6 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
-  Building2,
   Car,
   Check,
   Loader2,
@@ -12,9 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { EmptyState, ErrorState } from '@/components/shared/ContentStates';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -50,15 +47,6 @@ import type { MotorVerificationRequest } from '@/modules/tenant/verifications/ap
 
 import { portalApi, type PortalProfileRecord } from '../api';
 
-type SelectableCardProps = {
-  selected: boolean;
-  disabled?: boolean;
-  title: string;
-  description?: string | null;
-  badge?: string;
-  onClick: () => void;
-};
-
 type PolicyholderFormState = Partial<
   Record<
     | 'full_name'
@@ -79,49 +67,46 @@ type PolicyholderFormState = Partial<
 >;
 
 type MotorFormState = QuotationFormSchemaValues['motor'];
+type MotorFieldDefinition = (typeof motorFields)[number];
 
-function SelectableCard({
-  selected,
-  disabled = false,
-  title,
-  description,
-  badge,
-  onClick,
-}: SelectableCardProps) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        'w-full rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60',
-        selected
-          ? 'border-blue-500 bg-blue-50'
-          : 'border-slate-200 bg-white hover:bg-slate-50',
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-medium text-slate-950">{title}</div>
-          {description ? (
-            <div className="mt-1 text-sm text-slate-500">{description}</div>
-          ) : null}
-        </div>
-        {selected ? <Check className="h-4 w-4 shrink-0 text-blue-600" /> : null}
-      </div>
-      {badge ? (
-        <Badge variant="outline" className="mt-3">
-          {badge}
-        </Badge>
-      ) : null}
-    </button>
-  );
-}
+const CORE_MOTOR_FIELD_KEYS = new Set<keyof MotorFormState>([
+  'motor_category_code',
+  'motor_type_code',
+  'motor_usage_code',
+  'registration_no',
+  'chassis_no',
+  'make',
+  'model',
+]);
+
+const CORE_MOTOR_FIELDS = motorFields.filter((field) =>
+  CORE_MOTOR_FIELD_KEYS.has(field.key),
+);
+const ADVANCED_MOTOR_FIELDS = motorFields.filter(
+  (field) => !CORE_MOTOR_FIELD_KEYS.has(field.key),
+);
 
 function LoadingState({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-slate-500">
       <Loader2 className="h-4 w-4 animate-spin" />
+      {label}
+    </div>
+  );
+}
+
+function InlineStatus({ label }: { label: string }) {
+  return (
+    <div className="flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      {label}
+    </div>
+  );
+}
+
+function InlineError({ label }: { label: string }) {
+  return (
+    <div className="flex h-10 items-center rounded-md border border-red-200 bg-red-50 px-3 text-sm text-red-700">
       {label}
     </div>
   );
@@ -144,6 +129,39 @@ function FormField({
       </Label>
       {children}
     </div>
+  );
+}
+
+function MotorFieldInput({
+  field,
+  motor,
+  onChange,
+}: {
+  field: MotorFieldDefinition;
+  motor: MotorFormState;
+  onChange: (field: keyof MotorFormState, value: string) => void;
+}) {
+  return (
+    <FormField label={field.label} required={!field.optional}>
+      {field.options ? (
+        <NativeSelect
+          value={String(motor[field.key] ?? '')}
+          onChange={(value) => onChange(field.key, value)}
+        >
+          <option value="">Select {field.label.toLowerCase()}</option>
+          {field.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </NativeSelect>
+      ) : (
+        <Input
+          value={String(motor[field.key] ?? '')}
+          onChange={(event) => onChange(field.key, event.target.value)}
+        />
+      )}
+    </FormField>
   );
 }
 
@@ -428,6 +446,15 @@ export function PortalBuyCoverPage() {
     () => validateMotor(motorForDraft),
     [motorForDraft],
   );
+  const advancedMotorHasMissingFields = useMemo(
+    () =>
+      ADVANCED_MOTOR_FIELDS.some((field) =>
+        Boolean(
+          motorFieldError(field.key, motorForDraft[field.key], motorForDraft),
+        ),
+      ),
+    [motorForDraft],
+  );
 
   const selectionsReady = Boolean(
     selectedCompany && selectedProduct && selectedRisk,
@@ -462,7 +489,9 @@ export function PortalBuyCoverPage() {
   const verifyMotorFromPortal = useCallback(
     async (payload: MotorVerificationRequest) => {
       if (!selectedCompany) {
-        throw new Error('Select an insurance company before fetching vehicle details.');
+        throw new Error(
+          'Select an insurance company before fetching vehicle details.',
+        );
       }
 
       await portalApi.ensureCustomerCompanyContext(selectedCompany.id);
@@ -657,119 +686,120 @@ export function PortalBuyCoverPage() {
         })}
       </div>
 
-      <section className="grid gap-5 xl:grid-cols-3">
-        <Card className="rounded-xl border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Building2 className="h-4 w-4 text-slate-500" />
-              Insurance Company
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      <Card className="rounded-xl border-slate-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-4 w-4 text-slate-500" />
+            Cover Selection
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-3">
+          <FormField label="Insurance company" required>
             {companiesQuery.isLoading ? (
-              <LoadingState label="Loading companies..." />
+              <InlineStatus label="Loading companies..." />
             ) : companiesQuery.isError ? (
-              <ErrorState
-                description="Insurance companies could not be loaded."
-                onRetry={() => {
-                  void companiesQuery.refetch();
-                }}
-              />
-            ) : (companiesQuery.data?.length ?? 0) === 0 ? (
-              <EmptyState
-                title="No companies available"
-                description="No active insurance companies are available."
-              />
-            ) : (
-              companiesQuery.data?.map((company) => (
-                <SelectableCard
-                  key={company.id}
-                  selected={selectedCompanyId === company.id}
-                  title={company.name}
-                  description={company.description ?? company.contact_phone}
-                  badge={company.tira_ready ? 'TIRAMIS ready' : 'Active'}
+              <div className="flex gap-2">
+                <InlineError label="Could not load companies." />
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => {
-                    setCompanyId(company.id);
-                    setProductId(null);
-                    setRiskId(null);
+                    void companiesQuery.refetch();
                   }}
-                />
-              ))
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <NativeSelect
+                value={selectedCompanyId ?? ''}
+                onChange={(value) => {
+                  setCompanyId(value || null);
+                  setProductId(null);
+                  setRiskId(null);
+                }}
+              >
+                <option value="">Select insurer</option>
+                {(companiesQuery.data ?? []).map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                    {company.tira_ready ? ' - TIRAMIS ready' : ''}
+                  </option>
+                ))}
+              </NativeSelect>
             )}
-          </CardContent>
-        </Card>
+          </FormField>
 
-        <Card className="rounded-xl border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-4 w-4 text-slate-500" />
-              Product
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+          <FormField label="Product" required>
             {!selectedCompanyId ? (
-              <EmptyState title="Select an insurer first" />
+              <InlineError label="Select insurer first." />
             ) : productsQuery.isLoading ? (
-              <LoadingState label="Loading products..." />
+              <InlineStatus label="Loading products..." />
             ) : productsQuery.isError ? (
-              <ErrorState
-                description="Products could not be loaded."
-                onRetry={() => {
-                  void productsQuery.refetch();
-                }}
-              />
-            ) : (productsQuery.data?.length ?? 0) === 0 ? (
-              <EmptyState title="No products available" />
-            ) : (
-              productsQuery.data?.map((product) => (
-                <SelectableCard
-                  key={product.id}
-                  selected={selectedProductId === product.id}
-                  title={product.name}
-                  description={product.description ?? product.category?.name}
-                  badge={product.supports_fleet ? 'Fleet capable' : undefined}
+              <div className="flex gap-2">
+                <InlineError label="Could not load products." />
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => {
-                    setProductId(product.id);
-                    setRiskId(null);
+                    void productsQuery.refetch();
                   }}
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-xl border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Cover</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {!selectedProductId ? (
-              <EmptyState title="Select a product first" />
-            ) : risksQuery.isLoading ? (
-              <LoadingState label="Loading cover options..." />
-            ) : risksQuery.isError ? (
-              <ErrorState
-                description="Cover options could not be loaded."
-                onRetry={() => {
-                  void risksQuery.refetch();
-                }}
-              />
-            ) : (risksQuery.data?.length ?? 0) === 0 ? (
-              <EmptyState title="No cover options available" />
+                >
+                  Retry
+                </Button>
+              </div>
             ) : (
-              risksQuery.data?.map((risk) => (
-                <SelectableCard
-                  key={risk.id}
-                  selected={selectedRiskId === risk.id}
-                  title={risk.name}
-                  description={risk.description}
-                  onClick={() => setRiskId(risk.id)}
-                />
-              ))
+              <NativeSelect
+                value={selectedProductId ?? ''}
+                onChange={(value) => {
+                  setProductId(value || null);
+                  setRiskId(null);
+                }}
+              >
+                <option value="">Select product</option>
+                {(productsQuery.data ?? []).map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name}
+                  </option>
+                ))}
+              </NativeSelect>
             )}
-          </CardContent>
-        </Card>
-      </section>
+          </FormField>
+
+          <FormField label="Cover" required>
+            {!selectedProductId ? (
+              <InlineError label="Select product first." />
+            ) : risksQuery.isLoading ? (
+              <InlineStatus label="Loading covers..." />
+            ) : risksQuery.isError ? (
+              <div className="flex gap-2">
+                <InlineError label="Could not load covers." />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void risksQuery.refetch();
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : (
+              <NativeSelect
+                value={selectedRiskId ?? ''}
+                onChange={(value) => setRiskId(value || null)}
+              >
+                <option value="">Select cover</option>
+                {(risksQuery.data ?? []).map((risk) => (
+                  <option key={risk.id} value={risk.id}>
+                    {risk.name}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+          </FormField>
+        </CardContent>
+      </Card>
 
       <section className="grid gap-5 lg:grid-cols-2">
         <Card className="rounded-xl border-slate-200 shadow-sm">
@@ -879,18 +909,6 @@ export function PortalBuyCoverPage() {
                 }
               />
             </FormField>
-            <FormField label="Country code" required>
-              <Input
-                value={policyholderValues.country_code}
-                onChange={(event) =>
-                  updatePolicyholder(
-                    'country_code',
-                    event.target.value.toUpperCase(),
-                  )
-                }
-                maxLength={3}
-              />
-            </FormField>
             <FormField label="Region" required>
               <Input
                 value={policyholderValues.region}
@@ -907,22 +925,44 @@ export function PortalBuyCoverPage() {
                 }
               />
             </FormField>
-            <FormField label="Street">
-              <Input
-                value={policyholderValues.street}
-                onChange={(event) =>
-                  updatePolicyholder('street', event.target.value)
-                }
-              />
-            </FormField>
-            <FormField label="Postal address">
-              <Input
-                value={policyholderValues.postal_address}
-                onChange={(event) =>
-                  updatePolicyholder('postal_address', event.target.value)
-                }
-              />
-            </FormField>
+            <details
+              className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:col-span-2"
+              open={!policyholderValues.country_code.trim()}
+            >
+              <summary className="cursor-pointer text-sm font-medium text-slate-700">
+                Address details
+              </summary>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <FormField label="Country code" required>
+                  <Input
+                    value={policyholderValues.country_code}
+                    onChange={(event) =>
+                      updatePolicyholder(
+                        'country_code',
+                        event.target.value.toUpperCase(),
+                      )
+                    }
+                    maxLength={3}
+                  />
+                </FormField>
+                <FormField label="Street">
+                  <Input
+                    value={policyholderValues.street}
+                    onChange={(event) =>
+                      updatePolicyholder('street', event.target.value)
+                    }
+                  />
+                </FormField>
+                <FormField label="Postal address">
+                  <Input
+                    value={policyholderValues.postal_address}
+                    onChange={(event) =>
+                      updatePolicyholder('postal_address', event.target.value)
+                    }
+                  />
+                </FormField>
+              </div>
+            </details>
           </CardContent>
         </Card>
 
@@ -950,33 +990,13 @@ export function PortalBuyCoverPage() {
                 }}
               />
             </div>
-            {motorFields.map((field) => (
-              <FormField
+            {CORE_MOTOR_FIELDS.map((field) => (
+              <MotorFieldInput
                 key={field.key}
-                label={field.label}
-                required={!field.optional}
-              >
-                {field.options ? (
-                  <NativeSelect
-                    value={String(motor[field.key] ?? '')}
-                    onChange={(value) => updateMotor(field.key, value)}
-                  >
-                    <option value="">Select {field.label.toLowerCase()}</option>
-                    {field.options.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                ) : (
-                  <Input
-                    value={String(motor[field.key] ?? '')}
-                    onChange={(event) =>
-                      updateMotor(field.key, event.target.value)
-                    }
-                  />
-                )}
-              </FormField>
+                field={field}
+                motor={motor}
+                onChange={updateMotor}
+              />
             ))}
             <FormField label="Vehicle value" required>
               <Input
@@ -987,6 +1007,24 @@ export function PortalBuyCoverPage() {
                 }
               />
             </FormField>
+            <details
+              className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:col-span-2"
+              open={advancedMotorHasMissingFields}
+            >
+              <summary className="cursor-pointer text-sm font-medium text-slate-700">
+                Additional vehicle details
+              </summary>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {ADVANCED_MOTOR_FIELDS.map((field) => (
+                  <MotorFieldInput
+                    key={field.key}
+                    field={field}
+                    motor={motor}
+                    onChange={updateMotor}
+                  />
+                ))}
+              </div>
+            </details>
           </CardContent>
         </Card>
       </section>
