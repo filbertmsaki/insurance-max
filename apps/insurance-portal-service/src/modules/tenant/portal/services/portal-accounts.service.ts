@@ -660,7 +660,7 @@ export class PortalAccountsService {
         [`customer-portal:${user.id}:${companyId}`],
       );
 
-      const company = await this.assertCustomerPortalSalesCompany(
+      const company = await this.assertActiveCustomerPortalCompany(
         manager,
         companyId,
       );
@@ -930,7 +930,7 @@ export class PortalAccountsService {
       .getOne();
   }
 
-  private async assertCustomerPortalSalesCompany(
+  private async assertActiveCustomerPortalCompany(
     manager: EntityManager,
     companyId: string,
   ): Promise<Company> {
@@ -944,22 +944,6 @@ export class PortalAccountsService {
 
     if (!company) {
       throw new NotFoundException('Insurance company is not available');
-    }
-
-    const settings = company.settings ?? {};
-    const metadata = company.metadata ?? {};
-    const enabled =
-      settings.allow_self_registration === true ||
-      settings['customer_portal_enabled'] === true ||
-      settings['allow_customer_portal_sales'] === true ||
-      settings['enable_customer_portal_sales'] === true ||
-      metadata['customer_portal_enabled'] === true ||
-      metadata['allow_customer_portal_sales'] === true;
-
-    if (!enabled || company.tira_integration_enabled !== true) {
-      throw new ForbiddenException(
-        'Insurance company is not enabled for customer portal sales',
-      );
     }
 
     return company;

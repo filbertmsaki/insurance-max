@@ -47,19 +47,17 @@ export class CustomerMarketplaceService {
       order: { name: 'ASC' },
     });
 
-    return companies
-      .filter((company) => this.isCustomerPortalCompany(company))
-      .map((company) => ({
-        id: company.id,
-        name: company.name,
-        slug: company.slug,
-        logo_url: company.logo_url,
-        contact_email: company.contact_email,
-        contact_phone: company.contact_phone,
-        website: company.website,
-        description: this.publicDescription(company),
-        tira_ready: company.tira_integration_enabled === true,
-      }));
+    return companies.map((company) => ({
+      id: company.id,
+      name: company.name,
+      slug: company.slug,
+      logo_url: company.logo_url,
+      contact_email: company.contact_email,
+      contact_phone: company.contact_phone,
+      website: company.website,
+      description: this.publicDescription(company),
+      tira_ready: company.tira_integration_enabled === true,
+    }));
   }
 
   async getEligibleCompany(companyId: string) {
@@ -71,7 +69,7 @@ export class CustomerMarketplaceService {
       },
     });
 
-    if (!company || !this.isCustomerPortalCompany(company)) {
+    if (!company) {
       throw new NotFoundException('Insurance company is not available');
     }
 
@@ -328,26 +326,6 @@ export class CustomerMarketplaceService {
         'Authenticated customer portal access is required',
       );
     }
-  }
-
-  private isCustomerPortalCompany(company: Company): boolean {
-    const settings = company.settings ?? {};
-    const metadata = company.metadata ?? {};
-
-    const enabled =
-      settings.allow_self_registration === true ||
-      settings['customer_portal_enabled'] === true ||
-      settings['allow_customer_portal_sales'] === true ||
-      settings['enable_customer_portal_sales'] === true ||
-      metadata['customer_portal_enabled'] === true ||
-      metadata['allow_customer_portal_sales'] === true;
-
-    return (
-      enabled &&
-      company.status === 'active' &&
-      company.company_type === CompanyType.INSURANCE_COMPANY &&
-      company.tira_integration_enabled === true
-    );
   }
 
   private publicDescription(company: Company): string | null {

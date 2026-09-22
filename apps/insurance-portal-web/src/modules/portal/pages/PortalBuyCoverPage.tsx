@@ -251,16 +251,16 @@ export function PortalBuyCoverPage() {
             ) : (companiesQuery.data?.length ?? 0) === 0 ? (
               <EmptyState
                 title="No companies available"
-                description="No insurer currently has customer portal sales enabled. Ask an administrator to enable it for at least one active, TIRA-integrated insurance company."
+                description="No active insurance companies are available."
               />
             ) : (
               companiesQuery.data?.map((company) => (
                 <SelectableCard
                   key={company.id}
-                  selected={companyId === company.id}
+                  selected={selectedCompanyId === company.id}
                   title={company.name}
                   description={company.description ?? company.contact_phone}
-                  badge="TIRAMIS ready"
+                  badge={company.tira_ready ? 'TIRAMIS ready' : 'Active'}
                   onClick={() => {
                     setCompanyId(company.id);
                     setProductId(null);
