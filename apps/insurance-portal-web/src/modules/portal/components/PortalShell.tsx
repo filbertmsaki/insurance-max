@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import {
   BadgeDollarSign,
   BellRing,
@@ -18,10 +18,16 @@ import {
   ShieldPlus,
   UserCircle2,
   Users,
+  X,
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
-import { Badge } from '@/components/ui/badge';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Header } from '@/components/layout/Header';
+import { PageTitleBar } from '@/components/layout/PageTitleBar';
+import { SidebarBrand, SidebarSectionTitle } from '@/components/layout/Sidebar';
+import { sidebarLinkClass } from '@/components/layout/sidebar-styles';
+import { APP_NAME } from '@/modules/shared/config';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
@@ -51,6 +57,14 @@ const navigationIcons = {
 export function PortalShell({ audience }: { audience: PortalAudience }) {
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the mobile drawer on navigation
+  const [prevPathname, setPrevPathname] = useState(location.pathname);
+  if (location.pathname !== prevPathname) {
+    setPrevPathname(location.pathname);
+    setMobileOpen(false);
+  }
 
   useLayoutEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -161,78 +175,136 @@ export function PortalShell({ audience }: { audience: PortalAudience }) {
     },
   ];
 
-  return (
-    <div className="flex h-dvh overflow-hidden bg-slate-50">
-      <aside className="hidden w-72 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
-        <div className="border-b border-slate-200 px-6 py-5">
-          <div className="text-sm font-semibold text-slate-950">
-            {audienceLabel} Portal
-          </div>
-          <div className="mt-1 text-xs text-slate-500">
-            {company?.name ?? user?.companyName ?? 'Insurance Max'}
-          </div>
-          <Badge
-            variant="outline"
-            className="mt-3 border-slate-200 text-slate-600"
-          >
-            Secure self-service
-          </Badge>
-        </div>
-        <nav className="flex-1 space-y-1 p-3">
-          {items.map((item) => {
-            const Icon = item.icon;
+  const sectionFor = (label: string) =>
+    PORTAL_SECTIONS.find(([, labels]) => labels.includes(label))?.[0] ?? 'Menu';
+  const activeItem = [...items]
+    .sort((a, b) => b.to.length - a.to.length)
+    .find(
+      (item) =>
+        location.pathname === item.to ||
+        location.pathname.startsWith(item.to + '/'),
+    );
+  const crumbs = [
+    `${audienceLabel} Portal`,
+    ...(activeItem ? [activeItem.label] : []),
+    ...(activeItem && location.pathname !== activeItem.to ? ['Details'] : []),
+  ];
 
+  const sidebar = (mobile: boolean) => (
+    <aside className="flex h-full w-[250px] flex-col bg-vz-sidebar">
+      <div className="flex h-[70px] shrink-0 items-center px-5">
+        <SidebarBrand
+          subtitle={
+            company?.name ?? user?.companyName ?? `${audienceLabel} Portal`
+          }
+        />
+        {mobile && (
+          <button
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+            className="ml-auto rounded-md p-1.5 text-vz-sidebar-item transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <nav className="vz-scroll flex-1 overflow-y-auto pb-6">
+        <ul>
+          {items.map((item, index) => {
+            const Icon = item.icon;
+            const section = sectionFor(item.label);
+            const showSection =
+              section !== (index > 0 ? sectionFor(items[index - 1].label) : '');
             return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
-                  )
-                }
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{item.label}</span>
-              </NavLink>
+              <Fragment key={item.to}>
+                {showSection && (
+                  <SidebarSectionTitle>{section}</SidebarSectionTitle>
+                )}
+                <li>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) => sidebarLinkClass(isActive)}
+                  >
+                    <Icon className="h-[18px] w-[18px] shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                </li>
+              </Fragment>
             );
           })}
-        </nav>
-      </aside>
+        </ul>
+      </nav>
+    </aside>
+  );
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="border-b border-slate-200 bg-white px-4 py-4 lg:hidden">
-          <div className="text-sm font-semibold text-slate-950">
-            {audienceLabel} Portal
-          </div>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {items.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    'whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium',
-                    isActive
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-200 bg-white text-slate-600',
-                  )
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </div>
-        </header>
-        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-            <Outlet />
-          </div>
-        </main>
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div className="flex h-dvh overflow-hidden bg-vz-body">
+        <div className="hidden shrink-0 lg:flex">{sidebar(false)}</div>
+
+        {/* ── Mobile overlay + drawer ── */}
+        <div
+          className={cn(
+            'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 lg:hidden',
+            mobileOpen
+              ? 'pointer-events-auto opacity-100'
+              : 'pointer-events-none opacity-0',
+          )}
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+        />
+        <div
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out lg:hidden',
+            mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          )}
+        >
+          {sidebar(true)}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Header
+            onToggleSidebar={() => setMobileOpen((open) => !open)}
+            profilePath={`${basePath}/profile`}
+            notificationsPath={`${basePath}/notifications`}
+            hideSwitchers
+          />
+          <main
+            ref={mainRef}
+            className="vz-main flex min-h-0 flex-1 flex-col overflow-y-auto"
+          >
+            <PageTitleBar crumbs={crumbs} />
+            <div className="w-full flex-1 px-3 py-5 sm:px-5 lg:px-6 lg:py-6">
+              <Outlet />
+            </div>
+            <footer className="flex shrink-0 flex-col gap-1 px-3 py-4 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6">
+              <span>
+                {new Date().getFullYear()} © {APP_NAME}.
+              </span>
+              <span className="hidden sm:inline">Secure self-service</span>
+            </footer>
+          </main>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
+
+const PORTAL_SECTIONS: [string, string[]][] = [
+  ['Menu', ['Dashboard', 'Profile', 'Buy Cover', 'Check Cover', 'Vehicles']],
+  [
+    'My Business',
+    [
+      'Quotations',
+      'Policies',
+      'Invoices',
+      'Receipts',
+      'Claims',
+      'Complaints',
+      'Requests',
+      'Customers',
+      'Commissions',
+    ],
+  ],
+  ['Communication', ['Documents', 'Notifications', 'Messages', 'Signatures']],
+];

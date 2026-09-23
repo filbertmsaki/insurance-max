@@ -1,12 +1,6 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import {
-  ChevronRight,
-  ShieldCheck,
-  X,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from 'lucide-react';
+import { ChevronRight, ShieldCheck, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { APP_NAME } from '@/modules/shared/config';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -16,7 +10,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { NAV_NODES, type NavLeaf, type NavGroup } from './nav-config';
+import {
+  NAV_NODES,
+  type NavLeaf,
+  type NavGroup,
+  type NavNode,
+} from './nav-config';
+import { sidebarLinkClass } from './sidebar-styles';
 
 function isLeafActive(pathname: string, to: string) {
   if (pathname === to) return true;
@@ -45,7 +45,50 @@ function useNavFilter() {
   return { isLeafVisible, visibleChildren };
 }
 
-// ─── NavLink item ─────────────────────────────────────────────────────────────
+// ─── Brand ────────────────────────────────────────────────────────────────────
+
+export function SidebarBrand({
+  compact = false,
+  subtitle,
+}: {
+  compact?: boolean;
+  subtitle?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'flex min-w-0 items-center',
+        compact ? 'justify-center' : 'gap-2.5',
+      )}
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/15 ring-1 ring-white/20">
+        <ShieldCheck className="h-4.5 w-4.5 text-white" />
+      </span>
+      {!compact && (
+        <span className="min-w-0">
+          <span className="block truncate text-[15px] font-bold tracking-wide text-white">
+            {APP_NAME}
+          </span>
+          {subtitle && (
+            <span className="block truncate text-[11px] text-vz-sidebar-item">
+              {subtitle}
+            </span>
+          )}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function SidebarSectionTitle({ children }: { children: string }) {
+  return (
+    <li className="px-5 pb-2 pt-5 text-[11px] font-semibold uppercase tracking-[0.08em] text-vz-sidebar-title first:pt-3">
+      {children}
+    </li>
+  );
+}
+
+// ─── Leaf item ────────────────────────────────────────────────────────────────
 
 interface LeafItemProps {
   leaf: NavLeaf;
@@ -57,21 +100,35 @@ function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
   const { pathname } = useLocation();
   const isActive = isLeafActive(pathname, leaf.to);
 
-  const linkClass = cn(
-    'flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 outline-none',
-    'focus-visible:ring-2 focus-visible:ring-blue-500',
-    indented ? 'px-3 py-2' : 'px-3 py-2.5',
-    collapsed ? 'justify-center px-2 py-2.5 w-10 mx-auto' : '',
-    isActive
-      ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/30'
-      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100',
-  );
+  if (indented) {
+    return (
+      <NavLink
+        to={leaf.to}
+        end={leaf.to === '/dashboard'}
+        className={cn(
+          'relative flex items-center py-[7px] pl-[3.25rem] pr-5 text-[13px] transition-colors duration-150 outline-none',
+          'before:absolute before:left-[2.1rem] before:top-1/2 before:h-px before:w-1.5 before:-translate-y-1/2 before:transition-all',
+          isActive
+            ? 'text-white before:w-2 before:bg-white'
+            : 'text-vz-sidebar-item before:bg-vz-sidebar-item/70 hover:text-white hover:before:bg-white',
+        )}
+      >
+        <span className="truncate">{leaf.label}</span>
+      </NavLink>
+    );
+  }
 
   const inner = (
-    <NavLink to={leaf.to} className={linkClass} end={leaf.to === '/dashboard'}>
-      <leaf.icon
-        className={cn('shrink-0', indented ? 'h-3.5 w-3.5' : 'h-4 w-4')}
-      />
+    <NavLink
+      to={leaf.to}
+      end={leaf.to === '/dashboard'}
+      className={cn(
+        sidebarLinkClass(isActive),
+        collapsed && 'mx-auto h-11 w-11 justify-center rounded-md px-0 py-0',
+        collapsed && isActive && 'bg-white/10',
+      )}
+    >
+      <leaf.icon className="h-[18px] w-[18px] shrink-0" />
       {!collapsed && <span className="truncate">{leaf.label}</span>}
     </NavLink>
   );
@@ -81,7 +138,7 @@ function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>{inner}</TooltipTrigger>
-      <TooltipContent side="right" sideOffset={8}>
+      <TooltipContent side="right" sideOffset={10}>
         {leaf.label}
       </TooltipContent>
     </Tooltip>
@@ -115,7 +172,7 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
 
   if (children.length === 0) return null;
 
-  // ── Collapsed mode: icon button → navigate to first child ──────────────────
+  // ── Collapsed mode: icon button → expand sidebar / navigate ────────────────
   if (collapsed) {
     const handleClick = () => {
       if (onExpandSidebar) {
@@ -132,16 +189,17 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
           <button
             onClick={handleClick}
             className={cn(
-              'flex items-center justify-center w-10 h-10 mx-auto rounded-lg transition-all duration-150',
-              'text-slate-400 hover:bg-slate-800 hover:text-slate-100',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
-              hasActive && 'bg-slate-800 text-blue-400',
+              'mx-auto flex h-11 w-11 items-center justify-center rounded-md transition-colors duration-150',
+              'focus-visible:outline-none focus-visible:bg-white/10',
+              hasActive
+                ? 'bg-white/10 text-white'
+                : 'text-vz-sidebar-item hover:text-white',
             )}
           >
-            <group.icon className="h-4 w-4 shrink-0" />
+            <group.icon className="h-[18px] w-[18px] shrink-0" />
           </button>
         </TooltipTrigger>
-        <TooltipContent side="right" sideOffset={8}>
+        <TooltipContent side="right" sideOffset={10}>
           {group.label}
         </TooltipContent>
       </Tooltip>
@@ -153,21 +211,14 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
     <div>
       <button
         onClick={() => setIsOpen((o) => !o)}
-        className={cn(
-          'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
-          hasActive && !isOpen
-            ? 'text-slate-200 bg-slate-800'
-            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100',
-        )}
+        aria-expanded={isOpen}
+        className={cn(sidebarLinkClass(hasActive), 'w-full')}
       >
-        <group.icon
-          className={cn('h-4 w-4 shrink-0', hasActive ? 'text-blue-400' : '')}
-        />
-        <span className="flex-1 text-left truncate">{group.label}</span>
+        <group.icon className="h-[18px] w-[18px] shrink-0" />
+        <span className="flex-1 truncate text-left">{group.label}</span>
         <ChevronRight
           className={cn(
-            'h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform duration-200',
+            'h-3.5 w-3.5 shrink-0 opacity-70 transition-transform duration-200',
             isOpen && 'rotate-90',
           )}
         />
@@ -181,7 +232,7 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
         )}
       >
         <div className="overflow-hidden">
-          <div className="ml-4 pl-3 border-l border-slate-800 mt-0.5 mb-1 space-y-0.5">
+          <div className="pb-1.5">
             {children.map((leaf) => (
               <LeafItem key={leaf.to} leaf={leaf} collapsed={false} indented />
             ))}
@@ -191,6 +242,15 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
     </div>
   );
 }
+
+// A section heading applies to every node after it until the next heading,
+// so headings survive even when the node that declares them is hidden.
+const NODE_SECTIONS = NAV_NODES.reduce<
+  Array<{ node: NavNode; section: string | undefined }>
+>((acc, node) => {
+  acc.push({ node, section: node.section ?? acc[acc.length - 1]?.section });
+  return acc;
+}, []);
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -208,98 +268,73 @@ export function Sidebar({
   mobile = false,
 }: SidebarProps) {
   const { isLeafVisible, visibleChildren } = useNavFilter();
+  const isCompact = collapsed && !mobile;
 
-  function isNodeVisible(node: (typeof NAV_NODES)[number]): boolean {
+  function isNodeVisible(node: NavNode): boolean {
     if (node.kind === 'link') return isLeafVisible(node);
     return visibleChildren(node).length > 0;
   }
 
+  const visibleNodes = NODE_SECTIONS.filter(({ node }) => isNodeVisible(node));
+
   return (
     <aside
       className={cn(
-        'flex flex-col bg-slate-950 border-r border-slate-800 h-full',
-        'transition-[width] duration-300 ease-in-out overflow-hidden',
-        collapsed && !mobile ? 'w-[68px]' : 'w-[240px]',
+        'flex h-full flex-col bg-vz-sidebar',
+        'overflow-hidden transition-[width] duration-300 ease-in-out',
+        isCompact ? 'w-[70px]' : 'w-[250px]',
       )}
     >
       {/* ── Logo / brand ── */}
       <div
         className={cn(
-          'flex items-center h-16 px-3 shrink-0 border-b border-slate-800',
-          collapsed && !mobile ? 'justify-center' : 'gap-3',
+          'flex h-[70px] shrink-0 items-center',
+          isCompact ? 'justify-center px-2' : 'px-5',
         )}
       >
-        <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-blue-600 shrink-0">
-          <ShieldCheck className="h-4.5 w-4.5 text-white" />
-        </div>
-
-        {(!collapsed || mobile) && (
-          <span className="font-semibold text-white text-sm truncate flex-1">
-            {APP_NAME}
-          </span>
-        )}
+        <SidebarBrand compact={isCompact} />
 
         {/* Mobile close */}
         {mobile && onClose && (
           <button
             onClick={onClose}
-            className="ml-auto p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            aria-label="Close menu"
+            className="ml-auto rounded-md p-1.5 text-vz-sidebar-item transition-colors hover:bg-white/10 hover:text-white"
           >
             <X className="h-4 w-4" />
-          </button>
-        )}
-
-        {/* Desktop collapse toggle (shown when expanded) */}
-        {!mobile && onToggleCollapse && !collapsed && (
-          <button
-            onClick={onToggleCollapse}
-            className="ml-auto p-1.5 rounded-md text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-            title="Collapse sidebar"
-          >
-            <PanelLeftClose className="h-4 w-4" />
           </button>
         )}
       </div>
 
       {/* ── Nav ── */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 scrollbar-thin">
-        {NAV_NODES.filter(isNodeVisible).map((node) =>
-          node.kind === 'link' ? (
-            <LeafItem
-              key={node.to}
-              leaf={node}
-              collapsed={collapsed && !mobile}
-            />
-          ) : (
-            <GroupItem
-              key={node.label}
-              group={node}
-              collapsed={collapsed && !mobile}
-              onExpandSidebar={onToggleCollapse}
-            />
-          ),
-        )}
+      <nav className="vz-scroll flex-1 overflow-y-auto overflow-x-hidden pb-6">
+        <ul className={cn(isCompact && 'space-y-1 pt-2')}>
+          {visibleNodes.map(({ node, section }, index) => {
+            const showSection =
+              !isCompact &&
+              section &&
+              section !== visibleNodes[index - 1]?.section;
+            return (
+              <Fragment key={node.kind === 'link' ? node.to : node.label}>
+                {showSection && (
+                  <SidebarSectionTitle>{section}</SidebarSectionTitle>
+                )}
+                <li>
+                  {node.kind === 'link' ? (
+                    <LeafItem leaf={node} collapsed={isCompact} />
+                  ) : (
+                    <GroupItem
+                      group={node}
+                      collapsed={isCompact}
+                      onExpandSidebar={onToggleCollapse}
+                    />
+                  )}
+                </li>
+              </Fragment>
+            );
+          })}
+        </ul>
       </nav>
-
-      {/* ── Expand button (collapsed desktop) ── */}
-      {collapsed && !mobile && onToggleCollapse && (
-        <div className="shrink-0 p-2 border-t border-slate-800">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={onToggleCollapse}
-                className="flex items-center justify-center w-10 h-10 mx-auto rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-                title="Expand sidebar"
-              >
-                <PanelLeftOpen className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right" sideOffset={8}>
-              Expand sidebar
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      )}
     </aside>
   );
 }

@@ -34,7 +34,9 @@ export function DetailPageHeader({
           </Button>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+              <h1 className="text-lg font-semibold text-slate-800 sm:text-xl">
+                {title}
+              </h1>
               {badges}
             </div>
             {subtitle ? (
@@ -46,13 +48,13 @@ export function DetailPageHeader({
       </div>
 
       {kpis && kpis.length > 0 ? (
-        <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-slate-200/70 bg-slate-200/70 shadow-sm sm:grid-cols-3 lg:flex">
           {kpis.map((kpi) => (
-            <div key={kpi.label}>
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            <div key={kpi.label} className="flex-1 bg-white px-4 py-3">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
                 {kpi.label}
               </div>
-              <div className="mt-0.5 text-sm font-semibold text-slate-900">
+              <div className="mt-1 text-[15px] font-semibold text-slate-800">
                 {kpi.value}
               </div>
             </div>

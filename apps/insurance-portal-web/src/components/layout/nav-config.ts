@@ -44,6 +44,8 @@ import {
 
 export interface NavLeaf {
   kind: 'link';
+  /** Sidebar section heading rendered above this node (Velzon menu-title). */
+  section?: string;
   label: string;
   to: string;
   icon: ComponentType<{ className?: string }>;
@@ -55,6 +57,7 @@ export interface NavLeaf {
 
 export interface NavGroup {
   kind: 'group';
+  section?: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
   children: NavLeaf[];
@@ -65,6 +68,7 @@ export type NavNode = NavLeaf | NavGroup;
 export const NAV_NODES: NavNode[] = [
   {
     kind: 'link',
+    section: 'Menu',
     label: 'Dashboard',
     to: '/dashboard',
     icon: LayoutDashboard,
@@ -77,6 +81,7 @@ export const NAV_NODES: NavNode[] = [
   },
   {
     kind: 'group',
+    section: 'Administration',
     label: 'User Management',
     icon: Users,
     children: [
@@ -178,6 +183,7 @@ export const NAV_NODES: NavNode[] = [
   },
   {
     kind: 'group',
+    section: 'Insurance',
     label: 'Product Engine',
     icon: Package,
     children: [
@@ -430,6 +436,7 @@ export const NAV_NODES: NavNode[] = [
   },
   {
     kind: 'group',
+    section: 'Operations',
     label: 'Engagement',
     icon: BellRing,
     children: [
@@ -603,6 +610,7 @@ export const NAV_NODES: NavNode[] = [
   },
   {
     kind: 'group',
+    section: 'System',
     label: 'Settings',
     icon: Settings,
     children: [

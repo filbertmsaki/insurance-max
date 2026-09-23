@@ -1,28 +1,186 @@
 @import 'tailwindcss';
 
+/*
+ * Velzon-inspired design system.
+ * The Tailwind palettes used throughout the app are remapped onto the Velzon
+ * palette so every page (which uses classes like bg-blue-600 / text-slate-500)
+ * inherits the look without per-page edits.
+ */
+@theme {
+  --font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+
+  --radius-md: 0.25rem;
+  --radius-lg: 0.3rem;
+  --radius-xl: 0.4rem;
+  --radius-2xl: 0.5rem;
+
+  --shadow-sm: 0 1px 2px rgba(56, 65, 74, 0.15);
+  --shadow: 0 1px 2px rgba(56, 65, 74, 0.15);
+  --shadow-md: 0 5px 10px rgba(30, 32, 37, 0.12);
+  --shadow-lg: 0 5px 18px rgba(30, 32, 37, 0.14);
+
+  /* Primary — Velzon indigo #405189 */
+  --color-blue-50: #eceef6;
+  --color-blue-100: #d9dcec;
+  --color-blue-200: #b3b9d9;
+  --color-blue-300: #8c97c6;
+  --color-blue-400: #6674b3;
+  --color-blue-500: #4a5ca0;
+  --color-blue-600: #405189;
+  --color-blue-700: #364574;
+  --color-blue-800: #2c3960;
+  --color-blue-900: #232c4b;
+  --color-blue-950: #182038;
+
+  --color-indigo-50: #eceef6;
+  --color-indigo-100: #d9dcec;
+  --color-indigo-200: #b3b9d9;
+  --color-indigo-300: #8c97c6;
+  --color-indigo-400: #6674b3;
+  --color-indigo-500: #4a5ca0;
+  --color-indigo-600: #405189;
+  --color-indigo-700: #364574;
+  --color-indigo-800: #2c3960;
+  --color-indigo-900: #232c4b;
+  --color-indigo-950: #182038;
+
+  /* Info — #299cdb */
+  --color-sky-50: #eaf5fb;
+  --color-sky-100: #d4ebf8;
+  --color-sky-200: #a9d7f1;
+  --color-sky-300: #7fc4e9;
+  --color-sky-400: #54b0e2;
+  --color-sky-500: #299cdb;
+  --color-sky-600: #258cc5;
+  --color-sky-700: #1f75a4;
+  --color-sky-800: #195e83;
+  --color-sky-900: #124662;
+  --color-sky-950: #0c2f42;
+
+  --color-cyan-50: #eaf5fb;
+  --color-cyan-100: #d4ebf8;
+  --color-cyan-200: #a9d7f1;
+  --color-cyan-300: #7fc4e9;
+  --color-cyan-400: #54b0e2;
+  --color-cyan-500: #299cdb;
+  --color-cyan-600: #258cc5;
+  --color-cyan-700: #1f75a4;
+  --color-cyan-800: #195e83;
+  --color-cyan-900: #124662;
+  --color-cyan-950: #0c2f42;
+
+  /* Success — #0ab39c */
+  --color-green-50: #e7f7f5;
+  --color-green-100: #cef0eb;
+  --color-green-200: #9de1d7;
+  --color-green-300: #6cd1c4;
+  --color-green-400: #3bc2b0;
+  --color-green-500: #0ab39c;
+  --color-green-600: #09a18c;
+  --color-green-700: #088a78;
+  --color-green-800: #067264;
+  --color-green-900: #055b50;
+  --color-green-950: #033d35;
+
+  --color-emerald-50: #e7f7f5;
+  --color-emerald-100: #cef0eb;
+  --color-emerald-200: #9de1d7;
+  --color-emerald-300: #6cd1c4;
+  --color-emerald-400: #3bc2b0;
+  --color-emerald-500: #0ab39c;
+  --color-emerald-600: #09a18c;
+  --color-emerald-700: #088a78;
+  --color-emerald-800: #067264;
+  --color-emerald-900: #055b50;
+  --color-emerald-950: #033d35;
+
+  /* Danger — #f06548 */
+  --color-red-50: #fef0ed;
+  --color-red-100: #fce0da;
+  --color-red-200: #f9c1b6;
+  --color-red-300: #f6a391;
+  --color-red-400: #f3846d;
+  --color-red-500: #f06548;
+  --color-red-600: #d85b41;
+  --color-red-700: #b44c36;
+  --color-red-800: #903d2b;
+  --color-red-900: #6c2d20;
+  --color-red-950: #481e16;
+
+  /* Warning — #f7b84b */
+  --color-amber-50: #fef8ed;
+  --color-amber-100: #fdf1db;
+  --color-amber-200: #fce3b7;
+  --color-amber-300: #fad493;
+  --color-amber-400: #f9c66f;
+  --color-amber-500: #f7b84b;
+  --color-amber-600: #dea644;
+  --color-amber-700: #b98a38;
+  --color-amber-800: #946e2d;
+  --color-amber-900: #6f5322;
+  --color-amber-950: #4a3717;
+
+  /* Neutrals — Velzon greys */
+  --color-slate-50: #f3f6f9;
+  --color-slate-100: #eff2f7;
+  --color-slate-200: #e9ebec;
+  --color-slate-300: #ced4da;
+  --color-slate-400: #adb5bd;
+  --color-slate-500: #878a99;
+  --color-slate-600: #6c757d;
+  --color-slate-700: #495057;
+  --color-slate-800: #343a40;
+  --color-slate-900: #212529;
+  --color-slate-950: #1a1d21;
+
+  --color-gray-50: #f3f6f9;
+  --color-gray-100: #eff2f7;
+  --color-gray-200: #e9ebec;
+  --color-gray-300: #ced4da;
+  --color-gray-400: #adb5bd;
+  --color-gray-500: #878a99;
+  --color-gray-600: #6c757d;
+  --color-gray-700: #495057;
+  --color-gray-800: #343a40;
+  --color-gray-900: #212529;
+  --color-gray-950: #1a1d21;
+
+  /* Velzon layout tokens */
+  --color-vz-body: #f3f3f9;
+  --color-vz-sidebar: #405189;
+  --color-vz-sidebar-item: #abb9e8;
+  --color-vz-sidebar-title: #838fb9;
+  --color-vz-heading: #495057;
+  --color-vz-purple: #6559cc;
+  --color-vz-secondary: #3577f1;
+}
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 240 23% 96%;
+    --foreground: 210 11% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 210 11% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
-    --sidebar-width: 240px;
+    --popover-foreground: 210 11% 15%;
+    --primary: 226 36% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 33% 96%;
+    --secondary-foreground: 210 9% 31%;
+    --muted: 210 33% 96%;
+    --muted-foreground: 232 7% 57%;
+    --accent: 210 33% 96%;
+    --accent-foreground: 210 9% 31%;
+    --destructive: 10 85% 61%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 200 7% 92%;
+    --input: 210 14% 83%;
+    --ring: 226 36% 39%;
+    --radius: 0.25rem;
+    --sidebar-width: 250px;
   }
 
   * {
@@ -30,14 +188,14 @@
   }
 
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-family:
-      system-ui,
-      -apple-system,
-      sans-serif;
+    background-color: var(--color-vz-body);
+    color: var(--color-slate-900);
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
     margin: 0;
+    -webkit-font-smoothing: antialiased;
   }
+
 
   html,
   body,
@@ -69,5 +227,81 @@
 
   ::selection {
     background: hsl(var(--primary) / 0.16);
+  }
+}
+
+@layer components {
+  /* Velzon sidebar scrollbar */
+  .vz-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  }
+  .vz-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .vz-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+  }
+
+  /* Content scrollbar */
+  .vz-main {
+    scrollbar-width: thin;
+    scrollbar-color: #ced4da transparent;
+  }
+}
+
+/* ── Velzon auth pages ─────────────────────────────────────────────────── */
+@layer components {
+  .vz-auth {
+    position: relative;
+    display: flex;
+    height: 100dvh;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+    background: var(--color-vz-body);
+    padding: 3.5rem 1rem 2.5rem;
+  }
+  .vz-auth::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 380px;
+    background:
+      radial-gradient(circle at 12% 30%, rgba(255, 255, 255, 0.08) 0 70px, transparent 71px),
+      radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.07) 0 110px, transparent 111px),
+      radial-gradient(circle at 70% 85%, rgba(255, 255, 255, 0.05) 0 50px, transparent 51px),
+      linear-gradient(135deg, #364574 0%, #405189 55%, #4a5ca0 100%);
+    border-bottom-left-radius: 50% 70px;
+    border-bottom-right-radius: 50% 70px;
+  }
+  .vz-auth > * {
+    position: relative;
+    z-index: 1;
+  }
+  .vz-auth-tagline {
+    margin: -1.25rem 0 1.75rem;
+    text-align: center;
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .vz-auth-brand {
+    margin-bottom: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+  }
+  .vz-auth-logo {
+    display: flex;
+    height: 2.5rem;
+    width: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.375rem;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
   }
 }

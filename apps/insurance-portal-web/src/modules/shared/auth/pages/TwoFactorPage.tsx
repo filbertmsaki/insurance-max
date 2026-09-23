@@ -66,11 +66,13 @@ export function TwoFactorPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="vz-auth">
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <ShieldCheck className="h-9 w-9 text-blue-600" />
-          <span className="text-2xl font-bold text-slate-900">{APP_NAME}</span>
+        <div className="vz-auth-brand">
+          <span className="vz-auth-logo">
+            <ShieldCheck className="h-6 w-6" />
+          </span>
+          <span className="text-2xl font-bold text-white">{APP_NAME}</span>
         </div>
 
         <Card>

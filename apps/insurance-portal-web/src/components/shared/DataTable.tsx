@@ -140,7 +140,7 @@ export function DataTable<T>({
           />
         </div>
       )}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-md border border-slate-200/70 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <Table className={tableClassName}>
             {caption && <caption className="sr-only">{caption}</caption>}
@@ -242,12 +242,17 @@ export function DataTable<T>({
           </Select>
         </div>
         <span className="text-xs">
-          {from}–{to} of {total}
+          Showing{' '}
+          <span className="font-semibold text-slate-700">
+            {from}–{to}
+          </span>{' '}
+          of <span className="font-semibold text-slate-700">{total}</span>{' '}
+          results
         </span>
         <div className="flex items-center gap-1">
           <Button
             aria-label="First page"
-            variant="ghost"
+            variant="outline"
             size="icon"
             onClick={() => onPageChange(1)}
             disabled={page === 1}
@@ -257,7 +262,7 @@ export function DataTable<T>({
           </Button>
           <Button
             aria-label="Previous page"
-            variant="ghost"
+            variant="outline"
             size="icon"
             onClick={() => onPageChange(page - 1)}
             disabled={page === 1}
@@ -265,12 +270,15 @@ export function DataTable<T>({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="px-2 text-xs tabular-nums">
-            {page} / {totalPages || 1}
+          <span className="flex h-8 min-w-8 items-center justify-center rounded-md bg-blue-600 px-2 text-xs font-semibold tabular-nums text-white">
+            {page}
+          </span>
+          <span className="px-1.5 text-xs tabular-nums">
+            of {totalPages || 1}
           </span>
           <Button
             aria-label="Next page"
-            variant="ghost"
+            variant="outline"
             size="icon"
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
@@ -280,7 +288,7 @@ export function DataTable<T>({
           </Button>
           <Button
             aria-label="Last page"
-            variant="ghost"
+            variant="outline"
             size="icon"
             onClick={() => onPageChange(totalPages)}
             disabled={page >= totalPages}

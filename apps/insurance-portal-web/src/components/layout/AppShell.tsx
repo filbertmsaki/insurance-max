@@ -5,7 +5,10 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CommandPalette } from './CommandPalette';
 import { PageFooterProvider } from './PageFooterSlot';
+import { PageTitleBar } from './PageTitleBar';
+import { useBreadcrumb } from './breadcrumbs';
 import { cn } from '@/lib/utils';
+import { APP_NAME } from '@/modules/shared/config';
 
 export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
@@ -13,6 +16,7 @@ export function AppShell() {
   const [commandOpen, setCommandOpen] = useState(false);
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
+  const crumbs = useBreadcrumb();
 
   useLayoutEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -24,6 +28,11 @@ export function AppShell() {
     setPrevPathname(location.pathname);
     setMobileOpen(false);
   }
+
+  const toggleSidebar = () => {
+    if (window.innerWidth >= 768) setCollapsed((c) => !c);
+    else setMobileOpen((o) => !o);
+  };
 
   // Close mobile sidebar on resize to desktop
   useEffect(() => {
@@ -38,7 +47,7 @@ export function AppShell() {
     <TooltipProvider delayDuration={200}>
       <PageFooterProvider>
         {(footer) => (
-          <div className="flex h-dvh overflow-hidden bg-slate-50">
+          <div className="flex h-dvh overflow-hidden bg-vz-body">
             {/* ── Desktop sidebar (always in flow, width transitions) ── */}
             <div className="hidden md:flex shrink-0">
               <Sidebar
@@ -72,13 +81,25 @@ export function AppShell() {
             {/* ── Main content area ── */}
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <Header
-                onMobileMenuToggle={() => setMobileOpen((o) => !o)}
+                onToggleSidebar={toggleSidebar}
                 onOpenCommand={() => setCommandOpen(true)}
               />
-              <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto">
-                <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">
+              <main
+                ref={mainRef}
+                className="vz-main flex min-h-0 flex-1 flex-col overflow-y-auto"
+              >
+                <PageTitleBar crumbs={crumbs} />
+                <div className="w-full flex-1 px-3 py-5 sm:px-5 lg:px-6 lg:py-6">
                   <Outlet />
                 </div>
+                <footer className="flex shrink-0 flex-col gap-1 px-3 py-4 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6">
+                  <span>
+                    {new Date().getFullYear()} © {APP_NAME}.
+                  </span>
+                  <span className="hidden sm:inline">
+                    Insurance operations platform
+                  </span>
+                </footer>
               </main>
               {footer && (
                 // width matched to QuotationWizardPage's content column (the current sole consumer of usePageFooter)

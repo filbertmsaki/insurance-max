@@ -20,7 +20,7 @@ export function PageHeader({
   status,
 }: PageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         {breadcrumbs?.length ? (
           <nav
@@ -53,18 +53,18 @@ export function PageHeader({
           </nav>
         ) : null}
         {eyebrow && (
-          <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-600">
             {eyebrow}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+          <h1 className="text-lg font-semibold text-slate-800 sm:text-xl">
             {title}
           </h1>
           {status}
         </div>
         {description && (
-          <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">
+          <p className="mt-1 max-w-3xl text-[13px] leading-5 text-slate-500">
             {description}
           </p>
         )}

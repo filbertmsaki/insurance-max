@@ -24,6 +24,12 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DashboardCard } from '@/components/shared/DashboardCard';
+import { CHART_COLORS } from '@/components/shared/chart-colors';
+import {
+  DonutChart,
+  TrendBarChart,
+  type TrendPoint,
+} from '@/components/shared/charts';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -125,6 +131,18 @@ function getErrorMessage(error: unknown) {
   return 'Something went wrong while loading dashboard data.';
 }
 
+function greetingFor(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function useGreetingName() {
+  const { user, profile } = useAuthStore();
+  return profile?.first_name ?? user?.email?.split('@')[0] ?? 'there';
+}
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -189,30 +207,111 @@ function BreakdownCard({
   title: string;
   items: Array<{ label: string; value: string | number }>;
 }) {
+  const numeric =
+    items.length > 0 && items.every((item) => typeof item.value === 'number');
+  const total = numeric
+    ? items.reduce((sum, item) => sum + Number(item.value), 0)
+    : 0;
+
   return (
-    <Card className="rounded-xl border-slate-200 shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+    <Card className="flex flex-col">
+      <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-slate-200/70 py-4">
+        <CardTitle>{title}</CardTitle>
+        {numeric ? (
+          <Badge variant="primary">{total.toLocaleString()} total</Badge>
+        ) : null}
       </CardHeader>
-      <CardContent className="space-y-3">
-        {items.length ? (
-          items.map((item) => (
-            <div
-              key={item.label}
-              className="flex items-center justify-between gap-4 rounded-lg border border-slate-100 px-3 py-2"
-            >
-              <span className="text-sm text-slate-600">{item.label}</span>
-              <span className="text-sm font-semibold text-slate-950">
-                {item.value}
-              </span>
-            </div>
-          ))
+      <CardContent className="flex-1 pt-5">
+        {!items.length ? (
+          <p className="py-8 text-center text-sm text-slate-500">
+            No data available.
+          </p>
+        ) : numeric ? (
+          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+            <DonutChart
+              data={items.map((item) => ({
+                label: item.label,
+                value: Number(item.value),
+              }))}
+            />
+            <ul className="w-full min-w-0 flex-1 space-y-3">
+              {items.map((item, index) => {
+                const share = total ? (Number(item.value) / total) * 100 : 0;
+                const color = CHART_COLORS[index % CHART_COLORS.length];
+                return (
+                  <li key={item.label}>
+                    <div className="mb-1.5 flex items-center justify-between gap-3 text-[13px]">
+                      <span className="flex min-w-0 items-center gap-2 text-slate-600">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: color }}
+                        />
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      <span className="shrink-0 font-semibold text-slate-800">
+                        {Number(item.value).toLocaleString()}
+                        <span className="ml-1.5 text-xs font-normal text-slate-400">
+                          {share.toFixed(0)}%
+                        </span>
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${share}%`, background: color }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         ) : (
-          <p className="text-sm text-slate-500">No data available.</p>
+          <ul className="divide-y divide-slate-200/70">
+            {items.map((item) => (
+              <li
+                key={item.label}
+                className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+              >
+                <span className="text-[13px] text-slate-600">{item.label}</span>
+                <span className="text-right text-[13px] font-semibold text-slate-800">
+                  {item.value}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </CardContent>
     </Card>
   );
+}
+
+function toTrendPoints(
+  rows: Array<Record<string, string | number>>,
+  amountField?: string,
+): TrendPoint[] {
+  // Rows may repeat a period once per currency/status: sum counts per period
+  // and chart the amount of the first currency encountered.
+  const primaryCurrency = rows.find((row) => row.currency)?.currency;
+  const byPeriod = new Map<string, TrendPoint>();
+  for (const row of rows) {
+    const label = String(row.period ?? 'Unknown');
+    const point = byPeriod.get(label) ?? { label, value: 0, secondary: 0 };
+    const countKey = Object.keys(row).find(
+      (key) => key.includes('count') || key === 'count',
+    );
+    point.value += countKey ? Number(row[countKey]) || 0 : 0;
+    if (
+      amountField &&
+      row[amountField] !== undefined &&
+      (!row.currency || row.currency === primaryCurrency)
+    ) {
+      point.secondary =
+        (point.secondary ?? 0) + (Number(row[amountField]) || 0);
+    }
+    byPeriod.set(label, point);
+  }
+  return [...byPeriod.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
 function TrendCard({
@@ -228,46 +327,38 @@ function TrendCard({
   amountLabel?: string;
   amountField?: string;
 }) {
+  const points = toTrendPoints(rows, amountField);
+  const primaryCurrency = rows.find((row) => row.currency)?.currency;
+  const totalCount = points.reduce((sum, point) => sum + point.value, 0);
+
   return (
-    <Card className="rounded-xl border-slate-200 shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+    <Card className="flex flex-col">
+      <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-slate-200/70 py-4">
+        <CardTitle>{title}</CardTitle>
+        {points.length ? (
+          <span className="text-xs text-slate-500">
+            <span className="font-semibold text-slate-700">
+              {totalCount.toLocaleString()}
+            </span>{' '}
+            in {points.length} period{points.length === 1 ? '' : 's'}
+          </span>
+        ) : null}
       </CardHeader>
-      <CardContent className="space-y-3">
-        {rows.length ? (
-          rows.slice(0, 10).map((row, index) => (
-            <div
-              key={`${row.period ?? 'period'}-${row.currency ?? row.status ?? index}`}
-              className="rounded-lg border border-slate-100 px-3 py-2"
-            >
-              <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="font-medium text-slate-950">
-                  {String(row.period ?? 'Unknown period')}
-                </span>
-                {'currency' in row && row.currency ? (
-                  <Badge variant="outline">{String(row.currency)}</Badge>
-                ) : 'status' in row && row.status ? (
-                  <Badge variant="outline">{String(row.status)}</Badge>
-                ) : null}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-600">
-                {Object.keys(row)
-                  .filter((key) => key !== 'period' && key !== 'currency' && key !== 'status')
-                  .map((key) => (
-                    <span key={key}>
-                      {key === amountField
-                        ? amountLabel
-                        : key.includes('count')
-                          ? countLabel
-                          : key}
-                      : {String(row[key])}
-                    </span>
-                  ))}
-              </div>
-            </div>
-          ))
+      <CardContent className="flex-1 pt-5">
+        {points.length ? (
+          <TrendBarChart
+            data={points}
+            valueLabel={countLabel}
+            secondaryLabel={
+              amountLabel
+                ? `${amountLabel}${primaryCurrency ? ` (${String(primaryCurrency)})` : ''}`
+                : undefined
+            }
+          />
         ) : (
-          <p className="text-sm text-slate-500">No trend data available.</p>
+          <p className="py-8 text-center text-sm text-slate-500">
+            No trend data available.
+          </p>
         )}
       </CardContent>
     </Card>
@@ -295,11 +386,11 @@ function ShortcutGrid({
   const navigate = useNavigate();
 
   return (
-    <Card className="rounded-xl border-slate-200 shadow-sm">
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
+    <Card>
+      <CardHeader className="border-b border-slate-200/70 py-4">
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <CardContent className="pt-5 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {actions.map((action) => (
           <Card
             key={action.key}
@@ -307,7 +398,7 @@ function ShortcutGrid({
           >
             <CardHeader className="space-y-2">
               <div className="flex items-start justify-between gap-3">
-                <CardTitle className="text-base">{action.title}</CardTitle>
+                <CardTitle>{action.title}</CardTitle>
                 {action.badge ? (
                   <Badge variant="outline">{action.badge}</Badge>
                 ) : null}
@@ -373,6 +464,7 @@ function OverviewContent({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardCard
           icon={BarChart3}
+          tone="warning"
           title="Quotations"
           value={quotationKpis?.total_quotations ?? 0}
           loading={isLoading}
@@ -380,6 +472,7 @@ function OverviewContent({
         />
         <DashboardCard
           icon={ShieldCheck}
+          tone="primary"
           title="Policies"
           value={policyKpis?.active_policies ?? 0}
           loading={isLoading}
@@ -387,6 +480,7 @@ function OverviewContent({
         />
         <DashboardCard
           icon={Users}
+          tone="info"
           title="Customers"
           value={customerKpis?.active_customers ?? 0}
           loading={isLoading}
@@ -394,6 +488,7 @@ function OverviewContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Open invoices"
           value={financeKpis?.open_invoices ?? 0}
           loading={isLoading}
@@ -401,6 +496,7 @@ function OverviewContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Quoted premium"
           value={formatMoneyRows(quotationKpis?.quoted_premium)}
           loading={isLoading}
@@ -408,6 +504,7 @@ function OverviewContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Collected amount"
           value={formatMoneyRows(financeKpis?.collected_amount)}
           loading={isLoading}
@@ -415,6 +512,7 @@ function OverviewContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Pending commissions"
           value={commissionKpis?.pending_transactions ?? 0}
           loading={isLoading}
@@ -422,6 +520,7 @@ function OverviewContent({
         />
         <DashboardCard
           icon={AlertCircle}
+          tone="danger"
           title="TIRAMIS follow-up"
           value={tiramisKpis?.pending_submissions ?? 0}
           loading={isLoading}
@@ -506,6 +605,7 @@ function SalesContent({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardCard
           icon={BarChart3}
+          tone="warning"
           title="Total quotations"
           value={data?.kpis.total_quotations ?? 0}
           loading={isLoading}
@@ -513,6 +613,7 @@ function SalesContent({
         />
         <DashboardCard
           icon={AlertCircle}
+          tone="danger"
           title="Pending approval"
           value={data?.kpis.pending_approval ?? 0}
           loading={isLoading}
@@ -520,6 +621,7 @@ function SalesContent({
         />
         <DashboardCard
           icon={ShieldCheck}
+          tone="primary"
           title="Ready for TIRAMIS"
           value={data?.kpis.ready_for_tiramis ?? 0}
           loading={isLoading}
@@ -527,6 +629,7 @@ function SalesContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Conversion rate"
           value={formatMetricValue(data?.kpis.conversion_rate ?? 0, '%')}
           loading={isLoading}
@@ -584,6 +687,7 @@ function PoliciesContent({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardCard
           icon={ShieldCheck}
+          tone="primary"
           title="Total policies"
           value={data?.kpis.total_policies ?? 0}
           loading={isLoading}
@@ -591,6 +695,7 @@ function PoliciesContent({
         />
         <DashboardCard
           icon={AlertCircle}
+          tone="danger"
           title="Expiring in 30 days"
           value={data?.kpis.expiring_within_30_days ?? 0}
           loading={isLoading}
@@ -598,6 +703,7 @@ function PoliciesContent({
         />
         <DashboardCard
           icon={BarChart3}
+          tone="warning"
           title="Pending TIRAMIS sync"
           value={data?.kpis.pending_tiramis_sync ?? 0}
           loading={isLoading}
@@ -605,6 +711,7 @@ function PoliciesContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Premium"
           value={formatMoneyRows(data?.kpis.total_premium)}
           loading={isLoading}
@@ -652,6 +759,7 @@ function FinanceContent({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Total invoices"
           value={data?.kpis.total_invoices ?? 0}
           loading={isLoading}
@@ -659,6 +767,7 @@ function FinanceContent({
         />
         <DashboardCard
           icon={AlertCircle}
+          tone="danger"
           title="Overdue invoices"
           value={data?.kpis.overdue_invoices ?? 0}
           loading={isLoading}
@@ -666,6 +775,7 @@ function FinanceContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Invoiced amount"
           value={formatMoneyRows(data?.kpis.invoiced_amount)}
           loading={isLoading}
@@ -673,6 +783,7 @@ function FinanceContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Outstanding amount"
           value={formatMoneyRows(data?.kpis.outstanding_amount)}
           loading={isLoading}
@@ -739,6 +850,7 @@ function CommissionsContent({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Commission transactions"
           value={data?.kpis.total_transactions ?? 0}
           loading={isLoading}
@@ -746,6 +858,7 @@ function CommissionsContent({
         />
         <DashboardCard
           icon={ShieldCheck}
+          tone="primary"
           title="Paid transactions"
           value={data?.kpis.paid_transactions ?? 0}
           loading={isLoading}
@@ -753,6 +866,7 @@ function CommissionsContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Accrued amount"
           value={formatMoneyRows(data?.kpis.accrued_amount)}
           loading={isLoading}
@@ -760,6 +874,7 @@ function CommissionsContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Paid amount"
           value={formatMoneyRows(data?.kpis.paid_amount)}
           loading={isLoading}
@@ -798,6 +913,7 @@ function TiramisContent({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <DashboardCard
           icon={ShieldCheck}
+          tone="primary"
           title="Total submissions"
           value={data?.kpis.total_submissions ?? 0}
           loading={isLoading}
@@ -805,6 +921,7 @@ function TiramisContent({
         />
         <DashboardCard
           icon={Monitor}
+          tone="info"
           title="Pending submissions"
           value={data?.kpis.pending_submissions ?? 0}
           loading={isLoading}
@@ -812,6 +929,7 @@ function TiramisContent({
         />
         <DashboardCard
           icon={AlertCircle}
+          tone="danger"
           title="Failed submissions"
           value={data?.kpis.failed_submissions ?? 0}
           loading={isLoading}
@@ -819,10 +937,12 @@ function TiramisContent({
         />
         <DashboardCard
           icon={BarChart3}
+          tone="warning"
           title="Success rate"
           value={formatMetricValue(
             data?.kpis.total_submissions
-              ? (data.kpis.successful_submissions / data.kpis.total_submissions) *
+              ? (data.kpis.successful_submissions /
+                  data.kpis.total_submissions) *
                   100
               : 0,
             '%',
@@ -832,6 +952,7 @@ function TiramisContent({
         />
         <DashboardCard
           icon={Key}
+          tone="secondary"
           title="Retryable queue"
           value={data?.kpis.retryable_submissions ?? 0}
           loading={isLoading}
@@ -881,6 +1002,7 @@ function TasksContent({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardCard
           icon={AlertCircle}
+          tone="danger"
           title="Open items"
           value={data?.totals.open_items ?? 0}
           loading={isLoading}
@@ -890,6 +1012,7 @@ function TasksContent({
           <DashboardCard
             key={queue.key}
             icon={Monitor}
+            tone="info"
             title={queue.label}
             value={queue.count}
             loading={isLoading}
@@ -940,6 +1063,7 @@ function ReinsuranceContent({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <DashboardCard
           icon={ShieldCheck}
+          tone="primary"
           title="Treaties"
           value={data?.kpis.treaties_total ?? 0}
           loading={isLoading}
@@ -947,6 +1071,7 @@ function ReinsuranceContent({
         />
         <DashboardCard
           icon={BarChart3}
+          tone="warning"
           title="Cessions"
           value={data?.kpis.cessions_total ?? 0}
           loading={isLoading}
@@ -954,6 +1079,7 @@ function ReinsuranceContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Recoveries outstanding"
           value={data?.kpis.recoveries_outstanding_amount ?? '0.00'}
           loading={isLoading}
@@ -961,6 +1087,7 @@ function ReinsuranceContent({
         />
         <DashboardCard
           icon={Wallet}
+          tone="success"
           title="Settlement balance"
           value={data?.kpis.settlements_balance_amount ?? '0.00'}
           loading={isLoading}
@@ -1079,7 +1206,7 @@ function SectionContent({
 }
 
 function PlatformDashboardPage() {
-  const { user } = useAuthStore();
+  const greetingName = useGreetingName();
   const { data: companies, isLoading: companiesLoading } = useQuery({
     queryKey: ['companies'],
     queryFn: companiesApi.getCompanies,
@@ -1098,7 +1225,8 @@ function PlatformDashboardPage() {
   });
 
   const activeSessions = sessions?.length ?? 0;
-  const trustedDevices = devices?.filter((device) => device.trusted).length ?? 0;
+  const trustedDevices =
+    devices?.filter((device) => device.trusted).length ?? 0;
   const activeClients =
     apiClients?.data?.filter((client) => client.status === 'active').length ??
     0;
@@ -1142,13 +1270,14 @@ function PlatformDashboardPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Platform operations"
-        title="Dashboard"
-        description={`Welcome back, ${user?.email ?? 'platform user'}`}
+        title={`${greetingFor()}, ${greetingName}!`}
+        description="Here's what's happening across the platform today."
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
           icon={Users}
+          tone="info"
           title="Total Companies"
           value={companies?.length ?? 0}
           loading={companiesLoading}
@@ -1156,6 +1285,7 @@ function PlatformDashboardPage() {
         />
         <DashboardCard
           icon={Monitor}
+          tone="info"
           title="Active Sessions"
           value={activeSessions}
           loading={sessionsLoading}
@@ -1163,6 +1293,7 @@ function PlatformDashboardPage() {
         />
         <DashboardCard
           icon={Smartphone}
+          tone="warning"
           title="Trusted Devices"
           value={trustedDevices}
           loading={devicesLoading}
@@ -1170,6 +1301,7 @@ function PlatformDashboardPage() {
         />
         <DashboardCard
           icon={Key}
+          tone="secondary"
           title="Active API Clients"
           value={activeClients}
           loading={apiClientsLoading}
@@ -1177,10 +1309,7 @@ function PlatformDashboardPage() {
         />
       </div>
 
-      <ShortcutGrid
-        title="Operational shortcuts"
-        actions={platformActions}
-      />
+      <ShortcutGrid title="Operational shortcuts" actions={platformActions} />
     </div>
   );
 }
@@ -1189,6 +1318,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const { tab: routeTabParam } = useParams<{ tab?: string }>();
   const { user } = useAuthStore();
+  const greetingName = useGreetingName();
   const isPlatformAccount = user?.scope === 'platform';
   const canViewExecutive =
     user?.permissions?.includes('dashboard:overview') ||
@@ -1386,8 +1516,8 @@ export function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Insurance operations"
-        title="Dashboard"
-        description={`Operational summary for ${capabilities?.organization.company_name ?? user?.companyName ?? user?.email ?? 'your workspace'}`}
+        title={`${greetingFor()}, ${greetingName}!`}
+        description={`Here's what's happening with ${capabilities?.organization.company_name ?? user?.companyName ?? 'your workspace'} today.`}
         status={
           <Badge variant="outline">
             {capabilities?.organization.company_type ?? 'COMPANY'}
@@ -1412,6 +1542,7 @@ export function DashboardPage() {
               <DashboardCard
                 key={widget.code}
                 icon={ShieldCheck}
+                tone="primary"
                 title={widget.name ?? widget.code}
                 value={
                   widget.status === 'AVAILABLE'
@@ -1431,11 +1562,11 @@ export function DashboardPage() {
             ))}
           </div>
 
-          <Card className="rounded-xl border-slate-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base">Dashboard freshness</CardTitle>
+          <Card>
+            <CardHeader className="border-b border-slate-200/70 py-4">
+              <CardTitle>Dashboard freshness</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="pt-5 space-y-3">
               <p className="text-sm text-slate-600">
                 Executive widgets are still sourced from the metric catalogue,
                 while the section tabs below use the tenant dashboard service.
@@ -1453,11 +1584,11 @@ export function DashboardPage() {
         </>
       )}
 
-      <Card className="rounded-xl border-slate-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
+      <Card>
+        <CardHeader className="border-b border-slate-200/70 py-4">
+          <CardTitle>Filters</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-4">
+        <CardContent className="pt-5 grid gap-4 lg:grid-cols-4">
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               From
@@ -1531,10 +1662,10 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border-slate-200 shadow-sm">
-        <CardHeader className="gap-3">
+      <Card>
+        <CardHeader className="gap-3 border-b border-slate-200/70 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle className="text-base">Tenant dashboard</CardTitle>
+            <CardTitle>Tenant dashboard</CardTitle>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">
                 Scope:{' '}
@@ -1554,7 +1685,7 @@ export function DashboardPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           <Tabs
             value={resolvedActiveTab}
             onValueChange={(value) =>

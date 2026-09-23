@@ -3,17 +3,19 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const alertVariants = cva(
-  'relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-slate-950',
+  'relative w-full rounded-md border px-4 py-3.5 text-[13px] [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-slate-950',
   {
     variants: {
       variant: {
-        default: 'bg-white text-slate-950 border-slate-200',
+        default:
+          'border-blue-100 bg-blue-50 text-blue-800 [&>svg]:text-blue-600',
+        info: 'border-sky-100 bg-sky-50 text-sky-800 [&>svg]:text-sky-600',
         destructive:
-          'border-red-500/50 text-red-700 bg-red-50 [&>svg]:text-red-600',
+          'border-red-100 text-red-700 bg-red-50 [&>svg]:text-red-500',
         success:
-          'border-green-500/50 text-green-700 bg-green-50 [&>svg]:text-green-600',
+          'border-green-100 text-green-800 bg-green-50 [&>svg]:text-green-600',
         warning:
-          'border-amber-500/50 text-amber-700 bg-amber-50 [&>svg]:text-amber-600',
+          'border-amber-100 text-amber-800 bg-amber-50 [&>svg]:text-amber-600',
       },
     },
     defaultVariants: {

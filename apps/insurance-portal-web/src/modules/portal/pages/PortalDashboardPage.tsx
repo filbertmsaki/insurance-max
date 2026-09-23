@@ -91,6 +91,7 @@ export function PortalDashboardPage({
             title="My vehicles"
             value={vehiclesQuery.data?.length ?? 0}
             icon={CarFront}
+            tone="info"
             loading={vehiclesQuery.isLoading}
             description="Vehicles linked to your covers."
           />
@@ -104,6 +105,7 @@ export function PortalDashboardPage({
               ).length
             }
             icon={ShieldCheck}
+            tone="primary"
             loading={vehiclesQuery.isLoading}
             description="Policies linked through your vehicles."
           />
@@ -199,6 +201,7 @@ export function PortalDashboardPage({
           title="Pending signatures"
           value={pendingSignatures.length}
           icon={ShieldCheck}
+          tone="primary"
           loading={signaturesQuery.isLoading}
           description="Requests not yet completed."
         />

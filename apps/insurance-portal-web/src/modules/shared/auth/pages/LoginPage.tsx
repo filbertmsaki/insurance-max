@@ -88,21 +88,26 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+    <div className="vz-auth">
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <ShieldCheck className="h-9 w-9 text-blue-600" />
-          <span className="text-2xl font-bold text-slate-900">{APP_NAME}</span>
+        <div className="vz-auth-brand">
+          <span className="vz-auth-logo">
+            <ShieldCheck className="h-6 w-6" />
+          </span>
+          <span className="text-2xl font-bold text-white">{APP_NAME}</span>
         </div>
+        <p className="vz-auth-tagline">Insurance operations, simplified</p>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Sign in to your account</CardTitle>
+          <CardHeader className="items-center px-6 pb-2 pt-8 text-center sm:px-8">
+            <CardTitle className="text-lg text-blue-600">
+              Welcome Back!
+            </CardTitle>
             <CardDescription>
-              Enter your credentials to access the portal
+              Sign in to continue to {APP_NAME}.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-6 pb-8 pt-4 sm:px-8">
             {errorMessage && (
               <Alert variant="destructive" className="mb-4">
                 <AlertDescription>{errorMessage}</AlertDescription>
@@ -183,6 +188,7 @@ export function LoginPage() {
 
                 <Button
                   type="submit"
+                  variant="success"
                   className="w-full"
                   disabled={mutation.isPending}
                 >

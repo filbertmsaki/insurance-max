@@ -14,7 +14,9 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center text-slate-400">
-      <Inbox className="h-10 w-10" aria-hidden="true" />
+      <span className="mb-1 flex h-14 w-14 items-center justify-center rounded-full bg-blue-600/10 text-blue-600">
+        <Inbox className="h-6 w-6" aria-hidden="true" />
+      </span>
       <p className="text-sm font-medium text-slate-600">{title}</p>
       {description && (
         <p className="max-w-sm text-xs leading-5">{description}</p>
@@ -38,7 +40,9 @@ export function ErrorState({
       role="alert"
       className="flex flex-col items-center justify-center gap-2 px-4 py-16 text-center"
     >
-      <AlertCircle className="h-10 w-10 text-red-400" aria-hidden="true" />
+      <span className="mb-1 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+        <AlertCircle className="h-6 w-6" aria-hidden="true" />
+      </span>
       <p className="text-sm font-medium text-slate-700">{title}</p>
       {description && (
         <p className="max-w-sm text-xs leading-5 text-slate-500">
@@ -67,7 +71,7 @@ export function TableSkeleton({
       {Array.from({ length: rows }).map((_, row) => (
         <div
           key={row}
-          className="grid gap-3 rounded-lg border border-slate-100 p-4"
+          className="grid gap-3 rounded-md border border-slate-200/70 bg-white p-4"
           style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
         >
           {Array.from({ length: columns }).map((__, column) => (
