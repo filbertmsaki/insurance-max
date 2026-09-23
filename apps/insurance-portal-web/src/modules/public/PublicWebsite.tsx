@@ -435,11 +435,25 @@ function isMotorCatalogueCategory(
     business_line?: string;
     name?: string;
     code?: string;
+    products?: Array<{
+      business_line?: string;
+      name?: string;
+      product_code?: string;
+    }>;
   } | null,
 ) {
+  const productValue =
+    category?.products
+      ?.map(
+        (product) =>
+          `${product.business_line ?? ''} ${product.name ?? ''} ${
+            product.product_code ?? ''
+          }`,
+      )
+      .join(' ') ?? '';
   const value = `${category?.business_line ?? ''} ${category?.name ?? ''} ${
     category?.code ?? ''
-  }`.toLowerCase();
+  } ${productValue}`.toLowerCase();
 
   return value.includes('motor') || value.includes('vehicle');
 }
@@ -2250,11 +2264,7 @@ function BuyCoverPage() {
     catalogue.categories.find(
       (category) => category.id === selectedCategoryId,
     ) ?? null;
-  const isMotorCategory = Boolean(
-    selectedCategory &&
-    (selectedCategory.business_line === 'MOTOR' ||
-      selectedCategory.name.toLowerCase().includes('motor')),
-  );
+  const isMotorCategory = isMotorCatalogueCategory(selectedCategory);
 
   const form = useForm<MotorIntakeValues>({
     resolver: zodResolver(motorIntakeSchema),
@@ -2293,7 +2303,7 @@ function BuyCoverPage() {
       return;
     }
 
-    navigate('/customer/buy-cover');
+    navigate('/buy-cover');
   }
 
   function handleProceed(event: React.FormEvent<HTMLFormElement>) {
@@ -2521,7 +2531,7 @@ function InsurancePage() {
                             to={
                               isMotorCatalogueCategory(activeCategory)
                                 ? '/motor-insurance'
-                                : '/login'
+                                : '/buy-cover'
                             }
                           >
                             Continue <ArrowRight size={16} aria-hidden="true" />
