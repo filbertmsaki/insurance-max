@@ -150,6 +150,7 @@ import {
   ContactPage,
   InsurancePage,
   BuyCoverPage,
+  MotorInsurancePurchasePage,
 } from '@/modules/public/PublicWebsite';
 
 export default function App() {
@@ -1453,6 +1454,10 @@ export default function App() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/insurance" element={<InsurancePage />} />
         <Route path="/buy-cover" element={<BuyCoverPage />} />
+        <Route
+          path="/motor-insurance"
+          element={<MotorInsurancePurchasePage />}
+        />
         {/* Default redirects */}
         <Route path="*" element={<DefaultLandingPage />} />
       </Routes>

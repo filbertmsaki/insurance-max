@@ -59,6 +59,109 @@ type PublicCatalogueCategory = {
   products: PublicCatalogueProduct[];
 };
 
+type PublicMotorOptions = {
+  companies: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    logo_url: string | null;
+    tira_ready: boolean;
+    default_branch: {
+      id: string;
+      name: string;
+      sale_point_name: string | null;
+    } | null;
+    products: Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      product_code: string;
+      category_id: string;
+      category_name: string | null;
+      risks: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        risk_code: string;
+        sub_class_id: string | null;
+      }>;
+    }>;
+  }>;
+};
+
+type PublicMotorVehicle = {
+  motor_category: 1 | 2;
+  motor_type: number;
+  registration_number: string;
+  chassis_number: string;
+  make: string;
+  model: string;
+  model_number?: string | null;
+  body_type: string;
+  color: string;
+  engine_number: string;
+  engine_capacity: string;
+  fuel_used: string;
+  number_of_axles: number;
+  axle_distance: number;
+  sitting_capacity: number;
+  year_of_manufacture: number;
+  tare_weight: number;
+  gross_weight: number;
+  motor_usage: number;
+  owner_name: string;
+  owner_category: number;
+  owner_address: string;
+};
+
+type PublicMotorHolder = {
+  policy_holder_type: number;
+  policy_holder_name: string;
+  policy_holder_birth_date: string;
+  policy_holder_id_type: number;
+  policy_holder_id_number: string;
+  gender?: 'M' | 'F' | null;
+  country_code: string;
+  region: string;
+  district: string;
+  street?: string | null;
+  policy_holder_phone_number: string;
+  policy_holder_fax?: string | null;
+  postal_address?: string | null;
+  email_address?: string | null;
+  tin?: string | null;
+};
+
+type PublicMotorQuote = {
+  company: { id: string; name: string; slug: string; logo_url: string | null };
+  product: { id: string; name: string; product_code: string };
+  risk: { id: string; name: string; risk_code: string };
+  default_branch: {
+    id: string;
+    name: string;
+    sale_point_name: string | null;
+  };
+  vehicle: PublicMotorVehicle;
+  policy_holder: PublicMotorHolder;
+  cover_period: { start_date: string; end_date: string };
+  premium: {
+    pricing_quote_id: string;
+    basic_premium: number;
+    discount_amount: number;
+    premium_after_discount: number;
+    charges_amount: number;
+    taxes: Array<{
+      tax_code: string;
+      tax_name: string;
+      tax_rate: number;
+      tax_amount: number;
+    }>;
+    vat_amount: number;
+    total_amount_payable: number;
+    currency: string;
+  };
+};
+
 type CategoryDisplay = PublicCatalogueCategory & {
   icon: typeof CarFront;
 };
@@ -306,6 +409,49 @@ function usePublicCatalogue() {
     retry: false,
     staleTime: 60_000,
   });
+}
+
+function usePublicMotorOptions() {
+  return useQuery({
+    queryKey: ['public', 'motor-purchase', 'options'],
+    queryFn: async () => {
+      const response = await apiClient.get<PublicMotorOptions>(
+        '/public/motor-purchase/options',
+        {
+          skipAuthRefresh: true,
+          suppressErrorToast: true,
+        },
+      );
+
+      return response.data;
+    },
+    retry: false,
+    staleTime: 60_000,
+  });
+}
+
+function isMotorCatalogueCategory(
+  category?: {
+    business_line?: string;
+    name?: string;
+    code?: string;
+  } | null,
+) {
+  const value = `${category?.business_line ?? ''} ${category?.name ?? ''} ${
+    category?.code ?? ''
+  }`.toLowerCase();
+
+  return value.includes('motor') || value.includes('vehicle');
+}
+
+function money(value: number | string | null | undefined) {
+  const amount = Number(value ?? 0);
+
+  return new Intl.NumberFormat('en-TZ', {
+    style: 'currency',
+    currency: 'TZS',
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(amount) ? amount : 0);
 }
 
 function getCategoryIcon(category: PublicCatalogueCategory, index: number) {
@@ -652,6 +798,9 @@ function CategoryCard({
   index: number;
 }) {
   const Icon = category.icon;
+  const path = isMotorCatalogueCategory(category)
+    ? '/motor-insurance'
+    : '/insurance';
 
   return (
     <article className="category-card">
@@ -676,7 +825,7 @@ function CategoryCard({
           )}
         </div>
       )}
-      <Link to="/insurance" aria-label={`Explore ${category.name}`}>
+      <Link to={path} aria-label={`Explore ${category.name}`}>
         Explore <ArrowRight size={16} aria-hidden="true" />
       </Link>
     </article>
@@ -1273,6 +1422,795 @@ function ContactDetail({
   );
 }
 
+function createDefaultMotorVehicle(
+  intake?: MotorIntakeValues | null,
+): PublicMotorVehicle {
+  return {
+    motor_category: 1,
+    motor_type: 1,
+    registration_number:
+      intake?.registrationNumber.trim().toUpperCase().replace(/\s+/g, '') ?? '',
+    chassis_number: '',
+    make: '',
+    model: '',
+    model_number: '',
+    body_type: '',
+    color: '',
+    engine_number: '',
+    engine_capacity: '',
+    fuel_used: '',
+    number_of_axles: 2,
+    axle_distance: 0,
+    sitting_capacity: 1,
+    year_of_manufacture: new Date().getFullYear(),
+    tare_weight: 0,
+    gross_weight: 0,
+    motor_usage: 1,
+    owner_name: intake?.fullName.trim() ?? '',
+    owner_category: 1,
+    owner_address: '',
+  };
+}
+
+function createDefaultPolicyHolder(
+  intake?: MotorIntakeValues | null,
+): PublicMotorHolder {
+  return {
+    policy_holder_type: 1,
+    policy_holder_name: intake?.fullName.trim() ?? '',
+    policy_holder_birth_date: '',
+    policy_holder_id_type: 1,
+    policy_holder_id_number: '',
+    gender: null,
+    country_code: 'TZA',
+    region: '',
+    district: '',
+    street: '',
+    policy_holder_phone_number: intake?.phone.trim() ?? '',
+    policy_holder_fax: '',
+    postal_address: '',
+    email_address: '',
+    tin: '',
+  };
+}
+
+function readStoredMotorIntake(): MotorIntakeValues {
+  if (typeof window === 'undefined') {
+    return {
+      fullName: '',
+      registrationNumber: '',
+      phone: '',
+    };
+  }
+
+  const raw = window.sessionStorage.getItem('insurance-max.buy-cover-intake');
+  if (!raw) {
+    return {
+      fullName: '',
+      registrationNumber: '',
+      phone: '',
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      motor?: {
+        full_name?: string;
+        registration_number?: string;
+        phone?: string;
+      } | null;
+    };
+    const motor = parsed.motor;
+    if (!motor) {
+      return {
+        fullName: '',
+        registrationNumber: '',
+        phone: '',
+      };
+    }
+
+    return {
+      fullName: motor.full_name ?? '',
+      registrationNumber: motor.registration_number ?? '',
+      phone: motor.phone ?? '',
+    };
+  } catch {
+    return {
+      fullName: '',
+      registrationNumber: '',
+      phone: '',
+    };
+  }
+}
+
+function MotorInsurancePurchasePage() {
+  usePageMeta(
+    'Motor Insurance | Insurance Max',
+    'Buy motor insurance through a simple public self-service flow.',
+  );
+
+  const navigate = useNavigate();
+  const optionsQuery = usePublicMotorOptions();
+  const initialMotorIntake = useMemo(() => readStoredMotorIntake(), []);
+  const [intake, setIntake] = useState<MotorIntakeValues>(initialMotorIntake);
+  const [companyId, setCompanyId] = useState('');
+  const [productId, setProductId] = useState('');
+  const [riskId, setRiskId] = useState('');
+  const [vehicle, setVehicle] = useState<PublicMotorVehicle>(
+    createDefaultMotorVehicle(initialMotorIntake),
+  );
+  const [holder, setHolder] = useState<PublicMotorHolder>(
+    createDefaultPolicyHolder(initialMotorIntake),
+  );
+  const [sumInsured, setSumInsured] = useState('');
+  const [verified, setVerified] = useState(false);
+  const [activeCover, setActiveCover] = useState<Record<
+    string,
+    unknown
+  > | null>(null);
+  const [quote, setQuote] = useState<PublicMotorQuote | null>(null);
+  const [submitted, setSubmitted] = useState<Record<string, unknown> | null>(
+    null,
+  );
+  const [busy, setBusy] = useState<'verify' | 'quote' | 'submit' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const companies = optionsQuery.data?.companies ?? [];
+  const selectedCompany =
+    companies.find((company) => company.id === companyId) ?? companies[0];
+  const selectedProduct =
+    selectedCompany?.products.find((product) => product.id === productId) ??
+    selectedCompany?.products[0];
+  const selectedRisk =
+    selectedProduct?.risks.find((risk) => risk.id === riskId) ??
+    selectedProduct?.risks[0];
+
+  function customerMessage(errorValue: unknown) {
+    const value = errorValue as {
+      response?: { data?: { message?: string | string[] } };
+      message?: string;
+    };
+    const message = value.response?.data?.message ?? value.message;
+    if (Array.isArray(message)) return message[0] ?? 'Please try again.';
+    return message || 'Please try again.';
+  }
+
+  async function verifyVehicle(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setActiveCover(null);
+    setQuote(null);
+    setSubmitted(null);
+    setConfirmed(false);
+
+    const parsed = motorIntakeSchema.safeParse(intake);
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? 'Check the vehicle details.');
+      return;
+    }
+
+    if (!selectedCompany) {
+      setError('No motor insurer is currently available.');
+      return;
+    }
+
+    setBusy('verify');
+    try {
+      const response = await apiClient.post<{
+        status: 'ACTIVE_COVER' | 'NO_ACTIVE_COVER';
+        active_cover?: Record<string, unknown>;
+        vehicle?: Partial<PublicMotorVehicle>;
+      }>(
+        '/public/motor-purchase/verify',
+        {
+          company_id: selectedCompany.id,
+          full_name: parsed.data.fullName,
+          registration_number: parsed.data.registrationNumber,
+          phone: parsed.data.phone,
+          motor_category: 1,
+        },
+        {
+          skipAuthRefresh: true,
+          suppressErrorToast: true,
+        },
+      );
+
+      if (response.data.status === 'ACTIVE_COVER') {
+        setActiveCover(response.data.active_cover ?? {});
+        setVerified(false);
+        return;
+      }
+
+      const nextVehicle = {
+        ...createDefaultMotorVehicle(parsed.data),
+        ...response.data.vehicle,
+        registration_number:
+          response.data.vehicle?.registration_number ||
+          parsed.data.registrationNumber.trim().toUpperCase(),
+        owner_name:
+          response.data.vehicle?.owner_name || parsed.data.fullName.trim(),
+      };
+      setVehicle(nextVehicle);
+      setHolder(createDefaultPolicyHolder(parsed.data));
+      setVerified(true);
+    } catch (caught) {
+      setError(customerMessage(caught));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function calculateQuote(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setQuote(null);
+    setConfirmed(false);
+
+    if (!selectedCompany || !selectedProduct || !selectedRisk) {
+      setError('Select an insurance company, product and cover.');
+      return;
+    }
+
+    setBusy('quote');
+    try {
+      const payload = {
+        company_id: selectedCompany.id,
+        product_id: selectedProduct.id,
+        risk_id: selectedRisk.id,
+        vehicle,
+        policy_holder: holder,
+        sum_insured: Number(sumInsured || vehicle.gross_weight || 0),
+      };
+      const response = await apiClient.post<PublicMotorQuote>(
+        '/public/motor-purchase/quote',
+        payload,
+        {
+          skipAuthRefresh: true,
+          suppressErrorToast: true,
+        },
+      );
+
+      setQuote(response.data);
+    } catch (caught) {
+      setError(customerMessage(caught));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function submitPurchase() {
+    if (!quote || !confirmed) return;
+    setError(null);
+    setBusy('submit');
+
+    try {
+      const response = await apiClient.post<Record<string, unknown>>(
+        '/public/motor-purchase/submit',
+        {
+          company_id: quote.company.id,
+          product_id: quote.product.id,
+          risk_id: quote.risk.id,
+          vehicle,
+          policy_holder: holder,
+          sum_insured: Number(sumInsured || vehicle.gross_weight || 0),
+          confirmed: true,
+          idempotency_key: `${vehicle.registration_number}-${quote.premium.pricing_quote_id}`,
+        },
+        {
+          skipAuthRefresh: true,
+          suppressErrorToast: true,
+        },
+      );
+
+      setSubmitted(response.data);
+    } catch (caught) {
+      setError(customerMessage(caught));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function updateVehicle<K extends keyof PublicMotorVehicle>(
+    key: K,
+    value: PublicMotorVehicle[K],
+  ) {
+    setVehicle((current) => ({ ...current, [key]: value }));
+    setQuote(null);
+    setConfirmed(false);
+  }
+
+  function updateHolder<K extends keyof PublicMotorHolder>(
+    key: K,
+    value: PublicMotorHolder[K],
+  ) {
+    setHolder((current) => ({ ...current, [key]: value }));
+    setQuote(null);
+    setConfirmed(false);
+  }
+
+  return (
+    <PublicLayout>
+      <main>
+        <PageIntro
+          eyebrow="Motor Insurance"
+          title="Buy cover for one vehicle."
+          body="Enter the registration details, confirm the vehicle and policy holder information, choose a configured motor cover, then review the quote before submission."
+        />
+
+        <section className="public-section motor-purchase-section">
+          <div className="public-container motor-purchase-layout">
+            <div className="motor-progress" aria-label="Purchase progress">
+              {[
+                ['1', 'Vehicle Information'],
+                ['2', 'Verification'],
+                ['3', 'Vehicle & Policy Holder Details'],
+                ['4', 'Cover Selection'],
+                ['5', 'Summary'],
+                ['6', 'Submit'],
+              ].map(([number, label]) => (
+                <span key={label}>
+                  <strong>{number}</strong>
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {error && (
+              <div className="motor-alert motor-alert-error" role="alert">
+                {error}
+              </div>
+            )}
+
+            {submitted ? (
+              <div className="motor-result-panel">
+                <Check size={28} aria-hidden="true" />
+                <h2>Motor purchase submitted</h2>
+                <p>
+                  Your request has been sent for processing. Reference:{' '}
+                  <strong>
+                    {String(
+                      submitted.quotation_no ??
+                        submitted.quotation_id ??
+                        'Submitted',
+                    )}
+                  </strong>
+                </p>
+                <button
+                  className="button"
+                  type="button"
+                  onClick={() => navigate('/')}
+                >
+                  Back to Home
+                </button>
+              </div>
+            ) : activeCover ? (
+              <div className="motor-result-panel">
+                <ShieldCheck size={28} aria-hidden="true" />
+                <h2>Active insurance found</h2>
+                <p>
+                  This vehicle already has active insurance. A new purchase
+                  cannot continue for the same vehicle.
+                </p>
+                <div className="motor-summary-grid">
+                  <SummaryItem
+                    label="Registration"
+                    value={String(
+                      activeCover.vehicle_registration_number ??
+                        intake.registrationNumber,
+                    )}
+                  />
+                  <SummaryItem
+                    label="Cover"
+                    value={String(activeCover.cover_type ?? 'Available')}
+                  />
+                  <SummaryItem
+                    label="Company"
+                    value={String(activeCover.insurance_company ?? 'Available')}
+                  />
+                  <SummaryItem
+                    label="Start Date"
+                    value={String(activeCover.cover_start_date ?? 'Available')}
+                  />
+                  <SummaryItem
+                    label="End Date"
+                    value={String(activeCover.cover_end_date ?? 'Available')}
+                  />
+                </div>
+                <div className="motor-actions">
+                  <button
+                    className="button button-light"
+                    type="button"
+                    onClick={() => {
+                      setActiveCover(null);
+                      setVerified(false);
+                    }}
+                  >
+                    Check Another Vehicle
+                  </button>
+                  <button
+                    className="button"
+                    type="button"
+                    onClick={() => navigate('/')}
+                  >
+                    Back to Home
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <form className="motor-panel" onSubmit={verifyVehicle}>
+                  <SectionHeader
+                    eyebrow="Step 1"
+                    title="Initial vehicle information"
+                    body="Only these three details are needed to start. Vehicle information is retrieved where available."
+                  />
+                  <div className="form-row">
+                    <PublicField id="publicMotorFullName" label="Full Name">
+                      <input
+                        id="publicMotorFullName"
+                        autoComplete="name"
+                        value={intake.fullName}
+                        onChange={(event) =>
+                          setIntake((current) => ({
+                            ...current,
+                            fullName: event.target.value,
+                          }))
+                        }
+                      />
+                    </PublicField>
+                    <PublicField
+                      id="publicMotorRegistration"
+                      label="Vehicle Registration Number"
+                    >
+                      <input
+                        id="publicMotorRegistration"
+                        autoCapitalize="characters"
+                        value={intake.registrationNumber}
+                        onChange={(event) =>
+                          setIntake((current) => ({
+                            ...current,
+                            registrationNumber: event.target.value,
+                          }))
+                        }
+                      />
+                    </PublicField>
+                  </div>
+                  <PublicField id="publicMotorPhone" label="Phone Number">
+                    <input
+                      id="publicMotorPhone"
+                      autoComplete="tel"
+                      inputMode="tel"
+                      value={intake.phone}
+                      onChange={(event) =>
+                        setIntake((current) => ({
+                          ...current,
+                          phone: event.target.value,
+                        }))
+                      }
+                    />
+                  </PublicField>
+                  <button
+                    className="button"
+                    type="submit"
+                    disabled={busy === 'verify' || optionsQuery.isLoading}
+                  >
+                    {busy === 'verify' ? 'Checking...' : 'Proceed'}
+                    <ArrowRight size={17} aria-hidden="true" />
+                  </button>
+                </form>
+
+                {verified && (
+                  <form className="motor-panel" onSubmit={calculateQuote}>
+                    <SectionHeader
+                      eyebrow="Steps 3 & 4"
+                      title="Confirm details and select cover"
+                    />
+
+                    <div className="form-row">
+                      <PublicField
+                        id="publicMotorCompany"
+                        label="Insurance Company"
+                      >
+                        <select
+                          id="publicMotorCompany"
+                          value={selectedCompany?.id ?? ''}
+                          onChange={(event) => {
+                            setCompanyId(event.target.value);
+                            setProductId('');
+                            setRiskId('');
+                            setQuote(null);
+                          }}
+                        >
+                          {companies.map((company) => (
+                            <option key={company.id} value={company.id}>
+                              {company.name}
+                            </option>
+                          ))}
+                        </select>
+                      </PublicField>
+                      <PublicField id="publicMotorProduct" label="Product">
+                        <select
+                          id="publicMotorProduct"
+                          value={selectedProduct?.id ?? ''}
+                          onChange={(event) => {
+                            setProductId(event.target.value);
+                            setRiskId('');
+                            setQuote(null);
+                          }}
+                        >
+                          {selectedCompany?.products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name}
+                            </option>
+                          ))}
+                        </select>
+                      </PublicField>
+                    </div>
+
+                    <div className="form-row">
+                      <PublicField id="publicMotorRisk" label="Cover">
+                        <select
+                          id="publicMotorRisk"
+                          value={selectedRisk?.id ?? ''}
+                          onChange={(event) => {
+                            setRiskId(event.target.value);
+                            setQuote(null);
+                          }}
+                        >
+                          {selectedProduct?.risks.map((risk) => (
+                            <option key={risk.id} value={risk.id}>
+                              {risk.name}
+                            </option>
+                          ))}
+                        </select>
+                      </PublicField>
+                      <PublicField
+                        id="publicMotorSumInsured"
+                        label="Vehicle Value"
+                      >
+                        <input
+                          id="publicMotorSumInsured"
+                          inputMode="decimal"
+                          value={sumInsured}
+                          onChange={(event) => {
+                            setSumInsured(event.target.value);
+                            setQuote(null);
+                            setConfirmed(false);
+                          }}
+                        />
+                      </PublicField>
+                    </div>
+
+                    <div className="motor-subgrid">
+                      <MotorInput
+                        label="Chassis Number"
+                        value={vehicle.chassis_number}
+                        onChange={(value) =>
+                          updateVehicle('chassis_number', value)
+                        }
+                      />
+                      <MotorInput
+                        label="Make"
+                        value={vehicle.make}
+                        onChange={(value) => updateVehicle('make', value)}
+                      />
+                      <MotorInput
+                        label="Model"
+                        value={vehicle.model}
+                        onChange={(value) => updateVehicle('model', value)}
+                      />
+                      <MotorInput
+                        label="Body Type"
+                        value={vehicle.body_type}
+                        onChange={(value) => updateVehicle('body_type', value)}
+                      />
+                      <MotorInput
+                        label="Engine Number"
+                        value={vehicle.engine_number}
+                        onChange={(value) =>
+                          updateVehicle('engine_number', value)
+                        }
+                      />
+                      <MotorInput
+                        label="Engine Capacity"
+                        value={vehicle.engine_capacity}
+                        onChange={(value) =>
+                          updateVehicle('engine_capacity', value)
+                        }
+                      />
+                      <MotorNumberInput
+                        label="Year"
+                        value={vehicle.year_of_manufacture}
+                        onChange={(value) =>
+                          updateVehicle('year_of_manufacture', value)
+                        }
+                      />
+                      <MotorNumberInput
+                        label="Seats"
+                        value={vehicle.sitting_capacity}
+                        onChange={(value) =>
+                          updateVehicle('sitting_capacity', value)
+                        }
+                      />
+                    </div>
+
+                    <div className="motor-subgrid">
+                      <MotorInput
+                        label="ID Number"
+                        value={holder.policy_holder_id_number}
+                        onChange={(value) =>
+                          updateHolder('policy_holder_id_number', value)
+                        }
+                      />
+                      <MotorInput
+                        label="Date of Birth"
+                        type="date"
+                        value={holder.policy_holder_birth_date}
+                        onChange={(value) =>
+                          updateHolder('policy_holder_birth_date', value)
+                        }
+                      />
+                      <MotorInput
+                        label="Email"
+                        type="email"
+                        value={holder.email_address ?? ''}
+                        onChange={(value) =>
+                          updateHolder('email_address', value)
+                        }
+                      />
+                      <MotorInput
+                        label="Region"
+                        value={holder.region}
+                        onChange={(value) => updateHolder('region', value)}
+                      />
+                      <MotorInput
+                        label="District"
+                        value={holder.district}
+                        onChange={(value) => updateHolder('district', value)}
+                      />
+                      <MotorInput
+                        label="Street"
+                        value={holder.street ?? ''}
+                        onChange={(value) => updateHolder('street', value)}
+                      />
+                    </div>
+
+                    <button
+                      className="button"
+                      type="submit"
+                      disabled={busy === 'quote'}
+                    >
+                      {busy === 'quote' ? 'Calculating...' : 'Calculate Quote'}
+                      <ArrowRight size={17} aria-hidden="true" />
+                    </button>
+                  </form>
+                )}
+
+                {quote && (
+                  <div className="motor-panel">
+                    <SectionHeader eyebrow="Step 5" title="Quote summary" />
+                    <div className="motor-summary-grid">
+                      <SummaryItem
+                        label="Customer"
+                        value={holder.policy_holder_name}
+                      />
+                      <SummaryItem
+                        label="Vehicle"
+                        value={`${vehicle.make} ${vehicle.model} ${vehicle.registration_number}`}
+                      />
+                      <SummaryItem label="Company" value={quote.company.name} />
+                      <SummaryItem label="Cover" value={quote.risk.name} />
+                      <SummaryItem
+                        label="Branch"
+                        value={quote.default_branch.name}
+                      />
+                      <SummaryItem
+                        label="Cover Period"
+                        value={`${quote.cover_period.start_date} to ${quote.cover_period.end_date}`}
+                      />
+                      <SummaryItem
+                        label="Basic Premium"
+                        value={money(quote.premium.basic_premium)}
+                      />
+                      <SummaryItem
+                        label="Discounts"
+                        value={money(quote.premium.discount_amount)}
+                      />
+                      <SummaryItem
+                        label="Levies/Charges"
+                        value={money(quote.premium.charges_amount)}
+                      />
+                      <SummaryItem
+                        label="VAT"
+                        value={money(quote.premium.vat_amount)}
+                      />
+                      <SummaryItem
+                        label="Total Payable"
+                        value={money(quote.premium.total_amount_payable)}
+                      />
+                    </div>
+                    <label className="motor-confirm">
+                      <input
+                        type="checkbox"
+                        checked={confirmed}
+                        onChange={(event) => setConfirmed(event.target.checked)}
+                      />
+                      <span>The information above is correct.</span>
+                    </label>
+                    <button
+                      className="button"
+                      type="button"
+                      disabled={!confirmed || busy === 'submit'}
+                      onClick={() => void submitPurchase()}
+                    >
+                      {busy === 'submit' ? 'Submitting...' : 'Submit'}
+                      <ArrowRight size={17} aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </section>
+      </main>
+    </PublicLayout>
+  );
+}
+
+function MotorInput({
+  label,
+  value,
+  onChange,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  const id = `motor-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
+  return (
+    <label htmlFor={id}>
+      <span>{label}</span>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
+}
+
+function MotorNumberInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <MotorInput
+      label={label}
+      value={String(value)}
+      onChange={(next) => onChange(Number(next) || 0)}
+    />
+  );
+}
+
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong>{value || 'Not provided'}</strong>
+    </div>
+  );
+}
+
 function PublicField({
   id,
   label,
@@ -1349,6 +2287,12 @@ function BuyCoverPage() {
       'insurance-max.buy-cover-intake',
       JSON.stringify(payload),
     );
+
+    if (isMotorCategory) {
+      navigate('/motor-insurance');
+      return;
+    }
+
     navigate('/customer/buy-cover');
   }
 
@@ -1573,7 +2517,13 @@ function InsurancePage() {
                             <span>{product.company.name}</span>
                             {product.supports_fleet && <span>Fleet ready</span>}
                           </div>
-                          <Link to="/login">
+                          <Link
+                            to={
+                              isMotorCatalogueCategory(activeCategory)
+                                ? '/motor-insurance'
+                                : '/login'
+                            }
+                          >
                             Continue <ArrowRight size={16} aria-hidden="true" />
                           </Link>
                         </article>
@@ -1596,4 +2546,11 @@ function InsurancePage() {
   );
 }
 
-export { HomePage, AboutPage, ContactPage, InsurancePage, BuyCoverPage };
+export {
+  HomePage,
+  AboutPage,
+  ContactPage,
+  InsurancePage,
+  BuyCoverPage,
+  MotorInsurancePurchasePage,
+};

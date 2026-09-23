@@ -29,6 +29,7 @@ import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationsModule } from '../quotations/quotations.module';
 import { VerificationsModule } from '../verifications/verifications.module';
+import { PremiumCalculationModule } from '../premium-calculation/premium-calculation.module';
 
 import { PortalAccount } from './entities/portal-account.entity';
 import { PortalInvitation } from './entities/portal-invitation.entity';
@@ -48,6 +49,7 @@ import { PortalAdminController } from './controllers/portal-admin.controller';
 import { PortalAuthController } from './controllers/portal-auth.controller';
 import { PortalCommonController } from './controllers/portal-common.controller';
 import { PublicCatalogueController } from './controllers/public-catalogue.controller';
+import { PublicMotorPurchaseController } from './controllers/public-motor-purchase.controller';
 
 import { CustomerMarketplaceService } from './services/customer-marketplace.service';
 import { PortalAccountsService } from './services/portal-accounts.service';
@@ -58,6 +60,7 @@ import { PortalNotificationService } from './services/portal-notification.servic
 import { PortalReferenceService } from './services/portal-reference.service';
 import { PortalRequestsService } from './services/portal-requests.service';
 import { PortalEngagementService } from './services/portal-engagement.service';
+import { PublicMotorPurchaseService } from './services/public-motor-purchase.service';
 
 /**
  * Full customer/intermediary self-service portal module: invitation
@@ -98,6 +101,7 @@ import { PortalEngagementService } from './services/portal-engagement.service';
     AuditModule,
     MailModule,
     QuotationsModule,
+    PremiumCalculationModule,
     CustomersModule,
     ClaimsModule,
     InsuranceDocumentsModule,
@@ -111,6 +115,7 @@ import { PortalEngagementService } from './services/portal-engagement.service';
     IntermediaryPortalController,
     PortalCommonController,
     PublicCatalogueController,
+    PublicMotorPurchaseController,
   ],
   providers: [
     PortalAccountsService,
@@ -122,6 +127,7 @@ import { PortalEngagementService } from './services/portal-engagement.service';
     PortalReferenceService,
     PortalRequestsService,
     PortalEngagementService,
+    PublicMotorPurchaseService,
     PortalInvitationExpiryJob,
     PortalGuard,
   ],

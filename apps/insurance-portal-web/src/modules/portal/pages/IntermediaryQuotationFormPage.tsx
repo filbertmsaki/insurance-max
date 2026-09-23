@@ -111,23 +111,28 @@ export function IntermediaryQuotationFormPage() {
     const quotation = quotationQuery.data;
     const draftPayload = objectRecord(quotation.draft_payload);
 
-    setForm({
-      customer_id: text(quotation.customer_id) ?? '',
-      category_id: text(quotation.category_id) ?? '',
-      product_id: text(quotation.product_id) ?? '',
-      sub_class_id: text(quotation.sub_class_id) ?? '',
-      quotation_flow:
-        normalizeFlow(text(quotation.quotation_flow)) ?? 'MOTOR_SINGLE',
-      risk_id: text(draftPayload?.risk_id) ?? text(draftPayload?.riskId) ?? '',
-      valid_from: text(draftPayload?.valid_from) ?? today,
-      valid_until: text(draftPayload?.valid_until) ?? defaultValidUntil(),
-      sum_insured: text(draftPayload?.sum_insured) ?? '',
-      description:
-        text(draftPayload?.description) ??
-        text(quotation.cover_note_desc) ??
-        text(quotation.description) ??
-        '',
-    });
+    const handle = window.setTimeout(() => {
+      setForm({
+        customer_id: text(quotation.customer_id) ?? '',
+        category_id: text(quotation.category_id) ?? '',
+        product_id: text(quotation.product_id) ?? '',
+        sub_class_id: text(quotation.sub_class_id) ?? '',
+        quotation_flow:
+          normalizeFlow(text(quotation.quotation_flow)) ?? 'MOTOR_SINGLE',
+        risk_id:
+          text(draftPayload?.risk_id) ?? text(draftPayload?.riskId) ?? '',
+        valid_from: text(draftPayload?.valid_from) ?? today,
+        valid_until: text(draftPayload?.valid_until) ?? defaultValidUntil(),
+        sum_insured: text(draftPayload?.sum_insured) ?? '',
+        description:
+          text(draftPayload?.description) ??
+          text(quotation.cover_note_desc) ??
+          text(quotation.description) ??
+          '',
+      });
+    }, 0);
+
+    return () => window.clearTimeout(handle);
   }, [quotationQuery.data]);
 
   const selectedProduct = useMemo(

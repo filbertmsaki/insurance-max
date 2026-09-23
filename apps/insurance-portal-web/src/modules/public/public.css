@@ -1055,7 +1055,8 @@
 }
 
 .contact-form input,
-.contact-form textarea {
+.contact-form textarea,
+.contact-form select {
   width: 100%;
   padding: 13px;
   color: var(--ink);
@@ -1070,7 +1071,8 @@
 }
 
 .contact-form input:focus,
-.contact-form textarea:focus {
+.contact-form textarea:focus,
+.contact-form select:focus {
   border-color: var(--green);
   box-shadow: 0 0 0 3px rgba(22, 77, 60, 0.12);
 }
@@ -1178,6 +1180,167 @@
   box-shadow: 0 0 0 3px rgba(22, 77, 60, 0.12);
 }
 
+.motor-purchase-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.motor-progress {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.motor-progress span {
+  display: grid;
+  gap: 7px;
+  min-height: 74px;
+  padding: 12px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.motor-progress strong {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--green);
+  background: var(--lime);
+  border-radius: 50%;
+}
+
+.motor-panel,
+.motor-result-panel,
+.motor-alert {
+  padding: 28px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.motor-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.motor-panel .section-header {
+  max-width: 780px;
+}
+
+.motor-panel label,
+.motor-subgrid label {
+  display: grid;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.motor-panel input,
+.motor-panel select,
+.motor-subgrid input {
+  width: 100%;
+  padding: 13px;
+  color: var(--ink);
+  background: #fbfdfb;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font:
+    400 14px 'DM Sans',
+    sans-serif;
+  outline: none;
+}
+
+.motor-panel input:focus,
+.motor-panel select:focus,
+.motor-subgrid input:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(22, 77, 60, 0.12);
+}
+
+.motor-subgrid,
+.motor-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.motor-summary-grid div {
+  display: grid;
+  gap: 7px;
+  min-height: 78px;
+  padding: 14px;
+  background: #f4f7f4;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.motor-summary-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.motor-summary-grid strong {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.motor-alert-error {
+  color: #7d2f22;
+  background: #fff4ef;
+  border-color: #efb7a6;
+  font-weight: 700;
+}
+
+.motor-result-panel {
+  display: grid;
+  justify-items: start;
+  gap: 18px;
+}
+
+.motor-result-panel > svg {
+  color: var(--green);
+}
+
+.motor-result-panel h2 {
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.motor-result-panel p {
+  max-width: 680px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.motor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.motor-confirm {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 10px !important;
+  font-size: 14px !important;
+}
+
+.motor-confirm input {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
 .buy-note {
   margin-top: 4px;
   font-size: 12px;
@@ -1253,6 +1416,15 @@
   }
 
   .catalogue-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .motor-progress {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .motor-subgrid,
+  .motor-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1451,6 +1623,9 @@
   .category-grid,
   .catalogue-tabs,
   .buy-category-grid,
+  .motor-progress,
+  .motor-subgrid,
+  .motor-summary-grid,
   .feature-grid,
   .product-grid,
   .quick-actions,
