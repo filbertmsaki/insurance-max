@@ -686,6 +686,27 @@ export class PublicMotorPurchaseService {
     });
   }
 
+  /**
+   * TIRA cover-note lookup for authenticated portal cover checks. Uses the
+   * default public insurer's TIRA credentials, like the public verify flow.
+   */
+  async lookupTiramisCover(identifiers: {
+    registration: string | null;
+    chassis: string | null;
+  }) {
+    const company = await this.resolvePublicCompany();
+    const user = this.publicActor(company.id, null);
+    const result = await this.safeTiramisCall('portal-cover-check', () =>
+      this.verificationsService.verifyCoverNote(user, {
+        motorRegistrationNumber: identifiers.registration ?? undefined,
+        motorChassisNumber: identifiers.chassis ?? undefined,
+      }),
+    );
+
+    if (!this.isActiveTiramisCover(result)) return null;
+    return this.mapTiramisCover(result, identifiers.registration ?? '');
+  }
+
   private async findInternalCover(registration: string) {
     const rows = await this.dataSource.query(
       `

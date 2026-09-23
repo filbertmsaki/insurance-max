@@ -25,6 +25,7 @@ import {
 } from '../dto/customer-marketplace.dto';
 import { PortalActorType } from '../enums/portal.enums';
 import { PortalAccountsService } from './portal-accounts.service';
+import { PublicMotorPurchaseService } from './public-motor-purchase.service';
 
 @Injectable()
 export class CustomerMarketplaceService {
@@ -37,6 +38,7 @@ export class CustomerMarketplaceService {
     private readonly productRepository: Repository<InsuranceProduct>,
     @InjectRepository(InsuranceRisk)
     private readonly riskRepository: Repository<InsuranceRisk>,
+    private readonly publicMotorPurchaseService: PublicMotorPurchaseService,
   ) {}
 
   async listEligibleCompanies(user: AuthenticatedUser) {
@@ -378,21 +380,54 @@ export class CustomerMarketplaceService {
       [registration, chassis],
     );
 
+    if (rows.length > 0) {
+      return {
+        active: true,
+        matches: rows.map((row: Record<string, unknown>) => ({
+          insurance_company: row.insurance_company,
+          cover_type: row.cover_type,
+          effective_date: row.start_date,
+          expiry_date: row.end_date,
+          vehicle: {
+            registration_no: row.registration_no,
+            chassis_no: row.chassis_no,
+            make: row.make,
+            model: row.model,
+          },
+          status: 'ACTIVE',
+          source: 'INTERNAL',
+        })),
+      };
+    }
+
+    // Not insured on this platform: check TIRA, which covers every insurer.
+    const tiraCover = await this.publicMotorPurchaseService.lookupTiramisCover({
+      registration,
+      chassis,
+    });
+
+    if (!tiraCover) {
+      return { active: false, matches: [] };
+    }
+
     return {
-      active: rows.length > 0,
-      matches: rows.map((row: Record<string, unknown>) => ({
-        insurance_company: row.insurance_company,
-        cover_type: row.cover_type,
-        effective_date: row.start_date,
-        expiry_date: row.end_date,
-        vehicle: {
-          registration_no: row.registration_no,
-          chassis_no: row.chassis_no,
-          make: row.make,
-          model: row.model,
+      active: true,
+      matches: [
+        {
+          insurance_company: tiraCover.insurance_company ?? 'Unknown insurer',
+          cover_type: tiraCover.cover_type,
+          effective_date: tiraCover.cover_start_date,
+          expiry_date: tiraCover.cover_end_date,
+          vehicle: {
+            registration_no: tiraCover.vehicle_registration_number || null,
+            chassis_no: chassis,
+            make: null,
+            model: null,
+          },
+          status: 'ACTIVE',
+          source: 'TIRA',
         },
-        status: 'ACTIVE',
-      })),
+      ],
     };
   }
 

@@ -158,6 +158,8 @@ export interface CustomerCoverCheckResult {
       model: string | null;
     };
     status: string;
+    /** INTERNAL = policy on this platform, TIRA = found in the national register. */
+    source?: 'INTERNAL' | 'TIRA';
   }>;
 }
 
