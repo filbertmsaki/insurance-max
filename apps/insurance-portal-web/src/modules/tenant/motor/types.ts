@@ -46,6 +46,14 @@ export interface MotorVehicleRecord {
   vehicle_value: string;
   currency: string;
   status: string;
+  is_verified: boolean;
+  verification_status: string;
+  verification_source: string | null;
+  tira_request_id: string | null;
+  tira_response_id: string | null;
+  last_verified_at: string | null;
+  tira_vehicle_reference: string | null;
+  verification_error: string | null;
   metadata: Record<string, unknown> | null;
   created_by: string | null;
   updated_by: string | null;
@@ -53,6 +61,49 @@ export interface MotorVehicleRecord {
   updated_at: string;
   deleted_at: string | null;
   customer?: MotorCustomerOption | null;
+  ownership_history?: Array<{
+    id: string;
+    owner_customer_id: string;
+    effective_from: string;
+    effective_to: string | null;
+    change_reason: string | null;
+    owner_customer?: MotorCustomerOption | null;
+  }>;
+  versions?: MotorVehicleVersionRecord[];
+}
+
+export interface MotorVehicleVersionRecord {
+  id: string;
+  company_id: string;
+  motor_vehicle_id: string;
+  version_number: number;
+  is_current_version: boolean;
+  vehicle_snapshot: Record<string, unknown>;
+  vehicle_snapshot_hash: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface MotorVehicleAuditLogRecord {
+  id: string;
+  company_id: string;
+  motor_vehicle_id: string;
+  motor_vehicle_version_id: string | null;
+  customer_id: string | null;
+  action: string;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  fields_changed: string[] | null;
+  user_id: string | null;
+  source: string;
+  related_record_type: string | null;
+  related_record_id: string | null;
+  created_at: string;
+}
+
+export interface MotorVehicleInsuranceHistory {
+  policies: MotorPolicyDetailRecord[];
+  fleet_items: MotorFleetItemRecord[];
 }
 
 export interface MotorFleetRecord {
@@ -145,6 +196,11 @@ export interface MotorListParams {
   page?: number;
   limit?: number;
   search?: string;
+  customer_id?: string;
+  status?: string;
+  motor_category?: string;
+  motor_usage?: string;
+  verification_status?: string;
   sortBy?: string;
   sortOrder?: SortOrder;
 }

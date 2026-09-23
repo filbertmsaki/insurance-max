@@ -14,9 +14,12 @@ import { MotorFleet } from './entities/motor-fleet.entity';
 import { MotorFleetItem } from './entities/motor-fleet-item.entity';
 import { MotorFleetMembership } from './entities/motor-fleet-membership.entity';
 import { MotorPolicyDetail } from './entities/motor-policy-detail.entity';
+import { MotorVehicleAuditLog } from './entities/motor-vehicle-audit-log.entity';
 import { MotorVehicle } from './entities/motor-vehicle.entity';
 import { MotorVehicleOwnership } from './entities/motor-vehicle-ownership.entity';
+import { MotorVehicleVersion } from './entities/motor-vehicle-version.entity';
 import { MotorService } from './motor.service';
+import { TiraVehicleMapperService } from './services/tira-vehicle-mapper.service';
 
 @Module({
   imports: [
@@ -27,6 +30,8 @@ import { MotorService } from './motor.service';
       MotorFleetMembership,
       MotorPolicyDetail,
       MotorVehicleOwnership,
+      MotorVehicleVersion,
+      MotorVehicleAuditLog,
       Company,
       Customer,
       InsuredAsset,
@@ -38,7 +43,11 @@ import { MotorService } from './motor.service';
     ]),
   ],
   controllers: [MotorController],
-  providers: [MotorService, IdentifierGeneratorService],
-  exports: [MotorService],
+  providers: [
+    MotorService,
+    IdentifierGeneratorService,
+    TiraVehicleMapperService,
+  ],
+  exports: [MotorService, TiraVehicleMapperService],
 })
 export class MotorModule {}

@@ -17,6 +17,8 @@ import { CustomerContact } from './customer-contact.entity';
 import { CustomerDocument } from './customer-document.entity';
 import { CustomerIdentifier } from './customer-identifier.entity';
 import { CustomerKycReview } from './customer-kyc-review.entity';
+import { CustomerAuditLog } from './customer-audit-log.entity';
+import { CustomerVersion } from './customer-version.entity';
 import { InsuredAsset } from './insured-asset.entity';
 import { CustomerDocumentType } from '../enums/customer-document-type.enum';
 import { CustomerGender } from '../enums/customer-gender.enum';
@@ -293,6 +295,12 @@ export class Customer {
 
   @OneToMany(() => CustomerKycReview, (review) => review.customer)
   kyc_reviews: CustomerKycReview[];
+
+  @OneToMany(() => CustomerVersion, (version) => version.customer)
+  versions: CustomerVersion[];
+
+  @OneToMany(() => CustomerAuditLog, (auditLog) => auditLog.customer)
+  audit_logs: CustomerAuditLog[];
 
   @OneToMany(() => InsuredAsset, (asset) => asset.customer)
   insured_assets: InsuredAsset[];

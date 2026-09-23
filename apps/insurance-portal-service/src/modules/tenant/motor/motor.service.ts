@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AssetOwnershipType } from '@insurance-max/contracts';
 import {
@@ -36,8 +37,11 @@ import { MotorFleet } from './entities/motor-fleet.entity';
 import { MotorFleetItem } from './entities/motor-fleet-item.entity';
 import { MotorFleetMembership } from './entities/motor-fleet-membership.entity';
 import { MotorPolicyDetail } from './entities/motor-policy-detail.entity';
+import { MotorVehicleAuditLog } from './entities/motor-vehicle-audit-log.entity';
 import { MotorVehicle } from './entities/motor-vehicle.entity';
 import { MotorVehicleOwnership } from './entities/motor-vehicle-ownership.entity';
+import { MotorVehicleVersion } from './entities/motor-vehicle-version.entity';
+import { TiraVehicleMapperService } from './services/tira-vehicle-mapper.service';
 
 type NumericLike = number | string | null | undefined;
 
@@ -62,6 +66,12 @@ export class MotorService {
 
     @InjectRepository(MotorVehicleOwnership)
     private readonly motorVehicleOwnershipRepository: Repository<MotorVehicleOwnership>,
+
+    @InjectRepository(MotorVehicleVersion)
+    private readonly motorVehicleVersionRepository: Repository<MotorVehicleVersion>,
+
+    @InjectRepository(MotorVehicleAuditLog)
+    private readonly motorVehicleAuditLogRepository: Repository<MotorVehicleAuditLog>,
 
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
@@ -88,6 +98,7 @@ export class MotorService {
     private readonly userRepository: Repository<User>,
 
     private readonly identifierGeneratorService: IdentifierGeneratorService,
+    private readonly tiraVehicleMapper: TiraVehicleMapperService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -116,6 +127,167 @@ export class MotorService {
   private normalizeUpperText(value?: string | null): string | null {
     const normalized = this.normalizeText(value);
     return normalized ? normalized.toUpperCase() : null;
+  }
+
+  private hashDefinition(value: unknown): string {
+    return createHash('sha256')
+      .update(JSON.stringify(this.sortValue(value)), 'utf8')
+      .digest('hex');
+  }
+
+  private sortValue(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((item) => this.sortValue(item));
+    if (value && typeof value === 'object') {
+      return Object.keys(value)
+        .sort()
+        .reduce<Record<string, unknown>>((result, key) => {
+          result[key] = this.sortValue((value as Record<string, unknown>)[key]);
+          return result;
+        }, {});
+    }
+    if (typeof value === 'string') return value.trim().replace(/\r\n/g, '\n');
+    return value;
+  }
+
+  private buildVehicleSnapshot(vehicle: MotorVehicle) {
+    const snapshot = {
+      vehicleId: vehicle.id,
+      customerId: vehicle.customer_id,
+      insuredAssetId: vehicle.insured_asset_id,
+      registrationNo: vehicle.registration_no,
+      registrationNoNormalized: vehicle.registration_no_normalized,
+      chassisNo: vehicle.chassis_no,
+      chassisNoNormalized: vehicle.chassis_no_normalized,
+      engineNo: vehicle.engine_no,
+      make: vehicle.make,
+      model: vehicle.model,
+      modelNo: vehicle.model_no,
+      bodyType: vehicle.body_type,
+      color: vehicle.color,
+      manufactureYear: vehicle.manufacture_year,
+      usageType: vehicle.usage_type,
+      vehicleCategory: vehicle.vehicle_category,
+      seatingCapacity: vehicle.seating_capacity,
+      tonnage: vehicle.tonnage,
+      cubicCapacity: vehicle.cubic_capacity,
+      fuelType: vehicle.fuel_type,
+      numberOfAxles: vehicle.number_of_axles,
+      axleDistance: vehicle.axle_distance,
+      tareWeight: vehicle.tare_weight,
+      grossWeight: vehicle.gross_weight,
+      motorCategory: vehicle.motor_category,
+      motorType: vehicle.motor_type,
+      motorUsage: vehicle.motor_usage,
+      ownerName: vehicle.owner_name,
+      ownerCategory: vehicle.owner_category,
+      ownerAddress: vehicle.owner_address,
+      vehicleValue: vehicle.vehicle_value,
+      currency: vehicle.currency,
+      status: vehicle.status,
+      isVerified: vehicle.is_verified,
+      verificationStatus: vehicle.verification_status,
+      verificationSource: vehicle.verification_source,
+      tiraRequestId: vehicle.tira_request_id,
+      tiraResponseId: vehicle.tira_response_id,
+      lastVerifiedAt: vehicle.last_verified_at?.toISOString() ?? null,
+      tiraVehicleReference: vehicle.tira_vehicle_reference,
+      tiraPayload: this.tiraVehicleMapper.mapVehicle(vehicle),
+      snapshotHash: undefined,
+      snapshottedAt: new Date().toISOString(),
+    };
+    const snapshotHash = this.hashDefinition(snapshot);
+    return { ...snapshot, snapshotHash };
+  }
+
+  private diffSnapshotFields(
+    oldSnapshot: Record<string, unknown> | null,
+    newSnapshot: Record<string, unknown> | null,
+  ): string[] {
+    if (!oldSnapshot || !newSnapshot) {
+      return Object.keys(newSnapshot ?? oldSnapshot ?? {});
+    }
+    const ignored = new Set(['snapshotHash', 'snapshottedAt']);
+    const keys = new Set([
+      ...Object.keys(oldSnapshot),
+      ...Object.keys(newSnapshot),
+    ]);
+    return [...keys]
+      .filter((key) => !ignored.has(key))
+      .filter(
+        (key) =>
+          JSON.stringify(this.sortValue(oldSnapshot[key])) !==
+          JSON.stringify(this.sortValue(newSnapshot[key])),
+      )
+      .sort();
+  }
+
+  private async createVehicleVersion(
+    manager: EntityManager,
+    vehicle: MotorVehicle,
+    userId: string | null,
+  ) {
+    const repository = manager.getRepository(MotorVehicleVersion);
+    const latest = await repository.findOne({
+      where: { motor_vehicle_id: vehicle.id },
+      order: { version_number: 'DESC' },
+    });
+    const snapshot = this.buildVehicleSnapshot(vehicle);
+    await repository.update(
+      { motor_vehicle_id: vehicle.id, is_current_version: true },
+      { is_current_version: false },
+    );
+    return repository.save(
+      repository.create({
+        company_id: vehicle.company_id,
+        motor_vehicle_id: vehicle.id,
+        version_number: Number(latest?.version_number ?? 0) + 1,
+        is_current_version: true,
+        vehicle_snapshot: snapshot,
+        vehicle_snapshot_hash: snapshot.snapshotHash,
+        created_by: userId,
+      }),
+    );
+  }
+
+  private async getCurrentVehicleVersion(
+    manager: EntityManager,
+    vehicleId: string,
+  ) {
+    return manager.getRepository(MotorVehicleVersion).findOne({
+      where: { motor_vehicle_id: vehicleId, is_current_version: true },
+      order: { version_number: 'DESC' },
+    });
+  }
+
+  private async recordVehicleAudit(
+    manager: EntityManager,
+    input: {
+      vehicle: MotorVehicle;
+      version: MotorVehicleVersion | null;
+      action: string;
+      oldValues?: Record<string, unknown> | null;
+      newValues?: Record<string, unknown> | null;
+      userId: string | null;
+      source?: string;
+    },
+  ) {
+    await manager.getRepository(MotorVehicleAuditLog).save(
+      manager.getRepository(MotorVehicleAuditLog).create({
+        company_id: input.vehicle.company_id,
+        motor_vehicle_id: input.vehicle.id,
+        motor_vehicle_version_id: input.version?.id ?? null,
+        customer_id: input.vehicle.customer_id,
+        action: input.action,
+        old_values: input.oldValues ?? null,
+        new_values: input.newValues ?? null,
+        fields_changed: this.diffSnapshotFields(
+          input.oldValues ?? null,
+          input.newValues ?? null,
+        ),
+        user_id: input.userId,
+        source: input.source ?? 'ADMIN_PORTAL',
+      }),
+    );
   }
 
   private normalizeDate(value?: string | null): string | null {
@@ -466,6 +638,14 @@ export class MotorService {
           vehicle_value: declaredValue,
           currency: currencyCode,
           status: dto.status?.trim().toUpperCase() ?? 'ACTIVE',
+          is_verified: false,
+          verification_status: 'NOT_VERIFIED',
+          verification_source: null,
+          tira_request_id: null,
+          tira_response_id: null,
+          last_verified_at: null,
+          tira_vehicle_reference: null,
+          verification_error: null,
           snapshot_version: 1,
           metadata: dto.metadata ?? null,
           created_by: userId,
@@ -489,6 +669,20 @@ export class MotorService {
         }),
       );
 
+      const version = await this.createVehicleVersion(
+        manager,
+        createdVehicle,
+        userId,
+      );
+      await this.recordVehicleAudit(manager, {
+        vehicle: createdVehicle,
+        version,
+        action: 'CREATED',
+        oldValues: null,
+        newValues: version.vehicle_snapshot,
+        userId,
+      });
+
       return createdVehicle;
     });
 
@@ -499,14 +693,51 @@ export class MotorService {
     const qb = this.motorVehicleRepository
       .createQueryBuilder('vehicle')
       .leftJoinAndSelect('vehicle.customer', 'customer')
-      .where('vehicle.company_id = :companyId', { companyId });
+      .where('vehicle.company_id = :companyId', { companyId })
+      .andWhere('vehicle.deleted_at IS NULL');
 
     if (query.search?.trim()) {
       const term = `%${query.search.trim()}%`;
       qb.andWhere(
-        '(vehicle.registration_no ILIKE :term OR vehicle.chassis_no ILIKE :term OR vehicle.engine_no ILIKE :term OR vehicle.make ILIKE :term OR vehicle.model ILIKE :term)',
+        `(
+          vehicle.registration_no ILIKE :term
+          OR vehicle.chassis_no ILIKE :term
+          OR vehicle.engine_no ILIKE :term
+          OR vehicle.make ILIKE :term
+          OR vehicle.model ILIKE :term
+          OR customer.customer_no ILIKE :term
+          OR customer.display_name ILIKE :term
+          OR customer.phone ILIKE :term
+          OR customer.company_name ILIKE :term
+        )`,
         { term },
       );
+    }
+
+    if (query.customer_id) {
+      qb.andWhere('vehicle.customer_id = :customerId', {
+        customerId: query.customer_id,
+      });
+    }
+    if (query.status) {
+      qb.andWhere('vehicle.status = :status', {
+        status: query.status.trim().toUpperCase(),
+      });
+    }
+    if (query.motor_category) {
+      qb.andWhere('vehicle.motor_category = :motorCategory', {
+        motorCategory: Number(query.motor_category),
+      });
+    }
+    if (query.motor_usage) {
+      qb.andWhere('vehicle.motor_usage = :motorUsage', {
+        motorUsage: Number(query.motor_usage),
+      });
+    }
+    if (query.verification_status) {
+      qb.andWhere('vehicle.verification_status = :verificationStatus', {
+        verificationStatus: query.verification_status.trim().toUpperCase(),
+      });
     }
 
     return this.listWithPagination(
@@ -529,11 +760,15 @@ export class MotorService {
         ownership_history: {
           owner_customer: true,
         },
+        versions: true,
       },
       order: {
         ownership_history: {
           effective_from: 'DESC',
           created_at: 'DESC',
+        },
+        versions: {
+          version_number: 'DESC',
         },
       },
     });
@@ -557,6 +792,12 @@ export class MotorService {
           ownership_history: true,
         },
       });
+      const previousVersion = await this.getCurrentVehicleVersion(
+        manager,
+        vehicle.id,
+      );
+      const previousSnapshot =
+        previousVersion?.vehicle_snapshot ?? this.buildVehicleSnapshot(vehicle);
 
       const customer =
         dto.customer_id !== undefined
@@ -731,23 +972,131 @@ export class MotorService {
       }
 
       vehicle.updated_by = userId;
-      await manager.getRepository(MotorVehicle).save(vehicle);
+      const savedVehicle = await manager
+        .getRepository(MotorVehicle)
+        .save(vehicle);
+      const version = await this.createVehicleVersion(
+        manager,
+        savedVehicle,
+        userId,
+      );
+      await this.recordVehicleAudit(manager, {
+        vehicle: savedVehicle,
+        version,
+        action: ownerChanged ? 'OWNERSHIP_CHANGED' : 'UPDATED',
+        oldValues: previousSnapshot,
+        newValues: version.vehicle_snapshot,
+        userId,
+      });
     });
 
     return this.findVehicle(companyId, id);
   }
 
-  async removeVehicle(companyId: string, id: string): Promise<void> {
+  async removeVehicle(
+    companyId: string,
+    id: string,
+    userId: string,
+  ): Promise<void> {
     const vehicle = await this.findVehicle(companyId, id);
-    const policyDetailCount = await this.motorPolicyDetailRepository.count({
-      where: { motor_vehicle_id: vehicle.id },
-    });
-    if (policyDetailCount > 0) {
-      throw new ConflictException(
-        'Motor vehicles used in a policy cannot be deleted.',
+    await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(MotorVehicle);
+      const current = await repository.findOneOrFail({
+        where: { id: vehicle.id, company_id: companyId },
+      });
+      const currentVersion = await this.getCurrentVehicleVersion(
+        manager,
+        current.id,
       );
-    }
-    await this.motorVehicleRepository.softDelete(vehicle.id);
+      const oldSnapshot =
+        currentVersion?.vehicle_snapshot ?? this.buildVehicleSnapshot(current);
+      current.status = 'ARCHIVED';
+      await repository.save(current);
+      await repository.softDelete(current.id);
+      await this.recordVehicleAudit(manager, {
+        vehicle: current,
+        version: currentVersion,
+        action: 'ARCHIVED',
+        oldValues: oldSnapshot,
+        newValues: {
+          ...oldSnapshot,
+          status: 'ARCHIVED',
+          archivedAt: new Date().toISOString(),
+        },
+        userId,
+      });
+    });
+  }
+
+  async restoreVehicle(
+    companyId: string,
+    id: string,
+    userId: string,
+  ): Promise<MotorVehicle> {
+    await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(MotorVehicle);
+      const vehicle = await repository.findOne({
+        where: { id, company_id: companyId },
+        withDeleted: true,
+      });
+      if (!vehicle) throw new NotFoundException('Motor vehicle not found');
+      await repository.restore(id);
+      vehicle.status = 'ACTIVE';
+      vehicle.deleted_at = null;
+      vehicle.updated_by = userId;
+      const saved = await repository.save(vehicle);
+      const currentVersion = await this.getCurrentVehicleVersion(
+        manager,
+        saved.id,
+      );
+      await this.recordVehicleAudit(manager, {
+        vehicle: saved,
+        version: currentVersion,
+        action: 'ACTIVATED',
+        oldValues: { vehicleId: saved.id, status: 'ARCHIVED' },
+        newValues: { vehicleId: saved.id, status: 'ACTIVE' },
+        userId,
+      });
+    });
+    return this.findVehicle(companyId, id);
+  }
+
+  async listVehicleVersions(companyId: string, id: string) {
+    await this.ensureMotorVehicle(companyId, id);
+    return this.motorVehicleVersionRepository.find({
+      where: { company_id: companyId, motor_vehicle_id: id },
+      order: { version_number: 'DESC' },
+    });
+  }
+
+  async listVehicleAuditHistory(companyId: string, id: string) {
+    await this.ensureMotorVehicle(companyId, id);
+    return this.motorVehicleAuditLogRepository.find({
+      where: { company_id: companyId, motor_vehicle_id: id },
+      order: { created_at: 'DESC' },
+      take: 100,
+    });
+  }
+
+  async listVehicleInsuranceHistory(companyId: string, id: string) {
+    const vehicle = await this.ensureMotorVehicle(companyId, id);
+    const [policyDetails, fleetItems] = await Promise.all([
+      this.motorPolicyDetailRepository.find({
+        where: { motor_vehicle_id: vehicle.id },
+        relations: { policy: true, policy_risk: true },
+        order: { created_at: 'DESC' },
+      }),
+      this.motorFleetItemRepository.find({
+        where: { motor_vehicle_id: vehicle.id },
+        relations: { motor_vehicle: true },
+        order: { created_at: 'DESC' },
+      }),
+    ]);
+
+    return {
+      policies: policyDetails,
+      fleet_items: fleetItems,
+    };
   }
 
   async createFleet(companyId: string, dto: CreateMotorFleetDto) {
@@ -1061,6 +1410,16 @@ export class MotorService {
         policy_id: dto.policy_id,
         policy_risk_id: dto.policy_risk_id,
         motor_vehicle_id: dto.motor_vehicle_id,
+        motor_vehicle_version_id:
+          (
+            await this.motorVehicleVersionRepository.findOne({
+              where: {
+                motor_vehicle_id: dto.motor_vehicle_id,
+                is_current_version: true,
+              },
+              order: { version_number: 'DESC' },
+            })
+          )?.id ?? null,
         cover_type: this.normalizeText(dto.cover_type),
         usage_type: this.normalizeText(dto.usage_type),
         certificate_no: this.normalizeText(dto.certificate_no),

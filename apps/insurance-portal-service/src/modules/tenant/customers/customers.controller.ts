@@ -80,6 +80,26 @@ export class CustomersController {
     return this.customersService.listKycHistoryForUser(user, id);
   }
 
+  @Get(':id/versions')
+  @Permissions('customers:read')
+  @ApiOperation({ summary: 'List immutable customer versions' })
+  getVersions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.customersService.listVersionsForUser(user, id);
+  }
+
+  @Get(':id/audit-history')
+  @Permissions('customers:audit-history:read')
+  @ApiOperation({ summary: 'List read-only customer audit history' })
+  getAuditHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.customersService.listAuditHistoryForUser(user, id);
+  }
+
   @Post(':id/kyc/submit-review')
   @Permissions('customer-kyc:submit')
   @ApiOperation({ summary: 'Submit a customer for KYC review' })

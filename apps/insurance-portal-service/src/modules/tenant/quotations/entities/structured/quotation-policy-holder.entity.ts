@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Customer } from '../../../customers/entities/customer.entity';
+import { CustomerVersion } from '../../../customers/entities/customer-version.entity';
 import { Quotation } from '../quotation.entity';
 
 @Entity('quotation_policy_holders')
@@ -35,6 +36,12 @@ export class QuotationPolicyHolder {
     nullable: true,
   })
   customer_id: string | null;
+
+  @Column({
+    type: 'uuid',
+    nullable: true,
+  })
+  customer_version_id: string | null;
 
   @Column({ type: 'int' })
   sequence_no: number;
@@ -137,4 +144,11 @@ export class QuotationPolicyHolder {
   })
   @JoinColumn({ name: 'customer_id' })
   customer: Customer | null;
+
+  @ManyToOne(() => CustomerVersion, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'customer_version_id' })
+  customer_version: CustomerVersion | null;
 }

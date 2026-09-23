@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { MotorVehicle } from './motor-vehicle.entity';
+import { MotorVehicleVersion } from './motor-vehicle-version.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyRisk } from '../../policies/entities/policy-risk.entity';
 
@@ -29,6 +30,9 @@ export class MotorPolicyDetail {
 
   @Column({ type: 'uuid' })
   motor_vehicle_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  motor_vehicle_version_id: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   cover_type: string | null;
@@ -93,6 +97,13 @@ export class MotorPolicyDetail {
   @ManyToOne(() => MotorVehicle, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'motor_vehicle_id' })
   motor_vehicle: MotorVehicle;
+
+  @ManyToOne(() => MotorVehicleVersion, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'motor_vehicle_version_id' })
+  motor_vehicle_version: MotorVehicleVersion | null;
 
   @ManyToOne(() => Policy, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'policy_id' })

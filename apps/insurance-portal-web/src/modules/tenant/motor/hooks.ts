@@ -28,6 +28,11 @@ const motorKeys = {
   all: ['motor'] as const,
   vehicles: () => [...motorKeys.all, 'vehicles'] as const,
   vehicle: (id: string) => [...motorKeys.all, 'vehicle', id] as const,
+  vehicleVersions: (id: string) =>
+    [...motorKeys.vehicle(id), 'versions'] as const,
+  vehicleAudit: (id: string) => [...motorKeys.vehicle(id), 'audit'] as const,
+  vehicleInsuranceHistory: (id: string) =>
+    [...motorKeys.vehicle(id), 'insurance-history'] as const,
   fleets: () => [...motorKeys.all, 'fleets'] as const,
   fleet: (id: string) => [...motorKeys.all, 'fleet', id] as const,
   policyDetails: () => [...motorKeys.all, 'policy-details'] as const,
@@ -50,7 +55,13 @@ export function useMotorVehiclesList() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: motorKeys.vehicles(),
-    queryFn: () => motorApi.getVehicles({ page: 1, limit: API_MAX_LIST_LIMIT }),
+    queryFn: () =>
+      motorApi.getVehicles({
+        page: 1,
+        limit: API_MAX_LIST_LIMIT,
+        customer_id: customerId !== 'all' ? customerId : undefined,
+        status: status !== 'all' ? status : undefined,
+      }),
     staleTime: 30_000,
   });
 
@@ -138,6 +149,52 @@ export function useMotorVehicle(id?: string) {
   });
 }
 
+export function useMotorVehiclesByCustomer(customerId?: string) {
+  return useQuery({
+    queryKey: [...motorKeys.vehicles(), 'customer', customerId ?? ''],
+    queryFn: () =>
+      motorApi.getVehicles({
+        page: 1,
+        limit: API_MAX_LIST_LIMIT,
+        customer_id: customerId,
+      }),
+    enabled: !!customerId,
+    staleTime: 30_000,
+  });
+}
+
+export function useMotorVehicleVersions(id?: string) {
+  return useQuery({
+    queryKey: id
+      ? motorKeys.vehicleVersions(id)
+      : motorKeys.vehicleVersions(''),
+    queryFn: () => motorApi.getVehicleVersions(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
+export function useMotorVehicleAuditHistory(id?: string) {
+  return useQuery({
+    queryKey: id ? motorKeys.vehicleAudit(id) : motorKeys.vehicleAudit(''),
+    queryFn: () => motorApi.getVehicleAuditHistory(id!),
+    enabled: !!id,
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
+export function useMotorVehicleInsuranceHistory(id?: string) {
+  return useQuery({
+    queryKey: id
+      ? motorKeys.vehicleInsuranceHistory(id)
+      : motorKeys.vehicleInsuranceHistory(''),
+    queryFn: () => motorApi.getVehicleInsuranceHistory(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
 export function useCreateMotorVehicle() {
   const qc = useQueryClient();
   return useMutation({
@@ -172,7 +229,20 @@ export function useDeleteMotorVehicle() {
     mutationFn: (id: string) => motorApi.deleteVehicle(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: motorKeys.vehicles() });
-      toast.success('Motor vehicle deleted');
+      toast.success('Motor vehicle archived');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useRestoreMotorVehicle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => motorApi.restoreVehicle(id),
+    onSuccess: (restored) => {
+      qc.invalidateQueries({ queryKey: motorKeys.vehicles() });
+      qc.setQueryData(motorKeys.vehicle(restored.id), restored);
+      toast.success('Motor vehicle restored');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });

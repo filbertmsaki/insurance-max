@@ -3,8 +3,10 @@ import { normalizePaginatedResponse } from '@/modules/shared/api/pagination';
 import type { PaginatedResponse } from '@/types';
 import type {
   CustomerListParams,
+  CustomerAuditLogRecord,
   CustomerPayload,
   CustomerRecord,
+  CustomerVersionRecord,
 } from './types';
 
 export const customersApi = {
@@ -18,6 +20,16 @@ export const customersApi = {
   getCustomer: (id: string) =>
     apiClient
       .get<CustomerRecord>(`/tenant/customers/${id}`)
+      .then((r) => r.data),
+
+  getCustomerVersions: (id: string) =>
+    apiClient
+      .get<CustomerVersionRecord[]>(`/tenant/customers/${id}/versions`)
+      .then((r) => r.data),
+
+  getCustomerAuditHistory: (id: string) =>
+    apiClient
+      .get<CustomerAuditLogRecord[]>(`/tenant/customers/${id}/audit-history`)
       .then((r) => r.data),
 
   createCustomer: (data: CustomerPayload) =>

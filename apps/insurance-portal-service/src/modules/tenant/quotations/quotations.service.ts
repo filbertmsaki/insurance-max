@@ -52,6 +52,7 @@ import { CustomerPolicyHolderType } from '../customers/enums/customer-policy-hol
 import { CustomerType } from '../customers/enums/customer-type.enum';
 import { CustomerStatus } from '../customers/enums/customer-status.enum';
 import { Customer } from '../customers/entities/customer.entity';
+import { CustomerVersion } from '../customers/entities/customer-version.entity';
 import { InsuredAsset } from '../customers/entities/insured-asset.entity';
 import { Department } from '../departments/entities/department.entity';
 import { User } from '../users/entities/user.entity';
@@ -112,6 +113,7 @@ import { QuotationPayloadValidator } from './services/quotation-payload.validato
 import { normalizeMotorTextValue } from './utils/motor-text.util';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
+import { MotorVehicleVersion } from '../motor/entities/motor-vehicle-version.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
@@ -7379,10 +7381,21 @@ export class QuotationsService {
     customerId: string | null,
   ): Promise<void> {
     const repository = manager.getRepository(QuotationPolicyHolder);
+    const currentCustomerVersion = customerId
+      ? await manager.getRepository(CustomerVersion).findOne({
+          where: {
+            customer_id: customerId,
+            is_current_version: true,
+          },
+          order: { version_number: 'DESC' },
+        })
+      : null;
     const entities = holders.map((holder, index) =>
       repository.create({
         quotation_id: quotationId,
         customer_id: index === 0 ? customerId : null,
+        customer_version_id:
+          index === 0 ? (currentCustomerVersion?.id ?? null) : null,
         sequence_no: index + 1,
         policy_holder_name: holder.policy_holder_name.trim(),
         policy_holder_birth_date: holder.policy_holder_birth_date,
@@ -7510,14 +7523,65 @@ export class QuotationsService {
 
     if (input.motor_dtl) {
       const motorRepository = manager.getRepository(QuotationMotorDetail);
+      const motorVehicleVersionId = customerId
+        ? await this.resolveCurrentMotorVehicleVersionId(
+            manager,
+            quotation.company_id,
+            customerId,
+            input.motor_dtl,
+          )
+        : null;
 
       await motorRepository.save(
         motorRepository.create({
           entry_id: entry.id,
+          motor_vehicle_version_id: motorVehicleVersionId,
           ...this.mapMotorForPersistence(input.motor_dtl),
         }),
       );
     }
+  }
+
+  private async resolveCurrentMotorVehicleVersionId(
+    manager: EntityManager,
+    companyId: string,
+    customerId: string,
+    motor: MotorDetailDto,
+  ): Promise<string | null> {
+    const registrationNumber =
+      normalizeMotorTextValue(motor.registration_number) ?? '';
+    const chassisNumber = normalizeMotorTextValue(motor.chassis_number) ?? '';
+    const engineNumber = normalizeMotorTextValue(motor.engine_number) ?? '';
+    const vehicle = await manager
+      .getRepository(MotorVehicle)
+      .createQueryBuilder('vehicle')
+      .where('vehicle.company_id = :companyId', { companyId })
+      .andWhere('vehicle.customer_id = :customerId', { customerId })
+      .andWhere('vehicle.deleted_at IS NULL')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where(
+            'UPPER(TRIM(vehicle.registration_no)) = :registrationNumber',
+            { registrationNumber },
+          );
+          qb.orWhere('UPPER(TRIM(vehicle.chassis_no)) = :chassisNumber', {
+            chassisNumber,
+          });
+          qb.orWhere('UPPER(TRIM(vehicle.engine_no)) = :engineNumber', {
+            engineNumber,
+          });
+        }),
+      )
+      .getOne();
+
+    if (!vehicle) return null;
+
+    const version = await manager.getRepository(MotorVehicleVersion).findOne({
+      where: { motor_vehicle_id: vehicle.id, is_current_version: true },
+      order: { version_number: 'DESC' },
+    });
+
+    return version?.id ?? null;
   }
 
   private async persistMotorVehicle(
