@@ -776,30 +776,48 @@ export class PublicMotorPurchaseService {
 
   private mapTiramisCover(result: unknown, registration: string) {
     const response = result as Record<string, unknown>;
-    const details = this.asRecord(response['verifiedRecordDetails']);
+    const details = this.verificationDetails(response['verifiedRecordDetails']);
 
     return {
       vehicle_registration_number:
         this.firstText(details, [
           'motorRegistrationNumber',
+          'MotorRegistrationNumber',
           'registrationNumber',
+          'RegistrationNumber',
         ]) ?? registration,
-      cover_type: this.firstText(details, ['coverType', 'cover_note_type']),
+      cover_type: this.firstText(details, [
+        'coverType',
+        'cover_note_type',
+        'CoverNoteTypeDesc',
+        'CoverNoteType',
+        'ProductName',
+      ]),
       insurance_company: this.firstText(details, [
         'insuranceCompany',
         'insurerName',
         'companyName',
+        'InsurerCompanyName',
+        'TransactionCompanyName',
+        'InsurerCompanyCode',
       ]),
       cover_start_date: this.firstText(details, [
         'coverNoteStartDate',
+        'CoverNoteStartDate',
         'coverStartDate',
+        'CoverStartDate',
         'startDate',
+        'StartDate',
       ]),
       cover_end_date: this.firstText(details, [
         'coverNoteEndDate',
+        'CoverNoteEndDate',
         'coverEndDate',
+        'CoverEndDate',
         'expiryDate',
+        'ExpiryDate',
         'endDate',
+        'EndDate',
       ]),
     };
   }
@@ -810,55 +828,112 @@ export class PublicMotorPurchaseService {
     ownerName: string,
   ) {
     const response = verification as Record<string, unknown> | null;
-    const details = this.asRecord(response?.['verifiedRecordDetails']);
+    const details = this.verificationDetails(
+      response?.['verifiedRecordDetails'],
+    );
 
     return {
       motor_category: MotorVerificationCategory.MOTOR_VEHICLE,
-      motor_type: this.firstNumber(details, ['motorType', 'motor_type']) ?? 1,
+      motor_type:
+        this.firstNumber(details, ['motorType', 'MotorType', 'motor_type']) ??
+        1,
       registration_number:
         this.firstText(details, [
           'motorRegistrationNumber',
+          'MotorRegistrationNumber',
           'registrationNumber',
+          'RegistrationNumber',
           'registration_no',
         ]) ?? registration,
       chassis_number:
-        this.firstText(details, ['chassisNumber', 'chassis_no']) ?? '',
-      make: this.firstText(details, ['make', 'motorMake']) ?? '',
-      model: this.firstText(details, ['model', 'motorModel']) ?? '',
-      model_number: this.firstText(details, ['modelNumber', 'model_no']) ?? '',
-      body_type: this.firstText(details, ['bodyType', 'body_type']) ?? '',
-      color: this.firstText(details, ['color', 'colour']) ?? '',
+        this.firstText(details, [
+          'chassisNumber',
+          'ChassisNumber',
+          'chassis_no',
+        ]) ?? '',
+      make: this.firstText(details, ['make', 'Make', 'motorMake']) ?? '',
+      model: this.firstText(details, ['model', 'Model', 'motorModel']) ?? '',
+      model_number:
+        this.firstText(details, ['modelNumber', 'ModelNumber', 'model_no']) ??
+        '',
+      body_type:
+        this.firstText(details, ['bodyType', 'BodyType', 'body_type']) ?? '',
+      color: this.firstText(details, ['color', 'Color', 'colour']) ?? '',
       engine_number:
-        this.firstText(details, ['engineNumber', 'engine_no']) ?? '',
+        this.firstText(details, [
+          'engineNumber',
+          'EngineNumber',
+          'engine_no',
+        ]) ?? '',
       engine_capacity:
-        this.firstText(details, ['engineCapacity', 'cubicCapacity']) ?? '',
-      fuel_used: this.firstText(details, ['fuelUsed', 'fuelType']) ?? '',
+        this.firstText(details, [
+          'engineCapacity',
+          'EngineCapacity',
+          'cubicCapacity',
+        ]) ?? '',
+      fuel_used:
+        this.firstText(details, ['fuelUsed', 'FuelUsed', 'fuelType']) ?? '',
       number_of_axles:
-        this.firstNumber(details, ['numberOfAxles', 'number_of_axles']) ?? 2,
+        this.firstNumber(details, [
+          'numberOfAxles',
+          'NumberOfAxles',
+          'number_of_axles',
+        ]) ?? 2,
       axle_distance:
-        this.firstNumber(details, ['axleDistance', 'axle_distance']) ?? 0,
+        this.firstNumber(details, [
+          'axleDistance',
+          'AxleDistance',
+          'axle_distance',
+        ]) ?? 0,
       sitting_capacity:
-        this.firstNumber(details, ['sittingCapacity', 'seatingCapacity']) ?? 1,
+        this.firstNumber(details, [
+          'sittingCapacity',
+          'SittingCapacity',
+          'seatingCapacity',
+        ]) ?? 1,
       year_of_manufacture:
         this.firstNumber(details, [
           'yearOfManufacture',
+          'YearOfManufacture',
           'manufactureYear',
           'manufacture_year',
         ]) ?? new Date().getFullYear(),
       tare_weight:
-        this.firstNumber(details, ['tareWeight', 'tare_weight']) ?? 0,
+        this.firstNumber(details, [
+          'tareWeight',
+          'TareWeight',
+          'tare_weight',
+        ]) ?? 0,
       gross_weight:
-        this.firstNumber(details, ['grossWeight', 'gross_weight']) ?? 0,
+        this.firstNumber(details, [
+          'grossWeight',
+          'GrossWeight',
+          'gross_weight',
+        ]) ?? 0,
       motor_usage:
-        this.firstNumber(details, ['motorUsage', 'motor_usage']) ?? 1,
+        this.firstNumber(details, [
+          'motorUsage',
+          'MotorUsage',
+          'motor_usage',
+        ]) ?? 1,
       owner_name:
-        this.firstText(details, ['ownerName', 'registeredOwnerName']) ??
-        ownerName,
+        this.firstText(details, [
+          'ownerName',
+          'OwnerName',
+          'registeredOwnerName',
+        ]) ?? ownerName,
       owner_category:
-        this.firstNumber(details, ['ownerCategory', 'owner_category']) ?? 1,
+        this.firstNumber(details, [
+          'ownerCategory',
+          'OwnerCategory',
+          'owner_category',
+        ]) ?? 1,
       owner_address:
-        this.firstText(details, ['ownerAddress', 'registeredOwnerAddress']) ??
-        '',
+        this.firstText(details, [
+          'ownerAddress',
+          'OwnerAddress',
+          'registeredOwnerAddress',
+        ]) ?? '',
     };
   }
 
@@ -984,6 +1059,18 @@ export class PublicMotorPurchaseService {
     return value && typeof value === 'object'
       ? (value as Record<string, unknown>)
       : {};
+  }
+
+  private verificationDetails(value: unknown): Record<string, unknown> {
+    const record = this.asRecord(value);
+    const responseDetails = this.asRecord(record['responseDetails']);
+    const details = this.asRecord(record['details']);
+
+    return {
+      ...record,
+      ...responseDetails,
+      ...details,
+    };
   }
 
   private firstText(

@@ -468,6 +468,20 @@ function money(value: number | string | null | undefined) {
   }).format(Number.isFinite(amount) ? amount : 0);
 }
 
+function coverValue(
+  cover: Record<string, unknown>,
+  keys: string[],
+  fallback = 'Not provided',
+) {
+  for (const key of keys) {
+    const value = cover[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number') return String(value);
+  }
+
+  return fallback;
+}
+
 function getCategoryIcon(category: PublicCatalogueCategory, index: number) {
   const name = category.name.toLowerCase();
   const code = category.code.toLowerCase();
@@ -1809,26 +1823,66 @@ function MotorInsurancePurchasePage() {
                 <div className="motor-summary-grid">
                   <SummaryItem
                     label="Registration"
-                    value={String(
-                      activeCover.vehicle_registration_number ??
-                        intake.registrationNumber,
+                    value={coverValue(
+                      activeCover,
+                      [
+                        'vehicle_registration_number',
+                        'motorRegistrationNumber',
+                        'MotorRegistrationNumber',
+                        'registrationNumber',
+                        'RegistrationNumber',
+                      ],
+                      intake.registrationNumber,
                     )}
                   />
                   <SummaryItem
                     label="Cover"
-                    value={String(activeCover.cover_type ?? 'Available')}
+                    value={coverValue(activeCover, [
+                      'cover_type',
+                      'coverType',
+                      'CoverNoteTypeDesc',
+                      'CoverNoteType',
+                      'ProductName',
+                    ])}
                   />
                   <SummaryItem
                     label="Company"
-                    value={String(activeCover.insurance_company ?? 'Available')}
+                    value={coverValue(activeCover, [
+                      'insurance_company',
+                      'insuranceCompany',
+                      'insurerName',
+                      'companyName',
+                      'InsurerCompanyName',
+                      'TransactionCompanyName',
+                      'InsurerCompanyCode',
+                    ])}
                   />
                   <SummaryItem
                     label="Start Date"
-                    value={String(activeCover.cover_start_date ?? 'Available')}
+                    value={coverValue(activeCover, [
+                      'cover_start_date',
+                      'coverNoteStartDate',
+                      'CoverNoteStartDate',
+                      'coverStartDate',
+                      'CoverStartDate',
+                      'startDate',
+                      'StartDate',
+                      'CoverNoteIssueDate',
+                    ])}
                   />
                   <SummaryItem
                     label="End Date"
-                    value={String(activeCover.cover_end_date ?? 'Available')}
+                    value={coverValue(activeCover, [
+                      'cover_end_date',
+                      'coverNoteEndDate',
+                      'CoverNoteEndDate',
+                      'coverEndDate',
+                      'CoverEndDate',
+                      'expiryDate',
+                      'ExpiryDate',
+                      'endDate',
+                      'EndDate',
+                    ])}
                   />
                 </div>
                 <div className="motor-actions">
