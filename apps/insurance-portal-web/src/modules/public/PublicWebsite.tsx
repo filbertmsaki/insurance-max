@@ -13,9 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
-  ClipboardCheck,
-  FileCheck2,
-  Headphones,
   HeartPulse,
   Home as HomeIcon,
   Mail,
@@ -25,9 +22,7 @@ import {
   Plane,
   ShieldCheck,
   Ship,
-  Smartphone,
   UserRound,
-  WalletCards,
   X,
 } from 'lucide-react';
 
@@ -257,71 +252,6 @@ const heroSlides = [
       'https://images.unsplash.com/photo-1556745757-8d76bdb6984b?auto=format&fit=crop&w=1400&q=80',
     alt: 'Person securely completing a digital service on a laptop',
   },
-];
-
-const quickActions = [
-  {
-    title: 'Buy Insurance',
-    body: 'Find the right cover.',
-    path: '/buy-cover',
-    icon: FileCheck2,
-  },
-  {
-    title: 'My Policies',
-    body: 'Access policies after login.',
-    path: '/customer/policies',
-    icon: ShieldCheck,
-  },
-  {
-    title: 'Make a Claim',
-    body: 'Access claim services.',
-    path: '/customer/claims',
-    icon: ClipboardCheck,
-  },
-  {
-    title: 'Get Support',
-    body: 'Contact our support team.',
-    path: '/contact',
-    icon: Headphones,
-  },
-];
-
-const trustItems = [
-  {
-    title: 'Simple Insurance Purchase',
-    body: 'Plain language and clear steps help you move with confidence.',
-    icon: Check,
-  },
-  {
-    title: 'Secure Transactions',
-    body: 'Account access and customer information are handled through the existing secure portal.',
-    icon: ShieldCheck,
-  },
-  {
-    title: 'Multiple Insurance Products',
-    body: 'Start with motor, health, travel, property, business and other general cover.',
-    icon: WalletCards,
-  },
-  {
-    title: 'Convenient Self-Service',
-    body: 'Return to your account when you need policies, claims or documents.',
-    icon: Smartphone,
-  },
-];
-
-const howItWorks = [
-  ['1', 'Choose Insurance', 'Select the cover that matches your needs.'],
-  [
-    '2',
-    'Provide Your Details',
-    'Share the information required for the selected product.',
-  ],
-  [
-    '3',
-    'Review & Pay',
-    'Confirm your details and complete the next step securely.',
-  ],
-  ['4', 'Get Covered', 'Access your insurance documents digitally.'],
 ];
 
 const contactSchema = z.object({
@@ -834,23 +764,7 @@ function CategoryCard({
         <Icon size={22} aria-hidden="true" />
       </div>
       <h3>{category.name}</h3>
-      <p>
-        {category.product_count} active product
-        {category.product_count === 1 ? '' : 's'}
-      </p>
-      {category.products.length > 0 && (
-        <div
-          className="category-products"
-          aria-label={`${category.name} products`}
-        >
-          {category.products.slice(0, 2).map((product) => (
-            <span key={product.id}>{product.name}</span>
-          ))}
-          {category.products.length > 2 && (
-            <span>+{category.products.length - 2} more</span>
-          )}
-        </div>
-      )}
+      <p>Sample cover available for preview.</p>
       <Link to={path} aria-label={`Explore ${category.name}`}>
         Explore <ArrowRight size={16} aria-hidden="true" />
       </Link>
@@ -916,10 +830,10 @@ function HeroSlider() {
             <ShieldCheck size={18} aria-hidden="true" /> Secure access
           </span>
           <span>
-            <WalletCards size={18} aria-hidden="true" /> Digital purchase
+            <Check size={18} aria-hidden="true" /> Digital purchase
           </span>
           <span>
-            <Headphones size={18} aria-hidden="true" /> Support ready
+            <CircleHelp size={18} aria-hidden="true" /> Support ready
           </span>
         </div>
 
@@ -964,7 +878,7 @@ function HomePage() {
     'Discover and buy insurance through a clear, secure digital experience with Insurance Max.',
   );
 
-  const catalogue = useDisplayedCatalogue(8);
+  const catalogue = useDisplayedCatalogue(3);
 
   return (
     <PublicLayout>
@@ -974,8 +888,8 @@ function HomePage() {
         <section className="public-section categories-section">
           <div className="public-container">
             <SectionHeader
-              eyebrow="Explore Insurance"
-              title="Current products on the platform."
+              eyebrow="Sample Covers"
+              title="A few insurance options."
             />
             {catalogue.categories.length ? (
               <div className="category-grid">
@@ -996,88 +910,9 @@ function HomePage() {
           </div>
         </section>
 
-        <QuickActionSection />
-        <WhyInsuranceMax />
-        <HowItWorks />
         <CTASection />
       </main>
     </PublicLayout>
-  );
-}
-
-function QuickActionSection() {
-  return (
-    <section className="quick-section">
-      <div className="public-container quick-layout">
-        <SectionHeader
-          eyebrow="Quick Actions"
-          title="What would you like to do?"
-        />
-        <div className="quick-actions">
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Link to={action.path} key={action.title}>
-                <Icon aria-hidden="true" />
-                <span>
-                  <strong>{action.title}</strong>
-                  <small>{action.body}</small>
-                </span>
-                <ArrowRight aria-hidden="true" />
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function WhyInsuranceMax() {
-  return (
-    <section className="public-section trust-section">
-      <div className="public-container">
-        <SectionHeader
-          eyebrow="Why Insurance Max"
-          title="Clearer insurance, from start to finish."
-          body="Insurance Max focuses on useful paths, secure access and plain decisions, without burying customers in insurance terminology."
-        />
-        <div className="feature-grid">
-          {trustItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <article className="feature-card" key={item.title}>
-                <Icon size={22} aria-hidden="true" />
-                <h3>{item.title}</h3>
-                <p>{item.body}</p>
-              </article>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HowItWorks() {
-  return (
-    <section className="steps-section">
-      <div className="public-container">
-        <SectionHeader
-          eyebrow="How It Works"
-          title="A straightforward path to getting covered."
-        />
-        <div className="steps-grid">
-          {howItWorks.map(([number, title, body]) => (
-            <article className="step" key={number}>
-              <span>{number}</span>
-              <h3>{title}</h3>
-              <p>{body}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -1137,51 +972,21 @@ function AboutPage() {
       <main>
         <PageIntro
           eyebrow="About Insurance Max"
-          title="Making insurance simpler and more accessible."
-          body="Insurance Max brings insurance discovery, purchasing and account access into a clearer digital experience."
+          title="Simple digital insurance."
+          body="A short preview page for customers to understand the service."
         />
-
-        <section className="public-section about-story">
-          <div className="public-container about-grid">
-            <div>
-              <SectionHeader
-                eyebrow="About Insurance Max"
-                title="A better way to navigate insurance."
-                body="The platform helps customers explore insurance categories, understand the next step and return to a secure portal for their policies, claims and documents."
-              />
-            </div>
-            <div className="purpose-panel">
-              <ShieldCheck size={28} aria-hidden="true" />
-              <h3>Our purpose</h3>
-              <p>
-                Reduce friction in insurance discovery, purchase and management
-                so customers can act with more confidence.
-              </p>
-            </div>
-          </div>
-        </section>
 
         <section className="public-section values-section">
           <div className="public-container">
-            <SectionHeader
-              eyebrow="Mission & Vision"
-              title="Built around clarity, access and service."
-              body="These statements are intentionally concise and can be replaced with formally approved company language when available."
-            />
+            <SectionHeader eyebrow="Overview" title="What this portal shows." />
             <div className="value-grid">
               {[
                 [
-                  'Mission',
-                  'To make insurance easier to discover, buy and manage through practical digital tools.',
+                  'Buy Cover',
+                  'Start a public insurance request from a simple form.',
                 ],
-                [
-                  'Vision',
-                  'A more accessible insurance experience for customers and businesses.',
-                ],
-                [
-                  'What We Offer',
-                  'Insurance discovery, customer self-service and clear routes into support.',
-                ],
+                ['View Products', 'Preview a few active product categories.'],
+                ['Get Support', 'Send a short enquiry to the support team.'],
               ].map(([title, body], index) => (
                 <article className="value-item" key={title}>
                   <span>0{index + 1}</span>
@@ -1192,9 +997,6 @@ function AboutPage() {
             </div>
           </div>
         </section>
-
-        <WhyInsuranceMax />
-        <CTASection />
       </main>
     </PublicLayout>
   );
@@ -2515,7 +2317,7 @@ function InsurancePage() {
     'Explore insurance categories available through Insurance Max.',
   );
 
-  const catalogue = useDisplayedCatalogue();
+  const catalogue = useDisplayedCatalogue(4);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const activeCategory =
     catalogue.categories.find((category) => category.id === activeCategoryId) ??
@@ -2526,8 +2328,8 @@ function InsurancePage() {
       <main>
         <PageIntro
           eyebrow="Insurance Products"
-          title="Products available now."
-          body="Browse active categories and products currently offered through Insurance Max."
+          title="Sample products."
+          body="A small preview of covers available through Insurance Max."
         />
         <section className="public-section">
           <div className="public-container">
@@ -2556,10 +2358,7 @@ function InsurancePage() {
                         </span>
                         <span>
                           <strong>{category.name}</strong>
-                          <small>
-                            {category.product_count} product
-                            {category.product_count === 1 ? '' : 's'}
-                          </small>
+                          <small>Sample category</small>
                         </span>
                       </button>
                     );
@@ -2575,25 +2374,21 @@ function InsurancePage() {
                   >
                     <div className="catalogue-panel-header">
                       <h2>{activeCategory.name}</h2>
-                      <span>
-                        {activeCategory.product_count} active product
-                        {activeCategory.product_count === 1 ? '' : 's'}
-                      </span>
+                      <span>Sample products</span>
                     </div>
 
                     <div className="product-grid">
-                      {activeCategory.products.map((product) => (
+                      {activeCategory.products.slice(0, 3).map((product) => (
                         <article className="product-card" key={product.id}>
                           <div>
                             <h3>{product.name}</h3>
                             <p>
                               {product.description ||
-                                'Product details are available when you continue through the secure portal.'}
+                                'Short sample description for this cover.'}
                             </p>
                           </div>
                           <div className="product-meta">
                             <span>{product.company.name}</span>
-                            {product.supports_fleet && <span>Fleet ready</span>}
                           </div>
                           <Link to="/buy-cover">
                             Continue <ArrowRight size={16} aria-hidden="true" />
