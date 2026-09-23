@@ -1237,6 +1237,17 @@
   max-width: 780px;
 }
 
+.motor-fieldset {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.motor-fieldset h3 {
+  font-size: 16px;
+  font-weight: 800;
+}
+
 .motor-panel label,
 .motor-subgrid label {
   display: grid;
@@ -1248,7 +1259,8 @@
 
 .motor-panel input,
 .motor-panel select,
-.motor-subgrid input {
+.motor-subgrid input,
+.motor-subgrid select {
   width: 100%;
   padding: 13px;
   color: var(--ink);
@@ -1263,7 +1275,8 @@
 
 .motor-panel input:focus,
 .motor-panel select:focus,
-.motor-subgrid input:focus {
+.motor-subgrid input:focus,
+.motor-subgrid select:focus {
   border-color: var(--green);
   box-shadow: 0 0 0 3px rgba(22, 77, 60, 0.12);
 }

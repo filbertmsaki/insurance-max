@@ -1500,6 +1500,88 @@ function createDefaultPolicyHolder(
   };
 }
 
+function isBlank(value: string | null | undefined) {
+  return !value || !value.trim();
+}
+
+function validateTiraMotorPurchaseDetails(
+  vehicle: PublicMotorVehicle,
+  holder: PublicMotorHolder,
+) {
+  const missing: string[] = [];
+  const requiredVehicleFields: Array<[keyof PublicMotorVehicle, string]> = [
+    ['registration_number', 'vehicle registration number'],
+    ['chassis_number', 'chassis number'],
+    ['make', 'vehicle make'],
+    ['model', 'vehicle model'],
+    ['body_type', 'body type'],
+    ['color', 'color'],
+    ['engine_number', 'engine number'],
+    ['engine_capacity', 'engine capacity'],
+    ['fuel_used', 'fuel used'],
+    ['owner_name', 'owner name'],
+    ['owner_address', 'owner address'],
+  ];
+
+  requiredVehicleFields.forEach(([key, label]) => {
+    const value = vehicle[key];
+    if (typeof value === 'string' && isBlank(value)) missing.push(label);
+  });
+
+  if (
+    vehicle.chassis_number &&
+    !/^[A-Za-z0-9-]{6,100}$/.test(vehicle.chassis_number.trim())
+  ) {
+    missing.push('valid chassis number');
+  }
+  if (
+    vehicle.engine_number &&
+    !/^[A-Za-z0-9-]{3,100}$/.test(vehicle.engine_number.trim())
+  ) {
+    missing.push('valid engine number');
+  }
+  if (Number(vehicle.engine_capacity) <= 0)
+    missing.push('positive engine capacity');
+  if (vehicle.axle_distance <= 0)
+    missing.push('axle distance greater than zero');
+  if (vehicle.tare_weight <= 0) missing.push('tare weight greater than zero');
+  if (vehicle.gross_weight <= 0) missing.push('gross weight greater than zero');
+  if (
+    vehicle.gross_weight > 0 &&
+    vehicle.tare_weight > 0 &&
+    vehicle.gross_weight < vehicle.tare_weight
+  ) {
+    missing.push('gross weight not less than tare weight');
+  }
+
+  const requiredHolderFields: Array<[keyof PublicMotorHolder, string]> = [
+    ['policy_holder_name', 'policy holder name'],
+    ['policy_holder_birth_date', 'date of birth'],
+    ['policy_holder_id_number', 'ID number'],
+    ['country_code', 'country code'],
+    ['region', 'region'],
+    ['district', 'district'],
+    ['policy_holder_phone_number', 'phone number'],
+  ];
+
+  requiredHolderFields.forEach(([key, label]) => {
+    const value = holder[key];
+    if (typeof value === 'string' && isBlank(value)) missing.push(label);
+  });
+
+  if (holder.policy_holder_type === 1 && !holder.gender) {
+    missing.push('gender');
+  }
+  if (!/^[A-Z]{3}$/.test(holder.country_code.trim().toUpperCase())) {
+    missing.push('three-letter country code');
+  }
+  if (!/^\+?[0-9]{9,15}$/.test(holder.policy_holder_phone_number.trim())) {
+    missing.push('valid phone number');
+  }
+
+  return missing;
+}
+
 function MotorInsurancePurchasePage() {
   usePageMeta(
     'Get Insurance | Insurance Max',
@@ -1633,6 +1715,16 @@ function MotorInsurancePurchasePage() {
 
     if (!selectedCompany || !selectedProduct || !selectedRisk) {
       setError('Select an insurance company, product and cover.');
+      return;
+    }
+
+    const missingDetails = validateTiraMotorPurchaseDetails(vehicle, holder);
+    if (missingDetails.length) {
+      setError(
+        `Complete the required TIRA details: ${missingDetails
+          .slice(0, 6)
+          .join(', ')}${missingDetails.length > 6 ? '...' : ''}.`,
+      );
       return;
     }
 
@@ -1996,98 +2088,259 @@ function MotorInsurancePurchasePage() {
                       </PublicField>
                     </div>
 
-                    <div className="motor-subgrid">
-                      <MotorInput
-                        label="Chassis Number"
-                        value={vehicle.chassis_number}
-                        onChange={(value) =>
-                          updateVehicle('chassis_number', value)
-                        }
-                      />
-                      <MotorInput
-                        label="Make"
-                        value={vehicle.make}
-                        onChange={(value) => updateVehicle('make', value)}
-                      />
-                      <MotorInput
-                        label="Model"
-                        value={vehicle.model}
-                        onChange={(value) => updateVehicle('model', value)}
-                      />
-                      <MotorInput
-                        label="Body Type"
-                        value={vehicle.body_type}
-                        onChange={(value) => updateVehicle('body_type', value)}
-                      />
-                      <MotorInput
-                        label="Engine Number"
-                        value={vehicle.engine_number}
-                        onChange={(value) =>
-                          updateVehicle('engine_number', value)
-                        }
-                      />
-                      <MotorInput
-                        label="Engine Capacity"
-                        value={vehicle.engine_capacity}
-                        onChange={(value) =>
-                          updateVehicle('engine_capacity', value)
-                        }
-                      />
-                      <MotorNumberInput
-                        label="Year"
-                        value={vehicle.year_of_manufacture}
-                        onChange={(value) =>
-                          updateVehicle('year_of_manufacture', value)
-                        }
-                      />
-                      <MotorNumberInput
-                        label="Seats"
-                        value={vehicle.sitting_capacity}
-                        onChange={(value) =>
-                          updateVehicle('sitting_capacity', value)
-                        }
-                      />
+                    <div className="motor-fieldset">
+                      <h3>Motor details</h3>
+                      <div className="motor-subgrid">
+                        <MotorInput
+                          label="Chassis Number"
+                          value={vehicle.chassis_number}
+                          onChange={(value) =>
+                            updateVehicle('chassis_number', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Make"
+                          value={vehicle.make}
+                          onChange={(value) => updateVehicle('make', value)}
+                        />
+                        <MotorInput
+                          label="Model"
+                          value={vehicle.model}
+                          onChange={(value) => updateVehicle('model', value)}
+                        />
+                        <MotorInput
+                          label="Model Number"
+                          value={vehicle.model_number ?? ''}
+                          onChange={(value) =>
+                            updateVehicle('model_number', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Body Type"
+                          value={vehicle.body_type}
+                          onChange={(value) =>
+                            updateVehicle('body_type', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Color"
+                          value={vehicle.color}
+                          onChange={(value) => updateVehicle('color', value)}
+                        />
+                        <MotorInput
+                          label="Engine Number"
+                          value={vehicle.engine_number}
+                          onChange={(value) =>
+                            updateVehicle('engine_number', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Engine Capacity"
+                          inputMode="numeric"
+                          value={vehicle.engine_capacity}
+                          onChange={(value) =>
+                            updateVehicle('engine_capacity', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Fuel Used"
+                          value={vehicle.fuel_used}
+                          onChange={(value) =>
+                            updateVehicle('fuel_used', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Number of Axles"
+                          value={vehicle.number_of_axles}
+                          onChange={(value) =>
+                            updateVehicle('number_of_axles', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Axle Distance"
+                          value={vehicle.axle_distance}
+                          onChange={(value) =>
+                            updateVehicle('axle_distance', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Seats"
+                          value={vehicle.sitting_capacity}
+                          onChange={(value) =>
+                            updateVehicle('sitting_capacity', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Year"
+                          value={vehicle.year_of_manufacture}
+                          onChange={(value) =>
+                            updateVehicle('year_of_manufacture', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Tare Weight"
+                          value={vehicle.tare_weight}
+                          onChange={(value) =>
+                            updateVehicle('tare_weight', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Gross Weight"
+                          value={vehicle.gross_weight}
+                          onChange={(value) =>
+                            updateVehicle('gross_weight', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Motor Usage"
+                          value={vehicle.motor_usage}
+                          onChange={(value) =>
+                            updateVehicle('motor_usage', value)
+                          }
+                        />
+                      </div>
                     </div>
 
-                    <div className="motor-subgrid">
-                      <MotorInput
-                        label="ID Number"
-                        value={holder.policy_holder_id_number}
-                        onChange={(value) =>
-                          updateHolder('policy_holder_id_number', value)
-                        }
-                      />
-                      <MotorInput
-                        label="Date of Birth"
-                        type="date"
-                        value={holder.policy_holder_birth_date}
-                        onChange={(value) =>
-                          updateHolder('policy_holder_birth_date', value)
-                        }
-                      />
-                      <MotorInput
-                        label="Email"
-                        type="email"
-                        value={holder.email_address ?? ''}
-                        onChange={(value) =>
-                          updateHolder('email_address', value)
-                        }
-                      />
-                      <MotorInput
-                        label="Region"
-                        value={holder.region}
-                        onChange={(value) => updateHolder('region', value)}
-                      />
-                      <MotorInput
-                        label="District"
-                        value={holder.district}
-                        onChange={(value) => updateHolder('district', value)}
-                      />
-                      <MotorInput
-                        label="Street"
-                        value={holder.street ?? ''}
-                        onChange={(value) => updateHolder('street', value)}
-                      />
+                    <div className="motor-fieldset">
+                      <h3>Owner details</h3>
+                      <div className="motor-subgrid">
+                        <MotorInput
+                          label="Owner Name"
+                          value={vehicle.owner_name}
+                          onChange={(value) =>
+                            updateVehicle('owner_name', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Owner Category"
+                          value={vehicle.owner_category}
+                          onChange={(value) =>
+                            updateVehicle('owner_category', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Owner Address"
+                          value={vehicle.owner_address}
+                          onChange={(value) =>
+                            updateVehicle('owner_address', value)
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    <div className="motor-fieldset">
+                      <h3>Policy holder details</h3>
+                      <div className="motor-subgrid">
+                        <MotorInput
+                          label="Policy Holder Name"
+                          value={holder.policy_holder_name}
+                          onChange={(value) =>
+                            updateHolder('policy_holder_name', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="Policy Holder Type"
+                          value={holder.policy_holder_type}
+                          onChange={(value) =>
+                            updateHolder('policy_holder_type', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Date of Birth"
+                          type="date"
+                          value={holder.policy_holder_birth_date}
+                          onChange={(value) =>
+                            updateHolder('policy_holder_birth_date', value)
+                          }
+                        />
+                        <MotorNumberInput
+                          label="ID Type"
+                          value={holder.policy_holder_id_type}
+                          onChange={(value) =>
+                            updateHolder('policy_holder_id_type', value)
+                          }
+                        />
+                        <MotorInput
+                          label="ID Number"
+                          value={holder.policy_holder_id_number}
+                          onChange={(value) =>
+                            updateHolder('policy_holder_id_number', value)
+                          }
+                        />
+                        <label htmlFor="motor-policy-holder-gender">
+                          <span>Gender</span>
+                          <select
+                            id="motor-policy-holder-gender"
+                            value={holder.gender ?? ''}
+                            onChange={(event) =>
+                              updateHolder(
+                                'gender',
+                                (event.target.value || null) as
+                                  | 'M'
+                                  | 'F'
+                                  | null,
+                              )
+                            }
+                          >
+                            <option value="">Select gender</option>
+                            <option value="M">Male</option>
+                            <option value="F">Female</option>
+                          </select>
+                        </label>
+                        <MotorInput
+                          label="Country Code"
+                          value={holder.country_code}
+                          onChange={(value) =>
+                            updateHolder('country_code', value.toUpperCase())
+                          }
+                        />
+                        <MotorInput
+                          label="Region"
+                          value={holder.region}
+                          onChange={(value) => updateHolder('region', value)}
+                        />
+                        <MotorInput
+                          label="District"
+                          value={holder.district}
+                          onChange={(value) => updateHolder('district', value)}
+                        />
+                        <MotorInput
+                          label="Street"
+                          value={holder.street ?? ''}
+                          onChange={(value) => updateHolder('street', value)}
+                        />
+                        <MotorInput
+                          label="Phone Number"
+                          inputMode="tel"
+                          value={holder.policy_holder_phone_number}
+                          onChange={(value) =>
+                            updateHolder('policy_holder_phone_number', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Postal Address"
+                          value={holder.postal_address ?? ''}
+                          onChange={(value) =>
+                            updateHolder('postal_address', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Email"
+                          type="email"
+                          value={holder.email_address ?? ''}
+                          onChange={(value) =>
+                            updateHolder('email_address', value)
+                          }
+                        />
+                        <MotorInput
+                          label="Fax"
+                          inputMode="tel"
+                          value={holder.policy_holder_fax ?? ''}
+                          onChange={(value) =>
+                            updateHolder('policy_holder_fax', value)
+                          }
+                        />
+                      </div>
                     </div>
 
                     <button
@@ -2177,11 +2430,13 @@ function MotorInput({
   value,
   onChange,
   type = 'text',
+  inputMode,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
 }) {
   const id = `motor-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
@@ -2191,6 +2446,7 @@ function MotorInput({
       <input
         id={id}
         type={type}
+        inputMode={inputMode}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
