@@ -389,6 +389,10 @@
   padding: 104px 0;
 }
 
+.motor-purchase-section {
+  padding-top: 54px;
+}
+
 .section-header {
   max-width: 610px;
 }
@@ -1194,8 +1198,8 @@
 .motor-progress span {
   display: grid;
   gap: 7px;
-  min-height: 74px;
-  padding: 12px;
+  min-height: 56px;
+  padding: 10px 12px;
   color: var(--muted);
   background: var(--surface);
   border: 1px solid var(--line);

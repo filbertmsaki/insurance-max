@@ -1500,55 +1500,6 @@ function createDefaultPolicyHolder(
   };
 }
 
-function readStoredMotorIntake(): MotorIntakeValues {
-  if (typeof window === 'undefined') {
-    return {
-      fullName: '',
-      registrationNumber: '',
-      phone: '',
-    };
-  }
-
-  const raw = window.sessionStorage.getItem('insurance-max.buy-cover-intake');
-  if (!raw) {
-    return {
-      fullName: '',
-      registrationNumber: '',
-      phone: '',
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      motor?: {
-        full_name?: string;
-        registration_number?: string;
-        phone?: string;
-      } | null;
-    };
-    const motor = parsed.motor;
-    if (!motor) {
-      return {
-        fullName: '',
-        registrationNumber: '',
-        phone: '',
-      };
-    }
-
-    return {
-      fullName: motor.full_name ?? '',
-      registrationNumber: motor.registration_number ?? '',
-      phone: motor.phone ?? '',
-    };
-  } catch {
-    return {
-      fullName: '',
-      registrationNumber: '',
-      phone: '',
-    };
-  }
-}
-
 function MotorInsurancePurchasePage() {
   usePageMeta(
     'Get Insurance | Insurance Max',
@@ -1557,16 +1508,19 @@ function MotorInsurancePurchasePage() {
 
   const navigate = useNavigate();
   const optionsQuery = usePublicMotorOptions();
-  const initialMotorIntake = useMemo(() => readStoredMotorIntake(), []);
-  const [intake, setIntake] = useState<MotorIntakeValues>(initialMotorIntake);
+  const [intake, setIntake] = useState<MotorIntakeValues>({
+    fullName: '',
+    registrationNumber: '',
+    phone: '',
+  });
   const [companyId, setCompanyId] = useState('');
   const [productId, setProductId] = useState('');
   const [riskId, setRiskId] = useState('');
   const [vehicle, setVehicle] = useState<PublicMotorVehicle>(
-    createDefaultMotorVehicle(initialMotorIntake),
+    createDefaultMotorVehicle(),
   );
   const [holder, setHolder] = useState<PublicMotorHolder>(
-    createDefaultPolicyHolder(initialMotorIntake),
+    createDefaultPolicyHolder(),
   );
   const [sumInsured, setSumInsured] = useState('');
   const [verified, setVerified] = useState(false);
@@ -1591,6 +1545,10 @@ function MotorInsurancePurchasePage() {
   const selectedRisk =
     selectedProduct?.risks.find((risk) => risk.id === riskId) ??
     selectedProduct?.risks[0];
+
+  useEffect(() => {
+    window.sessionStorage.removeItem('insurance-max.buy-cover-intake');
+  }, []);
 
   function customerMessage(errorValue: unknown) {
     const value = errorValue as {
@@ -1758,12 +1716,6 @@ function MotorInsurancePurchasePage() {
   return (
     <PublicLayout>
       <main>
-        <PageIntro
-          eyebrow="Get Insurance"
-          title="Get covered in one simple flow."
-          body="Enter the vehicle details, confirm the information, choose cover, then review and submit."
-        />
-
         <section className="public-section motor-purchase-section">
           <div className="public-container motor-purchase-layout">
             <div className="motor-progress" aria-label="Purchase progress">
