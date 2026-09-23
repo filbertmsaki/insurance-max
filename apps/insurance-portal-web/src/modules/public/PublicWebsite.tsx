@@ -826,9 +826,7 @@ function CategoryCard({
   index: number;
 }) {
   const Icon = category.icon;
-  const path = isMotorCatalogueCategory(category)
-    ? '/motor-insurance'
-    : '/insurance';
+  const path = isMotorCatalogueCategory(category) ? '/buy-cover' : '/insurance';
 
   return (
     <article className="category-card">
@@ -1553,8 +1551,8 @@ function readStoredMotorIntake(): MotorIntakeValues {
 
 function MotorInsurancePurchasePage() {
   usePageMeta(
-    'Motor Insurance | Insurance Max',
-    'Buy motor insurance through a simple public self-service flow.',
+    'Get Insurance | Insurance Max',
+    'Get insurance through a simple public self-service flow.',
   );
 
   const navigate = useNavigate();
@@ -1761,21 +1759,18 @@ function MotorInsurancePurchasePage() {
     <PublicLayout>
       <main>
         <PageIntro
-          eyebrow="Motor Insurance"
-          title="Buy cover for one vehicle."
-          body="Enter the registration details, confirm the vehicle and policy holder information, choose a configured motor cover, then review the quote before submission."
+          eyebrow="Get Insurance"
+          title="Get covered in one simple flow."
+          body="Enter the vehicle details, confirm the information, choose cover, then review and submit."
         />
 
         <section className="public-section motor-purchase-section">
           <div className="public-container motor-purchase-layout">
             <div className="motor-progress" aria-label="Purchase progress">
               {[
-                ['1', 'Vehicle Information'],
-                ['2', 'Verification'],
-                ['3', 'Vehicle & Policy Holder Details'],
-                ['4', 'Cover Selection'],
-                ['5', 'Summary'],
-                ['6', 'Submit'],
+                ['1', 'Check Vehicle'],
+                ['2', 'Details & Cover'],
+                ['3', 'Quote & Submit'],
               ].map(([number, label]) => (
                 <span key={label}>
                   <strong>{number}</strong>
@@ -1793,7 +1788,7 @@ function MotorInsurancePurchasePage() {
             {submitted ? (
               <div className="motor-result-panel">
                 <Check size={28} aria-hidden="true" />
-                <h2>Motor purchase submitted</h2>
+                <h2>Insurance request submitted</h2>
                 <p>
                   Your request has been sent for processing. Reference:{' '}
                   <strong>
@@ -1907,72 +1902,71 @@ function MotorInsurancePurchasePage() {
               </div>
             ) : (
               <>
-                <form className="motor-panel" onSubmit={verifyVehicle}>
-                  <SectionHeader
-                    eyebrow="Step 1"
-                    title="Initial vehicle information"
-                    body="Only these three details are needed to start. Vehicle information is retrieved where available."
-                  />
-                  <div className="form-row">
-                    <PublicField id="publicMotorFullName" label="Full Name">
-                      <input
-                        id="publicMotorFullName"
-                        autoComplete="name"
-                        value={intake.fullName}
-                        onChange={(event) =>
-                          setIntake((current) => ({
-                            ...current,
-                            fullName: event.target.value,
-                          }))
-                        }
-                      />
-                    </PublicField>
-                    <PublicField
-                      id="publicMotorRegistration"
-                      label="Vehicle Registration Number"
-                    >
-                      <input
-                        id="publicMotorRegistration"
-                        autoCapitalize="characters"
-                        value={intake.registrationNumber}
-                        onChange={(event) =>
-                          setIntake((current) => ({
-                            ...current,
-                            registrationNumber: event.target.value,
-                          }))
-                        }
-                      />
-                    </PublicField>
-                  </div>
-                  <PublicField id="publicMotorPhone" label="Phone Number">
-                    <input
-                      id="publicMotorPhone"
-                      autoComplete="tel"
-                      inputMode="tel"
-                      value={intake.phone}
-                      onChange={(event) =>
-                        setIntake((current) => ({
-                          ...current,
-                          phone: event.target.value,
-                        }))
-                      }
+                {!verified ? (
+                  <form className="motor-panel" onSubmit={verifyVehicle}>
+                    <SectionHeader
+                      eyebrow="Vehicle"
+                      title="Start with three details"
                     />
-                  </PublicField>
-                  <button
-                    className="button"
-                    type="submit"
-                    disabled={busy === 'verify' || optionsQuery.isLoading}
-                  >
-                    {busy === 'verify' ? 'Checking...' : 'Proceed'}
-                    <ArrowRight size={17} aria-hidden="true" />
-                  </button>
-                </form>
-
-                {verified && (
+                    <div className="form-row">
+                      <PublicField id="publicMotorFullName" label="Full Name">
+                        <input
+                          id="publicMotorFullName"
+                          autoComplete="name"
+                          value={intake.fullName}
+                          onChange={(event) =>
+                            setIntake((current) => ({
+                              ...current,
+                              fullName: event.target.value,
+                            }))
+                          }
+                        />
+                      </PublicField>
+                      <PublicField
+                        id="publicMotorRegistration"
+                        label="Vehicle Registration Number"
+                      >
+                        <input
+                          id="publicMotorRegistration"
+                          autoCapitalize="characters"
+                          value={intake.registrationNumber}
+                          onChange={(event) =>
+                            setIntake((current) => ({
+                              ...current,
+                              registrationNumber: event.target.value,
+                            }))
+                          }
+                        />
+                      </PublicField>
+                    </div>
+                    <PublicField id="publicMotorPhone" label="Phone Number">
+                      <input
+                        id="publicMotorPhone"
+                        autoComplete="tel"
+                        inputMode="tel"
+                        value={intake.phone}
+                        onChange={(event) =>
+                          setIntake((current) => ({
+                            ...current,
+                            phone: event.target.value,
+                          }))
+                        }
+                      />
+                    </PublicField>
+                    <button
+                      className="button"
+                      type="submit"
+                      disabled={busy === 'verify' || optionsQuery.isLoading}
+                    >
+                      {busy === 'verify' ? 'Checking...' : 'Check Vehicle'}
+                      <ArrowRight size={17} aria-hidden="true" />
+                    </button>
+                  </form>
+                ) : (
                   <form className="motor-panel" onSubmit={calculateQuote}>
                     <SectionHeader
-                      eyebrow="Steps 3 & 4"
-                      title="Confirm details and select cover"
+                      eyebrow="Details"
+                      title="Confirm details and choose cover"
                     />
 
                     <div className="form-row">
@@ -2157,7 +2151,7 @@ function MotorInsurancePurchasePage() {
 
                 {quote && (
                   <div className="motor-panel">
-                    <SectionHeader eyebrow="Step 5" title="Quote summary" />
+                    <SectionHeader eyebrow="Quote" title="Review and submit" />
                     <div className="motor-summary-grid">
                       <SummaryItem
                         label="Customer"
@@ -2304,195 +2298,7 @@ function PublicField({
 }
 
 function BuyCoverPage() {
-  usePageMeta(
-    'Buy Cover | Insurance Max',
-    'Start buying insurance by selecting a category and entering only the basic details needed to begin.',
-  );
-
-  const navigate = useNavigate();
-  const catalogue = useDisplayedCatalogue();
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
-    null,
-  );
-  const selectedCategory =
-    catalogue.categories.find(
-      (category) => category.id === selectedCategoryId,
-    ) ?? null;
-  const isMotorCategory = isMotorCatalogueCategory(selectedCategory);
-
-  const form = useForm<MotorIntakeValues>({
-    resolver: zodResolver(motorIntakeSchema),
-    defaultValues: {
-      fullName: '',
-      registrationNumber: '',
-      phone: '',
-    },
-  });
-
-  function continueToPurchase(values?: MotorIntakeValues) {
-    const payload = {
-      category_id: selectedCategory?.id ?? null,
-      category_name: selectedCategory?.name ?? null,
-      business_line: selectedCategory?.business_line ?? null,
-      motor:
-        values && isMotorCategory
-          ? {
-              full_name: values.fullName.trim(),
-              registration_number: values.registrationNumber
-                .trim()
-                .toUpperCase()
-                .replace(/\s+/g, ''),
-              phone: values.phone.trim(),
-            }
-          : null,
-    };
-
-    window.sessionStorage.setItem(
-      'insurance-max.buy-cover-intake',
-      JSON.stringify(payload),
-    );
-
-    if (isMotorCategory) {
-      navigate('/motor-insurance');
-      return;
-    }
-
-    navigate('/buy-cover');
-  }
-
-  function handleProceed(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedCategory) return;
-
-    if (isMotorCategory) {
-      void form.handleSubmit((values) => continueToPurchase(values))(event);
-      return;
-    }
-
-    continueToPurchase();
-  }
-
-  return (
-    <PublicLayout>
-      <main>
-        <PageIntro
-          eyebrow="Buy Cover"
-          title="Start with the cover you need."
-          body="Select a category, enter the minimum details required, then continue through the secure purchase flow."
-        />
-
-        <section className="public-section buy-cover-section">
-          <div className="public-container buy-cover-layout">
-            <div>
-              <SectionHeader
-                eyebrow="Step 1"
-                title="Select insurance category"
-              />
-              {catalogue.categories.length ? (
-                <div className="buy-category-grid">
-                  {catalogue.categories.map((category, index) => {
-                    const Icon = category.icon;
-                    const active = category.id === selectedCategoryId;
-
-                    return (
-                      <button
-                        className={active ? 'is-active' : ''}
-                        key={`${category.business_line}-${category.name}`}
-                        onClick={() => setSelectedCategoryId(category.id)}
-                        type="button"
-                      >
-                        <span
-                          className={`category-icon category-icon-${index % 4}`}
-                        >
-                          <Icon size={21} aria-hidden="true" />
-                        </span>
-                        <strong>{category.name}</strong>
-                        <small>
-                          {category.product_count} product
-                          {category.product_count === 1 ? '' : 's'}
-                        </small>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <EmptyCatalogueState
-                  isLoading={catalogue.isLoading}
-                  isError={catalogue.isError}
-                />
-              )}
-            </div>
-
-            <form className="buy-detail-panel" onSubmit={handleProceed}>
-              <span className="eyebrow">Step 2</span>
-              <h2>Enter basic details</h2>
-
-              {!selectedCategory ? (
-                <p>Select a category to see the required details.</p>
-              ) : isMotorCategory ? (
-                <>
-                  <PublicField
-                    id="motorFullName"
-                    label="Full Name"
-                    error={form.formState.errors.fullName?.message}
-                  >
-                    <input
-                      id="motorFullName"
-                      autoComplete="name"
-                      placeholder="As shown on vehicle registration card"
-                      {...form.register('fullName')}
-                    />
-                  </PublicField>
-                  <PublicField
-                    id="motorRegistrationNumber"
-                    label="Vehicle Registration Number"
-                    error={form.formState.errors.registrationNumber?.message}
-                  >
-                    <input
-                      id="motorRegistrationNumber"
-                      autoCapitalize="characters"
-                      placeholder="T123ABC"
-                      {...form.register('registrationNumber')}
-                    />
-                  </PublicField>
-                  <PublicField
-                    id="motorPhone"
-                    label="Phone Number"
-                    error={form.formState.errors.phone?.message}
-                  >
-                    <input
-                      id="motorPhone"
-                      autoComplete="tel"
-                      inputMode="tel"
-                      placeholder="+255..."
-                      {...form.register('phone')}
-                    />
-                  </PublicField>
-                  <p className="buy-note">
-                    We will use the registration number to retrieve available
-                    vehicle details in the secure purchase flow.
-                  </p>
-                </>
-              ) : (
-                <p>
-                  Continue to the secure flow to complete the details needed for
-                  {` ${selectedCategory.name}`}.
-                </p>
-              )}
-
-              <button
-                className="button"
-                disabled={!selectedCategory}
-                type="submit"
-              >
-                Proceed <ArrowRight size={17} aria-hidden="true" />
-              </button>
-            </form>
-          </div>
-        </section>
-      </main>
-    </PublicLayout>
-  );
+  return <MotorInsurancePurchasePage />;
 }
 
 function InsurancePage() {
@@ -2581,13 +2387,7 @@ function InsurancePage() {
                             <span>{product.company.name}</span>
                             {product.supports_fleet && <span>Fleet ready</span>}
                           </div>
-                          <Link
-                            to={
-                              isMotorCatalogueCategory(activeCategory)
-                                ? '/motor-insurance'
-                                : '/buy-cover'
-                            }
-                          >
+                          <Link to="/buy-cover">
                             Continue <ArrowRight size={16} aria-hidden="true" />
                           </Link>
                         </article>
