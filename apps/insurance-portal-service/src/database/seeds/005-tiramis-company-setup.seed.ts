@@ -21,6 +21,22 @@ type RowWithId = {
 
 const ALLIANCE_INTERMEDIARY_SEEDS = [
   {
+    companyCode: 'IA9001',
+    companyName: 'INSURANCE MAX DEMO AGENCY',
+    companyType: CompanyType.AGENCY,
+    partnerType: PartnerType.AGENCY,
+    sourceSheet: 'DEMO',
+    sourceRow: 1,
+  },
+  {
+    companyCode: 'IB9001',
+    companyName: 'INSURANCE MAX DEMO BROKER',
+    companyType: CompanyType.BROKER,
+    partnerType: PartnerType.BROKER,
+    sourceSheet: 'DEMO',
+    sourceRow: 2,
+  },
+  {
     companyCode: 'IA1292',
     companyName: 'HERI INSURANCE AGENCY',
     companyType: CompanyType.AGENCY,
@@ -135,6 +151,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         await this.seedBranches(queryRunner, companyId);
         await this.seedSalePoints(queryRunner, companyId);
         await this.seedAllianceIntermediaries(queryRunner, companyId);
+        await this.linkExistingIntermediariesToAlliance(queryRunner, companyId);
       },
     );
 
@@ -535,62 +552,17 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         seed,
       );
 
-      const existingRows = await queryRunner.query(
-        `
-          SELECT id
-          FROM insurance_company_partners
-          WHERE insurer_company_id = $1
-            AND intermediary_company_id = $2
-            AND partner_type = $3
-            AND deleted_at IS NULL
-          LIMIT 1
-        `,
-        [allianceCompanyId, intermediaryCompanyId, seed.partnerType],
-      );
-
-      const metadata = JSON.stringify({
-        seedSource: 'Companies (1).xlsx',
-        sourceSheet: seed.sourceSheet,
-        sourceRow: seed.sourceRow,
-        seededBy: '005-tiramis-company-setup.seed',
+      await this.ensureAlliancePartnerRelationship(queryRunner, {
+        allianceCompanyId,
+        intermediaryCompanyId,
+        partnerType: seed.partnerType,
+        sourceName: seed.companyName,
+        metadata: {
+          seedSource: 'Companies (1).xlsx',
+          sourceSheet: seed.sourceSheet,
+          sourceRow: seed.sourceRow,
+        },
       });
-
-      if (existingRows[0]) {
-        await queryRunner.query(
-          `
-            UPDATE insurance_company_partners
-            SET
-              status = $2,
-              metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb,
-              updated_at = now()
-            WHERE id = $1
-          `,
-          [existingRows[0].id, PartnerRelationshipStatus.ACTIVE, metadata],
-        );
-        continue;
-      }
-
-      await queryRunner.query(
-        `
-          INSERT INTO insurance_company_partners (
-            insurer_company_id,
-            intermediary_company_id,
-            partner_type,
-            status,
-            metadata,
-            created_at,
-            updated_at
-          )
-          VALUES ($1, $2, $3, $4, $5::jsonb, now(), now())
-        `,
-        [
-          allianceCompanyId,
-          intermediaryCompanyId,
-          seed.partnerType,
-          PartnerRelationshipStatus.ACTIVE,
-          metadata,
-        ],
-      );
     }
   }
 
@@ -684,5 +656,141 @@ export default class TiramisCompanySetupSeeder implements Seeder {
     );
 
     return insertedRows[0].id;
+  }
+
+  private async linkExistingIntermediariesToAlliance(
+    queryRunner: QueryRunner,
+    allianceCompanyId: string,
+  ): Promise<void> {
+    const intermediaryRows = await queryRunner.query(
+      `
+        SELECT id, name, company_type
+        FROM companies
+        WHERE deleted_at IS NULL
+          AND id <> $1
+          AND company_type::text IN ($2, $3)
+        ORDER BY name
+      `,
+      [allianceCompanyId, CompanyType.BROKER, CompanyType.AGENCY],
+    );
+
+    for (const row of intermediaryRows as Array<{
+      id: string;
+      name: string;
+      company_type: CompanyType;
+    }>) {
+      await this.ensureAlliancePartnerRelationship(queryRunner, {
+        allianceCompanyId,
+        intermediaryCompanyId: row.id,
+        partnerType:
+          row.company_type === CompanyType.AGENCY
+            ? PartnerType.AGENCY
+            : PartnerType.BROKER,
+        sourceName: row.name,
+      });
+    }
+  }
+
+  private async ensureAlliancePartnerRelationship(
+    queryRunner: QueryRunner,
+    params: {
+      allianceCompanyId: string;
+      intermediaryCompanyId: string;
+      partnerType: PartnerType.BROKER | PartnerType.AGENCY;
+      sourceName: string;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    const metadata = JSON.stringify({
+      seededBy: '005-tiramis-company-setup.seed',
+      linkPolicy: 'all-active-brokers-and-agencies-to-alliance',
+      sourceCompanyName: params.sourceName,
+      ...(params.metadata ?? {}),
+    });
+
+    const existingRows =
+      params.partnerType === PartnerType.AGENCY
+        ? await queryRunner.query(
+            `
+              SELECT id
+              FROM insurance_company_partners
+              WHERE intermediary_company_id = $1
+                AND partner_type = $2
+                AND deleted_at IS NULL
+                AND status IN ($3, $4, $5)
+              ORDER BY
+                CASE WHEN insurer_company_id = $6 THEN 0 ELSE 1 END,
+                created_at DESC
+              LIMIT 1
+            `,
+            [
+              params.intermediaryCompanyId,
+              params.partnerType,
+              PartnerRelationshipStatus.PENDING,
+              PartnerRelationshipStatus.ACTIVE,
+              PartnerRelationshipStatus.SUSPENDED,
+              params.allianceCompanyId,
+            ],
+          )
+        : await queryRunner.query(
+            `
+              SELECT id
+              FROM insurance_company_partners
+              WHERE insurer_company_id = $1
+                AND intermediary_company_id = $2
+                AND partner_type = $3
+                AND deleted_at IS NULL
+              ORDER BY created_at DESC
+              LIMIT 1
+            `,
+            [
+              params.allianceCompanyId,
+              params.intermediaryCompanyId,
+              params.partnerType,
+            ],
+          );
+
+    if (existingRows[0]) {
+      await queryRunner.query(
+        `
+          UPDATE insurance_company_partners
+          SET
+            insurer_company_id = $2,
+            status = $3,
+            metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb,
+            updated_at = now()
+          WHERE id = $1
+        `,
+        [
+          existingRows[0].id,
+          params.allianceCompanyId,
+          PartnerRelationshipStatus.ACTIVE,
+          metadata,
+        ],
+      );
+      return;
+    }
+
+    await queryRunner.query(
+      `
+        INSERT INTO insurance_company_partners (
+          insurer_company_id,
+          intermediary_company_id,
+          partner_type,
+          status,
+          metadata,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5::jsonb, now(), now())
+      `,
+      [
+        params.allianceCompanyId,
+        params.intermediaryCompanyId,
+        params.partnerType,
+        PartnerRelationshipStatus.ACTIVE,
+        metadata,
+      ],
+    );
   }
 }
