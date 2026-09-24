@@ -37,6 +37,10 @@ describe('QuotationsService', () => {
     id: 'user-1',
     permissions: ['quotations:submit-tiramis'],
   } as any;
+  const retryTiramisUser = {
+    id: 'user-1',
+    permissions: ['quotations:submit-tiramis', 'quotations:retry-tiramis'],
+  } as any;
   const rejectApprovalUser = {
     id: 'user-1',
     permissions: ['quotations:reject'],
@@ -789,6 +793,42 @@ describe('QuotationsService', () => {
           correlation_id: fixture.quotation.id,
           reason: 'Quotation passed backend TIRAMIS submission validation',
         }),
+      }),
+    );
+  });
+
+  it('treats plain submit of a failed TIRAMIS quotation as a retry', async () => {
+    const fixture = createServiceFixture({
+      status: QuotationStatus.FAILED,
+      tira_status: TiraStatus.FAILED,
+      submitted_at: new Date('2026-07-01T08:00:00.000Z'),
+      created_by: 'user-1',
+    });
+
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      retryTiramisUser,
+    );
+
+    expect(
+      fixture.quotationLifecycleService.startTiraSubmission,
+    ).toHaveBeenCalledWith(
+      'company-1',
+      fixture.quotation.id,
+      expect.objectContaining({
+        reason: 'Quotation resubmitted to TIRAMIS',
+      }),
+      {
+        allowRetryFromFailure: true,
+      },
+    );
+    expect(
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        forceResubmit: true,
       }),
     );
   });

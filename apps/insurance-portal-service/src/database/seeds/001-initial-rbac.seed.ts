@@ -3817,12 +3817,46 @@ const roleSeeds: RoleSeed[] = [
   {
     name: 'USER',
     displayName: 'Company User',
-    description: 'Regular company user with read-only company access',
+    description:
+      'Regular branch-scoped company user with standard customer and quotation access',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       'view_company_data',
+      'data-scope:assigned-branches',
       ...DASHBOARD_GENERAL_USER_PERMISSION_NAMES,
       ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
+      'insurance-products:read',
+      'insurance-categories:read',
+      'insurance-sub-classes:read',
+      'insurance-risks:read',
+      'product-definitions:read',
+      'product-definitions:use',
+      'product-distribution:read',
+      'customers:read',
+      'customers:create',
+      'customers:update',
+      'customer-kyc:read',
+      'customer-kyc:submit',
+      'insured-assets:read',
+      'insured-assets:create',
+      'insured-assets:update',
+      'motor:read',
+      'motor:create',
+      'motor:update',
+      'motor:delete',
+      'non-motor:read',
+      'verifications:motor:submit',
+      'verifications:cover-note:submit',
+      'pricing.manage_rules',
+      'quotations:read',
+      'quotations:create',
+      'quotations:update',
+      'quotations:complete',
+      'quotations:submit-tiramis',
+      'quotations:retry-tiramis',
+      'quotations:delete-draft',
+      'tiramis.submit',
+      'premium-calculation:calculate',
       'claims:read',
       'complaints:read',
     ],
@@ -4066,6 +4100,19 @@ export default class InitialRbacSeeder implements Seeder {
         officerTitle: 'Underwriter',
       };
 
+      const standardUserConfig: SeedUserConfig = {
+        firstName: environment.INITIAL_COMPANY_USER_FIRST_NAME ?? 'Neema',
+        lastName: environment.INITIAL_COMPANY_USER_LAST_NAME ?? 'Kato',
+        email:
+          environment.INITIAL_COMPANY_USER_EMAIL ??
+          'neema.alliance.user@example.test',
+        phone: environment.INITIAL_COMPANY_USER_PHONE ?? '+255700000003',
+        password: environment.INITIAL_COMPANY_USER_PASSWORD ?? 'User123!',
+        userNo: environment.INITIAL_COMPANY_USER_USER_NO ?? 'USER-00001',
+        userType: 'COMPANY_USER',
+        officerTitle: 'Standard User',
+      };
+
       if (
         ownerConfig.email.toLowerCase() === adminConfig.email.toLowerCase() ||
         ownerConfig.phone === adminConfig.phone
@@ -4073,6 +4120,21 @@ export default class InitialRbacSeeder implements Seeder {
         throw new Error(
           'OWNER and company administrator must use different email addresses and phone numbers',
         );
+      }
+
+      const seedUserIdentities = [ownerConfig, adminConfig, standardUserConfig];
+      const seedEmails = new Set<string>();
+      const seedPhones = new Set<string>();
+
+      for (const config of seedUserIdentities) {
+        const email = config.email.toLowerCase();
+        if (seedEmails.has(email) || seedPhones.has(config.phone)) {
+          throw new Error(
+            'Seeded owner, company administrator, and standard company user must use distinct email addresses and phone numbers',
+          );
+        }
+        seedEmails.add(email);
+        seedPhones.add(config.phone);
       }
 
       const defaultCompany = await this.ensureCompany(companyRepo, companyName);
@@ -4101,6 +4163,11 @@ export default class InitialRbacSeeder implements Seeder {
       const portalAdminRole = this.requireRole(
         rolesByScopeAndName,
         'PORTAL_ADMIN',
+        defaultCompany.id,
+      );
+      const standardUserRole = this.requireRole(
+        rolesByScopeAndName,
+        'USER',
         defaultCompany.id,
       );
 
@@ -4158,6 +4225,30 @@ export default class InitialRbacSeeder implements Seeder {
         portalAdminRole.id,
       );
 
+      const standardUser = await this.findUserByIdentity(
+        userRepo,
+        standardUserConfig.email,
+        standardUserConfig.phone,
+      );
+
+      const savedStandardUser = await this.ensureCompanyUser(
+        userRepo,
+        standardUser,
+        standardUserConfig,
+      );
+
+      const standardMembership = await this.ensureCompanyMembership(
+        companyUserRepo,
+        defaultCompany.id,
+        savedStandardUser.id,
+      );
+
+      await this.ensureMembershipRole(
+        companyUserRoleRepo,
+        standardMembership.id,
+        standardUserRole.id,
+      );
+
       await this.ensureDefaultBranches(
         branchRepo,
         defaultCompany.id,
@@ -4169,6 +4260,12 @@ export default class InitialRbacSeeder implements Seeder {
         defaultCompany.id,
         savedAdmin.id,
       );
+      await this.ensureBranchAssignments(
+        branchRepo,
+        branchUserRepo,
+        defaultCompany.id,
+        savedStandardUser.id,
+      );
 
       await queryRunner.commitTransaction();
 
@@ -4176,6 +4273,7 @@ export default class InitialRbacSeeder implements Seeder {
       console.log(`OWNER: ${savedOwner.email}`);
       console.log(`COMPANY: ${defaultCompany.name} (${defaultCompany.slug})`);
       console.log(`ADMIN: ${savedAdmin.email}`);
+      console.log(`USER: ${savedStandardUser.email}`);
     } catch (error) {
       await queryRunner.rollbackTransaction();
       console.error('Seeding failed:', error);

@@ -22,6 +22,28 @@ export function hasAnyRole(
   return roles.some((role) => hasRole(user, role));
 }
 
+export function isStandardCompanyUser(
+  user: Pick<AuthUser, 'scope' | 'userType' | 'roles'> | null | undefined,
+): boolean {
+  if (!user) return false;
+
+  const administrativeRoles = new Set([
+    'OWNER',
+    'SUPER_ADMIN',
+    'ADMINISTRATOR',
+    'PORTAL_ADMIN',
+  ]);
+
+  return (
+    user.scope === 'company' &&
+    user.userType === 'COMPANY_USER' &&
+    user.roles.includes('USER') &&
+    !user.roles.some(
+      (role) => administrativeRoles.has(role) || role.endsWith('_ADMIN'),
+    )
+  );
+}
+
 export function canAccessRoute(
   user: AuthUser | null | undefined,
   options?: {
@@ -30,9 +52,14 @@ export function canAccessRoute(
     requiredRole?: string;
     anyRole?: string[];
     allowedScopes?: Array<'platform' | 'company' | 'customer'>;
+    hideForStandardUser?: boolean;
   },
 ): boolean {
   if (!user) return false;
+
+  if (options?.hideForStandardUser && isStandardCompanyUser(user)) {
+    return false;
+  }
 
   if (
     options?.allowedScopes?.length &&

@@ -35,6 +35,7 @@ function useNavFilter() {
       anyPermission: leaf.anyPermission,
       anyRole: leaf.anyRole,
       allowedScopes: leaf.allowedScopes,
+      hideForStandardUser: leaf.hideForStandardUser,
     });
   }
 

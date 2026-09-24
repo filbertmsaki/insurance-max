@@ -203,7 +203,7 @@ export default class ProductEngineSeeder implements Seeder {
         productVersionRepo,
         productMap,
       );
-      await this.ensureInitialAdminCatalogueAccess(
+      await this.ensureSeededUserCatalogueAccess(
         userRepo,
         companyUserRepo,
         userCategoryAccessRepo,
@@ -611,7 +611,7 @@ export default class ProductEngineSeeder implements Seeder {
     return value;
   }
 
-  private async ensureInitialAdminCatalogueAccess(
+  private async ensureSeededUserCatalogueAccess(
     userRepo: Repository<User>,
     companyUserRepo: Repository<CompanyUser>,
     categoryAccessRepo: Repository<UserCategoryAccess>,
@@ -620,52 +620,58 @@ export default class ProductEngineSeeder implements Seeder {
     categoryMap: Map<string, InsuranceCategory>,
     productMap: Map<string, InsuranceProduct>,
   ): Promise<void> {
-    const adminEmail =
-      environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'baraka.mushi@gmail.com';
-    const adminUser = await userRepo.findOne({
-      where: { email: adminEmail },
-    });
+    const emails = [
+      environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'baraka.mushi@gmail.com',
+      environment.INITIAL_COMPANY_USER_EMAIL ??
+        'neema.alliance.user@example.test',
+    ];
 
-    if (!adminUser) {
-      console.warn(
-        `[ProductEngineSeeder] Initial admin ${adminEmail} was not found; catalogue access was not granted.`,
-      );
-      return;
-    }
+    for (const email of emails) {
+      const user = await userRepo.findOne({
+        where: { email },
+      });
 
-    const membership = await companyUserRepo.findOne({
-      where: {
-        company_id: companyId,
-        user_id: adminUser.id,
-        status: 'active',
-      },
-    });
+      if (!user) {
+        console.warn(
+          `[ProductEngineSeeder] Seeded user ${email} was not found; catalogue access was not granted.`,
+        );
+        continue;
+      }
 
-    if (!membership) {
-      console.warn(
-        `[ProductEngineSeeder] Active company membership for ${adminEmail} was not found; catalogue access was not granted.`,
-      );
-      return;
-    }
+      const membership = await companyUserRepo.findOne({
+        where: {
+          company_id: companyId,
+          user_id: user.id,
+          status: 'active',
+        },
+      });
 
-    for (const category of categoryMap.values()) {
-      await this.ensureUserCategoryAccess(
-        categoryAccessRepo,
-        companyId,
-        membership.id,
-        category.id,
-        adminUser.id,
-      );
-    }
+      if (!membership) {
+        console.warn(
+          `[ProductEngineSeeder] Active company membership for ${email} was not found; catalogue access was not granted.`,
+        );
+        continue;
+      }
 
-    for (const product of productMap.values()) {
-      await this.ensureUserProductAccess(
-        productAccessRepo,
-        companyId,
-        membership.id,
-        product.id,
-        adminUser.id,
-      );
+      for (const category of categoryMap.values()) {
+        await this.ensureUserCategoryAccess(
+          categoryAccessRepo,
+          companyId,
+          membership.id,
+          category.id,
+          user.id,
+        );
+      }
+
+      for (const product of productMap.values()) {
+        await this.ensureUserProductAccess(
+          productAccessRepo,
+          companyId,
+          membership.id,
+          product.id,
+          user.id,
+        );
+      }
     }
   }
 

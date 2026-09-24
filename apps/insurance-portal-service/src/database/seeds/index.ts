@@ -7,6 +7,7 @@ import ProductEngineSeeder from './002-product-engine.seed';
 import RatingFactorsSeeder from './003-rating-factors.seed';
 import RiskFactorLinkSeeder from './004-risk-factor-link.seed';
 import TiramisCompanySetupSeeder from './005-tiramis-company-setup.seed';
+import IntermediaryPortalUsersSeeder from './005-intermediary-portal-users.seed';
 import TiramisBusinessRecordsSeeder from './006-tiramis-business-records.seed';
 import TiramisLookupsSeeder from './007-tiramis-lookups.seed';
 import AllianceCustomerVehiclesSeeder from './008-alliance-customer-vehicles.seed';
@@ -20,6 +21,7 @@ const productionSeeders = [
   PlatformIdpSeeder,
   InitialRbacSeeder,
   TiramisCompanySetupSeeder,
+  IntermediaryPortalUsersSeeder,
   TiramisLookupsSeeder,
   ReferenceDataSeeder,
   ProductEngineSeeder,

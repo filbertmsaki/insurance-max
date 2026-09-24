@@ -25,6 +25,15 @@ export interface PaginatedQuotations {
   extrasByQuotationId: Map<string, QuotationListItemExtra>;
 }
 
+export interface QuotationAccessSnapshot {
+  id: string;
+  company_id: string;
+  branch_id: string | null;
+  created_by: string | null;
+  status: string;
+  tira_status: string;
+}
+
 @Injectable()
 export class QuotationsRepository {
   constructor(
@@ -71,6 +80,45 @@ export class QuotationsRepository {
     if (!quotation) {
       throw new NotFoundException('Quotation not found');
     }
+  }
+
+  async findAccessSnapshotForScope(
+    scope: TenantDataScope,
+    id: string,
+  ): Promise<QuotationAccessSnapshot> {
+    const queryBuilder = this.quotationRepository
+      .createQueryBuilder('quotation')
+      .select([
+        'quotation.id',
+        'quotation.company_id',
+        'quotation.branch_id',
+        'quotation.created_by',
+        'quotation.status',
+        'quotation.tira_status',
+      ])
+      .where('quotation.id = :id', { id })
+      .andWhere('quotation.deleted_at IS NULL');
+
+    this.dataAccessScopeService.applyQuotationReadScope(
+      queryBuilder,
+      'quotation',
+      scope,
+    );
+
+    const quotation = await queryBuilder.getOne();
+
+    if (!quotation) {
+      throw new NotFoundException('Quotation not found');
+    }
+
+    return {
+      id: quotation.id,
+      company_id: quotation.company_id,
+      branch_id: quotation.branch_id,
+      created_by: quotation.created_by,
+      status: quotation.status,
+      tira_status: quotation.tira_status,
+    };
   }
 
   /**
