@@ -1,11 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   BarChart3,
+  CalendarDays,
+  ClipboardList,
+  Filter,
   Key,
   Monitor,
+  RefreshCw,
   ShieldCheck,
   Smartphone,
   Users,
@@ -22,6 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DashboardCard } from '@/components/shared/DashboardCard';
 import { CHART_COLORS } from '@/components/shared/chart-colors';
@@ -48,6 +57,7 @@ import {
   type ReinsuranceResponse,
   type SalesResponse,
   type TasksResponse,
+  type TaskQueue,
   type TiramisResponse,
 } from '@/modules/shared/dashboard/api/dashboard';
 import {
@@ -126,6 +136,18 @@ function formatWidgetValue(
 function formatMoneyRows(rows: MoneyAmount[] | null | undefined) {
   if (!rows?.length) return 'No amounts';
   return rows.map((row) => `${row.currency} ${row.amount}`).join(' | ');
+}
+
+function formatPrimaryMoney(rows: MoneyAmount[] | null | undefined) {
+  if (!rows?.length) return '0';
+  const [first, ...rest] = rows;
+  return rest.length
+    ? `${first.currency} ${first.amount}+`
+    : `${first.currency} ${first.amount}`;
+}
+
+function getQueueTotal(rows: TaskQueue[] | null | undefined) {
+  return rows?.reduce((sum, queue) => sum + queue.count, 0) ?? 0;
 }
 
 function formatTimestamp(value: string | null | undefined) {
@@ -443,6 +465,317 @@ function ShortcutGrid({
   );
 }
 
+function DashboardActionHeader({
+  greetingName,
+  organizationName,
+  dateRange,
+  generatedAt,
+  filterMenu,
+  onRefresh,
+  isRefreshing,
+}: {
+  greetingName: string;
+  organizationName: string;
+  dateRange: string;
+  generatedAt?: string;
+  filterMenu: ReactNode;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="min-w-0">
+        <p className="text-[15px] font-semibold text-slate-800">
+          Welcome back, {greetingName}!
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Track {organizationName} production, policies, finance, TIRAMIS, and
+          work queues.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Badge variant="outline" className="gap-1.5 bg-white">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {dateRange}
+          </Badge>
+          <Badge variant="outline" className="gap-1.5 bg-white">
+            <RefreshCw className="h-3.5 w-3.5" />
+            {formatTimestamp(generatedAt)}
+          </Badge>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {filterMenu}
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 bg-white"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function DashboardFilterMenu({
+  datePreset,
+  appliedRange,
+  customRange,
+  customRangeError,
+  companyType,
+  scopeLabel,
+  assignedBranchCount,
+  onDatePresetChange,
+  onCustomRangeChange,
+}: {
+  datePreset: DashboardDatePreset;
+  appliedRange: DashboardDateRange;
+  customRange: DashboardDateRange;
+  customRangeError: string | null;
+  companyType: string;
+  scopeLabel: string;
+  assignedBranchCount: number;
+  onDatePresetChange: (preset: DashboardDatePreset) => void;
+  onCustomRangeChange: (patch: Partial<DashboardDateRange>) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2 bg-white">
+          <Filter className="h-4 w-4" />
+          Filters
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-[min(92vw,380px)] p-0">
+        <div className="border-b border-slate-200/70 px-4 py-3">
+          <p className="text-sm font-semibold text-slate-800">
+            Dashboard filters
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Adjust the reporting window and review the active data scope.
+          </p>
+        </div>
+        <div className="space-y-4 p-4">
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Date range
+            </p>
+            <Select
+              value={datePreset}
+              onValueChange={(value) =>
+                onDatePresetChange(value as DashboardDatePreset)
+              }
+            >
+              <SelectTrigger aria-label="Date range">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DASHBOARD_DATE_PRESETS.map((preset) => (
+                  <SelectItem key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {datePreset === 'custom' ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  From
+                </p>
+                <Input
+                  type="date"
+                  aria-label="From"
+                  value={customRange.from}
+                  max={customRange.to || undefined}
+                  onChange={(event) =>
+                    onCustomRangeChange({ from: event.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  To
+                </p>
+                <Input
+                  type="date"
+                  aria-label="To"
+                  value={customRange.to}
+                  min={customRange.from || undefined}
+                  onChange={(event) =>
+                    onCustomRangeChange({ to: event.target.value })
+                  }
+                />
+              </div>
+              {customRangeError ? (
+                <p role="alert" className="text-sm text-red-600 sm:col-span-2">
+                  {customRangeError} Showing {formatDateRange(appliedRange)}.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="grid gap-3 rounded-md border border-slate-200/70 bg-slate-50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Period
+              </span>
+              <span className="text-right text-sm font-semibold text-slate-800">
+                {formatDateRange(appliedRange)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Company
+              </span>
+              <Badge variant="outline" className="bg-white">
+                {companyType}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Branch scope
+              </span>
+              <Badge variant="outline" className="bg-white">
+                {scopeLabel}
+              </Badge>
+            </div>
+            {assignedBranchCount > 0 ? (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  Assigned branches
+                </span>
+                <span className="text-sm font-semibold text-slate-800">
+                  {assignedBranchCount.toLocaleString()}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ProgressRing({ value }: { value: number }) {
+  const clamped = Math.max(0, Math.min(value, 100));
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const dash = (clamped / 100) * circumference;
+
+  return (
+    <div className="relative h-14 w-14 shrink-0">
+      <svg viewBox="0 0 48 48" className="-rotate-90">
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,.28)"
+          strokeWidth="5"
+        />
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          fill="none"
+          stroke="#fff"
+          strokeDasharray={`${dash} ${circumference}`}
+          strokeLinecap="round"
+          strokeWidth="5"
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-white">
+        {clamped.toFixed(0)}%
+      </span>
+    </div>
+  );
+}
+
+function OperationalTargetCard({
+  conversionRate,
+  completedQuotations,
+  eligibleQuotations,
+  activePolicies,
+}: {
+  conversionRate: number;
+  completedQuotations: number;
+  eligibleQuotations: number;
+  activePolicies: number;
+}) {
+  return (
+    <Card className="relative overflow-hidden border-none bg-gradient-to-br from-vz-primary via-violet-500 to-vz-secondary p-5 text-white shadow-sm">
+      <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(255,255,255,.22),transparent_58%)]" />
+      <div className="relative z-10 flex h-full min-h-32 items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">Your production target</p>
+          <p className="mt-2 max-w-md text-xs leading-5 text-white/80">
+            Quotation conversion is at {conversionRate.toFixed(2)}%, with{' '}
+            {completedQuotations.toLocaleString()} completed quotations and{' '}
+            {activePolicies.toLocaleString()} active policies in this period.
+          </p>
+          <p className="mt-3 text-xs font-semibold underline underline-offset-4">
+            Eligible pipeline: {eligibleQuotations.toLocaleString()}
+          </p>
+        </div>
+        <ProgressRing value={conversionRate} />
+      </div>
+    </Card>
+  );
+}
+
+function ActivityCard({
+  title,
+  items,
+  emptyLabel,
+}: {
+  title: string;
+  items: Array<{ key: string; label: string; meta: string; tone?: string }>;
+  emptyLabel: string;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-slate-200/70 py-3.5">
+        <CardTitle className="text-[14px]">{title}</CardTitle>
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-500">
+          <ClipboardList className="h-4 w-4" />
+        </span>
+      </CardHeader>
+      <CardContent className="pt-4">
+        {!items.length ? (
+          <p className="py-8 text-center text-sm text-slate-500">
+            {emptyLabel}
+          </p>
+        ) : (
+          <ul className="space-y-4">
+            {items.map((item) => (
+              <li key={item.key} className="flex gap-3">
+                <span
+                  className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ background: item.tone ?? CHART_COLORS[0] }}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-medium leading-5 text-slate-700">
+                    {item.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-slate-500">
+                    {item.meta}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function SectionError({ message }: { message: string }) {
   return (
     <Alert>
@@ -468,92 +801,122 @@ function OverviewContent({
   const financeKpis = data?.kpis.finance;
   const commissionKpis = data?.kpis.commissions;
   const tiramisKpis = data?.kpis.tiramis;
+  const conversionRate = quotationKpis?.conversion_rate ?? 0;
+  const openQueueItems = getQueueTotal(data?.work_queues);
+  const alertItems =
+    data?.alerts.slice(0, 8).map((alert, index) => ({
+      key: alert.code + index,
+      label: alert.message,
+      meta: `${alert.severity.toUpperCase()} priority - ${alert.code}`,
+      tone: alert.severity === 'high' ? '#f06548' : '#f7b84b',
+    })) ?? [];
+  const queueItems =
+    data?.work_queues.slice(0, 6).map((queue, index) => ({
+      key: queue.key,
+      label: queue.label,
+      meta: `${queue.count.toLocaleString()} item${queue.count === 1 ? '' : 's'} waiting`,
+      tone: CHART_COLORS[index % CHART_COLORS.length],
+    })) ?? [];
 
   if (error) {
     return <SectionError message={getErrorMessage(error)} />;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <DashboardCard
-          icon={BarChart3}
-          tone="warning"
-          title="Quotations"
-          value={quotationKpis?.total_quotations ?? 0}
-          loading={isLoading}
-          description={`Completed ${quotationKpis?.completed_quotations ?? 0} | Conversion ${formatMetricValue(quotationKpis?.conversion_rate ?? 0, '%')}`}
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="space-y-4">
+        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
+          <div className="lg:col-span-2">
+            <OperationalTargetCard
+              conversionRate={conversionRate}
+              completedQuotations={quotationKpis?.completed_quotations ?? 0}
+              eligibleQuotations={quotationKpis?.eligible_for_conversion ?? 0}
+              activePolicies={policyKpis?.active_policies ?? 0}
+            />
+          </div>
+          <DashboardCard
+            icon={Users}
+            tone="info"
+            title="Total customers"
+            value={customerKpis?.total_customers ?? 0}
+            loading={isLoading}
+            description={`${customerKpis?.active_customers ?? 0} active | ${customerKpis?.pending_kyc ?? 0} KYC pending`}
+          />
+          <DashboardCard
+            icon={Wallet}
+            tone="success"
+            title="Policy premium"
+            value={formatPrimaryMoney(policyKpis?.total_premium)}
+            loading={isLoading}
+            description="Issued policy premium"
+          />
+          <DashboardCard
+            icon={BarChart3}
+            tone="warning"
+            title="Quotations"
+            value={quotationKpis?.total_quotations ?? 0}
+            loading={isLoading}
+            description={`${quotationKpis?.completed_quotations ?? 0} completed | ${formatMetricValue(conversionRate, '%')} conversion`}
+          />
+          <DashboardCard
+            icon={ShieldCheck}
+            tone="primary"
+            title="Active policies"
+            value={policyKpis?.active_policies ?? 0}
+            loading={isLoading}
+            description={`${policyKpis?.expiring_within_30_days ?? 0} expiring in 30 days`}
+          />
+          <DashboardCard
+            icon={Wallet}
+            tone="success"
+            title="Collected"
+            value={formatPrimaryMoney(financeKpis?.collected_amount)}
+            loading={isLoading}
+            description={`${financeKpis?.open_invoices ?? 0} open invoices | ${financeKpis?.overdue_invoices ?? 0} overdue`}
+          />
+          <DashboardCard
+            icon={AlertCircle}
+            tone="danger"
+            title="Operational queue"
+            value={openQueueItems}
+            loading={isLoading}
+            description={`${tiramisKpis?.failed_submissions ?? 0} failed TIRAMIS | ${tiramisKpis?.retryable_submissions ?? 0} retryable`}
+          />
+        </div>
+
+        <TrendCard
+          groupBy={data?.context.period.group_by}
+          title="Revenue and policy analytics"
+          rows={data?.charts.policy_trend ?? []}
+          countLabel="Policy count"
+          amountLabel="Total premium"
+          amountField="total_premium"
         />
-        <DashboardCard
-          icon={ShieldCheck}
-          tone="primary"
-          title="Policies"
-          value={policyKpis?.active_policies ?? 0}
-          loading={isLoading}
-          description={`Active of ${policyKpis?.total_policies ?? 0} | Expiring soon ${policyKpis?.expiring_within_30_days ?? 0}`}
-        />
-        <DashboardCard
-          icon={Users}
-          tone="info"
-          title="Customers"
-          value={customerKpis?.active_customers ?? 0}
-          loading={isLoading}
-          description={`Total ${customerKpis?.total_customers ?? 0} | Pending KYC ${customerKpis?.pending_kyc ?? 0}`}
-        />
-        <DashboardCard
-          icon={Wallet}
-          tone="success"
-          title="Open invoices"
-          value={financeKpis?.open_invoices ?? 0}
-          loading={isLoading}
-          description={`Overdue ${financeKpis?.overdue_invoices ?? 0} | Receipts ${financeKpis?.total_receipts ?? 0}`}
-        />
-        <DashboardCard
-          icon={Wallet}
-          tone="success"
-          title="Quoted premium"
-          value={formatMoneyRows(quotationKpis?.quoted_premium)}
-          loading={isLoading}
-          description="Quoted premium by currency"
-        />
-        <DashboardCard
-          icon={Wallet}
-          tone="success"
-          title="Collected amount"
-          value={formatMoneyRows(financeKpis?.collected_amount)}
-          loading={isLoading}
-          description="Receipts collected in the selected period"
-        />
-        <DashboardCard
-          icon={Wallet}
-          tone="success"
-          title="Pending commissions"
-          value={commissionKpis?.pending_transactions ?? 0}
-          loading={isLoading}
-          description={`Paid ${commissionKpis?.paid_transactions ?? 0} | Accrued ${formatMoneyRows(commissionKpis?.accrued_amount)}`}
-        />
-        <DashboardCard
-          icon={AlertCircle}
-          tone="danger"
-          title="TIRAMIS follow-up"
-          value={tiramisKpis?.pending_submissions ?? 0}
-          loading={isLoading}
-          description={`Failed ${tiramisKpis?.failed_submissions ?? 0} | Retryable ${tiramisKpis?.retryable_submissions ?? 0}`}
-        />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TrendCard
+            groupBy={data?.context.period.group_by}
+            title="Quotation pipeline"
+            rows={data?.charts.quotation_trend ?? []}
+            countLabel="Quotation count"
+            amountLabel="Quoted premium"
+            amountField="quoted_premium"
+          />
+          <BreakdownCard
+            title="Quotation statuses"
+            items={
+              data?.charts.quotation_statuses.map((item) => ({
+                label: item.label,
+                value: item.count,
+              })) ?? []
+            }
+          />
+        </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="space-y-4">
         <BreakdownCard
-          title="Quotation statuses"
-          items={
-            data?.charts.quotation_statuses.map((item) => ({
-              label: item.label,
-              value: item.count,
-            })) ?? []
-          }
-        />
-        <BreakdownCard
-          title="Policy statuses"
+          title="Policy portfolio"
           items={
             data?.charts.policy_statuses.map((item) => ({
               label: item.label,
@@ -561,42 +924,41 @@ function OverviewContent({
             })) ?? []
           }
         />
-        <TrendCard
-          groupBy={data?.context.period.group_by}
-          title="Quotation trend"
-          rows={data?.charts.quotation_trend ?? []}
-          countLabel="Quotation count"
-          amountLabel="Quoted premium"
-          amountField="quoted_premium"
-        />
-        <TrendCard
-          groupBy={data?.context.period.group_by}
-          title="Policy trend"
-          rows={data?.charts.policy_trend ?? []}
-          countLabel="Policy count"
-          amountLabel="Total premium"
-          amountField="total_premium"
-        />
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
         <BreakdownCard
+          title="TIRAMIS status"
+          items={
+            data?.charts.tiramis_statuses.map((item) => ({
+              label: item.label,
+              value: item.count,
+            })) ?? []
+          }
+        />
+        <ActivityCard
           title="Work queues"
-          items={
-            data?.work_queues.map((queue) => ({
-              label: queue.label,
-              value: queue.count,
-            })) ?? []
-          }
+          items={queueItems}
+          emptyLabel="No work queues waiting."
+        />
+        <ActivityCard
+          title="Recent alerts"
+          items={alertItems}
+          emptyLabel="No operational alerts."
         />
         <BreakdownCard
-          title="Alerts"
-          items={
-            data?.alerts.map((alert) => ({
-              label: `${alert.severity.toUpperCase()} - ${alert.code}`,
-              value: alert.message,
-            })) ?? []
-          }
+          title="Commissions"
+          items={[
+            {
+              label: 'Pending transactions',
+              value: commissionKpis?.pending_transactions ?? 0,
+            },
+            {
+              label: 'Paid transactions',
+              value: commissionKpis?.paid_transactions ?? 0,
+            },
+            {
+              label: 'Accrued amount',
+              value: formatMoneyRows(commissionKpis?.accrued_amount),
+            },
+          ]}
         />
       </div>
     </div>
@@ -1443,6 +1805,35 @@ export function DashboardPage() {
       ? overviewQuery.data?.generated_at
       : (sectionQuery.data as DashboardSectionResponse | undefined)
           ?.generated_at;
+  const organizationName =
+    capabilities?.organization.company_name ??
+    user?.companyName ??
+    'your workspace';
+  const companyType = capabilities?.organization.company_type ?? 'COMPANY';
+  const scopeLabel = currentContext?.scope.own_records_only
+    ? 'Own records'
+    : currentContext?.scope.can_view_all_branches
+      ? 'All branches'
+      : 'Assigned branches';
+  const assignedBranchCount =
+    capabilities?.scope.assigned_branch_ids.length ??
+    currentContext?.scope.allowed_branch_ids.length ??
+    0;
+  const isDashboardRefreshing =
+    capabilitiesQuery.isFetching ||
+    overviewQuery.isFetching ||
+    sectionQuery.isFetching ||
+    executiveQuery.isFetching;
+  const refreshDashboard = () => {
+    void capabilitiesQuery.refetch();
+    void overviewQuery.refetch();
+    if (resolvedActiveTab !== 'overview') {
+      void sectionQuery.refetch();
+    }
+    if (canViewExecutive) {
+      void executiveQuery.refetch();
+    }
+  };
   const tenantActions = useMemo(() => {
     const actions: ShortcutAction[] = [];
 
@@ -1561,30 +1952,41 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Insurance operations"
-        title={`${greetingFor()}, ${greetingName}!`}
-        description={`Here's what's happening with ${capabilities?.organization.company_name ?? user?.companyName ?? 'your workspace'} today.`}
-        status={
-          <Badge variant="outline">
-            {capabilities?.organization.company_type ?? 'COMPANY'}
-          </Badge>
-        }
-      />
+    <div className="-m-4 min-h-[calc(100vh-4rem)] bg-[#f3f3f9] p-4 sm:-m-6 sm:p-6">
+      <div className="mx-auto max-w-[1800px] space-y-4">
+        <DashboardActionHeader
+          greetingName={greetingName}
+          organizationName={organizationName}
+          dateRange={formatDateRange(appliedRange)}
+          generatedAt={generatedAt ?? overviewQuery.data?.generated_at}
+          filterMenu={
+            <DashboardFilterMenu
+              datePreset={datePreset}
+              appliedRange={appliedRange}
+              customRange={customRange}
+              customRangeError={customRangeError}
+              companyType={companyType}
+              scopeLabel={scopeLabel}
+              assignedBranchCount={assignedBranchCount}
+              onDatePresetChange={handleDatePresetChange}
+              onCustomRangeChange={handleCustomRangeChange}
+            />
+          }
+          onRefresh={refreshDashboard}
+          isRefreshing={isDashboardRefreshing}
+        />
 
-      {!canViewExecutive && isNormalCompanyUser ? null : !canViewExecutive ? (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Executive dashboard access is restricted</AlertTitle>
-          <AlertDescription>
-            This account does not currently have `dashboard:overview` or
-            `dashboards:executive:read`. The operational dashboard below still
-            respects your allowed sections and data scope.
-          </AlertDescription>
-        </Alert>
-      ) : (
-        <>
+        {!canViewExecutive && isNormalCompanyUser ? null : !canViewExecutive ? (
+          <Alert className="bg-white">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Executive dashboard access is restricted</AlertTitle>
+            <AlertDescription>
+              This account does not currently have `dashboard:overview` or
+              `dashboards:executive:read`. The operational dashboard below still
+              respects your allowed sections and data scope.
+            </AlertDescription>
+          </Alert>
+        ) : executiveWidgets.length ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {executiveWidgets.map((widget) => (
               <DashboardCard
@@ -1609,183 +2011,70 @@ export function DashboardPage() {
               />
             ))}
           </div>
+        ) : null}
 
-          <Card>
-            <CardHeader className="border-b border-slate-200/70 py-4">
-              <CardTitle>Dashboard freshness</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-5 space-y-3">
-              <p className="text-sm text-slate-600">
-                Executive widgets are still sourced from the metric catalogue,
-                while the section tabs below use the tenant dashboard service.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {executiveWidgets.map((widget) => (
-                  <Badge key={widget.code} variant="outline">
-                    {widget.name ?? widget.code}:{' '}
-                    {widget.freshness?.status ?? widget.status}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      <Card>
-        <CardHeader className="border-b border-slate-200/70 py-4">
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-5 grid gap-4 lg:grid-cols-4">
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Date range
-            </p>
-            <Select
-              value={datePreset}
+        <Card className="overflow-hidden border-none shadow-sm">
+          <CardContent className="p-0">
+            <Tabs
+              value={resolvedActiveTab}
               onValueChange={(value) =>
-                handleDatePresetChange(value as DashboardDatePreset)
+                navigate(getDashboardPath(value as DashboardSectionId))
               }
             >
-              <SelectTrigger aria-label="Date range">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DASHBOARD_DATE_PRESETS.map((preset) => (
-                  <SelectItem key={preset.value} value={preset.value}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {datePreset === 'custom' ? (
-            <>
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  From
-                </p>
-                <Input
-                  type="date"
-                  aria-label="From"
-                  value={customRange.from}
-                  max={customRange.to || undefined}
-                  onChange={(event) =>
-                    handleCustomRangeChange({ from: event.target.value })
-                  }
-                />
+              <div className="overflow-x-auto border-b border-slate-200/70 px-3">
+                <TabsList className="min-w-max border-b-0 bg-transparent">
+                  {availableTabs.map((tab) => (
+                    <TabsTrigger key={tab.id} value={tab.id}>
+                      {tab.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
               </div>
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  To
-                </p>
-                <Input
-                  type="date"
-                  aria-label="To"
-                  value={customRange.to}
-                  min={customRange.from || undefined}
-                  onChange={(event) =>
-                    handleCustomRangeChange({ to: event.target.value })
-                  }
-                />
-              </div>
-              {customRangeError ? (
-                <p role="alert" className="text-sm text-red-600 lg:col-span-4">
-                  {customRangeError} Showing {formatDateRange(appliedRange)}.
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <div className="space-y-2 lg:col-span-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Period
-              </p>
-              <p className="flex h-9.5 items-center text-sm text-slate-700">
-                {formatDateRange(appliedRange)}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader className="gap-3 border-b border-slate-200/70 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <CardTitle>Tenant dashboard</CardTitle>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">
-                Scope:{' '}
-                {currentContext?.scope.own_records_only
-                  ? 'Own records'
-                  : currentContext?.scope.can_view_all_branches
-                    ? 'All branches'
-                    : 'Assigned branches'}
-              </Badge>
-              <Badge variant="outline">
-                Period:{' '}
-                {formatDateRange(currentContext?.period ?? appliedRange)}
-              </Badge>
-              <Badge variant="outline">
-                Generated: {formatTimestamp(generatedAt)}
-              </Badge>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-5">
-          <Tabs
-            value={resolvedActiveTab}
-            onValueChange={(value) =>
-              navigate(getDashboardPath(value as DashboardSectionId))
-            }
-            className="space-y-4"
-          >
-            <TabsList className="h-auto flex-wrap gap-1">
-              {availableTabs.map((tab) => (
-                <TabsTrigger key={tab.id} value={tab.id}>
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            <TabsContent value="overview" className="space-y-6">
-              <OverviewContent
-                data={overviewQuery.data}
-                isLoading={overviewQuery.isLoading}
-                error={overviewQuery.error}
-              />
-            </TabsContent>
-
-            {availableTabs
-              .filter((tab) => tab.id !== 'overview')
-              .map((tab) => (
-                <TabsContent key={tab.id} value={tab.id} className="space-y-6">
-                  <SectionContent
-                    tab={tab.id}
-                    data={
-                      resolvedActiveTab === tab.id
-                        ? sectionQuery.data
-                        : undefined
-                    }
-                    isLoading={
-                      resolvedActiveTab === tab.id && sectionQuery.isLoading
-                    }
-                    error={
-                      resolvedActiveTab === tab.id ? sectionQuery.error : null
-                    }
+              <div className="p-4 sm:p-5">
+                <TabsContent value="overview" className="mt-0">
+                  <OverviewContent
+                    data={overviewQuery.data}
+                    isLoading={overviewQuery.isLoading}
+                    error={overviewQuery.error}
                   />
                 </TabsContent>
-              ))}
-          </Tabs>
-        </CardContent>
-      </Card>
 
-      {!isNormalCompanyUser ? (
-        <ShortcutGrid
-          title="Operational shortcuts"
-          actions={tenantActions}
-          onOpenTab={(tab) => navigate(getDashboardPath(tab))}
-        />
-      ) : null}
+                {availableTabs
+                  .filter((tab) => tab.id !== 'overview')
+                  .map((tab) => (
+                    <TabsContent key={tab.id} value={tab.id} className="mt-0">
+                      <SectionContent
+                        tab={tab.id}
+                        data={
+                          resolvedActiveTab === tab.id
+                            ? sectionQuery.data
+                            : undefined
+                        }
+                        isLoading={
+                          resolvedActiveTab === tab.id && sectionQuery.isLoading
+                        }
+                        error={
+                          resolvedActiveTab === tab.id
+                            ? sectionQuery.error
+                            : null
+                        }
+                      />
+                    </TabsContent>
+                  ))}
+              </div>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {!isNormalCompanyUser ? (
+          <ShortcutGrid
+            title="Operational shortcuts"
+            actions={tenantActions}
+            onOpenTab={(tab) => navigate(getDashboardPath(tab))}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
