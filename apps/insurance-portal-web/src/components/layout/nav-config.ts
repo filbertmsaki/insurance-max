@@ -227,6 +227,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/rating-factors',
         icon: Sliders,
         permission: 'rating-factors:read',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -234,6 +235,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/rating-rules',
         icon: BookOpen,
         permission: 'pricing.manage_rules',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -241,6 +243,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/rate-books',
         icon: BookMarked,
         permission: 'pricing.manage_rate_books',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -256,6 +259,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/access/categories',
         icon: ShieldCheck,
         permission: 'category-access:read',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -263,6 +267,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/access/products',
         icon: ShieldCheck,
         permission: 'product-access:read',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',

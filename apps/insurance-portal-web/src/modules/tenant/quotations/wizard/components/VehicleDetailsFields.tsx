@@ -3,6 +3,9 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 import { motorFields } from '../utils/motorFields';
 import { WizardInput } from './WizardInput';
 
+/** Vehicle fields kept as typed; every other text field is upper-cased. */
+const MIXED_CASE_FIELDS = new Set<string>(['owner_name', 'owner_address']);
+
 export function VehicleDetailsFields({
   form,
   fleetIndex,
@@ -33,6 +36,9 @@ export function VehicleDetailsFields({
       }
       label={definition.label}
       options={definition.options}
+      searchable={definition.searchable}
+      required={!definition.optional}
+      uppercase={!MIXED_CASE_FIELDS.has(definition.key)}
     />
   );
   return (

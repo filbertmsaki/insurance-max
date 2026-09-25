@@ -15,6 +15,8 @@ interface LocationReferenceSelectsProps {
   onCountryChange: (country: string, countryCode: string) => void;
   onRegionChange: (region: string) => void;
   onDistrictChange: (district: string) => void;
+  /** Marks country, region and district with the required asterisk. */
+  required?: boolean;
   errors?: {
     country?: string;
     region?: string;
@@ -30,6 +32,7 @@ export function LocationReferenceSelects({
   onCountryChange,
   onRegionChange,
   onDistrictChange,
+  required,
   errors,
 }: LocationReferenceSelectsProps) {
   const { data: countries = [] } = useReferenceCountries({ is_active: true });
@@ -73,7 +76,7 @@ export function LocationReferenceSelects({
   return (
     <div className="grid gap-4 md:grid-cols-3">
       <div className="space-y-2">
-        <Label>Country</Label>
+        <Label required={required}>Country</Label>
         <Combobox
           value={selectedCountry?.id ?? ''}
           onValueChange={(id) => {
@@ -91,7 +94,7 @@ export function LocationReferenceSelects({
         )}
       </div>
       <div className="space-y-2">
-        <Label>Region</Label>
+        <Label required={required}>Region</Label>
         <Combobox
           value={selectedRegion?.id ?? ''}
           onValueChange={(id) => {
@@ -109,7 +112,7 @@ export function LocationReferenceSelects({
         )}
       </div>
       <div className="space-y-2">
-        <Label>District</Label>
+        <Label required={required}>District</Label>
         <Combobox
           value={
             districts.find(

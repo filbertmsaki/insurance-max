@@ -16,6 +16,10 @@ import {
   hasCompanyAdminRole,
 } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import {
+  WorkflowApprovalStatus,
+  type WorkflowApprovalStatus as WorkflowApprovalStatusType,
+} from '@insurance-max/contracts';
 
 import { CreateCancellationDto } from '../dto/create-cancellation.dto';
 import { ClaimsReviewDto } from '../dto/claims-review.dto';
@@ -26,6 +30,7 @@ import { PolicyReplacementService } from '../services/policy-replacement.service
 import { CreatePolicyReplacementDto } from '../dto/create-policy-replacement.dto';
 import { PolicyTransactionLifecycleService } from '../services/policy-transaction-lifecycle.service';
 import { PolicyTransactionTiramisSubmissionService } from '../services/policy-transaction-tiramis-submission.service';
+import { PolicyTransaction } from '../entities/policy-transaction.entity';
 
 @ApiTags('cancellations')
 @ApiBearerAuth()
@@ -142,7 +147,7 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.cancellationService.complete(user, id);
+    return this.completeAndAdvance(user, id);
   }
 
   @Post('tenant/cancellations/:id/submit-approval')
@@ -173,36 +178,8 @@ export class CancellationsController {
       },
     );
 
-    // Automatic, idempotent background quotation creation on approval —
-    // see the equivalent comment in EndorsementsController#approve.
-    try {
-      await this.cancellationService.ensureTransactionQuotation(user, id);
-    } catch (error) {
-      this.logger.warn(
-        `Automatic quotation creation failed for cancellation ${id} after approval: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-
-    // Automatic TIRAMIS submission on approval — see the equivalent comment
-    // in EndorsementsController#approve. The policy must stay ACTIVE until
-    // a successful final TIRAMIS callback regardless of when submission
-    // happens, so submitting here does not change cancellation semantics;
-    // it only removes the manual "submit-tiramis" click from the happy
-    // path. A failure here is non-fatal and leaves the transaction
-    // retryable via `submit-tiramis`.
-    if (this.lifecycleService.canSubmit(transaction)) {
-      try {
-        await this.submissionService.submitCancellation(user, id);
-      } catch (error) {
-        this.logger.warn(
-          `Automatic TIRAMIS submission failed for cancellation ${id} after approval: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-      }
-    }
+    // Automatic, idempotent quotation creation and TIRAMIS submission.
+    await this.tryAutoIssue(user, transaction, 'after approval');
 
     return this.cancellationService.findOne(user.companyId!, id);
   }
@@ -244,5 +221,63 @@ export class CancellationsController {
       changedBy: user.id,
       reason: dto.reason,
     });
+  }
+
+  private async completeAndAdvance(user: AuthenticatedUser, id: string) {
+    let transaction = await this.cancellationService.complete(user, id);
+
+    if (
+      transaction.approval_required &&
+      (
+        [
+          WorkflowApprovalStatus.NOT_EVALUATED,
+          WorkflowApprovalStatus.CHANGES_REQUESTED,
+        ] as WorkflowApprovalStatusType[]
+      ).includes(transaction.approval_status)
+    ) {
+      transaction = await this.lifecycleService.submitForApproval(
+        user.companyId!,
+        id,
+        { changedBy: user.id },
+      );
+    }
+
+    await this.tryAutoIssue(user, transaction, 'after completion');
+
+    return this.cancellationService.findOne(user.companyId!, id);
+  }
+
+  private async tryAutoIssue(
+    user: AuthenticatedUser,
+    transaction: PolicyTransaction,
+    phase: string,
+  ) {
+    if (!this.lifecycleService.canSubmit(transaction)) {
+      return;
+    }
+
+    try {
+      await this.cancellationService.ensureTransactionQuotation(
+        user,
+        transaction.id,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Automatic quotation creation failed for cancellation ${transaction.id} ${phase}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return;
+    }
+
+    try {
+      await this.submissionService.submitCancellation(user, transaction.id);
+    } catch (error) {
+      this.logger.warn(
+        `Automatic TIRAMIS submission failed for cancellation ${transaction.id} ${phase}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 }

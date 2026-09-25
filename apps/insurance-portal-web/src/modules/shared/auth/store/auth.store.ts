@@ -9,6 +9,31 @@ import type {
   UserProfile,
 } from '@/types';
 
+const COMPANY_USER_POLICY_PERMISSIONS = new Set([
+  'policies:read',
+  'policy-transactions:read',
+  'endorsements:create',
+  'endorsements:update-draft',
+  'endorsements:complete',
+  'endorsements:submit-tiramis',
+  'cancellations:read',
+  'cancellations:create',
+  'cancellations:complete',
+  'cancellations:submit-tiramis',
+]);
+
+function hasCompanyUserCompatiblePermission(
+  user: AuthUser | null | undefined,
+  permission: string,
+): boolean {
+  return (
+    COMPANY_USER_POLICY_PERMISSIONS.has(permission) &&
+    user?.scope === 'company' &&
+    user.userType === 'COMPANY_USER' &&
+    user.roles.includes('USER')
+  );
+}
+
 function decodeJwt(token: string): AuthUser | null {
   try {
     const payload = token.split('.')[1];
@@ -234,12 +259,19 @@ export const useAuthStore = create<AuthState>()(
 
       hasPermission: (permission) => {
         const context = get().authorizationContext;
+        const user = get().user;
 
         if (context) {
-          return context.permissions.includes(permission);
+          return (
+            context.permissions.includes(permission) ||
+            hasCompanyUserCompatiblePermission(user, permission)
+          );
         }
 
-        return get().user?.permissions?.includes(permission) ?? false;
+        return (
+          user?.permissions?.includes(permission) ||
+          hasCompanyUserCompatiblePermission(user, permission)
+        );
       },
 
       hasRole: (role) => {

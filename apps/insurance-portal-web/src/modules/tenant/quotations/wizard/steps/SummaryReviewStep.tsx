@@ -11,6 +11,7 @@ import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 import { quotationTotals } from '../utils/quotationTotals';
 import { quotationPricingIssues } from '../utils/quotationReadiness';
 import { StepSection } from '../components/StepSection';
+import { WizardInput } from '../components/WizardInput';
 interface OptionLike {
   id: string;
   name?: string;
@@ -164,6 +165,19 @@ export function SummaryReviewStep({
           <span>Total</span>
           <span>{money(totals.total)}</span>
         </div>
+      </div>
+      <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+        <WizardInput
+          form={form}
+          name="payment_mode_tira"
+          label="Payment method"
+          required
+          options={[
+            { value: '1', label: 'Cash' },
+            { value: '2', label: 'Cheque' },
+            { value: '3', label: 'EFT' },
+          ]}
+        />
       </div>
       {issues.length > 0 && (
         <div

@@ -1,5 +1,13 @@
 ﻿import { useEffect, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { type QuotationFormSchemaValues } from '../../schemas';
 import { useIntermediaryCompanyOptions } from '../../hooks';
 import { WizardInput } from '../components/WizardInput';
@@ -84,11 +92,18 @@ export function CoverNoteSetupStep({
     extra: Partial<Parameters<typeof WizardInput>[0]> = {},
   ) => <WizardInput form={form} name={name} label={label} {...extra} />;
   const days = inclusiveDayCount(values.valid_from, values.valid_until) ?? 365;
+  const hasCoverOptions =
+    values.channel_type !== 'DIRECT' ||
+    values.currency !== 'TZS' ||
+    values.cover_note_type !== '1';
+  // Fleet wording is captured per vehicle, so the header wording is optional.
+  const wordingRequired = values.quotation_flow !== 'MOTOR_FLEET';
   return (
     <StepSection title={title} first={firstSection}>
       {!values.category_id && categoryOptions.length > 1 && (
         <div className="grid gap-4 sm:grid-cols-2">
           {field('category_id', 'Insurance category', {
+            required: true,
             options: categoryOptions.map((item) => ({
               value: item.id,
               label: item.name ?? 'Category',
@@ -97,38 +112,42 @@ export function CoverNoteSetupStep({
         </div>
       )}
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="cover-duration">
+        <div className="space-y-1">
+          <Label htmlFor="cover-duration" required>
             Date range
-          </label>
-          <select
-            id="cover-duration"
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          </Label>
+          <Select
             value={String(days)}
-            onChange={(event) =>
+            onValueChange={(value) =>
               form.setValue(
                 'valid_until',
                 dateOnlyPart(
                   computeCoverNoteEndFromStart(
                     values.valid_from,
-                    Number(event.target.value),
+                    Number(value),
                   ),
                 ),
                 { shouldDirty: true, shouldValidate: true },
               )
             }
           >
-            {![30, 60, 90, 365].includes(days) && (
-              <option value={days}>Custom period</option>
-            )}
-            {[30, 60, 90, 365].map((value) => (
-              <option key={value} value={value}>
-                {value === 365 ? '1 year' : value + ' days'}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="cover-duration">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {![30, 60, 90, 365].includes(days) && (
+                <SelectItem value={String(days)}>Custom period</SelectItem>
+              )}
+              {[30, 60, 90, 365].map((value) => (
+                <SelectItem key={value} value={String(value)}>
+                  {value === 365 ? '1 year' : value + ' days'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         {field('valid_from', 'Cover starts', {
+          required: true,
           type: 'date',
           onChange: (start) =>
             form.setValue(
@@ -137,57 +156,62 @@ export function CoverNoteSetupStep({
             ),
         })}
         {field('valid_until', 'Cover ends', {
+          required: true,
           type: 'date',
           readOnly: true,
         })}
       </div>
-      <div className="rounded-lg border p-3">
-        <p className="text-sm font-medium">Cover options</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {values.channel_type !== 'DIRECT' &&
-            field('intermediary_company_id', 'Intermediary company', {
-              options: intermediaries.map((item) => ({
-                value: item.id,
-                label: item.name,
-              })),
-            })}
-          {values.currency !== 'TZS' &&
-            field('exchange_rate', 'Exchange rate to TZS', { type: 'number' })}
-          {field('payment_mode_tira', 'Payment method', {
-            options: [
-              { value: '1', label: 'Cash' },
-              { value: '2', label: 'Cheque' },
-              { value: '3', label: 'EFT' },
-            ],
-          })}
-          {values.cover_note_type !== '1' &&
-            field('prev_cover_note_reference', 'Previous cover reference')}
-          {values.cover_note_type === '3' && (
-            <>
-              {field('endorsement_type', 'Endorsement type', {
-                options: [
-                  { value: '1', label: 'Increase premium' },
-                  { value: '2', label: 'Decrease premium' },
-                  { value: '3', label: 'Change cover details' },
-                  { value: '4', label: 'Cancellation' },
-                ],
+      {hasCoverOptions && (
+        <div className="rounded-lg border p-3">
+          <p className="text-sm font-medium">Cover options</p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {values.channel_type !== 'DIRECT' &&
+              field('intermediary_company_id', 'Intermediary company', {
+                required: true,
+                options: intermediaries.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                })),
               })}
-              {field('endorsement_reason', 'Reason')}
-              {field('endorsement_premium_earned', 'Earned premium', {
+            {values.currency !== 'TZS' &&
+              field('exchange_rate', 'Exchange rate to TZS', {
+                required: true,
                 type: 'number',
               })}
-            </>
-          )}
-          {values.channel_type !== 'DIRECT' && (
-            <>
-              {field('commission_paid', 'Commission amount', {
-                type: 'number',
+            {values.cover_note_type !== '1' &&
+              field('prev_cover_note_reference', 'Previous cover reference', {
+                required: true,
               })}
-              {field('commission_rate', 'Commission rate', { type: 'number' })}
-            </>
-          )}
+            {values.cover_note_type === '3' && (
+              <>
+                {field('endorsement_type', 'Endorsement type', {
+                  required: true,
+                  options: [
+                    { value: '1', label: 'Increase premium' },
+                    { value: '2', label: 'Decrease premium' },
+                    { value: '3', label: 'Change cover details' },
+                    { value: '4', label: 'Cancellation' },
+                  ],
+                })}
+                {field('endorsement_reason', 'Reason', { required: true })}
+                {field('endorsement_premium_earned', 'Earned premium', {
+                  type: 'number',
+                })}
+              </>
+            )}
+            {values.channel_type !== 'DIRECT' && (
+              <>
+                {field('commission_paid', 'Commission amount', {
+                  type: 'number',
+                })}
+                {field('commission_rate', 'Commission rate', {
+                  type: 'number',
+                })}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <div className="rounded-lg border p-3">
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-medium">Cover wording</p>
@@ -202,9 +226,11 @@ export function CoverNoteSetupStep({
         {wordingExpanded ? (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {field('cover_note_desc', 'Cover description', {
+              required: wordingRequired,
               multiline: true,
             })}
             {field('operative_clause', 'Operative clause', {
+              required: wordingRequired,
               multiline: true,
             })}
           </div>

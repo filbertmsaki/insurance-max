@@ -385,7 +385,7 @@ export function useCompleteCancellation(cancellationId?: string) {
           queryKey: policyKeys.cancellationContext(cancellationId),
         });
       }
-      toast.success('Cancellation completed');
+      toast.success('Cancellation submitted');
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });

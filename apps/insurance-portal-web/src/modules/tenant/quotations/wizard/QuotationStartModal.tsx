@@ -324,7 +324,11 @@ export function QuotationStartModal({
 
         <div className="grid gap-4 py-2 md:grid-cols-2">
           <div>
-            <Label htmlFor="quotation-start-category" className="mb-2 block">
+            <Label
+              required
+              htmlFor="quotation-start-category"
+              className="mb-2 block"
+            >
               {FIELD_LABELS.category_id}
             </Label>
             <Select value={categoryId} onValueChange={handleCategoryChange}>
@@ -345,7 +349,11 @@ export function QuotationStartModal({
           </div>
 
           <div>
-            <Label htmlFor="quotation-start-product" className="mb-2 block">
+            <Label
+              required
+              htmlFor="quotation-start-product"
+              className="mb-2 block"
+            >
               {FIELD_LABELS.product_id}
             </Label>
             <Select value={productId} onValueChange={setProductId}>
@@ -366,7 +374,11 @@ export function QuotationStartModal({
           </div>
 
           <div>
-            <Label htmlFor="quotation-start-channel" className="mb-2 block">
+            <Label
+              required
+              htmlFor="quotation-start-channel"
+              className="mb-2 block"
+            >
               {FIELD_LABELS.channel_type}
             </Label>
             <Select
@@ -394,29 +406,34 @@ export function QuotationStartModal({
           {requiresTranCompany && (
             <div>
               <Label
+                required
                 htmlFor="quotation-start-tran-company"
                 className="mb-2 block"
               >
                 {tranCompanyLabel}
               </Label>
-              <select
-                id="quotation-start-tran-company"
-                className="flex h-10 w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+              <Select
                 value={effectiveTranCompanyId}
-                onChange={(event) => setTranCompanyId(event.target.value)}
+                onValueChange={setTranCompanyId}
                 disabled={tranCompanyOptions.length === 0}
               >
-                <option value="">
-                  {tranCompanyOptions.length === 0
-                    ? 'No linked companies available'
-                    : 'Select Tran Company'}
-                </option>
-                {tranCompanyOptions.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="quotation-start-tran-company">
+                  <SelectValue
+                    placeholder={
+                      tranCompanyOptions.length === 0
+                        ? 'No linked companies available'
+                        : 'Select Tran Company'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {tranCompanyOptions.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {touched && errors.intermediary_company_id && (
                 <p className="mt-1 text-sm text-red-600">
                   {errors.intermediary_company_id}
@@ -426,7 +443,11 @@ export function QuotationStartModal({
           )}
 
           <div>
-            <Label htmlFor="quotation-start-currency" className="mb-2 block">
+            <Label
+              required
+              htmlFor="quotation-start-currency"
+              className="mb-2 block"
+            >
               {FIELD_LABELS.currency}
             </Label>
             <Select value={currency} onValueChange={setCurrency}>
@@ -452,6 +473,7 @@ export function QuotationStartModal({
           {requiresDateRange && (
             <div>
               <Label
+                required
                 htmlFor="quotation-start-date-range"
                 className="mb-2 block"
               >

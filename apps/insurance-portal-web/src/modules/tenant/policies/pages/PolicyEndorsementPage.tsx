@@ -149,6 +149,16 @@ export function PolicyEndorsementPage() {
     canCreateCancellation && cancellationEligibility?.eligible;
   const { data: context, refetch: refetchContext } =
     useEndorsementContext(endorsementId);
+  const canCompleteEndorsement = hasPermission('endorsements:complete');
+  const canSubmitEndorsementApproval = hasPermission(
+    'endorsements:submit-approval',
+  );
+  const canRequestEndorsementPayment = hasPermission(
+    'endorsements:request-payment',
+  );
+  const canSubmitEndorsementToTiramis = hasPermission(
+    'endorsements:submit-tiramis',
+  );
   const canUseReconciliation = hasPermission('endorsements:reconcile');
   const { data: reconciliation } = useEndorsementReconciliation(
     endorsementId,
@@ -189,12 +199,17 @@ export function PolicyEndorsementPage() {
       maximumFractionDigits: 2,
     }).format(Number.isFinite(amount) ? amount : 0);
   };
-  const canComplete = tx?.stage === 'DRAFT' && (context?.changes ?? []).length > 0;
+  const canComplete =
+    canCompleteEndorsement &&
+    tx?.stage === 'DRAFT' &&
+    (context?.changes ?? []).length > 0;
   const canSubmitApproval =
+    canSubmitEndorsementApproval &&
     tx?.stage === 'COMPLETED' &&
     tx.approval_required &&
     tx.approval_status === 'NOT_EVALUATED';
   const canRequestPayment =
+    canRequestEndorsementPayment &&
     tx?.stage === 'COMPLETED' &&
     tx.payment_required &&
     ['NOT_REQUESTED', 'NOT_EVALUATED'].includes(tx.payment_status);
@@ -204,6 +219,7 @@ export function PolicyEndorsementPage() {
       tx.payment_status,
     );
   const canIssue =
+    canSubmitEndorsementToTiramis &&
     tx?.stage === 'COMPLETED' &&
     ['READY', 'FAILED', 'RETRYABLE'].includes(tx.submission_status);
   const refunds = Array.isArray(reconciliation?.refunds)

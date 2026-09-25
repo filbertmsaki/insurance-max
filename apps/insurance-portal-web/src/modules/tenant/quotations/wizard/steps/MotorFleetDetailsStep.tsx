@@ -9,6 +9,7 @@ import {
 } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { createBrowserSafeId } from '@/lib/ids';
 import {
@@ -357,28 +358,34 @@ function FleetVehicleEditor({
           }}
         />
         {vehicleOptions.length > 0 && (
-          <select
-            aria-label="Saved vehicle"
-            className="h-10 w-full rounded-md border px-3 text-sm"
-            defaultValue=""
-            onChange={(event) => {
-              const vehicle = vehicleOptions.find(
-                (item) => item.id === event.target.value,
-              );
-              if (vehicle) {
-                fillFromExistingVehicle(vehicle);
-                setVehicleRevision((value) => value + 1);
-              }
-            }}
-          >
-            <option value="">Use a saved vehicle</option>
-            {vehicleOptions.map((vehicle) => (
-              <option key={vehicle.id} value={vehicle.id}>
-                {vehicle.registration_no || vehicle.chassis_no} {vehicle.make}{' '}
-                {vehicle.model}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-1">
+            <Label htmlFor={`fleet-saved-vehicle-${index}`}>
+              Use a saved vehicle
+            </Label>
+            <Select
+              onValueChange={(vehicleId) => {
+                const vehicle = vehicleOptions.find(
+                  (item) => item.id === vehicleId,
+                );
+                if (vehicle) {
+                  fillFromExistingVehicle(vehicle);
+                  setVehicleRevision((value) => value + 1);
+                }
+              }}
+            >
+              <SelectTrigger id={`fleet-saved-vehicle-${index}`}>
+                <SelectValue placeholder="Select vehicle" />
+              </SelectTrigger>
+              <SelectContent>
+                {vehicleOptions.map((vehicle) => (
+                  <SelectItem key={vehicle.id} value={vehicle.id}>
+                    {vehicle.registration_no || vehicle.chassis_no || 'Vehicle'}{' '}
+                    · {vehicle.make} {vehicle.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
         <VehicleDetailsFields
           key={vehicleRevision}
@@ -409,7 +416,7 @@ function FleetVehicleEditor({
             name={`fleet.items.${index}.cover_note_desc` as const}
             render={({ field }) => (
               <WizardFormItem className="md:col-span-2">
-                <FormLabel>Cover Note Description</FormLabel>
+                <FormLabel required>Cover Note Description</FormLabel>
                 <FormControl>
                   <Textarea {...field} rows={3} />
                 </FormControl>
@@ -422,7 +429,7 @@ function FleetVehicleEditor({
             name={`fleet.items.${index}.operative_clause` as const}
             render={({ field }) => (
               <WizardFormItem className="md:col-span-2">
-                <FormLabel>Operative Clause</FormLabel>
+                <FormLabel required>Operative Clause</FormLabel>
                 <FormControl>
                   <Textarea {...field} rows={3} />
                 </FormControl>
@@ -536,6 +543,11 @@ function FleetVehicleEditor({
             (form.watch(
               `fleet.items.${index}.risks_covered.${riskIndex}.factor_values` as const,
             ) as Record<string, PricingFactorValue> | undefined) ?? {};
+          const requiresSumInsured = (
+            requiredFactorsByRiskId.get(riskId.trim()) ?? []
+          ).some(
+            (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
+          );
           const visibleRequiredFactors = (
             requiredFactorsByRiskId.get(riskId.trim()) ?? []
           ).filter(
@@ -579,7 +591,7 @@ function FleetVehicleEditor({
                   }
                   render={({ field }) => (
                     <WizardFormItem>
-                      <FormLabel>Cover</FormLabel>
+                      <FormLabel required>Cover</FormLabel>
                       <Select
                         value={toSelectValue(field.value)}
                         onValueChange={(value) => {
@@ -634,7 +646,9 @@ function FleetVehicleEditor({
                   }
                   render={({ field }) => (
                     <WizardFormItem>
-                      <FormLabel>Sum Insured</FormLabel>
+                      <FormLabel required={requiresSumInsured}>
+                        Sum Insured
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="number"

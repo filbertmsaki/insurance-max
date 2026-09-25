@@ -59,9 +59,6 @@ import {
   useRenewalEligibility,
   useSubmitPolicyEndorsementToTiramis,
 } from '../hooks';
-import { useSubmitPolicyToTiramis } from '@/modules/tenant/tiramis/hooks';
-import { TiramisSubmissionDialog } from '@/modules/tenant/tiramis/components/TiramisSubmissionDialog';
-import { buildPolicyTiramisPayload } from '@/modules/tenant/tiramis/utils';
 import { DataTable, type Column } from '@/components/shared/DataTable';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
@@ -105,12 +102,22 @@ function arrayCount(value: unknown): string {
 }
 
 const RETRYABLE_SUBMISSION_STATUSES = new Set(['FAILED', 'RETRYABLE']);
+const ENDORSED_POLICY_STATUSES = new Set(['ENDORSED', 'ACTIVE_ENDORSED']);
 
 function canIssueEndorsement(endorsement: PolicyEndorsementRecord) {
   return (
     endorsement.stage === 'COMPLETED' &&
     endorsement.submission_status === 'READY'
   );
+}
+
+function isEndorsedPolicyStatus(status: string | null | undefined) {
+  const normalized = String(status ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[.\s-]+/g, '_');
+
+  return ENDORSED_POLICY_STATUSES.has(normalized);
 }
 
 type PolicyFlow = 'MOTOR_SINGLE' | 'MOTOR_FLEET' | 'NON_MOTOR';
@@ -347,7 +354,6 @@ export function PolicyDetailPage() {
   const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
   const { data: policy, isLoading } = usePolicyDetail(id);
   const deleteMutation = useDeletePolicy();
-  const submitMutation = useSubmitPolicyToTiramis(policy);
   const { data: endorsements = [], isLoading: endorsementsLoading } =
     usePolicyEndorsements(policy?.id, canViewEndorsements);
   const { data: eligibility } = useEndorsementEligibility(
@@ -388,11 +394,6 @@ export function PolicyDetailPage() {
   const { data: versions = [] } = usePolicyVersions(policy?.id);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nonMotorOpen, setNonMotorOpen] = useState(false);
-  const [submitOpen, setSubmitOpen] = useState(false);
-  const tiramisSubmissionPayload = useMemo(
-    () => (policy ? buildPolicyTiramisPayload(policy) : null),
-    [policy],
-  );
   const contractEntries = Array.isArray(
     currentVersion?.policy_snapshot?.['entries'],
   )
@@ -417,6 +418,9 @@ export function PolicyDetailPage() {
     ? (renewalEligibility?.blockers?.[0]?.message ??
       'This policy is not currently eligible for renewal.')
     : null;
+  const shouldShowHeaderSecondaryActions = !isEndorsedPolicyStatus(
+    policy?.policy_status,
+  );
 
   const pendingRenewalMatch =
     pendingTransaction?.transaction_type === 'RENEWAL'
@@ -750,11 +754,6 @@ export function PolicyDetailPage() {
           },
         ]
       : []),
-    {
-      label: 'Submit to TIRAMIS',
-      disabled: submitMutation.isPending,
-      onClick: () => setSubmitOpen(true),
-    },
     ...(!policy.issued_by_system
       ? [
           {
@@ -770,6 +769,9 @@ export function PolicyDetailPage() {
         ]
       : []),
   ];
+  const headerSecondaryActions = shouldShowHeaderSecondaryActions
+    ? secondaryActions
+    : [];
 
   return (
     <div className="space-y-6">
@@ -799,7 +801,10 @@ export function PolicyDetailPage() {
                 {primaryAction.label}
               </Button>
             ) : null}
-            <ActionMenu items={secondaryActions} contentClassName="w-56" />
+            <ActionMenu
+              items={headerSecondaryActions}
+              contentClassName="w-56"
+            />
           </div>
         }
       />
@@ -1503,37 +1508,6 @@ export function PolicyDetailPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      <TiramisSubmissionDialog
-        open={submitOpen}
-        onOpenChange={setSubmitOpen}
-        title="Submit Policy to TIRAMIS"
-        description="Choose the branch and sale point for this submission. If a unique or default sale point exists, it will be used automatically."
-        initialBranchId={policy.branch_id}
-        isPending={submitMutation.isPending}
-        readiness={
-          tiramisSubmissionPayload
-            ? {
-                requestType: tiramisSubmissionPayload.requestType,
-                sourceModule:
-                  tiramisSubmissionPayload.source_module || 'policies',
-                sourceRecordId:
-                  tiramisSubmissionPayload.source_record_id || policy.id,
-                payload: tiramisSubmissionPayload.payload,
-              }
-            : undefined
-        }
-        onSubmit={(selection) => {
-          submitMutation.mutate(selection, {
-            onSuccess: (result) => {
-              setSubmitOpen(false);
-              navigate(
-                underwritingPaths.submissionDetail(result.submission.id),
-              );
-            },
-          });
-        }}
-      />
 
       <ConfirmDialog
         open={deleteOpen}

@@ -196,6 +196,7 @@ export class CancellationService {
         minimumRetainedPremium: rule.minimumRetainedPremium,
         tiraEndorsementType: rule.tiraEndorsementType,
         requireApproval: rule.requireApproval,
+        directApprovalLimit: rule.directApprovalLimit,
       };
       const pricingSnapshot = {
         schemaVersion: 1,
@@ -499,9 +500,11 @@ export class CancellationService {
         );
       }
 
-      transaction.approval_required =
-        Boolean(cancellation?.rule_snapshot?.['requireApproval'] ?? true) ||
-        Boolean(cancellation?.claims_review_required);
+      const approvalDecision = this.evaluateCancellationApprovalRequirement(
+        transaction,
+        cancellation,
+      );
+      transaction.approval_required = approvalDecision.required;
       transaction.payment_required = isPositiveAmount(
         transaction.additional_premium,
       );
@@ -516,6 +519,53 @@ export class CancellationService {
       transaction.id,
       { changedBy: user.id },
     );
+  }
+
+  private evaluateCancellationApprovalRequirement(
+    transaction: Pick<
+      PolicyTransaction,
+      'additional_premium' | 'return_premium' | 'net_premium_difference'
+    >,
+    cancellation: PolicyCancellation | null,
+  ) {
+    const claimsReviewRequired = Boolean(cancellation?.claims_review_required);
+    const ruleRequiresApproval = Boolean(
+      cancellation?.rule_snapshot?.['requireApproval'] ?? true,
+    );
+    const directApprovalLimit = this.toOptionalAmount(
+      cancellation?.rule_snapshot?.['directApprovalLimit'],
+    );
+    const cancellationAmount = Math.max(
+      this.absAmount(transaction.additional_premium),
+      this.absAmount(transaction.return_premium),
+      this.absAmount(transaction.net_premium_difference),
+    );
+    const thresholdExceeded =
+      directApprovalLimit === null
+        ? ruleRequiresApproval
+        : cancellationAmount > directApprovalLimit;
+
+    return {
+      required:
+        claimsReviewRequired || (ruleRequiresApproval && thresholdExceeded),
+      claimsReviewRequired,
+      ruleRequiresApproval,
+      directApprovalLimit,
+      cancellationAmount,
+      thresholdExceeded,
+    };
+  }
+
+  private absAmount(value: unknown) {
+    const parsed = Number(value ?? 0);
+    return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
+  }
+
+  private toOptionalAmount(value: unknown) {
+    if (value === null || value === undefined || value === '') return null;
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
   }
 
   async requestPayment(user: AuthenticatedUser, transactionId: string) {

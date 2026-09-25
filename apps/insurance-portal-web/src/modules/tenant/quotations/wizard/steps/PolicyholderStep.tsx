@@ -247,7 +247,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
     return {
       value: customer.id,
-      label: `${getCustomerDisplayName(customer)} ? ${customer.phone || customer.id_number || customer.customer_no}`,
+      label: `${getCustomerDisplayName(customer)} · ${customer.phone || customer.id_number || customer.customer_no}`,
       keywords: [searchText],
     };
   });
@@ -300,7 +300,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             name="customer_id"
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>Existing Customer (required)</FormLabel>
+                <FormLabel required>Existing Customer</FormLabel>
                 <FormControl>
                   <Combobox
                     value={field.value}
@@ -379,7 +379,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             name={fieldName('full_name')}
             render={({ field }) => (
               <WizardFormItem className="md:col-span-2">
-                <FormLabel>Full Name (required)</FormLabel>
+                <FormLabel required>Full Name</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -401,8 +401,8 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             name={fieldName('date_of_birth')}
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>
-                  Date of Birth / Incorporation Date (required)
+                <FormLabel required>
+                  Date of Birth / Incorporation Date
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -423,7 +423,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               name={fieldName('gender')}
               render={({ field }) => (
                 <WizardFormItem>
-                  <FormLabel>Gender (required)</FormLabel>
+                  <FormLabel required>Gender</FormLabel>
                   <Select
                     value={toSelectValue(field.value as string)}
                     onValueChange={(value) =>
@@ -452,7 +452,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             name={fieldName('id_type')}
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>Identification Type (required)</FormLabel>
+                <FormLabel required>Identification Type</FormLabel>
                 <Select
                   value={field.value ? String(field.value) : SELECT_NONE_VALUE}
                   onValueChange={(value) => {
@@ -488,7 +488,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             name={fieldName('id_number')}
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>Identification Number (required)</FormLabel>
+                <FormLabel required>Identification Number</FormLabel>
                 <FormControl>
                   <Input {...field} value={field.value as string} />
                 </FormControl>
@@ -502,7 +502,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             name={fieldName('phone')}
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>Phone Number (required)</FormLabel>
+                <FormLabel required>Phone Number</FormLabel>
                 <FormControl>
                   <Input {...field} value={field.value as string} />
                 </FormControl>
@@ -542,6 +542,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
           <div className="md:col-span-2">
             <LocationReferenceSelects
+              required
               country={policyholderCountry}
               countryCode={policyholderCountryCode}
               region={policyholderRegion}
