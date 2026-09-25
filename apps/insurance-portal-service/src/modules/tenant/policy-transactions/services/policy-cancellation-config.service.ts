@@ -12,6 +12,7 @@ export interface ResolvedCancellationRule {
   cancellationCharge: string;
   minimumRetainedPremium: string;
   requireApproval: boolean;
+  directApprovalLimit: string | null;
 }
 
 interface CancellationRuleConfig {
@@ -19,6 +20,8 @@ interface CancellationRuleConfig {
   cancellationCharge?: string | number;
   minimumRetainedPremium?: string | number;
   requireApproval?: boolean;
+  directApprovalLimit?: string | number | null;
+  approvalThresholdAmount?: string | number | null;
 }
 
 interface CancellationRulesConfig {
@@ -51,6 +54,12 @@ export class PolicyCancellationConfigService {
     const defaultRule = config.default ?? {};
     const reasonRule = config.reasons?.[reasonType] ?? {};
     const merged = { ...defaultRule, ...reasonRule };
+    const directApprovalLimit =
+      reasonRule.directApprovalLimit ??
+      reasonRule.approvalThresholdAmount ??
+      defaultRule.directApprovalLimit ??
+      defaultRule.approvalThresholdAmount ??
+      null;
     const cancellationMethod =
       merged.cancellationMethod ?? CancellationMethod.PRO_RATA;
 
@@ -67,6 +76,8 @@ export class PolicyCancellationConfigService {
       cancellationCharge: String(merged.cancellationCharge ?? 0),
       minimumRetainedPremium: String(merged.minimumRetainedPremium ?? 0),
       requireApproval: merged.requireApproval !== false,
+      directApprovalLimit:
+        directApprovalLimit === null ? null : String(directApprovalLimit),
     };
   }
 }

@@ -16,6 +16,19 @@ import {
 } from '../decorators/authorization.decorator';
 import type { AuthenticatedUser } from '../interfaces/authenticated-user.interface';
 
+const COMPANY_USER_POLICY_PERMISSIONS = [
+  'policies:read',
+  'policy-transactions:read',
+  'endorsements:create',
+  'endorsements:update-draft',
+  'endorsements:complete',
+  'endorsements:submit-tiramis',
+  'cancellations:read',
+  'cancellations:create',
+  'cancellations:complete',
+  'cancellations:submit-tiramis',
+];
+
 @Injectable()
 export class AuthorizationGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
@@ -95,6 +108,16 @@ export class AuthorizationGuard implements CanActivate {
 
     const permissionSet = new Set(user.permissions ?? []);
     const roleSet = new Set(user.roles ?? []);
+
+    if (
+      user.scope === 'company' &&
+      user.userType === 'COMPANY_USER' &&
+      roleSet.has('USER')
+    ) {
+      COMPANY_USER_POLICY_PERMISSIONS.forEach((permission) =>
+        permissionSet.add(permission),
+      );
+    }
 
     const missingPermissions = requiredPermissions.filter(
       (permission) => !permissionSet.has(permission),

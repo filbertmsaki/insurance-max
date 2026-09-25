@@ -13,6 +13,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerFullName } from '@/modules/tenant/customers/types';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { policiesApi } from '../api';
 import {
   policyKeys,
@@ -59,6 +60,7 @@ export function PolicyCancellationPage() {
   }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { hasPermission } = useAuthStore();
   const isNew = !cancellationId || cancellationId === 'new';
   const {
     data: policy,
@@ -80,16 +82,6 @@ export function PolicyCancellationPage() {
   );
   const [reason, setReason] = useState('');
 
-  const submitApproval = useMutation({
-    mutationFn: () => policiesApi.submitCancellationApproval(cancellationId!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: policyKeys.cancellationContext(cancellationId!),
-      });
-      toast.success('Cancellation submitted for approval');
-    },
-    onError: (e) => toast.error(getApiErrorMessage(e)),
-  });
   const approve = useMutation({
     mutationFn: () => policiesApi.approveCancellation(cancellationId!),
     onSuccess: () => {
@@ -113,10 +105,19 @@ export function PolicyCancellationPage() {
 
   const tx = context?.transaction;
   const cancellation = context?.cancellation;
+  const canCompleteCancellation = hasPermission('cancellations:complete');
+  const canApproveCancellation = hasPermission('cancellations:approve');
+  const canRequestCancellationPayment = hasPermission(
+    'cancellations:request-payment',
+  );
+  const canSubmitCancellationToTiramis = hasPermission(
+    'cancellations:submit-tiramis',
+  );
   const canIssue =
+    canSubmitCancellationToTiramis &&
     tx?.stage === 'COMPLETED' &&
     ['READY', 'FAILED', 'RETRYABLE'].includes(tx.submission_status);
-  const canComplete = tx?.stage === 'DRAFT';
+  const canComplete = canCompleteCancellation && tx?.stage === 'DRAFT';
   const finalApplied = tx?.stage === 'APPLIED';
   const money = (
     value: string | number | null | undefined,
@@ -429,20 +430,12 @@ export function PolicyCancellationPage() {
                           disabled={completeCancellation.isPending}
                           onClick={() => completeCancellation.mutate()}
                         >
-                          Complete Cancellation
-                        </Button>
-                      )}
-                      {tx.stage === 'COMPLETED' && tx.approval_required && (
-                        <Button
-                          variant="outline"
-                          disabled={submitApproval.isPending}
-                          onClick={() => submitApproval.mutate()}
-                        >
-                          Submit for Approval
+                          Submit Cancellation
                         </Button>
                       )}
                       {tx.stage === 'COMPLETED' &&
-                        tx.approval_status === 'PENDING' && (
+                        tx.approval_status === 'PENDING' &&
+                        canApproveCancellation && (
                           <Button
                             variant="outline"
                             disabled={approve.isPending}
@@ -453,7 +446,8 @@ export function PolicyCancellationPage() {
                         )}
                       {tx.stage === 'COMPLETED' &&
                         tx.payment_required &&
-                        !tx.active_invoice_id && (
+                        !tx.active_invoice_id &&
+                        canRequestCancellationPayment && (
                           <Button
                             variant="outline"
                             disabled={requestPayment.isPending}

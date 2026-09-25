@@ -65,4 +65,29 @@ describe('PolicyCancellationConfigService', () => {
       requireApproval: true,
     });
   });
+
+  it('resolves direct approval limits from cancellation rules', async () => {
+    const service = makeService({
+      default: {
+        directApprovalLimit: '50000',
+      },
+      reasons: {
+        [CancellationReasonType.FRAUD]: {
+          approvalThresholdAmount: '0',
+        },
+      },
+    });
+
+    await expect(
+      service.resolve(companyId, CancellationReasonType.CUSTOMER_REQUEST),
+    ).resolves.toMatchObject({
+      directApprovalLimit: '50000',
+    });
+
+    await expect(
+      service.resolve(companyId, CancellationReasonType.FRAUD),
+    ).resolves.toMatchObject({
+      directApprovalLimit: '0',
+    });
+  });
 });

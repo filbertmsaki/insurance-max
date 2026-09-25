@@ -1,10 +1,40 @@
 import type { AuthUser } from '@/types';
 
+const COMPANY_USER_POLICY_PERMISSIONS = new Set([
+  'policies:read',
+  'policy-transactions:read',
+  'endorsements:create',
+  'endorsements:update-draft',
+  'endorsements:complete',
+  'endorsements:submit-tiramis',
+  'cancellations:read',
+  'cancellations:create',
+  'cancellations:complete',
+  'cancellations:submit-tiramis',
+]);
+
 export function hasPermission(
   user: Pick<AuthUser, 'permissions'> | null | undefined,
   permission: string,
 ): boolean {
   return user?.permissions?.includes(permission) ?? false;
+}
+
+function hasCompatiblePermission(
+  user:
+    | Pick<AuthUser, 'permissions' | 'roles' | 'scope' | 'userType'>
+    | null
+    | undefined,
+  permission: string,
+): boolean {
+  if (hasPermission(user, permission)) return true;
+
+  return (
+    COMPANY_USER_POLICY_PERMISSIONS.has(permission) &&
+    user?.scope === 'company' &&
+    user.userType === 'COMPANY_USER' &&
+    user.roles.includes('USER')
+  );
 }
 
 export function hasRole(
@@ -70,14 +100,16 @@ export function canAccessRoute(
 
   if (
     options?.requiredPermission &&
-    !hasPermission(user, options.requiredPermission)
+    !hasCompatiblePermission(user, options.requiredPermission)
   ) {
     return false;
   }
 
   if (
     options?.anyPermission?.length &&
-    !options.anyPermission.some((permission) => hasPermission(user, permission))
+    !options.anyPermission.some((permission) =>
+      hasCompatiblePermission(user, permission),
+    )
   ) {
     return false;
   }
