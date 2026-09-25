@@ -54,7 +54,7 @@ const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   },
   summary: {
     id: 'summary',
-    label: 'Policyholder & Review',
+    label: 'Review & Summary',
     description: 'Check the quotation before completing the draft',
   },
 };

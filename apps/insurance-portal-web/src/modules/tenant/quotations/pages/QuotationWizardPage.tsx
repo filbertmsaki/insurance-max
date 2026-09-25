@@ -110,7 +110,6 @@ const COVER_FIELDS: FieldPath<QuotationFormSchemaValues>[] = [
   'commission_rate',
   'officer_name',
   'officer_title',
-  'payment_mode_tira',
 ];
 const STEP_FIELDS: Partial<
   Record<QuotationWizardStepId, FieldPath<QuotationFormSchemaValues>[]>
@@ -126,7 +125,7 @@ const STEP_FIELDS: Partial<
     'policyholder',
   ],
   'fleet-vehicles': ['fleet.items'],
-  summary: ['customer_id', 'policyholder'],
+  summary: ['customer_id', 'policyholder', 'payment_mode_tira'],
 };
 function normalizeWizardStepForFlow(
   step: string | null | undefined,

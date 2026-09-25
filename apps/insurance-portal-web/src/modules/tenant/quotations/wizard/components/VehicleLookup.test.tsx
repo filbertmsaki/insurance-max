@@ -83,10 +83,16 @@ describe('VehicleLookup', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Vehicle details populated',
     );
-    expect(screen.getByLabelText('Make')).toHaveValue('TOYOTA');
-    expect(screen.getByLabelText('Model')).toHaveValue('COROLLA');
-    expect(screen.getByLabelText('Engine capacity (cc)')).toHaveValue('1500');
-    expect(screen.getByLabelText('Owner name')).toHaveValue('Existing owner');
+    expect(screen.getByRole('textbox', { name: 'Make' })).toHaveValue('TOYOTA');
+    expect(screen.getByRole('textbox', { name: 'Model' })).toHaveValue(
+      'COROLLA',
+    );
+    expect(
+      screen.getByRole('textbox', { name: 'Engine capacity (cc)' }),
+    ).toHaveValue('1500');
+    expect(screen.getByRole('textbox', { name: 'Owner name' })).toHaveValue(
+      'Existing owner',
+    );
     expect(verificationsApi.motor).toHaveBeenCalledWith({
       motorCategory: 1,
       motorRegistrationNumber: 'T123ABC',

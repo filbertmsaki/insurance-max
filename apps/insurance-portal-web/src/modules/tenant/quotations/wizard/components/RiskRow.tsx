@@ -123,6 +123,10 @@ export function RiskRow({
       }),
     [requiredFactorsQuery.data, quotationType],
   );
+  // Premium can't be calculated without it, so it's required when present.
+  const requiresSumInsured = (requiredFactorsQuery.data ?? []).some(
+    (item) => item.factor.code === 'sum_insured',
+  );
   const handleFactorChange = useCallback(
     (code: string, value: PricingFactorValue) => {
       form.setValue(path(index, `factor_values.${code}`), value);
@@ -302,7 +306,7 @@ export function RiskRow({
           name={path(index, 'risk_id')}
           render={({ field }) => (
             <WizardFormItem>
-              <FormLabel>Risk</FormLabel>
+              <FormLabel required>Risk</FormLabel>
               <Select
                 value={toSelectValue(field.value as string)}
                 onValueChange={(value) =>
@@ -327,20 +331,15 @@ export function RiskRow({
             </WizardFormItem>
           )}
         />
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2">
         {(requiredFactorsQuery.isLoading ||
-          (requiredFactorsQuery.data ?? []).some(
-            (item) => item.factor.code === 'sum_insured',
-          ) ||
+          requiresSumInsured ||
           Number(sumInsuredValue) > 0) && (
           <FormField
             control={form.control}
             name={path(index, 'sum_insured')}
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>Sum Insured</FormLabel>
+                <FormLabel required={requiresSumInsured}>Sum Insured</FormLabel>
                 <FormControl>
                   <Input
                     type="number"

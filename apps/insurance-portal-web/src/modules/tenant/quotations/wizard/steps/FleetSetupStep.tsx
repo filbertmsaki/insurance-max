@@ -100,7 +100,7 @@ export function FleetSetupStep({
           name="fleet.header.fleet_type"
           render={({ field }) => (
             <WizardFormItem>
-              <FormLabel>Fleet Type</FormLabel>
+              <FormLabel required>Fleet Type</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
                 onValueChange={(value) =>
@@ -142,7 +142,7 @@ export function FleetSetupStep({
           name="fleet.header.comprehensive_insured"
           render={({ field }) => (
             <WizardFormItem>
-              <FormLabel>Comprehensively Insured Vehicles</FormLabel>
+              <FormLabel required>Comprehensively Insured Vehicles</FormLabel>
               <FormControl>
                 <Input type="number" min="0" {...field} />
               </FormControl>

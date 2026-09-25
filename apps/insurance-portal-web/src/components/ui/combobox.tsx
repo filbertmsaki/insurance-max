@@ -1,7 +1,7 @@
 import * as React from 'react';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { selectTriggerClassName } from '@/components/ui/select';
 import {
   Command,
   CommandEmpty,
@@ -22,7 +22,7 @@ export interface ComboboxOption {
 }
 
 interface ComboboxProps {
-  options: ComboboxOption[];
+  options: ReadonlyArray<ComboboxOption>;
   value?: string;
   onValueChange: (value: string) => void;
   placeholder?: string;
@@ -33,6 +33,9 @@ interface ComboboxProps {
   id?: string;
   'aria-describedby'?: string;
   'aria-invalid'?: boolean;
+  'aria-required'?: boolean;
+  /** Forwarded to the trigger so forms can focus it (e.g. on a validation error). */
+  ref?: React.Ref<HTMLButtonElement>;
 }
 
 export function Combobox({
@@ -47,6 +50,8 @@ export function Combobox({
   id,
   'aria-describedby': ariaDescribedBy,
   'aria-invalid': ariaInvalid,
+  'aria-required': ariaRequired,
+  ref,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const selected = options.find((option) => option.value === value);
@@ -54,29 +59,37 @@ export function Combobox({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
+        <button
           type="button"
-          variant="outline"
+          ref={ref}
           role="combobox"
           id={id}
           aria-describedby={ariaDescribedBy}
           aria-invalid={ariaInvalid}
+          aria-required={ariaRequired}
           aria-expanded={open}
           disabled={disabled}
           className={cn(
-            'w-full justify-between font-normal',
+            selectTriggerClassName,
+            'text-left',
             !selected && 'text-slate-500',
             className,
           )}
         >
-          {selected ? selected.label : placeholder}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+          <span>{selected ? selected.label : placeholder}</span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
+      {/* Cap the popover at the space Radix measures between the trigger and
+          the viewport edge, so near the bottom of the screen the list scrolls
+          (and the search box stays visible) instead of running off-screen. */}
+      <PopoverContent
+        className="flex max-h-[var(--radix-popover-content-available-height)] w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] flex-col p-0"
+        collisionPadding={8}
+      >
+        <Command className="min-h-0">
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList className="max-h-[300px] min-h-0">
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (

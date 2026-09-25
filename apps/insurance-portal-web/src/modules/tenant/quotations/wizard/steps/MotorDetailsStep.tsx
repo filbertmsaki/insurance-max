@@ -1,5 +1,13 @@
 import { useCallback, useState } from 'react';
 import { useWatch, type UseFormReturn } from 'react-hook-form';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { MotorVehicleRecord } from '@/modules/tenant/motor/types';
 import {
   createEmptyMotorDetails,
@@ -117,12 +125,16 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
           shouldValidate: true,
         },
       );
-      form.setValue('motor.body_type', vehicle.body_type ?? '', {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
-      form.setValue('motor.color', vehicle.color ?? '', {
+      form.setValue(
+        'motor.body_type',
+        normalizeMotorTextInput(vehicle.body_type),
+        {
+          shouldDirty: true,
+          shouldTouch: true,
+          shouldValidate: true,
+        },
+      );
+      form.setValue('motor.color', normalizeMotorTextInput(vehicle.color), {
         shouldDirty: true,
         shouldTouch: true,
         shouldValidate: true,
@@ -186,11 +198,15 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
           shouldValidate: true,
         },
       );
-      form.setValue('motor.fuel_type', vehicle.fuel_type ?? '', {
-        shouldDirty: true,
-        shouldTouch: true,
-        shouldValidate: true,
-      });
+      form.setValue(
+        'motor.fuel_type',
+        normalizeMotorTextInput(vehicle.fuel_type),
+        {
+          shouldDirty: true,
+          shouldTouch: true,
+          shouldValidate: true,
+        },
+      );
       form.setValue(
         'motor.number_of_axles',
         vehicle.number_of_axles != null ? String(vehicle.number_of_axles) : '',
@@ -264,17 +280,13 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
         }}
       />
       {vehicleOptions.length > 0 && (
-        <div className="space-y-2">
-          <label htmlFor="saved-vehicle" className="text-sm font-medium">
-            Use a saved vehicle
-          </label>
-          <select
-            id="saved-vehicle"
-            className="h-10 w-full rounded-md border px-3 text-sm"
+        <div className="space-y-1">
+          <Label htmlFor="saved-vehicle">Use a saved vehicle</Label>
+          <Select
             value={motor.vehicle_id}
-            onChange={(event) => {
+            onValueChange={(vehicleId) => {
               const vehicle = vehicleOptions.find(
-                (item) => item.id === event.target.value,
+                (item) => item.id === vehicleId,
               );
               if (vehicle) {
                 fillFromExisting(vehicle);
@@ -283,14 +295,18 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               }
             }}
           >
-            <option value="">Select vehicle</option>
-            {vehicleOptions.map((vehicle) => (
-              <option key={vehicle.id} value={vehicle.id}>
-                {vehicle.registration_no || vehicle.chassis_no || 'Vehicle'} ?{' '}
-                {vehicle.make} {vehicle.model}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="saved-vehicle">
+              <SelectValue placeholder="Select vehicle" />
+            </SelectTrigger>
+            <SelectContent>
+              {vehicleOptions.map((vehicle) => (
+                <SelectItem key={vehicle.id} value={vehicle.id}>
+                  {vehicle.registration_no || vehicle.chassis_no || 'Vehicle'} ·{' '}
+                  {vehicle.make} {vehicle.model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
       <VehicleDetailsFields key={revision} form={form} />

@@ -154,7 +154,7 @@ export function RiskPremiumStep({
                   name={`nonMotor.items.${index}.subject_matter_reference`}
                   render={({ field: formField }) => (
                     <WizardFormItem>
-                      <FormLabel>Reference</FormLabel>
+                      <FormLabel required>Reference</FormLabel>
                       <FormControl>
                         <Input {...formField} />
                       </FormControl>
@@ -167,7 +167,7 @@ export function RiskPremiumStep({
                   name={`nonMotor.items.${index}.subject_matter_desc`}
                   render={({ field: formField }) => (
                     <WizardFormItem>
-                      <FormLabel>Description</FormLabel>
+                      <FormLabel required>Description</FormLabel>
                       <FormControl>
                         <Input {...formField} />
                       </FormControl>

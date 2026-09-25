@@ -315,7 +315,7 @@ export const CUSTOMER_ID_TYPE_OPTIONS: {
     value: 6,
     label: 'Tax Identification Number (TIN)',
     field: 'tin',
-    appliesTo: 'CORPORATE',
+    appliesTo: 'BOTH',
   },
   {
     value: 7,

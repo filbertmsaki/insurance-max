@@ -1,12 +1,26 @@
 import type { QuotationFormValues } from '../../types';
 
 type Motor = QuotationFormValues['motor'];
+
+const FIRST_MANUFACTURE_YEAR = 1900;
+const currentYear = new Date().getUTCFullYear();
+/** Newest first, so recent vehicles are near the top of the list. */
+const MANUFACTURE_YEAR_OPTIONS = Array.from(
+  { length: currentYear - FIRST_MANUFACTURE_YEAR + 1 },
+  (_, index) => {
+    const year = String(currentYear - index);
+    return { value: year, label: year };
+  },
+);
+
 export const motorFields: ReadonlyArray<{
   key: keyof Motor;
   fleetKey: string;
   label: string;
   optional?: boolean;
   options?: ReadonlyArray<{ value: string; label: string }>;
+  /** Long option lists get a type-to-search picker instead of a plain select. */
+  searchable?: boolean;
 }> = [
   {
     key: 'motor_category_code',
@@ -56,6 +70,8 @@ export const motorFields: ReadonlyArray<{
     key: 'manufacture_year',
     fleetKey: 'year_of_manufacture',
     label: 'Year of manufacture',
+    options: MANUFACTURE_YEAR_OPTIONS,
+    searchable: true,
   },
   { key: 'seating_capacity', fleetKey: 'sitting_capacity', label: 'Seats' },
   {
@@ -122,11 +138,6 @@ export function motorFieldError(
     !Number.isInteger(Number(value))
   )
     return `${definition?.label} must be a whole number.`;
-  if (
-    key === 'manufacture_year' &&
-    (Number(value) < 1886 || Number(value) > new Date().getUTCFullYear() + 1)
-  )
-    return 'Enter a valid year of manufacture.';
   if (key === 'gross_weight' && Number(value) < Number(motor.tare_weight))
     return 'Gross weight must be at least the tare weight.';
   return null;
