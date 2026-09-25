@@ -4,6 +4,10 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { canAccessRoute } from '@/lib/auth/permissions';
 
 const COMPANY_USER_POLICY_PERMISSIONS = [
+  'dashboard:overview',
+  'dashboard:sales',
+  'dashboard:policies',
+  'dashboard:tasks',
   'policies:read',
   'policy-transactions:read',
   'endorsements:create',

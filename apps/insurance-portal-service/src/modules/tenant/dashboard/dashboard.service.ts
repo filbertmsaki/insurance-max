@@ -58,6 +58,13 @@ interface PeriodMoneyRow {
   amount: string;
 }
 
+const COMPANY_USER_DASHBOARD_PERMISSIONS = [
+  DashboardPermissions.OVERVIEW,
+  DashboardPermissions.SALES,
+  DashboardPermissions.POLICIES,
+  DashboardPermissions.TASKS,
+];
+
 @Injectable()
 export class DashboardService {
   private readonly timezone: string;
@@ -116,8 +123,17 @@ export class DashboardService {
 
   getCapabilities(user: AuthenticatedUser) {
     const scope = this.dataAccessScopeService.resolve(user);
-    const has = (permission: string) =>
-      (user.permissions ?? []).includes(permission);
+    const permissionSet = new Set(user.permissions ?? []);
+    if (
+      user.scope === 'company' &&
+      user.userType === 'COMPANY_USER' &&
+      user.roles.includes('USER')
+    ) {
+      COMPANY_USER_DASHBOARD_PERMISSIONS.forEach((permission) =>
+        permissionSet.add(permission),
+      );
+    }
+    const has = (permission: string) => permissionSet.has(permission);
 
     const sections = {
       overview: has(DashboardPermissions.OVERVIEW),

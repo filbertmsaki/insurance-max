@@ -1,6 +1,10 @@
 import type { AuthUser } from '@/types';
 
 const COMPANY_USER_POLICY_PERMISSIONS = new Set([
+  'dashboard:overview',
+  'dashboard:sales',
+  'dashboard:policies',
+  'dashboard:tasks',
   'policies:read',
   'policy-transactions:read',
   'endorsements:create',
