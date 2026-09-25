@@ -17,6 +17,10 @@ import {
 import type { AuthenticatedUser } from '../interfaces/authenticated-user.interface';
 
 const COMPANY_USER_POLICY_PERMISSIONS = [
+  'dashboard:overview',
+  'dashboard:sales',
+  'dashboard:policies',
+  'dashboard:tasks',
   'policies:read',
   'policy-transactions:read',
   'endorsements:create',
