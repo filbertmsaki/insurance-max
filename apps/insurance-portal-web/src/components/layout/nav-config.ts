@@ -62,6 +62,7 @@ export interface NavGroup {
   label: string;
   icon: ComponentType<{ className?: string }>;
   children: NavLeaf[];
+  hideForStandardUser?: boolean;
 }
 
 export type NavNode = NavLeaf | NavGroup;
@@ -114,6 +115,7 @@ export const NAV_NODES: NavNode[] = [
     kind: 'group',
     label: 'Company Management',
     icon: Building2,
+    hideForStandardUser: true,
     children: [
       {
         kind: 'link',

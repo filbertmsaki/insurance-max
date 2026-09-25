@@ -705,7 +705,10 @@ export default function App() {
             {/* Company-scoped users: view/edit their own company */}
             <Route
               element={
-                <ProtectedRoute requiredPermission="view_company_data" />
+                <ProtectedRoute
+                  requiredPermission="view_company_data"
+                  hideForStandardUser
+                />
               }
             >
               <Route path="/my-company" element={<MyCompanyPage />} />
@@ -713,7 +716,12 @@ export default function App() {
 
             {/* Branches: accessible to users with branches:read permission */}
             <Route
-              element={<ProtectedRoute requiredPermission="branches:read" />}
+              element={
+                <ProtectedRoute
+                  requiredPermission="branches:read"
+                  hideForStandardUser
+                />
+              }
             >
               <Route path="/branches" element={<BranchesListPage />} />
               <Route path="/branches/:id" element={<BranchDetailPage />} />
@@ -724,7 +732,12 @@ export default function App() {
             </Route>
 
             <Route
-              element={<ProtectedRoute requiredPermission="departments:read" />}
+              element={
+                <ProtectedRoute
+                  requiredPermission="departments:read"
+                  hideForStandardUser
+                />
+              }
             >
               <Route path="/departments" element={<DepartmentsPage />} />
               <Route
@@ -841,6 +854,15 @@ export default function App() {
                 path={underwritingPaths.policyEndorsementCreate(':policyId')}
                 element={<PolicyEndorsementPage />}
               />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute
+                  requiredPermission="endorsements:create"
+                  hideForStandardUser
+                />
+              }
+            >
               <Route
                 path="/endorsement-types"
                 element={<EndorsementTypesPage />}
@@ -968,117 +990,119 @@ export default function App() {
             </Route>
 
             {/* Product Engine */}
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="insurance-categories:read" />
-              }
-            >
+            <Route element={<ProtectedRoute hideForStandardUser />}>
               <Route
-                path="/product-engine/categories"
-                element={<CategoriesPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="insurance-products:read" />
-              }
-            >
+                element={
+                  <ProtectedRoute requiredPermission="insurance-categories:read" />
+                }
+              >
+                <Route
+                  path="/product-engine/categories"
+                  element={<CategoriesPage />}
+                />
+              </Route>
               <Route
-                path="/product-engine/products"
-                element={<ProductsPage />}
-              />
+                element={
+                  <ProtectedRoute requiredPermission="insurance-products:read" />
+                }
+              >
+                <Route
+                  path="/product-engine/products"
+                  element={<ProductsPage />}
+                />
+                <Route
+                  path="/product-engine/products/:productId"
+                  element={<ProductDetailPage />}
+                />
+              </Route>
               <Route
-                path="/product-engine/products/:productId"
-                element={<ProductDetailPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="insurance-sub-classes:read" />
-              }
-            >
+                element={
+                  <ProtectedRoute requiredPermission="insurance-sub-classes:read" />
+                }
+              >
+                <Route
+                  path="/product-engine/sub-classes"
+                  element={<SubClassesPage />}
+                />
+              </Route>
               <Route
-                path="/product-engine/sub-classes"
-                element={<SubClassesPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="insurance-risks:read" />
-              }
-            >
-              <Route path="/product-engine/risks" element={<RisksPage />} />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="rating-factors:read" />
-              }
-            >
+                element={
+                  <ProtectedRoute requiredPermission="insurance-risks:read" />
+                }
+              >
+                <Route path="/product-engine/risks" element={<RisksPage />} />
+              </Route>
               <Route
-                path="/product-engine/rating-factors"
-                element={<RatingFactorsPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="pricing.manage_rules" />
-              }
-            >
+                element={
+                  <ProtectedRoute requiredPermission="rating-factors:read" />
+                }
+              >
+                <Route
+                  path="/product-engine/rating-factors"
+                  element={<RatingFactorsPage />}
+                />
+              </Route>
               <Route
-                path="/product-engine/rating-rules"
-                element={<RatingRulesPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="pricing.manage_rate_books" />
-              }
-            >
+                element={
+                  <ProtectedRoute requiredPermission="pricing.manage_rules" />
+                }
+              >
+                <Route
+                  path="/product-engine/rating-rules"
+                  element={<RatingRulesPage />}
+                />
+              </Route>
               <Route
-                path="/product-engine/rate-books"
-                element={<RateBooksPage />}
-              />
+                element={
+                  <ProtectedRoute requiredPermission="pricing.manage_rate_books" />
+                }
+              >
+                <Route
+                  path="/product-engine/rate-books"
+                  element={<RateBooksPage />}
+                />
+                <Route
+                  path="/product-engine/rate-books/:rateBookId"
+                  element={<RateBookDetailPage />}
+                />
+              </Route>
               <Route
-                path="/product-engine/rate-books/:rateBookId"
-                element={<RateBookDetailPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="product-distribution:read" />
-              }
-            >
-              <Route path="/product-engine/taxes" element={<TaxesPage />} />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="category-access:read" />
-              }
-            >
+                element={
+                  <ProtectedRoute requiredPermission="product-distribution:read" />
+                }
+              >
+                <Route path="/product-engine/taxes" element={<TaxesPage />} />
+              </Route>
               <Route
-                path="/product-engine/access/categories"
-                element={<CategoryAccessPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="product-access:read" />
-              }
-            >
+                element={
+                  <ProtectedRoute requiredPermission="category-access:read" />
+                }
+              >
+                <Route
+                  path="/product-engine/access/categories"
+                  element={<CategoryAccessPage />}
+                />
+              </Route>
               <Route
-                path="/product-engine/access/products"
-                element={<ProductAccessPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="pricing.calculate" />
-              }
-            >
+                element={
+                  <ProtectedRoute requiredPermission="product-access:read" />
+                }
+              >
+                <Route
+                  path="/product-engine/access/products"
+                  element={<ProductAccessPage />}
+                />
+              </Route>
               <Route
-                path="/product-engine/calculator"
-                element={<CalculatorPage />}
-              />
+                element={
+                  <ProtectedRoute requiredPermission="pricing.calculate" />
+                }
+              >
+                <Route
+                  path="/product-engine/calculator"
+                  element={<CalculatorPage />}
+                />
+              </Route>
             </Route>
 
             <Route element={<ProtectedRoute requiredPermission="motor:read" />}>

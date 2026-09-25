@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { canAccessRoute } from '@/lib/auth/permissions';
+import { canAccessRoute, isStandardCompanyUser } from '@/lib/auth/permissions';
 
 const COMPANY_USER_POLICY_PERMISSIONS = [
   'dashboard:overview',
@@ -37,6 +37,7 @@ interface ProtectedRouteProps {
   anyRoles?: string[];
 
   allowedScopes?: Array<'platform' | 'company' | 'customer'>;
+  hideForStandardUser?: boolean;
 }
 
 export function ProtectedRoute({
@@ -49,6 +50,7 @@ export function ProtectedRoute({
   allRoles = [],
   anyRoles = [],
   allowedScopes = [],
+  hideForStandardUser = false,
 }: ProtectedRouteProps) {
   const { user, authorizationContext } = useAuthStore();
   const location = useLocation();
@@ -68,6 +70,10 @@ export function ProtectedRoute({
 
   if (!user) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (hideForStandardUser && isStandardCompanyUser(user)) {
+    return <Navigate to="/forbidden" replace />;
   }
 
   const permissions = new Set(
@@ -105,7 +111,8 @@ export function ProtectedRoute({
     mergedAnyPermissions.length === 0 &&
     mergedAllRoles.length === 0 &&
     mergedAnyRoles.length === 0 &&
-    allowedScopes.length === 0;
+    allowedScopes.length === 0 &&
+    !hideForStandardUser;
 
   const allowed = usesLegacyOnly
     ? canAccessRoute(user, {
@@ -113,6 +120,7 @@ export function ProtectedRoute({
         anyPermission,
         requiredRole,
         anyRole,
+        hideForStandardUser,
       })
     : (allowedScopes.length === 0 || allowedScopes.includes(scope)) &&
       mergedAllPermissions.every((permission) => permissions.has(permission)) &&
