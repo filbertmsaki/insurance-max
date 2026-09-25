@@ -50,6 +50,17 @@ import {
   type TasksResponse,
   type TiramisResponse,
 } from '@/modules/shared/dashboard/api/dashboard';
+import {
+  DASHBOARD_DATE_PRESETS,
+  formatDateRange,
+  formatPeriodCount,
+  formatTrendPeriod,
+  getDateRangeError,
+  groupByForRange,
+  resolveDatePreset,
+  type DashboardDatePreset,
+  type DashboardDateRange,
+} from '@/modules/shared/dashboard/utils/dateRange';
 import { apiClientsApi } from '@/modules/platform/api-clients/api/api-clients';
 import { devicesApi } from '@/modules/shared/devices/api/devices';
 import { sessionsApi } from '@/modules/shared/sessions/api/sessions';
@@ -57,6 +68,7 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { phase16Api } from '@/modules/tenant/phase16/api/phase16';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { companiesApi } from '@/modules/platform/companies/api/companies';
+import { isStandardCompanyUser } from '@/lib/auth/permissions';
 
 function formatMetricValue(
   value: string | number | null | undefined,
@@ -141,17 +153,6 @@ function greetingFor(date = new Date()) {
 function useGreetingName() {
   const { user, profile } = useAuthStore();
   return profile?.first_name ?? user?.email?.split('@')[0] ?? 'there';
-}
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function startOfMonthIso() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1)
-    .toISOString()
-    .slice(0, 10);
 }
 
 const DASHBOARD_TAB_ORDER: DashboardSectionId[] = [
@@ -289,14 +290,19 @@ function BreakdownCard({
 function toTrendPoints(
   rows: Array<Record<string, string | number>>,
   amountField?: string,
+  groupBy?: DashboardGroupBy,
 ): TrendPoint[] {
   // Rows may repeat a period once per currency/status: sum counts per period
   // and chart the amount of the first currency encountered.
   const primaryCurrency = rows.find((row) => row.currency)?.currency;
   const byPeriod = new Map<string, TrendPoint>();
   for (const row of rows) {
-    const label = String(row.period ?? 'Unknown');
-    const point = byPeriod.get(label) ?? { label, value: 0, secondary: 0 };
+    const period = String(row.period ?? 'Unknown');
+    const point = byPeriod.get(period) ?? {
+      label: period,
+      value: 0,
+      secondary: 0,
+    };
     const countKey = Object.keys(row).find(
       (key) => key.includes('count') || key === 'count',
     );
@@ -309,9 +315,15 @@ function toTrendPoints(
       point.secondary =
         (point.secondary ?? 0) + (Number(row[amountField]) || 0);
     }
-    byPeriod.set(label, point);
+    byPeriod.set(period, point);
   }
-  return [...byPeriod.values()].sort((a, b) => a.label.localeCompare(b.label));
+  // Sort on the raw ISO bucket before relabelling for display.
+  return [...byPeriod.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([period, point]) => ({
+      ...point,
+      label: formatTrendPeriod(period, groupBy),
+    }));
 }
 
 function TrendCard({
@@ -320,14 +332,16 @@ function TrendCard({
   countLabel,
   amountLabel,
   amountField,
+  groupBy,
 }: {
   title: string;
   rows: Array<Record<string, string | number>>;
   countLabel: string;
   amountLabel?: string;
   amountField?: string;
+  groupBy?: DashboardGroupBy;
 }) {
-  const points = toTrendPoints(rows, amountField);
+  const points = toTrendPoints(rows, amountField, groupBy);
   const primaryCurrency = rows.find((row) => row.currency)?.currency;
   const totalCount = points.reduce((sum, point) => sum + point.value, 0);
 
@@ -340,7 +354,7 @@ function TrendCard({
             <span className="font-semibold text-slate-700">
               {totalCount.toLocaleString()}
             </span>{' '}
-            in {points.length} period{points.length === 1 ? '' : 's'}
+            in {formatPeriodCount(points.length, groupBy)}
           </span>
         ) : null}
       </CardHeader>
@@ -548,6 +562,7 @@ function OverviewContent({
           }
         />
         <TrendCard
+          groupBy={data?.context.period.group_by}
           title="Quotation trend"
           rows={data?.charts.quotation_trend ?? []}
           countLabel="Quotation count"
@@ -555,6 +570,7 @@ function OverviewContent({
           amountField="quoted_premium"
         />
         <TrendCard
+          groupBy={data?.context.period.group_by}
           title="Policy trend"
           rows={data?.charts.policy_trend ?? []}
           countLabel="Policy count"
@@ -659,6 +675,7 @@ function SalesContent({
       </div>
 
       <TrendCard
+        groupBy={data?.context.period.group_by}
         title="Quotation trend"
         rows={data?.charts.trend ?? []}
         countLabel="Quotation count"
@@ -730,6 +747,7 @@ function PoliciesContent({
           }
         />
         <TrendCard
+          groupBy={data?.context.period.group_by}
           title="Policy trend"
           rows={data?.charts.trend ?? []}
           countLabel="Policy count"
@@ -814,6 +832,7 @@ function FinanceContent({
 
       <div className="grid gap-4 xl:grid-cols-2">
         <TrendCard
+          groupBy={data?.context.period.group_by}
           title="Invoice trend"
           rows={data?.charts.invoice_trend ?? []}
           countLabel="Invoice count"
@@ -821,6 +840,7 @@ function FinanceContent({
           amountField="invoiced_amount"
         />
         <TrendCard
+          groupBy={data?.context.period.group_by}
           title="Receipt trend"
           rows={data?.charts.receipt_trend ?? []}
           countLabel="Receipt count"
@@ -1122,6 +1142,7 @@ function ReinsuranceContent({
           ]}
         />
         <TrendCard
+          groupBy={data?.context.period.group_by}
           title="Declaration trend"
           rows={data?.charts.declaration_trend ?? []}
           countLabel="Declarations"
@@ -1320,15 +1341,42 @@ export function DashboardPage() {
   const { user } = useAuthStore();
   const greetingName = useGreetingName();
   const isPlatformAccount = user?.scope === 'platform';
+  const isNormalCompanyUser = isStandardCompanyUser(user);
   const canViewExecutive =
-    user?.permissions?.includes('dashboard:overview') ||
-    user?.permissions?.includes('dashboards:executive:read');
-  const [filters, setFilters] = useState<DashboardQueryParams>({
-    from: startOfMonthIso(),
-    to: todayIso(),
-    group_by: 'DAY',
-    limit: 10,
-  });
+    !isNormalCompanyUser &&
+    (user?.permissions?.includes('dashboard:overview') ||
+      user?.permissions?.includes('dashboards:executive:read'));
+  const [datePreset, setDatePreset] =
+    useState<DashboardDatePreset>('this_month');
+  const [appliedRange, setAppliedRange] = useState<DashboardDateRange>(() =>
+    resolveDatePreset('this_month'),
+  );
+  // Draft inputs for the custom range; only valid ranges reach the queries.
+  const [customRange, setCustomRange] =
+    useState<DashboardDateRange>(appliedRange);
+  const customRangeError =
+    datePreset === 'custom' ? getDateRangeError(customRange) : null;
+  const filters = useMemo<DashboardQueryParams>(
+    () => ({ ...appliedRange, group_by: groupByForRange(appliedRange) }),
+    [appliedRange],
+  );
+
+  const handleDatePresetChange = (preset: DashboardDatePreset) => {
+    setDatePreset(preset);
+    if (preset === 'custom') {
+      setCustomRange(appliedRange);
+      return;
+    }
+    setAppliedRange(resolveDatePreset(preset));
+  };
+
+  const handleCustomRangeChange = (patch: Partial<DashboardDateRange>) => {
+    const next = { ...customRange, ...patch };
+    setCustomRange(next);
+    if (!getDateRangeError(next)) {
+      setAppliedRange(next);
+    }
+  };
 
   const capabilitiesQuery = useQuery({
     queryKey: ['tenant-dashboard', 'capabilities'],
@@ -1525,7 +1573,7 @@ export function DashboardPage() {
         }
       />
 
-      {!canViewExecutive ? (
+      {!canViewExecutive && isNormalCompanyUser ? null : !canViewExecutive ? (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Executive dashboard access is restricted</AlertTitle>
@@ -1591,74 +1639,72 @@ export function DashboardPage() {
         <CardContent className="pt-5 grid gap-4 lg:grid-cols-4">
           <div className="space-y-2">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              From
-            </p>
-            <Input
-              type="date"
-              value={filters.from ?? ''}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  from: event.target.value || undefined,
-                }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              To
-            </p>
-            <Input
-              type="date"
-              value={filters.to ?? ''}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  to: event.target.value || undefined,
-                }))
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Group By
+              Date range
             </p>
             <Select
-              value={filters.group_by ?? 'DAY'}
+              value={datePreset}
               onValueChange={(value) =>
-                setFilters((current) => ({
-                  ...current,
-                  group_by: value as DashboardGroupBy,
-                }))
+                handleDatePresetChange(value as DashboardDatePreset)
               }
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Date range">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="DAY">Day</SelectItem>
-                <SelectItem value="WEEK">Week</SelectItem>
-                <SelectItem value="MONTH">Month</SelectItem>
+                {DASHBOARD_DATE_PRESETS.map((preset) => (
+                  <SelectItem key={preset.value} value={preset.value}>
+                    {preset.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Result Limit
-            </p>
-            <Input
-              type="number"
-              min={1}
-              max={50}
-              value={filters.limit ?? 10}
-              onChange={(event) =>
-                setFilters((current) => ({
-                  ...current,
-                  limit: Number(event.target.value) || 10,
-                }))
-              }
-            />
-          </div>
+          {datePreset === 'custom' ? (
+            <>
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  From
+                </p>
+                <Input
+                  type="date"
+                  aria-label="From"
+                  value={customRange.from}
+                  max={customRange.to || undefined}
+                  onChange={(event) =>
+                    handleCustomRangeChange({ from: event.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                  To
+                </p>
+                <Input
+                  type="date"
+                  aria-label="To"
+                  value={customRange.to}
+                  min={customRange.from || undefined}
+                  onChange={(event) =>
+                    handleCustomRangeChange({ to: event.target.value })
+                  }
+                />
+              </div>
+              {customRangeError ? (
+                <p role="alert" className="text-sm text-red-600 lg:col-span-4">
+                  {customRangeError} Showing {formatDateRange(appliedRange)}.
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <div className="space-y-2 lg:col-span-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Period
+              </p>
+              <p className="flex h-9.5 items-center text-sm text-slate-700">
+                {formatDateRange(appliedRange)}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1676,8 +1722,8 @@ export function DashboardPage() {
                     : 'Assigned branches'}
               </Badge>
               <Badge variant="outline">
-                Period: {currentContext?.period.from ?? filters.from} to{' '}
-                {currentContext?.period.to ?? filters.to}
+                Period:{' '}
+                {formatDateRange(currentContext?.period ?? appliedRange)}
               </Badge>
               <Badge variant="outline">
                 Generated: {formatTimestamp(generatedAt)}
@@ -1733,11 +1779,13 @@ export function DashboardPage() {
         </CardContent>
       </Card>
 
-      <ShortcutGrid
-        title="Operational shortcuts"
-        actions={tenantActions}
-        onOpenTab={(tab) => navigate(getDashboardPath(tab))}
-      />
+      {!isNormalCompanyUser ? (
+        <ShortcutGrid
+          title="Operational shortcuts"
+          actions={tenantActions}
+          onOpenTab={(tab) => navigate(getDashboardPath(tab))}
+        />
+      ) : null}
     </div>
   );
 }
