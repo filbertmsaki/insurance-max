@@ -9,6 +9,7 @@ import { IsNull, Repository } from 'typeorm';
 
 import type { OrganizationContext } from '@insurance-max/contracts';
 
+import { Company } from '../../platform/companies/entities/company.entity';
 import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
 import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
 import { DepartmentUser } from '../../tenant/departments/entities/department-user.entity';
@@ -238,6 +239,21 @@ export class OrganizationContextService {
     }
 
     return context;
+  }
+
+  /**
+   * Resolves the TIRAMIS environment a company has activated without loading
+   * the full membership context, for callers that only know the company.
+   */
+  async resolveCompanyTiramisEnvironment(
+    companyId: string,
+  ): Promise<'test' | 'live'> {
+    const company = await this.membershipRepository.manager.findOne(Company, {
+      where: { id: companyId },
+      select: { id: true, settings: true },
+    });
+
+    return this.resolveTiramisEnvironment(company?.settings);
   }
 
   private resolveTiramisEnvironment(
