@@ -14,7 +14,9 @@ import { Company } from '../../../platform/companies/entities/company.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { InsuredAsset } from '../../customers/entities/insured-asset.entity';
 import { User } from '../../users/entities/user.entity';
+import { MotorVehicleAuditLog } from './motor-vehicle-audit-log.entity';
 import { MotorVehicleOwnership } from './motor-vehicle-ownership.entity';
+import { MotorVehicleVersion } from './motor-vehicle-version.entity';
 
 @Entity('motor_vehicles')
 @Index('IDX_motor_vehicles_company_id', ['company_id'])
@@ -138,6 +140,30 @@ export class MotorVehicle {
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
+  @Column({ type: 'boolean', default: false })
+  is_verified: boolean;
+
+  @Column({ type: 'varchar', length: 40, default: 'NOT_VERIFIED' })
+  verification_status: string;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  verification_source: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  tira_request_id: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  tira_response_id: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_verified_at: Date | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  tira_vehicle_reference: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  verification_error: string | null;
+
   @Column({ type: 'int', default: 1 })
   snapshot_version: number;
 
@@ -184,4 +210,10 @@ export class MotorVehicle {
     (ownership) => ownership.motor_vehicle,
   )
   ownership_history: MotorVehicleOwnership[];
+
+  @OneToMany(() => MotorVehicleVersion, (version) => version.motor_vehicle)
+  versions: MotorVehicleVersion[];
+
+  @OneToMany(() => MotorVehicleAuditLog, (audit) => audit.motor_vehicle)
+  audit_logs: MotorVehicleAuditLog[];
 }

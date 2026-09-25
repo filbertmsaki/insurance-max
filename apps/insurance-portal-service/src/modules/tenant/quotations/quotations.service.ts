@@ -52,6 +52,7 @@ import { CustomerPolicyHolderType } from '../customers/enums/customer-policy-hol
 import { CustomerType } from '../customers/enums/customer-type.enum';
 import { CustomerStatus } from '../customers/enums/customer-status.enum';
 import { Customer } from '../customers/entities/customer.entity';
+import { CustomerVersion } from '../customers/entities/customer-version.entity';
 import { InsuredAsset } from '../customers/entities/insured-asset.entity';
 import { Department } from '../departments/entities/department.entity';
 import { User } from '../users/entities/user.entity';
@@ -107,11 +108,15 @@ import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
 import { QuotationPreviewMapper } from './mappers/quotation-preview.mapper';
 import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
 import { normalizeQuotationCoverPeriod } from './utils/quotation-cover-period.util';
-import { QuotationsRepository } from './repositories/quotations.repository';
+import {
+  QuotationAccessSnapshot,
+  QuotationsRepository,
+} from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { normalizeMotorTextValue } from './utils/motor-text.util';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
+import { MotorVehicleVersion } from '../motor/entities/motor-vehicle-version.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
@@ -196,6 +201,10 @@ interface ReplaceQuotationOptions {
   reuseExistingIdentifiers?: boolean;
 }
 
+interface QuotationWriteAccessOptions {
+  allowBranchFailedCorrection?: boolean;
+}
+
 type QuotationPricingStatus = 'CURRENT' | 'STALE' | 'EXPIRED' | 'MISSING';
 
 export interface QuotationPricingIntegrationSummary {
@@ -274,6 +283,7 @@ const QUOTATION_SUBMIT_TIRAMIS_PERMISSION = 'quotations:submit-tiramis';
 const QUOTATION_RETRY_TIRAMIS_PERMISSION = 'quotations:retry-tiramis';
 const QUOTATION_CANCEL_PERMISSION = 'quotations:cancel';
 const QUOTATION_DELETE_DRAFT_PERMISSION = 'quotations:delete-draft';
+const BRANCH_FAILED_CORRECTION_PERMISSION = 'quotations:update';
 const MONEY_TOLERANCE = 0.01;
 const RATE_TOLERANCE = 0.000001;
 const PRICING_VIEW_BREAKDOWN_PERMISSION = 'pricing.view_breakdown';
@@ -330,12 +340,76 @@ export class QuotationsService {
   private async assertUserCanWriteQuotation(
     user: AuthenticatedUser,
     quotationId: string,
+    options: QuotationWriteAccessOptions = {},
   ): Promise<TenantDataScope> {
     const scope = this.resolveUserScope(user);
+
+    if (this.isBranchNormalUser(user, scope)) {
+      const quotation =
+        await this.quotationsRepository.findAccessSnapshotForScope(
+          scope,
+          quotationId,
+        );
+
+      const isOwner = quotation.created_by === user.id;
+      const canCorrectBranchFailure =
+        !!options.allowBranchFailedCorrection &&
+        this.hasPermission(user, BRANCH_FAILED_CORRECTION_PERMISSION) &&
+        this.isTiraFailureSnapshot(quotation);
+
+      if (!isOwner && !canCorrectBranchFailure) {
+        throw new ForbiddenException(
+          'You can only modify your own quotation unless a same-branch quotation failed during TIRAMIS submission.',
+        );
+      }
+
+      return scope;
+    }
 
     await this.quotationsRepository.assertWritable(scope, quotationId);
 
     return scope;
+  }
+
+  private isBranchNormalUser(
+    user: AuthenticatedUser,
+    scope: TenantDataScope,
+  ): boolean {
+    const roles = new Set(user.roles ?? []);
+    const hasAdministrativeRole = Array.from(roles).some(
+      (role) =>
+        role === 'OWNER' ||
+        role === 'SUPER_ADMIN' ||
+        role === 'ADMINISTRATOR' ||
+        role === 'PORTAL_ADMIN' ||
+        role.endsWith('_ADMIN'),
+    );
+
+    return (
+      user.scope === 'company' &&
+      user.userType === 'COMPANY_USER' &&
+      roles.has('USER') &&
+      !hasAdministrativeRole &&
+      !scope.canViewAllBranches
+    );
+  }
+
+  private isTiraFailureSnapshot(
+    quotation: Pick<QuotationAccessSnapshot, 'status' | 'tira_status'>,
+  ): boolean {
+    return (
+      quotation.status === QuotationStatus.FAILED ||
+      quotation.status === QuotationStatus.REJECTED ||
+      quotation.tira_status === TiraStatus.FAILED ||
+      quotation.tira_status === TiraStatus.REJECTED
+    );
+  }
+
+  private isTiraFailureQuotation(quotation: Quotation): boolean {
+    return this.isTiraFailureSnapshot({
+      status: quotation.status,
+      tira_status: quotation.tira_status,
+    });
   }
 
   async create(
@@ -580,14 +654,17 @@ export class QuotationsService {
     user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
     options: ReplaceQuotationOptions = {},
   ) {
-    await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id);
-
     const existing = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
+    await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id, {
+      allowBranchFailedCorrection: this.isTiraFailureQuotation(existing),
+    });
     this.assertQuotationEditable(existing);
     this.assertNoPremiumOverrideHistory(existing);
+    const correctionBeforeState =
+      this.buildFailedCorrectionAuditState(existing);
 
     const contextPayload = await this.resolveExistingQuotationContext(
       companyId,
@@ -720,6 +797,19 @@ export class QuotationsService {
         preparedPayload,
         user.id,
       );
+      await this.logFailedTiraCorrectionAudit({
+        companyId,
+        user: user as AuthenticatedUser,
+        before: correctionBeforeState,
+        after: {
+          quotationId: quotation.id,
+          quotationNo: quotation.quotation_no,
+          branchId: correctionBeforeState.branchId,
+          quotationStatus: quotation.status,
+          tiraStatus: quotation.tira_status,
+          authoritativePayload: preparedPayload,
+        },
+      });
       return quotation;
     } catch (error) {
       this.rethrowConstraintError(error);
@@ -826,12 +916,13 @@ export class QuotationsService {
     options: ReplaceQuotationOptions = {},
   ) {
     this.assertWorkflowPermission(user, QUOTATION_COMPLETE_PERMISSION);
-    await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id);
-
     const existing = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
+    await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id, {
+      allowBranchFailedCorrection: this.isTiraFailureQuotation(existing),
+    });
     this.assertDraftWritable(existing);
 
     const quotation = await this.replace(companyId, id, payload, user, options);
@@ -953,7 +1044,13 @@ export class QuotationsService {
     user: AuthenticatedUser,
   ) {
     this.assertWorkflowPermission(user, QUOTATION_RETRY_TIRAMIS_PERMISSION);
-    await this.assertUserCanWriteQuotation(user, id);
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    await this.assertUserCanWriteQuotation(user, id, {
+      allowBranchFailedCorrection: this.isTiraFailureQuotation(quotation),
+    });
 
     return this.submit(
       companyId,
@@ -1567,20 +1664,33 @@ export class QuotationsService {
     dto: SubmitQuotationDto | undefined,
     user: AuthenticatedUser,
   ) {
-    this.assertWorkflowPermission(
-      user,
-      dto?.force_resubmit
-        ? QUOTATION_RETRY_TIRAMIS_PERMISSION
-        : QUOTATION_SUBMIT_TIRAMIS_PERMISSION,
-    );
-    await this.assertUserCanWriteQuotation(user, id);
-
     const submitOptions = dto ?? {};
 
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
+
+    const shouldRetryTiraFailure =
+      this.isTiraFailureQuotation(quotation) &&
+      quotation.tira_status === TiraStatus.FAILED;
+
+    if (shouldRetryTiraFailure && !submitOptions.return_existing) {
+      submitOptions.force_resubmit = true;
+    }
+
+    this.assertWorkflowPermission(
+      user,
+      submitOptions.force_resubmit
+        ? QUOTATION_RETRY_TIRAMIS_PERMISSION
+        : QUOTATION_SUBMIT_TIRAMIS_PERMISSION,
+    );
+
+    await this.assertUserCanWriteQuotation(user, id, {
+      allowBranchFailedCorrection:
+        !!submitOptions.force_resubmit &&
+        this.isTiraFailureQuotation(quotation),
+    });
 
     // A quotation generated automatically for an endorsement/cancellation/
     // renewal (`PolicyTransactionQuotationFactoryService`) must never be
@@ -1656,6 +1766,11 @@ export class QuotationsService {
         },
       );
     }
+
+    const isBranchFailedResubmission =
+      !!submitOptions.force_resubmit &&
+      this.isTiraFailureQuotation(quotation) &&
+      quotation.created_by !== user.id;
 
     const productContext = quotation.product_definition_snapshot
       ? this.buildServiceProductContext(
@@ -1801,6 +1916,27 @@ export class QuotationsService {
           metadata: result,
         },
       );
+
+      if (isBranchFailedResubmission) {
+        await this.auditService.logCritical({
+          userId: user.id,
+          companyId,
+          companyMembershipId: user.companyMembershipId ?? null,
+          branchId: quotation.branch_id,
+          action: 'quotation.failed_tira.resubmitted',
+          eventCategory: 'quotation',
+          resource: 'quotation',
+          resourceId: quotation.id,
+          metadata: {
+            quotationNo: quotation.quotation_no,
+            originalCreatorId: quotation.created_by,
+            resubmittedBy: user.id,
+            tiraRequestId: quotation.tira_request_id,
+            tiraResponseId: quotation.tira_response_id,
+            result,
+          },
+        });
+      }
     }
 
     return {
@@ -6434,6 +6570,130 @@ export class QuotationsService {
     }
   }
 
+  private buildFailedCorrectionAuditState(
+    quotation: Quotation,
+  ): Record<string, unknown> {
+    return {
+      quotationId: quotation.id,
+      quotationNo: quotation.quotation_no,
+      branchId: quotation.branch_id,
+      originalCreatorId: quotation.created_by,
+      quotationStatus: quotation.status,
+      tiraStatus: quotation.tira_status,
+      authoritativePayload:
+        this.payloadMapper.toAuthoritativePayload(quotation),
+    };
+  }
+
+  private async logFailedTiraCorrectionAudit(params: {
+    companyId: string;
+    user: AuthenticatedUser;
+    before: Record<string, unknown>;
+    after: Record<string, unknown>;
+  }): Promise<void> {
+    const originalCreatorId =
+      typeof params.before.originalCreatorId === 'string'
+        ? params.before.originalCreatorId
+        : null;
+
+    if (!originalCreatorId || originalCreatorId === params.user.id) {
+      return;
+    }
+
+    const beforeStatus =
+      typeof params.before.quotationStatus === 'string'
+        ? params.before.quotationStatus
+        : '';
+    const beforeTiraStatus =
+      typeof params.before.tiraStatus === 'string'
+        ? params.before.tiraStatus
+        : '';
+
+    if (
+      !this.isTiraFailureSnapshot({
+        status: beforeStatus,
+        tira_status: beforeTiraStatus,
+      })
+    ) {
+      return;
+    }
+
+    const quotationId =
+      typeof params.before.quotationId === 'string'
+        ? params.before.quotationId
+        : undefined;
+    const branchId =
+      typeof params.before.branchId === 'string'
+        ? params.before.branchId
+        : (params.user.activeBranchId ?? null);
+    const changedFieldPaths = this.diffJsonPaths(
+      params.before.authoritativePayload,
+      params.after.authoritativePayload,
+    );
+
+    await this.auditService.logCritical({
+      userId: params.user.id,
+      companyId: params.companyId,
+      companyMembershipId: params.user.companyMembershipId ?? null,
+      branchId,
+      action: 'quotation.failed_tira.corrected',
+      eventCategory: 'quotation',
+      resource: 'quotation',
+      resourceId: quotationId,
+      beforeState: params.before,
+      afterState: params.after,
+      metadata: {
+        quotationNo: params.before.quotationNo ?? params.after.quotationNo,
+        originalCreatorId,
+        correctedBy: params.user.id,
+        changedFieldPaths,
+      },
+    });
+  }
+
+  private diffJsonPaths(
+    before: unknown,
+    after: unknown,
+    prefix = '',
+  ): string[] {
+    if (Object.is(before, after)) {
+      return [];
+    }
+
+    if (
+      before === null ||
+      after === null ||
+      typeof before !== 'object' ||
+      typeof after !== 'object'
+    ) {
+      return [prefix || '$'];
+    }
+
+    const beforeRecord = before as Record<string, unknown>;
+    const afterRecord = after as Record<string, unknown>;
+    const keys = new Set([
+      ...Object.keys(beforeRecord),
+      ...Object.keys(afterRecord),
+    ]);
+    const paths: string[] = [];
+
+    for (const key of keys) {
+      if (paths.length >= 200) {
+        break;
+      }
+
+      paths.push(
+        ...this.diffJsonPaths(
+          beforeRecord[key],
+          afterRecord[key],
+          prefix ? `${prefix}.${key}` : key,
+        ).slice(0, 200 - paths.length),
+      );
+    }
+
+    return paths;
+  }
+
   private collectPayloadPricingQuoteIds(payload: CreateQuotationDto): string[] {
     return [
       ...new Set(
@@ -7379,10 +7639,21 @@ export class QuotationsService {
     customerId: string | null,
   ): Promise<void> {
     const repository = manager.getRepository(QuotationPolicyHolder);
+    const currentCustomerVersion = customerId
+      ? await manager.getRepository(CustomerVersion).findOne({
+          where: {
+            customer_id: customerId,
+            is_current_version: true,
+          },
+          order: { version_number: 'DESC' },
+        })
+      : null;
     const entities = holders.map((holder, index) =>
       repository.create({
         quotation_id: quotationId,
         customer_id: index === 0 ? customerId : null,
+        customer_version_id:
+          index === 0 ? (currentCustomerVersion?.id ?? null) : null,
         sequence_no: index + 1,
         policy_holder_name: holder.policy_holder_name.trim(),
         policy_holder_birth_date: holder.policy_holder_birth_date,
@@ -7510,14 +7781,65 @@ export class QuotationsService {
 
     if (input.motor_dtl) {
       const motorRepository = manager.getRepository(QuotationMotorDetail);
+      const motorVehicleVersionId = customerId
+        ? await this.resolveCurrentMotorVehicleVersionId(
+            manager,
+            quotation.company_id,
+            customerId,
+            input.motor_dtl,
+          )
+        : null;
 
       await motorRepository.save(
         motorRepository.create({
           entry_id: entry.id,
+          motor_vehicle_version_id: motorVehicleVersionId,
           ...this.mapMotorForPersistence(input.motor_dtl),
         }),
       );
     }
+  }
+
+  private async resolveCurrentMotorVehicleVersionId(
+    manager: EntityManager,
+    companyId: string,
+    customerId: string,
+    motor: MotorDetailDto,
+  ): Promise<string | null> {
+    const registrationNumber =
+      normalizeMotorTextValue(motor.registration_number) ?? '';
+    const chassisNumber = normalizeMotorTextValue(motor.chassis_number) ?? '';
+    const engineNumber = normalizeMotorTextValue(motor.engine_number) ?? '';
+    const vehicle = await manager
+      .getRepository(MotorVehicle)
+      .createQueryBuilder('vehicle')
+      .where('vehicle.company_id = :companyId', { companyId })
+      .andWhere('vehicle.customer_id = :customerId', { customerId })
+      .andWhere('vehicle.deleted_at IS NULL')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where(
+            'UPPER(TRIM(vehicle.registration_no)) = :registrationNumber',
+            { registrationNumber },
+          );
+          qb.orWhere('UPPER(TRIM(vehicle.chassis_no)) = :chassisNumber', {
+            chassisNumber,
+          });
+          qb.orWhere('UPPER(TRIM(vehicle.engine_no)) = :engineNumber', {
+            engineNumber,
+          });
+        }),
+      )
+      .getOne();
+
+    if (!vehicle) return null;
+
+    const version = await manager.getRepository(MotorVehicleVersion).findOne({
+      where: { motor_vehicle_id: vehicle.id, is_current_version: true },
+      order: { version_number: 'DESC' },
+    });
+
+    return version?.id ?? null;
   }
 
   private async persistMotorVehicle(
@@ -8623,7 +8945,7 @@ export class QuotationsService {
   }
 
   private assertQuotationEditable(quotation: Quotation): void {
-    if (quotation.submitted_at) {
+    if (quotation.submitted_at && !this.isTiraFailureQuotation(quotation)) {
       throw new ConflictException(
         'A submitted quotation cannot be replaced. Create an endorsement or a new quotation.',
       );

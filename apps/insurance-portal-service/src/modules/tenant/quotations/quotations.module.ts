@@ -10,6 +10,7 @@ import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { Customer } from '../customers/entities/customer.entity';
+import { CustomerVersion } from '../customers/entities/customer-version.entity';
 import { InsuredAsset } from '../customers/entities/insured-asset.entity';
 import { Department } from '../departments/entities/department.entity';
 import { CategoryAccessModule } from '../category-access/category-access.module';
@@ -19,6 +20,7 @@ import { InsuranceProductsModule } from '../insurance-products/insurance-product
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
+import { MotorVehicleVersion } from '../motor/entities/motor-vehicle-version.entity';
 import { User } from '../users/entities/user.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { Quotation } from './entities/quotation.entity';
@@ -75,10 +77,12 @@ import { ProductAccessModule } from '../product-access/product-access.module';
       PortalTiraSubmissionEvent,
       TiramisSubmissionTrackingEntity,
       MotorVehicle,
+      MotorVehicleVersion,
       SubjectMatter,
       InsuredAsset,
       Company,
       Customer,
+      CustomerVersion,
       Branch,
       BranchUser,
       TiramisSalePointEntity,

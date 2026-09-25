@@ -4,11 +4,13 @@ import {
   Entity,
   Index,
   JoinColumn,
+  ManyToOne,
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { QuotationCoverNoteEntry } from './quotation-cover-note-entry.entity';
+import { MotorVehicleVersion } from '../../../motor/entities/motor-vehicle-version.entity';
 
 @Entity('quotation_motor_details')
 @Index('UQ_qmd_entry_id', ['entry_id'], {
@@ -23,6 +25,9 @@ export class QuotationMotorDetail {
 
   @Column({ type: 'uuid' })
   entry_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  motor_vehicle_version_id: string | null;
 
   @Column({ type: 'smallint' })
   motor_category: number;
@@ -150,4 +155,11 @@ export class QuotationMotorDetail {
   })
   @JoinColumn({ name: 'entry_id' })
   entry: QuotationCoverNoteEntry;
+
+  @ManyToOne(() => MotorVehicleVersion, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'motor_vehicle_version_id' })
+  motor_vehicle_version: MotorVehicleVersion | null;
 }

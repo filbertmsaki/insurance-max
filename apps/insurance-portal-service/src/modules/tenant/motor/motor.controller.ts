@@ -75,13 +75,53 @@ export class MotorController {
 
   @Delete('vehicles/:id')
   @Permissions('motor:delete')
-  @ApiOperation({ summary: 'Soft-delete a motor vehicle' })
+  @ApiOperation({ summary: 'Archive a motor vehicle' })
   async removeVehicle(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.motorService.removeVehicle(user.companyId!, id);
-    return { message: 'Motor vehicle deleted successfully' };
+    await this.motorService.removeVehicle(user.companyId!, id, user.id);
+    return { message: 'Motor vehicle archived successfully' };
+  }
+
+  @Patch('vehicles/:id/restore')
+  @Permissions('motor:update')
+  @ApiOperation({ summary: 'Restore an archived motor vehicle' })
+  restoreVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.motorService.restoreVehicle(user.companyId!, id, user.id);
+  }
+
+  @Get('vehicles/:id/versions')
+  @Permissions('motor:read')
+  @ApiOperation({ summary: 'List immutable motor vehicle versions' })
+  listVehicleVersions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.motorService.listVehicleVersions(user.companyId!, id);
+  }
+
+  @Get('vehicles/:id/audit-history')
+  @Permissions('motor:audit-history:read')
+  @ApiOperation({ summary: 'List read-only motor vehicle audit history' })
+  listVehicleAuditHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.motorService.listVehicleAuditHistory(user.companyId!, id);
+  }
+
+  @Get('vehicles/:id/insurance-history')
+  @Permissions('motor:read')
+  @ApiOperation({ summary: 'List motor vehicle insurance history' })
+  listVehicleInsuranceHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.motorService.listVehicleInsuranceHistory(user.companyId!, id);
   }
 
   @Get('fleets')

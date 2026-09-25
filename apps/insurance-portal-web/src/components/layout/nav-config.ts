@@ -53,6 +53,7 @@ export interface NavLeaf {
   anyPermission?: string[];
   anyRole?: string[];
   allowedScopes?: Array<'platform' | 'company' | 'customer'>;
+  hideForStandardUser?: boolean;
 }
 
 export interface NavGroup {
@@ -155,6 +156,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/my-company',
         icon: Building2,
         permission: 'view_company_data',
+        hideForStandardUser: true,
       },
     ],
   },
@@ -193,6 +195,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/categories',
         icon: Tag,
         permission: 'insurance-categories:read',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -200,6 +203,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/products',
         icon: Package,
         permission: 'insurance-products:read',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -207,6 +211,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/sub-classes',
         icon: Layers,
         permission: 'insurance-sub-classes:read',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -214,6 +219,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/risks',
         icon: AlertTriangle,
         permission: 'insurance-risks:read',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -242,6 +248,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/taxes',
         icon: Percent,
         permission: 'product-distribution:read',
+        hideForStandardUser: true,
       },
       {
         kind: 'link',
@@ -263,6 +270,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/calculator',
         icon: Calculator,
         permission: 'pricing.calculate',
+        hideForStandardUser: true,
       },
     ],
   },

@@ -8,7 +8,10 @@ import { MotorFleet } from './entities/motor-fleet.entity';
 import { MotorFleetItem } from './entities/motor-fleet-item.entity';
 import { MotorFleetMembership } from './entities/motor-fleet-membership.entity';
 import { MotorPolicyDetail } from './entities/motor-policy-detail.entity';
+import { MotorVehicleAuditLog } from './entities/motor-vehicle-audit-log.entity';
 import { MotorVehicleOwnership } from './entities/motor-vehicle-ownership.entity';
+import { MotorVehicleVersion } from './entities/motor-vehicle-version.entity';
+import { TiraVehicleMapperService } from './services/tira-vehicle-mapper.service';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
@@ -70,6 +73,14 @@ describe('MotorService â€” tenant isolation on policy details', () => {
           provide: getRepositoryToken(MotorVehicleOwnership),
           useValue: mockRepo(),
         },
+        {
+          provide: getRepositoryToken(MotorVehicleVersion),
+          useValue: mockRepo(),
+        },
+        {
+          provide: getRepositoryToken(MotorVehicleAuditLog),
+          useValue: mockRepo(),
+        },
         { provide: getRepositoryToken(Company), useValue: mockRepo() },
         { provide: getRepositoryToken(Customer), useValue: mockRepo() },
         { provide: getRepositoryToken(InsuredAsset), useValue: mockRepo() },
@@ -84,6 +95,10 @@ describe('MotorService â€” tenant isolation on policy details', () => {
         {
           provide: IdentifierGeneratorService,
           useValue: { generateMotorPolicyDetailNumber: jest.fn() },
+        },
+        {
+          provide: TiraVehicleMapperService,
+          useValue: { mapVehicle: jest.fn(() => ({})) },
         },
       ],
     }).compile();

@@ -2,7 +2,7 @@ import type { SortOrder } from '@/types';
 
 export type CustomerType = 'INDIVIDUAL' | 'CORPORATE';
 export type CustomerGender = 'M' | 'F';
-export type CustomerStatus = 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED';
+export type CustomerStatus = 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED' | 'MERGED';
 export type CustomerKycStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 export type CustomerDocumentType =
   | 'NIDA'
@@ -83,6 +83,36 @@ export interface CustomerRecord {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+export interface CustomerVersionRecord {
+  id: string | null;
+  company_id: string;
+  customer_id: string;
+  version_number: number;
+  is_current_version: boolean;
+  customer_snapshot: Record<string, unknown>;
+  customer_snapshot_hash: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface CustomerAuditLogRecord {
+  id: string;
+  company_id: string;
+  customer_id: string;
+  customer_version_id: string | null;
+  action: string;
+  old_values: Record<string, unknown> | null;
+  new_values: Record<string, unknown> | null;
+  fields_changed: string[] | null;
+  user_id: string | null;
+  user_name: string | null;
+  ip_address: string | null;
+  source: string;
+  related_record_type: string | null;
+  related_record_id: string | null;
+  created_at: string;
 }
 
 export interface CustomerListParams {
@@ -217,6 +247,7 @@ export const CUSTOMER_STATUS_OPTIONS: {
   { value: 'ACTIVE', label: 'Active' },
   { value: 'INACTIVE', label: 'Inactive' },
   { value: 'BLACKLISTED', label: 'Blacklisted' },
+  { value: 'MERGED', label: 'Merged' },
 ];
 
 export const CUSTOMER_KYC_STATUS_OPTIONS: {

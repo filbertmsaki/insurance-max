@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/command';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { authApi } from '@/modules/shared/auth/api/auth';
+import { canAccessRoute } from '@/lib/auth/permissions';
 import { NAV_NODES, type NavLeaf, type NavGroup } from './nav-config';
 
 interface CommandPaletteProps {
@@ -24,7 +25,7 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
-  const { hasPermission, hasRole, refreshToken, logout } = useAuthStore();
+  const { user, refreshToken, logout } = useAuthStore();
 
   const logoutMutation = useMutation({
     mutationFn: () => authApi.logout(refreshToken ?? ''),
@@ -36,9 +37,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   });
 
   function isLeafVisible(leaf: NavLeaf): boolean {
-    if (leaf.permission && !hasPermission(leaf.permission)) return false;
-    if (leaf.anyRole && !leaf.anyRole.some((r) => hasRole(r))) return false;
-    return true;
+    return canAccessRoute(user, {
+      requiredPermission: leaf.permission,
+      anyPermission: leaf.anyPermission,
+      anyRole: leaf.anyRole,
+      allowedScopes: leaf.allowedScopes,
+      hideForStandardUser: leaf.hideForStandardUser,
+    });
   }
 
   function getVisibleLeaves(group: NavGroup): NavLeaf[] {

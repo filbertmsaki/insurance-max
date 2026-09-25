@@ -15,6 +15,9 @@ import type {
   MotorPolicyDetailRecord,
   MotorVehiclePayload,
   MotorVehicleRecord,
+  MotorVehicleAuditLogRecord,
+  MotorVehicleInsuranceHistory,
+  MotorVehicleVersionRecord,
   PolicyRiskOption,
   PolicyOption,
   QuotationOption,
@@ -43,6 +46,26 @@ export const motorApi = {
       .then((r) => r.data),
   deleteVehicle: (id: string) =>
     apiClient.delete(`/tenant/motor/vehicles/${id}`).then((r) => r.data),
+  restoreVehicle: (id: string) =>
+    apiClient
+      .patch<MotorVehicleRecord>(`/tenant/motor/vehicles/${id}/restore`)
+      .then((r) => r.data),
+  getVehicleVersions: (id: string) =>
+    apiClient
+      .get<MotorVehicleVersionRecord[]>(`/tenant/motor/vehicles/${id}/versions`)
+      .then((r) => r.data),
+  getVehicleAuditHistory: (id: string) =>
+    apiClient
+      .get<
+        MotorVehicleAuditLogRecord[]
+      >(`/tenant/motor/vehicles/${id}/audit-history`)
+      .then((r) => r.data),
+  getVehicleInsuranceHistory: (id: string) =>
+    apiClient
+      .get<MotorVehicleInsuranceHistory>(
+        `/tenant/motor/vehicles/${id}/insurance-history`,
+      )
+      .then((r) => r.data),
 
   getFleets: async (
     params?: MotorListParams,

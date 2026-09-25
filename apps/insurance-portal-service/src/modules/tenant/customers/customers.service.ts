@@ -38,12 +38,15 @@ import { CustomerContact } from './entities/customer-contact.entity';
 import { CustomerDocument } from './entities/customer-document.entity';
 import { CustomerIdentifier } from './entities/customer-identifier.entity';
 import { CustomerKycReview } from './entities/customer-kyc-review.entity';
+import { CustomerAuditLog } from './entities/customer-audit-log.entity';
+import { CustomerVersion } from './entities/customer-version.entity';
 import { Customer } from './entities/customer.entity';
 import { InsuredAsset } from './entities/insured-asset.entity';
 import { CustomerKycStatus } from './enums/customer-kyc-status.enum';
 import { CustomerPolicyHolderType } from './enums/customer-policy-holder-type.enum';
 import { CustomerStatus } from './enums/customer-status.enum';
 import { CustomerType } from './enums/customer-type.enum';
+import { TiraPolicyholderMapperService } from './services/tira-policyholder-mapper.service';
 
 type IdentifierType =
   | 'NIN'
@@ -86,9 +89,14 @@ export class CustomersService {
     private readonly customerDocumentRepository: Repository<CustomerDocument>,
     @InjectRepository(CustomerKycReview)
     private readonly customerKycReviewRepository: Repository<CustomerKycReview>,
+    @InjectRepository(CustomerVersion)
+    private readonly customerVersionRepository: Repository<CustomerVersion>,
+    @InjectRepository(CustomerAuditLog)
+    private readonly customerAuditLogRepository: Repository<CustomerAuditLog>,
     @InjectRepository(InsuredAsset)
     private readonly insuredAssetRepository: Repository<InsuredAsset>,
     private readonly dataAccessScopeService: DataAccessScopeService,
+    private readonly tiraPolicyholderMapper: TiraPolicyholderMapperService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -1032,6 +1040,110 @@ export class CustomersService {
     };
   }
 
+  private diffSnapshotFields(
+    oldSnapshot: Record<string, unknown> | null,
+    newSnapshot: Record<string, unknown> | null,
+  ): string[] {
+    if (!oldSnapshot || !newSnapshot) {
+      return Object.keys(newSnapshot ?? oldSnapshot ?? {});
+    }
+
+    const ignored = new Set(['snapshotHash', 'snapshottedAt']);
+    const keys = new Set([
+      ...Object.keys(oldSnapshot),
+      ...Object.keys(newSnapshot),
+    ]);
+
+    return [...keys]
+      .filter((key) => !ignored.has(key))
+      .filter(
+        (key) =>
+          JSON.stringify(this.sortValue(oldSnapshot[key])) !==
+          JSON.stringify(this.sortValue(newSnapshot[key])),
+      )
+      .sort();
+  }
+
+  private async createCustomerVersion(
+    manager: EntityManager,
+    customer: Customer,
+    relations: {
+      identifiers: CustomerIdentifier[];
+      addresses: CustomerAddress[];
+      contacts: CustomerContact[];
+      documents: CustomerDocument[];
+    },
+    userId: string | null,
+  ): Promise<CustomerVersion> {
+    const versionRepository = manager.getRepository(CustomerVersion);
+    const latest = await versionRepository.findOne({
+      where: { customer_id: customer.id },
+      order: { version_number: 'DESC' },
+    });
+    const versionNumber = Number(latest?.version_number ?? 0) + 1;
+    const snapshot = this.buildFinalizedCustomerSnapshot(customer, relations);
+
+    await versionRepository.update(
+      { customer_id: customer.id, is_current_version: true },
+      { is_current_version: false },
+    );
+
+    return versionRepository.save(
+      versionRepository.create({
+        company_id: customer.company_id,
+        customer_id: customer.id,
+        version_number: versionNumber,
+        is_current_version: true,
+        customer_snapshot: snapshot,
+        customer_snapshot_hash: snapshot.snapshotHash,
+        created_by: userId,
+      }),
+    );
+  }
+
+  private async getCurrentCustomerVersion(
+    manager: EntityManager,
+    customerId: string,
+  ): Promise<CustomerVersion | null> {
+    return manager.getRepository(CustomerVersion).findOne({
+      where: { customer_id: customerId, is_current_version: true },
+      order: { version_number: 'DESC' },
+    });
+  }
+
+  private async recordCustomerAudit(
+    manager: EntityManager,
+    input: {
+      customer: Customer;
+      version: CustomerVersion | null;
+      action: string;
+      oldValues?: Record<string, unknown> | null;
+      newValues?: Record<string, unknown> | null;
+      user: AuthenticatedUser;
+      source?: string;
+    },
+  ): Promise<void> {
+    const fieldsChanged = this.diffSnapshotFields(
+      input.oldValues ?? null,
+      input.newValues ?? null,
+    );
+
+    await manager.getRepository(CustomerAuditLog).save(
+      manager.getRepository(CustomerAuditLog).create({
+        company_id: input.customer.company_id,
+        customer_id: input.customer.id,
+        customer_version_id: input.version?.id ?? null,
+        action: input.action,
+        old_values: input.oldValues ?? null,
+        new_values: input.newValues ?? null,
+        fields_changed: fieldsChanged,
+        user_id: input.user.id,
+        user_name: null,
+        source: input.source ?? 'ADMIN_PORTAL',
+      }),
+    );
+  }
+
   private assertCustomerReadyForKycReview(relations: {
     identifiers: CustomerIdentifier[];
     addresses: CustomerAddress[];
@@ -1331,6 +1443,21 @@ export class CustomersService {
       );
 
       await customerRepository.save(savedCustomer);
+
+      const version = await this.createCustomerVersion(
+        manager,
+        savedCustomer,
+        childRecords,
+        user.id,
+      );
+      await this.recordCustomerAudit(manager, {
+        customer: savedCustomer,
+        version,
+        action: 'CREATED',
+        oldValues: null,
+        newValues: version.customer_snapshot,
+        user,
+      });
 
       return savedCustomer;
     });
@@ -1814,6 +1941,17 @@ export class CustomersService {
         const customer = await repository.findOneOrFail({
           where: { id, company_id: user.companyId! },
         });
+        const previousVersion = await this.getCurrentCustomerVersion(
+          manager,
+          customer.id,
+        );
+        const previousRelations = await this.getCustomerRelations(
+          manager,
+          customer.id,
+        );
+        const previousSnapshot =
+          previousVersion?.customer_snapshot ??
+          this.buildFinalizedCustomerSnapshot(customer, previousRelations);
 
         Object.assign(
           customer,
@@ -1838,7 +1976,23 @@ export class CustomersService {
             ?.identifier_value ?? null,
         );
 
-        return repository.save(savedCustomer);
+        const finalCustomer = await repository.save(savedCustomer);
+        const version = await this.createCustomerVersion(
+          manager,
+          finalCustomer,
+          childRecords,
+          user.id,
+        );
+        await this.recordCustomerAudit(manager, {
+          customer: finalCustomer,
+          version,
+          action: 'UPDATED',
+          oldValues: previousSnapshot,
+          newValues: version.customer_snapshot,
+          user,
+        });
+
+        return finalCustomer;
       },
     );
 
@@ -1847,26 +2001,117 @@ export class CustomersService {
 
   async removeForUser(user: AuthenticatedUser, id: string): Promise<void> {
     const customer = await this.findScopedCustomer(user, id, true);
-    const activeAssetCount = await this.insuredAssetRepository.count({
-      where: [
-        { customer_id: customer.id, deleted_at: IsNull() },
-        { owner_customer_id: customer.id, deleted_at: IsNull() },
-      ],
-    });
 
-    if (activeAssetCount > 0) {
-      throw new ConflictException(
-        'Customers with insured assets cannot be archived.',
+    await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(Customer);
+      const currentCustomer = await repository.findOneOrFail({
+        where: { id: customer.id, company_id: user.companyId! },
+      });
+      const currentVersion = await this.getCurrentCustomerVersion(
+        manager,
+        currentCustomer.id,
       );
-    }
+      const relations = await this.getCustomerRelations(
+        manager,
+        currentCustomer.id,
+      );
+      const oldSnapshot =
+        currentVersion?.customer_snapshot ??
+        this.buildFinalizedCustomerSnapshot(currentCustomer, relations);
 
-    await this.customerRepository.softDelete(customer.id);
+      currentCustomer.status = CustomerStatus.INACTIVE;
+      currentCustomer.updated_by = user.id;
+      await repository.save(currentCustomer);
+      await repository.softDelete(currentCustomer.id);
+
+      await this.recordCustomerAudit(manager, {
+        customer: currentCustomer,
+        version: currentVersion,
+        action: 'ARCHIVED',
+        oldValues: oldSnapshot,
+        newValues: {
+          ...oldSnapshot,
+          status: CustomerStatus.INACTIVE,
+          archivedAt: new Date().toISOString(),
+        },
+        user,
+      });
+    });
   }
 
   async restoreForUser(user: AuthenticatedUser, id: string) {
-    await this.findScopedCustomer(user, id, true, true);
-    await this.customerRepository.restore(id);
+    const customer = await this.findScopedCustomer(user, id, true, true);
+    await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(Customer);
+      await repository.restore(id);
+      const restored = await repository.findOneOrFail({
+        where: { id, company_id: user.companyId! },
+      });
+      const currentVersion = await this.getCurrentCustomerVersion(
+        manager,
+        restored.id,
+      );
+      restored.status = CustomerStatus.ACTIVE;
+      restored.updated_by = user.id;
+      await repository.save(restored);
+      await this.recordCustomerAudit(manager, {
+        customer: restored,
+        version: currentVersion,
+        action: 'ACTIVATED',
+        oldValues: {
+          customerId: customer.id,
+          status: CustomerStatus.INACTIVE,
+          deletedAt: customer.deleted_at?.toISOString() ?? null,
+        },
+        newValues: {
+          customerId: restored.id,
+          status: CustomerStatus.ACTIVE,
+          deletedAt: null,
+        },
+        user,
+      });
+    });
     return this.findOneForUser(user, id);
+  }
+
+  async listVersionsForUser(user: AuthenticatedUser, id: string) {
+    const customer = await this.findScopedCustomer(user, id, false, true);
+    const versions = await this.customerVersionRepository.find({
+      where: { customer_id: customer.id, company_id: customer.company_id },
+      order: { version_number: 'DESC' },
+    });
+
+    if (versions.length === 0) {
+      const relations = await this.getCustomerRelations(
+        this.dataSource.manager,
+        customer.id,
+      );
+      const snapshot = this.buildFinalizedCustomerSnapshot(customer, relations);
+      return [
+        {
+          id: null,
+          company_id: customer.company_id,
+          customer_id: customer.id,
+          version_number: 1,
+          is_current_version: true,
+          customer_snapshot: snapshot,
+          customer_snapshot_hash: snapshot.snapshotHash,
+          created_by: customer.created_by,
+          created_at: customer.created_at,
+        },
+      ];
+    }
+
+    return versions;
+  }
+
+  async listAuditHistoryForUser(user: AuthenticatedUser, id: string) {
+    const customer = await this.findScopedCustomer(user, id, false, true);
+    return this.customerAuditLogRepository.find({
+      where: { customer_id: customer.id, company_id: customer.company_id },
+      order: { created_at: 'DESC' },
+      take: 100,
+    });
   }
 
   async generatePolicyHolderPayload(companyId: string, id: string) {
@@ -1882,21 +2127,6 @@ export class CustomersService {
   }
 
   toPolicyHolderPayload(customer: Customer) {
-    return {
-      PolicyHolderName: customer.display_name,
-      PolicyHolderBirthDate: customer.date_of_birth,
-      PolicyHolderType: customer.policy_holder_type,
-      PolicyHolderIdNumber: customer.id_number,
-      PolicyHolderIdType: customer.id_type,
-      Gender: customer.gender,
-      CountryCode: customer.country_code,
-      Region: customer.region,
-      District: customer.district,
-      Street: customer.street,
-      PolicyHolderPhoneNumber: customer.phone,
-      PolicyHolderFax: customer.fax,
-      PostalAddress: customer.postal_address,
-      EmailAddress: customer.email,
-    };
+    return this.tiraPolicyholderMapper.mapCustomer(customer);
   }
 }

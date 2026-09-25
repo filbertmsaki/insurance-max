@@ -13,6 +13,8 @@ const customersKeys = {
   list: (params: CustomerListParams) =>
     [...customersKeys.lists(), params] as const,
   detail: (id: string) => [...customersKeys.all, 'detail', id] as const,
+  versions: (id: string) => [...customersKeys.detail(id), 'versions'] as const,
+  audit: (id: string) => [...customersKeys.detail(id), 'audit'] as const,
 };
 
 export type CustomerSortKey = NonNullable<CustomerListParams['sortBy']>;
@@ -172,6 +174,25 @@ export function useCustomer(id?: string) {
     queryFn: () => customersApi.getCustomer(id!),
     enabled: !!id,
     staleTime: 30_000,
+  });
+}
+
+export function useCustomerVersions(id?: string) {
+  return useQuery({
+    queryKey: id ? customersKeys.versions(id) : customersKeys.versions(''),
+    queryFn: () => customersApi.getCustomerVersions(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
+export function useCustomerAuditHistory(id?: string) {
+  return useQuery({
+    queryKey: id ? customersKeys.audit(id) : customersKeys.audit(''),
+    queryFn: () => customersApi.getCustomerAuditHistory(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+    retry: false,
   });
 }
 
