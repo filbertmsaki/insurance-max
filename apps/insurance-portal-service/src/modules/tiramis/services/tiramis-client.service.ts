@@ -1453,6 +1453,12 @@ export class TiramisClientService {
                 branchCode: authContext.activeBranchCode,
                 salePointId: authContext.defaultSalePointId,
                 salePointCode: authContext.defaultSalePointCode,
+                // Check the environment the company activated, as submissions
+                // do, rather than the service-wide default.
+                environment:
+                  await this.organizationContextService.resolveCompanyTiramisEnvironment(
+                    authContext.companyId,
+                  ),
               }
             : await this.buildTiramisReadyTenantContext(authContext)
           : undefined;
