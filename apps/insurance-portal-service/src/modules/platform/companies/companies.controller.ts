@@ -72,7 +72,6 @@ export class CompaniesController {
 
   @Get('my/number-format')
   @TenantScoped()
-  @Permissions('company-configs:read')
   @ApiOperation({
     summary: "Get the current company's number and currency format settings",
   })

@@ -25,6 +25,7 @@ import {
   normalizeNumberFormatSettings,
   type NumberFormatSettings,
 } from '@/modules/shared/formatting/number-format';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 const separatorOptions = [
   { value: ',', label: 'Comma (,)' },
@@ -71,6 +72,8 @@ function NumberFormatSettingsForm({
 }: {
   initialSettings: NumberFormatSettings;
 }) {
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const canUpdate = hasPermission('company-configs:update');
   const updateMutation = useUpdateNumberFormatSettings();
   const [form, setForm] = useState<NumberFormatSettings>(initialSettings);
 
@@ -103,6 +106,7 @@ function NumberFormatSettingsForm({
               <Input
                 value={form.currency_code}
                 maxLength={3}
+                disabled={!canUpdate}
                 onChange={(event) =>
                   update(
                     'currency_code',
@@ -114,6 +118,7 @@ function NumberFormatSettingsForm({
             <Field label="Currency Symbol">
               <Input
                 value={form.currency_symbol}
+                disabled={!canUpdate}
                 onChange={(event) =>
                   update('currency_symbol', event.target.value)
                 }
@@ -122,6 +127,7 @@ function NumberFormatSettingsForm({
             <Field label="Currency Symbol Position">
               <Select
                 value={form.currency_symbol_position}
+                disabled={!canUpdate}
                 onValueChange={(value: 'before' | 'after') =>
                   update('currency_symbol_position', value)
                 }
@@ -138,6 +144,7 @@ function NumberFormatSettingsForm({
             <Field label="Negative Number Format">
               <Select
                 value={form.negative_number_format}
+                disabled={!canUpdate}
                 onValueChange={(value: 'minus' | 'parentheses') =>
                   update('negative_number_format', value)
                 }
@@ -154,24 +161,28 @@ function NumberFormatSettingsForm({
             <Field label="Money Decimal Places">
               <DigitInput
                 value={form.money_decimal_places}
+                disabled={!canUpdate}
                 onChange={(value) => update('money_decimal_places', value)}
               />
             </Field>
             <Field label="Number Decimal Places">
               <DigitInput
                 value={form.number_decimal_places}
+                disabled={!canUpdate}
                 onChange={(value) => update('number_decimal_places', value)}
               />
             </Field>
             <Field label="Percentage Decimal Places">
               <DigitInput
                 value={form.percentage_decimal_places}
+                disabled={!canUpdate}
                 onChange={(value) => update('percentage_decimal_places', value)}
               />
             </Field>
             <Field label="Thousands Separator">
               <Select
                 value={form.thousands_separator}
+                disabled={!canUpdate}
                 onValueChange={(value) => update('thousands_separator', value)}
               >
                 <SelectTrigger>
@@ -189,6 +200,7 @@ function NumberFormatSettingsForm({
             <Field label="Decimal Separator">
               <Select
                 value={form.decimal_separator}
+                disabled={!canUpdate}
                 onValueChange={(value: ',' | '.') =>
                   update('decimal_separator', value)
                 }
@@ -205,18 +217,21 @@ function NumberFormatSettingsForm({
             <Field label="Locale">
               <Input
                 value={form.locale}
+                disabled={!canUpdate}
                 onChange={(event) => update('locale', event.target.value)}
               />
             </Field>
             <Field label="Date Format">
               <Input
                 value={form.date_format}
+                disabled={!canUpdate}
                 onChange={(event) => update('date_format', event.target.value)}
               />
             </Field>
             <Field label="Rounding Mode">
               <Select
                 value={form.rounding_mode}
+                disabled={!canUpdate}
                 onValueChange={(value: NumberFormatSettings['rounding_mode']) =>
                   update('rounding_mode', value)
                 }
@@ -260,14 +275,16 @@ function NumberFormatSettingsForm({
               label="Percentage"
               value={formatPercentage(18, previewSettings)}
             />
-            <Button
-              className="w-full"
-              onClick={() => updateMutation.mutate(previewSettings)}
-              disabled={updateMutation.isPending}
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Save Format
-            </Button>
+            {canUpdate ? (
+              <Button
+                className="w-full"
+                onClick={() => updateMutation.mutate(previewSettings)}
+                disabled={updateMutation.isPending}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save Format
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
       </div>
@@ -287,9 +304,11 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 function DigitInput({
   value,
   onChange,
+  disabled,
 }: {
   value: number;
   onChange: (value: number) => void;
+  disabled?: boolean;
 }) {
   return (
     <Input
@@ -297,6 +316,7 @@ function DigitInput({
       min={0}
       max={6}
       value={value}
+      disabled={disabled}
       onChange={(event) =>
         onChange(Math.min(6, Math.max(0, Number(event.target.value))))
       }

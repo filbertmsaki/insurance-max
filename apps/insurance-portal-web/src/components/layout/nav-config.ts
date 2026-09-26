@@ -635,7 +635,6 @@ export const NAV_NODES: NavNode[] = [
         label: 'Number & Currency',
         to: '/settings/number-format',
         icon: Settings,
-        permission: 'company-configs:read',
       },
     ],
   },
