@@ -251,43 +251,105 @@
   }
 }
 
-/* ── Velzon auth pages ─────────────────────────────────────────────────── */
+/* ── Auth pages: split layout (brand panel + form pane) ─────────────────── */
 @layer components {
+  .vz-auth-split {
+    display: flex;
+    height: 100dvh;
+    width: 100%;
+    overflow: hidden;
+    background: #f5f7fb;
+  }
+
+  /* Left brand panel (desktop only) */
+  .vz-auth-hero {
+    position: relative;
+    display: none;
+    width: 46%;
+    max-width: 640px;
+    flex-shrink: 0;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 2rem;
+    overflow: hidden;
+    isolation: isolate;
+    padding: 2.5rem 3rem;
+    background-color: #1a2550;
+    background-image:
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.5) 0, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(10, 179, 156, 0.35) 0, transparent 45%),
+      linear-gradient(160deg, #1a2550 0%, #2b3a74 55%, #405189 100%);
+  }
+  @media (min-width: 1024px) {
+    .vz-auth-hero {
+      display: flex;
+    }
+  }
+  .vz-auth-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+  }
+  .vz-auth-hero::after {
+    content: '';
+    position: absolute;
+    right: -140px;
+    bottom: -140px;
+    z-index: -1;
+    height: 420px;
+    width: 420px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 0 0 60px rgba(255, 255, 255, 0.025),
+      0 0 0 120px rgba(255, 255, 255, 0.02);
+  }
+  .vz-auth-hero-icon {
+    display: flex;
+    height: 2.5rem;
+    width: 2.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #a5b4fc;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  }
+
+  /* Right form pane */
   .vz-auth {
     position: relative;
     display: flex;
     height: 100dvh;
+    min-width: 0;
+    flex: 1;
     flex-direction: column;
     align-items: center;
+    /* Centre in the viewport; only scroll if the screen is genuinely too small */
+    justify-content: safe center;
+    overflow-x: hidden;
     overflow-y: auto;
-    background: var(--color-vz-body);
-    padding: 3.5rem 1rem 2.5rem;
-  }
-  .vz-auth::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 380px;
-    background:
-      radial-gradient(circle at 12% 30%, rgba(255, 255, 255, 0.08) 0 70px, transparent 71px),
-      radial-gradient(circle at 88% 18%, rgba(255, 255, 255, 0.07) 0 110px, transparent 111px),
-      radial-gradient(circle at 70% 85%, rgba(255, 255, 255, 0.05) 0 50px, transparent 51px),
-      linear-gradient(135deg, #364574 0%, #405189 55%, #4a5ca0 100%);
-    border-bottom-left-radius: 50% 70px;
-    border-bottom-right-radius: 50% 70px;
-  }
-  .vz-auth > * {
-    position: relative;
-    z-index: 1;
+    padding: 1.5rem 1rem;
+    background-color: #f5f7fb;
+    background-image:
+      radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.08) 0, transparent 45%),
+      radial-gradient(at 0% 100%, rgba(10, 179, 156, 0.07) 0, transparent 45%);
   }
   .vz-auth-tagline {
-    margin: -1.25rem 0 1.75rem;
+    margin: -0.75rem 0 1.25rem;
     text-align: center;
     font-size: 0.9375rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: #64748b;
   }
   .vz-auth-brand {
-    margin-bottom: 1.75rem;
+    margin-bottom: 1.25rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -299,9 +361,68 @@
     width: 2.5rem;
     align-items: center;
     justify-content: center;
-    border-radius: 0.375rem;
+    border-radius: 0.75rem;
     background: rgba(255, 255, 255, 0.15);
     color: #fff;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+  .vz-auth .vz-auth-logo {
+    background: linear-gradient(135deg, #405189, #6366f1);
+    box-shadow: 0 6px 16px -6px rgba(64, 81, 137, 0.6);
+  }
+}
+
+/* Unlayered overrides so they beat Tailwind utilities used in the pages */
+.vz-auth .vz-auth-brand .text-white {
+  color: #1e293b;
+}
+@media (min-width: 1024px) {
+  /* The brand panel already shows logo + tagline on desktop */
+  .vz-auth .vz-auth-brand,
+  .vz-auth .vz-auth-tagline {
+    display: none;
+  }
+}
+.vz-auth > .bg-white,
+.vz-auth > div > .bg-white {
+  border-radius: 1rem;
+  border-color: #e7eaf3;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 16px 40px -20px rgba(30, 41, 90, 0.25);
+}
+
+/* Compact auth layout on short viewports so forms fit without scrolling.
+   Unlayered on purpose so it overrides Tailwind utility padding/spacing. */
+@media (max-height: 820px) {
+  .vz-auth {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+  .vz-auth-brand {
+    margin-bottom: 0.75rem;
+  }
+  .vz-auth-tagline {
+    margin: -0.5rem 0 0.75rem;
+  }
+  .vz-auth .pt-8 {
+    padding-top: 1.25rem;
+  }
+  .vz-auth .pb-8 {
+    padding-bottom: 1.25rem;
+  }
+  .vz-auth form.space-y-4 > :not(:last-child) {
+    margin-block-end: 0.75rem;
+  }
+}
+@media (max-height: 680px) {
+  .vz-auth-tagline {
+    display: none;
+  }
+  .vz-auth-brand {
+    margin-bottom: 0.5rem;
+  }
+  .vz-auth form.space-y-4 > :not(:last-child) {
+    margin-block-end: 0.5rem;
   }
 }

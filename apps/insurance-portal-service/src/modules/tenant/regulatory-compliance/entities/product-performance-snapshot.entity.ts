@@ -17,6 +17,12 @@ export class ProductPerformanceSnapshot {
   @Column({ type: 'uuid', nullable: true })
   branch_id!: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  department_id!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  user_id!: string | null;
+
   @Column({ type: 'uuid' })
   product_id: string;
 

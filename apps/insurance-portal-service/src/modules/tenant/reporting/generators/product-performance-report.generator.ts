@@ -35,6 +35,12 @@ export class ProductPerformanceReportGenerator implements ReportGenerator {
       typeof filters.branch_id === 'string'
         ? filters.branch_id
         : context.branchId;
+    const allowedBranchIds = Array.from(
+      new Set(context.allowedBranchIds ?? []),
+    );
+    const allowedDepartmentIds = Array.from(
+      new Set(context.allowedDepartmentIds ?? []),
+    );
 
     const query = this.snapshotRepository
       .createQueryBuilder('snapshot')
@@ -50,6 +56,28 @@ export class ProductPerformanceReportGenerator implements ReportGenerator {
     }
     if (branchId) {
       query.andWhere('snapshot.branch_id = :branchId', { branchId });
+    } else if (context.allowedBranchIds) {
+      if (!allowedBranchIds.length) {
+        query.andWhere('1 = 0');
+      } else {
+        query.andWhere('snapshot.branch_id IN (:...allowedBranchIds)', {
+          allowedBranchIds,
+        });
+      }
+    }
+    if (context.allowedDepartmentIds) {
+      if (!allowedDepartmentIds.length) {
+        query.andWhere('1 = 0');
+      } else {
+        query.andWhere('snapshot.department_id IN (:...allowedDepartmentIds)', {
+          allowedDepartmentIds,
+        });
+      }
+    }
+    if (context.scopedUserId) {
+      query.andWhere('snapshot.user_id = :scopedUserId', {
+        scopedUserId: context.scopedUserId,
+      });
     }
 
     const rows = await query
@@ -59,6 +87,9 @@ export class ProductPerformanceReportGenerator implements ReportGenerator {
     return {
       columns: [
         'snapshot_date',
+        'branch_id',
+        'department_id',
+        'user_id',
         'product_id',
         'currency',
         'gross_written_premium',
@@ -74,6 +105,9 @@ export class ProductPerformanceReportGenerator implements ReportGenerator {
       ],
       rows: rows.map((row) => ({
         snapshot_date: row.snapshot_date,
+        branch_id: row.branch_id,
+        department_id: row.department_id,
+        user_id: row.user_id,
         product_id: row.product_id,
         currency: row.currency,
         gross_written_premium: row.gross_written_premium,

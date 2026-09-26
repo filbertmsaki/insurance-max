@@ -19,6 +19,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
+import { UpdateUserDataScopeDto } from './dtos/update-user-data-scope.dto';
 
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import type { Request as ExpressRequest } from 'express';
@@ -132,6 +133,23 @@ export class UsersController {
       req.user.companyId!,
       id,
       updateUserDto,
+    );
+  }
+
+  @Patch(':id/data-scope')
+  @TenantScoped()
+  @Permissions('users:manage-data-scope')
+  @ApiOperation({ summary: 'Update user quotation and policy data scope' })
+  updateDataScope(
+    @Req() req: ExpressRequest & { user: AuthenticatedUser },
+    @Param('id') id: string,
+    @Body() dto: UpdateUserDataScopeDto,
+  ) {
+    return this.usersService.updateDataScopeInCompany(
+      req.user.companyId!,
+      id,
+      dto,
+      req.user,
     );
   }
 

@@ -17,6 +17,7 @@ export class UserProfileDto {
 
   roles: string[];
   permissions: string[];
+  quotation_policy_data_scope?: string;
   current_company?: {
     id: string;
     name: string;
@@ -30,6 +31,7 @@ export class UserProfileDto {
     isDefault: boolean;
     roles: string[];
     permissions: string[];
+    quotationPolicyDataScope?: string;
   }>;
 
   constructor(partial: Partial<UserProfileDto>) {

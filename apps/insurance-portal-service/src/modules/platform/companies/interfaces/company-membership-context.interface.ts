@@ -1,4 +1,5 @@
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import { QuotationPolicyDataScope } from '../../../shared/authorization/quotation-policy-data-scope.enum';
 
 export interface CompanySummary {
   companyId: string;
@@ -20,6 +21,7 @@ export interface CompanySummary {
   activeDepartmentCode?: string | null;
   activeDepartmentName?: string | null;
   assignedDepartmentIds?: string[];
+  quotationPolicyDataScope: QuotationPolicyDataScope;
   authorizationVersion: number;
 }
 

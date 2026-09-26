@@ -1,4 +1,5 @@
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import { QuotationPolicyDataScope } from '../quotation-policy-data-scope.enum';
 
 export interface TenantDataScope {
   userId: string;
@@ -9,6 +10,10 @@ export interface TenantDataScope {
   activeBranchId: string | null;
   assignedBranchIds: string[];
   allowedBranchIds: string[];
+  activeDepartmentId?: string | null;
+  assignedDepartmentIds?: string[];
+  allowedDepartmentIds?: string[];
+  quotationPolicyDataScope?: QuotationPolicyDataScope;
 
   canViewAllBranches: boolean;
   canViewAssignedBranches: boolean;

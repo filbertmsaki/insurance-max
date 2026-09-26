@@ -14,6 +14,7 @@ import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-
 import { TiramisSubmissionStatus } from '../../tiramis/enums/tiramis-submission-status.enum';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import type { TenantDataScope } from '../../shared/authorization/interfaces/tenant-data-scope.interface';
+import { QuotationPolicyDataScope } from '../../shared/authorization/quotation-policy-data-scope.enum';
 import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
@@ -165,6 +166,8 @@ export class DashboardService {
         active_branch_id: scope.activeBranchId,
         assigned_branch_ids: scope.assignedBranchIds,
         allowed_branch_ids: scope.allowedBranchIds,
+        allowed_department_ids: scope.allowedDepartmentIds ?? [],
+        quotation_policy_data_scope: scope.quotationPolicyDataScope,
         can_view_all_branches: scope.canViewAllBranches,
         own_records_only: scope.ownRecordsOnly,
         can_view_carrier_portfolio: scope.canViewCarrierPortfolio,
@@ -1727,6 +1730,7 @@ export class DashboardService {
         scopeCompanyId: scope.companyId,
         scopeUserId: scope.userId,
         scopeBranchIds: scope.allowedBranchIds,
+        scopeDepartmentIds: scope.allowedDepartmentIds ?? [],
         requestedBranchId: query.branch_id,
         productId: query.product_id,
         channelType: query.channel_type,
@@ -1854,70 +1858,79 @@ export class DashboardService {
     scope: TenantDataScope,
     requestedBranchId?: string,
   ) {
-    if (scope.ownRecordsOnly) {
-      queryBuilder.andWhere('tracking.source_user_id = :scopeUserId');
-      return;
+    switch (scope.quotationPolicyDataScope ?? QuotationPolicyDataScope.USER) {
+      case QuotationPolicyDataScope.COMPANY:
+        if (requestedBranchId) {
+          queryBuilder.andWhere(
+            this.buildTiramisLinkedRecordCondition('branch_id', [
+              ':requestedBranchId',
+            ]),
+          );
+        }
+        return;
+      case QuotationPolicyDataScope.BRANCH:
+        if (!scope.allowedBranchIds.length) {
+          queryBuilder.andWhere('1 = 0');
+          return;
+        }
+        queryBuilder.andWhere(
+          this.buildTiramisLinkedRecordCondition('branch_id', [
+            ':...scopeBranchIds',
+          ]),
+        );
+        return;
+      case QuotationPolicyDataScope.DEPARTMENT:
+        if (!(scope.allowedDepartmentIds ?? []).length) {
+          queryBuilder.andWhere('1 = 0');
+          return;
+        }
+        queryBuilder.andWhere(
+          this.buildTiramisLinkedRecordCondition('department_id', [
+            ':...scopeDepartmentIds',
+          ]),
+        );
+        return;
+      case QuotationPolicyDataScope.USER:
+      default:
+        queryBuilder.andWhere('tracking.source_user_id = :scopeUserId');
     }
+  }
 
-    if (requestedBranchId) {
-      queryBuilder.andWhere(
-        new Brackets((branchQuery) => {
-          branchQuery.where('tracking.source_user_id = :scopeUserId').orWhere(`
-              EXISTS (
-                SELECT 1
-                FROM quotations scoped_quotation
-                WHERE scoped_quotation.id::text = tracking.source_record_id
-                  AND scoped_quotation.company_id = :scopeCompanyId
-                  AND scoped_quotation.branch_id = :requestedBranchId
-                  AND scoped_quotation.deleted_at IS NULL
-              )
-            `).orWhere(`
-              EXISTS (
-                SELECT 1
-                FROM policies scoped_policy
-                WHERE scoped_policy.id::text = tracking.source_record_id
-                  AND scoped_policy.company_id = :scopeCompanyId
-                  AND scoped_policy.branch_id = :requestedBranchId
-                  AND scoped_policy.deleted_at IS NULL
-              )
-            `);
-        }),
-      );
-      return;
-    }
+  private buildTiramisLinkedRecordCondition(
+    fieldName: 'branch_id' | 'department_id',
+    parameterTokens: string[],
+  ): string {
+    const inExpression =
+      parameterTokens.length === 1
+        ? parameterTokens[0]
+        : parameterTokens.join(', ');
 
-    if (scope.canViewAllBranches) {
-      return;
-    }
-
-    if (!scope.allowedBranchIds.length) {
-      queryBuilder.andWhere('tracking.source_user_id = :scopeUserId');
-      return;
-    }
-
-    queryBuilder.andWhere(
-      new Brackets((scopeQuery) => {
-        scopeQuery.where('tracking.source_user_id = :scopeUserId').orWhere(`
-            EXISTS (
-              SELECT 1
-              FROM quotations scoped_quotation
-              WHERE scoped_quotation.id::text = tracking.source_record_id
-                AND scoped_quotation.company_id = :scopeCompanyId
-                AND scoped_quotation.branch_id IN (:...scopeBranchIds)
-                AND scoped_quotation.deleted_at IS NULL
+    return `
+      (
+        EXISTS (
+          SELECT 1
+          FROM quotations scoped_quotation
+          WHERE scoped_quotation.company_id = :scopeCompanyId
+            AND scoped_quotation.deleted_at IS NULL
+            AND scoped_quotation.${fieldName} IN (${inExpression})
+            AND (
+              scoped_quotation.id::text = tracking.source_record_id
+              OR scoped_quotation.id::text = tracking.quotation_id
             )
-          `).orWhere(`
-            EXISTS (
-              SELECT 1
-              FROM policies scoped_policy
-              WHERE scoped_policy.id::text = tracking.source_record_id
-                AND scoped_policy.company_id = :scopeCompanyId
-                AND scoped_policy.branch_id IN (:...scopeBranchIds)
-                AND scoped_policy.deleted_at IS NULL
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM policies scoped_policy
+          WHERE scoped_policy.company_id = :scopeCompanyId
+            AND scoped_policy.deleted_at IS NULL
+            AND scoped_policy.${fieldName} IN (${inExpression})
+            AND (
+              scoped_policy.id::text = tracking.source_record_id
+              OR scoped_policy.id::text = tracking.policy_id
             )
-          `);
-      }),
-    );
+        )
+      )
+    `;
   }
 
   private applyTiramisBusinessFilters<T extends ObjectLiteral>(
@@ -1992,6 +2005,8 @@ export class DashboardService {
         company_id: scope.companyId,
         active_branch_id: scope.activeBranchId,
         allowed_branch_ids: scope.allowedBranchIds,
+        allowed_department_ids: scope.allowedDepartmentIds ?? [],
+        quotation_policy_data_scope: scope.quotationPolicyDataScope,
         can_view_all_branches: scope.canViewAllBranches,
         own_records_only: scope.ownRecordsOnly,
       },

@@ -20,6 +20,7 @@ import { PortalSignaturesPage } from '@/modules/portal/pages/PortalSignaturesPag
 import { PortalVehiclesPage } from '@/modules/portal/pages/PortalVehiclesPage';
 import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute';
 import { GuestRoute } from '@/modules/shared/auth/components/GuestRoute';
+import { AuthLayout } from '@/modules/shared/auth/components/AuthLayout';
 import { DefaultLandingPage } from '@/modules/shared/auth/components/DefaultLandingPage';
 import { ForbiddenPage } from '@/modules/shared/auth/pages/ForbiddenPage';
 import { AuthBootstrap } from '@/modules/shared/auth/components/AuthBootstrap';
@@ -159,19 +160,24 @@ export default function App() {
       <AuthBootstrap />
       <Routes>
         {/* Guest-only routes */}
-        <Route element={<GuestRoute />}>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/phone-login" element={<PhoneLoginPage />} />
-          <Route path="/passwordless" element={<PasswordlessPage />} />
-          <Route path="/passwordless/complete" element={<PasswordlessPage />} />
-        </Route>
+        <Route element={<AuthLayout />}>
+          <Route element={<GuestRoute />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/phone-login" element={<PhoneLoginPage />} />
+            <Route path="/passwordless" element={<PasswordlessPage />} />
+            <Route
+              path="/passwordless/complete"
+              element={<PasswordlessPage />}
+            />
+          </Route>
 
-        {/* 2FA (needs tempToken, no full auth) */}
-        <Route path="/2fa" element={<TwoFactorPage />} />
+          {/* 2FA (needs tempToken, no full auth) */}
+          <Route path="/2fa" element={<TwoFactorPage />} />
+        </Route>
         <Route path="/forbidden" element={<ForbiddenPage />} />
         <Route
           path="/documents/verify/:code"

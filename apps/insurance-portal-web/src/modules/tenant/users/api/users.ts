@@ -5,6 +5,7 @@ import type {
   PaginatedResponse,
   UsersQueryParams,
   UserType,
+  QuotationPolicyDataScope,
 } from '@/types';
 
 export interface CreateUserDto {
@@ -32,6 +33,11 @@ export interface UpdateUserDto {
   officer_title?: string;
 }
 
+export interface UpdateUserDataScopeDto {
+  quotation_policy_data_scope: QuotationPolicyDataScope;
+  reason?: string;
+}
+
 export const usersApi = {
   /** GET /users — paginated list, company-scoped */
   getUsers: (params?: UsersQueryParams) =>
@@ -53,6 +59,12 @@ export const usersApi = {
   /** PATCH /users/:id */
   updateUser: (id: string, data: UpdateUserDto) =>
     apiClient.patch<UserProfile>(`/users/${id}`, data).then((r) => r.data),
+
+  /** PATCH /users/:id/data-scope */
+  updateUserDataScope: (id: string, data: UpdateUserDataScopeDto) =>
+    apiClient
+      .patch<UserDetail>(`/users/${id}/data-scope`, data)
+      .then((r) => r.data),
 
   /** PATCH /users/me */
   updateMe: (data: UpdateUserDto) =>

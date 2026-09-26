@@ -1,6 +1,11 @@
 import { CompanyType } from '../enums/company-type.enum';
 
 export type AuthScope = 'platform' | 'company' | 'customer';
+export type QuotationPolicyDataScope =
+  | 'USER'
+  | 'DEPARTMENT'
+  | 'BRANCH'
+  | 'COMPANY';
 
 export type UserType =
   | 'SUPER_ADMIN'
@@ -48,6 +53,7 @@ export interface AuthenticatedUser {
   activeDepartmentCode?: string | null;
   activeDepartmentName?: string | null;
   assignedDepartmentIds?: string[];
+  quotationPolicyDataScope?: QuotationPolicyDataScope;
   roles: string[];
   permissions: string[];
 }

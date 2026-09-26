@@ -948,6 +948,12 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'users:manage-data-scope',
+    displayName: 'Manage user data scope',
+    description: 'Change user quotation and policy data access scope',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'audit:read',
     displayName: 'Read audit logs',
     description: 'View audit records within the current authorized scope',
@@ -4401,11 +4407,15 @@ export default class InitialRbacSeeder implements Seeder {
           ['OWNER', 'SUPER_ADMIN', 'ADMINISTRATOR'].includes(definition.name) ||
           definition.name.endsWith('_ADMIN');
 
-        const sourcePermissionNames = FULL_COMPANY_PERMISSION_ROLE_NAMES.has(
+        const basePermissionNames = FULL_COMPANY_PERMISSION_ROLE_NAMES.has(
           definition.name,
         )
           ? ALL_COMPANY_PERMISSION_NAMES
           : definition.permissionNames;
+        const sourcePermissionNames =
+          role.is_administrative && role.scope !== RoleScope.PLATFORM
+            ? [...basePermissionNames, 'users:manage-data-scope']
+            : basePermissionNames;
 
         const permissionNames = [
           ...new Set(withPricingPermissionAliases(sourcePermissionNames)),

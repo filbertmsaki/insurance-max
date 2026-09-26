@@ -6,6 +6,9 @@ describe('ProductPerformanceSnapshotService', () => {
     // First call: the CTE aggregate SELECT.
     query.mockResolvedValueOnce([
       {
+        branch_id: 'branch-1',
+        department_id: 'department-1',
+        user_id: 'user-1',
         product_id: 'product-1',
         currency: 'TZS',
         policies_count: '3',
@@ -48,6 +51,9 @@ describe('ProductPerformanceSnapshotService', () => {
     const insertParams = query.mock.calls[2][1];
     expect(insertParams).toEqual([
       'company-1',
+      'branch-1',
+      'department-1',
+      'user-1',
       'product-1',
       'TZS',
       '2026-08-01',
@@ -71,6 +77,9 @@ describe('ProductPerformanceSnapshotService', () => {
     const query = jest.fn();
     query.mockResolvedValueOnce([
       {
+        branch_id: null,
+        department_id: null,
+        user_id: 'user-2',
         product_id: 'product-2',
         currency: 'TZS',
         policies_count: '0',

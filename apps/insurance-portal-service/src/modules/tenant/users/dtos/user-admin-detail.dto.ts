@@ -31,6 +31,7 @@ export class UserAdminDetailDto {
   updated_at: Date;
   roles: RoleDto[];
   permissions: PermissionDto[];
+  quotation_policy_data_scope: string;
   current_company?: {
     id: string;
     name: string;

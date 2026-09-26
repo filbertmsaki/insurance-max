@@ -14,6 +14,9 @@ import { DateTime } from 'luxon';
 import { IsNull, Repository } from 'typeorm';
 
 import { UsageMeteringService } from '../../../platform/saas-billing/services/usage-metering.service';
+import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
+import type { TenantDataScope } from '../../../shared/authorization/interfaces/tenant-data-scope.interface';
+import { QuotationPolicyDataScope } from '../../../shared/authorization/quotation-policy-data-scope.enum';
 import { MailService } from '../../../shared/mail/mail.service';
 import { ReportAccessAuditEvent } from '../entities/report-access-audit-event.entity';
 import { ReportArtifact } from '../entities/report-artifact.entity';
@@ -31,6 +34,18 @@ import { ReportGeneratorContext } from '../interfaces/report-generator.interface
 import { ExcelReportWriterService } from './excel-report-writer.service';
 import { ReportParameterValidationService } from './report-parameter-validation.service';
 import { ReportRegistryService } from './report-registry.service';
+
+interface ReportingScopeContext {
+  quotationPolicyDataScope: QuotationPolicyDataScope;
+  branchIds?: string[];
+  departmentIds?: string[];
+  userId?: string | null;
+}
+
+interface ScopedReportParameters {
+  parameters: Record<string, unknown>;
+  reportingScope: ReportingScopeContext | null;
+}
 
 @Injectable()
 export class ReportScheduleService {
@@ -53,6 +68,7 @@ export class ReportScheduleService {
     private readonly usageMeteringService: UsageMeteringService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
+    private readonly dataAccessScopeService: DataAccessScopeService,
   ) {}
 
   async listDefinitions() {
@@ -115,6 +131,11 @@ export class ReportScheduleService {
       definition,
       dto.parameters ?? dto.filters,
     );
+    const scopedReport = this.applyReportDataScope(
+      user,
+      definition,
+      validated.parameters,
+    );
 
     const timezone = dto.timezone ?? this.defaultTimezone();
     const nextRunAt = this.resolveNextRunAt(dto.cron_expression, timezone);
@@ -131,10 +152,11 @@ export class ReportScheduleService {
         timezone,
         format: dto.format,
         recipient_emails: dto.recipient_emails ?? [],
-        filters: validated.parameters,
-        parameter_payload: validated.parameters,
+        filters: scopedReport.parameters,
+        parameter_payload: scopedReport.parameters,
         parameter_hash: validated.parameterHash,
         report_code: definition.code,
+        metadata: this.withReportingScope(null, scopedReport.reportingScope),
         next_run_at: nextRunAt,
       }),
     );
@@ -174,6 +196,14 @@ export class ReportScheduleService {
             dto.parameters ?? dto.filters,
           )
         : null;
+    const scopedReport = this.applyReportDataScope(
+      user,
+      definition,
+      validatedParameters?.parameters ??
+        schedule.parameter_payload ??
+        schedule.filters ??
+        {},
+    );
 
     Object.assign(schedule, {
       name: dto.name?.trim() ?? schedule.name,
@@ -181,11 +211,16 @@ export class ReportScheduleService {
       timezone,
       format: dto.format ?? schedule.format,
       recipient_emails: dto.recipient_emails ?? schedule.recipient_emails,
-      filters: validatedParameters?.parameters ?? schedule.filters,
-      parameter_payload:
-        validatedParameters?.parameters ?? schedule.parameter_payload,
+      filters: validatedParameters ? scopedReport.parameters : schedule.filters,
+      parameter_payload: validatedParameters
+        ? scopedReport.parameters
+        : schedule.parameter_payload,
       parameter_hash:
         validatedParameters?.parameterHash ?? schedule.parameter_hash,
+      metadata: this.withReportingScope(
+        schedule.metadata,
+        scopedReport.reportingScope,
+      ),
       status: dto.status ?? schedule.status,
       next_run_at: this.resolveNextRunAt(cronExpression, timezone),
     });
@@ -221,6 +256,11 @@ export class ReportScheduleService {
       ...(dto.parameters ?? dto.filters ?? {}),
       branch_id: dto.branch_id ?? null,
     });
+    const scopedReport = this.applyReportDataScope(
+      user,
+      definition,
+      validated.parameters,
+    );
 
     return this.jobRepository.save(
       this.jobRepository.create({
@@ -232,14 +272,17 @@ export class ReportScheduleService {
         execution_key: this.buildExecutionKey(
           user.companyId!,
           definition.id,
-          validated.parameters,
+          scopedReport.parameters,
         ),
         report_code: definition.code,
-        parameter_payload: validated.parameters,
+        parameter_payload: scopedReport.parameters,
         parameter_hash: validated.parameterHash,
-        filters: validated.parameters,
+        filters: scopedReport.parameters,
         job_no: this.buildJobNumber(),
-        execution_context: this.buildExecutionContext(user),
+        execution_context: this.buildExecutionContext(
+          user,
+          scopedReport.reportingScope,
+        ),
         delivery_status: ReportDeliveryStatus.SKIPPED,
       }),
     );
@@ -270,6 +313,18 @@ export class ReportScheduleService {
       });
 
       if (!existing) {
+        if (
+          this.isQuotationPolicyScopedReport(definition) &&
+          !schedule.metadata?.reporting_scope
+        ) {
+          schedule.failure_count += 1;
+          schedule.last_failure_at = now;
+          schedule.last_failure_reason =
+            'Report schedule must be reviewed and saved with quotation/policy data scope before it can run.';
+          await this.scheduleRepository.save(schedule);
+          continue;
+        }
+
         createdJobs.push(
           await this.jobRepository.save(
             this.jobRepository.create({
@@ -299,6 +354,7 @@ export class ReportScheduleService {
                 timezone: schedule.timezone,
                 locale: 'en',
                 requestedAt: now.toISOString(),
+                reportingScope: schedule.metadata?.reporting_scope ?? null,
               },
               delivery_status:
                 schedule.recipient_emails.length > 0
@@ -355,6 +411,14 @@ export class ReportScheduleService {
       format: job.format,
       definition,
       requestedAt: new Date().toISOString(),
+      allowedBranchIds: this.extractReportBranchIds(job.execution_context),
+      allowedDepartmentIds: this.extractReportDepartmentIds(
+        job.execution_context,
+      ),
+      scopedUserId: this.extractReportUserId(job.execution_context),
+      quotationPolicyDataScope: this.extractReportDataScope(
+        job.execution_context,
+      ),
     };
 
     try {
@@ -435,6 +499,7 @@ export class ReportScheduleService {
       artifactId: artifact.id,
       reportCode: artifact.report_code ?? definition.code,
     });
+    await this.assertReportArtifactDataScope(user, definition, artifact);
 
     if (artifact.expires_at && artifact.expires_at < new Date()) {
       await this.recordAccessAudit({
@@ -829,12 +894,18 @@ export class ReportScheduleService {
     return { status: ReportDeliveryStatus.FAILED };
   }
 
-  private buildExecutionContext(user: AuthenticatedUser) {
+  private buildExecutionContext(
+    user: AuthenticatedUser,
+    reportingScope: ReportingScopeContext | null = null,
+  ) {
     return {
       companyId: user.companyId ?? null,
       userId: user.id,
       branchIds: user.assignedBranchIds ?? [],
       departmentIds: user.assignedDepartmentIds ?? [],
+      quotationPolicyDataScope:
+        user.quotationPolicyDataScope ?? QuotationPolicyDataScope.USER,
+      reportingScope,
       permissions: user.permissions ?? [],
       timezone: this.defaultTimezone(),
       locale: 'en',
@@ -844,6 +915,305 @@ export class ReportScheduleService {
 
   private buildJobNumber() {
     return `JOB-${DateTime.utc().toFormat('yyyyLLddHHmmssSSS')}`;
+  }
+
+  private applyReportDataScope(
+    user: AuthenticatedUser,
+    definition: ReportDefinition,
+    parameters: Record<string, unknown>,
+  ): ScopedReportParameters {
+    if (!this.isQuotationPolicyScopedReport(definition)) {
+      return { parameters, reportingScope: null };
+    }
+
+    const scope = this.dataAccessScopeService.resolve(user);
+    const branchId = this.stringParameter(parameters, 'branch_id');
+
+    if (scope.quotationPolicyDataScope === QuotationPolicyDataScope.COMPANY) {
+      if (branchId) {
+        this.dataAccessScopeService.assertRequestedBranchAllowed(
+          scope,
+          branchId,
+        );
+      }
+
+      return {
+        parameters,
+        reportingScope: branchId
+          ? {
+              quotationPolicyDataScope: QuotationPolicyDataScope.BRANCH,
+              branchIds: [branchId],
+            }
+          : {
+              quotationPolicyDataScope: QuotationPolicyDataScope.COMPANY,
+            },
+      };
+    }
+
+    if (scope.quotationPolicyDataScope === QuotationPolicyDataScope.BRANCH) {
+      if (branchId) {
+        this.dataAccessScopeService.assertRequestedBranchAllowed(
+          scope,
+          branchId,
+        );
+      }
+
+      const branchIds = branchId ? [branchId] : scope.allowedBranchIds;
+      if (!branchIds.length) {
+        throw new ForbiddenException(
+          'This report requires at least one allowed branch',
+        );
+      }
+
+      return {
+        parameters,
+        reportingScope: {
+          quotationPolicyDataScope: QuotationPolicyDataScope.BRANCH,
+          branchIds,
+        },
+      };
+    }
+
+    if (
+      scope.quotationPolicyDataScope === QuotationPolicyDataScope.DEPARTMENT
+    ) {
+      if (branchId) {
+        this.dataAccessScopeService.assertRequestedBranchAllowed(
+          scope,
+          branchId,
+        );
+      }
+
+      const departmentIds = scope.allowedDepartmentIds ?? [];
+      if (!departmentIds.length) {
+        throw new ForbiddenException(
+          'This report requires at least one allowed department',
+        );
+      }
+
+      return {
+        parameters,
+        reportingScope: {
+          quotationPolicyDataScope: QuotationPolicyDataScope.DEPARTMENT,
+          departmentIds,
+          branchIds: branchId ? [branchId] : undefined,
+        },
+      };
+    }
+
+    if (branchId) {
+      this.dataAccessScopeService.assertRequestedBranchAllowed(scope, branchId);
+    }
+
+    return {
+      parameters,
+      reportingScope: {
+        quotationPolicyDataScope: QuotationPolicyDataScope.USER,
+        userId: scope.userId,
+        branchIds: branchId ? [branchId] : undefined,
+      },
+    };
+  }
+
+  private async assertReportArtifactDataScope(
+    user: AuthenticatedUser,
+    definition: ReportDefinition,
+    artifact: ReportArtifact,
+  ): Promise<void> {
+    if (!this.isQuotationPolicyScopedReport(definition)) {
+      return;
+    }
+
+    const userScope = this.dataAccessScopeService.resolve(user);
+    if (
+      userScope.quotationPolicyDataScope === QuotationPolicyDataScope.COMPANY
+    ) {
+      return;
+    }
+
+    const job = await this.jobRepository.findOne({
+      where: { id: artifact.job_id, company_id: user.companyId! },
+    });
+    const artifactScope = this.extractReportingScope(job?.execution_context);
+    if (!artifactScope) {
+      throw new ForbiddenException(
+        'This report artifact is outside your quotation/policy data scope',
+      );
+    }
+
+    const canAccessArtifact = this.canAccessReportScope(
+      userScope,
+      artifactScope,
+    );
+    if (!canAccessArtifact) {
+      throw new ForbiddenException(
+        'This report artifact is outside your quotation/policy data scope',
+      );
+    }
+  }
+
+  private extractReportBranchIds(
+    executionContext: Record<string, unknown> | null,
+  ): string[] | null {
+    const reportingScope = this.extractReportingScope(executionContext);
+
+    return reportingScope?.branchIds ?? null;
+  }
+
+  private extractReportDepartmentIds(
+    executionContext: Record<string, unknown> | null,
+  ): string[] | null {
+    return this.extractReportingScope(executionContext)?.departmentIds ?? null;
+  }
+
+  private extractReportUserId(
+    executionContext: Record<string, unknown> | null,
+  ): string | null {
+    return this.extractReportingScope(executionContext)?.userId ?? null;
+  }
+
+  private extractReportDataScope(
+    executionContext: Record<string, unknown> | null,
+  ): QuotationPolicyDataScope | null {
+    return (
+      this.extractReportingScope(executionContext)?.quotationPolicyDataScope ??
+      null
+    );
+  }
+
+  private canAccessReportScope(
+    userScope: TenantDataScope,
+    artifactScope: ReportingScopeContext,
+  ): boolean {
+    switch (userScope.quotationPolicyDataScope) {
+      case QuotationPolicyDataScope.COMPANY:
+        return true;
+      case QuotationPolicyDataScope.BRANCH:
+        return this.reportBranchesWithinUserScope(userScope, artifactScope);
+      case QuotationPolicyDataScope.DEPARTMENT:
+        return this.reportDepartmentsWithinUserScope(userScope, artifactScope);
+      case QuotationPolicyDataScope.USER:
+      default:
+        return (
+          artifactScope.quotationPolicyDataScope ===
+            QuotationPolicyDataScope.USER &&
+          artifactScope.userId === userScope.userId
+        );
+    }
+  }
+
+  private reportBranchesWithinUserScope(
+    userScope: TenantDataScope,
+    artifactScope: ReportingScopeContext,
+  ): boolean {
+    if (
+      artifactScope.quotationPolicyDataScope !==
+        QuotationPolicyDataScope.BRANCH ||
+      !artifactScope.branchIds?.length
+    ) {
+      return false;
+    }
+
+    const allowedBranchIds = new Set(userScope.allowedBranchIds);
+    return artifactScope.branchIds.every((branchId) =>
+      allowedBranchIds.has(branchId),
+    );
+  }
+
+  private reportDepartmentsWithinUserScope(
+    userScope: TenantDataScope,
+    artifactScope: ReportingScopeContext,
+  ): boolean {
+    if (
+      artifactScope.quotationPolicyDataScope !==
+        QuotationPolicyDataScope.DEPARTMENT ||
+      !artifactScope.departmentIds?.length
+    ) {
+      return false;
+    }
+
+    const allowedDepartmentIds = new Set(userScope.allowedDepartmentIds ?? []);
+    const departmentsAllowed = artifactScope.departmentIds.every(
+      (departmentId) => allowedDepartmentIds.has(departmentId),
+    );
+    if (!departmentsAllowed) {
+      return false;
+    }
+
+    if (!artifactScope.branchIds?.length) {
+      return true;
+    }
+
+    const allowedBranchIds = new Set(userScope.allowedBranchIds);
+    return artifactScope.branchIds.every((branchId) =>
+      allowedBranchIds.has(branchId),
+    );
+  }
+
+  private extractReportingScope(
+    executionContext: Record<string, unknown> | null | undefined,
+  ): ReportingScopeContext | null {
+    const rawScope =
+      executionContext?.reportingScope ?? executionContext?.reporting_scope;
+    if (!rawScope || typeof rawScope !== 'object' || Array.isArray(rawScope)) {
+      return null;
+    }
+
+    const scopeRecord = rawScope as Record<string, unknown>;
+    const dataScope = scopeRecord.quotationPolicyDataScope;
+    if (
+      !dataScope ||
+      !Object.values(QuotationPolicyDataScope).includes(
+        dataScope as QuotationPolicyDataScope,
+      )
+    ) {
+      return null;
+    }
+
+    return {
+      quotationPolicyDataScope: dataScope as QuotationPolicyDataScope,
+      branchIds: this.stringArray(scopeRecord.branchIds),
+      departmentIds: this.stringArray(scopeRecord.departmentIds),
+      userId:
+        typeof scopeRecord.userId === 'string' ? scopeRecord.userId : null,
+    };
+  }
+
+  private withReportingScope(
+    metadata: Record<string, unknown> | null,
+    reportingScope: ReportingScopeContext | null,
+  ): Record<string, unknown> | null {
+    const next = { ...(metadata ?? {}) };
+    if (reportingScope) {
+      next.reporting_scope = reportingScope;
+    } else {
+      delete next.reporting_scope;
+    }
+
+    return Object.keys(next).length ? next : null;
+  }
+
+  private isQuotationPolicyScopedReport(definition: ReportDefinition): boolean {
+    return (
+      definition.generator_key === 'product-performance' ||
+      definition.code === 'PRODUCT_PERFORMANCE'
+    );
+  }
+
+  private stringParameter(
+    parameters: Record<string, unknown>,
+    key: string,
+  ): string | null {
+    const value = parameters[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+
+  private stringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter((item): item is string => typeof item === 'string');
   }
 
   private async assertReportAccess(

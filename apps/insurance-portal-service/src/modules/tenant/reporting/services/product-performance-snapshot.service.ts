@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 interface ProductPerformanceRow {
+  branch_id: string | null;
+  department_id: string | null;
+  user_id: string | null;
   product_id: string;
   currency: string;
   policies_count: string;
@@ -50,6 +53,9 @@ export class ProductPerformanceSnapshotService {
       `
       WITH policy_agg AS (
         SELECT
+          branch_id,
+          department_id,
+          created_by AS user_id,
           product_id,
           currency,
           COUNT(*) AS policies_count,
@@ -65,10 +71,13 @@ export class ProductPerformanceSnapshotService {
         WHERE company_id = $1
           AND deleted_at IS NULL
           AND issue_date BETWEEN $2 AND $3
-        GROUP BY product_id, currency
+        GROUP BY branch_id, department_id, created_by, product_id, currency
       ),
       claim_agg AS (
         SELECT
+          p.branch_id,
+          p.department_id,
+          p.created_by AS user_id,
           p.product_id,
           COUNT(DISTINCT c.id) AS claims_count,
           COALESCE(SUM(c.paid_amount), 0) AS claims_paid,
@@ -78,18 +87,24 @@ export class ProductPerformanceSnapshotService {
         JOIN policies p ON p.id = c.policy_id
         WHERE c.company_id = $1
           AND c.created_at::date <= $3::date
-        GROUP BY p.product_id
+        GROUP BY p.branch_id, p.department_id, p.created_by, p.product_id
       ),
       invoice_agg AS (
         SELECT
+          p.branch_id,
+          p.department_id,
+          p.created_by AS user_id,
           p.product_id,
           COALESCE(SUM(i.paid_amount), 0) AS premium_collected
         FROM invoices i
         JOIN policies p ON p.id = i.source_record_id AND i.source_type = 'POLICY'
         WHERE i.company_id = $1
-        GROUP BY p.product_id
+        GROUP BY p.branch_id, p.department_id, p.created_by, p.product_id
       )
       SELECT
+        COALESCE(pa.branch_id, ca.branch_id, ia.branch_id) AS branch_id,
+        COALESCE(pa.department_id, ca.department_id, ia.department_id) AS department_id,
+        COALESCE(pa.user_id, ca.user_id, ia.user_id) AS user_id,
         COALESCE(pa.product_id, ca.product_id, ia.product_id) AS product_id,
         COALESCE(pa.currency, 'TZS') AS currency,
         COALESCE(pa.policies_count, 0) AS policies_count,
@@ -103,9 +118,16 @@ export class ProductPerformanceSnapshotService {
         COALESCE(ca.claims_incurred, 0) AS claims_incurred,
         COALESCE(ia.premium_collected, 0) AS premium_collected
       FROM policy_agg pa
-      FULL OUTER JOIN claim_agg ca ON ca.product_id = pa.product_id
+      FULL OUTER JOIN claim_agg ca
+        ON ca.product_id = pa.product_id
+        AND ca.branch_id IS NOT DISTINCT FROM pa.branch_id
+        AND ca.department_id IS NOT DISTINCT FROM pa.department_id
+        AND ca.user_id IS NOT DISTINCT FROM pa.user_id
       FULL OUTER JOIN invoice_agg ia
         ON ia.product_id = COALESCE(pa.product_id, ca.product_id)
+        AND ia.branch_id IS NOT DISTINCT FROM COALESCE(pa.branch_id, ca.branch_id)
+        AND ia.department_id IS NOT DISTINCT FROM COALESCE(pa.department_id, ca.department_id)
+        AND ia.user_id IS NOT DISTINCT FROM COALESCE(pa.user_id, ca.user_id)
       `,
       [params.companyId, params.periodStart, params.periodEnd],
     );
@@ -129,6 +151,8 @@ export class ProductPerformanceSnapshotService {
         INSERT INTO product_performance_snapshots (
           company_id,
           branch_id,
+          department_id,
+          user_id,
           product_id,
           currency,
           snapshot_date,
@@ -146,11 +170,14 @@ export class ProductPerformanceSnapshotService {
           claims_count,
           loss_ratio
         ) VALUES (
-          $1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
         )
         `,
         [
           params.companyId,
+          row.branch_id,
+          row.department_id,
+          row.user_id,
           row.product_id,
           row.currency,
           params.snapshotDate,

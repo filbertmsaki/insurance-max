@@ -75,7 +75,7 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('policy_id') policyId?: string,
   ) {
-    return this.endorsementService.findAll(user.companyId!, policyId);
+    return this.endorsementService.findAll(user, policyId);
   }
 
   @Get('tenant/endorsements/:id/context')
@@ -88,7 +88,7 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.endorsementService.getContext(user.companyId!, id);
+    return this.endorsementService.getContext(user, id);
   }
 
   @Get('tenant/endorsements/:id')
@@ -98,7 +98,7 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.endorsementService.findOne(user.companyId!, id);
+    return this.endorsementService.findOne(user, id);
   }
 
   @Post('tenant/endorsements/:id/changes')
@@ -140,10 +140,11 @@ export class EndorsementsController {
   @Post('tenant/endorsements/:id/submit-approval')
   @Permissions('endorsements:submit-approval')
   @ApiOperation({ summary: 'Submit a completed endorsement for approval' })
-  submitApproval(
+  async submitApproval(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.endorsementService.assertAccessible(user, id);
     return this.lifecycleService.submitForApproval(user.companyId!, id, {
       changedBy: user.id,
     });
@@ -156,6 +157,7 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.endorsementService.assertAccessible(user, id);
     const transaction = await this.lifecycleService.approveTransaction(
       user.companyId!,
       id,
@@ -202,17 +204,18 @@ export class EndorsementsController {
       }
     }
 
-    return this.endorsementService.findOne(user.companyId!, id);
+    return this.endorsementService.findOne(user, id);
   }
 
   @Post('tenant/endorsements/:id/reject')
   @Permissions('endorsements:approve')
   @ApiOperation({ summary: 'Reject an endorsement approval' })
-  reject(
+  async reject(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReasonDto,
   ) {
+    await this.endorsementService.assertAccessible(user, id);
     return this.lifecycleService.rejectApproval(user.companyId!, id, {
       changedBy: user.id,
       reason: dto.reason,
@@ -222,11 +225,12 @@ export class EndorsementsController {
   @Post('tenant/endorsements/:id/request-changes')
   @Permissions('endorsements:approve')
   @ApiOperation({ summary: 'Send an endorsement back for changes' })
-  requestChanges(
+  async requestChanges(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReasonDto,
   ) {
+    await this.endorsementService.assertAccessible(user, id);
     return this.lifecycleService.requestChanges(user.companyId!, id, {
       changedBy: user.id,
       reason: dto.reason,
@@ -250,10 +254,11 @@ export class EndorsementsController {
   @ApiOperation({
     summary: 'Submit a completed, approved, paid endorsement to TIRAMIS',
   })
-  submitTiramis(
+  async submitTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.endorsementService.assertAccessible(user, id);
     return this.submissionService.submitEndorsement(user, id);
   }
 
@@ -262,20 +267,22 @@ export class EndorsementsController {
   @ApiOperation({
     summary: 'Retry a rejected/failed TIRAMIS submission for an endorsement',
   })
-  retryTiramis(
+  async retryTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.endorsementService.assertAccessible(user, id);
     return this.submissionService.submitEndorsement(user, id);
   }
 
   @Get('tenant/endorsements/:id/reconciliation')
   @Permissions('endorsements:reconcile')
   @ApiOperation({ summary: 'Inspect endorsement issuance consistency' })
-  reconciliation(
+  async reconciliation(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.endorsementService.assertAccessible(user, id);
     return this.reconciliationService.inspect(user.companyId!, id);
   }
 
@@ -284,10 +291,11 @@ export class EndorsementsController {
   @ApiOperation({
     summary: 'Repair safe post-issuance endorsement inconsistencies',
   })
-  reconcile(
+  async reconcile(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.endorsementService.assertAccessible(user, id);
     return this.reconciliationService.reconcile(user.companyId!, id);
   }
 

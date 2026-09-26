@@ -15,10 +15,17 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
   const quotation = { id: 'quotation-1', company_id: 'company-1' };
 
   function makeService(submitToTiramis: jest.Mock) {
+    const transactionQueryBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(transaction),
+    };
     const transactionRepository = {
       findOne: jest.fn().mockResolvedValue(transaction),
       save: jest.fn().mockResolvedValue(transaction),
       update: jest.fn().mockResolvedValue(undefined),
+      createQueryBuilder: jest.fn().mockReturnValue(transactionQueryBuilder),
     };
     const endorsementRepository = { findOne: jest.fn() };
     const cancellationRepository = {
@@ -42,6 +49,10 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       startSubmission: jest.fn().mockResolvedValue(undefined),
       markSubmissionFailed: jest.fn().mockResolvedValue(undefined),
     };
+    const dataAccessScopeService = {
+      resolve: jest.fn().mockReturnValue({ companyId: 'company-1' }),
+      applyPolicyReadScope: jest.fn(),
+    };
     const tiramisIntegrationService = { submitToTiramis };
 
     const service = new PolicyTransactionTiramisSubmissionService(
@@ -53,6 +64,7 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       payloadService as any,
       serviceContextService as any,
       lifecycleService as any,
+      dataAccessScopeService as any,
       tiramisIntegrationService as any,
     );
 

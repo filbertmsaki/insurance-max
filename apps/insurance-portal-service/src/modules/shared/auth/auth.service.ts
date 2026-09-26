@@ -71,6 +71,7 @@ type AccessTokenPayload = {
   activeDepartmentCode?: string | null;
   activeDepartmentName?: string | null;
   assignedDepartmentIds?: string[];
+  quotationPolicyDataScope?: 'USER' | 'DEPARTMENT' | 'BRANCH' | 'COMPANY';
   roles: string[];
   permissions: string[];
   authorizationVersion: number;
@@ -528,6 +529,7 @@ export class AuthService {
           activeDepartmentCode: companyContext.activeDepartmentCode,
           activeDepartmentName: companyContext.activeDepartmentName,
           assignedDepartmentIds: companyContext.assignedDepartmentIds,
+          quotationPolicyDataScope: companyContext.quotationPolicyDataScope,
           authorizationVersion: companyContext.authorizationVersion,
         },
         companies: await this.companiesService.listUserCompanies(user.id),
@@ -1514,6 +1516,7 @@ export class AuthService {
         activeDepartmentCode: companyContext.activeDepartmentCode,
         activeDepartmentName: companyContext.activeDepartmentName,
         assignedDepartmentIds: companyContext.assignedDepartmentIds,
+        quotationPolicyDataScope: companyContext.quotationPolicyDataScope,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
         authorizationVersion: companyContext.authorizationVersion,

@@ -68,7 +68,13 @@ import {
   useDeleteUser,
   useAssignRole,
 } from '@/modules/tenant/users/hooks';
-import type { UserProfile, UserStatus, UserType, SortOrder } from '@/types';
+import type {
+  QuotationPolicyDataScope,
+  UserProfile,
+  UserStatus,
+  UserType,
+  SortOrder,
+} from '@/types';
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
@@ -153,6 +159,13 @@ const ALL_USER_TYPES: { value: UserType; label: string }[] = [
 const NON_OWNER_USER_TYPES = ALL_USER_TYPES.filter(
   (t) => t.value !== 'SUPER_ADMIN' && t.value !== 'COMPANY_ADMIN',
 );
+
+const DATA_SCOPE_LABELS: Record<QuotationPolicyDataScope, string> = {
+  USER: 'User Only',
+  DEPARTMENT: 'Department',
+  BRANCH: 'Branch',
+  COMPANY: 'Company',
+};
 
 const CREATE_FIELD_MAP: Partial<Record<string, keyof CreateUserForm & string>> =
   {
@@ -385,6 +398,15 @@ export function UsersListPage() {
             </Badge>
           )}
         </div>
+      ),
+    },
+    {
+      key: 'quotation_policy_data_scope',
+      header: 'Data scope',
+      cell: (row) => (
+        <Badge variant="outline" className="text-xs font-normal">
+          {DATA_SCOPE_LABELS[row.quotation_policy_data_scope ?? 'USER']}
+        </Badge>
       ),
     },
     {

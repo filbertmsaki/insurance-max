@@ -3,6 +3,7 @@ export { useUsersList } from './useUsersList';
 export { useUser } from './useUser';
 export { useCreateUser } from './useCreateUser';
 export { useUpdateUser } from './useUpdateUser';
+export { useUpdateUserDataScope } from './useUpdateUserDataScope';
 export { useDeleteUser } from './useDeleteUser';
 export { useAssignRole } from './useAssignRole';
 export { useRevokeRole } from './useRevokeRole';

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductDefinitionModule } from '@insurance-max/shared-kernel';
 
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { AuthorizationModule } from '../../shared/authorization/authorization.module';
 import { CompanyConfigsModule } from '../../platform/company-configs/company-configs.module';
 import { InsuranceProductsModule } from '../insurance-products/insurance-products.module';
 import { QuotationsModule } from '../quotations/quotations.module';
@@ -74,6 +75,7 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     PricingModule,
     CompanyConfigsModule,
     ProductDefinitionModule,
+    AuthorizationModule,
     InsuranceProductsModule,
     forwardRef(() => QuotationsModule),
     TypeOrmModule.forFeature([

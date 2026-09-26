@@ -22,6 +22,7 @@ import { Department } from '../departments/entities/department.entity';
 import { DepartmentUser } from '../departments/entities/department-user.entity';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
+import { UpdateUserDataScopeDto } from './dtos/update-user-data-scope.dto';
 import { UserProfileDto } from './dtos/user-profile-dto';
 import { UserAdminDetailDto } from './dtos/user-admin-detail.dto';
 import { User } from './entities/user.entity';
@@ -315,6 +316,7 @@ export class UsersService {
       updated_at: user.updated_at,
       roles: companyContext.roles,
       permissions: companyContext.permissions,
+      quotation_policy_data_scope: companyContext.quotationPolicyDataScope,
       current_company: {
         id: companyContext.companyId,
         name: companyContext.companyName,
@@ -479,6 +481,7 @@ export class UsersService {
       updated_at: user.updated_at,
       roles: currentCompany.roles,
       permissions: currentCompany.permissions,
+      quotation_policy_data_scope: currentCompany.quotationPolicyDataScope,
       current_company: {
         id: currentCompany.companyId,
         name: currentCompany.companyName,
@@ -516,6 +519,7 @@ export class UsersService {
       updated_at: user.updated_at,
       roles: companyContext.roles,
       permissions: companyContext.permissions,
+      quotation_policy_data_scope: companyContext.quotationPolicyDataScope,
       current_company: {
         id: companyContext.companyId,
         name: companyContext.companyName,
@@ -555,6 +559,7 @@ export class UsersService {
       updated_at: user.updated_at,
       roles: ctx.roles,
       permissions: ctx.permissions,
+      quotation_policy_data_scope: ctx.quotationPolicyDataScope,
       current_company: {
         id: ctx.companyId,
         name: ctx.companyName,
@@ -599,6 +604,23 @@ export class UsersService {
     await this.companiesService.findCompanyUserContext(companyId, id);
     await this.update(id, dto);
     return this.findProfileInCompany(id, companyId);
+  }
+
+  async updateDataScopeInCompany(
+    companyId: string,
+    id: string,
+    dto: UpdateUserDataScopeDto,
+    actor: AuthenticatedUser,
+  ): Promise<UserAdminDetailDto> {
+    await this.companiesService.updateQuotationPolicyDataScope(
+      companyId,
+      id,
+      dto.quotation_policy_data_scope,
+      actor,
+      dto.reason,
+    );
+
+    return this.findAdminDetailInCompany(id, companyId);
   }
 
   async changePassword(

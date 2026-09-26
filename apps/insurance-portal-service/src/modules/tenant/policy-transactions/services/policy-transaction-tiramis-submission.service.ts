@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { PolicyTransactionType } from '@insurance-max/contracts';
 
+import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { Policy } from '../../policies/entities/policy.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationFlow } from '../../quotations/enums/quotation-flow.enum';
@@ -55,13 +56,14 @@ export class PolicyTransactionTiramisSubmissionService {
     private readonly payloadService: PolicyTransactionTiramisPayloadService,
     private readonly serviceContextService: PolicyTransactionTiramisServiceContextService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
+    private readonly dataAccessScopeService: DataAccessScopeService,
     @Inject(forwardRef(() => TiramisIntegrationService))
     private readonly tiramisIntegrationService: TiramisIntegrationService,
   ) {}
 
   async submitEndorsement(user: AuthenticatedUser, transactionId: string) {
     const transaction = await this.requireTransaction(
-      user.companyId!,
+      user,
       transactionId,
       PolicyTransactionType.ENDORSEMENT,
     );
@@ -89,7 +91,7 @@ export class PolicyTransactionTiramisSubmissionService {
 
   async submitCancellation(user: AuthenticatedUser, transactionId: string) {
     const transaction = await this.requireTransaction(
-      user.companyId!,
+      user,
       transactionId,
       PolicyTransactionType.CANCELLATION,
     );
@@ -252,17 +254,26 @@ export class PolicyTransactionTiramisSubmissionService {
   }
 
   private async requireTransaction(
-    companyId: string,
+    user: AuthenticatedUser,
     transactionId: string,
     type: PolicyTransactionType,
   ) {
-    const transaction = await this.transactionRepository.findOne({
-      where: {
-        id: transactionId,
-        company_id: companyId,
-        transaction_type: type,
-      },
-    });
+    const query = this.transactionRepository
+      .createQueryBuilder('transaction')
+      .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .where('transaction.id = :transactionId', { transactionId })
+      .andWhere('transaction.company_id = :companyId', {
+        companyId: user.companyId!,
+      })
+      .andWhere('transaction.transaction_type = :type', { type });
+
+    this.dataAccessScopeService.applyPolicyReadScope(
+      query,
+      'policy',
+      this.dataAccessScopeService.resolve(user),
+    );
+
+    const transaction = await query.getOne();
 
     if (!transaction) {
       throw new BadRequestException('Policy transaction not found.');

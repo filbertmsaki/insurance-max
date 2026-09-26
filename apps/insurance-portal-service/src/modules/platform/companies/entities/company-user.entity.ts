@@ -14,6 +14,7 @@ import { User } from '../../../tenant/users/entities/user.entity';
 import { Company } from './company.entity';
 import { CompanyUserRole } from './company-user-role.entity';
 import { CompanyUserPermission } from './company-user-permission.entity';
+import { QuotationPolicyDataScope } from '../../../shared/authorization/quotation-policy-data-scope.enum';
 
 @Entity('company_users')
 @Unique('UQ_company_users_company_user', ['company_id', 'user_id'])
@@ -38,6 +39,13 @@ export class CompanyUser {
 
   @Column({ type: 'integer', default: 1 })
   authorization_version: number;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: QuotationPolicyDataScope.USER,
+  })
+  quotation_policy_data_scope: QuotationPolicyDataScope;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

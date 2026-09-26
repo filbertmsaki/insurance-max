@@ -59,8 +59,9 @@ import {
   useUpdateUser,
   useAssignRole,
   useRevokeRole,
+  useUpdateUserDataScope,
 } from '@/modules/tenant/users/hooks';
-import type { UserStatus, UserType } from '@/types';
+import type { QuotationPolicyDataScope, UserStatus, UserType } from '@/types';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,37 @@ const USER_STATUSES: UserStatus[] = [
   'locked',
 ];
 
+const DATA_SCOPE_OPTIONS: Array<{
+  value: QuotationPolicyDataScope;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'USER',
+    label: 'User Only',
+    description: 'Can see only their own quotations and policies.',
+  },
+  {
+    value: 'DEPARTMENT',
+    label: 'Department',
+    description: 'Can see quotations and policies in their department.',
+  },
+  {
+    value: 'BRANCH',
+    label: 'Branch',
+    description: 'Can see quotations and policies in authorized branches.',
+  },
+  {
+    value: 'COMPANY',
+    label: 'Company',
+    description: 'Can see all quotations and policies in this company.',
+  },
+];
+
+const DATA_SCOPE_LABELS = Object.fromEntries(
+  DATA_SCOPE_OPTIONS.map((item) => [item.value, item.label]),
+) as Record<QuotationPolicyDataScope, string>;
+
 const EDIT_FIELD_MAP: Partial<Record<string, keyof EditForm & string>> = {
   first_name: 'first_name',
   last_name: 'last_name',
@@ -132,6 +164,7 @@ export function UserDetailPage() {
   const canUpdate = hasPermission('users:update');
   const canAssignRole = hasPermission('users:assign-role');
   const canRevokeRole = hasPermission('users:revoke-role');
+  const canManageDataScope = hasPermission('users:manage-data-scope');
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { data: user, isLoading } = useUser(id);
@@ -141,6 +174,10 @@ export function UserDetailPage() {
   const [revokeRoleId, setRevokeRoleId] = useState<string | null>(null);
   const [assignRoleOpen, setAssignRoleOpen] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [dataScopeOpen, setDataScopeOpen] = useState(false);
+  const [selectedDataScope, setSelectedDataScope] =
+    useState<QuotationPolicyDataScope>('USER');
+  const [dataScopeReason, setDataScopeReason] = useState('');
 
   // ── Roles list for assign dialog ─────────────────────────────────────────
   const { data: roles } = useQuery({
@@ -165,6 +202,7 @@ export function UserDetailPage() {
   const updateMutation = useUpdateUser(id);
   const assignRoleMutation = useAssignRole();
   const revokeRoleMutation = useRevokeRole();
+  const updateDataScopeMutation = useUpdateUserDataScope(id);
 
   const openEdit = () => {
     if (!user) return;
@@ -207,6 +245,7 @@ export function UserDetailPage() {
   if (!user) return null;
 
   const fullName = `${user.first_name} ${user.last_name}`;
+  const currentDataScope = user.quotation_policy_data_scope ?? 'USER';
 
   return (
     <div>
@@ -218,6 +257,19 @@ export function UserDetailPage() {
         <h1 className="text-2xl font-semibold text-slate-900">{fullName}</h1>
         <StatusBadge status={user.status} />
         <div className="ml-auto flex gap-2">
+          {canManageDataScope && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedDataScope(currentDataScope);
+                setDataScopeReason('');
+                setDataScopeOpen(true);
+              }}
+            >
+              <Shield className="mr-2 h-4 w-4" /> Data scope
+            </Button>
+          )}
           {canUpdate && (
             <Button variant="outline" size="sm" onClick={openEdit}>
               <Pencil className="mr-2 h-4 w-4" /> Edit
@@ -313,6 +365,10 @@ export function UserDetailPage() {
                         <XCircle className="h-4 w-4" /> Not verified
                       </span>
                     ),
+                  },
+                  {
+                    label: 'Quotation & Policy Scope',
+                    value: DATA_SCOPE_LABELS[currentDataScope],
                   },
                   {
                     label: 'Last login',
@@ -637,6 +693,72 @@ export function UserDetailPage() {
       </Dialog>
 
       {/* ── Revoke Role Confirm ── */}
+      <Dialog open={dataScopeOpen} onOpenChange={setDataScopeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Quotation & Policy Data Scope</DialogTitle>
+            <DialogDescription>
+              Change the maximum quotation and policy records {fullName} can
+              view.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Select
+              value={selectedDataScope}
+              onValueChange={(value) =>
+                setSelectedDataScope(value as QuotationPolicyDataScope)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DATA_SCOPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-slate-500">
+              {
+                DATA_SCOPE_OPTIONS.find(
+                  (option) => option.value === selectedDataScope,
+                )?.description
+              }
+            </p>
+            <Input
+              value={dataScopeReason}
+              onChange={(event) => setDataScopeReason(event.target.value)}
+              placeholder="Reason or remarks"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDataScopeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={updateDataScopeMutation.isPending}
+              onClick={() => {
+                if (!id) return;
+                updateDataScopeMutation.mutate(
+                  {
+                    id,
+                    data: {
+                      quotation_policy_data_scope: selectedDataScope,
+                      reason: dataScopeReason || undefined,
+                    },
+                  },
+                  { onSuccess: () => setDataScopeOpen(false) },
+                );
+              }}
+            >
+              {updateDataScopeMutation.isPending ? 'Saving...' : 'Save scope'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={!!revokeRoleId}
         onOpenChange={(o) => !o && setRevokeRoleId(null)}

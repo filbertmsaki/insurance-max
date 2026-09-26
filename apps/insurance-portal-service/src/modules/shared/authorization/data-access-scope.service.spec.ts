@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 
 import { DataAccessScopeService } from './data-access-scope.service';
 import { DataScopePermissions } from './data-scope.constants';
+import { QuotationPolicyDataScope } from './quotation-policy-data-scope.enum';
 
 describe('DataAccessScopeService', () => {
   let service: DataAccessScopeService;
@@ -20,6 +21,8 @@ describe('DataAccessScopeService', () => {
     companyMembershipId: 'membership-1',
     activeBranchId: 'branch-1',
     assignedBranchIds: ['branch-1', 'branch-2'],
+    activeDepartmentId: 'department-1',
+    assignedDepartmentIds: ['department-1', 'department-2'],
     roles: ['USER'],
     permissions: [],
   };
@@ -28,30 +31,43 @@ describe('DataAccessScopeService', () => {
     service = new DataAccessScopeService();
   });
 
-  it('defaults ordinary staff to active branch', () => {
+  it('defaults ordinary staff to own records', () => {
     const scope = service.resolve(baseUser);
 
-    expect(scope.canViewAllBranches).toBe(false);
-    expect(scope.allowedBranchIds).toEqual(['branch-1']);
+    expect(scope.quotationPolicyDataScope).toBe(QuotationPolicyDataScope.USER);
+    expect(scope.ownRecordsOnly).toBe(true);
   });
 
-  it('allows assigned branches with permission', () => {
+  it('allows branch scope across assigned branches', () => {
     const scope = service.resolve({
       ...baseUser,
-      permissions: [DataScopePermissions.ASSIGNED_BRANCHES],
+      quotationPolicyDataScope: 'BRANCH',
     });
 
     expect(scope.allowedBranchIds).toEqual(['branch-1', 'branch-2']);
   });
 
-  it('allows company-wide access with permission', () => {
+  it('allows department scope across assigned departments', () => {
     const scope = service.resolve({
       ...baseUser,
-      permissions: [DataScopePermissions.COMPANY_ALL],
+      quotationPolicyDataScope: 'DEPARTMENT',
+    });
+
+    expect(scope.allowedDepartmentIds).toEqual([
+      'department-1',
+      'department-2',
+    ]);
+  });
+
+  it('allows company-wide access with explicit scope', () => {
+    const scope = service.resolve({
+      ...baseUser,
+      quotationPolicyDataScope: 'COMPANY',
     });
 
     expect(scope.canViewAllBranches).toBe(true);
     expect(scope.allowedBranchIds).toEqual([]);
+    expect(scope.ownRecordsOnly).toBe(false);
   });
 
   it('restricts agents to their own records', () => {

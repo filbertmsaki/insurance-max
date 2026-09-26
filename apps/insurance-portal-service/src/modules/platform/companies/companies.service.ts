@@ -36,6 +36,7 @@ import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-poin
 import { DepartmentUser } from '../../tenant/departments/entities/department-user.entity';
 import { AuditService } from '../../shared/audit/audit.service';
 import { AuthorizationVersionService } from '../../shared/authorization/authorization-version.service';
+import { QuotationPolicyDataScope } from '../../shared/authorization/quotation-policy-data-scope.enum';
 
 @Injectable()
 export class CompaniesService {
@@ -329,6 +330,7 @@ export class CompaniesService {
           (assignment) => assignment.role.name,
         ) ?? [],
       permissions: this.getMembershipPermissions(membership),
+      quotationPolicyDataScope: membership.quotation_policy_data_scope,
       authorizationVersion: membership.authorization_version,
     };
   }
@@ -1436,6 +1438,71 @@ export class CompaniesService {
     return this.getMembershipContext(userId, companyId);
   }
 
+  async updateQuotationPolicyDataScope(
+    companyId: string,
+    userId: string,
+    scope: QuotationPolicyDataScope,
+    actor: AuthenticatedUser,
+    reason?: string | null,
+  ): Promise<CompanyMembershipContext> {
+    await this.dataSource.transaction(async (manager) => {
+      const membershipRepository = manager.getRepository(CompanyUser);
+
+      const membership = await membershipRepository
+        .createQueryBuilder('membership')
+        .setLock('pessimistic_write')
+        .where('membership.company_id = :companyId', { companyId })
+        .andWhere('membership.user_id = :userId', { userId })
+        .andWhere('membership.status = :status', { status: 'active' })
+        .getOne();
+
+      if (!membership) {
+        throw new NotFoundException('Active company membership was not found.');
+      }
+
+      const previousScope = membership.quotation_policy_data_scope;
+      const trimmedReason = reason?.trim() || undefined;
+
+      if (previousScope === scope) {
+        return;
+      }
+
+      membership.quotation_policy_data_scope = scope;
+      await membershipRepository.save(membership);
+
+      await this.authorizationVersionService.bumpMembership(
+        membership.id,
+        manager,
+      );
+
+      await this.auditService.logCritical(
+        {
+          userId: actor.id,
+          companyId,
+          companyMembershipId: actor.companyMembershipId,
+          branchId: actor.activeBranchId ?? null,
+          sessionId: actor.sessionId,
+          action: 'user.data_scope.updated',
+          eventCategory: 'authorization',
+          resource: 'company_user',
+          resourceId: membership.id,
+          metadata: {
+            userId,
+            previousScope,
+            newScope: scope,
+            reason: trimmedReason ?? null,
+          },
+          beforeState: { quotation_policy_data_scope: previousScope },
+          afterState: { quotation_policy_data_scope: scope },
+          reason: trimmedReason,
+        },
+        manager,
+      );
+    });
+
+    return this.getMembershipContext(userId, companyId);
+  }
+
   async touchMembership(membershipId: string): Promise<void> {
     await this.companyUserRepository.update(membershipId, {
       last_accessed_at: new Date(),
@@ -1505,6 +1572,7 @@ export class CompaniesService {
     companyId: string;
     companyName: string;
     companySlug: string;
+    quotationPolicyDataScope: CompanyUser['quotation_policy_data_scope'];
     roles: { id: string; name: string; display_name: string }[];
     permissions: { id: string; name: string; display_name: string }[];
   }> {
@@ -1525,6 +1593,7 @@ export class CompaniesService {
       companyId: membership.company_id,
       companyName: membership.company.name,
       companySlug: membership.company.slug,
+      quotationPolicyDataScope: membership.quotation_policy_data_scope,
       roles: (membership.role_assignments ?? []).map((a) => ({
         id: a.role.id,
         name: a.role.name,
@@ -1661,6 +1730,7 @@ export class CompaniesService {
             (assignment) => assignment.role.name,
           ) ?? [],
         permissions: this.getMembershipPermissions(membership),
+        quotation_policy_data_scope: membership.quotation_policy_data_scope,
       })),
       meta: {
         totalItems: total,

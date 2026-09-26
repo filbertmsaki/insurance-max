@@ -13,6 +13,11 @@ export type UserType =
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'locked';
 export type AuthScope = 'platform' | 'company' | 'customer';
 export type SortOrder = 'ASC' | 'DESC';
+export type QuotationPolicyDataScope =
+  | 'USER'
+  | 'DEPARTMENT'
+  | 'BRANCH'
+  | 'COMPANY';
 
 export const PLATFORM_USER_TYPES: UserType[] = ['SUPER_ADMIN', 'OWNER'];
 export const COMPANY_USER_TYPES: UserType[] = [
@@ -70,6 +75,7 @@ export interface UserProfile {
   roles: string[];
   /** Permission names e.g. ['users:create', 'roles:read'] */
   permissions: string[];
+  quotation_policy_data_scope?: QuotationPolicyDataScope;
   current_company?: {
     id: string;
     name: string;
@@ -99,6 +105,7 @@ export interface UserDetail {
   updated_at: string;
   roles: Role[];
   permissions: Permission[];
+  quotation_policy_data_scope: QuotationPolicyDataScope;
 }
 
 export interface CompanyMembership {
@@ -109,6 +116,7 @@ export interface CompanyMembership {
   isDefault: boolean;
   roles: string[];
   permissions: string[];
+  quotationPolicyDataScope?: QuotationPolicyDataScope;
 }
 
 export interface AuthUser {
@@ -131,6 +139,7 @@ export interface AuthUser {
   activeDepartmentCode?: string | null;
   activeDepartmentName?: string | null;
   assignedDepartmentIds?: string[];
+  quotationPolicyDataScope?: QuotationPolicyDataScope;
   roles: string[];
   permissions: string[];
 }

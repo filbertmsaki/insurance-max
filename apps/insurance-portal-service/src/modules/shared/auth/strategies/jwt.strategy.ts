@@ -34,6 +34,7 @@ type JwtAccessPayload = {
   activeDepartmentCode?: string | null;
   activeDepartmentName?: string | null;
   assignedDepartmentIds?: string[];
+  quotationPolicyDataScope?: 'USER' | 'DEPARTMENT' | 'BRANCH' | 'COMPANY';
   sessionId?: string;
   type?: string;
   authorizationVersion?: number;
@@ -209,6 +210,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         activeDepartmentCode: companyContext.activeDepartmentCode ?? null,
         activeDepartmentName: companyContext.activeDepartmentName ?? null,
         assignedDepartmentIds: companyContext.assignedDepartmentIds ?? [],
+        quotationPolicyDataScope: companyContext.quotationPolicyDataScope,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
         authorizationVersion: companyContext.authorizationVersion,

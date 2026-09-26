@@ -9,6 +9,7 @@ import { Brackets, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 
 import { DataScopePermissions } from './data-scope.constants';
 import type { TenantDataScope } from './interfaces/tenant-data-scope.interface';
+import { QuotationPolicyDataScope } from './quotation-policy-data-scope.enum';
 
 @Injectable()
 export class DataAccessScopeService {
@@ -26,15 +27,23 @@ export class DataAccessScopeService {
 
     const permissions = new Set(user.permissions ?? []);
 
-    const canViewAllBranches = permissions.has(
-      DataScopePermissions.COMPANY_ALL,
+    const quotationPolicyDataScope = this.normalizeQuotationPolicyDataScope(
+      user.quotationPolicyDataScope,
     );
+
+    const canViewAllBranches =
+      quotationPolicyDataScope === QuotationPolicyDataScope.COMPANY ||
+      permissions.has(DataScopePermissions.COMPANY_ALL);
 
     const canViewAssignedBranches =
       !canViewAllBranches &&
-      permissions.has(DataScopePermissions.ASSIGNED_BRANCHES);
+      (quotationPolicyDataScope === QuotationPolicyDataScope.BRANCH ||
+        permissions.has(DataScopePermissions.ASSIGNED_BRANCHES));
 
     const assignedBranchIds = Array.from(new Set(user.assignedBranchIds ?? []));
+    const assignedDepartmentIds = Array.from(
+      new Set(user.assignedDepartmentIds ?? []),
+    );
 
     let allowedBranchIds: string[] = [];
 
@@ -45,8 +54,14 @@ export class DataAccessScopeService {
     }
 
     const ownRecordsOnly =
+      quotationPolicyDataScope === QuotationPolicyDataScope.USER ||
       permissions.has(DataScopePermissions.OWN_RECORDS) ||
       ['AGENT', 'BROKER', 'CUSTOMER'].includes(user.userType);
+
+    const allowedDepartmentIds =
+      quotationPolicyDataScope === QuotationPolicyDataScope.DEPARTMENT
+        ? assignedDepartmentIds
+        : [];
 
     /*
      * Partner portfolio access is intentionally restricted to users
@@ -68,6 +83,10 @@ export class DataAccessScopeService {
       activeBranchId: user.activeBranchId ?? null,
       assignedBranchIds,
       allowedBranchIds,
+      activeDepartmentId: user.activeDepartmentId ?? null,
+      assignedDepartmentIds,
+      allowedDepartmentIds,
+      quotationPolicyDataScope,
 
       canViewAllBranches,
       canViewAssignedBranches,
@@ -116,37 +135,7 @@ export class DataAccessScopeService {
     alias: string,
     scope: TenantDataScope,
   ): void {
-    queryBuilder.setParameters({
-      scopeCompanyId: scope.companyId,
-      scopeUserId: scope.userId,
-      scopeBranchIds: scope.allowedBranchIds,
-    });
-
-    queryBuilder.andWhere(
-      new Brackets((participationQuery) => {
-        participationQuery.where(this.buildOwnedRecordCondition(alias, scope));
-
-        if (scope.canViewCarrierPortfolio) {
-          participationQuery.orWhere(
-            `${alias}.insurer_company_id = :scopeCompanyId`,
-          );
-        }
-
-        if (scope.canViewIntermediaryPortfolio) {
-          participationQuery.orWhere(
-            `${alias}.intermediary_company_id = :scopeCompanyId`,
-          );
-        }
-      }),
-    );
-
-    /*
-     * Agents and individually scoped users must not receive records
-     * created by another organization through partner access.
-     */
-    if (scope.ownRecordsOnly) {
-      queryBuilder.andWhere(`${alias}.created_by = :scopeUserId`);
-    }
+    this.applyQuotationPolicyDataScope(queryBuilder, alias, scope);
   }
 
   applyPolicyReadScope<T extends ObjectLiteral>(
@@ -154,33 +143,7 @@ export class DataAccessScopeService {
     alias: string,
     scope: TenantDataScope,
   ): void {
-    queryBuilder.setParameters({
-      scopeCompanyId: scope.companyId,
-      scopeUserId: scope.userId,
-      scopeBranchIds: scope.allowedBranchIds,
-    });
-
-    queryBuilder.andWhere(
-      new Brackets((participationQuery) => {
-        participationQuery.where(this.buildOwnedRecordCondition(alias, scope));
-
-        if (scope.canViewCarrierPortfolio) {
-          participationQuery.orWhere(
-            `${alias}.insurer_company_id = :scopeCompanyId`,
-          );
-        }
-
-        if (scope.canViewIntermediaryPortfolio) {
-          participationQuery.orWhere(
-            `${alias}.intermediary_company_id = :scopeCompanyId`,
-          );
-        }
-      }),
-    );
-
-    if (scope.ownRecordsOnly) {
-      queryBuilder.andWhere(`${alias}.created_by = :scopeUserId`);
-    }
+    this.applyQuotationPolicyDataScope(queryBuilder, alias, scope);
   }
 
   /**
@@ -542,5 +505,59 @@ export class DataAccessScopeService {
     }
 
     return `(${conditions.join(' AND ')})`;
+  }
+
+  private applyQuotationPolicyDataScope<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+    scope: TenantDataScope,
+  ): void {
+    queryBuilder
+      .setParameters({
+        scopeCompanyId: scope.companyId,
+        scopeUserId: scope.userId,
+        scopeBranchIds: scope.allowedBranchIds,
+        scopeDepartmentIds: scope.allowedDepartmentIds ?? [],
+      })
+      .andWhere(`${alias}.company_id = :scopeCompanyId`);
+
+    switch (scope.quotationPolicyDataScope ?? QuotationPolicyDataScope.USER) {
+      case QuotationPolicyDataScope.COMPANY:
+        return;
+      case QuotationPolicyDataScope.BRANCH:
+        if (!scope.allowedBranchIds.length) {
+          queryBuilder.andWhere('1 = 0');
+          return;
+        }
+        queryBuilder.andWhere(`${alias}.branch_id IN (:...scopeBranchIds)`);
+        return;
+      case QuotationPolicyDataScope.DEPARTMENT:
+        if (!(scope.allowedDepartmentIds ?? []).length) {
+          queryBuilder.andWhere('1 = 0');
+          return;
+        }
+        queryBuilder.andWhere(
+          `${alias}.department_id IN (:...scopeDepartmentIds)`,
+        );
+        return;
+      case QuotationPolicyDataScope.USER:
+      default:
+        queryBuilder.andWhere(`${alias}.created_by = :scopeUserId`);
+    }
+  }
+
+  private normalizeQuotationPolicyDataScope(
+    value: AuthenticatedUser['quotationPolicyDataScope'],
+  ): QuotationPolicyDataScope {
+    if (
+      value &&
+      Object.values(QuotationPolicyDataScope).includes(
+        value as QuotationPolicyDataScope,
+      )
+    ) {
+      return value as QuotationPolicyDataScope;
+    }
+
+    return QuotationPolicyDataScope.USER;
   }
 }

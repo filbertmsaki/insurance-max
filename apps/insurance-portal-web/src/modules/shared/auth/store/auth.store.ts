@@ -78,6 +78,8 @@ function decodeJwt(token: string): AuthUser | null {
         decoded.activeDepartmentName ?? decoded.active_department_name ?? null,
       assignedDepartmentIds:
         decoded.assignedDepartmentIds ?? decoded.assigned_department_ids ?? [],
+      quotationPolicyDataScope:
+        decoded.quotationPolicyDataScope ?? decoded.quotation_policy_data_scope,
       roles: decoded.roles ?? [],
       permissions: decoded.permissions ?? [],
     };

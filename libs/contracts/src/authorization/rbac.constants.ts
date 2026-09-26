@@ -13,6 +13,7 @@ export const RbacPermissions = {
   USERS_REVOKE_ROLE: 'users:revoke-role',
   USERS_GRANT_PERMISSION: 'users:grant-permission',
   USERS_REVOKE_PERMISSION: 'users:revoke-permission',
+  USERS_MANAGE_DATA_SCOPE: 'users:manage-data-scope',
 
   AUDIT_READ: 'audit:read',
   AUDIT_READ_ALL: 'audit:read-all',

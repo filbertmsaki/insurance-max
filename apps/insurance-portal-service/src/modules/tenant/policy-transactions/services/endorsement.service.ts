@@ -20,6 +20,7 @@ import {
 } from '@insurance-max/contracts';
 
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
+import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
@@ -145,6 +146,7 @@ export class EndorsementService {
     private readonly hashService: ProductDefinitionHashService,
     private readonly invoiceService: PolicyTransactionInvoiceService,
     private readonly quotationFactory: PolicyTransactionQuotationFactoryService,
+    private readonly dataAccessScopeService: DataAccessScopeService,
   ) {}
 
   async getEligibility(
@@ -152,12 +154,15 @@ export class EndorsementService {
     policyId: string,
     effectiveDate?: string,
   ) {
-    const policy = await this.policyRepository.findOne({
-      where: {
-        id: policyId,
-        company_id: user.companyId!,
-      },
-    });
+    const policyQuery = this.policyRepository
+      .createQueryBuilder('policy')
+      .where('policy.id = :policyId', { policyId });
+    this.dataAccessScopeService.applyPolicyReadScope(
+      policyQuery,
+      'policy',
+      this.dataAccessScopeService.resolve(user),
+    );
+    const policy = await policyQuery.getOne();
 
     if (!policy) {
       throw new BadRequestException('Policy not found');
@@ -211,15 +216,17 @@ export class EndorsementService {
     dto: CreateEndorsementInput,
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const policy = await manager
+      const policyQuery = manager
         .getRepository(Policy)
         .createQueryBuilder('policy')
         .setLock('pessimistic_write')
-        .where('policy.id = :policyId', { policyId })
-        .andWhere('policy.company_id = :companyId', {
-          companyId: user.companyId,
-        })
-        .getOne();
+        .where('policy.id = :policyId', { policyId });
+      this.dataAccessScopeService.applyPolicyReadScope(
+        policyQuery,
+        'policy',
+        this.dataAccessScopeService.resolve(user),
+      );
+      const policy = await policyQuery.getOne();
 
       if (!policy) {
         throw new BadRequestException('Policy not found');
@@ -386,15 +393,17 @@ export class EndorsementService {
         return existing;
       }
 
-      const transaction = await manager
-        .getRepository(PolicyTransaction)
-        .findOne({
-          where: {
-            id: transactionId,
-            company_id: user.companyId!,
-            transaction_type: PolicyTransactionType.ENDORSEMENT,
-          },
-        });
+      const transaction = await this.createScopedTransactionQuery(
+        manager,
+        user,
+        'transaction',
+        'policy',
+      )
+        .andWhere('transaction.id = :transactionId', { transactionId })
+        .andWhere('transaction.transaction_type = :transactionType', {
+          transactionType: PolicyTransactionType.ENDORSEMENT,
+        })
+        .getOne();
 
       if (!transaction) {
         throw new BadRequestException('Endorsement not found');
@@ -453,7 +462,7 @@ export class EndorsementService {
     return this.dataSource.transaction(async (manager) => {
       const transaction = await this.requireDraftTransaction(
         manager,
-        user.companyId!,
+        user,
         transactionId,
       );
 
@@ -583,7 +592,7 @@ export class EndorsementService {
     return this.dataSource.transaction(async (manager) => {
       const transaction = await this.requireDraftTransaction(
         manager,
-        user.companyId!,
+        user,
         transactionId,
       );
       return this.rebuildProposedSnapshot(manager, transaction);
@@ -594,7 +603,7 @@ export class EndorsementService {
     const transaction = await this.dataSource.transaction(async (manager) => {
       const current = await this.requireDraftTransaction(
         manager,
-        user.companyId!,
+        user,
         transactionId,
       );
       const updated = await this.rebuildProposedSnapshot(manager, current);
@@ -706,15 +715,11 @@ export class EndorsementService {
   async requestPayment(user: AuthenticatedUser, transactionId: string) {
     return this.dataSource
       .transaction(async (manager) => {
-        const transaction = await manager
-          .getRepository(PolicyTransaction)
-          .findOne({
-            where: {
-              id: transactionId,
-              company_id: user.companyId!,
-              transaction_type: PolicyTransactionType.ENDORSEMENT,
-            },
-          });
+        const transaction = await this.requireAccessibleTransaction(
+          manager,
+          user,
+          transactionId,
+        );
 
         if (!transaction) {
           throw new BadRequestException('Endorsement not found');
@@ -784,6 +789,8 @@ export class EndorsementService {
   }
 
   async cancel(user: AuthenticatedUser, transactionId: string, reason: string) {
+    await this.assertAccessible(user, transactionId);
+
     const transaction = await this.lifecycleService.cancelTransaction(
       user.companyId!,
       transactionId,
@@ -801,14 +808,18 @@ export class EndorsementService {
     return transaction;
   }
 
-  async getContext(companyId: string, transactionId: string) {
-    const transaction = await this.transactionRepository.findOne({
-      where: {
-        id: transactionId,
-        company_id: companyId,
-        transaction_type: PolicyTransactionType.ENDORSEMENT,
-      },
-    });
+  async getContext(user: AuthenticatedUser, transactionId: string) {
+    const transaction = await this.createScopedTransactionQuery(
+      this.dataSource.manager,
+      user,
+      'transaction',
+      'policy',
+    )
+      .andWhere('transaction.id = :transactionId', { transactionId })
+      .andWhere('transaction.transaction_type = :transactionType', {
+        transactionType: PolicyTransactionType.ENDORSEMENT,
+      })
+      .getOne();
 
     if (!transaction) {
       throw new BadRequestException('Endorsement not found');
@@ -816,14 +827,14 @@ export class EndorsementService {
 
     const endorsement = await this.endorsementRepository.findOne({
       where: {
-        company_id: companyId,
+        company_id: user.companyId!,
         policy_transaction_id: transaction.id,
       },
     });
 
     const changes = await this.changeRepository.find({
       where: {
-        company_id: companyId,
+        company_id: user.companyId!,
         policy_transaction_id: transaction.id,
       },
       order: {
@@ -842,20 +853,23 @@ export class EndorsementService {
     };
   }
 
-  async findAll(companyId: string, policyId?: string) {
-    const transactions = await this.transactionRepository.find({
-      where: policyId
-        ? {
-            company_id: companyId,
-            transaction_type: PolicyTransactionType.ENDORSEMENT,
-            source_policy_id: policyId,
-          }
-        : {
-            company_id: companyId,
-            transaction_type: PolicyTransactionType.ENDORSEMENT,
-          },
-      order: { created_at: 'DESC' },
-    });
+  async findAll(user: AuthenticatedUser, policyId?: string) {
+    const query = this.createScopedTransactionQuery(
+      this.dataSource.manager,
+      user,
+      'transaction',
+      'policy',
+    )
+      .andWhere('transaction.transaction_type = :transactionType', {
+        transactionType: PolicyTransactionType.ENDORSEMENT,
+      })
+      .orderBy('transaction.created_at', 'DESC');
+
+    if (policyId) {
+      query.andWhere('transaction.source_policy_id = :policyId', { policyId });
+    }
+
+    const transactions = await query.getMany();
 
     if (!transactions.length) {
       return [];
@@ -863,7 +877,7 @@ export class EndorsementService {
 
     const endorsements = await this.endorsementRepository.find({
       where: {
-        company_id: companyId,
+        company_id: user.companyId!,
         policy_transaction_id: In(transactions.map((item) => item.id)),
       },
     });
@@ -888,14 +902,18 @@ export class EndorsementService {
     });
   }
 
-  async findOne(companyId: string, id: string) {
-    const transaction = await this.transactionRepository.findOne({
-      where: {
-        id,
-        company_id: companyId,
-        transaction_type: PolicyTransactionType.ENDORSEMENT,
-      },
-    });
+  async findOne(user: AuthenticatedUser, id: string) {
+    const transaction = await this.createScopedTransactionQuery(
+      this.dataSource.manager,
+      user,
+      'transaction',
+      'policy',
+    )
+      .andWhere('transaction.id = :id', { id })
+      .andWhere('transaction.transaction_type = :transactionType', {
+        transactionType: PolicyTransactionType.ENDORSEMENT,
+      })
+      .getOne();
 
     if (!transaction) {
       throw new BadRequestException('Endorsement not found');
@@ -904,17 +922,27 @@ export class EndorsementService {
     return transaction;
   }
 
+  async assertAccessible(user: AuthenticatedUser, transactionId: string) {
+    await this.requireAccessibleTransaction(
+      this.dataSource.manager,
+      user,
+      transactionId,
+    );
+  }
+
   private async requireDraftTransaction(
     manager: EntityManager,
-    companyId: string,
+    user: AuthenticatedUser,
     transactionId: string,
   ) {
-    const transaction = await manager
-      .getRepository(PolicyTransaction)
-      .createQueryBuilder('transaction')
+    const transaction = await this.createScopedTransactionQuery(
+      manager,
+      user,
+      'transaction',
+      'policy',
+    )
       .setLock('pessimistic_write')
       .where('transaction.id = :transactionId', { transactionId })
-      .andWhere('transaction.company_id = :companyId', { companyId })
       .andWhere('transaction.transaction_type = :type', {
         type: PolicyTransactionType.ENDORSEMENT,
       })
@@ -931,6 +959,57 @@ export class EndorsementService {
     }
 
     return transaction;
+  }
+
+  private async requireAccessibleTransaction(
+    manager: EntityManager,
+    user: AuthenticatedUser,
+    transactionId: string,
+  ) {
+    const transaction = await this.createScopedTransactionQuery(
+      manager,
+      user,
+      'transaction',
+      'policy',
+    )
+      .andWhere('transaction.id = :transactionId', { transactionId })
+      .andWhere('transaction.transaction_type = :type', {
+        type: PolicyTransactionType.ENDORSEMENT,
+      })
+      .getOne();
+
+    if (!transaction) {
+      throw new BadRequestException('Endorsement not found');
+    }
+
+    return transaction;
+  }
+
+  private createScopedTransactionQuery(
+    manager: EntityManager,
+    user: AuthenticatedUser,
+    transactionAlias: string,
+    policyAlias: string,
+  ) {
+    const query = manager
+      .getRepository(PolicyTransaction)
+      .createQueryBuilder(transactionAlias)
+      .innerJoin(
+        Policy,
+        policyAlias,
+        `${policyAlias}.id = ${transactionAlias}.source_policy_id`,
+      )
+      .andWhere(`${transactionAlias}.company_id = :transactionCompanyId`, {
+        transactionCompanyId: user.companyId!,
+      });
+
+    this.dataAccessScopeService.applyPolicyReadScope(
+      query,
+      policyAlias,
+      this.dataAccessScopeService.resolve(user),
+    );
+
+    return query;
   }
 
   private resolveChangeRule(fieldPath: string): EndorsementFieldRule {
