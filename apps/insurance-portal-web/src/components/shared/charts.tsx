@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { formatNumber } from '@/modules/shared/formatting/number-format';
 import { CHART_COLORS } from './chart-colors';
 
 const compactNumber = new Intl.NumberFormat(undefined, {
@@ -196,14 +197,14 @@ export function TrendBarChart({
           <p className="text-slate-500">
             {valueLabel}:{' '}
             <span className="font-semibold text-slate-700">
-              {hovered.value.toLocaleString()}
+              {formatNumber(hovered.value, 0)}
             </span>
           </p>
           {hasSecondary && (
             <p className="text-slate-500">
               {secondaryLabel}:{' '}
               <span className="font-semibold text-slate-700">
-                {(hovered.secondary ?? 0).toLocaleString()}
+                {formatNumber(hovered.secondary ?? 0, 0)}
               </span>
             </p>
           )}
@@ -271,7 +272,7 @@ export function DonutChart({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl font-semibold text-slate-800">
-          {total.toLocaleString()}
+          {formatNumber(total, 0)}
         </span>
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           {totalLabel}

@@ -9,6 +9,9 @@ export const RbacPermissions = {
   PERMISSIONS_UPDATE: 'permissions:update',
   PERMISSIONS_DELETE: 'permissions:delete',
 
+  COMPANY_CONFIGS_READ: 'company-configs:read',
+  COMPANY_CONFIGS_UPDATE: 'company-configs:update',
+
   USERS_ASSIGN_ROLE: 'users:assign-role',
   USERS_REVOKE_ROLE: 'users:revoke-role',
   USERS_GRANT_PERMISSION: 'users:grant-permission',

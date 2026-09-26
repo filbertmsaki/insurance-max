@@ -3,6 +3,7 @@ import type {
   Company,
   CompanyAddress,
   CompanySettings,
+  NumberFormatSettings,
   PaginatedResponse,
 } from '@/types';
 
@@ -58,6 +59,8 @@ export interface UpdateCompanyStatusDto {
   status: 'active' | 'inactive';
 }
 
+export type UpdateNumberFormatSettingsDto = Partial<NumberFormatSettings>;
+
 export interface CompanyUser {
   id: string;
   user_no: string;
@@ -93,6 +96,16 @@ export const companiesApi = {
   /** PATCH /companies/my — Company-scoped users: update own company */
   updateMyCompany: (data: UpdateCompanyDto) =>
     apiClient.patch<Company>('/companies/my', data).then((r) => r.data),
+
+  getMyNumberFormat: () =>
+    apiClient
+      .get<NumberFormatSettings>('/companies/my/number-format')
+      .then((r) => r.data),
+
+  updateMyNumberFormat: (data: UpdateNumberFormatSettingsDto) =>
+    apiClient
+      .patch<NumberFormatSettings>('/companies/my/number-format', data)
+      .then((r) => r.data),
 
   /** GET /companies/:id — Owner only */
   getCompanyById: (id: string) =>

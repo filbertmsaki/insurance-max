@@ -24,6 +24,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  formatMoney,
+  formatNumber,
+} from '@/modules/shared/formatting/number-format';
 
 import {
   phase16Api,
@@ -61,15 +65,10 @@ function formatMetricValue(value: string | null, currencyCode?: string | null) {
   }
 
   if (currencyCode) {
-    return `${currencyCode} ${numeric.toLocaleString(undefined, {
-      maximumFractionDigits: 2,
-      minimumFractionDigits: 2,
-    })}`;
+    return formatMoney(numeric, currencyCode);
   }
 
-  return numeric.toLocaleString(undefined, {
-    maximumFractionDigits: 4,
-  });
+  return formatNumber(numeric, 4);
 }
 
 export function AnalyticsMetricsPage() {

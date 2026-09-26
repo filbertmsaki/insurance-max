@@ -6,6 +6,7 @@
  *   ['companies', 'list']                  — the full list (GET /companies)
  *   ['companies', 'detail', id]            — a single company (GET /companies/:id)
  *   ['companies', 'my']                    — the authenticated user's company (GET /companies/my)
+ *   ['companies', 'number-format']         — active company number format settings
  */
 export const companiesKeys = {
   all: ['companies'] as const,
@@ -16,4 +17,5 @@ export const companiesKeys = {
   detail: (id: string) => [...companiesKeys.details(), id] as const,
 
   myCompany: () => [...companiesKeys.all, 'my'] as const,
+  numberFormat: () => [...companiesKeys.all, 'number-format'] as const,
 };

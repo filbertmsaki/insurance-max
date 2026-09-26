@@ -630,6 +630,13 @@ export const NAV_NODES: NavNode[] = [
     icon: Settings,
     children: [
       { kind: 'link', label: 'Profile', to: '/settings/profile', icon: User },
+      {
+        kind: 'link',
+        label: 'Number & Currency',
+        to: '/settings/number-format',
+        icon: Settings,
+        permission: 'company-configs:read',
+      },
     ],
   },
 ];

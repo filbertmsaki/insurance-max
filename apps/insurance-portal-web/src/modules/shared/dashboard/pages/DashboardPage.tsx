@@ -79,6 +79,11 @@ import { phase16Api } from '@/modules/tenant/phase16/api/phase16';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { companiesApi } from '@/modules/platform/companies/api/companies';
 import { isStandardCompanyUser } from '@/lib/auth/permissions';
+import {
+  formatMoney,
+  formatNumber,
+  formatPercentage,
+} from '@/modules/shared/formatting/number-format';
 
 function formatMetricValue(
   value: string | number | null | undefined,
@@ -93,12 +98,11 @@ function formatMetricValue(
     return String(value);
   }
 
-  const formatted = numeric.toLocaleString(undefined, {
-    minimumFractionDigits: suffix === '%' ? 2 : 0,
-    maximumFractionDigits: 2,
-  });
+  if (suffix === '%') {
+    return formatPercentage(numeric);
+  }
 
-  return `${formatted}${suffix ?? ''}`;
+  return formatNumber(numeric, 2);
 }
 
 function formatWidgetValue(
@@ -115,35 +119,26 @@ function formatWidgetValue(
   }
 
   if (unit === 'MONEY') {
-    return numeric.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
+    return formatMoney(numeric);
   }
 
   if (unit === 'PERCENTAGE') {
-    return `${numeric.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}%`;
+    return formatPercentage(numeric);
   }
 
-  return numeric.toLocaleString(undefined, {
-    maximumFractionDigits: 2,
-  });
+  return formatNumber(numeric, 2);
 }
 
 function formatMoneyRows(rows: MoneyAmount[] | null | undefined) {
   if (!rows?.length) return 'No amounts';
-  return rows.map((row) => `${row.currency} ${row.amount}`).join(' | ');
+  return rows.map((row) => formatMoney(row.amount, row.currency)).join(' | ');
 }
 
 function formatPrimaryMoney(rows: MoneyAmount[] | null | undefined) {
   if (!rows?.length) return '0';
   const [first, ...rest] = rows;
-  return rest.length
-    ? `${first.currency} ${first.amount}+`
-    : `${first.currency} ${first.amount}`;
+  const formatted = formatMoney(first.amount, first.currency);
+  return rest.length ? `${formatted}+` : formatted;
 }
 
 function getQueueTotal(rows: TaskQueue[] | null | undefined) {
@@ -241,7 +236,7 @@ function BreakdownCard({
       <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-slate-200/70 py-4">
         <CardTitle>{title}</CardTitle>
         {numeric ? (
-          <Badge variant="primary">{total.toLocaleString()} total</Badge>
+          <Badge variant="primary">{formatNumber(total, 0)} total</Badge>
         ) : null}
       </CardHeader>
       <CardContent className="flex-1 pt-5">
@@ -272,7 +267,7 @@ function BreakdownCard({
                         <span className="truncate">{item.label}</span>
                       </span>
                       <span className="shrink-0 font-semibold text-slate-800">
-                        {Number(item.value).toLocaleString()}
+                        {formatNumber(Number(item.value), 0)}
                         <span className="ml-1.5 text-xs font-normal text-slate-400">
                           {share.toFixed(0)}%
                         </span>
@@ -374,7 +369,7 @@ function TrendCard({
         {points.length ? (
           <span className="text-xs text-slate-500">
             <span className="font-semibold text-slate-700">
-              {totalCount.toLocaleString()}
+              {formatNumber(totalCount, 0)}
             </span>{' '}
             in {formatPeriodCount(points.length, groupBy)}
           </span>
@@ -651,7 +646,7 @@ function DashboardFilterMenu({
                   Assigned branches
                 </span>
                 <span className="text-sm font-semibold text-slate-800">
-                  {assignedBranchCount.toLocaleString()}
+                  {formatNumber(assignedBranchCount, 0)}
                 </span>
               </div>
             ) : null}
@@ -715,12 +710,12 @@ function OperationalTargetCard({
         <div className="min-w-0">
           <p className="text-sm font-semibold">Your production target</p>
           <p className="mt-2 max-w-md text-xs leading-5 text-white/80">
-            Quotation conversion is at {conversionRate.toFixed(2)}%, with{' '}
-            {completedQuotations.toLocaleString()} completed quotations and{' '}
-            {activePolicies.toLocaleString()} active policies in this period.
+            Quotation conversion is at {formatPercentage(conversionRate)}, with{' '}
+            {formatNumber(completedQuotations, 0)} completed quotations and{' '}
+            {formatNumber(activePolicies, 0)} active policies in this period.
           </p>
           <p className="mt-3 text-xs font-semibold underline underline-offset-4">
-            Eligible pipeline: {eligibleQuotations.toLocaleString()}
+            Eligible pipeline: {formatNumber(eligibleQuotations, 0)}
           </p>
         </div>
         <ProgressRing value={conversionRate} />
@@ -814,7 +809,7 @@ function OverviewContent({
     data?.work_queues.slice(0, 6).map((queue, index) => ({
       key: queue.key,
       label: queue.label,
-      meta: `${queue.count.toLocaleString()} item${queue.count === 1 ? '' : 's'} waiting`,
+      meta: `${formatNumber(queue.count, 0)} item${queue.count === 1 ? '' : 's'} waiting`,
       tone: CHART_COLORS[index % CHART_COLORS.length],
     })) ?? [];
 

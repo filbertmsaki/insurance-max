@@ -13,6 +13,7 @@ import {
 import { DataTable, type Column } from '@/components/shared/DataTable';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { formatMoney } from '@/components/shared/detailFormat';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import {
   useDeletePolicy,
@@ -68,7 +69,7 @@ export function PoliciesPage() {
     {
       key: 'premium',
       header: 'Premium',
-      cell: (row) => `${row.currency} ${row.total_premium}`,
+      cell: (row) => formatMoney(Number(row.total_premium), row.currency),
     },
     {
       key: 'created_at',

@@ -7,4 +7,6 @@ export { useUpdateCompany } from './useUpdateCompany';
 export { useUpdateCompanyStatus } from './useUpdateCompanyStatus';
 export { useDeleteCompany } from './useDeleteCompany';
 export { useUpdateMyCompany } from './useUpdateMyCompany';
+export { useNumberFormatSettings } from './useNumberFormatSettings';
+export { useUpdateNumberFormatSettings } from './useUpdateNumberFormatSettings';
 export type { CompanySortKey } from './useCompaniesList';

@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { formatMoney } from '@/modules/shared/formatting/number-format';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 
@@ -32,15 +33,7 @@ interface Props {
 }
 
 function formatCurrencyValue(currency: string, rawValue?: string) {
-  const numeric = Number(rawValue ?? 0);
-  if (!Number.isFinite(numeric)) {
-    return `${currency} ${rawValue ?? '0.00'}`;
-  }
-
-  return `${currency} ${numeric.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatMoney(rawValue ?? 0, currency);
 }
 
 function SummaryMetric({

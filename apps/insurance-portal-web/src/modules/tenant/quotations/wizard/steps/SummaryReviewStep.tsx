@@ -4,6 +4,7 @@ import {
   getCustomerDisplayName,
   type CustomerRecord,
 } from '@/modules/tenant/customers/types';
+import { formatMoney } from '@/modules/shared/formatting/number-format';
 import type { InsuranceRisk } from '@/types/product-engine';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import type { QuotationWizardStepId } from '../types';
@@ -40,11 +41,7 @@ export function SummaryReviewStep({
   const customer = customerOptions.find(
     (item) => item.id === values.customer_id,
   );
-  const money = (value: number) =>
-    new Intl.NumberFormat('en-TZ', {
-      style: 'currency',
-      currency: values.currency || 'TZS',
-    }).format(value);
+  const money = (value: number) => formatMoney(value, values.currency || 'TZS');
   const risks =
     values.quotation_flow === 'MOTOR_FLEET'
       ? values.fleet.items.flatMap((item) => item.risks_covered)

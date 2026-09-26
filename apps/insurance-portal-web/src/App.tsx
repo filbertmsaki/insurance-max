@@ -24,6 +24,7 @@ import { AuthLayout } from '@/modules/shared/auth/components/AuthLayout';
 import { DefaultLandingPage } from '@/modules/shared/auth/components/DefaultLandingPage';
 import { ForbiddenPage } from '@/modules/shared/auth/pages/ForbiddenPage';
 import { AuthBootstrap } from '@/modules/shared/auth/components/AuthBootstrap';
+import { NumberFormatProvider } from '@/modules/shared/formatting/NumberFormatProvider';
 
 import { LoginPage } from '@/modules/shared/auth/pages/LoginPage';
 import { RegisterPage } from '@/modules/shared/auth/pages/RegisterPage';
@@ -40,6 +41,7 @@ import { UserDetailPage } from '@/modules/tenant/users/pages/UserDetailPage';
 import { CompaniesListPage } from '@/modules/platform/companies/pages/CompaniesListPage';
 import { CompanyDetailPage } from '@/modules/platform/companies/pages/CompanyDetailPage';
 import { MyCompanyPage } from '@/modules/platform/companies/pages/MyCompanyPage';
+import { NumberFormatSettingsPage } from '@/modules/platform/companies/pages/NumberFormatSettingsPage';
 import { BranchesListPage } from '@/modules/tenant/branches/pages/BranchesListPage';
 import { BranchDetailPage } from '@/modules/tenant/branches/pages/BranchDetailPage';
 import { CompanyFeaturesPage } from '@/modules/tenant/company-features/pages/CompanyFeaturesPage';
@@ -156,7 +158,7 @@ import {
 
 export default function App() {
   return (
-    <>
+    <NumberFormatProvider>
       <AuthBootstrap />
       <Routes>
         {/* Guest-only routes */}
@@ -775,6 +777,10 @@ export default function App() {
               <Route path="/api-clients" element={<ApiClientsPage />} />
             </Route>
             <Route path="/settings/profile" element={<ProfilePage />} />
+            <Route
+              path="/settings/number-format"
+              element={<NumberFormatSettingsPage />}
+            />
 
             <Route
               element={<ProtectedRoute requiredPermission="quotations:read" />}
@@ -1491,6 +1497,6 @@ export default function App() {
         {/* Default redirects */}
         <Route path="*" element={<DefaultLandingPage />} />
       </Routes>
-    </>
+    </NumberFormatProvider>
   );
 }

@@ -14,6 +14,7 @@ import { DataTable, type Column } from '@/components/shared/DataTable';
 import { ActionMenu } from '@/components/shared/ActionMenu';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import { TiraStatusBadge } from '../components/TiraStatusBadge';
@@ -22,11 +23,7 @@ import type { QuotationListItem } from '../types';
 import { formatCoverPeriod } from '../utils/coverPeriod';
 
 function formatPremiumAmount(amount: number, currencyCode: string) {
-  const formattedAmount = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(amount) ? amount : 0);
-  return `${currencyCode} ${formattedAmount}`;
+  return formatMoney(Number.isFinite(amount) ? amount : 0, currencyCode);
 }
 
 function TruncatedText({ value }: { value: string }) {

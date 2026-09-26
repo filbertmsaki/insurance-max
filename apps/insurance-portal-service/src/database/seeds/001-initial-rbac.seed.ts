@@ -1026,6 +1026,13 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'company-configs:update',
+    displayName: 'Update company configs',
+    description:
+      "Allow updating a company's number, currency, and runtime settings",
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'system-configs:read',
     displayName: 'Read system configs',
     description: 'Allow viewing platform-wide runtime settings',
@@ -3270,6 +3277,7 @@ const roleSeeds: RoleSeed[] = [
       'roles:delete',
       'permissions:read',
       'company-configs:read',
+      'company-configs:update',
       'system-configs:read',
       'permissions:create',
       'permissions:update',
@@ -3330,6 +3338,7 @@ const roleSeeds: RoleSeed[] = [
       'roles:delete',
       'permissions:read',
       'company-configs:read',
+      'company-configs:update',
       'system-configs:read',
       'tiramis-submissions:read',
       'tiramis-submissions:create',
@@ -3484,6 +3493,7 @@ const roleSeeds: RoleSeed[] = [
       'roles:delete',
       'permissions:read',
       'company-configs:read',
+      'company-configs:update',
       'system-configs:read',
       'branches:read',
       'branches:create',

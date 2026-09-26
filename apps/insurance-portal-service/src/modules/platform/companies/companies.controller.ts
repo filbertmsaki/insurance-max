@@ -22,6 +22,7 @@ import {
   UpdateCompanyDto,
   UpdateCompanyStatusDto,
 } from './dtos/update-company.dto';
+import { UpdateNumberFormatSettingsDto } from './dtos/update-number-format-settings.dto';
 import { CompaniesService } from './companies.service';
 
 @ApiTags('Companies')
@@ -67,6 +68,29 @@ export class CompaniesController {
     @Body() dto: UpdateCompanyDto,
   ) {
     return this.companiesService.updateCompany(user.companyId!, dto);
+  }
+
+  @Get('my/number-format')
+  @TenantScoped()
+  @Permissions('company-configs:read')
+  @ApiOperation({
+    summary: "Get the current company's number and currency format settings",
+  })
+  async getMyNumberFormat(@CurrentUser() user: AuthenticatedUser) {
+    return this.companiesService.getNumberFormatSettings(user.companyId!);
+  }
+
+  @Patch('my/number-format')
+  @TenantScoped()
+  @Permissions('company-configs:update')
+  @ApiOperation({
+    summary: "Update the current company's number and currency format settings",
+  })
+  async updateMyNumberFormat(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateNumberFormatSettingsDto,
+  ) {
+    return this.companiesService.updateNumberFormatSettings(user, dto);
   }
 
   @Get(':id/users')

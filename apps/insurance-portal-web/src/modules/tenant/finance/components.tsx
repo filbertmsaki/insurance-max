@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { createBrowserSafeId } from '@/lib/ids';
+import { formatMoney as formatConfiguredMoney } from '@/modules/shared/formatting/number-format';
 
 export function createIdempotencyKey(prefix: string) {
   return `${prefix}:${createBrowserSafeId()}`;
@@ -13,16 +14,7 @@ export function formatMoney(
   amount: string | number | null | undefined,
   currency?: string | null,
 ) {
-  const numeric = Number(amount ?? 0);
-
-  if (!Number.isFinite(numeric)) {
-    return `${currency ?? ''} ${amount ?? '0'}`.trim();
-  }
-
-  return `${currency ?? ''} ${numeric.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  })}`.trim();
+  return formatConfiguredMoney(amount ?? 0, currency);
 }
 
 export function formatDate(value?: string | null) {

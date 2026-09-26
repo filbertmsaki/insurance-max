@@ -1,3 +1,8 @@
+import {
+  formatMoney as formatConfiguredMoney,
+  formatNumber as formatConfiguredNumber,
+} from '@/modules/shared/formatting/number-format';
+
 export function displayValue(value: unknown) {
   if (value === null || value === undefined) return 'N/A';
   if (typeof value === 'string' && !value.trim()) return 'N/A';
@@ -21,21 +26,11 @@ export function formatMoney(
   value: number | null | undefined,
   currency?: string | null,
 ) {
-  if (value === null || value === undefined || Number.isNaN(value))
-    return 'N/A';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'TZS',
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatConfiguredMoney(value, currency);
 }
 
 export function formatNumber(value: number | null | undefined, digits = 2) {
-  if (value === null || value === undefined || Number.isNaN(value))
-    return 'N/A';
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: digits,
-  }).format(value);
+  return formatConfiguredNumber(value, digits);
 }
 
 /** "SUBMIT_FOR_APPROVAL" / "submit_for_approval" -> "Submit for approval" */

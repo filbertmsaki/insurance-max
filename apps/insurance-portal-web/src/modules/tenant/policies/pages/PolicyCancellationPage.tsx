@@ -14,6 +14,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerFullName } from '@/modules/tenant/customers/types';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { policiesApi } from '../api';
 import {
   policyKeys,
@@ -122,10 +123,7 @@ export function PolicyCancellationPage() {
   const money = (
     value: string | number | null | undefined,
     currency = policy?.currency ?? '',
-  ) =>
-    value == null
-      ? '—'
-      : `${currency} ${Number(value).toLocaleString('en-TZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  ) => (value == null ? '—' : formatMoney(value, currency));
   const handleCreate = () => {
     createCancellation.mutate(
       {

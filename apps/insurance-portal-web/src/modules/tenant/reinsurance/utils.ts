@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { formatMoney } from '@/modules/shared/formatting/number-format';
 
 export function reinsuranceTone(value?: string | null) {
   const normalized = String(value ?? '').toUpperCase();
@@ -20,12 +21,7 @@ export function formatReinsuranceMoney(
   value?: string | number | null,
   currency = 'TZS',
 ) {
-  const amount = Number(value ?? 0);
-  return new Intl.NumberFormat('en-TZ', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(amount) ? amount : 0);
+  return formatMoney(value ?? 0, currency);
 }
 
 export function formatReinsuranceDate(value?: string | null) {

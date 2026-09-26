@@ -1,16 +1,12 @@
 import { cn } from '@/lib/utils';
+import { formatMoney } from '@/modules/shared/formatting/number-format';
 import type { ClaimCustomer, ClaimUser } from './types';
 
 export function formatClaimMoney(
   value?: string | number | null,
   currency = 'TZS',
 ) {
-  const amount = Number(value ?? 0);
-  return new Intl.NumberFormat('en-TZ', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  }).format(Number.isFinite(amount) ? amount : 0);
+  return formatMoney(value ?? 0, currency);
 }
 
 export function formatClaimDate(value?: string | null) {

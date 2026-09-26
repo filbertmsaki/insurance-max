@@ -37,6 +37,46 @@ import { DepartmentUser } from '../../tenant/departments/entities/department-use
 import { AuditService } from '../../shared/audit/audit.service';
 import { AuthorizationVersionService } from '../../shared/authorization/authorization-version.service';
 import { QuotationPolicyDataScope } from '../../shared/authorization/quotation-policy-data-scope.enum';
+import { CompanyConfigsService } from '../company-configs/company-configs.service';
+import { ConfigValueType } from '../company-configs/entities/company-config.entity';
+import {
+  CurrencySymbolPosition,
+  NegativeNumberFormat,
+  RoundingMode,
+  UpdateNumberFormatSettingsDto,
+} from './dtos/update-number-format-settings.dto';
+
+export interface NumberFormatSettings {
+  currency_code: string;
+  currency_symbol: string;
+  currency_symbol_position: CurrencySymbolPosition;
+  money_decimal_places: number;
+  number_decimal_places: number;
+  thousands_separator: string;
+  decimal_separator: string;
+  negative_number_format: NegativeNumberFormat;
+  percentage_decimal_places: number;
+  locale: string;
+  date_format: string;
+  rounding_mode: RoundingMode;
+}
+
+const NUMBER_FORMAT_CONFIG_KEY = 'number_format';
+
+export const DEFAULT_NUMBER_FORMAT_SETTINGS: NumberFormatSettings = {
+  currency_code: 'TZS',
+  currency_symbol: 'TSh',
+  currency_symbol_position: CurrencySymbolPosition.BEFORE,
+  money_decimal_places: 2,
+  number_decimal_places: 2,
+  thousands_separator: ',',
+  decimal_separator: '.',
+  negative_number_format: NegativeNumberFormat.MINUS,
+  percentage_decimal_places: 2,
+  locale: 'en-TZ',
+  date_format: 'yyyy-MM-dd',
+  rounding_mode: RoundingMode.HALF_UP,
+};
 
 @Injectable()
 export class CompaniesService {
@@ -79,6 +119,7 @@ export class CompaniesService {
     private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
     private readonly authorizationVersionService: AuthorizationVersionService,
+    private readonly companyConfigsService: CompanyConfigsService,
   ) {}
 
   /**
@@ -1634,6 +1675,142 @@ export class CompaniesService {
     Object.assign(company, rest);
 
     return this.companyRepository.save(company);
+  }
+
+  async getNumberFormatSettings(
+    companyId: string,
+  ): Promise<NumberFormatSettings> {
+    const company = await this.findCompanyById(companyId);
+    const stored = await this.companyConfigsService.getValue<Record<
+      string,
+      unknown
+    > | null>(companyId, NUMBER_FORMAT_CONFIG_KEY, null);
+
+    return this.normalizeNumberFormatSettings(stored, company.default_currency);
+  }
+
+  async updateNumberFormatSettings(
+    user: AuthenticatedUser,
+    dto: UpdateNumberFormatSettingsDto,
+  ): Promise<NumberFormatSettings> {
+    const companyId = user.companyId!;
+    const previous = await this.getNumberFormatSettings(companyId);
+    const next = this.normalizeNumberFormatSettings({
+      ...previous,
+      ...dto,
+    });
+
+    await this.companyConfigsService.upsert(
+      companyId,
+      NUMBER_FORMAT_CONFIG_KEY,
+      {
+        config_value: next,
+        value_type: ConfigValueType.JSON,
+        description: 'Tenant number, money, and percentage display settings',
+        is_active: true,
+      },
+    );
+
+    await this.auditService.log({
+      userId: user.id,
+      companyId,
+      companyMembershipId: user.companyMembershipId ?? null,
+      action: 'company.number_format.updated',
+      eventCategory: 'company_settings',
+      resource: 'company_config',
+      resourceId: NUMBER_FORMAT_CONFIG_KEY,
+      beforeState: { ...previous },
+      afterState: { ...next },
+      metadata: {
+        config_key: NUMBER_FORMAT_CONFIG_KEY,
+      },
+    });
+
+    return next;
+  }
+
+  private normalizeNumberFormatSettings(
+    value?: Record<string, unknown> | null,
+    defaultCurrency?: string | null,
+  ): NumberFormatSettings {
+    const merged = {
+      ...DEFAULT_NUMBER_FORMAT_SETTINGS,
+      currency_code:
+        typeof value?.currency_code === 'string'
+          ? value.currency_code
+          : (defaultCurrency ?? DEFAULT_NUMBER_FORMAT_SETTINGS.currency_code),
+      ...(value ?? {}),
+    };
+
+    const currencyCode =
+      typeof merged.currency_code === 'string' &&
+      /^[A-Z]{3}$/.test(merged.currency_code)
+        ? merged.currency_code
+        : DEFAULT_NUMBER_FORMAT_SETTINGS.currency_code;
+
+    const decimalSeparator =
+      merged.decimal_separator === ','
+        ? ','
+        : DEFAULT_NUMBER_FORMAT_SETTINGS.decimal_separator;
+
+    const thousandsSeparator = [',', '.', ' ', "'", ''].includes(
+      String(merged.thousands_separator),
+    )
+      ? String(merged.thousands_separator)
+      : DEFAULT_NUMBER_FORMAT_SETTINGS.thousands_separator;
+
+    return {
+      currency_code: currencyCode,
+      currency_symbol:
+        typeof merged.currency_symbol === 'string'
+          ? merged.currency_symbol
+          : DEFAULT_NUMBER_FORMAT_SETTINGS.currency_symbol,
+      currency_symbol_position:
+        merged.currency_symbol_position === CurrencySymbolPosition.AFTER
+          ? CurrencySymbolPosition.AFTER
+          : CurrencySymbolPosition.BEFORE,
+      money_decimal_places: this.clampInteger(
+        merged.money_decimal_places,
+        DEFAULT_NUMBER_FORMAT_SETTINGS.money_decimal_places,
+      ),
+      number_decimal_places: this.clampInteger(
+        merged.number_decimal_places,
+        DEFAULT_NUMBER_FORMAT_SETTINGS.number_decimal_places,
+      ),
+      thousands_separator:
+        thousandsSeparator === decimalSeparator
+          ? DEFAULT_NUMBER_FORMAT_SETTINGS.thousands_separator
+          : thousandsSeparator,
+      decimal_separator: decimalSeparator,
+      negative_number_format:
+        merged.negative_number_format === NegativeNumberFormat.PARENTHESES
+          ? NegativeNumberFormat.PARENTHESES
+          : NegativeNumberFormat.MINUS,
+      percentage_decimal_places: this.clampInteger(
+        merged.percentage_decimal_places,
+        DEFAULT_NUMBER_FORMAT_SETTINGS.percentage_decimal_places,
+      ),
+      locale:
+        typeof merged.locale === 'string' && merged.locale.trim()
+          ? merged.locale.trim()
+          : DEFAULT_NUMBER_FORMAT_SETTINGS.locale,
+      date_format:
+        typeof merged.date_format === 'string' && merged.date_format.trim()
+          ? merged.date_format.trim()
+          : DEFAULT_NUMBER_FORMAT_SETTINGS.date_format,
+      rounding_mode: Object.values(RoundingMode).includes(merged.rounding_mode)
+        ? merged.rounding_mode
+        : DEFAULT_NUMBER_FORMAT_SETTINGS.rounding_mode,
+    };
+  }
+
+  private clampInteger(value: unknown, fallback: number): number {
+    const numeric = Number(value);
+    if (!Number.isInteger(numeric)) {
+      return fallback;
+    }
+
+    return Math.min(6, Math.max(0, numeric));
   }
 
   async setCompanyStatus(

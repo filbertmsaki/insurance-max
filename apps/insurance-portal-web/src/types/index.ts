@@ -215,6 +215,21 @@ export interface CompanySettings {
   [key: string]: unknown;
 }
 
+export interface NumberFormatSettings {
+  currency_code: string;
+  currency_symbol: string;
+  currency_symbol_position: 'before' | 'after';
+  money_decimal_places: number;
+  number_decimal_places: number;
+  thousands_separator: string;
+  decimal_separator: string;
+  negative_number_format: 'minus' | 'parentheses';
+  percentage_decimal_places: number;
+  locale: string;
+  date_format: string;
+  rounding_mode: 'half_up' | 'half_even' | 'down' | 'up';
+}
+
 export interface Company {
   id: string;
   name: string;

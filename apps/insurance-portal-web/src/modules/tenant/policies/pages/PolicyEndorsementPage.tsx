@@ -17,6 +17,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { formatMoney as formatConfiguredMoney } from '@/modules/shared/formatting/number-format';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import {
   useCancellationEligibility,
@@ -90,13 +91,20 @@ function FieldEditor({
   value: unknown;
   onSave: (value: string) => void;
 }) {
-  const [draft, setDraft] = useState(displayValue(value) === '-' ? '' : String(value));
+  const [draft, setDraft] = useState(
+    displayValue(value) === '-' ? '' : String(value),
+  );
 
   return (
     <div className="grid gap-2 sm:grid-cols-[minmax(10rem,14rem)_1fr_auto] sm:items-center">
       <span className="text-sm text-slate-500">{label}</span>
       <Input value={draft} onChange={(event) => setDraft(event.target.value)} />
-      <Button type="button" variant="outline" size="sm" onClick={() => onSave(draft)}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => onSave(draft)}
+      >
         <Save className="mr-1.5 h-3.5 w-3.5" />
         Save
       </Button>
@@ -190,14 +198,7 @@ export function PolicyEndorsementPage() {
   const tx = context?.transaction;
   const currencyCode = pricing?.currencyCode ?? tx?.currency_code ?? 'TZS';
   const formatMoney = (value: string | number | null | undefined) => {
-    const amount = Number(value ?? 0);
-
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currencyCode,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number.isFinite(amount) ? amount : 0);
+    return formatConfiguredMoney(value ?? 0, currencyCode);
   };
   const canComplete =
     canCompleteEndorsement &&
@@ -333,7 +334,11 @@ export function PolicyEndorsementPage() {
   }
 
   if (!policy) {
-    return <p className="py-12 text-center text-sm text-slate-500">Policy not found.</p>;
+    return (
+      <p className="py-12 text-center text-sm text-slate-500">
+        Policy not found.
+      </p>
+    );
   }
 
   return (
@@ -353,17 +358,19 @@ export function PolicyEndorsementPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {['Endorsement Details', 'Policy Changes', 'Review'].map((label, index) => (
-          <Button
-            key={label}
-            type="button"
-            variant={step === index + 1 ? 'default' : 'outline'}
-            onClick={() => setStep(index + 1)}
-            disabled={index > 0 && !activeEndorsementId}
-          >
-            {index + 1}. {label}
-          </Button>
-        ))}
+        {['Endorsement Details', 'Policy Changes', 'Review'].map(
+          (label, index) => (
+            <Button
+              key={label}
+              type="button"
+              variant={step === index + 1 ? 'default' : 'outline'}
+              onClick={() => setStep(index + 1)}
+              disabled={index > 0 && !activeEndorsementId}
+            >
+              {index + 1}. {label}
+            </Button>
+          ),
+        )}
       </div>
 
       {step === 1 && (
@@ -377,7 +384,9 @@ export function PolicyEndorsementPage() {
                 size="sm"
                 className="h-auto p-0 text-red-600"
                 onClick={() =>
-                  navigate(underwritingPaths.policyCancellationCreate(policy.id))
+                  navigate(
+                    underwritingPaths.policyCancellationCreate(policy.id),
+                  )
                 }
               >
                 <Ban className="mr-1.5 h-3.5 w-3.5" />
@@ -408,7 +417,9 @@ export function PolicyEndorsementPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm text-slate-500">Endorsement Type</label>
+                <label className="text-sm text-slate-500">
+                  Endorsement Type
+                </label>
                 <Select
                   value={endorsementTypeCode}
                   onValueChange={setEndorsementTypeCode}
@@ -428,7 +439,10 @@ export function PolicyEndorsementPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm text-slate-500">Reason</label>
-              <Input value={reason} onChange={(event) => setReason(event.target.value)} />
+              <Input
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
             </div>
             <Button
               type="button"
@@ -496,23 +510,30 @@ export function PolicyEndorsementPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {(['name', 'phone', 'email', 'region', 'district', 'street'] as const).map(
-                  (field) => (
-                    <FieldEditor
-                      key={field}
-                      label={field}
-                      value={holder[field]}
-                      onSave={(value) =>
-                        saveChange({
-                          category: 'POLICYHOLDER',
-                          operation: 'MODIFY',
-                          field_path: `policyHolders.${holderIndex}.${field}`,
-                          new_value: value,
-                        })
-                      }
-                    />
-                  ),
-                )}
+                {(
+                  [
+                    'name',
+                    'phone',
+                    'email',
+                    'region',
+                    'district',
+                    'street',
+                  ] as const
+                ).map((field) => (
+                  <FieldEditor
+                    key={field}
+                    label={field}
+                    value={holder[field]}
+                    onSave={(value) =>
+                      saveChange({
+                        category: 'POLICYHOLDER',
+                        operation: 'MODIFY',
+                        field_path: `policyHolders.${holderIndex}.${field}`,
+                        new_value: value,
+                      })
+                    }
+                  />
+                ))}
               </CardContent>
             </Card>
           ))}
@@ -543,15 +564,17 @@ export function PolicyEndorsementPage() {
                     }
                   />
                   {motor &&
-                    ([
-                      'registrationNumber',
-                      'chassisNumber',
-                      'engineNumber',
-                      'make',
-                      'model',
-                      'yearOfManufacture',
-                      'ownerName',
-                    ] as const).map((field) => (
+                    (
+                      [
+                        'registrationNumber',
+                        'chassisNumber',
+                        'engineNumber',
+                        'make',
+                        'model',
+                        'yearOfManufacture',
+                        'ownerName',
+                      ] as const
+                    ).map((field) => (
                       <FieldEditor
                         key={field}
                         label={field}
@@ -640,7 +663,8 @@ export function PolicyEndorsementPage() {
                 <Button
                   type="button"
                   onClick={() =>
-                    policyId && navigate(underwritingPaths.policyDetail(policyId))
+                    policyId &&
+                    navigate(underwritingPaths.policyDetail(policyId))
                   }
                 >
                   View Policy
@@ -663,7 +687,10 @@ export function PolicyEndorsementPage() {
                 label="Endorsement"
                 value={context?.endorsement?.endorsement_type_name ?? '-'}
               />
-              <Row label="Effective" value={context?.transaction.effective_date ?? '-'} />
+              <Row
+                label="Effective"
+                value={context?.transaction.effective_date ?? '-'}
+              />
             </CardContent>
           </Card>
 
@@ -671,7 +698,9 @@ export function PolicyEndorsementPage() {
             <Card>
               <CardHeader className="pb-2 flex flex-row items-center justify-between gap-3">
                 <CardTitle className="text-base">Premium Comparison</CardTitle>
-                <Badge variant={premiumEffectBadgeVariant(pricing.premiumEffect)}>
+                <Badge
+                  variant={premiumEffectBadgeVariant(pricing.premiumEffect)}
+                >
                   {premiumEffectLabel(pricing.premiumEffect)}
                 </Badge>
               </CardHeader>
@@ -739,14 +768,20 @@ export function PolicyEndorsementPage() {
               <CardContent className="space-y-3">
                 <Row
                   label="Amount"
-                  value={`${tx.currency_code} ${tx.return_premium}`}
+                  value={formatConfiguredMoney(
+                    tx.return_premium,
+                    tx.currency_code,
+                  )}
                 />
                 {refunds.map((refund) => (
                   <div key={refund.id} className="rounded-md border p-3">
                     <Row label="Refund Number" value={refund.refund_no} />
                     <Row
                       label="Amount"
-                      value={`${refund.currency_code} ${refund.amount}`}
+                      value={formatConfiguredMoney(
+                        refund.amount,
+                        refund.currency_code,
+                      )}
                     />
                     <Row label="Status" value={refund.status} />
                   </div>
@@ -837,7 +872,8 @@ export function PolicyEndorsementPage() {
                 <Alert>
                   <AlertTitle>Awaiting approval</AlertTitle>
                   <AlertDescription>
-                    The endorsement is queued for an underwriting approval decision.
+                    The endorsement is queued for an underwriting approval
+                    decision.
                   </AlertDescription>
                 </Alert>
               )}

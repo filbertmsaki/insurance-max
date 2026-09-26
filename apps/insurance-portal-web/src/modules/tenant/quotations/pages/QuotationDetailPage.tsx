@@ -814,13 +814,10 @@ export function QuotationDetailPage() {
           <div className="space-y-4">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
               Current calculated premium:{' '}
-              {premiumOverrideRequestDialog?.risk.premium_before_discount?.toLocaleString(
-                'en-US',
-                {
-                  style: 'currency',
-                  currency: preview?.cover_note.currency ?? 'TZS',
-                },
-              ) ?? 'N/A'}
+              {formatMoney(
+                premiumOverrideRequestDialog?.risk.premium_before_discount,
+                preview?.cover_note.currency,
+              )}
             </div>
             <div className="space-y-2">
               <label
@@ -930,23 +927,18 @@ export function QuotationDetailPage() {
               </div>
               <div>
                 Original calculated premium:{' '}
-                {premiumOverrideDecisionDialog?.override.original_calculated_premium?.toLocaleString(
-                  'en-US',
-                  {
-                    style: 'currency',
-                    currency: preview?.cover_note.currency ?? 'TZS',
-                  },
-                ) ?? 'N/A'}
+                {formatMoney(
+                  premiumOverrideDecisionDialog?.override
+                    .original_calculated_premium,
+                  preview?.cover_note.currency,
+                )}
               </div>
               <div>
                 Proposed premium:{' '}
-                {premiumOverrideDecisionDialog?.override.proposed_premium?.toLocaleString(
-                  'en-US',
-                  {
-                    style: 'currency',
-                    currency: preview?.cover_note.currency ?? 'TZS',
-                  },
-                ) ?? 'N/A'}
+                {formatMoney(
+                  premiumOverrideDecisionDialog?.override.proposed_premium,
+                  preview?.cover_note.currency,
+                )}
               </div>
               <div>
                 Requested by:{' '}

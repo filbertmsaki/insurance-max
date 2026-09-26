@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/shared/DataTable';
+import { formatMoney } from '@/components/shared/detailFormat';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
@@ -51,10 +52,10 @@ export function EndorsementsPage() {
         <span className="text-sm text-slate-600">
           {row.premium_effect}
           {Number(row.additional_premium) > 0
-            ? ` (+${row.currency_code} ${row.additional_premium})`
+            ? ` (+${formatMoney(Number(row.additional_premium), row.currency_code)})`
             : ''}
           {Number(row.return_premium) > 0
-            ? ` (-${row.currency_code} ${row.return_premium})`
+            ? ` (-${formatMoney(Number(row.return_premium), row.currency_code)})`
             : ''}
         </span>
       ),
