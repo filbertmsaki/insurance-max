@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { companiesApi } from '@/modules/platform/companies/api/companies';
@@ -7,8 +7,10 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 import {
   DEFAULT_NUMBER_FORMAT_SETTINGS,
+  normalizeNumberFormatSettings,
   setActiveNumberFormatSettings,
 } from './number-format';
+import { NumberFormatContext } from './number-format-context';
 
 export function NumberFormatProvider({ children }: { children: ReactNode }) {
   const user = useAuthStore((state) => state.user);
@@ -21,16 +23,21 @@ export function NumberFormatProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60_000,
   });
 
+  const settings = useMemo(
+    () =>
+      enabled
+        ? normalizeNumberFormatSettings(query.data)
+        : DEFAULT_NUMBER_FORMAT_SETTINGS,
+    [enabled, query.data],
+  );
+
   useEffect(() => {
-    if (!enabled) {
-      setActiveNumberFormatSettings(DEFAULT_NUMBER_FORMAT_SETTINGS);
-      return;
-    }
+    setActiveNumberFormatSettings(settings);
+  }, [settings]);
 
-    if (query.data) {
-      setActiveNumberFormatSettings(query.data);
-    }
-  }, [enabled, query.data]);
-
-  return <>{children}</>;
+  return (
+    <NumberFormatContext.Provider value={settings}>
+      {children}
+    </NumberFormatContext.Provider>
+  );
 }

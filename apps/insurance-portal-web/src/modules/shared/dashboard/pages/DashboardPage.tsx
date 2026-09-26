@@ -83,11 +83,14 @@ import {
   formatMoney,
   formatNumber,
   formatPercentage,
+  type NumberFormatSettings,
 } from '@/modules/shared/formatting/number-format';
+import { useActiveNumberFormatSettings } from '@/modules/shared/formatting/number-format-context';
 
 function formatMetricValue(
   value: string | number | null | undefined,
   suffix?: string,
+  settings?: NumberFormatSettings,
 ) {
   if (value === null || value === undefined || value === '') {
     return 'Unavailable';
@@ -99,15 +102,16 @@ function formatMetricValue(
   }
 
   if (suffix === '%') {
-    return formatPercentage(numeric);
+    return formatPercentage(numeric, settings);
   }
 
-  return formatNumber(numeric, 2);
+  return formatNumber(numeric, 2, settings);
 }
 
 function formatWidgetValue(
   value: string | null | undefined,
   unit: string | undefined,
+  settings?: NumberFormatSettings,
 ) {
   if (value === null || value === undefined) {
     return 'Unavailable';
@@ -119,26 +123,41 @@ function formatWidgetValue(
   }
 
   if (unit === 'MONEY') {
-    return formatMoney(numeric);
+    return formatMoney(numeric, undefined, settings);
   }
 
   if (unit === 'PERCENTAGE') {
-    return formatPercentage(numeric);
+    return formatPercentage(numeric, settings);
   }
 
-  return formatNumber(numeric, 2);
+  return formatNumber(numeric, 2, settings);
 }
 
-function formatMoneyRows(rows: MoneyAmount[] | null | undefined) {
+function formatMoneyRows(
+  rows: MoneyAmount[] | null | undefined,
+  settings?: NumberFormatSettings,
+) {
   if (!rows?.length) return 'No amounts';
-  return rows.map((row) => formatMoney(row.amount, row.currency)).join(' | ');
+  return rows
+    .map((row) => formatMoney(row.amount, row.currency, settings))
+    .join(' | ');
 }
 
-function formatPrimaryMoney(rows: MoneyAmount[] | null | undefined) {
+function formatPrimaryMoney(
+  rows: MoneyAmount[] | null | undefined,
+  settings?: NumberFormatSettings,
+) {
   if (!rows?.length) return '0';
   const [first, ...rest] = rows;
-  const formatted = formatMoney(first.amount, first.currency);
+  const formatted = formatMoney(first.amount, first.currency, settings);
   return rest.length ? `${formatted}+` : formatted;
+}
+
+function formatCount(
+  value: string | number | null | undefined,
+  settings?: NumberFormatSettings,
+) {
+  return formatNumber(Number(value ?? 0), 0, settings);
 }
 
 function getQueueTotal(rows: TaskQueue[] | null | undefined) {
@@ -225,6 +244,7 @@ function BreakdownCard({
   title: string;
   items: Array<{ label: string; value: string | number }>;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
   const numeric =
     items.length > 0 && items.every((item) => typeof item.value === 'number');
   const total = numeric
@@ -236,7 +256,9 @@ function BreakdownCard({
       <CardHeader className="flex-row items-center justify-between space-y-0 border-b border-slate-200/70 py-4">
         <CardTitle>{title}</CardTitle>
         {numeric ? (
-          <Badge variant="primary">{formatNumber(total, 0)} total</Badge>
+          <Badge variant="primary">
+            {formatCount(total, numberFormatSettings)} total
+          </Badge>
         ) : null}
       </CardHeader>
       <CardContent className="flex-1 pt-5">
@@ -267,9 +289,9 @@ function BreakdownCard({
                         <span className="truncate">{item.label}</span>
                       </span>
                       <span className="shrink-0 font-semibold text-slate-800">
-                        {formatNumber(Number(item.value), 0)}
+                        {formatCount(Number(item.value), numberFormatSettings)}
                         <span className="ml-1.5 text-xs font-normal text-slate-400">
-                          {share.toFixed(0)}%
+                          {formatPercentage(share, numberFormatSettings)}
                         </span>
                       </span>
                     </div>
@@ -358,6 +380,7 @@ function TrendCard({
   amountField?: string;
   groupBy?: DashboardGroupBy;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
   const points = toTrendPoints(rows, amountField, groupBy);
   const primaryCurrency = rows.find((row) => row.currency)?.currency;
   const totalCount = points.reduce((sum, point) => sum + point.value, 0);
@@ -369,7 +392,7 @@ function TrendCard({
         {points.length ? (
           <span className="text-xs text-slate-500">
             <span className="font-semibold text-slate-700">
-              {formatNumber(totalCount, 0)}
+              {formatCount(totalCount, numberFormatSettings)}
             </span>{' '}
             in {formatPeriodCount(points.length, groupBy)}
           </span>
@@ -536,6 +559,8 @@ function DashboardFilterMenu({
   onDatePresetChange: (preset: DashboardDatePreset) => void;
   onCustomRangeChange: (patch: Partial<DashboardDateRange>) => void;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -646,7 +671,7 @@ function DashboardFilterMenu({
                   Assigned branches
                 </span>
                 <span className="text-sm font-semibold text-slate-800">
-                  {formatNumber(assignedBranchCount, 0)}
+                  {formatCount(assignedBranchCount, numberFormatSettings)}
                 </span>
               </div>
             ) : null}
@@ -658,6 +683,7 @@ function DashboardFilterMenu({
 }
 
 function ProgressRing({ value }: { value: number }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
   const clamped = Math.max(0, Math.min(value, 100));
   const radius = 18;
   const circumference = 2 * Math.PI * radius;
@@ -686,7 +712,10 @@ function ProgressRing({ value }: { value: number }) {
         />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-white">
-        {clamped.toFixed(0)}%
+        {formatPercentage(clamped, {
+          ...numberFormatSettings,
+          percentage_decimal_places: 0,
+        })}
       </span>
     </div>
   );
@@ -703,6 +732,8 @@ function OperationalTargetCard({
   eligibleQuotations: number;
   activePolicies: number;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   return (
     <Card className="relative overflow-hidden border-none bg-gradient-to-br from-vz-primary via-violet-500 to-vz-secondary p-5 text-white shadow-sm">
       <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_center,rgba(255,255,255,.22),transparent_58%)]" />
@@ -710,12 +741,15 @@ function OperationalTargetCard({
         <div className="min-w-0">
           <p className="text-sm font-semibold">Your production target</p>
           <p className="mt-2 max-w-md text-xs leading-5 text-white/80">
-            Quotation conversion is at {formatPercentage(conversionRate)}, with{' '}
-            {formatNumber(completedQuotations, 0)} completed quotations and{' '}
-            {formatNumber(activePolicies, 0)} active policies in this period.
+            Quotation conversion is at{' '}
+            {formatPercentage(conversionRate, numberFormatSettings)}, with{' '}
+            {formatCount(completedQuotations, numberFormatSettings)} completed
+            quotations and {formatCount(activePolicies, numberFormatSettings)}{' '}
+            active policies in this period.
           </p>
           <p className="mt-3 text-xs font-semibold underline underline-offset-4">
-            Eligible pipeline: {formatNumber(eligibleQuotations, 0)}
+            Eligible pipeline:{' '}
+            {formatCount(eligibleQuotations, numberFormatSettings)}
           </p>
         </div>
         <ProgressRing value={conversionRate} />
@@ -790,6 +824,7 @@ function OverviewContent({
   isLoading: boolean;
   error: unknown;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
   const quotationKpis = data?.kpis.quotations;
   const policyKpis = data?.kpis.policies;
   const customerKpis = data?.kpis.customers;
@@ -809,7 +844,7 @@ function OverviewContent({
     data?.work_queues.slice(0, 6).map((queue, index) => ({
       key: queue.key,
       label: queue.label,
-      meta: `${formatNumber(queue.count, 0)} item${queue.count === 1 ? '' : 's'} waiting`,
+      meta: `${formatCount(queue.count, numberFormatSettings)} item${queue.count === 1 ? '' : 's'} waiting`,
       tone: CHART_COLORS[index % CHART_COLORS.length],
     })) ?? [];
 
@@ -833,15 +868,27 @@ function OverviewContent({
             icon={Users}
             tone="info"
             title="Total customers"
-            value={customerKpis?.total_customers ?? 0}
+            value={formatCount(
+              customerKpis?.total_customers,
+              numberFormatSettings,
+            )}
             loading={isLoading}
-            description={`${customerKpis?.active_customers ?? 0} active | ${customerKpis?.pending_kyc ?? 0} KYC pending`}
+            description={`${formatCount(
+              customerKpis?.active_customers,
+              numberFormatSettings,
+            )} active | ${formatCount(
+              customerKpis?.pending_kyc,
+              numberFormatSettings,
+            )} KYC pending`}
           />
           <DashboardCard
             icon={Wallet}
             tone="success"
             title="Policy premium"
-            value={formatPrimaryMoney(policyKpis?.total_premium)}
+            value={formatPrimaryMoney(
+              policyKpis?.total_premium,
+              numberFormatSettings,
+            )}
             loading={isLoading}
             description="Issued policy premium"
           />
@@ -849,33 +896,64 @@ function OverviewContent({
             icon={BarChart3}
             tone="warning"
             title="Quotations"
-            value={quotationKpis?.total_quotations ?? 0}
+            value={formatCount(
+              quotationKpis?.total_quotations,
+              numberFormatSettings,
+            )}
             loading={isLoading}
-            description={`${quotationKpis?.completed_quotations ?? 0} completed | ${formatMetricValue(conversionRate, '%')} conversion`}
+            description={`${formatCount(
+              quotationKpis?.completed_quotations,
+              numberFormatSettings,
+            )} completed | ${formatMetricValue(
+              conversionRate,
+              '%',
+              numberFormatSettings,
+            )} conversion`}
           />
           <DashboardCard
             icon={ShieldCheck}
             tone="primary"
             title="Active policies"
-            value={policyKpis?.active_policies ?? 0}
+            value={formatCount(
+              policyKpis?.active_policies,
+              numberFormatSettings,
+            )}
             loading={isLoading}
-            description={`${policyKpis?.expiring_within_30_days ?? 0} expiring in 30 days`}
+            description={`${formatCount(
+              policyKpis?.expiring_within_30_days,
+              numberFormatSettings,
+            )} expiring in 30 days`}
           />
           <DashboardCard
             icon={Wallet}
             tone="success"
             title="Collected"
-            value={formatPrimaryMoney(financeKpis?.collected_amount)}
+            value={formatPrimaryMoney(
+              financeKpis?.collected_amount,
+              numberFormatSettings,
+            )}
             loading={isLoading}
-            description={`${financeKpis?.open_invoices ?? 0} open invoices | ${financeKpis?.overdue_invoices ?? 0} overdue`}
+            description={`${formatCount(
+              financeKpis?.open_invoices,
+              numberFormatSettings,
+            )} open invoices | ${formatCount(
+              financeKpis?.overdue_invoices,
+              numberFormatSettings,
+            )} overdue`}
           />
           <DashboardCard
             icon={AlertCircle}
             tone="danger"
             title="Operational queue"
-            value={openQueueItems}
+            value={formatCount(openQueueItems, numberFormatSettings)}
             loading={isLoading}
-            description={`${tiramisKpis?.failed_submissions ?? 0} failed TIRAMIS | ${tiramisKpis?.retryable_submissions ?? 0} retryable`}
+            description={`${formatCount(
+              tiramisKpis?.failed_submissions,
+              numberFormatSettings,
+            )} failed TIRAMIS | ${formatCount(
+              tiramisKpis?.retryable_submissions,
+              numberFormatSettings,
+            )} retryable`}
           />
         </div>
 
@@ -943,15 +1021,24 @@ function OverviewContent({
           items={[
             {
               label: 'Pending transactions',
-              value: commissionKpis?.pending_transactions ?? 0,
+              value: formatCount(
+                commissionKpis?.pending_transactions,
+                numberFormatSettings,
+              ),
             },
             {
               label: 'Paid transactions',
-              value: commissionKpis?.paid_transactions ?? 0,
+              value: formatCount(
+                commissionKpis?.paid_transactions,
+                numberFormatSettings,
+              ),
             },
             {
               label: 'Accrued amount',
-              value: formatMoneyRows(commissionKpis?.accrued_amount),
+              value: formatMoneyRows(
+                commissionKpis?.accrued_amount,
+                numberFormatSettings,
+              ),
             },
           ]}
         />
@@ -969,6 +1056,8 @@ function SalesContent({
   isLoading: boolean;
   error: unknown;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   if (error) {
     return <SectionError message={getErrorMessage(error)} />;
   }
@@ -980,33 +1069,55 @@ function SalesContent({
           icon={BarChart3}
           tone="warning"
           title="Total quotations"
-          value={data?.kpis.total_quotations ?? 0}
+          value={formatCount(data?.kpis.total_quotations, numberFormatSettings)}
           loading={isLoading}
-          description={`Completed ${data?.kpis.completed_quotations ?? 0}`}
+          description={`Completed ${formatCount(
+            data?.kpis.completed_quotations,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={AlertCircle}
           tone="danger"
           title="Pending approval"
-          value={data?.kpis.pending_approval ?? 0}
+          value={formatCount(data?.kpis.pending_approval, numberFormatSettings)}
           loading={isLoading}
-          description={`Awaiting payment ${data?.kpis.awaiting_payment ?? 0}`}
+          description={`Awaiting payment ${formatCount(
+            data?.kpis.awaiting_payment,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={ShieldCheck}
           tone="primary"
           title="Ready for TIRAMIS"
-          value={data?.kpis.ready_for_tiramis ?? 0}
+          value={formatCount(
+            data?.kpis.ready_for_tiramis,
+            numberFormatSettings,
+          )}
           loading={isLoading}
-          description={`Failed TIRAMIS ${data?.kpis.failed_tiramis ?? 0}`}
+          description={`Failed TIRAMIS ${formatCount(
+            data?.kpis.failed_tiramis,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={Wallet}
           tone="success"
           title="Conversion rate"
-          value={formatMetricValue(data?.kpis.conversion_rate ?? 0, '%')}
+          value={formatMetricValue(
+            data?.kpis.conversion_rate ?? 0,
+            '%',
+            numberFormatSettings,
+          )}
           loading={isLoading}
-          description={`Converted ${data?.kpis.converted_quotations ?? 0} of ${data?.kpis.eligible_for_conversion ?? 0}`}
+          description={`Converted ${formatCount(
+            data?.kpis.converted_quotations,
+            numberFormatSettings,
+          )} of ${formatCount(
+            data?.kpis.eligible_for_conversion,
+            numberFormatSettings,
+          )}`}
         />
       </div>
 
@@ -1016,7 +1127,11 @@ function SalesContent({
           items={
             data?.kpis.quoted_premium.map((row) => ({
               label: row.currency,
-              value: row.amount,
+              value: formatMoney(
+                row.amount,
+                row.currency,
+                numberFormatSettings,
+              ),
             })) ?? []
           }
         />
@@ -1052,6 +1167,8 @@ function PoliciesContent({
   isLoading: boolean;
   error: unknown;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   if (error) {
     return <SectionError message={getErrorMessage(error)} />;
   }
@@ -1063,23 +1180,35 @@ function PoliciesContent({
           icon={ShieldCheck}
           tone="primary"
           title="Total policies"
-          value={data?.kpis.total_policies ?? 0}
+          value={formatCount(data?.kpis.total_policies, numberFormatSettings)}
           loading={isLoading}
-          description={`Active ${data?.kpis.active_policies ?? 0}`}
+          description={`Active ${formatCount(
+            data?.kpis.active_policies,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={AlertCircle}
           tone="danger"
           title="Expiring in 30 days"
-          value={data?.kpis.expiring_within_30_days ?? 0}
+          value={formatCount(
+            data?.kpis.expiring_within_30_days,
+            numberFormatSettings,
+          )}
           loading={isLoading}
-          description={`Expired ${data?.kpis.expired_policies ?? 0}`}
+          description={`Expired ${formatCount(
+            data?.kpis.expired_policies,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={BarChart3}
           tone="warning"
           title="Pending TIRAMIS sync"
-          value={data?.kpis.pending_tiramis_sync ?? 0}
+          value={formatCount(
+            data?.kpis.pending_tiramis_sync,
+            numberFormatSettings,
+          )}
           loading={isLoading}
           description="Policies still awaiting regulatory sync"
         />
@@ -1087,7 +1216,10 @@ function PoliciesContent({
           icon={Wallet}
           tone="success"
           title="Premium"
-          value={formatMoneyRows(data?.kpis.total_premium)}
+          value={formatMoneyRows(
+            data?.kpis.total_premium,
+            numberFormatSettings,
+          )}
           loading={isLoading}
           description="Policy premium by currency"
         />
@@ -1125,6 +1257,8 @@ function FinanceContent({
   isLoading: boolean;
   error: unknown;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   if (error) {
     return <SectionError message={getErrorMessage(error)} />;
   }
@@ -1136,23 +1270,32 @@ function FinanceContent({
           icon={Wallet}
           tone="success"
           title="Total invoices"
-          value={data?.kpis.total_invoices ?? 0}
+          value={formatCount(data?.kpis.total_invoices, numberFormatSettings)}
           loading={isLoading}
-          description={`Open ${data?.kpis.open_invoices ?? 0}`}
+          description={`Open ${formatCount(
+            data?.kpis.open_invoices,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={AlertCircle}
           tone="danger"
           title="Overdue invoices"
-          value={data?.kpis.overdue_invoices ?? 0}
+          value={formatCount(data?.kpis.overdue_invoices, numberFormatSettings)}
           loading={isLoading}
-          description={`Receipts ${data?.kpis.total_receipts ?? 0}`}
+          description={`Receipts ${formatCount(
+            data?.kpis.total_receipts,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={Wallet}
           tone="success"
           title="Invoiced amount"
-          value={formatMoneyRows(data?.kpis.invoiced_amount)}
+          value={formatMoneyRows(
+            data?.kpis.invoiced_amount,
+            numberFormatSettings,
+          )}
           loading={isLoading}
           description="Total invoiced during the selected period"
         />
@@ -1160,7 +1303,10 @@ function FinanceContent({
           icon={Wallet}
           tone="success"
           title="Outstanding amount"
-          value={formatMoneyRows(data?.kpis.outstanding_amount)}
+          value={formatMoneyRows(
+            data?.kpis.outstanding_amount,
+            numberFormatSettings,
+          )}
           loading={isLoading}
           description="Uncollected balances by currency"
         />
@@ -1172,7 +1318,11 @@ function FinanceContent({
           items={
             data?.kpis.collected_amount.map((row) => ({
               label: row.currency,
-              value: row.amount,
+              value: formatMoney(
+                row.amount,
+                row.currency,
+                numberFormatSettings,
+              ),
             })) ?? []
           }
         />
@@ -1218,6 +1368,8 @@ function CommissionsContent({
   isLoading: boolean;
   error: unknown;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   if (error) {
     return <SectionError message={getErrorMessage(error)} />;
   }
@@ -1229,15 +1381,24 @@ function CommissionsContent({
           icon={Wallet}
           tone="success"
           title="Commission transactions"
-          value={data?.kpis.total_transactions ?? 0}
+          value={formatCount(
+            data?.kpis.total_transactions,
+            numberFormatSettings,
+          )}
           loading={isLoading}
-          description={`Pending ${data?.kpis.pending_transactions ?? 0}`}
+          description={`Pending ${formatCount(
+            data?.kpis.pending_transactions,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={ShieldCheck}
           tone="primary"
           title="Paid transactions"
-          value={data?.kpis.paid_transactions ?? 0}
+          value={formatCount(
+            data?.kpis.paid_transactions,
+            numberFormatSettings,
+          )}
           loading={isLoading}
           description="Settled commission transactions"
         />
@@ -1245,7 +1406,10 @@ function CommissionsContent({
           icon={Wallet}
           tone="success"
           title="Accrued amount"
-          value={formatMoneyRows(data?.kpis.accrued_amount)}
+          value={formatMoneyRows(
+            data?.kpis.accrued_amount,
+            numberFormatSettings,
+          )}
           loading={isLoading}
           description="Accrued commissions by currency"
         />
@@ -1253,7 +1417,7 @@ function CommissionsContent({
           icon={Wallet}
           tone="success"
           title="Paid amount"
-          value={formatMoneyRows(data?.kpis.paid_amount)}
+          value={formatMoneyRows(data?.kpis.paid_amount, numberFormatSettings)}
           loading={isLoading}
           description="Paid commissions by currency"
         />
@@ -1264,7 +1428,11 @@ function CommissionsContent({
         items={
           data?.charts.status_breakdown.map((row) => ({
             label: `${row.status} (${row.currency})`,
-            value: `${row.count} | ${row.amount}`,
+            value: `${formatCount(row.count, numberFormatSettings)} | ${formatMoney(
+              row.amount,
+              row.currency,
+              numberFormatSettings,
+            )}`,
           })) ?? []
         }
       />
@@ -1281,6 +1449,8 @@ function TiramisContent({
   isLoading: boolean;
   error: unknown;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   if (error) {
     return <SectionError message={getErrorMessage(error)} />;
   }
@@ -1292,15 +1462,24 @@ function TiramisContent({
           icon={ShieldCheck}
           tone="primary"
           title="Total submissions"
-          value={data?.kpis.total_submissions ?? 0}
+          value={formatCount(
+            data?.kpis.total_submissions,
+            numberFormatSettings,
+          )}
           loading={isLoading}
-          description={`Successful ${data?.kpis.successful_submissions ?? 0}`}
+          description={`Successful ${formatCount(
+            data?.kpis.successful_submissions,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={Monitor}
           tone="info"
           title="Pending submissions"
-          value={data?.kpis.pending_submissions ?? 0}
+          value={formatCount(
+            data?.kpis.pending_submissions,
+            numberFormatSettings,
+          )}
           loading={isLoading}
           description="Still awaiting a final outcome"
         />
@@ -1308,9 +1487,15 @@ function TiramisContent({
           icon={AlertCircle}
           tone="danger"
           title="Failed submissions"
-          value={data?.kpis.failed_submissions ?? 0}
+          value={formatCount(
+            data?.kpis.failed_submissions,
+            numberFormatSettings,
+          )}
           loading={isLoading}
-          description={`Retryable ${data?.kpis.retryable_submissions ?? 0}`}
+          description={`Retryable ${formatCount(
+            data?.kpis.retryable_submissions,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={BarChart3}
@@ -1323,6 +1508,7 @@ function TiramisContent({
                   100
               : 0,
             '%',
+            numberFormatSettings,
           )}
           loading={isLoading}
           description="Successful submissions over total"
@@ -1331,7 +1517,10 @@ function TiramisContent({
           icon={Key}
           tone="secondary"
           title="Retryable queue"
-          value={data?.kpis.retryable_submissions ?? 0}
+          value={formatCount(
+            data?.kpis.retryable_submissions,
+            numberFormatSettings,
+          )}
           loading={isLoading}
           description="Submissions that can be retried"
         />
@@ -1370,6 +1559,8 @@ function TasksContent({
   isLoading: boolean;
   error: unknown;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   if (error) {
     return <SectionError message={getErrorMessage(error)} />;
   }
@@ -1381,7 +1572,7 @@ function TasksContent({
           icon={AlertCircle}
           tone="danger"
           title="Open items"
-          value={data?.totals.open_items ?? 0}
+          value={formatCount(data?.totals.open_items, numberFormatSettings)}
           loading={isLoading}
           description="All outstanding dashboard work queues"
         />
@@ -1391,7 +1582,7 @@ function TasksContent({
             icon={Monitor}
             tone="info"
             title={queue.label}
-            value={queue.count}
+            value={formatCount(queue.count, numberFormatSettings)}
             loading={isLoading}
             description="Current queue volume"
           />
@@ -1431,6 +1622,8 @@ function ReinsuranceContent({
   isLoading: boolean;
   error: unknown;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
+
   if (error) {
     return <SectionError message={getErrorMessage(error)} />;
   }
@@ -1442,33 +1635,65 @@ function ReinsuranceContent({
           icon={ShieldCheck}
           tone="primary"
           title="Treaties"
-          value={data?.kpis.treaties_total ?? 0}
+          value={formatCount(data?.kpis.treaties_total, numberFormatSettings)}
           loading={isLoading}
-          description={`Active ${data?.kpis.treaties_active ?? 0}`}
+          description={`Active ${formatCount(
+            data?.kpis.treaties_active,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={BarChart3}
           tone="warning"
           title="Cessions"
-          value={data?.kpis.cessions_total ?? 0}
+          value={formatCount(data?.kpis.cessions_total, numberFormatSettings)}
           loading={isLoading}
-          description={`Active ${data?.kpis.cessions_active ?? 0} | Declared ${data?.kpis.cessions_declared ?? 0}`}
+          description={`Active ${formatCount(
+            data?.kpis.cessions_active,
+            numberFormatSettings,
+          )} | Declared ${formatCount(
+            data?.kpis.cessions_declared,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={Wallet}
           tone="success"
           title="Recoveries outstanding"
-          value={data?.kpis.recoveries_outstanding_amount ?? '0.00'}
+          value={formatMoney(
+            data?.kpis.recoveries_outstanding_amount ?? '0.00',
+            undefined,
+            numberFormatSettings,
+          )}
           loading={isLoading}
-          description={`Expected ${data?.kpis.recoveries_expected_amount ?? '0.00'} | Received ${data?.kpis.recoveries_received_amount ?? '0.00'}`}
+          description={`Expected ${formatMoney(
+            data?.kpis.recoveries_expected_amount ?? '0.00',
+            undefined,
+            numberFormatSettings,
+          )} | Received ${formatMoney(
+            data?.kpis.recoveries_received_amount ?? '0.00',
+            undefined,
+            numberFormatSettings,
+          )}`}
         />
         <DashboardCard
           icon={Wallet}
           tone="success"
           title="Settlement balance"
-          value={data?.kpis.settlements_balance_amount ?? '0.00'}
+          value={formatMoney(
+            data?.kpis.settlements_balance_amount ?? '0.00',
+            undefined,
+            numberFormatSettings,
+          )}
           loading={isLoading}
-          description={`In flight ${data?.kpis.settlements_in_flight ?? 0} | Paid ${data?.kpis.settlements_paid_amount ?? '0.00'}`}
+          description={`In flight ${formatCount(
+            data?.kpis.settlements_in_flight,
+            numberFormatSettings,
+          )} | Paid ${formatMoney(
+            data?.kpis.settlements_paid_amount ?? '0.00',
+            undefined,
+            numberFormatSettings,
+          )}`}
         />
       </div>
 
@@ -1584,6 +1809,7 @@ function SectionContent({
 }
 
 function PlatformDashboardPage() {
+  const numberFormatSettings = useActiveNumberFormatSettings();
   const greetingName = useGreetingName();
   const { data: companies, isLoading: companiesLoading } = useQuery({
     queryKey: ['companies'],
@@ -1615,14 +1841,14 @@ function PlatformDashboardPage() {
       title: 'Companies',
       description: 'Manage onboarded companies and inspect tenant setup.',
       to: '/companies',
-      badge: `${companies?.length ?? 0} companies`,
+      badge: `${formatCount(companies?.length, numberFormatSettings)} companies`,
     },
     {
       key: 'api-clients',
       title: 'API clients',
       description: 'Audit active integration credentials and their usage.',
       to: '/api-clients',
-      badge: `${activeClients} active`,
+      badge: `${formatCount(activeClients, numberFormatSettings)} active`,
     },
     {
       key: 'reference-data',
@@ -1657,7 +1883,7 @@ function PlatformDashboardPage() {
           icon={Users}
           tone="info"
           title="Total Companies"
-          value={companies?.length ?? 0}
+          value={formatCount(companies?.length, numberFormatSettings)}
           loading={companiesLoading}
           description="Companies onboarded to the platform"
         />
@@ -1665,7 +1891,7 @@ function PlatformDashboardPage() {
           icon={Monitor}
           tone="info"
           title="Active Sessions"
-          value={activeSessions}
+          value={formatCount(activeSessions, numberFormatSettings)}
           loading={sessionsLoading}
           description="Sessions that are currently active"
         />
@@ -1673,7 +1899,7 @@ function PlatformDashboardPage() {
           icon={Smartphone}
           tone="warning"
           title="Trusted Devices"
-          value={trustedDevices}
+          value={formatCount(trustedDevices, numberFormatSettings)}
           loading={devicesLoading}
           description="Trusted devices available to users"
         />
@@ -1681,7 +1907,7 @@ function PlatformDashboardPage() {
           icon={Key}
           tone="secondary"
           title="Active API Clients"
-          value={activeClients}
+          value={formatCount(activeClients, numberFormatSettings)}
           loading={apiClientsLoading}
           description="Active credentials for integrations"
         />
@@ -1693,6 +1919,7 @@ function PlatformDashboardPage() {
 }
 
 export function DashboardPage() {
+  const numberFormatSettings = useActiveNumberFormatSettings();
   const navigate = useNavigate();
   const { tab: routeTabParam } = useParams<{ tab?: string }>();
   const { user } = useAuthStore();
@@ -1991,7 +2218,11 @@ export function DashboardPage() {
                 title={widget.name ?? widget.code}
                 value={
                   widget.status === 'AVAILABLE'
-                    ? formatWidgetValue(widget.data?.value, widget.data?.unit)
+                    ? formatWidgetValue(
+                        widget.data?.value,
+                        widget.data?.unit,
+                        numberFormatSettings,
+                      )
                     : widget.status === 'NO_DATA'
                       ? 'No data'
                       : 'Unavailable'

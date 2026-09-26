@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { formatNumber } from '@/modules/shared/formatting/number-format';
+import { useActiveNumberFormatSettings } from '@/modules/shared/formatting/number-format-context';
 import { CHART_COLORS } from './chart-colors';
 
 const compactNumber = new Intl.NumberFormat(undefined, {
@@ -44,6 +45,7 @@ export function TrendBarChart({
   height?: number;
   className?: string;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
   const gradientId = useId();
   const [hover, setHover] = useState<number | null>(null);
 
@@ -197,14 +199,14 @@ export function TrendBarChart({
           <p className="text-slate-500">
             {valueLabel}:{' '}
             <span className="font-semibold text-slate-700">
-              {formatNumber(hovered.value, 0)}
+              {formatNumber(hovered.value, 0, numberFormatSettings)}
             </span>
           </p>
           {hasSecondary && (
             <p className="text-slate-500">
               {secondaryLabel}:{' '}
               <span className="font-semibold text-slate-700">
-                {formatNumber(hovered.secondary ?? 0, 0)}
+                {formatNumber(hovered.secondary ?? 0, 0, numberFormatSettings)}
               </span>
             </p>
           )}
@@ -231,6 +233,7 @@ export function DonutChart({
   thickness?: number;
   totalLabel?: string;
 }) {
+  const numberFormatSettings = useActiveNumberFormatSettings();
   const total = data.reduce((sum, d) => sum + d.value, 0);
   const radius = (size - thickness) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -272,7 +275,7 @@ export function DonutChart({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl font-semibold text-slate-800">
-          {formatNumber(total, 0)}
+          {formatNumber(total, 0, numberFormatSettings)}
         </span>
         <span className="text-[11px] uppercase tracking-wide text-slate-500">
           {totalLabel}
