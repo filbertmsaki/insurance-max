@@ -493,8 +493,23 @@ export class QuotationsRepository {
             .where('quotation.quotation_no ILIKE :search', {
               search: searchValue,
             })
+            .orWhere('CAST(quotation.status AS text) ILIKE :search')
+            .orWhere('CAST(quotation.approval_status AS text) ILIKE :search')
+            .orWhere('CAST(quotation.payment_status AS text) ILIKE :search')
+            .orWhere('CAST(quotation.tira_status AS text) ILIKE :search')
+            .orWhere('CAST(quotation.quotation_type AS text) ILIKE :search')
+            .orWhere('CAST(quotation.quotation_flow AS text) ILIKE :search')
+            .orWhere('CAST(quotation.channel_type AS text) ILIKE :search')
+            .orWhere('quotation.payment_request_reference ILIKE :search')
+            .orWhere('quotation.tira_request_id ILIKE :search')
+            .orWhere('quotation.tira_response_id ILIKE :search')
+            .orWhere('quotation.tira_response_code ILIKE :search')
+            .orWhere('quotation.tira_response_description ILIKE :search')
+            .orWhere('product.product_name ILIKE :search')
             .orWhere('coverNote.fleet_id ILIKE :search')
             .orWhere('coverNote.product_code ILIKE :search')
+            .orWhere('coverNote.currency_code ILIKE :search')
+            .orWhere('coverNote.sale_point_code ILIKE :search')
             .orWhere('coverNote.officer_name ILIKE :search').orWhere(`
               EXISTS (
                 SELECT 1
@@ -504,6 +519,9 @@ export class QuotationsRepository {
                   AND (
                     entry_search.cover_note_number ILIKE :search
                     OR entry_search.prev_cover_note_reference_number ILIKE :search
+                    OR entry_search.cover_note_desc ILIKE :search
+                    OR entry_search.operative_clause ILIKE :search
+                    OR entry_search.endorsement_reason ILIKE :search
                   )
               )
             `).orWhere(`
@@ -517,6 +535,10 @@ export class QuotationsRepository {
                     OR holder_search.policy_holder_id_number ILIKE :search
                     OR holder_search.policy_holder_phone_number ILIKE :search
                     OR holder_search.email_address ILIKE :search
+                    OR holder_search.region ILIKE :search
+                    OR holder_search.district ILIKE :search
+                    OR holder_search.street ILIKE :search
+                    OR holder_search.postal_address ILIKE :search
                   )
               )
             `).orWhere(`
@@ -532,6 +554,11 @@ export class QuotationsRepository {
                     OR motor_search.chassis_number ILIKE :search
                     OR motor_search.engine_number ILIKE :search
                     OR motor_search.owner_name ILIKE :search
+                    OR motor_search.make ILIKE :search
+                    OR motor_search.model ILIKE :search
+                    OR motor_search.model_number ILIKE :search
+                    OR motor_search.body_type ILIKE :search
+                    OR motor_search.color ILIKE :search
                   )
               )
             `).orWhere(`
