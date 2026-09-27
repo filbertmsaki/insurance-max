@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsNumber,
+  IsOptional,
   IsString,
   Length,
   Matches,
@@ -42,6 +43,11 @@ export class CreateTaxDto {
   @ApiProperty({ example: true })
   @IsBoolean()
   is_active: boolean;
+
+  @ApiProperty({ example: false, required: false })
+  @IsOptional()
+  @IsBoolean()
+  is_default?: boolean;
 }
 
 export class UpdateTaxDto extends PartialType(CreateTaxDto, {

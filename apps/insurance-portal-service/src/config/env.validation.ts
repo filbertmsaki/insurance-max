@@ -99,8 +99,8 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   SECURITY_REQUIRE_2FA_USER_TYPES: Joi.string()
     .trim()
     .default('SUPER_ADMIN,COMPANY_ADMIN'),
-  SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(30),
-  SESSION_ABSOLUTE_HOURS: Joi.number().integer().min(1).default(12),
+  SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(1440),
+  SESSION_ABSOLUTE_HOURS: Joi.number().integer().min(1).default(24),
   SESSION_MAX_CONCURRENT: Joi.number().integer().min(1).default(5),
   SESSION_REFRESH_ROTATION_ENABLED: Joi.boolean().default(true),
   SESSION_REFRESH_REUSE_DETECTION: Joi.boolean().default(true),
@@ -189,7 +189,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .trim()
     .default('application/pdf,image/jpeg,image/png'),
   NOTIFICATION_QUEUE_ENABLED: Joi.boolean().default(true),
-  PORTAL_SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(30),
+  PORTAL_SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(1440),
   PORTAL_UPLOAD_ROOT: Joi.string().trim().default('./uploads'),
   PORTAL_UPLOAD_MAX_BYTES: Joi.number()
     .integer()
@@ -302,7 +302,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
       .min(32)
       .default('local-only-change-me-reset-secret-32'),
   }),
-  JWT_ACCESS_EXPIRATION: Joi.string().default('15m'),
+  JWT_ACCESS_EXPIRATION: Joi.string().default('1d'),
   JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
   JWT_ISSUER: Joi.string().default('insurance-idp.tz'),
   JWT_AUDIENCE: Joi.string().default('insurance-platform'),

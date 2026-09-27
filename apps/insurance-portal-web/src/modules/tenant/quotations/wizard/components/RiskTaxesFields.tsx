@@ -58,7 +58,37 @@ export function RiskTaxesFields({
     name: `${riskPath}.premium_excluding_tax_equivalent` as const,
   });
   useEffect(() => {
+    const defaultTax = query.data?.find((tax) => tax.is_default);
     const current = form.getValues(name) ?? [];
+    if (defaultTax && current.length === 0) {
+      form.setValue(
+        name,
+        [
+          {
+            ...createEmptyRiskTaxRow(),
+            tax_code: defaultTax.tax_code,
+            tax_rate: defaultTax.tax_rate,
+          },
+        ],
+        { shouldDirty: true, shouldValidate: true },
+      );
+      return;
+    }
+    if (
+      defaultTax &&
+      current.length === 1 &&
+      !current[0]?.tax_code?.trim() &&
+      !current[0]?.is_tax_exempted
+    ) {
+      form.setValue(`${name}.0.tax_code`, defaultTax.tax_code, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue(`${name}.0.tax_rate`, defaultTax.tax_rate, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
     const updated = current.map((row, index) => {
       const tax = query.data?.find((item) => item.tax_code === row.tax_code);
       const rate = tax?.tax_rate ?? row.tax_rate ?? '';

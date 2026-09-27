@@ -13,14 +13,23 @@ describe('Taxes catalogue management', () => {
     tax_name: 'VAT',
     tax_rate: '0.1800000000',
     is_active: true,
+    is_default: false,
   };
   function fixture() {
-    const repository = {
+    const repository: Record<string, jest.Mock> & { manager?: unknown } = {
       findOne: jest.fn().mockResolvedValue({ ...tax }),
       find: jest.fn().mockResolvedValue([tax]),
       create: jest.fn((value) => value),
+      update: jest.fn().mockResolvedValue(undefined),
       save: jest.fn((value) => Promise.resolve(value)),
       softDelete: jest.fn(),
+    };
+    repository.manager = {
+      transaction: jest.fn((callback) =>
+        callback({
+          getRepository: jest.fn(() => repository),
+        }),
+      ),
     };
     return {
       repository,

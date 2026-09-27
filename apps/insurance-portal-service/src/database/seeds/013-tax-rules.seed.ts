@@ -21,6 +21,7 @@ export default class TaxCatalogueSeeder implements Seeder {
           tax_name: 'VAT (Mainland)',
           tax_rate: '0.1800000000',
           is_active: true,
+          is_default: true,
         },
         {
           company_id: company.id,
@@ -28,9 +29,23 @@ export default class TaxCatalogueSeeder implements Seeder {
           tax_name: 'Withholding Tax',
           tax_rate: '0.1000000000',
           is_active: true,
+          is_default: false,
         },
       ])
       .orIgnore()
       .execute();
+
+    await dataSource.getRepository(Tax).update(
+      { company_id: company.id, is_default: true },
+      {
+        is_default: false,
+      },
+    );
+    await dataSource
+      .getRepository(Tax)
+      .update(
+        { company_id: company.id, tax_code: 'VAT-MAINLAND' },
+        { is_default: true },
+      );
   }
 }

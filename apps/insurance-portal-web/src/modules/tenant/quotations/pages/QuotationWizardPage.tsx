@@ -81,6 +81,10 @@ import type { FleetCsvRow } from '../wizard/utils/fleetCsvImport';
 import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
 import { FleetSetupStep } from '../wizard/steps/FleetSetupStep';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { hasPermission } from '@/lib/auth/permissions';
+
+const SELECT_INSURANCE_CHANNEL_PERMISSION =
+  'quotations:select-insurance-channel';
 
 const EDITABLE_STATUSES = new Set([
   'DRAFT',
@@ -223,6 +227,11 @@ export function QuotationWizardPage() {
   const usesPrefilledQuotation = isEditMode;
   const defaultSalePointCode = useAuthStore(
     (state) => state.user?.defaultSalePointCode ?? '',
+  );
+  const currentUser = useAuthStore((state) => state.user);
+  const canSelectInsuranceChannel = hasPermission(
+    currentUser,
+    SELECT_INSURANCE_CHANNEL_PERMISSION,
   );
   const companyId = useQuotationCurrentCompanyId();
   const {
@@ -479,6 +488,29 @@ export function QuotationWizardPage() {
       form.setValue('insurer_company_id', companyId);
     }
   }, [companyId, form]);
+
+  useEffect(() => {
+    if (canSelectInsuranceChannel) return;
+    if (
+      isEditMode &&
+      quotationContext?.internal_quotation.channel_type !== 'DIRECT'
+    ) {
+      return;
+    }
+
+    if (form.getValues('channel_type') !== 'DIRECT') {
+      form.setValue('channel_type', 'DIRECT', {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+    if (form.getValues('intermediary_company_id')) {
+      form.setValue('intermediary_company_id', '', {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [canSelectInsuranceChannel, form, isEditMode, quotationContext]);
 
   const draftScope = useAuthStore(
     (state) =>
@@ -1359,6 +1391,7 @@ export function QuotationWizardPage() {
         <QuotationStartModal
           open={isStartModalOpen}
           initialSelection={startModalInitialSelection}
+          canSelectInsuranceChannel={canSelectInsuranceChannel}
           onProceed={handleStartProceed}
           onClose={() => navigate(underwritingPaths.quotations)}
         />
@@ -1405,6 +1438,7 @@ export function QuotationWizardPage() {
                         isHydrating={isEditHydrating}
                         title="Product & cover"
                         enforceFreshCoverPeriod={!usesPrefilledQuotation}
+                        canSelectInsuranceChannel={canSelectInsuranceChannel}
                       />
                       {quotationFlow === 'MOTOR_FLEET' ? (
                         <>

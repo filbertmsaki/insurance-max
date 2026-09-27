@@ -20,6 +20,8 @@ export class Tax {
   @Column({ length: 150 }) tax_name: string;
   @Column({ type: 'numeric', precision: 18, scale: 10 }) tax_rate: string;
   @Column({ default: true }) is_active: boolean;
+  @Column({ default: false })
+  is_default: boolean;
   @CreateDateColumn({ type: 'timestamptz' }) created_at: Date;
   @UpdateDateColumn({ type: 'timestamptz' }) updated_at: Date;
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })

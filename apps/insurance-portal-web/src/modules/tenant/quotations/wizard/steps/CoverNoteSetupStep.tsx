@@ -32,6 +32,7 @@ interface Props {
   title?: string;
   enforceFreshCoverPeriod?: boolean;
   firstSection?: boolean;
+  canSelectInsuranceChannel?: boolean;
 }
 // eslint-disable-next-line react-refresh/only-export-components
 export const CHANNEL_TYPES = [
@@ -48,11 +49,12 @@ export function CoverNoteSetupStep({
   isHydrating = false,
   title = 'Cover',
   firstSection = true,
+  canSelectInsuranceChannel = true,
 }: Props) {
   const values = form.watch();
   const product = productOptions.find((item) => item.id === values.product_id);
   const intermediaries = useIntermediaryCompanyOptions(
-    values.channel_type,
+    canSelectInsuranceChannel ? values.channel_type : 'DIRECT',
     values.product_id,
   );
   const { generatedCoverNoteDesc, generatedOperativeClause } =
@@ -93,7 +95,7 @@ export function CoverNoteSetupStep({
   ) => <WizardInput form={form} name={name} label={label} {...extra} />;
   const days = inclusiveDayCount(values.valid_from, values.valid_until) ?? 365;
   const hasCoverOptions =
-    values.channel_type !== 'DIRECT' ||
+    (canSelectInsuranceChannel && values.channel_type !== 'DIRECT') ||
     values.currency !== 'TZS' ||
     values.cover_note_type !== '1';
   // Fleet wording is captured per vehicle, so the header wording is optional.
@@ -165,7 +167,8 @@ export function CoverNoteSetupStep({
         <div className="rounded-lg border p-3">
           <p className="text-sm font-medium">Cover options</p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {values.channel_type !== 'DIRECT' &&
+            {canSelectInsuranceChannel &&
+              values.channel_type !== 'DIRECT' &&
               field('intermediary_company_id', 'Intermediary company', {
                 required: true,
                 options: intermediaries.map((item) => ({
@@ -199,7 +202,7 @@ export function CoverNoteSetupStep({
                 })}
               </>
             )}
-            {values.channel_type !== 'DIRECT' && (
+            {canSelectInsuranceChannel && values.channel_type !== 'DIRECT' && (
               <>
                 {field('commission_paid', 'Commission amount', {
                   type: 'number',

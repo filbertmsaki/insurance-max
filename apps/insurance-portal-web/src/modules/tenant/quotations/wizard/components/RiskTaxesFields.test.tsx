@@ -31,6 +31,7 @@ const catalogue = [
     tax_name: 'VAT',
     tax_rate: '0.18',
     is_active: true,
+    is_default: true,
   },
   {
     id: 'wht',
@@ -38,6 +39,7 @@ const catalogue = [
     tax_name: 'Withholding',
     tax_rate: '0.10',
     is_active: true,
+    is_default: false,
   },
 ];
 vi.mock('@/modules/tenant/taxes/api', () => ({
@@ -156,13 +158,13 @@ describe('Multiple tax selection', () => {
     await waitFor(() => expect(read().taxes_charged[0].tax_code).toBe(''));
   });
 
-  it('never selects an active tax automatically', async () => {
+  it('selects the configured default tax automatically', async () => {
     const read = setup({ empty: true });
-    await waitFor(() => expect(read().premium_including_tax).toBe('100000'));
-    expect(read().taxes_charged).toEqual([]);
+    await waitFor(() => expect(read().premium_including_tax).toBe('118000'));
+    expect(read().taxes_charged[0].tax_code).toBe('VAT-MAINLAND');
     fireEvent.click(screen.getByRole('button', { name: 'Add tax' }));
-    await waitFor(() => expect(read().taxes_charged).toHaveLength(1));
-    expect(read().taxes_charged[0].tax_code).toBe('');
-    expect(read().premium_including_tax).toBe('100000');
+    await waitFor(() => expect(read().taxes_charged).toHaveLength(2));
+    expect(read().taxes_charged[1].tax_code).toBe('');
+    expect(read().premium_including_tax).toBe('118000');
   });
 });

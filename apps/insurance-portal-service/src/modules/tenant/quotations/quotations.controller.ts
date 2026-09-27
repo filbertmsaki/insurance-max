@@ -75,7 +75,7 @@ export class QuotationsController {
       dto.category_id,
       dto.product_id,
     ).then(() =>
-      this.quotationsService.createDraft(user.companyId!, dto, user.id),
+      this.quotationsService.createDraft(user.companyId!, dto, user),
     );
   }
 

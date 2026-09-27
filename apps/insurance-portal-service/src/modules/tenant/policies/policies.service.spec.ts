@@ -18,6 +18,7 @@ import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-s
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { QuotationLifecycleService } from '../quotations/services/quotation-lifecycle.service';
+import { InsuranceChannelPermissionService } from '../quotations/authorization/insurance-channel-permission';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
@@ -184,6 +185,12 @@ describe('PoliciesService - quotation lifecycle conversion', () => {
         {
           provide: QuotationLifecycleService,
           useValue: quotationLifecycleService,
+        },
+        {
+          provide: InsuranceChannelPermissionService,
+          useValue: {
+            authorizePolicyChannel: jest.fn().mockResolvedValue(undefined),
+          },
         },
         {
           provide: PolicyVersionDiffService,

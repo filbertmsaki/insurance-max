@@ -33,6 +33,7 @@ import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { QuotationLifecycleService } from '../quotations/services/quotation-lifecycle.service';
+import { InsuranceChannelPermissionService } from '../quotations/authorization/insurance-channel-permission';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { User } from '../users/entities/user.entity';
 import { CreatePolicyDto } from './dto/create-policy.dto';
@@ -109,6 +110,7 @@ export class PoliciesService {
     private readonly userRepository: Repository<User>,
     private readonly dataAccessScopeService: DataAccessScopeService,
     private readonly quotationLifecycleService: QuotationLifecycleService,
+    private readonly insuranceChannelPermissionService: InsuranceChannelPermissionService,
     private readonly policyVersionDiffService: PolicyVersionDiffService,
   ) {}
 
@@ -478,7 +480,20 @@ export class PoliciesService {
     companyId: string,
     dto: CreatePolicyDto,
     userId: string,
+    user?: AuthenticatedUser,
   ): Promise<Policy> {
+    if (
+      user &&
+      (dto.channel_type !== undefined ||
+        dto.intermediary_company_id !== undefined)
+    ) {
+      await this.insuranceChannelPermissionService.authorizePolicyChannel(
+        companyId,
+        dto,
+        user,
+        'policy.create',
+      );
+    }
     await this.validateScope(companyId, dto);
     const created = await this.dataSource
       .transaction(async (manager) => {
@@ -640,6 +655,7 @@ export class PoliciesService {
         branch_id: branchId,
       },
       user.id,
+      user,
     );
   }
 
@@ -887,9 +903,23 @@ export class PoliciesService {
     id: string,
     dto: UpdatePolicyDto,
     userId: string,
+    user?: AuthenticatedUser,
   ): Promise<Policy> {
     const policy = await this.ensurePolicyOwnership(companyId, id);
     this.assertGenericMutationAllowed(policy);
+    if (user) {
+      await this.insuranceChannelPermissionService.authorizePolicyChannel(
+        companyId,
+        {
+          channel_type: dto.channel_type ?? policy.channel_type,
+          intermediary_company_id:
+            dto.intermediary_company_id ?? policy.intermediary_company_id,
+        },
+        user,
+        'policy.update',
+        id,
+      );
+    }
 
     const merged = { ...policy, ...dto } as CreatePolicyDto;
     await this.validateScope(companyId, merged);
@@ -1022,7 +1052,7 @@ export class PoliciesService {
   ): Promise<Policy> {
     await this.findScopedPolicyEntity(user, id, true);
 
-    return this.update(user.companyId!, id, dto, user.id);
+    return this.update(user.companyId!, id, dto, user.id, user);
   }
 
   async remove(companyId: string, id: string): Promise<void> {

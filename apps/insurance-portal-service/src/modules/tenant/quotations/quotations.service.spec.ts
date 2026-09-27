@@ -30,6 +30,7 @@ import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-bus
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
+import { TaxesService } from '../taxes/taxes.service';
 
 describe('QuotationsService', () => {
   const productDefinitionHashService = new ProductDefinitionHashService();
@@ -555,7 +556,16 @@ describe('QuotationsService', () => {
     } as unknown as IdentifierGeneratorService;
     const auditService = {
       log: jest.fn().mockResolvedValue(undefined),
+      logCritical: jest.fn().mockResolvedValue(undefined),
     } as unknown as AuditService;
+    const insuranceChannelPermissionService = {
+      authorizeQuotationPayload: jest
+        .fn()
+        .mockImplementation(async (_companyId, payload) => payload),
+      authorizeDraftPayload: jest
+        .fn()
+        .mockImplementation(async (_companyId, dto) => dto),
+    } as any;
     const pricingChargeService = {
       calculateCharges: jest.fn().mockResolvedValue({
         charges: [
@@ -584,6 +594,26 @@ describe('QuotationsService', () => {
         premium_including_charges: 118000,
       }),
     } as unknown as PricingChargeService;
+    const taxesService = {
+      list: jest.fn().mockResolvedValue([
+        {
+          id: 'tax-vat',
+          tax_code: 'VAT-MAINLAND',
+          tax_name: 'VAT Mainland',
+          tax_rate: '0.18',
+          is_active: true,
+          is_default: true,
+        },
+        {
+          id: 'tax-withholding',
+          tax_code: 'WITHHOLDING',
+          tax_name: 'Withholding Tax',
+          tax_rate: '0.10',
+          is_active: true,
+          is_default: false,
+        },
+      ]),
+    } as unknown as TaxesService;
     const exchangeRateGovernanceService = {
       resolveSnapshot: jest.fn().mockResolvedValue({
         quotation_currency_code: 'TZS',
@@ -671,11 +701,13 @@ describe('QuotationsService', () => {
       tiramisTrackingRepository,
       identifierGeneratorService,
       quotationLifecycleService,
+      insuranceChannelPermissionService,
       auditService,
       pricingChargeService,
       exchangeRateGovernanceService as any,
       pricingQuoteService as any,
       productDefinitionService,
+      taxesService,
       productDefinitionHashService,
       quotationInvoiceService,
       branchUserRepository,
@@ -692,6 +724,7 @@ describe('QuotationsService', () => {
       previewMapper,
       pricingChargeService,
       pricingQuoteService,
+      taxesService,
       quotationLifecycleService,
       quotationEntryRiskRepositoryMock,
       quotationRepositoryMock,
@@ -1118,7 +1151,7 @@ describe('QuotationsService', () => {
       },
     );
 
-    it('does not re-add taxes when saving an empty selection', async () => {
+    it('applies the configured default tax when saving an empty selection', async () => {
       const fixture = createServiceFixture();
       const payload = stubNonPricingConcerns(fixture);
       payload.cover_note_dtl.risks_covered[0].taxes_charged = [];
@@ -1127,14 +1160,20 @@ describe('QuotationsService', () => {
         fixture.pricingQuoteService.calculateSingleRiskQuote,
       ).toHaveBeenCalledWith(
         'company-1',
-        expect.objectContaining({ tax_codes: [] }),
+        expect.objectContaining({ tax_codes: ['VAT-MAINLAND'] }),
         pricingUser.id,
         pricingUser,
       );
-      expect(payload.cover_note_dtl.risks_covered[0].taxes_charged).toEqual([]);
+      expect(payload.cover_note_dtl.risks_covered[0].taxes_charged).toEqual([
+        expect.objectContaining({
+          tax_code: 'VAT-MAINLAND',
+          tax_rate: 0.18,
+          tax_amount: 18000,
+        }),
+      ]);
       expect(
         payload.cover_note_dtl.risks_covered[0].premium_including_tax,
-      ).toBe(95000);
+      ).toBe(113000);
     });
 
     it.each([
@@ -1150,6 +1189,9 @@ describe('QuotationsService', () => {
           .spyOn(fixture.service as any, 'resolveExistingQuotationContext')
           .mockReturnValue(payload);
         const selectedCodes = codes;
+        const expectedCodes = selectedCodes.length
+          ? selectedCodes
+          : ['VAT-MAINLAND'];
         const risk = payload.cover_note_dtl.risks_covered[0];
         risk.taxes_charged = selectedCodes.map((code) => ({
           tax_code: code,
@@ -1177,6 +1219,12 @@ describe('QuotationsService', () => {
             }),
         );
         const cataloguePricing = new PricingChargeService({
+          findOne: jest.fn().mockResolvedValue({
+            id: 'vat',
+            tax_code: 'VAT-MAINLAND',
+            tax_name: 'VAT',
+            tax_rate: '0.18',
+          }),
           find: jest.fn().mockResolvedValue([
             {
               id: 'vat',
@@ -1207,14 +1255,14 @@ describe('QuotationsService', () => {
           fixture.pricingQuoteService.calculateSingleRiskQuote,
         ).toHaveBeenCalledWith(
           'company-1',
-          expect.objectContaining({ tax_codes: selectedCodes }),
+          expect.objectContaining({ tax_codes: expectedCodes }),
           pricingUser.id,
           pricingUser,
         );
         expect(risk.taxes_charged.map((tax) => tax.tax_code)).toEqual(
-          selectedCodes,
+          expectedCodes,
         );
-        const expectedTax = selectedCodes.reduce(
+        const expectedTax = expectedCodes.reduce(
           (total, code) => total + (code === 'VAT-MAINLAND' ? 17100 : 9500),
           0,
         );

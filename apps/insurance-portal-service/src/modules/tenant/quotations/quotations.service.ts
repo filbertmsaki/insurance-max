@@ -75,6 +75,7 @@ import {
   RiskCoveredDto,
   SubjectMatterCoveredDto,
   SubmitQuotationDto,
+  TaxChargedDto,
   UpdateQuotationDto,
 } from './dto/quotation-payload.dto';
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
@@ -113,6 +114,7 @@ import {
   QuotationsRepository,
 } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
+import { InsuranceChannelPermissionService } from './authorization/insurance-channel-permission';
 import { normalizeMotorTextValue } from './utils/motor-text.util';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
@@ -143,6 +145,8 @@ import {
 } from '../pricing/entities/pricing-quote.entity';
 import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-book.entity';
 import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-book-status.enum';
+import { Tax } from '../taxes/entities/tax.entity';
+import { TaxesService } from '../taxes/taxes.service';
 import {
   EDITABLE_QUOTATION_STATUSES,
   TERMINAL_QUOTATION_STATUSES,
@@ -309,11 +313,13 @@ export class QuotationsService {
     private readonly tiramisSubmissionTrackingRepository: TiramisSubmissionTrackingRepository,
     private readonly identifierGeneratorService: IdentifierGeneratorService,
     private readonly quotationLifecycleService: QuotationLifecycleService,
+    private readonly insuranceChannelPermissionService: InsuranceChannelPermissionService,
     private readonly auditService: AuditService,
     private readonly pricingChargeService: PricingChargeService,
     private readonly exchangeRateGovernanceService: ExchangeRateGovernanceService,
     private readonly pricingQuoteService: PricingQuoteService,
     private readonly productDefinitionService: ProductDefinitionService,
+    private readonly taxesService: TaxesService,
     private readonly productDefinitionHashService: ProductDefinitionHashService,
     private readonly quotationInvoiceService: QuotationInvoiceService,
     @InjectRepository(BranchUser)
@@ -415,11 +421,19 @@ export class QuotationsService {
   async create(
     companyId: string,
     payload: CreateQuotationDto,
-    user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'> &
+      Partial<AuthenticatedUser>,
   ) {
+    const authorizedPayload =
+      await this.insuranceChannelPermissionService.authorizeQuotationPayload(
+        companyId,
+        payload,
+        user,
+        'quotation.create',
+      );
     const contextPayload = await this.resolveCreationContext(
       companyId,
-      payload,
+      authorizedPayload,
       user.id,
     );
     const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
@@ -427,6 +441,11 @@ export class QuotationsService {
       contextPayload,
     );
 
+    await this.applyDefaultTaxesToQuotationPayload(
+      companyId,
+      preparedPayload,
+      user,
+    );
     const scope = await this.validateScope(companyId, preparedPayload);
     await this.refreshPricingBeforeSave(
       companyId,
@@ -457,7 +476,7 @@ export class QuotationsService {
         const customerId = await this.resolveOrCreateCustomerId(
           manager,
           companyId,
-          payload,
+          preparedPayload,
           scope.customerId,
           user.id,
         );
@@ -515,11 +534,27 @@ export class QuotationsService {
   async createDraft(
     companyId: string,
     dto: SaveQuotationDraftDto,
-    userId: string,
+    user: AuthenticatedUser | string,
   ) {
     try {
+      const channelUser =
+        typeof user === 'string'
+          ? { id: user, permissions: [] as string[] }
+          : user;
+      const authorizedDto =
+        await this.insuranceChannelPermissionService.authorizeDraftPayload(
+          companyId,
+          dto,
+          channelUser,
+          'quotation.draft.create',
+        );
       const quotationId = await this.dataSource.transaction((manager) =>
-        this.createDraftInTransaction(manager, companyId, dto, userId),
+        this.createDraftInTransaction(
+          manager,
+          companyId,
+          authorizedDto,
+          channelUser.id,
+        ),
       );
       return this.findOneForEdit(companyId, quotationId);
     } catch (error) {
@@ -534,6 +569,10 @@ export class QuotationsService {
     userId: string,
     draftBranchContext?: DraftBranchContext,
   ): Promise<string> {
+    const draftPayload = await this.withDefaultTaxesForDraftPayload(
+      companyId,
+      dto.draft_payload,
+    );
     const quotationNo =
       await this.identifierGeneratorService.generateQuotationNumber(
         companyId,
@@ -548,7 +587,7 @@ export class QuotationsService {
         dto.insurer_company_id ?? companyId,
         dto.product_id,
         dto.sub_class_id,
-        dto.draft_payload,
+        draftPayload,
       );
     const lifecycleState = this.quotationLifecycleService.initializeForCreation(
       {
@@ -576,7 +615,7 @@ export class QuotationsService {
         channel_type: dto.channel_type,
         ...lifecycleState,
         current_wizard_step: dto.current_wizard_step ?? null,
-        draft_payload: this.cloneDraftPayload(dto.draft_payload),
+        draft_payload: this.cloneDraftPayload(draftPayload),
         product_version_id: definition.productVersionId,
         product_definition_hash: definition.definitionHash,
         product_definition_snapshot: definition,
@@ -586,7 +625,7 @@ export class QuotationsService {
     await this.upsertDraftPlaceholderAggregate(
       manager,
       quotation,
-      dto,
+      { ...dto, draft_payload: draftPayload },
       salePointCode,
       productCode,
       officer,
@@ -604,11 +643,18 @@ export class QuotationsService {
       await this.resolveCompanyDefaultDraftBranchContext(companyId);
 
     try {
+      const authorizedDto =
+        await this.insuranceChannelPermissionService.authorizeDraftPayload(
+          companyId,
+          dto,
+          user,
+          'quotation.draft.create',
+        );
       const quotationId = await this.dataSource.transaction((manager) =>
         this.createDraftInTransaction(
           manager,
           companyId,
-          dto,
+          authorizedDto,
           user.id,
           draftBranchContext,
         ),
@@ -651,7 +697,8 @@ export class QuotationsService {
     companyId: string,
     id: string,
     payload: UpdateQuotationDto,
-    user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'> &
+      Partial<AuthenticatedUser>,
     options: ReplaceQuotationOptions = {},
   ) {
     const existing = await this.quotationsRepository.findOneAggregate(
@@ -665,10 +712,18 @@ export class QuotationsService {
     this.assertNoPremiumOverrideHistory(existing);
     const correctionBeforeState =
       this.buildFailedCorrectionAuditState(existing);
+    const authorizedPayload =
+      await this.insuranceChannelPermissionService.authorizeQuotationPayload(
+        companyId,
+        payload,
+        user,
+        'quotation.update',
+        id,
+      );
 
     const contextPayload = await this.resolveExistingQuotationContext(
       companyId,
-      payload,
+      authorizedPayload,
       existing,
       user.id,
     );
@@ -681,6 +736,13 @@ export class QuotationsService {
       },
     );
 
+    await this.applyDefaultTaxesToQuotationPayload(
+      companyId,
+      preparedPayload,
+      user,
+      existing.id,
+      existing.quotation_no,
+    );
     const scope = await this.validateScope(companyId, preparedPayload);
     await this.refreshPricingBeforeSave(
       companyId,
@@ -729,9 +791,9 @@ export class QuotationsService {
         this.assertQuotationEditable(lockedQuotation);
 
         if (
-          payload.expected_updated_at &&
+          authorizedPayload.expected_updated_at &&
           lockedQuotation.updated_at.toISOString() !==
-            payload.expected_updated_at
+            authorizedPayload.expected_updated_at
         ) {
           throw new ConflictException(
             'This quotation was updated by another user. Reload the latest version before saving your changes.',
@@ -830,10 +892,18 @@ export class QuotationsService {
       id,
     );
     this.assertDraftWritable(existing);
+    const authorizedDto =
+      await this.insuranceChannelPermissionService.authorizeDraftPayload(
+        companyId,
+        dto,
+        user,
+        'quotation.draft.update',
+        id,
+      );
 
     if (
-      dto.expected_updated_at &&
-      existing.updated_at.toISOString() !== dto.expected_updated_at
+      authorizedDto.expected_updated_at &&
+      existing.updated_at.toISOString() !== authorizedDto.expected_updated_at
     ) {
       throw new ConflictException(
         'This quotation draft was updated by another user. Reload the latest version before saving your changes.',
@@ -856,13 +926,17 @@ export class QuotationsService {
         const salePointCode =
           quotation.cover_note?.sale_point_code?.trim() ||
           draftContext.salePointCode;
+        const draftPayload = await this.withDefaultTaxesForDraftPayload(
+          companyId,
+          authorizedDto.draft_payload,
+        );
         const { productCode, definition } =
           await this.resolveDraftProductDefinition(
             manager,
-            dto.insurer_company_id ?? quotation.company_id,
-            dto.product_id,
-            dto.sub_class_id,
-            dto.draft_payload,
+            authorizedDto.insurer_company_id ?? quotation.company_id,
+            authorizedDto.product_id,
+            authorizedDto.sub_class_id,
+            draftPayload,
           );
         const lifecycleState =
           this.quotationLifecycleService.initializeForCreation({
@@ -871,21 +945,23 @@ export class QuotationsService {
           });
 
         Object.assign(quotation, {
-          insurer_company_id: dto.insurer_company_id ?? quotation.company_id,
-          intermediary_company_id: dto.intermediary_company_id ?? null,
-          department_id: dto.department_id ?? null,
-          customer_id: dto.customer_id ?? null,
-          category_id: dto.category_id,
-          product_id: dto.product_id,
-          sub_class_id: dto.sub_class_id ?? null,
-          quotation_type: dto.quotation_type,
-          quotation_flow: dto.quotation_flow,
-          is_fleet: dto.is_fleet,
-          channel_type: dto.channel_type,
+          insurer_company_id:
+            authorizedDto.insurer_company_id ?? quotation.company_id,
+          intermediary_company_id:
+            authorizedDto.intermediary_company_id ?? null,
+          department_id: authorizedDto.department_id ?? null,
+          customer_id: authorizedDto.customer_id ?? null,
+          category_id: authorizedDto.category_id,
+          product_id: authorizedDto.product_id,
+          sub_class_id: authorizedDto.sub_class_id ?? null,
+          quotation_type: authorizedDto.quotation_type,
+          quotation_flow: authorizedDto.quotation_flow,
+          is_fleet: authorizedDto.is_fleet,
+          channel_type: authorizedDto.channel_type,
           updated_by: userId,
           ...lifecycleState,
-          current_wizard_step: dto.current_wizard_step ?? null,
-          draft_payload: this.cloneDraftPayload(dto.draft_payload),
+          current_wizard_step: authorizedDto.current_wizard_step ?? null,
+          draft_payload: this.cloneDraftPayload(draftPayload),
           product_version_id: definition.productVersionId,
           product_definition_hash: definition.definitionHash,
           product_definition_snapshot: definition,
@@ -895,7 +971,7 @@ export class QuotationsService {
         await this.upsertDraftPlaceholderAggregate(
           manager,
           quotation,
-          dto,
+          { ...authorizedDto, draft_payload: draftPayload },
           salePointCode,
           productCode,
           draftContext.officer,
@@ -912,7 +988,8 @@ export class QuotationsService {
     companyId: string,
     id: string,
     payload: UpdateQuotationDto,
-    user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'> &
+      Partial<AuthenticatedUser>,
     options: ReplaceQuotationOptions = {},
   ) {
     this.assertWorkflowPermission(user, QUOTATION_COMPLETE_PERMISSION);
@@ -937,7 +1014,7 @@ export class QuotationsService {
       changedBy: user.id,
       changedByType: 'USER',
       source: 'USER',
-      channel: payload.internal_quotation.channel_type,
+      channel: replacedAggregate.channel_type,
       reason: 'Quotation finalized from draft',
     });
 
@@ -4486,6 +4563,227 @@ export class QuotationsService {
 
   private resolveMotorUsageFactorValue(motorUsage: number): string {
     return motorUsage === 2 ? 'COMMERCIAL' : 'PRIVATE';
+  }
+
+  private async applyDefaultTaxesToQuotationPayload(
+    companyId: string,
+    payload: CreateQuotationDto,
+    user: Pick<AuthenticatedUser, 'id'>,
+    quotationId?: string,
+    quotationNo?: string,
+  ): Promise<void> {
+    const activeTaxes = await this.taxesService.list(companyId, true);
+    const defaultTax = activeTaxes.find((tax) => tax.is_default);
+    const taxByCode = new Map(
+      activeTaxes.map((tax) => [tax.tax_code.trim().toUpperCase(), tax]),
+    );
+
+    for (const entry of this.resolveEntries(payload)) {
+      for (const risk of entry.risks_covered) {
+        risk.taxes_charged = this.applyDefaultTaxRows(
+          risk.taxes_charged,
+          defaultTax,
+          risk.premium_after_discount,
+        );
+      }
+
+      for (const addon of entry.cover_note_addons) {
+        addon.taxes_charged = this.applyDefaultTaxRows(
+          addon.taxes_charged,
+          defaultTax,
+          addon.premium_excluding_tax_equivalent ||
+            addon.premium_excluding_tax ||
+            addon.addon_amount,
+        );
+        await this.recalculateAddonTaxes(
+          companyId,
+          addon,
+          taxByCode,
+          user,
+          quotationId,
+          quotationNo,
+        );
+      }
+    }
+  }
+
+  private async withDefaultTaxesForDraftPayload(
+    companyId: string,
+    draftPayload: Record<string, unknown> | null | undefined,
+  ): Promise<Record<string, unknown>> {
+    const payload = this.cloneDraftPayload(draftPayload);
+    const activeTaxes = await this.taxesService.list(companyId, true);
+    const defaultTax = activeTaxes.find((tax) => tax.is_default);
+    if (!defaultTax) return payload;
+
+    const applyToRisk = (risk: Record<string, unknown>) => {
+      const rows = Array.isArray(risk.taxes_charged)
+        ? (risk.taxes_charged as Record<string, unknown>[])
+        : [];
+      risk.taxes_charged = this.applyDefaultTaxRows(
+        rows as unknown as TaxChargedDto[],
+        defaultTax,
+        Number(risk.premium_after_discount ?? 0),
+        true,
+      );
+    };
+    const applyToAddon = (addon: Record<string, unknown>) => {
+      const rows = Array.isArray(addon.taxes)
+        ? (addon.taxes as Record<string, unknown>[])
+        : Array.isArray(addon.taxes_charged)
+          ? (addon.taxes_charged as Record<string, unknown>[])
+          : [];
+      const nextRows = this.applyDefaultTaxRows(
+        rows as unknown as TaxChargedDto[],
+        defaultTax,
+        Number(
+          addon.premium_excluding_tax_equivalent ??
+            addon.premium_excluding_tax ??
+            addon.addon_amount ??
+            0,
+        ),
+        true,
+      );
+      if (Array.isArray(addon.taxes)) {
+        addon.taxes = nextRows;
+      } else if (Array.isArray(addon.taxes_charged)) {
+        addon.taxes_charged = nextRows;
+      }
+    };
+
+    for (const risk of this.draftArray(payload, 'risks')) {
+      applyToRisk(risk);
+    }
+    for (const addon of this.draftArray(payload, 'addons')) {
+      applyToAddon(addon);
+    }
+    const fleet = this.draftObject(payload, 'fleet');
+    for (const item of this.draftArray(fleet, 'items')) {
+      for (const risk of this.draftArray(item, 'risks_covered')) {
+        applyToRisk(risk);
+      }
+      for (const addon of this.draftArray(item, 'cover_note_addons')) {
+        applyToAddon(addon);
+      }
+    }
+
+    return payload;
+  }
+
+  private applyDefaultTaxRows(
+    rows: TaxChargedDto[] | null | undefined,
+    defaultTax: Tax | undefined,
+    taxableAmount: NumericValue,
+    useBooleanExemptionFlag = false,
+  ): TaxChargedDto[] {
+    const current = Array.isArray(rows) ? rows : [];
+    if (
+      current.some((tax) => tax.tax_code?.trim()) ||
+      current.some((tax) => tax.is_tax_exempted === 'Y' && tax.tax_code?.trim())
+    ) {
+      return current;
+    }
+    if (!defaultTax) {
+      throw new BadRequestException(
+        'No active default tax is configured. Configure a default tax before saving taxable quotation items.',
+      );
+    }
+
+    const rate = Number(defaultTax.tax_rate);
+    const amount = roundMoney(Number(this.numeric(taxableAmount, 4)) * rate);
+
+    return [
+      {
+        tax_code: defaultTax.tax_code.trim().toUpperCase(),
+        is_tax_exempted: (useBooleanExemptionFlag ? false : 'N') as unknown as
+          | 'Y'
+          | 'N',
+        tax_exemption_type: null,
+        tax_exemption_reference: null,
+        tax_rate: rate,
+        tax_amount: amount,
+      },
+    ];
+  }
+
+  private async recalculateAddonTaxes(
+    companyId: string,
+    addon: CoverNoteAddonDto,
+    taxByCode: Map<string, Tax>,
+    user: Pick<AuthenticatedUser, 'id'>,
+    quotationId?: string,
+    quotationNo?: string,
+  ): Promise<void> {
+    const baseAmount = roundMoney(
+      this.firstNumber(
+        addon.premium_excluding_tax_equivalent,
+        addon.premium_excluding_tax,
+        addon.addon_amount,
+        0,
+      ) ?? 0,
+    );
+    const seenCodes = new Set<string>();
+
+    addon.taxes_charged = await Promise.all(
+      (addon.taxes_charged ?? []).map(async (tax) => {
+        const code = tax.tax_code.trim().toUpperCase();
+        if (!code) return tax;
+        if (seenCodes.has(code)) {
+          throw new BadRequestException(
+            'Tax ' +
+              code +
+              ' is selected more than once on add-on ' +
+              addon.addon_reference,
+          );
+        }
+        seenCodes.add(code);
+
+        const configuredTax = taxByCode.get(code);
+        if (!configuredTax) {
+          await this.auditService.log({
+            userId: user.id,
+            companyId,
+            action: 'quotation.tax_selection.rejected',
+            resource: 'quotation',
+            resourceId: quotationId,
+            status: 'failure',
+            metadata: {
+              quotationNo: quotationNo ?? null,
+              addonReference: addon.addon_reference,
+              taxCode: code,
+              reason: 'Selected add-on tax is not active in the tax catalogue',
+            },
+          });
+          throw new BadRequestException(
+            'Tax ' +
+              code +
+              ' is unavailable. Select an active tax from the tax catalogue.',
+          );
+        }
+
+        const exempted = tax.is_tax_exempted === 'Y';
+        const rate = Number(configuredTax.tax_rate);
+        return {
+          ...tax,
+          tax_code: code,
+          tax_rate: rate,
+          tax_amount: exempted ? 0 : roundMoney(baseAmount * rate),
+          tax_exemption_type: exempted ? tax.tax_exemption_type : null,
+          tax_exemption_reference: exempted
+            ? tax.tax_exemption_reference
+            : null,
+        };
+      }),
+    );
+
+    const totalTax = roundMoney(
+      addon.taxes_charged.reduce((sum, tax) => sum + tax.tax_amount, 0),
+    );
+    addon.premium_excluding_tax = roundMoney(
+      this.firstNumber(addon.premium_excluding_tax, baseAmount) ?? baseAmount,
+    );
+    addon.premium_excluding_tax_equivalent = baseAmount;
+    addon.premium_including_tax = roundMoney(baseAmount + totalTax);
   }
 
   private applyFreshPricingToRisk(

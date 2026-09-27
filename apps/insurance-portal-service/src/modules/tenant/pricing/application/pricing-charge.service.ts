@@ -26,13 +26,32 @@ export class PricingChargeService {
       throw new BadRequestException(
         'Tax rules are no longer supported. Select catalogue taxes using tax_codes.',
       );
+    const selectedCodes =
+      input.tax_codes === undefined || input.tax_codes === null
+        ? null
+        : input.tax_codes;
+    const defaultTax =
+      selectedCodes === null
+        ? await this.taxRepository.findOne({
+            where: {
+              company_id: companyId,
+              is_active: true,
+              is_default: true,
+            },
+          })
+        : null;
     const codes = [
       ...new Set(
-        (input.tax_codes ?? [])
+        (selectedCodes ?? (defaultTax ? [defaultTax.tax_code] : []))
           .map((code) => code.trim().toUpperCase())
           .filter(Boolean),
       ),
     ];
+    if (selectedCodes === null && !defaultTax) {
+      throw new BadRequestException(
+        'No active default tax is configured. Configure a default tax before calculating taxable premium.',
+      );
+    }
     const taxes = codes.length
       ? await this.taxRepository.find({
           where: {

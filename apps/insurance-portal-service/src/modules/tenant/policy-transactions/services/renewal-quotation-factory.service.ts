@@ -69,7 +69,7 @@ export class RenewalQuotationFactoryService {
       draft_payload: draftPayload,
     };
 
-    return this.quotationsService.createDraft(user.companyId!, dto, user.id);
+    return this.quotationsService.createDraft(user.companyId!, dto, user);
   }
 
   private buildDraftPayload(params: {

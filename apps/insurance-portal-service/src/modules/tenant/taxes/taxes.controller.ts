@@ -29,6 +29,12 @@ export class TaxesController {
     return this.service.list(user.companyId!, true);
   }
 
+  @Get('default')
+  @Permissions('pricing.calculate')
+  default(@CurrentUser() user: AuthenticatedUser) {
+    return this.service.getDefault(user.companyId!);
+  }
+
   @Get()
   @Permissions('product-distribution:read')
   list(@CurrentUser() user: AuthenticatedUser) {

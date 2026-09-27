@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Car, Shield, Truck } from 'lucide-react';
 import {
   Dialog,
@@ -65,6 +65,7 @@ export const QUOTATION_FLOW_OPTIONS = [
 ] as const;
 
 const DEFAULT_QUOTATION_FLOW: QuotationWizardFlow = 'MOTOR_SINGLE';
+const DEFAULT_DATE_RANGE_DAYS: CoverNoteDateRangeValue = '365';
 
 export interface QuotationStartSelection {
   quotation_flow: QuotationWizardFlow;
@@ -84,6 +85,7 @@ export interface QuotationStartSelection {
 interface Props {
   open: boolean;
   initialSelection?: QuotationStartSelection | null;
+  canSelectInsuranceChannel?: boolean;
   onProceed: (selection: QuotationStartSelection) => void;
   onClose: () => void;
 }
@@ -100,6 +102,7 @@ const FIELD_LABELS = {
 export function QuotationStartModal({
   open,
   initialSelection,
+  canSelectInsuranceChannel = true,
   onProceed,
   onClose,
 }: Props) {
@@ -129,13 +132,17 @@ export function QuotationStartModal({
   );
   const requiresDateRange =
     quotationFlow !== '' && quotationFlow !== 'MOTOR_FLEET';
-  const requiresTranCompany = channelType !== '' && channelType !== 'DIRECT';
+  const effectiveChannelType = canSelectInsuranceChannel
+    ? channelType
+    : 'DIRECT';
+  const requiresTranCompany =
+    effectiveChannelType !== '' && effectiveChannelType !== 'DIRECT';
   const tranCompanyLabel =
-    channelType === 'BROKER'
+    effectiveChannelType === 'BROKER'
       ? 'Broker Company'
-      : channelType === 'AGENCY'
+      : effectiveChannelType === 'AGENCY'
         ? 'Agency Company'
-        : channelType === 'BANCASSURANCE'
+        : effectiveChannelType === 'BANCASSURANCE'
           ? 'Bancassurance Company'
           : 'Intermediary Company';
 
@@ -148,48 +155,50 @@ export function QuotationStartModal({
     supports_fleet: quotationFlow === 'MOTOR_FLEET' ? true : undefined,
   });
   const tranCompanyOptions = useIntermediaryCompanyOptions(
-    channelType,
+    canSelectInsuranceChannel ? channelType : 'DIRECT',
     productId || undefined,
   );
 
-  const [prevSync, setPrevSync] = useState({ open, initialSelection });
-  if (
-    open !== prevSync.open ||
-    initialSelection !== prevSync.initialSelection
-  ) {
-    setPrevSync({ open, initialSelection });
+  useEffect(() => {
+    if (!open) return;
 
-    if (open) {
-      if (initialSelection) {
-        setQuotationFlow(initialSelection.quotation_flow);
-        setCategoryId(initialSelection.category_id);
-        setProductId(initialSelection.product_id);
-        setChannelType(initialSelection.channel_type);
-        setCurrency(initialSelection.currency);
-        setTranCompanyId(initialSelection.intermediary_company_id ?? '');
-        setValidFrom(initialSelection.valid_from ?? '');
-        setValidUntil(initialSelection.valid_until ?? '');
-        setDateRangeDays(
-          initialSelection.date_range ??
-            matchPresetDays(
-              initialSelection.valid_from,
-              initialSelection.valid_until,
-            ),
-        );
-      } else {
-        setQuotationFlow(DEFAULT_QUOTATION_FLOW);
-        setCategoryId('');
-        setProductId('');
-        setChannelType('');
-        setCurrency('TZS');
-        setTranCompanyId('');
-        setDateRangeDays('');
-        setValidFrom('');
-        setValidUntil('');
-      }
-      setTouched(false);
+    if (initialSelection) {
+      setQuotationFlow(initialSelection.quotation_flow);
+      setCategoryId(initialSelection.category_id);
+      setProductId(initialSelection.product_id);
+      setChannelType(
+        canSelectInsuranceChannel ? initialSelection.channel_type : 'DIRECT',
+      );
+      setCurrency(initialSelection.currency);
+      setTranCompanyId(
+        canSelectInsuranceChannel
+          ? (initialSelection.intermediary_company_id ?? '')
+          : '',
+      );
+      setValidFrom(initialSelection.valid_from ?? '');
+      setValidUntil(initialSelection.valid_until ?? '');
+      setDateRangeDays(
+        initialSelection.date_range ??
+          matchPresetDays(
+            initialSelection.valid_from,
+            initialSelection.valid_until,
+          ),
+      );
+    } else {
+      const { validFrom: defaultValidFrom, validUntil: defaultValidUntil } =
+        computeCoverNoteDateRange(Number(DEFAULT_DATE_RANGE_DAYS));
+      setQuotationFlow(DEFAULT_QUOTATION_FLOW);
+      setCategoryId('');
+      setProductId('');
+      setChannelType(canSelectInsuranceChannel ? '' : 'DIRECT');
+      setCurrency('TZS');
+      setTranCompanyId('');
+      setDateRangeDays(DEFAULT_DATE_RANGE_DAYS);
+      setValidFrom(defaultValidFrom);
+      setValidUntil(defaultValidUntil);
     }
-  }
+    setTouched(false);
+  }, [canSelectInsuranceChannel, initialSelection, open]);
 
   // Derived rather than cleared via effect: automatically drops out whenever the
   // channel is Direct or the selection no longer matches the current channel/product's
@@ -236,7 +245,7 @@ export function QuotationStartModal({
   if (!categoryId)
     errors.category_id = `${FIELD_LABELS.category_id} is required`;
   if (!productId) errors.product_id = `${FIELD_LABELS.product_id} is required`;
-  if (!channelType)
+  if (canSelectInsuranceChannel && !channelType)
     errors.channel_type = `${FIELD_LABELS.channel_type} is required`;
   if (!currency) errors.currency = `${FIELD_LABELS.currency} is required`;
   if (requiresTranCompany && !effectiveTranCompanyId) {
@@ -249,7 +258,7 @@ export function QuotationStartModal({
 
   const handleProceed = () => {
     setTouched(true);
-    if (!isValid || !quotationFlow || !channelType) return;
+    if (!isValid || !quotationFlow || !effectiveChannelType) return;
 
     const flowOption = QUOTATION_FLOW_OPTIONS.find(
       (option) => option.quotation_flow === quotationFlow,
@@ -262,10 +271,12 @@ export function QuotationStartModal({
       is_fleet: flowOption.is_fleet,
       category_id: categoryId,
       product_id: productId,
-      channel_type: channelType,
+      channel_type: effectiveChannelType,
       currency,
       cover_note_type: '1',
-      intermediary_company_id: effectiveTranCompanyId,
+      intermediary_company_id: canSelectInsuranceChannel
+        ? effectiveTranCompanyId
+        : undefined,
       ...(requiresDateRange
         ? {
             date_range: dateRangeDays || undefined,
@@ -373,35 +384,39 @@ export function QuotationStartModal({
             )}
           </div>
 
-          <div>
-            <Label
-              required
-              htmlFor="quotation-start-channel"
-              className="mb-2 block"
-            >
-              {FIELD_LABELS.channel_type}
-            </Label>
-            <Select
-              value={channelType}
-              onValueChange={(value) =>
-                setChannelType(value as (typeof CHANNEL_TYPES)[number])
-              }
-            >
-              <SelectTrigger id="quotation-start-channel">
-                <SelectValue placeholder="Select channel" />
-              </SelectTrigger>
-              <SelectContent>
-                {CHANNEL_TYPES.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {touched && errors.channel_type && (
-              <p className="mt-1 text-sm text-red-600">{errors.channel_type}</p>
-            )}
-          </div>
+          {canSelectInsuranceChannel && (
+            <div>
+              <Label
+                required
+                htmlFor="quotation-start-channel"
+                className="mb-2 block"
+              >
+                {FIELD_LABELS.channel_type}
+              </Label>
+              <Select
+                value={channelType}
+                onValueChange={(value) =>
+                  setChannelType(value as (typeof CHANNEL_TYPES)[number])
+                }
+              >
+                <SelectTrigger id="quotation-start-channel">
+                  <SelectValue placeholder="Select channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CHANNEL_TYPES.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {touched && errors.channel_type && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.channel_type}
+                </p>
+              )}
+            </div>
+          )}
 
           {requiresTranCompany && (
             <div>

@@ -48,10 +48,12 @@ import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { QuotationDisplayStatusResolver } from './services/quotation-display-status.resolver';
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
+import { InsuranceChannelPermissionService } from './authorization/insurance-channel-permission';
 import { QuotationsService } from './quotations.service';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { PricingModule } from '../pricing/pricing.module';
 import { ProductAccessModule } from '../product-access/product-access.module';
+import { TaxesModule } from '../taxes/taxes.module';
 
 @Module({
   imports: [
@@ -95,6 +97,7 @@ import { ProductAccessModule } from '../product-access/product-access.module';
     ]),
     TiramisModule,
     PricingModule,
+    TaxesModule,
     CategoryAccessModule,
     ProductAccessModule,
     InsuranceProductsModule,
@@ -110,6 +113,7 @@ import { ProductAccessModule } from '../product-access/product-access.module';
     QuotationPayloadValidator,
     QuotationDisplayStatusResolver,
     QuotationLifecycleService,
+    InsuranceChannelPermissionService,
     IdentifierGeneratorService,
   ],
   exports: [
@@ -120,6 +124,7 @@ import { ProductAccessModule } from '../product-access/product-access.module';
     QuotationTiramisPayloadMapper,
     QuotationDisplayStatusResolver,
     QuotationLifecycleService,
+    InsuranceChannelPermissionService,
   ],
 })
 export class QuotationsModule {}

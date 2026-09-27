@@ -50,6 +50,7 @@ const schema = z.object({
   tax_name: z.string().trim().min(1, 'Name is required').max(150),
   percentage: z.number().min(0).max(100),
   is_active: z.boolean(),
+  is_default: z.boolean(),
 });
 type Values = z.infer<typeof schema>;
 const defaults: Values = {
@@ -57,6 +58,7 @@ const defaults: Values = {
   tax_name: '',
   percentage: 0,
   is_active: true,
+  is_default: false,
 };
 
 export function TaxesPage() {
@@ -81,6 +83,7 @@ export function TaxesPage() {
         tax_name: values.tax_name,
         tax_rate: Number((values.percentage / 100).toFixed(10)),
         is_active: values.is_active,
+        is_default: values.is_default,
       };
       return editing
         ? taxesApi.update(editing.id, data)
@@ -111,6 +114,7 @@ export function TaxesPage() {
             tax_name: tax.tax_name,
             percentage: Number((Number(tax.tax_rate) * 100).toFixed(8)),
             is_active: tax.is_active,
+            is_default: tax.is_default,
           }
         : defaults,
     );
@@ -146,6 +150,7 @@ export function TaxesPage() {
               <TableHead>Code</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Rate</TableHead>
+              <TableHead>Default</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -153,7 +158,7 @@ export function TaxesPage() {
           <TableBody>
             {!query.data?.length && (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   No taxes yet. Add a tax to make it available on quotations.
                 </TableCell>
               </TableRow>
@@ -165,6 +170,7 @@ export function TaxesPage() {
                 <TableCell>
                   {Number((Number(tax.tax_rate) * 100).toFixed(8))}%
                 </TableCell>
+                <TableCell>{tax.is_default ? 'Default' : '-'}</TableCell>
                 <TableCell>{tax.is_active ? 'Active' : 'Inactive'}</TableCell>
                 <TableCell>
                   {hasPermission('product-distribution:update') && (
@@ -270,6 +276,22 @@ export function TaxesPage() {
                 render={({ field }) => (
                   <FormItem className="flex items-center gap-3">
                     <FormLabel>Active</FormLabel>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="is_default"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-3">
+                    <FormLabel>Default tax</FormLabel>
                     <FormControl>
                       <Switch
                         checked={field.value}

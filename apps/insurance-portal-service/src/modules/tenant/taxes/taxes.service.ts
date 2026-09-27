@@ -20,6 +20,13 @@ export class TaxesService {
         company_id: companyId,
         ...(activeOnly ? { is_active: true } : {}),
       },
+      order: { is_default: 'DESC', tax_code: 'ASC' },
+    });
+  }
+
+  async getDefault(companyId: string): Promise<Tax | null> {
+    return this.repository.findOne({
+      where: { company_id: companyId, is_active: true, is_default: true },
       order: { tax_code: 'ASC' },
     });
   }
@@ -33,13 +40,30 @@ export class TaxesService {
   }
 
   async create(companyId: string, dto: CreateTaxDto) {
-    return this.save(
-      this.repository.create({
-        ...dto,
-        company_id: companyId,
-        tax_rate: dto.tax_rate.toFixed(10),
-      }),
-    );
+    if (dto.is_default && !dto.is_active) {
+      throw new ConflictException('The default tax must be active.');
+    }
+
+    return this.repository.manager.transaction(async (manager) => {
+      if (dto.is_default) {
+        await manager.getRepository(Tax).update(
+          { company_id: companyId, is_default: true },
+          {
+            is_default: false,
+          },
+        );
+      }
+
+      return this.save(
+        manager.getRepository(Tax).create({
+          ...dto,
+          company_id: companyId,
+          tax_rate: dto.tax_rate.toFixed(10),
+          is_default: dto.is_default ?? false,
+        }),
+        manager.getRepository(Tax),
+      );
+    });
   }
 
   async update(companyId: string, id: string, dto: UpdateTaxDto) {
@@ -51,20 +75,54 @@ export class TaxesService {
         'Tax code cannot be changed. Create a new tax instead.',
       );
     }
-    if (dto.tax_name !== undefined) tax.tax_name = dto.tax_name;
-    if (dto.tax_rate !== undefined) tax.tax_rate = dto.tax_rate.toFixed(10);
-    if (dto.is_active !== undefined) tax.is_active = dto.is_active;
-    return this.save(tax);
+    if (dto.is_default && dto.is_active === false) {
+      throw new ConflictException('The default tax must be active.');
+    }
+    if (dto.is_active === false && tax.is_default && dto.is_default !== false) {
+      throw new ConflictException(
+        'Set another default tax before deactivating this tax.',
+      );
+    }
+
+    return this.repository.manager.transaction(async (manager) => {
+      const repository = manager.getRepository(Tax);
+      if (dto.is_default === true) {
+        await repository.update(
+          { company_id: companyId, is_default: true },
+          {
+            is_default: false,
+          },
+        );
+      }
+
+      const current = await repository.findOne({
+        where: { id, company_id: companyId },
+      });
+      if (!current) throw new NotFoundException('Tax not found');
+
+      if (dto.tax_name !== undefined) current.tax_name = dto.tax_name;
+      if (dto.tax_rate !== undefined)
+        current.tax_rate = dto.tax_rate.toFixed(10);
+      if (dto.is_active !== undefined) current.is_active = dto.is_active;
+      if (dto.is_default !== undefined) current.is_default = dto.is_default;
+
+      return this.save(current, repository);
+    });
   }
 
   async remove(companyId: string, id: string) {
     const tax = await this.findOne(companyId, id);
+    if (tax.is_default) {
+      throw new ConflictException(
+        'Set another default tax before deleting this tax.',
+      );
+    }
     await this.repository.softDelete({ id: tax.id, company_id: companyId });
   }
 
-  private async save(tax: Tax) {
+  private async save(tax: Tax, repository = this.repository) {
     try {
-      return await this.repository.save(tax);
+      return await repository.save(tax);
     } catch (error) {
       if (
         error instanceof QueryFailedError &&

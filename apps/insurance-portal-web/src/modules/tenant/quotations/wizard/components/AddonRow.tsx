@@ -100,13 +100,33 @@ export function AddonRow({
   const taxRuleOptionsKey = JSON.stringify(taxRuleOptions);
 
   useEffect(() => {
-    const currentTaxCode = form.getValues(path(basePath, index, 'taxes.0.tax_code')) as
-      | string
-      | undefined;
+    const currentTaxCode = form.getValues(
+      path(basePath, index, 'taxes.0.tax_code'),
+    ) as string | undefined;
+    if (!currentTaxCode) {
+      const defaultTax = taxRuleOptions.find((option) => option.isDefault);
+      if (defaultTax) {
+        form.setValue(
+          path(basePath, index, 'taxes.0.tax_code'),
+          defaultTax.value,
+          { shouldDirty: true, shouldValidate: true },
+        );
+        form.setValue(
+          path(basePath, index, 'taxes.0.tax_rate'),
+          defaultTax.rate,
+          {
+            shouldDirty: true,
+            shouldValidate: true,
+          },
+        );
+      }
+      return;
+    }
     const selected = taxRuleOptions.find(
       (option) => option.value === currentTaxCode,
     );
-    if (selected) form.setValue(path(basePath, index, 'taxes.0.tax_rate'), selected.rate);
+    if (selected)
+      form.setValue(path(basePath, index, 'taxes.0.tax_rate'), selected.rate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, index, taxRuleOptionsKey]);
 
@@ -222,7 +242,10 @@ export function AddonRow({
                   );
                   form.setValue(path(basePath, index, 'addon_quantity'), '1');
                   form.setValue(path(basePath, index, 'addon_amount'), '');
-                  form.setValue(path(basePath, index, 'premium_excluding_tax'), '');
+                  form.setValue(
+                    path(basePath, index, 'premium_excluding_tax'),
+                    '',
+                  );
                 }}
               >
                 <FormControl>

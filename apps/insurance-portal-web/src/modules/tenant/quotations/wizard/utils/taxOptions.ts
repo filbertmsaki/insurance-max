@@ -66,12 +66,14 @@ export interface ActiveTaxRule {
   risk_id: string | null;
   effective_from: string;
   effective_to: string;
+  is_default?: boolean;
 }
 
 export interface TaxRuleOption {
   value: string;
   label: string;
   rate: string;
+  isDefault?: boolean;
 }
 
 export function resolveTaxRuleOptions({
@@ -115,6 +117,7 @@ export function resolveTaxRuleOptions({
       value: rule.tax_code,
       label: `${rule.tax_name} (${rule.tax_code})`,
       rate: rule.tax_type === 'PERCENTAGE' ? (rule.tax_rate ?? '') : '',
+      isDefault: rule.is_default === true,
     });
   }
 

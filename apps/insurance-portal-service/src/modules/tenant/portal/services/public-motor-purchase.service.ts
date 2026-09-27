@@ -273,9 +273,9 @@ export class PublicMotorPurchaseService {
       companyId,
       true,
     );
-    const vat = await this.resolveDefaultVat(companyId);
+    const defaultTax = await this.resolveDefaultTax(companyId);
 
-    return { company, product, risk, defaultBranch, vat };
+    return { company, product, risk, defaultBranch, vat: defaultTax };
   }
 
   private async calculatePremium(
@@ -298,7 +298,7 @@ export class PublicMotorPurchaseService {
       motor_usage: dto.vehicle.motor_usage,
       motor_type: dto.vehicle.motor_type,
     };
-    const vat = await this.resolveDefaultVat(companyId);
+    const defaultTax = await this.resolveDefaultTax(companyId);
 
     try {
       return await this.premiumCalculationService.calculateSingleRisk(
@@ -313,7 +313,7 @@ export class PublicMotorPurchaseService {
           quotation_type: QuotationType.MOTOR,
           currency_code: 'TZS',
           exchange_rate: 1,
-          tax_codes: vat ? [vat.tax_code] : [],
+          tax_codes: defaultTax ? [defaultTax.tax_code] : undefined,
           client_reference: this.normalizeRegistration(
             dto.vehicle.registration_number,
           ),
@@ -676,12 +676,12 @@ export class PublicMotorPurchaseService {
     };
   }
 
-  private async resolveDefaultVat(companyId: string) {
+  private async resolveDefaultTax(companyId: string) {
     return this.dataSource.getRepository(Tax).findOne({
       where: {
         company_id: companyId,
-        tax_code: 'VAT-MAINLAND',
         is_active: true,
+        is_default: true,
       },
     });
   }

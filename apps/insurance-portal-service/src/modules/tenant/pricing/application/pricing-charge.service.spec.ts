@@ -13,7 +13,10 @@ describe('Selected catalogue taxes', () => {
     },
   ];
   function fixture() {
-    const repository = { find: jest.fn().mockResolvedValue(catalogue) };
+    const repository = {
+      find: jest.fn().mockResolvedValue(catalogue),
+      findOne: jest.fn().mockResolvedValue(catalogue[0]),
+    };
     return {
       repository,
       service: new PricingChargeService(
@@ -26,19 +29,44 @@ describe('Selected catalogue taxes', () => {
     gross_premium: 120000,
     net_premium: 100000,
   };
-  it.each([undefined, null, []])(
-    'does not add taxes for an empty or omitted selection (%s)',
+  it.each([undefined, null])(
+    'uses the configured default tax for an omitted selection (%s)',
     async (tax_codes) => {
       const { service, repository } = fixture();
       const result = await service.calculateCharges('company', {
         ...premium,
         tax_codes,
       });
-      expect(result.charges).toEqual([]);
-      expect(result.premium_including_charges).toBe(100000);
-      expect(repository.find).not.toHaveBeenCalled();
+      expect(result.charges).toHaveLength(1);
+      expect(result.charges[0]).toEqual(
+        expect.objectContaining({
+          charge_code: 'VAT-MAINLAND',
+          computed_amount: 18000,
+        }),
+      );
+      expect(result.premium_including_charges).toBe(118000);
+      expect(repository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            company_id: 'company',
+            is_active: true,
+            is_default: true,
+          }),
+        }),
+      );
     },
   );
+  it('does not add taxes for an explicitly empty selection', async () => {
+    const { service, repository } = fixture();
+    const result = await service.calculateCharges('company', {
+      ...premium,
+      tax_codes: [],
+    });
+    expect(result.charges).toEqual([]);
+    expect(result.premium_including_charges).toBe(100000);
+    expect(repository.findOne).not.toHaveBeenCalled();
+    expect(repository.find).not.toHaveBeenCalled();
+  });
   it('uses only selected codes and the stored rate on the net premium', async () => {
     const { service, repository } = fixture();
     const result = await service.calculateCharges('company', {
