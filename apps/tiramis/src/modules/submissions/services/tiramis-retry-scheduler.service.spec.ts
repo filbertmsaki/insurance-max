@@ -164,6 +164,8 @@ describe('TiramisRetrySchedulerService recovery states', () => {
       sourceRecordId: 'quote-1',
       businessReference: 'Q-001',
       serviceType: 'MOTOR',
+      portalWebhookUrl:
+        'http://localhost:9090/api/v1/webhooks/tiramis/notifications',
     };
 
     await (service as any).markRetryExhausted({
@@ -183,6 +185,10 @@ describe('TiramisRetrySchedulerService recovery states', () => {
         attemptStatus: TIRAMIS_ATTEMPT_STATUS.FAILED,
         errorMessage: 'Maximum retry attempts reached',
       }),
+      {
+        webhookUrl:
+          'http://localhost:9090/api/v1/webhooks/tiramis/notifications',
+      },
     );
   });
 
@@ -209,6 +215,8 @@ describe('TiramisRetrySchedulerService recovery states', () => {
       businessReference: 'Q-001',
       serviceType: 'NON_MOTOR',
       status: TIRAMIS_TRANSACTION_STATUS.PROCESSING,
+      portalWebhookUrl:
+        'http://localhost:9090/api/v1/webhooks/tiramis/notifications',
     };
 
     attemptRepository.findFinalCallbackOverdueAttempts.mockResolvedValue([
@@ -228,6 +236,10 @@ describe('TiramisRetrySchedulerService recovery states', () => {
         transactionStatus: TIRAMIS_TRANSACTION_STATUS.PROCESSING,
         attemptStatus: TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE,
       }),
+      {
+        webhookUrl:
+          'http://localhost:9090/api/v1/webhooks/tiramis/notifications',
+      },
     );
   });
 });

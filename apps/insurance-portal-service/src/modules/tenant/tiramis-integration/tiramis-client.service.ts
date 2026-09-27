@@ -11,6 +11,7 @@ import { firstValueFrom } from 'rxjs';
 import { Repository } from 'typeorm';
 
 import { unwrapApiResponse } from '@insurance-max/contracts';
+import { buildUrl } from '@insurance-max/shared-config';
 import {
   HTTP_HEADERS,
   RequestContextService,
@@ -167,6 +168,7 @@ export class TiramisClientService {
                     businessReference: command.businessReference,
                     requestType: command.requestType,
                     requestId: command.requestId,
+                    portalWebhookUrl: this.resolvePortalWebhookUrl(),
                   }),
                   'utf8',
                 ).toString('base64url'),
@@ -205,6 +207,15 @@ export class TiramisClientService {
 
   private encodeServiceContext(context: Record<string, unknown>): string {
     return Buffer.from(JSON.stringify(context), 'utf8').toString('base64url');
+  }
+
+  private resolvePortalWebhookUrl(): string {
+    const apiBaseUrl =
+      this.configService.get<string>('app.apiBaseUrl') ||
+      'http://localhost:9090/api';
+    const appVersion = this.configService.get<string>('app.version') || 'v1';
+
+    return buildUrl(apiBaseUrl, appVersion, 'webhooks/tiramis/notifications');
   }
 
   private async resolveApiKey(companyId: string | null): Promise<string> {

@@ -43,8 +43,6 @@ export default registerAs('tiramisService', () => {
 
     portalNotifyEnabled: process.env.TIRAMIS_PORTAL_NOTIFY_ENABLED !== 'false',
 
-    portalWebhookUrl: process.env.INSURANCE_PORTAL_WEBHOOK_URL?.trim() || '',
-
     portalWebhookTimeoutMs: Number(
       process.env.INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS || 5000,
     ),

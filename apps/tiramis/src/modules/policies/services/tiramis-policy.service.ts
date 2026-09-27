@@ -57,6 +57,7 @@ export class TiramisPolicyService {
       sourceService: sourceMetadata?.sourceService || 'tiramis-service',
       sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
       sourceUserId: sourceMetadata?.sourceUserId || null,
+      portalWebhookUrl: sourceMetadata?.portalWebhookUrl || null,
       sourceModule: sourceMetadata?.sourceModule || 'tiramis-policy',
       sourceRecordId:
         sourceMetadata?.sourceRecordId ||

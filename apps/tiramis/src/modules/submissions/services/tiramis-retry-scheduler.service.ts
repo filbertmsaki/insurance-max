@@ -546,27 +546,30 @@ export class TiramisRetrySchedulerService {
     statusDescription?: string | null;
     errorMessage?: string | null;
   }) {
-    await this.portalNotificationService.publish({
-      eventType: params.eventType,
-      sourceService: 'tiramis-service',
-      sourceCompanyId: params.transaction.sourceCompanyId || null,
-      sourceModule: params.transaction.sourceModule || null,
-      sourceRecordId: params.transaction.sourceRecordId || null,
-      businessReference: params.transaction.businessReference || null,
-      tiramisTransactionId: params.transaction.id,
-      requestId: params.attempt.requestId,
-      responseId: null,
-      serviceType: params.transaction.serviceType || null,
-      rootElement: params.attempt.rootElement || null,
-      statusCode: params.statusCode || null,
-      statusDescription: params.statusDescription || null,
-      transactionStatus: params.transaction.status,
-      attemptStatus: params.attempt.status,
-      coverNoteReferenceNumber: null,
-      policyReferenceNumber: null,
-      stickerNumber: null,
-      errorMessage: params.errorMessage || null,
-      occurredAt: new Date().toISOString(),
-    });
+    await this.portalNotificationService.publish(
+      {
+        eventType: params.eventType,
+        sourceService: 'tiramis-service',
+        sourceCompanyId: params.transaction.sourceCompanyId || null,
+        sourceModule: params.transaction.sourceModule || null,
+        sourceRecordId: params.transaction.sourceRecordId || null,
+        businessReference: params.transaction.businessReference || null,
+        tiramisTransactionId: params.transaction.id,
+        requestId: params.attempt.requestId,
+        responseId: null,
+        serviceType: params.transaction.serviceType || null,
+        rootElement: params.attempt.rootElement || null,
+        statusCode: params.statusCode || null,
+        statusDescription: params.statusDescription || null,
+        transactionStatus: params.transaction.status,
+        attemptStatus: params.attempt.status,
+        coverNoteReferenceNumber: null,
+        policyReferenceNumber: null,
+        stickerNumber: null,
+        errorMessage: params.errorMessage || null,
+        occurredAt: new Date().toISOString(),
+      },
+      { webhookUrl: params.transaction.portalWebhookUrl || null },
+    );
   }
 }

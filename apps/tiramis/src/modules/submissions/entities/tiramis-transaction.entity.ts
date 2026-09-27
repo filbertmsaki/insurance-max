@@ -165,6 +165,14 @@ export class TiramisTransactionEntity extends BaseEntity {
   sourceUserId?: string | null;
 
   @Column({
+    name: 'portal_webhook_url',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
+  portalWebhookUrl?: string | null;
+
+  @Column({
     name: 'source_branch_id',
     type: 'varchar',
     length: 100,

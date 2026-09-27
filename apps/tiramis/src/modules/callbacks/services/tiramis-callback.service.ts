@@ -942,32 +942,35 @@ export class TiramisCallbackService {
           )
         : null;
 
-      await this.portalNotificationService.publish({
-        eventType: params.eventType,
-        sourceService: 'tiramis-service',
-        sourceCompanyId: transaction?.sourceCompanyId || null,
-        sourceModule: transaction?.sourceModule || null,
-        sourceRecordId: transaction?.sourceRecordId || null,
-        businessReference: transaction?.businessReference || null,
-        tiramisTransactionId: transaction?.id || null,
-        requestId: params.parsedCallback.requestId,
-        responseId: params.parsedCallback.responseId,
-        serviceType: transaction?.serviceType || null,
-        rootElement: params.parsedCallback.rootName,
-        statusCode: params.parsedCallback.responseStatusCode,
-        statusDescription: params.parsedCallback.responseStatusDesc,
-        transactionStatus:
-          params.transactionStatus || transaction?.status || null,
-        attemptStatus: params.attemptStatus || null,
-        coverNoteReferenceNumber:
-          params.parsedCallback.coverNoteReferenceNumber || null,
-        policyReferenceNumber:
-          params.parsedCallback.policyReferenceNumber || null,
-        stickerNumber: params.parsedCallback.stickerNumber || null,
-        regulatoryResponse,
-        errorMessage: params.errorMessage || null,
-        occurredAt: new Date().toISOString(),
-      });
+      await this.portalNotificationService.publish(
+        {
+          eventType: params.eventType,
+          sourceService: 'tiramis-service',
+          sourceCompanyId: transaction?.sourceCompanyId || null,
+          sourceModule: transaction?.sourceModule || null,
+          sourceRecordId: transaction?.sourceRecordId || null,
+          businessReference: transaction?.businessReference || null,
+          tiramisTransactionId: transaction?.id || null,
+          requestId: params.parsedCallback.requestId,
+          responseId: params.parsedCallback.responseId,
+          serviceType: transaction?.serviceType || null,
+          rootElement: params.parsedCallback.rootName,
+          statusCode: params.parsedCallback.responseStatusCode,
+          statusDescription: params.parsedCallback.responseStatusDesc,
+          transactionStatus:
+            params.transactionStatus || transaction?.status || null,
+          attemptStatus: params.attemptStatus || null,
+          coverNoteReferenceNumber:
+            params.parsedCallback.coverNoteReferenceNumber || null,
+          policyReferenceNumber:
+            params.parsedCallback.policyReferenceNumber || null,
+          stickerNumber: params.parsedCallback.stickerNumber || null,
+          regulatoryResponse,
+          errorMessage: params.errorMessage || null,
+          occurredAt: new Date().toISOString(),
+        },
+        { webhookUrl: transaction?.portalWebhookUrl || null },
+      );
     } catch (error: any) {
       this.logger.warn(
         `Portal notification skipped for requestId ${params.parsedCallback.requestId}: ${

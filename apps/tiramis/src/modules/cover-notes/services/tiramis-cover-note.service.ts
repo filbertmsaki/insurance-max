@@ -70,6 +70,7 @@ export class TiramisCoverNoteService {
       sourceService: sourceMetadata?.sourceService || 'tiramis-service',
       sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
       sourceUserId: sourceMetadata?.sourceUserId || null,
+      portalWebhookUrl: sourceMetadata?.portalWebhookUrl || null,
       sourceModule: sourceMetadata?.sourceModule || 'cover-notes',
       sourceRecordId:
         sourceMetadata?.sourceRecordId ||

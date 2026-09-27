@@ -27,7 +27,10 @@ export class TiramisPortalNotificationService {
     private readonly configurationRepository: Repository<TiramisClientConfigurationEntity>,
   ) {}
 
-  async publish(event: TiramisPortalNotificationEventDto): Promise<void> {
+  async publish(
+    event: TiramisPortalNotificationEventDto,
+    options?: { webhookUrl?: string | null },
+  ): Promise<void> {
     if (
       !this.configService.get<boolean>(
         'tiramisService.portalNotifyEnabled',
@@ -37,12 +40,11 @@ export class TiramisPortalNotificationService {
       return;
     }
 
-    const webhookUrl =
-      this.configService.get<string>('tiramisService.portalWebhookUrl') || '';
+    const webhookUrl = options?.webhookUrl?.trim() || '';
 
     if (!webhookUrl) {
       this.logger.warn(
-        `Portal notification skipped for requestId ${event.requestId}: INSURANCE_PORTAL_WEBHOOK_URL is not configured`,
+        `Portal notification skipped for requestId ${event.requestId}: portalWebhookUrl was not provided in the source metadata`,
       );
       return;
     }

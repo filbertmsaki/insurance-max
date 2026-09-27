@@ -68,6 +68,7 @@ export class TiramisClaimService {
       sourceService: sourceMetadata?.sourceService || 'tiramis-service',
       sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
       sourceUserId: sourceMetadata?.sourceUserId || null,
+      portalWebhookUrl: sourceMetadata?.portalWebhookUrl || null,
       sourceModule: sourceMetadata?.sourceModule || 'tiramis-claims',
       sourceRecordId:
         sourceMetadata?.sourceRecordId ||
@@ -216,6 +217,7 @@ export class TiramisClaimService {
       sourceService: sourceMetadata?.sourceService || 'tiramis-service',
       sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
       sourceUserId: sourceMetadata?.sourceUserId || null,
+      portalWebhookUrl: sourceMetadata?.portalWebhookUrl || null,
       sourceModule: sourceMetadata?.sourceModule || 'tiramis-claims',
       sourceRecordId:
         sourceMetadata?.sourceRecordId ||
@@ -421,6 +423,7 @@ export class TiramisClaimService {
       sourceService: sourceMetadata?.sourceService || 'tiramis-service',
       sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
       sourceUserId: sourceMetadata?.sourceUserId || null,
+      portalWebhookUrl: sourceMetadata?.portalWebhookUrl || null,
       sourceModule: sourceMetadata?.sourceModule || 'tiramis-claims',
       sourceRecordId:
         sourceMetadata?.sourceRecordId ||
@@ -494,6 +497,7 @@ export class TiramisClaimService {
       sourceService: sourceMetadata?.sourceService || 'tiramis-service',
       sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
       sourceUserId: sourceMetadata?.sourceUserId || null,
+      portalWebhookUrl: sourceMetadata?.portalWebhookUrl || null,
       sourceModule: sourceMetadata?.sourceModule || 'tiramis-claims',
       sourceRecordId:
         sourceMetadata?.sourceRecordId ||
@@ -735,6 +739,7 @@ export class TiramisClaimService {
       sourceService: sourceMetadata?.sourceService || 'tiramis-service',
       sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
       sourceUserId: sourceMetadata?.sourceUserId || null,
+      portalWebhookUrl: sourceMetadata?.portalWebhookUrl || null,
       sourceModule: sourceMetadata?.sourceModule || 'tiramis-claims',
       sourceRecordId:
         sourceMetadata?.sourceRecordId ||

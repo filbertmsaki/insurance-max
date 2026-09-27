@@ -27,6 +27,7 @@ export class TiramisSubmissionService {
     sourceService?: string | null;
     sourceCompanyId?: string | null;
     sourceUserId?: string | null;
+    portalWebhookUrl?: string | null;
     sourceModule?: string;
     sourceRecordId?: string;
     businessReference: string;
@@ -60,6 +61,7 @@ export class TiramisSubmissionService {
       sourceService: params.sourceService || null,
       sourceCompanyId: params.sourceCompanyId || null,
       sourceUserId: params.sourceUserId || null,
+      portalWebhookUrl: params.portalWebhookUrl || null,
       sourceModule: params.sourceModule || null,
       sourceRecordId: params.sourceRecordId || null,
       sourcePolicyId: params.policyId ?? null,
@@ -667,6 +669,7 @@ export class TiramisSubmissionService {
       sourceService: transaction.sourceService,
       sourceCompanyId: transaction.sourceCompanyId,
       sourceUserId: transaction.sourceUserId,
+      portalWebhookUrl: transaction.portalWebhookUrl,
       sourceModule: transaction.sourceModule,
       sourceRecordId: transaction.sourceRecordId,
       insuredData: {

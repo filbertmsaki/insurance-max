@@ -26,11 +26,21 @@ export function parseSourceMetadata(
       'businessReference',
       'requestType',
       'requestId',
+      'portalWebhookUrl',
     ];
     for (const field of fields) {
       const value = (metadata as Record<string, unknown>)[field];
       if (value != null && typeof value !== 'string') {
         throw new Error('Invalid source metadata');
+      }
+    }
+
+    const portalWebhookUrl = (metadata as TiramisSourceMetadataDto)
+      .portalWebhookUrl;
+    if (portalWebhookUrl) {
+      const parsedUrl = new URL(portalWebhookUrl);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        throw new Error('Invalid portal webhook URL');
       }
     }
 
