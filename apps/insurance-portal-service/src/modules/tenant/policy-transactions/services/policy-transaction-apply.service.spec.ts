@@ -112,6 +112,9 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
   const eventRepo = {
     save: jest.fn().mockResolvedValue(undefined),
   };
+  const quotationRepo = {
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
+  };
   const transactionRepoInManager = {
     createQueryBuilder: jest.fn().mockReturnValue({
       setLock: jest.fn().mockReturnThis(),
@@ -133,6 +136,7 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
       if (entity?.name === 'PolicyCancellation') return cancellationRepo;
       if (entity?.name === 'PolicyTransaction') return transactionRepoInManager;
       if (entity?.name === 'PolicyTransactionEvent') return eventRepo;
+      if (entity?.name === 'Quotation') return quotationRepo;
       throw new Error(`Unexpected entity ${entity?.name}`);
     },
   };
@@ -177,6 +181,7 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
     versionRepo,
     statusHistoryRepo,
     eventRepo,
+    quotationRepo,
     lifecycleService,
     returnPremiumService,
   };
@@ -219,6 +224,7 @@ describe('PolicyTransactionApplyService', () => {
         versionRepo,
         statusHistoryRepo,
         eventRepo,
+        quotationRepo,
         lifecycleService,
         returnPremiumService,
       } = makeHarness(transaction, policy, previousVersion);
@@ -313,6 +319,7 @@ describe('PolicyTransactionApplyService', () => {
         policyRepo,
         statusHistoryRepo,
         eventRepo,
+        quotationRepo,
         lifecycleService,
         returnPremiumService,
       } = makeHarness(transaction, policy, previousVersion);
@@ -352,6 +359,17 @@ describe('PolicyTransactionApplyService', () => {
         'cancellation-1',
         'CANCELLATION',
       );
+      expect(quotationRepo.update).toHaveBeenCalledWith(
+        {
+          company_id: 'company-1',
+          source_policy_transaction_id: 'txn-1',
+        },
+        expect.objectContaining({
+          status: 'COMPLETED',
+          quotation_stage: 'COMPLETED',
+          tira_status: 'SUCCESS',
+        }),
+      );
       expect(lifecycleService.markApplied).not.toHaveBeenCalled();
     });
 
@@ -370,6 +388,36 @@ describe('PolicyTransactionApplyService', () => {
       await service.applyCancellation('company-1', 'txn-1');
 
       expect(statusHistoryRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('completes the related quotation when re-syncing an already applied cancellation', async () => {
+      const transaction = makeTransaction({
+        transaction_type: PolicyTransactionType.CANCELLATION,
+        stage: PolicyTransactionStage.APPLIED,
+        target_policy_version_id: 'version-2',
+      });
+      const policy = makePolicy();
+      const previousVersion = makeVersion();
+      const { service, quotationRepo, eventRepo } = makeHarness(
+        transaction,
+        policy,
+        previousVersion,
+      );
+
+      await service.applyCancellation('company-1', 'txn-1');
+
+      expect(quotationRepo.update).toHaveBeenCalledWith(
+        {
+          company_id: 'company-1',
+          source_policy_transaction_id: 'txn-1',
+        },
+        expect.objectContaining({
+          status: 'COMPLETED',
+          quotation_stage: 'COMPLETED',
+          tira_status: 'SUCCESS',
+        }),
+      );
+      expect(eventRepo.save).not.toHaveBeenCalled();
     });
   });
 });

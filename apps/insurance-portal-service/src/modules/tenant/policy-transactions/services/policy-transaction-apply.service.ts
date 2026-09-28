@@ -75,13 +75,6 @@ export class PolicyTransactionApplyService {
         transaction.stage === PolicyTransactionStage.APPLIED &&
         transaction.target_policy_version_id
       ) {
-        await this.markRelatedTransactionQuotationCompleted(
-          manager,
-          companyId,
-          transaction,
-          context,
-        );
-
         return transaction;
       }
 
@@ -562,6 +555,13 @@ export class PolicyTransactionApplyService {
         transaction.stage === PolicyTransactionStage.APPLIED &&
         transaction.target_policy_version_id
       ) {
+        await this.markRelatedTransactionQuotationCompleted(
+          manager,
+          companyId,
+          transaction,
+          context,
+        );
+
         return transaction;
       }
 
