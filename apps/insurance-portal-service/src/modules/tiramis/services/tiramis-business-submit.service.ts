@@ -3,6 +3,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   ServiceFinanceContext,
   ServiceInsuredDataContext,
+  ServicePolicyTransactionContext,
   ServicePricingContext,
   ServiceProductContext,
   ServiceQuotationGateContext,
@@ -248,6 +249,7 @@ export class TiramisBusinessSubmitService {
     sourceModule: string;
     sourceRecordId: string;
     businessReference?: string | null;
+    policyId?: string | null;
     payload?: Record<string, any> | null;
     authContext?: any;
     forceResubmit?: boolean;
@@ -258,6 +260,7 @@ export class TiramisBusinessSubmitService {
     quotationId?: string | null;
     quotationGateContext?: ServiceQuotationGateContext;
     financeContext?: ServiceFinanceContext;
+    policyTransactionContext?: ServicePolicyTransactionContext;
   }) {
     return this.submitWithBuilder({
       requestType: params.requestType,
@@ -268,12 +271,14 @@ export class TiramisBusinessSubmitService {
       authContext: params.authContext,
       forceResubmit: params.forceResubmit,
       returnExisting: params.returnExisting,
+      policyId: params.policyId,
       quotationId: params.quotationId,
       productContext: params.productContext,
       pricingContext: params.pricingContext,
       insuredDataContext: params.insuredDataContext,
       quotationGateContext: params.quotationGateContext,
       financeContext: params.financeContext,
+      policyTransactionContext: params.policyTransactionContext,
     });
   }
 
@@ -508,6 +513,7 @@ export class TiramisBusinessSubmitService {
     insuredDataContext?: ServiceInsuredDataContext;
     quotationGateContext?: ServiceQuotationGateContext;
     financeContext?: ServiceFinanceContext;
+    policyTransactionContext?: ServicePolicyTransactionContext;
   }) {
     if (!params.sourceRecordId) {
       throw new BadRequestException(
@@ -651,6 +657,7 @@ export class TiramisBusinessSubmitService {
       insuredDataContext: params.insuredDataContext,
       quotationGateContext: params.quotationGateContext,
       financeContext: params.financeContext,
+      policyTransactionContext: params.policyTransactionContext,
     };
 
     const result = await this.tiramisClientService.submit(

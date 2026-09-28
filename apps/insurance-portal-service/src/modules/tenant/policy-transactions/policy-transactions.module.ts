@@ -25,6 +25,7 @@ import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { ReceiptAllocation } from '../billing-commission/entities/receipt-allocation.entity';
 import { PricingModule } from '../pricing/pricing.module';
 import { PricingQuote } from '../pricing/entities/pricing-quote.entity';
+import { TiramisModule } from '../../tiramis/tiramis.module';
 import { TiramisIntegrationModule } from '../tiramis-integration/tiramis-integration.module';
 import { DocumentLink } from '../insurance-documents/entities/document-link.entity';
 
@@ -78,6 +79,7 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     AuthorizationModule,
     InsuranceProductsModule,
     forwardRef(() => QuotationsModule),
+    TiramisModule,
     TypeOrmModule.forFeature([
       PolicyTransaction,
       PolicyTransactionChange,

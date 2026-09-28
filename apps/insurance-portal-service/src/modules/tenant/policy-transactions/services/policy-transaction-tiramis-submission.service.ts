@@ -1,33 +1,37 @@
-import {
-  BadRequestException,
-  Inject,
-  Injectable,
-  forwardRef,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { PolicyTransactionType } from '@insurance-max/contracts';
+import {
+  PolicyTransactionType,
+  ServicePolicyTransactionContext,
+} from '@insurance-max/contracts';
 
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
+import { TiramisBusinessSubmitService } from '../../../tiramis/services/tiramis-business-submit.service';
+import { TiramisRequestType } from '../../../tiramis/enums/tiramis-request-type.enum';
 import { Policy } from '../../policies/entities/policy.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationFlow } from '../../quotations/enums/quotation-flow.enum';
-import { TiramisIntegrationService } from '../../tiramis-integration/tiramis-integration.service';
 import { PolicyCancellation } from '../entities/policy-cancellation.entity';
 import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { PolicyTransactionTiramisPayloadService } from './policy-transaction-tiramis-payload.service';
-import { PolicyTransactionTiramisServiceContextService } from './policy-transaction-tiramis-service-context.service';
+import {
+  PolicyTransactionTiramisServiceContext,
+  PolicyTransactionTiramisServiceContextService,
+} from './policy-transaction-tiramis-service-context.service';
 
 const FLOW_TO_REQUEST_TYPE: Record<
   QuotationFlow,
-  'NON_MOTOR' | 'MOTOR' | 'MOTOR_FLEET'
+  | TiramisRequestType.NON_MOTOR
+  | TiramisRequestType.MOTOR
+  | TiramisRequestType.MOTOR_FLEET
 > = {
-  [QuotationFlow.NON_MOTOR]: 'NON_MOTOR',
-  [QuotationFlow.MOTOR_SINGLE]: 'MOTOR',
-  [QuotationFlow.MOTOR_FLEET]: 'MOTOR_FLEET',
+  [QuotationFlow.NON_MOTOR]: TiramisRequestType.NON_MOTOR,
+  [QuotationFlow.MOTOR_SINGLE]: TiramisRequestType.MOTOR,
+  [QuotationFlow.MOTOR_FLEET]: TiramisRequestType.MOTOR_FLEET,
 };
 
 /**
@@ -57,8 +61,7 @@ export class PolicyTransactionTiramisSubmissionService {
     private readonly serviceContextService: PolicyTransactionTiramisServiceContextService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly dataAccessScopeService: DataAccessScopeService,
-    @Inject(forwardRef(() => TiramisIntegrationService))
-    private readonly tiramisIntegrationService: TiramisIntegrationService,
+    private readonly tiramisBusinessSubmitService: TiramisBusinessSubmitService,
   ) {}
 
   async submitEndorsement(user: AuthenticatedUser, transactionId: string) {
@@ -135,6 +138,10 @@ export class PolicyTransactionTiramisSubmissionService {
       policy,
       payload,
     );
+    const policyTransactionContext = this.buildPolicyTransactionContext(
+      transaction,
+      policy,
+    );
 
     await this.lifecycleService.startSubmission(
       user.companyId!,
@@ -145,25 +152,59 @@ export class PolicyTransactionTiramisSubmissionService {
       },
     );
 
-    let submission: Awaited<
-      ReturnType<TiramisIntegrationService['submitToTiramis']>
-    >['submission'];
+    let result: Record<string, any>;
 
     try {
-      ({ submission } = await this.tiramisIntegrationService.submitToTiramis({
-        companyId: user.companyId!,
-        userId: user.id,
-        dto: {
-          requestType,
-          policy_id: policy.id,
-          branch_id: policy.branch_id ?? undefined,
-          source_module: 'policy-transactions',
-          source_record_id: transaction.id,
-          business_reference: transaction.transaction_no,
-          payload,
-          serviceContext,
+      result = await this.tiramisBusinessSubmitService.submitAnyBusinessRecord({
+        requestType,
+        sourceModule: 'policy-transactions',
+        sourceRecordId: transaction.id,
+        policyId: policy.id,
+        businessReference: transaction.transaction_no,
+        payload,
+        productContext: serviceContext.product,
+        pricingContext: serviceContext.pricing,
+        insuredDataContext: serviceContext.insuredData,
+        quotationGateContext: serviceContext.quotationGate,
+        financeContext: serviceContext.finance,
+        policyTransactionContext,
+        forceResubmit: Boolean(transaction.tiramis_request_id),
+        authContext: {
+          ...user,
+          userId: user.id,
+          companyId: user.companyId!,
+          branchId:
+            policy.branch_id ??
+            (
+              user as AuthenticatedUser & {
+                branchId?: string | null;
+                activeBranchId?: string | null;
+              }
+            ).branchId ??
+            (
+              user as AuthenticatedUser & {
+                branchId?: string | null;
+                activeBranchId?: string | null;
+              }
+            ).activeBranchId ??
+            null,
+          activeBranchId:
+            policy.branch_id ??
+            (
+              user as AuthenticatedUser & {
+                branchId?: string | null;
+                activeBranchId?: string | null;
+              }
+            ).branchId ??
+            (
+              user as AuthenticatedUser & {
+                branchId?: string | null;
+                activeBranchId?: string | null;
+              }
+            ).activeBranchId ??
+            null,
         },
-      }));
+      });
     } catch (error) {
       await this.lifecycleService.markSubmissionFailed(
         user.companyId!,
@@ -179,18 +220,42 @@ export class PolicyTransactionTiramisSubmissionService {
       throw error;
     }
 
+    const tracking = result.tracking as
+      | {
+          id?: string | null;
+          tiramisTransactionId?: string | null;
+          tiramisRequestId?: string | null;
+        }
+      | undefined;
+    const tiramis =
+      (result.tiramis as Record<string, any> | undefined) ?? result;
+    const tiramisTransactionId =
+      tracking?.tiramisTransactionId ??
+      tiramis?.transaction?.id ??
+      tiramis?.coverNote?.transactionId ??
+      tiramis?.attempt?.transactionId ??
+      tiramis?.tiramisTransactionId ??
+      null;
+    const tiramisRequestId =
+      tracking?.tiramisRequestId ??
+      tiramis?.coverNote?.requestId ??
+      tiramis?.attempt?.requestId ??
+      tiramis?.request?.requestId ??
+      tiramis?.requestId ??
+      null;
+
     // startSubmission advances the lifecycle row. Saving the stale entity
     // loaded before that call would overwrite QUEUED with the previous status.
     await this.transactionRepository.update(
       { id: transaction.id, company_id: user.companyId! },
       {
-        tiramis_tracking_id: null,
-        tiramis_transaction_id: submission.tiramis_transaction_id,
-        tiramis_request_id: submission.tiramis_request_id,
+        tiramis_tracking_id: result.localTrackingId ?? tracking?.id ?? null,
+        tiramis_transaction_id: tiramisTransactionId,
+        tiramis_request_id: tiramisRequestId,
       },
     );
 
-    return submission;
+    return result;
   }
 
   /**
@@ -204,7 +269,7 @@ export class PolicyTransactionTiramisSubmissionService {
     companyId: string,
     policy: Policy,
     payload: Record<string, unknown>,
-  ) {
+  ): Promise<PolicyTransactionTiramisServiceContext> {
     if (!policy.quotation_id) {
       throw new BadRequestException(
         'The source policy has no originating quotation on record, so a signed TIRAMIS submission context cannot be built.',
@@ -233,12 +298,16 @@ export class PolicyTransactionTiramisSubmissionService {
       payload,
     );
 
-    return context as unknown as Record<string, unknown>;
+    return context;
   }
 
   private async resolveRequestType(
     policy: Policy,
-  ): Promise<'NON_MOTOR' | 'MOTOR' | 'MOTOR_FLEET'> {
+  ): Promise<
+    | TiramisRequestType.NON_MOTOR
+    | TiramisRequestType.MOTOR
+    | TiramisRequestType.MOTOR_FLEET
+  > {
     if (policy.quotation_id) {
       const quotation = await this.quotationRepository.findOne({
         where: { id: policy.quotation_id },
@@ -250,7 +319,32 @@ export class PolicyTransactionTiramisSubmissionService {
       }
     }
 
-    return 'MOTOR';
+    return TiramisRequestType.MOTOR;
+  }
+
+  private buildPolicyTransactionContext(
+    transaction: PolicyTransaction,
+    policy: Policy,
+  ): ServicePolicyTransactionContext {
+    return {
+      transactionId: transaction.id,
+      transactionNumber: transaction.transaction_no,
+      transactionType: transaction.transaction_type,
+      stage: transaction.stage,
+      sourcePolicyId: transaction.source_policy_id,
+      sourcePolicyNumber: policy.policy_no,
+      sourcePolicyVersion: transaction.source_policy_version_no,
+      effectiveDate: transaction.effective_date,
+      sourceSnapshotHash: transaction.source_policy_snapshot_hash,
+      proposedSnapshotHash: transaction.proposed_policy_snapshot_hash ?? null,
+      pricingSnapshotHash: transaction.pricing_snapshot_hash ?? null,
+      premiumEffect: transaction.premium_effect,
+      additionalPremium: transaction.additional_premium,
+      returnPremium: transaction.return_premium,
+      approvalStatus: transaction.approval_status,
+      paymentStatus: transaction.payment_status,
+      submissionStatus: transaction.submission_status,
+    };
   }
 
   private async requireTransaction(

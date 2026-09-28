@@ -1790,8 +1790,21 @@ export class TiramisIntegrationService {
   }
 
   private isPolicySource(sourceModule?: string | null) {
+    if (this.isPolicyTransactionSource(sourceModule)) {
+      return false;
+    }
+
     return Boolean(
       sourceModule && sourceModule.toLowerCase().includes('policy'),
+    );
+  }
+
+  private isPolicyTransactionSource(sourceModule?: string | null) {
+    return ['policy-transactions', 'policy-transaction'].includes(
+      String(sourceModule || '')
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, '-'),
     );
   }
 

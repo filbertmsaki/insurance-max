@@ -9,12 +9,28 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
     transaction_type: PolicyTransactionType.CANCELLATION,
     transaction_no: 'AICL-CXL-1',
     source_policy_id: 'policy-1',
+    source_policy_version_no: 1,
+    effective_date: '2026-09-28',
+    source_policy_snapshot_hash: 'source-hash',
+    proposed_policy_snapshot_hash: 'proposed-hash',
+    pricing_snapshot_hash: 'pricing-hash',
+    premium_effect: 'NONE',
+    additional_premium: '0.0000',
+    return_premium: '0.0000',
+    approval_status: 'APPROVED',
+    payment_status: 'NOT_REQUIRED',
+    submission_status: 'READY',
   };
   const cancellation = { policy_transaction_id: 'txn-1' };
-  const policy = { id: 'policy-1', quotation_id: 'quotation-1' };
+  const policy = {
+    id: 'policy-1',
+    policy_no: 'POL-1',
+    quotation_id: 'quotation-1',
+    branch_id: 'branch-1',
+  };
   const quotation = { id: 'quotation-1', company_id: 'company-1' };
 
-  function makeService(submitToTiramis: jest.Mock) {
+  function makeService(submitAnyBusinessRecord: jest.Mock) {
     const transactionQueryBuilder = {
       innerJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
@@ -53,7 +69,7 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       resolve: jest.fn().mockReturnValue({ companyId: 'company-1' }),
       applyPolicyReadScope: jest.fn(),
     };
-    const tiramisIntegrationService = { submitToTiramis };
+    const tiramisBusinessSubmitService = { submitAnyBusinessRecord };
 
     const service = new PolicyTransactionTiramisSubmissionService(
       transactionRepository as any,
@@ -65,7 +81,7 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       serviceContextService as any,
       lifecycleService as any,
       dataAccessScopeService as any,
-      tiramisIntegrationService as any,
+      tiramisBusinessSubmitService as any,
     );
 
     return {
@@ -73,6 +89,7 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       lifecycleService,
       transactionRepository,
       serviceContextService,
+      tiramisBusinessSubmitService,
     };
   }
 
@@ -97,23 +114,26 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
     expect(transactionRepository.save).not.toHaveBeenCalled();
   });
 
-  it('persists the TIRAMIS transaction/request ids on success', async () => {
-    const submission = {
-      tiramis_transaction_id: 'tt-1',
-      tiramis_request_id: 'tr-1',
+  it('persists the TIRAMIS tracking transaction/request ids on success', async () => {
+    const result = {
+      localTrackingId: 'tracking-1',
+      tracking: {
+        tiramisTransactionId: 'tt-1',
+        tiramisRequestId: 'tr-1',
+      },
     };
     const { service, lifecycleService, transactionRepository } = makeService(
-      jest.fn().mockResolvedValue({ submission }),
+      jest.fn().mockResolvedValue(result),
     );
 
-    const result = await service.submitCancellation(user, 'txn-1');
+    const actual = await service.submitCancellation(user, 'txn-1');
 
-    expect(result).toBe(submission);
+    expect(actual).toBe(result);
     expect(lifecycleService.markSubmissionFailed).not.toHaveBeenCalled();
     expect(transactionRepository.update).toHaveBeenCalledWith(
       { id: 'txn-1', company_id: 'company-1' },
       {
-        tiramis_tracking_id: null,
+        tiramis_tracking_id: 'tracking-1',
         tiramis_transaction_id: 'tt-1',
         tiramis_request_id: 'tr-1',
       },
@@ -121,14 +141,22 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
     expect(transactionRepository.save).not.toHaveBeenCalled();
   });
 
-  it('builds a signed service context from the originating quotation and threads it into the TIRAMIS submission', async () => {
-    const submitToTiramis = jest.fn().mockResolvedValue({
-      submission: {
+  it('builds signed service contexts from the originating quotation and submits via the business Tiramis path', async () => {
+    const submitAnyBusinessRecord = jest.fn().mockResolvedValue({
+      localTrackingId: 'tracking-1',
+      tracking: {
+        id: 'tracking-1',
+        tiramisTransactionId: 'tt-1',
+        tiramisRequestId: 'tr-1',
+      },
+      tiramis: {
         tiramis_transaction_id: 'tt-1',
         tiramis_request_id: 'tr-1',
       },
     });
-    const { service, serviceContextService } = makeService(submitToTiramis);
+    const { service, serviceContextService } = makeService(
+      submitAnyBusinessRecord,
+    );
 
     await service.submitCancellation(user, 'txn-1');
 
@@ -137,10 +165,20 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       quotation,
       {},
     );
-    expect(submitToTiramis).toHaveBeenCalledWith(
+    expect(submitAnyBusinessRecord).toHaveBeenCalledWith(
       expect.objectContaining({
-        dto: expect.objectContaining({
-          serviceContext: { insuredData: {}, quotationGate: {} },
+        sourceModule: 'policy-transactions',
+        sourceRecordId: 'txn-1',
+        policyId: 'policy-1',
+        productContext: undefined,
+        pricingContext: undefined,
+        insuredDataContext: {},
+        quotationGateContext: {},
+        policyTransactionContext: expect.objectContaining({
+          transactionId: 'txn-1',
+          transactionNumber: 'AICL-CXL-1',
+          sourcePolicyId: 'policy-1',
+          sourcePolicyNumber: 'POL-1',
         }),
       }),
     );
