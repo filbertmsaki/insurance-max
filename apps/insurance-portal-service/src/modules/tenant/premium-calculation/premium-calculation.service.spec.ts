@@ -26,6 +26,27 @@ import { PremiumCalculationService } from './premium-calculation.service';
 
 const COMPANY_ID = 'company-1';
 const hashService = new ProductDefinitionHashService();
+const DEFAULT_TAX = {
+  id: 'tax-default-vat',
+  company_id: COMPANY_ID,
+  category_id: null,
+  product_id: null,
+  risk_id: null,
+  tax_code: 'VAT-MAINLAND',
+  tax_name: 'VAT',
+  charge_category: 'TAX',
+  tax_type: 'PERCENTAGE',
+  calculation_base: 'NET_PREMIUM',
+  tax_rate: 0.18,
+  tax_amount: null,
+  minimum_charge_amount: null,
+  maximum_charge_amount: null,
+  is_taxable: false,
+  is_default: true,
+  effective_from: '2020-01-01',
+  effective_to: '2999-12-31',
+  status: 'ACTIVE',
+};
 
 // Fixtures below mirror the real seeded rating rules for these risk codes
 // (verified directly against the database) rather than made-up numbers, so
@@ -314,8 +335,16 @@ function createServiceFixture(options: {
   const premiumBreakdownService = new PremiumBreakdownService(
     structuredPricingCalculatorService,
   );
+  const taxes = options.taxRules ?? [DEFAULT_TAX];
   const productTaxRuleRepository = {
-    find: jest.fn().mockResolvedValue(options.taxRules ?? []),
+    find: jest.fn().mockResolvedValue(taxes),
+    findOne: jest
+      .fn()
+      .mockResolvedValue(
+        taxes.find((tax) => tax.is_default) ??
+          taxes.find((tax) => tax.tax_code === DEFAULT_TAX.tax_code) ??
+          null,
+      ),
   };
   const pricingChargeService = new PricingChargeService(
     productTaxRuleRepository as any,
@@ -463,7 +492,7 @@ describe('PremiumCalculationService', () => {
       expect(result.discount_rate).toBe(0.05);
       expect(result.discount_amount).toBe(17500);
       expect(result.premium_after_discount).toBe(332500);
-      expect(result.final_payable_premium).toBe(332500);
+      expect(result.final_payable_premium).toBe(392350);
       expect(result.discount_approval_required).toBe(false);
     });
 
@@ -580,7 +609,7 @@ describe('PremiumCalculationService', () => {
       tax_rate: 0.01,
     };
 
-    it('applies no taxes when the selection is omitted', async () => {
+    it('applies the default catalogue tax when the selection is omitted', async () => {
       const { service } = createServiceFixture({
         risk: RISKS.comprehensive.risk,
         rules: [RISKS.comprehensive.rule],
@@ -593,8 +622,9 @@ describe('PremiumCalculationService', () => {
         factors: {},
       });
 
-      expect(result.charges).toHaveLength(0);
-      expect(result.total_tax_amount).toBe(0);
+      expect(result.charges).toHaveLength(1);
+      expect(result.charges[0].charge_code).toBe('VAT-MAINLAND');
+      expect(result.total_tax_amount).toBe(63000);
     });
 
     it('calculates multiple selected catalogue taxes', async () => {
