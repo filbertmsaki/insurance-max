@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
+import { PolicyTransactionType } from '@insurance-max/contracts';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { XMLParser } from 'fast-xml-parser';
@@ -12,6 +14,10 @@ import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-sub
 import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
 import { IssuanceService } from '../../tenant/issuance/issuance.service';
+import { PolicyTransaction } from '../../tenant/policy-transactions/entities/policy-transaction.entity';
+import { PolicyTransactionApplyService } from '../../tenant/policy-transactions/services/policy-transaction-apply.service';
+import { PolicyTransactionLifecycleService } from '../../tenant/policy-transactions/services/policy-transaction-lifecycle.service';
+import { PolicyTransactionRegulatoryOutcomeService } from '../../tenant/policy-transactions/services/policy-transaction-regulatory-outcome.service';
 import { PortalTiraSubmission } from '../../tenant/tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionStatus } from '../../tenant/tiramis-integration/enums/portal-tira-submission-status.enum';
 import type { TiramisNotificationEventDto } from '../../tenant/tiramis-integration/dto/tiramis-notification-event.dto';
@@ -32,6 +38,8 @@ export class TiramisBusinessRecordSyncService {
     private readonly issuanceService: IssuanceService,
     @InjectRepository(PortalTiraSubmission)
     private readonly portalSubmissionRepository: Repository<PortalTiraSubmission>,
+    @Optional()
+    private readonly moduleRef?: ModuleRef,
   ) {}
 
   async syncFromTracking(
@@ -58,10 +66,7 @@ export class TiramisBusinessRecordSyncService {
     });
 
     if (this.isPolicyTransactionSource(tracking.sourceModule)) {
-      return {
-        synced: false,
-        reason: 'policy_transaction_sync_handled_by_lifecycle',
-      };
+      return this.syncPolicyTransactionOutcomeIfNeeded(tracking);
     }
 
     const mapping = resolveTiramisBusinessRecordMapping({
@@ -235,6 +240,192 @@ export class TiramisBusinessRecordSyncService {
         .toLowerCase()
         .replace(/_/g, '-'),
     );
+  }
+
+  private async syncPolicyTransactionOutcomeIfNeeded(
+    tracking: TiramisSubmissionTrackingEntity,
+  ) {
+    if (!tracking.sourceCompanyId || !tracking.sourceRecordId) {
+      return {
+        synced: false,
+        reason: 'policy_transaction_reference_missing',
+      };
+    }
+
+    const transaction = await this.dataSource
+      .getRepository(PolicyTransaction)
+      .findOne({
+        where: {
+          id: tracking.sourceRecordId,
+          company_id: tracking.sourceCompanyId,
+        },
+      });
+
+    if (!transaction) {
+      return {
+        synced: false,
+        reason: 'policy_transaction_not_found',
+        sourceRecordId: tracking.sourceRecordId,
+      };
+    }
+
+    const terminalOutcome =
+      this.resolvePolicyTransactionTerminalOutcome(tracking);
+
+    if (!terminalOutcome) {
+      return {
+        synced: false,
+        reason: 'policy_transaction_not_terminal',
+        sourceRecordId: tracking.sourceRecordId,
+        status: tracking.status,
+      };
+    }
+
+    const lifecycleService = this.resolvePolicyTransactionLifecycleService();
+    const context = {
+      changedBy: null,
+      reason:
+        tracking.finalResponseStatusDesc ||
+        tracking.acknowledgementStatusDesc ||
+        tracking.lastErrorMessage ||
+        null,
+      tiraRequestId: tracking.tiramisRequestId || null,
+      tiraResponseId: tracking.finalResponseId || null,
+      requestId: tracking.id,
+    };
+
+    if (terminalOutcome === 'FAILED') {
+      await lifecycleService.markSubmissionFailed(
+        tracking.sourceCompanyId,
+        transaction.id,
+        context,
+      );
+      await this.trackingRepository.markBusinessRecordSynced(tracking.id);
+
+      return {
+        synced: true,
+        tableName: 'policy_transactions',
+        sourceRecordId: transaction.id,
+        status: tracking.status,
+        outcome: terminalOutcome,
+      };
+    }
+
+    const regulatoryResponse = this.extractRegulatoryResponse(tracking);
+    const submission = await this.findOrCreatePortalSubmission(tracking);
+    await this.refreshPortalSubmissionFromTracking(
+      submission,
+      tracking,
+      regulatoryResponse,
+    );
+
+    const payload = this.buildFinalSuccessPayload(tracking, regulatoryResponse);
+    const captured =
+      await this.resolvePolicyTransactionRegulatoryOutcomeService().captureFinalSuccess(
+        tracking.sourceCompanyId,
+        transaction.id,
+        submission,
+        payload,
+        tracking,
+      );
+
+    await lifecycleService.markSubmissionAccepted(
+      tracking.sourceCompanyId,
+      transaction.id,
+      context,
+    );
+
+    const applyService = this.resolvePolicyTransactionApplyService();
+    if (
+      captured.transaction.transaction_type ===
+      PolicyTransactionType.ENDORSEMENT
+    ) {
+      await applyService.applyEndorsement(
+        tracking.sourceCompanyId,
+        transaction.id,
+      );
+    } else if (
+      captured.transaction.transaction_type ===
+      PolicyTransactionType.CANCELLATION
+    ) {
+      await applyService.applyCancellation(
+        tracking.sourceCompanyId,
+        transaction.id,
+      );
+    }
+
+    await this.trackingRepository.markBusinessRecordSynced(tracking.id);
+
+    await this.auditService.logFromTracking({
+      action: TiramisAuditAction.BUSINESS_RECORD_SYNC_SUCCESS,
+      tracking,
+      success: true,
+      metadata: {
+        tableName: 'policy_transactions',
+        sourceRecordId: transaction.id,
+        outcome: terminalOutcome,
+      },
+    });
+
+    await this.notificationService.notifyBusinessRecordSyncSuccess({
+      tracking,
+      metadata: {
+        tableName: 'policy_transactions',
+        sourceRecordId: transaction.id,
+        outcome: terminalOutcome,
+      },
+    });
+
+    return {
+      synced: true,
+      tableName: 'policy_transactions',
+      sourceRecordId: transaction.id,
+      status: tracking.status,
+      outcome: terminalOutcome,
+    };
+  }
+
+  private resolvePolicyTransactionTerminalOutcome(
+    tracking: TiramisSubmissionTrackingEntity,
+  ): 'SUCCESS' | 'FAILED' | null {
+    if (tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      return 'SUCCESS';
+    }
+
+    if (
+      [
+        TiramisSubmissionStatus.FINAL_FAILED,
+        TiramisSubmissionStatus.ACK_FAILED,
+        TiramisSubmissionStatus.FAILED,
+        TiramisSubmissionStatus.RETRY_EXHAUSTED,
+      ].includes(tracking.status)
+    ) {
+      return 'FAILED';
+    }
+
+    return null;
+  }
+
+  private resolvePolicyTransactionLifecycleService() {
+    return this.getPolicyTransactionProvider(PolicyTransactionLifecycleService);
+  }
+
+  private resolvePolicyTransactionApplyService() {
+    return this.getPolicyTransactionProvider(PolicyTransactionApplyService);
+  }
+
+  private resolvePolicyTransactionRegulatoryOutcomeService() {
+    return this.getPolicyTransactionProvider(
+      PolicyTransactionRegulatoryOutcomeService,
+    );
+  }
+
+  private getPolicyTransactionProvider<T>(token: new (...args: any[]) => T): T {
+    if (!this.moduleRef) {
+      throw new Error('Policy transaction sync providers are unavailable.');
+    }
+
+    return this.moduleRef.get(token, { strict: false });
   }
 
   private buildSyncMatchCondition(
@@ -538,6 +729,11 @@ export class TiramisBusinessRecordSyncService {
     try {
       const submission = await this.findOrCreatePortalSubmission(tracking);
       const coverNote = regulatoryResponse?.coverNotes?.[0];
+      await this.refreshPortalSubmissionFromTracking(
+        submission,
+        tracking,
+        regulatoryResponse,
+      );
 
       if (
         coverNote &&
@@ -551,44 +747,10 @@ export class TiramisBusinessRecordSyncService {
         await this.portalSubmissionRepository.save(submission);
       }
 
-      const payload: TiramisNotificationEventDto = {
-        eventType: 'TIRAMIS_FINAL_SUCCESS',
-        sourceService: tracking.sourceModule,
-        sourceCompanyId: tracking.sourceCompanyId,
-        sourceModule: tracking.sourceModule,
-        sourceRecordId: tracking.sourceRecordId,
-        businessReference: tracking.businessReference,
-        tiramisTransactionId: tracking.tiramisTransactionId,
-        requestId: tracking.tiramisRequestId || tracking.id,
-        responseId: tracking.finalResponseId,
-        serviceType: tracking.tiramisServiceType,
-        rootElement: tracking.tiramisRootElement,
-        statusCode: tracking.finalResponseStatusCode,
-        statusDescription: tracking.finalResponseStatusDesc,
-        regulatoryResponse: {
-          transactionId: tracking.tiramisTransactionId || '',
-          requestId: tracking.tiramisRequestId || tracking.id,
-          responseId: tracking.finalResponseId || '',
-          requestType: tracking.requestType,
-          responseRoot: tracking.tiramisRootElement || '',
-          success: true,
-          statusCode: tracking.finalResponseStatusCode || '',
-          statusDescription: tracking.finalResponseStatusDesc || '',
-          coverNotes: regulatoryResponse?.coverNotes ?? [],
-          policy: regulatoryResponse?.policy ?? null,
-          signatureVerified: false,
-          // Deliberately undefined (not ''): IssuanceService falls back to
-          // hashing the payload itself when this is absent.
-          responsePayloadHash: undefined as unknown as string,
-          receivedAt: (
-            tracking.finalResponseReceivedAt || new Date()
-          ).toISOString(),
-        },
-        errorMessage: tracking.lastErrorMessage,
-        occurredAt: (
-          tracking.finalResponseReceivedAt || new Date()
-        ).toISOString(),
-      };
+      const payload = this.buildFinalSuccessPayload(
+        tracking,
+        regulatoryResponse,
+      );
 
       const result = await this.issuanceService.applyNotification(
         submission,
@@ -652,6 +814,133 @@ export class TiramisBusinessRecordSyncService {
     });
 
     return this.portalSubmissionRepository.save(submission);
+  }
+
+  private async refreshPortalSubmissionFromTracking(
+    submission: PortalTiraSubmission,
+    tracking: TiramisSubmissionTrackingEntity,
+    regulatoryResponse: Record<string, any> | null,
+  ) {
+    const coverNote = regulatoryResponse?.coverNotes?.[0];
+
+    submission.company_id = tracking.sourceCompanyId || submission.company_id;
+    submission.policy_id = tracking.policyId || submission.policy_id;
+    submission.source_module =
+      tracking.sourceModule || submission.source_module;
+    submission.source_record_id =
+      tracking.sourceRecordId || submission.source_record_id;
+    submission.business_reference =
+      tracking.businessReference || submission.business_reference;
+    submission.request_type = tracking.requestType || submission.request_type;
+    submission.service_type =
+      tracking.tiramisServiceType || submission.service_type;
+    submission.root_element =
+      tracking.tiramisRootElement || submission.root_element;
+    submission.tiramis_transaction_id =
+      tracking.tiramisTransactionId || submission.tiramis_transaction_id;
+    submission.tiramis_request_id =
+      tracking.tiramisRequestId || submission.tiramis_request_id;
+    submission.tiramis_response_id =
+      tracking.finalResponseId || submission.tiramis_response_id;
+    submission.status = this.toPortalSubmissionStatus(tracking.status);
+    submission.status_code =
+      tracking.finalResponseStatusCode ||
+      tracking.acknowledgementStatusCode ||
+      submission.status_code;
+    submission.status_description =
+      tracking.finalResponseStatusDesc ||
+      tracking.acknowledgementStatusDesc ||
+      submission.status_description;
+    submission.cover_note_reference_number =
+      coverNote?.coverNoteReferenceNumber ||
+      submission.cover_note_reference_number;
+    submission.policy_reference_number =
+      regulatoryResponse?.policy?.policyReferenceNumber ||
+      submission.policy_reference_number;
+    submission.sticker_number =
+      coverNote?.stickerNumber || submission.sticker_number;
+    submission.last_error = tracking.lastErrorMessage || submission.last_error;
+    submission.last_payload =
+      (tracking.finalResponsePayload as Record<string, unknown>) ||
+      (tracking.tiramisResponsePayload as Record<string, unknown>) ||
+      submission.last_payload;
+    submission.submitted_at = tracking.submittedAt || submission.submitted_at;
+    submission.last_event_at =
+      tracking.finalResponseReceivedAt ||
+      tracking.acknowledgedAt ||
+      submission.last_event_at ||
+      new Date();
+    submission.completed_at =
+      tracking.finalResponseReceivedAt || submission.completed_at;
+
+    await this.portalSubmissionRepository.save(submission);
+  }
+
+  private buildFinalSuccessPayload(
+    tracking: TiramisSubmissionTrackingEntity,
+    regulatoryResponse: Record<string, any> | null,
+  ): TiramisNotificationEventDto {
+    const receivedAt = (
+      tracking.finalResponseReceivedAt || new Date()
+    ).toISOString();
+
+    return {
+      eventType: 'TIRAMIS_FINAL_SUCCESS',
+      sourceService: tracking.sourceModule,
+      sourceCompanyId: tracking.sourceCompanyId,
+      sourceModule: tracking.sourceModule,
+      sourceRecordId: tracking.sourceRecordId,
+      businessReference: tracking.businessReference,
+      tiramisTransactionId: tracking.tiramisTransactionId,
+      requestId: tracking.tiramisRequestId || tracking.id,
+      responseId: tracking.finalResponseId,
+      serviceType: tracking.tiramisServiceType,
+      rootElement: tracking.tiramisRootElement,
+      statusCode: tracking.finalResponseStatusCode,
+      statusDescription: tracking.finalResponseStatusDesc,
+      regulatoryResponse: {
+        transactionId: tracking.tiramisTransactionId || '',
+        requestId: tracking.tiramisRequestId || tracking.id,
+        responseId: tracking.finalResponseId || '',
+        requestType: tracking.requestType,
+        responseRoot: tracking.tiramisRootElement || '',
+        success: true,
+        statusCode: tracking.finalResponseStatusCode || '',
+        statusDescription: tracking.finalResponseStatusDesc || '',
+        coverNotes: regulatoryResponse?.coverNotes ?? [],
+        policy: regulatoryResponse?.policy ?? null,
+        signatureVerified: false,
+        // Deliberately undefined (not ''): issuance falls back to hashing
+        // the payload itself when this is absent.
+        responsePayloadHash: undefined as unknown as string,
+        receivedAt,
+      },
+      errorMessage: tracking.lastErrorMessage,
+      occurredAt: receivedAt,
+    };
+  }
+
+  private toPortalSubmissionStatus(status: TiramisSubmissionStatus) {
+    switch (status) {
+      case TiramisSubmissionStatus.FINAL_SUCCESS:
+        return PortalTiraSubmissionStatus.COMPLETED;
+      case TiramisSubmissionStatus.FINAL_FAILED:
+        return PortalTiraSubmissionStatus.FINAL_FAILED;
+      case TiramisSubmissionStatus.ACK_FAILED:
+        return PortalTiraSubmissionStatus.ACK_FAILED;
+      case TiramisSubmissionStatus.CALLBACK_OVERDUE:
+        return PortalTiraSubmissionStatus.FINAL_CALLBACK_OVERDUE;
+      case TiramisSubmissionStatus.FAILED:
+      case TiramisSubmissionStatus.RETRY_EXHAUSTED:
+        return PortalTiraSubmissionStatus.FAILED;
+      case TiramisSubmissionStatus.PENDING_FINAL:
+        return PortalTiraSubmissionStatus.WAITING_FINAL_RESPONSE;
+      case TiramisSubmissionStatus.ACK_ACCEPTED:
+      case TiramisSubmissionStatus.ACKNOWLEDGED:
+        return PortalTiraSubmissionStatus.ACK_SUCCESS;
+      default:
+        return PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS;
+    }
   }
 
   private async findExistingPortalSubmission(
