@@ -622,12 +622,14 @@ export class PolicyTransactionTiramisPayloadService {
       };
     });
 
+    const firstItem = items[0] as Record<string, unknown> | undefined;
+
     return {
       ...common,
       coverNoteNumber: items[0]?.coverNoteNumber,
       ...this.previousCoverNoteReferenceFields(
-        items[0]?.previousCoverNoteReferenceNumber ??
-          items[0]?.prevCoverNoteReferenceNumber,
+        firstItem?.['previousCoverNoteReferenceNumber'] ??
+          firstItem?.['prevCoverNoteReferenceNumber'],
       ),
       coverNoteDesc: items[0]?.coverNoteDesc,
       operativeClause: items[0]?.operativeClause,
