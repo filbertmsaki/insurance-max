@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { TiramisSubmissionTrackingEntity } from '../../../tiramis/entities/tiramis-submission-tracking.entity';
@@ -7,11 +7,22 @@ import { PortalTiraSubmission } from '../../tiramis-integration/entities/portal-
 import { PolicyCancellation } from '../entities/policy-cancellation.entity';
 import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
+import { Policy } from '../../policies/entities/policy.entity';
+import { PolicyVersion } from '../../policies/entities/policy-version.entity';
+import { Quotation } from '../../quotations/entities/quotation.entity';
+import { PolicyTransactionQuotationFactoryService } from './policy-transaction-quotation-factory.service';
 import { PolicyTransactionType } from '@insurance-max/contracts';
 
 @Injectable()
 export class PolicyTransactionRegulatoryOutcomeService {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly logger = new Logger(
+    PolicyTransactionRegulatoryOutcomeService.name,
+  );
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly quotationFactory: PolicyTransactionQuotationFactoryService,
+  ) {}
 
   async captureFinalSuccess(
     companyId: string,
@@ -136,6 +147,11 @@ export class PolicyTransactionRegulatoryOutcomeService {
         await manager.getRepository(PolicyCancellation).save(cancellation);
       }
 
+      await this.ensureRelatedQuotation(manager, transaction, {
+        endorsement,
+        cancellation,
+      });
+
       return {
         transaction,
         endorsement,
@@ -143,6 +159,86 @@ export class PolicyTransactionRegulatoryOutcomeService {
         regulatoryResponse: response,
       };
     });
+  }
+
+  private async ensureRelatedQuotation(
+    manager: import('typeorm').EntityManager,
+    transaction: PolicyTransaction,
+    params: {
+      endorsement: PolicyEndorsement | null;
+      cancellation: PolicyCancellation | null;
+    },
+  ) {
+    const existing = await manager.getRepository(Quotation).findOne({
+      where: {
+        company_id: transaction.company_id,
+        source_policy_transaction_id: transaction.id,
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return;
+    }
+
+    const policy = await manager.getRepository(Policy).findOne({
+      where: {
+        id: transaction.source_policy_id,
+        company_id: transaction.company_id,
+      },
+    });
+    const version = await manager.getRepository(PolicyVersion).findOne({
+      where: {
+        id: transaction.source_policy_version_id,
+        company_id: transaction.company_id,
+      },
+    });
+    const previousCoverNoteReference =
+      params.endorsement?.previous_cover_note_reference ??
+      params.cancellation?.previous_cover_note_reference ??
+      null;
+    const endorsementType =
+      params.endorsement?.tira_endorsement_type ??
+      params.cancellation?.tira_endorsement_type ??
+      null;
+
+    if (
+      !policy ||
+      !version ||
+      !previousCoverNoteReference ||
+      !endorsementType
+    ) {
+      this.logger.warn(
+        `Skipping related quotation backfill for policy transaction ${transaction.id}: missing policy/version/previous reference/type`,
+      );
+      return;
+    }
+
+    try {
+      await this.quotationFactory.createTransactionDraft(
+        manager,
+        {
+          id: transaction.completed_by ?? transaction.requested_by,
+          companyId: transaction.company_id,
+        } as any,
+        {
+          policy,
+          version,
+          transaction,
+          previousCoverNoteReference,
+          endorsementType: Number(endorsementType),
+          endorsementReason: transaction.reason ?? '',
+          recordOnly:
+            transaction.transaction_type === PolicyTransactionType.CANCELLATION,
+        },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to backfill related quotation for policy transaction ${transaction.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   async captureFinalRejection(

@@ -11,12 +11,14 @@ import { DataAccessScopeService } from '../../../shared/authorization/data-acces
 import { TiramisBusinessSubmitService } from '../../../tiramis/services/tiramis-business-submit.service';
 import { TiramisRequestType } from '../../../tiramis/enums/tiramis-request-type.enum';
 import { Policy } from '../../policies/entities/policy.entity';
+import { PolicyVersion } from '../../policies/entities/policy-version.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationFlow } from '../../quotations/enums/quotation-flow.enum';
 import { PolicyCancellation } from '../entities/policy-cancellation.entity';
 import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
+import { PolicyTransactionQuotationFactoryService } from './policy-transaction-quotation-factory.service';
 import { PolicyTransactionTiramisPayloadService } from './policy-transaction-tiramis-payload.service';
 import {
   PolicyTransactionTiramisServiceContext,
@@ -55,9 +57,12 @@ export class PolicyTransactionTiramisSubmissionService {
     private readonly cancellationRepository: Repository<PolicyCancellation>,
     @InjectRepository(Policy)
     private readonly policyRepository: Repository<Policy>,
+    @InjectRepository(PolicyVersion)
+    private readonly policyVersionRepository: Repository<PolicyVersion>,
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
     private readonly payloadService: PolicyTransactionTiramisPayloadService,
+    private readonly quotationFactory: PolicyTransactionQuotationFactoryService,
     private readonly serviceContextService: PolicyTransactionTiramisServiceContextService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly dataAccessScopeService: DataAccessScopeService,
@@ -82,6 +87,13 @@ export class PolicyTransactionTiramisSubmissionService {
         'Endorsement or source policy could not be resolved.',
       );
     }
+
+    await this.ensureTransactionQuotation(user, transaction, policy, {
+      previousCoverNoteReference: endorsement.previous_cover_note_reference,
+      endorsementType: Number(endorsement.tira_endorsement_type),
+      endorsementReason: transaction.reason,
+      recordOnly: false,
+    });
 
     const payload = await this.payloadService.buildEndorsementPayload(
       transaction,
@@ -111,6 +123,13 @@ export class PolicyTransactionTiramisSubmissionService {
       );
     }
 
+    await this.ensureTransactionQuotation(user, transaction, policy, {
+      previousCoverNoteReference: cancellation.previous_cover_note_reference,
+      endorsementType: Number(cancellation.tira_endorsement_type),
+      endorsementReason: transaction.reason ?? '',
+      recordOnly: true,
+    });
+
     const payload = await this.payloadService.buildCancellationPayload(
       transaction,
       cancellation,
@@ -118,6 +137,63 @@ export class PolicyTransactionTiramisSubmissionService {
     );
 
     return this.submit(user, transaction, policy, payload);
+  }
+
+  private async ensureTransactionQuotation(
+    user: AuthenticatedUser,
+    transaction: PolicyTransaction,
+    policy: Policy,
+    params: {
+      previousCoverNoteReference: string | null | undefined;
+      endorsementType: number;
+      endorsementReason: string;
+      recordOnly: boolean;
+    },
+  ) {
+    const existing = await this.quotationRepository.findOne({
+      where: {
+        company_id: user.companyId!,
+        source_policy_transaction_id: transaction.id,
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    if (!params.previousCoverNoteReference) {
+      throw new BadRequestException(
+        'The policy transaction is missing the previous cover-note reference required to create its related quotation.',
+      );
+    }
+
+    const version = await this.policyVersionRepository.findOne({
+      where: {
+        id: transaction.source_policy_version_id,
+        company_id: user.companyId!,
+      },
+    });
+
+    if (!version) {
+      throw new BadRequestException(
+        'The source policy version could not be resolved to create the related quotation.',
+      );
+    }
+
+    return this.quotationFactory.createTransactionDraft(
+      this.quotationRepository.manager,
+      user,
+      {
+        policy,
+        version,
+        transaction,
+        previousCoverNoteReference: params.previousCoverNoteReference,
+        endorsementType: params.endorsementType,
+        endorsementReason: params.endorsementReason,
+        recordOnly: params.recordOnly,
+      },
+    );
   }
 
   private async submit(

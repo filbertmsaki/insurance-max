@@ -21,7 +21,11 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
     payment_status: 'NOT_REQUIRED',
     submission_status: 'READY',
   };
-  const cancellation = { policy_transaction_id: 'txn-1' };
+  const cancellation = {
+    policy_transaction_id: 'txn-1',
+    previous_cover_note_reference: '11026-27176-67612',
+    tira_endorsement_type: 4,
+  };
   const policy = {
     id: 'policy-1',
     policy_no: 'POL-1',
@@ -29,6 +33,10 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
     branch_id: 'branch-1',
   };
   const quotation = { id: 'quotation-1', company_id: 'company-1' };
+  const sourceVersion = {
+    id: 'version-1',
+    company_id: 'company-1',
+  };
 
   function makeService(submitAnyBusinessRecord: jest.Mock) {
     const transactionQueryBuilder = {
@@ -48,11 +56,18 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       findOne: jest.fn().mockResolvedValue(cancellation),
     };
     const policyRepository = { findOne: jest.fn().mockResolvedValue(policy) };
+    const policyVersionRepository = {
+      findOne: jest.fn().mockResolvedValue(sourceVersion),
+    };
     const quotationRepository = {
+      manager: {},
       findOne: jest.fn().mockResolvedValue(quotation),
     };
     const payloadService = {
       buildCancellationPayload: jest.fn().mockResolvedValue({}),
+    };
+    const quotationFactory = {
+      createTransactionDraft: jest.fn(),
     };
     const serviceContextService = {
       build: jest.fn().mockResolvedValue({
@@ -76,8 +91,10 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       endorsementRepository as any,
       cancellationRepository as any,
       policyRepository as any,
+      policyVersionRepository as any,
       quotationRepository as any,
       payloadService as any,
+      quotationFactory as any,
       serviceContextService as any,
       lifecycleService as any,
       dataAccessScopeService as any,
@@ -89,6 +106,8 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       lifecycleService,
       transactionRepository,
       serviceContextService,
+      quotationFactory,
+      quotationRepository,
       tiramisBusinessSubmitService,
     };
   }
@@ -180,6 +199,36 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
           sourcePolicyId: 'policy-1',
           sourcePolicyNumber: 'POL-1',
         }),
+      }),
+    );
+  });
+
+  it('creates the related policy-transaction quotation before manual cancellation submit when missing', async () => {
+    const submitAnyBusinessRecord = jest.fn().mockResolvedValue({
+      localTrackingId: 'tracking-1',
+      tracking: {
+        id: 'tracking-1',
+        tiramisTransactionId: 'tt-1',
+        tiramisRequestId: 'tr-1',
+      },
+    });
+    const { service, quotationFactory, quotationRepository } = makeService(
+      submitAnyBusinessRecord,
+    );
+    quotationRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(quotation);
+
+    await service.submitCancellation(user, 'txn-1');
+
+    expect(quotationFactory.createTransactionDraft).toHaveBeenCalledWith(
+      quotationRepository.manager,
+      user,
+      expect.objectContaining({
+        policy,
+        transaction,
+        previousCoverNoteReference: '11026-27176-67612',
+        recordOnly: true,
       }),
     );
   });
