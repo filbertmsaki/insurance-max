@@ -40,10 +40,17 @@ function makeHarness(transaction: any) {
   const eventRepo = {
     save: jest.fn().mockResolvedValue(undefined),
   };
+  const policyRepo = {
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
+  };
 
   const manager = {
     getRepository: (entity: any) =>
-      entity?.name === 'PolicyTransactionEvent' ? eventRepo : transactionRepo,
+      entity?.name === 'PolicyTransactionEvent'
+        ? eventRepo
+        : entity?.name === 'Policy'
+          ? policyRepo
+          : transactionRepo,
   };
 
   const dataSource = {
@@ -56,7 +63,7 @@ function makeHarness(transaction: any) {
     eventRepo as any,
   );
 
-  return { service, transactionRepo, eventRepo };
+  return { service, transactionRepo, eventRepo, policyRepo };
 }
 
 describe('PolicyTransactionLifecycleService', () => {
@@ -112,6 +119,64 @@ describe('PolicyTransactionLifecycleService', () => {
           changedBy: 'checker-user',
         }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('releasing the source policy lock', () => {
+    const expectedCriteria = {
+      id: 'policy-1',
+      company_id: 'company-1',
+      pending_transaction_id: 'txn-1',
+    };
+
+    it('clears pending_transaction_id when an approval is rejected', async () => {
+      const transaction = makeTransaction({
+        source_policy_id: 'policy-1',
+        stage: PolicyTransactionStage.COMPLETED,
+        approval_status: WorkflowApprovalStatus.PENDING,
+      });
+      const { service, policyRepo } = makeHarness(transaction);
+
+      const result = await service.rejectApproval('company-1', 'txn-1', {
+        changedBy: 'checker-user',
+        reason: 'Not supported',
+      });
+
+      expect(result.stage).toBe(PolicyTransactionStage.REJECTED);
+      expect(policyRepo.update).toHaveBeenCalledWith(expectedCriteria, {
+        pending_transaction_id: null,
+      });
+    });
+
+    it('clears pending_transaction_id when a transaction is withdrawn', async () => {
+      const transaction = makeTransaction({ source_policy_id: 'policy-1' });
+      const { service, policyRepo } = makeHarness(transaction);
+
+      const result = await service.cancelTransaction('company-1', 'txn-1', {
+        changedBy: 'maker-user',
+        reason: 'Customer changed their mind',
+      });
+
+      expect(result.stage).toBe(PolicyTransactionStage.CANCELLED);
+      expect(policyRepo.update).toHaveBeenCalledWith(expectedCriteria, {
+        pending_transaction_id: null,
+      });
+    });
+
+    it('does not release the policy when changes are requested', async () => {
+      const transaction = makeTransaction({
+        source_policy_id: 'policy-1',
+        stage: PolicyTransactionStage.COMPLETED,
+        approval_status: WorkflowApprovalStatus.PENDING,
+      });
+      const { service, policyRepo } = makeHarness(transaction);
+
+      await service.requestChanges('company-1', 'txn-1', {
+        changedBy: 'checker-user',
+        reason: 'Fix the effective date',
+      });
+
+      expect(policyRepo.update).not.toHaveBeenCalled();
     });
   });
 

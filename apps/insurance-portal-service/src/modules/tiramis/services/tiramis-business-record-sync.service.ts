@@ -57,6 +57,13 @@ export class TiramisBusinessRecordSyncService {
       success: true,
     });
 
+    if (this.isPolicyTransactionSource(tracking.sourceModule)) {
+      return {
+        synced: false,
+        reason: 'policy_transaction_sync_handled_by_lifecycle',
+      };
+    }
+
     const mapping = resolveTiramisBusinessRecordMapping({
       sourceModule: tracking.sourceModule,
       requestType: tracking.requestType,
@@ -219,6 +226,15 @@ export class TiramisBusinessRecordSyncService {
     }
 
     return `"${identifier}"`;
+  }
+
+  private isPolicyTransactionSource(sourceModule?: string | null) {
+    return ['policy-transactions', 'policy-transaction'].includes(
+      String(sourceModule || '')
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, '-'),
+    );
   }
 
   private buildSyncMatchCondition(

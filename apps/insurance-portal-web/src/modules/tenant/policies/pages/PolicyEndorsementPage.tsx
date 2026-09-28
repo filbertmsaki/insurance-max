@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Ban, Save } from 'lucide-react';
+import { toast } from 'sonner';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,6 +22,7 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { formatMoney as formatConfiguredMoney } from '@/modules/shared/formatting/number-format';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import {
+  policyKeys,
   useCancellationEligibility,
   useCreateEndorsement,
   useEndorsementContext,
@@ -29,10 +32,16 @@ import {
   useIssueEndorsement,
   usePolicyCurrentVersion,
   usePolicyDetail,
+  usePolicyTransactionDecision,
+  usePolicyTransactionRealtime,
   useReconcileEndorsement,
   useRecordEndorsementChange,
 } from '../hooks';
 import { policiesApi } from '../api';
+import {
+  TransactionReasonDialog,
+  type TransactionReasonAction,
+} from '../components/TransactionReasonDialog';
 import type {
   EndorsementPricingSnapshot,
   RecordEndorsementChangePayload,
@@ -71,6 +80,8 @@ function premiumEffectBadgeVariant(
       return 'muted';
   }
 }
+
+const TERMINAL_STAGES = ['APPLIED', 'CANCELLED', 'EXPIRED', 'REJECTED'];
 
 function displayValue(value: unknown): string {
   if (value === null || value === undefined || value === '') {
@@ -167,6 +178,23 @@ export function PolicyEndorsementPage() {
   const canSubmitEndorsementToTiramis = hasPermission(
     'endorsements:submit-tiramis',
   );
+  const canApproveEndorsement = hasPermission('endorsements:approve');
+  const canCancelEndorsement = hasPermission('endorsements:cancel');
+  const canRetryEndorsement =
+    hasPermission('endorsements:retry-tiramis') ||
+    hasPermission('endorsements:reconcile');
+  const decision = usePolicyTransactionDecision(
+    policyId,
+    policyKeys.endorsementContext(endorsementId ?? ''),
+  );
+  usePolicyTransactionRealtime(
+    endorsementId,
+    policyId,
+    policyKeys.endorsementContext(endorsementId ?? ''),
+  );
+  const [reasonAction, setReasonAction] =
+    useState<TransactionReasonAction | null>(null);
+  const [actionPending, setActionPending] = useState(false);
   const canUseReconciliation = hasPermission('endorsements:reconcile');
   const { data: reconciliation } = useEndorsementReconciliation(
     endorsementId,
@@ -219,10 +247,22 @@ export function PolicyEndorsementPage() {
     ['REQUESTED', 'PROCESSING', 'PARTIALLY_PAID', 'PARTIAL'].includes(
       tx.payment_status,
     );
+  const isRetry = ['FAILED', 'RETRYABLE'].includes(tx?.submission_status ?? '');
   const canIssue =
-    canSubmitEndorsementToTiramis &&
     tx?.stage === 'COMPLETED' &&
-    ['READY', 'FAILED', 'RETRYABLE'].includes(tx.submission_status);
+    (tx.submission_status === 'READY'
+      ? canSubmitEndorsementToTiramis
+      : isRetry && canRetryEndorsement);
+  const isTerminal = !!tx && TERMINAL_STAGES.includes(tx.stage);
+  const awaitingApproval =
+    canApproveEndorsement &&
+    tx?.stage === 'COMPLETED' &&
+    tx.approval_status === 'PENDING';
+  const canCancelDraft =
+    canCancelEndorsement &&
+    !!tx &&
+    !isTerminal &&
+    tx.submission_status !== 'PROCESSING';
   const refunds = Array.isArray(reconciliation?.refunds)
     ? (reconciliation.refunds as Array<{
         id: string;
@@ -286,42 +326,88 @@ export function PolicyEndorsementPage() {
     );
   };
 
+  // Runs a workflow command, surfacing API errors (e.g. 422 premium-effect
+  // mismatch) instead of leaving an unhandled rejection.
+  const runAction = async <T,>(
+    action: (id: string) => Promise<T>,
+  ): Promise<T | undefined> => {
+    if (!endorsementId) {
+      return undefined;
+    }
+
+    setActionPending(true);
+    try {
+      const result = await action(endorsementId);
+      await refetchContext();
+      return result;
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+      return undefined;
+    } finally {
+      setActionPending(false);
+    }
+  };
+
   const handleReview = async () => {
-    if (!endorsementId) {
-      return;
+    const result = await runAction((id) =>
+      policiesApi.recalculateEndorsement(id).then(() => true),
+    );
+    if (result) {
+      setStep(3);
     }
-
-    await policiesApi.recalculateEndorsement(endorsementId);
-    await refetchContext();
-    setStep(3);
   };
 
-  const completeEndorsement = async () => {
-    if (!endorsementId) {
-      return;
-    }
+  const completeEndorsement = () =>
+    runAction((id) => policiesApi.completeEndorsement(id));
 
-    await policiesApi.completeEndorsement(endorsementId);
-    await refetchContext();
-  };
-
-  const submitApproval = async () => {
-    if (!endorsementId) {
-      return;
-    }
-
-    await policiesApi.submitEndorsementApproval(endorsementId);
-    await refetchContext();
-  };
+  const submitApproval = () =>
+    runAction((id) => policiesApi.submitEndorsementApproval(id));
 
   const requestPayment = async () => {
+    const invoice = await runAction((id) =>
+      policiesApi.requestEndorsementPayment(id),
+    );
+    if (invoice) {
+      navigate(`/finance/invoices/${invoice.id}`);
+    }
+  };
+
+  const approveEndorsement = () => {
     if (!endorsementId) {
       return;
     }
+    decision
+      .mutateAsync({
+        run: () => policiesApi.approveEndorsement(endorsementId),
+        successMessage: 'Endorsement approved',
+      })
+      .catch(() => undefined);
+  };
 
-    const invoice = await policiesApi.requestEndorsementPayment(endorsementId);
-    await refetchContext();
-    navigate(`/finance/invoices/${invoice.id}`);
+  const openReasonAction = (
+    action: Omit<TransactionReasonAction, 'onConfirm'> & {
+      run: (id: string, reason: string) => Promise<unknown>;
+      successMessage: string;
+    },
+  ) =>
+    setReasonAction({
+      ...action,
+      onConfirm: (value) =>
+        decision.mutateAsync({
+          run: () => action.run(endorsementId!, value),
+          successMessage: action.successMessage,
+        }),
+    });
+
+  const issueOrRetry = () => {
+    if (!endorsementId) {
+      return;
+    }
+    if (isRetry) {
+      void runAction((id) => policiesApi.retryEndorsementTiramis(id));
+      return;
+    }
+    issueEndorsement.mutate(endorsementId);
   };
 
   if (policyLoading) {
@@ -886,34 +972,129 @@ export function PolicyEndorsementPage() {
                 </Alert>
               )}
 
+              {(tx?.stage === 'CANCELLED' || tx?.stage === 'REJECTED') && (
+                <Alert>
+                  <AlertTitle>
+                    {tx.stage === 'REJECTED'
+                      ? 'Endorsement rejected'
+                      : 'Endorsement cancelled'}
+                  </AlertTitle>
+                  <AlertDescription>
+                    The policy is unchanged and can accept a new endorsement.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="flex flex-wrap gap-2">
                 {canComplete && (
-                  <Button type="button" onClick={completeEndorsement}>
+                  <Button
+                    type="button"
+                    onClick={completeEndorsement}
+                    disabled={actionPending}
+                  >
                     Complete Endorsement
                   </Button>
                 )}
                 {canSubmitApproval && (
-                  <Button type="button" onClick={submitApproval}>
+                  <Button
+                    type="button"
+                    onClick={submitApproval}
+                    disabled={actionPending}
+                  >
                     Submit for Approval
                   </Button>
                 )}
+                {awaitingApproval && (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={approveEndorsement}
+                      disabled={decision.isPending}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={decision.isPending}
+                      onClick={() =>
+                        openReasonAction({
+                          title: 'Request changes',
+                          description:
+                            'The endorsement returns to draft so the requester can revise and resubmit it.',
+                          confirmLabel: 'Request Changes',
+                          successMessage: 'Changes requested',
+                          run: (id, value) =>
+                            policiesApi.requestEndorsementChanges(id, value),
+                        })
+                      }
+                    >
+                      Request Changes
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="text-red-600"
+                      disabled={decision.isPending}
+                      onClick={() =>
+                        openReasonAction({
+                          title: 'Reject endorsement',
+                          description:
+                            'Rejecting closes this endorsement; the policy stays unchanged.',
+                          confirmLabel: 'Reject',
+                          destructive: true,
+                          successMessage: 'Endorsement rejected',
+                          run: (id, value) =>
+                            policiesApi.rejectEndorsement(id, value),
+                        })
+                      }
+                    >
+                      Reject
+                    </Button>
+                  </>
+                )}
                 {canRequestPayment && (
-                  <Button type="button" onClick={requestPayment}>
+                  <Button
+                    type="button"
+                    onClick={requestPayment}
+                    disabled={actionPending}
+                  >
                     Request Payment
                   </Button>
                 )}
                 {canIssue && endorsementId && (
                   <Button
                     type="button"
-                    onClick={() => issueEndorsement.mutate(endorsementId)}
-                    disabled={
-                      issueEndorsement.isPending ||
-                      tx?.submission_status !== 'READY'
-                    }
+                    onClick={issueOrRetry}
+                    disabled={issueEndorsement.isPending || actionPending}
                   >
                     {issueEndorsement.isPending
                       ? 'Issuing...'
-                      : 'Issue Endorsement'}
+                      : isRetry
+                        ? 'Retry Issuance'
+                        : 'Issue Endorsement'}
+                  </Button>
+                )}
+                {canCancelDraft && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-red-600"
+                    disabled={decision.isPending}
+                    onClick={() =>
+                      openReasonAction({
+                        title: 'Cancel endorsement',
+                        description:
+                          'Cancelling discards this endorsement and releases the policy.',
+                        confirmLabel: 'Cancel Endorsement',
+                        destructive: true,
+                        successMessage: 'Endorsement cancelled',
+                        run: (id, value) =>
+                          policiesApi.cancelEndorsement(id, value),
+                      })
+                    }
+                  >
+                    Cancel Endorsement
                   </Button>
                 )}
               </div>
@@ -921,6 +1102,10 @@ export function PolicyEndorsementPage() {
           </Card>
         </div>
       )}
+      <TransactionReasonDialog
+        action={reasonAction}
+        onClose={() => setReasonAction(null)}
+      />
     </div>
   );
 }

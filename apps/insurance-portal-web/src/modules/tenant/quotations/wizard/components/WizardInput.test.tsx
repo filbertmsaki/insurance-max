@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useForm, useWatch } from 'react-hook-form';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Form } from '@/components/ui/form';
@@ -150,11 +150,14 @@ describe('WizardInput searchable', () => {
     expect(trigger).toHaveTextContent('2019');
   });
 
-  it('lets the form focus the picker, e.g. on a validation error', () => {
+  it('lets the form focus the picker, e.g. on a validation error', async () => {
     render(<YearHarness />);
     fireEvent.click(screen.getByRole('button', { name: 'Focus year' }));
-    expect(
-      screen.getByRole('combobox', { name: 'Year of manufacture' }),
-    ).toHaveFocus();
+    // react-hook-form defers setFocus to the next tick.
+    await waitFor(() =>
+      expect(
+        screen.getByRole('combobox', { name: 'Year of manufacture' }),
+      ).toHaveFocus(),
+    );
   });
 });

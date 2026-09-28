@@ -74,6 +74,7 @@ describe('TiramisIntegrationService callback handling', () => {
 
     const notificationPublisher = {
       publishQuotationTiramisUpdated: jest.fn(),
+      publishPolicyTransactionTiramisUpdated: jest.fn(),
     };
 
     const service = new TiramisIntegrationService(
@@ -331,7 +332,10 @@ describe('TiramisIntegrationService callback handling', () => {
       lifecycleService as any,
       applyService as any,
       regulatoryOutcomeService as any,
-      { publishQuotationTiramisUpdated: jest.fn() } as any,
+      {
+        publishQuotationTiramisUpdated: jest.fn(),
+        publishPolicyTransactionTiramisUpdated: jest.fn(),
+      } as any,
     );
 
     await (service as any).updateLinkedPolicyTransaction(
@@ -397,7 +401,10 @@ describe('TiramisIntegrationService callback handling', () => {
       lifecycleService as any,
       applyService as any,
       regulatoryOutcomeService as any,
-      { publishQuotationTiramisUpdated: jest.fn() } as any,
+      {
+        publishQuotationTiramisUpdated: jest.fn(),
+        publishPolicyTransactionTiramisUpdated: jest.fn(),
+      } as any,
     );
 
     await (service as any).updateLinkedPolicyTransaction(

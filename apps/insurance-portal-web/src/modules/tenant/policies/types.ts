@@ -246,6 +246,7 @@ export interface PolicyCancellationRecord {
   target_policy_id: string | null;
   target_policy_version_id: string | null;
   regulatory_response: Record<string, unknown> | null;
+  cancellation_reason?: string | null;
   created_at: string;
   updated_at: string;
 }

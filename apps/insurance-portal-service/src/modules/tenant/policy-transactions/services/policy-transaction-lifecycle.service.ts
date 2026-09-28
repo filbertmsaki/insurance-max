@@ -17,6 +17,7 @@ import {
 
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionEvent } from '../entities/policy-transaction-event.entity';
+import { Policy } from '../../policies/entities/policy.entity';
 
 export interface PolicyTransactionLifecycleContext {
   changedBy?: string | null;
@@ -228,6 +229,7 @@ export class PolicyTransactionLifecycleService {
         const previous = this.snapshot(transaction);
         transaction.approval_status = WorkflowApprovalStatus.REJECTED;
         transaction.stage = PolicyTransactionStage.REJECTED;
+        await this.releaseSourcePolicy(manager, transaction);
 
         return this.persistTransition(
           manager,
@@ -508,6 +510,7 @@ export class PolicyTransactionLifecycleService {
         transaction.cancelled_by = context.changedBy ?? null;
         transaction.cancelled_at = new Date();
         transaction.cancellation_reason = context.reason ?? null;
+        await this.releaseSourcePolicy(manager, transaction);
 
         return this.persistTransition(
           manager,
@@ -705,6 +708,29 @@ export class PolicyTransactionLifecycleService {
       previous.approval_status === transaction.approval_status &&
       previous.payment_status === transaction.payment_status &&
       previous.submission_status === transaction.submission_status
+    );
+  }
+
+  /**
+   * A rejected or withdrawn transaction no longer occupies its source
+   * policy, so clear the `pending_transaction_id` lock (only while it still
+   * points at this transaction) to let a new transaction be started.
+   */
+  private async releaseSourcePolicy(
+    manager: EntityManager,
+    transaction: PolicyTransaction,
+  ) {
+    if (!transaction.source_policy_id) {
+      return;
+    }
+
+    await manager.getRepository(Policy).update(
+      {
+        id: transaction.source_policy_id,
+        company_id: transaction.company_id,
+        pending_transaction_id: transaction.id,
+      },
+      { pending_transaction_id: null },
     );
   }
 

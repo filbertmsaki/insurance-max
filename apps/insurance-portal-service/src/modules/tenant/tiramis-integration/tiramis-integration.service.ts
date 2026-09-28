@@ -1433,6 +1433,40 @@ export class TiramisIntegrationService {
       requestId: submission.id,
     };
 
+    try {
+      await this.applyPolicyTransactionOutcome(
+        submission,
+        payload,
+        tracking,
+        transaction,
+        context,
+      );
+    } finally {
+      // Let open endorsement/cancellation pages refresh immediately instead
+      // of waiting for their polling interval.
+      this.notificationPublisher.publishPolicyTransactionTiramisUpdated({
+        companyId: submission.company_id,
+        transactionId: transaction.id,
+        transactionType: transaction.transaction_type,
+        policyId: transaction.source_policy_id,
+        requestId: payload.requestId,
+        eventType: payload.eventType,
+        statusCode: payload.statusCode ?? null,
+        statusDescription:
+          payload.statusDescription ?? submission.status_description ?? null,
+      });
+    }
+  }
+
+  private async applyPolicyTransactionOutcome(
+    submission: PortalTiraSubmission,
+    payload: TiramisNotificationEventDto,
+    tracking: TiramisSubmissionTrackingEntity | null,
+    transaction: PolicyTransaction,
+    context: Parameters<
+      PolicyTransactionLifecycleService['markSubmissionFailed']
+    >[2],
+  ) {
     switch (payload.eventType) {
       case 'TIRAMIS_FINAL_SUCCESS': {
         if (
@@ -1756,8 +1790,21 @@ export class TiramisIntegrationService {
   }
 
   private isPolicySource(sourceModule?: string | null) {
+    if (this.isPolicyTransactionSource(sourceModule)) {
+      return false;
+    }
+
     return Boolean(
       sourceModule && sourceModule.toLowerCase().includes('policy'),
+    );
+  }
+
+  private isPolicyTransactionSource(sourceModule?: string | null) {
+    return ['policy-transactions', 'policy-transaction'].includes(
+      String(sourceModule || '')
+        .trim()
+        .toLowerCase()
+        .replace(/_/g, '-'),
     );
   }
 

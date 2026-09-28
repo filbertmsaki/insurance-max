@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 import { DataScopePermissions } from '../../shared/authorization/data-scope.constants';
 import { ClaimAssessment } from '../../tenant/claims/entities/claim-assessment.entity';
@@ -43,6 +43,8 @@ export interface TiramisAccessScope {
 @Injectable()
 export class TiramisAccessScopeService {
   constructor(
+    private readonly dataSource: DataSource,
+
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
 
@@ -308,6 +310,43 @@ export class TiramisAccessScopeService {
       return {
         businessCompanyId: policy.company_id,
         businessBranchId: policy.branch_id,
+        sourceModule,
+        sourceRecordId,
+        requestType: params.requestType,
+      };
+    }
+
+    if (['policy-transactions', 'policy-transaction'].includes(sourceModule)) {
+      const rows = await this.dataSource.query(
+        `
+          SELECT
+            tx.id,
+            tx.company_id,
+            policy.branch_id
+          FROM policy_transactions tx
+          INNER JOIN policies policy
+            ON policy.id = tx.source_policy_id
+          WHERE tx.id = $1
+          LIMIT 1
+        `,
+        [sourceRecordId],
+      );
+      const transaction = rows?.[0] as
+        | { id: string; company_id: string; branch_id: string | null }
+        | undefined;
+
+      if (!transaction) {
+        throw new ForbiddenException(
+          'Policy transaction source record was not found',
+        );
+      }
+
+      this.assertCanAccessCompany(params.scope, transaction.company_id);
+      this.assertCanAccessBranch(params.scope, transaction.branch_id);
+
+      return {
+        businessCompanyId: transaction.company_id,
+        businessBranchId: transaction.branch_id,
         sourceModule,
         sourceRecordId,
         requestType: params.requestType,
