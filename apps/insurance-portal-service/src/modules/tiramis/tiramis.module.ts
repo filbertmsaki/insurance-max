@@ -23,7 +23,10 @@ import { TiramisSubmissionTrackingEntity } from './entities/tiramis-submission-t
 import { TiramisAuditLogRepository } from './repositories/tiramis-audit-log.repository';
 import { TiramisNotificationRepository } from './repositories/tiramis-notification.repository';
 import { TiramisSubmissionTrackingRepository } from './repositories/tiramis-submission-tracking.repository';
-import { TiramisClientService } from './services/tiramis-client.service';
+import {
+  TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE,
+  TiramisClientService,
+} from './services/tiramis-client.service';
 import { TiramisBusinessRecordSyncService } from './services/tiramis-business-record-sync.service';
 import { TiramisBusinessSchemaService } from './services/tiramis-business-schema.service';
 import { TiramisDashboardService } from './services/tiramis-dashboard.service';
@@ -100,6 +103,10 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisNotificationService,
     TiramisStatusSyncService,
     TiramisBusinessRecordSyncService,
+    {
+      provide: TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE,
+      useExisting: TiramisBusinessRecordSyncService,
+    },
     TiramisBusinessSchemaService,
     TiramisDashboardService,
     TiramisAccessScopeService,
@@ -123,6 +130,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisNotificationService,
     TiramisStatusSyncService,
     TiramisBusinessRecordSyncService,
+    TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE,
     TiramisBusinessSchemaService,
     TiramisDashboardService,
     TiramisAccessScopeService,

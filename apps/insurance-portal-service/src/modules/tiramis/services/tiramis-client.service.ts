@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   HttpException,
+  Inject,
   Injectable,
   Logger,
   RequestTimeoutException,
@@ -64,6 +65,8 @@ import {
 } from '../constants/tiramis-message-patterns.constant';
 
 export const TIRAMIS_CLIENT = 'TIRAMIS_CLIENT';
+export const TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE =
+  'TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE';
 
 @Injectable()
 export class TiramisClientService {
@@ -76,6 +79,7 @@ export class TiramisClientService {
     private readonly configService: ConfigService,
     private readonly requestContextService: RequestContextService,
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
+    @Inject(TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE)
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
     private readonly notificationService: TiramisNotificationService,
