@@ -43,6 +43,9 @@ export interface QuotationListItemResponse {
   requires_approval: boolean;
   requires_payment: boolean;
   is_fleet: boolean;
+  source_policy_transaction_id: string | null;
+  source_policy_id: string | null;
+  previous_quotation_id: string | null;
   fleet_id: string | null;
   currency_code: string | null;
   product_code: string | null;
@@ -139,6 +142,9 @@ export class QuotationPayloadMapper {
       requires_approval: quotation.requires_approval,
       requires_payment: quotation.requires_payment,
       is_fleet: quotation.is_fleet,
+      source_policy_transaction_id: quotation.source_policy_transaction_id,
+      source_policy_id: quotation.source_policy_id,
+      previous_quotation_id: quotation.previous_quotation_id,
       fleet_id: coverNote?.fleet_id ?? null,
       currency_code: coverNote?.currency_code ?? null,
       product_code: coverNote?.product_code ?? null,

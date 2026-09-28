@@ -352,6 +352,9 @@ export interface QuotationListItem {
   requires_approval: boolean;
   requires_payment: boolean;
   is_fleet: boolean;
+  source_policy_transaction_id: string | null;
+  source_policy_id: string | null;
+  previous_quotation_id: string | null;
   fleet_id: string | null;
   currency_code: string;
   product_code: string;

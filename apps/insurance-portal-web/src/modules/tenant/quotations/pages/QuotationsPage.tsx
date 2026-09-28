@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -66,7 +67,16 @@ export function QuotationsPage() {
       header: 'Quotation Number',
       sortable: true,
       cell: (row) => (
-        <span className="font-medium text-slate-900">{row.quotation_no}</span>
+        <div className="space-y-1">
+          <span className="block font-medium text-slate-900">
+            {row.quotation_no}
+          </span>
+          {row.source_policy_transaction_id ? (
+            <Badge variant="secondary" className="text-[11px]">
+              Policy transaction
+            </Badge>
+          ) : null}
+        </div>
       ),
     },
     {
