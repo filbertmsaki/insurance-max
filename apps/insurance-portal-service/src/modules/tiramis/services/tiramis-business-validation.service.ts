@@ -426,6 +426,16 @@ export class TiramisBusinessValidationService {
       });
 
       if (conflict) {
+        if (
+          this.isAmendmentOfConflictingCover({
+            payload,
+            motorPath: path,
+            conflict,
+          })
+        ) {
+          continue;
+        }
+
         const vehicleLabel = registrationNumber || chassisNumber;
         const existingReference =
           conflict.cover_note_reference_number || conflict.cover_note_number;
@@ -508,6 +518,68 @@ export class TiramisBusinessValidationService {
     return rows?.[0] || null;
   }
 
+  private isAmendmentOfConflictingCover(params: {
+    payload: Record<string, any>;
+    motorPath: string;
+    conflict: Record<string, any>;
+  }): boolean {
+    const coverNoteType = String(params.payload.coverNoteType ?? '').trim();
+
+    if (!['2', '3'].includes(coverNoteType)) {
+      return false;
+    }
+
+    const previousReference = this.normalizeCoverNoteReference(
+      this.resolvePreviousCoverNoteReference(params.payload, params.motorPath),
+    );
+
+    if (!previousReference) {
+      return false;
+    }
+
+    const conflictingReferences = [
+      params.conflict.cover_note_reference_number,
+      params.conflict.cover_note_number,
+    ]
+      .map((value) => this.normalizeCoverNoteReference(value))
+      .filter((value): value is string => !!value);
+
+    return conflictingReferences.includes(previousReference);
+  }
+
+  private resolvePreviousCoverNoteReference(
+    payload: Record<string, any>,
+    motorPath: string,
+  ): unknown {
+    const fleetItemMatch = motorPath.match(/^fleet\.items\[(\d+)\]\./);
+
+    if (fleetItemMatch) {
+      const item = this.toArray(payload.fleet?.items)[
+        Number(fleetItemMatch[1])
+      ];
+      const itemReference =
+        item?.previousCoverNoteReferenceNumber ??
+        item?.prevCoverNoteReferenceNumber;
+
+      if (!this.isBlank(itemReference)) {
+        return itemReference;
+      }
+    }
+
+    return (
+      payload.previousCoverNoteReferenceNumber ??
+      payload.prevCoverNoteReferenceNumber
+    );
+  }
+
+  private normalizeCoverNoteReference(value: unknown): string | null {
+    if (this.isBlank(value)) {
+      return null;
+    }
+
+    return String(value).trim().toUpperCase();
+  }
+
   private formatDate(value: unknown): string {
     if (this.isBlank(value)) {
       return '';
@@ -550,7 +622,10 @@ export class TiramisBusinessValidationService {
 
       if (
         ['2', '3'].includes(String(payload.coverNoteType ?? '').trim()) &&
-        this.isBlank(payload.previousCoverNoteReferenceNumber)
+        this.isBlank(
+          payload.previousCoverNoteReferenceNumber ??
+            payload.prevCoverNoteReferenceNumber,
+        )
       ) {
         errors.push(
           'previousCoverNoteReferenceNumber is required for renewal or endorsement cover notes',

@@ -381,6 +381,113 @@ describe('TiramisBusinessValidationService', () => {
     );
   });
 
+  it('accepts the TIRAMIS prev cover reference alias for renewals and endorsements', async () => {
+    const result = await service.validateBeforeSubmit({
+      requestType: TiramisRequestType.NON_MOTOR,
+      payload: {
+        coverNoteNumber: 'CN1',
+        salePointCode: 'SP500',
+        coverNoteStartDate: '2026-01-01',
+        coverNoteEndDate: '2027-01-01',
+        coverNoteType: '3',
+        prevCoverNoteReferenceNumber: '11026-27176-67612',
+      },
+    });
+
+    expect(result.errors).not.toContain(
+      'previousCoverNoteReferenceNumber is required for renewal or endorsement cover notes',
+    );
+  });
+
+  it('blocks new motor covers that overlap an active cover for the same vehicle', async () => {
+    const dataSource = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM cover_notes cn')) {
+          return [
+            {
+              cover_note_number: 'CN-OLD',
+              cover_note_reference_number: '11026-27176-67612',
+              start_date: '2026-09-28',
+              end_date: '2027-09-27',
+            },
+          ];
+        }
+
+        return [];
+      }),
+    };
+
+    const serviceWithData = new TiramisBusinessValidationService(
+      dataSource as any,
+    );
+
+    const result = await serviceWithData.validateBeforeSubmit({
+      requestType: TiramisRequestType.MOTOR,
+      sourceCompanyId: 'company-1',
+      payload: {
+        coverNoteNumber: 'CN-NEW',
+        salePointCode: 'SP500',
+        coverNoteStartDate: '2026-09-28',
+        coverNoteEndDate: '2027-09-27',
+        coverNoteType: '1',
+        motorDetail: {
+          registrationNumber: 'T247AAD',
+          chassisNumber: 'CH-1',
+        },
+      },
+    });
+
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toEqual([
+      expect.stringContaining('already has an active cover'),
+    ]);
+  });
+
+  it('allows endorsement or cancellation payloads to overlap the active cover they reference', async () => {
+    const dataSource = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM cover_notes cn')) {
+          return [
+            {
+              cover_note_number: 'CN-OLD',
+              cover_note_reference_number: '11026-27176-67612',
+              start_date: '2026-09-28',
+              end_date: '2027-09-27',
+            },
+          ];
+        }
+
+        return [];
+      }),
+    };
+
+    const serviceWithData = new TiramisBusinessValidationService(
+      dataSource as any,
+    );
+
+    const result = await serviceWithData.validateBeforeSubmit({
+      requestType: TiramisRequestType.MOTOR,
+      sourceCompanyId: 'company-1',
+      payload: {
+        coverNoteNumber: 'CN-END',
+        salePointCode: 'SP500',
+        coverNoteStartDate: '2026-09-28',
+        coverNoteEndDate: '2027-09-27',
+        coverNoteType: '3',
+        prevCoverNoteReferenceNumber: '11026-27176-67612',
+        motorDetail: {
+          registrationNumber: 'T247AAD',
+          chassisNumber: 'CH-1',
+        },
+      },
+    });
+
+    expect(result.errors).not.toEqual([
+      expect.stringContaining('already has an active cover'),
+    ]);
+    expect(result.isValid).toBe(true);
+  });
+
   it('requires policy submissions to reference at least one successful cover note', async () => {
     const result = await service.validateBeforeSubmit({
       requestType: TiramisRequestType.POLICY,
