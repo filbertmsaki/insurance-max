@@ -1,6 +1,7 @@
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 import {
   getTiramisFailureMessage,
+  isTiraSuccessCode,
   normalizeTiramisPortalResponse,
   resolveSubmissionStatusFromNormalized,
 } from './tiramis-response-normalizer.util';
@@ -52,6 +53,30 @@ describe('tiramis response normalizer', () => {
     );
     expect(getTiramisFailureMessage(normalized)).toBe(
       'Maximum retry attempts reached',
+    );
+  });
+
+  it('maps the TIRA214 cancellation callback as final success', () => {
+    const normalized = normalizeTiramisPortalResponse({
+      tiraResponse: {
+        rootName: 'MotorCoverNoteRefRes',
+        ResponseId: '202609281631296962065',
+        RequestId: 'AIC20260928163130629158',
+        CoverNoteReferenceNumber: '11026-27176-67612',
+        StickerNumber: '26001-27194-88212',
+        ResponseStatusCode: 'TIRA214',
+        ResponseStatusDesc: 'Transaction successfully cancelled',
+      },
+    });
+
+    expect(isTiraSuccessCode('TIRA214')).toBe(true);
+    expect(normalized.final.statusCode).toBe('TIRA214');
+    expect(normalized.final.statusDesc).toBe(
+      'Transaction successfully cancelled',
+    );
+    expect(normalized.final.isSuccess).toBe(true);
+    expect(resolveSubmissionStatusFromNormalized(normalized)).toBe(
+      TiramisSubmissionStatus.FINAL_SUCCESS,
     );
   });
 });

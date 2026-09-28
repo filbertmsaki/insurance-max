@@ -27,6 +27,22 @@ describe('tiramis callback outcome util', () => {
     ).toBe('CANCELLED');
   });
 
+  it('treats TIRA214 as a successful cancellation final response', () => {
+    expect(
+      resolveTiramisSuccessOutcome({
+        statusCode: 'TIRA214',
+        statusDescription: 'Transaction successfully cancelled',
+      }),
+    ).toBe('CANCELLED');
+
+    expect(
+      resolveTiramisCallbackOutcome(
+        'TIRA214',
+        'Transaction successfully cancelled',
+      ),
+    ).toBe('CANCELLED');
+  });
+
   it('treats the standard successful description as completion', () => {
     expect(
       resolveTiramisSuccessOutcome({

@@ -324,11 +324,18 @@ export function resolveSubmissionStatusFromNormalized(
   return TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE;
 }
 
+const TIRAMIS_SUCCESS_CODES = new Set([
+  'TIRA001',
+  // TIRA returns TIRA214 for a successful cancellation final callback:
+  // <ResponseStatusDesc>Transaction successfully cancelled</...>.
+  'TIRA214',
+]);
+
 export function isTiraSuccessCode(code?: string | null): boolean {
-  return (
+  return TIRAMIS_SUCCESS_CODES.has(
     String(code || '')
       .trim()
-      .toUpperCase() === 'TIRA001'
+      .toUpperCase(),
   );
 }
 
