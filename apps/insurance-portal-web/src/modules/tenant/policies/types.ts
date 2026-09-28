@@ -288,7 +288,7 @@ export interface RenewalEligibility {
   renewalStartDate: string | null;
   renewalEndDate: string | null;
   coverNoteEndDate: string | null;
-  previousCoverNoteReferenceNumber: string | null;
+  prevCoverNoteReferenceNumber: string | null;
   renewalOfPolicyId: string | null;
   renewalSequence: number | null;
   renewalWindowBeforeDays: number;

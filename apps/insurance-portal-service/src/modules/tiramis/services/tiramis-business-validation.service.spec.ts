@@ -363,7 +363,7 @@ describe('TiramisBusinessValidationService', () => {
     );
   });
 
-  it('requires previous cover note reference for renewals and endorsements', async () => {
+  it('requires prev cover note reference for renewals and endorsements', async () => {
     const result = await service.validateBeforeSubmit({
       requestType: TiramisRequestType.NON_MOTOR,
       payload: {
@@ -377,11 +377,11 @@ describe('TiramisBusinessValidationService', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors).toContain(
-      'previousCoverNoteReferenceNumber is required for renewal or endorsement cover notes',
+      'prevCoverNoteReferenceNumber is required for renewal or endorsement cover notes',
     );
   });
 
-  it('accepts the TIRAMIS prev cover reference alias for renewals and endorsements', async () => {
+  it('accepts the TIRAMIS prev cover reference for renewals and endorsements', async () => {
     const result = await service.validateBeforeSubmit({
       requestType: TiramisRequestType.NON_MOTOR,
       payload: {
@@ -395,7 +395,7 @@ describe('TiramisBusinessValidationService', () => {
     });
 
     expect(result.errors).not.toContain(
-      'previousCoverNoteReferenceNumber is required for renewal or endorsement cover notes',
+      'prevCoverNoteReferenceNumber is required for renewal or endorsement cover notes',
     );
   });
 

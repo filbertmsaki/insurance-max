@@ -26,7 +26,7 @@ export interface RenewalEligibilityResult {
   renewalStartDate: string | null;
   renewalEndDate: string | null;
   coverNoteEndDate: string | null;
-  previousCoverNoteReferenceNumber: string | null;
+  prevCoverNoteReferenceNumber: string | null;
   renewalOfPolicyId: string | null;
   renewalSequence: number | null;
   renewalWindowBeforeDays: number;
@@ -112,7 +112,7 @@ export class RenewalEligibilityService {
 
     const issuedCoverNote = await this.resolveIssuedCoverNote(manager, policy);
     const coverNoteEndDate = issuedCoverNote?.end_date ?? null;
-    const previousCoverNoteReferenceNumber =
+    const prevCoverNoteReferenceNumber =
       issuedCoverNote?.cover_note_reference_number ??
       policy.cover_note_no ??
       null;
@@ -130,7 +130,7 @@ export class RenewalEligibilityService {
       });
     }
 
-    if (!previousCoverNoteReferenceNumber) {
+    if (!prevCoverNoteReferenceNumber) {
       blockers.push({
         code: 'COVER_NOTE_REFERENCE_MISSING',
         message:
@@ -282,7 +282,7 @@ export class RenewalEligibilityService {
       renewalStartDate,
       renewalEndDate,
       coverNoteEndDate,
-      previousCoverNoteReferenceNumber,
+      prevCoverNoteReferenceNumber,
       renewalOfPolicyId,
       renewalSequence,
       renewalWindowBeforeDays: window.beforeDays,

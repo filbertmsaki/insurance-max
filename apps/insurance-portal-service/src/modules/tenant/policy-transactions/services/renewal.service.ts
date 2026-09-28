@@ -76,7 +76,7 @@ export class RenewalService {
       renewalStartDate: result.renewalStartDate,
       renewalEndDate: result.renewalEndDate,
       coverNoteEndDate: result.coverNoteEndDate,
-      previousCoverNoteReferenceNumber: result.previousCoverNoteReferenceNumber,
+      prevCoverNoteReferenceNumber: result.prevCoverNoteReferenceNumber,
       renewalOfPolicyId: result.renewalOfPolicyId,
       renewalSequence: result.renewalSequence,
       renewalWindowBeforeDays: result.renewalWindowBeforeDays,
@@ -228,13 +228,13 @@ export class RenewalService {
         renewal_start_date: eligibility.renewalStartDate!,
         renewal_end_date: eligibility.renewalEndDate!,
         source_cover_note_reference:
-          eligibility.previousCoverNoteReferenceNumber ??
+          eligibility.prevCoverNoteReferenceNumber ??
           currentVersion.regulatory_reference ??
           policy.cover_note_no ??
           '',
         previous_policy_id: policy.id,
         previous_cover_note_reference_number:
-          eligibility.previousCoverNoteReferenceNumber,
+          eligibility.prevCoverNoteReferenceNumber,
         renewal_of_policy_id: eligibility.renewalOfPolicyId,
         renewal_sequence: eligibility.renewalSequence ?? 1,
       });

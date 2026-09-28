@@ -69,7 +69,7 @@ describe('RenewalEligibilityService', () => {
 
     expect(result.eligible).toBe(true);
     expect(result.renewalStartDate).toBe('2026-10-04');
-    expect(result.previousCoverNoteReferenceNumber).toBe('CN-REF-001');
+    expect(result.prevCoverNoteReferenceNumber).toBe('CN-REF-001');
     expect(result.renewalSequence).toBe(1);
   });
 

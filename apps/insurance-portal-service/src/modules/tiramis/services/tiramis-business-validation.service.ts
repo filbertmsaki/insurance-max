@@ -557,19 +557,14 @@ export class TiramisBusinessValidationService {
       const item = this.toArray(payload.fleet?.items)[
         Number(fleetItemMatch[1])
       ];
-      const itemReference =
-        item?.previousCoverNoteReferenceNumber ??
-        item?.prevCoverNoteReferenceNumber;
+      const itemReference = item?.prevCoverNoteReferenceNumber;
 
       if (!this.isBlank(itemReference)) {
         return itemReference;
       }
     }
 
-    return (
-      payload.previousCoverNoteReferenceNumber ??
-      payload.prevCoverNoteReferenceNumber
-    );
+    return payload.prevCoverNoteReferenceNumber;
   }
 
   private normalizeCoverNoteReference(value: unknown): string | null {
@@ -622,13 +617,10 @@ export class TiramisBusinessValidationService {
 
       if (
         ['2', '3'].includes(String(payload.coverNoteType ?? '').trim()) &&
-        this.isBlank(
-          payload.previousCoverNoteReferenceNumber ??
-            payload.prevCoverNoteReferenceNumber,
-        )
+        this.isBlank(payload.prevCoverNoteReferenceNumber)
       ) {
         errors.push(
-          'previousCoverNoteReferenceNumber is required for renewal or endorsement cover notes',
+          'prevCoverNoteReferenceNumber is required for renewal or endorsement cover notes',
         );
       }
 
