@@ -187,6 +187,25 @@ export const policiesApi = {
     apiClient
       .post(`/tenant/cancellations/${id}/submit-tiramis`)
       .then((response) => response.data),
+  rejectCancellation: (id: string, reason: string) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/reject`, { reason })
+      .then((response) => response.data),
+  requestCancellationChanges: (id: string, reason: string) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/request-changes`, { reason })
+      .then((response) => response.data),
+  withdrawCancellation: (id: string, reason: string) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/cancel`, { reason })
+      .then((response) => response.data),
+  reviewCancellationClaims: (
+    id: string,
+    payload: { approved: boolean; reason?: string },
+  ) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/claims-review`, payload)
+      .then((response) => response.data),
   getRenewalEligibility: (policyId: string) =>
     apiClient
       .get<RenewalEligibility>(
@@ -270,6 +289,24 @@ export const policiesApi = {
   submitEndorsementApproval: (endorsementId: string) =>
     apiClient
       .post(`/tenant/endorsements/${endorsementId}/submit-approval`)
+      .then((response) => response.data),
+  approveEndorsement: (endorsementId: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${endorsementId}/approve`)
+      .then((response) => response.data),
+  rejectEndorsement: (endorsementId: string, reason: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${endorsementId}/reject`, { reason })
+      .then((response) => response.data),
+  requestEndorsementChanges: (endorsementId: string, reason: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${endorsementId}/request-changes`, {
+        reason,
+      })
+      .then((response) => response.data),
+  cancelEndorsement: (endorsementId: string, reason: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${endorsementId}/cancel`, { reason })
       .then((response) => response.data),
   requestEndorsementPayment: (endorsementId: string) =>
     apiClient

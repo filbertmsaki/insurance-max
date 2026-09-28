@@ -11,6 +11,13 @@ import { FinanceRefund } from '../../billing-commission/entities/finance-refund.
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionEvent } from '../entities/policy-transaction-event.entity';
 
+// Return premiums are created for both endorsement credits and policy
+// cancellations; both reference the policy transaction via source_record_id.
+const RETURN_PREMIUM_SOURCE_TYPES: string[] = [
+  InvoiceSourceType.ENDORSEMENT,
+  InvoiceSourceType.CANCELLATION,
+];
+
 @Injectable()
 export class PolicyTransactionRefundProjectionService {
   async publish(manager: EntityManager, refundId: string) {
@@ -20,7 +27,8 @@ export class PolicyTransactionRefundProjectionService {
 
     if (
       !refund ||
-      refund.source_type !== InvoiceSourceType.ENDORSEMENT ||
+      !refund.source_type ||
+      !RETURN_PREMIUM_SOURCE_TYPES.includes(refund.source_type) ||
       !refund.source_record_id
     ) {
       return;
@@ -45,7 +53,7 @@ export class PolicyTransactionRefundProjectionService {
         companyId: refund.company_id,
       })
       .andWhere('refund.source_type = :sourceType', {
-        sourceType: InvoiceSourceType.ENDORSEMENT,
+        sourceType: refund.source_type,
       })
       .andWhere('refund.source_record_id = :sourceRecordId', {
         sourceRecordId: refund.source_record_id,
@@ -58,6 +66,20 @@ export class PolicyTransactionRefundProjectionService {
         DecimalUtil.value(transaction.return_premium),
       )
     ) {
+      return;
+    }
+
+    const alreadyRecorded = await manager
+      .getRepository(PolicyTransactionEvent)
+      .findOne({
+        where: {
+          company_id: transaction.company_id,
+          policy_transaction_id: transaction.id,
+          event_type: PolicyTransactionEventType.RETURN_PREMIUM_PAID,
+        },
+      });
+
+    if (alreadyRecorded) {
       return;
     }
 

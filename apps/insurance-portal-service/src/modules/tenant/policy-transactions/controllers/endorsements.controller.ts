@@ -12,6 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import {
+  AnyPermissions,
   TenantScoped,
   hasCompanyAdminRole,
 } from '@insurance-max/portal-shared';
@@ -263,7 +264,7 @@ export class EndorsementsController {
   }
 
   @Post('tenant/endorsements/:id/retry-tiramis')
-  @Permissions('endorsements:reconcile')
+  @AnyPermissions('endorsements:retry-tiramis', 'endorsements:reconcile')
   @ApiOperation({
     summary: 'Retry a rejected/failed TIRAMIS submission for an endorsement',
   })

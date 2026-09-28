@@ -36,4 +36,31 @@ export class NotificationPublisherService {
       },
     });
   }
+
+  publishPolicyTransactionTiramisUpdated(params: {
+    companyId: string;
+    transactionId: string;
+    transactionType: string;
+    policyId: string;
+    requestId: string;
+    eventType: string;
+    statusCode?: string | null;
+    statusDescription?: string | null;
+  }) {
+    return this.notificationBus.publish({
+      type: 'policy-transaction.tiramis.updated',
+      companyId: params.companyId,
+      targetRecordType: 'policy-transaction',
+      targetRecordId: params.transactionId,
+      payload: {
+        transactionId: params.transactionId,
+        transactionType: params.transactionType,
+        policyId: params.policyId,
+        requestId: params.requestId,
+        eventType: params.eventType,
+        statusCode: params.statusCode ?? null,
+        statusDescription: params.statusDescription ?? null,
+      },
+    });
+  }
 }

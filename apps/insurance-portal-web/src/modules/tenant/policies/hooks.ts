@@ -11,6 +11,7 @@ import {
 } from '@/modules/tenant/quotations/hooks';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useNotificationStream } from '@/modules/shared/notifications/useNotificationStream';
 import { policiesApi } from './api';
 import { buildPolicyPayload, type PolicyFormSchemaValues } from './schemas';
 import type {
@@ -371,6 +372,62 @@ export function useCancellationContext(cancellationId?: string) {
         ? 3000
         : false;
     },
+  });
+}
+
+/**
+ * Refreshes an open endorsement/cancellation (and its policy) as soon as a
+ * TIRAMIS callback updates it, instead of waiting for the polling interval.
+ */
+export function usePolicyTransactionRealtime(
+  transactionId: string | undefined,
+  policyId: string | undefined,
+  contextKey: readonly unknown[],
+) {
+  const qc = useQueryClient();
+
+  useNotificationStream(!!transactionId, (notification) => {
+    if (
+      !transactionId ||
+      notification.type !== 'policy-transaction.tiramis.updated' ||
+      notification.targetRecordId !== transactionId
+    ) {
+      return;
+    }
+
+    qc.invalidateQueries({ queryKey: contextKey });
+    if (policyId) {
+      qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+    }
+  });
+}
+
+/**
+ * Runs an approval/withdrawal decision on an endorsement or cancellation
+ * and refreshes both the transaction context and the source policy (whose
+ * pending-transaction lock may have been released).
+ */
+export function usePolicyTransactionDecision(
+  policyId: string | undefined,
+  contextKey: readonly unknown[],
+) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      run,
+    }: {
+      run: () => Promise<unknown>;
+      successMessage: string;
+    }) => run(),
+    onSuccess: (_data, { successMessage }) => {
+      qc.invalidateQueries({ queryKey: contextKey });
+      if (policyId) {
+        qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+      }
+      toast.success(successMessage);
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
   });
 }
 

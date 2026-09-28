@@ -23,8 +23,16 @@ import {
   useCreateCancellation,
   useIssueCancellation,
   usePolicyDetail,
+  usePolicyTransactionDecision,
+  usePolicyTransactionRealtime,
 } from '../hooks';
+import {
+  TransactionReasonDialog,
+  type TransactionReasonAction,
+} from '../components/TransactionReasonDialog';
 import type { CancellationReasonType } from '../types';
+
+const TERMINAL_STAGES = ['APPLIED', 'CANCELLED', 'EXPIRED', 'REJECTED'];
 
 const REASON_TYPES: Array<{ value: CancellationReasonType; label: string }> = [
   { value: 'CUSTOMER_REQUEST', label: 'Customer Request' },
@@ -104,10 +112,49 @@ export function PolicyCancellationPage() {
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
 
+  const decision = usePolicyTransactionDecision(
+    policyId,
+    policyKeys.cancellationContext(cancellationId ?? ''),
+  );
+  usePolicyTransactionRealtime(
+    isNew ? undefined : cancellationId,
+    policyId,
+    policyKeys.cancellationContext(cancellationId ?? ''),
+  );
+  const [reasonAction, setReasonAction] =
+    useState<TransactionReasonAction | null>(null);
+
   const tx = context?.transaction;
   const cancellation = context?.cancellation;
   const canCompleteCancellation = hasPermission('cancellations:complete');
   const canApproveCancellation = hasPermission('cancellations:approve');
+  const canWithdrawCancellation = hasPermission('cancellations:cancel');
+  const canReviewClaims = hasPermission('cancellations:claims-review');
+  const isTerminal = !!tx && TERMINAL_STAGES.includes(tx.stage);
+  const awaitingApproval =
+    tx?.stage === 'COMPLETED' && tx.approval_status === 'PENDING';
+  const canWithdraw =
+    canWithdrawCancellation &&
+    !!tx &&
+    !isTerminal &&
+    tx.submission_status !== 'PROCESSING';
+  const claimsReviewPending =
+    tx?.stage === 'DRAFT' &&
+    !!cancellation?.claims_review_required &&
+    cancellation.claims_review_status === 'PENDING';
+  const runDecision = (run: () => Promise<unknown>, successMessage: string) =>
+    decision.mutateAsync({ run, successMessage });
+  const openReasonAction = (
+    action: Omit<TransactionReasonAction, 'onConfirm'> & {
+      run: (reason: string) => Promise<unknown>;
+      successMessage: string;
+    },
+  ) =>
+    setReasonAction({
+      ...action,
+      onConfirm: (value) =>
+        runDecision(() => action.run(value), action.successMessage),
+    });
   const canRequestCancellationPayment = hasPermission(
     'cancellations:request-payment',
   );
@@ -366,6 +413,48 @@ export function PolicyCancellationPage() {
                   This policy has an open or unresolved claim. Claims must
                   review the cancellation before it can proceed. Status:{' '}
                   {cancellation.claims_review_status}
+                  {claimsReviewPending && canReviewClaims && cancellationId && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        disabled={decision.isPending}
+                        onClick={() =>
+                          runDecision(
+                            () =>
+                              policiesApi.reviewCancellationClaims(
+                                cancellationId,
+                                { approved: true },
+                              ),
+                            'Claims review cleared',
+                          ).catch(() => undefined)
+                        }
+                      >
+                        Clear Claims Review
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={decision.isPending}
+                        onClick={() =>
+                          openReasonAction({
+                            title: 'Block cancellation',
+                            description:
+                              'Blocking the claims review stops this cancellation from being completed.',
+                            confirmLabel: 'Block',
+                            destructive: true,
+                            successMessage: 'Claims review blocked',
+                            run: (value) =>
+                              policiesApi.reviewCancellationClaims(
+                                cancellationId,
+                                { approved: false, reason: value },
+                              ),
+                          })
+                        }
+                      >
+                        Block
+                      </Button>
+                    </div>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
@@ -409,6 +498,20 @@ export function PolicyCancellationPage() {
                           ` Reference: ${cancellation.cancellation_cover_note_reference}.`}
                       </AlertDescription>
                     </Alert>
+                  ) : isTerminal ? (
+                    <Alert>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>
+                        {tx.stage === 'REJECTED'
+                          ? 'Cancellation Rejected'
+                          : 'Cancellation Closed'}
+                      </AlertTitle>
+                      <AlertDescription>
+                        The policy remains in force.
+                        {tx.cancellation_reason &&
+                          ` Reason: ${tx.cancellation_reason}`}
+                      </AlertDescription>
+                    </Alert>
                   ) : (
                     <Alert variant="destructive">
                       <AlertTriangle className="h-4 w-4" />
@@ -420,20 +523,22 @@ export function PolicyCancellationPage() {
                     </Alert>
                   )}
 
-                  {!finalApplied && (
+                  {!isTerminal && (
                     <div className="flex flex-wrap gap-2">
                       {canComplete && (
                         <Button
                           variant="destructive"
-                          disabled={completeCancellation.isPending}
+                          disabled={
+                            completeCancellation.isPending ||
+                            claimsReviewPending
+                          }
                           onClick={() => completeCancellation.mutate()}
                         >
                           Submit Cancellation
                         </Button>
                       )}
-                      {tx.stage === 'COMPLETED' &&
-                        tx.approval_status === 'PENDING' &&
-                        canApproveCancellation && (
+                      {awaitingApproval && canApproveCancellation && (
+                        <>
                           <Button
                             variant="outline"
                             disabled={approve.isPending}
@@ -441,7 +546,50 @@ export function PolicyCancellationPage() {
                           >
                             Approve
                           </Button>
-                        )}
+                          <Button
+                            variant="outline"
+                            disabled={decision.isPending}
+                            onClick={() =>
+                              openReasonAction({
+                                title: 'Request changes',
+                                description:
+                                  'The cancellation returns to draft so the requester can resubmit it.',
+                                confirmLabel: 'Request Changes',
+                                successMessage: 'Changes requested',
+                                run: (value) =>
+                                  policiesApi.requestCancellationChanges(
+                                    cancellationId!,
+                                    value,
+                                  ),
+                              })
+                            }
+                          >
+                            Request Changes
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="text-red-600"
+                            disabled={decision.isPending}
+                            onClick={() =>
+                              openReasonAction({
+                                title: 'Reject cancellation',
+                                description:
+                                  'Rejecting closes this request and keeps the policy in force.',
+                                confirmLabel: 'Reject',
+                                destructive: true,
+                                successMessage: 'Cancellation rejected',
+                                run: (value) =>
+                                  policiesApi.rejectCancellation(
+                                    cancellationId!,
+                                    value,
+                                  ),
+                              })
+                            }
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )}
                       {tx.stage === 'COMPLETED' &&
                         tx.payment_required &&
                         !tx.active_invoice_id &&
@@ -470,6 +618,30 @@ export function PolicyCancellationPage() {
                             ? 'Retry Submission'
                             : 'Issue Cancellation'}
                       </Button>
+                      {canWithdraw && (
+                        <Button
+                          variant="ghost"
+                          className="text-red-600"
+                          disabled={decision.isPending}
+                          onClick={() =>
+                            openReasonAction({
+                              title: 'Withdraw cancellation',
+                              description:
+                                'Withdrawing closes this request and keeps the policy in force.',
+                              confirmLabel: 'Withdraw',
+                              destructive: true,
+                              successMessage: 'Cancellation withdrawn',
+                              run: (value) =>
+                                policiesApi.withdrawCancellation(
+                                  cancellationId!,
+                                  value,
+                                ),
+                            })
+                          }
+                        >
+                          Withdraw
+                        </Button>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -478,6 +650,10 @@ export function PolicyCancellationPage() {
           </div>
         </div>
       )}
+      <TransactionReasonDialog
+        action={reasonAction}
+        onClose={() => setReasonAction(null)}
+      />
     </div>
   );
 }

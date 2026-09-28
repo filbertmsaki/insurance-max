@@ -95,7 +95,7 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('policy_id') policyId?: string,
   ) {
-    return this.cancellationService.findAll(user.companyId!, policyId);
+    return this.cancellationService.findAll(user, policyId);
   }
 
   @Get('tenant/cancellations/:id')
@@ -105,7 +105,7 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.cancellationService.findOne(user.companyId!, id);
+    return this.cancellationService.findOne(user, id);
   }
 
   @Get('tenant/cancellations/:id/context')
@@ -115,7 +115,7 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.cancellationService.findContext(user.companyId!, id);
+    return this.cancellationService.findContext(user, id);
   }
 
   @Post('tenant/cancellations/:id/claims-review')
@@ -124,11 +124,12 @@ export class CancellationsController {
     summary:
       'Record the claims-review decision for a cancellation with open claims',
   })
-  claimsReview(
+  async claimsReview(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ClaimsReviewDto,
   ) {
+    await this.cancellationService.assertAccessible(user, id);
     return this.cancellationService.completeClaimsReview(
       user,
       id,
@@ -150,13 +151,16 @@ export class CancellationsController {
     return this.completeAndAdvance(user, id);
   }
 
+  // Submitting for approval is a maker action; `complete` already does it
+  // automatically, so it shares the `cancellations:complete` permission.
   @Post('tenant/cancellations/:id/submit-approval')
-  @Permissions('cancellations:approve')
+  @Permissions('cancellations:complete')
   @ApiOperation({ summary: 'Submit a completed cancellation for approval' })
-  submitApproval(
+  async submitApproval(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.cancellationService.assertAccessible(user, id);
     return this.lifecycleService.submitForApproval(user.companyId!, id, {
       changedBy: user.id,
     });
@@ -169,6 +173,7 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.cancellationService.assertAccessible(user, id);
     const transaction = await this.lifecycleService.approveTransaction(
       user.companyId!,
       id,
@@ -181,7 +186,37 @@ export class CancellationsController {
     // Automatic, idempotent quotation creation and TIRAMIS submission.
     await this.tryAutoIssue(user, transaction, 'after approval');
 
-    return this.cancellationService.findOne(user.companyId!, id);
+    return this.cancellationService.findOne(user, id);
+  }
+
+  @Post('tenant/cancellations/:id/reject')
+  @Permissions('cancellations:approve')
+  @ApiOperation({ summary: 'Reject a cancellation approval' })
+  async reject(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReasonDto,
+  ) {
+    await this.cancellationService.assertAccessible(user, id);
+    return this.lifecycleService.rejectApproval(user.companyId!, id, {
+      changedBy: user.id,
+      reason: dto.reason,
+    });
+  }
+
+  @Post('tenant/cancellations/:id/request-changes')
+  @Permissions('cancellations:approve')
+  @ApiOperation({ summary: 'Send a cancellation back for changes' })
+  async requestChanges(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReasonDto,
+  ) {
+    await this.cancellationService.assertAccessible(user, id);
+    return this.lifecycleService.requestChanges(user.companyId!, id, {
+      changedBy: user.id,
+      reason: dto.reason,
+    });
   }
 
   @Post('tenant/cancellations/:id/request-payment')
@@ -189,10 +224,11 @@ export class CancellationsController {
   @ApiOperation({
     summary: 'Create the cancellation-charge invoice and request payment',
   })
-  requestPayment(
+  async requestPayment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.cancellationService.assertAccessible(user, id);
     return this.cancellationService.requestPayment(user, id);
   }
 
@@ -202,21 +238,23 @@ export class CancellationsController {
     summary:
       'Submit a completed, approved cancellation to TIRAMIS (also used to retry after a failed attempt)',
   })
-  submitTiramis(
+  async submitTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    await this.cancellationService.assertAccessible(user, id);
     return this.submissionService.submitCancellation(user, id);
   }
 
   @Post('tenant/cancellations/:id/cancel')
   @Permissions('cancellations:cancel')
   @ApiOperation({ summary: 'Withdraw a draft cancellation request' })
-  cancel(
+  async cancel(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReasonDto,
   ) {
+    await this.cancellationService.assertAccessible(user, id);
     return this.lifecycleService.cancelTransaction(user.companyId!, id, {
       changedBy: user.id,
       reason: dto.reason,
@@ -224,6 +262,7 @@ export class CancellationsController {
   }
 
   private async completeAndAdvance(user: AuthenticatedUser, id: string) {
+    await this.cancellationService.assertAccessible(user, id);
     let transaction = await this.cancellationService.complete(user, id);
 
     if (
@@ -244,7 +283,7 @@ export class CancellationsController {
 
     await this.tryAutoIssue(user, transaction, 'after completion');
 
-    return this.cancellationService.findOne(user.companyId!, id);
+    return this.cancellationService.findOne(user, id);
   }
 
   private async tryAutoIssue(

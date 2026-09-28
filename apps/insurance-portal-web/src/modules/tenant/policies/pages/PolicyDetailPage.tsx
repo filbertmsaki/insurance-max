@@ -769,9 +769,11 @@ export function PolicyDetailPage() {
         ]
       : []),
   ];
+  // Endorsed policies keep a trimmed header menu, but can still be
+  // cancelled (the backend treats ENDORSED as cancellable).
   const headerSecondaryActions = shouldShowHeaderSecondaryActions
     ? secondaryActions
-    : [];
+    : secondaryActions.filter((action) => action.label === 'Cancel Policy');
 
   return (
     <div className="space-y-6">

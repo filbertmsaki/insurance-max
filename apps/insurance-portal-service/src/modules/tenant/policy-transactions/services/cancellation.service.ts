@@ -4,7 +4,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
@@ -13,9 +13,12 @@ import {
   PolicyTransactionEventType,
   PolicyTransactionPremiumEffect,
   PolicyTransactionType,
+  WorkflowApprovalStatus,
+  WorkflowPaymentStatus,
 } from '@insurance-max/contracts';
 
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
+import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
@@ -54,6 +57,7 @@ export class CancellationService {
     private readonly cancellationConfigService: PolicyCancellationConfigService,
     private readonly hashService: ProductDefinitionHashService,
     private readonly quotationFactory: PolicyTransactionQuotationFactoryService,
+    private readonly dataAccessScopeService: DataAccessScopeService,
   ) {}
 
   async getEligibility(
@@ -61,12 +65,15 @@ export class CancellationService {
     policyId: string,
     effectiveDate?: string,
   ) {
-    const policy = await this.policyRepository.findOne({
-      where: {
-        id: policyId,
-        company_id: user.companyId!,
-      },
-    });
+    const policyQuery = this.policyRepository
+      .createQueryBuilder('policy')
+      .where('policy.id = :policyId', { policyId });
+    this.dataAccessScopeService.applyPolicyReadScope(
+      policyQuery,
+      'policy',
+      this.dataAccessScopeService.resolve(user),
+    );
+    const policy = await policyQuery.getOne();
 
     if (!policy) {
       throw new BadRequestException('Policy not found');
@@ -508,6 +515,19 @@ export class CancellationService {
       transaction.payment_required = isPositiveAmount(
         transaction.additional_premium,
       );
+      // Re-evaluate the approval gate on every completion so a cancellation
+      // sent back with CHANGES_REQUESTED can leave DRAFT again.
+      transaction.approval_status = approvalDecision.required
+        ? WorkflowApprovalStatus.NOT_EVALUATED
+        : WorkflowApprovalStatus.NOT_REQUIRED;
+      if (!transaction.payment_required) {
+        transaction.payment_status = WorkflowPaymentStatus.NOT_REQUIRED;
+      } else if (
+        transaction.payment_status === WorkflowPaymentStatus.NOT_EVALUATED ||
+        transaction.payment_status === WorkflowPaymentStatus.NOT_REQUIRED
+      ) {
+        transaction.payment_status = WorkflowPaymentStatus.NOT_REQUESTED;
+      }
       transaction.completed_by = user.id;
       transaction.completed_at = new Date();
 
@@ -634,30 +654,26 @@ export class CancellationService {
     return invoice;
   }
 
-  findAll(companyId: string, policyId?: string) {
-    return this.transactionRepository.find({
-      where: policyId
-        ? {
-            company_id: companyId,
-            transaction_type: PolicyTransactionType.CANCELLATION,
-            source_policy_id: policyId,
-          }
-        : {
-            company_id: companyId,
-            transaction_type: PolicyTransactionType.CANCELLATION,
-          },
-      order: { created_at: 'DESC' },
-    });
+  findAll(user: AuthenticatedUser, policyId?: string) {
+    const query = this.createScopedTransactionQuery(
+      this.dataSource.manager,
+      user,
+    ).orderBy('transaction.created_at', 'DESC');
+
+    if (policyId) {
+      query.andWhere('transaction.source_policy_id = :policyId', { policyId });
+    }
+
+    return query.getMany();
   }
 
-  async findOne(companyId: string, id: string) {
-    const transaction = await this.transactionRepository.findOne({
-      where: {
-        id,
-        company_id: companyId,
-        transaction_type: PolicyTransactionType.CANCELLATION,
-      },
-    });
+  async findOne(user: AuthenticatedUser, id: string) {
+    const transaction = await this.createScopedTransactionQuery(
+      this.dataSource.manager,
+      user,
+    )
+      .andWhere('transaction.id = :id', { id })
+      .getOne();
 
     if (!transaction) {
       throw new BadRequestException('Cancellation not found');
@@ -666,11 +682,19 @@ export class CancellationService {
     return transaction;
   }
 
-  async findContext(companyId: string, id: string) {
-    const transaction = await this.findOne(companyId, id);
+  /**
+   * Guards cancellation commands: the transaction must be a cancellation
+   * within the user's policy read scope.
+   */
+  async assertAccessible(user: AuthenticatedUser, id: string) {
+    await this.findOne(user, id);
+  }
+
+  async findContext(user: AuthenticatedUser, id: string) {
+    const transaction = await this.findOne(user, id);
     const cancellation = await this.cancellationRepository.findOne({
       where: {
-        company_id: companyId,
+        company_id: user.companyId!,
         policy_transaction_id: transaction.id,
       },
     });
@@ -683,6 +707,30 @@ export class CancellationService {
       transaction,
       cancellation,
     };
+  }
+
+  private createScopedTransactionQuery(
+    manager: EntityManager,
+    user: AuthenticatedUser,
+  ) {
+    const query = manager
+      .getRepository(PolicyTransaction)
+      .createQueryBuilder('transaction')
+      .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .where('transaction.company_id = :transactionCompanyId', {
+        transactionCompanyId: user.companyId!,
+      })
+      .andWhere('transaction.transaction_type = :transactionType', {
+        transactionType: PolicyTransactionType.CANCELLATION,
+      });
+
+    this.dataAccessScopeService.applyPolicyReadScope(
+      query,
+      'policy',
+      this.dataAccessScopeService.resolve(user),
+    );
+
+    return query;
   }
 }
 
