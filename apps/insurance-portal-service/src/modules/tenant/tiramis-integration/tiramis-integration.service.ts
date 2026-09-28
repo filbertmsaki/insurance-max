@@ -26,6 +26,7 @@ import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisBusinessRecordSyncService } from '../../tiramis/services/tiramis-business-record-sync.service';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { NotificationPublisherService } from '../../shared/notifications/notification-publisher.service';
 import { FilterPortalTiraSubmissionDto } from './dto/filter-portal-tira-submission.dto';
 import { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
@@ -71,6 +72,7 @@ export class TiramisIntegrationService {
     private readonly policyTransactionLifecycleService: PolicyTransactionLifecycleService,
     private readonly policyTransactionApplyService: PolicyTransactionApplyService,
     private readonly policyTransactionRegulatoryOutcomeService: PolicyTransactionRegulatoryOutcomeService,
+    private readonly notificationPublisher: NotificationPublisherService,
   ) {}
 
   async submitToTiramis(params: {
@@ -1378,6 +1380,20 @@ export class TiramisIntegrationService {
         }
         break;
     }
+
+    this.notificationPublisher.publishQuotationTiramisUpdated({
+      companyId: submission.company_id,
+      quotationId: quotation.id,
+      requestId: payload.requestId,
+      eventType: payload.eventType,
+      statusCode: payload.statusCode ?? null,
+      statusDescription:
+        payload.statusDescription ?? submission.status_description ?? null,
+      coverNoteReferenceNumber: submission.cover_note_reference_number ?? null,
+      policyReferenceNumber: submission.policy_reference_number ?? null,
+      stickerNumber: submission.sticker_number ?? null,
+      occurredAt: callbackTimestamp,
+    });
   }
 
   private async updateLinkedPolicyTransaction(

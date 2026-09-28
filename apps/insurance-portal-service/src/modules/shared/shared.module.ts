@@ -7,6 +7,7 @@ import { DevicesModule } from './devices/devices.module';
 import { BusinessReferenceService } from './identifiers/business-reference.service';
 import { MailModule } from './mail/mail.module';
 import { OtpModule } from './otp/otp.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { RedisModule } from './redis/redis.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { AnalyticsCoreModule } from './analytics/analytics-core.module';
@@ -20,6 +21,7 @@ import { RetentionModule } from './retention/retention.module';
     AuditModule,
     AuthModule,
     MailModule,
+    NotificationsModule,
     OtpModule,
     SessionsModule,
     DevicesModule,
@@ -34,6 +36,7 @@ import { RetentionModule } from './retention/retention.module';
     AuditModule,
     AuthModule,
     MailModule,
+    NotificationsModule,
     OtpModule,
     SessionsModule,
     DevicesModule,

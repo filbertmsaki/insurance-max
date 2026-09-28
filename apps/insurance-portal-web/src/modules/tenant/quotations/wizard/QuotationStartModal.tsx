@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Car, Shield, Truck } from 'lucide-react';
 import {
   Dialog,
@@ -159,9 +159,7 @@ export function QuotationStartModal({
     productId || undefined,
   );
 
-  useEffect(() => {
-    if (!open) return;
-
+  const resetSelection = useCallback(() => {
     if (initialSelection) {
       setQuotationFlow(initialSelection.quotation_flow);
       setCategoryId(initialSelection.category_id);
@@ -198,7 +196,15 @@ export function QuotationStartModal({
       setValidUntil(defaultValidUntil);
     }
     setTouched(false);
-  }, [canSelectInsuranceChannel, initialSelection, open]);
+  }, [canSelectInsuranceChannel, initialSelection]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const resetTimer = setTimeout(resetSelection, 0);
+
+    return () => clearTimeout(resetTimer);
+  }, [open, resetSelection]);
 
   // Derived rather than cleared via effect: automatically drops out whenever the
   // channel is Direct or the selection no longer matches the current channel/product's

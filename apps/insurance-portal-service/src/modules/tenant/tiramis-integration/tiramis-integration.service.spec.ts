@@ -72,6 +72,10 @@ describe('TiramisIntegrationService callback handling', () => {
       markTiraFailed: jest.fn().mockResolvedValue(undefined),
     } as unknown as QuotationLifecycleService;
 
+    const notificationPublisher = {
+      publishQuotationTiramisUpdated: jest.fn(),
+    };
+
     const service = new TiramisIntegrationService(
       submissionRepository,
       eventRepository,
@@ -100,6 +104,7 @@ describe('TiramisIntegrationService callback handling', () => {
       {} as any, // policyTransactionLifecycleService
       {} as any, // policyTransactionApplyService
       {} as any, // policyTransactionRegulatoryOutcomeService
+      notificationPublisher as any,
     );
 
     return {
@@ -108,6 +113,7 @@ describe('TiramisIntegrationService callback handling', () => {
       service,
       submission,
       submissionRepository,
+      notificationPublisher,
     };
   }
 
@@ -325,6 +331,7 @@ describe('TiramisIntegrationService callback handling', () => {
       lifecycleService as any,
       applyService as any,
       regulatoryOutcomeService as any,
+      { publishQuotationTiramisUpdated: jest.fn() } as any,
     );
 
     await (service as any).updateLinkedPolicyTransaction(
@@ -390,6 +397,7 @@ describe('TiramisIntegrationService callback handling', () => {
       lifecycleService as any,
       applyService as any,
       regulatoryOutcomeService as any,
+      { publishQuotationTiramisUpdated: jest.fn() } as any,
     );
 
     await (service as any).updateLinkedPolicyTransaction(

@@ -40,6 +40,7 @@ import {
   useApproveQuotationPremiumOverride,
   useCancelQuotation,
   useQuotationPreview,
+  useQuotationRealtime,
   useQuotationWorkflow,
   useRequestQuotationPayment,
   useRequestQuotationPremiumOverride,
@@ -120,6 +121,7 @@ export function QuotationDetailPage() {
   const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
+  useQuotationRealtime(id);
   const { data: preview, isLoading } = useQuotationPreview(id);
   const { data: workflow } = useQuotationWorkflow(id);
   const submitMutation = useSubmitQuotation(id);
