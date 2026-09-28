@@ -186,16 +186,20 @@ export class PolicyTransactionTiramisPayloadService {
 
     const entry = entries[0];
 
+    const previousCoverNoteReferenceNumber = this.resolvePreviousReference(
+      transaction,
+      endorsement,
+      entry,
+      0,
+    );
+
     return {
       ...common,
       coverNoteNumber: this.buildEndorsementCoverNoteNumber(
         transaction.transaction_no,
       ),
-      prevCoverNoteReferenceNumber: this.resolvePreviousReference(
-        transaction,
-        endorsement,
-        entry,
-        0,
+      ...this.previousCoverNoteReferenceFields(
+        previousCoverNoteReferenceNumber,
       ),
       coverNoteDesc:
         entry['coverNoteDescription'] ??
@@ -270,7 +274,9 @@ export class PolicyTransactionTiramisPayloadService {
       coverNoteEndDate: issuedCoverNote['coverNoteEndDate'] ?? policy.end_date,
       coverNoteDesc: `Cancellation ${transaction.transaction_no}`,
       operativeClause: 'Cancellation',
-      prevCoverNoteReferenceNumber: cancellation.previous_cover_note_reference,
+      ...this.previousCoverNoteReferenceFields(
+        cancellation.previous_cover_note_reference,
+      ),
       endorsementType: cancellation.tira_endorsement_type,
       endorsementReason: transaction.reason,
       endorsementPremiumEarned: DecimalUtil.money(cancellation.earned_premium),
@@ -582,6 +588,12 @@ export class PolicyTransactionTiramisPayloadService {
     const fleet = this.asObject(cover['fleet']) ?? {};
     const items = entries.map((entry, index) => {
       const fleetEntry = Number(entry['fleetEntry'] ?? index + 1);
+      const previousCoverNoteReferenceNumber = this.resolvePreviousReference(
+        transaction,
+        endorsement,
+        entry,
+        index,
+      );
 
       return {
         fleetEntry: String(fleetEntry),
@@ -589,11 +601,8 @@ export class PolicyTransactionTiramisPayloadService {
           transaction.transaction_no,
           fleetEntry,
         ),
-        prevCoverNoteReferenceNumber: this.resolvePreviousReference(
-          transaction,
-          endorsement,
-          entry,
-          index,
+        ...this.previousCoverNoteReferenceFields(
+          previousCoverNoteReferenceNumber,
         ),
         coverNoteDesc:
           entry['coverNoteDescription'] ??
@@ -616,7 +625,10 @@ export class PolicyTransactionTiramisPayloadService {
     return {
       ...common,
       coverNoteNumber: items[0]?.coverNoteNumber,
-      prevCoverNoteReferenceNumber: items[0]?.prevCoverNoteReferenceNumber,
+      ...this.previousCoverNoteReferenceFields(
+        items[0]?.previousCoverNoteReferenceNumber ??
+          items[0]?.prevCoverNoteReferenceNumber,
+      ),
       coverNoteDesc: items[0]?.coverNoteDesc,
       operativeClause: items[0]?.operativeClause,
       risks: items[0]?.risks ?? [],
@@ -630,6 +642,17 @@ export class PolicyTransactionTiramisPayloadService {
         comprehensiveInsured: fleet['comprehensiveInsured'] ?? null,
         items,
       },
+    };
+  }
+
+  private previousCoverNoteReferenceFields(
+    reference: unknown,
+  ): Record<string, unknown> {
+    return {
+      previousCoverNoteReferenceNumber: reference,
+      // Compatibility for older Tiramis deployments that still read the
+      // shortened field name.
+      prevCoverNoteReferenceNumber: reference,
     };
   }
 }
