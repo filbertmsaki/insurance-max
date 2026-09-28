@@ -414,10 +414,8 @@ export function PolicyDetailPage() {
       ? (cancellationEligibility?.blockers?.[0]?.message ??
         'This policy is not currently eligible for cancellation.')
       : null;
-  const renewalBlockedReason = !renewalEligibility?.eligible
-    ? (renewalEligibility?.blockers?.[0]?.message ??
-      'This policy is not currently eligible for renewal.')
-    : null;
+  const canStartRenewal =
+    canCreateRenewal && renewalEligibility?.eligible === true;
   const shouldShowHeaderSecondaryActions = !isEndorsedPolicyStatus(
     policy?.policy_status,
   );
@@ -707,11 +705,10 @@ export function PolicyDetailPage() {
         onClick: () =>
           navigate(underwritingPaths.policyEndorsementCreate(policy.id)),
       }
-    : canCreateRenewal
+    : canStartRenewal
       ? {
           label: 'Renew Policy',
-          disabled: !!renewalBlockedReason || createRenewalMutation.isPending,
-          title: renewalBlockedReason ?? undefined,
+          disabled: createRenewalMutation.isPending,
           onClick: () =>
             createRenewalMutation.mutate(undefined, {
               onSuccess: (renewal: { id: string }) =>
@@ -723,12 +720,11 @@ export function PolicyDetailPage() {
       : null;
 
   const secondaryActions: ActionMenuItem[] = [
-    ...(canCreateRenewal && primaryAction?.label !== 'Renew Policy'
+    ...(canStartRenewal && primaryAction?.label !== 'Renew Policy'
       ? [
           {
             label: 'Renew Policy',
-            disabled: !!renewalBlockedReason || createRenewalMutation.isPending,
-            title: renewalBlockedReason ?? undefined,
+            disabled: createRenewalMutation.isPending,
             onClick: () =>
               createRenewalMutation.mutate(undefined, {
                 onSuccess: (renewal: { id: string }) =>

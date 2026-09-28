@@ -45,6 +45,18 @@ export class PolicyRenewal {
   source_cover_note_reference: string;
 
   @Column({ type: 'uuid', nullable: true })
+  previous_policy_id: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  previous_cover_note_reference_number: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  renewal_of_policy_id: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  renewal_sequence: number;
+
+  @Column({ type: 'uuid', nullable: true })
   renewal_quotation_id: string | null;
 
   @Column({ type: 'uuid', nullable: true })

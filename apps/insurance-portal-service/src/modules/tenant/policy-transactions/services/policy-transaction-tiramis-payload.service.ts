@@ -628,8 +628,7 @@ export class PolicyTransactionTiramisPayloadService {
       ...common,
       coverNoteNumber: items[0]?.coverNoteNumber,
       ...this.previousCoverNoteReferenceFields(
-        firstItem?.['previousCoverNoteReferenceNumber'] ??
-          firstItem?.['prevCoverNoteReferenceNumber'],
+        firstItem?.['prevCoverNoteReferenceNumber'],
       ),
       coverNoteDesc: items[0]?.coverNoteDesc,
       operativeClause: items[0]?.operativeClause,
@@ -650,10 +649,9 @@ export class PolicyTransactionTiramisPayloadService {
   private previousCoverNoteReferenceFields(
     reference: unknown,
   ): Record<string, unknown> {
+    // Tiramis DTOs only whitelist `prevCoverNoteReferenceNumber`; sending any
+    // alias is rejected with "property ... should not exist".
     return {
-      previousCoverNoteReferenceNumber: reference,
-      // Compatibility for older Tiramis deployments that still read the
-      // shortened field name.
       prevCoverNoteReferenceNumber: reference,
     };
   }

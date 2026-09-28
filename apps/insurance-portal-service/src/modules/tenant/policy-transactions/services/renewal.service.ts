@@ -75,6 +75,12 @@ export class RenewalService {
       blockers: result.blockers,
       renewalStartDate: result.renewalStartDate,
       renewalEndDate: result.renewalEndDate,
+      coverNoteEndDate: result.coverNoteEndDate,
+      previousCoverNoteReferenceNumber: result.previousCoverNoteReferenceNumber,
+      renewalOfPolicyId: result.renewalOfPolicyId,
+      renewalSequence: result.renewalSequence,
+      renewalWindowBeforeDays: result.renewalWindowBeforeDays,
+      renewalWindowAfterDays: result.renewalWindowAfterDays,
       renewalProductVersionId: result.renewalProductVersionId,
       renewalProductDefinitionHash: result.renewalProductDefinitionHash,
       currentVersion: result.currentVersion
@@ -90,16 +96,25 @@ export class RenewalService {
 
   @Cron(process.env.RENEWAL_ELIGIBILITY_CRON || '0 1 * * *')
   async createEligibleRenewals() {
-    const firstNoticeDays = Number(
-      this.configService.get('RENEWAL_FIRST_NOTICE_DAYS') ?? 60,
+    const beforeDays = Number(
+      this.configService.get('RENEWAL_WINDOW_BEFORE_DAYS') ?? 7,
     );
+    const afterDays = Number(
+      this.configService.get('RENEWAL_WINDOW_AFTER_DAYS') ?? 7,
+    );
+    const today = new Date();
+    const earliest = new Date(today);
+    earliest.setUTCDate(earliest.getUTCDate() - afterDays);
     const horizon = new Date();
-    horizon.setUTCDate(horizon.getUTCDate() + firstNoticeDays);
+    horizon.setUTCDate(horizon.getUTCDate() + beforeDays);
 
     const candidates = await this.policyRepository
       .createQueryBuilder('policy')
       .where('policy.policy_status IN (:...statuses)', {
         statuses: ['ACTIVE', 'ENDORSED'],
+      })
+      .andWhere('policy.end_date >= :earliest', {
+        earliest: earliest.toISOString().slice(0, 10),
       })
       .andWhere('policy.end_date <= :horizon', {
         horizon: horizon.toISOString().slice(0, 10),
@@ -213,7 +228,15 @@ export class RenewalService {
         renewal_start_date: eligibility.renewalStartDate!,
         renewal_end_date: eligibility.renewalEndDate!,
         source_cover_note_reference:
-          currentVersion.regulatory_reference ?? policy.cover_note_no ?? '',
+          eligibility.previousCoverNoteReferenceNumber ??
+          currentVersion.regulatory_reference ??
+          policy.cover_note_no ??
+          '',
+        previous_policy_id: policy.id,
+        previous_cover_note_reference_number:
+          eligibility.previousCoverNoteReferenceNumber,
+        renewal_of_policy_id: eligibility.renewalOfPolicyId,
+        renewal_sequence: eligibility.renewalSequence ?? 1,
       });
 
       policy.pending_transaction_id = transaction.id;
@@ -458,6 +481,17 @@ export class RenewalService {
       await manager.getRepository(Policy).save(oldPolicy);
 
       persistedNewPolicy.renewed_from_policy_id = oldPolicy.id;
+      persistedNewPolicy.previous_policy_id = oldPolicy.id;
+      persistedNewPolicy.previous_cover_note_reference_number =
+        lockedRenewal.previous_cover_note_reference_number ??
+        lockedRenewal.source_cover_note_reference;
+      persistedNewPolicy.renewal_of_policy_id =
+        lockedRenewal.renewal_of_policy_id ??
+        oldPolicy.renewal_of_policy_id ??
+        oldPolicy.id;
+      persistedNewPolicy.renewal_sequence =
+        lockedRenewal.renewal_sequence ??
+        Number(oldPolicy.renewal_sequence ?? 0) + 1;
       await manager.getRepository(Policy).save(persistedNewPolicy);
 
       if (persistedNewPolicy.active_version_id) {
@@ -476,7 +510,10 @@ export class RenewalService {
             renewedFromPolicyId: oldPolicy.id,
             renewedFromPolicyNo: oldPolicy.policy_no,
             previousCoverNoteReference:
+              lockedRenewal.previous_cover_note_reference_number ??
               lockedRenewal.source_cover_note_reference,
+            renewalOfPolicyId: persistedNewPolicy.renewal_of_policy_id,
+            renewalSequence: persistedNewPolicy.renewal_sequence,
           };
           version.version_type = PolicyVersionType.RENEWAL;
           version.policy_snapshot = snapshot;
@@ -518,7 +555,11 @@ export class RenewalService {
           sourcePolicyNo: oldPolicy.policy_no,
           renewedPolicyId: persistedNewPolicy.id,
           renewedPolicyNo: persistedNewPolicy.policy_no,
-          previousCoverNoteReference: lockedRenewal.source_cover_note_reference,
+          previousCoverNoteReference:
+            lockedRenewal.previous_cover_note_reference_number ??
+            lockedRenewal.source_cover_note_reference,
+          renewalOfPolicyId: persistedNewPolicy.renewal_of_policy_id,
+          renewalSequence: persistedNewPolicy.renewal_sequence,
           newCoverNoteReference: persistedNewPolicy.cover_note_no,
         },
       });

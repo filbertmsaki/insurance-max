@@ -287,6 +287,12 @@ export interface RenewalEligibility {
   blockers: EndorsementEligibilityBlocker[];
   renewalStartDate: string | null;
   renewalEndDate: string | null;
+  coverNoteEndDate: string | null;
+  previousCoverNoteReferenceNumber: string | null;
+  renewalOfPolicyId: string | null;
+  renewalSequence: number | null;
+  renewalWindowBeforeDays: number;
+  renewalWindowAfterDays: number;
   renewalProductVersionId: string | null;
   renewalProductDefinitionHash: string | null;
   currentVersion: {
@@ -307,6 +313,10 @@ export interface PolicyRenewalRecord {
   renewal_end_date: string;
   offer_expires_at: string | null;
   source_cover_note_reference: string;
+  previous_policy_id: string | null;
+  previous_cover_note_reference_number: string | null;
+  renewal_of_policy_id: string | null;
+  renewal_sequence: number;
   renewal_quotation_id: string | null;
   renewed_policy_id: string | null;
   customer_accepted_at: string | null;
@@ -443,6 +453,12 @@ export interface PolicyRecord {
   channel_type: ProductChannelType;
   policy_status: PolicyStatus;
   pending_transaction_id: string | null;
+  renewed_from_policy_id: string | null;
+  renewed_to_policy_id: string | null;
+  previous_policy_id: string | null;
+  previous_cover_note_reference_number: string | null;
+  renewal_of_policy_id: string | null;
+  renewal_sequence: number;
   regulatory_sync_status: string;
   source_cover_note_count: number;
   issued_by_system: boolean;

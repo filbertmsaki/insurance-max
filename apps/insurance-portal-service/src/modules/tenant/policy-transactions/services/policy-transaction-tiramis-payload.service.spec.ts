@@ -49,7 +49,6 @@ describe('PolicyTransactionTiramisPayloadService', () => {
       subjectMatters: issuedCoverNote.subjectMatters,
       policyHolders: issuedCoverNote.policyHolders,
       prevCoverNoteReferenceNumber: 'OLD-CN',
-      previousCoverNoteReferenceNumber: 'OLD-CN',
       endorsementType: 4,
     });
   });
@@ -174,7 +173,7 @@ describe('PolicyTransactionTiramisPayloadService', () => {
 
     expect(payload.coverNoteType).toBe(3);
     expect(payload.prevCoverNoteReferenceNumber).toBe('OLD-CN');
-    expect(payload.previousCoverNoteReferenceNumber).toBe('OLD-CN');
+    expect(payload).not.toHaveProperty('previousCoverNoteReferenceNumber');
     expect((payload.motorDetail as any).registrationNumber).toBe('T456XYZ');
     expect((payload.risks as any[])[0].sumInsured).toBe('65000000');
     expect(payload.endorsementPremiumEarned).toBe('300000.0000');

@@ -398,6 +398,8 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_RETRY_LOCK_TIMEOUT_MINUTES: Joi.number().default(15),
   TIRAMIS_AUDIT_ENABLED: Joi.boolean().default(true),
   TIRAMIS_AUDIT_STORE_PAYLOAD_SNAPSHOT: Joi.boolean().default(false),
+  RENEWAL_WINDOW_BEFORE_DAYS: Joi.number().integer().min(0).default(7),
+  RENEWAL_WINDOW_AFTER_DAYS: Joi.number().integer().min(0).default(7),
   TIRAMIS_AUDIT_MAX_METADATA_SIZE: Joi.number().default(20000),
   TIRAMIS_NOTIFICATION_ENABLED: Joi.boolean().default(true),
   TIRAMIS_NOTIFICATION_WEBHOOK_ENABLED: Joi.boolean().default(false),

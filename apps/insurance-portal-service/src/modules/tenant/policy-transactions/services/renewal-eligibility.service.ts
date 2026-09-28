@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EntityManager, In } from 'typeorm';
 import {
   PolicyTransactionStage,
   PolicyTransactionType,
+  RenewalLifecycleStatus,
 } from '@insurance-max/contracts';
 
+import { CompanyConfigsService } from '../../../platform/company-configs/company-configs.service';
 import { ProductDefinitionService } from '../../insurance-products/product-definition.service';
 import { Policy } from '../../policies/entities/policy.entity';
+import { PolicyCoverNote } from '../../policies/entities/policy-cover-note.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
+import { PolicyRenewal } from '../entities/policy-renewal.entity';
 
 export interface RenewalEligibilityBlocker {
   code: string;
@@ -20,6 +25,12 @@ export interface RenewalEligibilityResult {
   blockers: RenewalEligibilityBlocker[];
   renewalStartDate: string | null;
   renewalEndDate: string | null;
+  coverNoteEndDate: string | null;
+  previousCoverNoteReferenceNumber: string | null;
+  renewalOfPolicyId: string | null;
+  renewalSequence: number | null;
+  renewalWindowBeforeDays: number;
+  renewalWindowAfterDays: number;
   currentVersion: PolicyVersion | null;
   renewalProductVersionId: string | null;
   renewalProductDefinitionHash: string | null;
@@ -35,6 +46,8 @@ const ACTIVE_TRANSACTION_STAGES = [
 export class RenewalEligibilityService {
   constructor(
     private readonly productDefinitionService: ProductDefinitionService,
+    private readonly companyConfigsService: CompanyConfigsService,
+    private readonly configService: ConfigService,
   ) {}
 
   async validate(
@@ -43,6 +56,7 @@ export class RenewalEligibilityService {
   ): Promise<RenewalEligibilityResult> {
     const blockers: RenewalEligibilityBlocker[] = [];
 
+    const window = await this.resolveRenewalWindow(policy.company_id);
     const normalizedPolicyStatus = String(policy.policy_status || '')
       .trim()
       .toUpperCase();
@@ -50,7 +64,7 @@ export class RenewalEligibilityService {
     if (normalizedPolicyStatus === 'CANCELLED') {
       blockers.push({
         code: 'POLICY_CANCELLED',
-        message: 'A cancelled policy cannot be renewed.',
+        message: 'This policy has been cancelled.',
       });
     } else if (
       !['COVER_NOTE_ISSUED', 'ACTIVE', 'ENDORSED'].includes(
@@ -67,11 +81,14 @@ export class RenewalEligibilityService {
       blockers.push({
         code: 'POLICY_NOT_SYSTEM_ISSUED',
         message:
-          'Only policies issued through the quotation and TIRAMIS workflow can be renewed.',
+          'This policy cannot be renewed because it was not issued through this system.',
       });
     }
 
-    if (policy.tira_status !== 'SUCCESS') {
+    if (
+      policy.tira_status !== 'SUCCESS' ||
+      policy.regulatory_sync_status !== 'IN_SYNC'
+    ) {
       blockers.push({
         code: 'ORIGINAL_TIRAMIS_ISSUANCE_NOT_SUCCESSFUL',
         message:
@@ -91,6 +108,60 @@ export class RenewalEligibilityService {
         code: 'POLICY_TRANSACTION_ACTIVE',
         message: 'The policy currently has another active policy transaction.',
       });
+    }
+
+    const issuedCoverNote = await this.resolveIssuedCoverNote(manager, policy);
+    const coverNoteEndDate = issuedCoverNote?.end_date ?? null;
+    const previousCoverNoteReferenceNumber =
+      issuedCoverNote?.cover_note_reference_number ??
+      policy.cover_note_no ??
+      null;
+
+    if (!issuedCoverNote) {
+      blockers.push({
+        code: 'ISSUED_COVER_NOTE_MISSING',
+        message:
+          'The original issued cover note could not be found in this system.',
+      });
+    } else if (String(issuedCoverNote.status).toUpperCase() !== 'ISSUED') {
+      blockers.push({
+        code: 'COVER_NOTE_NOT_ISSUED',
+        message: 'The original cover note has not been successfully issued.',
+      });
+    }
+
+    if (!previousCoverNoteReferenceNumber) {
+      blockers.push({
+        code: 'COVER_NOTE_REFERENCE_MISSING',
+        message:
+          'A valid Cover Note Reference Number is required before renewal.',
+      });
+    }
+
+    if (!coverNoteEndDate) {
+      blockers.push({
+        code: 'COVER_NOTE_END_DATE_MISSING',
+        message: 'The Cover Note End Date is required before renewal.',
+      });
+    } else {
+      const windowCheck = this.checkCoverNoteEndDateWindow(
+        coverNoteEndDate,
+        window.beforeDays,
+        window.afterDays,
+      );
+
+      if (!windowCheck.allowed) {
+        blockers.push({
+          code:
+            windowCheck.position === 'FUTURE'
+              ? 'RENEWAL_NOT_YET_AVAILABLE'
+              : 'RENEWAL_WINDOW_EXPIRED',
+          message:
+            windowCheck.position === 'FUTURE'
+              ? 'Renewal is not yet available.'
+              : 'The renewal window has expired.',
+        });
+      }
     }
 
     const existingRenewal = await manager
@@ -157,24 +228,16 @@ export class RenewalEligibilityService {
       }
     }
 
-    const coverNoteReference =
-      currentVersion?.regulatory_reference ?? policy.cover_note_no;
-
-    if (!coverNoteReference) {
-      blockers.push({
-        code: 'COVER_NOTE_REFERENCE_MISSING',
-        message:
-          'The current TIRAMIS Cover Note reference is required for renewal.',
-      });
-    }
-
     let renewalStartDate: string | null = null;
     let renewalEndDate: string | null = null;
     let renewalProductVersionId: string | null = null;
     let renewalProductDefinitionHash: string | null = null;
+    const renewalOfPolicyId =
+      policy.renewal_of_policy_id ?? policy.renewed_from_policy_id ?? policy.id;
+    const renewalSequence = Number(policy.renewal_sequence ?? 0) + 1;
 
     try {
-      renewalStartDate = this.addDays(policy.end_date, 1);
+      renewalStartDate = this.addDays(coverNoteEndDate ?? policy.end_date, 1);
       const definition =
         await this.productDefinitionService.resolvePublishedDefinition(
           policy.insurer_company_id,
@@ -189,6 +252,20 @@ export class RenewalEligibilityService {
         renewalStartDate,
         definition.defaultCoverDurationDays - 1,
       );
+
+      const duplicateForPeriod = await this.findExistingRenewalForPeriod(
+        manager,
+        policy,
+        renewalStartDate,
+        renewalEndDate,
+      );
+
+      if (duplicateForPeriod) {
+        blockers.push({
+          code: 'POLICY_ALREADY_RENEWED_FOR_PERIOD',
+          message: 'This policy has already been renewed.',
+        });
+      }
     } catch (error) {
       blockers.push({
         code: 'RENEWAL_PRODUCT_NOT_AVAILABLE',
@@ -204,10 +281,129 @@ export class RenewalEligibilityService {
       blockers,
       renewalStartDate,
       renewalEndDate,
+      coverNoteEndDate,
+      previousCoverNoteReferenceNumber,
+      renewalOfPolicyId,
+      renewalSequence,
+      renewalWindowBeforeDays: window.beforeDays,
+      renewalWindowAfterDays: window.afterDays,
       currentVersion,
       renewalProductVersionId,
       renewalProductDefinitionHash,
     };
+  }
+
+  private async resolveRenewalWindow(companyId: string) {
+    const beforeFallback = this.normalizeWindowDays(
+      this.configService.get('RENEWAL_WINDOW_BEFORE_DAYS') ?? 7,
+      7,
+    );
+    const afterFallback = this.normalizeWindowDays(
+      this.configService.get('RENEWAL_WINDOW_AFTER_DAYS') ?? 7,
+      7,
+    );
+    const beforeDays = this.normalizeWindowDays(
+      await this.companyConfigsService.getValue(
+        companyId,
+        'RENEWAL_WINDOW_BEFORE_DAYS',
+        beforeFallback,
+      ),
+      beforeFallback,
+    );
+    const afterDays = this.normalizeWindowDays(
+      await this.companyConfigsService.getValue(
+        companyId,
+        'RENEWAL_WINDOW_AFTER_DAYS',
+        afterFallback,
+      ),
+      afterFallback,
+    );
+
+    return {
+      beforeDays,
+      afterDays,
+    };
+  }
+
+  private normalizeWindowDays(value: unknown, fallback: number): number {
+    const days = Number(value);
+
+    return Number.isInteger(days) && days >= 0 ? days : fallback;
+  }
+
+  private async resolveIssuedCoverNote(manager: EntityManager, policy: Policy) {
+    const link = await manager
+      .getRepository(PolicyCoverNote)
+      .createQueryBuilder('link')
+      .innerJoinAndSelect('link.cover_note', 'coverNote')
+      .where('link.company_id = :companyId', { companyId: policy.company_id })
+      .andWhere('link.policy_id = :policyId', { policyId: policy.id })
+      .andWhere('coverNote.deleted_at IS NULL')
+      .orderBy('link.sequence_number', 'ASC')
+      .getOne();
+
+    return link?.cover_note ?? null;
+  }
+
+  private checkCoverNoteEndDateWindow(
+    coverNoteEndDate: string,
+    beforeDays: number,
+    afterDays: number,
+  ): { allowed: boolean; position: 'PAST' | 'IN_WINDOW' | 'FUTURE' } {
+    const today = this.utcDateOnly(new Date());
+    const endDate = this.utcDateOnly(new Date(`${coverNoteEndDate}T00:00:00Z`));
+    const earliest = new Date(today);
+    earliest.setUTCDate(earliest.getUTCDate() - afterDays);
+    const latest = new Date(today);
+    latest.setUTCDate(latest.getUTCDate() + beforeDays);
+
+    if (endDate < earliest) {
+      return { allowed: false, position: 'PAST' };
+    }
+
+    if (endDate > latest) {
+      return { allowed: false, position: 'FUTURE' };
+    }
+
+    return { allowed: true, position: 'IN_WINDOW' };
+  }
+
+  private utcDateOnly(date: Date): Date {
+    return new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+  }
+
+  private async findExistingRenewalForPeriod(
+    manager: EntityManager,
+    policy: Policy,
+    renewalStartDate: string,
+    renewalEndDate: string,
+  ) {
+    return manager
+      .getRepository(PolicyRenewal)
+      .createQueryBuilder('renewal')
+      .innerJoin(
+        PolicyTransaction,
+        'transaction',
+        'transaction.id = renewal.policy_transaction_id',
+      )
+      .where('renewal.company_id = :companyId', {
+        companyId: policy.company_id,
+      })
+      .andWhere('transaction.source_policy_id = :policyId', {
+        policyId: policy.id,
+      })
+      .andWhere('renewal.renewal_start_date = :renewalStartDate', {
+        renewalStartDate,
+      })
+      .andWhere('renewal.renewal_end_date = :renewalEndDate', {
+        renewalEndDate,
+      })
+      .andWhere('renewal.renewal_status != :declined', {
+        declined: RenewalLifecycleStatus.CUSTOMER_DECLINED,
+      })
+      .getOne();
   }
 
   private addDays(date: string, days: number): string {
