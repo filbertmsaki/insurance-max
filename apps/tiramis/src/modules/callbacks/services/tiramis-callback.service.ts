@@ -275,9 +275,7 @@ export class TiramisCallbackService {
     const callbackReceipt = receiptResult.receipt;
 
     try {
-      const isSuccess = await this.tiramisConfigService.isSuccessResponse(
-        parsedCallback.responseStatusCode,
-      );
+      const isSuccess = await this.isSuccessfulFinalResponse(parsedCallback);
 
       await this.tiramisSubmissionService.markFinalResponseReceived({
         requestId: parsedCallback.requestId,
@@ -381,6 +379,27 @@ export class TiramisCallbackService {
 
       return acknowledgement;
     }
+  }
+
+  private async isSuccessfulFinalResponse(
+    parsedCallback: ParsedTiramisCallbackDto,
+  ): Promise<boolean> {
+    const configuredSuccess = await this.tiramisConfigService.isSuccessResponse(
+      parsedCallback.responseStatusCode,
+    );
+
+    if (configuredSuccess) {
+      return true;
+    }
+
+    return (
+      String(parsedCallback.responseStatusCode || '')
+        .trim()
+        .toUpperCase() === 'TIRA214' &&
+      String(parsedCallback.responseStatusDesc || '')
+        .trim()
+        .toLowerCase() === 'transaction successfully cancelled'
+    );
   }
 
   private parseCallback(rawXml: string): ParsedTiramisCallbackDto {

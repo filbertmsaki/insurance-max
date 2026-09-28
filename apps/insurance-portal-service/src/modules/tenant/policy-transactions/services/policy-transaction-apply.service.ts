@@ -8,6 +8,7 @@ import {
   PolicyTransactionStage,
   PolicyTransactionType,
   PolicyVersionType,
+  QuotationStage,
   WorkflowSubmissionStatus,
 } from '@insurance-max/contracts';
 
@@ -15,6 +16,9 @@ import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyStatusHistory } from '../../policies/entities/policy-status-history.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
+import { Quotation } from '../../quotations/entities/quotation.entity';
+import { QuotationStatus } from '../../quotations/enums/quotation-status.enum';
+import { TiraStatus } from '../../quotations/enums/tira-status.enum';
 import { PolicyCancellation } from '../entities/policy-cancellation.entity';
 import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
@@ -702,6 +706,32 @@ export class PolicyTransactionApplyService {
       transaction.stage = PolicyTransactionStage.APPLIED;
       transaction.last_command = 'CANCELLATION_APPLIED';
       await manager.getRepository(PolicyTransaction).save(transaction);
+
+      await manager.getRepository(Quotation).update(
+        {
+          company_id: companyId,
+          source_policy_transaction_id: transaction.id,
+        },
+        {
+          status: QuotationStatus.COMPLETED,
+          quotation_stage: QuotationStage.COMPLETED,
+          tira_status: TiraStatus.SUCCESS,
+          tira_request_id: transaction.tiramis_request_id,
+          tira_response_id:
+            String(transaction.regulatory_response?.['responseId'] ?? '') ||
+            null,
+          tira_response_code:
+            String(transaction.regulatory_response?.['statusCode'] ?? '') ||
+            null,
+          tira_response_description:
+            String(
+              transaction.regulatory_response?.['statusDescription'] ?? '',
+            ) || null,
+          submitted_at: new Date(),
+          workflow_completed_at: new Date(),
+          updated_by: context.changedBy ?? null,
+        },
+      );
 
       await manager.getRepository(PolicyTransactionEvent).save({
         company_id: transaction.company_id,

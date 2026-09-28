@@ -17,6 +17,7 @@ function createService(overrides: Record<string, any> = {}) {
       tiraPublicCertificatePath: 'tira-public.pfx',
       tiraPublicCertificatePassword: 'tira-secret',
     }),
+    isSuccessResponse: jest.fn().mockResolvedValue(false),
     ...overrides.tiramisConfigService,
   };
 
@@ -175,6 +176,24 @@ describe('TiramisCallbackService', () => {
     expect(parsed.coverNoteReferenceNumber).toBe('11026-19427-56213');
     expect(parsed.stickerNumber).toBe('26001-19481-73513');
     expect(parsed.signature).toBe('RESPONSE_SIGNATURE');
+  });
+
+  it('treats TIRA214 transaction cancellation callbacks as successful final responses', async () => {
+    const { service, tiramisConfigService } = createService({
+      tiramisConfigService: {
+        isSuccessResponse: jest.fn().mockResolvedValue(false),
+      },
+    });
+
+    await expect(
+      (service as any).isSuccessfulFinalResponse({
+        responseStatusCode: 'TIRA214',
+        responseStatusDesc: 'Transaction successfully cancelled',
+      }),
+    ).resolves.toBe(true);
+    expect(tiramisConfigService.isSuccessResponse).toHaveBeenCalledWith(
+      'TIRA214',
+    );
   });
 
   it('parses a motor fleet callback header from TIRA', () => {

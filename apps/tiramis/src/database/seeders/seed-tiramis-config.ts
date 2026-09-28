@@ -527,7 +527,7 @@ const responseCodeSeedEntries: Array<[string, string]> = [
   ['TIRA211', 'Invalid claim rejection reason'],
   ['TIRA212', 'Invalid endorsement type'],
   ['TIRA213', 'Invalid endorsement reason'],
-  ['TIRA214', 'Invalid premium discount rate'],
+  ['TIRA214', 'Transaction successfully cancelled'],
   ['TIRA215', 'Invalid endorsement premium earned amount'],
   ['TIRA216', 'Invalid value identifying premium is tax exempted or not'],
   ['TIRA217', 'Invalid tax exemption type'],
@@ -542,7 +542,7 @@ const responseCodeSeeds: ResponseCodeSeed[] = responseCodeSeedEntries.map(
     code,
     description,
     category: inferResponseCodeCategory(description),
-    isSuccess: code === 'TIRA001' ? 1 : 0,
+    isSuccess: ['TIRA001', 'TIRA214'].includes(code) ? 1 : 0,
     isRetryable: inferRetryable(description),
   }),
 );
