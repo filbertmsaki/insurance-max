@@ -75,6 +75,13 @@ export class PolicyTransactionApplyService {
         transaction.stage === PolicyTransactionStage.APPLIED &&
         transaction.target_policy_version_id
       ) {
+        await this.markRelatedTransactionQuotationCompleted(
+          manager,
+          companyId,
+          transaction,
+          context,
+        );
+
         return transaction;
       }
 
@@ -707,30 +714,11 @@ export class PolicyTransactionApplyService {
       transaction.last_command = 'CANCELLATION_APPLIED';
       await manager.getRepository(PolicyTransaction).save(transaction);
 
-      await manager.getRepository(Quotation).update(
-        {
-          company_id: companyId,
-          source_policy_transaction_id: transaction.id,
-        },
-        {
-          status: QuotationStatus.COMPLETED,
-          quotation_stage: QuotationStage.COMPLETED,
-          tira_status: TiraStatus.SUCCESS,
-          tira_request_id: transaction.tiramis_request_id,
-          tira_response_id:
-            String(transaction.regulatory_response?.['responseId'] ?? '') ||
-            null,
-          tira_response_code:
-            String(transaction.regulatory_response?.['statusCode'] ?? '') ||
-            null,
-          tira_response_description:
-            String(
-              transaction.regulatory_response?.['statusDescription'] ?? '',
-            ) || null,
-          submitted_at: new Date(),
-          workflow_completed_at: new Date(),
-          updated_by: context.changedBy ?? null,
-        },
+      await this.markRelatedTransactionQuotationCompleted(
+        manager,
+        companyId,
+        transaction,
+        context,
       );
 
       await manager.getRepository(PolicyTransactionEvent).save({
@@ -760,6 +748,37 @@ export class PolicyTransactionApplyService {
 
       return transaction;
     });
+  }
+
+  private async markRelatedTransactionQuotationCompleted(
+    manager: import('typeorm').EntityManager,
+    companyId: string,
+    transaction: PolicyTransaction,
+    context: ApplyPolicyTransactionContext,
+  ) {
+    await manager.getRepository(Quotation).update(
+      {
+        company_id: companyId,
+        source_policy_transaction_id: transaction.id,
+      },
+      {
+        status: QuotationStatus.COMPLETED,
+        quotation_stage: QuotationStage.COMPLETED,
+        tira_status: TiraStatus.SUCCESS,
+        tira_request_id: transaction.tiramis_request_id,
+        tira_response_id:
+          String(transaction.regulatory_response?.['responseId'] ?? '') || null,
+        tira_response_code:
+          String(transaction.regulatory_response?.['statusCode'] ?? '') || null,
+        tira_response_description:
+          String(
+            transaction.regulatory_response?.['statusDescription'] ?? '',
+          ) || null,
+        submitted_at: new Date(),
+        workflow_completed_at: new Date(),
+        updated_by: context.changedBy ?? null,
+      },
+    );
   }
 
   private async requireApplicableTransaction(
