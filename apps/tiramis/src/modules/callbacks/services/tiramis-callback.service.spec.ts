@@ -40,20 +40,39 @@ function createService(overrides: Record<string, any> = {}) {
     ...overrides.deadLetterRepository,
   };
 
+  const callbackReceiptRepository = {
+    findOne: jest.fn().mockResolvedValue(null),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+    ...overrides.callbackReceiptRepository,
+  };
+
+  const portalNotificationService = {
+    publish: jest.fn().mockResolvedValue(undefined),
+    ...overrides.portalNotificationService,
+  };
+
+  const callbackBusinessUpdater = {
+    updateBusinessRecord: jest.fn().mockResolvedValue(null),
+    ...overrides.callbackBusinessUpdater,
+  };
+
+  const xmlParser = new TiramisXmlParserService();
+
   const requestLog = { append: jest.fn().mockResolvedValue(undefined) };
   const service = new TiramisCallbackService(
     {} as any,
     {} as any,
     deadLetterRepository,
-    {} as any,
+    callbackReceiptRepository,
     tiramisConfigService,
     tiramisSubmissionService,
     { generate: jest.fn().mockReturnValue('ACK-001') },
     new TiramisXmlBuilderService(),
-    new TiramisXmlParserService(),
+    xmlParser,
     signatureService,
-    {} as any,
-    {} as any,
+    portalNotificationService,
+    callbackBusinessUpdater,
     requestLog as any,
   );
 
@@ -63,6 +82,10 @@ function createService(overrides: Record<string, any> = {}) {
     tiramisSubmissionService,
     signatureService,
     deadLetterRepository,
+    callbackReceiptRepository,
+    portalNotificationService,
+    callbackBusinessUpdater,
+    xmlParser,
     requestLog,
   };
 }
@@ -281,6 +304,89 @@ describe('TiramisCallbackService', () => {
       publicCertificatePfxPath: 'tira-public.pfx',
       publicCertificatePfxPassword: 'tira-secret',
     });
+  });
+
+  it('notifies the portal immediately after persisting the final response', async () => {
+    const order: string[] = [];
+    const { service, xmlParser, portalNotificationService } = createService({
+      tiramisConfigService: {
+        isSuccessResponse: jest.fn().mockResolvedValue(true),
+      },
+      tiramisSubmissionService: {
+        getTransactionForNotification: jest.fn().mockResolvedValue({
+          id: 'transaction-1',
+          clientConfigurationId: 'config-from-transaction',
+          portalWebhookUrl:
+            'https://portal.example.test/api/v1/webhooks/tiramis/notifications',
+          serviceType: 'CLAIM_NOTIFICATION',
+          businessReference: 'CLM-001',
+        }),
+        markFinalResponseReceived: jest.fn().mockImplementation(async () => {
+          order.push('final-response');
+        }),
+        markResponseAcknowledgementSent: jest
+          .fn()
+          .mockImplementation(async () => {
+            order.push('acknowledgement-saved');
+          }),
+      },
+      portalNotificationService: {
+        publish: jest.fn().mockImplementation(async () => {
+          order.push('portal-notified');
+        }),
+      },
+      callbackBusinessUpdater: {
+        updateBusinessRecord: jest.fn().mockImplementation(async () => {
+          order.push('business-updated');
+        }),
+      },
+    });
+
+    jest.spyOn(xmlParser, 'extractFinalResponse').mockReturnValue({
+      rootElement: 'ClaimNotificationRefRes',
+      responseAckRoot: 'ClaimNotificationRefResAck',
+      requestId: 'REQ-001',
+      responseId: 'RESP-001',
+      responseStatusCode: 'TIRA001',
+      responseStatusDesc: 'Successful',
+      serviceType: 'CLAIM_NOTIFICATION',
+      payload: {},
+    } as any);
+
+    await (service as any).processParsedCallback(
+      {
+        environment: 'live',
+        rawXml: '<TiraMsg />',
+        bypassSignatureVerification: true,
+      },
+      {
+        rootName: 'ClaimNotificationRefRes',
+        requestId: 'REQ-001',
+        responseId: 'RESP-001',
+        responseStatusCode: 'TIRA001',
+        responseStatusDesc: 'Successful',
+        rawXml: '<TiraMsg />',
+        contentXml: '<ClaimNotificationRefRes />',
+      },
+    );
+
+    expect(portalNotificationService.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'TIRAMIS_FINAL_SUCCESS',
+        requestId: 'REQ-001',
+      }),
+      expect.objectContaining({
+        webhookUrl:
+          'https://portal.example.test/api/v1/webhooks/tiramis/notifications',
+        clientConfigurationId: 'config-from-transaction',
+      }),
+    );
+    expect(order).toEqual([
+      'final-response',
+      'portal-notified',
+      'business-updated',
+      'acknowledgement-saved',
+    ]);
   });
 
   it('processes authenticated internal live callback tests without verifying a TIRA signature', async () => {

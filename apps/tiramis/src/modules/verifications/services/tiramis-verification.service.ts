@@ -164,6 +164,7 @@ export class TiramisVerificationService {
       serviceType: params.serviceType,
       sourceModule: 'tiramis-verifications',
       sourceRecordId: params.dto.sourceRecordId,
+      portalWebhookUrl: params.dto.portalWebhookUrl,
       businessReference: params.businessReference,
     });
 

@@ -11,6 +11,7 @@ import {
 import { TiramisSubmissionAttemptRepository } from '../repositories/tiramis-submission-attempt.repository';
 import { TiramisSubmissionEventRepository } from '../repositories/tiramis-submission-event.repository';
 import { TiramisTransactionRepository } from '../repositories/tiramis-transaction.repository';
+import { requirePortalWebhookUrl } from '../utils/parse-source-metadata';
 
 @Injectable()
 export class TiramisSubmissionService {
@@ -48,6 +49,7 @@ export class TiramisSubmissionService {
     contextHash?: string | null;
     envelopeHash?: string | null;
   }) {
+    const portalWebhookUrl = requirePortalWebhookUrl(params.portalWebhookUrl);
     const principal = this.requestContextService.getServicePrincipal();
     const product = principal?.product;
     const pricing = principal?.pricing;
@@ -61,7 +63,7 @@ export class TiramisSubmissionService {
       sourceService: params.sourceService || null,
       sourceCompanyId: params.sourceCompanyId || null,
       sourceUserId: params.sourceUserId || null,
-      portalWebhookUrl: params.portalWebhookUrl || null,
+      portalWebhookUrl,
       sourceModule: params.sourceModule || null,
       sourceRecordId: params.sourceRecordId || null,
       sourcePolicyId: params.policyId ?? null,
