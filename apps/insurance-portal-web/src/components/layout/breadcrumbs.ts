@@ -5,6 +5,8 @@ import { NAV_NODES, type NavLeaf } from './nav-config';
 const EXTRA_ROUTES: [string, string[]][] = [
   ['/settings/profile', ['Settings', 'Profile']],
   ['/customer', ['Customer Portal']],
+  // Listed before nav entries so it wins over the bare "Dashboard" leaf.
+  ['/underwrite/dashboard', ['Underwrite', 'Dashboard']],
 ];
 
 interface RouteEntry {
@@ -13,6 +15,7 @@ interface RouteEntry {
 }
 
 const ROUTE_ENTRIES: RouteEntry[] = [
+  ...EXTRA_ROUTES.map(([to, crumbs]) => ({ to, crumbs })),
   ...NAV_NODES.flatMap((node): RouteEntry[] =>
     node.kind === 'link'
       ? [{ to: node.to, crumbs: [node.label] }]
@@ -21,7 +24,6 @@ const ROUTE_ENTRIES: RouteEntry[] = [
           crumbs: [node.label, leaf.label],
         })),
   ),
-  ...EXTRA_ROUTES.map(([to, crumbs]) => ({ to, crumbs })),
 ]
   // Longest path first so the most specific route wins.
   .sort((a, b) => b.to.length - a.to.length);

@@ -37,6 +37,7 @@ import { RiskRequiredFactorsModule } from './risk-required-factors/risk-required
 import { RiskRuleConditionsModule } from './risk-rule-conditions/risk-rule-conditions.module';
 import { SalePointsModule } from './sale-points/sale-points.module';
 import { TiramisIntegrationModule } from './tiramis-integration/tiramis-integration.module';
+import { UnderwriteModule } from './underwrite/underwrite.module';
 import { UsersModule } from './users/users.module';
 import { VerificationsModule } from './verifications/verifications.module';
 import { WorkItemsModule } from './work-items/work-items.module';
@@ -83,6 +84,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     VerificationsModule,
     WorkItemsModule,
     PortalModule,
+    UnderwriteModule,
   ],
   exports: [
     UsersModule,
