@@ -14,6 +14,7 @@ import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-b
 import { TiramisXmlParserService } from '../../messaging/services/tiramis-xml-parser.service';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSourceMetadataDto } from '../../submissions/dto/tiramis-source-metadata.dto';
+import { requirePortalWebhookUrl } from '../../submissions/utils/parse-source-metadata';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
 import { TiramisPayloadValidationService } from '../../shared/services/tiramis-payload-validation.service';
 import { TiramisCoverPeriodService } from '../../shared/services/tiramis-cover-period.service';
@@ -273,6 +274,7 @@ export class TiramisCoverNoteService {
     dto: CreateCoverNoteDto,
     sourceMetadata?: TiramisSourceMetadataDto,
   ) {
+    requirePortalWebhookUrl(sourceMetadata?.portalWebhookUrl);
     this.productWordingValidator.assertCoverNoteWording(dto);
 
     const { configuration, dto: resolvedDto } =

@@ -20,6 +20,7 @@ import { TiramisCoverPeriodService } from '../../shared/services/tiramis-cover-p
 import { TiramisProductWordingValidationService } from '../../../common/services/tiramis-product-wording-validation.service';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSourceMetadataDto } from '../../submissions/dto/tiramis-source-metadata.dto';
+import { requirePortalWebhookUrl } from '../../submissions/utils/parse-source-metadata';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
 import { CreateMotorCoverNoteDto } from '../dto/create-motor-cover-note.dto';
 import { TiramisMotorRepository } from '../repositories/tiramis-motor.repository';
@@ -379,6 +380,7 @@ export class TiramisMotorService {
     dto: CreateMotorCoverNoteDto,
     sourceMetadata?: TiramisSourceMetadataDto,
   ) {
+    requirePortalWebhookUrl(sourceMetadata?.portalWebhookUrl);
     this.productWordingValidator.assertCoverNoteWording(dto);
 
     const { configuration, dto: resolvedDto } =

@@ -261,6 +261,7 @@ export class TiramisInternalController {
         command.businessReference || this.resolveBusinessReference(command),
       requestId: command.requestId || null,
       requestType: command.requestType,
+      portalWebhookUrl: command.portalWebhookUrl || null,
     };
   }
 
