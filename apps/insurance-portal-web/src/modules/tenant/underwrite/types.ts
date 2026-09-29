@@ -19,11 +19,19 @@ export interface UnderwritePolicyStats {
   expired: number;
 }
 
+export interface UnderwriteTransactionStats {
+  renewals: number;
+  endorsements: number;
+  cancellations: number;
+  tira_pending: number;
+}
+
 /** Sections are `null` when the user lacks permission for them. */
 export interface UnderwriteLineSummary {
   line: UnderwriteLine;
   quotations: UnderwriteQuotationStats | null;
   policies: UnderwritePolicyStats | null;
+  transactions: UnderwriteTransactionStats | null;
   /** FLEET line only. */
   fleet?: UnderwriteFleetStats | null;
   /** NON_MOTOR line only. */

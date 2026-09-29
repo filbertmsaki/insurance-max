@@ -2,17 +2,23 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
+  PolicyTransactionType,
   quotationFlowForUnderwriteLine,
   UNDERWRITE_LINES,
   UnderwriteAction,
   underwritePermission,
   UnderwriteLine,
+  WorkflowSubmissionStatus,
 } from '@insurance-max/contracts';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { Policy } from '../../policies/entities/policy.entity';
 import { policyBusinessLineSql } from '../../policies/utils/policy-business-line.sql';
+import { PolicyRenewal } from '../../policy-transactions/entities/policy-renewal.entity';
+import { PolicyTransaction } from '../../policy-transactions/entities/policy-transaction.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
+import { QuotationStatus } from '../../quotations/enums/quotation-status.enum';
+import { TiraStatus } from '../../quotations/enums/tira-status.enum';
 import { userHasPermission } from './underwrite-line.access';
 
 const RENEWAL_DUE_WINDOW_DAYS = 30;
@@ -44,10 +50,18 @@ export interface UnderwriteFleetStats {
   covered_vehicles: number;
 }
 
+export interface UnderwriteTransactionStats {
+  renewals: number;
+  endorsements: number;
+  cancellations: number;
+  tira_pending: number;
+}
+
 export interface UnderwriteLineSummary {
   line: UnderwriteLine;
   quotations: UnderwriteQuotationStats | null;
   policies: UnderwritePolicyStats | null;
+  transactions: UnderwriteTransactionStats | null;
   /** Only for the FLEET line, when policies are visible. */
   fleet: UnderwriteFleetStats | null;
   /** Only for the NON_MOTOR line, when policies are visible. */
@@ -74,6 +88,10 @@ export class UnderwriteDashboardService {
     private readonly quotationRepository: Repository<Quotation>,
     @InjectRepository(Policy)
     private readonly policyRepository: Repository<Policy>,
+    @InjectRepository(PolicyTransaction)
+    private readonly transactionRepository: Repository<PolicyTransaction>,
+    @InjectRepository(PolicyRenewal)
+    private readonly renewalRepository: Repository<PolicyRenewal>,
   ) {}
 
   async getOverview(user: AuthenticatedUser): Promise<UnderwriteLineSummary[]> {
@@ -102,19 +120,31 @@ export class UnderwriteDashboardService {
         user,
         underwritePermission(line, UnderwriteAction.POLICIES_VIEW),
       ) && userHasPermission(user, 'policies:read');
+    const transactionVisibility = this.transactionVisibility(user, line);
 
-    const [quotations, policies, fleet, byClass] = await Promise.all([
-      canViewQuotations ? this.quotationStats(user, line) : null,
-      canViewPolicies ? this.policyStats(user, line) : null,
-      canViewPolicies && line === UnderwriteLine.FLEET
-        ? this.fleetStats(user)
-        : null,
-      canViewPolicies && line === UnderwriteLine.NON_MOTOR
-        ? this.classStats(user)
-        : null,
-    ]);
+    const [quotations, policies, transactions, fleet, byClass] =
+      await Promise.all([
+        canViewQuotations ? this.quotationStats(user, line) : null,
+        canViewPolicies ? this.policyStats(user, line) : null,
+        transactionVisibility.any
+          ? this.transactionStats(user, line, transactionVisibility)
+          : null,
+        canViewPolicies && line === UnderwriteLine.FLEET
+          ? this.fleetStats(user)
+          : null,
+        canViewPolicies && line === UnderwriteLine.NON_MOTOR
+          ? this.classStats(user)
+          : null,
+      ]);
 
-    return { line, quotations, policies, fleet, by_class: byClass };
+    return {
+      line,
+      quotations,
+      policies,
+      transactions,
+      fleet,
+      by_class: byClass,
+    };
   }
 
   private async classStats(
@@ -156,9 +186,225 @@ export class UnderwriteDashboardService {
   }
 
   private canViewLine(user: AuthenticatedUser, line: UnderwriteLine): boolean {
-    return [UnderwriteAction.VIEW, UnderwriteAction.POLICIES_VIEW].some(
-      (action) => userHasPermission(user, underwritePermission(line, action)),
+    return [
+      UnderwriteAction.VIEW,
+      UnderwriteAction.POLICIES_VIEW,
+      UnderwriteAction.RENEWALS_VIEW,
+      UnderwriteAction.ENDORSEMENTS_VIEW,
+      UnderwriteAction.CANCELLATIONS_VIEW,
+      UnderwriteAction.TIRA_RETRY,
+    ].some((action) =>
+      userHasPermission(user, underwritePermission(line, action)),
     );
+  }
+
+  private transactionVisibility(user: AuthenticatedUser, line: UnderwriteLine) {
+    const renewals =
+      userHasPermission(
+        user,
+        underwritePermission(line, UnderwriteAction.RENEWALS_VIEW),
+      ) && userHasPermission(user, 'renewals:read');
+    const endorsements =
+      userHasPermission(
+        user,
+        underwritePermission(line, UnderwriteAction.ENDORSEMENTS_VIEW),
+      ) && userHasPermission(user, 'endorsements:create');
+    const cancellations =
+      userHasPermission(
+        user,
+        underwritePermission(line, UnderwriteAction.CANCELLATIONS_VIEW),
+      ) && userHasPermission(user, 'cancellations:read');
+    const tiraPending =
+      userHasPermission(
+        user,
+        underwritePermission(line, UnderwriteAction.TIRA_RETRY),
+      ) &&
+      [
+        'quotations:retry-tiramis',
+        'endorsements:retry-tiramis',
+        'cancellations:submit-tiramis',
+      ].some((permission) => userHasPermission(user, permission));
+
+    return {
+      renewals,
+      endorsements,
+      cancellations,
+      tiraPending,
+      any: renewals || endorsements || cancellations || tiraPending,
+    };
+  }
+
+  private async transactionStats(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    visibility: ReturnType<UnderwriteDashboardService['transactionVisibility']>,
+  ): Promise<UnderwriteTransactionStats> {
+    const [
+      renewals,
+      endorsements,
+      cancellations,
+      pendingQuotationTira,
+      pendingTransactionTira,
+    ] = await Promise.all([
+      visibility.renewals ? this.renewalCount(user, line) : 0,
+      visibility.endorsements
+        ? this.transactionCount(
+            user,
+            line,
+            PolicyTransactionType.ENDORSEMENT,
+          )
+        : 0,
+      visibility.cancellations
+        ? this.transactionCount(
+            user,
+            line,
+            PolicyTransactionType.CANCELLATION,
+          )
+        : 0,
+      visibility.tiraPending ? this.pendingQuotationTiraCount(user, line) : 0,
+      visibility.tiraPending ? this.pendingTransactionTiraCount(user, line) : 0,
+    ]);
+
+    return {
+      renewals,
+      endorsements,
+      cancellations,
+      tira_pending: pendingQuotationTira + pendingTransactionTira,
+    };
+  }
+
+  private async renewalCount(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+  ): Promise<number> {
+    const queryBuilder = this.renewalRepository
+      .createQueryBuilder('renewal')
+      .innerJoin(
+        PolicyTransaction,
+        'transaction',
+        'transaction.id = renewal.policy_transaction_id',
+      )
+      .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .select('COUNT(*)', 'total')
+      .where('renewal.company_id = :companyId', { companyId: user.companyId! })
+      .andWhere('transaction.transaction_type = :transactionType', {
+        transactionType: PolicyTransactionType.RENEWAL,
+      })
+      .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
+
+    this.dataAccessScopeService.applyPolicyReadScope(
+      queryBuilder,
+      'policy',
+      this.dataAccessScopeService.resolve(user),
+    );
+
+    const row = await queryBuilder.getRawOne<Record<string, string>>();
+    return toCount(row?.total);
+  }
+
+  private async transactionCount(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    transactionType: PolicyTransactionType,
+  ): Promise<number> {
+    const queryBuilder = this.transactionRepository
+      .createQueryBuilder('transaction')
+      .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .select('COUNT(*)', 'total')
+      .where('transaction.company_id = :companyId', {
+        companyId: user.companyId!,
+      })
+      .andWhere('transaction.transaction_type = :transactionType', {
+        transactionType,
+      })
+      .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
+
+    this.dataAccessScopeService.applyPolicyReadScope(
+      queryBuilder,
+      'policy',
+      this.dataAccessScopeService.resolve(user),
+    );
+
+    const row = await queryBuilder.getRawOne<Record<string, string>>();
+    return toCount(row?.total);
+  }
+
+  private async pendingQuotationTiraCount(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+  ): Promise<number> {
+    const queryBuilder = this.quotationRepository
+      .createQueryBuilder('quotation')
+      .select('COUNT(*)', 'total')
+      .where('quotation.company_id = :companyId', {
+        companyId: user.companyId!,
+      })
+      .andWhere('quotation.quotation_flow = :quotationFlow', {
+        quotationFlow: quotationFlowForUnderwriteLine(line),
+      })
+      .andWhere('quotation.deleted_at IS NULL')
+      .andWhere(
+        `(quotation.tira_status IN (:...tiraStatuses)
+          OR quotation.status IN (:...quotationStatuses))`,
+        {
+          tiraStatuses: [
+            TiraStatus.SUBMITTING,
+            TiraStatus.SUBMITTED,
+            TiraStatus.PROCESSING,
+          ],
+          quotationStatuses: [
+            QuotationStatus.SUBMITTING_TO_TIRA,
+            QuotationStatus.SUBMITTED_TO_TIRA,
+            QuotationStatus.TIRA_PROCESSING,
+          ],
+        },
+      );
+
+    this.dataAccessScopeService.applyQuotationReadScope(
+      queryBuilder,
+      'quotation',
+      this.dataAccessScopeService.resolve(user),
+    );
+
+    const row = await queryBuilder.getRawOne<Record<string, string>>();
+    return toCount(row?.total);
+  }
+
+  private async pendingTransactionTiraCount(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+  ): Promise<number> {
+    const queryBuilder = this.transactionRepository
+      .createQueryBuilder('transaction')
+      .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .select('COUNT(*)', 'total')
+      .where('transaction.company_id = :companyId', {
+        companyId: user.companyId!,
+      })
+      .andWhere('transaction.transaction_type IN (:...transactionTypes)', {
+        transactionTypes: [
+          PolicyTransactionType.ENDORSEMENT,
+          PolicyTransactionType.CANCELLATION,
+        ],
+      })
+      .andWhere('transaction.submission_status IN (:...statuses)', {
+        statuses: [
+          WorkflowSubmissionStatus.READY,
+          WorkflowSubmissionStatus.QUEUED,
+          WorkflowSubmissionStatus.PROCESSING,
+          WorkflowSubmissionStatus.ACKNOWLEDGED,
+        ],
+      })
+      .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
+
+    this.dataAccessScopeService.applyPolicyReadScope(
+      queryBuilder,
+      'policy',
+      this.dataAccessScopeService.resolve(user),
+    );
+
+    const row = await queryBuilder.getRawOne<Record<string, string>>();
+    return toCount(row?.total);
   }
 
   private async quotationStats(

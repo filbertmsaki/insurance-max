@@ -4,10 +4,10 @@ import {
   AlertTriangle,
   CalendarClock,
   CarFront,
-  Truck,
   FileText,
   Hourglass,
   ShieldCheck,
+  Truck,
   XCircle,
 } from 'lucide-react';
 import type { UnderwriteLineSlug } from '@insurance-max/contracts';
@@ -36,6 +36,7 @@ function buildTiles(
   const tiles: StatTile[] = [];
   const quotations = summary.quotations;
   const policies = summary.policies;
+  const transactions = summary.transactions;
 
   if (quotations) {
     const list = underwritePaths.quotations(slug);
@@ -99,6 +100,47 @@ function buildTiles(
         tone: 'secondary',
         to: `${list}?policy_status=CANCELLED`,
         description: `${formatCount(policies.expired)} expired`,
+      },
+    );
+  }
+
+  if (transactions) {
+    tiles.push(
+      {
+        key: 'transaction-renewals',
+        title: 'Renewal work',
+        value: transactions.renewals,
+        icon: CalendarClock,
+        tone: 'info',
+        to: underwritePaths.renewals(slug),
+        description: 'Renewal offers in progress',
+      },
+      {
+        key: 'endorsements',
+        title: 'Endorsements',
+        value: transactions.endorsements,
+        icon: FileText,
+        tone: 'primary',
+        to: underwritePaths.endorsements(slug),
+        description: 'Policy changes in progress',
+      },
+      {
+        key: 'cancellations-work',
+        title: 'Cancellations',
+        value: transactions.cancellations,
+        icon: XCircle,
+        tone: 'secondary',
+        to: underwritePaths.cancellations(slug),
+        description: 'Cancellation work items',
+      },
+      {
+        key: 'tira-pending',
+        title: 'TIRA pending',
+        value: transactions.tira_pending,
+        icon: Hourglass,
+        tone: 'warning',
+        to: underwritePaths.tiraPending(slug),
+        description: 'Queued or processing submissions',
       },
     );
   }
