@@ -1,5 +1,9 @@
 import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import {
+  PolicyTransactionType,
+  QuotationStage,
+} from '@insurance-max/contracts';
 
 import { TiramisSubmissionTrackingEntity } from '../../../tiramis/entities/tiramis-submission-tracking.entity';
 import { TiramisNotificationEventDto } from '../../tiramis-integration/dto/tiramis-notification-event.dto';
@@ -9,9 +13,11 @@ import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
+import { QuotationStatusHistory } from '../../quotations/entities/quotation-status-history.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
+import { QuotationStatus } from '../../quotations/enums/quotation-status.enum';
+import { TiraStatus } from '../../quotations/enums/tira-status.enum';
 import { PolicyTransactionQuotationFactoryService } from './policy-transaction-quotation-factory.service';
-import { PolicyTransactionType } from '@insurance-max/contracts';
 
 @Injectable()
 export class PolicyTransactionRegulatoryOutcomeService {
@@ -147,9 +153,22 @@ export class PolicyTransactionRegulatoryOutcomeService {
         await manager.getRepository(PolicyCancellation).save(cancellation);
       }
 
-      await this.ensureRelatedQuotation(manager, transaction, {
-        endorsement,
-        cancellation,
+      const quotation = await this.ensureRelatedQuotation(
+        manager,
+        transaction,
+        {
+          endorsement,
+          cancellation,
+        },
+      );
+      await this.syncRelatedQuotationCallback(manager, {
+        transaction,
+        submission,
+        payload,
+        tracking,
+        quotation,
+        coverNoteReferenceNumber: replacement,
+        stickerNumber: replacementSticker,
       });
 
       return {
@@ -168,17 +187,16 @@ export class PolicyTransactionRegulatoryOutcomeService {
       endorsement: PolicyEndorsement | null;
       cancellation: PolicyCancellation | null;
     },
-  ) {
+  ): Promise<Quotation | null> {
     const existing = await manager.getRepository(Quotation).findOne({
       where: {
         company_id: transaction.company_id,
         source_policy_transaction_id: transaction.id,
       },
-      select: { id: true },
     });
 
     if (existing) {
-      return;
+      return existing;
     }
 
     const policy = await manager.getRepository(Policy).findOne({
@@ -211,11 +229,11 @@ export class PolicyTransactionRegulatoryOutcomeService {
       this.logger.warn(
         `Skipping related quotation backfill for policy transaction ${transaction.id}: missing policy/version/previous reference/type`,
       );
-      return;
+      return null;
     }
 
     try {
-      await this.quotationFactory.createTransactionDraft(
+      return await this.quotationFactory.createTransactionDraft(
         manager,
         {
           id: transaction.completed_by ?? transaction.requested_by,
@@ -238,6 +256,162 @@ export class PolicyTransactionRegulatoryOutcomeService {
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      return null;
+    }
+  }
+
+  private async syncRelatedQuotationCallback(
+    manager: import('typeorm').EntityManager,
+    params: {
+      transaction: PolicyTransaction;
+      submission: PortalTiraSubmission;
+      payload: TiramisNotificationEventDto;
+      tracking: TiramisSubmissionTrackingEntity | null;
+      quotation: Quotation | null;
+      coverNoteReferenceNumber: string | null;
+      stickerNumber: string | null;
+    },
+  ) {
+    const quotation = params.quotation;
+
+    if (!quotation) {
+      return;
+    }
+
+    const statusCode =
+      params.payload.statusCode ??
+      params.payload.regulatoryResponse?.statusCode ??
+      null;
+    const statusDescription =
+      params.payload.statusDescription ??
+      params.payload.regulatoryResponse?.statusDescription ??
+      null;
+    const responseId =
+      params.payload.responseId ??
+      params.payload.regulatoryResponse?.responseId ??
+      null;
+    const requestId =
+      params.payload.requestId ??
+      params.payload.regulatoryResponse?.requestId ??
+      params.transaction.tiramis_request_id ??
+      null;
+    const completedAt = params.payload.occurredAt
+      ? new Date(params.payload.occurredAt)
+      : new Date();
+    const metadata = {
+      source: 'POLICY_TRANSACTION_TIRAMIS_CALLBACK',
+      transactionId: params.transaction.id,
+      transactionType: params.transaction.transaction_type,
+      trackingId: params.tracking?.id ?? params.transaction.tiramis_tracking_id,
+      portalSubmissionId: params.submission.id,
+      tiramisTransactionId:
+        params.payload.tiramisTransactionId ??
+        params.transaction.tiramis_transaction_id,
+      coverNoteReferenceNumber: params.coverNoteReferenceNumber,
+      stickerNumber: params.stickerNumber,
+      regulatoryResponse: params.payload.regulatoryResponse ?? null,
+    };
+
+    params.submission.quotation_id = quotation.id;
+    params.submission.cover_note_reference_number =
+      params.coverNoteReferenceNumber ??
+      params.submission.cover_note_reference_number;
+    params.submission.sticker_number =
+      params.stickerNumber ?? params.submission.sticker_number;
+    params.submission.tiramis_response_id =
+      responseId ?? params.submission.tiramis_response_id;
+    params.submission.status_code = statusCode ?? params.submission.status_code;
+    params.submission.status_description =
+      statusDescription ?? params.submission.status_description;
+    params.submission.last_payload =
+      (params.tracking?.finalResponsePayload as Record<string, unknown>) ??
+      (params.payload as unknown as Record<string, unknown>);
+    params.submission.completed_at =
+      params.submission.completed_at ?? completedAt;
+    params.submission.last_event_at = completedAt;
+    await manager.getRepository(PortalTiraSubmission).save(params.submission);
+
+    if (params.tracking) {
+      params.tracking.quotationId = quotation.id;
+      params.tracking.tiramisResponsePayload = {
+        ...(params.tracking.tiramisResponsePayload ?? {}),
+        coverNoteReferenceNumber: params.coverNoteReferenceNumber,
+        stickerNumber: params.stickerNumber,
+      };
+      await manager
+        .getRepository(TiramisSubmissionTrackingEntity)
+        .save(params.tracking);
+    }
+
+    const previousStatus = quotation.status;
+    const previousTiraStatus = quotation.tira_status;
+
+    quotation.status = QuotationStatus.COMPLETED;
+    quotation.quotation_stage = QuotationStage.COMPLETED;
+    quotation.tira_status = this.resolveTransactionQuotationTiraStatus(
+      params.transaction,
+    );
+    quotation.tira_request_id = requestId ?? quotation.tira_request_id;
+    quotation.tira_response_id = responseId ?? quotation.tira_response_id;
+    quotation.tira_response_code = statusCode ?? quotation.tira_response_code;
+    quotation.tira_response_description =
+      statusDescription ?? quotation.tira_response_description;
+    quotation.tira_error_details = metadata;
+    quotation.submitted_at = quotation.submitted_at ?? completedAt;
+    quotation.workflow_completed_at =
+      quotation.workflow_completed_at ?? completedAt;
+    quotation.workflow_revision = Number(quotation.workflow_revision ?? 0) + 1;
+    quotation.state_version = Number(quotation.state_version ?? 0) + 1;
+    quotation.updated_by =
+      params.transaction.completed_by ??
+      params.transaction.requested_by ??
+      quotation.updated_by;
+    await manager.getRepository(Quotation).save(quotation);
+
+    if (
+      previousStatus !== quotation.status ||
+      previousTiraStatus !== quotation.tira_status
+    ) {
+      await manager.getRepository(QuotationStatusHistory).save({
+        quotation_id: quotation.id,
+        previous_quotation_status: previousStatus,
+        new_quotation_status: quotation.status,
+        previous_approval_status: quotation.approval_status,
+        new_approval_status: quotation.approval_status,
+        previous_payment_status: quotation.payment_status,
+        new_payment_status: quotation.payment_status,
+        previous_tira_status: previousTiraStatus,
+        new_tira_status: quotation.tira_status,
+        transition_type: 'TIRAMIS_FINAL_SUCCESS',
+        reason: statusDescription,
+        comments: params.coverNoteReferenceNumber
+          ? `Cover note reference ${params.coverNoteReferenceNumber}`
+          : null,
+        changed_by:
+          params.transaction.completed_by ??
+          params.transaction.requested_by ??
+          null,
+        changed_by_type: 'SYSTEM',
+        source: 'TIRAMIS',
+        channel: quotation.channel_type,
+        request_id: requestId,
+        tira_request_id: requestId,
+        tira_response_id: responseId,
+        metadata,
+      });
+    }
+  }
+
+  private resolveTransactionQuotationTiraStatus(
+    transaction: PolicyTransaction,
+  ): TiraStatus {
+    switch (transaction.transaction_type) {
+      case PolicyTransactionType.CANCELLATION:
+        return TiraStatus.CANCELLED;
+      case PolicyTransactionType.ENDORSEMENT:
+        return TiraStatus.ENDORSED;
+      default:
+        return TiraStatus.SUCCESS;
     }
   }
 

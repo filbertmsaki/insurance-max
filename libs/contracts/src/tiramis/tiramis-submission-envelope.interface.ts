@@ -67,6 +67,8 @@ export interface TiramisSubmissionSource {
   quotationId: string | null;
   policyId: string | null;
   businessReference: string;
+  /** Portal endpoint that receives the final TIRA outcome. Required. */
+  portalWebhookUrl: string;
 }
 
 export interface TiramisSubmissionHashes {

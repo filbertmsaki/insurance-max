@@ -641,8 +641,8 @@ export class TiramisBusinessRecordSyncService {
               AND deleted_at IS NULL
               AND NOT (
                 quotation_status IN ('COMPLETED', 'CANCELLED')
-                AND tira_status = 'SUCCESS'
-                AND $3::varchar <> 'SUCCESS'
+                AND tira_status IN ('SUCCESS', 'ENDORSED', 'CANCELLED')
+                AND $3::varchar NOT IN ('SUCCESS', 'ENDORSED', 'CANCELLED')
               )
           `,
           [
@@ -998,8 +998,8 @@ export class TiramisBusinessRecordSyncService {
         statusDescription === 'transaction successfully cancelled';
 
       return {
-        quotationStatus: isCancellation ? 'CANCELLED' : 'COMPLETED',
-        tiraStatus: 'SUCCESS',
+        quotationStatus: 'COMPLETED',
+        tiraStatus: isCancellation ? 'CANCELLED' : 'SUCCESS',
         submissionStatus: 'ACCEPTED',
         transitionType: isCancellation
           ? 'MARK_TIRA_CANCELLED'

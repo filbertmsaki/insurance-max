@@ -47,6 +47,8 @@ export type TiraStatus =
   | 'SUBMITTED'
   | 'PROCESSING'
   | 'SUCCESS'
+  | 'ENDORSED'
+  | 'CANCELLED'
   | 'REJECTED'
   | 'FAILED';
 export type QuotationDisplayStatus =

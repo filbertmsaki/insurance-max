@@ -580,6 +580,13 @@ export class QuotationsService {
       );
     const { branchId, salePointCode, officer } =
       draftBranchContext ??
+      (dto.branch_id
+        ? await this.resolveExplicitDraftBranchContext(
+            companyId,
+            dto.branch_id,
+            userId,
+          )
+        : null) ??
       (await this.resolveDraftBranchContext(companyId, userId));
     const { productCode, definition } =
       await this.resolveDraftProductDefinition(
@@ -630,8 +637,160 @@ export class QuotationsService {
       productCode,
       officer,
     );
+    await this.recordQuotationStatusHistory(manager, {
+      quotationId: quotation.id,
+      previousStatus: null,
+      nextStatus: quotation.status,
+      reason: 'Quotation draft created',
+      changedBy: userId,
+    });
 
     return quotation.id;
+  }
+
+  async finalizeGeneratedDraftInTransaction(
+    manager: EntityManager,
+    companyId: string,
+    id: string,
+    payload: UpdateQuotationDto,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'> &
+      Partial<AuthenticatedUser>,
+    options: ReplaceQuotationOptions = {},
+  ) {
+    const existing = await this.findAggregateInTransaction(
+      manager,
+      companyId,
+      id,
+    );
+    this.assertDraftWritable(existing);
+
+    const authorizedPayload =
+      await this.insuranceChannelPermissionService.authorizeQuotationPayload(
+        companyId,
+        payload,
+        user,
+        'quotation.update',
+        id,
+      );
+    const contextPayload = await this.resolveExistingQuotationContext(
+      companyId,
+      authorizedPayload,
+      existing,
+      user.id,
+    );
+    const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
+      companyId,
+      contextPayload,
+      existing,
+      options,
+    );
+
+    await this.applyDefaultTaxesToQuotationPayload(
+      companyId,
+      preparedPayload,
+      user,
+      existing.id,
+      existing.quotation_no,
+    );
+    const scope = await this.validateScope(companyId, preparedPayload);
+    await this.refreshPricingBeforeSave(
+      companyId,
+      preparedPayload,
+      scope,
+      user,
+    );
+    const exchangeRateSnapshot = await this.resolveExchangeRateSnapshot(
+      companyId,
+      preparedPayload,
+      user,
+    );
+    await this.validateAuthoritativePricing(
+      companyId,
+      preparedPayload,
+      {
+        productId: scope.product.id,
+        riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
+        quotationId: existing.id,
+      },
+      {
+        userId: user.id,
+        quotationId: existing.id,
+        quotationNo: existing.quotation_no,
+        reason:
+          'Generated policy transaction quotation payload validation succeeded before finalization',
+      },
+    );
+    this.assertDiscountPermissions(preparedPayload, user, existing);
+
+    const lockedQuotation = await this.lockQuotationForUpdate(
+      manager,
+      companyId,
+      id,
+    );
+    this.assertDraftWritable(lockedQuotation);
+
+    const customerId = await this.resolveOrCreateCustomerId(
+      manager,
+      companyId,
+      preparedPayload,
+      scope.customerId,
+      user.id,
+    );
+
+    await manager.getRepository(QuotationCoverNote).delete({
+      quotation_id: id,
+    });
+    await manager.getRepository(QuotationPolicyHolder).delete({
+      quotation_id: id,
+    });
+
+    const quotation = await this.persistRoot(
+      manager,
+      companyId,
+      lockedQuotation.quotation_no,
+      preparedPayload,
+      user.id,
+      customerId,
+      lockedQuotation,
+      scope.productDefinition,
+    );
+
+    await this.persistAggregate(
+      manager,
+      quotation,
+      preparedPayload,
+      scope.riskByCode,
+      customerId,
+      user.id,
+      exchangeRateSnapshot,
+    );
+
+    await manager.getRepository(Quotation).update(
+      { id, company_id: companyId },
+      {
+        current_wizard_step: null,
+        draft_payload: null,
+      },
+    );
+
+    Object.assign(quotation, {
+      current_wizard_step: null,
+      draft_payload: null,
+    });
+
+    await this.quotationLifecycleService.evaluateRequirementsInTransaction(
+      manager,
+      quotation,
+      {
+        changedBy: user.id,
+        changedByType: 'USER',
+        source: 'SYSTEM',
+        channel: quotation.channel_type,
+        reason: 'Policy transaction quotation finalized from policy snapshot',
+      },
+    );
+
+    return quotation;
   }
 
   async createCustomerPortalDraft(
@@ -2363,6 +2522,50 @@ export class QuotationsService {
     };
   }
 
+  private async resolveExplicitDraftBranchContext(
+    companyId: string,
+    branchId: string,
+    userId: string,
+  ): Promise<DraftBranchContext> {
+    const branch = await this.dataSource.getRepository(Branch).findOne({
+      where: {
+        id: branchId,
+        company_id: companyId,
+        status: 'active',
+      },
+    });
+
+    if (!branch || branch.deleted_at) {
+      throw new BadRequestException(
+        'The selected quotation branch is not active.',
+      );
+    }
+
+    const defaultSalePoints = await this.salePointRepository.find({
+      where: {
+        companyId,
+        branchId: branch.id,
+        isDefault: true,
+        isActive: true,
+      },
+    });
+    if (defaultSalePoints.length !== 1) {
+      throw new BadRequestException(
+        'The selected quotation branch does not have a valid default sales point. Please configure it before saving a quotation draft.',
+      );
+    }
+
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+    });
+
+    return {
+      branchId: branch.id,
+      salePointCode: defaultSalePoints[0].salePointCode.trim().toUpperCase(),
+      officer: this.resolveOfficerDetails(user),
+    };
+  }
+
   private async resolveCompanyDefaultDraftBranchContext(
     companyId: string,
   ): Promise<DraftBranchContext> {
@@ -3835,7 +4038,7 @@ export class QuotationsService {
     if (
       quotation.status === QuotationStatus.SUBMITTED_TO_TIRA ||
       quotation.tira_status === TiraStatus.SUBMITTED ||
-      quotation.tira_status === TiraStatus.SUCCESS
+      this.isAcceptedTiraStatus(quotation.tira_status)
     ) {
       return QuotationStage.SUBMITTED;
     }
@@ -3850,6 +4053,14 @@ export class QuotationsService {
     }
 
     return QuotationStage.DRAFT;
+  }
+
+  private isAcceptedTiraStatus(status: TiraStatus): boolean {
+    return [
+      TiraStatus.SUCCESS,
+      TiraStatus.ENDORSED,
+      TiraStatus.CANCELLED,
+    ].includes(status);
   }
 
   private mapApprovalStatusForGate(
@@ -3913,6 +4124,8 @@ export class QuotationsService {
       case TiraStatus.PROCESSING:
         return QuotationSubmissionStatus.PROCESSING;
       case TiraStatus.SUCCESS:
+      case TiraStatus.ENDORSED:
+      case TiraStatus.CANCELLED:
         return QuotationSubmissionStatus.ACCEPTED;
       case TiraStatus.REJECTED:
         return QuotationSubmissionStatus.REJECTED;
@@ -6533,10 +6746,9 @@ export class QuotationsService {
         responseId: quotation.tira_response_id ?? null,
         submittedAt: quotation.submitted_at?.toISOString() ?? null,
         acknowledgedAt: null,
-        acceptedAt:
-          quotation.tira_status === TiraStatus.SUCCESS
-            ? (quotation.updated_at?.toISOString() ?? null)
-            : null,
+        acceptedAt: this.isAcceptedTiraStatus(quotation.tira_status)
+          ? (quotation.updated_at?.toISOString() ?? null)
+          : null,
         failureReason: quotation.tira_response_description ?? null,
       },
       finalizationHash: quotation.finalization_hash ?? null,
@@ -9138,6 +9350,41 @@ export class QuotationsService {
     return quotation;
   }
 
+  private async findAggregateInTransaction(
+    manager: EntityManager,
+    companyId: string,
+    id: string,
+  ): Promise<Quotation> {
+    const quotation = await manager
+      .getRepository(Quotation)
+      .createQueryBuilder('quotation')
+      .leftJoinAndSelect('quotation.cover_note', 'coverNote')
+      .leftJoinAndSelect('coverNote.entries', 'entry')
+      .leftJoinAndSelect('entry.risks', 'risk')
+      .leftJoinAndSelect('entry.subject_matters', 'subjectMatter')
+      .leftJoinAndSelect('entry.addons', 'addon')
+      .leftJoinAndSelect('entry.motor_detail', 'motorDetail')
+      .leftJoinAndSelect('quotation.policy_holders', 'policyHolder')
+      .where('quotation.id = :id', { id })
+      .andWhere('quotation.company_id = :companyId', { companyId })
+      .andWhere('quotation.deleted_at IS NULL')
+      .orderBy('entry.entry_number', 'ASC')
+      .addOrderBy('policyHolder.sequence_no', 'ASC')
+      .getOne();
+
+    if (!quotation) {
+      throw new NotFoundException('Quotation not found');
+    }
+
+    if (!quotation.cover_note) {
+      throw new NotFoundException(
+        'Quotation cover-note information was not found',
+      );
+    }
+
+    return quotation;
+  }
+
   private async applyQuotationStatusUpdate(
     manager: EntityManager,
     quotation: Quotation,
@@ -9187,7 +9434,7 @@ export class QuotationsService {
     manager: EntityManager,
     params: {
       quotationId: string;
-      previousStatus: QuotationStatus;
+      previousStatus: QuotationStatus | null;
       nextStatus: QuotationStatus;
       reason: string | null;
       changedBy: string | null;
@@ -9390,6 +9637,8 @@ export class QuotationsService {
         ].filter((value): value is string => Boolean(value && value.trim())),
       ),
     );
+    const policyTransactionId =
+      quotation.source_policy_transaction_id?.trim() || null;
 
     const trackings = await trackingRepository
       .createQueryBuilder('tracking')
@@ -9397,11 +9646,34 @@ export class QuotationsService {
       .andWhere('tracking.source_company_id = :companyId', { companyId })
       .andWhere(
         new Brackets((qb) => {
-          qb.where('tracking.source_module = :module', {
-            module: 'quotations',
-          }).orWhere('tracking.source_module ILIKE :fleetModule', {
-            fleetModule: '%quotation%',
-          });
+          qb.where(
+            new Brackets((moduleQb) => {
+              moduleQb
+                .where('tracking.source_module = :module', {
+                  module: 'quotations',
+                })
+                .orWhere('tracking.source_module ILIKE :fleetModule', {
+                  fleetModule: '%quotation%',
+                });
+            }),
+          );
+
+          if (policyTransactionId) {
+            qb.orWhere(
+              new Brackets((transactionQb) => {
+                transactionQb
+                  .where('tracking.source_module = :transactionModule', {
+                    transactionModule: 'policy-transactions',
+                  })
+                  .andWhere(
+                    'tracking.source_record_id = :policyTransactionId',
+                    {
+                      policyTransactionId,
+                    },
+                  );
+              }),
+            );
+          }
         }),
       )
       .andWhere(
@@ -9411,6 +9683,12 @@ export class QuotationsService {
           }).orWhere('tracking.business_reference IN (:...references)', {
             references: businessReferences,
           });
+
+          if (policyTransactionId) {
+            qb.orWhere('tracking.source_record_id = :policyTransactionId', {
+              policyTransactionId,
+            });
+          }
         }),
       )
       .orderBy('tracking.created_at', 'DESC')

@@ -68,8 +68,7 @@ export interface UpsertTiramisClientConfigurationParams {
    * talks to the same TIRA gateway, so this only needs overriding if a
    * company genuinely has a distinct endpoint. */
   baseUrl?: string;
-  /** Defaults to TIRAMIS_TEST_CALLBACK_URL/TIRAMIS_LIVE_CALLBACK_URL (falling
-   * back to INSURANCE_PORTAL_WEBHOOK_URL) when omitted. */
+  /** Defaults to TIRAMIS_TEST_CALLBACK_URL/TIRAMIS_LIVE_CALLBACK_URL when omitted. */
   callbackBaseUrl?: string;
   signatureAlgorithm?: string | null;
   isActive?: boolean;

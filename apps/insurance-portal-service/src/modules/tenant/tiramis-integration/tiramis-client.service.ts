@@ -11,13 +11,13 @@ import { firstValueFrom } from 'rxjs';
 import { Repository } from 'typeorm';
 
 import { unwrapApiResponse } from '@insurance-max/contracts';
-import { buildUrl } from '@insurance-max/shared-config';
 import {
   HTTP_HEADERS,
   RequestContextService,
 } from '@insurance-max/shared-kernel';
 import { TiramisCompanyConfigurationEntity } from '../../tiramis/entities/tiramis-company-configuration.entity';
 import { TiramisServiceApiKeyVaultService } from '../../tiramis/services/tiramis-service-api-key-vault.service';
+import { resolveTiramisPortalWebhookUrl } from '../../tiramis/utils/tiramis-portal-webhook-url.util';
 
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
 
@@ -168,7 +168,9 @@ export class TiramisClientService {
                     businessReference: command.businessReference,
                     requestType: command.requestType,
                     requestId: command.requestId,
-                    portalWebhookUrl: this.resolvePortalWebhookUrl(),
+                    portalWebhookUrl: resolveTiramisPortalWebhookUrl(
+                      this.configService,
+                    ),
                   }),
                   'utf8',
                 ).toString('base64url'),
@@ -207,15 +209,6 @@ export class TiramisClientService {
 
   private encodeServiceContext(context: Record<string, unknown>): string {
     return Buffer.from(JSON.stringify(context), 'utf8').toString('base64url');
-  }
-
-  private resolvePortalWebhookUrl(): string {
-    const apiBaseUrl =
-      this.configService.get<string>('app.apiBaseUrl') ||
-      'http://localhost:9090/api';
-    const appVersion = this.configService.get<string>('app.version') || 'v1';
-
-    return buildUrl(apiBaseUrl, appVersion, 'webhooks/tiramis/notifications');
   }
 
   private async resolveApiKey(companyId: string | null): Promise<string> {

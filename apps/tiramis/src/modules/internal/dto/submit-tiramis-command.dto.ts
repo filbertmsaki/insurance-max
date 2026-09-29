@@ -25,6 +25,7 @@ export interface SubmitTiramisCommandDto {
   quotationId?: string | null;
   businessReference?: string | null;
   requestId?: string | null;
+  portalWebhookUrl?: string | null;
   requestType: TiramisPortalRequestType;
 
   /**

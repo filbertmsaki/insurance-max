@@ -65,6 +65,52 @@ describe('TiramisClientService', () => {
     );
   });
 
+  it('always sends the portal webhook URL in submission source metadata', () => {
+    const config: Record<string, string> = {
+      'app.apiBaseUrl': 'https://portal.example.test/api',
+      'app.version': 'v1',
+    };
+    const service = new TiramisClientService(
+      {} as any,
+      { get: jest.fn((key: string) => config[key]) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    ) as any;
+
+    const header = service.encodeSourceMetadata({
+      sourceService: 'insurance-portal-service',
+      sourceCompanyId: 'company-1',
+      sourceModule: 'quotations',
+      businessReference: 'AICL260929004',
+      requestType: 'MOTOR',
+    });
+
+    expect(
+      JSON.parse(Buffer.from(header, 'base64url').toString('utf8')),
+    ).toMatchObject({
+      sourceCompanyId: 'company-1',
+      businessReference: 'AICL260929004',
+      portalWebhookUrl:
+        'https://portal.example.test/api/v1/webhooks/tiramis/notifications',
+    });
+    expect(
+      service.isSubmissionPattern(TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR),
+    ).toBe(true);
+    expect(
+      service.isSubmissionPattern(TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NON_MOTOR),
+    ).toBe(true);
+    expect(service.isSubmissionPattern(TIRAMIS_MESSAGE_PATTERNS.STATUS)).toBe(
+      false,
+    );
+  });
+
   it('checks service health against the environment the company activated', async () => {
     const queryBuilder = {
       addSelect: jest.fn().mockReturnThis(),

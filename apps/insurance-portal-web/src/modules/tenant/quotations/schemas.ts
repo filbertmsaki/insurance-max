@@ -47,11 +47,11 @@ import {
   normalizeMotorTextValue,
 } from './utils/motorText';
 
+// Persisted drafts can carry null or numeric values (e.g. backend-calculated
+// tax rates), so normalize them to the string the form expects.
 const optionalText = z
-  .string()
-  .trim()
-  .optional()
-  .or(z.literal(''))
+  .union([z.string().trim(), z.number().transform(String)])
+  .nullish()
   .transform((value) => value ?? '');
 
 function createClientRef(prefix = 'risk') {

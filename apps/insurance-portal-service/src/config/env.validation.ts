@@ -385,9 +385,6 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_PORTAL_TRANSPORT_RETRY_ENABLED: Joi.boolean().default(false),
   TIRAMIS_LEGACY_ROUTES_ENABLED: Joi.boolean().default(true),
   TIRAMIS_LEGACY_WEBHOOK_ENABLED: Joi.boolean().default(false),
-  INSURANCE_PORTAL_WEBHOOK_URL: Joi.string()
-    .uri({ scheme: ['http', 'https'] })
-    .default('http://localhost:9090/api/v1/webhooks/tiramis/notifications'),
   TIRAMIS_RETRY_ENABLED: Joi.boolean().default(true),
   TIRAMIS_RETRY_CRON: Joi.string().default('*/3 * * * *'),
   TIRAMIS_RETRY_LIMIT: Joi.number().default(25),
