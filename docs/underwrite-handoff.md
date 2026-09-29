@@ -84,7 +84,36 @@ policy-transaction engines. It is a presentation and permission layer, not a rew
 - Documents step uploads via the existing document upload sessions (`resource_type: 'QUOTATION'`). Mandatory documents currently **warn only** on Review (open decision below).
 - `RiskSchemasPage` (admin with live preview), Non-Motor detail pages, Non-Motor > Risks (reuses subject-matter register), Risk Schemas menu item.
 
-## Next steps (in order)
+### Phase 7 - Work queues and transaction controls
+- Backend line-scoped renewals, endorsements, cancellations, TIRA Failed, and
+  TIRA Pending lists.
+- Backend line-scoped transaction action endpoints delegate to existing
+  policy-transaction services and require both the underwrite line gate and the
+  legacy action permission.
+- Frontend per-line Renewals, Endorsements, Cancellations, TIRA Failed, and
+  TIRA Pending pages.
+- TIRA failed rows can retry quotation, endorsement, and cancellation work from
+  the line queue.
+
+### Phase 8 - Dashboard and authorization refresh
+- Dashboards include renewal, endorsement, cancellation, and TIRA-pending
+  counts, scoped to the same data and permissions as the lists.
+- The frontend refreshes `/auth/authorization-context` on load, focus,
+  visibility return, and a periodic interval so sidebar grants appear without a
+  fresh login.
+- Focused backend specs cover the endpoint permission matrix, wrong-line 404
+  assertions, and branch-scoped dashboard filtering.
+
+### Phase 9 - Regression checklist
+- `docs/portal-completion-qa.md` includes Underwrite migration, seed,
+  mock-TIRA, wizard, work queue, legacy parity, and portal compatibility
+  checks for staging sign-off.
+
+## Remaining phase
+
+1. **Phase 10** - deprecation *plan only* (per-company switch, redirects after sign-off, retire the legacy wizard and the duplicated wizard logic; legacy APIs stay for portals). Needs owner approval before any behavior change.
+
+## Historical pending notes
 
 1. **Finish Phase 6 verification**
    - Run `apps/insurance-portal-web/src/modules/tenant/underwrite/__tests__/nonMotorRisk.test.tsx` and the updated `underwrite.test.ts` (the last run was interrupted; results unknown). Fix what fails.

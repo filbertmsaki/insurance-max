@@ -8,6 +8,10 @@ or CI run URL.
 
 - Backend portal unit tests:
   `npx jest --runInBand --passWithNoTests apps/insurance-portal-service/src/modules/tenant/portal/services/portal-business-access.service.spec.ts apps/insurance-portal-service/src/modules/tenant/portal/services/portal-requests.service.spec.ts apps/insurance-portal-service/src/modules/tenant/portal/guards/portal.guard.spec.ts`
+- Underwrite focused backend tests:
+  `npx jest --runInBand apps/insurance-portal-service/src/modules/tenant/underwrite libs/contracts/src/underwrite`
+- Underwrite focused web tests:
+  `cd apps/insurance-portal-web && npx vitest run src/modules/tenant/underwrite`
 - Backend build:
   `npm run build:insurance-portal-service`
 - Frontend build:
@@ -16,6 +20,76 @@ or CI run URL.
   `npm run lint:web`
 - Focused backend lint:
   `node --max-old-space-size=4096 ./node_modules/eslint/bin/eslint.js apps/insurance-portal-service/src/modules/tenant/portal`
+
+## Underwrite Module Regression
+
+Run this on a staging database copy with `mock-tira` enabled before exposing
+the new Underwrite menu to production users.
+
+- Apply migrations and confirm these are present:
+  - `1790800000000-UnderwriteLinesAndPermissions`
+  - `1790900000000-NonMotorRiskSchemas`
+- Run the RBAC seed and confirm system roles retain:
+  - `underwrite.dashboard.view`
+  - `underwrite.motor.*`
+  - `underwrite.fleet.*`
+  - `underwrite.non_motor.*`
+- Confirm `/auth/authorization-context` includes newly granted underwrite
+  permissions without issuing a new login token.
+- Open the sidebar as a user who was granted a new underwrite permission during
+  the session; confirm the matching menu item appears after focus/refresh.
+- Confirm legacy `/underwriting/*` routes still open and complete the existing
+  legacy quotation flow unchanged.
+- Confirm direct API access to another line returns 404, not record details.
+- Confirm a user missing the underwrite line gate receives 403 even if they
+  hold the legacy action permission.
+- Confirm branch-scoped users only see quotations, policies, renewals,
+  endorsements, cancellations, and TIRA queues for their permitted branches.
+
+## Underwrite Wizard Journeys
+
+For each line, capture evidence for draft save, reopen, finalize, approval when
+required, payment when required, TIRA submission, and issued policy.
+
+- Motor single policy:
+  - Create from `/underwrite/motor/quotations/new`.
+  - Save draft and reopen from the Motor quotations list.
+  - Finalize and submit through `mock-tira`.
+  - Confirm issued policy has `business_line = MOTOR`.
+- Fleet policy:
+  - Create from `/underwrite/fleet/quotations/new`.
+  - Add multiple vehicles and confirm per-vehicle premium rows.
+  - Finalize and confirm fleet register sync creates or updates fleet rows.
+  - Confirm issued policy has `business_line = FLEET`.
+- Non-Motor policy:
+  - Configure at least one required risk schema field.
+  - Create from `/underwrite/non-motor/quotations/new`.
+  - Save risk details, upload documents, finalize, and issue.
+  - Confirm issued policy has `business_line = NON_MOTOR`.
+
+## Underwrite Work Queues
+
+- Dashboard cards show quotation, policy, renewal, endorsement, cancellation,
+  TIRA failed, and TIRA pending counts only for permitted sections.
+- Renewals list opens for each line and links back to the scoped policy.
+- Endorsements list opens for each line and links back to the scoped policy.
+- Cancellations list opens for each line and links back to the scoped policy.
+- TIRA Failed and TIRA Pending queues list both quotations and policy
+  transactions for the selected line.
+- Retry failed quotation TIRA from the line queue.
+- Retry failed endorsement TIRA from the line queue.
+- Resubmit failed cancellation TIRA from the line queue.
+
+## Underwrite Legacy Parity
+
+- Existing legacy quotation creation, draft edit, finalize, approval, payment,
+  TIRA submission, retry, and policy issuance still work after the underwrite
+  migrations.
+- Existing legacy endorsement, cancellation, and renewal screens still work.
+- Existing customer, policy, billing, claims, document, and reporting routes do
+  not require underwrite permissions.
+- Existing portal customer and intermediary flows still load policies and
+  documents created through the new Underwrite module.
 
 ## Customer Journey
 
