@@ -16,6 +16,7 @@ const RESPONSE_CODES = {
   TIRA015: 'Bad or missing Client PKI configurations',
   TIRA016: 'Invalid request signature',
   TIRA017: 'Invalid client system call back url',
+  TIRA214: 'Transaction successfully cancelled',
 };
 
 module.exports = {

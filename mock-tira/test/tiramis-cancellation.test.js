@@ -20,7 +20,7 @@ test('cover cancellation endorsement returns the cancellation success response',
   });
 
   assert.deepEqual(result, {
-    code: 'TIRA001',
+    code: 'TIRA214',
     desc: 'Transaction successfully cancelled',
   });
 });
@@ -47,7 +47,7 @@ test('cancellation callback retains the standard response envelope fields', () =
   const content = buildAsyncFinalResponseContent(
     'MotorCoverNoteRefReq',
     'REQ-CANCEL-1',
-    'TIRA001',
+    'TIRA214',
     'Transaction successfully cancelled',
     { responseId: 'RES-CANCEL-1' },
   );
@@ -55,7 +55,7 @@ test('cancellation callback retains the standard response envelope fields', () =
 
   assert.match(content, /<RequestId>REQ-CANCEL-1<\/RequestId>/);
   assert.match(content, /<ResponseId>RES-CANCEL-1<\/ResponseId>/);
-  assert.match(content, /<ResponseStatusCode>TIRA001<\/ResponseStatusCode>/);
+  assert.match(content, /<ResponseStatusCode>TIRA214<\/ResponseStatusCode>/);
   assert.match(
     content,
     /<ResponseStatusDesc>Transaction successfully cancelled<\/ResponseStatusDesc>/,

@@ -64,6 +64,7 @@ function resolveFinalResponseStatus({ xml, finalStatus }) {
   if (isCoverCancellationEndorsement(xml)) {
     return {
       ...finalStatus,
+      code: 'TIRA214',
       desc: 'Transaction successfully cancelled',
     };
   }
@@ -569,7 +570,7 @@ function resolveFinalStatus({ scenario, contentXml }) {
     getTag(contentXml, 'EndorsementType') === '4'
   ) {
     return {
-      code: 'TIRA001',
+      code: 'TIRA214',
       desc: 'Transaction successfully cancelled',
     };
   }
