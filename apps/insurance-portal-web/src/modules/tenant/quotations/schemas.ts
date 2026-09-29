@@ -54,6 +54,12 @@ const optionalText = z
   .or(z.literal(''))
   .transform((value) => value ?? '');
 
+const nullableOptionalText = z
+  .string()
+  .trim()
+  .nullish()
+  .transform((value) => value ?? '');
+
 function createClientRef(prefix = 'risk') {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -438,7 +444,7 @@ const fleetItemSchema = z.object({
   premium: optionalText,
   fleet_entry: optionalText,
   cover_note_number: optionalText,
-  prev_cover_note_reference_number: optionalText,
+  prev_cover_note_reference_number: nullableOptionalText,
   cover_note_desc: optionalText,
   operative_clause: optionalText,
   endorsement_type: z.enum(['', '1', '2', '3', '4']),
@@ -533,7 +539,7 @@ const quotationFormObjectSchema = z.object({
   cover_note_desc: optionalText,
   operative_clause: optionalText,
   cover_note_type: z.enum(['1', '2', '3']),
-  prev_cover_note_reference: optionalText,
+  prev_cover_note_reference: nullableOptionalText,
   endorsement_type: z.enum(['', '1', '2', '3', '4']),
   endorsement_reason: optionalText,
   endorsement_premium_earned: optionalText,
