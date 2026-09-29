@@ -109,9 +109,15 @@ policy-transaction engines. It is a presentation and permission layer, not a rew
   mock-TIRA, wizard, work queue, legacy parity, and portal compatibility
   checks for staging sign-off.
 
+### Phase 10 - Deprecation plan
+- `docs/underwrite-deprecation-plan.md` defines the owner-approved path for a
+  per-company switch, staged redirects, retirement order, rollback, monitoring,
+  and sign-off. No legacy routes or APIs were removed.
+
 ## Remaining phase
 
-1. **Phase 10** - deprecation *plan only* (per-company switch, redirects after sign-off, retire the legacy wizard and the duplicated wizard logic; legacy APIs stay for portals). Needs owner approval before any behavior change.
+- None in this implementation branch. Deprecation execution still needs owner
+  approval and a separate change.
 
 ## Historical pending notes
 
