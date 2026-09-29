@@ -11,6 +11,8 @@ export interface TiramisHttpRequest {
   xml: string;
   headers: TiramisHttpHeaders;
   timeout?: number;
+  // Set false to keep this exchange out of the per-request TIRA log files.
+  logRequest?: boolean;
 }
 
 export interface TiramisHttpResponse {

@@ -245,6 +245,7 @@ export class TiramisVerificationService {
         url: endpoint,
         xml: requestXml,
         headers,
+        logRequest: false,
       });
     } catch (error: any) {
       const failedAttempt = await this.submissionService.markFailed({
