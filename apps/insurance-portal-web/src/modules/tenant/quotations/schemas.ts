@@ -47,16 +47,10 @@ import {
   normalizeMotorTextValue,
 } from './utils/motorText';
 
+// Persisted drafts can carry null or numeric values (e.g. backend-calculated
+// tax rates), so normalize them to the string the form expects.
 const optionalText = z
-  .string()
-  .trim()
-  .optional()
-  .or(z.literal(''))
-  .transform((value) => value ?? '');
-
-const nullableOptionalText = z
-  .string()
-  .trim()
+  .union([z.string().trim(), z.number().transform(String)])
   .nullish()
   .transform((value) => value ?? '');
 
@@ -444,7 +438,7 @@ const fleetItemSchema = z.object({
   premium: optionalText,
   fleet_entry: optionalText,
   cover_note_number: optionalText,
-  prev_cover_note_reference_number: nullableOptionalText,
+  prev_cover_note_reference_number: optionalText,
   cover_note_desc: optionalText,
   operative_clause: optionalText,
   endorsement_type: z.enum(['', '1', '2', '3', '4']),
@@ -539,7 +533,7 @@ const quotationFormObjectSchema = z.object({
   cover_note_desc: optionalText,
   operative_clause: optionalText,
   cover_note_type: z.enum(['1', '2', '3']),
-  prev_cover_note_reference: nullableOptionalText,
+  prev_cover_note_reference: optionalText,
   endorsement_type: z.enum(['', '1', '2', '3', '4']),
   endorsement_reason: optionalText,
   endorsement_premium_earned: optionalText,

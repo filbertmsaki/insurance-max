@@ -23,6 +23,10 @@ export class SaveQuotationDraftDto {
 
   @IsOptional()
   @IsUUID()
+  branch_id?: string | null;
+
+  @IsOptional()
+  @IsUUID()
   department_id?: string | null;
 
   @IsOptional()

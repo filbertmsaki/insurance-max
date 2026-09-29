@@ -580,6 +580,13 @@ export class QuotationsService {
       );
     const { branchId, salePointCode, officer } =
       draftBranchContext ??
+      (dto.branch_id
+        ? await this.resolveExplicitDraftBranchContext(
+            companyId,
+            dto.branch_id,
+            userId,
+          )
+        : null) ??
       (await this.resolveDraftBranchContext(companyId, userId));
     const { productCode, definition } =
       await this.resolveDraftProductDefinition(
@@ -2360,6 +2367,50 @@ export class QuotationsService {
       officer: this.resolveOfficerDetails(
         assignment.company_user?.user ?? null,
       ),
+    };
+  }
+
+  private async resolveExplicitDraftBranchContext(
+    companyId: string,
+    branchId: string,
+    userId: string,
+  ): Promise<DraftBranchContext> {
+    const branch = await this.dataSource.getRepository(Branch).findOne({
+      where: {
+        id: branchId,
+        company_id: companyId,
+        status: 'active',
+      },
+    });
+
+    if (!branch || branch.deleted_at) {
+      throw new BadRequestException(
+        'The selected quotation branch is not active.',
+      );
+    }
+
+    const defaultSalePoints = await this.salePointRepository.find({
+      where: {
+        companyId,
+        branchId: branch.id,
+        isDefault: true,
+        isActive: true,
+      },
+    });
+    if (defaultSalePoints.length !== 1) {
+      throw new BadRequestException(
+        'The selected quotation branch does not have a valid default sales point. Please configure it before saving a quotation draft.',
+      );
+    }
+
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+    });
+
+    return {
+      branchId: branch.id,
+      salePointCode: defaultSalePoints[0].salePointCode.trim().toUpperCase(),
+      officer: this.resolveOfficerDetails(user),
     };
   }
 
