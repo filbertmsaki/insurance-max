@@ -90,9 +90,11 @@ describe('UnderwriteDashboardService', () => {
       'policy',
       scope,
     );
-    expect(
-      dataAccessScopeService.applyQuotationReadScope,
-    ).toHaveBeenCalledWith(pendingQuotationQuery, 'quotation', scope);
+    expect(dataAccessScopeService.applyQuotationReadScope).toHaveBeenCalledWith(
+      pendingQuotationQuery,
+      'quotation',
+      scope,
+    );
   });
 
   it('hides transaction counts when the user only has the line gate', async () => {

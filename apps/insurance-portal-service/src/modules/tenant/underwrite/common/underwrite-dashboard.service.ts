@@ -248,18 +248,10 @@ export class UnderwriteDashboardService {
     ] = await Promise.all([
       visibility.renewals ? this.renewalCount(user, line) : 0,
       visibility.endorsements
-        ? this.transactionCount(
-            user,
-            line,
-            PolicyTransactionType.ENDORSEMENT,
-          )
+        ? this.transactionCount(user, line, PolicyTransactionType.ENDORSEMENT)
         : 0,
       visibility.cancellations
-        ? this.transactionCount(
-            user,
-            line,
-            PolicyTransactionType.CANCELLATION,
-          )
+        ? this.transactionCount(user, line, PolicyTransactionType.CANCELLATION)
         : 0,
       visibility.tiraPending ? this.pendingQuotationTiraCount(user, line) : 0,
       visibility.tiraPending ? this.pendingTransactionTiraCount(user, line) : 0,

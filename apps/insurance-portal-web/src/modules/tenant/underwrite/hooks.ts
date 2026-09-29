@@ -191,7 +191,7 @@ export function useUnderwriteCustomers(line: UnderwriteLineSlug) {
       limit: list.limit,
       search: list.search || undefined,
       sortBy: sortBy as CustomerListParams['sortBy'],
-      sortOrder: sortOrder as 'ASC' | 'DESC',
+      sortOrder: sortOrder,
     }),
     [list.page, list.limit, list.search, sortBy, sortOrder],
   );

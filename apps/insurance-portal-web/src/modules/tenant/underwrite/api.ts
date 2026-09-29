@@ -245,10 +245,7 @@ export const underwriteApi = {
       .post(`${base(line)}/endorsements/${endorsementId}/changes`, payload)
       .then((response) => response.data),
 
-  recalculateEndorsement: (
-    line: UnderwriteLineSlug,
-    endorsementId: string,
-  ) =>
+  recalculateEndorsement: (line: UnderwriteLineSlug, endorsementId: string) =>
     apiClient
       .post(`${base(line)}/endorsements/${endorsementId}/recalculate`)
       .then((response) => response.data),
@@ -316,10 +313,7 @@ export const underwriteApi = {
       .post(`${base(line)}/endorsements/${endorsementId}/submit-tiramis`)
       .then((response) => response.data),
 
-  retryEndorsementTiramis: (
-    line: UnderwriteLineSlug,
-    endorsementId: string,
-  ) =>
+  retryEndorsementTiramis: (line: UnderwriteLineSlug, endorsementId: string) =>
     apiClient
       .post(`${base(line)}/endorsements/${endorsementId}/retry-tiramis`)
       .then((response) => response.data),
@@ -354,10 +348,7 @@ export const underwriteApi = {
       )
       .then((response) => response.data),
 
-  completeCancellation: (
-    line: UnderwriteLineSlug,
-    cancellationId: string,
-  ) =>
+  completeCancellation: (line: UnderwriteLineSlug, cancellationId: string) =>
     apiClient
       .post(`${base(line)}/cancellations/${cancellationId}/complete`)
       .then((response) => response.data),
@@ -370,10 +361,7 @@ export const underwriteApi = {
       .post(`${base(line)}/cancellations/${cancellationId}/submit-approval`)
       .then((response) => response.data),
 
-  approveCancellation: (
-    line: UnderwriteLineSlug,
-    cancellationId: string,
-  ) =>
+  approveCancellation: (line: UnderwriteLineSlug, cancellationId: string) =>
     apiClient
       .post(`${base(line)}/cancellations/${cancellationId}/approve`)
       .then((response) => response.data),

@@ -6,7 +6,9 @@ import { UNDERWRITE_LINE_ACTION_KEY } from './common/underwrite-line.access';
 import { UnderwriteTransactionsController } from './underwrite-transactions.controller';
 
 type ControllerMethod = keyof {
-  [Key in keyof UnderwriteTransactionsController as UnderwriteTransactionsController[Key] extends Function
+  [Key in keyof UnderwriteTransactionsController as UnderwriteTransactionsController[Key] extends (
+    ...args: never[]
+  ) => unknown
     ? Key
     : never]: UnderwriteTransactionsController[Key];
 };

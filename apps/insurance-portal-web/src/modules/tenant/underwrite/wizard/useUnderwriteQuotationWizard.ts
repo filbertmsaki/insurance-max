@@ -660,7 +660,7 @@ export function useUnderwriteQuotationWizard({
     const blockingStep = steps.find((step) => step.validate?.());
     if (blockingStep) {
       setSelectedStepId(blockingStep.id);
-      toast.error(blockingStep.validate!()!);
+      toast.error(blockingStep.validate!());
       return;
     }
 
