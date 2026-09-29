@@ -205,14 +205,21 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
 }
 
 export function buildUnderwriteNavNodes(): NavNode[] {
-  const dashboard: NavLeaf = {
-    kind: 'link',
+  const dashboardGroup: NavGroup = {
+    kind: 'group',
     section: 'Underwrite',
-    label: 'Dashboard',
-    to: underwritePaths.dashboard,
+    label: 'Underwrite',
     icon: LayoutDashboard,
-    permission: UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
-    allowedScopes: ['company'],
+    children: [
+      {
+        kind: 'link',
+        label: 'Dashboard',
+        to: underwritePaths.dashboard,
+        icon: LayoutDashboard,
+        permission: UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
+        allowedScopes: ['company'],
+      },
+    ],
   };
 
   const lines: NavGroup[] = UNDERWRITE_LINE_META.map((line) => ({
@@ -222,5 +229,5 @@ export function buildUnderwriteNavNodes(): NavNode[] {
     children: lineChildren(line),
   }));
 
-  return [dashboard, ...lines];
+  return [dashboardGroup, ...lines];
 }

@@ -35,14 +35,26 @@ describe('underwrite navigation', () => {
     (node): node is NavGroup => node.kind === 'group',
   );
   const group = (label: string) => groups.find((item) => item.label === label)!;
+  const lineGroups = () =>
+    groups.filter((item) =>
+      ['Motor', 'Fleet', 'Non-Motor'].includes(item.label),
+    );
 
-  it('renders Dashboard then Motor, Fleet and Non-Motor under one section', () => {
+  it('renders an Underwrite group and the line groups under one section', () => {
     expect(nodes[0]).toMatchObject({
-      kind: 'link',
+      kind: 'group',
       section: 'Underwrite',
-      to: '/underwrite/dashboard',
+      label: 'Underwrite',
+      children: [
+        expect.objectContaining({
+          label: 'Dashboard',
+          to: '/underwrite/dashboard',
+          permission: 'underwrite.dashboard.view',
+        }),
+      ],
     });
     expect(groups.map((item) => item.label)).toEqual([
+      'Underwrite',
       'Motor',
       'Fleet',
       'Non-Motor',
@@ -50,7 +62,7 @@ describe('underwrite navigation', () => {
   });
 
   it('gates every entry by a line permission', () => {
-    for (const item of groups.flatMap((entry) => entry.children)) {
+    for (const item of lineGroups().flatMap((entry) => entry.children)) {
       expect(item.permission).toMatch(/^underwrite\.(motor|fleet|non_motor)\./);
     }
   });
