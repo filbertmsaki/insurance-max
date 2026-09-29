@@ -34,7 +34,7 @@ describe('tiramis-handler cancellation endorsements', () => {
         },
       }),
     ).toEqual({
-      code: 'TIRA001',
+      code: 'TIRA214',
       desc: 'Transaction successfully cancelled',
     });
   });
