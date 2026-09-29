@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { AuthorizationContext } from '@insurance-max/contracts';
 import type {
   AuthSessionCompany,
+  AuthSessionResponse,
   AuthUser,
   CompanyMembership,
   LoginResponse,
@@ -125,6 +126,77 @@ function toCompany(
   };
 }
 
+function companyUserFromSession(
+  session: Pick<
+    AuthSessionResponse,
+    | 'active_branch'
+    | 'active_department'
+    | 'company'
+    | 'companies'
+    | 'default_sale_point'
+    | 'scope'
+    | 'user'
+  >,
+): Partial<AuthUser> {
+  const membership = session.companies?.find(
+    (company) => company.companyId === session.company?.id,
+  );
+
+  return {
+    scope: session.scope,
+    userType: session.user?.user_type,
+    roles: session.user?.roles,
+    permissions: session.user?.permissions,
+    companyId: session.company?.id,
+    companyName: session.company?.name,
+    companySlug: session.company?.slug,
+    companyMembershipId: membership?.membershipId,
+    activeBranchId: session.active_branch?.id ?? null,
+    activeBranchCode: session.active_branch?.code ?? null,
+    activeBranchName: session.active_branch?.name ?? null,
+    defaultSalePointId: session.default_sale_point?.id ?? null,
+    defaultSalePointCode: session.default_sale_point?.code ?? null,
+    defaultSalePointName: session.default_sale_point?.name ?? null,
+    assignedBranchIds: membership?.assignedBranchIds ?? [],
+    activeDepartmentId: session.active_department?.id ?? null,
+    activeDepartmentCode: session.active_department?.code ?? null,
+    activeDepartmentName: session.active_department?.name ?? null,
+    assignedDepartmentIds: membership?.assignedDepartmentIds ?? [],
+    quotationPolicyDataScope: membership?.quotationPolicyDataScope,
+  };
+}
+
+function mergeSessionUser(
+  token: string,
+  session: Pick<
+    AuthSessionResponse,
+    | 'active_branch'
+    | 'active_department'
+    | 'company'
+    | 'companies'
+    | 'default_sale_point'
+    | 'scope'
+    | 'user'
+  >,
+): AuthUser | null {
+  const tokenUser = decodeJwt(token);
+
+  if (!tokenUser || !session.user) {
+    return tokenUser;
+  }
+
+  return {
+    ...tokenUser,
+    ...companyUserFromSession(session),
+    id: session.user.id,
+    email: session.user.email,
+    scope: session.scope ?? tokenUser.scope,
+    userType: session.user.user_type,
+    roles: session.user.roles,
+    permissions: session.user.permissions,
+  };
+}
+
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
@@ -146,7 +218,15 @@ interface AuthState {
   setSession: (
     session: Pick<
       LoginResponse,
-      'access_token' | 'refresh_token' | 'company' | 'companies'
+      | 'access_token'
+      | 'refresh_token'
+      | 'company'
+      | 'companies'
+      | 'user'
+      | 'scope'
+      | 'active_branch'
+      | 'default_sale_point'
+      | 'active_department'
     >,
   ) => void;
   setTokens: (access: string, refresh: string) => void;
@@ -198,7 +278,7 @@ export const useAuthStore = create<AuthState>()(
         }),
 
       setSession: (session) => {
-        const user = decodeJwt(session.access_token);
+        const user = mergeSessionUser(session.access_token, session);
         writeTwoFactorToken(null);
         set({
           accessToken: session.access_token,

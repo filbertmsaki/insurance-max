@@ -56,24 +56,7 @@ type AccessTokenPayload = {
   scope: AuthScope;
   userType: UserType;
   companyId?: string;
-  companySlug?: string;
-  companyName?: string;
-  companyType?: string;
   membershipId?: string;
-  activeBranchId?: string | null;
-  activeBranchCode?: string | null;
-  activeBranchName?: string | null;
-  defaultSalePointId?: string | null;
-  defaultSalePointCode?: string | null;
-  defaultSalePointName?: string | null;
-  assignedBranchIds?: string[];
-  activeDepartmentId?: string | null;
-  activeDepartmentCode?: string | null;
-  activeDepartmentName?: string | null;
-  assignedDepartmentIds?: string[];
-  quotationPolicyDataScope?: 'USER' | 'DEPARTMENT' | 'BRANCH' | 'COMPANY';
-  roles: string[];
-  permissions: string[];
   authorizationVersion: number;
   type: 'access';
   iss: string;
@@ -1372,8 +1355,6 @@ export class AuthService {
         email: user.email,
         scope: 'platform',
         userType: platformContext.userType,
-        roles: platformContext.roles,
-        permissions: platformContext.permissions,
         authorizationVersion: platformContext.authorizationVersion,
         type: 'access',
         iss: this.configService.get('jwt.issuer', 'insurance-idp.tz'),
@@ -1435,8 +1416,6 @@ export class AuthService {
         email: user.email,
         scope: 'customer',
         userType: customerContext.userType,
-        roles: customerContext.roles,
-        permissions: customerContext.permissions,
         authorizationVersion: customerContext.authorizationVersion,
         type: 'access',
         iss: this.configService.get('jwt.issuer', 'insurance-idp.tz'),
@@ -1501,24 +1480,7 @@ export class AuthService {
         scope: 'company',
         userType: user.user_type as UserType,
         companyId: companyContext.companyId,
-        companySlug: companyContext.companySlug,
-        companyName: companyContext.companyName,
-        companyType: companyContext.companyType,
         membershipId: companyContext.membershipId,
-        activeBranchId: companyContext.activeBranchId,
-        activeBranchCode: companyContext.activeBranchCode,
-        activeBranchName: companyContext.activeBranchName,
-        defaultSalePointId: companyContext.defaultSalePointId,
-        defaultSalePointCode: companyContext.defaultSalePointCode,
-        defaultSalePointName: companyContext.defaultSalePointName,
-        assignedBranchIds: companyContext.assignedBranchIds,
-        activeDepartmentId: companyContext.activeDepartmentId,
-        activeDepartmentCode: companyContext.activeDepartmentCode,
-        activeDepartmentName: companyContext.activeDepartmentName,
-        assignedDepartmentIds: companyContext.assignedDepartmentIds,
-        quotationPolicyDataScope: companyContext.quotationPolicyDataScope,
-        roles: companyContext.roles,
-        permissions: companyContext.permissions,
         authorizationVersion: companyContext.authorizationVersion,
         type: 'access',
         iss: this.configService.get('jwt.issuer', 'insurance-idp.tz'),

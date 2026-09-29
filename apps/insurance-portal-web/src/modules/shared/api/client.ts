@@ -55,6 +55,48 @@ function createRequestId(): string {
   return createBrowserSafeId();
 }
 
+const MAX_AUTHORIZATION_TOKEN_LENGTH = 4_000;
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) {
+      return null;
+    }
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      '=',
+    );
+
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function hasEmbeddedAuthorizationContext(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return false;
+  }
+
+  return (
+    Array.isArray(payload.roles) ||
+    Array.isArray(payload.permissions) ||
+    Array.isArray(payload.assignedBranchIds) ||
+    Array.isArray(payload.assignedDepartmentIds)
+  );
+}
+
+function canSendAuthorizationToken(token: string): boolean {
+  return (
+    token.length <= MAX_AUTHORIZATION_TOKEN_LENGTH &&
+    !hasEmbeddedAuthorizationContext(token)
+  );
+}
+
 function isConnectivityError(error: AxiosError): boolean {
   return !error.response && !axios.isCancel(error);
 }
@@ -103,7 +145,7 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
   const token = useAuthStore.getState().accessToken;
 
-  if (token) {
+  if (token && canSendAuthorizationToken(token)) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
@@ -179,6 +221,12 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
   const normalized = unwrapResponse(response);
 
   const session = normalized.data as LoginResponse;
+
+  if (!canSendAuthorizationToken(session.access_token)) {
+    throw new Error(
+      'The authentication service returned an oversized access token. Restart the backend with compact access-token generation enabled, then sign in again.',
+    );
+  }
 
   useAuthStore.getState().setSession(session);
 

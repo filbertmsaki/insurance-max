@@ -116,6 +116,8 @@ export interface CompanyMembership {
   isDefault: boolean;
   roles: string[];
   permissions: string[];
+  assignedBranchIds?: string[];
+  assignedDepartmentIds?: string[];
   quotationPolicyDataScope?: QuotationPolicyDataScope;
 }
 
