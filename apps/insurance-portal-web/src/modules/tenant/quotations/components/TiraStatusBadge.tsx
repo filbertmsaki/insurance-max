@@ -7,6 +7,8 @@ const statusClasses: Record<TiraStatus, string> = {
   SUBMITTED: 'bg-cyan-100 text-cyan-800 border-cyan-200',
   PROCESSING: 'bg-sky-100 text-sky-800 border-sky-200',
   SUCCESS: 'bg-green-100 text-green-800 border-green-200',
+  ENDORSED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  CANCELLED: 'bg-amber-100 text-amber-800 border-amber-200',
   REJECTED: 'bg-red-100 text-red-700 border-red-200',
   FAILED: 'bg-red-100 text-red-800 border-red-200',
 };

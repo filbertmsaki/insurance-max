@@ -146,6 +146,9 @@ export class PolicyTransactionContextService {
             params.transaction.proposed_policy_snapshot_hash,
         }
       : {};
+    const transactionPricingRisks = this.transactionPricingRisks(
+      params.transaction,
+    );
 
     return {
       policyholder_mode: 'existing',
@@ -200,7 +203,7 @@ export class PolicyTransactionContextService {
       risks:
         params.quotationFlow === QuotationFlow.MOTOR_FLEET
           ? []
-          : this.mapRisks(firstEntry),
+          : this.mapRisks(firstEntry, transactionPricingRisks, 0),
       addons:
         params.quotationFlow === QuotationFlow.MOTOR_FLEET
           ? []
@@ -215,7 +218,11 @@ export class PolicyTransactionContextService {
       },
       fleet:
         params.quotationFlow === QuotationFlow.MOTOR_FLEET
-          ? this.mapFleet(params.entries, params.previousCoverNoteReference)
+          ? this.mapFleet(
+              params.entries,
+              params.previousCoverNoteReference,
+              transactionPricingRisks,
+            )
           : { header: {}, items: [] },
       endorsement_type:
         params.type === 'RENEWAL' ? '' : String(params.endorsementType ?? ''),
@@ -255,19 +262,70 @@ export class PolicyTransactionContextService {
     };
   }
 
-  private mapRisks(entry: Record<string, unknown>) {
-    return this.asArray(entry['risks']).map((risk) => {
+  private mapRisks(
+    entry: Record<string, unknown>,
+    transactionPricingRisks: Record<string, unknown>[],
+    entryIndex: number,
+  ) {
+    return this.asArray(entry['risks']).map((risk, riskIndex) => {
       const item = this.asObject(risk) ?? {};
-      const pricing = this.findPricingRisk(entry, item);
+      const pricing =
+        this.findPricingRisk(entry, item) ??
+        this.findTransactionPricingRisk(
+          transactionPricingRisks,
+          entryIndex,
+          riskIndex,
+          item,
+        );
+      const pricingQuoteId =
+        pricing?.['pricingQuoteId'] ??
+        pricing?.['pricing_quote_id'] ??
+        pricing?.['sourcePricingQuoteId'] ??
+        pricing?.['source_pricing_quote_id'] ??
+        '';
+      const premiumBeforeDiscount =
+        pricing?.['premiumBeforeDiscount'] ??
+        pricing?.['premium_before_discount'] ??
+        '';
+      const premiumAfterDiscount =
+        pricing?.['premiumAfterDiscount'] ??
+        pricing?.['premium_after_discount'] ??
+        premiumBeforeDiscount;
+      const premiumExcludingTaxEquivalent =
+        pricing?.['premiumExcludingTaxEquivalent'] ??
+        pricing?.['premium_excluding_tax_equivalent'] ??
+        premiumAfterDiscount;
+      const premiumIncludingTax =
+        pricing?.['premiumIncludingTax'] ??
+        pricing?.['premium_including_tax'] ??
+        premiumExcludingTaxEquivalent;
 
       return {
         risk_id: item['insuranceRiskId'] ?? item['riskId'] ?? item['id'] ?? '',
         risk_code: item['riskCode'] ?? pricing?.['riskCode'] ?? '',
+        pricing_quote_id: pricingQuoteId,
         sum_insured: String(
           item['sumInsured'] ?? pricing?.['sumInsured'] ?? '',
         ),
+        sum_insured_equivalent: String(
+          pricing?.['sumInsuredEquivalent'] ??
+            pricing?.['sum_insured_equivalent'] ??
+            item['sumInsured'] ??
+            '',
+        ),
         rate: String(pricing?.['premiumRate'] ?? ''),
-        basic_premium: String(pricing?.['premiumBeforeDiscount'] ?? ''),
+        premium_rate: String(pricing?.['premiumRate'] ?? ''),
+        basic_premium: String(premiumBeforeDiscount),
+        premium_before_discount: String(premiumBeforeDiscount),
+        premium_after_discount: String(premiumAfterDiscount),
+        premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
+        premium_including_tax: String(premiumIncludingTax),
+        total_premium: String(premiumIncludingTax),
+        discounts_offered: this.mapDiscounts(pricing?.['discounts']),
+        taxes_charged: this.mapTaxes(pricing?.['taxes']),
+        rating_result_metadata: pricingQuoteId
+          ? { pricing_quote_id: pricingQuoteId }
+          : null,
       };
     });
   }
@@ -280,8 +338,19 @@ export class PolicyTransactionContextService {
         addon_id: item['addonId'] ?? item['id'] ?? '',
         addon_reference: item['reference'] ?? '',
         description: item['description'] ?? '',
+        addon_desc: item['description'] ?? '',
         amount: String(item['amount'] ?? ''),
+        addon_amount: String(item['amount'] ?? ''),
         premium_rate: String(item['premiumRate'] ?? ''),
+        addon_premium_rate: String(item['premiumRate'] ?? ''),
+        premium_excluding_tax: String(item['premiumExcludingTax'] ?? '0'),
+        premium_excluding_tax_equivalent: String(
+          item['premiumExcludingTaxEquivalent'] ??
+            item['premiumExcludingTax'] ??
+            '0',
+        ),
+        premium_including_tax: String(item['premiumIncludingTax'] ?? '0'),
+        taxes: this.mapTaxes(item['taxes']),
       };
     });
   }
@@ -364,6 +433,7 @@ export class PolicyTransactionContextService {
   private mapFleet(
     entries: Record<string, unknown>[],
     previousCoverNoteReference: string,
+    transactionPricingRisks: Record<string, unknown>[],
   ) {
     return {
       header: {
@@ -381,14 +451,101 @@ export class PolicyTransactionContextService {
             previousCoverNoteReference,
           cover_note_desc: String(entry['coverNoteDescription'] ?? ''),
           operative_clause: String(entry['operativeClause'] ?? ''),
-          risks: this.mapRisks(entry),
+          risks: this.mapRisks(entry, transactionPricingRisks, index),
+          risks_covered: this.mapRisks(entry, transactionPricingRisks, index),
           addons: this.mapAddons(entry),
+          cover_note_addons: this.mapAddons(entry),
           motor_dtl: motor,
           motor,
           subject_matters: this.mapSubjectMatters(entry),
+          subject_matters_covered: this.mapSubjectMatters(entry),
         };
       }),
     };
+  }
+
+  private transactionPricingRisks(
+    transaction?: PolicyTransaction | null,
+  ): Record<string, unknown>[] {
+    const snapshot = this.asObject(transaction?.pricing_snapshot) ?? {};
+    const remaining = this.asObject(snapshot['remaining']) ?? {};
+
+    return [
+      ...this.asArray(snapshot['risks']),
+      ...this.asArray(snapshot['proposedRiskPricing']),
+      ...this.asArray(remaining['risks']),
+    ]
+      .map((value) => this.asObject(value))
+      .filter((value): value is Record<string, unknown> => !!value);
+  }
+
+  private findTransactionPricingRisk(
+    risks: Record<string, unknown>[],
+    entryIndex: number,
+    riskIndex: number,
+    risk: Record<string, unknown>,
+  ) {
+    const riskId = risk['quotationRiskId'] ?? risk['insuranceRiskId'];
+    const riskCode = risk['riskCode'];
+
+    return (
+      risks.find(
+        (candidate) =>
+          Number(candidate['entryIndex']) === entryIndex &&
+          Number(candidate['riskIndex']) === riskIndex,
+      ) ??
+      risks.find(
+        (candidate) =>
+          candidate['quotationRiskId'] === riskId ||
+          candidate['insuranceRiskId'] === riskId ||
+          candidate['riskCode'] === riskCode,
+      ) ??
+      null
+    );
+  }
+
+  private mapDiscounts(value: unknown) {
+    return this.asArray(value)
+      .map((item) => this.asObject(item))
+      .filter((item): item is Record<string, unknown> => !!item)
+      .map((item) => ({
+        discount_type: item['discountType'] ?? item['discount_type'] ?? '',
+        discount_rate: String(
+          item['discountRate'] ?? item['discount_rate'] ?? '',
+        ),
+        discount_amount: String(
+          item['discountAmount'] ?? item['discount_amount'] ?? '0',
+        ),
+        request_reason_code:
+          item['requestReasonCode'] ?? item['request_reason_code'] ?? '',
+        request_comment:
+          item['requestComment'] ?? item['request_comment'] ?? '',
+        approval_required:
+          item['approvalRequired'] ?? item['approval_required'] ?? false,
+        approval_status:
+          item['approvalStatus'] ?? item['approval_status'] ?? 'NOT_REQUIRED',
+      }));
+  }
+
+  private mapTaxes(value: unknown) {
+    return this.asArray(value)
+      .map((item) => this.asObject(item))
+      .filter((item): item is Record<string, unknown> => !!item)
+      .map((item) => ({
+        tax_code: item['taxCode'] ?? item['tax_code'] ?? '',
+        is_tax_exempted:
+          item['isTaxExempted'] === true ||
+          item['is_tax_exempted'] === true ||
+          item['is_tax_exempted'] === 'Y',
+        tax_exemption_type:
+          item['taxExemptionType'] ?? item['tax_exemption_type'] ?? '',
+        tax_exemption_reference:
+          item['taxExemptionReference'] ??
+          item['tax_exemption_reference'] ??
+          '',
+        tax_rate: String(item['taxRate'] ?? item['tax_rate'] ?? '0'),
+        tax_amount: String(item['taxAmount'] ?? item['tax_amount'] ?? '0'),
+      }));
   }
 
   private findPricingRisk(

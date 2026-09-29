@@ -75,6 +75,13 @@ export class PolicyTransactionApplyService {
         transaction.stage === PolicyTransactionStage.APPLIED &&
         transaction.target_policy_version_id
       ) {
+        await this.markRelatedTransactionQuotationCompleted(
+          manager,
+          companyId,
+          transaction,
+          context,
+        );
+
         return transaction;
       }
 
@@ -319,6 +326,13 @@ export class PolicyTransactionApplyService {
         policy,
         endorsement.id,
         InvoiceSourceType.ENDORSEMENT,
+      );
+
+      await this.markRelatedTransactionQuotationCompleted(
+        manager,
+        companyId,
+        transaction,
+        context,
       );
 
       return transaction;
@@ -764,7 +778,7 @@ export class PolicyTransactionApplyService {
       {
         status: QuotationStatus.COMPLETED,
         quotation_stage: QuotationStage.COMPLETED,
-        tira_status: TiraStatus.SUCCESS,
+        tira_status: this.resolveTransactionQuotationTiraStatus(transaction),
         tira_request_id: transaction.tiramis_request_id,
         tira_response_id:
           String(transaction.regulatory_response?.['responseId'] ?? '') || null,
@@ -779,6 +793,19 @@ export class PolicyTransactionApplyService {
         updated_by: context.changedBy ?? null,
       },
     );
+  }
+
+  private resolveTransactionQuotationTiraStatus(
+    transaction: PolicyTransaction,
+  ): TiraStatus {
+    switch (transaction.transaction_type) {
+      case PolicyTransactionType.CANCELLATION:
+        return TiraStatus.CANCELLED;
+      case PolicyTransactionType.ENDORSEMENT:
+        return TiraStatus.ENDORSED;
+      default:
+        return TiraStatus.SUCCESS;
+    }
   }
 
   private async requireApplicableTransaction(

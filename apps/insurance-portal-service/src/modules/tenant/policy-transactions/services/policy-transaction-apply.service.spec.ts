@@ -286,6 +286,17 @@ describe('PolicyTransactionApplyService', () => {
           to_stage: PolicyTransactionStage.APPLIED,
         }),
       );
+      expect(quotationRepo.update).toHaveBeenCalledWith(
+        {
+          company_id: 'company-1',
+          source_policy_transaction_id: 'txn-1',
+        },
+        expect.objectContaining({
+          status: 'COMPLETED',
+          quotation_stage: 'COMPLETED',
+          tira_status: 'ENDORSED',
+        }),
+      );
       expect(returnPremiumService.createRequests).toHaveBeenCalled();
       expect(lifecycleService.markApplied).not.toHaveBeenCalled();
     });
@@ -367,7 +378,7 @@ describe('PolicyTransactionApplyService', () => {
         expect.objectContaining({
           status: 'COMPLETED',
           quotation_stage: 'COMPLETED',
-          tira_status: 'SUCCESS',
+          tira_status: 'CANCELLED',
         }),
       );
       expect(lifecycleService.markApplied).not.toHaveBeenCalled();
@@ -414,7 +425,7 @@ describe('PolicyTransactionApplyService', () => {
         expect.objectContaining({
           status: 'COMPLETED',
           quotation_stage: 'COMPLETED',
-          tira_status: 'SUCCESS',
+          tira_status: 'CANCELLED',
         }),
       );
       expect(eventRepo.save).not.toHaveBeenCalled();
