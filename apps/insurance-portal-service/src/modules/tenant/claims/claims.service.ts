@@ -294,6 +294,7 @@ export class ClaimsService {
         policy,
         dto.policy_risk_id,
       );
+      this.assertRiskCoveredOn(policyRisk, dto.loss_date);
       const coverNoteReference = await this.resolveCoverNoteReference(
         manager,
         policy,
@@ -492,6 +493,18 @@ export class ClaimsService {
           policy,
           dto.loss_date ?? claim.loss_date.toISOString(),
           dto.claim_report_date ?? claim.claim_report_date.toISOString(),
+        );
+      }
+
+      if (
+        (dto.policy_risk_id !== undefined || dto.loss_date) &&
+        claim.policy_risk_id
+      ) {
+        this.assertRiskCoveredOn(
+          await manager
+            .getRepository(PolicyRisk)
+            .findOne({ where: { id: claim.policy_risk_id } }),
+          dto.loss_date ?? claim.loss_date.toISOString(),
         );
       }
 
@@ -1547,6 +1560,20 @@ export class ClaimsService {
     }
 
     return policy;
+  }
+
+  /**
+   * A fleet vehicle removed by endorsement is off cover from its
+   * `cancelled_at` date; losses from that date are not claimable on it.
+   */
+  private assertRiskCoveredOn(risk: PolicyRisk | null, lossDateValue: string) {
+    if (!risk || risk.status !== 'CANCELLED' || !risk.cancelled_at) return;
+    const lossDate = new Date(lossDateValue).toISOString().slice(0, 10);
+    if (lossDate >= String(risk.cancelled_at).slice(0, 10)) {
+      throw new BadRequestException(
+        `This vehicle was removed from the policy on ${String(risk.cancelled_at).slice(0, 10)}; losses from that date are not covered`,
+      );
+    }
   }
 
   private async resolvePolicyRisk(

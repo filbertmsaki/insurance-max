@@ -24,6 +24,7 @@ import {
 } from '../constants/tiramis-callback.constants';
 import { getTiramisCallbackRootDefinition } from '../constants/tiramis-callback-root-map.constant';
 import {
+  ParsedFleetCoverNoteDto,
   ParsedTiramisCallbackDto,
   TiramisCallbackAckResultDto,
 } from '../dto/tiramis-callback.dto';
@@ -471,6 +472,7 @@ export class TiramisCallbackService {
         'PolicyReferenceNumber',
       ),
       stickerNumber: this.getBusinessValue(content, 'StickerNumber'),
+      fleetCoverNotes: this.getFleetCoverNotes(content),
       rawXml,
       signature: parsedMessage.signature,
       content,
@@ -1032,9 +1034,23 @@ export class TiramisCallbackService {
     requestType: string | null,
     businessReference: string | null,
   ): RegulatoryFinalResponse {
-    const coverNoteReferences =
-      parsedCallback.coverNoteReferenceNumber ||
-      finalResponse.coverNoteReferenceNumber
+    const fleetReferences = (parsedCallback.fleetCoverNotes ?? [])
+      .filter((item) => item.coverNoteReferenceNumber)
+      .map((item) => ({
+        sourceCoverNoteNumber: item.coverNoteNumber,
+        quotationEntryId: null,
+        fleetEntry: item.fleetEntry,
+        coverNoteReferenceNumber: item.coverNoteReferenceNumber!,
+        stickerNumber: item.stickerNumber,
+        registrationNumber: null,
+        chassisNumber: null,
+      }));
+    // A fleet response carries one cover note per vehicle; the portal matches
+    // them to quotation entries by cover-note number / fleet entry.
+    const coverNoteReferences = fleetReferences.length
+      ? fleetReferences
+      : parsedCallback.coverNoteReferenceNumber ||
+          finalResponse.coverNoteReferenceNumber
         ? [
             {
               sourceCoverNoteNumber: businessReference,
@@ -1089,6 +1105,31 @@ export class TiramisCallbackService {
       ),
       receivedAt: new Date().toISOString(),
     };
+  }
+
+  private getFleetCoverNotes(
+    content: Record<string, unknown>,
+  ): ParsedFleetCoverNoteDto[] {
+    const raw = content.FleetResDtl;
+    const details = (Array.isArray(raw) ? raw : raw ? [raw] : []).filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === 'object' && item !== null,
+    );
+
+    return details.map((detail) => {
+      const fleetEntry = Number(this.getStringValue(detail, 'FleetEntry'));
+      return {
+        fleetEntry:
+          Number.isInteger(fleetEntry) && fleetEntry > 0 ? fleetEntry : null,
+        coverNoteNumber: this.getStringValue(detail, 'CoverNoteNumber'),
+        coverNoteReferenceNumber: this.getStringValue(
+          detail,
+          'CoverNoteReferenceNumber',
+        ),
+        stickerNumber: this.getStringValue(detail, 'StickerNumber'),
+        responseStatusCode: this.getStringValue(detail, 'ResponseStatusCode'),
+      };
+    });
   }
 
   private getStringValue(

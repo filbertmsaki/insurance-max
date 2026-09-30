@@ -56,4 +56,20 @@ export const ENDORSEMENT_TYPES: EndorsementTypeSeed[] = [
     tira_endorsement_type: 3, // Cover Details Change
     requires_new_cover_note: false,
   },
+  // Fleet membership changes (Underwrite > Fleet). An added vehicle is sent
+  // as a NEW fleet cover note with FleetHdr.FleetType = 2 ("For addition"),
+  // so its endorsement type is informational; a removed vehicle is an
+  // endorsement on that vehicle's cover note.
+  {
+    code: 'FLEET_ADD_VEHICLE',
+    name: 'Fleet - Add Vehicle',
+    tira_endorsement_type: 1, // Increasing Premium Charged
+    requires_new_cover_note: true,
+  },
+  {
+    code: 'FLEET_REMOVE_VEHICLE',
+    name: 'Fleet - Remove Vehicle',
+    tira_endorsement_type: 2, // Decreasing Premium Charged
+    requires_new_cover_note: true,
+  },
 ];

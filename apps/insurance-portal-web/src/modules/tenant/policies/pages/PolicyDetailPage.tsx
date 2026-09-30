@@ -75,6 +75,7 @@ import type {
   PolicyEndorsementRecord,
   PolicyRenewalRecord,
 } from '../types';
+import { usePolicyTransactionScope } from '../transaction-scope';
 
 function Row({
   label,
@@ -341,6 +342,7 @@ function PolicyVehiclesTable({
 export function PolicyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { paths } = usePolicyTransactionScope();
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('non-motor:create');
   const canCreateEndorsement = hasPermission('endorsements:create');
@@ -436,20 +438,11 @@ export function PolicyDetailPage() {
           : null;
   const pendingTransactionHref =
     policy && pendingTransaction?.transaction_type === 'ENDORSEMENT'
-      ? underwritingPaths.policyEndorsementEdit(
-          policy.id,
-          pendingTransaction.id,
-        )
+      ? paths.policyEndorsementEdit(policy.id, pendingTransaction.id)
       : policy && pendingTransaction?.transaction_type === 'CANCELLATION'
-        ? underwritingPaths.policyCancellationDetail(
-            policy.id,
-            pendingTransaction.id,
-          )
+        ? paths.policyCancellationDetail(policy.id, pendingTransaction.id)
         : policy && pendingRenewalMatch
-          ? underwritingPaths.policyRenewalDetail(
-              policy.id,
-              pendingRenewalMatch.id,
-            )
+          ? paths.policyRenewalDetail(policy.id, pendingRenewalMatch.id)
           : null;
 
   const nonMotorColumns: Column<NonMotorPolicyDetailRecord>[] = useMemo(
@@ -608,9 +601,7 @@ export function PolicyDetailPage() {
             variant="outline"
             size="sm"
             onClick={() =>
-              navigate(
-                underwritingPaths.policyRenewalDetail(policy!.id, row.id),
-              )
+              navigate(paths.policyRenewalDetail(policy!.id, row.id))
             }
           >
             View
@@ -618,7 +609,7 @@ export function PolicyDetailPage() {
         ),
       },
     ],
-    [navigate, policy],
+    [navigate, paths, policy],
   );
 
   const cancellationColumns: Column<PolicyCancellationRecord>[] = useMemo(
@@ -652,9 +643,7 @@ export function PolicyDetailPage() {
             variant="outline"
             size="sm"
             onClick={() =>
-              navigate(
-                underwritingPaths.policyCancellationDetail(policy!.id, row.id),
-              )
+              navigate(paths.policyCancellationDetail(policy!.id, row.id))
             }
           >
             View
@@ -662,7 +651,7 @@ export function PolicyDetailPage() {
         ),
       },
     ],
-    [navigate, policy],
+    [navigate, paths, policy],
   );
 
   if (isLoading) {
@@ -678,10 +667,7 @@ export function PolicyDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Policy not found</p>
-        <Button
-          variant="link"
-          onClick={() => navigate(underwritingPaths.policies)}
-        >
+        <Button variant="link" onClick={() => navigate(paths.policies)}>
           Back to Policies
         </Button>
       </div>
@@ -702,8 +688,7 @@ export function PolicyDetailPage() {
         label: 'Create Endorsement',
         disabled: !!endorsementBlockedReason,
         title: endorsementBlockedReason ?? undefined,
-        onClick: () =>
-          navigate(underwritingPaths.policyEndorsementCreate(policy.id)),
+        onClick: () => navigate(paths.policyEndorsementCreate(policy.id)),
       }
     : canStartRenewal
       ? {
@@ -712,9 +697,7 @@ export function PolicyDetailPage() {
           onClick: () =>
             createRenewalMutation.mutate(undefined, {
               onSuccess: (renewal: { id: string }) =>
-                navigate(
-                  underwritingPaths.policyRenewalDetail(policy.id, renewal.id),
-                ),
+                navigate(paths.policyRenewalDetail(policy.id, renewal.id)),
             }),
         }
       : null;
@@ -728,12 +711,7 @@ export function PolicyDetailPage() {
             onClick: () =>
               createRenewalMutation.mutate(undefined, {
                 onSuccess: (renewal: { id: string }) =>
-                  navigate(
-                    underwritingPaths.policyRenewalDetail(
-                      policy.id,
-                      renewal.id,
-                    ),
-                  ),
+                  navigate(paths.policyRenewalDetail(policy.id, renewal.id)),
               }),
           },
         ]
@@ -745,8 +723,7 @@ export function PolicyDetailPage() {
             destructive: true,
             disabled: !!cancellationBlockedReason,
             title: cancellationBlockedReason ?? undefined,
-            onClick: () =>
-              navigate(underwritingPaths.policyCancellationCreate(policy.id)),
+            onClick: () => navigate(paths.policyCancellationCreate(policy.id)),
           },
         ]
       : []),
@@ -774,7 +751,7 @@ export function PolicyDetailPage() {
   return (
     <div className="space-y-6">
       <DetailPageHeader
-        onBack={() => navigate(underwritingPaths.policies)}
+        onBack={() => navigate(paths.policies)}
         title={policy.policy_no}
         badges={<PolicyStatusBadge status={policy.policy_status} />}
         subtitle={policy.customer?.company_name ?? policy.customer_id}
@@ -865,11 +842,7 @@ export function PolicyDetailPage() {
                       type="button"
                       className="cursor-pointer text-sky-700 hover:underline"
                       onClick={() =>
-                        navigate(
-                          underwritingPaths.quotationDetail(
-                            policy.quotation_id!,
-                          ),
-                        )
+                        navigate(paths.quotationDetail(policy.quotation_id!))
                       }
                     >
                       View Quotation
@@ -1516,7 +1489,7 @@ export function PolicyDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() =>
           deleteMutation.mutate(policy.id, {
-            onSuccess: () => navigate(underwritingPaths.policies),
+            onSuccess: () => navigate(paths.policies),
           })
         }
       />

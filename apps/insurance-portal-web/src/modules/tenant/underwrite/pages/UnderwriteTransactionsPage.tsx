@@ -121,12 +121,13 @@ function RenewalRows({ line }: { line: UnderwriteLineMeta }) {
           <Button
             variant="ghost"
             size="icon"
-            aria-label={`View policy ${row.policy_transaction.policy_no}`}
+            aria-label={`Open renewal ${row.renewal_no}`}
             onClick={() =>
               navigate(
-                underwritePaths.policyDetail(
+                underwritePaths.policyRenewalDetail(
                   line.slug,
                   row.policy_transaction.source_policy_id,
+                  row.id,
                 ),
               )
             }
@@ -218,10 +219,20 @@ function TransactionRows({
         <Button
           variant="ghost"
           size="icon"
-          aria-label={`View policy ${row.policy_no}`}
+          aria-label={`Open ${row.transaction_no}`}
           onClick={() =>
             navigate(
-              underwritePaths.policyDetail(line.slug, row.source_policy_id),
+              kind === 'endorsements'
+                ? underwritePaths.policyEndorsementEdit(
+                    line.slug,
+                    row.source_policy_id,
+                    row.id,
+                  )
+                : underwritePaths.policyCancellationDetail(
+                    line.slug,
+                    row.source_policy_id,
+                    row.id,
+                  ),
             )
           }
         >

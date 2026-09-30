@@ -62,8 +62,9 @@ export class CoverNote {
   @Column({ type: 'uuid' })
   quotation_id!: string;
 
-  @Column({ type: 'uuid' })
-  quotation_entry_id!: string;
+  /** Null for a vehicle added to a fleet by endorsement (no quotation entry). */
+  @Column({ type: 'uuid', nullable: true })
+  quotation_entry_id!: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   policy_id!: string | null;

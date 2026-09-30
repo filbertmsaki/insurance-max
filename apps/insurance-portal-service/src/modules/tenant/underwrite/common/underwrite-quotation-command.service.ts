@@ -101,9 +101,15 @@ export class UnderwriteQuotationCommandService {
       dto.internal_quotation.product_id,
     );
     if (line === UnderwriteLine.NON_MOTOR) {
-      // Risk details must satisfy the product's risk schema before the
-      // quotation is completed.
+      // Risk details must satisfy the product's risk schema, and mandatory
+      // documents must be attached, before the quotation is completed.
       await this.nonMotorRiskService.assertCompleteForFinalize(
+        user.companyId!,
+        id,
+        dto.internal_quotation.product_id,
+        dto.internal_quotation.sub_class_id,
+      );
+      await this.nonMotorRiskService.assertDocumentsCompleteForFinalize(
         user.companyId!,
         id,
         dto.internal_quotation.product_id,

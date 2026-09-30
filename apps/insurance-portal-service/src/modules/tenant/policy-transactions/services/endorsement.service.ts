@@ -36,6 +36,8 @@ import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycl
 import { EndorsementTypesService } from './endorsement-types.service';
 import { PolicyTransactionInvoiceService } from './policy-transaction-invoice.service';
 import { PolicyTransactionQuotationFactoryService } from './policy-transaction-quotation-factory.service';
+import { FLEET_VEHICLE_ENDORSEMENT_CODES } from '../constants/fleet-vehicle-endorsement.constants';
+import { FleetRemovalRefundService } from './fleet-removal-refund.service';
 
 export interface CreateEndorsementInput {
   effective_date: string;
@@ -147,6 +149,7 @@ export class EndorsementService {
     private readonly invoiceService: PolicyTransactionInvoiceService,
     private readonly quotationFactory: PolicyTransactionQuotationFactoryService,
     private readonly dataAccessScopeService: DataAccessScopeService,
+    private readonly fleetRemovalRefund: FleetRemovalRefundService,
   ) {}
 
   async getEligibility(
@@ -465,6 +468,8 @@ export class EndorsementService {
         user,
         transactionId,
       );
+
+      await this.assertNotFleetVehicleEndorsement(manager, transaction.id);
 
       const rule = this.resolveChangeRule(dto.field_path);
 
@@ -930,6 +935,64 @@ export class EndorsementService {
     );
   }
 
+  /**
+   * Runs `work` on a locked DRAFT endorsement and rebuilds (and reprices)
+   * its proposed snapshot in the same database transaction, so a recorded
+   * change never survives a failed rebuild. Used by the fleet vehicle
+   * add/remove endorsements, which write their own change rows.
+   */
+  async applyWithinDraft<T>(
+    user: AuthenticatedUser,
+    transactionId: string,
+    work: (
+      manager: EntityManager,
+      transaction: PolicyTransaction,
+      endorsement: PolicyEndorsement,
+    ) => Promise<T>,
+  ): Promise<PolicyTransaction> {
+    return this.dataSource.transaction(async (manager) => {
+      const transaction = await this.requireDraftTransaction(
+        manager,
+        user,
+        transactionId,
+      );
+      const endorsement = await manager
+        .getRepository(PolicyEndorsement)
+        .findOne({ where: { policy_transaction_id: transaction.id } });
+
+      if (!endorsement) {
+        throw new BadRequestException('Endorsement not found');
+      }
+
+      await work(manager, transaction, endorsement);
+      return this.rebuildProposedSnapshot(manager, transaction);
+    });
+  }
+
+  /**
+   * Fleet add/remove-vehicle endorsements carry only their own vehicle
+   * changes (one kind per endorsement), so field edits are refused on them.
+   */
+  private async assertNotFleetVehicleEndorsement(
+    manager: EntityManager,
+    transactionId: string,
+  ) {
+    const endorsement = await manager
+      .getRepository(PolicyEndorsement)
+      .findOne({ where: { policy_transaction_id: transactionId } });
+
+    if (
+      endorsement &&
+      FLEET_VEHICLE_ENDORSEMENT_CODES.includes(
+        endorsement.endorsement_type_code,
+      )
+    ) {
+      throw new UnprocessableEntityException(
+        'This endorsement only adds or removes fleet vehicles; record other changes in a separate endorsement.',
+      );
+    }
+  }
+
   private async requireDraftTransaction(
     manager: EntityManager,
     user: AuthenticatedUser,
@@ -1072,6 +1135,13 @@ export class EndorsementService {
     transaction.tax_difference = pricingSnapshot.taxDifference;
     transaction.commission_difference = pricingSnapshot.commissionDifference;
     transaction.net_premium_difference = pricingSnapshot.premiumDifference;
+
+    // A fleet vehicle removal refunds under the cancellation rules (D5).
+    if (await this.fleetRemovalRefund.adjust(manager, transaction)) {
+      transaction.pricing_snapshot_hash = this.hashService.hashDefinition(
+        transaction.pricing_snapshot,
+      );
+    }
 
     return manager.getRepository(PolicyTransaction).save(transaction);
   }

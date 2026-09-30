@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { DataSource, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import type { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
+import type { ProductDefinitionService } from '../../insurance-products/product-definition.service';
 import type { InsuranceSubClass } from '../../insurance-sub-classes/entities/insurance-sub-class.entity';
 import type { Quotation } from '../../quotations/entities/quotation.entity';
 import type { ProductRiskField } from './entities/product-risk-field.entity';
@@ -36,6 +37,14 @@ function setup(options: {
   flow?: string;
   stored?: Partial<QuotationNonMotorDetail> | null;
   productLine?: string;
+  requirements?: Array<{
+    code: string;
+    name: string;
+    appliesTo: string;
+    isMandatory: boolean;
+  }>;
+  attachedTypes?: string[];
+  noPublishedDefinition?: boolean;
 }) {
   const fieldQuery = {
     where: () => fieldQuery,
@@ -78,7 +87,23 @@ function setup(options: {
     productRepository as unknown as Repository<InsuranceProduct>,
     { findOne: jest.fn() } as unknown as Repository<InsuranceSubClass>,
     quotationRepository as unknown as Repository<Quotation>,
-    {} as DataSource,
+    {
+      query: jest.fn().mockResolvedValue(
+        (options.attachedTypes ?? []).map((document_type, index) => ({
+          id: `doc-${index}`,
+          document_type,
+          file_name: `${document_type}.pdf`,
+          uploaded_at: new Date('2026-09-30T00:00:00Z'),
+        })),
+      ),
+    } as unknown as DataSource,
+    {
+      resolvePublishedDefinition: options.noPublishedDefinition
+        ? jest.fn().mockRejectedValue(new NotFoundException('none'))
+        : jest.fn().mockResolvedValue({
+            documentRequirements: options.requirements ?? [],
+          }),
+    } as unknown as ProductDefinitionService,
   );
 
   return { service, detailRepository };
@@ -149,6 +174,65 @@ describe('NonMotorRiskService', () => {
       complete.service.assertCompleteForFinalize('company-1', 'q-1', 'prod-1'),
     ).resolves.toBeUndefined();
     expect(complete.detailRepository.update).toHaveBeenCalled();
+  });
+
+  it('blocks finalize while a mandatory quotation document is missing', async () => {
+    const requirements = [
+      {
+        code: 'VALUATION',
+        name: 'Valuation report',
+        appliesTo: 'QUOTATION',
+        isMandatory: true,
+      },
+      {
+        code: 'PHOTOS',
+        name: 'Photos',
+        appliesTo: 'QUOTATION',
+        isMandatory: false,
+      },
+      {
+        code: 'CLAIM_FORM',
+        name: 'Claim form',
+        appliesTo: 'CLAIM',
+        isMandatory: true,
+      },
+    ];
+
+    await expect(
+      setup({ requirements }).service.assertDocumentsCompleteForFinalize(
+        'company-1',
+        'q-1',
+        'prod-1',
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'NON_MOTOR_DOCUMENTS_INCOMPLETE',
+        details: { missing: [{ code: 'VALUATION', name: 'Valuation report' }] },
+      }),
+    });
+
+    await expect(
+      setup({
+        requirements,
+        attachedTypes: ['VALUATION'],
+      }).service.assertDocumentsCompleteForFinalize(
+        'company-1',
+        'q-1',
+        'prod-1',
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it('skips the document gate when the product has no published definition', async () => {
+    await expect(
+      setup({
+        noPublishedDefinition: true,
+      }).service.assertDocumentsCompleteForFinalize(
+        'company-1',
+        'q-1',
+        'prod-1',
+      ),
+    ).resolves.toBeUndefined();
   });
 
   it('only configures schemas for non-motor products', async () => {

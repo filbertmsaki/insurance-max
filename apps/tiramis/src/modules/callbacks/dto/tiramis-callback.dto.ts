@@ -1,3 +1,12 @@
+/** One `<FleetResDtl>` of a fleet cover-note response. */
+export interface ParsedFleetCoverNoteDto {
+  fleetEntry: number | null;
+  coverNoteNumber: string | null;
+  coverNoteReferenceNumber: string | null;
+  stickerNumber: string | null;
+  responseStatusCode: string | null;
+}
+
 export interface ParsedTiramisCallbackDto {
   rootName: string;
   requestId: string;
@@ -8,6 +17,8 @@ export interface ParsedTiramisCallbackDto {
   coverNoteReferenceNumber?: string | null;
   policyReferenceNumber?: string | null;
   stickerNumber?: string | null;
+  /** Per-vehicle results of a fleet response, in document order. */
+  fleetCoverNotes?: ParsedFleetCoverNoteDto[];
   rawXml: string;
   signature?: string | null;
   content: Record<string, unknown>;

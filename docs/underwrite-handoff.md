@@ -114,10 +114,66 @@ policy-transaction engines. It is a presentation and permission layer, not a rew
   per-company switch, staged redirects, retirement order, rollback, monitoring,
   and sign-off. No legacy routes or APIs were removed.
 
+### Completion step 1 - Line-scoped transaction screens (2026-09-30)
+- The legacy `PolicyDetailPage`, `PolicyEndorsementPage`,
+  `PolicyCancellationPage` and `PolicyRenewalPage` read their API and links
+  from `policies/transaction-scope.ts` (`PolicyTransactionScopeContext`). The
+  default is the legacy `policiesApi` + `underwritingPaths`, so the legacy
+  routes are unchanged.
+- `underwrite/transaction-scope.ts` builds a line scope (line endpoints; calls
+  with no line endpoint fall through to legacy). `UnderwriteTransactionScope`
+  provides it on the Underwrite policy detail routes and the new routes
+  `/underwrite/:line/policies/:policyId/{endorsements,cancellations}/new|:id`
+  and `.../renewals/:id` (line gate + legacy permission; `UnderwriteRecordGate
+  idParam="policyId"`).
+- Queue rows open the endorsement / cancellation / renewal itself.
+- Fixed: `useUnderwriteLineParam` falls back to the URL path, so the static
+  Fleet / Non-Motor detail routes (no `:line` param) no longer render blank.
+
+### Completion step 2 - Issuance links (2026-09-30)
+- `underwrite/common/issued-policy-links.ts`, called from
+  `IssuanceService` after the policy is saved, in a savepoint (a failure is
+  logged, never fails issuance):
+  - Fleet: `motor_fleets.policy_id` and `motor_fleet_items.policy_risk_id`
+    (matched on `quotation_entry_risk_id`).
+  - Non-Motor: frozen copy into the new `policy_non_motor_risk_details`
+    (not `non_motor_policy_details`, which requires a subject matter the
+    Underwrite quotations do not capture). `GET :line/policies/:id/risk-details`
+    reads it, falling back to the quotation for older policies.
+- Migration `1791100000000-UnderwriteIssuedPolicyLinks.ts`: the new table
+  plus a backfill of both links for already-issued policies.
+
+### Completion step 3 - Fleet per-vehicle endorsements (partial, 2026-09-30)
+- Per-vehicle changes already work: the endorsement screen edits every entry
+  (`entries.N.motor.*`, `entries.N.risks.M.sumInsured`). Cards now read
+  "Vehicle N · <registration>".
+- Adding or removing a vehicle is **not supported**: `ENDORSEMENT_FIELD_RULES`
+  and the proposed-snapshot builder only handle MODIFY. Needs an owner
+  decision on the TIRA flow (new cover note for an added vehicle,
+  cancellation for a removed one) before building.
+
+### Completion step 4 - Fixes and decisions (2026-09-30)
+- Fleet TIRA callback: `parseCallback` reads every `<FleetResDtl>` and
+  `buildRegulatoryResponse` returns one cover-note reference per vehicle
+  (matched by the portal on cover-note number / fleet entry).
+- Renewal after endorsement/cancellation: apply writes
+  `regulatory_sync_status = 'IN_SYNC'`; migration `1791100000001` repairs old
+  `'SUCCESS'` rows.
+- Policy numbers: `policies/utils/policy-number.ts` uses the atomic
+  `business_document_sequences` counter (`POLICY_<channel>`, per year) in
+  both issuance and manual creation; migration `1791100000001` seeds the
+  counters from the highest existing numbers.
+- `/underwriting/submissions/:id` redirects to the guarded
+  `/tiramis/submissions/:id`.
+- Decision applied: missing mandatory Non-Motor documents block finalize
+  (`NON_MOTOR_DOCUMENTS_INCOMPLETE`, from the product's published definition).
+  Legacy menu stays visible; new endorsement screens use the new view gate.
+
 ## Remaining phase
 
-- None in this implementation branch. Deprecation execution still needs owner
-  approval and a separate change.
+- Fleet add/remove-vehicle endorsements (owner decision on the TIRA flow).
+- Staging run of the Phase 9 checklist, including the new migration.
+- Deprecation execution still needs owner approval and a separate change.
 
 ## Historical pending notes
 
@@ -141,13 +197,12 @@ policy-transaction engines. It is a presentation and permission layer, not a rew
 
 ## Known pre-existing bugs (separate PRs, not in scope)
 
-1. Endorsed/cancelled policies set `regulatory_sync_status='SUCCESS'` but renewal requires `'IN_SYNC'` (`policy-transaction-apply.service.ts:264,707` vs `renewal-eligibility.service.ts:90`).
-2. Fleet TIRA callback returns one cover note only; vehicles 2..n get no reference/sticker (`apps/tiramis/.../tiramis-callback.service.ts` ~1008). The Fleet vehicles panel shows them as "Not issued".
-3. `QuotationsService.persistMotorVehicle` writes `usage_type = fuel_used`.
-4. Unguarded route rendering `TiramisSubmissionDetailPage` (web `App.tsx`, `underwritingPaths.submissionDetail`).
-5. Analytics `branch_id` filter not checked against allowed branches.
-6. Policy number generation is max+1 (race-prone), in two places.
-7. Quotation-level `requires_approval` is hard-coded false.
+Fixed on 2026-09-30 (see completion step 4): renewal sync status, fleet TIRA
+cover notes, unguarded submission route, max+1 policy numbers. Still open:
+
+1. `QuotationsService.persistMotorVehicle` writes `usage_type = fuel_used`.
+2. Analytics `branch_id` filter not checked against allowed branches.
+3. Quotation-level `requires_approval` is hard-coded false.
 
 ## Verify commands
 

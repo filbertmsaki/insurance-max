@@ -11,11 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { createBrowserSafeId } from '@/lib/ids';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerFullName } from '@/modules/tenant/customers/types';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
-import { policiesApi } from '../api';
 import {
   policyKeys,
   useCancellationContext,
@@ -31,6 +29,7 @@ import {
   type TransactionReasonAction,
 } from '../components/TransactionReasonDialog';
 import type { CancellationReasonType } from '../types';
+import { usePolicyTransactionScope } from '../transaction-scope';
 
 const TERMINAL_STAGES = ['APPLIED', 'CANCELLED', 'EXPIRED', 'REJECTED'];
 
@@ -68,6 +67,7 @@ export function PolicyCancellationPage() {
     cancellationId?: string;
   }>();
   const navigate = useNavigate();
+  const { api, paths } = usePolicyTransactionScope();
   const queryClient = useQueryClient();
   const { hasPermission } = useAuthStore();
   const isNew = !cancellationId || cancellationId === 'new';
@@ -92,7 +92,7 @@ export function PolicyCancellationPage() {
   const [reason, setReason] = useState('');
 
   const approve = useMutation({
-    mutationFn: () => policiesApi.approveCancellation(cancellationId!),
+    mutationFn: () => api.approveCancellation(cancellationId!),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: policyKeys.cancellationContext(cancellationId!),
@@ -102,7 +102,7 @@ export function PolicyCancellationPage() {
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
   const requestPayment = useMutation({
-    mutationFn: () => policiesApi.requestCancellationPayment(cancellationId!),
+    mutationFn: () => api.requestCancellationPayment(cancellationId!),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: policyKeys.cancellationContext(cancellationId!),
@@ -181,9 +181,7 @@ export function PolicyCancellationPage() {
       },
       {
         onSuccess: (created) =>
-          navigate(
-            underwritingPaths.policyCancellationDetail(policyId!, created.id),
-          ),
+          navigate(paths.policyCancellationDetail(policyId!, created.id)),
       },
     );
   };
@@ -197,7 +195,7 @@ export function PolicyCancellationPage() {
           aria-label="Back to policy"
           onClick={() => {
             if (policyId) {
-              navigate(underwritingPaths.policyDetail(policyId));
+              navigate(paths.policyDetail(policyId));
               return;
             }
 
@@ -421,10 +419,9 @@ export function PolicyCancellationPage() {
                         onClick={() =>
                           runDecision(
                             () =>
-                              policiesApi.reviewCancellationClaims(
-                                cancellationId,
-                                { approved: true },
-                              ),
+                              api.reviewCancellationClaims(cancellationId, {
+                                approved: true,
+                              }),
                             'Claims review cleared',
                           ).catch(() => undefined)
                         }
@@ -444,10 +441,10 @@ export function PolicyCancellationPage() {
                             destructive: true,
                             successMessage: 'Claims review blocked',
                             run: (value) =>
-                              policiesApi.reviewCancellationClaims(
-                                cancellationId,
-                                { approved: false, reason: value },
-                              ),
+                              api.reviewCancellationClaims(cancellationId, {
+                                approved: false,
+                                reason: value,
+                              }),
                           })
                         }
                       >
@@ -557,7 +554,7 @@ export function PolicyCancellationPage() {
                                 confirmLabel: 'Request Changes',
                                 successMessage: 'Changes requested',
                                 run: (value) =>
-                                  policiesApi.requestCancellationChanges(
+                                  api.requestCancellationChanges(
                                     cancellationId!,
                                     value,
                                   ),
@@ -579,7 +576,7 @@ export function PolicyCancellationPage() {
                                 destructive: true,
                                 successMessage: 'Cancellation rejected',
                                 run: (value) =>
-                                  policiesApi.rejectCancellation(
+                                  api.rejectCancellation(
                                     cancellationId!,
                                     value,
                                   ),
@@ -632,7 +629,7 @@ export function PolicyCancellationPage() {
                               destructive: true,
                               successMessage: 'Cancellation withdrawn',
                               run: (value) =>
-                                policiesApi.withdrawCancellation(
+                                api.withdrawCancellation(
                                   cancellationId!,
                                   value,
                                 ),

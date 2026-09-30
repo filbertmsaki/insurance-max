@@ -1,3 +1,4 @@
+import { FleetVehicleApplyService } from './fleet-vehicle-apply.service';
 import { ConflictException } from '@nestjs/common';
 import {
   PolicyTransactionEventType,
@@ -173,6 +174,7 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
     hashService,
     lifecycleService,
     returnPremiumService,
+    new FleetVehicleApplyService(),
   );
 
   return {

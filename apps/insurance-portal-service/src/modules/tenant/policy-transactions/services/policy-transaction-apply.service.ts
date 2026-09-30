@@ -25,6 +25,7 @@ import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionEvent } from '../entities/policy-transaction-event.entity';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { PolicyTransactionReturnPremiumService } from './policy-transaction-return-premium.service';
+import { FleetVehicleApplyService } from './fleet-vehicle-apply.service';
 
 export interface ApplyPolicyTransactionContext {
   changedBy?: string | null;
@@ -48,6 +49,7 @@ export class PolicyTransactionApplyService {
     private readonly hashService: ProductDefinitionHashService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly returnPremiumService: PolicyTransactionReturnPremiumService,
+    private readonly fleetVehicleApply: FleetVehicleApplyService,
   ) {}
 
   async applyEndorsement(
@@ -196,12 +198,18 @@ export class PolicyTransactionApplyService {
       previousVersion.superseded_at = new Date();
       await manager.getRepository(PolicyVersion).save(previousVersion);
 
-      const currentReference =
-        endorsement.replacement_cover_note_reference ??
-        endorsement.previous_cover_note_reference;
-      const currentSticker =
-        endorsement.replacement_sticker_number ??
-        endorsement.previous_sticker_number;
+      // TIRA's reply to a fleet add/remove-vehicle endorsement is about
+      // those vehicles only; the policy keeps its own cover-note reference.
+      const isFleetVehicleChange =
+        this.fleetVehicleApply.isFleetVehicleEndorsement(endorsement);
+      const currentReference = isFleetVehicleChange
+        ? (policy.cover_note_no ?? endorsement.previous_cover_note_reference)
+        : (endorsement.replacement_cover_note_reference ??
+          endorsement.previous_cover_note_reference);
+      const currentSticker = isFleetVehicleChange
+        ? (policy.sticker_no ?? endorsement.previous_sticker_number)
+        : (endorsement.replacement_sticker_number ??
+          endorsement.previous_sticker_number);
       const cover = this.asObject(appliedSnapshot['cover']);
       const versionNumber = previousVersion.version_number + 1;
       const newVersion = await manager.getRepository(PolicyVersion).save({
@@ -261,7 +269,7 @@ export class PolicyTransactionApplyService {
         policy.sticker_no = currentSticker;
       }
       policy.tira_status = 'SUCCESS';
-      policy.regulatory_sync_status = 'SUCCESS';
+      policy.regulatory_sync_status = 'IN_SYNC';
       policy.tiramis_submission_tracking_id = transaction.tiramis_tracking_id;
       policy.tiramis_transaction_id = transaction.tiramis_transaction_id;
       policy.tiramis_request_id = transaction.tiramis_request_id;
@@ -285,6 +293,10 @@ export class PolicyTransactionApplyService {
       policy.state_version = Number(policy.state_version || 1) + 1;
 
       await manager.getRepository(Policy).save(policy);
+
+      if (isFleetVehicleChange) {
+        await this.fleetVehicleApply.applyRecords(manager, transaction, policy);
+      }
 
       if (originalStatus !== 'ENDORSED') {
         await manager.getRepository(PolicyStatusHistory).save({
@@ -404,6 +416,10 @@ export class PolicyTransactionApplyService {
       : null;
     if (coverNotesArray) {
       this.refreshSnapshotCoverNotes(coverNotesArray, transaction, endorsement);
+    }
+
+    if (this.fleetVehicleApply.isFleetVehicleEndorsement(endorsement)) {
+      this.fleetVehicleApply.normalizeSnapshot(snapshot, transaction);
     }
 
     return snapshot;
@@ -704,7 +720,7 @@ export class PolicyTransactionApplyService {
       policy.pending_transaction_id = null;
       policy.cover_note_no = currentReference;
       policy.tira_status = 'SUCCESS';
-      policy.regulatory_sync_status = 'SUCCESS';
+      policy.regulatory_sync_status = 'IN_SYNC';
       policy.tiramis_submission_tracking_id = transaction.tiramis_tracking_id;
       policy.tiramis_transaction_id = transaction.tiramis_transaction_id;
       policy.tiramis_request_id = transaction.tiramis_request_id;

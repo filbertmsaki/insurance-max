@@ -90,7 +90,7 @@ export function NonMotorDocumentsStep({
     <div className="space-y-6">
       <StepSection
         title="Required documents"
-        description="Configured for this product. Mandatory documents should be attached before the quotation is submitted for approval."
+        description="Configured for this product. The quotation cannot be completed until every mandatory document is attached."
         first
       >
         {requirements.isLoading ? (

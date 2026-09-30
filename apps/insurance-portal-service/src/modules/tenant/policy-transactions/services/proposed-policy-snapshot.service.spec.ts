@@ -70,4 +70,54 @@ describe('ProposedPolicySnapshotService', () => {
       ]),
     ).toThrow();
   });
+
+  describe('fleet vehicle changes', () => {
+    const fleet = () => ({
+      entries: Array.from({ length: 9 }, (_, index) => ({
+        fleetEntry: index + 1,
+      })),
+    });
+
+    it('appends added vehicles in numeric index order', () => {
+      const { snapshot } = service.build(fleet(), [
+        {
+          fieldPath: 'entries.10',
+          operation: 'ADD',
+          newValue: { fleetEntry: 11 },
+        },
+        {
+          fieldPath: 'entries.9',
+          operation: 'ADD',
+          newValue: { fleetEntry: 10 },
+        },
+      ] as any);
+
+      const entries = snapshot.entries as Array<{ fleetEntry: number }>;
+      expect(entries.map((entry) => entry.fleetEntry)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+      ]);
+    });
+
+    it('refuses an addition that would leave a gap', () => {
+      expect(() =>
+        service.build(fleet(), [
+          { fieldPath: 'entries.12', operation: 'ADD', newValue: {} },
+        ] as any),
+      ).toThrow('is not next in the list');
+    });
+
+    it('marks a removed vehicle without shifting the others', () => {
+      const { snapshot } = service.build(fleet(), [
+        {
+          fieldPath: 'entries.2.status',
+          operation: 'MODIFY',
+          newValue: 'REMOVED',
+        },
+      ] as any);
+
+      const entries = snapshot.entries as Array<Record<string, unknown>>;
+      expect(entries).toHaveLength(9);
+      expect(entries[2]).toEqual({ fleetEntry: 3, status: 'REMOVED' });
+    });
+  });
 });

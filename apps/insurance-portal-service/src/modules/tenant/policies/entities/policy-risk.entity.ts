@@ -82,6 +82,10 @@ export class PolicyRisk {
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
+  /** Off cover from this date (a vehicle removed from a fleet mid-term). */
+  @Column({ type: 'date', nullable: true })
+  cancelled_at: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

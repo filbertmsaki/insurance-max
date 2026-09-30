@@ -217,7 +217,12 @@ export class EndorsementRepricingService {
     for (let entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
       const entry = this.asObject(entries[entryIndex]);
 
-      if (!entry) {
+      // A vehicle removed from the fleet carries no premium for the
+      // remaining period; the old/new comparison yields its return premium.
+      if (
+        !entry ||
+        ['REMOVED', 'CANCELLED'].includes(String(entry['status']))
+      ) {
         continue;
       }
 

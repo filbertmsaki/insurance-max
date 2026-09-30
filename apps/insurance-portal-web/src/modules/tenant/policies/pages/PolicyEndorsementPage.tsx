@@ -20,7 +20,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { formatMoney as formatConfiguredMoney } from '@/modules/shared/formatting/number-format';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import {
   policyKeys,
   useCancellationEligibility,
@@ -37,7 +36,6 @@ import {
   useReconcileEndorsement,
   useRecordEndorsementChange,
 } from '../hooks';
-import { policiesApi } from '../api';
 import {
   TransactionReasonDialog,
   type TransactionReasonAction,
@@ -46,6 +44,7 @@ import type {
   EndorsementPricingSnapshot,
   RecordEndorsementChangePayload,
 } from '../types';
+import { usePolicyTransactionScope } from '../transaction-scope';
 
 function asObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -144,6 +143,7 @@ export function PolicyEndorsementPage() {
     endorsementId?: string;
   }>();
   const navigate = useNavigate();
+  const { api, paths } = usePolicyTransactionScope();
   const queryClient = useQueryClient();
   const { hasPermission } = useAuthStore();
   const [step, setStep] = useState(endorsementId ? 2 : 1);
@@ -316,10 +316,9 @@ export function PolicyEndorsementPage() {
       },
       {
         onSuccess: (endorsement) => {
-          navigate(
-            underwritingPaths.policyEndorsementEdit(policyId, endorsement.id),
-            { replace: true },
-          );
+          navigate(paths.policyEndorsementEdit(policyId, endorsement.id), {
+            replace: true,
+          });
           setStep(2);
         },
       },
@@ -350,7 +349,7 @@ export function PolicyEndorsementPage() {
 
   const handleReview = async () => {
     const result = await runAction((id) =>
-      policiesApi.recalculateEndorsement(id).then(() => true),
+      api.recalculateEndorsement(id).then(() => true),
     );
     if (result) {
       setStep(3);
@@ -358,15 +357,13 @@ export function PolicyEndorsementPage() {
   };
 
   const completeEndorsement = () =>
-    runAction((id) => policiesApi.completeEndorsement(id));
+    runAction((id) => api.completeEndorsement(id));
 
   const submitApproval = () =>
-    runAction((id) => policiesApi.submitEndorsementApproval(id));
+    runAction((id) => api.submitEndorsementApproval(id));
 
   const requestPayment = async () => {
-    const invoice = await runAction((id) =>
-      policiesApi.requestEndorsementPayment(id),
-    );
+    const invoice = await runAction((id) => api.requestEndorsementPayment(id));
     if (invoice) {
       navigate(`/finance/invoices/${invoice.id}`);
     }
@@ -378,7 +375,7 @@ export function PolicyEndorsementPage() {
     }
     decision
       .mutateAsync({
-        run: () => policiesApi.approveEndorsement(endorsementId),
+        run: () => api.approveEndorsement(endorsementId),
         successMessage: 'Endorsement approved',
       })
       .catch(() => undefined);
@@ -404,7 +401,7 @@ export function PolicyEndorsementPage() {
       return;
     }
     if (isRetry) {
-      void runAction((id) => policiesApi.retryEndorsementTiramis(id));
+      void runAction((id) => api.retryEndorsementTiramis(id));
       return;
     }
     issueEndorsement.mutate(endorsementId);
@@ -433,7 +430,7 @@ export function PolicyEndorsementPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(underwritingPaths.policyDetail(policy.id))}
+          onClick={() => navigate(paths.policyDetail(policy.id))}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -470,9 +467,7 @@ export function PolicyEndorsementPage() {
                 size="sm"
                 className="h-auto p-0 text-red-600"
                 onClick={() =>
-                  navigate(
-                    underwritingPaths.policyCancellationCreate(policy.id),
-                  )
+                  navigate(paths.policyCancellationCreate(policy.id))
                 }
               >
                 <Ban className="mr-1.5 h-3.5 w-3.5" />
@@ -633,7 +628,11 @@ export function PolicyEndorsementPage() {
               <Card key={String(entry.entryId ?? entryIndex)}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">
-                    Entry {String(entry.entryNumber ?? entryIndex + 1)}
+                    {motor ? 'Vehicle' : 'Entry'}{' '}
+                    {String(entry.entryNumber ?? entryIndex + 1)}
+                    {motor?.registrationNumber
+                      ? ` · ${String(motor.registrationNumber)}`
+                      : ''}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -749,8 +748,7 @@ export function PolicyEndorsementPage() {
                 <Button
                   type="button"
                   onClick={() =>
-                    policyId &&
-                    navigate(underwritingPaths.policyDetail(policyId))
+                    policyId && navigate(paths.policyDetail(policyId))
                   }
                 >
                   View Policy
@@ -1025,7 +1023,7 @@ export function PolicyEndorsementPage() {
                           confirmLabel: 'Request Changes',
                           successMessage: 'Changes requested',
                           run: (id, value) =>
-                            policiesApi.requestEndorsementChanges(id, value),
+                            api.requestEndorsementChanges(id, value),
                         })
                       }
                     >
@@ -1044,8 +1042,7 @@ export function PolicyEndorsementPage() {
                           confirmLabel: 'Reject',
                           destructive: true,
                           successMessage: 'Endorsement rejected',
-                          run: (id, value) =>
-                            policiesApi.rejectEndorsement(id, value),
+                          run: (id, value) => api.rejectEndorsement(id, value),
                         })
                       }
                     >
@@ -1089,8 +1086,7 @@ export function PolicyEndorsementPage() {
                         confirmLabel: 'Cancel Endorsement',
                         destructive: true,
                         successMessage: 'Endorsement cancelled',
-                        run: (id, value) =>
-                          policiesApi.cancelEndorsement(id, value),
+                        run: (id, value) => api.cancelEndorsement(id, value),
                       })
                     }
                   >

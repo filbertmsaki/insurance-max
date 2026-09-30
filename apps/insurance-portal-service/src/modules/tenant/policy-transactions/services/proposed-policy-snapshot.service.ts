@@ -78,8 +78,12 @@ export class ProposedPolicySnapshotService {
   private orderChanges<T extends { fieldPath: string }>(changes: T[]): T[] {
     // Stable order by field path so re-applying the same change set is
     // deterministic regardless of the order changes were recorded in.
+    // Numeric-aware, so `entries.10` sorts after `entries.9` and appended
+    // fleet vehicles are applied in index order.
     return [...changes].sort((left, right) =>
-      left.fieldPath.localeCompare(right.fieldPath),
+      left.fieldPath.localeCompare(right.fieldPath, undefined, {
+        numeric: true,
+      }),
     );
   }
 
@@ -124,7 +128,24 @@ export class ProposedPolicySnapshotService {
       cursor = cursor[key] as Record<string, unknown>;
     }
 
-    cursor[segments[segments.length - 1]] = value;
+    const last = segments[segments.length - 1];
+
+    if (Array.isArray(cursor)) {
+      // Array items are only ever appended (fleet vehicle additions), so a
+      // replay can never overwrite or leave a hole in `entries`.
+      const index = Number(last);
+      if (Number.isInteger(index) && index === cursor.length) {
+        (cursor as unknown[]).push(value);
+        return;
+      }
+      if (!Number.isInteger(index) || index > cursor.length) {
+        throw new BadRequestException(
+          `Cannot set "${segments.join('.')}": index ${last} is not next in the list.`,
+        );
+      }
+    }
+
+    cursor[last] = value;
   }
 
   private removeAtPath(

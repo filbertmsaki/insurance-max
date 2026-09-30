@@ -9,6 +9,7 @@ import {
 import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute';
 import { UnderwriteLineRoute } from './components/UnderwriteLineRoute';
 import { UnderwriteRecordGate } from './components/UnderwriteRecordGate';
+import { UnderwriteTransactionScope } from './components/UnderwriteTransactionScope';
 import {
   FleetPolicyDetailPage,
   NonMotorPolicyDetailPage,
@@ -22,7 +23,10 @@ import {
   MotorQuotationWizardPage,
   MotorVehiclesPage,
   Page,
+  PolicyCancellationPage,
   PolicyDetailPage,
+  PolicyEndorsementPage,
+  PolicyRenewalPage,
   QuotationDetailPage,
   UnderwriteCustomersPage,
   UnderwriteDashboardPage,
@@ -35,6 +39,22 @@ import {
 import { underwritePaths } from './paths';
 
 const LINE = ':line';
+
+/**
+ * A shared endorsement/cancellation/renewal screen for the policy in
+ * `:policyId`, confirmed to belong to the line and running on its endpoints.
+ */
+function transactionPage(element: ReactNode) {
+  return (
+    <Page>
+      <UnderwriteTransactionScope>
+        <UnderwriteRecordGate kind="policy" idParam="policyId">
+          {element}
+        </UnderwriteRecordGate>
+      </UnderwriteTransactionScope>
+    </Page>
+  );
+}
 
 /** A route that requires every listed permission. */
 function guardedRoute(permissions: string[], path: string, element: ReactNode) {
@@ -142,9 +162,11 @@ export function renderUnderwriteRoutes() {
           path={underwritePaths.policyDetail(LINE, ':id')}
           element={
             <Page>
-              <UnderwriteRecordGate kind="policy">
-                <PolicyDetailPage />
-              </UnderwriteRecordGate>
+              <UnderwriteTransactionScope>
+                <UnderwriteRecordGate kind="policy">
+                  <PolicyDetailPage />
+                </UnderwriteRecordGate>
+              </UnderwriteTransactionScope>
             </Page>
           }
         />
@@ -252,6 +274,85 @@ export function renderUnderwriteRoutes() {
         />
       </Route>
 
+      {/* Policy transactions: line gate + the legacy route's permission. */}
+      <Route
+        element={
+          <UnderwriteLineRoute
+            action={UnderwriteAction.ENDORSEMENTS_MANAGE}
+            permission="endorsements:create"
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.policyEndorsementCreate(LINE, ':policyId')}
+          element={transactionPage(<PolicyEndorsementPage />)}
+        />
+      </Route>
+      <Route
+        element={
+          <UnderwriteLineRoute
+            action={UnderwriteAction.ENDORSEMENTS_VIEW}
+            permission="endorsements:create"
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.policyEndorsementEdit(
+            LINE,
+            ':policyId',
+            ':endorsementId',
+          )}
+          element={transactionPage(<PolicyEndorsementPage />)}
+        />
+      </Route>
+      <Route
+        element={
+          <UnderwriteLineRoute
+            action={UnderwriteAction.CANCELLATIONS_MANAGE}
+            permission="cancellations:create"
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.policyCancellationCreate(LINE, ':policyId')}
+          element={transactionPage(<PolicyCancellationPage />)}
+        />
+      </Route>
+      <Route
+        element={
+          <UnderwriteLineRoute
+            action={UnderwriteAction.CANCELLATIONS_VIEW}
+            permission="cancellations:read"
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.policyCancellationDetail(
+            LINE,
+            ':policyId',
+            ':cancellationId',
+          )}
+          element={transactionPage(<PolicyCancellationPage />)}
+        />
+      </Route>
+      <Route
+        element={
+          <UnderwriteLineRoute
+            action={UnderwriteAction.RENEWALS_VIEW}
+            permission="renewals:read"
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.policyRenewalDetail(
+            LINE,
+            ':policyId',
+            ':renewalId',
+          )}
+          element={transactionPage(<PolicyRenewalPage />)}
+        />
+      </Route>
+
       {/* Motor: its own wizard (static paths outrank `:line/quotations/:id`). */}
       <Route
         element={
@@ -333,7 +434,9 @@ export function renderUnderwriteRoutes() {
       {guardedRoute(
         [fleetGate(UnderwriteAction.POLICIES_VIEW), 'policies:read'],
         underwritePaths.policyDetail('fleet', ':id'),
-        <FleetPolicyDetailPage />,
+        <UnderwriteTransactionScope>
+          <FleetPolicyDetailPage />
+        </UnderwriteTransactionScope>,
       )}
       {guardedRoute(
         [fleetGate(UnderwriteAction.VIEW), 'motor:read'],
@@ -360,7 +463,9 @@ export function renderUnderwriteRoutes() {
       {guardedRoute(
         [nonMotorGate(UnderwriteAction.POLICIES_VIEW), 'policies:read'],
         underwritePaths.policyDetail('non-motor', ':id'),
-        <NonMotorPolicyDetailPage />,
+        <UnderwriteTransactionScope>
+          <NonMotorPolicyDetailPage />
+        </UnderwriteTransactionScope>,
       )}
       {guardedRoute(
         [nonMotorGate(UnderwriteAction.EDIT), 'insurance-products:update'],

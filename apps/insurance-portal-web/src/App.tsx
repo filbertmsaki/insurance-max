@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { PortalShell } from '@/modules/portal/components/PortalShell';
 import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage';
@@ -155,6 +155,15 @@ import {
   BuyCoverPage,
   MotorInsurancePurchasePage,
 } from '@/modules/public/PublicWebsite';
+
+/**
+ * The old `/underwriting/submissions/:id` link rendered the submission
+ * without a permission check; send it to the guarded TIRA route instead.
+ */
+function LegacySubmissionDetailRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/tiramis/submissions/${id}`} replace />;
+}
 
 export default function App() {
   return (
@@ -1462,7 +1471,7 @@ export default function App() {
         />
         <Route
           path={underwritingPaths.submissionDetail(':id')}
-          element={<TiramisSubmissionDetailPage />}
+          element={<LegacySubmissionDetailRedirect />}
         />
         <Route
           path="/customers"

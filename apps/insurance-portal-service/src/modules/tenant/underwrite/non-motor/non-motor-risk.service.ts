@@ -9,6 +9,7 @@ import { DataSource, IsNull, QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { InsuranceBusinessLine } from '../../insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
+import { ProductDefinitionService } from '../../insurance-products/product-definition.service';
 import { InsuranceSubClass } from '../../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationFlow } from '../../quotations/enums/quotation-flow.enum';
@@ -93,6 +94,7 @@ export class NonMotorRiskService {
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly productDefinitionService: ProductDefinitionService,
   ) {}
 
   // ─── Schema ──────────────────────────────────────────────────────────────
@@ -307,6 +309,61 @@ export class NonMotorRiskService {
     }
   }
 
+  /**
+   * Finalize gate: every mandatory quotation document of the product's
+   * published definition (what the wizard's Documents step lists) must be
+   * attached. Without a published definition there is nothing to check here;
+   * pricing reports that on its own.
+   */
+  async assertDocumentsCompleteForFinalize(
+    companyId: string,
+    quotationId: string,
+    productId: string,
+    subClassId?: string | null,
+  ): Promise<void> {
+    let requirements: Array<{
+      code: string;
+      name: string;
+      appliesTo: string;
+      isMandatory: boolean;
+    }>;
+    try {
+      const definition =
+        await this.productDefinitionService.resolvePublishedDefinition(
+          companyId,
+          productId,
+          subClassId ?? null,
+        );
+      requirements = definition.documentRequirements;
+    } catch (error) {
+      if (error instanceof NotFoundException) return;
+      throw error;
+    }
+
+    const mandatory = requirements.filter(
+      (item) => item.isMandatory && item.appliesTo === 'QUOTATION',
+    );
+    if (!mandatory.length) return;
+
+    const attached = new Set(
+      (await this.listQuotationDocuments(companyId, quotationId)).map(
+        (document) => document.document_type,
+      ),
+    );
+    const missing = mandatory.filter((item) => !attached.has(item.code));
+    if (!missing.length) return;
+
+    throw new BadRequestException({
+      code: 'NON_MOTOR_DOCUMENTS_INCOMPLETE',
+      message: `Attach the mandatory documents before completing: ${missing
+        .map((item) => item.name)
+        .join(', ')}`,
+      details: {
+        missing: missing.map(({ code, name }) => ({ code, name })),
+      },
+    });
+  }
+
   async getPolicyDetails(
     companyId: string,
     policyId: string,
@@ -324,9 +381,34 @@ export class NonMotorRiskService {
     });
     if (!quotation) return null;
 
-    const detail = await this.detailRepository.findOne({
-      where: { quotation_id: quotation.id },
-    });
+    // What the policy was issued with; policies issued before the snapshot
+    // existed fall back to the quotation's details.
+    const [issued] = await this.dataSource.query<
+      Array<
+        Pick<
+          QuotationNonMotorDetail,
+          | 'risk_data'
+          | 'schema_snapshot'
+          | 'risk_location'
+          | 'limit_of_liability'
+          | 'created_at'
+        >
+      >
+    >(
+      `SELECT risk_data, schema_snapshot, risk_location, limit_of_liability,
+              created_at
+         FROM policy_non_motor_risk_details
+        WHERE policy_id = $1 AND company_id = $2`,
+      [policyId, companyId],
+    );
+    const detail: QuotationNonMotorDetail | null = issued
+      ? ({
+          ...issued,
+          updated_at: new Date(issued.created_at),
+        } as QuotationNonMotorDetail)
+      : await this.detailRepository.findOne({
+          where: { quotation_id: quotation.id },
+        });
     // A policy shows what was quoted, so prefer the stored snapshot.
     const fields = detail?.schema_snapshot?.length
       ? []

@@ -7,9 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
-import { policiesApi } from '../api';
 import { policyKeys, useRenewalContext } from '../hooks';
+import { usePolicyTransactionScope } from '../transaction-scope';
 
 function Row({
   label,
@@ -34,6 +33,7 @@ export function PolicyRenewalPage() {
     renewalId: string;
   }>();
   const navigate = useNavigate();
+  const { api, paths } = usePolicyTransactionScope();
   const queryClient = useQueryClient();
   const { data: context } = useRenewalContext(renewalId);
   const renewal = context?.renewal;
@@ -47,15 +47,15 @@ export function PolicyRenewalPage() {
     }
   };
   const createOffer = useMutation({
-    mutationFn: () => policiesApi.createRenewalOffer(renewalId!),
+    mutationFn: () => api.createRenewalOffer(renewalId!),
     onSuccess: (created: { id: string }) => {
       refresh();
-      navigate(underwritingPaths.quotationWizardEdit(created.id));
+      navigate(paths.quotationWizardEdit(created.id));
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
   const sendOffer = useMutation({
-    mutationFn: () => policiesApi.sendRenewalOffer(renewalId!),
+    mutationFn: () => api.sendRenewalOffer(renewalId!),
     onSuccess: () => {
       refresh();
       toast.success('Renewal offer sent');
@@ -63,7 +63,7 @@ export function PolicyRenewalPage() {
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
   const accept = useMutation({
-    mutationFn: () => policiesApi.acceptRenewal(renewalId!),
+    mutationFn: () => api.acceptRenewal(renewalId!),
     onSuccess: () => {
       refresh();
       toast.success('Customer acceptance recorded');
@@ -72,7 +72,7 @@ export function PolicyRenewalPage() {
   });
   const decline = useMutation({
     mutationFn: () =>
-      policiesApi.declineRenewal(renewalId!, 'Customer declined renewal offer'),
+      api.declineRenewal(renewalId!, 'Customer declined renewal offer'),
     onSuccess: () => {
       refresh();
       toast.success('Customer decline recorded');
@@ -88,7 +88,7 @@ export function PolicyRenewalPage() {
           size="icon"
           onClick={() => {
             if (policyId) {
-              navigate(underwritingPaths.policyDetail(policyId));
+              navigate(paths.policyDetail(policyId));
               return;
             }
             navigate(-1);
@@ -149,9 +149,7 @@ export function PolicyRenewalPage() {
                 <Button
                   variant="outline"
                   onClick={() =>
-                    navigate(
-                      underwritingPaths.quotationWizardEdit(quotation.id),
-                    )
+                    navigate(paths.quotationWizardEdit(quotation.id))
                   }
                 >
                   <FileText className="mr-1.5 h-3.5 w-3.5" />

@@ -392,7 +392,8 @@ export function NonMotorQuotationWizardPage() {
                     className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
                   >
                     <p className="font-medium">
-                      Mandatory documents not yet attached:
+                      Attach these mandatory documents before completing the
+                      quotation:
                     </p>
                     <p>
                       {missingDocuments.map((item) => item.name).join(', ')}

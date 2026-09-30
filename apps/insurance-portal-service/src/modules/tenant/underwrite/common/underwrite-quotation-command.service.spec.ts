@@ -63,6 +63,7 @@ function build(
   };
 
   const nonMotorRisk = {
+    assertDocumentsCompleteForFinalize: jest.fn().mockResolvedValue(undefined),
     assertCompleteForFinalize: options.riskIncomplete
       ? jest.fn().mockRejectedValue(new BadRequestException('incomplete'))
       : jest.fn().mockResolvedValue(undefined),

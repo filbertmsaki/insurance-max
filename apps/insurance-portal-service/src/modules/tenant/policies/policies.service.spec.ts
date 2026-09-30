@@ -93,6 +93,15 @@ describe('PoliciesService - quotation lifecycle conversion', () => {
         if (entity === Quotation) return quotationRepoInManager;
         return mockRepo();
       },
+      // Policy-number counter: no configured format, next value 1.
+      query: jest.fn((sql: string) =>
+        Promise.resolve(
+          sql.includes('business_document_sequences')
+            ? [{ current_value: 1 }]
+            : [],
+        ),
+      ),
+      connection: {},
     };
   }
 

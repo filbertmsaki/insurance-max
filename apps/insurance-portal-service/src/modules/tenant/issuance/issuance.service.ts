@@ -38,6 +38,8 @@ import { PolicyStatusHistory } from '../policies/entities/policy-status-history.
 import { PolicyVersion } from '../policies/entities/policy-version.entity';
 import { ProductChannelType } from '../product-distribution/enums/product-channel-type.enum';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
+import { nextPolicyNo } from '../policies/utils/policy-number';
+import { linkIssuedPolicyToUnderwrite } from '../underwrite/common/issued-policy-links';
 import { CertificateGenerationService } from './certificate-generation.service';
 
 type IssuableRisk = QuotationEntryRisk & {
@@ -205,6 +207,12 @@ export class IssuanceService {
         );
         submission.policy_id = policy.id;
         await manager.getRepository(PortalTiraSubmission).save(submission);
+        await linkIssuedPolicyToUnderwrite(manager, {
+          policyId: policy.id,
+          companyId: quotation.company_id,
+          quotationId: quotation.id,
+          quotationFlow: quotation.quotation_flow,
+        });
       }
 
       return {
@@ -1528,26 +1536,12 @@ export class IssuanceService {
     });
   }
 
-  private async generatePolicyNo(
+  private generatePolicyNo(
     companyId: string,
     channelType: ProductChannelType,
     manager: EntityManager,
   ) {
-    const prefix = `POL-${channelType === ProductChannelType.DIRECT ? 'DIR' : channelType.slice(0, 3)}-${new Date().getFullYear()}-`;
-    const last = await manager
-      .getRepository(Policy)
-      .createQueryBuilder('policy')
-      .where('policy.company_id = :companyId', { companyId })
-      .andWhere('policy.policy_no LIKE :prefix', { prefix: `${prefix}%` })
-      .orderBy('policy.policy_no', 'DESC')
-      .limit(1)
-      .getOne();
-
-    const next = last?.policy_no
-      ? Number(last.policy_no.substring(prefix.length)) + 1
-      : 1;
-
-    return `${prefix}${String(next).padStart(5, '0')}`;
+    return nextPolicyNo(manager, companyId, channelType);
   }
 
   private sumEntryRiskValue(

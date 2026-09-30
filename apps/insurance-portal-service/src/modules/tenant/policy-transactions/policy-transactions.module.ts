@@ -46,6 +46,9 @@ import { RenewalEligibilityService } from './services/renewal-eligibility.servic
 import { PolicyTransactionLifecycleService } from './services/policy-transaction-lifecycle.service';
 import { EndorsementTypesService } from './services/endorsement-types.service';
 import { EndorsementService } from './services/endorsement.service';
+import { FleetVehicleEndorsementService } from './services/fleet-vehicle-endorsement.service';
+import { FleetVehicleApplyService } from './services/fleet-vehicle-apply.service';
+import { FleetRemovalRefundService } from './services/fleet-removal-refund.service';
 import { CancellationService } from './services/cancellation.service';
 import { RenewalService } from './services/renewal.service';
 import { AdministrativeAmendmentService } from './services/administrative-amendment.service';
@@ -119,6 +122,9 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     AdministrativeAmendmentController,
   ],
   providers: [
+    FleetVehicleEndorsementService,
+    FleetVehicleApplyService,
+    FleetRemovalRefundService,
     PolicyReplacementService,
     IdentifierGeneratorService,
     PolicyTransactionEligibilityService,
@@ -149,6 +155,7 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     RenewalQuotationFactoryService,
   ],
   exports: [
+    FleetVehicleEndorsementService,
     PolicyTransactionLifecycleService,
     EndorsementService,
     CancellationService,

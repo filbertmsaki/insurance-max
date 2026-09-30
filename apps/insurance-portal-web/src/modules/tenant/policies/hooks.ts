@@ -13,6 +13,7 @@ import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useNotificationStream } from '@/modules/shared/notifications/useNotificationStream';
 import { policiesApi } from './api';
+import { usePolicyTransactionScope } from './transaction-scope';
 import { buildPolicyPayload, type PolicyFormSchemaValues } from './schemas';
 import type {
   CreateCancellationPayload,
@@ -255,12 +256,12 @@ export function useEndorsementEligibility(
   effectiveDate?: string,
   enabled = true,
 ) {
+  const { api } = usePolicyTransactionScope();
   return useQuery({
     queryKey: policyId
       ? policyKeys.endorsementEligibility(policyId, effectiveDate)
       : policyKeys.endorsementEligibility('', effectiveDate),
-    queryFn: () =>
-      policiesApi.getEndorsementEligibility(policyId!, effectiveDate),
+    queryFn: () => api.getEndorsementEligibility(policyId!, effectiveDate),
     enabled: !!policyId && enabled,
     staleTime: 30_000,
   });
@@ -271,23 +272,24 @@ export function useCancellationEligibility(
   effectiveDate?: string,
   enabled = true,
 ) {
+  const { api } = usePolicyTransactionScope();
   return useQuery({
     queryKey: policyId
       ? policyKeys.cancellationEligibility(policyId, effectiveDate)
       : policyKeys.cancellationEligibility('', effectiveDate),
-    queryFn: () =>
-      policiesApi.getCancellationEligibility(policyId!, effectiveDate),
+    queryFn: () => api.getCancellationEligibility(policyId!, effectiveDate),
     enabled: !!policyId && enabled,
     staleTime: 30_000,
   });
 }
 
 export function useCreateCancellation(policyId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: CreateCancellationPayload) =>
-      policiesApi.createCancellation(policyId!, payload),
+      api.createCancellation(policyId!, payload),
     onSuccess: (cancellation) => {
       if (policyId) {
         qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
@@ -319,21 +321,23 @@ export function usePolicyRenewals(policyId?: string, enabled = true) {
 }
 
 export function useRenewalEligibility(policyId?: string, enabled = true) {
+  const { api } = usePolicyTransactionScope();
   return useQuery({
     queryKey: policyId
       ? policyKeys.renewalEligibility(policyId)
       : policyKeys.renewalEligibility(''),
-    queryFn: () => policiesApi.getRenewalEligibility(policyId!),
+    queryFn: () => api.getRenewalEligibility(policyId!),
     enabled: !!policyId && enabled,
     staleTime: 30_000,
   });
 }
 
 export function useCreateRenewal(policyId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: () => policiesApi.createRenewal(policyId!),
+    mutationFn: () => api.createRenewal(policyId!),
     onSuccess: () => {
       if (policyId) {
         qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
@@ -349,22 +353,24 @@ export function useCreateRenewal(policyId?: string) {
 }
 
 export function useRenewalContext(renewalId?: string) {
+  const { api } = usePolicyTransactionScope();
   return useQuery({
     queryKey: renewalId
       ? policyKeys.renewalContext(renewalId)
       : policyKeys.renewalContext(''),
-    queryFn: () => policiesApi.getRenewalContext(renewalId!),
+    queryFn: () => api.getRenewalContext(renewalId!),
     enabled: !!renewalId,
     staleTime: 15_000,
   });
 }
 
 export function useCancellationContext(cancellationId?: string) {
+  const { api } = usePolicyTransactionScope();
   return useQuery({
     queryKey: cancellationId
       ? policyKeys.cancellationContext(cancellationId)
       : policyKeys.cancellationContext(''),
-    queryFn: () => policiesApi.getCancellationContext(cancellationId!),
+    queryFn: () => api.getCancellationContext(cancellationId!),
     enabled: !!cancellationId,
     staleTime: 15_000,
     refetchInterval: (query) => {
@@ -434,10 +440,11 @@ export function usePolicyTransactionDecision(
 }
 
 export function useCompleteCancellation(cancellationId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: () => policiesApi.completeCancellation(cancellationId!),
+    mutationFn: () => api.completeCancellation(cancellationId!),
     onSuccess: () => {
       if (cancellationId) {
         qc.invalidateQueries({
@@ -451,11 +458,12 @@ export function useCompleteCancellation(cancellationId?: string) {
 }
 
 export function useIssueCancellation(policyId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: (cancellationId: string) =>
-      policiesApi.submitCancellationToTiramis(cancellationId),
+      api.submitCancellationToTiramis(cancellationId),
     onSuccess: (_data, cancellationId) => {
       qc.invalidateQueries({
         queryKey: policyKeys.cancellationContext(cancellationId),
@@ -512,11 +520,12 @@ export function useUpdateEndorsementType() {
 }
 
 export function useEndorsementContext(endorsementId?: string) {
+  const { api } = usePolicyTransactionScope();
   return useQuery({
     queryKey: endorsementId
       ? policyKeys.endorsementContext(endorsementId)
       : policyKeys.endorsementContext(''),
-    queryFn: () => policiesApi.getEndorsementContext(endorsementId!),
+    queryFn: () => api.getEndorsementContext(endorsementId!),
     enabled: !!endorsementId,
     staleTime: 15_000,
     refetchInterval: (query) => {
@@ -532,11 +541,12 @@ export function useEndorsementContext(endorsementId?: string) {
 }
 
 export function useIssueEndorsement() {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: (endorsementId: string) =>
-      policiesApi.submitEndorsementToTiramis(endorsementId),
+      api.submitEndorsementToTiramis(endorsementId),
     onSuccess: (_data, endorsementId) => {
       qc.invalidateQueries({
         queryKey: policyKeys.endorsementContext(endorsementId),
@@ -547,10 +557,11 @@ export function useIssueEndorsement() {
 }
 
 export function useCreateEndorsement(policyId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateEndorsementPayload) =>
-      policiesApi.createEndorsement(policyId!, payload),
+      api.createEndorsement(policyId!, payload),
     onSuccess: (endorsement) => {
       if (policyId) {
         qc.invalidateQueries({ queryKey: policyKeys.endorsements(policyId) });
@@ -564,10 +575,11 @@ export function useCreateEndorsement(policyId?: string) {
 }
 
 export function useRecordEndorsementChange(endorsementId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: RecordEndorsementChangePayload) =>
-      policiesApi.recordEndorsementChange(endorsementId!, payload),
+      api.recordEndorsementChange(endorsementId!, payload),
     onSuccess: () => {
       if (endorsementId) {
         qc.invalidateQueries({
@@ -581,9 +593,10 @@ export function useRecordEndorsementChange(endorsementId?: string) {
 }
 
 export function useRecalculateEndorsement(endorsementId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => policiesApi.recalculateEndorsement(endorsementId!),
+    mutationFn: () => api.recalculateEndorsement(endorsementId!),
     onSuccess: () => {
       if (endorsementId) {
         qc.invalidateQueries({
@@ -625,10 +638,11 @@ export function useUpdatePolicy(id?: string) {
 }
 
 export function useSubmitPolicyEndorsementToTiramis(policyId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (endorsementId: string) =>
-      policiesApi.submitEndorsementToTiramis(endorsementId),
+      api.submitEndorsementToTiramis(endorsementId),
     onSuccess: () => {
       if (policyId) {
         qc.invalidateQueries({ queryKey: policyKeys.endorsements(policyId) });
@@ -644,10 +658,11 @@ export function useSubmitPolicyEndorsementToTiramis(policyId?: string) {
 }
 
 export function useRetryPolicyEndorsementTiramis(policyId?: string) {
+  const { api } = usePolicyTransactionScope();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (endorsementId: string) =>
-      policiesApi.retryEndorsementTiramis(endorsementId),
+      api.retryEndorsementTiramis(endorsementId),
     onSuccess: () => {
       if (policyId) {
         qc.invalidateQueries({ queryKey: policyKeys.endorsements(policyId) });

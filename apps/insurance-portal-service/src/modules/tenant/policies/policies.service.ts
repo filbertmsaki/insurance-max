@@ -46,6 +46,7 @@ import { PolicyVersion } from './entities/policy-version.entity';
 import { Policy } from './entities/policy.entity';
 import { PolicyVersionDiffService } from './services/policy-version-diff.service';
 import { policyBusinessLineSql } from './utils/policy-business-line.sql';
+import { nextPolicyNo } from './utils/policy-number';
 
 type NumericLike = number | string | null | undefined;
 
@@ -157,29 +158,6 @@ export class PoliciesService {
     const entity = await repository.findOne({ where: where as any });
     if (!entity) throw new BadRequestException(message);
     return entity;
-  }
-
-  private mapPolicyNoPrefix(channelType: ProductChannelType): string {
-    return `POL-${channelType === ProductChannelType.DIRECT ? 'DIR' : channelType.slice(0, 3)}-${new Date().getFullYear()}-`;
-  }
-
-  private async generatePolicyNo(
-    companyId: string,
-    channelType: ProductChannelType,
-  ): Promise<string> {
-    const prefix = this.mapPolicyNoPrefix(channelType);
-    const last = await this.policyRepository
-      .createQueryBuilder('p')
-      .where('p.company_id = :companyId', { companyId })
-      .andWhere('p.policy_no LIKE :prefix', { prefix: `${prefix}%` })
-      .orderBy('p.policy_no', 'DESC')
-      .limit(1)
-      .getOne();
-
-    const next = last?.policy_no
-      ? Number(last.policy_no.substring(prefix.length)) + 1
-      : 1;
-    return `${prefix}${String(next).padStart(5, '0')}`;
   }
 
   private async validateScope(
@@ -502,7 +480,8 @@ export class PoliciesService {
         const policyRepo = manager.getRepository(Policy);
         const historyRepo = manager.getRepository(PolicyStatusHistory);
 
-        const policyNo = await this.generatePolicyNo(
+        const policyNo = await nextPolicyNo(
+          manager,
           companyId,
           dto.channel_type,
         );

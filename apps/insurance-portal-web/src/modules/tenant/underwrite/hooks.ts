@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { UnderwriteLineSlug } from '@insurance-max/contracts';
 import type { CustomerListParams } from '@/modules/tenant/customers/types';
@@ -26,10 +26,19 @@ export const underwriteKeys = {
     [...underwriteKeys.all, line, 'tira', kind] as const,
 };
 
-/** The line addressed by the current `/underwrite/:line/...` route. */
+/**
+ * The line addressed by the current `/underwrite/<line>/...` route. Static
+ * routes such as `/underwrite/fleet/policies/:id` have no `:line` param, so
+ * fall back to the path segment.
+ */
 export function useUnderwriteLineParam(): UnderwriteLineMeta | null {
   const { line } = useParams<{ line: string }>();
-  return getUnderwriteLineMetaBySlug(line);
+  const { pathname } = useLocation();
+  return getUnderwriteLineMetaBySlug(line ?? underwriteSlugFromPath(pathname));
+}
+
+export function underwriteSlugFromPath(pathname: string): string | undefined {
+  return /^\/underwrite\/([^/]+)/.exec(pathname)?.[1];
 }
 
 export function useUnderwriteOverview() {

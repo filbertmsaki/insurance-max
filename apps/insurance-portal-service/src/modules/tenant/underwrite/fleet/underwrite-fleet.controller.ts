@@ -1,10 +1,13 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Post,
   UseGuards,
@@ -26,6 +29,10 @@ import {
 } from '../common/underwrite-line.access';
 import { UnderwriteLineGuard } from '../common/underwrite-line.guard';
 import { UnderwriteQueryService } from '../common/underwrite-query.service';
+import { UnderwriteTransactionsService } from '../common/underwrite-transactions.service';
+import { PolicyTransaction } from '../../policy-transactions/entities/policy-transaction.entity';
+import { FleetVehicleEndorsementService } from '../../policy-transactions/services/fleet-vehicle-endorsement.service';
+import { AddFleetVehicleDto } from './dto/fleet-vehicle-endorsement.dto';
 import { FleetRegisterService } from './fleet-register.service';
 import { FleetVehiclesService } from './fleet-vehicles.service';
 
@@ -51,6 +58,8 @@ export class UnderwriteFleetController {
     private readonly queryService: UnderwriteQueryService,
     private readonly fleetVehicles: FleetVehiclesService,
     private readonly fleetRegister: FleetRegisterService,
+    private readonly transactions: UnderwriteTransactionsService,
+    private readonly fleetEndorsements: FleetVehicleEndorsementService,
   ) {}
 
   @Get('quotations/:id/vehicles')
@@ -101,6 +110,84 @@ export class UnderwriteFleetController {
     this.assertFleet(line);
     await this.queryService.getQuotation(user, line, id);
     return this.fleetRegister.syncFromQuotation(user.companyId!, id);
+  }
+
+  @Post('endorsements/:id/vehicles')
+  @Permissions('endorsements:update-draft')
+  @UnderwriteLineAccess(UnderwriteAction.ENDORSEMENTS_MANAGE)
+  @ApiParam(FLEET_PARAM)
+  @ApiOperation({
+    summary:
+      'Add a vehicle on a "Fleet - Add Vehicle" endorsement (priced for the remaining period)',
+  })
+  async addVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddFleetVehicleDto,
+  ) {
+    await this.assertFleetEndorsement(user, line, id);
+    return this.withVehicles(
+      await this.fleetEndorsements.addVehicle(user, id, dto),
+    );
+  }
+
+  @Delete('endorsements/:id/vehicles/:fleetEntry')
+  @Permissions('endorsements:update-draft')
+  @UnderwriteLineAccess(UnderwriteAction.ENDORSEMENTS_MANAGE)
+  @ApiParam(FLEET_PARAM)
+  @ApiOperation({
+    summary: 'Remove a vehicle on a "Fleet - Remove Vehicle" endorsement',
+  })
+  async removeVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('fleetEntry', ParseIntPipe) fleetEntry: number,
+  ) {
+    await this.assertFleetEndorsement(user, line, id);
+    return this.withVehicles(
+      await this.fleetEndorsements.removeVehicle(user, id, fleetEntry),
+    );
+  }
+
+  @Post('endorsements/:id/vehicles/:fleetEntry/revert')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('endorsements:update-draft')
+  @UnderwriteLineAccess(UnderwriteAction.ENDORSEMENTS_MANAGE)
+  @ApiParam(FLEET_PARAM)
+  @ApiOperation({ summary: 'Undo a pending vehicle addition or removal' })
+  async revertVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('fleetEntry', ParseIntPipe) fleetEntry: number,
+  ) {
+    await this.assertFleetEndorsement(user, line, id);
+    return this.withVehicles(
+      await this.fleetEndorsements.revertVehicle(user, id, fleetEntry),
+    );
+  }
+
+  private async assertFleetEndorsement(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    id: string,
+  ) {
+    this.assertFleet(line);
+    await this.transactions.assertTransactionInLine(
+      user,
+      line,
+      id,
+      'endorsement',
+    );
+  }
+
+  private withVehicles(transaction: PolicyTransaction) {
+    return {
+      transaction,
+      vehicles: this.fleetEndorsements.listVehicles(transaction),
+    };
   }
 
   private assertFleet(line: UnderwriteLine) {

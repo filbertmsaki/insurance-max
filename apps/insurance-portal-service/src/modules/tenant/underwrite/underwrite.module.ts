@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthorizationModule } from '../../shared/authorization/authorization.module';
 import { CategoryAccessModule } from '../category-access/category-access.module';
 import { CustomersModule } from '../customers/customers.module';
+import { InsuranceProductsModule } from '../insurance-products/insurance-products.module';
 import { PoliciesModule } from '../policies/policies.module';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyTransactionsModule } from '../policy-transactions/policy-transactions.module';
@@ -42,6 +43,7 @@ import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-s
     QuotationsModule,
     PoliciesModule,
     CustomersModule,
+    InsuranceProductsModule,
     PolicyTransactionsModule,
     AuthorizationModule,
     CategoryAccessModule,

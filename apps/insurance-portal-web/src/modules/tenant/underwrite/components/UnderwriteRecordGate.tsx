@@ -13,14 +13,17 @@ import { underwritePaths } from '../paths';
  */
 export function UnderwriteRecordGate({
   kind,
+  idParam = 'id',
   children,
 }: {
   kind: 'quotation' | 'policy';
+  /** Route param holding the record id (transaction routes use `policyId`). */
+  idParam?: string;
   children: ReactNode;
 }) {
   const navigate = useNavigate();
   const line = useUnderwriteLineParam();
-  const { id } = useParams<{ id: string }>();
+  const id = useParams()[idParam];
   const check = useUnderwriteRecordCheck(kind, line?.slug ?? 'motor', id);
 
   if (!line) return null;

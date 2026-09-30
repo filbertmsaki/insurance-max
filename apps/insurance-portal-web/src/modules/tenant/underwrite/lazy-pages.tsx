@@ -105,6 +105,23 @@ export const PolicyDetailPage = lazy(() =>
     default: module.PolicyDetailPage,
   })),
 );
+// Shared transaction screens; routes wrap them in `UnderwriteTransactionScope`
+// so they call the line-scoped endpoints.
+export const PolicyEndorsementPage = lazy(() =>
+  import('@/modules/tenant/policies/pages/PolicyEndorsementPage').then(
+    (module) => ({ default: module.PolicyEndorsementPage }),
+  ),
+);
+export const PolicyCancellationPage = lazy(() =>
+  import('@/modules/tenant/policies/pages/PolicyCancellationPage').then(
+    (module) => ({ default: module.PolicyCancellationPage }),
+  ),
+);
+export const PolicyRenewalPage = lazy(() =>
+  import('@/modules/tenant/policies/pages/PolicyRenewalPage').then(
+    (module) => ({ default: module.PolicyRenewalPage }),
+  ),
+);
 
 export function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<TableSkeleton />}>{children}</Suspense>;

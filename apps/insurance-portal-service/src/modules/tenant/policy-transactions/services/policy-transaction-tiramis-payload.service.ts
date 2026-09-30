@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -13,8 +17,19 @@ import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { PolicyCancellation } from '../entities/policy-cancellation.entity';
 import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
+import {
+  FLEET_ADD_VEHICLE_CODE,
+  FLEET_ENTRY_ADDED,
+  FLEET_ENTRY_CANCELLED,
+  FLEET_ENTRY_REMOVED,
+  FLEET_REMOVE_VEHICLE_CODE,
+} from '../constants/fleet-vehicle-endorsement.constants';
 
 const TIRA_COVER_NOTE_TYPE_ENDORSEMENT = 3;
+/** TIRAMIS CoverNoteType 1 = New (API v1.3 §6.1). */
+const TIRA_COVER_NOTE_TYPE_NEW = 1;
+/** TIRAMIS FleetHdr.FleetType 2 = "For addition" (API v1.3 §6.1). */
+const TIRA_FLEET_TYPE_ADDITION = 2;
 
 /**
  * Builds the JSON payload TIRAMIS expects for a cover-note *amendment*
@@ -172,6 +187,32 @@ export class PolicyTransactionTiramisPayloadService {
       ),
       policyHolders,
     };
+
+    if (
+      isFleet &&
+      endorsement.endorsement_type_code === FLEET_ADD_VEHICLE_CODE
+    ) {
+      return this.buildFleetAdditionPayload(
+        transaction,
+        snapshot,
+        pricing,
+        entries,
+        common,
+      );
+    }
+
+    if (
+      isFleet &&
+      endorsement.endorsement_type_code === FLEET_REMOVE_VEHICLE_CODE
+    ) {
+      return this.buildFleetRemovalPayload(
+        transaction,
+        endorsement,
+        pricing,
+        entries,
+        common,
+      );
+    }
 
     if (isFleet) {
       return this.buildFleetEndorsementPayload(
@@ -576,6 +617,274 @@ export class PolicyTransactionTiramisPayloadService {
     return endorsement.previous_cover_note_reference;
   }
 
+  /**
+   * "Fleet - Add Vehicle": TIRAMIS has no endorsement for a new fleet member
+   * (every endorsement item needs a previous cover-note reference), so the
+   * added vehicles go as a NEW fleet cover note (CoverNoteType 1) with
+   * FleetType 2 "For addition" under the existing FleetId, from the
+   * effective date to the policy end date, at their remaining-period premium
+   * (API v1.3 §6.1).
+   */
+  private buildFleetAdditionPayload(
+    transaction: PolicyTransaction,
+    snapshot: Record<string, unknown>,
+    pricing: Record<string, unknown>,
+    entries: Record<string, unknown>[],
+    common: Record<string, unknown>,
+  ) {
+    const added = entries
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => entry['status'] === FLEET_ENTRY_ADDED);
+
+    if (!added.length) {
+      throw new BadRequestException(
+        'The endorsement does not add any vehicle.',
+      );
+    }
+
+    const items = added.map(({ entry, index }) => {
+      const fleetEntry = Number(entry['fleetEntry'] ?? index + 1);
+      return {
+        fleetEntry: String(fleetEntry),
+        coverNoteNumber: this.buildEndorsementCoverNoteNumber(
+          transaction.transaction_no,
+          fleetEntry,
+        ),
+        ...this.previousCoverNoteReferenceFields(null),
+        coverNoteDesc:
+          entry['coverNoteDescription'] ??
+          `Fleet addition ${transaction.transaction_no}`,
+        operativeClause: entry['operativeClause'] ?? 'Fleet addition',
+        endorsementType: null,
+        endorsementReason: null,
+        endorsementPremiumEarned: null,
+        risks: this.mapEntryRisks(pricing, index),
+        subjectMatters: this.mapSubjectMatters(entry),
+        addons: this.mapAddons(entry),
+        motorDetail: this.mapMotorDetail(this.asObject(entry['motor']) ?? {}),
+      };
+    });
+
+    const totalExcludingTax = this.sumRisks(
+      items,
+      'premiumExcludingTaxEquivalent',
+    );
+    const issuedFleet = this.issuedFleet(transaction);
+    const first = items[0];
+
+    return {
+      ...common,
+      coverNoteType: TIRA_COVER_NOTE_TYPE_NEW,
+      coverNoteNumber: first.coverNoteNumber,
+      ...this.previousCoverNoteReferenceFields(null),
+      coverNoteDesc: first.coverNoteDesc,
+      operativeClause: first.operativeClause,
+      totalPremiumExcludingTax: totalExcludingTax,
+      totalPremiumIncludingTax: this.sumRisks(items, 'premiumIncludingTax'),
+      commissionPaid: DecimalUtil.value(totalExcludingTax)
+        .times(
+          DecimalUtil.value(
+            (common['commissionRate'] ?? '0') as string | number,
+          ),
+        )
+        .toFixed(4),
+      endorsementType: null,
+      endorsementReason: null,
+      endorsementPremiumEarned: null,
+      risks: first.risks,
+      subjectMatters: first.subjectMatters,
+      addons: first.addons,
+      isFleet: true,
+      fleet: {
+        fleetId: this.fleetIdOf(snapshot, issuedFleet),
+        fleetType: TIRA_FLEET_TYPE_ADDITION,
+        // FleetSize / ComprehensiveInsured describe this submission's items.
+        fleetSize: items.length,
+        comprehensiveInsured: this.comprehensiveCount(
+          issuedFleet,
+          items.length,
+        ),
+        items,
+      },
+    };
+  }
+
+  /**
+   * "Fleet - Remove Vehicle": one endorsement item per removed vehicle on
+   * its own cover note, EndorsementType 2 "Decreasing Premium Charged", with
+   * the vehicle's issued risks and the premium it earned up to the effective
+   * date (TIRAMIS rejects zero risk premiums, as for cancellations).
+   */
+  private buildFleetRemovalPayload(
+    transaction: PolicyTransaction,
+    endorsement: PolicyEndorsement,
+    pricing: Record<string, unknown>,
+    entries: Record<string, unknown>[],
+    common: Record<string, unknown>,
+  ) {
+    const removed = entries
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => entry['status'] === FLEET_ENTRY_REMOVED);
+
+    if (!removed.length) {
+      throw new BadRequestException(
+        'The endorsement does not remove any vehicle.',
+      );
+    }
+
+    const issuedFleet = this.issuedFleet(transaction);
+    const issuedItems = this.asArray(issuedFleet?.['items'])
+      .map((item) => this.asObject(item))
+      .filter((item): item is Record<string, unknown> => !!item);
+
+    const items = removed.map(({ entry, index }) => {
+      const fleetEntry = Number(entry['fleetEntry'] ?? index + 1);
+      const issued = issuedItems.find(
+        (item) => String(item['fleetEntry']) === String(fleetEntry),
+      );
+      const remaining = this.mapRiskRows(pricing['sourceRiskPricing'], index);
+      const risks = issued ? this.asArray(issued['risks']) : remaining;
+      const earned = DecimalUtil.value(this.sumRiskRows(risks)).minus(
+        DecimalUtil.value(this.sumRiskRows(remaining)),
+      );
+
+      return {
+        fleetEntry: String(fleetEntry),
+        coverNoteNumber: this.buildEndorsementCoverNoteNumber(
+          transaction.transaction_no,
+          fleetEntry,
+        ),
+        prevCoverNoteReferenceNumber: this.resolvePreviousReference(
+          transaction,
+          endorsement,
+          entry,
+          index,
+        ),
+        coverNoteDesc: `Vehicle removed ${transaction.transaction_no}`,
+        operativeClause:
+          issued?.['operativeClause'] ??
+          entry['operativeClause'] ??
+          'Endorsement',
+        endorsementType: endorsement.tira_endorsement_type,
+        endorsementReason: transaction.reason,
+        endorsementPremiumEarned: earned.isNegative()
+          ? '0.0000'
+          : earned.toFixed(4),
+        risks,
+        subjectMatters:
+          issued?.['subjectMatters'] ?? this.mapSubjectMatters(entry),
+        addons: issued?.['addons'] ?? this.mapAddons(entry),
+        motorDetail:
+          issued?.['motorDetail'] ??
+          this.mapMotorDetail(this.asObject(entry['motor']) ?? {}),
+      };
+    });
+
+    const first = items[0];
+
+    return {
+      ...common,
+      coverNoteNumber: first.coverNoteNumber,
+      prevCoverNoteReferenceNumber: first.prevCoverNoteReferenceNumber,
+      coverNoteDesc: first.coverNoteDesc,
+      operativeClause: first.operativeClause,
+      totalPremiumExcludingTax: this.sumRisks(
+        items,
+        'premiumExcludingTaxEquivalent',
+      ),
+      totalPremiumIncludingTax: this.sumRisks(items, 'premiumIncludingTax'),
+      endorsementPremiumEarned: items
+        .reduce(
+          (total, item) =>
+            total.plus(DecimalUtil.value(item.endorsementPremiumEarned)),
+          DecimalUtil.value(0),
+        )
+        .toFixed(4),
+      risks: first.risks,
+      subjectMatters: first.subjectMatters,
+      addons: first.addons,
+      isFleet: true,
+      fleet: {
+        fleetId: this.fleetIdOf(
+          transaction.proposed_policy_snapshot ?? {},
+          issuedFleet,
+        ),
+        fleetType: Number(issuedFleet?.['fleetType'] ?? 1),
+        fleetSize: items.length,
+        comprehensiveInsured: this.comprehensiveCount(
+          issuedFleet,
+          items.length,
+        ),
+        items,
+      },
+    };
+  }
+
+  /** The fleet header TIRA issued the policy with. */
+  private issuedFleet(transaction: PolicyTransaction) {
+    const source = this.asObject(transaction.source_policy_snapshot['source']);
+    const issued = this.asObject(source?.['finalizationSnapshot']);
+    return this.asObject(issued?.['fleet']);
+  }
+
+  private fleetIdOf(
+    snapshot: Record<string, unknown>,
+    issuedFleet: Record<string, unknown> | null,
+  ): string {
+    const coverFleet = this.asObject(
+      this.asObject(snapshot['cover'])?.['fleet'],
+    );
+    const fleetId = issuedFleet?.['fleetId'] ?? coverFleet?.['fleetId'];
+    if (typeof fleetId !== 'string' || !fleetId.trim()) {
+      throw new BadRequestException('The issued fleet has no TIRAMIS FleetId.');
+    }
+    return fleetId;
+  }
+
+  /**
+   * Vehicles in the submission insured comprehensively: all of them when
+   * the issued fleet was fully comprehensive, otherwise at most as many.
+   */
+  private comprehensiveCount(
+    issuedFleet: Record<string, unknown> | null,
+    itemCount: number,
+  ) {
+    const size = Number(issuedFleet?.['fleetSize'] ?? 0);
+    const comprehensive = Number(issuedFleet?.['comprehensiveInsured'] ?? 0);
+    if (!size || comprehensive >= size) return itemCount;
+    return Math.max(1, Math.min(comprehensive, itemCount));
+  }
+
+  private mapRiskRows(value: unknown, entryIndex: number) {
+    return this.mapEntryRisks({ proposedRiskPricing: value }, entryIndex);
+  }
+
+  private sumRiskRows(risks: unknown[]) {
+    return this.sumField(risks, 'premiumIncludingTax');
+  }
+
+  private sumRisks(
+    items: Array<{ risks: unknown[] }>,
+    field: 'premiumIncludingTax' | 'premiumExcludingTaxEquivalent',
+  ) {
+    return this.sumField(
+      items.flatMap((item) => item.risks),
+      field,
+    );
+  }
+
+  private sumField(rows: unknown[], field: string) {
+    let total = DecimalUtil.value(0);
+    for (const row of rows) {
+      total = total.plus(
+        DecimalUtil.value(
+          (this.asObject(row)?.[field] ?? 0) as string | number,
+        ),
+      );
+    }
+    return total.toFixed(4);
+  }
+
   private buildFleetEndorsementPayload(
     transaction: PolicyTransaction,
     endorsement: PolicyEndorsement,
@@ -584,9 +893,25 @@ export class PolicyTransactionTiramisPayloadService {
     entries: Record<string, unknown>[],
     common: Record<string, unknown>,
   ) {
+    if (
+      entries.some((entry) =>
+        ['ADDED', 'REMOVED'].includes(String(entry['status'] ?? '')),
+      )
+    ) {
+      // Only the "Fleet - Add/Remove Vehicle" endorsement types carry vehicle
+      // additions or removals (buildFleetAddition/RemovalPayload).
+      throw new UnprocessableEntityException(
+        'Vehicle additions and removals must be submitted on a fleet add/remove endorsement.',
+      );
+    }
+
     const cover = this.asObject(snapshot['cover']) ?? {};
     const fleet = this.asObject(cover['fleet']) ?? {};
-    const items = entries.map((entry, index) => {
+    // Vehicles removed by an earlier endorsement are no longer on cover.
+    const onCover = entries
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => entry['status'] !== FLEET_ENTRY_CANCELLED);
+    const items = onCover.map(({ entry, index }) => {
       const fleetEntry = Number(entry['fleetEntry'] ?? index + 1);
       const previousCoverNoteReferenceNumber = this.resolvePreviousReference(
         transaction,
@@ -639,7 +964,7 @@ export class PolicyTransactionTiramisPayloadService {
       fleet: {
         fleetId: fleet['fleetId'] ?? null,
         fleetType: fleet['fleetType'] ?? null,
-        fleetSize: entries.length,
+        fleetSize: items.length,
         comprehensiveInsured: fleet['comprehensiveInsured'] ?? null,
         items,
       },

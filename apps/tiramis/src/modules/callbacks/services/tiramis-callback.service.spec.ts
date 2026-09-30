@@ -251,6 +251,63 @@ describe('TiramisCallbackService', () => {
     expect(parsed.responseStatusDesc).toBe('Successful');
   });
 
+  it('returns one cover-note reference per fleet vehicle', () => {
+    const { service } = createService();
+    const vehicle = (entry: number, coverNote: string, reference: string) => `
+          <FleetResDtl>
+            <FleetEntry>${entry}</FleetEntry>
+            <CoverNoteNumber>${coverNote}</CoverNoteNumber>
+            <CoverNoteReferenceNumber>${reference}</CoverNoteReferenceNumber>
+            <StickerNumber>STK-${entry}</StickerNumber>
+            <ResponseStatusCode>TIRA001</ResponseStatusCode>
+            <ResponseStatusDesc>Successful</ResponseStatusDesc>
+          </FleetResDtl>`;
+
+    const parsed = (service as any).parseCallback(`
+      <TiraMsg>
+        <MotorCoverNoteRefRes>
+          <FleetResHdr>
+            <ResponseId>RESP-1</ResponseId>
+            <RequestId>REQ-1</RequestId>
+            <FleetId>FL1</FleetId>
+            <FleetStatusCode>TIRA001</FleetStatusCode>
+            <FleetStatusDesc>Successful</FleetStatusDesc>
+          </FleetResHdr>
+          ${vehicle(1, 'CN-1', 'REF-1')}
+          ${vehicle(2, 'CN-2', 'REF-2')}
+        </MotorCoverNoteRefRes>
+        <MsgSignature>SIG</MsgSignature>
+      </TiraMsg>
+    `);
+
+    const response = (service as any).buildRegulatoryResponse(
+      parsed,
+      {
+        requestId: 'REQ-1',
+        responseId: 'RESP-1',
+        responseStatusCode: 'TIRA001',
+        responseStatusDesc: 'Successful',
+      },
+      'MotorCoverNoteRefReq',
+      'Q-1',
+    );
+
+    expect(response.coverNotes).toEqual([
+      expect.objectContaining({
+        fleetEntry: 1,
+        sourceCoverNoteNumber: 'CN-1',
+        coverNoteReferenceNumber: 'REF-1',
+        stickerNumber: 'STK-1',
+      }),
+      expect.objectContaining({
+        fleetEntry: 2,
+        sourceCoverNoteNumber: 'CN-2',
+        coverNoteReferenceNumber: 'REF-2',
+        stickerNumber: 'STK-2',
+      }),
+    ]);
+  });
+
   it('signs response acknowledgements with the original transaction configuration', async () => {
     const { service, tiramisConfigService, signatureService } = createService();
 
