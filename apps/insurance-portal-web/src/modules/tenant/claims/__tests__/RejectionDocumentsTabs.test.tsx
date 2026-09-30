@@ -140,7 +140,9 @@ describe('RejectionTab', () => {
       ),
     );
 
-    expect(screen.getByText(/rejected before\s+intimation/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/rejected before\s+intimation/),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Send to TIRA/ })).toBeNull();
   });
 
@@ -225,6 +227,9 @@ describe('DocumentsTab', () => {
       'claim-1',
       details,
     );
-    expect(registry.completeUploadSession).toHaveBeenCalledWith('token-1', file);
+    expect(registry.completeUploadSession).toHaveBeenCalledWith(
+      'token-1',
+      file,
+    );
   });
 });

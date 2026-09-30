@@ -9,25 +9,78 @@ const COMMON_PARAMETERS = [
   { key: 'period_end', label: 'To', dataType: 'DATE', required: false },
   { key: 'branch_id', label: 'Branch', dataType: 'UUID', required: false },
   { key: 'product_id', label: 'Product', dataType: 'UUID', required: false },
-  { key: 'category_id', label: 'Insurance class', dataType: 'UUID', required: false },
+  {
+    key: 'category_id',
+    label: 'Insurance class',
+    dataType: 'UUID',
+    required: false,
+  },
   { key: 'status', label: 'Claim status', dataType: 'STRING', required: false },
 ];
 
 const REPORTS: Array<[code: string, name: string, description: string]> = [
-  ['CLAIMS_REGISTER', 'Claims Register', 'Every claim with policy, customer, amounts and status'],
-  ['CLAIMS_OUTSTANDING', 'Outstanding Claims', 'Open claims with an approved amount not yet paid'],
+  [
+    'CLAIMS_REGISTER',
+    'Claims Register',
+    'Every claim with policy, customer, amounts and status',
+  ],
+  [
+    'CLAIMS_OUTSTANDING',
+    'Outstanding Claims',
+    'Open claims with an approved amount not yet paid',
+  ],
   ['CLAIMS_PAID', 'Paid Claims', 'Claims with confirmed payments'],
   ['CLAIMS_REJECTED', 'Rejected Claims', 'Claims rejected by the insurer'],
-  ['CLAIMS_RESERVE', 'Claims Reserve Report', 'Reserve movements (initial, increases, reductions, releases)'],
-  ['CLAIMS_BY_PRODUCT', 'Claims by Product', 'Claim counts and amounts per insurance product'],
-  ['CLAIMS_BY_CLASS', 'Claims by Insurance Class', 'Claim counts and amounts per insurance class'],
-  ['CLAIMS_BY_BRANCH', 'Claims by Branch', 'Claim counts and amounts per branch'],
-  ['CLAIMS_BY_CLAIMANT', 'Claims by Claimant', 'Claim counts and amounts per claimant'],
-  ['CLAIMS_BY_LOSS_TYPE', 'Claims by Loss Type', 'Claim counts and amounts per loss type'],
-  ['CLAIMS_BY_STATUS', 'Claims by Status', 'Claim counts and amounts per lifecycle status'],
-  ['CLAIMS_PAYMENTS', 'Claims Payment Report', 'Claim payments with disbursement and TIRA status'],
-  ['CLAIMS_ASSESSMENTS', 'Claims Assessment Report', 'Assessments and reassessments with approved amounts'],
-  ['CLAIMS_TIRA_SUBMISSIONS', 'TIRA Claims Submission Report', 'Every claim submission to TIRAMIS and its outcome'],
+  [
+    'CLAIMS_RESERVE',
+    'Claims Reserve Report',
+    'Reserve movements (initial, increases, reductions, releases)',
+  ],
+  [
+    'CLAIMS_BY_PRODUCT',
+    'Claims by Product',
+    'Claim counts and amounts per insurance product',
+  ],
+  [
+    'CLAIMS_BY_CLASS',
+    'Claims by Insurance Class',
+    'Claim counts and amounts per insurance class',
+  ],
+  [
+    'CLAIMS_BY_BRANCH',
+    'Claims by Branch',
+    'Claim counts and amounts per branch',
+  ],
+  [
+    'CLAIMS_BY_CLAIMANT',
+    'Claims by Claimant',
+    'Claim counts and amounts per claimant',
+  ],
+  [
+    'CLAIMS_BY_LOSS_TYPE',
+    'Claims by Loss Type',
+    'Claim counts and amounts per loss type',
+  ],
+  [
+    'CLAIMS_BY_STATUS',
+    'Claims by Status',
+    'Claim counts and amounts per lifecycle status',
+  ],
+  [
+    'CLAIMS_PAYMENTS',
+    'Claims Payment Report',
+    'Claim payments with disbursement and TIRA status',
+  ],
+  [
+    'CLAIMS_ASSESSMENTS',
+    'Claims Assessment Report',
+    'Assessments and reassessments with approved amounts',
+  ],
+  [
+    'CLAIMS_TIRA_SUBMISSIONS',
+    'TIRA Claims Submission Report',
+    'Every claim submission to TIRAMIS and its outcome',
+  ],
 ];
 
 export class ClaimsReportDefinitions1791000000001 implements MigrationInterface {

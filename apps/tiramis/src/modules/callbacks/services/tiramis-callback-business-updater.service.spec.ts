@@ -2,7 +2,9 @@ import { TiramisCallbackBusinessUpdaterService } from './tiramis-callback-busine
 
 describe('TiramisCallbackBusinessUpdaterService', () => {
   const claimRepository = { markFinalResponseByRequestId: jest.fn() };
-  const dischargeVoucherRepository = { markFinalResponseByRequestId: jest.fn() };
+  const dischargeVoucherRepository = {
+    markFinalResponseByRequestId: jest.fn(),
+  };
   const service = new TiramisCallbackBusinessUpdaterService(
     {} as any,
     {} as any,
@@ -28,7 +30,9 @@ describe('TiramisCallbackBusinessUpdaterService', () => {
       transactionId: 'txn-1',
     });
 
-    expect(dischargeVoucherRepository.markFinalResponseByRequestId).toHaveBeenCalledWith(
+    expect(
+      dischargeVoucherRepository.markFinalResponseByRequestId,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({ requestId: 'AIC-2', transactionId: 'txn-1' }),
     );
     expect(claimRepository.markFinalResponseByRequestId).not.toHaveBeenCalled();

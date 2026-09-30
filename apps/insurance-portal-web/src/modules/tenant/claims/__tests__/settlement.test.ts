@@ -13,7 +13,7 @@ import {
 import type { ClaimDetail } from '../types';
 
 function claim(overrides: Partial<ClaimDetail> = {}): ClaimDetail {
-  return {
+  const detail: Partial<ClaimDetail> = {
     id: 'claim-1',
     claim_no: 'CLM-1',
     status: 'PAYMENT_PENDING',
@@ -22,7 +22,8 @@ function claim(overrides: Partial<ClaimDetail> = {}): ClaimDetail {
     discharge_vouchers: [],
     payments: [],
     ...overrides,
-  } as ClaimDetail;
+  };
+  return detail as ClaimDetail;
 }
 
 describe('payableAmount', () => {

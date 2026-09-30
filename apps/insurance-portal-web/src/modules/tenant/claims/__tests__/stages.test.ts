@@ -40,7 +40,7 @@ const completeClaimant: ClaimClaimant = {
 };
 
 function claim(overrides: Partial<ClaimDetail> = {}): ClaimDetail {
-  return {
+  const detail: Partial<ClaimDetail> = {
     id: 'claim-1',
     claim_no: 'CLM-2026-00001',
     status: 'INTIMATION_PENDING',
@@ -48,7 +48,8 @@ function claim(overrides: Partial<ClaimDetail> = {}): ClaimDetail {
     regulatory_operations: [],
     approvals: [],
     ...overrides,
-  } as ClaimDetail;
+  };
+  return detail as ClaimDetail;
 }
 
 describe('claimant readiness for TIRA', () => {

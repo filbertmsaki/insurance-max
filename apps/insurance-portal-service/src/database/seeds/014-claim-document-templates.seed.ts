@@ -128,14 +128,19 @@ export default class ClaimDocumentTemplatesSeeder implements Seeder {
           footer_content: null,
           variable_schema: definition.schema,
           sample_data: null,
-          template_hash: createHash('sha256').update(definition.content).digest('hex'),
+          template_hash: createHash('sha256')
+            .update(definition.content)
+            .digest('hex'),
           created_by: author.user_id,
           approved_by: author.user_id,
           approved_at: new Date(),
         }),
       );
 
-      await templates.update({ id: template.id }, { active_version_id: version.id });
+      await templates.update(
+        { id: template.id },
+        { active_version_id: version.id },
+      );
     }
   }
 }

@@ -474,7 +474,9 @@ export class ClaimsLifecycleCompletion1791000000000 implements MigrationInterfac
     );
 
     await queryRunner.query(`DROP TABLE IF EXISTS "claim_events"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "claim_document_requirements"`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "claim_document_requirements"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "claim_approvals"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "claim_approval_limits"`);
 

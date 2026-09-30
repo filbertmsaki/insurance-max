@@ -48,7 +48,9 @@ export class ClaimsReportGenerator implements ReportGenerator {
     return definition.generator_key === this.key;
   }
 
-  async generate(context: ReportGeneratorContext): Promise<GeneratedReportPayload> {
+  async generate(
+    context: ReportGeneratorContext,
+  ): Promise<GeneratedReportPayload> {
     const code = context.definition.code;
     const scope = this.scope(context);
 
@@ -70,9 +72,17 @@ export class ClaimsReportGenerator implements ReportGenerator {
       case CLAIMS_REPORT_CODES.RESERVE:
         return this.reserve(scope);
       case CLAIMS_REPORT_CODES.BY_PRODUCT:
-        return this.grouped(scope, "COALESCE(prod.product_name, 'Unknown')", 'product');
+        return this.grouped(
+          scope,
+          "COALESCE(prod.product_name, 'Unknown')",
+          'product',
+        );
       case CLAIMS_REPORT_CODES.BY_CLASS:
-        return this.grouped(scope, "COALESCE(cat.name, 'Unknown')", 'insurance_class');
+        return this.grouped(
+          scope,
+          "COALESCE(cat.name, 'Unknown')",
+          'insurance_class',
+        );
       case CLAIMS_REPORT_CODES.BY_BRANCH:
         return this.grouped(scope, "COALESCE(b.name, 'Unassigned')", 'branch');
       case CLAIMS_REPORT_CODES.BY_LOSS_TYPE:
@@ -93,7 +103,10 @@ export class ClaimsReportGenerator implements ReportGenerator {
   }
 
   private scope(context: ReportGeneratorContext): ScopeSql {
-    const filters = { ...(context.filters ?? {}), ...(context.parameters ?? {}) };
+    const filters = {
+      ...(context.filters ?? {}),
+      ...(context.parameters ?? {}),
+    };
     const params: unknown[] = [context.companyId];
     const clauses: string[] = [];
     const add = (sql: string, value: unknown) => {
@@ -101,8 +114,8 @@ export class ClaimsReportGenerator implements ReportGenerator {
       clauses.push(sql.replace('?', `$${params.length}`));
     };
     const text = (key: string) =>
-      typeof filters[key] === 'string' && (filters[key] as string).trim()
-        ? (filters[key] as string).trim()
+      typeof filters[key] === 'string' && filters[key].trim()
+        ? filters[key].trim()
         : null;
 
     const from = text('period_start') ?? text('from');
@@ -148,7 +161,10 @@ export class ClaimsReportGenerator implements ReportGenerator {
       WHERE c.company_id = $1 AND c.deleted_at IS NULL`;
   }
 
-  private async register(scope: ScopeSql, extra: string): Promise<GeneratedReportPayload> {
+  private async register(
+    scope: ScopeSql,
+    extra: string,
+  ): Promise<GeneratedReportPayload> {
     const rows = await this.dataSource.query(
       `SELECT c.claim_no, c.claim_reference_number, c.claim_notification_number,
               p.policy_no, c.cover_note_reference_number,
@@ -167,11 +183,27 @@ export class ClaimsReportGenerator implements ReportGenerator {
 
     return {
       columns: [
-        'claim_no', 'claim_reference_number', 'claim_notification_number', 'policy_no',
-        'cover_note_reference_number', 'customer', 'product', 'insurance_class', 'branch',
-        'loss_date', 'claim_report_date', 'loss_type', 'loss_nature', 'status',
-        'currency_code', 'estimated_amount', 'reserve', 'approved_amount', 'paid_amount',
-        'outstanding_amount', 'created_at',
+        'claim_no',
+        'claim_reference_number',
+        'claim_notification_number',
+        'policy_no',
+        'cover_note_reference_number',
+        'customer',
+        'product',
+        'insurance_class',
+        'branch',
+        'loss_date',
+        'claim_report_date',
+        'loss_type',
+        'loss_nature',
+        'status',
+        'currency_code',
+        'estimated_amount',
+        'reserve',
+        'approved_amount',
+        'paid_amount',
+        'outstanding_amount',
+        'created_at',
       ],
       rows,
     };
@@ -188,12 +220,25 @@ export class ClaimsReportGenerator implements ReportGenerator {
     );
 
     return {
-      columns: ['claim_no', 'movement_no', 'movement_type', 'signed_amount', 'currency_code', 'reason', 'effective_at', 'created_at'],
+      columns: [
+        'claim_no',
+        'movement_no',
+        'movement_type',
+        'signed_amount',
+        'currency_code',
+        'reason',
+        'effective_at',
+        'created_at',
+      ],
       rows,
     };
   }
 
-  private async grouped(scope: ScopeSql, dimension: string, label: string): Promise<GeneratedReportPayload> {
+  private async grouped(
+    scope: ScopeSql,
+    dimension: string,
+    label: string,
+  ): Promise<GeneratedReportPayload> {
     const rows = await this.dataSource.query(
       `SELECT ${dimension} AS ${label},
               COUNT(*)::int AS claims,
@@ -208,7 +253,15 @@ export class ClaimsReportGenerator implements ReportGenerator {
     );
 
     return {
-      columns: [label, 'claims', 'open_claims', 'estimated_amount', 'reserve', 'approved_amount', 'paid_amount'],
+      columns: [
+        label,
+        'claims',
+        'open_claims',
+        'estimated_amount',
+        'reserve',
+        'approved_amount',
+        'paid_amount',
+      ],
       rows,
     };
   }
@@ -226,7 +279,14 @@ export class ClaimsReportGenerator implements ReportGenerator {
     );
 
     return {
-      columns: ['claimant', 'identification_number', 'claimant_category', 'claims', 'approved_amount', 'paid_amount'],
+      columns: [
+        'claimant',
+        'identification_number',
+        'claimant_category',
+        'claims',
+        'approved_amount',
+        'paid_amount',
+      ],
       rows,
     };
   }
@@ -243,7 +303,18 @@ export class ClaimsReportGenerator implements ReportGenerator {
     );
 
     return {
-      columns: ['claim_no', 'claim_payment_number', 'status', 'paid_amount', 'currency_code', 'payment_mode', 'payment_reference', 'payment_date', 'tiramis_status', 'created_at'],
+      columns: [
+        'claim_no',
+        'claim_payment_number',
+        'status',
+        'paid_amount',
+        'currency_code',
+        'payment_mode',
+        'payment_reference',
+        'payment_date',
+        'tiramis_status',
+        'created_at',
+      ],
       rows,
     };
   }
@@ -261,12 +332,26 @@ export class ClaimsReportGenerator implements ReportGenerator {
     );
 
     return {
-      columns: ['claim_no', 'claim_assessment_number', 'is_re_assessment', 'status', 'assessment_amount', 'approved_claim_amount', 'currency_code', 'assessment_received_date', 'claim_approval_date', 'claim_approval_authority', 'tiramis_status'],
+      columns: [
+        'claim_no',
+        'claim_assessment_number',
+        'is_re_assessment',
+        'status',
+        'assessment_amount',
+        'approved_claim_amount',
+        'currency_code',
+        'assessment_received_date',
+        'claim_approval_date',
+        'claim_approval_authority',
+        'tiramis_status',
+      ],
       rows,
     };
   }
 
-  private async tiraSubmissions(scope: ScopeSql): Promise<GeneratedReportPayload> {
+  private async tiraSubmissions(
+    scope: ScopeSql,
+  ): Promise<GeneratedReportPayload> {
     const rows = await this.dataSource.query(
       `SELECT c.claim_no, op.operation_type, op.source_record_number, op.sequence_number,
               op.status, op.regulatory_reference, op.acknowledgement_code,
@@ -279,7 +364,19 @@ export class ClaimsReportGenerator implements ReportGenerator {
     );
 
     return {
-      columns: ['claim_no', 'operation_type', 'source_record_number', 'sequence_number', 'status', 'regulatory_reference', 'acknowledgement_code', 'final_response_code', 'final_response_message', 'submitted_at', 'completed_at'],
+      columns: [
+        'claim_no',
+        'operation_type',
+        'source_record_number',
+        'sequence_number',
+        'status',
+        'regulatory_reference',
+        'acknowledgement_code',
+        'final_response_code',
+        'final_response_message',
+        'submitted_at',
+        'completed_at',
+      ],
       rows,
     };
   }

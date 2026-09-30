@@ -1,6 +1,7 @@
 # Claims Module: Handoff
 
-- **Branch:** `feat/claim-module`. The main commit is `97facb0 feat: add claims module lifecycle`, and it is pushed.
+- **Branch:** `feat/claim-module`. Backend: `97facb0 feat: add claims module lifecycle`. TIRAMIS v1.3 rules, the web module and the end-to-end test follow in later commits (see §2).
+- **Status:** feature-complete. Migrations and seeds are applied on the dev databases, and the web module, e2e test and full verification are done. What is left is listed in §3.
 - **Design reference:** `docs/claims-module-design.md` (architecture, state machine, TIRAMIS mapping, permissions).
 - **Approved decisions:**
   - Extend the existing claims module; do not rebuild it.
@@ -151,76 +152,61 @@ Updated existing specs: `claim-decision.service.spec.ts`, `tiramis-business-vali
 
 **Type-check:** `tsc --noEmit` is clean for both `apps/tiramis` and `apps/insurance-portal-service`.
 
+**Final verification (Phase L, 2026-09-30):**
+
+| Check | Result |
+|---|---|
+| `npm run lint:all` | Clean |
+| `npm run test:backend` | 951 passed, 1 todo (157 suites) |
+| Web tests (`vitest run --maxWorkers=2 --testTimeout=30000`) | 251 passed (41 files) |
+| `npm run test:policy-endorsement` | 108 passed (23 suites) |
+| e2e (`test/jest-e2e.json`) | 17 passed: claims lifecycle 10, portal business scope 7 |
+| Builds: `tiramis`, `insurance-portal-service`, `insurance-portal-web` | Pass |
+| `npm run format:check` | Clean for every file this branch changes. 9 files already on `main` still fail. |
+
+The web suite times out at the default 5 s per test on a loaded machine, so run it with the options above.
+
 ### Database
 Both dev databases were backed up before any migration was run:
 - `backups/database/insurance_portal_db_development_2026-09-29_232127_pre-claims.sql`
 - `backups/database/tiramis_db_development_2026-09-29_232127_pre-claims.sql`
 
-The four new migrations are **pending**. None have been run yet.
+All migrations and seeds have been applied to the dev databases (`ClaimDocumentTemplatesSeeder` is registered in `seeds/index.ts`). `npm run db:backup` does not work on this machine: `pg_dump` is not on PATH (use `C:\Program Files\PostgreSQL\18\bin`), and the script breaks on the space in the output path. Call `pg_dump` directly.
+
+### TIRAMIS v1.3 rules (`libs/contracts/src/claims/claim-tiramis-rules.ts`)
+- `validateClaimTiramisPayload` encodes the §9–14 field rules: lengths, Y/N flags, code ranges, currency and rate, full and identity claimant forms, date ordering (TIRA079/065/198), all-or-none voucher adjustment and reconciliation, and LitigationReason only when litigated.
+- The gateway validators and the portal business validation both use it. `ClaimTiramisService.submit` validates before any status change (`CLAIM_TIRAMIS_PAYLOAD_INVALID`).
+- IDENTITY_TYPE seed codes corrected: 5 = ZANID, 6 = TIN, 7 = Company Incorporation.
+
+### Web module (`apps/insurance-portal-web/src/modules/tenant/claims`)
+- **Menu:** Claims → Dashboard, All Claims, New Claim, one queue per stage, Documents, Reports, Configuration.
+- **New claim wizard:** policy → risk/vehicle → incident → claimants → review. It also edits drafts.
+- **Claim detail tabs:** Overview, Policy & Risk, Incident, Claimants, Documents, Intimation, Reserve, Assessment, Discharge Voucher, Payments, Rejection, Approvals, TIRA Transactions, Activity. The action buttons follow `allowed_actions` and the user's permissions. Close and Reopen ask for a reason.
+- **Pages:** dashboard (headline figures, stage funnel, TIRA health, monthly trend, breakdowns), documents register, the 14 claims reports (through `reportingApi`), and configuration (approval bands and document requirements).
+- **Backend additions for the UI:** `PATCH discharge-vouchers/:voucherId` for draft edits. The claim detail now returns `disbursements` and `user_names`.
+
+### End-to-end test (`apps/insurance-portal-service/test/claims/claims-lifecycle.e2e-spec.ts`)
+Real database, following the portal business-scope e2e. Only the portal → gateway HTTP hop is replaced by an in-process mock TIRA; final callbacks are delivered the way `TiramisStatusSyncService` does. Covers:
+- notification → intimation → assessment → voucher → partial and final payment → SETTLED
+- a duplicate callback and a late acknowledgement after final success
+- a failed intimation retried with a new RequestId
+- automatic TIRA sends on assessment approval, the voucher response and disbursement confirmation
+- company and branch isolation
+- rejection before intimation (not reported to TIRA), then closure
+
+Run it with `npx jest --config test/jest-e2e.json claims-lifecycle --runInBand` from `apps/insurance-portal-service`.
 
 ---
 
-## 3. What remains (in order)
+## 3. What remains
 
-1. **Register the new seed.** Add `ClaimDocumentTemplatesSeeder` (`014-claim-document-templates.seed.ts`) to `productionSeeders` in `apps/insurance-portal-service/src/database/seeds/index.ts`.
-
-2. **Run migrations and seeders:**
-   ```
-   npm run migration:run:tiramis
-   npm run migration:run:insurance-portal-service
-   npm run db:seed
-   ```
-   `npm run db:backup` fails on this machine for two reasons: `pg_dump` is not on PATH (it is at `C:\Program Files\PostgreSQL\17\bin`), and the script passes an unquoted output path through a Windows shell, which breaks on the space in `To Moved`. Call `pg_dump` directly instead.
-
-3. **Build the frontend.** Only `apps/insurance-portal-web/src/modules/tenant/claims/types.ts` exists so far.
-   - **Module layout:** follow `src/modules/tenant/underwrite` (api.ts, hooks.ts, paths.ts, nav.ts, routes.tsx, lazy-pages.tsx, constants.ts, utils.ts).
-   - **Sidebar:** in `src/components/layout/nav-config.ts`, remove the "Claims" item from the old Underwriting group and add a new **Claims** section with these items:
-     - Dashboard
-     - All Claims
-     - Notification
-     - Intimation
-     - Assessment
-     - Discharge Voucher
-     - Payment
-     - Rejection
-     - Documents
-     - Reports
-     - Configuration
-   - **Routes:** in `src/App.tsx`, replace the old `/claims` routes with `/claims/dashboard`, `/claims`, `/claims/new`, `/claims/queue/:queue`, `/claims/:id`, `/claims/documents`, `/claims/reports` and `/claims/configuration`.
-   - **Pages:**
-     - Dashboard
-     - List page
-     - Queue page (one component, filtered with `?queue=`)
-     - New Claim wizard: policy → risk/vehicle → incident → claimants → review
-     - Claim details page with tabs: Overview, Policy & Risk, Incident, Claimants, Documents, Reserve, Assessment, Approvals, Discharge Voucher, Payments, Rejection, TIRA Transactions, Activity
-     - Intimation wizard
-     - Documents page
-     - Reports page, using the existing `/tenant/reports` API
-     - Configuration page (approval limits and document requirements)
-   - **Action buttons:** drive them from `allowed_actions` on `GET /tenant/claims/:id`, combined with the user's permissions.
-   - **Web tests:** vitest specs for the nav, constants, claimant form and wizard.
-   - The UI spec is in design doc §3 and §8.
-
-4. **E2E test.** Add a real-database spec under `apps/insurance-portal-service/test/`, following `portal/portal-business-scope.e2e-spec.ts`. It should drive notification → intimation → assessment → voucher → payment against mock-tira (port 5050, which already supports every claim root). Cover:
-   - a duplicate callback
-   - a failed response followed by a retry
-   - partial payment and settlement
-   - cross-company and branch isolation
-
-5. **Full verification:**
-   ```
-   npm run lint:all
-   npm run test:all
-   npm run build:tiramis
-   npm run build:insurance-portal-service
-   npm run build:insurance-portal-web
-   ```
-   Also run `npm run verify:policy-endorsement` to check for regressions. Fix any failures, commit, and push.
-
-6. **Optional follow-ups:**
+1. **Confirm against the TIRA test environment:**
+   - whether empty voucher adjustment and reconciliation tags are accepted
+   - one full claim through the real gateway and mock-tira (port 5050); the e2e covers the portal side only
+2. **Optional follow-ups:**
    - Configurable per-company number prefixes. The defaults are `CLM-`, `CLN-`, `INT-`, `ASM-`, `DV-`, `CP-` and `CRJ-` followed by the year.
    - Real malware scanning. The document security scan is currently a stub.
-   - The admin backup script bug described in step 2.
+   - The `db:backup` script bug described above.
 
 ---
 
@@ -231,4 +217,5 @@ The four new migrations are **pending**. None have been run yet.
 - A claim can be closed only when every TIRA submission for it has been accepted.
 - If no authority limits are configured, one approval level applies and anyone holding the approve permission can approve. The person who submitted an item still cannot approve it; company admins are exempt, and that exemption is audited.
 - Timestamps sent to TIRA are formatted in East Africa Time (`YYYY-MM-DDTHH:mm:ss`).
+- Claims staff need company or branch data scope on their membership (`company_users.quotation_policy_data_scope`). The default, own records, hides every policy the user did not create, so they cannot register claims.
 - The earlier uncommitted underwrite edits (from `feat/underwrite-module`) are **not** part of this branch.

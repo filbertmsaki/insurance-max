@@ -495,7 +495,7 @@ export class TiramisBusinessRecordSyncService {
     ].includes(status as TiramisSubmissionStatus);
   }
 
-/**
+  /**
    * Claim stages advance only from the final TIRA outcome; the claims module
    * owns that logic. Resolved lazily because ClaimsModule imports this
    * module.
@@ -508,7 +508,9 @@ export class TiramisBusinessRecordSyncService {
     }
 
     try {
-      const outcome = this.getPolicyTransactionProvider(ClaimTiramisOutcomeService);
+      const outcome = this.getPolicyTransactionProvider(
+        ClaimTiramisOutcomeService,
+      );
       await outcome.applyFromTracking(tracking);
     } catch (error: any) {
       this.logger.warn(
@@ -518,7 +520,7 @@ export class TiramisBusinessRecordSyncService {
     }
   }
 
-    private async syncReinsuranceOutcomeIfNeeded(
+  private async syncReinsuranceOutcomeIfNeeded(
     tracking: TiramisSubmissionTrackingEntity,
   ) {
     if (
