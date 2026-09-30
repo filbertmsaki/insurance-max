@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { ClaimRegulatoryOperationType } from '@insurance-max/contracts';
+import {
+  ClaimRegulatoryOperationType,
+  validateClaimTiramisPayload,
+} from '@insurance-max/contracts';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 
@@ -80,6 +83,21 @@ export class ClaimTiramisService {
   }
 
   async submit(request: ClaimSubmissionRequest) {
+    // Check the TIRAMIS v1.3 field rules before anything is written, so an
+    // incomplete record never moves the claim to *_SUBMITTED.
+    const errors = validateClaimTiramisPayload(
+      request.operationType,
+      request.payload,
+    );
+
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        code: 'CLAIM_TIRAMIS_PAYLOAD_INVALID',
+        message: `${this.label(request.operationType)} ${request.sourceRecordNumber} is not ready for TIRAMIS`,
+        errors,
+      });
+    }
+
     const operation = await this.dataSource.transaction(async (manager) => {
       const claim = await manager
         .getRepository(InsuranceClaim)

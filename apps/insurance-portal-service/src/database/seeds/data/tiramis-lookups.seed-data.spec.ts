@@ -23,6 +23,22 @@ describe('TIRAMIS lookup seed data', () => {
     expect(groups.has(group)).toBe(true);
   });
 
+  it('uses the TIRAMIS v1.3 identification type codes 1–7', () => {
+    const identityTypes = TIRAMIS_LOOKUPS.filter(
+      (lookup) => lookup.group === 'IDENTITY_TYPE',
+    ).map((lookup) => [lookup.code, lookup.label]);
+
+    expect(identityTypes).toEqual([
+      ['1', 'National ID'],
+      ['2', 'Voter ID'],
+      ['3', 'Passport'],
+      ['4', 'Driving License'],
+      ['5', 'Zanzibar Resident ID (ZANID)'],
+      ['6', 'Tax Identification Number'],
+      ['7', 'Company Incorporation Certificate Number'],
+    ]);
+  });
+
   it('does not define duplicate code values inside a lookup group', () => {
     const keys = TIRAMIS_LOOKUPS.map(
       (lookup) => `${lookup.group}:${lookup.code}`,

@@ -1,7 +1,27 @@
 import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import {
+  ClaimRegulatoryOperationType,
+  validateClaimTiramisPayload,
+} from '@insurance-max/contracts';
 import { DataSource } from 'typeorm';
 
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
+
+const CLAIM_OPERATION_BY_REQUEST_TYPE: Record<
+  string,
+  ClaimRegulatoryOperationType
+> = {
+  [TiramisRequestType.CLAIM_NOTIFICATION]:
+    ClaimRegulatoryOperationType.NOTIFICATION,
+  [TiramisRequestType.CLAIM_INTIMATION]:
+    ClaimRegulatoryOperationType.INTIMATION,
+  [TiramisRequestType.CLAIM_ASSESSMENT]:
+    ClaimRegulatoryOperationType.ASSESSMENT,
+  [TiramisRequestType.DISCHARGE_VOUCHER]:
+    ClaimRegulatoryOperationType.DISCHARGE_VOUCHER,
+  [TiramisRequestType.CLAIM_PAYMENT]: ClaimRegulatoryOperationType.PAYMENT,
+  [TiramisRequestType.CLAIM_REJECTION]: ClaimRegulatoryOperationType.REJECTION,
+};
 
 @Injectable()
 export class TiramisBusinessValidationService {
@@ -102,66 +122,20 @@ export class TiramisBusinessValidationService {
         this.requireNonEmptyArray(payload, 'participants', errors);
         break;
 
-      // Claim rules follow TIRAMIS v1.3 §9–14. Intimation carries the full
-      // claimant record; the later stages carry only the claimant identity.
+      // Claim rules follow TIRAMIS v1.3 §9–14 and are shared with the
+      // gateway, so both sides reject the same payloads.
       case TiramisRequestType.CLAIM_NOTIFICATION:
-        for (const field of [
-          'claimNotificationNumber',
-          'coverNoteReferenceNumber',
-          'claimReportDate',
-          'claimFormDullyFilled',
-          'lossDate',
-          'lossNature',
-          'lossType',
-          'lossLocation',
-          'officerName',
-          'officerTitle',
-        ]) {
-          this.requireField(payload, field, errors);
-        }
-        break;
-
       case TiramisRequestType.CLAIM_INTIMATION:
-        this.requireField(payload, 'claimIntimationNumber', errors);
-        this.requireField(payload, 'claimReferenceNumber', errors);
-        this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireClaimants(payload, errors, 'full');
-        break;
-
       case TiramisRequestType.CLAIM_ASSESSMENT:
-        this.requireField(payload, 'claimAssessmentNumber', errors);
-        this.requireField(payload, 'claimIntimationNumber', errors);
-        this.requireField(payload, 'claimReferenceNumber', errors);
-        this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireClaimants(payload, errors, 'identity');
-        break;
-
       case TiramisRequestType.DISCHARGE_VOUCHER:
-        this.requireField(payload, 'dischargeVoucherNumber', errors);
-        this.requireField(payload, 'claimAssessmentNumber', errors);
-        this.requireField(payload, 'claimReferenceNumber', errors);
-        this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireClaimants(payload, errors, 'identity');
-        break;
-
       case TiramisRequestType.CLAIM_PAYMENT:
-        this.requireField(payload, 'claimPaymentNumber', errors);
-        this.requireField(payload, 'claimReferenceNumber', errors);
-        this.requireField(payload, 'claimIntimationNumber', errors);
-        this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireClaimants(payload, errors, 'identity');
-        break;
-
       case TiramisRequestType.CLAIM_REJECTION:
-        this.requireField(payload, 'claimRejectionNumber', errors);
-        this.requireField(payload, 'claimReferenceNumber', errors);
-        this.requireField(payload, 'claimIntimationNumber', errors);
-        this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireField(payload, 'rejectionReason', errors);
-        if (String(payload.rejectionReason ?? '').length > 100) {
-          errors.push('rejectionReason must not exceed 100 characters');
-        }
-        this.requireClaimants(payload, errors, 'identity');
+        errors.push(
+          ...validateClaimTiramisPayload(
+            CLAIM_OPERATION_BY_REQUEST_TYPE[requestType],
+            payload,
+          ),
+        );
         break;
 
       case TiramisRequestType.COVER_NOTE_VERIFICATION:
@@ -331,8 +305,8 @@ export class TiramisBusinessValidationService {
       await this.validatePersonLocation(path, claimant, errors);
       await this.requireLookupValue(
         'IDENTITY_TYPE',
-        claimant?.identityType,
-        `${path}.identityType`,
+        claimant?.claimantIdType,
+        `${path}.claimantIdType`,
         errors,
       );
       await this.requireLookupValue(
@@ -380,8 +354,8 @@ export class TiramisBusinessValidationService {
     );
     await this.requireLookupValue(
       'IDENTITY_TYPE',
-      payload.assessorIdentityType,
-      'assessorIdentityType',
+      payload.assessorIdType,
+      'assessorIdType',
       errors,
     );
   }
@@ -891,47 +865,6 @@ export class TiramisBusinessValidationService {
     );
 
     return new Set(rows.map((row: { column_name: string }) => row.column_name));
-  }
-
-  private requireClaimants(
-    payload: Record<string, any>,
-    errors: string[],
-    form: 'full' | 'identity',
-  ) {
-    const claimants = payload.claimants;
-
-    if (!Array.isArray(claimants) || claimants.length === 0) {
-      errors.push('claimants is required and must contain at least one entry');
-      return;
-    }
-
-    const required =
-      form === 'full'
-        ? [
-            'claimantName',
-            'claimantCategory',
-            'claimantType',
-            'claimantIdNumber',
-            'claimantIdType',
-            'countryCode',
-            'district',
-            'claimantPhoneNumber',
-          ]
-        : [
-            'claimantCategory',
-            'claimantType',
-            'claimantIdNumber',
-            'claimantIdType',
-          ];
-
-    claimants.forEach((claimant: any, index: number) => {
-      for (const field of required) {
-        const value = claimant?.[field];
-        if (value === undefined || value === null || String(value).trim() === '') {
-          errors.push(`claimants[${index}].${field} is required`);
-        }
-      }
-    });
   }
 
   private requireField(

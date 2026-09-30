@@ -1,3 +1,8 @@
+import {
+  ClaimRegulatoryOperationType,
+  validateClaimTiramisPayload,
+} from '@insurance-max/contracts';
+
 import { ClaimantType } from '../enums/claim.enums';
 import { ClaimTiramisPayloadService } from './claim-tiramis-payload.service';
 
@@ -84,7 +89,9 @@ describe('ClaimTiramisPayloadService', () => {
       title: 'Claims Officer',
     });
 
-    expect(Object.keys(payload).sort()).toEqual([...NOTIFICATION_FIELDS].sort());
+    expect(Object.keys(payload).sort()).toEqual(
+      [...NOTIFICATION_FIELDS].sort(),
+    );
     expect(payload.officerName).toBe('Jane Officer');
   });
 
@@ -118,7 +125,9 @@ describe('ClaimTiramisPayloadService', () => {
     expect(payload.claimReferenceNumber).toBe('TIRA-CLM-1');
     expect(payload.claimReserveAmount).toBe('1200000.00');
     expect(payload.exchangeRate).toBe('1.00');
-    expect(Object.keys(payload.claimants[0]).sort()).toEqual([...FULL_CLAIMANT_FIELDS].sort());
+    expect(Object.keys(payload.claimants[0]).sort()).toEqual(
+      [...FULL_CLAIMANT_FIELDS].sort(),
+    );
     // Policyholder claimant defaults to TIRA category 1.
     expect(payload.claimants[0].claimantCategory).toBe(1);
   });
@@ -129,7 +138,9 @@ describe('ClaimTiramisPayloadService', () => {
       claimant_type: ClaimantType.THIRD_PARTY,
     });
 
-    expect(Object.keys(identity).sort()).toEqual([...IDENTITY_CLAIMANT_FIELDS].sort());
+    expect(Object.keys(identity).sort()).toEqual(
+      [...IDENTITY_CLAIMANT_FIELDS].sort(),
+    );
     expect(identity.claimantCategory).toBe(2);
   });
 
@@ -180,7 +191,9 @@ describe('ClaimTiramisPayloadService', () => {
       claimants: [],
     } as any);
 
-    expect(payload.rejectionReason).toBe('Loss excluded under policy exclusion 4(b)');
+    expect(payload.rejectionReason).toBe(
+      'Loss excluded under policy exclusion 4(b)',
+    );
     expect(payload).not.toHaveProperty('claimAssessmentNumber');
   });
 
@@ -202,5 +215,114 @@ describe('ClaimTiramisPayloadService', () => {
 
     expect(payload.litigationReason).toBe('');
     expect(payload.paymentMode).toBe(3);
+  });
+
+  it('builds payloads that pass the shared TIRAMIS claim rules', () => {
+    const identity = [service.identityClaimant(claimant)];
+    const payloads: Array<[ClaimRegulatoryOperationType, object]> = [
+      [
+        ClaimRegulatoryOperationType.NOTIFICATION,
+        service.notification(claim, {
+          name: 'Jane Officer',
+          title: 'Claims Officer',
+        }),
+      ],
+      [
+        ClaimRegulatoryOperationType.INTIMATION,
+        service.intimation(
+          claim,
+          {
+            claim_intimation_number: 'INT-2026-00001',
+            claim_intimation_date: new Date('2026-09-02T06:00:00Z'),
+            currency_code: 'TZS',
+            exchange_rate: '1',
+            claim_estimated_amount: '1500000',
+            claim_reserve_amount: '1200000',
+            claim_reserve_method: 'Case estimate',
+            loss_assessment_option: 2,
+            assessor_name: 'Bima Adjusters',
+            assessor_id_number: '123-456-789',
+            assessor_id_type: 7,
+          } as any,
+          [claimant],
+        ),
+      ],
+      [
+        ClaimRegulatoryOperationType.ASSESSMENT,
+        service.assessment(
+          claim,
+          {
+            claim_assessment_number: 'ASM-2026-00001',
+            claim_intimation_number: 'INT-2026-00001',
+            assessment_received_date: new Date('2026-09-05T06:00:00Z'),
+            assessment_report_summary: 'Front bumper and bonnet replaced',
+            currency_code: 'TZS',
+            exchange_rate: '1',
+            assessment_amount: '1000000',
+            approved_claim_amount: '900000',
+            claim_approval_date: new Date('2026-09-06T06:00:00Z'),
+            claim_approval_authority: 'Claims Manager',
+            is_re_assessment: 'N',
+          } as any,
+          [claimant],
+        ),
+      ],
+      [
+        ClaimRegulatoryOperationType.DISCHARGE_VOUCHER,
+        service.dischargeVoucher(claim, {
+          discharge_voucher_number: 'DV-2026-00001',
+          claim_assessment_number: 'ASM-2026-00001',
+          discharge_voucher_date: new Date('2026-09-10T06:00:00Z'),
+          currency_code: 'TZS',
+          exchange_rate: '1',
+          claim_offer_communication_date: new Date('2026-09-10T06:00:00Z'),
+          claim_offer_amount: '900000',
+          claimant_response_date: new Date('2026-09-11T06:00:00Z'),
+          offer_accepted: 'Y',
+          claimants: identity,
+        } as any),
+      ],
+      [
+        ClaimRegulatoryOperationType.PAYMENT,
+        service.payment(claim, {
+          claim_payment_number: 'CP-2026-00001',
+          claim_intimation_number: 'INT-2026-00001',
+          payment_date: new Date('2026-09-15T06:00:00Z'),
+          paid_amount: '900000',
+          payment_mode: 3,
+          parties_notified: 'Y',
+          net_premium_earned: '150000',
+          claim_resulted_litigation: 'N',
+          litigation_reason: null,
+          currency_code: 'TZS',
+          exchange_rate: '1',
+          claimants: identity,
+        } as any),
+      ],
+      [
+        ClaimRegulatoryOperationType.REJECTION,
+        service.rejection(claim, {
+          claim_rejection_number: 'CRJ-2026-00001',
+          claim_intimation_number: 'INT-2026-00001',
+          rejection_date: new Date('2026-09-12T06:00:00Z'),
+          tira_rejection_reason: 'Loss excluded under policy exclusion 4(b)',
+          claim_resulted_litigation: 'N',
+          claim_amount: '1500000',
+          currency_code: 'TZS',
+          exchange_rate: '1',
+          claimants: identity,
+        } as any),
+      ],
+    ];
+
+    for (const [type, payload] of payloads) {
+      expect({
+        type,
+        errors: validateClaimTiramisPayload(
+          type,
+          payload as Record<string, unknown>,
+        ),
+      }).toEqual({ type, errors: [] });
+    }
   });
 });

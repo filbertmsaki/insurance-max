@@ -3,6 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  ClaimRegulatoryOperationType,
+  validateClaimTiramisPayload,
+} from '@insurance-max/contracts';
 
 import {
   TiramisConfigService,
@@ -893,495 +897,60 @@ export class TiramisClaimService {
   }
 
   validateClaimNotificationPayload(dto: CreateClaimNotificationDto) {
-    const errors: string[] = [];
-
-    this.requireString(
-      dto.claimNotificationNumber,
-      'claimNotificationNumber',
-      errors,
+    this.assertValid(
+      ClaimRegulatoryOperationType.NOTIFICATION,
+      dto,
+      'Claim Notification',
     );
-
-    this.requireString(
-      dto.coverNoteReferenceNumber,
-      'coverNoteReferenceNumber',
-      errors,
-    );
-
-    this.requireDate(dto.claimReportDate, 'claimReportDate', errors);
-
-    this.requireString(
-      dto.claimFormDullyFilled,
-      'claimFormDullyFilled',
-      errors,
-    );
-
-    if (
-      dto.claimFormDullyFilled &&
-      !['Y', 'N'].includes(String(dto.claimFormDullyFilled).toUpperCase())
-    ) {
-      errors.push('claimFormDullyFilled must be Y or N');
-    }
-
-    this.requireDate(dto.lossDate, 'lossDate', errors);
-    this.requireString(dto.lossNature, 'lossNature', errors);
-    this.requireString(dto.lossType, 'lossType', errors);
-    this.requireString(dto.lossLocation, 'lossLocation', errors);
-    this.requireString(dto.officerName, 'officerName', errors);
-    this.requireString(dto.officerTitle, 'officerTitle', errors);
-
-    if (errors.length > 0) {
-      throw new BadRequestException({
-        message: 'Claim Notification payload validation failed',
-        errors,
-      });
-    }
   }
 
   private validateClaimAssessmentPayload(dto: CreateClaimAssessmentDto) {
-    const errors: string[] = [];
-
-    this.requireString(
-      dto.claimAssessmentNumber,
-      'claimAssessmentNumber',
-      errors,
+    this.assertValid(
+      ClaimRegulatoryOperationType.ASSESSMENT,
+      dto,
+      'Claim Assessment',
     );
-    this.requireString(
-      dto.claimIntimationNumber,
-      'claimIntimationNumber',
-      errors,
-    );
-    this.requireString(
-      dto.claimReferenceNumber,
-      'claimReferenceNumber',
-      errors,
-    );
-    this.requireString(
-      dto.coverNoteReferenceNumber,
-      'coverNoteReferenceNumber',
-      errors,
-    );
-
-    this.requireDate(
-      dto.assessmentReceivedDate,
-      'assessmentReceivedDate',
-      errors,
-    );
-    this.requireString(
-      dto.assessmentReportSummary,
-      'assessmentReportSummary',
-      errors,
-    );
-
-    this.requireString(dto.currencyCode, 'currencyCode', errors);
-
-    if (dto.currencyCode && String(dto.currencyCode).length !== 3) {
-      errors.push('currencyCode must be a 3-letter code, example: TZS');
-    }
-
-    this.requireString(dto.exchangeRate, 'exchangeRate', errors);
-    this.requireString(dto.assessmentAmount, 'assessmentAmount', errors);
-    this.requireString(dto.approvedClaimAmount, 'approvedClaimAmount', errors);
-
-    this.requireDate(dto.claimApprovalDate, 'claimApprovalDate', errors);
-    this.requireString(
-      dto.claimApprovalAuthority,
-      'claimApprovalAuthority',
-      errors,
-    );
-
-    this.requireString(dto.isReAssessment, 'isReAssessment', errors);
-
-    if (
-      dto.isReAssessment &&
-      !['Y', 'N'].includes(String(dto.isReAssessment).toUpperCase())
-    ) {
-      errors.push('isReAssessment must be Y or N');
-    }
-
-    if (
-      !dto.claimants ||
-      !Array.isArray(dto.claimants) ||
-      dto.claimants.length === 0
-    ) {
-      errors.push('claimants must contain at least one claimant');
-    }
-
-    dto.claimants?.forEach((claimant, index) => {
-      const path = `claimants[${index}]`;
-
-      if (
-        claimant.claimantCategory === null ||
-        claimant.claimantCategory === undefined
-      ) {
-        errors.push(`${path}.claimantCategory is required`);
-      }
-
-      if (
-        claimant.claimantType === null ||
-        claimant.claimantType === undefined
-      ) {
-        errors.push(`${path}.claimantType is required`);
-      }
-
-      this.requireString(
-        claimant.claimantIdNumber,
-        `${path}.claimantIdNumber`,
-        errors,
-      );
-
-      if (
-        claimant.claimantIdType === null ||
-        claimant.claimantIdType === undefined
-      ) {
-        errors.push(`${path}.claimantIdType is required`);
-      }
-    });
-
-    if (errors.length > 0) {
-      throw new BadRequestException({
-        message: 'Claim Assessment payload validation failed',
-        errors,
-      });
-    }
   }
 
   private validateClaimIntimationPayload(dto: CreateClaimIntimationDto) {
-    const errors: string[] = [];
-
-    this.requireString(
-      dto.claimIntimationNumber,
-      'claimIntimationNumber',
-      errors,
+    this.assertValid(
+      ClaimRegulatoryOperationType.INTIMATION,
+      dto,
+      'Claim Intimation',
     );
-    this.requireString(
-      dto.claimReferenceNumber,
-      'claimReferenceNumber',
-      errors,
-    );
-    this.requireString(
-      dto.coverNoteReferenceNumber,
-      'coverNoteReferenceNumber',
-      errors,
-    );
-
-    this.requireDate(dto.claimIntimationDate, 'claimIntimationDate', errors);
-
-    this.requireString(dto.currencyCode, 'currencyCode', errors);
-
-    if (dto.currencyCode && String(dto.currencyCode).length !== 3) {
-      errors.push('currencyCode must be a 3-letter code, example: TZS');
-    }
-
-    this.requireString(dto.exchangeRate, 'exchangeRate', errors);
-    this.requireString(
-      dto.claimEstimatedAmount,
-      'claimEstimatedAmount',
-      errors,
-    );
-    this.requireString(dto.claimReserveAmount, 'claimReserveAmount', errors);
-    this.requireString(dto.claimReserveMethod, 'claimReserveMethod', errors);
-
-    if (
-      dto.lossAssessmentOption === null ||
-      dto.lossAssessmentOption === undefined
-    ) {
-      errors.push('lossAssessmentOption is required');
-    }
-
-    if (
-      dto.lossAssessmentOption &&
-      ![1, 2].includes(Number(dto.lossAssessmentOption))
-    ) {
-      errors.push('lossAssessmentOption must be 1 or 2');
-    }
-
-    this.requireString(dto.assessorName, 'assessorName', errors);
-    this.requireString(dto.assessorIdNumber, 'assessorIdNumber', errors);
-
-    if (dto.assessorIdType === null || dto.assessorIdType === undefined) {
-      errors.push('assessorIdType is required');
-    }
-
-    if (
-      !dto.claimants ||
-      !Array.isArray(dto.claimants) ||
-      dto.claimants.length === 0
-    ) {
-      errors.push('claimants must contain at least one claimant');
-    }
-
-    dto.claimants?.forEach((claimant, index) => {
-      const path = `claimants[${index}]`;
-
-      this.requireString(claimant.claimantName, `${path}.claimantName`, errors);
-      this.requireString(claimant.countryCode, `${path}.countryCode`, errors);
-
-      if (claimant.countryCode && claimant.countryCode.length !== 3) {
-        errors.push(`${path}.countryCode must be a 3-letter ISO alpha-3 code`);
-      }
-
-      this.requireString(claimant.district, `${path}.district`, errors);
-      this.requireString(
-        claimant.claimantPhoneNumber,
-        `${path}.claimantPhoneNumber`,
-        errors,
-      );
-
-      if (
-        claimant.gender &&
-        !['M', 'F'].includes(String(claimant.gender).toUpperCase())
-      ) {
-        errors.push(`${path}.gender must be M or F`);
-      }
-
-      if (
-        claimant.claimantBirthDate &&
-        Number.isNaN(new Date(claimant.claimantBirthDate).getTime())
-      ) {
-        errors.push(`${path}.claimantBirthDate must be a valid date`);
-      }
-    });
-
-    if (errors.length > 0) {
-      throw new BadRequestException({
-        message: 'Claim Intimation payload validation failed',
-        errors,
-      });
-    }
   }
 
   private validateClaimPaymentPayload(dto: CreateClaimPaymentDto) {
-    const errors: string[] = [];
-
-    this.requireString(dto.claimPaymentNumber, 'claimPaymentNumber', errors);
-    this.requireString(
-      dto.claimReferenceNumber,
-      'claimReferenceNumber',
-      errors,
+    this.assertValid(
+      ClaimRegulatoryOperationType.PAYMENT,
+      dto,
+      'Claim Payment',
     );
-    this.requireString(
-      dto.claimIntimationNumber,
-      'claimIntimationNumber',
-      errors,
-    );
-    this.requireString(
-      dto.coverNoteReferenceNumber,
-      'coverNoteReferenceNumber',
-      errors,
-    );
-
-    this.requireDate(dto.paymentDate, 'paymentDate', errors);
-    this.requireString(dto.paidAmount, 'paidAmount', errors);
-    this.requireString(dto.paymentMode, 'paymentMode', errors);
-
-    if (dto.paymentMode && !['1', '2', '3'].includes(String(dto.paymentMode))) {
-      errors.push('paymentMode must be 1, 2, or 3');
-    }
-
-    this.requireString(dto.partiesNotified, 'partiesNotified', errors);
-
-    if (
-      dto.partiesNotified &&
-      !['Y', 'N'].includes(String(dto.partiesNotified).toUpperCase())
-    ) {
-      errors.push('partiesNotified must be Y or N');
-    }
-
-    this.requireString(dto.netPremiumEarned, 'netPremiumEarned', errors);
-
-    this.requireString(
-      dto.claimResultedLitigation,
-      'claimResultedLitigation',
-      errors,
-    );
-
-    if (
-      dto.claimResultedLitigation &&
-      !['Y', 'N'].includes(String(dto.claimResultedLitigation).toUpperCase())
-    ) {
-      errors.push('claimResultedLitigation must be Y or N');
-    }
-
-    this.requireString(dto.litigationReason, 'litigationReason', errors);
-    this.requireString(dto.currencyCode, 'currencyCode', errors);
-
-    if (dto.currencyCode && String(dto.currencyCode).length !== 3) {
-      errors.push('currencyCode must be a 3-letter code, example: TZS');
-    }
-
-    this.requireString(dto.exchangeRate, 'exchangeRate', errors);
-
-    if (
-      !dto.claimants ||
-      !Array.isArray(dto.claimants) ||
-      dto.claimants.length === 0
-    ) {
-      errors.push('claimants must contain at least one claimant');
-    }
-
-    dto.claimants?.forEach((claimant, index) => {
-      const path = `claimants[${index}]`;
-
-      if (
-        claimant.claimantCategory === null ||
-        claimant.claimantCategory === undefined
-      ) {
-        errors.push(`${path}.claimantCategory is required`);
-      }
-
-      if (
-        claimant.claimantType === null ||
-        claimant.claimantType === undefined
-      ) {
-        errors.push(`${path}.claimantType is required`);
-      }
-
-      this.requireString(
-        claimant.claimantIdNumber,
-        `${path}.claimantIdNumber`,
-        errors,
-      );
-
-      if (
-        claimant.claimantIdType === null ||
-        claimant.claimantIdType === undefined
-      ) {
-        errors.push(`${path}.claimantIdType is required`);
-      }
-    });
-
-    if (errors.length > 0) {
-      throw new BadRequestException({
-        message: 'Claim Payment payload validation failed',
-        errors,
-      });
-    }
   }
 
   private validateClaimRejectionPayload(dto: CreateClaimRejectionDto) {
-    const errors: string[] = [];
-
-    this.requireString(
-      dto.claimRejectionNumber,
-      'claimRejectionNumber',
-      errors,
+    this.assertValid(
+      ClaimRegulatoryOperationType.REJECTION,
+      dto,
+      'Claim Rejection',
     );
-    this.requireString(
-      dto.claimReferenceNumber,
-      'claimReferenceNumber',
-      errors,
+  }
+
+  private assertValid(
+    type: ClaimRegulatoryOperationType,
+    dto: object,
+    label: string,
+  ) {
+    const errors = validateClaimTiramisPayload(
+      type,
+      dto as Record<string, unknown>,
     );
-    this.requireString(
-      dto.claimIntimationNumber,
-      'claimIntimationNumber',
-      errors,
-    );
-    this.requireString(
-      dto.coverNoteReferenceNumber,
-      'coverNoteReferenceNumber',
-      errors,
-    );
-
-    this.requireDate(dto.rejectionDate, 'rejectionDate', errors);
-    this.requireString(dto.rejectionReason, 'rejectionReason', errors);
-
-    if (dto.rejectionReason && String(dto.rejectionReason).length > 100) {
-      errors.push('rejectionReason must not exceed 100 characters');
-    }
-
-    this.requireString(
-      dto.claimResultedLitigation,
-      'claimResultedLitigation',
-      errors,
-    );
-
-    if (
-      dto.claimResultedLitigation &&
-      !['Y', 'N'].includes(String(dto.claimResultedLitigation).toUpperCase())
-    ) {
-      errors.push('claimResultedLitigation must be Y or N');
-    }
-
-    this.requireString(dto.claimAmount, 'claimAmount', errors);
-    this.requireString(dto.currencyCode, 'currencyCode', errors);
-
-    if (dto.currencyCode && String(dto.currencyCode).length !== 3) {
-      errors.push('currencyCode must be a 3-letter code, example: TZS');
-    }
-
-    this.requireString(dto.exchangeRate, 'exchangeRate', errors);
-
-    if (
-      !dto.claimants ||
-      !Array.isArray(dto.claimants) ||
-      dto.claimants.length === 0
-    ) {
-      errors.push('claimants must contain at least one claimant');
-    }
-
-    dto.claimants?.forEach((claimant, index) => {
-      const path = `claimants[${index}]`;
-
-      if (
-        claimant.claimantCategory === null ||
-        claimant.claimantCategory === undefined
-      ) {
-        errors.push(`${path}.claimantCategory is required`);
-      }
-
-      if (
-        claimant.claimantType === null ||
-        claimant.claimantType === undefined
-      ) {
-        errors.push(`${path}.claimantType is required`);
-      }
-
-      this.requireString(
-        claimant.claimantIdNumber,
-        `${path}.claimantIdNumber`,
-        errors,
-      );
-
-      if (
-        claimant.claimantIdType === null ||
-        claimant.claimantIdType === undefined
-      ) {
-        errors.push(`${path}.claimantIdType is required`);
-      }
-    });
 
     if (errors.length > 0) {
       throw new BadRequestException({
-        message: 'Claim Rejection payload validation failed',
+        message: `${label} payload validation failed`,
         errors,
       });
-    }
-  }
-
-  private requireString(value: unknown, fieldName: string, errors: string[]) {
-    if (
-      value === null ||
-      value === undefined ||
-      (typeof value === 'string' && value.trim() === '')
-    ) {
-      errors.push(`${fieldName} is required`);
-    }
-  }
-
-  private requireDate(value: unknown, fieldName: string, errors: string[]) {
-    if (
-      value === null ||
-      value === undefined ||
-      (typeof value === 'string' && value.trim() === '')
-    ) {
-      errors.push(`${fieldName} is required`);
-      return;
-    }
-
-    const date = new Date(value as any);
-
-    if (Number.isNaN(date.getTime())) {
-      errors.push(`${fieldName} must be a valid date`);
     }
   }
 }

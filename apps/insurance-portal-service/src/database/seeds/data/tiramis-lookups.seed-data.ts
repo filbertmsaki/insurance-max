@@ -14,7 +14,14 @@ export const TIRAMIS_LOOKUPS = [
   { group: 'IDENTITY_TYPE', code: '2', label: 'Voter ID' },
   { group: 'IDENTITY_TYPE', code: '3', label: 'Passport' },
   { group: 'IDENTITY_TYPE', code: '4', label: 'Driving License' },
-  { group: 'IDENTITY_TYPE', code: '5', label: 'Tax Identification Number' },
+  // TIRAMIS v1.3 §4.1 / §10.1 identification types.
+  { group: 'IDENTITY_TYPE', code: '5', label: 'Zanzibar Resident ID (ZANID)' },
+  { group: 'IDENTITY_TYPE', code: '6', label: 'Tax Identification Number' },
+  {
+    group: 'IDENTITY_TYPE',
+    code: '7',
+    label: 'Company Incorporation Certificate Number',
+  },
 
   { group: 'GENDER', code: 'M', label: 'Male' },
   { group: 'GENDER', code: 'F', label: 'Female' },

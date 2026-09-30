@@ -188,6 +188,7 @@ describe('TiramisRetrySchedulerService recovery states', () => {
       {
         webhookUrl:
           'http://localhost:9090/api/v1/webhooks/tiramis/notifications',
+        clientConfigurationId: null,
       },
     );
   });
@@ -239,6 +240,7 @@ describe('TiramisRetrySchedulerService recovery states', () => {
       {
         webhookUrl:
           'http://localhost:9090/api/v1/webhooks/tiramis/notifications',
+        clientConfigurationId: null,
       },
     );
   });

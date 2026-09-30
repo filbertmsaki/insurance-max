@@ -3,6 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  ClaimRegulatoryOperationType,
+  validateClaimTiramisPayload,
+} from '@insurance-max/contracts';
 
 import {
   TIRAMIS_CLAIM_ROOT_ELEMENT,
@@ -236,96 +240,16 @@ export class TiramisDischargeVoucherService {
   }
 
   validateDischargeVoucherPayload(dto: CreateDischargeVoucherDto) {
-    const errors: string[] = [];
-
-    this.requireString(
-      dto.dischargeVoucherNumber,
-      'dischargeVoucherNumber',
-      errors,
+    const errors = validateClaimTiramisPayload(
+      ClaimRegulatoryOperationType.DISCHARGE_VOUCHER,
+      dto as unknown as Record<string, unknown>,
     );
-    this.requireString(
-      dto.claimAssessmentNumber,
-      'claimAssessmentNumber',
-      errors,
-    );
-    this.requireString(
-      dto.claimReferenceNumber,
-      'claimReferenceNumber',
-      errors,
-    );
-    this.requireString(
-      dto.coverNoteReferenceNumber,
-      'coverNoteReferenceNumber',
-      errors,
-    );
-    this.requireDate(dto.dischargeVoucherDate, 'dischargeVoucherDate', errors);
-    this.requireString(dto.currencyCode, 'currencyCode', errors);
-
-    if (dto.currencyCode && String(dto.currencyCode).length !== 3) {
-      errors.push('currencyCode must be a 3-letter code, example: TZS');
-    }
-
-    this.requireString(dto.exchangeRate, 'exchangeRate', errors);
-    this.requireString(dto.claimOfferAmount, 'claimOfferAmount', errors);
-
-    if (
-      dto.offerAccepted &&
-      !['Y', 'N'].includes(String(dto.offerAccepted).toUpperCase())
-    ) {
-      errors.push('offerAccepted must be Y or N');
-    }
-
-    const claimants = dto.claimants || [];
-
-    if (claimants.length === 0) {
-      errors.push('at least one claimant is required');
-    }
-
-    claimants.forEach((claimant, index) => {
-      const prefix = `claimants[${index}]`;
-
-      if (![1, 2].includes(Number(claimant.claimantCategory))) {
-        errors.push(`${prefix}.claimantCategory must be 1 or 2`);
-      }
-
-      if (![1, 2].includes(Number(claimant.claimantType))) {
-        errors.push(`${prefix}.claimantType must be 1 or 2`);
-      }
-
-      this.requireString(
-        claimant.claimantIdNumber,
-        `${prefix}.claimantIdNumber`,
-        errors,
-      );
-
-      const idType = Number(claimant.claimantIdType);
-      if (!Number.isInteger(idType) || idType < 1 || idType > 7) {
-        errors.push(`${prefix}.claimantIdType must be between 1 and 7`);
-      }
-    });
 
     if (errors.length > 0) {
       throw new BadRequestException({
         message: 'Discharge Voucher payload validation failed',
         errors,
       });
-    }
-  }
-
-  private requireString(value: unknown, fieldName: string, errors: string[]) {
-    if (value === null || value === undefined || String(value).trim() === '') {
-      errors.push(`${fieldName} is required`);
-    }
-  }
-
-  private requireDate(value: unknown, fieldName: string, errors: string[]) {
-    if (
-      value === null ||
-      value === undefined ||
-      String(value).trim() === '' ||
-      Number.isNaN(new Date(value as any).getTime())
-    ) {
-      errors.push(`${fieldName} must be a valid date`);
     }
   }
 }
