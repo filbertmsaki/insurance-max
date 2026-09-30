@@ -75,8 +75,9 @@ export function validateClaimTiramisPayload(
     case ClaimRegulatoryOperationType.DISCHARGE_VOUCHER:
       // §12.1 DischargeVoucherReq. The voucher is reported once the claimant
       // has responded, so the offer and response fields are always present.
-      // Adjustment and reconciliation are recorded only when they happened,
-      // and then in full.
+      // Every adjustment and reconciliation tag is mandatory and TIRA rejects
+      // empty ones (TIRA005); without either, "no adjustment" of 0 and the
+      // offer amount as reconciled are reported.
       rules.text('dischargeVoucherNumber', 50);
       rules.text('claimAssessmentNumber', 50);
       rules.text('claimReferenceNumber', 50);
@@ -88,22 +89,12 @@ export function validateClaimTiramisPayload(
       rules.dateTime('claimantResponseDate');
       rules.notAfter('claimOfferCommunicationDate', 'claimantResponseDate'); // TIRA198
       rules.oneOf('offerAccepted', YES_NO);
-      rules.allOrNone(
-        [
-          () => rules.dateTime('adjustmentDate'),
-          () => rules.text('adjustmentReason', 1000),
-          () => rules.money('adjustmentAmount'),
-        ],
-        ['adjustmentDate', 'adjustmentReason', 'adjustmentAmount'],
-      );
-      rules.allOrNone(
-        [
-          () => rules.dateTime('reconciliationDate'),
-          () => rules.text('reconciliationSummary', 1000),
-          () => rules.money('reconciledAmount'),
-        ],
-        ['reconciliationDate', 'reconciliationSummary', 'reconciledAmount'],
-      );
+      rules.dateTime('adjustmentDate');
+      rules.text('adjustmentReason', 1000);
+      rules.money('adjustmentAmount');
+      rules.dateTime('reconciliationDate');
+      rules.text('reconciliationSummary', 1000);
+      rules.money('reconciledAmount');
       rules.claimants('identity');
       break;
 
@@ -119,13 +110,9 @@ export function validateClaimTiramisPayload(
       rules.oneOf('partiesNotified', YES_NO);
       rules.money('netPremiumEarned');
       rules.oneOf('claimResultedLitigation', YES_NO);
-      // The tag is always sent; it carries a reason only for litigated claims
-      // (TIRA094).
-      if (rules.upper('claimResultedLitigation') === 'Y') {
-        rules.text('litigationReason', 1000);
-      } else {
-        rules.maxLength('litigationReason', 1000);
-      }
+      // Mandatory and non-empty even without litigation: TIRA refuses an
+      // empty or missing tag (TIRA005); "None" is used then (TIRA094).
+      rules.text('litigationReason', 1000);
       rules.currency();
       rules.claimants('identity');
       break;

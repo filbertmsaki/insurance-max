@@ -36,8 +36,16 @@ describe('TiramisClaimService payload validation', () => {
     null as any,
   ) as any;
 
-  it('accepts a payment with no litigation and an empty LitigationReason', () => {
-    expect(() => service.validateClaimPaymentPayload(payment)).not.toThrow();
+  it('refuses an empty LitigationReason even without litigation (TIRA005)', () => {
+    expect(() => service.validateClaimPaymentPayload(payment)).toThrow(
+      BadRequestException,
+    );
+    expect(() =>
+      service.validateClaimPaymentPayload({
+        ...payment,
+        litigationReason: 'None',
+      }),
+    ).not.toThrow();
   });
 
   it('requires a LitigationReason when the claim was litigated', () => {

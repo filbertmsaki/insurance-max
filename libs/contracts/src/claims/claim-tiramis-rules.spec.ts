@@ -221,7 +221,7 @@ describe('validateClaimTiramisPayload', () => {
   });
 
   describe('discharge voucher', () => {
-    it('allows a voucher with no adjustment or reconciliation', () => {
+    it('refuses empty adjustment and reconciliation tags, as TIRA does (TIRA005)', () => {
       expect(
         validate(Op.DISCHARGE_VOUCHER, {
           adjustmentDate: '',
@@ -231,19 +231,24 @@ describe('validateClaimTiramisPayload', () => {
           reconciliationSummary: '',
           reconciledAmount: '',
         }),
-      ).toEqual([]);
-    });
-
-    it('requires a partial adjustment to be completed', () => {
-      expect(
-        validate(Op.DISCHARGE_VOUCHER, {
-          adjustmentReason: '',
-          adjustmentAmount: '',
-        }),
       ).toEqual([
+        'adjustmentDate is required',
         'adjustmentReason is required',
         'adjustmentAmount is required',
+        'reconciliationDate is required',
+        'reconciliationSummary is required',
+        'reconciledAmount is required',
       ]);
+    });
+
+    it('accepts "no adjustment" of zero with the offer as reconciled', () => {
+      expect(
+        validate(Op.DISCHARGE_VOUCHER, {
+          adjustmentReason: 'No adjustment',
+          adjustmentAmount: '0.00',
+          reconciliationSummary: 'No reconciliation',
+        }),
+      ).toEqual([]);
     });
 
     it('requires the claimant response before reporting (§12.1)', () => {
@@ -260,11 +265,17 @@ describe('validateClaimTiramisPayload', () => {
   });
 
   describe('payment', () => {
-    it('accepts an empty litigation reason when there was no litigation', () => {
+    it('refuses an empty litigation reason even without litigation (TIRA005)', () => {
       expect(
         validate(Op.PAYMENT, {
           claimResultedLitigation: 'N',
           litigationReason: '',
+        }),
+      ).toEqual(['litigationReason is required']);
+      expect(
+        validate(Op.PAYMENT, {
+          claimResultedLitigation: 'N',
+          litigationReason: 'None',
         }),
       ).toEqual([]);
     });

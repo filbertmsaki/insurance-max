@@ -144,7 +144,7 @@ describe('ClaimTiramisPayloadService', () => {
     expect(identity.claimantCategory).toBe(2);
   });
 
-  it('keeps optional discharge-voucher tags present as empty values', () => {
+  it('reports "no adjustment" and the offer as reconciled when neither happened (TIRA005)', () => {
     const payload = service.dischargeVoucher(claim, {
       discharge_voucher_number: 'DV-2026-00001',
       claim_assessment_number: 'ASM-2026-00001',
@@ -164,17 +164,16 @@ describe('ClaimTiramisPayloadService', () => {
       claimants: [service.identityClaimant(claimant)],
     } as any);
 
-    for (const key of [
-      'adjustmentDate',
-      'adjustmentReason',
-      'adjustmentAmount',
-      'reconciliationDate',
-      'reconciliationSummary',
-      'reconciledAmount',
-    ]) {
-      expect(payload).toHaveProperty(key, '');
-    }
-    expect(payload.claimOfferAmount).toBe('900000.00');
+    expect(payload).toMatchObject({
+      adjustmentDate: payload.claimantResponseDate,
+      adjustmentReason: 'No adjustment',
+      adjustmentAmount: '0.00',
+      reconciliationDate: payload.claimantResponseDate,
+      reconciliationSummary: 'No reconciliation',
+      reconciledAmount: '900000.00',
+      claimOfferAmount: '900000.00',
+    });
+    expect(payload.claimantResponseDate).toBeTruthy();
   });
 
   it('sends the 100-character TIRA rejection reason, not the internal one', () => {
@@ -197,7 +196,7 @@ describe('ClaimTiramisPayloadService', () => {
     expect(payload).not.toHaveProperty('claimAssessmentNumber');
   });
 
-  it('sends an empty mandatory LitigationReason when not litigated', () => {
+  it('sends LitigationReason "None" when not litigated (TIRA005)', () => {
     const payload = service.payment(claim, {
       claim_payment_number: 'CP-2026-00001',
       claim_intimation_number: 'INT-2026-00001',
@@ -213,7 +212,7 @@ describe('ClaimTiramisPayloadService', () => {
       claimants: [],
     } as any);
 
-    expect(payload.litigationReason).toBe('');
+    expect(payload.litigationReason).toBe('None');
     expect(payload.paymentMode).toBe(3);
   });
 

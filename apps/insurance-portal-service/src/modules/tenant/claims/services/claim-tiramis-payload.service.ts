@@ -48,6 +48,11 @@ export interface ClaimOfficer {
  * the XML tags. Header fields (codes, callback URL) are added server-side by
  * the TIRAMIS module and are never taken from here.
  */
+/** Values TIRA accepts when a mandatory tag has nothing to report. */
+export const NO_ADJUSTMENT_REASON = 'No adjustment';
+export const NO_RECONCILIATION_SUMMARY = 'No reconciliation';
+export const NOT_LITIGATED_REASON = 'None';
+
 @Injectable()
 export class ClaimTiramisPayloadService {
   notification(claim: InsuranceClaim, officer: ClaimOfficer) {
@@ -114,6 +119,14 @@ export class ClaimTiramisPayloadService {
   }
 
   dischargeVoucher(claim: InsuranceClaim, voucher: ClaimDischargeVoucher) {
+    // §12.1 marks every adjustment and reconciliation tag mandatory and
+    // TIRA rejects empty ones (TIRA005). Without a recorded adjustment the
+    // voucher reports "no adjustment" of 0, and without a reconciliation the
+    // offer itself, both dated at the claimant's response.
+    const respondedAt = voucher.claimant_response_date;
+    const adjusted = !!voucher.adjustment_reason;
+    const reconciled = !!voucher.reconciliation_summary;
+
     return {
       dischargeVoucherNumber: voucher.discharge_voucher_number,
       claimAssessmentNumber: voucher.claim_assessment_number,
@@ -127,16 +140,22 @@ export class ClaimTiramisPayloadService {
       ),
       claimOfferAmount: this.money(voucher.claim_offer_amount),
       claimantResponseDate: this.dateTime(voucher.claimant_response_date),
-      adjustmentDate: this.dateTime(voucher.adjustment_date),
-      adjustmentReason: voucher.adjustment_reason ?? '',
-      adjustmentAmount: voucher.adjustment_amount
-        ? this.money(voucher.adjustment_amount)
-        : '',
-      reconciliationDate: this.dateTime(voucher.reconciliation_date),
-      reconciliationSummary: voucher.reconciliation_summary ?? '',
-      reconciledAmount: voucher.reconciled_amount
-        ? this.money(voucher.reconciled_amount)
-        : '',
+      adjustmentDate: this.dateTime(
+        adjusted ? voucher.adjustment_date : respondedAt,
+      ),
+      adjustmentReason: adjusted
+        ? voucher.adjustment_reason
+        : NO_ADJUSTMENT_REASON,
+      adjustmentAmount: this.money(adjusted ? voucher.adjustment_amount : '0'),
+      reconciliationDate: this.dateTime(
+        reconciled ? voucher.reconciliation_date : respondedAt,
+      ),
+      reconciliationSummary: reconciled
+        ? voucher.reconciliation_summary
+        : NO_RECONCILIATION_SUMMARY,
+      reconciledAmount: this.money(
+        reconciled ? voucher.reconciled_amount : voucher.claim_offer_amount,
+      ),
       offerAccepted: voucher.offer_accepted,
       claimants: voucher.claimants as unknown as TiraIdentityClaimant[],
     };
@@ -154,8 +173,12 @@ export class ClaimTiramisPayloadService {
       partiesNotified: payment.parties_notified,
       netPremiumEarned: this.money(payment.net_premium_earned),
       claimResultedLitigation: payment.claim_resulted_litigation,
-      // Mandatory tag in §13.1; empty when the claim was not litigated.
-      litigationReason: payment.litigation_reason ?? '',
+      // Mandatory tag in §13.1 that TIRA refuses when empty or missing.
+      litigationReason:
+        payment.claim_resulted_litigation === 'Y' &&
+        payment.litigation_reason?.trim()
+          ? payment.litigation_reason.trim()
+          : NOT_LITIGATED_REASON,
       currencyCode: payment.currency_code,
       exchangeRate: this.rate(payment.exchange_rate),
       claimants: payment.claimants as unknown as TiraIdentityClaimant[],
