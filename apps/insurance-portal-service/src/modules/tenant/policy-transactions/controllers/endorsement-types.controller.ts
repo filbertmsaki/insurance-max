@@ -17,6 +17,7 @@ import {
   CreateEndorsementTypeDto,
   UpdateEndorsementTypeDto,
 } from '../dto/upsert-endorsement-type.dto';
+import { FLEET_VEHICLE_ENDORSEMENT_CODES } from '../constants/fleet-vehicle-endorsement.constants';
 import { EndorsementTypesService } from '../services/endorsement-types.service';
 
 @ApiTags('endorsement-types')
@@ -28,9 +29,16 @@ export class EndorsementTypesController {
 
   @Get()
   @Permissions('endorsements:create')
-  @ApiOperation({ summary: 'List configured endorsement types' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.service.findAll(user.companyId!, false);
+  @ApiOperation({
+    summary:
+      'List configured endorsement types (`is_fleet_only` marks the fleet add/remove vehicle types)',
+  })
+  async findAll(@CurrentUser() user: AuthenticatedUser) {
+    const types = await this.service.findAll(user.companyId!, false);
+    return types.map((type) => ({
+      ...type,
+      is_fleet_only: FLEET_VEHICLE_ENDORSEMENT_CODES.includes(type.code),
+    }));
   }
 
   @Post()

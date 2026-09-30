@@ -24,6 +24,8 @@ export interface UnderwriteTransactionStats {
   endorsements: number;
   cancellations: number;
   tira_pending: number;
+  /** Endorsements and cancellations whose TIRA submission failed. */
+  tira_failed?: number;
 }
 
 /** Sections are `null` when the user lacks permission for them. */
@@ -63,6 +65,12 @@ export interface FleetVehicleRow {
   motor_vehicle_id: string | null;
   fleet_item_id: string | null;
   policy_risk_statuses: string[];
+  /** TIRA FleetEntry. */
+  fleet_entry?: number;
+  /** ACTIVE, ADDED (mid-term), REMOVED (pending) or CANCELLED. */
+  vehicle_status?: string;
+  added_at?: string | null;
+  removed_at?: string | null;
 }
 
 export interface FleetSummary {
@@ -188,6 +196,9 @@ export interface UnderwritePolicyTransactionRow {
   policy_no: string;
   cover_note_no: string | null;
   customer_name: string | null;
+  /** Endorsement rows only. */
+  endorsement_type_code?: string | null;
+  endorsement_type_name?: string | null;
 }
 
 export interface UnderwriteRenewalRow {
@@ -199,6 +210,8 @@ export interface UnderwriteRenewalRow {
   renewal_end_date: string;
   offer_expires_at: string | null;
   created_at: string;
+  /** The renewed (source) policy's number. */
+  policy_no?: string | null;
   policy_transaction: UnderwritePolicyTransactionRow;
 }
 
@@ -218,4 +231,6 @@ export interface UnderwriteTiraQueueRow {
   source_policy_id?: string;
   policy_no?: string;
   cover_note_no?: string | null;
+  endorsement_type_code?: string | null;
+  endorsement_type_name?: string | null;
 }
