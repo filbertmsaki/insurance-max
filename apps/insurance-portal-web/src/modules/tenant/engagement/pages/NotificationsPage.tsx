@@ -44,7 +44,7 @@ export function NotificationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title="Notifications"
         description="User-facing alerts with validated deep links and inbox state tracking."
         action={

@@ -81,7 +81,7 @@ export function WorkItemsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title="Work Items"
         description="Operational task projections with queue views, timelines, and direct execution actions."
         action={

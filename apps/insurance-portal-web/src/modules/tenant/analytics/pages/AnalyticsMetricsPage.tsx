@@ -29,10 +29,7 @@ import {
   formatNumber,
 } from '@/modules/shared/formatting/number-format';
 
-import {
-  phase16Api,
-  type MetricCompareResponse,
-} from '../../phase16/api/phase16';
+import { analyticsApi, type MetricCompareResponse } from '../api';
 
 type MetricFormState = {
   metricCode: string;
@@ -73,8 +70,8 @@ function formatMetricValue(value: string | null, currencyCode?: string | null) {
 
 export function AnalyticsMetricsPage() {
   const definitionsQuery = useQuery({
-    queryKey: ['phase16', 'metrics', 'definitions'],
-    queryFn: phase16Api.getMetricDefinitions,
+    queryKey: ['analytics', 'metrics', 'definitions'],
+    queryFn: analyticsApi.getMetricDefinitions,
   });
 
   const [form, setForm] = useState<MetricFormState>({
@@ -91,13 +88,13 @@ export function AnalyticsMetricsPage() {
   });
 
   const queryMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof phase16Api.queryMetric>[0]) =>
-      phase16Api.queryMetric(payload),
+    mutationFn: (payload: Parameters<typeof analyticsApi.queryMetric>[0]) =>
+      analyticsApi.queryMetric(payload),
   });
 
   const compareMutation = useMutation({
-    mutationFn: (payload: Parameters<typeof phase16Api.compareMetric>[0]) =>
-      phase16Api.compareMetric(payload),
+    mutationFn: (payload: Parameters<typeof analyticsApi.compareMetric>[0]) =>
+      analyticsApi.compareMetric(payload),
   });
 
   const selectedDefinition = useMemo(() => {
@@ -170,7 +167,7 @@ export function AnalyticsMetricsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 16"
+        eyebrow="Analytics"
         title="Analytics Metrics"
         description="Use the governed metric catalogue for exploration, comparison, and freshness-aware review."
       />

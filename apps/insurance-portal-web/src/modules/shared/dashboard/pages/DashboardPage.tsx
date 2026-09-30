@@ -75,7 +75,7 @@ import { apiClientsApi } from '@/modules/platform/api-clients/api/api-clients';
 import { devicesApi } from '@/modules/shared/devices/api/devices';
 import { sessionsApi } from '@/modules/shared/sessions/api/sessions';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { phase16Api } from '@/modules/tenant/phase16/api/phase16';
+import { analyticsApi } from '@/modules/tenant/analytics/api';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { companiesApi } from '@/modules/platform/companies/api/companies';
 import { isStandardCompanyUser } from '@/lib/auth/permissions';
@@ -1974,7 +1974,7 @@ export function DashboardPage() {
   });
   const executiveQuery = useQuery({
     queryKey: ['tenant-dashboard', 'executive', filters],
-    queryFn: phase16Api.getExecutiveDashboard,
+    queryFn: analyticsApi.getExecutiveDashboard,
     enabled: !isPlatformAccount && Boolean(canViewExecutive),
   });
 

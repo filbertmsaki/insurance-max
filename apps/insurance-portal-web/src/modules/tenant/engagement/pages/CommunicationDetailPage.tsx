@@ -64,7 +64,7 @@ export function CommunicationDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title={threadQuery.data?.thread_no ?? 'Communication thread'}
         description={
           threadQuery.data?.subject ?? 'Conversation history and follow-up.'

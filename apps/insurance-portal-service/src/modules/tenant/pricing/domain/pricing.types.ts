@@ -296,7 +296,7 @@ export interface RiskPremiumResult {
   premium_including_tax_equivalent: number;
   final_payable_premium: number;
 
-  // --- Phase 7 pricing authority: raw context needed to build the
+  // --- Pricing authority: raw context needed to build the
   // immutable pricing snapshot/result hash persisted by PricingQuoteService.
   // Internal transit fields, not part of the documented calculation-response
   // contract above. ---
@@ -345,7 +345,7 @@ export interface RiskRuleConditionSummary {
 }
 
 /**
- * Phase 7 pricing authority: same shape as RiskRuleConditionSummary plus the
+ * Pricing authority: same shape as RiskRuleConditionSummary plus the
  * condition's own id, which PricingRuleConditionSnapshot (contracts) needs
  * but the plain summary above never carried.
  */
@@ -354,7 +354,7 @@ export interface RiskRuleConditionContext extends RiskRuleConditionSummary {
 }
 
 /**
- * Phase 7 pricing authority: raw per-addon calculation context threaded from
+ * Pricing authority: raw per-addon calculation context threaded from
  * PricingEngineService through to PricingQuoteService so it can build the
  * immutable AddonPricingRuleSnapshot without re-querying the database.
  */
@@ -376,7 +376,7 @@ export interface AddonPricingResultContext {
 }
 
 /**
- * Phase 7 pricing authority: raw resolved rate-book context threaded from
+ * Pricing authority: raw resolved rate-book context threaded from
  * PricingEngineService through to PricingQuoteService so it can build the
  * immutable PricingRateBookSnapshot/result hash without re-querying the
  * database. Null when the matched rule has no associated rate book (legacy

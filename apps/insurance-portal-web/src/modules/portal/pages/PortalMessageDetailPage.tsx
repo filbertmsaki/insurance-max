@@ -47,7 +47,7 @@ export function PortalMessageDetailPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Customer portal"
         title={threadQuery.data?.subject ?? 'Conversation'}
         description={
           threadQuery.data?.thread_no ?? 'Portal communication history.'

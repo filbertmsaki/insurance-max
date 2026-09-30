@@ -320,7 +320,7 @@ export class RenewalService {
 
   /**
    * Links a renewal offer to a quotation created through the existing
-   * (Phase 9) quotation flow. Building an automated "prefill a new
+   * quotation flow. Building an automated "prefill a new
    * quotation from the expiring policy" step (§13.23's
    * `quotationDraftService.createFromPolicy`) is a larger integration left
    * for a follow-up pass — today the underwriter creates the renewal

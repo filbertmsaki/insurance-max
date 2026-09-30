@@ -55,7 +55,7 @@ export function PortalProfilePage({ audience }: { audience: PortalAudience }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Customer portal"
         title={`${label} Profile`}
         description="Reference details currently exposed through the portal account."
       />

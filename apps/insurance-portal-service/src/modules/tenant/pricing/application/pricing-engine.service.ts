@@ -303,7 +303,7 @@ export class PricingEngineService {
       premium_including_tax_equivalent: premiumIncludingTax,
       final_payable_premium: finalPayablePremium,
 
-      // Phase 7 pricing authority: raw context for PricingQuoteService's
+      // Pricing authority: raw context for PricingQuoteService's
       // immutable snapshot/hash — see pricing.types.ts for field docs.
       premium_after_minimum: breakdown.premium_after_minimum,
       base_addon_premium: baseAddonPremium,

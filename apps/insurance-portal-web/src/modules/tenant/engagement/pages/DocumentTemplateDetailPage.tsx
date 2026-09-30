@@ -81,7 +81,7 @@ export function DocumentTemplateDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title={template?.template_code ?? 'Template detail'}
         description={template?.template_name ?? 'Template versions and preview'}
       />

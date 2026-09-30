@@ -52,7 +52,7 @@ export function DocumentTemplatesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title="Document Templates"
         description="Template registry and publishable versions for generated documents."
       />

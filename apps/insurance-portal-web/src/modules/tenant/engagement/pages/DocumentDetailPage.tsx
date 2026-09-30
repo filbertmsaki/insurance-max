@@ -82,7 +82,7 @@ export function DocumentDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title={document?.document_no ?? 'Document detail'}
         description={
           document?.title ??

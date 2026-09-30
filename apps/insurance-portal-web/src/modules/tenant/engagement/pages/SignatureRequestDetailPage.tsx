@@ -65,7 +65,7 @@ export function SignatureRequestDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title={request?.request_no ?? 'Signature request'}
         description="Participants, public signing tokens, and request events."
         action={

@@ -10,7 +10,7 @@ export interface ProposedPolicySnapshotResult {
 /**
  * Applies an ordered set of PolicyTransactionChange records on top of a
  * frozen policy snapshot to derive the proposed (not-yet-applied) snapshot
- * for an endorsement, per Phase 13 §13.11. The result is deterministic and
+ * for an endorsement. The result is deterministic and
  * content-hashed so it can be safely persisted, compared, and re-derived.
  */
 @Injectable()

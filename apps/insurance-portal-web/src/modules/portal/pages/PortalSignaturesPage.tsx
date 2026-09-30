@@ -31,7 +31,7 @@ export function PortalSignaturesPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Customer portal"
         title="Signature Requests"
         description="Requests tied to portal-visible documents and their current execution state."
       />

@@ -27,7 +27,7 @@ export function PortalMessagesPage({ audience }: { audience: PortalAudience }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Customer portal"
         title="Messages"
         description="Communication threads shared to this portal account."
       />

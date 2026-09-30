@@ -34,7 +34,7 @@ export function PortalSignatureDetailPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Customer portal"
         title={request?.request_no ?? 'Signature request'}
         description="Participants and lifecycle events visible through the portal."
         status={

@@ -170,7 +170,7 @@ export function PortalDashboardPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Customer portal"
         title={`${label} Dashboard`}
         description="Documents, notifications, messages, and signatures available in your self-service workspace."
       />

@@ -140,7 +140,7 @@ const ANALYTICS_ADMIN_PERMISSION_NAMES = [
   'analytics:admin',
 ];
 
-const PHASE2_ADMIN_PERMISSION_NAMES = [
+const BASE_ADMIN_PERMISSION_NAMES = [
   'billing:invoice-issue',
   'billing:invoice-void',
   'billing:receipt-post',
@@ -200,8 +200,8 @@ const PHASE2_ADMIN_PERMISSION_NAMES = [
   'communications:close',
 ];
 
-// Phase 13: granular policy-transaction (endorsement/cancellation/renewal)
-// permissions, additive to the Phase-2 placeholder set above.
+// Granular policy-transaction (endorsement/cancellation/renewal)
+// permissions, additive to the base permission set above.
 const POLICY_TRANSACTION_PERMISSION_NAMES = [
   'policy-transactions:read',
   'endorsements:create',
@@ -238,7 +238,7 @@ const POLICY_TRANSACTION_SUPPORT_PERMISSION_NAMES = [
   'cancellations:reconcile',
 ];
 
-const PHASE2_GENERAL_USER_PERMISSION_NAMES = [
+const BASE_GENERAL_USER_PERMISSION_NAMES = [
   'documents:read',
   'documents:download',
   'document-templates:read',
@@ -3328,7 +3328,7 @@ const TIRAMIS_ADMIN_PERMISSION_NAMES = [
   'tiramis.admin',
 ];
 
-const PHASE18_GOVERNANCE_PERMISSION_NAMES = [
+const GOVERNANCE_PERMISSION_NAMES = [
   'audit:verify-chain',
   'operations:health-read',
   'operations:release-read',
@@ -3368,8 +3368,8 @@ const COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES = [
 
 const PORTAL_ADMIN_ROLE_PERMISSION_NAMES = [
   ...PORTAL_ADMIN_PERMISSION_NAMES,
-  ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
-  ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+  ...BASE_GENERAL_USER_PERMISSION_NAMES,
+  ...GOVERNANCE_PERMISSION_NAMES,
   ...FINANCE_OPERATION_PERMISSION_NAMES,
   ...FINANCE_RECONCILIATION_PERMISSION_NAMES,
   ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
@@ -3420,7 +3420,7 @@ const roleSeeds: RoleSeed[] = [
       'audit:read-all',
       'audit:export',
       ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
-      ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...GOVERNANCE_PERMISSION_NAMES,
     ],
   },
   {
@@ -3431,13 +3431,13 @@ const roleSeeds: RoleSeed[] = [
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       ...ANALYTICS_ADMIN_PERMISSION_NAMES,
-      ...PHASE2_ADMIN_PERMISSION_NAMES,
+      ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_SUPPORT_PERMISSION_NAMES,
       ...CLAIMS_ADMIN_PERMISSION_NAMES,
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
       ...PORTAL_ADMIN_PERMISSION_NAMES,
-      ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...GOVERNANCE_PERMISSION_NAMES,
       ...FINANCE_OPERATION_PERMISSION_NAMES,
       ...FINANCE_RECONCILIATION_PERMISSION_NAMES,
       ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
@@ -3595,13 +3595,13 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
-      ...PHASE2_ADMIN_PERMISSION_NAMES,
+      ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_SUPPORT_PERMISSION_NAMES,
       ...CLAIMS_ADMIN_PERMISSION_NAMES,
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
       ...PORTAL_ADMIN_PERMISSION_NAMES,
-      ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...GOVERNANCE_PERMISSION_NAMES,
       ...FINANCE_OPERATION_PERMISSION_NAMES,
       ...FINANCE_RECONCILIATION_PERMISSION_NAMES,
       ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
@@ -3729,11 +3729,11 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
-      ...PHASE2_ADMIN_PERMISSION_NAMES,
+      ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
       ...CLAIMS_PARTNER_PERMISSION_NAMES,
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
-      ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...GOVERNANCE_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -3790,11 +3790,11 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
-      ...PHASE2_ADMIN_PERMISSION_NAMES,
+      ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
       ...CLAIMS_PARTNER_PERMISSION_NAMES,
       ...REINSURANCE_PARTNER_PERMISSION_NAMES,
-      ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...GOVERNANCE_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -3848,11 +3848,11 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
-      ...PHASE2_ADMIN_PERMISSION_NAMES,
+      ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
       ...CLAIMS_PARTNER_PERMISSION_NAMES,
       ...REINSURANCE_PARTNER_PERMISSION_NAMES,
-      ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...GOVERNANCE_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -3901,9 +3901,9 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
-      ...PHASE2_ADMIN_PERMISSION_NAMES,
+      ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
-      ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...GOVERNANCE_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -3945,9 +3945,9 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
-      ...PHASE2_ADMIN_PERMISSION_NAMES,
+      ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
-      ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...GOVERNANCE_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -3978,7 +3978,7 @@ const roleSeeds: RoleSeed[] = [
       'view_company_data',
       'data-scope:assigned-branches',
       ...DASHBOARD_GENERAL_USER_PERMISSION_NAMES,
-      ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
+      ...BASE_GENERAL_USER_PERMISSION_NAMES,
       'insurance-products:read',
       'insurance-categories:read',
       'insurance-sub-classes:read',
@@ -4110,7 +4110,7 @@ const roleSeeds: RoleSeed[] = [
     permissionNames: [
       'view_company_data',
       ...DASHBOARD_VIEWER_PERMISSION_NAMES,
-      ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
+      ...BASE_GENERAL_USER_PERMISSION_NAMES,
     ],
   },
   {

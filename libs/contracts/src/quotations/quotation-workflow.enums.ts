@@ -10,8 +10,8 @@ export const QuotationStage = {
 export type QuotationStage =
   (typeof QuotationStage)[keyof typeof QuotationStage];
 
-// Generalized workflow-gate enums, originally modeled for quotations (Phase 9)
-// and reused as-is for policy transactions (Phase 13). The `Quotation*` names
+// Generalized workflow-gate enums, originally modeled for quotations
+// and reused as-is for policy transactions. The `Quotation*` names
 // are kept as aliases below so every existing quotation import keeps working.
 export const WorkflowApprovalStatus = {
   NOT_EVALUATED: 'NOT_EVALUATED',

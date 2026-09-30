@@ -92,7 +92,7 @@ export function DocumentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title="Document Centre"
         description="Secure uploads, immutable versions, linked records, and audited downloads."
       />

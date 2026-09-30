@@ -628,7 +628,7 @@ export class PricingQuoteService {
   }
 
   /**
-   * Builds the immutable Phase 7 pricing-authority snapshot (rate book +
+   * Builds the immutable pricing-authority snapshot (rate book +
    * matched rule + evaluated add-ons + calculation result) and its content
    * hash, for persistence alongside the pricing quote. Only meaningful for a
    * single-risk quote resolved against a published rate book — returns null

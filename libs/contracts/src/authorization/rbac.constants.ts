@@ -30,7 +30,8 @@ export const DataScopePermissions = {
   PARTNER_PORTFOLIO: 'data-scope:partner-portfolio',
 } as const;
 
-export const Phase16Permissions = [
+/** Regulatory compliance, reporting, analytics and dashboard permissions. */
+export const RegulatoryReportingAnalyticsPermissions = [
   'regulatory-authorities:read',
   'regulatory-authorities:manage',
   'regulatory-obligations:read',
@@ -90,4 +91,5 @@ export const Phase16Permissions = [
 export type DataScopePermission =
   (typeof DataScopePermissions)[keyof typeof DataScopePermissions];
 
-export type Phase16Permission = (typeof Phase16Permissions)[number];
+export type RegulatoryReportingAnalyticsPermission =
+  (typeof RegulatoryReportingAnalyticsPermissions)[number];

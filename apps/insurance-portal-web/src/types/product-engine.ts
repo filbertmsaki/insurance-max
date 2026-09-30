@@ -1060,7 +1060,7 @@ export interface RiskPremiumResult {
   premium_including_tax_equivalent: number;
   final_payable_premium: number;
 
-  // --- Add-on pricing & proration (additive, Phase 7) ---
+  // --- Add-on pricing & proration (additive) ---
   base_addon_premium?: number | null;
   proration_factor?: number | null;
   addon_results?: RiskPremiumAddonResult[];

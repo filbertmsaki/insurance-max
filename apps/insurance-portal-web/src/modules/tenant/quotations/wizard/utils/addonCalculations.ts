@@ -26,7 +26,7 @@ export interface AddonComputed {
 
 /**
  * Derives the read-only totals shown next to an add-on row and used to build
- * the TIRA `CoverNoteAddon` payload later (Phase 13): tax amounts per tax row
+ * the TIRA `CoverNoteAddon` payload later: tax amounts per tax row
  * (rate applied to premium-excluding-tax, 0 if exempted), the excluding-tax
  * equivalent (converted via exchangeRate when the quotation currency isn't
  * TZS, mirroring how risk SumInsuredEquivalent is derived), and the final

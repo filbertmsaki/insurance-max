@@ -31,7 +31,7 @@ export function PortalDocumentsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Customer portal"
         title="Documents"
         description="Files shared with this portal account, including current status and download access."
       />

@@ -63,7 +63,7 @@ export function NotificationPreferencesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title="Notification Preferences"
         description="Per-event channel preference overrides for the current user."
       />

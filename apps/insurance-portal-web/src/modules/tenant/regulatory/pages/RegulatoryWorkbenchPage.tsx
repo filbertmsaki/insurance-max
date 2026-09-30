@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import { phase16Api } from '../../phase16/api/phase16';
+import { regulatoryApi } from '../api';
 
 const currentYear = 2026;
 
@@ -30,20 +30,20 @@ function formatJson(value: unknown) {
 export function RegulatoryWorkbenchPage() {
   const queryClient = useQueryClient();
   const calendarQuery = useQuery({
-    queryKey: ['phase16', 'regulatory', 'calendar'],
-    queryFn: phase16Api.getRegulatoryCalendar,
+    queryKey: ['regulatory', 'calendar'],
+    queryFn: regulatoryApi.getRegulatoryCalendar,
   });
   const returnsQuery = useQuery({
-    queryKey: ['phase16', 'regulatory', 'returns'],
-    queryFn: phase16Api.getRegulatoryReturns,
+    queryKey: ['regulatory', 'returns'],
+    queryFn: regulatoryApi.getRegulatoryReturns,
   });
   const leviesQuery = useQuery({
-    queryKey: ['phase16', 'regulatory', 'levies'],
-    queryFn: phase16Api.getLevyAssessments,
+    queryKey: ['regulatory', 'levies'],
+    queryFn: regulatoryApi.getLevyAssessments,
   });
   const authoritiesQuery = useQuery({
-    queryKey: ['phase16', 'regulatory', 'authorities'],
-    queryFn: phase16Api.getAuthorities,
+    queryKey: ['regulatory', 'authorities'],
+    queryFn: regulatoryApi.getAuthorities,
   });
 
   const [selectedReturnId, setSelectedReturnId] = useState('');
@@ -62,8 +62,8 @@ export function RegulatoryWorkbenchPage() {
   }, [returnsQuery.data, selectedReturnId]);
 
   const returnDetailQuery = useQuery({
-    queryKey: ['phase16', 'regulatory', 'return', selectedReturnId],
-    queryFn: () => phase16Api.getRegulatoryReturn(selectedReturnId),
+    queryKey: ['regulatory', 'return', selectedReturnId],
+    queryFn: () => regulatoryApi.getRegulatoryReturn(selectedReturnId),
     enabled: selectedReturnId.length > 0,
   });
 
@@ -76,21 +76,21 @@ export function RegulatoryWorkbenchPage() {
 
   const refreshRegulatoryViews = () => {
     queryClient.invalidateQueries({
-      queryKey: ['phase16', 'regulatory', 'calendar'],
+      queryKey: ['regulatory', 'calendar'],
     });
     queryClient.invalidateQueries({
-      queryKey: ['phase16', 'regulatory', 'returns'],
+      queryKey: ['regulatory', 'returns'],
     });
     queryClient.invalidateQueries({
-      queryKey: ['phase16', 'regulatory', 'levies'],
+      queryKey: ['regulatory', 'levies'],
     });
     queryClient.invalidateQueries({
-      queryKey: ['phase16', 'regulatory', 'return', selectedReturnId],
+      queryKey: ['regulatory', 'return', selectedReturnId],
     });
   };
 
   const generateCalendarMutation = useMutation({
-    mutationFn: () => phase16Api.generateRegulatoryCalendar(currentYear),
+    mutationFn: () => regulatoryApi.generateRegulatoryCalendar(currentYear),
     onSuccess: refreshRegulatoryViews,
   });
 
@@ -109,15 +109,15 @@ export function RegulatoryWorkbenchPage() {
 
       switch (action) {
         case 'validate':
-          return phase16Api.validateReturn(selectedReturnId);
+          return regulatoryApi.validateReturn(selectedReturnId);
         case 'reconcile':
-          return phase16Api.reconcileReturn(selectedReturnId);
+          return regulatoryApi.reconcileReturn(selectedReturnId);
         case 'submit-review':
-          return phase16Api.submitReturnForReview(selectedReturnId);
+          return regulatoryApi.submitReturnForReview(selectedReturnId);
         case 'approve':
-          return phase16Api.approveReturn(selectedReturnId);
+          return regulatoryApi.approveReturn(selectedReturnId);
         case 'correction':
-          return phase16Api.createReturnCorrection(selectedReturnId);
+          return regulatoryApi.createReturnCorrection(selectedReturnId);
       }
     },
     onSuccess: refreshRegulatoryViews,
@@ -129,7 +129,7 @@ export function RegulatoryWorkbenchPage() {
         throw new Error('Select a regulatory return first');
       }
 
-      return phase16Api.recordSubmission(selectedReturnId, {
+      return regulatoryApi.recordSubmission(selectedReturnId, {
         submission_channel: submissionChannel,
         submission_reference: submissionReference || undefined,
         evidence_document_id: evidenceDocumentId || undefined,
@@ -153,7 +153,7 @@ export function RegulatoryWorkbenchPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 16"
+        eyebrow="Regulatory compliance"
         title="Regulatory Compliance"
         description="Monitor obligation periods, review return versions, and keep levy assessments and submission evidence in one company-scoped workspace."
         action={

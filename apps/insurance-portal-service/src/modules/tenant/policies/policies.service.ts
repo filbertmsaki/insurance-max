@@ -1168,7 +1168,7 @@ export class PoliciesService {
   }
 
   /**
-   * Backend-computed action list (Phase 13 §13.31) so the frontend never
+   * Backend-computed action list so the frontend never
    * decides for itself whether an endorsement/cancellation/renewal can be
    * started — it just renders whatever this returns.
    */

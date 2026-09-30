@@ -34,10 +34,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import {
-  phase16Api,
+  reportingApi,
   type ReportDefinitionSummary,
   type ReportParameterDefinition,
-} from '../../phase16/api/phase16';
+} from '../api';
 
 type ParameterState = Record<string, unknown>;
 
@@ -268,16 +268,16 @@ function ParameterEditor({
 export function ReportsWorkbenchPage() {
   const queryClient = useQueryClient();
   const definitionsQuery = useQuery({
-    queryKey: ['phase16', 'reports', 'definitions'],
-    queryFn: phase16Api.getReportDefinitions,
+    queryKey: ['reporting', 'reports', 'definitions'],
+    queryFn: reportingApi.getReportDefinitions,
   });
   const jobsQuery = useQuery({
-    queryKey: ['phase16', 'reports', 'jobs'],
-    queryFn: phase16Api.getReportJobs,
+    queryKey: ['reporting', 'reports', 'jobs'],
+    queryFn: reportingApi.getReportJobs,
   });
   const schedulesQuery = useQuery({
-    queryKey: ['phase16', 'reports', 'schedules'],
-    queryFn: phase16Api.getSchedules,
+    queryKey: ['reporting', 'reports', 'schedules'],
+    queryFn: reportingApi.getSchedules,
   });
 
   const [selectedDefinitionId, setSelectedDefinitionId] = useState('');
@@ -306,8 +306,8 @@ export function ReportsWorkbenchPage() {
   }, [definitionsQuery.data, selectedDefinitionId]);
 
   const jobDetailQuery = useQuery({
-    queryKey: ['phase16', 'reports', 'jobs', selectedJobId],
-    queryFn: () => phase16Api.getReportJob(selectedJobId),
+    queryKey: ['reporting', 'reports', 'jobs', selectedJobId],
+    queryFn: () => reportingApi.getReportJob(selectedJobId),
     enabled: selectedJobId.length > 0,
   });
 
@@ -352,7 +352,7 @@ export function ReportsWorkbenchPage() {
         throw new Error('Select a report definition first');
       }
 
-      return phase16Api.runReport({
+      return reportingApi.runReport({
         definition_id: selectedDefinition.id,
         format: scheduleFormat || selectedDefinition.supportedFormats[0],
         parameters: normalizeParameters(selectedDefinition, runParameters),
@@ -360,13 +360,13 @@ export function ReportsWorkbenchPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['phase16', 'reports', 'jobs'],
+        queryKey: ['reporting', 'reports', 'jobs'],
       });
     },
   });
 
   const verifyMailMutation = useMutation({
-    mutationFn: (recipient: string) => phase16Api.testReportMail(recipient),
+    mutationFn: (recipient: string) => reportingApi.testReportMail(recipient),
     onSuccess: (_, recipient) => {
       setMailVerifiedFor(recipient);
     },
@@ -387,7 +387,7 @@ export function ReportsWorkbenchPage() {
         throw new Error('Verify SMTP delivery before saving an email schedule');
       }
 
-      return phase16Api.createSchedule({
+      return reportingApi.createSchedule({
         definition_id: selectedDefinition.id,
         name: scheduleName,
         cron_expression: scheduleCron,
@@ -399,13 +399,14 @@ export function ReportsWorkbenchPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ['phase16', 'reports', 'schedules'],
+        queryKey: ['reporting', 'reports', 'schedules'],
       });
     },
   });
 
   const downloadMutation = useMutation({
-    mutationFn: (artifactId: string) => phase16Api.downloadArtifact(artifactId),
+    mutationFn: (artifactId: string) =>
+      reportingApi.downloadArtifact(artifactId),
     onSuccess: (result) => {
       if (result.downloadUrl) {
         window.open(result.downloadUrl, '_blank', 'noopener,noreferrer');
@@ -436,7 +437,7 @@ export function ReportsWorkbenchPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 16"
+        eyebrow="Reporting"
         title="Reporting Workbench"
         description="Run registered reports, inspect background jobs, and configure governed schedules from the same catalogue."
       />

@@ -2,7 +2,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 /**
- * Retired in favor of the wizard's edit mode (Phase 11) — editing a quotation
+ * Retired in favor of the wizard's edit mode — editing a quotation
  * now needs to hydrate motor/fleet/non-motor detail rows alongside the base
  * fields, which only the wizard's multi-fetch load does. Kept as a thin
  * redirect rather than deleted so old links (`/quotations/:id/edit`) still work.

@@ -59,7 +59,7 @@ const TERMINAL_STAGES: PolicyTransactionStage[] = [
 
 /**
  * Approval/payment/submission state machine for policy transactions,
- * modeled directly on `QuotationLifecycleService` (Phase 9) since this
+ * modeled directly on `QuotationLifecycleService` since this
  * codebase has no separate pluggable maker-checker module to reuse.
  */
 @Injectable()

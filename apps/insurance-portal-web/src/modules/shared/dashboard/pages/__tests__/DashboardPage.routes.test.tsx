@@ -32,8 +32,8 @@ vi.mock('@/modules/shared/dashboard/api/dashboard', async () => {
   };
 });
 
-vi.mock('@/modules/tenant/phase16/api/phase16', () => ({
-  phase16Api: {
+vi.mock('@/modules/tenant/analytics/api', () => ({
+  analyticsApi: {
     getExecutiveDashboard: dashboardMocks.getExecutiveDashboard,
   },
 }));
@@ -298,7 +298,11 @@ describe('DashboardPage route tabs', () => {
         companyId: 'company-1',
         companyName: 'Alliance',
         roles: ['UNDERWRITER'],
-        permissions: ['dashboard:overview', 'dashboard:sales', 'dashboard:tiramis'],
+        permissions: [
+          'dashboard:overview',
+          'dashboard:sales',
+          'dashboard:tiramis',
+        ],
       },
       authorizationContext: null,
     });

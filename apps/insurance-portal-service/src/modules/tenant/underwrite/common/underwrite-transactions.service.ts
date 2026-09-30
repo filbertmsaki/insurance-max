@@ -55,7 +55,7 @@ function transactionTypeForKind(kind: Exclude<TransactionKind, 'renewal'>) {
 }
 
 /**
- * Phase-7 read layer for transactions and TIRA queues.
+ * Read layer for transactions and TIRA queues.
  *
  * The existing policy-transaction services remain the command engine. This
  * service only applies the underwrite line and the same policy/quotation data

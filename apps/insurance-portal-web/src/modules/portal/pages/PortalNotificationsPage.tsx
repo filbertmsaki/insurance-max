@@ -46,7 +46,7 @@ export function PortalNotificationsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Customer portal"
         title="Notifications"
         description="Portal alerts tied to the current customer or intermediary account."
       />

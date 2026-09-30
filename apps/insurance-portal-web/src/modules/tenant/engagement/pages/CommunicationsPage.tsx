@@ -44,7 +44,7 @@ export function CommunicationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title="Communications"
         description="Threaded communication history with controlled follow-up from internal teams."
       />

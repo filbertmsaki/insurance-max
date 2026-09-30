@@ -1,5 +1,5 @@
 /**
- * Phase 13 policy-transaction permissions. These are string constants for
+ * Policy-transaction permissions. These are string constants for
  * reference/type-safety — controllers apply the literal strings directly
  * via `@Permissions(...)`, matching the convention used elsewhere in this
  * codebase (e.g. `PoliciesController`).

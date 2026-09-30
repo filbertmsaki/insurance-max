@@ -765,7 +765,7 @@ export class RegulatoryCalendarService {
         submission_channel: 'MANUAL',
         active: true,
         metadata: {
-          seededBy: 'phase16',
+          seededBy: 'regulatory-calendar',
         },
       });
     } else {

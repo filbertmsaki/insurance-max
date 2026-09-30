@@ -55,7 +55,7 @@ export function WorkItemDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Phase 17"
+        eyebrow="Engagement"
         title={item?.work_item_no ?? 'Work item'}
         description={item?.title ?? 'Operational assignment detail'}
         action={

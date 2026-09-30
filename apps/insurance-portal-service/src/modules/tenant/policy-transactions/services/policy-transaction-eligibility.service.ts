@@ -34,7 +34,7 @@ const CLOSED_CLAIM_STATUSES = [
 ];
 
 /**
- * Reuses the Phase 9 quotation-workflow *pattern* (server-side eligibility
+ * Reuses the quotation-workflow *pattern* (server-side eligibility
  * gating before a workflow object can be created/advanced) — there is no
  * shared maker-checker service in this codebase to plug into, so this is a
  * standalone equivalent scoped to policy transactions.

@@ -44,7 +44,7 @@ export interface EvaluateCapacityParams {
  * Standalone, read-only exposure/capacity evaluation. Nothing in
  * `quotations.service.ts` or the cession-creation path calls this — it
  * exists so capacity can be checked on demand without gating live issuance
- * (see Phase 15 scoping decision: "standalone evaluation only").
+ * (scoping decision: "standalone evaluation only").
  */
 @Injectable()
 export class ReinsuranceCapacityService {

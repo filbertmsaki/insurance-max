@@ -116,10 +116,9 @@ export default defineConfig(({ mode }) => {
             if (
               normalizedId.includes('/src/modules/tenant/analytics/') ||
               normalizedId.includes('/src/modules/tenant/reporting/') ||
-              normalizedId.includes('/src/modules/tenant/regulatory/') ||
-              normalizedId.includes('/src/modules/tenant/phase16/')
+              normalizedId.includes('/src/modules/tenant/regulatory/')
             ) {
-              return 'feature-phase16';
+              return 'feature-insights';
             }
 
             if (normalizedId.includes('/src/modules/platform/')) {
