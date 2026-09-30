@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AnalyticsController } from './analytics.controller';
 import { KpiService } from './services/kpi.service';
@@ -7,6 +8,7 @@ import { ForecastService } from './services/forecast.service';
 import { BenchmarkService } from './services/benchmark.service';
 import { AnalyticsMetricService } from './services/analytics-metric.service';
 import { AnalyticsPermissions } from './analytics.permissions';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 
 describe('AnalyticsController', () => {
   let controller: AnalyticsController;
@@ -22,7 +24,22 @@ describe('AnalyticsController', () => {
   const mockUser = {
     id: 'user-id',
     companyId: 'company-id',
+    scope: 'company',
+    companyType: 'INSURANCE_COMPANY',
+    companyMembershipId: 'membership-id',
+    quotationPolicyDataScope: 'COMPANY',
+    permissions: [],
   } as any;
+  const branchUser = {
+    ...mockUser,
+    quotationPolicyDataScope: 'BRANCH',
+    assignedBranchIds: ['branch-a', 'branch-b'],
+  };
+  const singleBranchUser = {
+    ...mockUser,
+    quotationPolicyDataScope: 'BRANCH',
+    assignedBranchIds: ['branch-a'],
+  };
 
   beforeEach(async () => {
     analyticsMetricService = {
@@ -82,6 +99,7 @@ describe('AnalyticsController', () => {
         { provide: AnomalyService, useValue: anomalyService },
         { provide: ForecastService, useValue: forecastService },
         { provide: BenchmarkService, useValue: benchmarkService },
+        DataAccessScopeService,
       ],
     }).compile();
 
@@ -296,7 +314,7 @@ describe('AnalyticsController', () => {
     expect(result).toEqual({ run: { id: 'run-id' } });
     expect(forecastService.runForecast).toHaveBeenCalledWith(
       { companyId: 'company-id', id: 'user-id' },
-      dto,
+      { ...dto, branchId: null },
     );
   });
 
@@ -311,6 +329,109 @@ describe('AnalyticsController', () => {
 
     expect(result).toEqual([{ id: 'benchmark-id' }]);
     expect(benchmarkService.listSnapshots).toHaveBeenCalledWith(query);
+  });
+
+  describe('branch scoping', () => {
+    const metricDto = {
+      metricCode: 'premium.gross_written',
+      periodType: 'MONTH',
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-31',
+    } as any;
+
+    it('rejects a branch the user may not access', () => {
+      expect(() =>
+        controller.queryMetric(branchUser, {
+          ...metricDto,
+          branchId: 'branch-z',
+        }),
+      ).toThrow(ForbiddenException);
+      expect(analyticsMetricService.queryMetric).not.toHaveBeenCalled();
+    });
+
+    it('allows one of the user branches', async () => {
+      await controller.queryMetric(branchUser, {
+        ...metricDto,
+        branchId: 'branch-b',
+      });
+
+      expect(analyticsMetricService.queryMetric).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: 'branch-b' }),
+      );
+    });
+
+    it('restricts a branch-limited user without a branch to the allowed branches', async () => {
+      await controller.queryMetric(branchUser, metricDto);
+      await controller.compareMetric(branchUser, metricDto);
+      await controller.calculateKpi(branchUser, 'POLICY_COUNT', {});
+      await controller.listAnomalies(branchUser, {});
+
+      const restricted = {
+        branchId: null,
+        branchIds: ['branch-a', 'branch-b'],
+      };
+      expect(analyticsMetricService.queryMetric).toHaveBeenCalledWith(
+        expect.objectContaining(restricted),
+      );
+      expect(analyticsMetricService.compareMetric).toHaveBeenCalledWith(
+        expect.objectContaining(restricted),
+      );
+      expect(kpiService.calculateKpi).toHaveBeenCalledWith(
+        branchUser,
+        'POLICY_COUNT',
+        expect.objectContaining(restricted),
+      );
+      expect(anomalyService.listFindings).toHaveBeenCalledWith(
+        'company-id',
+        expect.objectContaining(restricted),
+      );
+    });
+
+    it('uses the only allowed branch when there is one', async () => {
+      await controller.queryMetric(singleBranchUser, metricDto);
+
+      expect(analyticsMetricService.queryMetric).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: 'branch-a' }),
+      );
+      expect(
+        analyticsMetricService.queryMetric.mock.calls[0][0],
+      ).not.toHaveProperty('branchIds');
+    });
+
+    it('refuses company-wide records for multi-branch users without a branch', () => {
+      expect(() =>
+        controller.generateScorecard(branchUser, {
+          templateId: 'template-id',
+          periodStart: '2026-01-01',
+          periodEnd: '2026-01-31',
+        }),
+      ).toThrow(ForbiddenException);
+      expect(() =>
+        controller.runForecast(branchUser, {
+          definitionId: 'def-1',
+          trainingPeriodStart: '2026-01-01',
+          trainingPeriodEnd: '2026-01-31',
+          forecastPeriodStart: '2026-02-01',
+          forecastPeriodEnd: '2026-02-07',
+        }),
+      ).toThrow(ForbiddenException);
+      expect(() =>
+        controller.runAnomalyDetection(branchUser, {
+          ruleId: 'rule-id',
+          from: '2026-01-01',
+          to: '2026-01-31',
+        }),
+      ).toThrow(ForbiddenException);
+    });
+
+    it('rejects branch-limited users with no branch assignment', () => {
+      expect(() =>
+        controller.queryMetric(
+          { ...branchUser, assignedBranchIds: [] },
+          metricDto,
+        ),
+      ).toThrow(ForbiddenException);
+    });
   });
 
   it('requires company context for analytics', () => {

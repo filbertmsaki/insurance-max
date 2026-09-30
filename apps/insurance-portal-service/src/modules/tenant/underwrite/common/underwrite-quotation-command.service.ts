@@ -22,7 +22,6 @@ import { UpdateQuotationDto } from '../../quotations/dto/quotation-payload.dto';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationsService } from '../../quotations/quotations.service';
 import { FleetRegisterService } from '../fleet/fleet-register.service';
-import { NonMotorRiskService } from '../non-motor/non-motor-risk.service';
 
 /**
  * Line-scoped quotation writes for the Underwrite wizards.
@@ -43,7 +42,6 @@ export class UnderwriteQuotationCommandService {
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
     private readonly fleetRegisterService: FleetRegisterService,
-    private readonly nonMotorRiskService: NonMotorRiskService,
   ) {}
 
   private readonly logger = new Logger(UnderwriteQuotationCommandService.name);
@@ -100,22 +98,8 @@ export class UnderwriteQuotationCommandService {
       dto.internal_quotation.category_id,
       dto.internal_quotation.product_id,
     );
-    if (line === UnderwriteLine.NON_MOTOR) {
-      // Risk details must satisfy the product's risk schema, and mandatory
-      // documents must be attached, before the quotation is completed.
-      await this.nonMotorRiskService.assertCompleteForFinalize(
-        user.companyId!,
-        id,
-        dto.internal_quotation.product_id,
-        dto.internal_quotation.sub_class_id,
-      );
-      await this.nonMotorRiskService.assertDocumentsCompleteForFinalize(
-        user.companyId!,
-        id,
-        dto.internal_quotation.product_id,
-        dto.internal_quotation.sub_class_id,
-      );
-    }
+    // Non-Motor risk-detail and document gates run inside
+    // QuotationsService.finalize, so the legacy route enforces them too.
     const quotation = await this.quotationsService.finalize(
       user.companyId!,
       id,

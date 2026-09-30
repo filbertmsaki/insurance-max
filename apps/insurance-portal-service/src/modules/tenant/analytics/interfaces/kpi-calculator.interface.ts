@@ -5,6 +5,8 @@ export interface KpiCalculationContext {
 
   companyId: string;
   branchId?: string | null;
+  /** Branch-limited users without a selected branch: only these branches. */
+  branchIds?: string[] | null;
 
   periodStart: string;
   periodEnd: string;

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -37,6 +38,12 @@ export interface QuotationLifecycleContext {
   tiraRequestId?: string | null;
   tiraResponseId?: string | null;
   metadata?: Record<string, unknown> | null;
+  /**
+   * Set by the caller when the acting user holds a company-administrator
+   * role (see `hasCompanyAdminRole`), exempting them from the maker-checker
+   * rule that blocks approving a quotation they submitted for approval.
+   */
+  isMakerCheckerExempt?: boolean;
 }
 
 interface QuotationLifecycleSnapshot {
@@ -250,6 +257,19 @@ export class QuotationLifecycleService {
         if (quotation.approval_status !== ApprovalStatus.PENDING) {
           throw new ConflictException(
             `Approval cannot be completed from ${quotation.approval_status}`,
+          );
+        }
+
+        // Maker-checker: whoever submitted the quotation for approval may not
+        // approve it, unless they are a company administrator.
+        if (
+          context.changedBy &&
+          quotation.approval_submitted_by &&
+          context.changedBy === quotation.approval_submitted_by &&
+          !context.isMakerCheckerExempt
+        ) {
+          throw new ForbiddenException(
+            'The user who submitted a quotation for approval cannot approve it (maker-checker).',
           );
         }
 

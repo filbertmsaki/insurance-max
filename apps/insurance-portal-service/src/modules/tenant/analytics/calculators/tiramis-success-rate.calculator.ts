@@ -29,6 +29,7 @@ export class TiramisSuccessRateKpiCalculator implements KpiCalculator {
     const rows = await this.analyticsService.getDailyMetrics({
       companyId: context.companyId,
       branchId: context.branchId ?? null,
+      branchIds: context.branchIds ?? null,
       metricCode: this.key,
       from: context.periodStart,
       to: context.periodEnd,

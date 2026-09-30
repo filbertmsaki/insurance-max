@@ -26,6 +26,7 @@ import { PolicyTransactionEvent } from '../entities/policy-transaction-event.ent
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { PolicyTransactionReturnPremiumService } from './policy-transaction-return-premium.service';
 import { FleetVehicleApplyService } from './fleet-vehicle-apply.service';
+import { NonMotorEndorsementService } from './non-motor-endorsement.service';
 
 export interface ApplyPolicyTransactionContext {
   changedBy?: string | null;
@@ -50,6 +51,7 @@ export class PolicyTransactionApplyService {
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly returnPremiumService: PolicyTransactionReturnPremiumService,
     private readonly fleetVehicleApply: FleetVehicleApplyService,
+    private readonly nonMotorEndorsement: NonMotorEndorsementService,
   ) {}
 
   async applyEndorsement(
@@ -297,6 +299,14 @@ export class PolicyTransactionApplyService {
       if (isFleetVehicleChange) {
         await this.fleetVehicleApply.applyRecords(manager, transaction, policy);
       }
+
+      // Endorsed Non-Motor risk details (`nonMotor.*` changes).
+      await this.nonMotorEndorsement.applyToPolicy(
+        manager,
+        companyId,
+        transaction.id,
+        policy.id,
+      );
 
       if (originalStatus !== 'ENDORSED') {
         await manager.getRepository(PolicyStatusHistory).save({

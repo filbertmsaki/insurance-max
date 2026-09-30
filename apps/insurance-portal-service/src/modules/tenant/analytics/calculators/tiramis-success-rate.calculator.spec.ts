@@ -66,6 +66,7 @@ describe('TiramisSuccessRateKpiCalculator', () => {
     expect(analyticsService.getDailyMetrics).toHaveBeenCalledWith({
       companyId: 'company-1',
       branchId: 'branch-1',
+      branchIds: null,
       metricCode: 'tiramis.success_rate',
       from: '2026-01-01',
       to: '2026-01-31',

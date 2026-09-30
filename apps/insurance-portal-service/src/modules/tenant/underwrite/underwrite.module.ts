@@ -28,7 +28,6 @@ import { FleetVehiclesService } from './fleet/fleet-vehicles.service';
 import { UnderwriteFleetController } from './fleet/underwrite-fleet.controller';
 import { ProductRiskField } from './non-motor/entities/product-risk-field.entity';
 import { QuotationNonMotorDetail } from './non-motor/entities/quotation-non-motor-detail.entity';
-import { NonMotorRiskService } from './non-motor/non-motor-risk.service';
 import { UnderwriteNonMotorController } from './non-motor/underwrite-non-motor.controller';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
@@ -75,7 +74,7 @@ import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-s
     UnderwriteLineGuard,
     FleetRegisterService,
     FleetVehiclesService,
-    NonMotorRiskService,
+    // NonMotorRiskService comes from QuotationsModule (finalize gates).
   ],
 })
 export class UnderwriteModule {}

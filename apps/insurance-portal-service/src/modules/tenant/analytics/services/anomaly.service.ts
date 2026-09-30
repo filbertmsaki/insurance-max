@@ -11,13 +11,19 @@ export class AnomalyService {
 
   async listFindings(
     companyId: string,
-    query: { branchId?: string | null; from?: string; to?: string },
+    query: {
+      branchId?: string | null;
+      branchIds?: string[] | null;
+      from?: string;
+      to?: string;
+    },
   ) {
     return this.analyticsService.listAnomalyFindings(
       companyId,
       query.branchId ?? null,
       query.from,
       query.to,
+      query.branchIds ?? null,
     );
   }
 

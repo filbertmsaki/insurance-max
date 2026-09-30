@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { Quotation } from '../entities/quotation.entity';
@@ -182,5 +183,82 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
     expect(fixture.quotation.status).toBe(QuotationStatus.COMPLETED);
     expect(fixture.quotationRepository.save).not.toHaveBeenCalled();
     expect(fixture.historyRepository.save).not.toHaveBeenCalled();
+  });
+});
+
+describe('QuotationLifecycleService approval maker-checker', () => {
+  function createService(quotation: Quotation) {
+    const quotationRepository = {
+      createQueryBuilder: jest.fn(() => ({
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(quotation),
+      })),
+      save: jest.fn().mockImplementation(async (value) => value),
+    };
+    const manager = {
+      getRepository: jest.fn((entity) =>
+        entity === Quotation
+          ? quotationRepository
+          : { save: jest.fn().mockImplementation(async (value) => value) },
+      ),
+    };
+    const dataSource = {
+      transaction: jest.fn(async (handler: any) => handler(manager)),
+    } as unknown as DataSource;
+
+    return new QuotationLifecycleService(dataSource, {} as any, {} as any);
+  }
+
+  function pendingQuotation(): Quotation {
+    return {
+      id: 'quotation-1',
+      company_id: 'company-1',
+      status: QuotationStatus.PENDING_REQUIREMENTS,
+      requires_approval: true,
+      requires_payment: false,
+      approval_status: ApprovalStatus.PENDING,
+      approval_submitted_by: 'maker-1',
+      payment_status: PaymentStatus.NOT_REQUIRED,
+      tira_status: TiraStatus.NOT_SUBMITTED,
+      updated_by: null,
+    } as unknown as Quotation;
+  }
+
+  it('refuses approval by the user who submitted the quotation for approval', async () => {
+    const quotation = pendingQuotation();
+
+    await expect(
+      createService(quotation).approveQuotation('company-1', 'quotation-1', {
+        changedBy: 'maker-1',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(quotation.approval_status).toBe(ApprovalStatus.PENDING);
+  });
+
+  it('lets a different user approve', async () => {
+    const quotation = pendingQuotation();
+
+    await createService(quotation).approveQuotation(
+      'company-1',
+      'quotation-1',
+      { changedBy: 'checker-1' },
+    );
+
+    expect(quotation.approval_status).toBe(ApprovalStatus.APPROVED);
+    expect(quotation.approval_decided_by).toBe('checker-1');
+  });
+
+  it('exempts company administrators', async () => {
+    const quotation = pendingQuotation();
+
+    await createService(quotation).approveQuotation(
+      'company-1',
+      'quotation-1',
+      { changedBy: 'maker-1', isMakerCheckerExempt: true },
+    );
+
+    expect(quotation.approval_status).toBe(ApprovalStatus.APPROVED);
   });
 });

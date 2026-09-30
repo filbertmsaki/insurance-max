@@ -225,14 +225,19 @@ export class AnalyticsService {
     );
   }
 
+  /**
+   * `branchIds` (when set) limits the rows to those branches — used for
+   * branch-limited users who did not pick a single branch.
+   */
   async getDailyMetrics(params: {
     companyId: string;
     branchId?: string | null;
+    branchIds?: string[] | null;
     metricCode: string;
     from?: string;
     to?: string;
   }): Promise<DailyMetricRow[]> {
-    const queryParams: Array<string | null> = [
+    const queryParams: Array<string | string[] | null> = [
       params.companyId,
       params.metricCode,
     ];
@@ -249,6 +254,9 @@ export class AnalyticsService {
     }
 
     queryParams.push(params.branchId ?? null);
+    const branchParam = queryParams.length;
+    queryParams.push(params.branchIds ?? null);
+    const branchesParam = queryParams.length;
 
     return this.queryOptional(
       `
@@ -261,7 +269,8 @@ export class AnalyticsService {
       WHERE company_id = $1
         AND metric_code = $2
         ${dateFilter}
-        AND ($${queryParams.length}::uuid IS NULL OR branch_id = $${queryParams.length})
+        AND ($${branchParam}::uuid IS NULL OR branch_id = $${branchParam})
+        AND ($${branchesParam}::uuid[] IS NULL OR branch_id = ANY($${branchesParam}::uuid[]))
       ORDER BY metric_date ASC
       `,
       queryParams,
@@ -274,12 +283,14 @@ export class AnalyticsService {
     branchId?: string | null,
     from?: string,
     to?: string,
+    branchIds?: string[] | null,
   ): Promise<AnomalyFindingRow[]> {
-    const params: Array<string | null> = [
+    const params: Array<string | string[] | null> = [
       companyId,
       branchId ?? null,
       from ?? null,
       to ?? null,
+      branchIds ?? null,
     ];
 
     return this.queryOptional(
@@ -290,6 +301,7 @@ export class AnalyticsService {
         AND ($2::uuid IS NULL OR branch_id = $2)
         AND ($3::date IS NULL OR metric_date >= $3)
         AND ($4::date IS NULL OR metric_date <= $4)
+        AND ($5::uuid[] IS NULL OR branch_id = ANY($5::uuid[]))
       ORDER BY metric_date DESC, severity DESC
       `,
       params,

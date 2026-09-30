@@ -38,6 +38,7 @@ import { PolicyTransactionInvoiceService } from './policy-transaction-invoice.se
 import { PolicyTransactionQuotationFactoryService } from './policy-transaction-quotation-factory.service';
 import { FLEET_VEHICLE_ENDORSEMENT_CODES } from '../constants/fleet-vehicle-endorsement.constants';
 import { FleetRemovalRefundService } from './fleet-removal-refund.service';
+import { NonMotorEndorsementService } from './non-motor-endorsement.service';
 
 export interface CreateEndorsementInput {
   effective_date: string;
@@ -125,6 +126,23 @@ const ENDORSEMENT_FIELD_RULES: EndorsementFieldRule[] = [
     repricing: false,
     regulatory: true,
   },
+  // Non-Motor risk details (NON_MOTOR policies only; source values come from
+  // policy_non_motor_risk_details — see NonMotorEndorsementService). They are
+  // not rating factors and TIRAMIS does not carry them.
+  {
+    pattern: /^nonMotor\.riskData\.[a-z][a-z0-9_]*$/,
+    category: PolicyChangeCategory.RISK,
+    material: true,
+    repricing: false,
+    regulatory: false,
+  },
+  {
+    pattern: /^nonMotor\.(riskLocation|limitOfLiability)$/,
+    category: PolicyChangeCategory.RISK,
+    material: true,
+    repricing: false,
+    regulatory: false,
+  },
 ];
 
 @Injectable()
@@ -150,6 +168,7 @@ export class EndorsementService {
     private readonly quotationFactory: PolicyTransactionQuotationFactoryService,
     private readonly dataAccessScopeService: DataAccessScopeService,
     private readonly fleetRemovalRefund: FleetRemovalRefundService,
+    private readonly nonMotorEndorsement: NonMotorEndorsementService,
   ) {}
 
   async getEligibility(
@@ -460,7 +479,7 @@ export class EndorsementService {
   async recordChange(
     user: AuthenticatedUser,
     transactionId: string,
-    dto: RecordEndorsementChangeInput,
+    input: RecordEndorsementChangeInput,
   ) {
     return this.dataSource.transaction(async (manager) => {
       const transaction = await this.requireDraftTransaction(
@@ -471,19 +490,42 @@ export class EndorsementService {
 
       await this.assertNotFleetVehicleEndorsement(manager, transaction.id);
 
-      const rule = this.resolveChangeRule(dto.field_path);
+      const rule = this.resolveChangeRule(input.field_path);
 
-      if (dto.category !== rule.category) {
+      if (input.category !== rule.category) {
         throw new BadRequestException(
-          `Field "${dto.field_path}" belongs to category ${rule.category}, not ${dto.category}.`,
+          `Field "${input.field_path}" belongs to category ${rule.category}, not ${input.category}.`,
         );
       }
 
+      // Non-Motor risk details are not in the policy snapshot: their source
+      // value comes from policy_non_motor_risk_details and the new value is
+      // validated against the product risk schema.
+      const nonMotor = this.nonMotorEndorsement.isNonMotorPath(input.field_path)
+        ? await this.nonMotorEndorsement.resolveChange(
+            manager,
+            user.companyId!,
+            transaction.source_policy_id,
+            input.field_path,
+            input.operation,
+            input.new_value,
+          )
+        : null;
+      const dto: RecordEndorsementChangeInput = nonMotor
+        ? {
+            ...input,
+            operation: nonMotor.operation,
+            new_value: nonMotor.newValue,
+          }
+        : input;
+
       const repository = manager.getRepository(PolicyTransactionChange);
-      const sourceValue = this.snapshotService.readValue(
-        transaction.source_policy_snapshot,
-        dto.field_path,
-      );
+      const sourceValue = nonMotor
+        ? nonMotor.sourceValue
+        : this.snapshotService.readValue(
+            transaction.source_policy_snapshot,
+            dto.field_path,
+          );
       const existing = await repository.findOne({
         where: {
           company_id: user.companyId!,
@@ -847,10 +889,19 @@ export class EndorsementService {
       },
     });
 
+    const nonMotorRiskDetails = await this.nonMotorEndorsement.getContext(
+      this.dataSource.manager,
+      user.companyId!,
+      transaction.source_policy_id,
+    );
+
     return {
       transaction,
       endorsement,
       changes,
+      // Current risk details and schema of a Non-Motor policy (null for
+      // other lines), for editing `nonMotor.*` changes.
+      non_motor_risk_details: nonMotorRiskDetails,
       source_policy_snapshot: transaction.source_policy_snapshot,
       proposed_policy_snapshot:
         transaction.proposed_policy_snapshot ??
@@ -1098,8 +1149,19 @@ export class EndorsementService {
       order: { created_at: 'ASC' },
     });
 
+    // Non-Motor risk-detail changes apply on top of the policy's current
+    // risk details, so the proposed snapshot carries the whole block.
+    const base = this.nonMotorEndorsement.hasNonMotorChanges(changes)
+      ? await this.nonMotorEndorsement.withCurrentRisk(
+          manager,
+          transaction.company_id,
+          transaction.source_policy_id,
+          transaction.source_policy_snapshot,
+        )
+      : transaction.source_policy_snapshot;
+
     const { snapshot, snapshotHash } = this.snapshotService.build(
-      transaction.source_policy_snapshot,
+      base,
       changes.map((change) => ({
         fieldPath: change.field_path,
         operation: change.operation,

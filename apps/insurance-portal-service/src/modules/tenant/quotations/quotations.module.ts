@@ -54,6 +54,9 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { PricingModule } from '../pricing/pricing.module';
 import { ProductAccessModule } from '../product-access/product-access.module';
 import { TaxesModule } from '../taxes/taxes.module';
+import { ProductRiskField } from '../underwrite/non-motor/entities/product-risk-field.entity';
+import { QuotationNonMotorDetail } from '../underwrite/non-motor/entities/quotation-non-motor-detail.entity';
+import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
 
 @Module({
   imports: [
@@ -94,6 +97,8 @@ import { TaxesModule } from '../taxes/taxes.module';
       InsuranceSubClass,
       InsuranceRisk,
       User,
+      ProductRiskField,
+      QuotationNonMotorDetail,
     ]),
     TiramisModule,
     PricingModule,
@@ -115,6 +120,8 @@ import { TaxesModule } from '../taxes/taxes.module';
     QuotationLifecycleService,
     InsuranceChannelPermissionService,
     IdentifierGeneratorService,
+    // Non-Motor finalize gates run inside QuotationsService.finalize.
+    NonMotorRiskService,
   ],
   exports: [
     QuotationsService,
@@ -125,6 +132,7 @@ import { TaxesModule } from '../taxes/taxes.module';
     QuotationDisplayStatusResolver,
     QuotationLifecycleService,
     InsuranceChannelPermissionService,
+    NonMotorRiskService,
   ],
 })
 export class QuotationsModule {}
