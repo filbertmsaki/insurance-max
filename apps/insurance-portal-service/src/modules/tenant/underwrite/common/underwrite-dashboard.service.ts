@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
+  PolicyTransactionStage,
   PolicyTransactionType,
   quotationFlowForUnderwriteLine,
+  RenewalLifecycleStatus,
   UNDERWRITE_LINES,
   UnderwriteAction,
   underwritePermission,
@@ -21,8 +23,27 @@ import { QuotationStatus } from '../../quotations/enums/quotation-status.enum';
 import { TiraStatus } from '../../quotations/enums/tira-status.enum';
 import { userHasPermission } from './underwrite-line.access';
 
-const RENEWAL_DUE_WINDOW_DAYS = 30;
+/**
+ * Renewal window defaults of RenewalEligibilityService
+ * (RENEWAL_WINDOW_BEFORE_DAYS / RENEWAL_WINDOW_AFTER_DAYS): a policy is
+ * renewable from 7 days before to 7 days after its end date.
+ */
+const RENEWAL_WINDOW_BEFORE_DAYS = 7;
+const RENEWAL_WINDOW_AFTER_DAYS = 7;
 const LIVE_POLICY_STATUSES = ['ACTIVE', 'ENDORSED', 'COVER_NOTE_ISSUED'];
+/** Transactions in these stages are finished, not work in progress. */
+const TERMINAL_TRANSACTION_STAGES: string[] = [
+  PolicyTransactionStage.APPLIED,
+  PolicyTransactionStage.CANCELLED,
+  PolicyTransactionStage.EXPIRED,
+  PolicyTransactionStage.REJECTED,
+];
+const TERMINAL_RENEWAL_STATUSES: string[] = [
+  RenewalLifecycleStatus.RENEWED,
+  RenewalLifecycleStatus.LAPSED,
+  RenewalLifecycleStatus.CANCELLED,
+  RenewalLifecycleStatus.CUSTOMER_DECLINED,
+];
 
 export interface UnderwriteQuotationStats {
   total: number;
@@ -46,15 +67,18 @@ export interface UnderwritePolicyStats {
 export interface UnderwriteFleetStats {
   /** Live fleet policies. */
   active_fleets: number;
-  /** Vehicles (policy risks) covered by live fleet policies. */
+  /** Distinct vehicles still on cover on live fleet policies. */
   covered_vehicles: number;
 }
 
 export interface UnderwriteTransactionStats {
+  /** Renewals, endorsements and cancellations still in progress. */
   renewals: number;
   endorsements: number;
   cancellations: number;
   tira_pending: number;
+  /** Endorsements and cancellations whose TIRA submission failed. */
+  tira_failed: number;
 }
 
 export interface UnderwriteLineSummary {
@@ -254,14 +278,17 @@ export class UnderwriteDashboardService {
         ? this.transactionCount(user, line, PolicyTransactionType.CANCELLATION)
         : 0,
       visibility.tiraPending ? this.pendingQuotationTiraCount(user, line) : 0,
-      visibility.tiraPending ? this.pendingTransactionTiraCount(user, line) : 0,
+      visibility.tiraPending
+        ? this.transactionTiraCounts(user, line)
+        : { pending: 0, failed: 0 },
     ]);
 
     return {
       renewals,
       endorsements,
       cancellations,
-      tira_pending: pendingQuotationTira + pendingTransactionTira,
+      tira_pending: pendingQuotationTira + pendingTransactionTira.pending,
+      tira_failed: pendingTransactionTira.failed,
     };
   }
 
@@ -281,6 +308,12 @@ export class UnderwriteDashboardService {
       .where('renewal.company_id = :companyId', { companyId: user.companyId! })
       .andWhere('transaction.transaction_type = :transactionType', {
         transactionType: PolicyTransactionType.RENEWAL,
+      })
+      .andWhere('renewal.renewal_status NOT IN (:...terminalRenewalStatuses)', {
+        terminalRenewalStatuses: TERMINAL_RENEWAL_STATUSES,
+      })
+      .andWhere('transaction.stage NOT IN (:...terminalStages)', {
+        terminalStages: TERMINAL_TRANSACTION_STAGES,
       })
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
 
@@ -308,6 +341,9 @@ export class UnderwriteDashboardService {
       })
       .andWhere('transaction.transaction_type = :transactionType', {
         transactionType,
+      })
+      .andWhere('transaction.stage NOT IN (:...terminalStages)', {
+        terminalStages: TERMINAL_TRANSACTION_STAGES,
       })
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
 
@@ -362,14 +398,22 @@ export class UnderwriteDashboardService {
     return toCount(row?.total);
   }
 
-  private async pendingTransactionTiraCount(
+  /** Endorsements/cancellations queued at TIRA, and those that failed there. */
+  private async transactionTiraCounts(
     user: AuthenticatedUser,
     line: UnderwriteLine,
-  ): Promise<number> {
+  ): Promise<{ pending: number; failed: number }> {
     const queryBuilder = this.transactionRepository
       .createQueryBuilder('transaction')
       .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
-      .select('COUNT(*)', 'total')
+      .select(
+        'COUNT(*) FILTER (WHERE transaction.submission_status IN (:...pendingStatuses))',
+        'pending',
+      )
+      .addSelect(
+        'COUNT(*) FILTER (WHERE transaction.submission_status IN (:...failedStatuses))',
+        'failed',
+      )
       .where('transaction.company_id = :companyId', {
         companyId: user.companyId!,
       })
@@ -379,15 +423,20 @@ export class UnderwriteDashboardService {
           PolicyTransactionType.CANCELLATION,
         ],
       })
-      .andWhere('transaction.submission_status IN (:...statuses)', {
-        statuses: [
+      .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line })
+      .setParameters({
+        pendingStatuses: [
           WorkflowSubmissionStatus.READY,
           WorkflowSubmissionStatus.QUEUED,
           WorkflowSubmissionStatus.PROCESSING,
           WorkflowSubmissionStatus.ACKNOWLEDGED,
         ],
-      })
-      .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
+        // The same statuses as the TIRA failed queue.
+        failedStatuses: [
+          WorkflowSubmissionStatus.FAILED,
+          WorkflowSubmissionStatus.RETRYABLE,
+        ],
+      });
 
     this.dataAccessScopeService.applyPolicyReadScope(
       queryBuilder,
@@ -396,7 +445,7 @@ export class UnderwriteDashboardService {
     );
 
     const row = await queryBuilder.getRawOne<Record<string, string>>();
-    return toCount(row?.total);
+    return { pending: toCount(row?.pending), failed: toCount(row?.failed) };
   }
 
   private async quotationStats(
@@ -472,7 +521,8 @@ export class UnderwriteDashboardService {
       .addSelect(
         `COUNT(*) FILTER (
           WHERE policy.policy_status IN (:...liveStatuses)
-            AND policy.end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + CAST(:renewalWindow AS integer)
+            AND policy.end_date BETWEEN CURRENT_DATE - CAST(:renewalWindowAfter AS integer)
+                                    AND CURRENT_DATE + CAST(:renewalWindowBefore AS integer)
             AND policy.renewed_to_policy_id IS NULL
         )`,
         'renewals_due',
@@ -489,7 +539,8 @@ export class UnderwriteDashboardService {
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line })
       .setParameters({
         liveStatuses: LIVE_POLICY_STATUSES,
-        renewalWindow: RENEWAL_DUE_WINDOW_DAYS,
+        renewalWindowBefore: RENEWAL_WINDOW_BEFORE_DAYS,
+        renewalWindowAfter: RENEWAL_WINDOW_AFTER_DAYS,
       });
 
     this.dataAccessScopeService.applyPolicyReadScope(
@@ -513,16 +564,18 @@ export class UnderwriteDashboardService {
   ): Promise<UnderwriteFleetStats> {
     const scope = this.dataAccessScopeService.resolve(user);
     // One row per policy (no joins), so SUM of the per-policy vehicle count
-    // is the number of covered vehicles.
+    // is the number of covered vehicles. A vehicle can carry several risks,
+    // and removed vehicles keep their CANCELLED risks.
     const queryBuilder = this.policyRepository
       .createQueryBuilder('policy')
       .select('COUNT(*)', 'active_fleets')
       .addSelect(
         `COALESCE(SUM((
-          SELECT COUNT(*)
+          SELECT COUNT(DISTINCT COALESCE(fleet_risk.motor_vehicle_id::text, fleet_risk.id::text))
             FROM policy_risks fleet_risk
            WHERE fleet_risk.policy_id = policy.id
              AND fleet_risk.deleted_at IS NULL
+             AND fleet_risk.status <> 'CANCELLED'
         )), 0)`,
         'covered_vehicles',
       )

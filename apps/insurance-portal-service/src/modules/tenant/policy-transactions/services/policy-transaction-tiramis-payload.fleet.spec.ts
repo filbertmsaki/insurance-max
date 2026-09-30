@@ -197,3 +197,201 @@ describe('PolicyTransactionTiramisPayloadService fleet vehicle endorsements', ()
     ).rejects.toThrow('fleet add/remove endorsement');
   });
 });
+
+describe('PolicyTransactionTiramisPayloadService whole-fleet cancellation', () => {
+  const issuedItem = (fleetEntry: number, registration: string) => ({
+    fleetEntry: String(fleetEntry),
+    coverNoteNumber: `CN-${fleetEntry}`,
+    prevCoverNoteReferenceNumber: null,
+    coverNoteDesc: 'Fleet cover',
+    operativeClause: 'Comprehensive',
+    endorsementType: null,
+    risks: [riskRow(fleetEntry - 1, '600000')],
+    subjectMatters: [{ subjectMatterReference: 'S', subjectMatterDesc: 'D' }],
+    addons: [],
+    motorDetail: motor(registration),
+  });
+
+  const issuedCoverNote = {
+    coverNoteType: 1,
+    coverNoteNumber: 'CN-1',
+    branchCode: 'HQ',
+    coverNoteEndDate: '2027-09-20',
+    totalPremiumExcludingTax: '1800000.0000',
+    totalPremiumIncludingTax: '2124000.0000',
+    commissionPaid: '180000.0000',
+    commissionRate: '0.1',
+    risks: [riskRow(0, '600000')],
+    isFleet: true,
+    fleet: {
+      fleetId: 'FLEET-001',
+      fleetType: 1,
+      fleetSize: 3,
+      comprehensiveInsured: 3,
+      items: [
+        issuedItem(1, 'T1AAA'),
+        issuedItem(2, 'T2AAA'),
+        issuedItem(3, 'T3AAA'),
+      ],
+    },
+  };
+
+  function cancellationTransaction(
+    entries: Array<Record<string, unknown>>,
+    coverNotes: Array<Record<string, unknown>> = [],
+    source: Record<string, unknown> = {
+      quotationFlow: 'MOTOR_FLEET',
+      isFleet: true,
+    },
+  ) {
+    return {
+      transaction_no: 'CAN-0001',
+      effective_date: '2026-11-01',
+      reason: 'Customer request',
+      proposed_policy_snapshot: {},
+      proposed_policy_snapshot_hash: 'hash',
+      pricing_snapshot: {
+        sourcePolicyVersionPricingSnapshot: { proposedRiskPricing: [] },
+      },
+      pricing_snapshot_hash: 'hash',
+      source_policy_snapshot: {
+        source: { ...source, finalizationSnapshot: issuedCoverNote },
+        entries,
+        coverNotes,
+      },
+    } as any;
+  }
+
+  const cancellation = {
+    tira_endorsement_type: 4,
+    previous_cover_note_reference: 'REF-1',
+    earned_premium: '250000',
+  } as any;
+
+  it('sends the issued fleet unchanged when no vehicle was added or removed', async () => {
+    const payload = await service().buildCancellationPayload(
+      cancellationTransaction([
+        { fleetEntry: 1, motor: motor('T1AAA') },
+        { fleetEntry: 2, motor: motor('T2AAA') },
+        { fleetEntry: 3, motor: motor('T3AAA') },
+      ]),
+      cancellation,
+      policy,
+    );
+
+    expect(payload.fleet).toEqual(issuedCoverNote.fleet);
+    expect(payload.totalPremiumExcludingTax).toBe('1800000.0000');
+    expect(payload.branchCode).toBeUndefined();
+    expect(payload).toMatchObject({
+      coverNoteType: 3,
+      coverNoteNumber: 'CAN-0001',
+      prevCoverNoteReferenceNumber: 'REF-1',
+      endorsementType: 4,
+      endorsementPremiumEarned: '250000.00',
+    });
+  });
+
+  it('leaves out removed vehicles and includes added ones with their own reference', async () => {
+    const payload = await service().buildCancellationPayload(
+      cancellationTransaction(
+        [
+          { fleetEntry: 1, coverNoteNumber: 'CN-1', motor: motor('T1AAA') },
+          {
+            fleetEntry: 2,
+            coverNoteNumber: 'CN-2',
+            status: 'CANCELLED',
+            removedEffectiveDate: '2026-10-01',
+            motor: motor('T2AAA'),
+          },
+          { fleetEntry: 3, coverNoteNumber: 'CN-3', motor: motor('T3AAA') },
+          {
+            fleetEntry: 4,
+            addedEffectiveDate: '2026-10-10',
+            coverNoteNumber: 'END-0009-004',
+            motor: motor('T4NEW'),
+            issuedRiskPricing: [riskRow(3, '100000')],
+          },
+        ],
+        [
+          { coverNoteNumber: 'CN-1', coverNoteReferenceNumber: 'REF-1' },
+          { coverNoteNumber: 'CN-3', coverNoteReferenceNumber: 'REF-3' },
+          {
+            fleetEntry: 4,
+            coverNoteNumber: 'END-0009-004',
+            coverNoteReferenceNumber: 'REF-4',
+          },
+        ],
+      ),
+      cancellation,
+      policy,
+    );
+
+    // Header stays the policy's own cover note.
+    expect(payload.prevCoverNoteReferenceNumber).toBe('REF-1');
+    const fleet = payload.fleet as any;
+    expect(fleet).toMatchObject({
+      fleetId: 'FLEET-001',
+      fleetType: 1,
+      fleetSize: 3,
+      comprehensiveInsured: 3,
+    });
+    expect(fleet.items.map((item: any) => item.fleetEntry)).toEqual([
+      '1',
+      '3',
+      '4',
+    ]);
+    expect(fleet.items[1]).toMatchObject({
+      coverNoteNumber: 'CAN-0001-003',
+      prevCoverNoteReferenceNumber: 'REF-3',
+      endorsementType: 4,
+      endorsementReason: 'Customer request',
+      endorsementPremiumEarned: '250000.00',
+      operativeClause: 'Comprehensive',
+    });
+    const added = fleet.items[2];
+    expect(added).toMatchObject({
+      coverNoteNumber: 'CAN-0001-004',
+      prevCoverNoteReferenceNumber: 'REF-4',
+      endorsementType: 4,
+    });
+    expect(added.motorDetail.registrationNumber).toBe('T4NEW');
+    expect(added.risks[0].premiumExcludingTaxEquivalent).toBe('100000');
+
+    // Totals are the items' risks: 600000 + 600000 + 100000.
+    expect(payload.totalPremiumExcludingTax).toBe('1300000.0000');
+    expect(payload.totalPremiumIncludingTax).toBe('1534000.0000');
+    expect(payload.commissionPaid).toBe('130000.0000');
+  });
+
+  it('refuses an added vehicle without issued risk pricing', async () => {
+    await expect(
+      service().buildCancellationPayload(
+        cancellationTransaction([
+          { fleetEntry: 1, motor: motor('T1AAA') },
+          {
+            fleetEntry: 2,
+            addedEffectiveDate: '2026-10-10',
+            motor: motor('T2'),
+          },
+        ]),
+        cancellation,
+        policy,
+      ),
+    ).rejects.toThrow('no issued risk pricing');
+  });
+
+  it('keeps non-fleet cancellations as issued', async () => {
+    const payload = await service().buildCancellationPayload(
+      cancellationTransaction(
+        [{ status: 'CANCELLED', motor: motor('T1AAA') }],
+        [],
+        { quotationFlow: 'MOTOR_SINGLE', isFleet: false },
+      ),
+      cancellation,
+      policy,
+    );
+
+    expect(payload.fleet).toEqual(issuedCoverNote.fleet);
+    expect(payload.totalPremiumExcludingTax).toBe('1800000.0000');
+  });
+});

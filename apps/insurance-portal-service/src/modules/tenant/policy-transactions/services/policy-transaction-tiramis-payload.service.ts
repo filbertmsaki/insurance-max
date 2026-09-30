@@ -321,7 +321,188 @@ export class PolicyTransactionTiramisPayloadService {
       endorsementType: cancellation.tira_endorsement_type,
       endorsementReason: transaction.reason,
       endorsementPremiumEarned: DecimalUtil.money(cancellation.earned_premium),
+      ...this.cancellationFleetOverrides(
+        transaction,
+        cancellation,
+        issuedCoverNote,
+      ),
     };
+  }
+
+  /**
+   * A fleet changed by "Fleet - Add/Remove Vehicle" endorsements no longer
+   * matches its issued cover note: cancel the vehicles on cover now. Removed
+   * (CANCELLED) vehicles are left out; added ones, which TIRA issued their
+   * own cover notes, are included with their own reference. Items follow
+   * `buildFleetEndorsementPayload`; FleetSize and totals describe the items,
+   * as for the other fleet requests. Returns no overrides for an unchanged
+   * fleet or a non-fleet policy, so their payloads stay as issued.
+   */
+  private cancellationFleetOverrides(
+    transaction: PolicyTransaction,
+    cancellation: PolicyCancellation,
+    issuedCoverNote: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const snapshot = transaction.source_policy_snapshot ?? {};
+    const source = this.asObject(snapshot['source']) ?? {};
+    const issuedFleet = this.asObject(issuedCoverNote['fleet']);
+    const isFleet =
+      source['isFleet'] === true || source['quotationFlow'] === 'MOTOR_FLEET';
+    const entries = this.asArray(snapshot['entries'])
+      .map((entry) => this.asObject(entry))
+      .filter((entry): entry is Record<string, unknown> => !!entry);
+
+    const isAdded = (entry: Record<string, unknown>) =>
+      entry['status'] === FLEET_ENTRY_ADDED || !!entry['addedEffectiveDate'];
+    const isOffCover = (entry: Record<string, unknown>) =>
+      [FLEET_ENTRY_CANCELLED, FLEET_ENTRY_REMOVED].includes(
+        String(entry['status'] ?? ''),
+      );
+
+    if (
+      !isFleet ||
+      !issuedFleet ||
+      !entries.some((entry) => isAdded(entry) || isOffCover(entry))
+    ) {
+      return {};
+    }
+
+    const issuedItems = this.asArray(issuedFleet['items'])
+      .map((item) => this.asObject(item))
+      .filter((item): item is Record<string, unknown> => !!item);
+    const coverNotes = this.asArray(snapshot['coverNotes'])
+      .map((note) => this.asObject(note))
+      .filter((note): note is Record<string, unknown> => !!note);
+    const versionPricing = this.asObject(
+      transaction.pricing_snapshot?.['sourcePolicyVersionPricingSnapshot'],
+    );
+    const earned = DecimalUtil.money(cancellation.earned_premium);
+
+    const items = entries
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => !isOffCover(entry))
+      .map(({ entry, index }) => {
+        const fleetEntry = this.fleetEntryNumber(entry, index);
+        const issued = isAdded(entry)
+          ? undefined
+          : issuedItems.find(
+              (item) => String(item['fleetEntry']) === String(fleetEntry),
+            );
+        const ownReference = this.ownCoverNoteReference(
+          coverNotes,
+          entry,
+          fleetEntry,
+        );
+
+        let risks: unknown[] = issued ? this.asArray(issued['risks']) : [];
+        if (!risks.length) {
+          // An added vehicle is cancelled with the risks of its own cover note.
+          risks = this.mapRiskRows(entry['issuedRiskPricing'], index);
+        }
+        if (!risks.length) {
+          risks = this.mapRiskRows(
+            versionPricing?.['proposedRiskPricing'],
+            index,
+          );
+        }
+        if (!risks.length) {
+          throw new BadRequestException(
+            `Fleet vehicle ${fleetEntry} has no issued risk pricing to cancel.`,
+          );
+        }
+
+        return {
+          ...(issued ?? {}),
+          fleetEntry: String(fleetEntry),
+          coverNoteNumber: this.buildEndorsementCoverNoteNumber(
+            transaction.transaction_no,
+            fleetEntry,
+          ),
+          ...this.previousCoverNoteReferenceFields(
+            ownReference ??
+              issued?.['prevCoverNoteReferenceNumber'] ??
+              cancellation.previous_cover_note_reference,
+          ),
+          coverNoteDesc: `Cancellation ${transaction.transaction_no}`,
+          operativeClause:
+            issued?.['operativeClause'] ??
+            entry['operativeClause'] ??
+            'Cancellation',
+          endorsementType: cancellation.tira_endorsement_type,
+          endorsementReason: transaction.reason,
+          endorsementPremiumEarned: earned,
+          risks,
+          subjectMatters:
+            issued?.['subjectMatters'] ?? this.mapSubjectMatters(entry),
+          addons: issued?.['addons'] ?? this.mapAddons(entry),
+          motorDetail:
+            issued?.['motorDetail'] ??
+            this.mapMotorDetail(this.asObject(entry['motor']) ?? {}),
+        };
+      });
+
+    if (!items.length) {
+      throw new BadRequestException(
+        'The fleet has no vehicle on cover to cancel.',
+      );
+    }
+
+    const totalExcludingTax = this.sumRisks(
+      items,
+      'premiumExcludingTaxEquivalent',
+    );
+    const first = items[0];
+
+    return {
+      totalPremiumExcludingTax: totalExcludingTax,
+      totalPremiumIncludingTax: this.sumRisks(items, 'premiumIncludingTax'),
+      commissionPaid: DecimalUtil.value(totalExcludingTax)
+        .times(
+          DecimalUtil.value(
+            (issuedCoverNote['commissionRate'] ?? '0') as string | number,
+          ),
+        )
+        .toFixed(4),
+      risks: first.risks,
+      subjectMatters: first.subjectMatters,
+      addons: first.addons,
+      isFleet: true,
+      fleet: {
+        ...issuedFleet,
+        fleetSize: items.length,
+        comprehensiveInsured: this.comprehensiveCount(
+          issuedFleet,
+          items.length,
+        ),
+        items,
+      },
+    };
+  }
+
+  /** The vehicle's own current TIRA cover-note reference, if recorded. */
+  private ownCoverNoteReference(
+    coverNotes: Record<string, unknown>[],
+    entry: Record<string, unknown>,
+    fleetEntry: number,
+  ): string | null {
+    const note =
+      coverNotes.find(
+        (candidate) =>
+          candidate['fleetEntry'] != null &&
+          Number(candidate['fleetEntry']) === fleetEntry,
+      ) ??
+      coverNotes.find(
+        (candidate) =>
+          entry['coverNoteNumber'] != null &&
+          candidate['coverNoteNumber'] === entry['coverNoteNumber'],
+      );
+    const reference = note?.['coverNoteReferenceNumber'];
+    return typeof reference === 'string' && reference.trim() ? reference : null;
+  }
+
+  private fleetEntryNumber(entry: Record<string, unknown>, index: number) {
+    const value = Number(entry['fleetEntry'] ?? entry['entryNumber']);
+    return Number.isInteger(value) && value > 0 ? value : index + 1;
   }
 
   private async buildBasePayload(

@@ -354,6 +354,8 @@ export interface EndorsementTypeRecord {
   tira_endorsement_type: number | null;
   requires_new_cover_note: boolean;
   is_active: boolean;
+  /** Fleet add/remove vehicle types: offer them on fleet policies only. */
+  is_fleet_only?: boolean;
   created_at: string;
   updated_at: string;
 }

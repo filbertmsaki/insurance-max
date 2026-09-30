@@ -62,6 +62,11 @@ export class FleetVehicleApplyService {
         delete entry['status'];
         entry['addedEffectiveDate'] = transaction.effective_date;
         entry['addedByTransactionId'] = transaction.id;
+        // The risks TIRA issued the vehicle's own cover note with; a later
+        // whole-fleet cancellation sends them back for this vehicle.
+        entry['issuedRiskPricing'] = this.entries({
+          entries: transaction.pricing_snapshot?.['proposedRiskPricing'],
+        }).filter((row) => Number(row['entryIndex']) === index);
         entry['coverNoteNumber'] =
           note?.sourceCoverNoteNumber ?? entry['coverNoteNumber'] ?? null;
         coverNotes.push({

@@ -11,6 +11,8 @@ import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { Policy } from '../../policies/entities/policy.entity';
 import { policyBusinessLineSql } from '../../policies/utils/policy-business-line.sql';
+import { EndorsementType } from '../../policy-transactions/entities/endorsement-type.entity';
+import { PolicyEndorsement } from '../../policy-transactions/entities/policy-endorsement.entity';
 import { PolicyRenewal } from '../../policy-transactions/entities/policy-renewal.entity';
 import { PolicyTransaction } from '../../policy-transactions/entities/policy-transaction.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
@@ -80,25 +82,39 @@ export class UnderwriteTransactionsService {
       .createQueryBuilder('renewal')
       .innerJoinAndSelect('renewal.policy_transaction', 'transaction')
       .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .addSelect('policy.policy_no', 'source_policy_no')
       .where('renewal.company_id = :companyId', { companyId: user.companyId! })
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line })
       .orderBy('renewal.created_at', 'DESC');
 
     this.applyPolicyScope(query, user);
 
-    return query.getMany().then((renewals) =>
-      renewals.map((renewal) => ({
-        kind: 'renewal' as const,
-        id: renewal.id,
-        renewal_no: renewal.renewal_no,
-        renewal_status: renewal.renewal_status,
-        renewal_start_date: renewal.renewal_start_date,
-        renewal_end_date: renewal.renewal_end_date,
-        offer_expires_at: renewal.offer_expires_at,
-        created_at: renewal.created_at,
-        policy_transaction: renewal.policy_transaction,
-      })),
-    );
+    return query
+      .getRawAndEntities<{ renewal_id: string; source_policy_no: string }>()
+      .then(({ entities, raw }) => {
+        // PolicyTransaction has no policy number of its own.
+        const policyNos = new Map(
+          raw.map((row) => [row.renewal_id, row.source_policy_no ?? null]),
+        );
+        return entities.map((renewal) => {
+          const policyNo = policyNos.get(renewal.id) ?? null;
+          return {
+            kind: 'renewal' as const,
+            id: renewal.id,
+            renewal_no: renewal.renewal_no,
+            renewal_status: renewal.renewal_status,
+            renewal_start_date: renewal.renewal_start_date,
+            renewal_end_date: renewal.renewal_end_date,
+            offer_expires_at: renewal.offer_expires_at,
+            created_at: renewal.created_at,
+            policy_no: policyNo,
+            policy_transaction: {
+              ...renewal.policy_transaction,
+              policy_no: policyNo,
+            },
+          };
+        });
+      });
   }
 
   listTransactions(
@@ -134,13 +150,23 @@ export class UnderwriteTransactionsService {
         policy_no: string;
         cover_note_no: string | null;
         customer_snapshot: unknown;
+        endorsement_type_code: string | null;
+        endorsement_type_name: string | null;
+        regulatory_status_code: string | null;
+        regulatory_status_description: string | null;
       }>()
       .then((rows) =>
-        rows.map((row) => ({
-          kind,
-          ...row,
-          customer_name: customerName(row.customer_snapshot),
-        })),
+        rows.map(
+          ({
+            regulatory_status_code: _statusCode,
+            regulatory_status_description: _statusDescription,
+            ...row
+          }) => ({
+            kind,
+            ...row,
+            customer_name: customerName(row.customer_snapshot),
+          }),
+        ),
       );
   }
 
@@ -303,12 +329,14 @@ export class UnderwriteTransactionsService {
       .andWhere('quotation.deleted_at IS NULL');
 
     if (kind === 'failed') {
+      // TIRA failures only: a REJECTED status alone can be an approval
+      // rejection, which TIRA never saw (TIRA rejections set tira_status).
       query.andWhere(
         `(quotation.tira_status IN (:...tiraStatuses)
-          OR quotation.status IN (:...quotationStatuses))`,
+          OR quotation.status = :failedStatus)`,
         {
           tiraStatuses: [TiraStatus.FAILED, TiraStatus.REJECTED],
-          quotationStatuses: [QuotationStatus.FAILED, QuotationStatus.REJECTED],
+          failedStatus: QuotationStatus.FAILED,
         },
       );
     } else {
@@ -405,6 +433,10 @@ export class UnderwriteTransactionsService {
         policy_no: string;
         cover_note_no: string | null;
         customer_snapshot: unknown;
+        endorsement_type_code: string | null;
+        endorsement_type_name: string | null;
+        regulatory_status_code: string | null;
+        regulatory_status_description: string | null;
       }>()
       .then((rows) =>
         rows.map((row) => ({
@@ -415,8 +447,9 @@ export class UnderwriteTransactionsService {
           tira_status: row.submission_status,
           tira_request_id: row.tiramis_request_id,
           tira_response_id: row.tiramis_transaction_id,
-          status_code: null,
-          status_description: row.reason,
+          // TIRA's own outcome when one was captured, else the business reason.
+          status_code: row.regulatory_status_code ?? null,
+          status_description: row.regulatory_status_description ?? row.reason,
           customer_snapshot: row.customer_snapshot,
           customer_name: customerName(row.customer_snapshot),
           updated_at: row.updated_at,
@@ -424,6 +457,8 @@ export class UnderwriteTransactionsService {
           source_policy_id: row.source_policy_id,
           policy_no: row.policy_no,
           cover_note_no: row.cover_note_no,
+          endorsement_type_code: row.endorsement_type_code,
+          endorsement_type_name: row.endorsement_type_name,
         })),
       );
   }
@@ -457,8 +492,22 @@ export class UnderwriteTransactionsService {
         'policy.policy_no AS policy_no',
         'policy.cover_note_no AS cover_note_no',
         'policy.customer_snapshot AS customer_snapshot',
+        'COALESCE(endorsement.endorsement_type_code, endorsement_type.code) AS endorsement_type_code',
+        'COALESCE(endorsement.endorsement_type_name, endorsement_type.name) AS endorsement_type_name',
+        "transaction.regulatory_response ->> 'statusCode' AS regulatory_status_code",
+        "transaction.regulatory_response ->> 'statusDescription' AS regulatory_status_description",
       ])
       .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .leftJoin(
+        PolicyEndorsement,
+        'endorsement',
+        'endorsement.policy_transaction_id = transaction.id',
+      )
+      .leftJoin(
+        EndorsementType,
+        'endorsement_type',
+        'endorsement_type.id = endorsement.endorsement_type_id',
+      )
       .where('transaction.company_id = :companyId', {
         companyId: user.companyId!,
       })

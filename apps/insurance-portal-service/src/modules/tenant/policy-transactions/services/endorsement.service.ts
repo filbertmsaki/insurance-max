@@ -276,6 +276,16 @@ export class EndorsementService {
         });
       }
 
+      if (
+        FLEET_VEHICLE_ENDORSEMENT_CODES.includes(typeConfig.code) &&
+        !this.isFleetPolicy(policy, eligibility.currentVersion?.policy_snapshot)
+      ) {
+        throw new UnprocessableEntityException({
+          code: 'ENDORSEMENT_TYPE_FLEET_ONLY',
+          message: `The "${typeConfig.name}" endorsement type can only be used on a motor fleet policy.`,
+        });
+      }
+
       const previousCoverNoteReference =
         eligibility.currentVersion!.regulatory_reference ??
         policy.cover_note_no;
@@ -370,6 +380,24 @@ export class EndorsementService {
 
       return transaction;
     });
+  }
+
+  /**
+   * A motor fleet policy: its stored underwrite line, else the issued
+   * snapshot's source flow (as the TIRAMIS payload builder decides).
+   */
+  private isFleetPolicy(
+    policy: Policy,
+    snapshot: Record<string, unknown> | null | undefined,
+  ): boolean {
+    if (policy.business_line) {
+      return policy.business_line === 'FLEET';
+    }
+    const source = snapshot?.['source'] as Record<string, unknown> | undefined;
+    return (
+      source?.['isFleet'] === true ||
+      source?.['quotationFlow'] === 'MOTOR_FLEET'
+    );
   }
 
   /**

@@ -62,10 +62,10 @@ function buildTiles(
       {
         key: 'tira-failed',
         title: 'TIRA failed',
-        value: quotations.tira_failed,
+        value: quotations.tira_failed + (transactions?.tira_failed ?? 0),
         icon: AlertTriangle,
         tone: 'danger',
-        to: `${list}?status=FAILED`,
+        to: underwritePaths.tiraFailed(slug),
         description: `${formatCount(quotations.tira_in_progress)} in progress`,
       },
     );
@@ -90,7 +90,7 @@ function buildTiles(
         icon: CalendarClock,
         tone: 'info',
         to: list,
-        description: 'Expiring in the next 30 days',
+        description: 'Within the renewal window',
       },
       {
         key: 'cancelled',
