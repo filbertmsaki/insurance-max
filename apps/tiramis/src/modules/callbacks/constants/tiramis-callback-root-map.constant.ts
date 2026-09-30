@@ -3,7 +3,8 @@ export type TiramisCallbackBusinessTarget =
   | 'MOTOR'
   | 'REINSURANCE'
   | 'POLICY'
-  | 'CLAIM';
+  | 'CLAIM'
+  | 'DISCHARGE_VOUCHER';
 
 export interface TiramisCallbackRootDefinition {
   responseRoot: string;
@@ -62,7 +63,7 @@ export const TIRAMIS_CALLBACK_RESPONSE_ROOTS: Record<
     responseRoot: 'DischargeVoucherRes',
     responseAckRoot: 'DischargeVoucherResAck',
     serviceType: 'DISCHARGE_VOUCHER',
-    businessTarget: 'CLAIM',
+    businessTarget: 'DISCHARGE_VOUCHER',
   },
   ClaimPaymentRes: {
     responseRoot: 'ClaimPaymentRes',

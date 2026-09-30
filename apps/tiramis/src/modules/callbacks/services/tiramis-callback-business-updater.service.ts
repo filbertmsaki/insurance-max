@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { TiramisClaimRepository } from '../../claims/repositories/tiramis-claim.repository';
+import { TiramisDischargeVoucherRepository } from '../../claims/repositories/tiramis-discharge-voucher.repository';
 import { TiramisPolicyRepository } from '../../policies/repositories/tiramis-policy.repository';
 import { TiramisReinsuranceRepository } from '../../reinsurance/repositories/tiramis-reinsurance.repository';
 import { getTiramisCallbackRootDefinition } from '../constants/tiramis-callback-root-map.constant';
@@ -16,9 +17,13 @@ export class TiramisCallbackBusinessUpdaterService {
     private readonly reinsuranceRepository: TiramisReinsuranceRepository,
     private readonly policyRepository: TiramisPolicyRepository,
     private readonly claimRepository: TiramisClaimRepository,
+    private readonly dischargeVoucherRepository: TiramisDischargeVoucherRepository,
   ) {}
 
-  async updateBusinessRecord(finalResponse: TiramisFinalResponseDto) {
+  async updateBusinessRecord(
+    finalResponse: TiramisFinalResponseDto,
+    context: { transactionId?: string | null } = {},
+  ) {
     const definition = getTiramisCallbackRootDefinition(
       finalResponse.rootElement,
     );
@@ -48,6 +53,12 @@ export class TiramisCallbackBusinessUpdaterService {
         return this.claimRepository.markFinalResponseByRequestId({
           ...common,
           claimReferenceNumber: finalResponse.claimReferenceNumber || null,
+          transactionId: context.transactionId ?? null,
+        });
+      case 'DISCHARGE_VOUCHER':
+        return this.dischargeVoucherRepository.markFinalResponseByRequestId({
+          ...common,
+          transactionId: context.transactionId ?? null,
         });
       case 'COVER_NOTE':
       case 'MOTOR':

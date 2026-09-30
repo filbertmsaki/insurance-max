@@ -1,11 +1,13 @@
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ClaimRecoveryType } from '../enums/claim.enums';
+import { IsMoneyAmount } from './claim-validators';
 
 export class CreateClaimRecoveryDto {
   @IsEnum(ClaimRecoveryType)
   recovery_type: ClaimRecoveryType;
 
-  expected_amount: string | number;
+  @IsMoneyAmount()
+  expected_amount: string;
 
   @IsOptional()
   @IsString()
@@ -13,7 +15,8 @@ export class CreateClaimRecoveryDto {
 }
 
 export class RecordRecoveryReceiptDto {
-  received_amount: string | number;
+  @IsMoneyAmount()
+  received_amount: string;
 
   @IsOptional()
   @IsString()

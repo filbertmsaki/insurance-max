@@ -1660,6 +1660,15 @@ export class TiramisClientService {
       return { ...resolvedPayload, isFleet: true };
     }
 
+    // Claim messages have no sale point (TIRAMIS v1.3 §9–14) and the gateway
+    // rejects unknown DTO properties.
+    if (pattern.startsWith('tiramis.claim.')) {
+      const { salePointCode, ...claimPayload } = resolvedPayload;
+      void salePointCode;
+
+      return claimPayload;
+    }
+
     return resolvedPayload;
   }
 

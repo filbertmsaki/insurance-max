@@ -102,6 +102,39 @@ export class ClaimAssessment extends TiramisTrackableClaimEntity {
   @Column({ type: 'text', nullable: true })
   rejection_reason: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  supersedes_assessment_id: string | null;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  assessor_name: string | null;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  assessor_company: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  inspection_date: string | null;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  recommended_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  deductible_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  salvage_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  contribution_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  betterment_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  recovery_amount: string;
+
+  @Column({ type: 'text', nullable: true })
+  remarks: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

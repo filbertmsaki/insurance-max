@@ -50,6 +50,7 @@ function makeHarness(decision: any, claim: any) {
       getOneOrFail: jest.fn().mockResolvedValue(claim),
     }),
     save: jest.fn().mockImplementation(async (value) => value),
+    update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
 
   const manager = {
@@ -61,16 +62,19 @@ function makeHarness(decision: any, claim: any) {
     transaction: jest.fn().mockImplementation(async (fn: any) => fn(manager)),
   } as any;
 
+  // Claim scope is enforced by ClaimAccessService.
+  const access = { getForWrite: jest.fn().mockResolvedValue(claim) };
+
   const service = new ClaimDecisionService(
     dataSource,
     decisionRepo as any,
     claimRepo as any,
     {} as any,
-    {} as any,
+    access as any,
     {} as any,
   );
 
-  return { service };
+  return { service, access, claimRepo };
 }
 
 describe('ClaimDecisionService.approve', () => {
@@ -86,7 +90,7 @@ describe('ClaimDecisionService.approve', () => {
   });
 
   it('allows a different checker to approve and updates claim liability/settlement', async () => {
-    const { service } = makeHarness(makeDecision(), makeClaim());
+    const { service, access, claimRepo } = makeHarness(makeDecision(), makeClaim());
 
     const result = await service.approve(
       { id: 'checker-user', companyId: 'company-1' } as any,
@@ -96,9 +100,19 @@ describe('ClaimDecisionService.approve', () => {
     expect(result.decision.status).toBe(ClaimDecisionStatus.APPROVED);
     expect(result.claim.liability_status).toBe('ADMITTED');
     expect(result.claim.approved_amount).toBe('40000.00');
-    expect(result.claim.claim_stage).toBe(ClaimStage.DECISION);
+    // claim_stage is derived from the lifecycle status, never set here.
+    expect(result.claim.claim_stage).toBe(ClaimStage.ASSESSMENT);
     expect(result.claim.settlement_status).toBe(
       ClaimSettlementStatus.DISCHARGE_PENDING,
+    );
+    expect(access.getForWrite).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'checker-user' }),
+      'claim-1',
+      expect.anything(),
+    );
+    expect(claimRepo.update).toHaveBeenCalledWith(
+      { id: 'claim-1' },
+      expect.objectContaining({ approved_amount: '40000.00' }),
     );
   });
 

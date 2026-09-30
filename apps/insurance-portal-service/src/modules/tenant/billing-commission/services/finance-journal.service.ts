@@ -305,6 +305,50 @@ export class FinanceJournalService {
     );
   }
 
+  /** Mirror of postClaimDisbursement for a reversed (returned) payout. */
+  async reverseClaimDisbursement(
+    manager: EntityManager,
+    params: {
+      companyId: string;
+      disbursementId: string;
+      disbursementNo: string;
+      customerId: string | null;
+      amount: string;
+      currencyCode: string;
+      reason: string;
+    },
+    sourceEventId: string,
+    userId: string | null,
+  ) {
+    return this.postJournal(
+      manager,
+      params.companyId,
+      {
+        sourceType: 'CLAIM_DISBURSEMENT_REVERSAL',
+        sourceId: params.disbursementId,
+        sourceEventId,
+        description: `Claim disbursement ${params.disbursementNo} reversed: ${params.reason}`,
+        currencyCode: params.currencyCode,
+        lines: [
+          {
+            accountCode: '1100',
+            accountName: 'Bank/Cash',
+            accountType: 'ASSET',
+            debit: params.amount,
+          },
+          {
+            accountCode: '2400',
+            accountName: 'Claims Payable',
+            accountType: 'LIABILITY',
+            customerId: params.customerId,
+            credit: params.amount,
+          },
+        ],
+      },
+      userId,
+    );
+  }
+
   /**
    * Posts a reinsurance settlement. Takes primitives rather than a
    * `ReinsuranceSettlement` entity so `billing-commission` doesn't need to

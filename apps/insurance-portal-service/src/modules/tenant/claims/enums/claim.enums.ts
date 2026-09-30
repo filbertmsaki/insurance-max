@@ -1,21 +1,105 @@
+/**
+ * Controlled claim lifecycle. Only ClaimStateMachineService may change a
+ * claim's status; see CLAIM_STATUS_TRANSITIONS for the allowed edges.
+ */
 export enum ClaimStatus {
   DRAFT = 'DRAFT',
-  NOTIFIED = 'NOTIFIED',
+  NOTIFICATION_SUBMITTED = 'NOTIFICATION_SUBMITTED',
+  NOTIFICATION_FAILED = 'NOTIFICATION_FAILED',
+  NOTIFICATION_ACCEPTED = 'NOTIFICATION_ACCEPTED',
+  INTIMATION_PENDING = 'INTIMATION_PENDING',
+  INTIMATION_SUBMITTED = 'INTIMATION_SUBMITTED',
+  INTIMATION_FAILED = 'INTIMATION_FAILED',
   INTIMATED = 'INTIMATED',
-  DOCUMENTS_PENDING = 'DOCUMENTS_PENDING',
-  UNDER_REVIEW = 'UNDER_REVIEW',
   ASSESSMENT_PENDING = 'ASSESSMENT_PENDING',
+  UNDER_ASSESSMENT = 'UNDER_ASSESSMENT',
   ASSESSED = 'ASSESSED',
+  REASSESSMENT_REQUIRED = 'REASSESSMENT_REQUIRED',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
   APPROVED = 'APPROVED',
   DISCHARGE_PENDING = 'DISCHARGE_PENDING',
-  DISCHARGED = 'DISCHARGED',
+  DISCHARGE_ISSUED = 'DISCHARGE_ISSUED',
+  DISCHARGE_ACCEPTED = 'DISCHARGE_ACCEPTED',
+  DISCHARGE_REJECTED = 'DISCHARGE_REJECTED',
   PAYMENT_PENDING = 'PAYMENT_PENDING',
   PARTIALLY_PAID = 'PARTIALLY_PAID',
   PAID = 'PAID',
+  SETTLED = 'SETTLED',
+  REJECTION_PENDING = 'REJECTION_PENDING',
   REJECTED = 'REJECTED',
-  CLOSED = 'CLOSED',
   REOPENED = 'REOPENED',
+  CLOSED = 'CLOSED',
   CANCELLED = 'CANCELLED',
+}
+
+/** TIRAMIS claimant category (§10.1). */
+export enum TiraClaimantCategory {
+  POLICYHOLDER = 1,
+  THIRD_PARTY = 2,
+}
+
+/** TIRAMIS claimant/party type (§10.1). */
+export enum TiraPartyType {
+  INDIVIDUAL = 1,
+  CORPORATE = 2,
+}
+
+/** TIRAMIS identification types shared by claimants and assessors. */
+export enum TiraIdType {
+  NIN = 1,
+  VOTER_REGISTRATION = 2,
+  PASSPORT = 3,
+  DRIVING_LICENCE = 4,
+  ZANID = 5,
+  TIN = 6,
+  COMPANY_INCORPORATION = 7,
+}
+
+export enum ClaimApprovalType {
+  RESERVE = 'RESERVE',
+  ASSESSMENT = 'ASSESSMENT',
+  DECISION = 'DECISION',
+  DISCHARGE = 'DISCHARGE',
+  PAYMENT = 'PAYMENT',
+  REJECTION = 'REJECTION',
+}
+
+export enum ClaimApprovalStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  RETURNED = 'RETURNED',
+  SUPERSEDED = 'SUPERSEDED',
+}
+
+export enum ClaimRejectionStatus {
+  DRAFT = 'DRAFT',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum ClaimIntimationStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  ACCEPTED = 'ACCEPTED',
+  FAILED = 'FAILED',
+}
+
+export enum ClaimEventActorType {
+  USER = 'USER',
+  SYSTEM = 'SYSTEM',
+  TIRA = 'TIRA',
+}
+
+/** Menu queues: each is a filtered view over the central claims table. */
+export enum ClaimQueue {
+  NOTIFICATION = 'notification',
+  INTIMATION = 'intimation',
+  ASSESSMENT = 'assessment',
+  DISCHARGE = 'discharge',
+  PAYMENT = 'payment',
+  REJECTION = 'rejection',
 }
 
 export enum ClaimPriority {

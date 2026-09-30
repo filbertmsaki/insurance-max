@@ -59,8 +59,8 @@ export class TiramisClaimantEntity extends BaseEntity {
   @JoinColumn({ name: 'claim_rejection_id' })
   claimRejection?: TiramisClaimRejectionEntity | null;
 
-  @Column({ name: 'claimant_name', length: 100 })
-  claimantName!: string;
+  @Column({ name: 'claimant_name', type: 'varchar', length: 100, nullable: true })
+  claimantName?: string | null;
 
   @Column({ name: 'claimant_birth_date', type: 'date', nullable: true })
   claimantBirthDate?: Date | null;
@@ -80,20 +80,25 @@ export class TiramisClaimantEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 1, nullable: true })
   gender?: string | null;
 
-  @Column({ name: 'country_code', length: 3 })
-  countryCode!: string;
+  @Column({ name: 'country_code', type: 'varchar', length: 3, nullable: true })
+  countryCode?: string | null;
 
-  @Column({ length: 50 })
-  region!: string;
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  region?: string | null;
 
-  @Column({ length: 50 })
-  district!: string;
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  district?: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   street?: string | null;
 
-  @Column({ name: 'claimant_phone_number', length: 50 })
-  claimantPhoneNumber!: string;
+  @Column({
+    name: 'claimant_phone_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  claimantPhoneNumber?: string | null;
 
   @Column({ name: 'claimant_fax', type: 'varchar', length: 50, nullable: true })
   claimantFax?: string | null;

@@ -1,24 +1,57 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
-import { ClaimStatus } from '../enums/claim.enums';
+import { ClaimQueue, ClaimStatus } from '../enums/claim.enums';
 
 export class FindClaimsQueryDto {
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   limit?: number;
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   search?: string;
 
   @IsOptional()
+  @IsEnum(ClaimStatus)
   status?: ClaimStatus;
+
+  /** Stage menu: a predefined set of statuses (claim-lifecycle.ts). */
+  @IsOptional()
+  @IsEnum(ClaimQueue)
+  queue?: ClaimQueue;
 
   @IsOptional()
   @IsUUID()
   branch_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  product_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  category_id?: string;
 
   @IsOptional()
   @IsUUID()
@@ -29,10 +62,23 @@ export class FindClaimsQueryDto {
   policy_id?: string;
 
   @IsOptional()
-  @IsString()
+  @IsDateString()
   from?: string;
 
   @IsOptional()
-  @IsString()
+  @IsDateString()
   to?: string;
+}
+
+export class PolicyLookupQueryDto {
+  @IsString()
+  @MaxLength(120)
+  q: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number;
 }

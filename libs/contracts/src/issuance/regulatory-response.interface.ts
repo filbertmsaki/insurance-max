@@ -14,6 +14,11 @@ export interface RegulatoryPolicyReference {
   coverNoteReferenceNumbers: string[];
 }
 
+/** TIRA ClaimReferenceNumber returned by ClaimNotificationRefRes. */
+export interface RegulatoryClaimReference {
+  claimReferenceNumber: string;
+}
+
 export interface RegulatoryFinalResponse {
   transactionId: string;
   requestId: string;
@@ -25,6 +30,7 @@ export interface RegulatoryFinalResponse {
   statusDescription: string;
   coverNotes: RegulatoryCoverNoteReference[];
   policy: RegulatoryPolicyReference | null;
+  claim?: RegulatoryClaimReference | null;
   signatureVerified: boolean;
   responsePayloadHash: string;
   receivedAt: string;

@@ -15,9 +15,24 @@ describe('TiramisBusinessValidationService', () => {
     service = module.get(TiramisBusinessValidationService);
   });
 
+  // Full claimant (ClaimIntimationReq, TIRAMIS v1.3 §10.1).
   const validClaimant = {
     claimantName: 'John Doe',
+    claimantCategory: 1,
+    claimantType: 1,
     claimantIdNumber: '12345',
+    claimantIdType: 1,
+    countryCode: 'TZA',
+    district: 'Ilala',
+    claimantPhoneNumber: '255713525539',
+  };
+
+  // Identity-only claimant used by assessment, voucher, payment, rejection.
+  const identityClaimant = {
+    claimantCategory: 1,
+    claimantType: 1,
+    claimantIdNumber: '12345',
+    claimantIdType: 1,
   };
 
   const cases: Array<{
@@ -84,6 +99,14 @@ describe('TiramisBusinessValidationService', () => {
       valid: {
         claimNotificationNumber: 'CLN1',
         coverNoteReferenceNumber: 'CN1',
+        claimReportDate: '2026-09-01T10:00:00',
+        claimFormDullyFilled: 'Y',
+        lossDate: '2026-08-31T09:00:00',
+        lossNature: 'Accident',
+        lossType: 'Own damage',
+        lossLocation: 'Dar es Salaam',
+        officerName: 'Jane Officer',
+        officerTitle: 'Claims Officer',
       },
       invalid: { coverNoteReferenceNumber: 'CN1' },
       invalidErrorSubstring: 'claimNotificationNumber',
@@ -92,11 +115,13 @@ describe('TiramisBusinessValidationService', () => {
       requestType: TiramisRequestType.CLAIM_INTIMATION,
       valid: {
         claimIntimationNumber: 'CI1',
+        claimReferenceNumber: 'CR-REF',
         coverNoteReferenceNumber: 'CN1',
         claimants: [validClaimant],
       },
       invalid: {
         claimIntimationNumber: 'CI1',
+        claimReferenceNumber: 'CR-REF',
         coverNoteReferenceNumber: 'CN1',
         claimants: [],
       },
@@ -107,13 +132,16 @@ describe('TiramisBusinessValidationService', () => {
       valid: {
         claimAssessmentNumber: 'CA1',
         claimIntimationNumber: 'CI1',
+        claimReferenceNumber: 'CR-REF',
         coverNoteReferenceNumber: 'CN1',
-        claimants: [validClaimant],
+        claimants: [identityClaimant],
       },
       invalid: {
         claimAssessmentNumber: 'CA1',
+        claimIntimationNumber: 'CI1',
+        claimReferenceNumber: 'CR-REF',
         coverNoteReferenceNumber: 'CN1',
-        claimants: [{ claimantName: 'John' }],
+        claimants: [{ claimantCategory: 1, claimantType: 1, claimantIdType: 1 }],
       },
       invalidErrorSubstring: 'claimantIdNumber',
     },
@@ -122,26 +150,31 @@ describe('TiramisBusinessValidationService', () => {
       valid: {
         dischargeVoucherNumber: 'DV1',
         claimAssessmentNumber: 'CA1',
+        claimReferenceNumber: 'CR-REF',
         coverNoteReferenceNumber: 'CN1',
-        claimants: [validClaimant],
+        claimants: [identityClaimant],
       },
       invalid: {
         coverNoteReferenceNumber: 'CN1',
-        claimants: [validClaimant],
+        claimants: [identityClaimant],
       },
       invalidErrorSubstring: 'dischargeVoucherNumber',
     },
     {
+      // ClaimPaymentReq carries no ClaimAssessmentNumber (§13.1).
       requestType: TiramisRequestType.CLAIM_PAYMENT,
       valid: {
         claimPaymentNumber: 'CP1',
-        claimAssessmentNumber: 'CA1',
+        claimReferenceNumber: 'CR-REF',
+        claimIntimationNumber: 'CI1',
         coverNoteReferenceNumber: 'CN1',
-        claimants: [validClaimant],
+        claimants: [identityClaimant],
       },
       invalid: {
         claimPaymentNumber: 'CP1',
-        claimants: [validClaimant],
+        claimReferenceNumber: 'CR-REF',
+        claimIntimationNumber: 'CI1',
+        claimants: [identityClaimant],
       },
       invalidErrorSubstring: 'coverNoteReferenceNumber',
     },
@@ -149,8 +182,11 @@ describe('TiramisBusinessValidationService', () => {
       requestType: TiramisRequestType.CLAIM_REJECTION,
       valid: {
         claimRejectionNumber: 'CR1',
+        claimReferenceNumber: 'CR-REF',
         claimIntimationNumber: 'CI1',
         coverNoteReferenceNumber: 'CN1',
+        rejectionReason: 'Loss outside policy scope',
+        claimants: [identityClaimant],
       },
       invalid: { coverNoteReferenceNumber: 'CN1' },
       invalidErrorSubstring: 'claimRejectionNumber',
@@ -507,8 +543,9 @@ describe('TiramisBusinessValidationService', () => {
       requestType: TiramisRequestType.CLAIM_ASSESSMENT,
       payload: {
         claimAssessmentNumber: 'CA1',
+        claimReferenceNumber: 'CR-REF',
         coverNoteReferenceNumber: 'CN1',
-        claimants: [validClaimant],
+        claimants: [identityClaimant],
       },
     });
 

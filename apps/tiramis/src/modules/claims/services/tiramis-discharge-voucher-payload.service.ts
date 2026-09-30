@@ -36,31 +36,20 @@ export class TiramisDischargeVoucherPayloadService {
           dto.claimantResponseDate,
         ),
         AdjustmentDate: this.formatOptionalDateTime(dto.adjustmentDate),
-        AdjustmentReason: dto.adjustmentReason,
-        AdjustmentAmount: dto.adjustmentAmount,
+        AdjustmentReason: dto.adjustmentReason ?? '',
+        AdjustmentAmount: dto.adjustmentAmount ?? '',
         ReconciliationDate: this.formatOptionalDateTime(dto.reconciliationDate),
-        ReconciliationSummary: dto.reconciliationSummary,
-        ReconciledAmount: dto.reconciledAmount,
-        OfferAccepted: dto.offerAccepted,
+        ReconciliationSummary: dto.reconciliationSummary ?? '',
+        ReconciledAmount: dto.reconciledAmount ?? '',
+        OfferAccepted: dto.offerAccepted ?? '',
         Claimants: {
-          Claimant: (dto.claimants || []).map((claimant) => ({
-            ClaimantName: claimant.claimantName,
-            ClaimantBirthDate: claimant.claimantBirthDate
-              ? this.formatDate(claimant.claimantBirthDate)
-              : '',
+          // DischargeVoucherReq only defines the four claimant identity fields
+          // (TIRAMIS v1.3 §12.1); name/address tags are not part of it.
+          Claimant: (dto.claimants || []).map((claimant: any) => ({
             ClaimantCategory: claimant.claimantCategory ?? '',
             ClaimantType: claimant.claimantType ?? '',
             ClaimantIdNumber: claimant.claimantIdNumber || '',
             ClaimantIdType: claimant.claimantIdType ?? '',
-            Gender: claimant.gender || '',
-            CountryCode: claimant.countryCode,
-            Region: claimant.region || '',
-            District: claimant.district,
-            Street: claimant.street || '',
-            ClaimantPhoneNumber: claimant.claimantPhoneNumber,
-            ClaimantFax: claimant.claimantFax || '',
-            PostalAddress: claimant.postalAddress || '',
-            EmailAddress: claimant.emailAddress || '',
           })),
         },
       },
@@ -96,33 +85,22 @@ export class TiramisDischargeVoucherPayloadService {
           claim.claimantResponseDate,
         ),
         AdjustmentDate: this.formatOptionalDateTime(claim.adjustmentDate),
-        AdjustmentReason: claim.adjustmentReason,
-        AdjustmentAmount: claim.adjustmentAmount,
+        AdjustmentReason: claim.adjustmentReason ?? '',
+        AdjustmentAmount: claim.adjustmentAmount ?? '',
         ReconciliationDate: this.formatOptionalDateTime(
           claim.reconciliationDate,
         ),
-        ReconciliationSummary: claim.reconciliationSummary,
-        ReconciledAmount: claim.reconciledAmount,
-        OfferAccepted: claim.offerAccepted,
+        ReconciliationSummary: claim.reconciliationSummary ?? '',
+        ReconciledAmount: claim.reconciledAmount ?? '',
+        OfferAccepted: claim.offerAccepted ?? '',
         Claimants: {
+          // DischargeVoucherReq only defines the four claimant identity fields
+          // (TIRAMIS v1.3 §12.1); name/address tags are not part of it.
           Claimant: (claim.claimants || []).map((claimant: any) => ({
-            ClaimantName: claimant.claimantName,
-            ClaimantBirthDate: claimant.claimantBirthDate
-              ? this.formatDate(claimant.claimantBirthDate)
-              : '',
             ClaimantCategory: claimant.claimantCategory ?? '',
             ClaimantType: claimant.claimantType ?? '',
             ClaimantIdNumber: claimant.claimantIdNumber || '',
             ClaimantIdType: claimant.claimantIdType ?? '',
-            Gender: claimant.gender || '',
-            CountryCode: claimant.countryCode,
-            Region: claimant.region || '',
-            District: claimant.district,
-            Street: claimant.street || '',
-            ClaimantPhoneNumber: claimant.claimantPhoneNumber,
-            ClaimantFax: claimant.claimantFax || '',
-            PostalAddress: claimant.postalAddress || '',
-            EmailAddress: claimant.emailAddress || '',
           })),
         },
       },

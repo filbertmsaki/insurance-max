@@ -148,7 +148,7 @@ export class InsuranceClaim extends TiramisTrackableClaimEntity {
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   recovery_received: string;
 
-  @Column({ type: 'varchar', length: 30, default: ClaimStatus.NOTIFIED })
+  @Column({ type: 'varchar', length: 30, default: ClaimStatus.DRAFT })
   status: ClaimStatus;
 
   @Column({ type: 'varchar', length: 20, default: ClaimPriority.MEDIUM })
@@ -278,6 +278,42 @@ export class InsuranceClaim extends TiramisTrackableClaimEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  claim_title: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  department_id: string | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  notification_source: string | null;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  reporter_name: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  reporter_phone: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  reporter_email: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  incident_details: Record<string, unknown> | null;
+
+  @Column({ type: 'text', nullable: true })
+  internal_notes: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  tiramis_reference_locked: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reopened_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reopened_by: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  reopen_reason: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

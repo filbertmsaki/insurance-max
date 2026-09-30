@@ -73,6 +73,18 @@ export class ClaimIntimation extends TiramisTrackableClaimEntity {
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  assessor_company_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  assessor_user_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  submitted_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  submitted_at: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

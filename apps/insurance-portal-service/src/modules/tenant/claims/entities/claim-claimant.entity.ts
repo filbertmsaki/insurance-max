@@ -62,6 +62,42 @@ export class ClaimClaimant {
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
+  @Column({ type: 'smallint', nullable: true })
+  claimant_category: number | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  party_type: number | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  id_type: number | null;
+
+  @Column({ type: 'date', nullable: true })
+  birth_date: string | null;
+
+  @Column({ type: 'varchar', length: 1, nullable: true })
+  gender: string | null;
+
+  @Column({ type: 'varchar', length: 3, nullable: true })
+  country_code: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  region: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  district: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  street: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  fax: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  postal_address: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  uses_policyholder: boolean;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

@@ -65,6 +65,7 @@ import { SignatureRequest } from './entities/signature-request.entity';
   ],
   exports: [
     DocumentsService,
+    DocumentGenerationService,
     DocumentTemplatesService,
     SignatureRequestsService,
     DocumentStorageService,

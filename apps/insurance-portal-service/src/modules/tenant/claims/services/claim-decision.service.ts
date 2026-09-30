@@ -12,16 +12,15 @@ import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { ClaimDecisionType } from '@insurance-max/contracts';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
-import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import {
   ClaimDecisionStatus,
   ClaimSettlementStatus,
-  ClaimStage,
 } from '../enums/claim.enums';
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimDecision } from '../entities/claim-decision.entity';
 import type { CreateClaimDecisionDto } from '../dto/claim-decision.dto';
+import { ClaimAccessService } from './claim-access.service';
 
 /**
  * Liability authority, separate from assessment approval (§14.8/14.17/14.18).
@@ -38,7 +37,7 @@ export class ClaimDecisionService {
     @InjectRepository(InsuranceClaim)
     private readonly claimRepository: Repository<InsuranceClaim>,
     private readonly referenceService: BusinessReferenceService,
-    private readonly scopeService: DataAccessScopeService,
+    private readonly access: ClaimAccessService,
     private readonly hashService: ProductDefinitionHashService,
   ) {}
 
@@ -91,6 +90,7 @@ export class ClaimDecisionService {
 
   async submit(user: AuthenticatedUser, decisionId: string) {
     const decision = await this.requireDecision(user.companyId!, decisionId);
+    await this.requireClaim(user, decision.claim_id);
 
     if (decision.status !== ClaimDecisionStatus.DRAFT) {
       throw new ConflictException('Only a draft decision can be submitted');
@@ -135,12 +135,7 @@ export class ClaimDecisionService {
         });
       }
 
-      const claim = await manager
-        .getRepository(InsuranceClaim)
-        .createQueryBuilder('claim')
-        .setLock('pessimistic_write')
-        .where('claim.id = :claimId', { claimId: decision.claim_id })
-        .getOneOrFail();
+      const claim = await this.access.getForWrite(user, decision.claim_id, manager);
 
       decision.status = ClaimDecisionStatus.APPROVED;
       decision.approved_by = user.id;
@@ -148,15 +143,20 @@ export class ClaimDecisionService {
 
       claim.liability_status = decision.liability_status;
       claim.approved_amount = decision.amount_admitted;
-      claim.claim_stage = ClaimStage.DECISION;
       claim.settlement_status =
         decision.decision_type === ClaimDecisionType.DENY
           ? ClaimSettlementStatus.NO_PAYMENT_REQUIRED
           : ClaimSettlementStatus.DISCHARGE_PENDING;
-      claim.state_version = Number(claim.state_version || 1) + 1;
 
       await manager.getRepository(ClaimDecision).save(decision);
-      await manager.getRepository(InsuranceClaim).save(claim);
+      await manager.getRepository(InsuranceClaim).update(
+        { id: claim.id },
+        {
+          liability_status: claim.liability_status,
+          approved_amount: claim.approved_amount,
+          settlement_status: claim.settlement_status,
+        },
+      );
 
       return { decision, claim };
     });
@@ -164,6 +164,7 @@ export class ClaimDecisionService {
 
   async reject(user: AuthenticatedUser, decisionId: string, reason: string) {
     const decision = await this.requireDecision(user.companyId!, decisionId);
+    await this.requireClaim(user, decision.claim_id);
 
     if (decision.status !== ClaimDecisionStatus.SUBMITTED) {
       throw new ConflictException(
@@ -198,17 +199,7 @@ export class ClaimDecisionService {
     return decision;
   }
 
-  private async requireClaim(user: AuthenticatedUser, claimId: string) {
-    this.scopeService.resolve(user);
-
-    const claim = await this.claimRepository.findOne({
-      where: { id: claimId, company_id: user.companyId! },
-    });
-
-    if (!claim) {
-      throw new NotFoundException('Claim not found');
-    }
-
-    return claim;
+  private requireClaim(user: AuthenticatedUser, claimId: string) {
+    return this.access.getForWrite(user, claimId);
   }
 }

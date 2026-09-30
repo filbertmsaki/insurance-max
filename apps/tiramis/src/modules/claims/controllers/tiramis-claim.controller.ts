@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -13,6 +21,7 @@ import { CreateClaimAssessmentDto } from '../dto/create-claim-assessment.dto';
 import { CreateClaimPaymentDto } from '../dto/create-claim-payment.dto';
 import { CreateClaimRejectionDto } from '../dto/create-claim-rejection.dto';
 import { TiramisClaimService } from '../services/tiramis-claim.service';
+import { parseSourceMetadata } from '../../submissions/utils/parse-source-metadata';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
@@ -57,8 +66,14 @@ export class TiramisClaimController {
   @ApiBody({ type: CreateClaimNotificationDto })
   @ServiceScopes('tiramis:submit')
   @Post('notification/submit')
-  submitClaimNotification(@Body() dto: CreateClaimNotificationDto) {
-    return this.tiramisClaimService.submitClaimNotification(dto);
+  submitClaimNotification(
+    @Body() dto: CreateClaimNotificationDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.tiramisClaimService.submitClaimNotification(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ApiOperation({ summary: 'Create Claim Intimation draft' })
@@ -96,8 +111,14 @@ export class TiramisClaimController {
   @ApiBody({ type: CreateClaimIntimationDto })
   @ServiceScopes('tiramis:submit')
   @Post('intimation/submit')
-  submitClaimIntimation(@Body() dto: CreateClaimIntimationDto) {
-    return this.tiramisClaimService.submitClaimIntimation(dto);
+  submitClaimIntimation(
+    @Body() dto: CreateClaimIntimationDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.tiramisClaimService.submitClaimIntimation(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ApiOperation({ summary: 'Create Claim Assessment draft' })
@@ -135,8 +156,14 @@ export class TiramisClaimController {
   @ApiBody({ type: CreateClaimAssessmentDto })
   @ServiceScopes('tiramis:submit')
   @Post('assessment/submit')
-  submitClaimAssessment(@Body() dto: CreateClaimAssessmentDto) {
-    return this.tiramisClaimService.submitClaimAssessment(dto);
+  submitClaimAssessment(
+    @Body() dto: CreateClaimAssessmentDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.tiramisClaimService.submitClaimAssessment(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ApiOperation({ summary: 'Create Claim Payment draft' })
@@ -174,8 +201,14 @@ export class TiramisClaimController {
   @ApiBody({ type: CreateClaimPaymentDto })
   @ServiceScopes('tiramis:submit')
   @Post('payment/submit')
-  submitClaimPayment(@Body() dto: CreateClaimPaymentDto) {
-    return this.tiramisClaimService.submitClaimPayment(dto);
+  submitClaimPayment(
+    @Body() dto: CreateClaimPaymentDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.tiramisClaimService.submitClaimPayment(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ApiOperation({ summary: 'Create Claim Rejection draft' })
@@ -213,8 +246,14 @@ export class TiramisClaimController {
   @ApiBody({ type: CreateClaimRejectionDto })
   @ServiceScopes('tiramis:submit')
   @Post('rejection/submit')
-  submitClaimRejection(@Body() dto: CreateClaimRejectionDto) {
-    return this.tiramisClaimService.submitClaimRejection(dto);
+  submitClaimRejection(
+    @Body() dto: CreateClaimRejectionDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.tiramisClaimService.submitClaimRejection(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ServiceScopes('tiramis:read')

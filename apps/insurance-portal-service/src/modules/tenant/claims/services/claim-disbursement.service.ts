@@ -19,8 +19,8 @@ import {
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimPayment } from '../entities/claim-payment.entity';
 import { ClaimDisbursement } from '../entities/claim-disbursement.entity';
-import { ClaimStatusHistory } from '../entities/claim-status-history.entity';
 import { ClaimFinancialProjectionService } from './claim-financial-projection.service';
+import { ClaimStateMachineService } from './claim-state-machine.service';
 
 /**
  * "Finance is the only authority that confirms an actual disbursement"
@@ -35,6 +35,7 @@ export class ClaimDisbursementService {
     private readonly referenceService: BusinessReferenceService,
     private readonly financeJournalService: FinanceJournalService,
     private readonly financialProjectionService: ClaimFinancialProjectionService,
+    private readonly stateMachine: ClaimStateMachineService,
   ) {}
 
   async requestDisbursement(
@@ -182,34 +183,49 @@ export class ClaimDisbursementService {
       payment.paid_by = user.id;
       payment.paid_at = new Date();
       payment.parties_notified = 'Y';
+
+      payment.payment_date = payment.paid_at;
       await manager.getRepository(ClaimPayment).save(payment);
 
-      const oldStatus = claim.status;
-      const newPaidAmount = MoneyUtil.add(
-        claim.paid_amount,
-        payment.paid_amount,
+      // paid_amount is derived from PAID payments by the projection.
+      const projected = await this.financialProjectionService.recalculate(
+        manager,
+        claim.id,
       );
-      claim.paid_amount = newPaidAmount;
-
       const fullyPaid =
-        MoneyUtil.compare(claim.paid_amount, claim.approved_amount) === 0;
+        MoneyUtil.compare(projected.paid_amount, projected.approved_amount) >= 0;
 
-      // Preserve the existing overloaded `status` transition exactly as
-      // `markPaymentPaid` used to perform it (additive-scope decision),
-      // while also driving the new `settlement_status` dimension.
-      claim.status = fullyPaid ? ClaimStatus.PAID : ClaimStatus.PARTIALLY_PAID;
-      claim.settlement_status = fullyPaid
-        ? ClaimSettlementStatus.PAID
-        : ClaimSettlementStatus.PARTIALLY_PAID;
+      await manager.getRepository(InsuranceClaim).update(
+        { id: claim.id },
+        {
+          settlement_status: fullyPaid
+            ? ClaimSettlementStatus.PAID
+            : ClaimSettlementStatus.PARTIALLY_PAID,
+        },
+      );
 
-      await manager.getRepository(InsuranceClaim).save(claim);
-      await manager.getRepository(ClaimStatusHistory).save({
-        claim_id: claim.id,
-        old_status: oldStatus,
-        new_status: claim.status,
-        reason: `Claim payment ${payment.claim_payment_number} disbursement confirmed`,
-        changed_by: user.id,
-      });
+      const current = await manager
+        .getRepository(InsuranceClaim)
+        .findOneOrFail({ where: { id: claim.id } });
+      const target = fullyPaid ? ClaimStatus.PAID : ClaimStatus.PARTIALLY_PAID;
+
+      if (current.status !== target) {
+        await this.stateMachine.transition(manager, current, target, {
+          eventType: 'PAYMENT_CONFIRMED',
+          summary: `Claim payment ${payment.claim_payment_number} disbursed (${disbursement.amount} ${disbursement.currency_code})`,
+          actorId: user.id,
+          subjectType: 'PAYMENT',
+          subjectId: payment.id,
+        });
+      } else {
+        await this.stateMachine.recordEvent(manager, current, {
+          eventType: 'PAYMENT_CONFIRMED',
+          summary: `Claim payment ${payment.claim_payment_number} disbursed (${disbursement.amount} ${disbursement.currency_code})`,
+          actorId: user.id,
+          subjectType: 'PAYMENT',
+          subjectId: payment.id,
+        });
+      }
 
       await this.financeJournalService.postClaimDisbursement(
         manager,
@@ -224,8 +240,6 @@ export class ClaimDisbursementService {
         `disbursement-paid:${disbursement.id}`,
         user.id,
       );
-
-      await this.financialProjectionService.recalculate(manager, claim.id);
 
       return disbursement;
     });
@@ -307,27 +321,68 @@ export class ClaimDisbursementService {
       payment.finance_status = 'REVERSED';
       await manager.getRepository(ClaimPayment).save(payment);
 
-      const claim = await manager.getRepository(InsuranceClaim).findOneOrFail({
-        where: { id: disbursement.claim_id },
-      });
-      claim.paid_amount =
-        MoneyUtil.compare(claim.paid_amount, payment.paid_amount) >= 0
-          ? MoneyUtil.subtract(claim.paid_amount, payment.paid_amount)
-          : '0.00';
-      claim.settlement_status = ClaimSettlementStatus.REVERSED;
-      await manager.getRepository(InsuranceClaim).save(claim);
+      const claim = await manager
+        .getRepository(InsuranceClaim)
+        .createQueryBuilder('claim')
+        .setLock('pessimistic_write')
+        .where('claim.id = :claimId', { claimId: disbursement.claim_id })
+        .getOneOrFail();
 
-      await manager.getRepository(ClaimStatusHistory).save({
-        claim_id: claim.id,
-        old_status: claim.status,
-        new_status: claim.status,
-        reason: `Disbursement reversed: ${reason}`,
-        changed_by: user.id,
-      });
+      await this.financeJournalService.reverseClaimDisbursement(
+        manager,
+        {
+          companyId: claim.company_id,
+          disbursementId: disbursement.id,
+          disbursementNo: disbursement.disbursement_no,
+          customerId: claim.customer_id,
+          amount: disbursement.amount,
+          currencyCode: disbursement.currency_code,
+          reason,
+        },
+        `disbursement-reversed:${disbursement.id}`,
+        user.id,
+      );
 
-      await this.financialProjectionService.recalculate(manager, claim.id);
+      const projected = await this.financialProjectionService.recalculate(
+        manager,
+        claim.id,
+      );
+      await manager.getRepository(InsuranceClaim).update(
+        { id: claim.id },
+        { settlement_status: ClaimSettlementStatus.REVERSED },
+      );
+
+      const current = await manager
+        .getRepository(InsuranceClaim)
+        .findOneOrFail({ where: { id: claim.id } });
+      const target =
+        MoneyUtil.compare(projected.paid_amount, '0.00') > 0
+          ? ClaimStatus.PARTIALLY_PAID
+          : ClaimStatus.PAYMENT_PENDING;
+      const input = {
+        eventType: 'PAYMENT_REVERSED',
+        summary: `Claim payment ${payment.claim_payment_number} reversed: ${reason}`,
+        actorId: user.id,
+        subjectType: 'PAYMENT',
+        subjectId: payment.id,
+      };
+
+      if (current.status !== target && this.canMove(current.status, target)) {
+        await this.stateMachine.transition(manager, current, target, input);
+      } else {
+        await this.stateMachine.recordEvent(manager, current, input);
+      }
 
       return disbursement;
     });
+  }
+
+  private canMove(from: ClaimStatus, to: ClaimStatus) {
+    return (
+      (from === ClaimStatus.PAID &&
+        [ClaimStatus.PARTIALLY_PAID].includes(to)) ||
+      (from === ClaimStatus.PARTIALLY_PAID &&
+        [ClaimStatus.PAYMENT_PENDING].includes(to))
+    );
   }
 }

@@ -302,7 +302,14 @@ export class TiramisCallbackService {
       });
       portalFinalOutcomeNotified = true;
 
-      await this.callbackBusinessUpdater.updateBusinessRecord(finalResponse);
+      const callbackTransaction =
+        await this.tiramisSubmissionService.getTransactionForNotification({
+          requestId: parsedCallback.requestId,
+        });
+
+      await this.callbackBusinessUpdater.updateBusinessRecord(finalResponse, {
+        transactionId: callbackTransaction?.id ?? null,
+      });
 
       await this.updateBusinessRecords(parsedCallback);
 
@@ -991,6 +998,10 @@ export class TiramisCallbackService {
           policyReferenceNumber:
             params.parsedCallback.policyReferenceNumber || null,
           stickerNumber: params.parsedCallback.stickerNumber || null,
+          claimReferenceNumber:
+            params.parsedCallback.claimReferenceNumber ||
+            params.finalResponse?.claimReferenceNumber ||
+            null,
           regulatoryResponse,
           errorMessage: params.errorMessage || null,
           occurredAt: new Date().toISOString(),
@@ -1062,6 +1073,16 @@ export class TiramisCallbackService {
             ),
           }
         : null,
+      claim:
+        parsedCallback.claimReferenceNumber ||
+        finalResponse.claimReferenceNumber
+          ? {
+              claimReferenceNumber:
+                parsedCallback.claimReferenceNumber ||
+                finalResponse.claimReferenceNumber ||
+                '',
+            }
+          : null,
       signatureVerified: parsedCallback.signatureVerified === true,
       responsePayloadHash: this.hashPayload(
         JSON.stringify(finalResponse.payload || {}),

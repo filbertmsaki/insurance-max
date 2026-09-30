@@ -15,6 +15,7 @@ import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
 import { IssuanceService } from '../../tenant/issuance/issuance.service';
 import { PolicyTransaction } from '../../tenant/policy-transactions/entities/policy-transaction.entity';
+import { ClaimTiramisOutcomeService } from '../../tenant/claims/services/claim-tiramis-outcome.service';
 import { PolicyTransactionApplyService } from '../../tenant/policy-transactions/services/policy-transaction-apply.service';
 import { PolicyTransactionLifecycleService } from '../../tenant/policy-transactions/services/policy-transaction-lifecycle.service';
 import { PolicyTransactionRegulatoryOutcomeService } from '../../tenant/policy-transactions/services/policy-transaction-regulatory-outcome.service';
@@ -160,6 +161,7 @@ export class TiramisBusinessRecordSyncService {
 
       await this.syncQuotationOutcomeIfNeeded(tracking);
       await this.syncReinsuranceOutcomeIfNeeded(tracking);
+      await this.syncClaimOutcomeIfNeeded(tracking);
 
       await this.auditService.logFromTracking({
         action: TiramisAuditAction.BUSINESS_RECORD_SYNC_SUCCESS,
@@ -493,7 +495,30 @@ export class TiramisBusinessRecordSyncService {
     ].includes(status as TiramisSubmissionStatus);
   }
 
-  private async syncReinsuranceOutcomeIfNeeded(
+/**
+   * Claim stages advance only from the final TIRA outcome; the claims module
+   * owns that logic. Resolved lazily because ClaimsModule imports this
+   * module.
+   */
+  private async syncClaimOutcomeIfNeeded(
+    tracking: TiramisSubmissionTrackingEntity,
+  ) {
+    if (String(tracking.sourceModule || '').toLowerCase() !== 'claims') {
+      return;
+    }
+
+    try {
+      const outcome = this.getPolicyTransactionProvider(ClaimTiramisOutcomeService);
+      await outcome.applyFromTracking(tracking);
+    } catch (error: any) {
+      this.logger.warn(
+        `Claim outcome for tracking ${tracking.id} not applied: ${error?.message || error}`,
+      );
+      throw error;
+    }
+  }
+
+    private async syncReinsuranceOutcomeIfNeeded(
     tracking: TiramisSubmissionTrackingEntity,
   ) {
     if (

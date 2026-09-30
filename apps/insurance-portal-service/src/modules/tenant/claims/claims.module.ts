@@ -5,6 +5,11 @@ import { BillingCommissionModule } from '../billing-commission/billing-commissio
 import { InsuranceDocumentsModule } from '../insurance-documents/insurance-documents.module';
 import { SharedModule } from '../../shared/shared.module';
 import { TiramisModule } from '../../tiramis/tiramis.module';
+import { CoverNote } from '../cover-notes/entities/cover-note.entity';
+import { Customer } from '../customers/entities/customer.entity';
+import { Document } from '../insurance-documents/entities/document.entity';
+import { DocumentLink } from '../insurance-documents/entities/document-link.entity';
+import { User } from '../users/entities/user.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyVersion } from '../policies/entities/policy-version.entity';
@@ -13,7 +18,11 @@ import { ClaimsController } from './claims.controller';
 import { ClaimsService } from './claims.service';
 import { ComplaintsController } from './complaints.controller';
 import { ComplaintsService } from './complaints.service';
+import { ClaimApproval } from './entities/claim-approval.entity';
+import { ClaimApprovalLimit } from './entities/claim-approval-limit.entity';
 import { ClaimAssessment } from './entities/claim-assessment.entity';
+import { ClaimDocumentRequirement } from './entities/claim-document-requirement.entity';
+import { ClaimEvent } from './entities/claim-event.entity';
 import { ClaimClaimant } from './entities/claim-claimant.entity';
 import { ClaimDecision } from './entities/claim-decision.entity';
 import { ClaimDischargeVoucher } from './entities/claim-discharge-voucher.entity';
@@ -37,7 +46,21 @@ import { ComplaintSlaEvent } from './entities/complaint-sla-event.entity';
 import { ComplaintSlaRule } from './entities/complaint-sla-rule.entity';
 import { ComplaintStatusHistory } from './entities/complaint-status-history.entity';
 import { Complaint } from './entities/complaint.entity';
+import { ClaimAccessService } from './services/claim-access.service';
+import { ClaimApprovalService } from './services/claim-approval.service';
+import { ClaimAssessmentService } from './services/claim-assessment.service';
 import { ClaimCoverageService } from './services/claim-coverage.service';
+import { ClaimDischargeService } from './services/claim-discharge.service';
+import { ClaimDocumentService } from './services/claim-document.service';
+import { ClaimIntimationService } from './services/claim-intimation.service';
+import { ClaimPaymentService } from './services/claim-payment.service';
+import { ClaimRejectionService } from './services/claim-rejection.service';
+import { ClaimSettlementService } from './services/claim-settlement.service';
+import { ClaimStateMachineService } from './services/claim-state-machine.service';
+import { ClaimTiramisOutcomeService } from './services/claim-tiramis-outcome.service';
+import { ClaimTiramisPayloadService } from './services/claim-tiramis-payload.service';
+import { ClaimTiramisService } from './services/claim-tiramis.service';
+import { ClaimsDashboardService } from './services/claims-dashboard.service';
 import { ClaimDecisionService } from './services/claim-decision.service';
 import { ClaimDisbursementService } from './services/claim-disbursement.service';
 import { ClaimFinancialProjectionService } from './services/claim-financial-projection.service';
@@ -75,9 +98,18 @@ import { ComplaintSlaService } from './services/complaint-sla.service';
       ComplaintComment,
       ComplaintSlaRule,
       ComplaintSlaEvent,
+      ClaimApproval,
+      ClaimApprovalLimit,
+      ClaimDocumentRequirement,
+      ClaimEvent,
       Policy,
       PolicyVersion,
       PolicyRisk,
+      CoverNote,
+      Customer,
+      Document,
+      DocumentLink,
+      User,
     ]),
     BillingCommissionModule,
     InsuranceDocumentsModule,
@@ -99,8 +131,23 @@ import { ComplaintSlaService } from './services/complaint-sla.service';
     ClaimRecoveryService,
     ComplaintSlaService,
     ComplaintSlaMonitorService,
+    ClaimAccessService,
+    ClaimStateMachineService,
+    ClaimTiramisPayloadService,
+    ClaimTiramisService,
+    ClaimTiramisOutcomeService,
+    ClaimSettlementService,
+    ClaimApprovalService,
+    ClaimIntimationService,
+    ClaimAssessmentService,
+    ClaimDischargeService,
+    ClaimPaymentService,
+    ClaimRejectionService,
+    ClaimDocumentService,
+    ClaimsDashboardService,
   ],
   exports: [
+    ClaimTiramisOutcomeService,
     ClaimsService,
     ComplaintsService,
     ClaimSlaService,

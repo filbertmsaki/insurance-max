@@ -36,4 +36,36 @@ export class TiramisDischargeVoucherRepository {
       where: { dischargeVoucherNumber },
     });
   }
+
+  async markFinalResponseByRequestId(params: {
+    requestId: string;
+    responseId: string;
+    statusCode: string;
+    statusDesc: string;
+    payload: Record<string, any>;
+    claimReferenceNumber?: string | null;
+    transactionId?: string | null;
+  }) {
+    const changes = {
+      claimReferenceNumber: params.claimReferenceNumber || undefined,
+      finalResponseId: params.responseId,
+      finalResponseStatusCode: params.statusCode,
+      finalResponseStatusDesc: params.statusDesc,
+      finalResponseReceivedAt: new Date(),
+      finalResponsePayload: params.payload,
+    };
+    const result = await this.repository.update(
+      { requestId: params.requestId },
+      changes,
+    );
+
+    if (!result.affected && params.transactionId) {
+      await this.repository.update(
+        { transactionId: params.transactionId },
+        { ...changes, requestId: params.requestId },
+      );
+    }
+
+    return this.findByRequestId(params.requestId);
+  }
 }

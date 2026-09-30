@@ -275,6 +275,35 @@ export class TiramisDischargeVoucherService {
       errors.push('offerAccepted must be Y or N');
     }
 
+    const claimants = dto.claimants || [];
+
+    if (claimants.length === 0) {
+      errors.push('at least one claimant is required');
+    }
+
+    claimants.forEach((claimant, index) => {
+      const prefix = `claimants[${index}]`;
+
+      if (![1, 2].includes(Number(claimant.claimantCategory))) {
+        errors.push(`${prefix}.claimantCategory must be 1 or 2`);
+      }
+
+      if (![1, 2].includes(Number(claimant.claimantType))) {
+        errors.push(`${prefix}.claimantType must be 1 or 2`);
+      }
+
+      this.requireString(
+        claimant.claimantIdNumber,
+        `${prefix}.claimantIdNumber`,
+        errors,
+      );
+
+      const idType = Number(claimant.claimantIdType);
+      if (!Number.isInteger(idType) || idType < 1 || idType > 7) {
+        errors.push(`${prefix}.claimantIdType must be between 1 and 7`);
+      }
+    });
+
     if (errors.length > 0) {
       throw new BadRequestException({
         message: 'Discharge Voucher payload validation failed',

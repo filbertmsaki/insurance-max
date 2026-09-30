@@ -8,6 +8,7 @@ import {
 import { ClaimDecisionType } from '@insurance-max/contracts';
 
 import { ClaimLiabilityStatus } from '../enums/claim.enums';
+import { IsMoneyAmount } from './claim-validators';
 
 export class CreateClaimDecisionDto {
   @IsOptional()
@@ -20,11 +21,14 @@ export class CreateClaimDecisionDto {
   @IsEnum(ClaimLiabilityStatus)
   liability_status: ClaimLiabilityStatus;
 
-  amount_claimed: string | number;
+  @IsMoneyAmount()
+  amount_claimed: string;
 
-  amount_admitted: string | number;
+  @IsMoneyAmount()
+  amount_admitted: string;
 
-  amount_declined: string | number;
+  @IsMoneyAmount()
+  amount_declined: string;
 
   @IsString()
   @MaxLength(2000)

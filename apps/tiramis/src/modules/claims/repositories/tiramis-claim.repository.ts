@@ -74,6 +74,11 @@ export class TiramisClaimRepository {
     });
   }
 
+  /**
+   * Retries resend under a new RequestId while the claim row keeps the
+   * original one, so fall back to the transaction and relink the row to the
+   * RequestId that actually produced this final response.
+   */
   async markFinalResponseByRequestId(params: {
     requestId: string;
     responseId: string;
@@ -81,18 +86,27 @@ export class TiramisClaimRepository {
     statusDesc: string;
     payload: Record<string, any>;
     claimReferenceNumber?: string | null;
+    transactionId?: string | null;
   }) {
-    await this.repository.update(
+    const changes = {
+      claimReferenceNumber: params.claimReferenceNumber || undefined,
+      finalResponseId: params.responseId,
+      finalResponseStatusCode: params.statusCode,
+      finalResponseStatusDesc: params.statusDesc,
+      finalResponseReceivedAt: new Date(),
+      finalResponsePayload: params.payload,
+    };
+    const result = await this.repository.update(
       { requestId: params.requestId },
-      {
-        claimReferenceNumber: params.claimReferenceNumber || undefined,
-        finalResponseId: params.responseId,
-        finalResponseStatusCode: params.statusCode,
-        finalResponseStatusDesc: params.statusDesc,
-        finalResponseReceivedAt: new Date(),
-        finalResponsePayload: params.payload,
-      },
+      changes,
     );
+
+    if (!result.affected && params.transactionId) {
+      await this.repository.update(
+        { transactionId: params.transactionId },
+        { ...changes, requestId: params.requestId },
+      );
+    }
 
     return this.findByRequestId(params.requestId);
   }

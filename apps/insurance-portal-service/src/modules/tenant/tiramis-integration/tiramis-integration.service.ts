@@ -539,6 +539,19 @@ export class TiramisIntegrationService {
 
     await this.createEvent(savedSubmission, payload);
 
+    // Claim outcomes are applied from the tracking record by
+    // TiramisBusinessRecordSyncService; the quotation, issuance and policy
+    // updaters below must never run for claim events.
+    if (this.isClaimsSource(payload.sourceModule)) {
+      if (updatedTracking) {
+        await this.tiramisBusinessRecordSyncService.syncFromTracking(
+          updatedTracking,
+        );
+      }
+
+      return savedSubmission;
+    }
+
     // IMPORTANT:
     // Update the quotation lifecycle first.
     //
@@ -579,6 +592,14 @@ export class TiramisIntegrationService {
     }
 
     return savedSubmission;
+  }
+
+  private isClaimsSource(sourceModule?: string | null): boolean {
+    return (
+      String(sourceModule || '')
+        .trim()
+        .toLowerCase() === 'claims'
+    );
   }
 
   async findAll(companyId: string, query: FilterPortalTiraSubmissionDto) {
@@ -926,7 +947,12 @@ export class TiramisIntegrationService {
       quotationId = matchingTracking.sourceRecordId;
     }
 
-    if (!quotationId && !isPolicySource && payload.businessReference) {
+    if (
+      !quotationId &&
+      !isPolicySource &&
+      !this.isClaimsSource(sourceModule) &&
+      payload.businessReference
+    ) {
       const quotation = await this.findQuotationByBusinessReference(
         payload.businessReference,
         companyId,
@@ -1011,10 +1037,19 @@ export class TiramisIntegrationService {
       ? new Date(payload.occurredAt)
       : new Date();
 
-    tracking.status = this.mapEventToLocalTrackingStatus(
+    const mappedStatus = this.mapEventToLocalTrackingStatus(
       payload,
       tracking.status,
     );
+
+    // A late or replayed ack must never regress an accepted claim stage;
+    // the claim workflow has already advanced on FINAL_SUCCESS.
+    tracking.status =
+      this.isClaimsSource(tracking.sourceModule) &&
+      tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS &&
+      mappedStatus !== TiramisSubmissionStatus.FINAL_SUCCESS
+        ? tracking.status
+        : mappedStatus;
     tracking.tiramisTransactionId =
       payload.tiramisTransactionId || tracking.tiramisTransactionId;
     tracking.tiramisRequestId = payload.requestId || tracking.tiramisRequestId;

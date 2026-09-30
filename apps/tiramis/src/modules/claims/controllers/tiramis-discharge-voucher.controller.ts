@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -11,6 +19,7 @@ import { ServiceScopes } from '@insurance-max/shared-kernel';
 
 import { CreateDischargeVoucherDto } from '../dto/create-discharge-voucher.dto';
 import { TiramisDischargeVoucherService } from '../services/tiramis-discharge-voucher.service';
+import { parseSourceMetadata } from '../../submissions/utils/parse-source-metadata';
 
 @ApiTags('Tiramis Discharge Vouchers')
 @ApiConsumes('application/json')
@@ -55,8 +64,14 @@ export class TiramisDischargeVoucherController {
   @ApiBody({ type: CreateDischargeVoucherDto })
   @ServiceScopes('tiramis:submit')
   @Post('submit')
-  submitDischargeVoucher(@Body() dto: CreateDischargeVoucherDto) {
-    return this.dischargeVoucherService.submitDischargeVoucher(dto);
+  submitDischargeVoucher(
+    @Body() dto: CreateDischargeVoucherDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.dischargeVoucherService.submitDischargeVoucher(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ServiceScopes('tiramis:read')

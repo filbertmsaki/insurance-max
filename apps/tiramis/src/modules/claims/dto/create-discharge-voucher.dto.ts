@@ -4,6 +4,12 @@ import { IsOptional } from 'class-validator';
 import { CreateClaimantDto } from './create-claim.dto';
 
 export class CreateDischargeVoucherDto {
+  @ApiPropertyOptional({
+    description: 'Resolved from the client configuration when omitted.',
+  })
+  @IsOptional()
+  insurerCompanyCode?: string;
+
   @ApiProperty({ example: 'CLM-DV-LOCAL-001' })
   @IsOptional()
   dischargeVoucherNumber!: string;

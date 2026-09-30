@@ -60,7 +60,8 @@ export class TiramisClaimService {
 
     this.validateClaimNotificationPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -209,7 +210,8 @@ export class TiramisClaimService {
 
     this.validateClaimIntimationPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -415,7 +417,8 @@ export class TiramisClaimService {
 
     this.validateClaimPaymentPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -489,7 +492,8 @@ export class TiramisClaimService {
 
     this.validateClaimAssessmentPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -731,7 +735,8 @@ export class TiramisClaimService {
 
     this.validateClaimRejectionPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,

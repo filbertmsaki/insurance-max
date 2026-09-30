@@ -89,6 +89,39 @@ export class ClaimDischargeVoucher extends TiramisTrackableClaimEntity {
   @Column({ type: 'text', nullable: true })
   rejection_reason: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  assessment_id: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  adjustment_date: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  adjustment_reason: string | null;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, nullable: true })
+  adjustment_amount: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reconciliation_date: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  reconciliation_summary: string | null;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, nullable: true })
+  reconciled_amount: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  claimants: Record<string, unknown>[];
+
+  @Column({ type: 'int', default: 1 })
+  version: number;
+
+  @Column({ type: 'uuid', nullable: true })
+  supersedes_voucher_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  generated_document_id: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

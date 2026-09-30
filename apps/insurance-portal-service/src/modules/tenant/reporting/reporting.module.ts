@@ -12,6 +12,7 @@ import { ReportDefinition } from './entities/report-definition.entity';
 import { ReportJob } from './entities/report-job.entity';
 import { ReportSchedule } from './entities/report-schedule.entity';
 import { ProductPerformanceReportGenerator } from './generators/product-performance-report.generator';
+import { ClaimsReportGenerator } from './generators/claims-report.generator';
 import { REPORT_GENERATORS } from './interfaces/report-generator.interface';
 import { ProductPerformanceSnapshotJob } from './jobs/product-performance-snapshot.job';
 import { ReportSchedulerJob } from './jobs/report-scheduler.job';
@@ -50,12 +51,14 @@ import { ReportScheduleService } from './services/report-schedule.service';
     ProductPerformanceSnapshotService,
     ProductPerformanceSnapshotJob,
     ProductPerformanceReportGenerator,
+    ClaimsReportGenerator,
     {
       provide: REPORT_GENERATORS,
-      useFactory: (productPerformance: ProductPerformanceReportGenerator) => [
-        productPerformance,
-      ],
-      inject: [ProductPerformanceReportGenerator],
+      useFactory: (
+        productPerformance: ProductPerformanceReportGenerator,
+        claims: ClaimsReportGenerator,
+      ) => [productPerformance, claims],
+      inject: [ProductPerformanceReportGenerator, ClaimsReportGenerator],
     },
     ReportRegistryService,
   ],

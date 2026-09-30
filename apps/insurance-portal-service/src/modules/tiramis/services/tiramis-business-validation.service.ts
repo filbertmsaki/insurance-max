@@ -102,42 +102,66 @@ export class TiramisBusinessValidationService {
         this.requireNonEmptyArray(payload, 'participants', errors);
         break;
 
+      // Claim rules follow TIRAMIS v1.3 §9–14. Intimation carries the full
+      // claimant record; the later stages carry only the claimant identity.
       case TiramisRequestType.CLAIM_NOTIFICATION:
-        this.requireField(payload, 'claimNotificationNumber', errors);
-        this.requireField(payload, 'coverNoteReferenceNumber', errors);
+        for (const field of [
+          'claimNotificationNumber',
+          'coverNoteReferenceNumber',
+          'claimReportDate',
+          'claimFormDullyFilled',
+          'lossDate',
+          'lossNature',
+          'lossType',
+          'lossLocation',
+          'officerName',
+          'officerTitle',
+        ]) {
+          this.requireField(payload, field, errors);
+        }
         break;
 
       case TiramisRequestType.CLAIM_INTIMATION:
         this.requireField(payload, 'claimIntimationNumber', errors);
+        this.requireField(payload, 'claimReferenceNumber', errors);
         this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireClaimants(payload, errors);
+        this.requireClaimants(payload, errors, 'full');
         break;
 
       case TiramisRequestType.CLAIM_ASSESSMENT:
         this.requireField(payload, 'claimAssessmentNumber', errors);
         this.requireField(payload, 'claimIntimationNumber', errors);
+        this.requireField(payload, 'claimReferenceNumber', errors);
         this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireClaimants(payload, errors);
+        this.requireClaimants(payload, errors, 'identity');
         break;
 
       case TiramisRequestType.DISCHARGE_VOUCHER:
         this.requireField(payload, 'dischargeVoucherNumber', errors);
         this.requireField(payload, 'claimAssessmentNumber', errors);
+        this.requireField(payload, 'claimReferenceNumber', errors);
         this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireClaimants(payload, errors);
+        this.requireClaimants(payload, errors, 'identity');
         break;
 
       case TiramisRequestType.CLAIM_PAYMENT:
         this.requireField(payload, 'claimPaymentNumber', errors);
-        this.requireField(payload, 'claimAssessmentNumber', errors);
+        this.requireField(payload, 'claimReferenceNumber', errors);
+        this.requireField(payload, 'claimIntimationNumber', errors);
         this.requireField(payload, 'coverNoteReferenceNumber', errors);
-        this.requireClaimants(payload, errors);
+        this.requireClaimants(payload, errors, 'identity');
         break;
 
       case TiramisRequestType.CLAIM_REJECTION:
         this.requireField(payload, 'claimRejectionNumber', errors);
+        this.requireField(payload, 'claimReferenceNumber', errors);
         this.requireField(payload, 'claimIntimationNumber', errors);
         this.requireField(payload, 'coverNoteReferenceNumber', errors);
+        this.requireField(payload, 'rejectionReason', errors);
+        if (String(payload.rejectionReason ?? '').length > 100) {
+          errors.push('rejectionReason must not exceed 100 characters');
+        }
+        this.requireClaimants(payload, errors, 'identity');
         break;
 
       case TiramisRequestType.COVER_NOTE_VERIFICATION:
@@ -869,7 +893,11 @@ export class TiramisBusinessValidationService {
     return new Set(rows.map((row: { column_name: string }) => row.column_name));
   }
 
-  private requireClaimants(payload: Record<string, any>, errors: string[]) {
+  private requireClaimants(
+    payload: Record<string, any>,
+    errors: string[],
+    form: 'full' | 'identity',
+  ) {
     const claimants = payload.claimants;
 
     if (!Array.isArray(claimants) || claimants.length === 0) {
@@ -877,13 +905,31 @@ export class TiramisBusinessValidationService {
       return;
     }
 
-    claimants.forEach((claimant: any, index: number) => {
-      if (!claimant?.claimantName) {
-        errors.push(`claimants[${index}].claimantName is required`);
-      }
+    const required =
+      form === 'full'
+        ? [
+            'claimantName',
+            'claimantCategory',
+            'claimantType',
+            'claimantIdNumber',
+            'claimantIdType',
+            'countryCode',
+            'district',
+            'claimantPhoneNumber',
+          ]
+        : [
+            'claimantCategory',
+            'claimantType',
+            'claimantIdNumber',
+            'claimantIdType',
+          ];
 
-      if (!claimant?.claimantIdNumber) {
-        errors.push(`claimants[${index}].claimantIdNumber is required`);
+    claimants.forEach((claimant: any, index: number) => {
+      for (const field of required) {
+        const value = claimant?.[field];
+        if (value === undefined || value === null || String(value).trim() === '') {
+          errors.push(`claimants[${index}].${field} is required`);
+        }
       }
     });
   }

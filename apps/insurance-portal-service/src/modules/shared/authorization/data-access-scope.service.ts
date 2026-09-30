@@ -350,6 +350,19 @@ export class DataAccessScopeService {
         )`,
       );
     }
+
+    if (this.isClaimDepartmentScoped(scope)) {
+      queryBuilder
+        .setParameter('claimScopeDepartmentIds', scope.allowedDepartmentIds)
+        .andWhere(
+          `(
+            ${alias}.department_id IN (:...claimScopeDepartmentIds)
+            OR ${alias}.assigned_user_id = :claimScopeUserId
+            OR ${alias}.reported_by_user_id = :claimScopeUserId
+            OR ${alias}.created_by = :claimScopeUserId
+          )`,
+        );
+    }
   }
 
   applyClaimWriteScope<T extends ObjectLiteral>(
@@ -381,6 +394,30 @@ export class DataAccessScopeService {
     if (scope.ownRecordsOnly) {
       queryBuilder.andWhere(`${alias}.assigned_user_id = :claimWriteUserId`);
     }
+
+    if (this.isClaimDepartmentScoped(scope)) {
+      queryBuilder
+        .setParameter('claimWriteDepartmentIds', scope.allowedDepartmentIds)
+        .andWhere(
+          `(
+            ${alias}.department_id IN (:...claimWriteDepartmentIds)
+            OR ${alias}.assigned_user_id = :claimWriteUserId
+            OR ${alias}.created_by = :claimWriteUserId
+          )`,
+        );
+    }
+  }
+
+  /**
+   * Department-scoped users see claims of their departments (plus claims
+   * they handle) unless they already have company-wide access.
+   */
+  private isClaimDepartmentScoped(scope: TenantDataScope): boolean {
+    return (
+      !scope.canViewAllBranches &&
+      scope.quotationPolicyDataScope === QuotationPolicyDataScope.DEPARTMENT &&
+      (scope.allowedDepartmentIds ?? []).length > 0
+    );
   }
 
   applyTreatyReadScope<T extends ObjectLiteral>(

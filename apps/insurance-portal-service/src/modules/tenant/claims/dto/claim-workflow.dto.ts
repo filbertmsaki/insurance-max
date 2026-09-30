@@ -1,53 +1,91 @@
+import { PartialType } from '@nestjs/mapped-types';
 import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsIn,
   IsInt,
+  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
 } from 'class-validator';
 
-import { DischargeResponse } from '../enums/claim.enums';
+import { ClaimQueue, DischargeResponse } from '../enums/claim.enums';
+import { IsExchangeRate, IsMoneyAmount } from './claim-validators';
+
+export class TiramisSubmitOptionsDto {
+  /** Resubmit after a failed or rejected TIRA attempt. */
+  @IsOptional()
+  @IsBoolean()
+  retry?: boolean;
+}
 
 export class CreateClaimIntimationDto {
   @IsOptional()
-  claim_estimated_amount?: string | number;
+  @IsMoneyAmount()
+  claim_estimated_amount?: string;
 
-  claim_reserve_amount: string | number;
+  @IsMoneyAmount()
+  claim_reserve_amount: string;
 
   @IsString()
   @MaxLength(100)
   claim_reserve_method: string;
 
   @IsOptional()
+  @IsDateString()
+  claim_intimation_date?: string;
+
+  @IsOptional()
+  @IsExchangeRate()
+  exchange_rate?: string;
+
+  /** 1 = in-house insurer employee, 2 = external registered adjuster. */
+  @IsInt()
+  @IsIn([1, 2])
+  loss_assessment_option: number;
+
+  @IsOptional()
+  @IsUUID()
+  assessor_user_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  assessor_company_id?: string;
+
+  @IsString()
+  @MaxLength(100)
+  assessor_name: string;
+
+  @IsString()
+  @MaxLength(50)
+  assessor_id_number: string;
+
   @IsInt()
   @Min(1)
-  loss_assessment_option?: number;
-
-  @IsOptional()
-  @IsString()
-  assessor_name?: string;
-
-  @IsOptional()
-  @IsString()
-  assessor_id_number?: string;
-
-  @IsOptional()
-  @IsInt()
-  assessor_id_type?: number;
+  @Max(7)
+  assessor_id_type: number;
 }
 
+export class UpdateClaimIntimationDto extends PartialType(
+  CreateClaimIntimationDto,
+) {}
+
 export class CreateClaimReserveDto {
-  @IsString()
-  reserve_type: string;
+  @IsIn(['INITIAL', 'INCREASE', 'DECREASE'])
+  reserve_type: 'INITIAL' | 'INCREASE' | 'DECREASE';
 
-  amount: string | number;
+  @IsMoneyAmount()
+  amount: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
   reason: string;
 
   @IsOptional()
@@ -57,15 +95,28 @@ export class CreateClaimReserveDto {
 
 export class ReleaseReserveDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(2000)
   reason: string;
 }
 
-export class ClaimDecisionDto {
+export class ApprovalActionDto {
   @IsOptional()
   @IsString()
-  @MaxLength(1000)
-  reason?: string;
+  @MaxLength(2000)
+  comments?: string;
+}
+
+export class ApprovalDeclineDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  comments: string;
+
+  /** RETURN sends the item back for rework instead of declining it. */
+  @IsOptional()
+  @IsIn(['REJECT', 'RETURN'])
+  decision?: 'REJECT' | 'RETURN';
 }
 
 export class AssignClaimDto {
@@ -78,6 +129,7 @@ export class AssignClaimDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   instructions?: string;
 }
 
@@ -91,10 +143,12 @@ export class CreateServiceAssignmentDto {
   assigned_user_id?: string;
 
   @IsString()
+  @MaxLength(80)
   service_type: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   instructions?: string;
 
   @IsOptional()
@@ -102,7 +156,8 @@ export class CreateServiceAssignmentDto {
   due_at?: string;
 
   @IsOptional()
-  estimated_fee?: string | number;
+  @IsMoneyAmount()
+  estimated_fee?: string;
 }
 
 export class CreateClaimAssessmentDto {
@@ -114,23 +169,71 @@ export class CreateClaimAssessmentDto {
   assessment_received_date: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
   assessment_report_summary: string;
 
-  assessment_amount: string | number;
+  @IsMoneyAmount()
+  assessment_amount: string;
 
-  approved_claim_amount: string | number;
+  @IsMoneyAmount()
+  approved_claim_amount: string;
 
   @IsOptional()
-  @IsBoolean()
-  is_re_assessment?: boolean;
+  @IsString()
+  @MaxLength(180)
+  assessor_name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(180)
+  assessor_company?: string;
+
+  @IsOptional()
+  @IsDateString()
+  inspection_date?: string;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  recommended_amount?: string;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  deductible_amount?: string;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  salvage_amount?: string;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  contribution_amount?: string;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  betterment_amount?: string;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  recovery_amount?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  remarks?: string;
 }
+
+export class UpdateClaimAssessmentDto extends PartialType(
+  CreateClaimAssessmentDto,
+) {}
 
 export class CreateDischargeVoucherDto {
   @IsOptional()
   @IsUUID()
   claimant_id?: string;
 
-  claim_offer_amount: string | number;
+  @IsMoneyAmount()
+  claim_offer_amount: string;
 
   @IsOptional()
   @IsDateString()
@@ -146,8 +249,41 @@ export class RespondToDischargeDto {
   response: DischargeResponse;
 
   @IsOptional()
+  @IsDateString()
+  claimant_response_date?: string;
+
+  @IsOptional()
   @IsString()
+  @MaxLength(2000)
   reason?: string;
+}
+
+export class AdjustDischargeVoucherDto {
+  @IsOptional()
+  @IsDateString()
+  adjustment_date?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  adjustment_reason?: string;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  adjustment_amount?: string;
+
+  @IsOptional()
+  @IsDateString()
+  reconciliation_date?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  reconciliation_summary?: string;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  reconciled_amount?: string;
 }
 
 export class CreateClaimPaymentDto {
@@ -159,22 +295,40 @@ export class CreateClaimPaymentDto {
   @IsUUID()
   discharge_voucher_id?: string;
 
-  paid_amount: string | number;
+  @IsMoneyAmount()
+  paid_amount: string;
 
-  @IsOptional()
+  /** 1 = Cash, 2 = Cheque, 3 = EFT (TIRAMIS §13.1). */
   @IsInt()
-  payment_mode?: number;
+  @IsIn([1, 2, 3])
+  payment_mode: number;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   payment_method?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   payment_reference?: string;
 
   @IsOptional()
-  net_premium_earned?: string | number;
+  @IsIn(['CLAIMANT', 'GARAGE', 'HOSPITAL', 'ASSESSOR', 'OTHER'])
+  payee_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(180)
+  payee_name?: string;
+
+  @IsOptional()
+  @IsObject()
+  payee_bank_details?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsIn(['Y', 'N'])
+  parties_notified?: 'Y' | 'N';
 
   @IsOptional()
   @IsBoolean()
@@ -182,44 +336,86 @@ export class CreateClaimPaymentDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   litigation_reason?: string;
 }
 
-export class RejectClaimDto {
+export class CreateClaimRejectionDto {
   @IsString()
-  @MaxLength(2000)
+  @IsNotEmpty()
+  @MaxLength(5000)
   rejection_reason: string;
+
+  /** Reason sent to TIRA; TIRAMIS limits RejectionReason to 100 characters. */
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  tira_rejection_reason: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  recommendation?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  policy_clause_reference?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  claim_resulted_litigation?: boolean;
+
+  @IsOptional()
+  @IsMoneyAmount()
+  claim_amount?: string;
 }
 
 export class CloseClaimDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(1000)
   closure_reason: string;
 }
 
+export class ReopenClaimDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  reason: string;
+}
+
 export class AddClaimDocumentDto {
   @IsString()
+  @MaxLength(80)
   document_type: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   requirement_code?: string;
 
   @IsString()
+  @MaxLength(180)
   title: string;
 
   @IsString()
+  @MaxLength(255)
   file_name: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   mime_type?: string;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
   file_size?: number;
 
   @IsOptional()
   @IsString()
+  @MaxLength(128)
   checksum?: string;
 
   @IsOptional()
@@ -231,12 +427,70 @@ export class AddClaimDocumentDto {
   metadata?: Record<string, unknown>;
 }
 
-export class VerifyClaimDocumentDto {
+export class ClaimDocumentUploadSessionDto {
   @IsString()
-  @IsEnum(['VERIFIED', 'REJECTED'] as const)
+  @MaxLength(80)
+  document_type: string;
+
+  @IsString()
+  @MaxLength(180)
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  requirement_code?: string;
+
+  /** Claim stage the document supports, e.g. NOTIFICATION or ASSESSMENT. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  claim_stage?: string;
+
+  @IsOptional()
+  @IsUUID()
+  subject_id?: string;
+}
+
+export class LinkClaimDocumentDto {
+  @IsUUID()
+  document_id: string;
+
+  @IsString()
+  @MaxLength(80)
+  document_type: string;
+
+  @IsString()
+  @MaxLength(180)
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  requirement_code?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  claim_stage?: string;
+
+  @IsOptional()
+  @IsUUID()
+  subject_id?: string;
+}
+
+export class VerifyClaimDocumentDto {
+  @IsIn(['VERIFIED', 'REJECTED'])
   decision: 'VERIFIED' | 'REJECTED';
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   rejection_reason?: string;
+}
+
+export class ClaimQueueQueryDto {
+  @IsOptional()
+  @IsEnum(ClaimQueue)
+  queue?: ClaimQueue;
 }

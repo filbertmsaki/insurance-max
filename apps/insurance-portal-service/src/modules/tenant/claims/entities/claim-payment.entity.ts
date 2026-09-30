@@ -139,6 +139,12 @@ export class ClaimPayment extends TiramisTrackableClaimEntity {
   @Column({ type: 'int', default: 1 })
   state_version: number;
 
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  claimants: Record<string, unknown>[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  payee_bank_details: Record<string, unknown> | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

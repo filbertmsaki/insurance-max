@@ -9,10 +9,10 @@ import { ClaimRecovery } from '../entities/claim-recovery.entity';
 import { ClaimPaymentStatus, ClaimRecoveryStatus } from '../enums/claim.enums';
 
 /**
- * Derives the claim's financial rollups from the reserve-movement ledger,
- * payments and recoveries (§14.16) — additive to, not a replacement for,
- * `ClaimsService.recalculateClaimReserve()` which keeps deriving
- * `outstanding_reserve` from live `APPROVED` reserves exactly as before.
+ * Derives every claim financial rollup from its sources (§14.16): the
+ * reserve-movement ledger, PAID (unreversed) payments and recoveries.
+ * `paid_amount` and `outstanding_reserve` are never edited directly, so
+ * outstanding = reserve − paid always holds.
  */
 @Injectable()
 export class ClaimFinancialProjectionService {
@@ -47,6 +47,10 @@ export class ClaimFinancialProjectionService {
         ? MoneyUtil.subtract(grossIncurred, recoveryExpected)
         : '0.00';
 
+    claim.paid_amount = paid;
+    claim.outstanding_reserve = outstandingReserve;
+    claim.recovery_expected = recoveryExpected;
+    claim.recovery_received = recoveryReceived;
     claim.gross_case_reserve = reserveTotal;
     claim.gross_incurred_amount = grossIncurred;
     claim.expense_paid_amount = expensePaid;
