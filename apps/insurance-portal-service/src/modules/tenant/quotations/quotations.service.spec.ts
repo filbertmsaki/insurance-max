@@ -689,6 +689,12 @@ describe('QuotationsService', () => {
     const quotationInvoiceService = {
       createOrReuseQuotationInvoice: jest.fn(),
     } as any;
+    const nonMotorRiskService = {
+      assertCompleteForFinalize: jest.fn().mockResolvedValue(undefined),
+      assertDocumentsCompleteForFinalize: jest
+        .fn()
+        .mockResolvedValue(undefined),
+    };
 
     const service = new QuotationsService(
       dataSource,
@@ -713,10 +719,12 @@ describe('QuotationsService', () => {
       quotationInvoiceService,
       branchUserRepository,
       salePointRepository,
+      nonMotorRiskService as any,
     );
 
     return {
       authoritativePayload,
+      nonMotorRiskService,
       auditService,
       dataSource,
       quotation,
@@ -1305,6 +1313,101 @@ describe('QuotationsService', () => {
     expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
   });
 
+  describe('non-motor finalize gates', () => {
+    const completeUser = {
+      id: 'user-1',
+      permissions: ['quotations:complete'],
+    } as any;
+    const nonMotorPayload = {
+      internal_quotation: {
+        quotation_flow: 'NON_MOTOR',
+        product_id: 'product-1',
+        sub_class_id: 'sub-1',
+      },
+    } as any;
+
+    function arrange(flow: string) {
+      const fixture = createServiceFixture({
+        quotation_flow: flow,
+        status: QuotationStatus.DRAFT,
+      });
+      const service = fixture.service as any;
+      jest
+        .spyOn(service, 'assertUserCanWriteQuotation')
+        .mockResolvedValue(undefined);
+      jest.spyOn(service, 'assertDraftWritable').mockReturnValue(undefined);
+      const replace = jest
+        .spyOn(service, 'replace')
+        .mockResolvedValue({ id: 'quotation-1' });
+      jest
+        .spyOn(service, 'assertPricingSnapshotsCurrent')
+        .mockResolvedValue(undefined);
+      jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'quotation-1' });
+      return { fixture, replace };
+    }
+
+    it('runs the risk-detail and document gates on the legacy finalize path', async () => {
+      const { fixture, replace } = arrange('NON_MOTOR');
+
+      await fixture.service.finalize(
+        'company-1',
+        'quotation-1',
+        nonMotorPayload,
+        completeUser,
+      );
+
+      expect(
+        fixture.nonMotorRiskService.assertCompleteForFinalize,
+      ).toHaveBeenCalledWith('company-1', 'quotation-1', 'product-1', 'sub-1');
+      expect(
+        fixture.nonMotorRiskService.assertDocumentsCompleteForFinalize,
+      ).toHaveBeenCalledWith('company-1', 'quotation-1', 'product-1', 'sub-1');
+      expect(replace).toHaveBeenCalledWith(
+        'company-1',
+        'quotation-1',
+        nonMotorPayload,
+        completeUser,
+        expect.objectContaining({ nonMotorGatesChecked: true }),
+      );
+    });
+
+    it('does not complete a non-motor quotation whose gates fail', async () => {
+      const { fixture, replace } = arrange('NON_MOTOR');
+      fixture.nonMotorRiskService.assertDocumentsCompleteForFinalize.mockRejectedValue(
+        new BadRequestException({ code: 'NON_MOTOR_DOCUMENTS_INCOMPLETE' }),
+      );
+
+      await expect(
+        fixture.service.finalize(
+          'company-1',
+          'quotation-1',
+          nonMotorPayload,
+          completeUser,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(replace).not.toHaveBeenCalled();
+      expect(
+        fixture.quotationLifecycleService.evaluateRequirements,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('skips the gates for motor quotations', async () => {
+      const { fixture } = arrange('MOTOR_SINGLE');
+
+      await fixture.service.finalize(
+        'company-1',
+        'quotation-1',
+        {
+          internal_quotation: { quotation_flow: 'MOTOR_SINGLE' },
+        } as any,
+        completeUser,
+      );
+
+      expect(
+        fixture.nonMotorRiskService.assertCompleteForFinalize,
+      ).not.toHaveBeenCalled();
+    });
+  });
   describe('authoritative pricing validation on create (real validateAuthoritativePricing, not mocked)', () => {
     const pricingUser = {
       id: 'user-1',

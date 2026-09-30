@@ -16,7 +16,6 @@ import type { UpdateQuotationDto } from '../../quotations/dto/quotation-payload.
 import type { Quotation } from '../../quotations/entities/quotation.entity';
 import type { QuotationsService } from '../../quotations/quotations.service';
 import type { FleetRegisterService } from '../fleet/fleet-register.service';
-import type { NonMotorRiskService } from '../non-motor/non-motor-risk.service';
 import { UnderwriteQuotationCommandService } from './underwrite-quotation-command.service';
 
 const user = {
@@ -31,7 +30,6 @@ function build(
     storedFlow?: string;
     canCreate?: boolean;
     syncFails?: boolean;
-    riskIncomplete?: boolean;
   } = {},
 ) {
   const quotationsService = {
@@ -62,23 +60,15 @@ function build(
       : jest.fn().mockResolvedValue({ fleetId: 'fleet-1' }),
   };
 
-  const nonMotorRisk = {
-    assertDocumentsCompleteForFinalize: jest.fn().mockResolvedValue(undefined),
-    assertCompleteForFinalize: options.riskIncomplete
-      ? jest.fn().mockRejectedValue(new BadRequestException('incomplete'))
-      : jest.fn().mockResolvedValue(undefined),
-  };
-
   const service = new UnderwriteQuotationCommandService(
     quotationsService as unknown as QuotationsService,
     access as unknown as CategoryAccessService,
     access as unknown as ProductAccessService,
     repository as unknown as Repository<Quotation>,
     fleetRegister as unknown as FleetRegisterService,
-    nonMotorRisk as unknown as NonMotorRiskService,
   );
 
-  return { service, quotationsService, fleetRegister, nonMotorRisk };
+  return { service, quotationsService, fleetRegister };
 }
 
 const fleetPayload = {
@@ -212,10 +202,8 @@ describe('UnderwriteQuotationCommandService', () => {
     },
   } as unknown as UpdateQuotationDto;
 
-  it('checks non-motor risk details against the product schema before finalizing', async () => {
-    const { service, nonMotorRisk, quotationsService } = build({
-      storedFlow: 'NON_MOTOR',
-    });
+  it('finalizes a non-motor quotation through QuotationsService, which runs the non-motor gates', async () => {
+    const { service, quotationsService } = build({ storedFlow: 'NON_MOTOR' });
 
     await service.finalize(
       user,
@@ -224,24 +212,11 @@ describe('UnderwriteQuotationCommandService', () => {
       nonMotorPayload,
     );
 
-    expect(nonMotorRisk.assertCompleteForFinalize).toHaveBeenCalledWith(
+    expect(quotationsService.finalize).toHaveBeenCalledWith(
       'company-1',
       'q-1',
-      'prod-1',
-      'sub-1',
+      nonMotorPayload,
+      user,
     );
-    expect(quotationsService.finalize).toHaveBeenCalled();
-  });
-
-  it('does not finalize a non-motor quotation with incomplete risk details', async () => {
-    const { service, quotationsService } = build({
-      storedFlow: 'NON_MOTOR',
-      riskIncomplete: true,
-    });
-
-    await expect(
-      service.finalize(user, UnderwriteLine.NON_MOTOR, 'q-1', nonMotorPayload),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(quotationsService.finalize).not.toHaveBeenCalled();
   });
 });

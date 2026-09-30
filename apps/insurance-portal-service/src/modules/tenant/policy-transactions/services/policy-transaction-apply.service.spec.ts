@@ -1,4 +1,5 @@
 import { FleetVehicleApplyService } from './fleet-vehicle-apply.service';
+import { NonMotorEndorsementService } from './non-motor-endorsement.service';
 import { ConflictException } from '@nestjs/common';
 import {
   PolicyTransactionEventType,
@@ -116,6 +117,9 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
   const quotationRepo = {
     update: jest.fn().mockResolvedValue({ affected: 1 }),
   };
+  const changeRepo = {
+    find: jest.fn().mockResolvedValue([]),
+  };
   const transactionRepoInManager = {
     createQueryBuilder: jest.fn().mockReturnValue({
       setLock: jest.fn().mockReturnThis(),
@@ -138,6 +142,7 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
       if (entity?.name === 'PolicyTransaction') return transactionRepoInManager;
       if (entity?.name === 'PolicyTransactionEvent') return eventRepo;
       if (entity?.name === 'Quotation') return quotationRepo;
+      if (entity?.name === 'PolicyTransactionChange') return changeRepo;
       throw new Error(`Unexpected entity ${entity?.name}`);
     },
   };
@@ -175,6 +180,7 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
     lifecycleService,
     returnPremiumService,
     new FleetVehicleApplyService(),
+    new NonMotorEndorsementService(),
   );
 
   return {

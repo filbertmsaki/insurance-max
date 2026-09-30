@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
@@ -117,6 +118,7 @@ import { QuotationPayloadValidator } from './services/quotation-payload.validato
 import { InsuranceChannelPermissionService } from './authorization/insurance-channel-permission';
 import { normalizeMotorTextValue } from './utils/motor-text.util';
 import { resolveQuotationCoverNoteType } from './utils/cover-note-type.util';
+import { motorUsageTypeLabel } from './utils/motor-usage-type.util';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { MotorVehicleVersion } from '../motor/entities/motor-vehicle-version.entity';
@@ -153,6 +155,7 @@ import {
   TERMINAL_QUOTATION_STATUSES,
 } from './utils/quotation-status-transition.util';
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
+import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
 
 type NumericValue = number | string | null | undefined;
 
@@ -204,6 +207,8 @@ interface PricingValidationAuditContext {
 
 interface ReplaceQuotationOptions {
   reuseExistingIdentifiers?: boolean;
+  /** Set by finalize(), which already ran the Non-Motor finalize gates. */
+  nonMotorGatesChecked?: boolean;
 }
 
 interface QuotationWriteAccessOptions {
@@ -327,6 +332,7 @@ export class QuotationsService {
     private readonly branchUserRepository: Repository<BranchUser>,
     @InjectRepository(TiramisSalePointEntity)
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
+    private readonly nonMotorRiskService: NonMotorRiskService,
   ) {}
 
   private resolveUserScope(user: AuthenticatedUser): TenantDataScope {
@@ -870,6 +876,13 @@ export class QuotationsService {
     });
     this.assertQuotationEditable(existing);
     this.assertNoPremiumOverrideHistory(existing);
+    // Replacing a non-draft quotation re-evaluates (completes) it again.
+    if (
+      !options.nonMotorGatesChecked &&
+      existing.status !== QuotationStatus.DRAFT
+    ) {
+      await this.assertNonMotorFinalizeGates(companyId, existing, payload);
+    }
     const correctionBeforeState =
       this.buildFailedCorrectionAuditState(existing);
     const authorizedPayload =
@@ -1161,8 +1174,12 @@ export class QuotationsService {
       allowBranchFailedCorrection: this.isTiraFailureQuotation(existing),
     });
     this.assertDraftWritable(existing);
+    await this.assertNonMotorFinalizeGates(companyId, existing, payload);
 
-    const quotation = await this.replace(companyId, id, payload, user, options);
+    const quotation = await this.replace(companyId, id, payload, user, {
+      ...options,
+      nonMotorGatesChecked: true,
+    });
 
     const replacedAggregate = await this.quotationsRepository.findOneAggregate(
       companyId,
@@ -1187,6 +1204,40 @@ export class QuotationsService {
     );
 
     return this.findOne(companyId, quotation.id, user);
+  }
+
+  /**
+   * Non-Motor completion gates: the risk details must satisfy the product
+   * risk schema and the mandatory quotation documents must be attached.
+   * Enforced here so every completion path (legacy, Underwrite and portal
+   * routes) runs them.
+   */
+  private async assertNonMotorFinalizeGates(
+    companyId: string,
+    existing: Pick<Quotation, 'id' | 'quotation_flow'>,
+    payload: UpdateQuotationDto,
+  ): Promise<void> {
+    const internal = payload.internal_quotation;
+
+    if (
+      existing.quotation_flow !== QuotationFlow.NON_MOTOR &&
+      internal?.quotation_flow !== QuotationFlow.NON_MOTOR
+    ) {
+      return;
+    }
+
+    await this.nonMotorRiskService.assertCompleteForFinalize(
+      companyId,
+      existing.id,
+      internal.product_id,
+      internal.sub_class_id,
+    );
+    await this.nonMotorRiskService.assertDocumentsCompleteForFinalize(
+      companyId,
+      existing.id,
+      internal.product_id,
+      internal.sub_class_id,
+    );
   }
 
   async submitForApprovalAction(
@@ -2302,6 +2353,7 @@ export class QuotationsService {
       tiraRequestId: dto.tira_request_id?.trim() || undefined,
       tiraResponseId: dto.tira_response_id?.trim() || undefined,
       metadata: dto.metadata ?? undefined,
+      isMakerCheckerExempt: hasCompanyAdminRole(user),
     };
 
     if (
@@ -8423,7 +8475,7 @@ export class QuotationsService {
       body_type: motor.body_type.trim(),
       color: motor.color.trim(),
       manufacture_year: motor.year_of_manufacture,
-      usage_type: motor.fuel_used.trim(),
+      usage_type: motorUsageTypeLabel(motor.motor_usage),
       seating_capacity: motor.sitting_capacity,
       cubic_capacity: Number.isFinite(Number(motor.engine_capacity))
         ? Number(motor.engine_capacity)

@@ -28,6 +28,7 @@ export class KpiService {
       from?: string;
       to?: string;
       branchId?: string | null;
+      branchIds?: string[] | null;
     },
   ): Promise<KpiCalculationResult> {
     if (!user.companyId) {
@@ -52,6 +53,7 @@ export class KpiService {
       user,
       companyId,
       branchId: query.branchId ?? null,
+      branchIds: query.branchIds ?? null,
       periodStart: query.from ?? new Date().toISOString().slice(0, 10),
       periodEnd: query.to ?? new Date().toISOString().slice(0, 10),
       parameters: {
@@ -67,6 +69,7 @@ export class KpiService {
     const values = await this.analyticsService.getDailyMetrics({
       companyId: user.companyId,
       branchId: query.branchId ?? null,
+      branchIds: query.branchIds ?? null,
       metricCode: code,
       from: query.from,
       to: query.to,

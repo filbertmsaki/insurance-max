@@ -50,6 +50,8 @@ type MetricQueryInput = {
   periodStart: string;
   periodEnd: string;
   branchId?: string | null;
+  /** Branch-limited users without a selected branch: only these branches. */
+  branchIds?: string[] | null;
   dimensions?: Record<string, string>;
   valueKind?: AnalyticsValueKind;
   currencyCode?: string | null;
@@ -101,7 +103,11 @@ export class AnalyticsMetricService {
     const definition = await this.requireDefinition(input.metricCode);
     this.validateQuery(definition, input);
 
-    const values = await this.findStoredValues(definition, input);
+    // Stored values are per branch dimension, so a set of branches is
+    // aggregated from the daily rollups instead.
+    const values = input.branchIds?.length
+      ? []
+      : await this.findStoredValues(definition, input);
     if (values.length > 0) {
       return {
         definition: this.serializeDefinition(definition),
@@ -433,6 +439,7 @@ export class AnalyticsMetricService {
         AND metric_date >= $3::date
         AND metric_date <= $4::date
         AND ($5::uuid IS NULL OR branch_id = $5)
+        AND ($6::uuid[] IS NULL OR branch_id = ANY($6::uuid[]))
       GROUP BY 1
       ORDER BY 1 ASC
     `;
@@ -446,6 +453,7 @@ export class AnalyticsMetricService {
         input.periodStart,
         input.periodEnd,
         input.branchId ?? null,
+        input.branchIds?.length ? input.branchIds : null,
       ]);
     } catch (error) {
       if (!this.isMissingRelationError(error)) {

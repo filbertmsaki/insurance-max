@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { DataSource, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import type { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
@@ -45,6 +49,7 @@ function setup(options: {
   }>;
   attachedTypes?: string[];
   noPublishedDefinition?: boolean;
+  definitionError?: Error;
 }) {
   const fieldQuery = {
     where: () => fieldQuery,
@@ -79,6 +84,36 @@ function setup(options: {
     }),
   };
 
+  const dataSource = {
+    query: jest.fn().mockImplementation((sql: string) =>
+      Promise.resolve(
+        sql.includes('FROM quotations quotation')
+          ? [
+              {
+                insurer_company_id: 'insurer-1',
+                cover_note_start_date: new Date('2027-01-15T00:00:00Z'),
+              },
+            ]
+          : (options.attachedTypes ?? []).map((document_type, index) => ({
+              id: `doc-${index}`,
+              document_type,
+              file_name: `${document_type}.pdf`,
+              status: 'AVAILABLE',
+              uploaded_at: new Date('2026-09-30T00:00:00Z'),
+            })),
+      ),
+    ),
+  };
+  const productDefinitionService = {
+    resolvePublishedDefinition: options.definitionError
+      ? jest.fn().mockRejectedValue(options.definitionError)
+      : options.noPublishedDefinition
+        ? jest.fn().mockRejectedValue(new NotFoundException('none'))
+        : jest.fn().mockResolvedValue({
+            documentRequirements: options.requirements ?? [],
+          }),
+  };
+
   const service = new NonMotorRiskService(
     {
       createQueryBuilder: () => fieldQuery,
@@ -87,26 +122,11 @@ function setup(options: {
     productRepository as unknown as Repository<InsuranceProduct>,
     { findOne: jest.fn() } as unknown as Repository<InsuranceSubClass>,
     quotationRepository as unknown as Repository<Quotation>,
-    {
-      query: jest.fn().mockResolvedValue(
-        (options.attachedTypes ?? []).map((document_type, index) => ({
-          id: `doc-${index}`,
-          document_type,
-          file_name: `${document_type}.pdf`,
-          uploaded_at: new Date('2026-09-30T00:00:00Z'),
-        })),
-      ),
-    } as unknown as DataSource,
-    {
-      resolvePublishedDefinition: options.noPublishedDefinition
-        ? jest.fn().mockRejectedValue(new NotFoundException('none'))
-        : jest.fn().mockResolvedValue({
-            documentRequirements: options.requirements ?? [],
-          }),
-    } as unknown as ProductDefinitionService,
+    dataSource as unknown as DataSource,
+    productDefinitionService as unknown as ProductDefinitionService,
   );
 
-  return { service, detailRepository };
+  return { service, detailRepository, dataSource, productDefinitionService };
 }
 
 describe('NonMotorRiskService', () => {
@@ -233,6 +253,92 @@ describe('NonMotorRiskService', () => {
         'prod-1',
       ),
     ).resolves.toBeUndefined();
+  });
+
+  it('skips the document gate when the definition is not available (403 from the resolver)', async () => {
+    for (const code of [
+      'PRODUCT_DEFINITION_NOT_AVAILABLE',
+      'PRODUCT_SUB_CLASS_NOT_AVAILABLE',
+    ]) {
+      await expect(
+        setup({
+          definitionError: new ForbiddenException({ code, message: code }),
+        }).service.assertDocumentsCompleteForFinalize(
+          'company-1',
+          'q-1',
+          'prod-1',
+          'sub-1',
+        ),
+      ).resolves.toBeUndefined();
+    }
+
+    await expect(
+      setup({
+        definitionError: new ForbiddenException({ code: 'OTHER' }),
+      }).service.assertDocumentsCompleteForFinalize(
+        'company-1',
+        'q-1',
+        'prod-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("resolves the insurer's definition effective on the quotation cover start date", async () => {
+    const { service, productDefinitionService } = setup({});
+
+    await service.assertDocumentsCompleteForFinalize(
+      'company-1',
+      'q-1',
+      'prod-1',
+      'sub-1',
+    );
+
+    expect(
+      productDefinitionService.resolvePublishedDefinition,
+    ).toHaveBeenCalledWith(
+      'insurer-1',
+      'prod-1',
+      'sub-1',
+      new Date('2027-01-15T00:00:00Z'),
+    );
+  });
+
+  it('only counts attached (non-quarantined, non-deleted) documents', async () => {
+    const { service, dataSource } = setup({
+      requirements: [
+        {
+          code: 'VALUATION',
+          name: 'Valuation report',
+          appliesTo: 'QUOTATION',
+          isMandatory: true,
+        },
+      ],
+      attachedTypes: ['VALUATION'],
+    });
+
+    await service.assertDocumentsCompleteForFinalize(
+      'company-1',
+      'q-1',
+      'prod-1',
+    );
+
+    const documentQuery = dataSource.query.mock.calls.find(([sql]) =>
+      String(sql).includes('FROM documents'),
+    ) as unknown as [string, unknown[]];
+    expect(documentQuery[1][3]).toBe('DELETED');
+    expect(documentQuery[1][4]).toEqual([
+      'UPLOADED',
+      'SCAN_PENDING',
+      'SCANNING',
+      'AVAILABLE',
+    ]);
+
+    await service.listQuotationDocuments('company-1', 'q-1');
+    const listQuery = dataSource.query.mock.calls.at(-1) as unknown as [
+      string,
+      unknown[],
+    ];
+    expect(listQuery[1][4]).toBeNull();
   });
 
   it('only configures schemas for non-motor products', async () => {

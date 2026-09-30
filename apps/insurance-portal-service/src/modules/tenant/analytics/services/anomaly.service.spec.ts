@@ -43,6 +43,7 @@ describe('AnomalyService', () => {
       'branch-id',
       undefined,
       undefined,
+      null,
     );
   });
 

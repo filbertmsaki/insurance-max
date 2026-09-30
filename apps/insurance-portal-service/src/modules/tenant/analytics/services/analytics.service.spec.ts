@@ -71,6 +71,26 @@ describe('AnalyticsService', () => {
       '2026-01-01',
       '2026-01-31',
       'branch-1',
+      null,
+    ]);
+  });
+
+  it('limits daily metrics to a set of branches', async () => {
+    dataSource.query.mockResolvedValue([]);
+
+    await service.getDailyMetrics({
+      companyId: 'company-1',
+      metricCode: 'METRIC_1',
+      branchIds: ['branch-1', 'branch-2'],
+    });
+
+    const [sql, params] = dataSource.query.mock.calls[0];
+    expect(sql).toContain('branch_id = ANY($4::uuid[])');
+    expect(params).toEqual([
+      'company-1',
+      'METRIC_1',
+      null,
+      ['branch-1', 'branch-2'],
     ]);
   });
 
@@ -92,6 +112,7 @@ describe('AnalyticsService', () => {
       'branch-1',
       '2026-01-01',
       '2026-01-31',
+      null,
     ]);
   });
 

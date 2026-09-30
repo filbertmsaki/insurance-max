@@ -49,6 +49,7 @@ import { EndorsementService } from './services/endorsement.service';
 import { FleetVehicleEndorsementService } from './services/fleet-vehicle-endorsement.service';
 import { FleetVehicleApplyService } from './services/fleet-vehicle-apply.service';
 import { FleetRemovalRefundService } from './services/fleet-removal-refund.service';
+import { NonMotorEndorsementService } from './services/non-motor-endorsement.service';
 import { CancellationService } from './services/cancellation.service';
 import { RenewalService } from './services/renewal.service';
 import { AdministrativeAmendmentService } from './services/administrative-amendment.service';
@@ -125,6 +126,7 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     FleetVehicleEndorsementService,
     FleetVehicleApplyService,
     FleetRemovalRefundService,
+    NonMotorEndorsementService,
     PolicyReplacementService,
     IdentifierGeneratorService,
     PolicyTransactionEligibilityService,

@@ -1,12 +1,14 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, IsNull, QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { DocumentStatus } from '@insurance-max/contracts';
 import { InsuranceBusinessLine } from '../../insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
 import { ProductDefinitionService } from '../../insurance-products/product-definition.service';
@@ -28,6 +30,37 @@ import {
 
 const OPTION_TYPES = new Set(['SELECT', 'MULTI_SELECT']);
 const QUOTATION_DOCUMENT_OWNER_TYPES = ['QUOTATION', 'quotation', 'quotations'];
+/** Document statuses that satisfy a mandatory document requirement. */
+const ATTACHED_DOCUMENT_STATUSES: string[] = [
+  DocumentStatus.UPLOADED,
+  DocumentStatus.SCAN_PENDING,
+  DocumentStatus.SCANNING,
+  DocumentStatus.AVAILABLE,
+];
+/** resolvePublishedDefinition codes meaning "no definition to check". */
+const DEFINITION_UNAVAILABLE_CODES = new Set([
+  'PRODUCT_DEFINITION_NOT_AVAILABLE',
+  'PRODUCT_SUB_CLASS_NOT_AVAILABLE',
+]);
+
+function isDefinitionUnavailable(error: unknown): boolean {
+  if (error instanceof NotFoundException) return true;
+  if (!(error instanceof ForbiddenException)) return false;
+  const response = error.getResponse();
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    DEFINITION_UNAVAILABLE_CODES.has(
+      String((response as { code?: unknown }).code),
+    )
+  );
+}
+
+function resolveEffectiveDate(value: Date | string | null | undefined): Date {
+  if (!value) return new Date();
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+}
 
 export interface QuotationRiskDetailsView {
   quotation_id: string;
@@ -327,16 +360,32 @@ export class NonMotorRiskService {
       appliesTo: string;
       isMandatory: boolean;
     }>;
+    // The definition effective on the quotation's cover start date, owned by
+    // the insurer (as quotation pricing resolves it).
+    const [quotation] = await this.dataSource.query<
+      Array<{
+        insurer_company_id: string | null;
+        cover_note_start_date: Date | string | null;
+      }>
+    >(
+      `SELECT quotation.insurer_company_id, cover_note.cover_note_start_date
+         FROM quotations quotation
+         LEFT JOIN quotation_cover_notes cover_note
+           ON cover_note.quotation_id = quotation.id
+        WHERE quotation.id = $1 AND quotation.company_id = $2`,
+      [quotationId, companyId],
+    );
     try {
       const definition =
         await this.productDefinitionService.resolvePublishedDefinition(
-          companyId,
+          quotation?.insurer_company_id ?? companyId,
           productId,
           subClassId ?? null,
+          resolveEffectiveDate(quotation?.cover_note_start_date),
         );
       requirements = definition.documentRequirements;
     } catch (error) {
-      if (error instanceof NotFoundException) return;
+      if (isDefinitionUnavailable(error)) return;
       throw error;
     }
 
@@ -346,9 +395,11 @@ export class NonMotorRiskService {
     if (!mandatory.length) return;
 
     const attached = new Set(
-      (await this.listQuotationDocuments(companyId, quotationId)).map(
-        (document) => document.document_type,
-      ),
+      (
+        await this.listQuotationDocuments(companyId, quotationId, {
+          attachedOnly: true,
+        })
+      ).map((document) => document.document_type),
     );
     const missing = mandatory.filter((item) => !attached.has(item.code));
     if (!missing.length) return;
@@ -420,9 +471,16 @@ export class NonMotorRiskService {
     return this.toView(quotation, fields, detail);
   }
 
+  /**
+   * Documents attached to a quotation. Deleted documents are never listed;
+   * `attachedOnly` further keeps only documents that count as attached
+   * (uploaded, being scanned or available — not pending upload, quarantined,
+   * rejected, superseded, revoked or archived).
+   */
   async listQuotationDocuments(
     companyId: string,
     quotationId: string,
+    { attachedOnly = false }: { attachedOnly?: boolean } = {},
   ): Promise<QuotationDocumentView[]> {
     const rows = await this.dataSource.query<Array<Record<string, unknown>>>(
       `SELECT id, title, document_type, file_name, status, uploaded_at
@@ -431,8 +489,16 @@ export class NonMotorRiskService {
           AND owner_id = $2
           AND owner_type = ANY($3::text[])
           AND deleted_at IS NULL
+          AND status <> $4
+          AND ($5::text[] IS NULL OR status = ANY($5::text[]))
         ORDER BY uploaded_at DESC`,
-      [companyId, quotationId, QUOTATION_DOCUMENT_OWNER_TYPES],
+      [
+        companyId,
+        quotationId,
+        QUOTATION_DOCUMENT_OWNER_TYPES,
+        DocumentStatus.DELETED,
+        attachedOnly ? ATTACHED_DOCUMENT_STATUSES : null,
+      ],
     );
     return rows.map((row) => ({
       id: String(row.id),
