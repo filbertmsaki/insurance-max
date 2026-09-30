@@ -18,6 +18,7 @@ import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-paylo
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
+import { QuotationDisplayStatusResolver } from './services/quotation-display-status.resolver';
 import { QuotationRiskAsset } from './entities/structured/quotation-risk-asset.entity';
 import { QuotationsService } from './quotations.service';
 import {
@@ -1034,6 +1035,239 @@ describe('QuotationsService', () => {
       }),
     );
     expect(withoutAuditResult.pricing_integration).toBeNull();
+  });
+
+  it('returns all detail sections for a policy transaction quotation preview', async () => {
+    const fixture = createServiceFixture();
+    const now = new Date('2026-07-27T08:00:00.000Z');
+    const entry = fixture.quotation.cover_note.entries[0];
+
+    Object.assign(fixture.quotation, {
+      source_policy_transaction_id: 'transaction-1',
+      source_policy_id: 'policy-1',
+      previous_quotation_id: 'previous-quotation-1',
+      company: { id: 'company-1', name: 'Acme Insurance' },
+      product: {
+        id: 'product-1',
+        product_code: 'MOTOR-COMP',
+        product_name: 'Motor Comprehensive',
+      },
+      category: {
+        id: 'category-1',
+        code: 'MOTOR',
+        name: 'Motor',
+        business_line: 'MOTOR',
+      },
+      creator: { id: 'user-1', first_name: 'Asha', last_name: 'Nuru' },
+      updater: { id: 'user-1', first_name: 'Asha', last_name: 'Nuru' },
+      created_at: now,
+      updated_at: now,
+      policy_holders: [
+        {
+          sequence_no: 1,
+          policy_holder_name: 'John Mushi',
+          policy_holder_birth_date: '1990-01-01',
+          policy_holder_type: 1,
+          policy_holder_id_number: 'NIDA-123',
+          policy_holder_id_type: 1,
+          gender: 'M',
+          country_code: 'TZA',
+          region: 'Dar es Salaam',
+          district: 'Kinondoni',
+          street: 'Ali Hassan Mwinyi',
+          policy_holder_phone_number: '255700000000',
+          policy_holder_fax: null,
+          postal_address: 'P.O. Box 1',
+          email_address: 'john@example.test',
+        },
+      ],
+      status_history: [
+        {
+          old_status: QuotationStatus.DRAFT,
+          new_status: QuotationStatus.READY_FOR_SUBMISSION,
+          reason: 'Policy transaction quotation finalized from policy snapshot',
+          created_at: now,
+          changer: { id: 'user-1', first_name: 'Asha', last_name: 'Nuru' },
+        },
+      ],
+    });
+    Object.assign(fixture.quotation.cover_note, {
+      cover_note_type: 3,
+      currency_code: 'TZS',
+      exchange_rate: '1',
+      total_premium_excluding_tax: '95000.00',
+      total_premium_including_tax: '112100.00',
+      commission_rate: '0',
+      commission_paid: '0',
+      product_code: 'SP005001000000',
+      officer_name: 'Asha Nuru',
+      officer_title: 'Underwriter',
+    });
+    Object.assign(entry, {
+      entry_number: 1,
+      cover_note_number: 'AICL-MTR-2026-000001',
+      prev_cover_note_reference_number: 'CN-OLD',
+      cover_note_desc: 'Private motor comprehensive cover',
+      operative_clause: 'Motor Comprehensive',
+      endorsement_type: 1,
+      endorsement_reason: 'Increase sum insured',
+      endorsement_premium_earned: '0.00',
+      subject_matters: [
+        {
+          sequence_no: 1,
+          subject_matter_reference: 'T123ABC',
+          subject_matter_desc: 'TOYOTA LAND CRUISER',
+        },
+      ],
+      addons: [
+        {
+          sequence_no: 1,
+          addon_reference: 'ADDON-001',
+          addon_desc: 'Windscreen',
+          addon_amount: '500000.00',
+          addon_premium_rate: '0.01',
+          premium_excluding_tax: '5000.00',
+          premium_excluding_tax_equivalent: '5000.00',
+          premium_including_tax: '5900.00',
+          taxes: [
+            {
+              sequence_no: 1,
+              tax_code: 'VAT-MAINLAND',
+              tax_rate: '0.18',
+              tax_amount: '900.00',
+              is_tax_exempted: 'N',
+              tax_exemption_type: null,
+              tax_exemption_reference: null,
+            },
+          ],
+        },
+      ],
+      motor_detail: {
+        motor_category: 1,
+        motor_type: 1,
+        registration_number: 'T123ABC',
+        chassis_number: 'CHS-001',
+        make: 'TOYOTA',
+        model: 'LAND CRUISER',
+        model_number: 'GDH201',
+        body_type: 'SUV',
+        color: 'WHITE',
+        engine_number: 'ENG-001',
+        engine_capacity: '2800',
+        fuel_used: 'DIESEL',
+        number_of_axles: 2,
+        axle_distance: '2.80',
+        sitting_capacity: 5,
+        year_of_manufacture: 2024,
+        tare_weight: '2100.00',
+        gross_weight: '2800.00',
+        motor_usage: 1,
+        owner_name: 'John Mushi',
+        owner_category: 1,
+        owner_address: 'Dar es Salaam',
+      },
+    });
+    Object.assign(entry.risks[0], {
+      sequence_no: 1,
+      insurance_risk: {
+        risk_code: 'SP005001000001',
+        risk_name: 'Own damage',
+      },
+      sum_insured: '10000000.00',
+      sum_insured_equivalent: '10000000.00',
+      premium_rate: '0.01',
+      premium_before_discount: '100000.00',
+      premium_after_discount: '95000.00',
+      premium_excluding_tax_equivalent: '95000.00',
+      premium_including_tax: '112100.00',
+      discounts: [
+        {
+          sequence_no: 1,
+          discount_type: 2,
+          discount_rate: '0.05',
+          discount_amount: '5000.00',
+        },
+      ],
+      taxes: [
+        {
+          sequence_no: 1,
+          tax_code: 'VAT-MAINLAND',
+          tax_rate: '0.18',
+          tax_amount: '17100.00',
+          is_tax_exempted: 'N',
+          tax_exemption_type: null,
+          tax_exemption_reference: null,
+        },
+      ],
+    });
+
+    (fixture.service as any).previewMapper = new QuotationPreviewMapper(
+      new QuotationDisplayStatusResolver(),
+    );
+    jest
+      .spyOn(fixture.service as any, 'findLatestInvoice')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findLatestReceipt')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findLatestPaymentTransaction')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findLatestPortalSubmission')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findLatestTiramisTracking')
+      .mockResolvedValue({
+        status: 'SUCCESS',
+        tiramisRequestId: 'REQ-001',
+        submittedAt: now,
+        acknowledgedAt: now,
+        finalResponseReceivedAt: now,
+        finalResponseStatusCode: '200',
+        finalResponseStatusDesc: 'Accepted',
+        tiramisResponsePayload: {
+          coverNoteReferenceNumber: 'CN-END-001',
+          stickerNumber: 'STK-001',
+        },
+      });
+    jest
+      .spyOn(fixture.service as any, 'findTiramisTrackingByEntry')
+      .mockResolvedValue(new Map());
+
+    const result = await fixture.service.getPreview(
+      'company-1',
+      fixture.quotation.id,
+      { permissions: [] },
+    );
+
+    expect(result.overview.customer_id).toBeUndefined();
+    expect(result.overview.quotation_id).toBe(fixture.quotation.id);
+    expect(result.policyholders).toHaveLength(1);
+    expect(result.policyholders[0].full_name).toBe('John Mushi');
+    expect(result.risks).toHaveLength(1);
+    expect(result.subject_matters).toHaveLength(1);
+    expect(result.addons).toHaveLength(1);
+    expect(result.motor_details).toMatchObject({
+      registration_number: 'T123ABC',
+      chassis_number: 'CHS-001',
+    });
+    expect(result.tiramis).toMatchObject({
+      submission_status: 'SUCCESS',
+      request_id: 'REQ-001',
+      cover_note_reference_number: 'CN-END-001',
+    });
+    expect(
+      result.history.some((item) => item.action === 'Quotation created'),
+    ).toBe(true);
+    expect(
+      result.history.some(
+        (item) =>
+          item.remarks ===
+          'Policy transaction quotation finalized from policy snapshot',
+      ),
+    ).toBe(true);
+    expect(result.pricing_integration).toBeNull();
   });
 
   it('blocks quotation creation when discount requests are submitted without request permission', async () => {

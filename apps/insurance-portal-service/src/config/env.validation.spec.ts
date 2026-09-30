@@ -24,7 +24,6 @@ describe('insurance portal environment validation', () => {
   it.each([
     ['APP_URL', 'not-a-url'],
     ['APP_FRONTEND_URL', 'not-a-url'],
-    ['INSURANCE_PORTAL_WEBHOOK_URL', 'not-a-url'],
     ['SUPPORT_EMAIL', 'not-an-email'],
     ['APP_PORT', 70000],
     ['APP_ENV', 'qa'],

@@ -3,13 +3,12 @@ import { usersApi } from '@/modules/tenant/users/api/users';
 import { authorizationApi } from '@/modules/shared/auth/api/authorization';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
+const AUTHORIZATION_CONTEXT_REFRESH_MS = 5 * 60 * 1000;
+
 export function AuthBootstrap() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const profile = useAuthStore((state) => state.profile);
   const setProfile = useAuthStore((state) => state.setProfile);
-  const authorizationContext = useAuthStore(
-    (state) => state.authorizationContext,
-  );
   const setAuthorizationContext = useAuthStore(
     (state) => state.setAuthorizationContext,
   );
@@ -59,25 +58,45 @@ export function AuthBootstrap() {
   useEffect(() => {
     let cancelled = false;
 
-    if (!hydrated || !accessToken || authorizationContext) {
+    if (!hydrated || !accessToken) {
       return undefined;
     }
 
-    void authorizationApi
-      .getContext()
-      .then((context) => {
-        if (!cancelled) {
-          setAuthorizationContext(context);
-        }
-      })
-      .catch(() => {
-        // The API client already handles token refresh/revocation paths.
-      });
+    const refreshAuthorizationContext = () => {
+      void authorizationApi
+        .getContext()
+        .then((context) => {
+          if (!cancelled) {
+            setAuthorizationContext(context);
+          }
+        })
+        .catch(() => {
+          // The API client already handles token refresh/revocation paths.
+        });
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAuthorizationContext();
+      }
+    };
+
+    refreshAuthorizationContext();
+
+    const intervalId = window.setInterval(
+      refreshAuthorizationContext,
+      AUTHORIZATION_CONTEXT_REFRESH_MS,
+    );
+    window.addEventListener('focus', refreshAuthorizationContext);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', refreshAuthorizationContext);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [accessToken, hydrated, authorizationContext, setAuthorizationContext]);
+  }, [accessToken, hydrated, setAuthorizationContext]);
 
   return null;
 }

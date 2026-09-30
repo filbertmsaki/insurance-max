@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import {
   TiramisIntegrationCommand,
   TiramisIntegrationSchemaVersion,
@@ -33,6 +33,8 @@ describe('TiramisIntegrationService', () => {
         policyId: null,
         quotationId: 'quotation-1',
         workflowRevision: 1,
+        portalWebhookUrl:
+          'http://localhost:9090/api/v1/webhooks/tiramis/notifications',
       },
       context: {
         organization: {
@@ -146,6 +148,8 @@ describe('TiramisIntegrationService', () => {
     expect(deps.submissionService.createTransaction).toHaveBeenCalledWith(
       expect.objectContaining({
         clientConfigurationId: 'cfg-1',
+        portalWebhookUrl:
+          'http://localhost:9090/api/v1/webhooks/tiramis/notifications',
         payloadHash: envelope.hashes.payloadHash,
         envelopeHash: envelope.hashes.envelopeHash,
       }),
@@ -158,6 +162,19 @@ describe('TiramisIntegrationService', () => {
       }),
     );
     expect(deps.ingressRequestRepository.save).toHaveBeenCalled();
+  });
+
+  it('rejects an envelope without a portal webhook URL', async () => {
+    const base = buildEnvelope();
+    const envelope = buildEnvelope({
+      source: { ...base.source, portalWebhookUrl: '' },
+    });
+    const { deps, service } = makeService();
+
+    await expect(service.acceptSubmission(envelope)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(deps.submissionService.createTransaction).not.toHaveBeenCalled();
   });
 
   it('accepts an envelope regardless of tenant context because API key is the only TIRAMIS auth gate', async () => {

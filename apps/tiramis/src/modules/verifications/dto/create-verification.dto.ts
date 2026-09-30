@@ -1,9 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 
 import { MotorCategory } from '../constants/tiramis-verification.constants';
 
 export class BaseVerificationDto {
+  @ApiProperty({
+    maxLength: 500,
+    example:
+      'https://portal.example.test/api/v1/webhooks/tiramis/notifications',
+  })
+  @IsString()
+  @IsUrl({ require_protocol: true, protocols: ['http', 'https'] })
+  @MaxLength(500)
+  portalWebhookUrl!: string;
+
   /**
    * Optional local correlator for this verification (e.g. your own record
    * id) used for tracking/idempotency. Everything else needed to route and

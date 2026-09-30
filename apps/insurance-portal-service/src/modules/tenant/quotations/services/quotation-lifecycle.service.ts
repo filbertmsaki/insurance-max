@@ -166,6 +166,26 @@ export class QuotationLifecycleService {
     );
   }
 
+  async evaluateRequirementsInTransaction(
+    manager: EntityManager,
+    quotation: Quotation,
+    context: QuotationLifecycleContext = {},
+  ) {
+    if (this.isTerminalQuotationStatus(quotation.status)) {
+      return quotation;
+    }
+
+    const previous = this.snapshot(quotation);
+    this.applyRequirementStatus(quotation);
+    return this.persistTransition(
+      manager,
+      quotation,
+      previous,
+      'EVALUATE_REQUIREMENTS',
+      context,
+    );
+  }
+
   async submitForApproval(
     companyId: string,
     quotationId: string,
@@ -496,6 +516,8 @@ export class QuotationLifecycleService {
             TiraStatus.SUBMITTED,
             TiraStatus.PROCESSING,
             TiraStatus.SUCCESS,
+            TiraStatus.ENDORSED,
+            TiraStatus.CANCELLED,
             TiraStatus.REJECTED,
           ].includes(quotation.tira_status)
         ) {
@@ -549,6 +571,8 @@ export class QuotationLifecycleService {
           [
             TiraStatus.PROCESSING,
             TiraStatus.SUCCESS,
+            TiraStatus.ENDORSED,
+            TiraStatus.CANCELLED,
             TiraStatus.REJECTED,
             TiraStatus.FAILED,
           ].includes(quotation.tira_status)
@@ -596,7 +620,7 @@ export class QuotationLifecycleService {
       quotationId,
       async (manager, quotation) => {
         if (
-          quotation.tira_status === TiraStatus.SUCCESS ||
+          this.isAcceptedTiraStatus(quotation.tira_status) ||
           quotation.tira_status === TiraStatus.REJECTED
         ) {
           return quotation;
@@ -634,7 +658,7 @@ export class QuotationLifecycleService {
       companyId,
       quotationId,
       async (manager, quotation) => {
-        if (quotation.tira_status === TiraStatus.SUCCESS) {
+        if (this.isAcceptedTiraStatus(quotation.tira_status)) {
           return quotation;
         }
 
@@ -672,8 +696,8 @@ export class QuotationLifecycleService {
       quotationId,
       async (manager, quotation) => {
         if (
-          quotation.status === QuotationStatus.CANCELLED &&
-          quotation.tira_status === TiraStatus.SUCCESS
+          quotation.status === QuotationStatus.COMPLETED &&
+          quotation.tira_status === TiraStatus.CANCELLED
         ) {
           return quotation;
         }
@@ -687,8 +711,8 @@ export class QuotationLifecycleService {
         }
 
         const previous = this.snapshot(quotation);
-        quotation.status = QuotationStatus.CANCELLED;
-        quotation.tira_status = TiraStatus.SUCCESS;
+        quotation.status = QuotationStatus.COMPLETED;
+        quotation.tira_status = TiraStatus.CANCELLED;
         this.applyTiraMetadata(quotation, context);
 
         return this.persistTransition(
@@ -719,7 +743,7 @@ export class QuotationLifecycleService {
           quotation.status === QuotationStatus.CANCELLED ||
           quotation.status === QuotationStatus.EXPIRED ||
           quotation.status === QuotationStatus.COMPLETED ||
-          quotation.tira_status === TiraStatus.SUCCESS
+          this.isAcceptedTiraStatus(quotation.tira_status)
         ) {
           return quotation;
         }
@@ -760,7 +784,7 @@ export class QuotationLifecycleService {
           quotation.status === QuotationStatus.EXPIRED ||
           quotation.status === QuotationStatus.COMPLETED ||
           quotation.status === QuotationStatus.REJECTED ||
-          quotation.tira_status === TiraStatus.SUCCESS ||
+          this.isAcceptedTiraStatus(quotation.tira_status) ||
           quotation.tira_status === TiraStatus.REJECTED
         ) {
           return quotation;
@@ -1217,7 +1241,7 @@ export class QuotationLifecycleService {
     if (
       quotation.status === QuotationStatus.SUBMITTED_TO_TIRA ||
       quotation.tira_status === TiraStatus.SUBMITTED ||
-      quotation.tira_status === TiraStatus.SUCCESS
+      this.isAcceptedTiraStatus(quotation.tira_status)
     ) {
       return WorkflowQuotationStage.SUBMITTED;
     }
@@ -1286,6 +1310,8 @@ export class QuotationLifecycleService {
       case TiraStatus.SUBMITTED:
         return WorkflowSubmissionStatus.ACKNOWLEDGED;
       case TiraStatus.SUCCESS:
+      case TiraStatus.ENDORSED:
+      case TiraStatus.CANCELLED:
         return WorkflowSubmissionStatus.ACCEPTED;
       case TiraStatus.REJECTED:
         return WorkflowSubmissionStatus.REJECTED;
@@ -1305,6 +1331,14 @@ export class QuotationLifecycleService {
     return createHash('sha256')
       .update(JSON.stringify(this.sortValue(value)), 'utf8')
       .digest('hex');
+  }
+
+  private isAcceptedTiraStatus(status: TiraStatus): boolean {
+    return [
+      TiraStatus.SUCCESS,
+      TiraStatus.ENDORSED,
+      TiraStatus.CANCELLED,
+    ].includes(status);
   }
 
   private sortValue(value: unknown): unknown {

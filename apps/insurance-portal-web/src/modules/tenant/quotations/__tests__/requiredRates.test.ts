@@ -112,4 +112,25 @@ describe('quotationRiskRowSchema — required rate validation', () => {
 
     expect(quotationRiskRowSchema.safeParse(row).success).toBe(true);
   });
+
+  it('normalizes null optional tax exemption fields from persisted drafts', () => {
+    const row = {
+      ...createEmptyRiskRow(),
+      taxes_charged: [
+        {
+          ...createEmptyRiskTaxRow(),
+          tax_exemption_type: null,
+          tax_exemption_reference: null,
+        },
+      ],
+    };
+
+    const result = quotationRiskRowSchema.safeParse(row);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.taxes_charged[0].tax_exemption_type).toBe('');
+      expect(result.data.taxes_charged[0].tax_exemption_reference).toBe('');
+    }
+  });
 });

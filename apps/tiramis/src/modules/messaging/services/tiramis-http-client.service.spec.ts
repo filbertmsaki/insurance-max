@@ -85,4 +85,14 @@ describe('TiramisHttpClientService request logs', () => {
       expect.objectContaining({ statusCode: 500, xml: '<Error/>' }),
     );
   });
+
+  it('skips the request log when logRequest is false', async () => {
+    const { service, http, log } = createClient();
+    await service.postXml({ ...request, logRequest: false });
+    http.post.mockReturnValue(throwError(() => new Error('Network down')));
+    await expect(
+      service.postXml({ ...request, logRequest: false }),
+    ).rejects.toThrow();
+    expect(log.append).not.toHaveBeenCalled();
+  });
 });

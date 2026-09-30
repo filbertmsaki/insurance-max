@@ -49,6 +49,7 @@ import {
   buildTiramisIdempotencyKey,
 } from '../utils/tiramis-idempotency.util';
 import { isRetryableError } from '../utils/tiramis-retry.util';
+import { resolveTiramisPortalWebhookUrl } from '../utils/tiramis-portal-webhook-url.util';
 import {
   mapLegacyRequestTypeToCanonical,
   mapLegacyStatusToCanonical,
@@ -1230,6 +1231,7 @@ export class TiramisClientService {
         quotationId: params.quotationId,
         policyId: params.policyId,
         businessReference: params.businessReference,
+        portalWebhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
       },
       context,
       payload: params.dto.payload,
@@ -1519,6 +1521,13 @@ export class TiramisClientService {
 
             'X-Actor-Membership-Id': authContext?.companyMembershipId ?? '',
 
+            ...(this.isSubmissionPattern(pattern)
+              ? {
+                  'X-Tiramis-Source-Metadata':
+                    this.encodeSourceMetadata(payload),
+                }
+              : {}),
+
             ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
 
             ...(correlationId
@@ -1595,26 +1604,55 @@ export class TiramisClientService {
     }
   }
 
+  private static readonly SUBMISSION_PATTERNS = new Set<string>([
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NON_MOTOR,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_FLEET,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_REINSURANCE,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_POLICY,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_NOTIFICATION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_INTIMATION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_ASSESSMENT,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_DISCHARGE_VOUCHER,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_PAYMENT,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_REJECTION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COVER_NOTE_VERIFICATION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_VERIFICATION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NIN_VERIFICATION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COMPANY_VERIFICATION,
+  ]);
+
+  private isSubmissionPattern(pattern: string): boolean {
+    return TiramisClientService.SUBMISSION_PATTERNS.has(pattern);
+  }
+
+  /**
+   * Source metadata travels as a header so TIRAMIS can attribute the
+   * transaction and, critically, knows where to push the final TIRA outcome.
+   * portalWebhookUrl is mandatory; TIRAMIS rejects submissions without it.
+   */
+  private encodeSourceMetadata(command: Record<string, any>): string {
+    return Buffer.from(
+      JSON.stringify({
+        sourceService: command.sourceService ?? null,
+        sourceCompanyId: command.sourceCompanyId ?? null,
+        sourceUserId: command.sourceUserId ?? null,
+        sourceModule: command.sourceModule ?? null,
+        sourceRecordId: command.sourceRecordId ?? null,
+        policyId: command.policyId ?? null,
+        quotationId: command.quotationId ?? null,
+        businessReference: command.businessReference ?? null,
+        requestType: command.requestType ?? null,
+        requestId: command.requestId ?? null,
+        portalWebhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+      }),
+      'utf8',
+    ).toString('base64url');
+  }
+
   private httpPayload(pattern: string, command: Record<string, any>) {
     const payload = command.payload || command;
-    const submissionPatterns = new Set<string>([
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NON_MOTOR,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_FLEET,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_REINSURANCE,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_POLICY,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_NOTIFICATION,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_INTIMATION,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_ASSESSMENT,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_DISCHARGE_VOUCHER,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_PAYMENT,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_REJECTION,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COVER_NOTE_VERIFICATION,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_VERIFICATION,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NIN_VERIFICATION,
-      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COMPANY_VERIFICATION,
-    ]);
-    const resolvedPayload = submissionPatterns.has(pattern)
+    const resolvedPayload = this.isSubmissionPattern(pattern)
       ? this.stripSignedTenantBodyFields(payload)
       : payload;
 

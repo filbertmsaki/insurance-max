@@ -294,11 +294,13 @@ export function useCreateCancellation(policyId?: string) {
         qc.invalidateQueries({
           queryKey: policyKeys.cancellationEligibility(policyId),
         });
+        qc.invalidateQueries({ queryKey: policyKeys.cancellations(policyId) });
       }
-      qc.setQueryData(
-        policyKeys.cancellationContext(cancellation.id),
-        cancellation,
-      );
+      // The create response is a cancellation record, not a context, so drop
+      // any cached context and let the detail page fetch the real one.
+      qc.removeQueries({
+        queryKey: policyKeys.cancellationContext(cancellation.id),
+      });
       toast.success('Cancellation draft created');
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),

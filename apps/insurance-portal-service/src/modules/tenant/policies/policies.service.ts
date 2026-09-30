@@ -45,10 +45,12 @@ import { PolicyStatusHistory } from './entities/policy-status-history.entity';
 import { PolicyVersion } from './entities/policy-version.entity';
 import { Policy } from './entities/policy.entity';
 import { PolicyVersionDiffService } from './services/policy-version-diff.service';
+import { policyBusinessLineSql } from './utils/policy-business-line.sql';
 
 type NumericLike = number | string | null | undefined;
 
 const POLICY_TERMINAL_STATUSES = new Set(['CANCELLED', 'EXPIRED', 'LAPSED']);
+const POLICY_BUSINESS_LINE_SQL = policyBusinessLineSql('policy');
 
 @Injectable()
 export class PoliciesService {
@@ -782,6 +784,12 @@ export class PoliciesService {
     if (customer_id) {
       queryBuilder.andWhere('policy.customer_id = :customerId', {
         customerId: customer_id,
+      });
+    }
+
+    if (query.business_line) {
+      queryBuilder.andWhere(`${POLICY_BUSINESS_LINE_SQL} = :businessLine`, {
+        businessLine: query.business_line,
       });
     }
 

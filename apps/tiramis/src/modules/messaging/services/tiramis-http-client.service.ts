@@ -38,9 +38,13 @@ export class TiramisHttpClientService {
 
     const logPayloads =
       this.configService.get<boolean>('tiramisService.logPayloads') ?? false;
+    const appendRequestLog = (entry: Record<string, unknown>) =>
+      request.logRequest === false
+        ? Promise.resolve()
+        : this.requestLog.append(requestId, entry);
 
     try {
-      await this.requestLog.append(requestId, {
+      await appendRequestLog({
         event: 'tira.request.sent',
         correlationId,
         url: request.url,
@@ -83,7 +87,7 @@ export class TiramisHttpClientService {
         headers: response.headers,
       };
 
-      await this.requestLog.append(requestId, {
+      await appendRequestLog({
         event: 'tira.response.received',
         statusCode: result.statusCode,
         statusText: result.statusText,
@@ -109,7 +113,7 @@ export class TiramisHttpClientService {
         stack?: string;
       };
 
-      await this.requestLog.append(requestId, {
+      await appendRequestLog({
         event: 'tira.request.failed',
         code: requestError.code,
         message: requestError.message || 'Unknown error',

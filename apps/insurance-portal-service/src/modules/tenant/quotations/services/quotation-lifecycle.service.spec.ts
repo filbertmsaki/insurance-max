@@ -72,7 +72,7 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
     };
   }
 
-  it('marks a successful cancellation callback as CANCELLED and stores callback audit metadata', async () => {
+  it('keeps a successful cancellation callback quotation completed and stores callback audit metadata', async () => {
     const fixture = createFixture();
 
     await fixture.service.markTiraCancelled('company-1', 'quotation-1', {
@@ -93,8 +93,8 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
       },
     });
 
-    expect(fixture.quotation.status).toBe(QuotationStatus.CANCELLED);
-    expect(fixture.quotation.tira_status).toBe(TiraStatus.SUCCESS);
+    expect(fixture.quotation.status).toBe(QuotationStatus.COMPLETED);
+    expect(fixture.quotation.tira_status).toBe(TiraStatus.CANCELLED);
     expect(fixture.quotation.tira_response_code).toBe('TIRA001');
     expect(fixture.quotation.tira_response_description).toBe(
       'Transaction successfully cancelled',
@@ -103,7 +103,7 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
     expect(fixture.historyRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         previous_quotation_status: QuotationStatus.TIRA_PROCESSING,
-        new_quotation_status: QuotationStatus.CANCELLED,
+        new_quotation_status: QuotationStatus.COMPLETED,
         transition_type: 'MARK_TIRA_CANCELLED',
         request_id: 'REQ-1',
         tira_request_id: 'REQ-1',
@@ -147,8 +147,8 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
 
   it('ignores duplicate cancellation callbacks without creating another history row', async () => {
     const fixture = createFixture({
-      status: QuotationStatus.CANCELLED,
-      tira_status: TiraStatus.SUCCESS,
+      status: QuotationStatus.COMPLETED,
+      tira_status: TiraStatus.CANCELLED,
     });
 
     await fixture.service.markTiraCancelled('company-1', 'quotation-1', {
@@ -164,10 +164,10 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
     expect(fixture.historyRepository.save).not.toHaveBeenCalled();
   });
 
-  it('does not let a later generic success callback change a cancelled quotation back to COMPLETED', async () => {
+  it('does not let a later generic success callback overwrite a cancellation TIRAMIS status', async () => {
     const fixture = createFixture({
-      status: QuotationStatus.CANCELLED,
-      tira_status: TiraStatus.SUCCESS,
+      status: QuotationStatus.COMPLETED,
+      tira_status: TiraStatus.CANCELLED,
     });
 
     await fixture.service.markTiraSuccessful('company-1', 'quotation-1', {
@@ -179,7 +179,7 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
       },
     });
 
-    expect(fixture.quotation.status).toBe(QuotationStatus.CANCELLED);
+    expect(fixture.quotation.status).toBe(QuotationStatus.COMPLETED);
     expect(fixture.quotationRepository.save).not.toHaveBeenCalled();
     expect(fixture.historyRepository.save).not.toHaveBeenCalled();
   });

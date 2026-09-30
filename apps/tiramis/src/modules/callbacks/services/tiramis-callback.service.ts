@@ -273,6 +273,8 @@ export class TiramisCallbackService {
     }
 
     const callbackReceipt = receiptResult.receipt;
+    let finalOutcomePersisted = false;
+    let portalFinalOutcomeNotified = false;
 
     try {
       const isSuccess = await this.isSuccessfulFinalResponse(parsedCallback);
@@ -287,7 +289,18 @@ export class TiramisCallbackService {
         isSuccess,
       });
 
+      finalOutcomePersisted = true;
+
       const finalResponse = this.xmlParser.extractFinalResponse(params.rawXml);
+
+      await this.notifyPortalAfterCallback({
+        eventType: isSuccess ? 'TIRAMIS_FINAL_SUCCESS' : 'TIRAMIS_FINAL_FAILED',
+        finalResponse,
+        parsedCallback,
+        transactionStatus: isSuccess ? 'SUCCESS' : 'FAILED',
+        attemptStatus: isSuccess ? 'FINAL_SUCCESS' : 'FINAL_FAILED',
+      });
+      portalFinalOutcomeNotified = true;
 
       await this.callbackBusinessUpdater.updateBusinessRecord(finalResponse);
 
@@ -310,14 +323,6 @@ export class TiramisCallbackService {
       await this.markCallbackReceiptCompleted({
         receipt: callbackReceipt,
         acknowledgement,
-      });
-
-      await this.notifyPortalAfterCallback({
-        eventType: isSuccess ? 'TIRAMIS_FINAL_SUCCESS' : 'TIRAMIS_FINAL_FAILED',
-        finalResponse,
-        parsedCallback,
-        transactionStatus: isSuccess ? 'SUCCESS' : 'FAILED',
-        attemptStatus: isSuccess ? 'FINAL_SUCCESS' : 'FINAL_FAILED',
       });
 
       return acknowledgement;
@@ -353,15 +358,17 @@ export class TiramisCallbackService {
         isSuccess: false,
       });
 
-      await this.notifyPortalAfterCallback({
-        eventType: 'TIRAMIS_FINAL_FAILED',
-        parsedCallback,
-        transactionStatus: 'FAILED',
-        attemptStatus: 'FAILED',
-        errorMessage:
-          error?.message ||
-          'TIRAMIS callback signature was valid, but processing failed',
-      });
+      if (!finalOutcomePersisted && !portalFinalOutcomeNotified) {
+        await this.notifyPortalAfterCallback({
+          eventType: 'TIRAMIS_FINAL_FAILED',
+          parsedCallback,
+          transactionStatus: 'FAILED',
+          attemptStatus: 'FAILED',
+          errorMessage:
+            error?.message ||
+            'TIRAMIS callback signature was valid, but processing failed',
+        });
+      }
 
       try {
         await this.tiramisSubmissionService.markResponseAcknowledgementSent({
@@ -988,7 +995,10 @@ export class TiramisCallbackService {
           errorMessage: params.errorMessage || null,
           occurredAt: new Date().toISOString(),
         },
-        { webhookUrl: transaction?.portalWebhookUrl || null },
+        {
+          webhookUrl: transaction?.portalWebhookUrl || null,
+          clientConfigurationId: transaction?.clientConfigurationId || null,
+        },
       );
     } catch (error: any) {
       this.logger.warn(

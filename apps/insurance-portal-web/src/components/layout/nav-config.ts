@@ -41,6 +41,7 @@ import {
   Percent,
   ClipboardCheck,
 } from 'lucide-react';
+import { buildUnderwriteNavNodes } from '@/modules/tenant/underwrite/nav';
 
 export interface NavLeaf {
   kind: 'link';
@@ -185,6 +186,7 @@ export const NAV_NODES: NavNode[] = [
       },
     ],
   },
+  ...buildUnderwriteNavNodes(),
   {
     kind: 'group',
     section: 'Insurance',

@@ -14,6 +14,7 @@ import { TiramisSubmissionService } from '../../submissions/services/tiramis-sub
 import { TiramisTransactionRepository } from '../../submissions/repositories/tiramis-transaction.repository';
 import { TiramisIngressRequestRepository } from '../repositories/tiramis-ingress-request.repository';
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
+import { requirePortalWebhookUrl } from '../../submissions/utils/parse-source-metadata';
 
 @Injectable()
 export class TiramisIntegrationService {
@@ -30,6 +31,9 @@ export class TiramisIntegrationService {
     envelope: TiramisSubmissionEnvelope,
   ): Promise<TiramisSubmissionAcceptance> {
     this.assertEnvelope(envelope);
+    const portalWebhookUrl = requirePortalWebhookUrl(
+      envelope.source?.portalWebhookUrl,
+    );
 
     const runtimeConfiguration =
       await this.tiramisConfigService.getActiveRuntimeConfiguration();
@@ -65,6 +69,7 @@ export class TiramisIntegrationService {
       sourceService: envelope.source.service,
       sourceCompanyId: envelope.source.companyId,
       sourceUserId: envelope.source.userId,
+      portalWebhookUrl,
       sourceModule: envelope.source.module,
       sourceRecordId: envelope.source.recordId,
       businessReference: envelope.source.businessReference,

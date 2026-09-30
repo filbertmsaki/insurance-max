@@ -47,6 +47,8 @@ import { CustomerPolicyHolderType } from './enums/customer-policy-holder-type.en
 import { CustomerStatus } from './enums/customer-status.enum';
 import { CustomerType } from './enums/customer-type.enum';
 import { TiraPolicyholderMapperService } from './services/tira-policyholder-mapper.service';
+import { quotationFlowForUnderwriteLine } from '@insurance-max/contracts';
+import { policyBusinessLineSql } from '../policies/utils/policy-business-line.sql';
 
 type IdentifierType =
   | 'NIN'
@@ -1545,6 +1547,40 @@ export class CustomersService {
       queryBuilder.andWhere('customer.kyc_status = :kycStatus', {
         kycStatus: kyc_status,
       });
+    }
+
+    if (query.business_line) {
+      queryBuilder.andWhere(
+        `(
+          EXISTS (
+            SELECT 1
+            FROM quotations line_quotation
+            LEFT JOIN quotation_policy_holders line_holder
+              ON line_holder.quotation_id = line_quotation.id
+            WHERE line_quotation.company_id = customer.company_id
+              AND line_quotation.deleted_at IS NULL
+              AND line_quotation.quotation_flow = :lineQuotationFlow
+              AND (
+                line_quotation.customer_id = customer.id
+                OR line_holder.customer_id = customer.id
+              )
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM policies line_policy
+            WHERE line_policy.customer_id = customer.id
+              AND line_policy.company_id = customer.company_id
+              AND line_policy.deleted_at IS NULL
+              AND ${policyBusinessLineSql('line_policy')} = :lineBusinessLine
+          )
+        )`,
+        {
+          lineQuotationFlow: quotationFlowForUnderwriteLine(
+            query.business_line,
+          ),
+          lineBusinessLine: query.business_line,
+        },
+      );
     }
 
     const skip = (page - 1) * limit;

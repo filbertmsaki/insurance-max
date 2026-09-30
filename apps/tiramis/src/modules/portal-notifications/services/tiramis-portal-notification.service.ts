@@ -29,7 +29,10 @@ export class TiramisPortalNotificationService {
 
   async publish(
     event: TiramisPortalNotificationEventDto,
-    options?: { webhookUrl?: string | null },
+    options?: {
+      webhookUrl?: string | null;
+      clientConfigurationId?: string | null;
+    },
   ): Promise<void> {
     if (
       !this.configService.get<boolean>(
@@ -59,7 +62,9 @@ export class TiramisPortalNotificationService {
     const correlationId =
       this.requestContextService.getCorrelationId() || requestId;
 
-    const apiKey = await this.resolvePortalApiKey();
+    const apiKey = await this.resolvePortalApiKey(
+      options?.clientConfigurationId,
+    );
     if (!apiKey) {
       this.logger.warn(
         `Portal notification skipped for requestId ${event.requestId}: portal webhook API key is not configured`,
@@ -98,7 +103,26 @@ export class TiramisPortalNotificationService {
     }
   }
 
-  private async resolvePortalApiKey(): Promise<string | null> {
+  private async resolvePortalApiKey(
+    clientConfigurationId?: string | null,
+  ): Promise<string | null> {
+    const configurationById = clientConfigurationId
+      ? await this.configurationRepository
+          .createQueryBuilder('configuration')
+          .where('configuration.id = :clientConfigurationId', {
+            clientConfigurationId,
+          })
+          .andWhere('configuration.isActive = 1')
+          .andWhere('configuration.portalWebhookApiKeyEncrypted IS NOT NULL')
+          .getOne()
+      : null;
+
+    if (configurationById) {
+      return this.secretCryptoService.decryptIfEncrypted(
+        configurationById.portalWebhookApiKeyEncrypted,
+      );
+    }
+
     const environment =
       this.configService.get<string>('tiramisService.targetEnvironment') ??
       'test';

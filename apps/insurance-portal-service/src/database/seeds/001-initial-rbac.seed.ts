@@ -3,7 +3,12 @@ import { DataSource, IsNull, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
-import { PermissionAssignmentScope, RoleScope } from '@insurance-max/contracts';
+import {
+  PermissionAssignmentScope,
+  RoleScope,
+  UNDERWRITE_PERMISSION_DEFINITIONS,
+  withUnderwritePermissionAliases,
+} from '@insurance-max/contracts';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
 import { CompanyUser } from '../../modules/platform/companies/entities/company-user.entity';
 import { CompanyUserRole } from '../../modules/platform/companies/entities/company-user-role.entity';
@@ -3165,6 +3170,12 @@ const permissionSeeds: PermissionSeed[] = [
     description: 'Complete portal service requests',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
+  ...UNDERWRITE_PERMISSION_DEFINITIONS.map((definition) => ({
+    name: definition.name,
+    displayName: definition.displayName,
+    description: definition.description,
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  })),
 ];
 
 const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
@@ -4445,7 +4456,11 @@ export default class InitialRbacSeeder implements Seeder {
             : basePermissionNames;
 
         const permissionNames = [
-          ...new Set(withPricingPermissionAliases(sourcePermissionNames)),
+          ...new Set(
+            withUnderwritePermissionAliases(
+              withPricingPermissionAliases(sourcePermissionNames),
+            ),
+          ),
         ];
 
         role.permissions = permissionNames.map((permissionName) => {

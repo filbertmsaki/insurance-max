@@ -72,6 +72,7 @@ import { CategoryAccessPage } from '@/modules/tenant/product-engine/pages/access
 import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/products/ProductAccessPage';
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { renderUnderwriteRoutes } from '@/modules/tenant/underwrite/routes';
 import { MotorVehiclesPage } from '@/modules/tenant/motor/pages/MotorVehiclesPage';
 import { MotorVehicleDetailPage } from '@/modules/tenant/motor/pages/MotorVehicleDetailPage';
 import { MotorVehicleCreatePage } from '@/modules/tenant/motor/pages/MotorVehicleCreatePage';
@@ -554,6 +555,8 @@ export default function App() {
             <Route path="/forbidden" element={<ForbiddenPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/dashboard/:tab" element={<DashboardPage />} />
+
+            {renderUnderwriteRoutes()}
 
             <Route
               element={

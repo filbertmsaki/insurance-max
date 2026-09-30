@@ -559,9 +559,9 @@ export class CompanyTiramisConfigurationService {
   /**
    * This is a portal-local display field only — it is NOT the same concept
    * as TIRAMIS's own ClientConfiguration.callbackBaseUrl (where TIRAMIS
-   * tells TIRA to send callbacks) or INSURANCE_PORTAL_WEBHOOK_URL (where
-   * TIRAMIS pushes async notifications to the portal). Neither of those
-   * env vars belongs in this fallback — if nothing was explicitly entered
+   * tells TIRA to send callbacks) or the per-submission portalWebhookUrl
+   * (where TIRAMIS pushes async notifications to the portal). Neither of
+   * those belongs in this fallback — if nothing was explicitly entered
    * here, there simply isn't a portal-local override configured.
    */
   private resolveCallbackUrl(configuration: TiramisCompanyConfigurationEntity) {

@@ -127,6 +127,10 @@ export class Policy {
   @Column({ type: 'varchar', length: 20, default: 'DRAFT' })
   policy_status: string;
 
+  /** Underwrite line: MOTOR | FLEET | NON_MOTOR (see `UnderwriteLine`). */
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  business_line: string | null;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   policy_reference_number: string | null;
 

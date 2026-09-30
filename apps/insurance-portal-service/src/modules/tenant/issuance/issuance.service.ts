@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
-import type {
-  RegulatoryCoverNoteReference,
-  RegulatoryFinalResponse,
+import {
+  type RegulatoryCoverNoteReference,
+  type RegulatoryFinalResponse,
+  underwriteLineFromQuotationFlow,
 } from '@insurance-max/contracts';
 import { DataSource, EntityManager } from 'typeorm';
 import { applyPolicyReplacement } from './apply-policy-replacement';
@@ -477,6 +478,9 @@ export class IssuanceService {
           external_policy_no: null,
           channel_type: quotation.channel_type,
           policy_status: 'ACTIVE',
+          business_line: underwriteLineFromQuotationFlow(
+            quotation.quotation_flow,
+          ),
           policy_reference_number: null,
           regulatory_sync_status: 'IN_SYNC',
           source_cover_note_count: coverNotes.length,

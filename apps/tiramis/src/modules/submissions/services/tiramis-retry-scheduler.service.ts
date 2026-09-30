@@ -569,7 +569,10 @@ export class TiramisRetrySchedulerService {
         errorMessage: params.errorMessage || null,
         occurredAt: new Date().toISOString(),
       },
-      { webhookUrl: params.transaction.portalWebhookUrl || null },
+      {
+        webhookUrl: params.transaction.portalWebhookUrl || null,
+        clientConfigurationId: params.transaction.clientConfigurationId || null,
+      },
     );
   }
 }
