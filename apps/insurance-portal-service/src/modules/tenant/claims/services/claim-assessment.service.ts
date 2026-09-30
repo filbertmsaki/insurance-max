@@ -87,7 +87,10 @@ export class ClaimAssessmentService {
       const draft = await manager.getRepository(ClaimAssessment).findOne({
         where: {
           claim_id: claim.id,
-          status: In([ClaimAssessmentStatus.DRAFT, ClaimAssessmentStatus.SUBMITTED]),
+          status: In([
+            ClaimAssessmentStatus.DRAFT,
+            ClaimAssessmentStatus.SUBMITTED,
+          ]),
         },
       });
 
@@ -134,23 +137,37 @@ export class ClaimAssessmentService {
         }),
       );
 
-      if ([ClaimStatus.APPROVED, ClaimStatus.DISCHARGE_REJECTED].includes(claim.status)) {
-        await this.stateMachine.transition(manager, claim, ClaimStatus.REASSESSMENT_REQUIRED, {
-          eventType: 'REASSESSMENT_STARTED',
-          summary: `Reassessment ${number} started`,
+      if (
+        [ClaimStatus.APPROVED, ClaimStatus.DISCHARGE_REJECTED].includes(
+          claim.status,
+        )
+      ) {
+        await this.stateMachine.transition(
+          manager,
+          claim,
+          ClaimStatus.REASSESSMENT_REQUIRED,
+          {
+            eventType: 'REASSESSMENT_STARTED',
+            summary: `Reassessment ${number} started`,
+            actorId: user.id,
+            subjectType: ASSESSMENT_SUBJECT,
+            subjectId: assessment.id,
+          },
+        );
+      }
+
+      await this.stateMachine.transition(
+        manager,
+        claim,
+        ClaimStatus.UNDER_ASSESSMENT,
+        {
+          eventType: previous ? 'REASSESSMENT_CREATED' : 'ASSESSMENT_CREATED',
+          summary: `${previous ? 'Reassessment' : 'Assessment'} ${number} recorded (${dto.approved_claim_amount} ${claim.currency_code} recommended)`,
           actorId: user.id,
           subjectType: ASSESSMENT_SUBJECT,
           subjectId: assessment.id,
-        });
-      }
-
-      await this.stateMachine.transition(manager, claim, ClaimStatus.UNDER_ASSESSMENT, {
-        eventType: previous ? 'REASSESSMENT_CREATED' : 'ASSESSMENT_CREATED',
-        summary: `${previous ? 'Reassessment' : 'Assessment'} ${number} recorded (${dto.approved_claim_amount} ${claim.currency_code} recommended)`,
-        actorId: user.id,
-        subjectType: ASSESSMENT_SUBJECT,
-        subjectId: assessment.id,
-      });
+        },
+      );
 
       return assessment;
     });
@@ -182,7 +199,9 @@ export class ClaimAssessmentService {
       await this.validateAmounts(manager, claim, merged);
 
       if (dto.assessment_received_date) {
-        record.assessment_received_date = new Date(dto.assessment_received_date);
+        record.assessment_received_date = new Date(
+          dto.assessment_received_date,
+        );
       }
       if (dto.assessment_report_summary !== undefined) {
         record.assessment_report_summary = dto.assessment_report_summary.trim();
@@ -233,20 +252,33 @@ export class ClaimAssessmentService {
         subjectType: ASSESSMENT_SUBJECT,
         subjectId: record.id,
       });
-      await this.approvals.submit(manager, this.subject(claim, record), user.id);
-      await this.stateMachine.transition(manager, claim, ClaimStatus.PENDING_APPROVAL, {
-        eventType: 'APPROVAL_PENDING',
-        summary: `Assessment ${record.claim_assessment_number} awaiting approval`,
-        actorId: user.id,
-        subjectType: ASSESSMENT_SUBJECT,
-        subjectId: record.id,
-      });
+      await this.approvals.submit(
+        manager,
+        this.subject(claim, record),
+        user.id,
+      );
+      await this.stateMachine.transition(
+        manager,
+        claim,
+        ClaimStatus.PENDING_APPROVAL,
+        {
+          eventType: 'APPROVAL_PENDING',
+          summary: `Assessment ${record.claim_assessment_number} awaiting approval`,
+          actorId: user.id,
+          subjectType: ASSESSMENT_SUBJECT,
+          subjectId: record.id,
+        },
+      );
 
       return record;
     });
   }
 
-  async approveAssessment(user: AuthenticatedUser, assessmentId: string, comments?: string) {
+  async approveAssessment(
+    user: AuthenticatedUser,
+    assessmentId: string,
+    comments?: string,
+  ) {
     const result = await this.dataSource.transaction(async (manager) => {
       const { record, claim } = await this.access.getRecordForWrite(
         manager,
@@ -257,7 +289,9 @@ export class ClaimAssessmentService {
       );
 
       if (record.status !== ClaimAssessmentStatus.SUBMITTED) {
-        throw new ConflictException('Only a submitted assessment can be approved');
+        throw new ConflictException(
+          'Only a submitted assessment can be approved',
+        );
       }
 
       const outcome = await this.approvals.approve(
@@ -271,17 +305,21 @@ export class ClaimAssessmentService {
         return { assessment: record, completed: false, claim };
       }
 
-      if (MoneyUtil.compare(record.approved_claim_amount, claim.paid_amount) < 0) {
+      if (
+        MoneyUtil.compare(record.approved_claim_amount, claim.paid_amount) < 0
+      ) {
         throw new ConflictException(
           'The approved amount cannot be below what has already been paid',
         );
       }
 
       if (record.supersedes_assessment_id) {
-        await manager.getRepository(ClaimAssessment).update(
-          { id: record.supersedes_assessment_id },
-          { status: ClaimAssessmentStatus.SUPERSEDED },
-        );
+        await manager
+          .getRepository(ClaimAssessment)
+          .update(
+            { id: record.supersedes_assessment_id },
+            { status: ClaimAssessmentStatus.SUPERSEDED },
+          );
       }
 
       record.status = ClaimAssessmentStatus.APPROVED;
@@ -354,14 +392,18 @@ export class ClaimAssessmentService {
       );
 
       if (record.status !== ClaimAssessmentStatus.SUBMITTED) {
-        throw new ConflictException('Only a submitted assessment can be declined');
+        throw new ConflictException(
+          'Only a submitted assessment can be declined',
+        );
       }
 
       await this.approvals.decline(
         manager,
         user,
         this.subject(claim, record),
-        decision === 'RETURN' ? ClaimApprovalStatus.RETURNED : ClaimApprovalStatus.REJECTED,
+        decision === 'RETURN'
+          ? ClaimApprovalStatus.RETURNED
+          : ClaimApprovalStatus.REJECTED,
         comments,
       );
 
@@ -371,15 +413,23 @@ export class ClaimAssessmentService {
       record.rejection_reason = comments.trim();
       await manager.getRepository(ClaimAssessment).save(record);
 
-      await this.stateMachine.transition(manager, claim, ClaimStatus.REASSESSMENT_REQUIRED, {
-        eventType: decision === 'RETURN' ? 'ASSESSMENT_RETURNED' : 'ASSESSMENT_REJECTED',
-        summary: `Assessment ${record.claim_assessment_number} ${
-          decision === 'RETURN' ? 'returned for rework' : 'declined'
-        }: ${comments.trim()}`,
-        actorId: user.id,
-        subjectType: ASSESSMENT_SUBJECT,
-        subjectId: record.id,
-      });
+      await this.stateMachine.transition(
+        manager,
+        claim,
+        ClaimStatus.REASSESSMENT_REQUIRED,
+        {
+          eventType:
+            decision === 'RETURN'
+              ? 'ASSESSMENT_RETURNED'
+              : 'ASSESSMENT_REJECTED',
+          summary: `Assessment ${record.claim_assessment_number} ${
+            decision === 'RETURN' ? 'returned for rework' : 'declined'
+          }: ${comments.trim()}`,
+          actorId: user.id,
+          subjectType: ASSESSMENT_SUBJECT,
+          subjectId: record.id,
+        },
+      );
 
       return record;
     });
@@ -390,37 +440,52 @@ export class ClaimAssessmentService {
     assessmentId: string,
     options: TiramisSubmitOptionsDto = {},
   ) {
-    const { record, claim, payload } = await this.dataSource.transaction(async (manager) => {
-      const { record, claim } = await this.access.getRecordForWrite(
-        manager,
-        user,
-        ClaimAssessment,
-        assessmentId,
-        'Claim assessment',
-      );
+    const { record, claim, payload } = await this.dataSource.transaction(
+      async (manager) => {
+        const { record, claim } = await this.access.getRecordForWrite(
+          manager,
+          user,
+          ClaimAssessment,
+          assessmentId,
+          'Claim assessment',
+        );
 
-      if (![ClaimAssessmentStatus.APPROVED, ClaimAssessmentStatus.SUPERSEDED].includes(record.status)) {
-        throw new ConflictException('Only an approved assessment can be submitted to TIRAMIS');
-      }
+        if (
+          ![
+            ClaimAssessmentStatus.APPROVED,
+            ClaimAssessmentStatus.SUPERSEDED,
+          ].includes(record.status)
+        ) {
+          throw new ConflictException(
+            'Only an approved assessment can be submitted to TIRAMIS',
+          );
+        }
 
-      if (!claim.claim_reference_number) {
-        throw new ConflictException('The claim has no TIRA claim reference number');
-      }
+        if (!claim.claim_reference_number) {
+          throw new ConflictException(
+            'The claim has no TIRA claim reference number',
+          );
+        }
 
-      await this.assertIntimationAccepted(manager, claim, record.claim_intimation_number);
+        await this.assertIntimationAccepted(
+          manager,
+          claim,
+          record.claim_intimation_number,
+        );
 
-      const claimants = await this.claims.activeClaimants(manager, claim.id);
-      record.claimants = claimants.map((claimant) =>
-        this.tiramisPayload.identityClaimant(claimant),
-      ) as unknown as Record<string, unknown>[];
-      await manager.getRepository(ClaimAssessment).save(record);
+        const claimants = await this.claims.activeClaimants(manager, claim.id);
+        record.claimants = claimants.map((claimant) =>
+          this.tiramisPayload.identityClaimant(claimant),
+        ) as unknown as Record<string, unknown>[];
+        await manager.getRepository(ClaimAssessment).save(record);
 
-      return {
-        record,
-        claim,
-        payload: this.tiramisPayload.assessment(claim, record, claimants),
-      };
-    });
+        return {
+          record,
+          claim,
+          payload: this.tiramisPayload.assessment(claim, record, claimants),
+        };
+      },
+    );
 
     return this.claimTiramis.submit({
       user,
@@ -444,7 +509,10 @@ export class ClaimAssessmentService {
     };
   }
 
-  private async acceptedIntimation(manager: EntityManager, claim: InsuranceClaim) {
+  private async acceptedIntimation(
+    manager: EntityManager,
+    claim: InsuranceClaim,
+  ) {
     const intimation = await manager.getRepository(ClaimIntimation).findOne({
       where: { claim_id: claim.id, status: ClaimIntimationStatus.ACCEPTED },
       order: { created_at: 'DESC' },
@@ -464,14 +532,16 @@ export class ClaimAssessmentService {
     claim: InsuranceClaim,
     intimationNumber: string | null,
   ) {
-    const accepted = await manager.getRepository(ClaimRegulatoryOperation).count({
-      where: {
-        claim_id: claim.id,
-        operation_type: ClaimRegulatoryOperationType.INTIMATION,
-        source_record_number: intimationNumber ?? '',
-        status: ClaimRegulatoryStatus.ACCEPTED,
-      },
-    });
+    const accepted = await manager
+      .getRepository(ClaimRegulatoryOperation)
+      .count({
+        where: {
+          claim_id: claim.id,
+          operation_type: ClaimRegulatoryOperationType.INTIMATION,
+          source_record_number: intimationNumber ?? '',
+          status: ClaimRegulatoryStatus.ACCEPTED,
+        },
+      });
 
     if (!accepted) {
       throw new ConflictException(
@@ -483,10 +553,15 @@ export class ClaimAssessmentService {
   private async validateAmounts(
     manager: EntityManager,
     claim: InsuranceClaim,
-    dto: Pick<CreateClaimAssessmentDto, 'assessment_amount' | 'approved_claim_amount'> &
+    dto: Pick<
+      CreateClaimAssessmentDto,
+      'assessment_amount' | 'approved_claim_amount'
+    > &
       Partial<CreateClaimAssessmentDto>,
   ) {
-    if (MoneyUtil.compare(dto.approved_claim_amount, dto.assessment_amount) > 0) {
+    if (
+      MoneyUtil.compare(dto.approved_claim_amount, dto.assessment_amount) > 0
+    ) {
       throw new BadRequestException(
         'The approved claim amount cannot exceed the assessed loss amount',
       );
@@ -512,8 +587,9 @@ export class ClaimAssessmentService {
     dto: Partial<CreateClaimAssessmentDto>,
     current?: ClaimAssessment,
   ) {
-    const pick = (key: keyof CreateClaimAssessmentDto & keyof ClaimAssessment) =>
-      (dto[key] as string | undefined) ?? (current?.[key] as string | undefined) ?? '0.00';
+    const pick = (
+      key: keyof CreateClaimAssessmentDto & keyof ClaimAssessment,
+    ) => dto[key] ?? (current?.[key] as string | undefined) ?? '0.00';
 
     return {
       assessment_amount: pick('assessment_amount'),
@@ -524,9 +600,12 @@ export class ClaimAssessmentService {
       contribution_amount: pick('contribution_amount'),
       betterment_amount: pick('betterment_amount'),
       recovery_amount: pick('recovery_amount'),
-      assessor_name: dto.assessor_name?.trim() ?? current?.assessor_name ?? null,
-      assessor_company: dto.assessor_company?.trim() ?? current?.assessor_company ?? null,
-      inspection_date: dto.inspection_date?.slice(0, 10) ?? current?.inspection_date ?? null,
+      assessor_name:
+        dto.assessor_name?.trim() ?? current?.assessor_name ?? null,
+      assessor_company:
+        dto.assessor_company?.trim() ?? current?.assessor_company ?? null,
+      inspection_date:
+        dto.inspection_date?.slice(0, 10) ?? current?.inspection_date ?? null,
       remarks: dto.remarks?.trim() ?? current?.remarks ?? null,
     };
   }

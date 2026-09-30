@@ -34,7 +34,10 @@ describe('TiramisDischargeVoucherPayloadService', () => {
   } as any;
 
   it('emits only the four claimant identity tags defined by §12.1', () => {
-    const payload = service.buildDischargeVoucherPayload({ dto, requestId: 'AIC1' });
+    const payload = service.buildDischargeVoucherPayload({
+      dto,
+      requestId: 'AIC1',
+    });
     const claimant = payload.DischargeVoucherDtl.Claimants.Claimant[0];
 
     expect(Object.keys(claimant)).toEqual([
@@ -46,7 +49,10 @@ describe('TiramisDischargeVoucherPayloadService', () => {
   });
 
   it('keeps optional adjustment and reconciliation tags as empty elements', () => {
-    const payload = service.buildDischargeVoucherPayload({ dto, requestId: 'AIC1' });
+    const payload = service.buildDischargeVoucherPayload({
+      dto,
+      requestId: 'AIC1',
+    });
     const detail = payload.DischargeVoucherDtl;
 
     for (const tag of [
@@ -63,7 +69,10 @@ describe('TiramisDischargeVoucherPayloadService', () => {
   });
 
   it('carries the header codes resolved from configuration', () => {
-    const payload = service.buildDischargeVoucherPayload({ dto, requestId: 'AIC1' });
+    const payload = service.buildDischargeVoucherPayload({
+      dto,
+      requestId: 'AIC1',
+    });
 
     expect(payload.DischargeVoucherHdr).toEqual({
       RequestId: 'AIC1',

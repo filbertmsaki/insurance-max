@@ -25,7 +25,11 @@ function harness(params: { claim: any; voucher: any; committed: string }) {
             }),
           };
         case 'ClaimIntimation':
-          return { findOne: jest.fn(async () => ({ claim_intimation_number: 'INT-1' })) };
+          return {
+            findOne: jest.fn(async () => ({
+              claim_intimation_number: 'INT-1',
+            })),
+          };
         case 'Policy':
           return {
             findOne: jest.fn(async () => ({
@@ -57,7 +61,9 @@ function harness(params: { claim: any; voucher: any; committed: string }) {
   const reference = { next: jest.fn(async () => 'CP-2026-00001') };
   const stateMachine = { transition: jest.fn(), recordEvent: jest.fn() };
   const payload = {
-    identityClaimant: jest.fn((claimant: any) => ({ claimantIdNumber: claimant.identification_number })),
+    identityClaimant: jest.fn((claimant: any) => ({
+      claimantIdNumber: claimant.identification_number,
+    })),
   };
   const service = new ClaimPaymentService(
     dataSource as any,
@@ -103,7 +109,10 @@ describe('ClaimPaymentService.create', () => {
     });
 
     await expect(
-      service.create(user, 'claim-1', { paid_amount: '10.00', payment_mode: 3 }),
+      service.create(user, 'claim-1', {
+        paid_amount: '10.00',
+        payment_mode: 3,
+      }),
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
@@ -115,7 +124,10 @@ describe('ClaimPaymentService.create', () => {
     });
 
     await expect(
-      service.create(user, 'claim-1', { paid_amount: '800000.01', payment_mode: 3 }),
+      service.create(user, 'claim-1', {
+        paid_amount: '800000.01',
+        payment_mode: 3,
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -127,11 +139,17 @@ describe('ClaimPaymentService.create', () => {
     });
 
     await expect(
-      service.create(user, 'claim-1', { paid_amount: '300000.01', payment_mode: 1 }),
+      service.create(user, 'claim-1', {
+        paid_amount: '300000.01',
+        payment_mode: 1,
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     await expect(
-      service.create(user, 'claim-1', { paid_amount: '300000.00', payment_mode: 1 }),
+      service.create(user, 'claim-1', {
+        paid_amount: '300000.00',
+        payment_mode: 1,
+      }),
     ).resolves.toMatchObject({ paid_amount: '300000.00' });
   });
 
@@ -143,7 +161,10 @@ describe('ClaimPaymentService.create', () => {
     });
 
     await expect(
-      service.create(user, 'claim-1', { paid_amount: '600000.01', payment_mode: 2 }),
+      service.create(user, 'claim-1', {
+        paid_amount: '600000.01',
+        payment_mode: 2,
+      }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -154,7 +175,10 @@ describe('ClaimPaymentService.create', () => {
       committed: '0',
     });
 
-    await service.create(user, 'claim-1', { paid_amount: '500000.00', payment_mode: 3 });
+    await service.create(user, 'claim-1', {
+      paid_amount: '500000.00',
+      payment_mode: 3,
+    });
 
     expect(saved[0].claimants).toEqual([{ claimantIdNumber: 'NIN-1' }]);
     expect(saved[0].claim_intimation_number).toBe('INT-1');

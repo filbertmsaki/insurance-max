@@ -10,7 +10,10 @@ describe('TiramisClaimRepository.markFinalResponseByRequestId', () => {
       findOne: jest.fn().mockResolvedValue({ id: 'claim-row' }),
     };
 
-    return { repository, service: new TiramisClaimRepository(repository as any) };
+    return {
+      repository,
+      service: new TiramisClaimRepository(repository as any),
+    };
   }
 
   const params = {

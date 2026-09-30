@@ -1,9 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 
-import {
-  ClaimApprovalStatus,
-  ClaimApprovalType,
-} from '../enums/claim.enums';
+import { ClaimApprovalStatus, ClaimApprovalType } from '../enums/claim.enums';
 import { ClaimApprovalService } from './claim-approval.service';
 
 const MANAGER_ROLE = 'role-manager';
@@ -38,11 +35,14 @@ function harness(limits: any[], roleIds: string[]) {
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({ round: 0 }),
-      getOne: jest.fn().mockImplementation(async () =>
-        approvals
-          .filter((row) => row.status === ClaimApprovalStatus.PENDING)
-          .sort((a, b) => a.level - b.level)[0],
-      ),
+      getOne: jest
+        .fn()
+        .mockImplementation(
+          async () =>
+            approvals
+              .filter((row) => row.status === ClaimApprovalStatus.PENDING)
+              .sort((a, b) => a.level - b.level)[0],
+        ),
     })),
     update: jest.fn().mockResolvedValue({}),
     create: jest.fn((value) => value),
@@ -58,13 +58,26 @@ function harness(limits: any[], roleIds: string[]) {
   const manager = {
     getRepository: jest.fn((entity: any) => {
       if (entity.name === 'ClaimApproval') return approvalRepo;
-      if (entity.name === 'ClaimApprovalLimit') return { find: jest.fn(async () => limits) };
-      return { findOne: jest.fn(async () => ({ id: 'policy-1', product_id: 'p', category_id: 'c' })) };
+      if (entity.name === 'ClaimApprovalLimit')
+        return { find: jest.fn(async () => limits) };
+      return {
+        findOne: jest.fn(async () => ({
+          id: 'policy-1',
+          product_id: 'p',
+          category_id: 'c',
+        })),
+      };
     }),
     query: jest.fn(async (sql: string) =>
       sql.includes('FROM roles')
         ? roleIds.map((id) => ({ id }))
-        : [{ first_name: 'Neema', last_name: 'Mushi', officer_title: 'Claims Manager' }],
+        : [
+            {
+              first_name: 'Neema',
+              last_name: 'Mushi',
+              officer_title: 'Claims Manager',
+            },
+          ],
     ),
   } as any;
   const stateMachine = { recordEvent: jest.fn() };
@@ -99,7 +112,13 @@ function subject(amount: string) {
 }
 
 const user = (id: string, roles: string[] = ['CLAIMS_MANAGER']) =>
-  ({ id, companyId: 'company-1', email: `${id}@x.tz`, roles, permissions: [] }) as any;
+  ({
+    id,
+    companyId: 'company-1',
+    email: `${id}@x.tz`,
+    roles,
+    permissions: [],
+  }) as any;
 
 describe('ClaimApprovalService', () => {
   const matrix = [
@@ -121,8 +140,14 @@ describe('ClaimApprovalService', () => {
     const small = await service.submit(manager, subject('1000000.00'), 'maker');
     expect(small.map((row) => row.level)).toEqual([1]);
 
-    const { service: second, manager: secondManager } = harness(matrix, [MANAGER_ROLE]);
-    const large = await second.submit(secondManager, subject('9000000.00'), 'maker');
+    const { service: second, manager: secondManager } = harness(matrix, [
+      MANAGER_ROLE,
+    ]);
+    const large = await second.submit(
+      secondManager,
+      subject('9000000.00'),
+      'maker',
+    );
     expect(large.map((row) => row.level)).toEqual([1, 2]);
   });
 
@@ -140,14 +165,20 @@ describe('ClaimApprovalService', () => {
     await service.submit(manager, subject('9000000.00'), 'maker');
 
     // Level 1 is fine for the manager...
-    const first = await service.approve(manager, user('manager'), subject('9000000.00'));
+    const first = await service.approve(
+      manager,
+      user('manager'),
+      subject('9000000.00'),
+    );
     expect(first.completed).toBe(false);
 
     // ...but level 2 needs the senior role.
     await expect(
       service.approve(manager, user('manager-2'), subject('9000000.00')),
     ).rejects.toMatchObject({
-      response: expect.objectContaining({ code: 'CLAIM_APPROVAL_LIMIT_EXCEEDED' }),
+      response: expect.objectContaining({
+        code: 'CLAIM_APPROVAL_LIMIT_EXCEEDED',
+      }),
     });
   });
 
@@ -155,7 +186,11 @@ describe('ClaimApprovalService', () => {
     const { service, manager } = harness(matrix, [MANAGER_ROLE]);
     await service.submit(manager, subject('1000000.00'), 'maker');
 
-    const outcome = await service.approve(manager, user('manager'), subject('1000000.00'));
+    const outcome = await service.approve(
+      manager,
+      user('manager'),
+      subject('1000000.00'),
+    );
 
     expect(outcome.completed).toBe(true);
     expect(outcome.authority).toBe('Claims Manager - Neema Mushi');

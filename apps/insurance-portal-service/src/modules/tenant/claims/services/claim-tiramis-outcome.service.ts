@@ -110,8 +110,7 @@ export class ClaimTiramisOutcomeService {
       operation.acknowledgement_code =
         tracking.acknowledgementStatusCode ?? operation.acknowledgement_code;
       operation.acknowledgement_message =
-        tracking.acknowledgementStatusDesc ??
-        operation.acknowledgement_message;
+        tracking.acknowledgementStatusDesc ?? operation.acknowledgement_message;
       operation.acknowledged_at =
         operation.acknowledged_at ?? tracking.acknowledgedAt ?? null;
       operation.final_response_code = tracking.finalResponseStatusCode ?? null;
@@ -242,10 +241,12 @@ export class ClaimTiramisOutcomeService {
       }
 
       case ClaimRegulatoryOperationType.INTIMATION: {
-        await manager.getRepository(ClaimIntimation).update(
-          { id: operation.source_record_id },
-          { status: ClaimIntimationStatus.ACCEPTED },
-        );
+        await manager
+          .getRepository(ClaimIntimation)
+          .update(
+            { id: operation.source_record_id },
+            { status: ClaimIntimationStatus.ACCEPTED },
+          );
         const moved = await this.stateMachine.transitionIfIn(
           manager,
           claim,
@@ -290,7 +291,9 @@ export class ClaimTiramisOutcomeService {
       summary: `TIRA rejected ${operation.source_record_number}: ${reason}`,
     };
 
-    if (operation.operation_type === ClaimRegulatoryOperationType.NOTIFICATION) {
+    if (
+      operation.operation_type === ClaimRegulatoryOperationType.NOTIFICATION
+    ) {
       const moved = await this.stateMachine.transitionIfIn(
         manager,
         claim,
@@ -305,10 +308,12 @@ export class ClaimTiramisOutcomeService {
     }
 
     if (operation.operation_type === ClaimRegulatoryOperationType.INTIMATION) {
-      await manager.getRepository(ClaimIntimation).update(
-        { id: operation.source_record_id },
-        { status: ClaimIntimationStatus.FAILED },
-      );
+      await manager
+        .getRepository(ClaimIntimation)
+        .update(
+          { id: operation.source_record_id },
+          { status: ClaimIntimationStatus.FAILED },
+        );
       const moved = await this.stateMachine.transitionIfIn(
         manager,
         claim,
@@ -410,7 +415,10 @@ export class ClaimTiramisOutcomeService {
       'finalResponsePayload' | 'tiramisResponsePayload'
     >,
   ): string | null {
-    const sources = [tracking.finalResponsePayload, tracking.tiramisResponsePayload];
+    const sources = [
+      tracking.finalResponsePayload,
+      tracking.tiramisResponsePayload,
+    ];
 
     for (const source of sources) {
       const found = this.findReference(source, 0);
@@ -429,9 +437,10 @@ export class ClaimTiramisOutcomeService {
     }
 
     if (typeof value === 'string') {
-      const match = /<ClaimReferenceNumber>\s*([^<\s][^<]*?)\s*<\/ClaimReferenceNumber>/.exec(
-        value,
-      );
+      const match =
+        /<ClaimReferenceNumber>\s*([^<\s][^<]*?)\s*<\/ClaimReferenceNumber>/.exec(
+          value,
+        );
       return match?.[1] ?? null;
     }
 
@@ -439,7 +448,9 @@ export class ClaimTiramisOutcomeService {
       return null;
     }
 
-    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, child] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       if (
         /^claimReferenceNumber$/i.test(key) &&
         typeof child === 'string' &&

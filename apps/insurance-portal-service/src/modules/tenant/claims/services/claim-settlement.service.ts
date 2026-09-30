@@ -86,7 +86,10 @@ export class ClaimSettlementService {
       });
       await manager
         .getRepository(InsuranceClaim)
-        .update({ id: claim.id }, { settlement_status: ClaimSettlementStatus.PAID });
+        .update(
+          { id: claim.id },
+          { settlement_status: ClaimSettlementStatus.PAID },
+        );
 
       return true;
     });

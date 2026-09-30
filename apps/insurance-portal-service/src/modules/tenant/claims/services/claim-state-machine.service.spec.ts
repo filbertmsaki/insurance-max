@@ -22,7 +22,9 @@ function makeManager(affected = 1) {
   let call = 0;
 
   const manager = {
-    createQueryBuilder: jest.fn(() => (call++ === 0 ? updateBuilder : insertBuilder)),
+    createQueryBuilder: jest.fn(() =>
+      call++ === 0 ? updateBuilder : insertBuilder,
+    ),
     getRepository: jest.fn(() => ({ save: historySave })),
   } as any;
 
@@ -47,28 +49,42 @@ describe('ClaimStateMachineService', () => {
     const { manager } = makeManager();
 
     await expect(
-      service.transition(manager, makeClaim(ClaimStatus.DRAFT), ClaimStatus.INTIMATED, {
-        summary: 'skip',
-      }),
+      service.transition(
+        manager,
+        makeClaim(ClaimStatus.DRAFT),
+        ClaimStatus.INTIMATED,
+        {
+          summary: 'skip',
+        },
+      ),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(manager.createQueryBuilder).not.toHaveBeenCalled();
   });
 
   it('applies an allowed transition with optimistic locking and history', async () => {
-    const { manager, updateBuilder, insertBuilder, historySave } = makeManager();
+    const { manager, updateBuilder, insertBuilder, historySave } =
+      makeManager();
     const claim = makeClaim(ClaimStatus.DRAFT);
 
-    await service.transition(manager, claim, ClaimStatus.NOTIFICATION_SUBMITTED, {
-      summary: 'submitted',
-      actorId: 'user-1',
-    });
+    await service.transition(
+      manager,
+      claim,
+      ClaimStatus.NOTIFICATION_SUBMITTED,
+      {
+        summary: 'submitted',
+        actorId: 'user-1',
+      },
+    );
 
     expect(updateBuilder.andWhere).toHaveBeenCalledWith('status = :from', {
       from: ClaimStatus.DRAFT,
     });
-    expect(updateBuilder.andWhere).toHaveBeenCalledWith('state_version = :version', {
-      version: 4,
-    });
+    expect(updateBuilder.andWhere).toHaveBeenCalledWith(
+      'state_version = :version',
+      {
+        version: 4,
+      },
+    );
     expect(claim.status).toBe(ClaimStatus.NOTIFICATION_SUBMITTED);
     expect(claim.claim_stage).toBe(ClaimStage.NOTIFICATION_PENDING);
     expect(claim.state_version).toBe(5);
@@ -96,7 +112,9 @@ describe('ClaimStateMachineService', () => {
         { summary: 'race' },
       ),
     ).rejects.toMatchObject({
-      response: expect.objectContaining({ code: 'CLAIM_CONCURRENT_MODIFICATION' }),
+      response: expect.objectContaining({
+        code: 'CLAIM_CONCURRENT_MODIFICATION',
+      }),
     });
   });
 
@@ -129,9 +147,14 @@ describe('ClaimStateMachineService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
 
     const claim = makeClaim(ClaimStatus.REJECTION_PENDING);
-    await service.revertPendingRejection(manager, claim, ClaimStatus.INTIMATED, {
-      summary: 'declined',
-    });
+    await service.revertPendingRejection(
+      manager,
+      claim,
+      ClaimStatus.INTIMATED,
+      {
+        summary: 'declined',
+      },
+    );
     expect(claim.status).toBe(ClaimStatus.INTIMATED);
   });
 });

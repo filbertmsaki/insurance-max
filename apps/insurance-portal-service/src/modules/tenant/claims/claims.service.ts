@@ -197,7 +197,11 @@ export class ClaimsService {
 
   /** Everything the claim form shows read-only once a policy is chosen. */
   async policyDetail(user: AuthenticatedUser, policyId: string) {
-    const policy = await this.getPolicyInScope(this.dataSource.manager, user, policyId);
+    const policy = await this.getPolicyInScope(
+      this.dataSource.manager,
+      user,
+      policyId,
+    );
     const risks = await this.dataSource
       .getRepository(PolicyRisk)
       .createQueryBuilder('risk')
@@ -284,7 +288,11 @@ export class ClaimsService {
   async create(user: AuthenticatedUser, dto: CreateClaimDto) {
     const result = await this.dataSource.transaction(async (manager) => {
       const policy = await this.getPolicyInScope(manager, user, dto.policy_id);
-      const policyRisk = await this.resolvePolicyRisk(manager, policy, dto.policy_risk_id);
+      const policyRisk = await this.resolvePolicyRisk(
+        manager,
+        policy,
+        dto.policy_risk_id,
+      );
       const coverNoteReference = await this.resolveCoverNoteReference(
         manager,
         policy,
@@ -404,7 +412,8 @@ export class ClaimsService {
           coverage_snapshot: coverage.coverageSnapshot,
           coverage_snapshot_hash: coverage.coverageSnapshotHash,
           incident_snapshot: incidentSnapshot,
-          incident_snapshot_hash: this.hashService.hashDefinition(incidentSnapshot),
+          incident_snapshot_hash:
+            this.hashService.hashDefinition(incidentSnapshot),
           claimant_manifest_hash: this.claimantManifestHash(claimants),
           duplicate_fingerprint: duplicateFingerprint,
           possible_duplicate_of_id: possibleDuplicate?.id ?? null,
@@ -431,7 +440,11 @@ export class ClaimsService {
       return claim;
     });
 
-    await this.createClaimsWorkItem(result, `Submit claim notification ${result.claim_no}`, user.id);
+    await this.createClaimsWorkItem(
+      result,
+      `Submit claim notification ${result.claim_no}`,
+      user.id,
+    );
     await this.auditService.log({
       userId: user.id,
       companyId: result.company_id,
@@ -462,13 +475,14 @@ export class ClaimsService {
       const before = this.incidentSnapshot(claim as any);
 
       if (dto.policy_risk_id !== undefined) {
-        const risk = await this.resolvePolicyRisk(manager, policy, dto.policy_risk_id);
-        claim.policy_risk_id = risk?.id ?? null;
-        claim.cover_note_reference_number = await this.resolveCoverNoteReference(
+        const risk = await this.resolvePolicyRisk(
           manager,
           policy,
-          risk,
+          dto.policy_risk_id,
         );
+        claim.policy_risk_id = risk?.id ?? null;
+        claim.cover_note_reference_number =
+          await this.resolveCoverNoteReference(manager, policy, risk);
       }
 
       if (dto.loss_date || dto.claim_report_date) {
@@ -518,12 +532,14 @@ export class ClaimsService {
       }
 
       if (dto.priority) claim.priority = dto.priority;
-      if (dto.department_id !== undefined) claim.department_id = dto.department_id ?? null;
+      if (dto.department_id !== undefined)
+        claim.department_id = dto.department_id ?? null;
       if (dto.metadata !== undefined) claim.metadata = dto.metadata ?? null;
 
-      const incidentSnapshot = this.incidentSnapshot(merged as CreateClaimDto);
+      const incidentSnapshot = this.incidentSnapshot(merged);
       claim.incident_snapshot = incidentSnapshot;
-      claim.incident_snapshot_hash = this.hashService.hashDefinition(incidentSnapshot);
+      claim.incident_snapshot_hash =
+        this.hashService.hashDefinition(incidentSnapshot);
 
       await manager.getRepository(InsuranceClaim).save(claim);
       await this.stateMachine.recordEvent(manager, claim, {
@@ -572,11 +588,16 @@ export class ClaimsService {
         );
       }
 
-      await this.stateMachine.transition(manager, claim, ClaimStatus.CANCELLED, {
-        eventType: 'CLAIM_DELETED',
-        summary: 'Draft claim deleted',
-        actorId: user.id,
-      });
+      await this.stateMachine.transition(
+        manager,
+        claim,
+        ClaimStatus.CANCELLED,
+        {
+          eventType: 'CLAIM_DELETED',
+          summary: 'Draft claim deleted',
+          actorId: user.id,
+        },
+      );
       await manager.getRepository(InsuranceClaim).softDelete({ id: claim.id });
       await this.auditService.log(
         {
@@ -656,13 +677,18 @@ export class ClaimsService {
     }
 
     if (query.from) {
-      queryBuilder.andWhere('claim.created_at >= :from::date', { from: query.from });
+      queryBuilder.andWhere('claim.created_at >= :from::date', {
+        from: query.from,
+      });
     }
 
     if (query.to) {
-      queryBuilder.andWhere("claim.created_at < (:to::date + INTERVAL '1 day')", {
-        to: query.to,
-      });
+      queryBuilder.andWhere(
+        "claim.created_at < (:to::date + INTERVAL '1 day')",
+        {
+          to: query.to,
+        },
+      );
     }
 
     if (query.search?.trim()) {
@@ -711,8 +737,16 @@ export class ClaimsService {
       .leftJoinAndSelect('policyRisk.risk', 'insuranceRisk')
       .leftJoinAndSelect('claim.assigned_user', 'assignedUser')
       .leftJoinAndSelect('claim.branch', 'branch')
-      .leftJoinAndSelect('claim.claimants', 'claimants', 'claimants.deleted_at IS NULL')
-      .leftJoinAndSelect('claim.documents', 'documents', 'documents.deleted_at IS NULL')
+      .leftJoinAndSelect(
+        'claim.claimants',
+        'claimants',
+        'claimants.deleted_at IS NULL',
+      )
+      .leftJoinAndSelect(
+        'claim.documents',
+        'documents',
+        'documents.deleted_at IS NULL',
+      )
       .leftJoinAndSelect('claim.reserves', 'reserves')
       .leftJoinAndSelect('claim.assessments', 'assessments')
       .leftJoinAndSelect('claim.payments', 'payments')
@@ -833,7 +867,7 @@ export class ClaimsService {
           ? 'TIRA'
           : event.actor_type === ClaimEventActorType.SYSTEM
             ? 'System'
-            : events.raw[index]?.actor_name ?? null,
+            : (events.raw[index]?.actor_name ?? null),
     }));
   }
 
@@ -851,16 +885,23 @@ export class ClaimsService {
   // Claimants
   // ---------------------------------------------------------------------
 
-  async addClaimant(user: AuthenticatedUser, claimId: string, dto: CreateClaimantDto) {
+  async addClaimant(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: CreateClaimantDto,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const claim = await this.access.getForWrite(user, claimId, manager);
       await this.assertClaimantsEditable(manager, claim);
       const customer = await manager
         .getRepository(Customer)
         .findOneOrFail({ where: { id: claim.customer_id } });
-      const [saved] = await this.saveClaimants(manager, claim, [
-        this.normaliseClaimant(dto, customer),
-      ], false);
+      const [saved] = await this.saveClaimants(
+        manager,
+        claim,
+        [this.normaliseClaimant(dto, customer)],
+        false,
+      );
 
       await this.refreshClaimantManifest(manager, claim);
       await this.stateMachine.recordEvent(manager, claim, {
@@ -875,7 +916,11 @@ export class ClaimsService {
     });
   }
 
-  async updateClaimant(user: AuthenticatedUser, claimantId: string, dto: UpdateClaimantDto) {
+  async updateClaimant(
+    user: AuthenticatedUser,
+    claimantId: string,
+    dto: UpdateClaimantDto,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const { record: claimant, claim } = await this.access.getRecordForWrite(
         manager,
@@ -934,7 +979,9 @@ export class ClaimsService {
 
       claimant.status = 'REMOVED';
       await manager.getRepository(ClaimClaimant).save(claimant);
-      await manager.getRepository(ClaimClaimant).softDelete({ id: claimant.id });
+      await manager
+        .getRepository(ClaimClaimant)
+        .softDelete({ id: claimant.id });
 
       if (claimant.is_primary) {
         await this.ensureSinglePrimary(manager, claim.id, null);
@@ -957,7 +1004,11 @@ export class ClaimsService {
   // Assignment, notification, closure
   // ---------------------------------------------------------------------
 
-  async assignClaim(user: AuthenticatedUser, claimId: string, dto: AssignClaimDto) {
+  async assignClaim(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: AssignClaimDto,
+  ) {
     const claim = await this.dataSource.transaction(async (manager) => {
       const current = await this.access.getForWrite(user, claimId, manager);
       const assignee = await manager.query(
@@ -969,7 +1020,9 @@ export class ClaimsService {
       );
 
       if (!assignee.length) {
-        throw new BadRequestException('The assignee is not a user of this company');
+        throw new BadRequestException(
+          'The assignee is not a user of this company',
+        );
       }
 
       const previous = current.assigned_user_id;
@@ -985,13 +1038,19 @@ export class ClaimsService {
 
       await manager.getRepository(InsuranceClaim).update(
         { id: current.id },
-        { assigned_user_id: current.assigned_user_id, branch_id: current.branch_id },
+        {
+          assigned_user_id: current.assigned_user_id,
+          branch_id: current.branch_id,
+        },
       );
       await this.stateMachine.recordEvent(manager, current, {
         eventType: 'CLAIM_ASSIGNED',
         summary: dto.instructions?.trim() || 'Claim officer assigned',
         actorId: user.id,
-        metadata: { previous_assignee: previous, assignee: dto.assigned_user_id },
+        metadata: {
+          previous_assignee: previous,
+          assignee: dto.assigned_user_id,
+        },
       });
 
       return current;
@@ -1020,7 +1079,11 @@ export class ClaimsService {
   ) {
     const claim = await this.access.getForWrite(user, claimId);
 
-    if (![ClaimStatus.DRAFT, ClaimStatus.NOTIFICATION_FAILED].includes(claim.status)) {
+    if (
+      ![ClaimStatus.DRAFT, ClaimStatus.NOTIFICATION_FAILED].includes(
+        claim.status,
+      )
+    ) {
       throw new ConflictException(
         `Claim notification cannot be submitted from ${claim.status}`,
       );
@@ -1054,20 +1117,28 @@ export class ClaimsService {
     return { ...result, claim: await this.findOne(user, claimId) };
   }
 
-  async closeClaim(user: AuthenticatedUser, claimId: string, dto: CloseClaimDto) {
+  async closeClaim(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: CloseClaimDto,
+  ) {
     await this.dataSource.transaction(async (manager) => {
       const claim = await this.access.getForWrite(user, claimId, manager);
 
       if (![ClaimStatus.SETTLED, ClaimStatus.REJECTED].includes(claim.status)) {
-        throw new ConflictException('Only a settled or rejected claim can be closed');
+        throw new ConflictException(
+          'Only a settled or rejected claim can be closed',
+        );
       }
 
-      const unfinished = await manager.getRepository(ClaimRegulatoryOperation).count({
-        where: {
-          claim_id: claim.id,
-          status: In(UNFINISHED_REGULATORY_STATUSES),
-        },
-      });
+      const unfinished = await manager
+        .getRepository(ClaimRegulatoryOperation)
+        .count({
+          where: {
+            claim_id: claim.id,
+            status: In(UNFINISHED_REGULATORY_STATUSES),
+          },
+        });
 
       if (unfinished > 0) {
         throw new ConflictException(
@@ -1075,7 +1146,12 @@ export class ClaimsService {
         );
       }
 
-      await this.releaseRemainingReserve(manager, user, claim, dto.closure_reason);
+      await this.releaseRemainingReserve(
+        manager,
+        user,
+        claim,
+        dto.closure_reason,
+      );
 
       await manager.getRepository(InsuranceClaim).update(
         { id: claim.id },
@@ -1095,7 +1171,11 @@ export class ClaimsService {
     return this.findOne(user, claimId);
   }
 
-  async reopenClaim(user: AuthenticatedUser, claimId: string, dto: ReopenClaimDto) {
+  async reopenClaim(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: ReopenClaimDto,
+  ) {
     await this.dataSource.transaction(async (manager) => {
       const claim = await this.access.getForWrite(user, claimId, manager);
 
@@ -1152,11 +1232,15 @@ export class ClaimsService {
         !claimant.country_code && 'country',
         !claimant.district && 'district',
         !claimant.phone && 'phone number',
-        claimant.party_type === TiraPartyType.INDIVIDUAL && !claimant.gender && 'gender',
+        claimant.party_type === TiraPartyType.INDIVIDUAL &&
+          !claimant.gender &&
+          'gender',
       ].filter(Boolean);
 
       if (missing.length) {
-        problems.push(`${claimant.full_name || 'Claimant'} is missing ${missing.join(', ')}`);
+        problems.push(
+          `${claimant.full_name || 'Claimant'} is missing ${missing.join(', ')}`,
+        );
       }
     }
 
@@ -1196,7 +1280,13 @@ export class ClaimsService {
                AND document.document_type = requirement.document_type
                AND document.status IN ('UPLOADED', 'VERIFIED')
            )`,
-        [claim.company_id, stage, policy?.product_id ?? null, policy?.category_id ?? null, claim.id],
+        [
+          claim.company_id,
+          stage,
+          policy?.product_id ?? null,
+          policy?.category_id ?? null,
+          claim.id,
+        ],
       );
 
     if (missing.length) {
@@ -1214,7 +1304,10 @@ export class ClaimsService {
     claim: InsuranceClaim,
     reason: string,
   ) {
-    const projected = await this.financialProjectionService.recalculate(manager, claim.id);
+    const projected = await this.financialProjectionService.recalculate(
+      manager,
+      claim.id,
+    );
 
     if (MoneyUtil.compare(projected.outstanding_reserve, '0.00') <= 0) {
       return;
@@ -1252,18 +1345,31 @@ export class ClaimsService {
     await this.financialProjectionService.recalculate(manager, claim.id);
   }
 
-  private allowedActions(claim: InsuranceClaim, user: AuthenticatedUser): ClaimAction[] {
-    const can = (permission: string) => (user.permissions ?? []).includes(permission);
+  private allowedActions(
+    claim: InsuranceClaim,
+    user: AuthenticatedUser,
+  ): ClaimAction[] {
+    const can = (permission: string) =>
+      (user.permissions ?? []).includes(permission);
     const targets = CLAIM_STATUS_TRANSITIONS[claim.status] ?? [];
     const actions: ClaimAction[] = [];
 
-    if (EDITABLE_CLAIM_STATUSES.includes(claim.status) && can(ClaimsPermissions.UPDATE)) {
+    if (
+      EDITABLE_CLAIM_STATUSES.includes(claim.status) &&
+      can(ClaimsPermissions.UPDATE)
+    ) {
       actions.push('edit');
     }
-    if (claim.status === ClaimStatus.DRAFT && can(ClaimsPermissions.DELETE_DRAFT)) {
+    if (
+      claim.status === ClaimStatus.DRAFT &&
+      can(ClaimsPermissions.DELETE_DRAFT)
+    ) {
       actions.push('delete');
     }
-    if (claim.status === ClaimStatus.DRAFT && can(ClaimsPermissions.NOTIFICATION_SUBMIT)) {
+    if (
+      claim.status === ClaimStatus.DRAFT &&
+      can(ClaimsPermissions.NOTIFICATION_SUBMIT)
+    ) {
       actions.push('submit_notification');
     }
     if (
@@ -1273,13 +1379,18 @@ export class ClaimsService {
       actions.push('retry_notification');
     }
     if (
-      [ClaimStatus.NOTIFICATION_ACCEPTED, ClaimStatus.INTIMATION_FAILED].includes(claim.status) &&
+      [
+        ClaimStatus.NOTIFICATION_ACCEPTED,
+        ClaimStatus.INTIMATION_FAILED,
+      ].includes(claim.status) &&
       can(ClaimsPermissions.INTIMATION_CREATE)
     ) {
       actions.push('create_intimation');
     }
     if (
-      [ClaimStatus.INTIMATION_PENDING, ClaimStatus.INTIMATION_FAILED].includes(claim.status) &&
+      [ClaimStatus.INTIMATION_PENDING, ClaimStatus.INTIMATION_FAILED].includes(
+        claim.status,
+      ) &&
       can(ClaimsPermissions.INTIMATION_SUBMIT)
     ) {
       actions.push('submit_intimation');
@@ -1298,7 +1409,9 @@ export class ClaimsService {
       actions.push('create_assessment');
     }
     if (
-      [ClaimStatus.APPROVED, ClaimStatus.DISCHARGE_REJECTED].includes(claim.status) &&
+      [ClaimStatus.APPROVED, ClaimStatus.DISCHARGE_REJECTED].includes(
+        claim.status,
+      ) &&
       can(ClaimsPermissions.DISCHARGE_CREATE)
     ) {
       actions.push('create_discharge');
@@ -1323,7 +1436,10 @@ export class ClaimsService {
     if (targets.includes(ClaimStatus.CLOSED) && can(ClaimsPermissions.CLOSE)) {
       actions.push('close');
     }
-    if (targets.includes(ClaimStatus.REOPENED) && can(ClaimsPermissions.REOPEN)) {
+    if (
+      targets.includes(ClaimStatus.REOPENED) &&
+      can(ClaimsPermissions.REOPEN)
+    ) {
       actions.push('reopen');
     }
 
@@ -1336,7 +1452,10 @@ export class ClaimsService {
       : '0.00';
   }
 
-  private redactOperation(operation: ClaimRegulatoryOperation, user: AuthenticatedUser) {
+  private redactOperation(
+    operation: ClaimRegulatoryOperation,
+    user: AuthenticatedUser,
+  ) {
     const canViewPayload = (user.permissions ?? []).includes(
       ClaimsPermissions.TIRAMIS_VIEW_PAYLOAD,
     );
@@ -1344,7 +1463,9 @@ export class ClaimsService {
     return {
       ...operation,
       request_snapshot: canViewPayload ? operation.request_snapshot : undefined,
-      response_snapshot: canViewPayload ? operation.response_snapshot : undefined,
+      response_snapshot: canViewPayload
+        ? operation.response_snapshot
+        : undefined,
     };
   }
 
@@ -1386,7 +1507,11 @@ export class ClaimsService {
       throw new NotFoundException('Policy not found');
     }
 
-    if (['VOID', 'DRAFT', 'PENDING'].includes(String(policy.policy_status).toUpperCase())) {
+    if (
+      ['VOID', 'DRAFT', 'PENDING'].includes(
+        String(policy.policy_status).toUpperCase(),
+      )
+    ) {
       throw new ConflictException(
         `Claims cannot be notified against a ${String(policy.policy_status).toLowerCase()} policy`,
       );
@@ -1418,7 +1543,9 @@ export class ClaimsService {
     const risk = risks.find((item) => item.id === policyRiskId);
 
     if (!risk) {
-      throw new BadRequestException('Selected risk does not belong to this policy');
+      throw new BadRequestException(
+        'Selected risk does not belong to this policy',
+      );
     }
 
     return risk;
@@ -1457,7 +1584,8 @@ export class ClaimsService {
 
     if (assetId) {
       const vehicleNote = coverNotes.find(
-        (note) => note.insured_asset_id === assetId && note.cover_note_reference_number,
+        (note) =>
+          note.insured_asset_id === assetId && note.cover_note_reference_number,
       );
 
       if (vehicleNote) {
@@ -1491,7 +1619,9 @@ export class ClaimsService {
     }
 
     if (reportDate < lossDate) {
-      throw new BadRequestException('Report date cannot be before the loss date');
+      throw new BadRequestException(
+        'Report date cannot be before the loss date',
+      );
     }
 
     const startDate = new Date(`${policy.start_date}T00:00:00+03:00`);
@@ -1500,7 +1630,9 @@ export class ClaimsService {
 
     if (
       outsideCover &&
-      !(user.permissions ?? []).includes(ClaimsPermissions.OVERRIDE_COVER_VALIDATION)
+      !(user.permissions ?? []).includes(
+        ClaimsPermissions.OVERRIDE_COVER_VALIDATION,
+      )
     ) {
       throw new BadRequestException(
         `Loss date falls outside the policy period (${policy.start_date} to ${policy.end_date})`,
@@ -1517,31 +1649,44 @@ export class ClaimsService {
   }
 
   /** Claimants are fixed once TIRA has accepted an intimation of the claim. */
-  private async assertClaimantsEditable(manager: EntityManager, claim: InsuranceClaim) {
-    const reported = await manager.getRepository(ClaimRegulatoryOperation).count({
-      where: {
-        claim_id: claim.id,
-        operation_type: ClaimRegulatoryOperationType.INTIMATION,
-        status: In([
-          ClaimRegulatoryStatus.ACCEPTED,
-          ClaimRegulatoryStatus.QUEUED,
-          ClaimRegulatoryStatus.PROCESSING,
-          ClaimRegulatoryStatus.ACKNOWLEDGED,
-        ]),
-      },
-    });
+  private async assertClaimantsEditable(
+    manager: EntityManager,
+    claim: InsuranceClaim,
+  ) {
+    const reported = await manager
+      .getRepository(ClaimRegulatoryOperation)
+      .count({
+        where: {
+          claim_id: claim.id,
+          operation_type: ClaimRegulatoryOperationType.INTIMATION,
+          status: In([
+            ClaimRegulatoryStatus.ACCEPTED,
+            ClaimRegulatoryStatus.QUEUED,
+            ClaimRegulatoryStatus.PROCESSING,
+            ClaimRegulatoryStatus.ACKNOWLEDGED,
+          ]),
+        },
+      });
 
-    if (reported > 0 || [ClaimStatus.CLOSED, ClaimStatus.CANCELLED].includes(claim.status)) {
+    if (
+      reported > 0 ||
+      [ClaimStatus.CLOSED, ClaimStatus.CANCELLED].includes(claim.status)
+    ) {
       throw new ConflictException(
         'Claimants cannot be changed after the intimation was submitted to TIRA',
       );
     }
   }
 
-  private normaliseClaimant(dto: CreateClaimantDto, customer: Customer): Partial<ClaimClaimant> {
+  private normaliseClaimant(
+    dto: CreateClaimantDto,
+    customer: Customer,
+  ): Partial<ClaimClaimant> {
     const isPolicyholder =
       dto.uses_policyholder ||
-      [ClaimantType.POLICYHOLDER, ClaimantType.INSURED].includes(dto.claimant_type);
+      [ClaimantType.POLICYHOLDER, ClaimantType.INSURED].includes(
+        dto.claimant_type,
+      );
 
     if (dto.uses_policyholder) {
       const corporate = customer.customer_type === CustomerType.CORPORATE;
@@ -1553,12 +1698,16 @@ export class ClaimsService {
         is_primary: dto.is_primary ?? false,
         full_name: this.customerName(customer),
         claimant_category: TiraClaimantCategory.POLICYHOLDER,
-        party_type: corporate ? TiraPartyType.CORPORATE : TiraPartyType.INDIVIDUAL,
+        party_type: corporate
+          ? TiraPartyType.CORPORATE
+          : TiraPartyType.INDIVIDUAL,
         id_type: customer.id_type ?? (corporate ? 7 : null),
         identification_type: customer.id_type ? String(customer.id_type) : null,
         identification_number:
           customer.id_number ??
-          (corporate ? customer.incorporation_certificate_no ?? customer.tin : null),
+          (corporate
+            ? (customer.incorporation_certificate_no ?? customer.tin)
+            : null),
         birth_date: customer.date_of_birth ?? null,
         gender: corporate ? null : (customer.gender ?? null),
         country_code: customer.country_code ?? 'TZA',
@@ -1586,7 +1735,9 @@ export class ClaimsService {
       full_name: dto.full_name.trim(),
       claimant_category:
         dto.claimant_category ??
-        (isPolicyholder ? TiraClaimantCategory.POLICYHOLDER : TiraClaimantCategory.THIRD_PARTY),
+        (isPolicyholder
+          ? TiraClaimantCategory.POLICYHOLDER
+          : TiraClaimantCategory.THIRD_PARTY),
       party_type: dto.party_type ?? null,
       id_type: dto.id_type ?? null,
       identification_type: dto.id_type ? String(dto.id_type) : null,
@@ -1638,7 +1789,9 @@ export class ClaimsService {
     enforcePrimary = true,
   ) {
     const repository = manager.getRepository(ClaimClaimant);
-    const primaries = claimants.filter((claimant) => claimant.is_primary).length;
+    const primaries = claimants.filter(
+      (claimant) => claimant.is_primary,
+    ).length;
 
     if (primaries > 1) {
       throw new BadRequestException('Only one primary claimant is allowed');
@@ -1660,14 +1813,25 @@ export class ClaimsService {
     if (enforcePrimary && primaries === 0 && saved[0]) {
       saved[0].is_primary = true;
       await repository.save(saved[0]);
-    } else if (!enforcePrimary && saved.some((claimant) => claimant.is_primary)) {
-      await this.ensureSinglePrimary(manager, claim.id, saved.find((c) => c.is_primary)!.id);
+    } else if (
+      !enforcePrimary &&
+      saved.some((claimant) => claimant.is_primary)
+    ) {
+      await this.ensureSinglePrimary(
+        manager,
+        claim.id,
+        saved.find((c) => c.is_primary)!.id,
+      );
     }
 
     return saved;
   }
 
-  private async ensureSinglePrimary(manager: EntityManager, claimId: string, primaryId: string | null) {
+  private async ensureSinglePrimary(
+    manager: EntityManager,
+    claimId: string,
+    primaryId: string | null,
+  ) {
     const repository = manager.getRepository(ClaimClaimant);
     const active = await repository.find({
       where: { claim_id: claimId, status: 'ACTIVE' },
@@ -1685,13 +1849,18 @@ export class ClaimsService {
     }
   }
 
-  private async refreshClaimantManifest(manager: EntityManager, claim: InsuranceClaim) {
+  private async refreshClaimantManifest(
+    manager: EntityManager,
+    claim: InsuranceClaim,
+  ) {
     const claimants = await this.activeClaimants(manager, claim.id);
 
-    await manager.getRepository(InsuranceClaim).update(
-      { id: claim.id },
-      { claimant_manifest_hash: this.claimantManifestHash(claimants) },
-    );
+    await manager
+      .getRepository(InsuranceClaim)
+      .update(
+        { id: claim.id },
+        { claimant_manifest_hash: this.claimantManifestHash(claimants) },
+      );
   }
 
   private claimantManifestHash(claimants: Partial<ClaimClaimant>[]) {
@@ -1716,7 +1885,8 @@ export class ClaimsService {
       policyRiskId,
       lossDate: new Date(dto.loss_date).toISOString().slice(0, 10),
       lossType: dto.loss_type.trim().toLowerCase(),
-      policeReportNumber: dto.police_report_number?.trim().toLowerCase() ?? null,
+      policeReportNumber:
+        dto.police_report_number?.trim().toLowerCase() ?? null,
       claimantNames: claimants
         .map((claimant) => (claimant.full_name ?? '').trim().toLowerCase())
         .sort(),
@@ -1785,7 +1955,9 @@ export class ClaimsService {
       end_date: policy.end_date,
       currency: policy.currency,
       business_line: policy.business_line,
-      customer_name: policy.customer ? this.customerName(policy.customer) : null,
+      customer_name: policy.customer
+        ? this.customerName(policy.customer)
+        : null,
     };
   }
 
@@ -1818,7 +1990,11 @@ export class ClaimsService {
     return MoneyUtil.fromMinor(MoneyUtil.toMinor(value ?? 0));
   }
 
-  private createClaimsWorkItem(claim: InsuranceClaim, title: string, createdBy: string) {
+  private createClaimsWorkItem(
+    claim: InsuranceClaim,
+    title: string,
+    createdBy: string,
+  ) {
     return this.workItemsService.create({
       companyId: claim.company_id,
       branchId: claim.branch_id,

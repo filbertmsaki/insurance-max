@@ -25,13 +25,30 @@ describe('claim lifecycle', () => {
   });
 
   it('cannot skip mandatory stages', () => {
-    expect(canTransition(ClaimStatus.DRAFT, ClaimStatus.NOTIFICATION_ACCEPTED)).toBe(false);
-    expect(canTransition(ClaimStatus.DRAFT, ClaimStatus.INTIMATION_PENDING)).toBe(false);
-    expect(canTransition(ClaimStatus.NOTIFICATION_ACCEPTED, ClaimStatus.UNDER_ASSESSMENT)).toBe(false);
-    expect(canTransition(ClaimStatus.INTIMATED, ClaimStatus.APPROVED)).toBe(false);
-    expect(canTransition(ClaimStatus.APPROVED, ClaimStatus.PAYMENT_PENDING)).toBe(false);
-    expect(canTransition(ClaimStatus.DISCHARGE_ISSUED, ClaimStatus.PAID)).toBe(false);
-    expect(canTransition(ClaimStatus.PARTIALLY_PAID, ClaimStatus.SETTLED)).toBe(false);
+    expect(
+      canTransition(ClaimStatus.DRAFT, ClaimStatus.NOTIFICATION_ACCEPTED),
+    ).toBe(false);
+    expect(
+      canTransition(ClaimStatus.DRAFT, ClaimStatus.INTIMATION_PENDING),
+    ).toBe(false);
+    expect(
+      canTransition(
+        ClaimStatus.NOTIFICATION_ACCEPTED,
+        ClaimStatus.UNDER_ASSESSMENT,
+      ),
+    ).toBe(false);
+    expect(canTransition(ClaimStatus.INTIMATED, ClaimStatus.APPROVED)).toBe(
+      false,
+    );
+    expect(
+      canTransition(ClaimStatus.APPROVED, ClaimStatus.PAYMENT_PENDING),
+    ).toBe(false);
+    expect(canTransition(ClaimStatus.DISCHARGE_ISSUED, ClaimStatus.PAID)).toBe(
+      false,
+    );
+    expect(canTransition(ClaimStatus.PARTIALLY_PAID, ClaimStatus.SETTLED)).toBe(
+      false,
+    );
   });
 
   it('follows the happy path from draft to closed', () => {
@@ -62,10 +79,30 @@ describe('claim lifecycle', () => {
   });
 
   it('supports reassessment and a rejected offer', () => {
-    expect(canTransition(ClaimStatus.PENDING_APPROVAL, ClaimStatus.REASSESSMENT_REQUIRED)).toBe(true);
-    expect(canTransition(ClaimStatus.REASSESSMENT_REQUIRED, ClaimStatus.UNDER_ASSESSMENT)).toBe(true);
-    expect(canTransition(ClaimStatus.DISCHARGE_ISSUED, ClaimStatus.DISCHARGE_REJECTED)).toBe(true);
-    expect(canTransition(ClaimStatus.DISCHARGE_REJECTED, ClaimStatus.DISCHARGE_PENDING)).toBe(true);
+    expect(
+      canTransition(
+        ClaimStatus.PENDING_APPROVAL,
+        ClaimStatus.REASSESSMENT_REQUIRED,
+      ),
+    ).toBe(true);
+    expect(
+      canTransition(
+        ClaimStatus.REASSESSMENT_REQUIRED,
+        ClaimStatus.UNDER_ASSESSMENT,
+      ),
+    ).toBe(true);
+    expect(
+      canTransition(
+        ClaimStatus.DISCHARGE_ISSUED,
+        ClaimStatus.DISCHARGE_REJECTED,
+      ),
+    ).toBe(true);
+    expect(
+      canTransition(
+        ClaimStatus.DISCHARGE_REJECTED,
+        ClaimStatus.DISCHARGE_PENDING,
+      ),
+    ).toBe(true);
     expect(canTransition(ClaimStatus.CLOSED, ClaimStatus.REOPENED)).toBe(true);
   });
 
@@ -86,11 +123,19 @@ describe('claim lifecycle', () => {
   });
 
   it('derives the coarse stage from status', () => {
-    expect(deriveClaimStage(ClaimStatus.DRAFT)).toBe(ClaimStage.NOTIFICATION_PENDING);
-    expect(deriveClaimStage(ClaimStatus.NOTIFICATION_ACCEPTED)).toBe(ClaimStage.NOTIFIED);
+    expect(deriveClaimStage(ClaimStatus.DRAFT)).toBe(
+      ClaimStage.NOTIFICATION_PENDING,
+    );
+    expect(deriveClaimStage(ClaimStatus.NOTIFICATION_ACCEPTED)).toBe(
+      ClaimStage.NOTIFIED,
+    );
     expect(deriveClaimStage(ClaimStatus.INTIMATED)).toBe(ClaimStage.INTIMATED);
-    expect(deriveClaimStage(ClaimStatus.PENDING_APPROVAL)).toBe(ClaimStage.DECISION);
-    expect(deriveClaimStage(ClaimStatus.PARTIALLY_PAID)).toBe(ClaimStage.SETTLEMENT);
+    expect(deriveClaimStage(ClaimStatus.PENDING_APPROVAL)).toBe(
+      ClaimStage.DECISION,
+    );
+    expect(deriveClaimStage(ClaimStatus.PARTIALLY_PAID)).toBe(
+      ClaimStage.SETTLEMENT,
+    );
     expect(deriveClaimStage(ClaimStatus.REJECTED)).toBe(ClaimStage.CLOSED);
   });
 

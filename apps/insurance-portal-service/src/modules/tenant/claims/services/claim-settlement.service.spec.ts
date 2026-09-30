@@ -31,9 +31,13 @@ function harness(params: {
           };
         case 'ClaimPayment':
           return {
-            count: jest.fn(async () => (paymentCountCall++ === 0 ? params.openPayments : 0)),
+            count: jest.fn(async () =>
+              paymentCountCall++ === 0 ? params.openPayments : 0,
+            ),
             find: jest.fn(async () =>
-              Array.from({ length: params.paidPayments }, (_, i) => ({ id: `p${i}` })),
+              Array.from({ length: params.paidPayments }, (_, i) => ({
+                id: `p${i}`,
+              })),
             ),
           };
         default:
@@ -80,7 +84,11 @@ describe('ClaimSettlementService', () => {
   });
 
   it('does not settle a partially paid claim', async () => {
-    const { service } = harness({ ...base, status: ClaimStatus.PARTIALLY_PAID, paid: '500.00' });
+    const { service } = harness({
+      ...base,
+      status: ClaimStatus.PARTIALLY_PAID,
+      paid: '500.00',
+    });
 
     await expect(service.settleIfComplete('claim-1')).resolves.toBe(false);
   });

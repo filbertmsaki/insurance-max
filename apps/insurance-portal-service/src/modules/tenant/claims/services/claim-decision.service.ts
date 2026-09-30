@@ -135,7 +135,11 @@ export class ClaimDecisionService {
         });
       }
 
-      const claim = await this.access.getForWrite(user, decision.claim_id, manager);
+      const claim = await this.access.getForWrite(
+        user,
+        decision.claim_id,
+        manager,
+      );
 
       decision.status = ClaimDecisionStatus.APPROVED;
       decision.approved_by = user.id;

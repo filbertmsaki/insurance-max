@@ -87,7 +87,7 @@ export class SaveClaimDocumentRequirementDto {
   @IsUUID()
   product_id?: string | null;
 
-  @IsIn(CLAIM_DOCUMENT_STAGES as unknown as string[])
+  @IsIn(CLAIM_DOCUMENT_STAGES)
   claim_stage: string;
 
   @IsString()

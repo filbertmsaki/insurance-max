@@ -6,7 +6,11 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { CLAIM_QUEUE_STATUSES } from '../claim-lifecycle';
 import { InsuranceClaim } from '../entities/claim.entity';
-import { ClaimQueue, ClaimRegulatoryStatus, ClaimStatus } from '../enums/claim.enums';
+import {
+  ClaimQueue,
+  ClaimRegulatoryStatus,
+  ClaimStatus,
+} from '../enums/claim.enums';
 
 export interface ClaimsDashboardQuery {
   from?: string;
@@ -15,7 +19,12 @@ export interface ClaimsDashboardQuery {
   product_id?: string;
 }
 
-const CLOSED = [ClaimStatus.SETTLED, ClaimStatus.REJECTED, ClaimStatus.CLOSED, ClaimStatus.CANCELLED];
+const CLOSED = [
+  ClaimStatus.SETTLED,
+  ClaimStatus.REJECTED,
+  ClaimStatus.CLOSED,
+  ClaimStatus.CANCELLED,
+];
 
 /**
  * Claims dashboard figures. Every aggregate starts from the same scoped
@@ -55,41 +64,83 @@ export class ClaimsDashboardService {
       statusRows
         .filter((row) => statuses.includes(row.status))
         .reduce((total, row) => total + Number(row.count), 0);
-    const sum = (key: 'reserve' | 'approved' | 'paid' | 'outstanding', open = false) =>
+    const sum = (
+      key: 'reserve' | 'approved' | 'paid' | 'outstanding',
+      open = false,
+    ) =>
       statusRows
         .filter((row) => !open || !CLOSED.includes(row.status))
         .reduce((total, row) => total + Number(row[key] ?? 0), 0)
         .toFixed(2);
 
     const recentSince = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const [newlyReported, pendingApprovals, tira, byProduct, byClass, byBranch, byMonth] =
-      await Promise.all([
-        this.scoped(user, query)
-          .andWhere('claim.created_at >= :recentSince', { recentSince })
-          .getCount(),
-        this.scoped(user, query)
-          .innerJoin('claim_approvals', 'approval', 'approval.claim_id = claim.id')
-          .andWhere('approval.status = :pending', { pending: 'PENDING' })
-          .select('COUNT(DISTINCT approval.subject_id)::int', 'count')
-          .getRawOne<{ count: number }>(),
-        this.scoped(user, query)
-          .innerJoin('claim_regulatory_operations', 'operation', 'operation.claim_id = claim.id')
-          .select('operation.status', 'status')
-          .addSelect('COUNT(*)::int', 'count')
-          .groupBy('operation.status')
-          .getRawMany<{ status: ClaimRegulatoryStatus; count: number }>(),
-        this.grouped(user, query, "COALESCE(product.product_name, 'Unknown')", 'insurance_products', 'product', 'product.id = policy.product_id'),
-        this.grouped(user, query, "COALESCE(category.name, 'Unknown')", 'insurance_categories', 'category', 'category.id = policy.category_id'),
-        this.grouped(user, query, "COALESCE(branch.name, 'Unassigned')", 'branches', 'branch', 'branch.id = claim.branch_id'),
-        this.scoped(user, query)
-          .select("TO_CHAR(DATE_TRUNC('month', claim.created_at), 'YYYY-MM')", 'month')
-          .addSelect('COUNT(*)::int', 'claims')
-          .addSelect('COALESCE(SUM(claim.paid_amount), 0)', 'paid')
-          .andWhere("claim.created_at >= NOW() - INTERVAL '12 months'")
-          .groupBy('1')
-          .orderBy('1', 'ASC')
-          .getRawMany(),
-      ]);
+    const [
+      newlyReported,
+      pendingApprovals,
+      tira,
+      byProduct,
+      byClass,
+      byBranch,
+      byMonth,
+    ] = await Promise.all([
+      this.scoped(user, query)
+        .andWhere('claim.created_at >= :recentSince', { recentSince })
+        .getCount(),
+      this.scoped(user, query)
+        .innerJoin(
+          'claim_approvals',
+          'approval',
+          'approval.claim_id = claim.id',
+        )
+        .andWhere('approval.status = :pending', { pending: 'PENDING' })
+        .select('COUNT(DISTINCT approval.subject_id)::int', 'count')
+        .getRawOne<{ count: number }>(),
+      this.scoped(user, query)
+        .innerJoin(
+          'claim_regulatory_operations',
+          'operation',
+          'operation.claim_id = claim.id',
+        )
+        .select('operation.status', 'status')
+        .addSelect('COUNT(*)::int', 'count')
+        .groupBy('operation.status')
+        .getRawMany<{ status: ClaimRegulatoryStatus; count: number }>(),
+      this.grouped(
+        user,
+        query,
+        "COALESCE(product.product_name, 'Unknown')",
+        'insurance_products',
+        'product',
+        'product.id = policy.product_id',
+      ),
+      this.grouped(
+        user,
+        query,
+        "COALESCE(category.name, 'Unknown')",
+        'insurance_categories',
+        'category',
+        'category.id = policy.category_id',
+      ),
+      this.grouped(
+        user,
+        query,
+        "COALESCE(branch.name, 'Unassigned')",
+        'branches',
+        'branch',
+        'branch.id = claim.branch_id',
+      ),
+      this.scoped(user, query)
+        .select(
+          "TO_CHAR(DATE_TRUNC('month', claim.created_at), 'YYYY-MM')",
+          'month',
+        )
+        .addSelect('COUNT(*)::int', 'claims')
+        .addSelect('COALESCE(SUM(claim.paid_amount), 0)', 'paid')
+        .andWhere("claim.created_at >= NOW() - INTERVAL '12 months'")
+        .groupBy('1')
+        .orderBy('1', 'ASC')
+        .getRawMany(),
+    ]);
 
     const tiraCount = (statuses: ClaimRegulatoryStatus[]) =>
       tira
@@ -99,7 +150,11 @@ export class ClaimsDashboardService {
     return {
       counts: {
         total: count(Object.values(ClaimStatus)),
-        open: count(Object.values(ClaimStatus).filter((status) => !CLOSED.includes(status))),
+        open: count(
+          Object.values(ClaimStatus).filter(
+            (status) => !CLOSED.includes(status),
+          ),
+        ),
         newly_reported: newlyReported,
         notification: count(CLAIM_QUEUE_STATUSES[ClaimQueue.NOTIFICATION]),
         pending_intimation: count(CLAIM_QUEUE_STATUSES[ClaimQueue.INTIMATION]),
@@ -111,10 +166,16 @@ export class ClaimsDashboardService {
           ClaimStatus.REASSESSMENT_REQUIRED,
           ClaimStatus.REOPENED,
         ]),
-        pending_approval: count([ClaimStatus.PENDING_APPROVAL, ClaimStatus.REJECTION_PENDING]),
+        pending_approval: count([
+          ClaimStatus.PENDING_APPROVAL,
+          ClaimStatus.REJECTION_PENDING,
+        ]),
         pending_approval_items: Number(pendingApprovals?.count ?? 0),
         pending_discharge: count(CLAIM_QUEUE_STATUSES[ClaimQueue.DISCHARGE]),
-        pending_payment: count([ClaimStatus.DISCHARGE_ACCEPTED, ClaimStatus.PAYMENT_PENDING]),
+        pending_payment: count([
+          ClaimStatus.DISCHARGE_ACCEPTED,
+          ClaimStatus.PAYMENT_PENDING,
+        ]),
         partially_paid: count([ClaimStatus.PARTIALLY_PAID]),
         paid: count([ClaimStatus.PAID]),
         settled: count([ClaimStatus.SETTLED]),
@@ -127,7 +188,10 @@ export class ClaimsDashboardService {
         paid: sum('paid'),
         outstanding: sum('outstanding', true),
       },
-      by_status: statusRows.map((row) => ({ status: row.status, count: Number(row.count) })),
+      by_status: statusRows.map((row) => ({
+        status: row.status,
+        count: Number(row.count),
+      })),
       by_product: byProduct,
       by_class: byClass,
       by_branch: byBranch,
@@ -140,13 +204,21 @@ export class ClaimsDashboardService {
           ClaimRegulatoryStatus.ACKNOWLEDGED,
           ClaimRegulatoryStatus.RETRYABLE,
         ]),
-        failed: tiraCount([ClaimRegulatoryStatus.FAILED, ClaimRegulatoryStatus.REJECTED]),
-        reconciliation_required: tiraCount([ClaimRegulatoryStatus.RECONCILIATION_REQUIRED]),
+        failed: tiraCount([
+          ClaimRegulatoryStatus.FAILED,
+          ClaimRegulatoryStatus.REJECTED,
+        ]),
+        reconciliation_required: tiraCount([
+          ClaimRegulatoryStatus.RECONCILIATION_REQUIRED,
+        ]),
       },
     };
   }
 
-  private scoped(user: AuthenticatedUser, query: ClaimsDashboardQuery): SelectQueryBuilder<InsuranceClaim> {
+  private scoped(
+    user: AuthenticatedUser,
+    query: ClaimsDashboardQuery,
+  ): SelectQueryBuilder<InsuranceClaim> {
     const scope = this.scopeService.resolve(user);
     const queryBuilder = this.claimRepository
       .createQueryBuilder('claim')
@@ -157,19 +229,28 @@ export class ClaimsDashboardService {
 
     if (query.branch_id) {
       this.scopeService.assertRequestedBranchAllowed(scope, query.branch_id);
-      queryBuilder.andWhere('claim.branch_id = :branchId', { branchId: query.branch_id });
+      queryBuilder.andWhere('claim.branch_id = :branchId', {
+        branchId: query.branch_id,
+      });
     }
 
     if (query.product_id) {
-      queryBuilder.andWhere('policy.product_id = :productId', { productId: query.product_id });
+      queryBuilder.andWhere('policy.product_id = :productId', {
+        productId: query.product_id,
+      });
     }
 
     if (query.from) {
-      queryBuilder.andWhere('claim.created_at >= :from::date', { from: query.from });
+      queryBuilder.andWhere('claim.created_at >= :from::date', {
+        from: query.from,
+      });
     }
 
     if (query.to) {
-      queryBuilder.andWhere("claim.created_at < (:to::date + INTERVAL '1 day')", { to: query.to });
+      queryBuilder.andWhere(
+        "claim.created_at < (:to::date + INTERVAL '1 day')",
+        { to: query.to },
+      );
     }
 
     return queryBuilder;

@@ -111,7 +111,10 @@ export class ClaimsController {
 
   @Get('policy-lookup')
   @Permissions(ClaimsPermissions.CREATE)
-  policyLookup(@CurrentUser() user: AuthenticatedUser, @Query() query: PolicyLookupQueryDto) {
+  policyLookup(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: PolicyLookupQueryDto,
+  ) {
     return this.claimsService.policyLookup(user, query);
   }
 
@@ -126,13 +129,22 @@ export class ClaimsController {
 
   @Get('dashboard/summary')
   @AnyPermissions(ClaimsPermissions.DASHBOARD, ClaimsPermissions.READ)
-  dashboard(@CurrentUser() user: AuthenticatedUser, @Query() query: ClaimsDashboardQueryDto) {
+  dashboard(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ClaimsDashboardQueryDto,
+  ) {
     return this.dashboardService.summary(user, query);
   }
 
   @Get('documents')
-  @AnyPermissions(ClaimsPermissions.DOCUMENT_UPLOAD, ClaimsPermissions.DOCUMENT_VERIFY)
-  listDocuments(@CurrentUser() user: AuthenticatedUser, @Query() query: ClaimDocumentsQueryDto) {
+  @AnyPermissions(
+    ClaimsPermissions.DOCUMENT_UPLOAD,
+    ClaimsPermissions.DOCUMENT_VERIFY,
+  )
+  listDocuments(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ClaimDocumentsQueryDto,
+  ) {
     return this.documentService.listForCompany(user, query);
   }
 
@@ -144,7 +156,10 @@ export class ClaimsController {
 
   @Put('configuration/approval-limits')
   @Permissions(ClaimsPermissions.CONFIGURATION_MANAGE)
-  saveApprovalLimit(@CurrentUser() user: AuthenticatedUser, @Body() dto: SaveClaimApprovalLimitDto) {
+  saveApprovalLimit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SaveClaimApprovalLimitDto,
+  ) {
     return this.approvalService.saveLimit(user, dto);
   }
 
@@ -158,7 +173,10 @@ export class ClaimsController {
   }
 
   @Get('configuration/document-requirements')
-  @AnyPermissions(ClaimsPermissions.CONFIGURATION_MANAGE, ClaimsPermissions.READ)
+  @AnyPermissions(
+    ClaimsPermissions.CONFIGURATION_MANAGE,
+    ClaimsPermissions.READ,
+  )
   listDocumentRequirements(@CurrentUser() user: AuthenticatedUser) {
     return this.documentService.listRequirements(user.companyId!);
   }
@@ -191,13 +209,19 @@ export class ClaimsController {
 
   @Get()
   @Permissions(ClaimsPermissions.READ)
-  findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: FindClaimsQueryDto) {
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindClaimsQueryDto,
+  ) {
     return this.claimsService.findAll(user, query);
   }
 
   @Get(':id')
   @Permissions(ClaimsPermissions.READ)
-  findOne(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.claimsService.findOne(user, id);
   }
 
@@ -213,25 +237,37 @@ export class ClaimsController {
 
   @Delete(':id')
   @Permissions(ClaimsPermissions.DELETE_DRAFT)
-  removeDraft(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  removeDraft(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.claimsService.removeDraft(user, id);
   }
 
   @Get(':id/timeline')
   @Permissions(ClaimsPermissions.READ)
-  timeline(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  timeline(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.claimsService.timeline(user, id);
   }
 
   @Get(':id/tira-transactions')
   @Permissions(ClaimsPermissions.READ)
-  tiraTransactions(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  tiraTransactions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.claimsService.tiraTransactions(user, id);
   }
 
   @Get(':id/approvals')
   @Permissions(ClaimsPermissions.READ)
-  async approvals(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async approvals(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     const claim = await this.claimsService.findOne(user, id);
     return this.approvalService.listForClaim(user.companyId!, claim.id);
   }
@@ -301,7 +337,10 @@ export class ClaimsController {
 
   @Get(':id/documents')
   @Permissions(ClaimsPermissions.READ)
-  claimDocuments(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  claimDocuments(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.documentService.listForClaim(user, id);
   }
 
@@ -348,7 +387,10 @@ export class ClaimsController {
   // ----------------------------------------------------------- notification
 
   @Post(':id/notification/submit')
-  @AnyPermissions(ClaimsPermissions.NOTIFICATION_SUBMIT, ClaimsPermissions.TIRAMIS_SUBMIT)
+  @AnyPermissions(
+    ClaimsPermissions.NOTIFICATION_SUBMIT,
+    ClaimsPermissions.TIRAMIS_SUBMIT,
+  )
   submitNotification(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -358,8 +400,14 @@ export class ClaimsController {
   }
 
   @Post(':id/notification/retry')
-  @AnyPermissions(ClaimsPermissions.TIRAMIS_RETRY, ClaimsPermissions.NOTIFICATION_SUBMIT)
-  retryNotification(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  @AnyPermissions(
+    ClaimsPermissions.TIRAMIS_RETRY,
+    ClaimsPermissions.NOTIFICATION_SUBMIT,
+  )
+  retryNotification(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.claimsService.submitNotification(user, id, { retry: true });
   }
 
@@ -386,7 +434,10 @@ export class ClaimsController {
   }
 
   @Post('intimations/:intimationId/submit')
-  @AnyPermissions(ClaimsPermissions.INTIMATION_SUBMIT, ClaimsPermissions.TIRAMIS_SUBMIT)
+  @AnyPermissions(
+    ClaimsPermissions.INTIMATION_SUBMIT,
+    ClaimsPermissions.TIRAMIS_SUBMIT,
+  )
   submitIntimation(
     @CurrentUser() user: AuthenticatedUser,
     @Param('intimationId', ParseUUIDPipe) intimationId: string,
@@ -458,7 +509,10 @@ export class ClaimsController {
   }
 
   @Patch('assessments/:assessmentId')
-  @AnyPermissions(ClaimsPermissions.ASSESSMENT_UPDATE, ClaimsPermissions.ASSESSMENT_CREATE)
+  @AnyPermissions(
+    ClaimsPermissions.ASSESSMENT_UPDATE,
+    ClaimsPermissions.ASSESSMENT_CREATE,
+  )
   updateAssessment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
@@ -468,7 +522,10 @@ export class ClaimsController {
   }
 
   @Post('assessments/:assessmentId/submit')
-  @AnyPermissions(ClaimsPermissions.ASSESSMENT_SUBMIT, ClaimsPermissions.ASSESSMENT_CREATE)
+  @AnyPermissions(
+    ClaimsPermissions.ASSESSMENT_SUBMIT,
+    ClaimsPermissions.ASSESSMENT_CREATE,
+  )
   submitAssessment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
@@ -477,33 +534,56 @@ export class ClaimsController {
   }
 
   @Post('assessments/:assessmentId/approve')
-  @AnyPermissions(ClaimsPermissions.APPROVE, ClaimsPermissions.ASSESSMENT_APPROVE)
+  @AnyPermissions(
+    ClaimsPermissions.APPROVE,
+    ClaimsPermissions.ASSESSMENT_APPROVE,
+  )
   approveAssessment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
     @Body() dto: ApprovalActionDto,
   ) {
-    return this.assessmentService.approveAssessment(user, assessmentId, dto.comments);
+    return this.assessmentService.approveAssessment(
+      user,
+      assessmentId,
+      dto.comments,
+    );
   }
 
   @Post('assessments/:assessmentId/decline')
-  @AnyPermissions(ClaimsPermissions.APPROVE, ClaimsPermissions.ASSESSMENT_APPROVE)
+  @AnyPermissions(
+    ClaimsPermissions.APPROVE,
+    ClaimsPermissions.ASSESSMENT_APPROVE,
+  )
   declineAssessment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
     @Body() dto: ApprovalDeclineDto,
   ) {
-    return this.assessmentService.declineAssessment(user, assessmentId, dto.comments, dto.decision);
+    return this.assessmentService.declineAssessment(
+      user,
+      assessmentId,
+      dto.comments,
+      dto.decision,
+    );
   }
 
   @Post('assessments/:assessmentId/tiramis')
-  @AnyPermissions(ClaimsPermissions.ASSESSMENT_SUBMIT, ClaimsPermissions.TIRAMIS_RETRY, ClaimsPermissions.TIRAMIS_SUBMIT)
+  @AnyPermissions(
+    ClaimsPermissions.ASSESSMENT_SUBMIT,
+    ClaimsPermissions.TIRAMIS_RETRY,
+    ClaimsPermissions.TIRAMIS_SUBMIT,
+  )
   submitAssessmentToTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('assessmentId', ParseUUIDPipe) assessmentId: string,
     @Body() dto: TiramisSubmitOptionsDto,
   ) {
-    return this.assessmentService.submitAssessmentToTiramis(user, assessmentId, dto);
+    return this.assessmentService.submitAssessmentToTiramis(
+      user,
+      assessmentId,
+      dto,
+    );
   }
 
   // ----------------------------------------------------------- liability decisions (optional)
@@ -520,7 +600,10 @@ export class ClaimsController {
 
   @Get(':id/decisions')
   @Permissions(ClaimsPermissions.READ)
-  async listDecisions(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async listDecisions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     const claim = await this.claimsService.findOne(user, id);
     return this.claimDecisionService.findAll(user.companyId!, claim.id);
   }
@@ -566,7 +649,10 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:voucherId/submit')
-  @AnyPermissions(ClaimsPermissions.DISCHARGE_SUBMIT, ClaimsPermissions.DISCHARGE_CREATE)
+  @AnyPermissions(
+    ClaimsPermissions.DISCHARGE_SUBMIT,
+    ClaimsPermissions.DISCHARGE_CREATE,
+  )
   submitDischargeVoucher(
     @CurrentUser() user: AuthenticatedUser,
     @Param('voucherId', ParseUUIDPipe) voucherId: string,
@@ -575,7 +661,10 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:voucherId/approve')
-  @AnyPermissions(ClaimsPermissions.DISCHARGE_APPROVE, ClaimsPermissions.APPROVE)
+  @AnyPermissions(
+    ClaimsPermissions.DISCHARGE_APPROVE,
+    ClaimsPermissions.APPROVE,
+  )
   approveDischargeVoucher(
     @CurrentUser() user: AuthenticatedUser,
     @Param('voucherId', ParseUUIDPipe) voucherId: string,
@@ -585,17 +674,28 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:voucherId/decline')
-  @AnyPermissions(ClaimsPermissions.DISCHARGE_APPROVE, ClaimsPermissions.APPROVE)
+  @AnyPermissions(
+    ClaimsPermissions.DISCHARGE_APPROVE,
+    ClaimsPermissions.APPROVE,
+  )
   declineDischargeVoucher(
     @CurrentUser() user: AuthenticatedUser,
     @Param('voucherId', ParseUUIDPipe) voucherId: string,
     @Body() dto: ApprovalDeclineDto,
   ) {
-    return this.dischargeService.decline(user, voucherId, dto.comments, dto.decision);
+    return this.dischargeService.decline(
+      user,
+      voucherId,
+      dto.comments,
+      dto.decision,
+    );
   }
 
   @Post('discharge-vouchers/:voucherId/respond')
-  @AnyPermissions(ClaimsPermissions.DISCHARGE_SUBMIT, ClaimsPermissions.DISCHARGE_CREATE)
+  @AnyPermissions(
+    ClaimsPermissions.DISCHARGE_SUBMIT,
+    ClaimsPermissions.DISCHARGE_CREATE,
+  )
   respondToDischarge(
     @CurrentUser() user: AuthenticatedUser,
     @Param('voucherId', ParseUUIDPipe) voucherId: string,
@@ -605,7 +705,10 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:voucherId/adjust')
-  @AnyPermissions(ClaimsPermissions.DISCHARGE_SUBMIT, ClaimsPermissions.DISCHARGE_CREATE)
+  @AnyPermissions(
+    ClaimsPermissions.DISCHARGE_SUBMIT,
+    ClaimsPermissions.DISCHARGE_CREATE,
+  )
   adjustDischarge(
     @CurrentUser() user: AuthenticatedUser,
     @Param('voucherId', ParseUUIDPipe) voucherId: string,
@@ -615,7 +718,11 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:voucherId/tiramis')
-  @AnyPermissions(ClaimsPermissions.DISCHARGE_SUBMIT, ClaimsPermissions.TIRAMIS_RETRY, ClaimsPermissions.TIRAMIS_SUBMIT)
+  @AnyPermissions(
+    ClaimsPermissions.DISCHARGE_SUBMIT,
+    ClaimsPermissions.TIRAMIS_RETRY,
+    ClaimsPermissions.TIRAMIS_SUBMIT,
+  )
   submitDischargeToTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('voucherId', ParseUUIDPipe) voucherId: string,
@@ -625,7 +732,10 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:voucherId/generate-document')
-  @AnyPermissions(ClaimsPermissions.DISCHARGE_CREATE, ClaimsPermissions.DISCHARGE_SUBMIT)
+  @AnyPermissions(
+    ClaimsPermissions.DISCHARGE_CREATE,
+    ClaimsPermissions.DISCHARGE_SUBMIT,
+  )
   generateDischargeDocument(
     @CurrentUser() user: AuthenticatedUser,
     @Param('voucherId', ParseUUIDPipe) voucherId: string,
@@ -671,7 +781,12 @@ export class ClaimsController {
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
     @Body() dto: ApprovalDeclineDto,
   ) {
-    return this.paymentService.decline(user, paymentId, dto.comments, dto.decision);
+    return this.paymentService.decline(
+      user,
+      paymentId,
+      dto.comments,
+      dto.decision,
+    );
   }
 
   @Post('payments/:paymentId/cancel')
@@ -685,7 +800,11 @@ export class ClaimsController {
   }
 
   @Post('payments/:paymentId/tiramis')
-  @AnyPermissions(ClaimsPermissions.PAYMENT_SUBMIT, ClaimsPermissions.TIRAMIS_RETRY, ClaimsPermissions.TIRAMIS_SUBMIT)
+  @AnyPermissions(
+    ClaimsPermissions.PAYMENT_SUBMIT,
+    ClaimsPermissions.TIRAMIS_RETRY,
+    ClaimsPermissions.TIRAMIS_SUBMIT,
+  )
   submitPaymentToTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
@@ -702,7 +821,11 @@ export class ClaimsController {
     @Body() dto: RequestDisbursementDto,
   ) {
     await this.paymentService.assertPaymentAccess(user, paymentId);
-    return this.claimDisbursementService.requestDisbursement(user, paymentId, dto.idempotency_key);
+    return this.claimDisbursementService.requestDisbursement(
+      user,
+      paymentId,
+      dto.idempotency_key,
+    );
   }
 
   @Post('disbursements/:disbursementId/confirm')
@@ -713,13 +836,15 @@ export class ClaimsController {
     @Body() dto: ConfirmDisbursementDto,
   ) {
     await this.paymentService.assertDisbursementAccess(user, disbursementId);
-    const disbursement = await this.claimDisbursementService.confirmDisbursement(
-      user,
-      disbursementId,
-      dto.payment_method,
-      dto.provider_reference ?? null,
-    );
-    const paymentId = await this.paymentService.paymentIdForDisbursement(disbursementId);
+    const disbursement =
+      await this.claimDisbursementService.confirmDisbursement(
+        user,
+        disbursementId,
+        dto.payment_method,
+        dto.provider_reference ?? null,
+      );
+    const paymentId =
+      await this.paymentService.paymentIdForDisbursement(disbursementId);
 
     if (paymentId) {
       // A confirmed payment is reported at once; failures stay retryable.
@@ -739,7 +864,11 @@ export class ClaimsController {
     @Body() dto: FailDisbursementDto,
   ) {
     await this.paymentService.assertDisbursementAccess(user, disbursementId);
-    return this.claimDisbursementService.failDisbursement(user, disbursementId, dto.reason);
+    return this.claimDisbursementService.failDisbursement(
+      user,
+      disbursementId,
+      dto.reason,
+    );
   }
 
   @Post('disbursements/:disbursementId/reverse')
@@ -750,7 +879,11 @@ export class ClaimsController {
     @Body() dto: FailDisbursementDto,
   ) {
     await this.paymentService.assertDisbursementAccess(user, disbursementId);
-    return this.claimDisbursementService.reverseDisbursement(user, disbursementId, dto.reason);
+    return this.claimDisbursementService.reverseDisbursement(
+      user,
+      disbursementId,
+      dto.reason,
+    );
   }
 
   // ----------------------------------------------------------- rejection
@@ -766,7 +899,10 @@ export class ClaimsController {
   }
 
   @Post('rejections/:rejectionId/approve')
-  @AnyPermissions(ClaimsPermissions.REJECTION_APPROVE, ClaimsPermissions.APPROVE)
+  @AnyPermissions(
+    ClaimsPermissions.REJECTION_APPROVE,
+    ClaimsPermissions.APPROVE,
+  )
   approveRejection(
     @CurrentUser() user: AuthenticatedUser,
     @Param('rejectionId', ParseUUIDPipe) rejectionId: string,
@@ -776,7 +912,10 @@ export class ClaimsController {
   }
 
   @Post('rejections/:rejectionId/decline')
-  @AnyPermissions(ClaimsPermissions.REJECTION_APPROVE, ClaimsPermissions.APPROVE)
+  @AnyPermissions(
+    ClaimsPermissions.REJECTION_APPROVE,
+    ClaimsPermissions.APPROVE,
+  )
   declineRejection(
     @CurrentUser() user: AuthenticatedUser,
     @Param('rejectionId', ParseUUIDPipe) rejectionId: string,
@@ -786,7 +925,11 @@ export class ClaimsController {
   }
 
   @Post('rejections/:rejectionId/tiramis')
-  @AnyPermissions(ClaimsPermissions.REJECTION_SUBMIT, ClaimsPermissions.TIRAMIS_RETRY, ClaimsPermissions.TIRAMIS_SUBMIT)
+  @AnyPermissions(
+    ClaimsPermissions.REJECTION_SUBMIT,
+    ClaimsPermissions.TIRAMIS_RETRY,
+    ClaimsPermissions.TIRAMIS_SUBMIT,
+  )
   submitRejectionToTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('rejectionId', ParseUUIDPipe) rejectionId: string,
@@ -796,7 +939,10 @@ export class ClaimsController {
   }
 
   @Post('rejections/:rejectionId/generate-letter')
-  @AnyPermissions(ClaimsPermissions.REJECTION_CREATE, ClaimsPermissions.REJECTION_APPROVE)
+  @AnyPermissions(
+    ClaimsPermissions.REJECTION_CREATE,
+    ClaimsPermissions.REJECTION_APPROVE,
+  )
   generateRejectionLetter(
     @CurrentUser() user: AuthenticatedUser,
     @Param('rejectionId', ParseUUIDPipe) rejectionId: string,
@@ -808,7 +954,10 @@ export class ClaimsController {
 
   @Get(':id/recoveries')
   @Permissions(ClaimsPermissions.READ)
-  async listRecoveries(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async listRecoveries(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     const claim = await this.claimsService.findOne(user, id);
     return this.claimRecoveryService.findAll(user.companyId!, claim.id);
   }
@@ -840,7 +989,11 @@ export class ClaimsController {
     @Param('recoveryId', ParseUUIDPipe) recoveryId: string,
     @Body() dto: RecordRecoveryReceiptDto,
   ) {
-    return this.claimRecoveryService.recordReceipt(user, recoveryId, dto.received_amount);
+    return this.claimRecoveryService.recordReceipt(
+      user,
+      recoveryId,
+      dto.received_amount,
+    );
   }
 
   @Post('recoveries/:recoveryId/write-off')

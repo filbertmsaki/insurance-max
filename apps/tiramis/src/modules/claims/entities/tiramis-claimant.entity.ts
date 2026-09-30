@@ -59,7 +59,12 @@ export class TiramisClaimantEntity extends BaseEntity {
   @JoinColumn({ name: 'claim_rejection_id' })
   claimRejection?: TiramisClaimRejectionEntity | null;
 
-  @Column({ name: 'claimant_name', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'claimant_name',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   claimantName?: string | null;
 
   @Column({ name: 'claimant_birth_date', type: 'date', nullable: true })

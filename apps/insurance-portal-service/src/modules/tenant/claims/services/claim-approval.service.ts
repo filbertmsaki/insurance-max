@@ -15,10 +15,7 @@ import { Policy } from '../../policies/entities/policy.entity';
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimApproval } from '../entities/claim-approval.entity';
 import { ClaimApprovalLimit } from '../entities/claim-approval-limit.entity';
-import {
-  ClaimApprovalStatus,
-  ClaimApprovalType,
-} from '../enums/claim.enums';
+import { ClaimApprovalStatus, ClaimApprovalType } from '../enums/claim.enums';
 import { ClaimStateMachineService } from './claim-state-machine.service';
 
 export interface ApprovalSubject {
@@ -142,7 +139,8 @@ export class ClaimApprovalService {
       pending.submitted_by === user.id ||
       round.some(
         (row) =>
-          row.status === ClaimApprovalStatus.APPROVED && row.acted_by === user.id,
+          row.status === ClaimApprovalStatus.APPROVED &&
+          row.acted_by === user.id,
       );
 
     if (selfApproval && !isAdmin) {
@@ -249,7 +247,9 @@ export class ClaimApprovalService {
           ? 'APPROVAL_REJECTED'
           : 'APPROVAL_RETURNED',
       summary: `${this.humanize(subject.approvalType)} ${
-        decision === ClaimApprovalStatus.REJECTED ? 'declined' : 'returned for rework'
+        decision === ClaimApprovalStatus.REJECTED
+          ? 'declined'
+          : 'returned for rework'
       } at level ${pending.level}: ${pending.comments}`,
       actorId: user.id,
       subjectType: subject.subjectType,
@@ -343,10 +343,12 @@ export class ClaimApprovalService {
     await this.auditService.log({
       userId: user.id,
       companyId,
-      action: values.id ? 'claim.approval_limit.updated' : 'claim.approval_limit.created',
+      action: values.id
+        ? 'claim.approval_limit.updated'
+        : 'claim.approval_limit.created',
       resource: 'claim_approval_limit',
       resourceId: saved.id,
-      afterState: { ...saved } as Record<string, unknown>,
+      afterState: { ...saved },
     });
 
     return saved;
@@ -367,7 +369,10 @@ export class ClaimApprovalService {
     return this.limitRepository.save(limit);
   }
 
-  private async currentPending(manager: EntityManager, subject: ApprovalSubject) {
+  private async currentPending(
+    manager: EntityManager,
+    subject: ApprovalSubject,
+  ) {
     const pending = await manager
       .getRepository(ClaimApproval)
       .createQueryBuilder('approval')
@@ -481,7 +486,9 @@ export class ClaimApprovalService {
   /** Limits are configured in their own currency; convert claim amounts. */
   private toBase(subject: ApprovalSubject): string {
     const rate = Number(subject.claim.exchange_rate || 1);
-    const amount = Number(subject.amount || 0) * (Number.isFinite(rate) && rate > 0 ? rate : 1);
+    const amount =
+      Number(subject.amount || 0) *
+      (Number.isFinite(rate) && rate > 0 ? rate : 1);
 
     return amount.toFixed(2);
   }
@@ -509,20 +516,27 @@ export class ClaimApprovalService {
   }
 
   private async authorityName(manager: EntityManager, user: AuthenticatedUser) {
-    const rows: Array<{ first_name: string; last_name: string; officer_title: string | null }> =
-      await manager.query(
-        `SELECT first_name, last_name, officer_title FROM users WHERE id = $1`,
-        [user.id],
-      );
+    const rows: Array<{
+      first_name: string;
+      last_name: string;
+      officer_title: string | null;
+    }> = await manager.query(
+      `SELECT first_name, last_name, officer_title FROM users WHERE id = $1`,
+      [user.id],
+    );
     const row = rows[0];
-    const name = row ? `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() : '';
+    const name = row
+      ? `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim()
+      : '';
     const title = row?.officer_title?.trim();
 
-    return [title, name || user.email].filter(Boolean).join(' - ').slice(0, 180);
+    return [title, name || user.email]
+      .filter(Boolean)
+      .join(' - ')
+      .slice(0, 180);
   }
 
   private humanize(type: ClaimApprovalType) {
     return type.charAt(0) + type.slice(1).toLowerCase().replace(/_/g, ' ');
   }
 }
-

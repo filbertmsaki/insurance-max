@@ -19,24 +19,35 @@ function harness(operation: any, claim: any) {
     getRepository: jest.fn((entity: any) => {
       switch (entity.name) {
         case 'ClaimRegulatoryOperation':
-          return { createQueryBuilder: () => builder(operation), save: jest.fn(async (v) => v) };
+          return {
+            createQueryBuilder: () => builder(operation),
+            save: jest.fn(async (v) => v),
+          };
         case 'InsuranceClaim':
           return {
             createQueryBuilder: () => builder(claim),
-            update: jest.fn(async (_where, values) => claimUpdates.push(values)),
+            update: jest.fn(async (_where, values) =>
+              claimUpdates.push(values),
+            ),
           };
         default:
-          return { update: jest.fn(async (_where, values) => intimationUpdates.push(values)) };
+          return {
+            update: jest.fn(async (_where, values) =>
+              intimationUpdates.push(values),
+            ),
+          };
       }
     }),
   };
   const dataSource = { transaction: jest.fn(async (fn: any) => fn(manager)) };
   const stateMachine = {
-    transitionIfIn: jest.fn(async (_m, target, from: ClaimStatus[], to: ClaimStatus) => {
-      if (!from.includes(target.status)) return false;
-      target.status = to;
-      return true;
-    }),
+    transitionIfIn: jest.fn(
+      async (_m, target, from: ClaimStatus[], to: ClaimStatus) => {
+        if (!from.includes(target.status)) return false;
+        target.status = to;
+        return true;
+      },
+    ),
     recordEvent: jest.fn(),
   };
   const settlement = { settleIfComplete: jest.fn() };
@@ -48,7 +59,14 @@ function harness(operation: any, claim: any) {
     notifications as any,
   );
 
-  return { service, stateMachine, claimUpdates, intimationUpdates, settlement, notifications };
+  return {
+    service,
+    stateMachine,
+    claimUpdates,
+    intimationUpdates,
+    settlement,
+    notifications,
+  };
 }
 
 function tracking(overrides: Record<string, unknown> = {}) {
@@ -103,7 +121,10 @@ describe('ClaimTiramisOutcomeService', () => {
   });
 
   it('ignores a duplicate callback once the operation is accepted', async () => {
-    const claim = { id: 'claim-1', status: ClaimStatus.NOTIFICATION_ACCEPTED } as any;
+    const claim = {
+      id: 'claim-1',
+      status: ClaimStatus.NOTIFICATION_ACCEPTED,
+    } as any;
     const { service, stateMachine, claimUpdates } = harness(
       operation({ status: ClaimRegulatoryStatus.ACCEPTED }),
       claim,
@@ -133,7 +154,11 @@ describe('ClaimTiramisOutcomeService', () => {
   });
 
   it('moves a rejected notification to NOTIFICATION_FAILED', async () => {
-    const claim = { id: 'claim-1', status: ClaimStatus.NOTIFICATION_SUBMITTED, assigned_user_id: 'u1' } as any;
+    const claim = {
+      id: 'claim-1',
+      status: ClaimStatus.NOTIFICATION_SUBMITTED,
+      assigned_user_id: 'u1',
+    } as any;
     const { service, notifications } = harness(operation(), claim);
 
     await service.applyFromTracking(
@@ -149,7 +174,10 @@ describe('ClaimTiramisOutcomeService', () => {
   });
 
   it('marks an accepted intimation and moves the claim to INTIMATED', async () => {
-    const claim = { id: 'claim-1', status: ClaimStatus.INTIMATION_SUBMITTED } as any;
+    const claim = {
+      id: 'claim-1',
+      status: ClaimStatus.INTIMATION_SUBMITTED,
+    } as any;
     const { service, intimationUpdates } = harness(
       operation({
         operation_type: ClaimRegulatoryOperationType.INTIMATION,
@@ -159,7 +187,10 @@ describe('ClaimTiramisOutcomeService', () => {
     );
 
     await service.applyFromTracking(
-      tracking({ requestType: TiramisRequestType.CLAIM_INTIMATION, sourceRecordId: 'int-1' }),
+      tracking({
+        requestType: TiramisRequestType.CLAIM_INTIMATION,
+        sourceRecordId: 'int-1',
+      }),
     );
 
     expect(intimationUpdates).toContainEqual({ status: 'ACCEPTED' });
@@ -177,7 +208,10 @@ describe('ClaimTiramisOutcomeService', () => {
     );
 
     await service.applyFromTracking(
-      tracking({ requestType: TiramisRequestType.CLAIM_PAYMENT, sourceRecordId: 'pay-1' }),
+      tracking({
+        requestType: TiramisRequestType.CLAIM_PAYMENT,
+        sourceRecordId: 'pay-1',
+      }),
     );
 
     expect(settlement.settleIfComplete).toHaveBeenCalledWith('claim-1');
@@ -201,7 +235,10 @@ describe('ClaimTiramisOutcomeService', () => {
     const { service } = harness(operation(), {});
 
     expect(
-      service.isClaimTracking({ sourceModule: 'quotations', requestType: TiramisRequestType.MOTOR } as any),
+      service.isClaimTracking({
+        sourceModule: 'quotations',
+        requestType: TiramisRequestType.MOTOR,
+      } as any),
     ).toBe(false);
   });
 });

@@ -193,7 +193,8 @@ export class ClaimDisbursementService {
         claim.id,
       );
       const fullyPaid =
-        MoneyUtil.compare(projected.paid_amount, projected.approved_amount) >= 0;
+        MoneyUtil.compare(projected.paid_amount, projected.approved_amount) >=
+        0;
 
       await manager.getRepository(InsuranceClaim).update(
         { id: claim.id },
@@ -347,10 +348,12 @@ export class ClaimDisbursementService {
         manager,
         claim.id,
       );
-      await manager.getRepository(InsuranceClaim).update(
-        { id: claim.id },
-        { settlement_status: ClaimSettlementStatus.REVERSED },
-      );
+      await manager
+        .getRepository(InsuranceClaim)
+        .update(
+          { id: claim.id },
+          { settlement_status: ClaimSettlementStatus.REVERSED },
+        );
 
       const current = await manager
         .getRepository(InsuranceClaim)

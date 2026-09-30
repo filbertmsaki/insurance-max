@@ -74,9 +74,10 @@ export class ClaimIntimationService {
       const claim = await this.access.getForWrite(user, claimId, manager);
 
       if (
-        ![ClaimStatus.NOTIFICATION_ACCEPTED, ClaimStatus.INTIMATION_FAILED].includes(
-          claim.status,
-        )
+        ![
+          ClaimStatus.NOTIFICATION_ACCEPTED,
+          ClaimStatus.INTIMATION_FAILED,
+        ].includes(claim.status)
       ) {
         throw new ConflictException(
           `A claim intimation cannot be created from ${claim.status}`,
@@ -123,7 +124,8 @@ export class ClaimIntimationService {
             : new Date(),
           currency_code: claim.currency_code,
           exchange_rate: dto.exchange_rate ?? claim.exchange_rate,
-          claim_estimated_amount: dto.claim_estimated_amount ?? claim.estimated_amount,
+          claim_estimated_amount:
+            dto.claim_estimated_amount ?? claim.estimated_amount,
           claim_reserve_amount: dto.claim_reserve_amount,
           claim_reserve_method: dto.claim_reserve_method.trim(),
           loss_assessment_option: dto.loss_assessment_option,
@@ -186,10 +188,14 @@ export class ClaimIntimationService {
         'Claim intimation',
       );
 
-      if (![ClaimIntimationStatus.DRAFT, ClaimIntimationStatus.FAILED].includes(
-        record.status as ClaimIntimationStatus,
-      )) {
-        throw new ConflictException('Only a draft or failed intimation can be edited');
+      if (
+        ![ClaimIntimationStatus.DRAFT, ClaimIntimationStatus.FAILED].includes(
+          record.status as ClaimIntimationStatus,
+        )
+      ) {
+        throw new ConflictException(
+          'Only a draft or failed intimation can be edited',
+        );
       }
 
       const merged = {
@@ -201,26 +207,45 @@ export class ClaimIntimationService {
       } as CreateClaimIntimationDto;
       this.validateAssessor(merged);
 
-      if (dto.claim_estimated_amount !== undefined) record.claim_estimated_amount = dto.claim_estimated_amount;
-      if (dto.claim_reserve_method !== undefined) record.claim_reserve_method = dto.claim_reserve_method.trim();
-      if (dto.claim_intimation_date) record.claim_intimation_date = new Date(dto.claim_intimation_date);
+      if (dto.claim_estimated_amount !== undefined)
+        record.claim_estimated_amount = dto.claim_estimated_amount;
+      if (dto.claim_reserve_method !== undefined)
+        record.claim_reserve_method = dto.claim_reserve_method.trim();
+      if (dto.claim_intimation_date)
+        record.claim_intimation_date = new Date(dto.claim_intimation_date);
       if (dto.exchange_rate) record.exchange_rate = dto.exchange_rate;
-      if (dto.loss_assessment_option !== undefined) record.loss_assessment_option = dto.loss_assessment_option;
-      if (dto.assessor_name !== undefined) record.assessor_name = dto.assessor_name.trim();
-      if (dto.assessor_id_number !== undefined) record.assessor_id_number = dto.assessor_id_number.trim();
-      if (dto.assessor_id_type !== undefined) record.assessor_id_type = dto.assessor_id_type;
-      if (dto.assessor_user_id !== undefined) record.assessor_user_id = dto.assessor_user_id ?? null;
-      if (dto.assessor_company_id !== undefined) record.assessor_company_id = dto.assessor_company_id ?? null;
+      if (dto.loss_assessment_option !== undefined)
+        record.loss_assessment_option = dto.loss_assessment_option;
+      if (dto.assessor_name !== undefined)
+        record.assessor_name = dto.assessor_name.trim();
+      if (dto.assessor_id_number !== undefined)
+        record.assessor_id_number = dto.assessor_id_number.trim();
+      if (dto.assessor_id_type !== undefined)
+        record.assessor_id_type = dto.assessor_id_type;
+      if (dto.assessor_user_id !== undefined)
+        record.assessor_user_id = dto.assessor_user_id ?? null;
+      if (dto.assessor_company_id !== undefined)
+        record.assessor_company_id = dto.assessor_company_id ?? null;
 
       // The reserve itself changes only through the reserve ledger.
       if (
         dto.claim_reserve_amount !== undefined &&
-        MoneyUtil.compare(dto.claim_reserve_amount, record.claim_reserve_amount) !== 0
+        MoneyUtil.compare(
+          dto.claim_reserve_amount,
+          record.claim_reserve_amount,
+        ) !== 0
       ) {
-        const delta = MoneyUtil.subtract(dto.claim_reserve_amount, record.claim_reserve_amount);
+        const delta = MoneyUtil.subtract(
+          dto.claim_reserve_amount,
+          record.claim_reserve_amount,
+        );
         await this.createReserveRow(manager, user, claim, {
-          reserve_type: MoneyUtil.compare(delta, '0.00') > 0 ? 'INCREASE' : 'DECREASE',
-          amount: MoneyUtil.compare(delta, '0.00') > 0 ? delta : MoneyUtil.subtract('0.00', delta),
+          reserve_type:
+            MoneyUtil.compare(delta, '0.00') > 0 ? 'INCREASE' : 'DECREASE',
+          amount:
+            MoneyUtil.compare(delta, '0.00') > 0
+              ? delta
+              : MoneyUtil.subtract('0.00', delta),
           reason: `Reserve revised on intimation ${record.claim_intimation_number}`,
         });
         record.claim_reserve_amount = dto.claim_reserve_amount;
@@ -254,27 +279,40 @@ export class ClaimIntimationService {
           'Claim intimation',
         );
 
-        if (![ClaimIntimationStatus.DRAFT, ClaimIntimationStatus.FAILED].includes(
-          record.status as ClaimIntimationStatus,
-        )) {
+        if (
+          ![ClaimIntimationStatus.DRAFT, ClaimIntimationStatus.FAILED].includes(
+            record.status as ClaimIntimationStatus,
+          )
+        ) {
           throw new ConflictException(
             `Intimation ${record.claim_intimation_number} is already ${record.status.toLowerCase()}`,
           );
         }
 
         if (claim.status === ClaimStatus.INTIMATION_FAILED) {
-          await this.stateMachine.transition(manager, claim, ClaimStatus.INTIMATION_PENDING, {
-            eventType: 'INTIMATION_RESUBMITTING',
-            summary: `Resubmitting intimation ${record.claim_intimation_number}`,
-            actorId: user.id,
-          });
+          await this.stateMachine.transition(
+            manager,
+            claim,
+            ClaimStatus.INTIMATION_PENDING,
+            {
+              eventType: 'INTIMATION_RESUBMITTING',
+              summary: `Resubmitting intimation ${record.claim_intimation_number}`,
+              actorId: user.id,
+            },
+          );
         }
 
         if (claim.status !== ClaimStatus.INTIMATION_PENDING) {
-          throw new ConflictException(`The claim is ${claim.status}, not awaiting intimation`);
+          throw new ConflictException(
+            `The claim is ${claim.status}, not awaiting intimation`,
+          );
         }
 
-        await this.claims.assertMandatoryDocuments(claim, 'INTIMATION', manager);
+        await this.claims.assertMandatoryDocuments(
+          claim,
+          'INTIMATION',
+          manager,
+        );
 
         const claimants = await this.claims.activeClaimants(manager, claim.id);
         this.claims.assertClaimantsComplete(claimants);
@@ -324,19 +362,33 @@ export class ClaimIntimationService {
   // Reserves
   // ---------------------------------------------------------------------
 
-  async createReserve(user: AuthenticatedUser, claimId: string, dto: CreateClaimReserveDto) {
+  async createReserve(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: CreateClaimReserveDto,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const claim = await this.access.getForWrite(user, claimId, manager);
 
-      if ([ClaimStatus.DRAFT, ClaimStatus.CLOSED, ClaimStatus.CANCELLED].includes(claim.status)) {
-        throw new ConflictException(`Reserves cannot be changed while the claim is ${claim.status}`);
+      if (
+        [ClaimStatus.DRAFT, ClaimStatus.CLOSED, ClaimStatus.CANCELLED].includes(
+          claim.status,
+        )
+      ) {
+        throw new ConflictException(
+          `Reserves cannot be changed while the claim is ${claim.status}`,
+        );
       }
 
       return this.createReserveRow(manager, user, claim, dto);
     });
   }
 
-  async approveReserve(user: AuthenticatedUser, reserveId: string, comments?: string) {
+  async approveReserve(
+    user: AuthenticatedUser,
+    reserveId: string,
+    comments?: string,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const { record: reserve, claim } = await this.access.getRecordForWrite(
         manager,
@@ -363,7 +415,10 @@ export class ClaimIntimationService {
 
       if (MoneyUtil.compare(reserve.amount, '0.00') < 0) {
         const projected = await this.projection.recalculate(manager, claim.id);
-        const after = MoneyUtil.add(projected.gross_case_reserve, reserve.amount);
+        const after = MoneyUtil.add(
+          projected.gross_case_reserve,
+          reserve.amount,
+        );
 
         if (MoneyUtil.compare(after, projected.paid_amount) < 0) {
           throw new ConflictException(
@@ -383,7 +438,11 @@ export class ClaimIntimationService {
     });
   }
 
-  async declineReserve(user: AuthenticatedUser, reserveId: string, comments: string) {
+  async declineReserve(
+    user: AuthenticatedUser,
+    reserveId: string,
+    comments: string,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const { record: reserve, claim } = await this.access.getRecordForWrite(
         manager,
@@ -414,7 +473,11 @@ export class ClaimIntimationService {
     });
   }
 
-  async releaseReserve(user: AuthenticatedUser, reserveId: string, reason: string) {
+  async releaseReserve(
+    user: AuthenticatedUser,
+    reserveId: string,
+    reason: string,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const { record: reserve, claim } = await this.access.getRecordForWrite(
         manager,
@@ -429,7 +492,10 @@ export class ClaimIntimationService {
       }
 
       const projected = await this.projection.recalculate(manager, claim.id);
-      const remaining = MoneyUtil.subtract(projected.gross_case_reserve, reserve.amount);
+      const remaining = MoneyUtil.subtract(
+        projected.gross_case_reserve,
+        reserve.amount,
+      );
 
       if (MoneyUtil.compare(remaining, projected.paid_amount) < 0) {
         throw new ConflictException(
@@ -477,7 +543,10 @@ export class ClaimIntimationService {
     assessmentNumber: string,
   ) {
     const projected = await this.projection.recalculate(manager, claim.id);
-    const delta = MoneyUtil.subtract(approvedAmount, projected.gross_case_reserve);
+    const delta = MoneyUtil.subtract(
+      approvedAmount,
+      projected.gross_case_reserve,
+    );
 
     if (MoneyUtil.compare(delta, '0.00') === 0) {
       return;
@@ -525,7 +594,9 @@ export class ClaimIntimationService {
       const claim = await this.access.getForWrite(user, claimId, manager);
 
       if (!dto.provider_company_id && !dto.assigned_user_id) {
-        throw new BadRequestException('Provider company or assigned user is required');
+        throw new BadRequestException(
+          'Provider company or assigned user is required',
+        );
       }
 
       if (
@@ -566,13 +637,18 @@ export class ClaimIntimationService {
       });
 
       if (claim.status === ClaimStatus.INTIMATED) {
-        await this.stateMachine.transition(manager, claim, ClaimStatus.ASSESSMENT_PENDING, {
-          eventType: 'ASSESSOR_APPOINTED',
-          summary: `${saved.service_type} appointed (${saved.assignment_no})`,
-          actorId: user.id,
-          subjectType: 'SERVICE_ASSIGNMENT',
-          subjectId: saved.id,
-        });
+        await this.stateMachine.transition(
+          manager,
+          claim,
+          ClaimStatus.ASSESSMENT_PENDING,
+          {
+            eventType: 'ASSESSOR_APPOINTED',
+            summary: `${saved.service_type} appointed (${saved.assignment_no})`,
+            actorId: user.id,
+            subjectType: 'SERVICE_ASSIGNMENT',
+            subjectId: saved.id,
+          },
+        );
       } else {
         await this.stateMachine.recordEvent(manager, claim, {
           eventType: 'ASSESSOR_APPOINTED',
@@ -595,7 +671,9 @@ export class ClaimIntimationService {
       title: `Complete ${assignment.saved.service_type} for ${assignment.claim.claim_no}`,
       priority: assignment.claim.priority,
       assignedUserId: assignment.saved.assigned_user_id ?? undefined,
-      assignedRole: assignment.saved.assigned_user_id ? undefined : 'CLAIMS_ASSESSOR',
+      assignedRole: assignment.saved.assigned_user_id
+        ? undefined
+        : 'CLAIMS_ASSESSOR',
       dueAt: assignment.saved.due_at ?? undefined,
       dedupeKey: `claim-assignment:${assignment.saved.id}`,
       createdBy: user.id,
@@ -610,14 +688,19 @@ export class ClaimIntimationService {
     manager: EntityManager,
     user: AuthenticatedUser,
     claim: InsuranceClaim,
-    dto: Pick<CreateClaimReserveDto, 'reserve_type' | 'amount' | 'reason' | 'effective_at'>,
+    dto: Pick<
+      CreateClaimReserveDto,
+      'reserve_type' | 'amount' | 'reason' | 'effective_at'
+    >,
   ) {
     if (MoneyUtil.compare(dto.amount, '0.00') <= 0) {
       throw new BadRequestException('Reserve amount must be greater than zero');
     }
 
     const signed =
-      dto.reserve_type === 'DECREASE' ? MoneyUtil.subtract('0.00', dto.amount) : dto.amount;
+      dto.reserve_type === 'DECREASE'
+        ? MoneyUtil.subtract('0.00', dto.amount)
+        : dto.amount;
     const reserve = await manager.getRepository(ClaimReserve).save({
       company_id: claim.company_id,
       claim_id: claim.id,
@@ -633,7 +716,11 @@ export class ClaimIntimationService {
       submitted_at: new Date(),
     });
 
-    await this.approvals.submit(manager, this.reserveSubject(claim, reserve), user.id);
+    await this.approvals.submit(
+      manager,
+      this.reserveSubject(claim, reserve),
+      user.id,
+    );
 
     return reserve;
   }
@@ -673,7 +760,10 @@ export class ClaimIntimationService {
       metadata: {
         previous_reserve: projected.gross_case_reserve,
         adjustment: reserve.amount,
-        new_reserve: MoneyUtil.add(projected.gross_case_reserve, reserve.amount),
+        new_reserve: MoneyUtil.add(
+          projected.gross_case_reserve,
+          reserve.amount,
+        ),
       },
     });
   }
@@ -704,15 +794,25 @@ export class ClaimIntimationService {
   /** TIRAMIS §10.1: assessor identity is mandatory for both options. */
   private validateAssessor(dto: CreateClaimIntimationDto) {
     if (![1, 2].includes(dto.loss_assessment_option)) {
-      throw new BadRequestException('Loss assessment option must be 1 (in-house) or 2 (external)');
+      throw new BadRequestException(
+        'Loss assessment option must be 1 (in-house) or 2 (external)',
+      );
     }
 
     if (!dto.assessor_name?.trim() || !dto.assessor_id_number?.trim()) {
-      throw new BadRequestException('Assessor name and identification number are required');
+      throw new BadRequestException(
+        'Assessor name and identification number are required',
+      );
     }
 
-    if (!Number.isInteger(dto.assessor_id_type) || dto.assessor_id_type < 1 || dto.assessor_id_type > 7) {
-      throw new BadRequestException('Assessor identification type must be between 1 and 7');
+    if (
+      !Number.isInteger(dto.assessor_id_type) ||
+      dto.assessor_id_type < 1 ||
+      dto.assessor_id_type > 7
+    ) {
+      throw new BadRequestException(
+        'Assessor identification type must be between 1 and 7',
+      );
     }
   }
 }

@@ -88,7 +88,11 @@ export class ClaimDocumentService {
   }
 
   /** Attaches an uploaded registry document to the claim. */
-  async link(user: AuthenticatedUser, claimId: string, dto: LinkClaimDocumentDto) {
+  async link(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: LinkClaimDocumentDto,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const claim = await this.access.getForWrite(user, claimId, manager);
       const document = await manager.getRepository(Document).findOne({
@@ -110,7 +114,9 @@ export class ClaimDocumentService {
         })) > 0;
 
       if (!linkedToClaim) {
-        throw new BadRequestException('The document was not uploaded for this claim');
+        throw new BadRequestException(
+          'The document was not uploaded for this claim',
+        );
       }
 
       const existing = await manager.getRepository(ClaimDocument).findOne({
@@ -122,7 +128,8 @@ export class ClaimDocumentService {
         existing.storage_key = document.storage_key;
         existing.file_name = document.file_name;
         existing.mime_type = document.content_type;
-        existing.file_size = document.file_size != null ? String(document.file_size) : null;
+        existing.file_size =
+          document.file_size != null ? String(document.file_size) : null;
         existing.checksum = document.checksum;
         existing.status = ClaimDocumentStatus.UPLOADED;
         existing.verified_by = null;
@@ -145,7 +152,8 @@ export class ClaimDocumentService {
         storage_key: document.storage_key,
         file_name: document.file_name,
         mime_type: document.content_type,
-        file_size: document.file_size != null ? String(document.file_size) : null,
+        file_size:
+          document.file_size != null ? String(document.file_size) : null,
         checksum: document.checksum,
         status: ClaimDocumentStatus.UPLOADED,
         uploaded_by: user.id,
@@ -174,7 +182,11 @@ export class ClaimDocumentService {
   }
 
   /** Metadata-only registration kept for existing integrations. */
-  async register(user: AuthenticatedUser, claimId: string, dto: AddClaimDocumentDto) {
+  async register(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: AddClaimDocumentDto,
+  ) {
     const claim = await this.access.getForWrite(user, claimId);
     const registered = await this.documentsService.register(user, {
       ownerType: 'CLAIM',
@@ -193,7 +205,11 @@ export class ClaimDocumentService {
     });
   }
 
-  async verify(user: AuthenticatedUser, documentId: string, dto: VerifyClaimDocumentDto) {
+  async verify(
+    user: AuthenticatedUser,
+    documentId: string,
+    dto: VerifyClaimDocumentDto,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const { record, claim } = await this.access.getRecordForWrite(
         manager,
@@ -208,18 +224,25 @@ export class ClaimDocumentService {
       }
 
       if (record.uploaded_by === user.id && dto.decision === 'VERIFIED') {
-        throw new ConflictException('A document cannot be verified by the person who uploaded it');
+        throw new ConflictException(
+          'A document cannot be verified by the person who uploaded it',
+        );
       }
 
       record.status =
-        dto.decision === 'VERIFIED' ? ClaimDocumentStatus.VERIFIED : ClaimDocumentStatus.REJECTED;
+        dto.decision === 'VERIFIED'
+          ? ClaimDocumentStatus.VERIFIED
+          : ClaimDocumentStatus.REJECTED;
       record.verified_by = user.id;
       record.verified_at = new Date();
       record.rejection_reason = dto.rejection_reason?.trim() ?? null;
       const saved = await manager.getRepository(ClaimDocument).save(record);
 
       await this.stateMachine.recordEvent(manager, claim, {
-        eventType: dto.decision === 'VERIFIED' ? 'DOCUMENT_VERIFIED' : 'DOCUMENT_REJECTED',
+        eventType:
+          dto.decision === 'VERIFIED'
+            ? 'DOCUMENT_VERIFIED'
+            : 'DOCUMENT_REJECTED',
         summary: `${record.title} ${dto.decision === 'VERIFIED' ? 'verified' : `rejected: ${record.rejection_reason}`}`,
         actorId: user.id,
         subjectType: 'DOCUMENT',
@@ -242,7 +265,11 @@ export class ClaimDocumentService {
         where: { claim_id: claim.id },
         order: { uploaded_at: 'DESC' },
       }),
-      this.requirementsFor(claim.company_id, policy?.product_id ?? null, policy?.category_id ?? null),
+      this.requirementsFor(
+        claim.company_id,
+        policy?.product_id ?? null,
+        policy?.category_id ?? null,
+      ),
     ]);
 
     return {
@@ -255,9 +282,14 @@ export class ClaimDocumentService {
         return {
           ...requirement,
           satisfied: matches.some((document) =>
-            [ClaimDocumentStatus.UPLOADED, ClaimDocumentStatus.VERIFIED].includes(document.status),
+            [
+              ClaimDocumentStatus.UPLOADED,
+              ClaimDocumentStatus.VERIFIED,
+            ].includes(document.status),
           ),
-          verified: matches.some((document) => document.status === ClaimDocumentStatus.VERIFIED),
+          verified: matches.some(
+            (document) => document.status === ClaimDocumentStatus.VERIFIED,
+          ),
         };
       }),
     };
@@ -278,7 +310,9 @@ export class ClaimDocumentService {
     this.access.applyReadScope(queryBuilder, 'claim', user);
 
     if (query.status) {
-      queryBuilder.andWhere('document.status = :status', { status: query.status });
+      queryBuilder.andWhere('document.status = :status', {
+        status: query.status,
+      });
     }
 
     const [items, total] = await queryBuilder
@@ -290,7 +324,11 @@ export class ClaimDocumentService {
     return {
       data: items.map((item) => ({
         ...item,
-        claim: { id: item.claim.id, claim_no: item.claim.claim_no, status: item.claim.status },
+        claim: {
+          id: item.claim.id,
+          claim_no: item.claim.claim_no,
+          status: item.claim.status,
+        },
       })),
       meta: {
         totalItems: total,
@@ -313,8 +351,13 @@ export class ClaimDocumentService {
     });
   }
 
-  async saveRequirement(user: AuthenticatedUser, input: ClaimDocumentRequirementInput) {
-    if (!(CLAIM_DOCUMENT_STAGES as readonly string[]).includes(input.claim_stage)) {
+  async saveRequirement(
+    user: AuthenticatedUser,
+    input: ClaimDocumentRequirementInput,
+  ) {
+    if (
+      !(CLAIM_DOCUMENT_STAGES as readonly string[]).includes(input.claim_stage)
+    ) {
       throw new BadRequestException(
         `Stage must be one of ${CLAIM_DOCUMENT_STAGES.join(', ')}`,
       );
@@ -351,7 +394,7 @@ export class ClaimDocumentService {
         : 'claim.document_requirement.created',
       resource: 'claim_document_requirement',
       resourceId: saved.id,
-      afterState: { ...saved } as Record<string, unknown>,
+      afterState: { ...saved },
     });
 
     return saved;
@@ -371,14 +414,21 @@ export class ClaimDocumentService {
     return this.requirementRepository.save(requirement);
   }
 
-  private requirementsFor(companyId: string, productId: string | null, categoryId: string | null) {
+  private requirementsFor(
+    companyId: string,
+    productId: string | null,
+    categoryId: string | null,
+  ) {
     return this.requirementRepository
       .createQueryBuilder('requirement')
       .where('requirement.company_id = :companyId', { companyId })
       .andWhere('requirement.is_active = true')
-      .andWhere('(requirement.product_id IS NULL OR requirement.product_id = :productId)', {
-        productId,
-      })
+      .andWhere(
+        '(requirement.product_id IS NULL OR requirement.product_id = :productId)',
+        {
+          productId,
+        },
+      )
       .andWhere(
         '(requirement.insurance_category_id IS NULL OR requirement.insurance_category_id = :categoryId)',
         { categoryId },

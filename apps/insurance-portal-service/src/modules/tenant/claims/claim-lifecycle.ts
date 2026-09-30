@@ -21,7 +21,11 @@ export const CLAIM_STATUS_TRANSITIONS: Readonly<
     S.INTIMATION_SUBMITTED,
     S.REJECTION_PENDING,
   ],
-  [S.INTIMATED]: [S.ASSESSMENT_PENDING, S.UNDER_ASSESSMENT, S.REJECTION_PENDING],
+  [S.INTIMATED]: [
+    S.ASSESSMENT_PENDING,
+    S.UNDER_ASSESSMENT,
+    S.REJECTION_PENDING,
+  ],
   [S.ASSESSMENT_PENDING]: [S.UNDER_ASSESSMENT, S.REJECTION_PENDING],
   [S.UNDER_ASSESSMENT]: [S.ASSESSED, S.REJECTION_PENDING],
   [S.ASSESSED]: [S.PENDING_APPROVAL, S.UNDER_ASSESSMENT, S.REJECTION_PENDING],
@@ -153,8 +157,7 @@ export const CLAIM_QUEUE_STATUSES: Readonly<
 export const OPEN_CLAIM_STATUSES: readonly ClaimStatus[] = Object.values(
   S,
 ).filter(
-  (status) =>
-    ![S.SETTLED, S.REJECTED, S.CLOSED, S.CANCELLED].includes(status),
+  (status) => ![S.SETTLED, S.REJECTED, S.CLOSED, S.CANCELLED].includes(status),
 );
 
 /** Claims in these states may still be edited as drafts. */

@@ -65,12 +65,18 @@ export class ClaimRejectionService {
     private readonly documentGeneration: DocumentGenerationService,
   ) {}
 
-  async create(user: AuthenticatedUser, claimId: string, dto: CreateClaimRejectionDto) {
+  async create(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: CreateClaimRejectionDto,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const claim = await this.access.getForWrite(user, claimId, manager);
 
       if (!REJECTABLE_STATUSES.includes(claim.status)) {
-        throw new ConflictException(`A claim cannot be rejected from ${claim.status}`);
+        throw new ConflictException(
+          `A claim cannot be rejected from ${claim.status}`,
+        );
       }
 
       await this.assertNothingPaid(manager, claim);
@@ -115,20 +121,33 @@ export class ClaimRejectionService {
         }),
       );
 
-      await this.approvals.submit(manager, this.subject(claim, rejection), user.id);
-      await this.stateMachine.transition(manager, claim, ClaimStatus.REJECTION_PENDING, {
-        eventType: 'REJECTION_RECOMMENDED',
-        summary: `Rejection ${rejection.claim_rejection_number} recommended: ${rejection.tira_rejection_reason}`,
-        actorId: user.id,
-        subjectType: REJECTION_SUBJECT,
-        subjectId: rejection.id,
-      });
+      await this.approvals.submit(
+        manager,
+        this.subject(claim, rejection),
+        user.id,
+      );
+      await this.stateMachine.transition(
+        manager,
+        claim,
+        ClaimStatus.REJECTION_PENDING,
+        {
+          eventType: 'REJECTION_RECOMMENDED',
+          summary: `Rejection ${rejection.claim_rejection_number} recommended: ${rejection.tira_rejection_reason}`,
+          actorId: user.id,
+          subjectType: REJECTION_SUBJECT,
+          subjectId: rejection.id,
+        },
+      );
 
       return rejection;
     });
   }
 
-  async approve(user: AuthenticatedUser, rejectionId: string, comments?: string) {
+  async approve(
+    user: AuthenticatedUser,
+    rejectionId: string,
+    comments?: string,
+  ) {
     const result = await this.dataSource.transaction(async (manager) => {
       const { record, claim } = await this.lock(manager, user, rejectionId);
 
@@ -136,7 +155,12 @@ export class ClaimRejectionService {
         throw new ConflictException('Only a pending rejection can be approved');
       }
 
-      const outcome = await this.approvals.approve(manager, user, this.subject(claim, record), comments);
+      const outcome = await this.approvals.approve(
+        manager,
+        user,
+        this.subject(claim, record),
+        comments,
+      );
 
       if (!outcome.completed) {
         return { rejection: record, completed: false };
@@ -181,7 +205,11 @@ export class ClaimRejectionService {
     return result;
   }
 
-  async decline(user: AuthenticatedUser, rejectionId: string, comments: string) {
+  async decline(
+    user: AuthenticatedUser,
+    rejectionId: string,
+    comments: string,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const { record, claim } = await this.lock(manager, user, rejectionId);
 
@@ -227,7 +255,9 @@ export class ClaimRejectionService {
     );
 
     if (record.status !== ClaimRejectionStatus.APPROVED) {
-      throw new ConflictException('Only an approved rejection is reported to TIRAMIS');
+      throw new ConflictException(
+        'Only an approved rejection is reported to TIRAMIS',
+      );
     }
 
     if (!claim.claim_reference_number || !record.claim_intimation_number) {
@@ -255,7 +285,9 @@ export class ClaimRejectionService {
     );
 
     if (record.status !== ClaimRejectionStatus.APPROVED) {
-      throw new ConflictException('A rejection letter needs an approved rejection');
+      throw new ConflictException(
+        'A rejection letter needs an approved rejection',
+      );
     }
 
     const full = await this.claims.findOne(user, claim.id);
@@ -284,7 +316,9 @@ export class ClaimRejectionService {
             name:
               full.customer?.display_name ??
               full.customer?.company_name ??
-              [full.customer?.first_name, full.customer?.last_name].filter(Boolean).join(' '),
+              [full.customer?.first_name, full.customer?.last_name]
+                .filter(Boolean)
+                .join(' '),
           },
         },
         resourceType: 'CLAIM',
@@ -321,9 +355,14 @@ export class ClaimRejectionService {
     return document;
   }
 
-  private async assertNothingPaid(manager: EntityManager, claim: InsuranceClaim) {
+  private async assertNothingPaid(
+    manager: EntityManager,
+    claim: InsuranceClaim,
+  ) {
     if (MoneyUtil.compare(claim.paid_amount, '0.00') > 0) {
-      throw new ConflictException('A claim with completed payments cannot be rejected');
+      throw new ConflictException(
+        'A claim with completed payments cannot be rejected',
+      );
     }
 
     const [disbursements, payments, acceptedVouchers] = await Promise.all([
@@ -354,15 +393,23 @@ export class ClaimRejectionService {
     ]);
 
     if (disbursements || payments) {
-      throw new ConflictException('A claim with payments in progress cannot be rejected');
+      throw new ConflictException(
+        'A claim with payments in progress cannot be rejected',
+      );
     }
 
     if (acceptedVouchers) {
-      throw new ConflictException('A claim with an accepted discharge voucher cannot be rejected');
+      throw new ConflictException(
+        'A claim with an accepted discharge voucher cannot be rejected',
+      );
     }
   }
 
-  private lock(manager: EntityManager, user: AuthenticatedUser, rejectionId: string) {
+  private lock(
+    manager: EntityManager,
+    user: AuthenticatedUser,
+    rejectionId: string,
+  ) {
     return this.access.getRecordForWrite(
       manager,
       user,

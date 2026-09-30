@@ -63,7 +63,11 @@ export class ClaimPaymentService {
     private readonly claimTiramis: ClaimTiramisService,
   ) {}
 
-  async create(user: AuthenticatedUser, claimId: string, dto: CreateClaimPaymentDto) {
+  async create(
+    user: AuthenticatedUser,
+    claimId: string,
+    dto: CreateClaimPaymentDto,
+  ) {
     return this.dataSource.transaction(async (manager) => {
       const claim = await this.access.getForWrite(user, claimId, manager);
 
@@ -79,11 +83,17 @@ export class ClaimPaymentService {
         );
       }
 
-      const voucher = await this.acceptedVoucher(manager, claim, dto.discharge_voucher_id);
+      const voucher = await this.acceptedVoucher(
+        manager,
+        claim,
+        dto.discharge_voucher_id,
+      );
       const amount = dto.paid_amount;
 
       if (MoneyUtil.compare(amount, '0.00') <= 0) {
-        throw new BadRequestException('The payment amount must be greater than zero');
+        throw new BadRequestException(
+          'The payment amount must be greater than zero',
+        );
       }
 
       const available = await this.availableAmount(manager, claim, voucher);
@@ -104,7 +114,9 @@ export class ClaimPaymentService {
         : claimants.find((claimant) => claimant.is_primary);
 
       if (dto.claimant_id && !payee) {
-        throw new BadRequestException('The selected claimant does not belong to this claim');
+        throw new BadRequestException(
+          'The selected claimant does not belong to this claim',
+        );
       }
 
       const intimation = await manager.getRepository(ClaimIntimation).findOne({
@@ -159,13 +171,18 @@ export class ClaimPaymentService {
       const summary = `Claim payment ${payment.claim_payment_number} of ${amount} ${claim.currency_code} prepared`;
 
       if (claim.status === ClaimStatus.DISCHARGE_ACCEPTED) {
-        await this.stateMachine.transition(manager, claim, ClaimStatus.PAYMENT_PENDING, {
-          eventType: 'PAYMENT_CREATED',
-          summary,
-          actorId: user.id,
-          subjectType: PAYMENT_SUBJECT,
-          subjectId: payment.id,
-        });
+        await this.stateMachine.transition(
+          manager,
+          claim,
+          ClaimStatus.PAYMENT_PENDING,
+          {
+            eventType: 'PAYMENT_CREATED',
+            summary,
+            actorId: user.id,
+            subjectType: PAYMENT_SUBJECT,
+            subjectId: payment.id,
+          },
+        );
       } else {
         await this.stateMachine.recordEvent(manager, claim, {
           eventType: 'PAYMENT_CREATED',
@@ -194,7 +211,11 @@ export class ClaimPaymentService {
       record.submitted_by = user.id;
       record.submitted_at = new Date();
       await manager.getRepository(ClaimPayment).save(record);
-      await this.approvals.submit(manager, this.subject(claim, record), user.id);
+      await this.approvals.submit(
+        manager,
+        this.subject(claim, record),
+        user.id,
+      );
 
       return record;
     });
@@ -208,21 +229,32 @@ export class ClaimPaymentService {
         throw new ConflictException('Only a submitted payment can be approved');
       }
 
-      const outcome = await this.approvals.approve(manager, user, this.subject(claim, record), comments);
+      const outcome = await this.approvals.approve(
+        manager,
+        user,
+        this.subject(claim, record),
+        comments,
+      );
 
       if (!outcome.completed) {
         return { payment: record, completed: false };
       }
 
       // Re-check headroom: other payments may have been approved meanwhile.
-      const voucher = await this.acceptedVoucher(manager, claim, record.discharge_voucher_id);
+      const voucher = await this.acceptedVoucher(
+        manager,
+        claim,
+        record.discharge_voucher_id,
+      );
       const available = MoneyUtil.add(
         await this.availableAmount(manager, claim, voucher),
         record.paid_amount,
       );
 
       if (MoneyUtil.compare(record.paid_amount, available) > 0) {
-        throw new ConflictException('Approving this payment would overpay the claim');
+        throw new ConflictException(
+          'Approving this payment would overpay the claim',
+        );
       }
 
       record.status = ClaimPaymentStatus.APPROVED;
@@ -258,11 +290,16 @@ export class ClaimPaymentService {
         manager,
         user,
         this.subject(claim, record),
-        decision === 'RETURN' ? ClaimApprovalStatus.RETURNED : ClaimApprovalStatus.REJECTED,
+        decision === 'RETURN'
+          ? ClaimApprovalStatus.RETURNED
+          : ClaimApprovalStatus.REJECTED,
         comments,
       );
 
-      record.status = decision === 'RETURN' ? ClaimPaymentStatus.DRAFT : ClaimPaymentStatus.CANCELLED;
+      record.status =
+        decision === 'RETURN'
+          ? ClaimPaymentStatus.DRAFT
+          : ClaimPaymentStatus.CANCELLED;
       record.rejection_reason = comments.trim();
       await manager.getRepository(ClaimPayment).save(record);
 
@@ -302,7 +339,9 @@ export class ClaimPaymentService {
     );
 
     if (record.status !== ClaimPaymentStatus.PAID) {
-      throw new ConflictException('Only a confirmed (paid) payment is reported to TIRAMIS');
+      throw new ConflictException(
+        'Only a confirmed (paid) payment is reported to TIRAMIS',
+      );
     }
 
     if (!claim.claim_reference_number || !record.claim_intimation_number) {
@@ -324,10 +363,15 @@ export class ClaimPaymentService {
 
   /** Scope check for the finance disbursement routes. */
   async assertPaymentAccess(user: AuthenticatedUser, paymentId: string) {
-    await this.dataSource.transaction((manager) => this.lock(manager, user, paymentId));
+    await this.dataSource.transaction((manager) =>
+      this.lock(manager, user, paymentId),
+    );
   }
 
-  async assertDisbursementAccess(user: AuthenticatedUser, disbursementId: string) {
+  async assertDisbursementAccess(
+    user: AuthenticatedUser,
+    disbursementId: string,
+  ) {
     await this.dataSource.transaction(async (manager) => {
       const { record } = await this.access.getRecordForWrite(
         manager,
@@ -344,7 +388,10 @@ export class ClaimPaymentService {
   async paymentIdForDisbursement(disbursementId: string) {
     const disbursement = await this.dataSource
       .getRepository(ClaimDisbursement)
-      .findOne({ where: { id: disbursementId }, select: ['id', 'claim_payment_id'] });
+      .findOne({
+        where: { id: disbursementId },
+        select: ['id', 'claim_payment_id'],
+      });
 
     return disbursement?.claim_payment_id ?? null;
   }
@@ -376,7 +423,12 @@ export class ClaimPaymentService {
     };
 
     if (open === 0 && claim.status === ClaimStatus.PAYMENT_PENDING) {
-      await this.stateMachine.transition(manager, claim, ClaimStatus.DISCHARGE_ACCEPTED, input);
+      await this.stateMachine.transition(
+        manager,
+        claim,
+        ClaimStatus.DISCHARGE_ACCEPTED,
+        input,
+      );
     } else {
       await this.stateMachine.recordEvent(manager, claim, input);
     }
@@ -389,13 +441,19 @@ export class ClaimPaymentService {
   ) {
     const voucher = await manager.getRepository(ClaimDischargeVoucher).findOne({
       where: voucherId
-        ? { id: voucherId, claim_id: claim.id, status: ClaimDischargeStatus.ACCEPTED }
+        ? {
+            id: voucherId,
+            claim_id: claim.id,
+            status: ClaimDischargeStatus.ACCEPTED,
+          }
         : { claim_id: claim.id, status: ClaimDischargeStatus.ACCEPTED },
       order: { version: 'DESC' },
     });
 
     if (!voucher) {
-      throw new BadRequestException('No accepted discharge voucher was found for this claim');
+      throw new BadRequestException(
+        'No accepted discharge voucher was found for this claim',
+      );
     }
 
     return voucher;
@@ -411,7 +469,8 @@ export class ClaimPaymentService {
     claim: InsuranceClaim,
     voucher: ClaimDischargeVoucher,
   ) {
-    const voucherAmount = voucher.reconciled_amount ?? voucher.claim_offer_amount;
+    const voucherAmount =
+      voucher.reconciled_amount ?? voucher.claim_offer_amount;
     const ceiling =
       MoneyUtil.compare(voucherAmount, claim.approved_amount) < 0
         ? voucherAmount
@@ -421,15 +480,23 @@ export class ClaimPaymentService {
       .createQueryBuilder('payment')
       .select('COALESCE(SUM(payment.paid_amount), 0)', 'total')
       .where('payment.claim_id = :claimId', { claimId: claim.id })
-      .andWhere('payment.status IN (:...statuses)', { statuses: COMMITTED_PAYMENT_STATUSES })
+      .andWhere('payment.status IN (:...statuses)', {
+        statuses: COMMITTED_PAYMENT_STATUSES,
+      })
       .getRawOne<{ total: string }>();
-    const remaining = MoneyUtil.subtract(ceiling, MoneyUtil.fromMinor(MoneyUtil.toMinor(committed?.total ?? 0)));
+    const remaining = MoneyUtil.subtract(
+      ceiling,
+      MoneyUtil.fromMinor(MoneyUtil.toMinor(committed?.total ?? 0)),
+    );
 
     return MoneyUtil.compare(remaining, '0.00') > 0 ? remaining : '0.00';
   }
 
   /** Pro-rata earned net premium at today's date (TIRA NetPremiumEarned). */
-  private async netPremiumEarned(manager: EntityManager, claim: InsuranceClaim) {
+  private async netPremiumEarned(
+    manager: EntityManager,
+    claim: InsuranceClaim,
+  ) {
     const policy = await manager.getRepository(Policy).findOne({
       where: { id: claim.policy_id },
       select: ['id', 'net_premium', 'start_date', 'end_date'],
@@ -441,13 +508,26 @@ export class ClaimPaymentService {
 
     const start = new Date(`${policy.start_date}T00:00:00+03:00`).getTime();
     const end = new Date(`${policy.end_date}T23:59:59+03:00`).getTime();
-    const ratio = end > start ? Math.min(Math.max((Date.now() - start) / (end - start), 0), 1) : 1;
+    const ratio =
+      end > start
+        ? Math.min(Math.max((Date.now() - start) / (end - start), 0), 1)
+        : 1;
 
     return (Number(policy.net_premium ?? 0) * ratio).toFixed(2);
   }
 
-  private lock(manager: EntityManager, user: AuthenticatedUser, paymentId: string) {
-    return this.access.getRecordForWrite(manager, user, ClaimPayment, paymentId, 'Claim payment');
+  private lock(
+    manager: EntityManager,
+    user: AuthenticatedUser,
+    paymentId: string,
+  ) {
+    return this.access.getRecordForWrite(
+      manager,
+      user,
+      ClaimPayment,
+      paymentId,
+      'Claim payment',
+    );
   }
 
   private subject(claim: InsuranceClaim, payment: ClaimPayment) {

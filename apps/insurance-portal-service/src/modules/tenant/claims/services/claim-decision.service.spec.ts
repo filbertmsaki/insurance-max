@@ -90,7 +90,10 @@ describe('ClaimDecisionService.approve', () => {
   });
 
   it('allows a different checker to approve and updates claim liability/settlement', async () => {
-    const { service, access, claimRepo } = makeHarness(makeDecision(), makeClaim());
+    const { service, access, claimRepo } = makeHarness(
+      makeDecision(),
+      makeClaim(),
+    );
 
     const result = await service.approve(
       { id: 'checker-user', companyId: 'company-1' } as any,
