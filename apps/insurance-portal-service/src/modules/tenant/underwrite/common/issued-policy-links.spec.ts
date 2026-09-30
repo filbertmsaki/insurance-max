@@ -1,5 +1,8 @@
 import type { EntityManager } from 'typeorm';
-import { linkIssuedPolicyToUnderwrite } from './issued-policy-links';
+import {
+  copyNonMotorRiskToQuotation,
+  linkIssuedPolicyToUnderwrite,
+} from './issued-policy-links';
 
 function fakeManager(queryImpl?: (sql: string) => Promise<unknown>) {
   const query = jest.fn(queryImpl ?? (() => Promise.resolve([])));
@@ -81,5 +84,34 @@ describe('linkIssuedPolicyToUnderwrite', () => {
         quotationFlow: 'NON_MOTOR',
       }),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('copyNonMotorRiskToQuotation', () => {
+  it('seeds the renewal quotation from the issued snapshot, then the source quotation', async () => {
+    const manager = fakeManager();
+
+    await copyNonMotorRiskToQuotation(manager, {
+      companyId: 'company-1',
+      policyId: 'policy-1',
+      sourceQuotationId: 'quotation-1',
+      targetQuotationId: 'quotation-2',
+      userId: 'user-1',
+    });
+
+    expect(manager.query).toHaveBeenCalledTimes(1);
+    const [sql, params] = manager.query.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain('INSERT INTO quotation_non_motor_details');
+    expect(sql).toContain('FROM policy_non_motor_risk_details issued');
+    expect(sql).toContain('FROM quotation_non_motor_details quoted');
+    expect(sql).toContain('ORDER BY candidate.priority');
+    expect(sql).toContain('ON CONFLICT (quotation_id) DO NOTHING');
+    expect(params).toEqual([
+      'company-1',
+      'policy-1',
+      'quotation-1',
+      'quotation-2',
+      'user-1',
+    ]);
   });
 });

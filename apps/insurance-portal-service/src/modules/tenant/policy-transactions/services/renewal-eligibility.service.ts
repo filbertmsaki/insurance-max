@@ -112,9 +112,11 @@ export class RenewalEligibilityService {
 
     const issuedCoverNote = await this.resolveIssuedCoverNote(manager, policy);
     const coverNoteEndDate = issuedCoverNote?.end_date ?? null;
+    // The policy carries its current reference: an applied endorsement
+    // replaces it, while the linked cover note stays the original issuance.
     const prevCoverNoteReferenceNumber =
+      this.stringOrNull(policy.cover_note_no) ??
       issuedCoverNote?.cover_note_reference_number ??
-      policy.cover_note_no ??
       null;
 
     if (!issuedCoverNote) {
@@ -380,30 +382,41 @@ export class RenewalEligibilityService {
     renewalStartDate: string,
     renewalEndDate: string,
   ) {
-    return manager
-      .getRepository(PolicyRenewal)
-      .createQueryBuilder('renewal')
-      .innerJoin(
-        PolicyTransaction,
-        'transaction',
-        'transaction.id = renewal.policy_transaction_id',
-      )
-      .where('renewal.company_id = :companyId', {
-        companyId: policy.company_id,
-      })
-      .andWhere('transaction.source_policy_id = :policyId', {
-        policyId: policy.id,
-      })
-      .andWhere('renewal.renewal_start_date = :renewalStartDate', {
-        renewalStartDate,
-      })
-      .andWhere('renewal.renewal_end_date = :renewalEndDate', {
-        renewalEndDate,
-      })
-      .andWhere('renewal.renewal_status != :declined', {
-        declined: RenewalLifecycleStatus.CUSTOMER_DECLINED,
-      })
-      .getOne();
+    return (
+      manager
+        .getRepository(PolicyRenewal)
+        .createQueryBuilder('renewal')
+        .innerJoin(
+          PolicyTransaction,
+          'transaction',
+          'transaction.id = renewal.policy_transaction_id',
+        )
+        .where('renewal.company_id = :companyId', {
+          companyId: policy.company_id,
+        })
+        .andWhere('transaction.source_policy_id = :policyId', {
+          policyId: policy.id,
+        })
+        .andWhere('renewal.renewal_start_date = :renewalStartDate', {
+          renewalStartDate,
+        })
+        .andWhere('renewal.renewal_end_date = :renewalEndDate', {
+          renewalEndDate,
+        })
+        // A declined, lapsed or cancelled renewal leaves the period open.
+        .andWhere('renewal.renewal_status NOT IN (:...closed)', {
+          closed: [
+            RenewalLifecycleStatus.CUSTOMER_DECLINED,
+            RenewalLifecycleStatus.LAPSED,
+            RenewalLifecycleStatus.CANCELLED,
+          ],
+        })
+        .getOne()
+    );
+  }
+
+  private stringOrNull(value: unknown): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
   }
 
   private addDays(date: string, days: number): string {

@@ -176,6 +176,110 @@ describe('PolicyTransactionContextService', () => {
     });
   });
 
+  it('resumes the renewal in the Underwrite wizard at the premium step', () => {
+    const context = service.buildDraftContext({
+      policy: makePolicy(),
+      version: makeVersion(makeSnapshot()),
+      type: 'RENEWAL',
+      effectiveDate: '2027-09-16',
+      endDate: '2028-09-15',
+      previousCoverNoteReference: 'CN-OLD',
+    });
+
+    expect(context.dto.current_wizard_step).toBe('premium');
+  });
+
+  function fleetSnapshot() {
+    const base = (makeSnapshot().entries as Record<string, unknown>[])[0];
+    const vehicle = (
+      fleetEntry: number,
+      registration: string,
+      status?: string,
+    ) => ({
+      ...base,
+      entryId: `entry-${fleetEntry}`,
+      fleetEntry,
+      ...(status ? { status } : {}),
+      motor: {
+        ...(base.motor as Record<string, unknown>),
+        registrationNumber: registration,
+      },
+    });
+
+    return makeSnapshot({
+      source: {
+        quotationFlow: QuotationFlow.MOTOR_FLEET,
+        quotationType: QuotationType.MOTOR,
+        isFleet: true,
+      },
+      entries: [
+        vehicle(1, 'T001AAA'),
+        vehicle(2, 'T002AAA', 'CANCELLED'),
+        vehicle(3, 'T003AAA'),
+        vehicle(4, 'T004AAA', 'REMOVED'),
+      ],
+    });
+  }
+
+  it('drops off-cover fleet vehicles from a renewal', () => {
+    const context = service.buildDraftContext({
+      policy: makePolicy(),
+      version: makeVersion(fleetSnapshot()),
+      type: 'RENEWAL',
+      effectiveDate: '2027-09-16',
+      endDate: '2028-09-15',
+      previousCoverNoteReference: 'CN-OLD',
+    });
+    const fleet = context.dto.draft_payload['fleet'] as {
+      header: Record<string, unknown>;
+      declared_total_vehicles: number;
+      items: Array<Record<string, unknown>>;
+    };
+
+    expect(fleet.declared_total_vehicles).toBe(2);
+    expect(fleet.header.declared_total_vehicles).toBe(2);
+    expect(fleet.items.map((item) => item['fleet_entry'])).toEqual(['1', '2']);
+    expect(
+      fleet.items.map(
+        (item) =>
+          (item['motor'] as Record<string, unknown>)['registration_number'],
+      ),
+    ).toEqual(['T001AAA', 'T003AAA']);
+    expect(context.dto.draft_payload['sum_insured']).toBe('130000000.00');
+  });
+
+  it('keeps every fleet entry for an endorsement so indices stay stable', () => {
+    const snapshot = fleetSnapshot();
+    const context = service.buildDraftContext({
+      policy: makePolicy(),
+      version: makeVersion(snapshot),
+      transaction: {
+        id: 'txn-1',
+        transaction_no: 'END-001',
+        transaction_type: 'ENDORSEMENT',
+        source_policy_version_id: 'version-1',
+        source_policy_version_no: 1,
+        source_policy_snapshot: snapshot,
+        proposed_policy_snapshot: snapshot,
+      } as any,
+      type: 'ENDORSEMENT',
+      effectiveDate: '2026-10-01',
+      endDate: '2027-09-15',
+      previousCoverNoteReference: 'CN-OLD',
+      endorsementType: 1,
+    });
+    const fleet = context.dto.draft_payload['fleet'] as {
+      items: Array<Record<string, unknown>>;
+    };
+
+    expect(fleet.items.map((item) => item['fleet_entry'])).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+    ]);
+  });
+
   it('does not put nullable policy relationship fields into quotation form payloads', () => {
     const context = service.buildDraftContext({
       policy: makePolicy({

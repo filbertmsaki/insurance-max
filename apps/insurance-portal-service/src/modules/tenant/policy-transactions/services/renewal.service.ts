@@ -1,8 +1,19 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, LessThanOrEqual, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  LessThanOrEqual,
+  Repository,
+} from 'typeorm';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
@@ -32,6 +43,36 @@ const ACTIVE_RENEWAL_STAGES = [
   RenewalLifecycleStatus.CUSTOMER_ACCEPTED,
   RenewalLifecycleStatus.PAYMENT_PENDING,
   RenewalLifecycleStatus.SUBMISSION_PROCESSING,
+];
+
+/** Statuses an offer can be (re)sent from. */
+const SENDABLE_RENEWAL_STATUSES: RenewalLifecycleStatus[] = [
+  RenewalLifecycleStatus.OFFER_DRAFT,
+  RenewalLifecycleStatus.OFFER_READY,
+  RenewalLifecycleStatus.OFFER_SENT,
+];
+
+/** Statuses a customer can accept the offer from. */
+const ACCEPTABLE_RENEWAL_STATUSES: RenewalLifecycleStatus[] = [
+  RenewalLifecycleStatus.OFFER_DRAFT,
+  RenewalLifecycleStatus.OFFER_READY,
+  RenewalLifecycleStatus.OFFER_SENT,
+];
+
+/** Statuses a renewal can no longer be declined from. */
+const NON_DECLINABLE_RENEWAL_STATUSES: RenewalLifecycleStatus[] = [
+  RenewalLifecycleStatus.SUBMISSION_PROCESSING,
+  RenewalLifecycleStatus.RENEWED,
+  RenewalLifecycleStatus.CUSTOMER_DECLINED,
+  RenewalLifecycleStatus.LAPSED,
+  RenewalLifecycleStatus.CANCELLED,
+];
+
+const TERMINAL_TRANSACTION_STAGES: PolicyTransactionStage[] = [
+  PolicyTransactionStage.APPLIED,
+  PolicyTransactionStage.CANCELLED,
+  PolicyTransactionStage.EXPIRED,
+  PolicyTransactionStage.REJECTED,
 ];
 
 @Injectable()
@@ -356,6 +397,15 @@ export class RenewalService {
 
   async sendOffer(user: AuthenticatedUser, renewalId: string) {
     const renewal = await this.requireRenewal(user.companyId!, renewalId);
+    this.assertRenewalStatus(renewal, SENDABLE_RENEWAL_STATUSES, 'sent');
+
+    if (!renewal.renewal_quotation_id) {
+      throw new ConflictException({
+        code: 'RENEWAL_OFFER_QUOTATION_MISSING',
+        message: 'Create the renewal quotation before sending the offer.',
+      });
+    }
+
     const validDays = Number(
       this.configService.get('RENEWAL_OFFER_VALID_DAYS') ?? 30,
     );
@@ -370,6 +420,19 @@ export class RenewalService {
 
   async accept(user: AuthenticatedUser, renewalId: string) {
     const renewal = await this.requireRenewal(user.companyId!, renewalId);
+    this.assertRenewalStatus(renewal, ACCEPTABLE_RENEWAL_STATUSES, 'accepted');
+
+    if (
+      renewal.renewal_status === RenewalLifecycleStatus.OFFER_SENT &&
+      renewal.offer_expires_at &&
+      new Date(renewal.offer_expires_at).getTime() <= Date.now()
+    ) {
+      throw new ConflictException({
+        code: 'RENEWAL_OFFER_EXPIRED',
+        message: 'This renewal offer has expired.',
+      });
+    }
+
     const transaction = await this.transactionRepository.findOne({
       where: { id: renewal.policy_transaction_id, company_id: user.companyId! },
     });
@@ -401,11 +464,26 @@ export class RenewalService {
 
   async decline(user: AuthenticatedUser, renewalId: string, reason: string) {
     const renewal = await this.requireRenewal(user.companyId!, renewalId);
-    renewal.renewal_status = RenewalLifecycleStatus.CUSTOMER_DECLINED;
-    renewal.customer_declined_at = new Date();
-    renewal.decline_reason = reason;
 
-    return this.renewalRepository.save(renewal);
+    if (NON_DECLINABLE_RENEWAL_STATUSES.includes(renewal.renewal_status)) {
+      throw this.invalidStatus(renewal, 'declined');
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      renewal.renewal_status = RenewalLifecycleStatus.CUSTOMER_DECLINED;
+      renewal.customer_declined_at = new Date();
+      renewal.decline_reason = reason;
+      const saved = await manager.getRepository(PolicyRenewal).save(renewal);
+
+      await this.closeRenewalTransaction(manager, renewal, {
+        stage: PolicyTransactionStage.CANCELLED,
+        eventType: PolicyTransactionEventType.CANCELLED,
+        actorId: user.id,
+        reason,
+      });
+
+      return saved;
+    });
   }
 
   /**
@@ -527,6 +605,7 @@ export class RenewalService {
       lockedRenewal.renewal_status = RenewalLifecycleStatus.RENEWED;
       await manager.getRepository(PolicyRenewal).save(lockedRenewal);
 
+      const fromStage = transaction.stage;
       transaction.stage = PolicyTransactionStage.APPLIED;
       transaction.target_policy_id = persistedNewPolicy.id;
       transaction.target_policy_version_id =
@@ -548,7 +627,7 @@ export class RenewalService {
         policy_transaction_id: transaction.id,
         event_type: PolicyTransactionEventType.RENEWAL_POLICY_ISSUED,
         actor_type: 'SYSTEM',
-        from_stage: PolicyTransactionStage.SUBMISSION_PROCESSING,
+        from_stage: fromStage,
         to_stage: PolicyTransactionStage.APPLIED,
         metadata: {
           sourcePolicyId: oldPolicy.id,
@@ -583,8 +662,16 @@ export class RenewalService {
     });
 
     for (const renewal of offerExpired) {
-      renewal.renewal_status = RenewalLifecycleStatus.LAPSED;
-      await this.renewalRepository.save(renewal);
+      await this.dataSource.transaction(async (manager) => {
+        renewal.renewal_status = RenewalLifecycleStatus.LAPSED;
+        await manager.getRepository(PolicyRenewal).save(renewal);
+        await this.closeRenewalTransaction(manager, renewal, {
+          stage: PolicyTransactionStage.EXPIRED,
+          eventType: PolicyTransactionEventType.EXPIRED,
+          actorId: null,
+          reason: 'Renewal offer expired',
+        });
+      });
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -647,6 +734,102 @@ export class RenewalService {
       source_policy: sourcePolicy,
       renewal_quotation: quotation,
     };
+  }
+
+  /**
+   * A declined or lapsed renewal no longer occupies its source policy: move
+   * its transaction to a terminal stage and clear the policy's
+   * `pending_transaction_id` lock (only while it still points at this
+   * transaction) so a new renewal can be started.
+   */
+  private async closeRenewalTransaction(
+    manager: EntityManager,
+    renewal: PolicyRenewal,
+    close: {
+      stage:
+        | typeof PolicyTransactionStage.CANCELLED
+        | typeof PolicyTransactionStage.EXPIRED;
+      eventType: PolicyTransactionEventType;
+      actorId: string | null;
+      reason: string | null;
+    },
+  ) {
+    const transaction = await manager.getRepository(PolicyTransaction).findOne({
+      where: {
+        id: renewal.policy_transaction_id,
+        company_id: renewal.company_id,
+      },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!transaction) {
+      return;
+    }
+
+    if (transaction.source_policy_id) {
+      await manager.getRepository(Policy).update(
+        {
+          id: transaction.source_policy_id,
+          company_id: transaction.company_id,
+          pending_transaction_id: transaction.id,
+        },
+        { pending_transaction_id: null },
+      );
+    }
+
+    if (TERMINAL_TRANSACTION_STAGES.includes(transaction.stage)) {
+      return;
+    }
+
+    const fromStage = transaction.stage;
+    transaction.stage = close.stage;
+    transaction.last_command =
+      close.stage === PolicyTransactionStage.CANCELLED
+        ? 'RENEWAL_DECLINED'
+        : 'RENEWAL_OFFER_LAPSED';
+
+    if (close.stage === PolicyTransactionStage.CANCELLED) {
+      transaction.cancelled_by = close.actorId;
+      transaction.cancelled_at = new Date();
+      transaction.cancellation_reason = close.reason;
+    }
+
+    transaction.state_version = Number(transaction.state_version || 1) + 1;
+    await manager.getRepository(PolicyTransaction).save(transaction);
+
+    await manager.getRepository(PolicyTransactionEvent).save({
+      company_id: transaction.company_id,
+      policy_transaction_id: transaction.id,
+      event_type: close.eventType,
+      actor_type: close.actorId ? 'USER' : 'SYSTEM',
+      actor_id: close.actorId,
+      from_stage: fromStage,
+      to_stage: transaction.stage,
+      reason: close.reason,
+      metadata: {
+        renewalId: renewal.id,
+        renewalNo: renewal.renewal_no,
+        renewalStatus: renewal.renewal_status,
+      },
+    });
+  }
+
+  private assertRenewalStatus(
+    renewal: PolicyRenewal,
+    allowed: RenewalLifecycleStatus[],
+    action: string,
+  ) {
+    if (!allowed.includes(renewal.renewal_status)) {
+      throw this.invalidStatus(renewal, action);
+    }
+  }
+
+  private invalidStatus(renewal: PolicyRenewal, action: string) {
+    return new ConflictException({
+      code: 'RENEWAL_INVALID_STATUS',
+      message: `A ${renewal.renewal_status} renewal cannot be ${action}.`,
+      details: { renewalStatus: renewal.renewal_status },
+    });
   }
 
   private async requireRenewal(companyId: string, id: string) {

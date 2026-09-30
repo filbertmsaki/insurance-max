@@ -74,6 +74,63 @@ export async function snapshotNonMotorRiskToPolicy(
 }
 
 /**
+ * Seeds a renewal quotation's Non-Motor risk details from what the expiring
+ * policy was issued with (`policy_non_motor_risk_details`), falling back to
+ * the policy's source quotation for policies issued before that snapshot
+ * existed. Never overwrites details already captured on the new quotation.
+ */
+export async function copyNonMotorRiskToQuotation(
+  manager: EntityManager,
+  params: {
+    companyId: string;
+    policyId: string;
+    sourceQuotationId: string | null;
+    targetQuotationId: string;
+    userId: string | null;
+  },
+): Promise<void> {
+  await manager.query(
+    `INSERT INTO quotation_non_motor_details
+       (company_id, quotation_id, product_id, sub_class_id, risk_data,
+        schema_snapshot, risk_location, limit_of_liability, updated_by)
+     SELECT quotation.company_id, quotation.id, quotation.product_id,
+            quotation.sub_class_id, source.risk_data, source.schema_snapshot,
+            source.risk_location, source.limit_of_liability, $5
+       FROM quotations quotation
+       CROSS JOIN LATERAL (
+         SELECT risk_data, schema_snapshot, risk_location, limit_of_liability
+           FROM (
+             SELECT issued.risk_data, issued.schema_snapshot,
+                    issued.risk_location, issued.limit_of_liability,
+                    0 AS priority
+               FROM policy_non_motor_risk_details issued
+              WHERE issued.company_id = $1
+                AND issued.policy_id = $2
+             UNION ALL
+             SELECT quoted.risk_data, quoted.schema_snapshot,
+                    quoted.risk_location, quoted.limit_of_liability,
+                    1 AS priority
+               FROM quotation_non_motor_details quoted
+              WHERE quoted.company_id = $1
+                AND quoted.quotation_id = $3
+           ) candidate
+          ORDER BY candidate.priority
+          LIMIT 1
+       ) source
+      WHERE quotation.company_id = $1
+        AND quotation.id = $4
+     ON CONFLICT (quotation_id) DO NOTHING`,
+    [
+      params.companyId,
+      params.policyId,
+      params.sourceQuotationId,
+      params.targetQuotationId,
+      params.userId,
+    ],
+  );
+}
+
+/**
  * Additive issuance follow-up for the Underwrite lines. Runs in a savepoint
  * so a failure is logged and rolled back on its own, never failing issuance.
  */

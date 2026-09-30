@@ -116,6 +116,7 @@ import {
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { InsuranceChannelPermissionService } from './authorization/insurance-channel-permission';
 import { normalizeMotorTextValue } from './utils/motor-text.util';
+import { resolveQuotationCoverNoteType } from './utils/cover-note-type.util';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { MotorVehicleVersion } from '../motor/entities/motor-vehicle-version.entity';
@@ -3674,7 +3675,11 @@ export class QuotationsService {
       productCode: definition.productCode,
       tiramisProductCode: definition.tiramisProductCode,
       definitionHash: definition.definitionHash,
-      coverNoteType: definition.coverNoteType,
+      // A renewal/endorsement submits its own type, not the product default.
+      coverNoteType:
+        typeof outboundPayload.coverNoteType === 'number'
+          ? outboundPayload.coverNoteType
+          : definition.coverNoteType,
       coverNoteDescriptionHash: this.productDefinitionHashService.hashText(
         outboundCoverNoteDesc,
       ),
@@ -8037,9 +8042,11 @@ export class QuotationsService {
     const coverNote = await coverNoteRepository.save(
       coverNoteRepository.create({
         quotation_id: quotation.id,
-        cover_note_type:
-          productDefinition?.coverNoteType ??
-          payload.cover_note_hdr.cover_note_type,
+        cover_note_type: resolveQuotationCoverNoteType({
+          productCoverNoteType: productDefinition?.coverNoteType,
+          payloadCoverNoteType: payload.cover_note_hdr.cover_note_type,
+          draftPayload: quotation.draft_payload,
+        }),
         sale_point_code: header.sale_point_code.trim().toUpperCase(),
         cover_note_start_date: parseTiramisDateTime(
           header.cover_note_start_date,

@@ -73,6 +73,29 @@ describe('RenewalEligibilityService', () => {
     expect(result.renewalSequence).toBe(1);
   });
 
+  it('references the current cover note after an applied endorsement', async () => {
+    const result = await service.validate(
+      managerWith({
+        coverNoteEndDate: '2026-10-03',
+      }),
+      policy({ end_date: '2026-10-03', cover_note_no: 'CN-REF-ENDORSED' }),
+    );
+
+    expect(result.eligible).toBe(true);
+    expect(result.prevCoverNoteReferenceNumber).toBe('CN-REF-ENDORSED');
+  });
+
+  it('falls back to the linked cover note reference', async () => {
+    const result = await service.validate(
+      managerWith({
+        coverNoteEndDate: '2026-10-03',
+      }),
+      policy({ end_date: '2026-10-03', cover_note_no: null }),
+    );
+
+    expect(result.prevCoverNoteReferenceNumber).toBe('CN-REF-001');
+  });
+
   it('blocks renewal when cover note end date is too far in the future', async () => {
     const result = await service.validate(
       managerWith({

@@ -5,9 +5,12 @@ import { QuotationType } from '../../quotations/enums/quotation-type.enum';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
+import { FLEET_OFF_COVER_STATUSES } from '../constants/fleet-vehicle-endorsement.constants';
 
 const TIRA_COVER_NOTE_TYPE_RENEWAL = 2;
 const TIRA_COVER_NOTE_TYPE_ENDORSEMENT = 3;
+/** Premium step id shared by the Underwrite motor, fleet and non-motor wizards. */
+const UNDERWRITE_RESUME_STEP = 'premium';
 
 type TransactionDraftType = 'RENEWAL' | 'ENDORSEMENT' | 'CANCELLATION';
 
@@ -49,9 +52,15 @@ export class PolicyTransactionContextService {
     const cover = this.asObject(snapshot['cover']) ?? {};
     const product = this.asObject(snapshot['product']) ?? {};
     const customer = this.asObject(snapshot['customer']) ?? {};
-    const entries = this.asArray(snapshot['entries'])
+    const snapshotEntries = this.asArray(snapshot['entries'])
       .map((value) => this.asObject(value))
       .filter((value): value is Record<string, unknown> => !!value);
+    // A renewal re-covers only what is still on cover; endorsements keep
+    // every entry so snapshot indices stay stable.
+    const entries =
+      input.type === 'RENEWAL'
+        ? snapshotEntries.filter((entry) => !this.isOffCover(entry))
+        : snapshotEntries;
 
     if (!entries.length) {
       throw new BadRequestException(
@@ -102,7 +111,10 @@ export class PolicyTransactionContextService {
       quotation_flow: quotationFlow,
       channel_type: input.policy.channel_type,
       is_fleet: quotationFlow === QuotationFlow.MOTOR_FLEET,
-      current_wizard_step: 'cover-note',
+      // Customer, risks and cover are carried over; the Underwrite wizards
+      // (motor, fleet, non-motor) resume at re-pricing. Unknown ids fall
+      // back to the first step in the legacy quotation wizard.
+      current_wizard_step: UNDERWRITE_RESUME_STEP,
       draft_payload: draftPayload,
     };
 
@@ -222,6 +234,7 @@ export class PolicyTransactionContextService {
               params.entries,
               params.previousCoverNoteReference,
               transactionPricingRisks,
+              params.type === 'RENEWAL',
             )
           : { header: {}, items: [] },
       endorsement_type:
@@ -434,6 +447,7 @@ export class PolicyTransactionContextService {
     entries: Record<string, unknown>[],
     previousCoverNoteReference: string,
     transactionPricingRisks: Record<string, unknown>[],
+    renumberEntries = false,
   ) {
     return {
       header: {
@@ -444,7 +458,11 @@ export class PolicyTransactionContextService {
         const motor = this.mapMotorFleet(this.asObject(entry['motor']) ?? {});
 
         return {
-          fleet_entry: String(entry['fleetEntry'] ?? index + 1),
+          // A renewal is a new fleet cover note: entries run 1..N again once
+          // off-cover vehicles are dropped.
+          fleet_entry: String(
+            renumberEntries ? index + 1 : (entry['fleetEntry'] ?? index + 1),
+          ),
           cover_note_number: '',
           prev_cover_note_reference_number:
             this.resolveEntryPreviousReference(entry) ??
@@ -611,6 +629,14 @@ export class PolicyTransactionContextService {
           this.stringOrNull(cover['officerTitle']) ?? 'Underwriter',
       },
     };
+  }
+
+  private isOffCover(entry: Record<string, unknown>) {
+    return FLEET_OFF_COVER_STATUSES.includes(
+      String(entry['status'] ?? '')
+        .trim()
+        .toUpperCase(),
+    );
   }
 
   private asObject(value: unknown): Record<string, unknown> | null {
