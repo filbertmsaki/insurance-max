@@ -6,6 +6,7 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { claimsApi } from './api';
 import type { ClaimDetail, ClaimListParams, ClaimQueue } from './types';
 
@@ -167,6 +168,52 @@ export function useSubmitNotification() {
     onSuccess: (_result, { id }) => invalidate(id),
     // A failed submission may still have moved the claim; refresh it.
     onError: (_error, { id }) => invalidate(id),
+  });
+}
+
+/**
+ * A stage action on a claim (intimation, reserve, assessment, approval...).
+ * The claim is refreshed afterwards whether it succeeded or not, since a
+ * refused TIRAMIS submission may still have changed its status. Callers show
+ * `mutation.error` next to the form that caused it.
+ */
+export function useClaimAction<TVariables = void, TResult = unknown>(
+  claimId: string,
+  action: (variables: TVariables) => Promise<TResult>,
+  successMessage?: string | ((result: TResult) => string),
+) {
+  const invalidate = useInvalidateClaim();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: action,
+    onSuccess: (result) => {
+      if (successMessage) {
+        toast.success(
+          typeof successMessage === 'function'
+            ? successMessage(result)
+            : successMessage,
+        );
+      }
+    },
+    onSettled: () => {
+      invalidate(claimId);
+      void queryClient.invalidateQueries({
+        queryKey: claimsKeys.tira(claimId),
+      });
+    },
+  });
+}
+
+export const approvalLimitsKey = [
+  ...claimsKeys.all,
+  'approval-limits',
+] as const;
+
+export function useApprovalLimits(enabled = true) {
+  return useQuery({
+    queryKey: approvalLimitsKey,
+    queryFn: claimsApi.approvalLimits,
+    enabled,
   });
 }
 

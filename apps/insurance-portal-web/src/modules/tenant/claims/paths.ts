@@ -7,6 +7,7 @@ export const claimsPaths = {
   root: '/claims',
   list: '/claims',
   create: '/claims/new',
+  configuration: '/claims/configuration',
   queue: (queue: QueueSegment) => `/claims/queue/${queue}`,
   detail: (id: string) => `/claims/${id}`,
   edit: (id: string) => `/claims/${id}/edit`,

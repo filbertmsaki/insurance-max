@@ -256,10 +256,23 @@ export interface ClaimDocumentsView {
 export interface ClaimReserve {
   id: string;
   reserve_no?: string | null;
+  /** INITIAL | INCREASE | DECREASE | ASSESSMENT_ADJUSTMENT | CLOSURE_ADJUSTMENT... */
   reserve_type: string;
+  /** Signed: decreases and releases are negative. */
   amount: Money;
+  currency?: string | null;
   status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'RELEASED' | string;
   reason?: string | null;
+  effective_at?: string | null;
+  created_by?: string | null;
+  submitted_at?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  rejected_by?: string | null;
+  rejection_reason?: string | null;
+  released_by?: string | null;
+  released_at?: string | null;
+  release_reason?: string | null;
   created_at?: string | null;
 }
 
@@ -279,6 +292,8 @@ export interface ClaimIntimation {
   assessor_id_type?: number | null;
   status: 'DRAFT' | 'SUBMITTED' | 'ACCEPTED' | 'FAILED' | string;
   tiramis_status?: string | null;
+  created_by?: string | null;
+  submitted_by?: string | null;
   submitted_at?: string | null;
   created_at?: string | null;
 }
@@ -308,7 +323,19 @@ export interface ClaimAssessment {
   assessor_company?: string | null;
   inspection_date?: string | null;
   remarks?: string | null;
+  claim_intimation_number?: string | null;
+  claim_approval_date?: string | null;
   claim_approval_authority?: string | null;
+  currency_code?: string | null;
+  supersedes_assessment_id?: string | null;
+  created_by?: string | null;
+  submitted_by?: string | null;
+  submitted_at?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  rejected_by?: string | null;
+  rejected_at?: string | null;
+  rejection_reason?: string | null;
   tiramis_status?: string | null;
   created_at?: string | null;
 }
@@ -399,9 +426,11 @@ export interface ClaimApproval {
     | string;
   comments: string | null;
   submitted_by: string | null;
+  submitted_at?: string | null;
   acted_by: string | null;
   acted_at: string | null;
   admin_override: boolean | null;
+  created_at?: string | null;
 }
 
 export type ClaimRegulatoryOperationType =
@@ -509,6 +538,8 @@ export interface ClaimDetail extends ClaimListItem {
   regulatory_operations?: ClaimRegulatoryOperation[];
   allowed_actions?: ClaimAllowedAction[];
   allowed_transitions?: string[];
+  /** Display names of the users referenced on this claim's records, by id. */
+  user_names?: Record<string, string>;
 }
 
 export interface ClaimSubmissionResult {

@@ -4,19 +4,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
-import { ClaimField } from '../../components/ClaimField';
-import {
-  CLAIMANT_CATEGORY_OPTIONS,
-  CLAIMANT_TYPE_OPTIONS,
-  GENDER_OPTIONS,
-  ID_TYPE_OPTIONS,
-  PARTY_TYPE_OPTIONS,
-} from '../../constants';
-import {
-  emptyClaimant,
-  policyholderClaimant,
-  type ClaimFormValues,
-} from '../schema';
+import { ClaimantFields } from '../../components/ClaimantFields';
+import { emptyClaimant, policyholderClaimant } from '../schema';
 import type { ClaimWizard } from '../useClaimWizard';
 
 export function ClaimantsStep({ wizard }: { wizard: ClaimWizard }) {
@@ -93,7 +82,6 @@ export function ClaimantsStep({ wizard }: { wizard: ClaimWizard }) {
         const claimant = claimants[index];
         if (!claimant) return null;
         const prefix = `claimants.${index}` as const;
-        const isIndividual = claimant.party_type !== '2';
 
         return (
           <StepSection
@@ -144,114 +132,7 @@ export function ClaimantsStep({ wizard }: { wizard: ClaimWizard }) {
               </div>
             }
           >
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <ClaimField<ClaimFormValues>
-                form={form}
-                name={`${prefix}.claimant_type`}
-                label="Role"
-                options={CLAIMANT_TYPE_OPTIONS}
-                required
-              />
-              {!claimant.uses_policyholder ? (
-                <>
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.full_name`}
-                    label="Full name"
-                    required
-                    maxLength={100}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.claimant_category`}
-                    label="TIRA category"
-                    options={CLAIMANT_CATEGORY_OPTIONS}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.party_type`}
-                    label="Individual or corporate"
-                    options={PARTY_TYPE_OPTIONS}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.id_type`}
-                    label="ID type"
-                    options={ID_TYPE_OPTIONS}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.identification_number`}
-                    label="ID number"
-                    maxLength={50}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.birth_date`}
-                    label={isIndividual ? 'Birth date' : 'Registration date'}
-                    type="date"
-                  />
-                  {isIndividual ? (
-                    <ClaimField<ClaimFormValues>
-                      form={form}
-                      name={`${prefix}.gender`}
-                      label="Gender"
-                      options={GENDER_OPTIONS}
-                    />
-                  ) : null}
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.phone`}
-                    label="Phone"
-                    type="tel"
-                    maxLength={50}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.email`}
-                    label="Email"
-                    type="email"
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.country_code`}
-                    label="Country (ISO code)"
-                    uppercase
-                    maxLength={3}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.region`}
-                    label="Region"
-                    maxLength={50}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.district`}
-                    label="District"
-                    maxLength={50}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.street`}
-                    label="Street"
-                    maxLength={100}
-                  />
-                  <ClaimField<ClaimFormValues>
-                    form={form}
-                    name={`${prefix}.postal_address`}
-                    label="Postal address"
-                    maxLength={100}
-                  />
-                </>
-              ) : null}
-              <ClaimField<ClaimFormValues>
-                form={form}
-                name={`${prefix}.amount_claimed`}
-                label="Amount claimed"
-                type="number"
-              />
-            </div>
+            <ClaimantFields form={form} prefix={prefix} claimant={claimant} />
             {claimant.uses_policyholder ? (
               <p className="mt-2 text-xs text-slate-500">
                 Name, ID and address are copied from the policyholder’s customer

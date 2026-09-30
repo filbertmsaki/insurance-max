@@ -1,6 +1,14 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Clock, Pencil, RefreshCcw, Send, Trash2 } from 'lucide-react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+  ClipboardList,
+  Clock,
+  FileSearch,
+  Pencil,
+  RefreshCcw,
+  Send,
+  Trash2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -21,13 +29,12 @@ import {
   RegulatoryStatusBadge,
 } from '../components/ClaimBadges';
 import { ClaimErrorAlert } from '../components/ClaimErrorAlert';
-import {
-  CLAIMANT_CATEGORY_OPTIONS,
-  CLAIMANT_TYPE_OPTIONS,
-  ID_TYPE_OPTIONS,
-  PARTY_TYPE_OPTIONS,
-  TIRA_OPERATION_LABELS,
-} from '../constants';
+import { TIRA_OPERATION_LABELS } from '../constants';
+import { ApprovalsTab } from './detail/ApprovalsTab';
+import { AssessmentTab } from './detail/AssessmentTab';
+import { ClaimantsTab } from './detail/ClaimantsTab';
+import { IntimationTab } from './detail/IntimationTab';
+import { ReserveTab } from './detail/ReserveTab';
 import {
   useClaim,
   useClaimTimeline,
@@ -44,15 +51,6 @@ import {
   formatClaimDateTime,
   formatClaimMoney,
 } from '../utils';
-
-const optionLabel = (
-  options: ReadonlyArray<{ value: string; label: string }>,
-  value: unknown,
-) =>
-  value == null || value === ''
-    ? '-'
-    : (options.find((option) => option.value === String(value))?.label ??
-      String(value));
 
 function notificationOperation(claim: ClaimDetail) {
   return [...(claim.regulatory_operations ?? [])]
@@ -332,74 +330,6 @@ function IncidentTab({ claim }: { claim: ClaimDetail }) {
   );
 }
 
-function ClaimantsTab({ claim }: { claim: ClaimDetail }) {
-  const claimants = (claim.claimants ?? []).filter(
-    (claimant) => claimant.status !== 'REMOVED',
-  );
-
-  if (claimants.length === 0)
-    return <EmptyState text="No claimants recorded." />;
-
-  return (
-    <div className="space-y-4">
-      {claimants.map((claimant) => (
-        <SectionCard
-          key={claimant.id}
-          title={claimant.full_name ?? 'Claimant'}
-          description={[
-            optionLabel(CLAIMANT_TYPE_OPTIONS, claimant.claimant_type),
-            claimant.is_primary ? 'Primary' : null,
-            claimant.uses_policyholder ? 'Policyholder record' : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        >
-          <KeyValueGrid
-            items={[
-              {
-                label: 'TIRA category',
-                value: optionLabel(
-                  CLAIMANT_CATEGORY_OPTIONS,
-                  claimant.claimant_category,
-                ),
-              },
-              {
-                label: 'Type',
-                value: optionLabel(PARTY_TYPE_OPTIONS, claimant.party_type),
-              },
-              {
-                label: 'ID',
-                value: `${optionLabel(ID_TYPE_OPTIONS, claimant.id_type)} ${claimant.identification_number ?? ''}`,
-              },
-              { label: 'Phone', value: claimant.phone ?? '-' },
-              { label: 'Email', value: claimant.email ?? '-' },
-              {
-                label: 'Address',
-                value:
-                  [
-                    claimant.street,
-                    claimant.district,
-                    claimant.region,
-                    claimant.country_code,
-                  ]
-                    .filter(Boolean)
-                    .join(', ') || '-',
-              },
-              {
-                label: 'Amount claimed',
-                value: formatClaimMoney(
-                  claimant.amount_claimed,
-                  claim.currency_code,
-                ),
-              },
-            ]}
-          />
-        </SectionCard>
-      ))}
-    </div>
-  );
-}
-
 function TiraTab({ operations }: { operations: ClaimRegulatoryOperation[] }) {
   if (operations.length === 0) {
     return <EmptyState text="Nothing has been submitted to TIRAMIS yet." />;
@@ -495,6 +425,18 @@ export function ClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const claimQuery = useClaim(id);
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') ?? 'overview';
+  const setTab = (next: string) =>
+    setParams(
+      (prev) => {
+        const updated = new URLSearchParams(prev);
+        if (next === 'overview') updated.delete('tab');
+        else updated.set('tab', next);
+        return updated;
+      },
+      { replace: true },
+    );
   const submit = useSubmitNotification();
   const remove = useDeleteClaimDraft();
   const [confirm, setConfirm] = useState<'submit' | 'delete' | null>(null);
@@ -596,6 +538,19 @@ export function ClaimDetailPage() {
                 Delete draft
               </Button>
             ) : null}
+            {actions.has('create_intimation') ||
+            actions.has('submit_intimation') ? (
+              <Button onClick={() => setTab('intimation')}>
+                <ClipboardList className="mr-1.5 h-4 w-4" />
+                Intimation
+              </Button>
+            ) : null}
+            {actions.has('create_assessment') ? (
+              <Button onClick={() => setTab('assessment')}>
+                <FileSearch className="mr-1.5 h-4 w-4" />
+                Assessment
+              </Button>
+            ) : null}
             {actions.has('submit_notification') ? (
               <Button
                 onClick={() => setConfirm('submit')}
@@ -624,12 +579,16 @@ export function ClaimDetailPage() {
         }
       />
 
-      <Tabs defaultValue="overview">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="policy">Policy & Risk</TabsTrigger>
           <TabsTrigger value="incident">Incident</TabsTrigger>
           <TabsTrigger value="claimants">Claimants</TabsTrigger>
+          <TabsTrigger value="intimation">Intimation</TabsTrigger>
+          <TabsTrigger value="reserve">Reserve</TabsTrigger>
+          <TabsTrigger value="assessment">Assessment</TabsTrigger>
+          <TabsTrigger value="approvals">Approvals</TabsTrigger>
           <TabsTrigger value="tira">TIRA Transactions</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
         </TabsList>
@@ -644,6 +603,18 @@ export function ClaimDetailPage() {
         </TabsContent>
         <TabsContent value="claimants">
           <ClaimantsTab claim={claim} />
+        </TabsContent>
+        <TabsContent value="intimation">
+          <IntimationTab claim={claim} />
+        </TabsContent>
+        <TabsContent value="reserve">
+          <ReserveTab claim={claim} />
+        </TabsContent>
+        <TabsContent value="assessment">
+          <AssessmentTab claim={claim} />
+        </TabsContent>
+        <TabsContent value="approvals">
+          <ApprovalsTab claim={claim} />
         </TabsContent>
         <TabsContent value="tira">
           <TiraTab operations={claim.regulatory_operations ?? []} />

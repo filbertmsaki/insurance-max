@@ -4,6 +4,16 @@ import {
   type PaginatedResponse,
 } from '@/modules/shared/api/pagination';
 import type {
+  ApprovalLimit,
+  ApprovalLimitPayload,
+  AssessmentPayload,
+  ClaimApproval,
+  ClaimAssessment,
+  ClaimIntimation,
+  ClaimReserve,
+  DeclinePayload,
+  IntimationPayload,
+  ReservePayload,
   ClaimantPayload,
   ClaimClaimant,
   ClaimDetail,
@@ -82,6 +92,101 @@ export const claimsApi = {
   retryNotification: (id: string) =>
     apiClient
       .post<ClaimSubmissionResult>(`${BASE}/${id}/notification/retry`)
+      .then((r) => r.data),
+
+  // Intimation (§10) and the reserve ledger ---------------------------------
+  createIntimation: (id: string, data: IntimationPayload) =>
+    apiClient
+      .post<ClaimIntimation>(`${BASE}/${id}/intimations`, data)
+      .then((r) => r.data),
+
+  updateIntimation: (intimationId: string, data: Partial<IntimationPayload>) =>
+    apiClient
+      .patch<ClaimIntimation>(`${BASE}/intimations/${intimationId}`, data)
+      .then((r) => r.data),
+
+  submitIntimation: (intimationId: string, retry?: boolean) =>
+    apiClient
+      .post(
+        `${BASE}/intimations/${intimationId}/submit`,
+        retry ? { retry } : {},
+      )
+      .then((r) => r.data),
+
+  createReserve: (id: string, data: ReservePayload) =>
+    apiClient
+      .post<ClaimReserve>(`${BASE}/${id}/reserves`, data)
+      .then((r) => r.data),
+
+  approveReserve: (reserveId: string, comments?: string) =>
+    apiClient
+      .post(`${BASE}/reserves/${reserveId}/approve`, { comments })
+      .then((r) => r.data),
+
+  declineReserve: (reserveId: string, comments: string) =>
+    apiClient
+      .post(`${BASE}/reserves/${reserveId}/decline`, { comments })
+      .then((r) => r.data),
+
+  releaseReserve: (reserveId: string, reason: string) =>
+    apiClient
+      .post(`${BASE}/reserves/${reserveId}/release`, { reason })
+      .then((r) => r.data),
+
+  // Assessment (§11) and approvals -----------------------------------------
+  createAssessment: (id: string, data: AssessmentPayload) =>
+    apiClient
+      .post<ClaimAssessment>(`${BASE}/${id}/assessments`, data)
+      .then((r) => r.data),
+
+  updateAssessment: (assessmentId: string, data: Partial<AssessmentPayload>) =>
+    apiClient
+      .patch<ClaimAssessment>(`${BASE}/assessments/${assessmentId}`, data)
+      .then((r) => r.data),
+
+  submitAssessment: (assessmentId: string) =>
+    apiClient
+      .post(`${BASE}/assessments/${assessmentId}/submit`)
+      .then((r) => r.data),
+
+  approveAssessment: (assessmentId: string, comments?: string) =>
+    apiClient
+      .post<{
+        completed: boolean;
+      }>(`${BASE}/assessments/${assessmentId}/approve`, { comments })
+      .then((r) => r.data),
+
+  declineAssessment: (assessmentId: string, data: DeclinePayload) =>
+    apiClient
+      .post(`${BASE}/assessments/${assessmentId}/decline`, data)
+      .then((r) => r.data),
+
+  submitAssessmentToTiramis: (assessmentId: string, retry?: boolean) =>
+    apiClient
+      .post(
+        `${BASE}/assessments/${assessmentId}/tiramis`,
+        retry ? { retry } : {},
+      )
+      .then((r) => r.data),
+
+  approvals: (id: string) =>
+    apiClient
+      .get<ClaimApproval[]>(`${BASE}/${id}/approvals`)
+      .then((r) => r.data),
+
+  approvalLimits: () =>
+    apiClient
+      .get<ApprovalLimit[]>(`${BASE}/configuration/approval-limits`)
+      .then((r) => r.data),
+
+  saveApprovalLimit: (data: ApprovalLimitPayload) =>
+    apiClient
+      .put<ApprovalLimit>(`${BASE}/configuration/approval-limits`, data)
+      .then((r) => r.data),
+
+  deactivateApprovalLimit: (limitId: string) =>
+    apiClient
+      .delete<ApprovalLimit>(`${BASE}/configuration/approval-limits/${limitId}`)
       .then((r) => r.data),
 
   timeline: (id: string) =>

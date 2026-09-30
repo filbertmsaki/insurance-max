@@ -774,7 +774,43 @@ export class ClaimsService {
       outstanding_amount: this.outstanding(claim),
       allowed_actions: this.allowedActions(claim, user),
       allowed_transitions: CLAIM_STATUS_TRANSITIONS[claim.status],
+      user_names: await this.userNames([
+        ...approvals.flatMap((row) => [row.submitted_by, row.acted_by]),
+        ...(claim.reserves ?? []).flatMap((row) => [
+          row.created_by,
+          row.approved_by,
+          row.rejected_by,
+          row.released_by,
+        ]),
+        ...(claim.assessments ?? []).flatMap((row) => [
+          row.created_by,
+          row.submitted_by,
+          row.approved_by,
+          row.rejected_by,
+        ]),
+        ...intimations.flatMap((row) => [row.created_by, row.submitted_by]),
+      ]),
     };
+  }
+
+  /** Display names for the users referenced on a claim's records, by id. */
+  private async userNames(ids: Array<string | null | undefined>) {
+    const unique = [...new Set(ids.filter((id): id is string => !!id))];
+
+    if (unique.length === 0) {
+      return {};
+    }
+
+    const rows: Array<{ id: string; name: string }> =
+      await this.dataSource.query(
+        `SELECT id,
+                COALESCE(NULLIF(TRIM(CONCAT_WS(' ', first_name, last_name)), ''), email) AS name
+           FROM users
+          WHERE id = ANY($1::uuid[])`,
+        [unique],
+      );
+
+    return Object.fromEntries(rows.map((row) => [row.id, row.name]));
   }
 
   async timeline(user: AuthenticatedUser, claimId: string) {

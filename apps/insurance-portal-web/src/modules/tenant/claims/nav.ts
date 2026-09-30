@@ -6,6 +6,7 @@ import {
   FilePlus2,
   FileSearch,
   FileSignature,
+  SlidersHorizontal,
   Wallet,
 } from 'lucide-react';
 import { ClaimsPermissions } from '@insurance-max/contracts';
@@ -26,7 +27,7 @@ const QUEUE_ICONS: Record<ClaimQueue, NavLeaf['icon']> = {
 /**
  * Sidebar section: Claims → All Claims | New Claim | one entry per stage.
  * The stage entries are filtered views of the same claims list (§3).
- * Dashboard, Documents, Reports and Configuration join as their screens land.
+ * Dashboard, Documents and Reports join as their screens land.
  */
 export function buildClaimsNavNodes(): NavGroup[] {
   return [
@@ -60,6 +61,14 @@ export function buildClaimsNavNodes(): NavGroup[] {
           permission: ClaimsPermissions.READ,
           allowedScopes: ['company'],
         })),
+        {
+          kind: 'link',
+          label: 'Configuration',
+          to: claimsPaths.configuration,
+          icon: SlidersHorizontal,
+          permission: ClaimsPermissions.CONFIGURATION_MANAGE,
+          allowedScopes: ['company'],
+        },
       ],
     },
   ];

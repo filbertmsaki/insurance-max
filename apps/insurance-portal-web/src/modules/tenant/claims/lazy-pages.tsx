@@ -22,6 +22,12 @@ export const ClaimWizardPage = lazy(() =>
   })),
 );
 
+export const ClaimsConfigurationPage = lazy(() =>
+  import('./pages/ClaimsConfigurationPage').then((module) => ({
+    default: module.ClaimsConfigurationPage,
+  })),
+);
+
 export function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<TableSkeleton />}>{children}</Suspense>;
 }

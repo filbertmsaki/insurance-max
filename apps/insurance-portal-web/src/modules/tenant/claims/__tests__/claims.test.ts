@@ -35,6 +35,7 @@ describe('claims navigation', () => {
       '/claims/queue/discharge',
       '/claims/queue/payment',
       '/claims/queue/rejection',
+      '/claims/configuration',
     ]);
   });
 
@@ -43,6 +44,9 @@ describe('claims navigation', () => {
       group.children.map((item) => [item.to, item.permission]),
     );
     expect(permissions[claimsPaths.create]).toBe('claims:create');
+    expect(permissions[claimsPaths.configuration]).toBe(
+      'claims:configuration-manage',
+    );
     for (const queue of CLAIM_QUEUES) {
       expect(permissions[claimsPaths.queue(queue.queue)]).toBe('claims:read');
     }

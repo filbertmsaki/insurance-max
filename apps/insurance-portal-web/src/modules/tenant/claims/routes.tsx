@@ -5,6 +5,7 @@ import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute'
 import {
   ClaimDetailPage,
   ClaimQueuePage,
+  ClaimsConfigurationPage,
   ClaimsListPage,
   ClaimWizardPage,
   Page,
@@ -26,13 +27,18 @@ function guardedRoute(permissions: string[], path: string, element: ReactNode) {
  * React Router ranks static segments above params either way.
  */
 export function renderClaimsRoutes() {
-  const { READ, CREATE, UPDATE } = ClaimsPermissions;
+  const { READ, CREATE, UPDATE, CONFIGURATION_MANAGE } = ClaimsPermissions;
 
   return (
     <>
       {guardedRoute([READ], claimsPaths.list, <ClaimsListPage />)}
       {guardedRoute([READ, CREATE], claimsPaths.create, <ClaimWizardPage />)}
       {guardedRoute([READ], claimsPaths.queue(':queue'), <ClaimQueuePage />)}
+      {guardedRoute(
+        [CONFIGURATION_MANAGE],
+        claimsPaths.configuration,
+        <ClaimsConfigurationPage />,
+      )}
       {guardedRoute([READ], claimsPaths.detail(':id'), <ClaimDetailPage />)}
       {guardedRoute(
         [READ, UPDATE],
