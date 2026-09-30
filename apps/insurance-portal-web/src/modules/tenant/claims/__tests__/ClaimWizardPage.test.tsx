@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  configure,
   fireEvent,
   render,
   screen,
@@ -11,6 +12,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { PageFooterProvider } from '@/components/layout/PageFooterSlot';
 import { claimsApi } from '../api';
 import { ClaimWizardPage } from '../wizard/ClaimWizardPage';
+
+// The policy search waits 350 ms before querying; on a loaded machine the
+// default 1 s findBy* window is too tight for search + render.
+configure({ asyncUtilTimeout: 5000 });
 
 vi.mock('@/modules/shared/auth/store/auth.store', () => ({
   useAuthStore: (

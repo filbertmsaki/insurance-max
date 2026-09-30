@@ -8,7 +8,12 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { claimsApi } from './api';
-import type { ClaimDetail, ClaimListParams, ClaimQueue } from './types';
+import type {
+  ClaimDetail,
+  ClaimListParams,
+  ClaimQueue,
+  ClaimsDashboardParams,
+} from './types';
 
 export const claimsKeys = {
   all: ['claims'] as const,
@@ -17,6 +22,11 @@ export const claimsKeys = {
   detail: (id: string) => [...claimsKeys.all, 'detail', id] as const,
   timeline: (id: string) => [...claimsKeys.all, 'timeline', id] as const,
   tira: (id: string) => [...claimsKeys.all, 'tira', id] as const,
+  documents: (id: string) => [...claimsKeys.all, 'documents', id] as const,
+  documentRegister: (params: object) =>
+    [...claimsKeys.all, 'document-register', params] as const,
+  dashboard: (params: ClaimsDashboardParams) =>
+    [...claimsKeys.all, 'dashboard', params] as const,
   policyLookup: (q: string) => [...claimsKeys.all, 'policy-lookup', q] as const,
   policyDetail: (id: string) => [...claimsKeys.all, 'policy', id] as const,
 };
@@ -152,6 +162,9 @@ export function useInvalidateClaim() {
         void queryClient.invalidateQueries({
           queryKey: claimsKeys.timeline(id),
         });
+        void queryClient.invalidateQueries({
+          queryKey: claimsKeys.documents(id),
+        });
       }
     },
     [queryClient],
@@ -222,5 +235,46 @@ export function useDeleteClaimDraft() {
   return useMutation({
     mutationFn: (id: string) => claimsApi.removeDraft(id),
     onSuccess: () => invalidate(),
+  });
+}
+
+export function useClaimDocuments(id: string | undefined) {
+  return useQuery({
+    queryKey: claimsKeys.documents(id ?? ''),
+    queryFn: () => claimsApi.documents(id!),
+    enabled: !!id,
+  });
+}
+
+export function useClaimDocumentRegister(params: {
+  status?: string;
+  page: number;
+  limit: number;
+}) {
+  return useQuery({
+    queryKey: claimsKeys.documentRegister(params),
+    queryFn: () => claimsApi.documentRegister(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useClaimsDashboard(params: ClaimsDashboardParams) {
+  return useQuery({
+    queryKey: claimsKeys.dashboard(params),
+    queryFn: () => claimsApi.dashboard(params),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
+export const documentRequirementsKey = [
+  ...claimsKeys.all,
+  'document-requirements',
+] as const;
+
+export function useDocumentRequirements() {
+  return useQuery({
+    queryKey: documentRequirementsKey,
+    queryFn: claimsApi.documentRequirements,
   });
 }

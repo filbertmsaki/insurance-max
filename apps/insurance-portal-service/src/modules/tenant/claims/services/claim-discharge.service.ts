@@ -16,6 +16,7 @@ import { ClaimsService } from '../claims.service';
 import {
   AdjustDischargeVoucherDto,
   CreateDischargeVoucherDto,
+  UpdateDischargeVoucherDto,
   RespondToDischargeDto,
   TiramisSubmitOptionsDto,
 } from '../dto/claim-workflow.dto';
@@ -187,6 +188,78 @@ export class ClaimDischargeService {
       );
 
       return voucher;
+    });
+  }
+
+  /**
+   * Edits a draft voucher: a new one, or one returned for rework by an
+   * approver. Issued vouchers change only through adjustment or a new version.
+   */
+  async update(
+    user: AuthenticatedUser,
+    voucherId: string,
+    dto: UpdateDischargeVoucherDto,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const { record, claim } = await this.lock(manager, user, voucherId);
+
+      if (record.status !== ClaimDischargeStatus.DRAFT) {
+        throw new ConflictException(
+          'Only a draft discharge voucher can be edited',
+        );
+      }
+
+      if (dto.claim_offer_amount !== undefined) {
+        const outstanding = MoneyUtil.subtract(
+          claim.approved_amount,
+          claim.paid_amount,
+        );
+
+        if (MoneyUtil.compare(dto.claim_offer_amount, '0.00') <= 0) {
+          throw new BadRequestException(
+            'The offer amount must be greater than zero',
+          );
+        }
+
+        if (MoneyUtil.compare(dto.claim_offer_amount, outstanding) > 0) {
+          throw new BadRequestException(
+            `The offer exceeds the outstanding approved amount (${outstanding} ${claim.currency_code})`,
+          );
+        }
+
+        record.claim_offer_amount = dto.claim_offer_amount;
+      }
+
+      if (dto.claim_offer_communication_date) {
+        record.claim_offer_communication_date = new Date(
+          dto.claim_offer_communication_date,
+        );
+      }
+
+      if (dto.claimant_id !== undefined) {
+        const claimants = await this.claimantsFor(
+          manager,
+          claim.id,
+          dto.claimant_id || undefined,
+        );
+        record.claimant_id = dto.claimant_id || null;
+        record.claimants = claimants.map((claimant) =>
+          this.tiramisPayload.identityClaimant(claimant),
+        ) as unknown as Record<string, unknown>[];
+      }
+
+      const saved = await manager
+        .getRepository(ClaimDischargeVoucher)
+        .save(record);
+      await this.stateMachine.recordEvent(manager, claim, {
+        eventType: 'DISCHARGE_UPDATED',
+        summary: `Discharge voucher ${record.discharge_voucher_number} updated (offer ${record.claim_offer_amount} ${record.currency_code})`,
+        actorId: user.id,
+        subjectType: VOUCHER_SUBJECT,
+        subjectId: record.id,
+      });
+
+      return saved;
     });
   }
 

@@ -231,6 +231,7 @@ export interface ClaimDocumentRecord {
   status: 'UPLOADED' | 'VERIFIED' | 'REJECTED' | string;
   uploaded_by?: string | null;
   uploaded_at?: string | null;
+  verified_by?: string | null;
   verified_at?: string | null;
   rejection_reason?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -364,6 +365,20 @@ export interface ClaimDischargeVoucher {
   reconciliation_date?: string | null;
   reconciliation_summary?: string | null;
   reconciled_amount?: Money;
+  claim_assessment_number?: string | null;
+  assessment_id?: string | null;
+  discharge_voucher_date?: string | null;
+  currency_code?: string | null;
+  signed_document_id?: string | null;
+  generated_document_id?: string | null;
+  supersedes_voucher_id?: string | null;
+  created_by?: string | null;
+  submitted_by?: string | null;
+  submitted_at?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  rejected_by?: string | null;
+  rejection_reason?: string | null;
   tiramis_status?: string | null;
   created_at?: string | null;
 }
@@ -390,8 +405,47 @@ export interface ClaimPayment {
   finance_disbursement_id?: string | null;
   finance_status?: string | null;
   payment_date?: string | null;
+  claimant_id?: string | null;
+  discharge_voucher_id?: string | null;
+  parties_notified?: 'Y' | 'N' | string | null;
+  claim_resulted_litigation?: 'Y' | 'N' | string | null;
+  litigation_reason?: string | null;
+  net_premium_earned?: Money;
+  currency_code?: string | null;
+  payee_snapshot?: {
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
+  /** Account numbers are masked by the API. */
+  payee_bank_details?: Record<string, unknown> | null;
+  created_by?: string | null;
+  submitted_by?: string | null;
+  submitted_at?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  paid_by?: string | null;
+  paid_at?: string | null;
+  rejection_reason?: string | null;
   tiramis_status?: string | null;
   created_at?: string | null;
+}
+
+export interface ClaimDisbursement {
+  id: string;
+  claim_payment_id: string;
+  disbursement_no: string;
+  status: 'REQUESTED' | 'PROCESSING' | 'PAID' | 'FAILED' | 'REVERSED' | string;
+  amount: Money;
+  currency_code: string | null;
+  payment_method?: string | null;
+  provider_reference?: string | null;
+  requested_by?: string | null;
+  requested_at?: string | null;
+  confirmed_by?: string | null;
+  confirmed_at?: string | null;
+  failed_at?: string | null;
+  failure_message?: string | null;
 }
 
 export interface ClaimRejection {
@@ -403,7 +457,18 @@ export interface ClaimRejection {
   recommendation?: string | null;
   policy_clause_reference?: string | null;
   claim_amount?: Money;
+  currency_code?: string | null;
+  claim_resulted_litigation?: 'Y' | 'N' | null;
+  /** Set only when the claim was intimated; TIRA needs it (§14.1). */
+  claim_intimation_number?: string | null;
+  claim_reference_number?: string | null;
+  rejection_date?: string | null;
+  letter_document_id?: string | null;
+  previous_claim_status?: string | null;
   tiramis_status?: string | null;
+  created_by?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
   created_at?: string | null;
 }
 
@@ -533,6 +598,7 @@ export interface ClaimDetail extends ClaimListItem {
   payments?: ClaimPayment[];
   intimations?: ClaimIntimation[];
   discharge_vouchers?: ClaimDischargeVoucher[];
+  disbursements?: ClaimDisbursement[];
   rejections?: ClaimRejection[];
   approvals?: ClaimApproval[];
   regulatory_operations?: ClaimRegulatoryOperation[];

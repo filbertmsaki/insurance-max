@@ -212,3 +212,29 @@ export const PRIORITY_OPTIONS: Array<{ value: ClaimPriority; label: string }> =
     { value: 'HIGH', label: 'High' },
     { value: 'CRITICAL', label: 'Critical' },
   ];
+
+/** TIRAMIS payment modes (§13.1). */
+export const PAYMENT_MODE_OPTIONS = [
+  { value: '1', label: 'Cash' },
+  { value: '2', label: 'Cheque' },
+  { value: '3', label: 'EFT / bank transfer' },
+];
+
+/** Claim stages a document requirement can apply to (CLAIM_DOCUMENT_STAGES). */
+export const CLAIM_DOCUMENT_STAGES = [
+  'NOTIFICATION',
+  'INTIMATION',
+  'ASSESSMENT',
+  'DISCHARGE',
+  'PAYMENT',
+  'REJECTION',
+] as const;
+
+export const DOCUMENT_STATUS_META: Record<
+  string,
+  { label: string; tone: Tone }
+> = {
+  UPLOADED: { label: 'Awaiting verification', tone: 'warning' },
+  VERIFIED: { label: 'Verified', tone: 'success' },
+  REJECTED: { label: 'Rejected', tone: 'danger' },
+};

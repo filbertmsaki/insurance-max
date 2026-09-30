@@ -28,6 +28,24 @@ export const ClaimsConfigurationPage = lazy(() =>
   })),
 );
 
+export const ClaimsDashboardPage = lazy(() =>
+  import('./pages/ClaimsDashboardPage').then((module) => ({
+    default: module.ClaimsDashboardPage,
+  })),
+);
+
+export const ClaimDocumentsPage = lazy(() =>
+  import('./pages/ClaimDocumentsPage').then((module) => ({
+    default: module.ClaimDocumentsPage,
+  })),
+);
+
+export const ClaimsReportsPage = lazy(() =>
+  import('./pages/ClaimsReportsPage').then((module) => ({
+    default: module.ClaimsReportsPage,
+  })),
+);
+
 export function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<TableSkeleton />}>{children}</Suspense>;
 }

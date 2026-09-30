@@ -240,6 +240,10 @@ export class CreateDischargeVoucherDto {
   claim_offer_communication_date?: string;
 }
 
+export class UpdateDischargeVoucherDto extends PartialType(
+  CreateDischargeVoucherDto,
+) {}
+
 export class RespondToDischargeDto {
   @IsOptional()
   @IsUUID()

@@ -1,5 +1,8 @@
 import {
   Ban,
+  FileBarChart,
+  Files,
+  LayoutDashboard,
   BellRing,
   ClipboardCheck,
   ClipboardList,
@@ -25,9 +28,10 @@ const QUEUE_ICONS: Record<ClaimQueue, NavLeaf['icon']> = {
 };
 
 /**
- * Sidebar section: Claims → All Claims | New Claim | one entry per stage.
+ * Sidebar section: Claims → Dashboard | All Claims | New Claim | one entry
+ * per stage | Documents | Reports | Configuration.
  * The stage entries are filtered views of the same claims list (§3).
- * Dashboard, Documents and Reports join as their screens land.
+ * Dashboard, Documents and Reports sit around the stage entries.
  */
 export function buildClaimsNavNodes(): NavGroup[] {
   return [
@@ -37,6 +41,14 @@ export function buildClaimsNavNodes(): NavGroup[] {
       label: 'Claims',
       icon: ClipboardCheck,
       children: [
+        {
+          kind: 'link',
+          label: 'Dashboard',
+          to: claimsPaths.dashboard,
+          icon: LayoutDashboard,
+          permission: ClaimsPermissions.DASHBOARD,
+          allowedScopes: ['company'],
+        },
         {
           kind: 'link',
           label: 'All Claims',
@@ -61,6 +73,22 @@ export function buildClaimsNavNodes(): NavGroup[] {
           permission: ClaimsPermissions.READ,
           allowedScopes: ['company'],
         })),
+        {
+          kind: 'link',
+          label: 'Documents',
+          to: claimsPaths.documents,
+          icon: Files,
+          permission: ClaimsPermissions.DOCUMENT_VERIFY,
+          allowedScopes: ['company'],
+        },
+        {
+          kind: 'link',
+          label: 'Reports',
+          to: claimsPaths.reports,
+          icon: FileBarChart,
+          permission: ClaimsPermissions.REPORT_READ,
+          allowedScopes: ['company'],
+        },
         {
           kind: 'link',
           label: 'Configuration',

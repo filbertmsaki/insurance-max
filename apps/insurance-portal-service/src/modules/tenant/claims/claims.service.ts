@@ -50,6 +50,7 @@ import {
 } from './dto/find-claims-query.dto';
 import { ClaimApproval } from './entities/claim-approval.entity';
 import { ClaimClaimant } from './entities/claim-claimant.entity';
+import { ClaimDisbursement } from './entities/claim-disbursement.entity';
 import { ClaimDischargeVoucher } from './entities/claim-discharge-voucher.entity';
 import { ClaimEvent } from './entities/claim-event.entity';
 import { InsuranceClaim } from './entities/claim.entity';
@@ -762,29 +763,39 @@ export class ClaimsService {
     }
 
     const manager = this.dataSource.manager;
-    const [intimations, dischargeVouchers, rejections, approvals, operations] =
-      await Promise.all([
-        manager.getRepository(ClaimIntimation).find({
-          where: { claim_id: claim.id },
-          order: { created_at: 'DESC' },
-        }),
-        manager.getRepository(ClaimDischargeVoucher).find({
-          where: { claim_id: claim.id },
-          order: { created_at: 'DESC' },
-        }),
-        manager.getRepository(ClaimRejection).find({
-          where: { claim_id: claim.id },
-          order: { created_at: 'DESC' },
-        }),
-        manager.getRepository(ClaimApproval).find({
-          where: { claim_id: claim.id },
-          order: { created_at: 'DESC', level: 'ASC' },
-        }),
-        this.operationRepository.find({
-          where: { claim_id: claim.id },
-          order: { created_at: 'ASC' },
-        }),
-      ]);
+    const [
+      intimations,
+      dischargeVouchers,
+      rejections,
+      approvals,
+      operations,
+      disbursements,
+    ] = await Promise.all([
+      manager.getRepository(ClaimIntimation).find({
+        where: { claim_id: claim.id },
+        order: { created_at: 'DESC' },
+      }),
+      manager.getRepository(ClaimDischargeVoucher).find({
+        where: { claim_id: claim.id },
+        order: { created_at: 'DESC' },
+      }),
+      manager.getRepository(ClaimRejection).find({
+        where: { claim_id: claim.id },
+        order: { created_at: 'DESC' },
+      }),
+      manager.getRepository(ClaimApproval).find({
+        where: { claim_id: claim.id },
+        order: { created_at: 'DESC', level: 'ASC' },
+      }),
+      this.operationRepository.find({
+        where: { claim_id: claim.id },
+        order: { created_at: 'ASC' },
+      }),
+      manager.getRepository(ClaimDisbursement).find({
+        where: { claim_id: claim.id },
+        order: { requested_at: 'DESC' },
+      }),
+    ]);
 
     claim.assessments?.sort((a, b) => +b.created_at - +a.created_at);
     claim.payments?.sort((a, b) => +b.created_at - +a.created_at);
@@ -800,6 +811,7 @@ export class ClaimsService {
       })),
       intimations,
       discharge_vouchers: dischargeVouchers,
+      disbursements,
       rejections,
       approvals,
       regulatory_operations: operations.map((operation) =>
@@ -823,6 +835,23 @@ export class ClaimsService {
           row.rejected_by,
         ]),
         ...intimations.flatMap((row) => [row.created_by, row.submitted_by]),
+        ...dischargeVouchers.flatMap((row) => [
+          row.created_by,
+          row.submitted_by,
+          row.approved_by,
+        ]),
+        ...(claim.payments ?? []).flatMap((row) => [
+          row.created_by,
+          row.submitted_by,
+          row.approved_by,
+          row.paid_by,
+        ]),
+        ...disbursements.flatMap((row) => [row.requested_by, row.confirmed_by]),
+        ...rejections.flatMap((row) => [row.created_by, row.approved_by]),
+        ...(claim.documents ?? []).flatMap((row) => [
+          row.uploaded_by,
+          row.verified_by,
+        ]),
       ]),
     };
   }

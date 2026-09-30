@@ -37,6 +37,7 @@ import { usersApi } from '@/modules/tenant/users/api/users';
 import { claimsApi } from '../api';
 import { ClaimErrorAlert } from '../components/ClaimErrorAlert';
 import { ClaimField } from '../components/ClaimField';
+import { DocumentRequirementsSection } from '../components/DocumentRequirementsSection';
 import { approvalLimitsKey, useApprovalLimits } from '../hooks';
 import type {
   ApprovalLimit,
@@ -406,7 +407,7 @@ export function ClaimsConfigurationPage() {
       <PageHeader
         eyebrow="Claims"
         title="Claims configuration"
-        description="Who may approve reserves, assessments, vouchers, payments and rejections, and up to what amount."
+        description="Who may approve reserves, assessments, vouchers, payments and rejections, up to what amount, and which documents each stage needs."
         action={
           <Button onClick={() => setEditing('new')}>
             <Plus className="mr-2 h-4 w-4" />
@@ -523,6 +524,11 @@ export function ClaimsConfigurationPage() {
           </Table>
         )}
       </SectionCard>
+
+      <DocumentRequirementsSection
+        products={options.products}
+        categories={options.categories}
+      />
 
       {editing ? (
         <LimitDialog

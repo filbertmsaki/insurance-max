@@ -9,8 +9,24 @@ import type {
   AssessmentPayload,
   ClaimApproval,
   ClaimAssessment,
+  ClaimDisbursement,
+  ClaimDischargeVoucher,
+  ClaimPayment,
+  PaymentPayload,
+  VoucherAdjustPayload,
+  VoucherPayload,
+  VoucherResponsePayload,
+  ClaimDocumentRecord,
+  ClaimDocumentsView,
   ClaimIntimation,
+  ClaimRejection,
   ClaimReserve,
+  ClaimsDashboardParams,
+  ClaimsDashboardSummary,
+  DocumentRequirement,
+  DocumentRequirementPayload,
+  RejectionPayload,
+  UploadSessionPayload,
   DeclinePayload,
   IntimationPayload,
   ReservePayload,
@@ -169,6 +185,222 @@ export const claimsApi = {
       )
       .then((r) => r.data),
 
+  // Discharge voucher (§12) ------------------------------------------------
+  createVoucher: (id: string, data: VoucherPayload) =>
+    apiClient
+      .post<ClaimDischargeVoucher>(`${BASE}/${id}/discharge-vouchers`, data)
+      .then((r) => r.data),
+
+  updateVoucher: (voucherId: string, data: Partial<VoucherPayload>) =>
+    apiClient
+      .patch<ClaimDischargeVoucher>(
+        `${BASE}/discharge-vouchers/${voucherId}`,
+        data,
+      )
+      .then((r) => r.data),
+
+  submitVoucher: (voucherId: string) =>
+    apiClient
+      .post(`${BASE}/discharge-vouchers/${voucherId}/submit`)
+      .then((r) => r.data),
+
+  approveVoucher: (voucherId: string, comments?: string) =>
+    apiClient
+      .post<{
+        completed: boolean;
+      }>(`${BASE}/discharge-vouchers/${voucherId}/approve`, { comments })
+      .then((r) => r.data),
+
+  declineVoucher: (voucherId: string, data: DeclinePayload) =>
+    apiClient
+      .post(`${BASE}/discharge-vouchers/${voucherId}/decline`, data)
+      .then((r) => r.data),
+
+  respondToVoucher: (voucherId: string, data: VoucherResponsePayload) =>
+    apiClient
+      .post(`${BASE}/discharge-vouchers/${voucherId}/respond`, data)
+      .then((r) => r.data),
+
+  adjustVoucher: (voucherId: string, data: VoucherAdjustPayload) =>
+    apiClient
+      .post(`${BASE}/discharge-vouchers/${voucherId}/adjust`, data)
+      .then((r) => r.data),
+
+  submitVoucherToTiramis: (voucherId: string, retry?: boolean) =>
+    apiClient
+      .post(
+        `${BASE}/discharge-vouchers/${voucherId}/tiramis`,
+        retry ? { retry } : {},
+      )
+      .then((r) => r.data),
+
+  generateVoucherDocument: (voucherId: string) =>
+    apiClient
+      .post<{
+        id: string;
+        title?: string | null;
+      }>(`${BASE}/discharge-vouchers/${voucherId}/generate-document`)
+      .then((r) => r.data),
+
+  // Payments (§13) and disbursement -----------------------------------------
+  createPayment: (id: string, data: PaymentPayload) =>
+    apiClient
+      .post<ClaimPayment>(`${BASE}/${id}/payments`, data)
+      .then((r) => r.data),
+
+  submitPayment: (paymentId: string) =>
+    apiClient.post(`${BASE}/payments/${paymentId}/submit`).then((r) => r.data),
+
+  approvePayment: (paymentId: string, comments?: string) =>
+    apiClient
+      .post<{ completed: boolean }>(`${BASE}/payments/${paymentId}/approve`, {
+        comments,
+      })
+      .then((r) => r.data),
+
+  declinePayment: (paymentId: string, data: DeclinePayload) =>
+    apiClient
+      .post(`${BASE}/payments/${paymentId}/decline`, data)
+      .then((r) => r.data),
+
+  cancelPayment: (paymentId: string, reason: string) =>
+    apiClient
+      .post(`${BASE}/payments/${paymentId}/cancel`, { reason })
+      .then((r) => r.data),
+
+  submitPaymentToTiramis: (paymentId: string, retry?: boolean) =>
+    apiClient
+      .post(`${BASE}/payments/${paymentId}/tiramis`, retry ? { retry } : {})
+      .then((r) => r.data),
+
+  /** Idempotent per key, so a double click never requests two transfers. */
+  requestDisbursement: (paymentId: string, idempotencyKey: string) =>
+    apiClient
+      .post<ClaimDisbursement>(
+        `${BASE}/payments/${paymentId}/request-disbursement`,
+        { idempotency_key: idempotencyKey },
+      )
+      .then((r) => r.data),
+
+  confirmDisbursement: (
+    disbursementId: string,
+    data: { payment_method: string; provider_reference?: string },
+  ) =>
+    apiClient
+      .post<ClaimDisbursement>(
+        `${BASE}/disbursements/${disbursementId}/confirm`,
+        data,
+      )
+      .then((r) => r.data),
+
+  failDisbursement: (disbursementId: string, reason: string) =>
+    apiClient
+      .post(`${BASE}/disbursements/${disbursementId}/fail`, { reason })
+      .then((r) => r.data),
+
+  reverseDisbursement: (disbursementId: string, reason: string) =>
+    apiClient
+      .post(`${BASE}/disbursements/${disbursementId}/reverse`, { reason })
+      .then((r) => r.data),
+
+  // Rejection (§14) ---------------------------------------------------------
+  createRejection: (id: string, data: RejectionPayload) =>
+    apiClient
+      .post<ClaimRejection>(`${BASE}/${id}/rejections`, data)
+      .then((r) => r.data),
+
+  approveRejection: (rejectionId: string, comments?: string) =>
+    apiClient
+      .post<{
+        completed: boolean;
+      }>(`${BASE}/rejections/${rejectionId}/approve`, { comments })
+      .then((r) => r.data),
+
+  declineRejection: (rejectionId: string, comments: string) =>
+    apiClient
+      .post(`${BASE}/rejections/${rejectionId}/decline`, { comments })
+      .then((r) => r.data),
+
+  submitRejectionToTiramis: (rejectionId: string, retry?: boolean) =>
+    apiClient
+      .post(`${BASE}/rejections/${rejectionId}/tiramis`, retry ? { retry } : {})
+      .then((r) => r.data),
+
+  generateRejectionLetter: (rejectionId: string) =>
+    apiClient
+      .post<{
+        id: string;
+        title?: string | null;
+      }>(`${BASE}/rejections/${rejectionId}/generate-letter`)
+      .then((r) => r.data),
+
+  // Documents ----------------------------------------------------------------
+  documents: (id: string) =>
+    apiClient
+      .get<ClaimDocumentsView>(`${BASE}/${id}/documents`)
+      .then((r) => r.data),
+
+  /** Step 1 of an upload: a registry upload session scoped to the claim. */
+  createDocumentUploadSession: (id: string, data: UploadSessionPayload) =>
+    apiClient
+      .post<{
+        id: string;
+        token: string;
+        maximum_bytes?: number;
+        allowed_mime_types?: string[];
+      }>(`${BASE}/${id}/documents/upload-session`, data)
+      .then((r) => r.data),
+
+  /** Step 3: attach the uploaded registry document to the claim. */
+  linkDocument: (
+    id: string,
+    data: UploadSessionPayload & { document_id: string },
+  ) =>
+    apiClient
+      .post<ClaimDocumentRecord>(`${BASE}/${id}/documents/link`, data)
+      .then((r) => r.data),
+
+  verifyDocument: (
+    documentId: string,
+    data: { decision: 'VERIFIED' | 'REJECTED'; rejection_reason?: string },
+  ) =>
+    apiClient
+      .post<ClaimDocumentRecord>(`${BASE}/documents/${documentId}/verify`, data)
+      .then((r) => r.data),
+
+  /** Company-wide register behind the Claims → Documents menu. */
+  documentRegister: async (params: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<ClaimDocumentRecord>> => {
+    const response = await apiClient.get<{
+      data: ClaimDocumentRecord[];
+      meta?: unknown;
+    }>(`${BASE}/documents`, { params });
+    return normalizePaginatedResponse({
+      ...response.data,
+      data: response.data.data ?? [],
+    });
+  },
+
+  dashboard: (params?: ClaimsDashboardParams) =>
+    apiClient
+      .get<ClaimsDashboardSummary>(`${BASE}/dashboard/summary`, { params })
+      .then((r) => r.data),
+
+  closeClaim: (id: string, closureReason: string) =>
+    apiClient
+      .post<ClaimDetail>(`${BASE}/${id}/close`, {
+        closure_reason: closureReason,
+      })
+      .then((r) => r.data),
+
+  reopenClaim: (id: string, reason: string) =>
+    apiClient
+      .post<ClaimDetail>(`${BASE}/${id}/reopen`, { reason })
+      .then((r) => r.data),
+
   approvals: (id: string) =>
     apiClient
       .get<ClaimApproval[]>(`${BASE}/${id}/approvals`)
@@ -187,6 +419,26 @@ export const claimsApi = {
   deactivateApprovalLimit: (limitId: string) =>
     apiClient
       .delete<ApprovalLimit>(`${BASE}/configuration/approval-limits/${limitId}`)
+      .then((r) => r.data),
+
+  documentRequirements: () =>
+    apiClient
+      .get<DocumentRequirement[]>(`${BASE}/configuration/document-requirements`)
+      .then((r) => r.data),
+
+  saveDocumentRequirement: (data: DocumentRequirementPayload) =>
+    apiClient
+      .put<DocumentRequirement>(
+        `${BASE}/configuration/document-requirements`,
+        data,
+      )
+      .then((r) => r.data),
+
+  deactivateDocumentRequirement: (requirementId: string) =>
+    apiClient
+      .delete<DocumentRequirement>(
+        `${BASE}/configuration/document-requirements/${requirementId}`,
+      )
       .then((r) => r.data),
 
   timeline: (id: string) =>

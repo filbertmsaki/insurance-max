@@ -42,6 +42,7 @@ import {
   CreateClaimRejectionDto,
   CreateClaimReserveDto,
   CreateDischargeVoucherDto,
+  UpdateDischargeVoucherDto,
   CreateServiceAssignmentDto,
   LinkClaimDocumentDto,
   ReleaseReserveDto,
@@ -646,6 +647,16 @@ export class ClaimsController {
     @Body() dto: CreateDischargeVoucherDto,
   ) {
     return this.dischargeService.create(user, id, dto);
+  }
+
+  @Patch('discharge-vouchers/:voucherId')
+  @Permissions(ClaimsPermissions.DISCHARGE_CREATE)
+  updateDischargeVoucher(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('voucherId', ParseUUIDPipe) voucherId: string,
+    @Body() dto: UpdateDischargeVoucherDto,
+  ) {
+    return this.dischargeService.update(user, voucherId, dto);
   }
 
   @Post('discharge-vouchers/:voucherId/submit')

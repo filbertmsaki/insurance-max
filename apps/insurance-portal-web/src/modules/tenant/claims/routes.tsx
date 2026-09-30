@@ -4,9 +4,12 @@ import { ClaimsPermissions } from '@insurance-max/contracts';
 import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute';
 import {
   ClaimDetailPage,
+  ClaimDocumentsPage,
   ClaimQueuePage,
   ClaimsConfigurationPage,
+  ClaimsDashboardPage,
   ClaimsListPage,
+  ClaimsReportsPage,
   ClaimWizardPage,
   Page,
 } from './lazy-pages';
@@ -21,17 +24,50 @@ function guardedRoute(permissions: string[], path: string, element: ReactNode) {
   );
 }
 
+/** A route open to holders of any listed permission. */
+function anyGuardedRoute(
+  permissions: string[],
+  path: string,
+  element: ReactNode,
+) {
+  return (
+    <Route key={path} element={<ProtectedRoute anyPermissions={permissions} />}>
+      <Route path={path} element={<Page>{element}</Page>} />
+    </Route>
+  );
+}
+
 /**
  * Routes for `/claims/...`, rendered inside the authenticated AppShell in
  * App.tsx. `new` and `queue/*` are declared before `:id` for readability;
  * React Router ranks static segments above params either way.
  */
 export function renderClaimsRoutes() {
-  const { READ, CREATE, UPDATE, CONFIGURATION_MANAGE } = ClaimsPermissions;
+  const {
+    READ,
+    CREATE,
+    UPDATE,
+    CONFIGURATION_MANAGE,
+    DASHBOARD,
+    DOCUMENT_UPLOAD,
+    DOCUMENT_VERIFY,
+    REPORT_READ,
+  } = ClaimsPermissions;
 
   return (
     <>
+      {anyGuardedRoute(
+        [DASHBOARD, READ],
+        claimsPaths.dashboard,
+        <ClaimsDashboardPage />,
+      )}
       {guardedRoute([READ], claimsPaths.list, <ClaimsListPage />)}
+      {anyGuardedRoute(
+        [DOCUMENT_UPLOAD, DOCUMENT_VERIFY],
+        claimsPaths.documents,
+        <ClaimDocumentsPage />,
+      )}
+      {guardedRoute([REPORT_READ], claimsPaths.reports, <ClaimsReportsPage />)}
       {guardedRoute([READ, CREATE], claimsPaths.create, <ClaimWizardPage />)}
       {guardedRoute([READ], claimsPaths.queue(':queue'), <ClaimQueuePage />)}
       {guardedRoute(

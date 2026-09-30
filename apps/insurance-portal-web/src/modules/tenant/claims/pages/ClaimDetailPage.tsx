@@ -1,15 +1,22 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
+  Ban,
   ClipboardList,
   Clock,
   FileSearch,
+  FileSignature,
+  Lock,
+  RotateCcw,
+  Wallet,
   Pencil,
   RefreshCcw,
   Send,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ClaimsPermissions } from '@insurance-max/contracts';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,10 +40,17 @@ import { TIRA_OPERATION_LABELS } from '../constants';
 import { ApprovalsTab } from './detail/ApprovalsTab';
 import { AssessmentTab } from './detail/AssessmentTab';
 import { ClaimantsTab } from './detail/ClaimantsTab';
+import { DocumentsTab } from './detail/DocumentsTab';
 import { IntimationTab } from './detail/IntimationTab';
+import { PaymentsTab } from './detail/PaymentsTab';
+import { RejectionTab } from './detail/RejectionTab';
 import { ReserveTab } from './detail/ReserveTab';
+import { VoucherTab } from './detail/VoucherTab';
+import { ReasonDialog } from '../components/ReasonDialog';
+import { claimsApi } from '../api';
 import {
   useClaim,
+  useClaimAction,
   useClaimTimeline,
   useDeleteClaimDraft,
   useSubmitNotification,
@@ -331,6 +345,11 @@ function IncidentTab({ claim }: { claim: ClaimDetail }) {
 }
 
 function TiraTab({ operations }: { operations: ClaimRegulatoryOperation[] }) {
+  // The server strips payloads without this permission; this only explains why.
+  const canViewPayload = useAuthStore((state) =>
+    state.hasPermission(ClaimsPermissions.TIRAMIS_VIEW_PAYLOAD),
+  );
+
   if (operations.length === 0) {
     return <EmptyState text="Nothing has been submitted to TIRAMIS yet." />;
   }
@@ -383,19 +402,45 @@ function TiraTab({ operations }: { operations: ClaimRegulatoryOperation[] }) {
               },
             ]}
           />
-          {operation.request_snapshot ? (
-            <details className="mt-3 text-xs">
-              <summary className="cursor-pointer text-slate-600">
-                Request payload
-              </summary>
-              <pre className="mt-2 max-h-80 overflow-auto rounded bg-slate-50 p-3">
-                {JSON.stringify(operation.request_snapshot, null, 2)}
-              </pre>
-            </details>
+          {canViewPayload ? (
+            <>
+              <PayloadDetails
+                label="Request payload"
+                payload={operation.request_snapshot}
+              />
+              <PayloadDetails
+                label="Response payload"
+                payload={operation.response_snapshot}
+              />
+            </>
           ) : null}
         </SectionCard>
       ))}
+      {canViewPayload ? null : (
+        <p className="text-xs text-slate-500">
+          Request and response payloads are shown only to users allowed to view
+          TIRAMIS payloads.
+        </p>
+      )}
     </div>
+  );
+}
+
+function PayloadDetails({
+  label,
+  payload,
+}: {
+  label: string;
+  payload: unknown;
+}) {
+  if (payload == null) return null;
+  return (
+    <details className="mt-3 text-xs">
+      <summary className="cursor-pointer text-slate-600">{label}</summary>
+      <pre className="mt-2 max-h-80 overflow-auto rounded bg-slate-50 p-3">
+        {JSON.stringify(payload, null, 2)}
+      </pre>
+    </details>
   );
 }
 
@@ -440,6 +485,16 @@ export function ClaimDetailPage() {
   const submit = useSubmitNotification();
   const remove = useDeleteClaimDraft();
   const [confirm, setConfirm] = useState<'submit' | 'delete' | null>(null);
+  const [lifecycle, setLifecycle] = useState<'close' | 'reopen' | null>(null);
+  const changeLifecycle = useClaimAction(
+    id ?? '',
+    ({ kind, reason }: { kind: 'close' | 'reopen'; reason: string }) =>
+      kind === 'close'
+        ? claimsApi.closeClaim(id!, reason)
+        : claimsApi.reopenClaim(id!, reason),
+    (result) =>
+      `Claim ${result.claim_no} ${result.status === 'CLOSED' ? 'closed' : 'reopened'}`,
+  );
 
   if (claimQuery.isLoading) {
     return (
@@ -545,6 +600,36 @@ export function ClaimDetailPage() {
                 Intimation
               </Button>
             ) : null}
+            {actions.has('create_discharge') ? (
+              <Button onClick={() => setTab('voucher')}>
+                <FileSignature className="mr-1.5 h-4 w-4" />
+                Discharge voucher
+              </Button>
+            ) : null}
+            {actions.has('create_payment') ? (
+              <Button onClick={() => setTab('payments')}>
+                <Wallet className="mr-1.5 h-4 w-4" />
+                Payments
+              </Button>
+            ) : null}
+            {actions.has('reject') ? (
+              <Button variant="outline" onClick={() => setTab('rejection')}>
+                <Ban className="mr-1.5 h-4 w-4" />
+                Reject
+              </Button>
+            ) : null}
+            {actions.has('close') ? (
+              <Button variant="outline" onClick={() => setLifecycle('close')}>
+                <Lock className="mr-1.5 h-4 w-4" />
+                Close claim
+              </Button>
+            ) : null}
+            {actions.has('reopen') ? (
+              <Button variant="outline" onClick={() => setLifecycle('reopen')}>
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                Reopen
+              </Button>
+            ) : null}
             {actions.has('create_assessment') ? (
               <Button onClick={() => setTab('assessment')}>
                 <FileSearch className="mr-1.5 h-4 w-4" />
@@ -585,9 +670,13 @@ export function ClaimDetailPage() {
           <TabsTrigger value="policy">Policy & Risk</TabsTrigger>
           <TabsTrigger value="incident">Incident</TabsTrigger>
           <TabsTrigger value="claimants">Claimants</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="intimation">Intimation</TabsTrigger>
           <TabsTrigger value="reserve">Reserve</TabsTrigger>
           <TabsTrigger value="assessment">Assessment</TabsTrigger>
+          <TabsTrigger value="voucher">Discharge Voucher</TabsTrigger>
+          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="rejection">Rejection</TabsTrigger>
           <TabsTrigger value="approvals">Approvals</TabsTrigger>
           <TabsTrigger value="tira">TIRA Transactions</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
@@ -604,6 +693,9 @@ export function ClaimDetailPage() {
         <TabsContent value="claimants">
           <ClaimantsTab claim={claim} />
         </TabsContent>
+        <TabsContent value="documents">
+          <DocumentsTab claim={claim} />
+        </TabsContent>
         <TabsContent value="intimation">
           <IntimationTab claim={claim} />
         </TabsContent>
@@ -612,6 +704,15 @@ export function ClaimDetailPage() {
         </TabsContent>
         <TabsContent value="assessment">
           <AssessmentTab claim={claim} />
+        </TabsContent>
+        <TabsContent value="voucher">
+          <VoucherTab claim={claim} />
+        </TabsContent>
+        <TabsContent value="payments">
+          <PaymentsTab claim={claim} />
+        </TabsContent>
+        <TabsContent value="rejection">
+          <RejectionTab claim={claim} />
         </TabsContent>
         <TabsContent value="approvals">
           <ApprovalsTab claim={claim} />
@@ -654,6 +755,37 @@ export function ClaimDetailPage() {
           })
         }
       />
+      {lifecycle ? (
+        <ReasonDialog
+          title={
+            lifecycle === 'close'
+              ? `Close claim ${claim.claim_no}`
+              : `Reopen claim ${claim.claim_no}`
+          }
+          description={
+            lifecycle === 'close'
+              ? 'Any remaining reserve is released. A claim can only be closed once TIRA has accepted every submission.'
+              : 'The claim returns to assessment; a new assessment is reported to TIRA as a reassessment.'
+          }
+          label={
+            lifecycle === 'close' ? 'Closure reason' : 'Reason for reopening'
+          }
+          confirmLabel={lifecycle === 'close' ? 'Close claim' : 'Reopen claim'}
+          destructive={lifecycle === 'close'}
+          pending={changeLifecycle.isPending}
+          error={changeLifecycle.error}
+          onClose={() => {
+            changeLifecycle.reset();
+            setLifecycle(null);
+          }}
+          onConfirm={(reason) =>
+            changeLifecycle.mutate(
+              { kind: lifecycle, reason },
+              { onSuccess: () => setLifecycle(null) },
+            )
+          }
+        />
+      ) : null}
     </div>
   );
 }

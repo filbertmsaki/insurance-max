@@ -27,6 +27,7 @@ describe('claims navigation', () => {
       label: 'Claims',
     });
     expect(group.children.map((item) => item.to)).toEqual([
+      '/claims/dashboard',
       '/claims',
       '/claims/new',
       '/claims/queue/notification',
@@ -35,6 +36,8 @@ describe('claims navigation', () => {
       '/claims/queue/discharge',
       '/claims/queue/payment',
       '/claims/queue/rejection',
+      '/claims/documents',
+      '/claims/reports',
       '/claims/configuration',
     ]);
   });
@@ -44,6 +47,9 @@ describe('claims navigation', () => {
       group.children.map((item) => [item.to, item.permission]),
     );
     expect(permissions[claimsPaths.create]).toBe('claims:create');
+    expect(permissions[claimsPaths.dashboard]).toBe('claims:dashboard');
+    expect(permissions[claimsPaths.documents]).toBe('claims:document-verify');
+    expect(permissions[claimsPaths.reports]).toBe('claims:report-read');
     expect(permissions[claimsPaths.configuration]).toBe(
       'claims:configuration-manage',
     );

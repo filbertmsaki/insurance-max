@@ -231,7 +231,7 @@ export enum DischargeResponse {
 }
 
 /**
- * Phase 14: status *dimensions* additive to the existing (overloaded)
+ * Status *dimensions* additive to the existing (overloaded)
  * `ClaimStatus`. New workflow logic (coverage, decisions, disbursement,
  * closure) reads/writes these; `ClaimStatus` and every existing
  * status-transition call site in `ClaimsService` are left untouched.
