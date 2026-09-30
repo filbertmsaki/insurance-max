@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  Allow,
   IsBoolean,
   IsEnum,
   IsNotEmpty,
@@ -40,7 +41,10 @@ export class RecordEndorsementChangeDto {
   @IsOptional()
   old_value?: unknown;
 
+  // Any JSON value (null for REMOVE); the service validates it against the
+  // field rules. @Allow keeps it past the global forbidNonWhitelisted pipe.
   @ApiProperty()
+  @Allow()
   new_value: unknown;
 
   @ApiPropertyOptional({

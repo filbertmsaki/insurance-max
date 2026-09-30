@@ -570,6 +570,68 @@ describe('TiramisBusinessValidationService', () => {
     expect(result.isValid).toBe(true);
   });
 
+  describe('amendments after an applied endorsement', () => {
+    const payload = {
+      coverNoteNumber: 'CXL-1',
+      salePointCode: 'SP500',
+      coverNoteStartDate: '2026-09-30',
+      coverNoteEndDate: '2027-09-29',
+      coverNoteType: '3',
+      // The replacement reference issued by the earlier endorsement.
+      prevCoverNoteReferenceNumber: '69224-78164-13133',
+      motorDetail: { registrationNumber: 'T777AAA', chassisNumber: 'CH-7' },
+    };
+
+    const serviceWith = (samePolicy: boolean) =>
+      new TiramisBusinessValidationService({
+        query: jest.fn(async (sql: string) => {
+          if (sql.includes('JOIN policies p ON p.id = cn.policy_id')) {
+            return samePolicy ? [{ '?column?': 1 }] : [];
+          }
+          if (sql.includes('FROM cover_notes cn')) {
+            return [
+              {
+                id: 'cn-original',
+                cover_note_number: 'AICL260930003',
+                cover_note_reference_number: '28068-95138-10784',
+                start_date: '2026-09-30',
+                end_date: '2027-09-29',
+              },
+            ];
+          }
+          return [];
+        }),
+      } as any);
+
+    it('allows a cancellation that references the replacement cover of the same policy', async () => {
+      const result = await serviceWith(true).validateBeforeSubmit({
+        requestType: TiramisRequestType.MOTOR,
+        sourceCompanyId: 'company-1',
+        payload,
+      });
+
+      expect(result.errors).not.toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('already has an active cover'),
+        ]),
+      );
+      expect(result.isValid).toBe(true);
+    });
+
+    it('still blocks when the reference belongs to a different policy', async () => {
+      const result = await serviceWith(false).validateBeforeSubmit({
+        requestType: TiramisRequestType.MOTOR,
+        sourceCompanyId: 'company-1',
+        payload,
+      });
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toEqual([
+        expect.stringContaining('already has an active cover'),
+      ]);
+    });
+  });
+
   it('requires policy submissions to reference at least one successful cover note', async () => {
     const result = await service.validateBeforeSubmit({
       requestType: TiramisRequestType.POLICY,

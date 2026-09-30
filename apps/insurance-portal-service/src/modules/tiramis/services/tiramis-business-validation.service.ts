@@ -425,7 +425,7 @@ export class TiramisBusinessValidationService {
 
       if (conflict) {
         if (
-          this.isAmendmentOfConflictingCover({
+          await this.isAmendmentOfConflictingCover({
             payload,
             motorPath: path,
             conflict,
@@ -516,11 +516,11 @@ export class TiramisBusinessValidationService {
     return rows?.[0] || null;
   }
 
-  private isAmendmentOfConflictingCover(params: {
+  private async isAmendmentOfConflictingCover(params: {
     payload: Record<string, any>;
     motorPath: string;
     conflict: Record<string, any>;
-  }): boolean {
+  }): Promise<boolean> {
     const coverNoteType = String(params.payload.coverNoteType ?? '').trim();
 
     if (!['2', '3'].includes(coverNoteType)) {
@@ -542,7 +542,53 @@ export class TiramisBusinessValidationService {
       .map((value) => this.normalizeCoverNoteReference(value))
       .filter((value): value is string => !!value);
 
-    return conflictingReferences.includes(previousReference);
+    if (conflictingReferences.includes(previousReference)) {
+      return true;
+    }
+
+    return this.isLaterReferenceOfSamePolicy(
+      params.conflict.id,
+      previousReference,
+    );
+  }
+
+  /**
+   * An applied endorsement gives the policy a replacement cover-note
+   * reference but leaves the originally issued cover note in place. A later
+   * endorsement or cancellation then references the replacement, so it is
+   * still an amendment of the conflicting cover when that reference belongs
+   * to the policy the conflicting cover was issued for.
+   */
+  private async isLaterReferenceOfSamePolicy(
+    conflictingCoverNoteId: string | undefined,
+    previousReference: string,
+  ): Promise<boolean> {
+    if (!conflictingCoverNoteId || !this.dataSource) {
+      return false;
+    }
+
+    const rows = await this.dataSource.query(
+      `
+        SELECT 1
+        FROM cover_notes cn
+        JOIN policies p ON p.id = cn.policy_id AND p.deleted_at IS NULL
+        WHERE cn.id = $1
+          AND (
+            upper(trim(p.cover_note_no)) = $2
+            OR EXISTS (
+              SELECT 1
+              FROM policy_transactions pt
+              JOIN policy_endorsements pe ON pe.policy_transaction_id = pt.id
+              WHERE pt.source_policy_id = p.id
+                AND upper(trim(pe.replacement_cover_note_reference)) = $2
+            )
+          )
+        LIMIT 1
+      `,
+      [conflictingCoverNoteId, previousReference],
+    );
+
+    return Boolean(rows?.length);
   }
 
   private resolvePreviousCoverNoteReference(
