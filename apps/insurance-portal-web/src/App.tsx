@@ -72,6 +72,7 @@ import { CategoryAccessPage } from '@/modules/tenant/product-engine/pages/access
 import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/products/ProductAccessPage';
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { renderClaimsRoutes } from '@/modules/tenant/claims/routes';
 import { renderUnderwriteRoutes } from '@/modules/tenant/underwrite/routes';
 import { MotorVehiclesPage } from '@/modules/tenant/motor/pages/MotorVehiclesPage';
 import { MotorVehicleDetailPage } from '@/modules/tenant/motor/pages/MotorVehicleDetailPage';
@@ -100,8 +101,6 @@ import { EndorsementTypesPage } from '@/modules/tenant/policies/pages/Endorsemen
 import { PolicyCancellationPage } from '@/modules/tenant/policies/pages/PolicyCancellationPage';
 import { PolicyRenewalPage } from '@/modules/tenant/policies/pages/PolicyRenewalPage';
 import { PolicyEditPage } from '@/modules/tenant/policies/pages/PolicyEditPage';
-import { ClaimsPage } from '@/modules/tenant/claims/pages/ClaimsPage';
-import { ClaimDetailPage } from '@/modules/tenant/claims/pages/ClaimDetailPage';
 import { ComplaintsPage } from '@/modules/tenant/complaints/pages/ComplaintsPage';
 import { ComplaintDetailPage } from '@/modules/tenant/complaints/pages/ComplaintDetailPage';
 import { TiramisSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisSubmissionsPage';
@@ -557,6 +556,7 @@ export default function App() {
             <Route path="/dashboard/:tab" element={<DashboardPage />} />
 
             {renderUnderwriteRoutes()}
+            {renderClaimsRoutes()}
 
             <Route
               element={
@@ -933,12 +933,6 @@ export default function App() {
                 )}
                 element={<PolicyRenewalPage />}
               />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="claims:read" />}
-            >
-              <Route path="/claims" element={<ClaimsPage />} />
-              <Route path="/claims/:id" element={<ClaimDetailPage />} />
             </Route>
             <Route
               element={<ProtectedRoute requiredPermission="complaints:read" />}

@@ -1,0 +1,66 @@
+import {
+  Ban,
+  BellRing,
+  ClipboardCheck,
+  ClipboardList,
+  FilePlus2,
+  FileSearch,
+  FileSignature,
+  Wallet,
+} from 'lucide-react';
+import { ClaimsPermissions } from '@insurance-max/contracts';
+import type { NavGroup, NavLeaf } from '@/components/layout/nav-config';
+import { CLAIM_QUEUES } from './constants';
+import { claimsPaths } from './paths';
+import type { ClaimQueue } from './types';
+
+const QUEUE_ICONS: Record<ClaimQueue, NavLeaf['icon']> = {
+  notification: BellRing,
+  intimation: ClipboardList,
+  assessment: FileSearch,
+  discharge: FileSignature,
+  payment: Wallet,
+  rejection: Ban,
+};
+
+/**
+ * Sidebar section: Claims → All Claims | New Claim | one entry per stage.
+ * The stage entries are filtered views of the same claims list (§3).
+ * Dashboard, Documents, Reports and Configuration join as their screens land.
+ */
+export function buildClaimsNavNodes(): NavGroup[] {
+  return [
+    {
+      kind: 'group',
+      section: 'Claims',
+      label: 'Claims',
+      icon: ClipboardCheck,
+      children: [
+        {
+          kind: 'link',
+          label: 'All Claims',
+          to: claimsPaths.list,
+          icon: ClipboardCheck,
+          permission: ClaimsPermissions.READ,
+          allowedScopes: ['company'],
+        },
+        {
+          kind: 'link',
+          label: 'New Claim',
+          to: claimsPaths.create,
+          icon: FilePlus2,
+          permission: ClaimsPermissions.CREATE,
+          allowedScopes: ['company'],
+        },
+        ...CLAIM_QUEUES.map<NavLeaf>((queue) => ({
+          kind: 'link',
+          label: queue.label,
+          to: claimsPaths.queue(queue.queue),
+          icon: QUEUE_ICONS[queue.queue],
+          permission: ClaimsPermissions.READ,
+          allowedScopes: ['company'],
+        })),
+      ],
+    },
+  ];
+}

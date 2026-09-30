@@ -184,7 +184,13 @@ export interface ClaimPolicyRiskRef {
   id: string;
   sum_insured?: Money;
   cover_note_reference_number?: string | null;
-  risk?: { id: string; risk_name?: string | null; risk_code?: string | null } | null;
+  risk?: {
+    id: string;
+    name?: string | null;
+    code?: string | null;
+    risk_name?: string | null;
+    risk_code?: string | null;
+  } | null;
   motor_vehicle?: Partial<PolicyLookupVehicle> | null;
 }
 
@@ -281,7 +287,13 @@ export interface ClaimAssessment {
   id: string;
   claim_assessment_number: string | null;
   is_re_assessment?: 'Y' | 'N' | string | null;
-  status: 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED' | string;
+  status:
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'SUPERSEDED'
+    | string;
   assessment_received_date?: string | null;
   assessment_report_summary?: string | null;
   assessment_amount?: Money;
@@ -378,7 +390,13 @@ export interface ClaimApproval {
   required_levels: number;
   amount: Money;
   currency_code: string | null;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURNED' | 'SUPERSEDED' | string;
+  status:
+    | 'PENDING'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'RETURNED'
+    | 'SUPERSEDED'
+    | string;
   comments: string | null;
   submitted_by: string | null;
   acted_by: string | null;
@@ -460,8 +478,12 @@ export interface ClaimDetail extends ClaimListItem {
   reporter_phone?: string | null;
   reporter_email?: string | null;
   notification_source?: NotificationSource | string | null;
-  claim_form_dully_filled?: boolean | null;
+  /** Stored as the TIRAMIS Y/N flag. */
+  claim_form_dully_filled?: 'Y' | 'N' | boolean | null;
   internal_notes?: string | null;
+  officer_title?: string | null;
+  possible_duplicate_of_id?: string | null;
+  duplicate_override_reason?: string | null;
   claim_stage?: string | null;
   liability_status?: string | null;
   settlement_status?: string | null;
@@ -487,6 +509,13 @@ export interface ClaimDetail extends ClaimListItem {
   regulatory_operations?: ClaimRegulatoryOperation[];
   allowed_actions?: ClaimAllowedAction[];
   allowed_transitions?: string[];
+}
+
+export interface ClaimSubmissionResult {
+  operationId: string;
+  trackingId: string | null;
+  status: string | null;
+  claim: ClaimDetail;
 }
 
 // ---------------------------------------------------------------------------

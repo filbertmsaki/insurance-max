@@ -41,6 +41,7 @@ import {
   Percent,
   ClipboardCheck,
 } from 'lucide-react';
+import { buildClaimsNavNodes } from '@/modules/tenant/claims/nav';
 import { buildUnderwriteNavNodes } from '@/modules/tenant/underwrite/nav';
 
 export interface NavLeaf {
@@ -187,6 +188,7 @@ export const NAV_NODES: NavNode[] = [
     ],
   },
   ...buildUnderwriteNavNodes(),
+  ...buildClaimsNavNodes(),
   {
     kind: 'group',
     section: 'Insurance',
@@ -329,13 +331,6 @@ export const NAV_NODES: NavNode[] = [
         to: '/underwriting/customers',
         icon: Users,
         permission: 'customers:read',
-      },
-      {
-        kind: 'link',
-        label: 'Claims',
-        to: '/claims',
-        icon: ClipboardCheck,
-        permission: 'claims:read',
       },
       {
         kind: 'link',
