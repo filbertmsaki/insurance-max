@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -24,6 +25,7 @@ import { DocumentAccessEvent } from './entities/document-access-event.entity';
 import { Document } from './entities/document.entity';
 import { DocumentLink } from './entities/document-link.entity';
 import { DocumentSecurityScan } from './entities/document-security-scan.entity';
+import { DocumentMalwareScannerService } from './document-malware-scanner.service';
 import { DocumentUploadSession } from './entities/document-upload-session.entity';
 import { DocumentVersion } from './entities/document-version.entity';
 
@@ -52,7 +54,50 @@ export class DocumentsService {
     @InjectRepository(DocumentAccessEvent)
     private readonly accessEventRepository: Repository<DocumentAccessEvent>,
     private readonly storageService: DocumentStorageService,
+    private readonly malwareScanner: DocumentMalwareScannerService,
   ) {}
+
+  /** Scans a file and records the result against the version. */
+  private async recordMalwareScan(
+    companyId: string,
+    version: DocumentVersion,
+    buffer: Buffer,
+    details: Record<string, unknown>,
+  ) {
+    const startedAt = new Date();
+    const result = await this.malwareScanner.scan(buffer);
+    const status =
+      result.status === 'ERROR' && this.malwareScanner.failOpen
+        ? 'CLEAN'
+        : result.status;
+
+    return this.securityScanRepository.save(
+      this.securityScanRepository.create({
+        company_id: companyId,
+        document_version_id: version.id,
+        scan_type: 'MALWARE',
+        provider: result.provider,
+        status,
+        result_code: result.resultCode,
+        result_message: result.message,
+        details: { ...details, signature: result.signature ?? null },
+        started_at: startedAt,
+        completed_at: new Date(),
+      }),
+    );
+  }
+
+  private async quarantine(
+    version: DocumentVersion,
+    scan: DocumentSecurityScan,
+  ) {
+    version.scan_status = scan.status;
+    version.scan_reference = scan.id;
+    version.scanned_at = scan.completed_at;
+    version.scan_result = scan.details;
+    version.status = DocumentStatus.QUARANTINED;
+    await this.versionRepository.save(version);
+  }
 
   async listForCompany(companyId: string) {
     return this.documentRepository.find({
@@ -351,23 +396,28 @@ export class DocumentsService {
       await this.versionRepository.save(previousVersion);
     }
 
-    const completedScan = await this.securityScanRepository.save(
-      this.securityScanRepository.create({
-        company_id: user.companyId!,
-        document_version_id: version.id,
-        scan_type: 'MALWARE',
-        provider: 'internal',
-        status: 'CLEAN',
-        result_code: 'SIGNATURE_OK',
-        result_message: 'File signature matched an allowed document format.',
-        details: {
-          mimeType: stored.detectedMimeType,
-          size: stored.size,
-        },
-        started_at: new Date(),
-        completed_at: new Date(),
-      }),
+    const completedScan = await this.recordMalwareScan(
+      user.companyId!,
+      version,
+      file.buffer,
+      { mimeType: stored.detectedMimeType, size: stored.size },
     );
+
+    if (completedScan.status !== 'CLEAN') {
+      // Infected (or unscanned, when failing closed): keep the version for
+      // the audit trail, but never make it available or downloadable.
+      await this.quarantine(version, completedScan);
+      throw new UnprocessableEntityException({
+        code:
+          completedScan.status === 'INFECTED'
+            ? 'DOCUMENT_MALWARE_DETECTED'
+            : 'DOCUMENT_SCAN_UNAVAILABLE',
+        message:
+          completedScan.status === 'INFECTED'
+            ? 'The file was rejected because malware was detected.'
+            : 'The file could not be scanned for malware. Try again later.',
+      });
+    }
 
     version.scan_status = 'CLEAN';
     version.scan_reference = completedScan.id;
@@ -547,22 +597,23 @@ export class DocumentsService {
       throw new NotFoundException('Current document version not found.');
     }
 
-    await this.storageService.read(version.storage_key);
-
-    const scan = await this.securityScanRepository.save(
-      this.securityScanRepository.create({
-        company_id: user.companyId!,
-        document_version_id: version.id,
-        scan_type: 'MALWARE',
-        provider: 'internal',
-        status: 'CLEAN',
-        result_code: 'RESCAN_OK',
-        result_message: 'Rescan completed successfully.',
-        details: { version_number: version.version_number },
-        started_at: new Date(),
-        completed_at: new Date(),
-      }),
+    const buffer = await this.storageService.read(version.storage_key);
+    const scan = await this.recordMalwareScan(
+      user.companyId!,
+      version,
+      buffer,
+      {
+        version_number: version.version_number,
+        rescan: true,
+      },
     );
+
+    if (scan.status !== 'CLEAN') {
+      await this.quarantine(version, scan);
+      document.status = DocumentStatus.QUARANTINED;
+      await this.documentRepository.save(document);
+      return { document_id: document.id, version_id: version.id, scan };
+    }
 
     version.scan_status = 'CLEAN';
     version.scan_reference = scan.id;

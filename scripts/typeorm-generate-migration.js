@@ -4,8 +4,20 @@ const path = require('path');
 
 const APPS = {
   tiramis: {
-    dataSource: path.join('apps', 'tiramis', 'src', 'database', 'data-source.ts'),
-    migrationsDir: path.join('apps', 'tiramis', 'src', 'database', 'migrations'),
+    dataSource: path.join(
+      'apps',
+      'tiramis',
+      'src',
+      'database',
+      'data-source.ts',
+    ),
+    migrationsDir: path.join(
+      'apps',
+      'tiramis',
+      'src',
+      'database',
+      'migrations',
+    ),
     filePrefix: 'BaselineMigration',
   },
   'insurance-portal-service': {
@@ -63,7 +75,9 @@ Usage:
 }
 
 function toSafeClassName(value) {
-  const normalized = String(value).trim().replace(/[^a-zA-Z0-9]+/g, ' ');
+  const normalized = String(value)
+    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, ' ');
   const parts = normalized
     .split(' ')
     .map((part) => part.trim())

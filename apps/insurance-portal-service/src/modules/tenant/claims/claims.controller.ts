@@ -58,6 +58,7 @@ import {
   ClaimsDashboardQueryDto,
   SaveClaimApprovalLimitDto,
   SaveClaimDocumentRequirementDto,
+  SaveClaimNumberFormatDto,
 } from './dto/claim-configuration.dto';
 import {
   ConfirmDisbursementDto,
@@ -84,6 +85,7 @@ import { ClaimPaymentService } from './services/claim-payment.service';
 import { ClaimRecoveryService } from './services/claim-recovery.service';
 import { ClaimRejectionService } from './services/claim-rejection.service';
 import { ClaimsDashboardService } from './services/claims-dashboard.service';
+import { ClaimNumberFormatService } from './services/claim-number-format.service';
 
 /**
  * One claim case with its lifecycle stages as sub-resources
@@ -103,6 +105,7 @@ export class ClaimsController {
     private readonly documentService: ClaimDocumentService,
     private readonly approvalService: ClaimApprovalService,
     private readonly dashboardService: ClaimsDashboardService,
+    private readonly numberFormatService: ClaimNumberFormatService,
     private readonly claimDecisionService: ClaimDecisionService,
     private readonly claimDisbursementService: ClaimDisbursementService,
     private readonly claimRecoveryService: ClaimRecoveryService,
@@ -198,6 +201,30 @@ export class ClaimsController {
     @Param('requirementId', ParseUUIDPipe) requirementId: string,
   ) {
     return this.documentService.deactivateRequirement(user, requirementId);
+  }
+
+  @Get('configuration/number-formats')
+  @Permissions(ClaimsPermissions.CONFIGURATION_MANAGE)
+  listNumberFormats(@CurrentUser() user: AuthenticatedUser) {
+    return this.numberFormatService.list(user.companyId!);
+  }
+
+  @Put('configuration/number-formats')
+  @Permissions(ClaimsPermissions.CONFIGURATION_MANAGE)
+  saveNumberFormat(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SaveClaimNumberFormatDto,
+  ) {
+    return this.numberFormatService.save(user, dto);
+  }
+
+  @Delete('configuration/number-formats/:documentType')
+  @Permissions(ClaimsPermissions.CONFIGURATION_MANAGE)
+  resetNumberFormat(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('documentType') documentType: string,
+  ) {
+    return this.numberFormatService.reset(user, documentType);
   }
 
   // ----------------------------------------------------------- claim

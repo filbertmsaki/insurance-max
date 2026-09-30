@@ -155,3 +155,20 @@ export class ClaimDocumentsQueryDto {
   @Max(100)
   limit?: number;
 }
+
+export class SaveClaimNumberFormatDto {
+  @IsString()
+  @MaxLength(60)
+  document_type: string;
+
+  @IsString()
+  @Length(1, 40)
+  prefix: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(3)
+  @Max(10)
+  sequence_length?: number;
+}

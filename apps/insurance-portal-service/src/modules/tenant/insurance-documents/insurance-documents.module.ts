@@ -10,6 +10,7 @@ import { DocumentRenderService } from './document-render.service';
 import { DocumentStorageService } from './document-storage.service';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
+import { DocumentMalwareScannerService } from './document-malware-scanner.service';
 import { DocumentTemplatesService } from './document-templates.service';
 import {
   PublicDocumentVerificationController,
@@ -58,6 +59,7 @@ import { SignatureRequest } from './entities/signature-request.entity';
   providers: [
     DocumentsService,
     DocumentStorageService,
+    DocumentMalwareScannerService,
     DocumentRenderService,
     DocumentTemplatesService,
     DocumentGenerationService,

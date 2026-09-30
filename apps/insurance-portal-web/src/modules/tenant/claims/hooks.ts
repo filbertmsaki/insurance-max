@@ -278,3 +278,12 @@ export function useDocumentRequirements() {
     queryFn: claimsApi.documentRequirements,
   });
 }
+
+export const numberFormatsKey = [...claimsKeys.all, 'number-formats'] as const;
+
+export function useClaimNumberFormats() {
+  return useQuery({
+    queryKey: numberFormatsKey,
+    queryFn: claimsApi.numberFormats,
+  });
+}

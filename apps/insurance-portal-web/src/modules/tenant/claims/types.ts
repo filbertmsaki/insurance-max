@@ -917,3 +917,20 @@ export interface DocumentRequirementPayload {
   insurance_category_id?: string | null;
   is_active?: boolean;
 }
+
+export interface ClaimNumberFormat {
+  document_type: string;
+  label: string;
+  default_prefix: string;
+  prefix: string;
+  sequence_length: number;
+  customised: boolean;
+  example: string;
+  updated_at: string | null;
+}
+
+export interface ClaimNumberFormatPayload {
+  document_type: string;
+  prefix: string;
+  sequence_length: number;
+}

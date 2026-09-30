@@ -40,10 +40,7 @@ const endorsementTypeSchema = z.object({
     .string()
     .min(1, 'Code is required')
     .max(50)
-    .regex(
-      /^[A-Z0-9_]+$/,
-      'Uppercase letters, numbers, and underscores only',
-    ),
+    .regex(/^[A-Z0-9_]+$/, 'Uppercase letters, numbers, and underscores only'),
   name: z.string().min(1, 'Name is required').max(150),
   tira_endorsement_type: z
     .string()
@@ -228,8 +225,8 @@ function UpsertEndorsementTypeDialog({
                   <div>
                     <FormLabel className="mb-0">Active</FormLabel>
                     <FormDescription className="text-xs">
-                      Inactive endorsement types can't be selected when
-                      starting a new endorsement.
+                      Inactive endorsement types can't be selected when starting
+                      a new endorsement.
                     </FormDescription>
                   </div>
                   <FormControl>

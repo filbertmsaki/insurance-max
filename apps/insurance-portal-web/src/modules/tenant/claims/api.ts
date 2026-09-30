@@ -19,6 +19,8 @@ import type {
   ClaimDocumentRecord,
   ClaimDocumentsView,
   ClaimIntimation,
+  ClaimNumberFormat,
+  ClaimNumberFormatPayload,
   ClaimRejection,
   ClaimReserve,
   ClaimsDashboardParams,
@@ -419,6 +421,23 @@ export const claimsApi = {
   deactivateApprovalLimit: (limitId: string) =>
     apiClient
       .delete<ApprovalLimit>(`${BASE}/configuration/approval-limits/${limitId}`)
+      .then((r) => r.data),
+
+  numberFormats: () =>
+    apiClient
+      .get<ClaimNumberFormat[]>(`${BASE}/configuration/number-formats`)
+      .then((r) => r.data),
+
+  saveNumberFormat: (data: ClaimNumberFormatPayload) =>
+    apiClient
+      .put<ClaimNumberFormat>(`${BASE}/configuration/number-formats`, data)
+      .then((r) => r.data),
+
+  resetNumberFormat: (documentType: string) =>
+    apiClient
+      .delete<ClaimNumberFormat>(
+        `${BASE}/configuration/number-formats/${documentType}`,
+      )
       .then((r) => r.data),
 
   documentRequirements: () =>

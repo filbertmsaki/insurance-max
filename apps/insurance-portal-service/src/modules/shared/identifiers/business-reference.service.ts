@@ -1,10 +1,27 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 
+/**
+ * Renders a number-format prefix. Supported tokens: {YYYY}, {YY}, {MM}.
+ * "CLM/{YY}/" in 2026 gives "CLM/26/".
+ */
+export function renderNumberPrefix(template: string, date = new Date()) {
+  const year = String(date.getFullYear());
+  return template
+    .replace(/\{YYYY\}/g, year)
+    .replace(/\{YY\}/g, year.slice(-2))
+    .replace(/\{MM\}/g, String(date.getMonth() + 1).padStart(2, '0'));
+}
+
 @Injectable()
 export class BusinessReferenceService {
   constructor(private readonly dataSource: DataSource) {}
 
+  /**
+   * Next number for a company's document type. A company's configured
+   * format (business_document_number_formats) overrides the caller's
+   * default prefix and sequence length.
+   */
   async next(params: {
     companyId: string;
     documentType: string;
@@ -15,6 +32,15 @@ export class BusinessReferenceService {
   }): Promise<string> {
     const manager = params.manager ?? this.dataSource.manager;
     const periodKey = params.periodKey ?? String(new Date().getFullYear());
+
+    const formats: Array<{ prefix: string; sequence_length: number }> =
+      await manager.query(
+        `SELECT prefix, sequence_length
+           FROM business_document_number_formats
+          WHERE company_id = $1 AND document_type = $2`,
+        [params.companyId, params.documentType],
+      );
+    const format = formats[0];
 
     const rows = await manager.query(
       `
@@ -41,10 +67,9 @@ export class BusinessReferenceService {
     );
 
     const sequence = Number(rows?.[0]?.current_value);
+    const prefix = format ? renderNumberPrefix(format.prefix) : params.prefix;
+    const length = format?.sequence_length ?? params.sequenceLength ?? 5;
 
-    return `${params.prefix}${String(sequence).padStart(
-      params.sequenceLength ?? 5,
-      '0',
-    )}`;
+    return `${prefix}${String(sequence).padStart(length, '0')}`;
   }
 }

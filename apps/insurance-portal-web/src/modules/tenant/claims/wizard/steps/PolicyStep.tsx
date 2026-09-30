@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { KeyValueGrid } from '@/components/shared/DetailSections';
 import { humanizeCode } from '@/components/shared/detailFormat';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { usePolicyLookup } from '../../hooks';
 import type { PolicyLookupDetail, PolicyLookupResult } from '../../types';
 import { formatClaimDate, formatClaimMoney } from '../../utils';
@@ -70,6 +71,10 @@ export function PolicyStep({ wizard }: { wizard: ClaimWizard }) {
   const [term, setTerm] = useState('');
   const debounced = useDebounced(term);
   const lookup = usePolicyLookup(debounced);
+  // Users limited to their own records only find policies they issued.
+  const ownRecordsOnly = useAuthStore(
+    (state) => !!state.authorizationContext?.dataScope?.ownRecordsOnly,
+  );
   const selectedId = form.watch('policy_id');
   const policyError = form.formState.errors.policy_id?.message;
 
@@ -126,9 +131,16 @@ export function PolicyStep({ wizard }: { wizard: ClaimWizard }) {
                 The policy search failed. Try again.
               </p>
             ) : (lookup.data ?? []).length === 0 ? (
-              <p className="p-4 text-sm text-slate-500">
-                No policy you can access matches “{debounced.trim()}”.
-              </p>
+              <div className="space-y-1 p-4 text-sm text-slate-500">
+                <p>No policy you can access matches “{debounced.trim()}”.</p>
+                {ownRecordsOnly ? (
+                  <p>
+                    Your access is limited to records you created, so policies
+                    issued by others are not listed. A company administrator can
+                    give you branch or company data access.
+                  </p>
+                ) : null}
+              </div>
             ) : (
               lookup.data!.map((result) => {
                 const selected = result.id === selectedId;

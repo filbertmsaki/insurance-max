@@ -64,7 +64,10 @@ async function readNextEvent(
     const read = await Promise.race([
       reader.read(),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timed out waiting for SSE data')), remainingMs),
+        setTimeout(
+          () => reject(new Error('Timed out waiting for SSE data')),
+          remainingMs,
+        ),
       ),
     ]);
 

@@ -142,12 +142,16 @@ export function PolicyRenewalPage() {
                 <Row label="Quotation Status" value={quotation.status} />
                 <Row
                   label="Payment"
-                  value={quotation.payment_status_v2 ?? quotation.payment_status}
+                  value={
+                    quotation.payment_status_v2 ?? quotation.payment_status
+                  }
                 />
                 <Button
                   variant="outline"
                   onClick={() =>
-                    navigate(underwritingPaths.quotationWizardEdit(quotation.id))
+                    navigate(
+                      underwritingPaths.quotationWizardEdit(quotation.id),
+                    )
                   }
                 >
                   <FileText className="mr-1.5 h-3.5 w-3.5" />

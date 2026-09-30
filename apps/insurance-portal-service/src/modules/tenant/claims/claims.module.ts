@@ -61,6 +61,7 @@ import { ClaimTiramisOutcomeService } from './services/claim-tiramis-outcome.ser
 import { ClaimTiramisPayloadService } from './services/claim-tiramis-payload.service';
 import { ClaimTiramisService } from './services/claim-tiramis.service';
 import { ClaimsDashboardService } from './services/claims-dashboard.service';
+import { ClaimNumberFormatService } from './services/claim-number-format.service';
 import { ClaimDecisionService } from './services/claim-decision.service';
 import { ClaimDisbursementService } from './services/claim-disbursement.service';
 import { ClaimFinancialProjectionService } from './services/claim-financial-projection.service';
@@ -145,6 +146,7 @@ import { ComplaintSlaService } from './services/complaint-sla.service';
     ClaimRejectionService,
     ClaimDocumentService,
     ClaimsDashboardService,
+    ClaimNumberFormatService,
   ],
   exports: [
     ClaimTiramisOutcomeService,

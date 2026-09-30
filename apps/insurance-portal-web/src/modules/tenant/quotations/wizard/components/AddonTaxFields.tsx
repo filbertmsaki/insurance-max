@@ -19,7 +19,11 @@ import {
   TAX_EXEMPTION_TYPE_OPTIONS,
   type TaxRuleOption,
 } from '../utils/taxOptions';
-import { fromSelectValue, SELECT_NONE_VALUE, toSelectValue } from '../utils/selectValue';
+import {
+  fromSelectValue,
+  SELECT_NONE_VALUE,
+  toSelectValue,
+} from '../utils/selectValue';
 import { WizardFormItem } from './WizardFormItem';
 
 interface Props {
@@ -190,7 +194,9 @@ export function AddonTaxFields({
               <FormLabel>Exemption Type</FormLabel>
               <Select
                 value={toSelectValue(field.value as string)}
-                onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                onValueChange={(value) =>
+                  field.onChange(fromSelectValue(value))
+                }
                 disabled={
                   !form.watch(fieldPath(basePath, 'taxes.0.is_tax_exempted'))
                 }

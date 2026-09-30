@@ -208,6 +208,49 @@ async function checkConnection(config) {
   await client.end();
 }
 
+/**
+ * pg_dump from PG_DUMP_PATH, then PATH, then (on Windows) the newest
+ * PostgreSQL installation under Program Files.
+ */
+function resolvePgDump() {
+  if (process.env.PG_DUMP_PATH) {
+    return process.env.PG_DUMP_PATH;
+  }
+
+  const executable = process.platform === 'win32' ? 'pg_dump.exe' : 'pg_dump';
+  const onPath = (process.env.PATH || '')
+    .split(path.delimiter)
+    .filter(Boolean)
+    .map((directory) => path.join(directory, executable))
+    .find((candidate) => fs.existsSync(candidate));
+
+  if (onPath) {
+    return onPath;
+  }
+
+  if (process.platform === 'win32') {
+    const root = path.join(
+      process.env.ProgramFiles || 'C:\\Program Files',
+      'PostgreSQL',
+    );
+    const versions = fs.existsSync(root)
+      ? fs
+          .readdirSync(root)
+          .filter((name) => /^\d+(\.\d+)?$/.test(name))
+          .sort((a, b) => Number(b) - Number(a))
+      : [];
+
+    for (const version of versions) {
+      const candidate = path.join(root, version, 'bin', executable);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return executable;
+}
+
 function runPgDump(config) {
   const outputPath = backupPath(config);
 
@@ -229,15 +272,21 @@ function runPgDump(config) {
     config.database,
   ];
 
-  const result = spawnSync('pg_dump', args, {
+  // No shell: arguments reach pg_dump unchanged, so paths with spaces work.
+  const result = spawnSync(resolvePgDump(), args, {
     stdio: 'inherit',
     env: {
       ...process.env,
       PGPASSWORD: config.password,
       PGSSLMODE: config.ssl ? 'require' : process.env.PGSSLMODE,
     },
-    shell: process.platform === 'win32',
   });
+
+  if (result.error) {
+    throw new Error(
+      `pg_dump could not be started (${result.error.message}). Put it on PATH or set PG_DUMP_PATH.`,
+    );
+  }
 
   if (result.status !== 0) {
     throw new Error('pg_dump failed. Database wipe/reset has been stopped.');

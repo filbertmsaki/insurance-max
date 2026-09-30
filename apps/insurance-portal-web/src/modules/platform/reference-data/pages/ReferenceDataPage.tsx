@@ -108,26 +108,70 @@ export function ReferenceDataPage() {
   const columns: Record<ReferenceKind, Column<AnyRecord>[]> = {
     countries: [
       { key: 'name', header: 'Country', cell: (r) => r.name },
-      { key: 'iso3_code', header: 'ISO3', cell: (r) => (r as ReferenceCountry).iso3_code },
-      { key: 'iso2_code', header: 'ISO2', cell: (r) => (r as ReferenceCountry).iso2_code ?? '-' },
-      { key: 'is_active', header: 'Status', cell: (r) => <StatusBadge active={r.is_active} /> },
+      {
+        key: 'iso3_code',
+        header: 'ISO3',
+        cell: (r) => (r as ReferenceCountry).iso3_code,
+      },
+      {
+        key: 'iso2_code',
+        header: 'ISO2',
+        cell: (r) => (r as ReferenceCountry).iso2_code ?? '-',
+      },
+      {
+        key: 'is_active',
+        header: 'Status',
+        cell: (r) => <StatusBadge active={r.is_active} />,
+      },
     ],
     regions: [
       { key: 'name', header: 'Region', cell: (r) => r.name },
-      { key: 'country', header: 'Country', cell: (r) => (r as ReferenceRegion).country?.name ?? '-' },
-      { key: 'is_active', header: 'Status', cell: (r) => <StatusBadge active={r.is_active} /> },
+      {
+        key: 'country',
+        header: 'Country',
+        cell: (r) => (r as ReferenceRegion).country?.name ?? '-',
+      },
+      {
+        key: 'is_active',
+        header: 'Status',
+        cell: (r) => <StatusBadge active={r.is_active} />,
+      },
     ],
     districts: [
       { key: 'name', header: 'District', cell: (r) => r.name },
-      { key: 'region', header: 'Region', cell: (r) => (r as ReferenceDistrict).region?.name ?? '-' },
-      { key: 'country', header: 'Country', cell: (r) => (r as ReferenceDistrict).region?.country?.name ?? '-' },
-      { key: 'is_active', header: 'Status', cell: (r) => <StatusBadge active={r.is_active} /> },
+      {
+        key: 'region',
+        header: 'Region',
+        cell: (r) => (r as ReferenceDistrict).region?.name ?? '-',
+      },
+      {
+        key: 'country',
+        header: 'Country',
+        cell: (r) => (r as ReferenceDistrict).region?.country?.name ?? '-',
+      },
+      {
+        key: 'is_active',
+        header: 'Status',
+        cell: (r) => <StatusBadge active={r.is_active} />,
+      },
     ],
     currencies: [
-      { key: 'code', header: 'Code', cell: (r) => (r as ReferenceCurrency).code },
+      {
+        key: 'code',
+        header: 'Code',
+        cell: (r) => (r as ReferenceCurrency).code,
+      },
       { key: 'name', header: 'Currency', cell: (r) => r.name },
-      { key: 'symbol', header: 'Symbol', cell: (r) => (r as ReferenceCurrency).symbol ?? '-' },
-      { key: 'is_active', header: 'Status', cell: (r) => <StatusBadge active={r.is_active} /> },
+      {
+        key: 'symbol',
+        header: 'Symbol',
+        cell: (r) => (r as ReferenceCurrency).symbol ?? '-',
+      },
+      {
+        key: 'is_active',
+        header: 'Status',
+        cell: (r) => <StatusBadge active={r.is_active} />,
+      },
     ],
   };
 
@@ -206,36 +250,100 @@ export function ReferenceDataPage() {
     if (selectedKind === 'countries') {
       return (
         <>
-          <Input placeholder="Country name" value={form.name ?? ''} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} />
-          <Input placeholder="ISO3 code" value={form.iso3_code ?? ''} onChange={(e) => setForm((v) => ({ ...v, iso3_code: e.target.value }))} />
-          <Input placeholder="ISO2 code" value={form.iso2_code ?? ''} onChange={(e) => setForm((v) => ({ ...v, iso2_code: e.target.value }))} />
-          <Input placeholder="Phone code" value={form.phone_code ?? ''} onChange={(e) => setForm((v) => ({ ...v, phone_code: e.target.value }))} />
+          <Input
+            placeholder="Country name"
+            value={form.name ?? ''}
+            onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
+          />
+          <Input
+            placeholder="ISO3 code"
+            value={form.iso3_code ?? ''}
+            onChange={(e) =>
+              setForm((v) => ({ ...v, iso3_code: e.target.value }))
+            }
+          />
+          <Input
+            placeholder="ISO2 code"
+            value={form.iso2_code ?? ''}
+            onChange={(e) =>
+              setForm((v) => ({ ...v, iso2_code: e.target.value }))
+            }
+          />
+          <Input
+            placeholder="Phone code"
+            value={form.phone_code ?? ''}
+            onChange={(e) =>
+              setForm((v) => ({ ...v, phone_code: e.target.value }))
+            }
+          />
         </>
       );
     }
     if (selectedKind === 'regions') {
       return (
         <>
-          <Combobox options={countryOptions} value={form.country_id ?? ''} onValueChange={(value) => setForm((v) => ({ ...v, country_id: value }))} placeholder="Select country" />
-          <Input placeholder="Region name" value={form.name ?? ''} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} />
-          <Input placeholder="Region code" value={form.code ?? ''} onChange={(e) => setForm((v) => ({ ...v, code: e.target.value }))} />
+          <Combobox
+            options={countryOptions}
+            value={form.country_id ?? ''}
+            onValueChange={(value) =>
+              setForm((v) => ({ ...v, country_id: value }))
+            }
+            placeholder="Select country"
+          />
+          <Input
+            placeholder="Region name"
+            value={form.name ?? ''}
+            onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
+          />
+          <Input
+            placeholder="Region code"
+            value={form.code ?? ''}
+            onChange={(e) => setForm((v) => ({ ...v, code: e.target.value }))}
+          />
         </>
       );
     }
     if (selectedKind === 'districts') {
       return (
         <>
-          <Combobox options={regionOptions} value={form.region_id ?? ''} onValueChange={(value) => setForm((v) => ({ ...v, region_id: value }))} placeholder="Select region" />
-          <Input placeholder="District name" value={form.name ?? ''} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} />
-          <Input placeholder="District code" value={form.code ?? ''} onChange={(e) => setForm((v) => ({ ...v, code: e.target.value }))} />
+          <Combobox
+            options={regionOptions}
+            value={form.region_id ?? ''}
+            onValueChange={(value) =>
+              setForm((v) => ({ ...v, region_id: value }))
+            }
+            placeholder="Select region"
+          />
+          <Input
+            placeholder="District name"
+            value={form.name ?? ''}
+            onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
+          />
+          <Input
+            placeholder="District code"
+            value={form.code ?? ''}
+            onChange={(e) => setForm((v) => ({ ...v, code: e.target.value }))}
+          />
         </>
       );
     }
     return (
       <>
-        <Input placeholder="Currency code" value={form.code ?? ''} onChange={(e) => setForm((v) => ({ ...v, code: e.target.value }))} />
-        <Input placeholder="Currency name" value={form.name ?? ''} onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))} />
-        <Input placeholder="Symbol" value={form.symbol ?? ''} onChange={(e) => setForm((v) => ({ ...v, symbol: e.target.value }))} />
+        <Input
+          placeholder="Currency code"
+          value={form.code ?? ''}
+          onChange={(e) => setForm((v) => ({ ...v, code: e.target.value }))}
+        />
+        <Input
+          placeholder="Currency name"
+          value={form.name ?? ''}
+          onChange={(e) => setForm((v) => ({ ...v, name: e.target.value }))}
+        />
+        <Input
+          placeholder="Symbol"
+          value={form.symbol ?? ''}
+          onChange={(e) => setForm((v) => ({ ...v, symbol: e.target.value }))}
+        />
       </>
     );
   }
@@ -253,14 +361,19 @@ export function ReferenceDataPage() {
         }
       />
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as ReferenceKind)}>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as ReferenceKind)}
+      >
         <TabsList className="mb-4">
           <TabsTrigger value="countries">Countries</TabsTrigger>
           <TabsTrigger value="regions">Regions</TabsTrigger>
           <TabsTrigger value="districts">Districts</TabsTrigger>
           <TabsTrigger value="currencies">Currencies</TabsTrigger>
         </TabsList>
-        {(['countries', 'regions', 'districts', 'currencies'] as ReferenceKind[]).map((kind) => (
+        {(
+          ['countries', 'regions', 'districts', 'currencies'] as ReferenceKind[]
+        ).map((kind) => (
           <TabsContent key={kind} value={kind}>
             <DataTable
               columns={tableColumns}

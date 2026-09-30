@@ -36,18 +36,12 @@ export function ConnectionLostOverlay() {
 
         <p className="mt-2 text-sm text-muted-foreground">
           We&apos;re unable to connect to the server right now. Please check
-          your internet connection. The application will automatically
-          reconnect when the connection is restored.
+          your internet connection. The application will automatically reconnect
+          when the connection is restored.
         </p>
 
-        <Button
-          className="mt-6"
-          onClick={handleRetry}
-          disabled={retrying}
-        >
-          <RotateCw
-            className={retrying ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
-          />
+        <Button className="mt-6" onClick={handleRetry} disabled={retrying}>
+          <RotateCw className={retrying ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           Retry Connection
         </Button>
 

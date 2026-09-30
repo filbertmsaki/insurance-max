@@ -91,3 +91,17 @@ export function fromDateTimeLocal(value?: string | null) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
+
+/** The first number a claim number format produces, as the server renders it. */
+export function previewNumber(
+  prefix: string,
+  length: number,
+  date = new Date(),
+) {
+  const year = String(date.getFullYear());
+  const rendered = prefix
+    .replace(/\{YYYY\}/g, year)
+    .replace(/\{YY\}/g, year.slice(-2))
+    .replace(/\{MM\}/g, String(date.getMonth() + 1).padStart(2, '0'));
+  return `${rendered}${'1'.padStart(Math.min(Math.max(length || 1, 1), 10), '0')}`;
+}

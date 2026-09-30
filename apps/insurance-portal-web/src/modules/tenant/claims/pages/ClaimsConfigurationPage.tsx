@@ -38,6 +38,7 @@ import { claimsApi } from '../api';
 import { ClaimErrorAlert } from '../components/ClaimErrorAlert';
 import { ClaimField } from '../components/ClaimField';
 import { DocumentRequirementsSection } from '../components/DocumentRequirementsSection';
+import { NumberFormatsSection } from '../components/NumberFormatsSection';
 import { approvalLimitsKey, useApprovalLimits } from '../hooks';
 import type {
   ApprovalLimit,
@@ -407,7 +408,7 @@ export function ClaimsConfigurationPage() {
       <PageHeader
         eyebrow="Claims"
         title="Claims configuration"
-        description="Who may approve reserves, assessments, vouchers, payments and rejections, up to what amount, and which documents each stage needs."
+        description="Who may approve reserves, assessments, vouchers, payments and rejections, up to what amount, which documents each stage needs, and how claim documents are numbered."
         action={
           <Button onClick={() => setEditing('new')}>
             <Plus className="mr-2 h-4 w-4" />
@@ -529,6 +530,8 @@ export function ClaimsConfigurationPage() {
         products={options.products}
         categories={options.categories}
       />
+
+      <NumberFormatsSection />
 
       {editing ? (
         <LimitDialog
