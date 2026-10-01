@@ -12,7 +12,7 @@ export class BusinessDocumentNumberFormats1791000000002 implements MigrationInte
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "business_document_number_formats" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         "company_id" uuid NOT NULL,
         "document_type" varchar(60) NOT NULL,
         "prefix" varchar(40) NOT NULL,
