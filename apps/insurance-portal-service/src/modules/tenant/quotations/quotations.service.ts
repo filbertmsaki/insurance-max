@@ -8096,6 +8096,7 @@ export class QuotationsService {
           productDefinition?.tiramisProductCode ??
           header.product_code.trim().toUpperCase(),
         fleet_id: fleetHeader?.fleet_id?.trim().toUpperCase() ?? null,
+        is_policy_transaction: Boolean(quotation.source_policy_transaction_id),
         fleet_type: fleetHeader?.fleet_type ?? null,
         fleet_size: fleetHeader?.fleet_size ?? null,
         comprehensive_insured: fleetHeader?.comprehensive_insured ?? null,

@@ -59,9 +59,12 @@ export class FleetRemovalRefundService {
 
     const [policy] = await manager.query<
       Array<{ start_date: string; end_date: string }>
-    >(`SELECT start_date, end_date FROM policies WHERE id = $1`, [
-      transaction.source_policy_id,
-    ]);
+    >(
+      // As text: the driver returns `date` columns as Date objects otherwise.
+      `SELECT start_date::text AS start_date, end_date::text AS end_date
+         FROM policies WHERE id = $1`,
+      [transaction.source_policy_id],
+    );
     const rule = await this.cancellationConfig.resolve(
       transaction.company_id,
       CancellationReasonType.CUSTOMER_REQUEST,
