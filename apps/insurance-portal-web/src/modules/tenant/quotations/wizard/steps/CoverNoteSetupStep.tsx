@@ -33,6 +33,7 @@ interface Props {
   enforceFreshCoverPeriod?: boolean;
   firstSection?: boolean;
   canSelectInsuranceChannel?: boolean;
+  showCategoryPicker?: boolean;
 }
 // eslint-disable-next-line react-refresh/only-export-components
 export const CHANNEL_TYPES = [
@@ -50,6 +51,7 @@ export function CoverNoteSetupStep({
   title = 'Cover',
   firstSection = true,
   canSelectInsuranceChannel = true,
+  showCategoryPicker = true,
 }: Props) {
   const values = form.watch();
   const product = productOptions.find((item) => item.id === values.product_id);
@@ -102,7 +104,9 @@ export function CoverNoteSetupStep({
   const wordingRequired = values.quotation_flow !== 'MOTOR_FLEET';
   return (
     <StepSection title={title} first={firstSection}>
-      {!values.category_id && categoryOptions.length > 1 && (
+      {showCategoryPicker &&
+        !values.category_id &&
+        categoryOptions.length > 1 && (
         <div className="grid gap-4 sm:grid-cols-2">
           {field('category_id', 'Insurance category', {
             required: true,

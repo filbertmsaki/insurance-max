@@ -21,6 +21,7 @@ import {
 import { UpdateQuotationDto } from '../../quotations/dto/quotation-payload.dto';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationsService } from '../../quotations/quotations.service';
+import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
 import { FleetRegisterService } from '../fleet/fleet-register.service';
 import { NonMotorRiskService } from '../non-motor/non-motor-risk.service';
 
@@ -42,6 +43,8 @@ export class UnderwriteQuotationCommandService {
     private readonly productAccessService: ProductAccessService,
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
+    @InjectRepository(InsuranceProduct)
+    private readonly insuranceProductRepository: Repository<InsuranceProduct>,
     private readonly fleetRegisterService: FleetRegisterService,
     private readonly nonMotorRiskService: NonMotorRiskService,
   ) {}
@@ -54,12 +57,24 @@ export class UnderwriteQuotationCommandService {
     dto: SaveQuotationDraftDto,
   ) {
     this.assertPayloadFlow(line, dto.quotation_flow);
+    const categoryId =
+      line === UnderwriteLine.MOTOR
+        ? await this.resolveMotorProductCategory(
+            user.companyId!,
+            dto.insurer_company_id,
+            dto.product_id,
+          )
+        : dto.category_id;
     await this.assertCanCreatePolicyForProduct(
       user,
-      dto.category_id,
+      categoryId,
       dto.product_id,
     );
-    return this.quotationsService.createDraft(user.companyId!, dto, user);
+    return this.quotationsService.createDraft(
+      user.companyId!,
+      { ...dto, category_id: categoryId },
+      user,
+    );
   }
 
   async getForEdit(user: AuthenticatedUser, line: UnderwriteLine, id: string) {
@@ -79,12 +94,24 @@ export class UnderwriteQuotationCommandService {
   ) {
     this.assertPayloadFlow(line, dto.quotation_flow);
     await this.assertStoredFlow(line, id);
+    const categoryId =
+      line === UnderwriteLine.MOTOR
+        ? await this.resolveMotorProductCategory(
+            user.companyId!,
+            dto.insurer_company_id,
+            dto.product_id,
+          )
+        : dto.category_id;
     await this.assertCanCreatePolicyForProduct(
       user,
-      dto.category_id,
+      categoryId,
       dto.product_id,
     );
-    return this.quotationsService.updateDraft(user.companyId!, id, dto, user);
+    return this.quotationsService.updateDraft(
+      user.companyId!,
+      { ...dto, category_id: categoryId },
+      user,
+    );
   }
 
   async finalize(
@@ -95,11 +122,26 @@ export class UnderwriteQuotationCommandService {
   ) {
     this.assertPayloadFlow(line, dto.internal_quotation.quotation_flow);
     await this.assertStoredFlow(line, id);
+    const categoryId =
+      line === UnderwriteLine.MOTOR
+        ? await this.resolveMotorProductCategory(
+            user.companyId!,
+            dto.internal_quotation.insurer_company_id,
+            dto.internal_quotation.product_id,
+          )
+        : dto.internal_quotation.category_id;
     await this.assertCanCreatePolicyForProduct(
       user,
-      dto.internal_quotation.category_id,
+      categoryId,
       dto.internal_quotation.product_id,
     );
+    const resolvedDto = {
+      ...dto,
+      internal_quotation: {
+        ...dto.internal_quotation,
+        category_id: categoryId,
+      },
+    };
     if (line === UnderwriteLine.NON_MOTOR) {
       // Risk details must satisfy the product's risk schema, and mandatory
       // documents must be attached, before the quotation is completed.
@@ -119,7 +161,7 @@ export class UnderwriteQuotationCommandService {
     const quotation = await this.quotationsService.finalize(
       user.companyId!,
       id,
-      dto,
+      resolvedDto,
       user,
     );
 
@@ -163,6 +205,25 @@ export class UnderwriteQuotationCommandService {
     if (stored?.quotation_flow !== quotationFlowForUnderwriteLine(line)) {
       throw new NotFoundException('Quotation not found');
     }
+  }
+
+  /** Motor category is configured on the product; the submitted category is never authoritative. */
+  private async resolveMotorProductCategory(
+    companyId: string,
+    insurerCompanyId: string | null | undefined,
+    productId: string,
+  ): Promise<string> {
+    const product = await this.insuranceProductRepository.findOne({
+      select: { id: true, category_id: true },
+      where: {
+        id: productId,
+        company_id: insurerCompanyId || companyId,
+      },
+    });
+    if (!product) {
+      throw new NotFoundException('Insurance product was not found');
+    }
+    return product.category_id;
   }
 
   /** Same rule as `QuotationsController.assertCanCreatePolicyForProduct`. */

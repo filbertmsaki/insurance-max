@@ -20,23 +20,10 @@ const MOTOR = getUnderwriteLineMeta(UnderwriteLine.MOTOR);
 
 const MOTOR_WIZARD_STEPS: UnderwriteWizardStep[] = [
   {
-    id: 'customer',
-    label: 'Customer',
-    description: 'Select or capture the policyholder',
-    fields: ['customer_id', 'policyholder'],
-  },
-  {
-    id: 'vehicle',
-    label: 'Vehicle',
-    description: 'Look up or capture the vehicle',
-    fields: ['motor'],
-  },
-  {
-    id: 'cover',
+    id: 'product-cover',
     label: 'Product & Cover',
-    description: 'Insurance class, product and cover period',
+    description: 'Select a motor product and set the cover period',
     fields: [
-      'category_id',
       'product_id',
       'currency',
       'exchange_rate',
@@ -48,16 +35,18 @@ const MOTOR_WIZARD_STEPS: UnderwriteWizardStep[] = [
     ],
   },
   {
-    id: 'premium',
-    label: 'Premium',
-    description: 'Cover, rates, add-ons, discounts and taxes',
-    fields: ['risks', 'addons'],
+    id: 'customer-vehicle',
+    label: 'Customer & Vehicle',
+    description: 'Select the policyholder and capture the insured vehicle',
+    fields: ['customer_id', 'policyholder', 'motor'],
   },
   {
-    id: 'source',
-    label: 'Business Source',
-    description: 'Channel, intermediary and branch',
+    id: 'premium-source',
+    label: 'Premium & Business Source',
+    description: 'Set the premium, covers, channel and intermediary',
     fields: [
+      'risks',
+      'addons',
       'channel_type',
       'intermediary_company_id',
       'commission_rate',
@@ -65,25 +54,35 @@ const MOTOR_WIZARD_STEPS: UnderwriteWizardStep[] = [
     ],
   },
   {
-    id: 'review',
+    id: 'review-submit',
     label: 'Review & Submit',
     description: 'Check everything before completing',
     fields: ['payment_mode_tira'],
   },
 ];
 
+/** Map saved step IDs from the six-step layout to their new combined steps. */
+const LEGACY_MOTOR_STEP_MAP: Record<string, string> = {
+  customer: 'customer-vehicle',
+  vehicle: 'customer-vehicle',
+  cover: 'product-cover',
+  premium: 'premium-source',
+  source: 'premium-source',
+  review: 'review-submit',
+};
+
 /** Maps the legacy summary's "edit" targets onto the Motor steps. */
 function motorStepFor(step: QuotationWizardStepId): string {
   switch (step) {
     case 'motor':
-      return 'vehicle';
+      return 'customer-vehicle';
     case 'policyholder':
-      return 'customer';
+      return 'customer-vehicle';
     case 'risk-premium':
     case 'addons':
-      return 'premium';
+      return 'premium-source';
     default:
-      return 'cover';
+      return 'product-cover';
   }
 }
 
@@ -93,6 +92,8 @@ export function MotorQuotationWizardPage() {
     line: MOTOR,
     quotationId: id,
     steps: MOTOR_WIZARD_STEPS,
+    stepAliases: LEGACY_MOTOR_STEP_MAP,
+    deferDraftUntilStepId: 'premium-source',
   });
   const { form } = wizard;
 
@@ -102,23 +103,23 @@ export function MotorQuotationWizardPage() {
       title={id ? 'Edit motor quotation' : 'New motor quotation'}
       renderStep={(stepId) => {
         switch (stepId) {
-          case 'customer':
-            return (
-              <PolicyholderStep
-                form={form}
-                customerOptions={wizard.customerOptions}
-              />
-            );
-          case 'vehicle':
-            return (
-              <MotorDetailsStep
-                form={form}
-                vehicleOptions={wizard.vehicleOptions}
-              />
-            );
-          case 'cover':
+          case 'product-cover':
             return <ProductCoverStep wizard={wizard} />;
-          case 'premium':
+          case 'customer-vehicle':
+            return (
+              <div className="space-y-6">
+                <PolicyholderStep
+                  form={form}
+                  customerOptions={wizard.customerOptions}
+                  newCustomerInDialog
+                />
+                <MotorDetailsStep
+                  form={form}
+                  vehicleOptions={wizard.vehicleOptions}
+                />
+              </div>
+            );
+          case 'premium-source':
             return (
               <div className="space-y-6">
                 <RiskPremiumStep
@@ -137,11 +138,10 @@ export function MotorQuotationWizardPage() {
                   factorContext={wizard.factorContext}
                 />
                 <AddOnsStep form={form} fieldArray={wizard.addonFieldArray} />
+                <BusinessSourceStep wizard={wizard} />
               </div>
             );
-          case 'source':
-            return <BusinessSourceStep wizard={wizard} />;
-          case 'review':
+          case 'review-submit':
             return (
               <SummaryReviewStep
                 form={form}

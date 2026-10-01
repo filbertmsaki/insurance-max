@@ -68,7 +68,7 @@ export function VehicleDetailsFields({
       )}
       <div>
         <p className="mb-3 text-sm font-medium">Vehicle details</p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {motorFields.map(renderField)}
         </div>
       </div>

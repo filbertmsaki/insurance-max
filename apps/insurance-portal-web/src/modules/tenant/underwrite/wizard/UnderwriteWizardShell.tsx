@@ -45,6 +45,7 @@ export function UnderwriteWizardShell({
     isSaving,
     isEditMode,
     hasProduct,
+    canSaveDraft,
     companyId,
   } = wizard;
 
@@ -78,8 +79,14 @@ export function UnderwriteWizardShell({
             <Button
               type="button"
               variant="outline"
-              disabled={isSaving || !hasProduct}
-              title={hasProduct ? undefined : 'Select a product first'}
+              disabled={isSaving || !hasProduct || !canSaveDraft}
+              title={
+                !hasProduct
+                  ? 'Select a product first'
+                  : !canSaveDraft
+                    ? 'Complete the premium step before saving a draft'
+                    : undefined
+              }
               onClick={() => void wizard.saveDraft()}
             >
               Save draft
@@ -115,6 +122,7 @@ export function UnderwriteWizardShell({
     [
       companyId,
       hasProduct,
+      canSaveDraft,
       isEditMode,
       isFirstStep,
       isLastStep,
