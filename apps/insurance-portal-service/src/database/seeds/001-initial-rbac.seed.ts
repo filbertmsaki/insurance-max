@@ -385,6 +385,54 @@ const REINSURANCE_PARTNER_PERMISSION_NAMES = [
   'reinsurance:settlement-reconcile',
 ];
 
+/**
+ * Company permissions checked by controllers (regulatory compliance,
+ * reporting, retention, finance journals, document sharing) that had no seed,
+ * so no company role could reach those endpoints.
+ */
+const COMPANY_OPERATIONS_PERMISSION_SEEDS: PermissionSeed[] = (
+  [
+    ['regulatory:profile-read', 'Read regulatory profile'],
+    ['regulatory:profile-update', 'Update regulatory profile'],
+    ['regulatory:calendar-read', 'Read regulatory calendar'],
+    ['regulatory:calendar-manage', 'Manage regulatory calendar'],
+    ['regulatory:return-read', 'Read regulatory returns'],
+    ['regulatory:return-prepare', 'Prepare regulatory returns'],
+    [
+      'regulatory:return-submit-for-approval',
+      'Submit regulatory returns for approval',
+    ],
+    ['regulatory:return-approve', 'Approve regulatory returns'],
+    ['regulatory:return-mark-submitted', 'Mark regulatory returns submitted'],
+    ['regulatory:levy-calculate', 'Calculate regulatory levies'],
+    ['regulatory:levy-read', 'Read regulatory levies'],
+    ['regulatory:levy-confirm', 'Confirm regulatory levies'],
+    ['regulatory:levy-adjust', 'Adjust regulatory levies'],
+    ['reports:definition-read', 'Read report definitions'],
+    ['reports:run', 'Run reports'],
+    ['reports:job-read', 'Read report jobs'],
+    ['reports:download', 'Download reports'],
+    ['reports:schedule-read', 'Read report schedules'],
+    ['reports:schedule-create', 'Create report schedules'],
+    ['reports:schedule-update', 'Update report schedules'],
+    ['reports:schedule-delete', 'Delete report schedules'],
+    ['reports:mail-test', 'Send report test mail'],
+    ['retention:read', 'Read retention policies'],
+    ['retention:dry-run', 'Dry-run retention enforcement'],
+    ['retention:enforce', 'Enforce retention policies'],
+    ['legal-holds:read', 'Read legal holds'],
+    ['finance-journals:read', 'Read finance journals'],
+    ['commissions:reverse', 'Reverse commissions'],
+    ['documents:share-customer', 'Share documents with customers'],
+    ['documents:share-intermediary', 'Share documents with intermediaries'],
+  ] as const
+).map(([name, displayName]) => ({
+  name,
+  displayName,
+  description: `Allow users to ${displayName.charAt(0).toLowerCase()}${displayName.slice(1)}`,
+  scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+}));
+
 const REINSURANCE_PERMISSION_SEEDS: PermissionSeed[] = [
   {
     name: 'dashboard:reinsurance',
@@ -3290,6 +3338,7 @@ const permissionSeeds: PermissionSeed[] = [
     description: definition.description,
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   })),
+  ...COMPANY_OPERATIONS_PERMISSION_SEEDS,
 ];
 
 const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
@@ -4027,6 +4076,32 @@ const roleSeeds: RoleSeed[] = [
       'premium-calculation:calculate',
       'claims:read',
       'complaints:read',
+      // Day-to-day work; approvals and configuration stay with admins.
+      'cover-notes:read',
+      'renewals:read',
+      'renewals:create',
+      'renewals:create-offer',
+      'renewals:send-offer',
+      'renewals:accept',
+      'renewals:decline',
+      'endorsements:submit-approval',
+      'endorsements:request-payment',
+      'endorsements:retry-tiramis',
+      'cancellations:request-payment',
+      'tiramis-submissions:read',
+      'tiramis-submissions:create',
+      'documents:upload',
+      'documents:register',
+      'documents:create-version',
+      'invoices:read',
+      'payments:read',
+      'receipts:read',
+      'refunds:read',
+      'reports:definition-read',
+      'reports:run',
+      'reports:job-read',
+      'reports:download',
+      'communications:create-thread',
     ],
   },
   {
