@@ -196,6 +196,34 @@ describe('PolicyTransactionTiramisPayloadService fleet vehicle endorsements', ()
       ),
     ).rejects.toThrow('fleet add/remove endorsement');
   });
+
+  it('sends the issued fleet header on an ordinary fleet endorsement, skipping cancelled vehicles', async () => {
+    const payload = await service().buildEndorsementPayload(
+      transaction(
+        [
+          { fleetEntry: 1, motor: motor('T1AAA') },
+          { fleetEntry: 2, motor: motor('T2AAA'), status: 'CANCELLED' },
+        ],
+        [riskRow(0, '600000')],
+      ),
+      {
+        endorsement_type_code: 'RISK_CORRECTION',
+        tira_endorsement_type: 3,
+        previous_cover_note_reference: 'REF-1',
+      } as any,
+      policy,
+    );
+
+    expect(payload.fleet).toMatchObject({
+      fleetId: 'FLEET-001',
+      fleetType: 1,
+      fleetSize: 1,
+      comprehensiveInsured: 1,
+    });
+    expect(
+      (payload.fleet as any).items.map((item: any) => item.fleetEntry),
+    ).toEqual(['1']);
+  });
 });
 
 describe('PolicyTransactionTiramisPayloadService whole-fleet cancellation', () => {

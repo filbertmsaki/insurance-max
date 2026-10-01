@@ -181,18 +181,19 @@ export class PolicyTransactionTiramisSubmissionService {
       );
     }
 
-    return this.quotationFactory.createTransactionDraft(
-      this.quotationRepository.manager,
-      user,
-      {
+    const previousCoverNoteReference = params.previousCoverNoteReference;
+
+    // Finalizing the generated draft takes a row lock, so it needs a transaction.
+    return this.quotationRepository.manager.transaction((manager) =>
+      this.quotationFactory.createTransactionDraft(manager, user, {
         policy,
         version,
         transaction,
-        previousCoverNoteReference: params.previousCoverNoteReference,
+        previousCoverNoteReference,
         endorsementType: params.endorsementType,
         endorsementReason: params.endorsementReason,
         recordOnly: params.recordOnly,
-      },
+      }),
     );
   }
 

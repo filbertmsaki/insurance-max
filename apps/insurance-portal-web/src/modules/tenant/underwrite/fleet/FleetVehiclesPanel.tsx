@@ -22,6 +22,16 @@ const fleetVehiclesKey = (kind: 'quotation' | 'policy', id: string) =>
   [...underwriteKeys.all, 'fleet', kind, id, 'vehicles'] as const;
 
 function coverStatus(row: FleetVehicleRow, kind: 'quotation' | 'policy') {
+  if (row.vehicle_status === 'CANCELLED') {
+    return (
+      <Badge variant="secondary">
+        Removed{row.removed_at ? ` from ${row.removed_at}` : ''}
+      </Badge>
+    );
+  }
+  if (row.vehicle_status === 'REMOVED') {
+    return <Badge variant="secondary">Removal pending</Badge>;
+  }
   if (kind === 'policy' && row.policy_risk_statuses.length) {
     const status = row.policy_risk_statuses.join(', ');
     const tone = row.policy_risk_statuses.every(
@@ -95,6 +105,11 @@ export function FleetVehiclesPanel({
         <div>
           <span className="block font-medium text-slate-900">
             {row.registration_number || 'N/A'}
+            {row.vehicle_status === 'ADDED' && (
+              <Badge variant="outline" className="ml-2">
+                Added{row.added_at ? ` ${row.added_at}` : ''}
+              </Badge>
+            )}
           </span>
           <span className="text-xs text-slate-500">
             {[row.make, row.model, row.year_of_manufacture]

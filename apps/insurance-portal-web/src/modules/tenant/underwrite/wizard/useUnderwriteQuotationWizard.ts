@@ -108,11 +108,17 @@ export function useUnderwriteQuotationWizard({
   line,
   quotationId,
   steps,
+  stepAliases,
+  deferDraftUntilStepId,
   hooks,
 }: {
   line: UnderwriteLineMeta;
   quotationId?: string;
   steps: UnderwriteWizardStep[];
+  /** Maps previously persisted step IDs to their current equivalents. */
+  stepAliases?: Record<string, string>;
+  /** New drafts are first persisted when moving forward from this step. */
+  deferDraftUntilStepId?: string;
   hooks?: UnderwriteWizardHooks;
 }) {
   // Kept in a ref so callers can pass inline callbacks without re-creating
@@ -247,10 +253,12 @@ export function useUnderwriteQuotationWizard({
   // ─── Step state ─────────────────────────────────────────────────────────
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
-  const restoredStepId = steps.some(
-    (step) => step.id === existingQuotation?.current_wizard_step,
-  )
-    ? existingQuotation!.current_wizard_step!
+  const persistedStepId = existingQuotation?.current_wizard_step;
+  const aliasedStepId = persistedStepId
+    ? (stepAliases?.[persistedStepId] ?? persistedStepId)
+    : null;
+  const restoredStepId = steps.some((step) => step.id === aliasedStepId)
+    ? aliasedStepId
     : null;
   const stepId =
     selectedStepId && steps.some((step) => step.id === selectedStepId)
@@ -554,6 +562,17 @@ export function useUnderwriteQuotationWizard({
 
   const saveDraft = useCallback(
     async (silent = false) => {
+      const deferredStepIndex = deferDraftUntilStepId
+        ? steps.findIndex((step) => step.id === deferDraftUntilStepId)
+        : -1;
+      if (
+        !activeDraftId &&
+        !isEditMode &&
+        deferredStepIndex >= 0 &&
+        stepIndex <= deferredStepIndex
+      ) {
+        return null;
+      }
       try {
         return await saveMutation.mutateAsync({
           currentWizardStep: stepId,
@@ -563,7 +582,15 @@ export function useUnderwriteQuotationWizard({
         return null;
       }
     },
-    [saveMutation, stepId],
+    [
+      activeDraftId,
+      deferDraftUntilStepId,
+      isEditMode,
+      saveMutation,
+      stepId,
+      stepIndex,
+      steps,
+    ],
   );
 
   // ─── Navigation ─────────────────────────────────────────────────────────
@@ -593,18 +620,87 @@ export function useUnderwriteQuotationWizard({
         toast.error(stepError);
         return;
       }
+      const deferredStepIndex = deferDraftUntilStepId
+        ? steps.findIndex((step) => step.id === deferDraftUntilStepId)
+        : -1;
+      const creatingDeferredDraft =
+        !activeDraftId &&
+        !isEditMode &&
+        deferredStepIndex >= 0 &&
+        stepIndex === deferredStepIndex &&
+        nextIndex > stepIndex;
+      if (creatingDeferredDraft) {
+        const fieldsToValidate = [
+          ...new Set(
+            steps.slice(0, stepIndex + 1).flatMap((step) => step.fields),
+          ),
+        ];
+        const allValid = await form.trigger(fieldsToValidate, {
+          shouldFocus: true,
+        });
+        if (!allValid) {
+          const invalidStep = steps
+            .slice(0, stepIndex + 1)
+            .find((step) =>
+              step.fields.some((field) => form.getFieldState(field).invalid),
+            );
+          if (invalidStep) setSelectedStepId(invalidStep.id);
+          toast.error(
+            findFirstErrorMessage(form.formState.errors) ??
+              'Please complete all required information before continuing.',
+          );
+          return;
+        }
+        const earlierStepError = steps
+          .slice(0, stepIndex + 1)
+          .find((step) => step.validate?.());
+        if (earlierStepError) {
+          setSelectedStepId(earlierStepError.id);
+          toast.error(earlierStepError.validate!());
+          return;
+        }
+        try {
+          await saveMutation.mutateAsync({
+            currentWizardStep: nextStepId,
+            silent: true,
+          });
+        } catch {
+          return;
+        }
+      }
       setCompletedSteps((previous) =>
         previous.includes(stepId) ? previous : [...previous, stepId],
       );
       setSelectedStepId(nextStepId);
-      // Best-effort autosave once a product is chosen (drafts require one).
-      if (form.getValues('product_id')) {
+      // Defer first Motor persistence until its configured completion step.
+      // Existing drafts and other line wizards keep their normal autosaves.
+      if (
+        form.getValues('product_id') &&
+        !(
+          deferDraftUntilStepId &&
+          !activeDraftId &&
+          !isEditMode &&
+          deferredStepIndex >= 0 &&
+          stepIndex < deferredStepIndex
+        ) &&
+        !creatingDeferredDraft
+      ) {
         void saveMutation
           .mutateAsync({ currentWizardStep: nextStepId, silent: true })
           .catch(() => undefined);
       }
     },
-    [completedSteps, form, saveMutation, stepId, stepIndex, steps],
+    [
+      activeDraftId,
+      completedSteps,
+      deferDraftUntilStepId,
+      form,
+      isEditMode,
+      saveMutation,
+      stepId,
+      stepIndex,
+      steps,
+    ],
   );
 
   const goNext = useCallback(() => {
@@ -734,6 +830,8 @@ export function useUnderwriteQuotationWizard({
       deleteMutation.isPending,
     isDeleting: deleteMutation.isPending,
     hasProduct: Boolean(productId),
+    canSaveDraft:
+      isEditMode || Boolean(activeDraftId) || !deferDraftUntilStepId,
     canSelectInsuranceChannel,
     companyId,
     salePointCode,

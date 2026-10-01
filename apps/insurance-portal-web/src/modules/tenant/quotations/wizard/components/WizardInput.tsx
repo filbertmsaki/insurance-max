@@ -137,7 +137,7 @@ export function WizardInput({
                     options={options}
                     placeholder={placeholder}
                     searchPlaceholder={`Search ${label.toLowerCase()}`}
-                    disabled={disabled}
+                    disabled={disabled || readOnly}
                     aria-required={required}
                     onValueChange={handleValueChange}
                   />
@@ -147,7 +147,7 @@ export function WizardInput({
                   value={value}
                   options={options}
                   placeholder={placeholder}
-                  disabled={disabled}
+                  disabled={disabled || readOnly}
                   required={required}
                   triggerRef={field.ref}
                   onBlur={field.onBlur}

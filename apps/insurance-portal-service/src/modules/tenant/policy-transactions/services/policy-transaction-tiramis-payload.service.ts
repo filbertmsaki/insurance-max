@@ -1088,6 +1088,7 @@ export class PolicyTransactionTiramisPayloadService {
 
     const cover = this.asObject(snapshot['cover']) ?? {};
     const fleet = this.asObject(cover['fleet']) ?? {};
+    const issuedFleet = this.issuedFleet(transaction);
     // Vehicles removed by an earlier endorsement are no longer on cover.
     const onCover = entries
       .map((entry, index) => ({ entry, index }))
@@ -1143,10 +1144,18 @@ export class PolicyTransactionTiramisPayloadService {
       addons: items[0]?.addons ?? [],
       isFleet: true,
       fleet: {
-        fleetId: fleet['fleetId'] ?? null,
-        fleetType: fleet['fleetType'] ?? null,
+        // Issued snapshots keep the fleet header on the TIRA cover note
+        // (`source.finalizationSnapshot.fleet`), not on `cover.fleet`; the
+        // TIRA service requires all three fields.
+        fleetId: this.fleetIdOf(snapshot, issuedFleet),
+        fleetType: Number(
+          fleet['fleetType'] ?? issuedFleet?.['fleetType'] ?? 1,
+        ),
         fleetSize: items.length,
-        comprehensiveInsured: fleet['comprehensiveInsured'] ?? null,
+        comprehensiveInsured:
+          fleet['comprehensiveInsured'] != null
+            ? Math.min(Number(fleet['comprehensiveInsured']), items.length)
+            : this.comprehensiveCount(issuedFleet, items.length),
         items,
       },
     };

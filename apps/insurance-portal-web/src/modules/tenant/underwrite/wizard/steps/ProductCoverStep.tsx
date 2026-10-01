@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useReferenceCurrencies } from '@/modules/platform/reference-data/hooks';
 import { CURRENCY_OPTIONS } from '@/modules/tenant/quotations/wizard/QuotationStartModal';
 import { CoverNoteSetupStep } from '@/modules/tenant/quotations/wizard/steps/CoverNoteSetupStep';
@@ -6,57 +7,56 @@ import { WizardInput } from '@/modules/tenant/quotations/wizard/components/Wizar
 import type { UnderwriteQuotationWizard } from '../useUnderwriteQuotationWizard';
 
 /**
- * Product & Cover: insurance class (category), product, currency, then the
- * existing cover period / wording step. Channel and intermediary live in the
- * Business Source step, so the cover step is rendered without them.
+ * Product & Cover: product, configured currency, then the existing cover
+ * period / wording step. Motor insurance class is derived from the selected
+ * product and resolved again by the backend.
  */
 export function ProductCoverStep({
   wizard,
+  currencyEditable = false,
 }: {
   wizard: UnderwriteQuotationWizard;
+  /** Enable when the exchange rate module supports user-selected currencies. */
+  currencyEditable?: boolean;
 }) {
-  const { form, categoryOptions, productOptions, isHydrating } = wizard;
+  const { form, categoryOptions, productOptions, isHydrating, line } = wizard;
+  const isMotor = line.line === 'MOTOR';
+  const productId = form.watch('product_id');
   const categoryId = form.watch('category_id');
   const currency = form.watch('currency');
+  const selectedProduct = productOptions.find(
+    (product) => product.id === productId,
+  );
   const { data: referenceCurrencies = [] } = useReferenceCurrencies({
     is_active: true,
   });
   const currencies = referenceCurrencies.length
     ? referenceCurrencies.map((item) => item.code)
     : [...CURRENCY_OPTIONS];
-  const products = categoryId
-    ? productOptions.filter((product) => product.category_id === categoryId)
-    : productOptions;
+  const products = isMotor
+    ? productOptions
+    : categoryId
+      ? productOptions.filter(
+          (product) => product.category_id === categoryId,
+        )
+      : productOptions;
+
+  useEffect(() => {
+    if (isMotor && selectedProduct?.category_id) {
+      form.setValue('category_id', selectedProduct.category_id, {
+        shouldValidate: true,
+      });
+    }
+  }, [form, isMotor, selectedProduct]);
 
   return (
     <div className="space-y-6">
       <StepSection
-        title="Insurance class & product"
+        title="Product"
         description="The product decides the available covers, rates and add-ons."
         first
       >
         <div className="grid gap-4 lg:grid-cols-3">
-          <WizardInput
-            form={form}
-            name="category_id"
-            label="Insurance class"
-            required
-            options={categoryOptions.map((item) => ({
-              value: item.id,
-              label: item.name ?? 'Category',
-            }))}
-            onChange={() => {
-              if (
-                !productOptions.some(
-                  (product) =>
-                    product.id === form.getValues('product_id') &&
-                    product.category_id === form.getValues('category_id'),
-                )
-              ) {
-                form.setValue('product_id', '', { shouldValidate: false });
-              }
-            }}
-          />
           <WizardInput
             form={form}
             name="product_id"
@@ -80,6 +80,7 @@ export function ProductCoverStep({
             label="Currency"
             required
             options={currencies.map((code) => ({ value: code, label: code }))}
+            readOnly={!currencyEditable}
             onChange={(value) => {
               if (value === 'TZS') form.setValue('exchange_rate', '1');
             }}
@@ -92,17 +93,19 @@ export function ProductCoverStep({
         )}
       </StepSection>
 
-      {/* The cover step shows its own class picker while none is chosen, so
-          it is mounted once the class is known (or there is only one). */}
-      {(categoryId || categoryOptions.length <= 1) && (
+      {/* The legacy cover step owns class selection for non-Motor lines. */}
+      {(isMotor
+        ? Boolean(productId)
+        : Boolean(categoryId || categoryOptions.length <= 1)) && (
         <CoverNoteSetupStep
           form={form}
-          categoryOptions={categoryOptions}
+          categoryOptions={isMotor ? [] : categoryOptions}
           productOptions={productOptions}
           isHydrating={isHydrating}
           title="Cover period & wording"
           firstSection={false}
           canSelectInsuranceChannel={false}
+          showCategoryPicker={!isMotor}
         />
       )}
     </div>

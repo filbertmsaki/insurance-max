@@ -18,7 +18,8 @@ import { QuotationCoverNoteEntry } from './quotation-cover-note-entry.entity';
 })
 @Index('UQ_quotation_cover_notes_fleet_id', ['fleet_id'], {
   unique: true,
-  where: 'fleet_id IS NOT NULL',
+  // Endorsement/cancellation quotations resend the policy's issued FleetId.
+  where: 'fleet_id IS NOT NULL AND is_policy_transaction = false',
 })
 @Index('IDX_qcn_dates', ['cover_note_start_date', 'cover_note_end_date'])
 export class QuotationCoverNote {
@@ -113,6 +114,10 @@ export class QuotationCoverNote {
     nullable: true,
   })
   fleet_id: string | null;
+
+  /** Generated for a policy transaction (endorsement or cancellation). */
+  @Column({ type: 'boolean', default: false })
+  is_policy_transaction: boolean;
 
   @Column({
     type: 'smallint',

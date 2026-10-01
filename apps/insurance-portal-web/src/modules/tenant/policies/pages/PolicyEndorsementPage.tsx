@@ -45,6 +45,7 @@ import type {
   RecordEndorsementChangePayload,
 } from '../types';
 import { usePolicyTransactionScope } from '../transaction-scope';
+import { FLEET_VEHICLE_ENDORSEMENT_CODES } from '../fleet-vehicle-endorsement';
 
 function asObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -143,7 +144,7 @@ export function PolicyEndorsementPage() {
     endorsementId?: string;
   }>();
   const navigate = useNavigate();
-  const { api, paths } = usePolicyTransactionScope();
+  const { api, paths, FleetVehiclePanel } = usePolicyTransactionScope();
   const queryClient = useQueryClient();
   const { hasPermission } = useAuthStore();
   const [step, setStep] = useState(endorsementId ? 2 : 1);
@@ -211,6 +212,25 @@ export function PolicyEndorsementPage() {
   const entries = asArray(proposedSnapshot?.entries);
   const policyHolders = asArray(proposedSnapshot?.policyHolders);
   const cover = asObject(proposedSnapshot?.cover);
+
+  // Fleet add/remove-vehicle types need the fleet vehicle editor, which only
+  // the Underwrite Fleet scope provides.
+  const offeredTypes = useMemo(
+    () =>
+      endorsementTypes.filter(
+        (item) =>
+          !FLEET_VEHICLE_ENDORSEMENT_CODES.includes(item.code) ||
+          !!FleetVehiclePanel,
+      ),
+    [endorsementTypes, FleetVehiclePanel],
+  );
+  const fleetVehicleTypeCode =
+    context?.endorsement?.endorsement_type_code &&
+    FLEET_VEHICLE_ENDORSEMENT_CODES.includes(
+      context.endorsement.endorsement_type_code,
+    )
+      ? context.endorsement.endorsement_type_code
+      : null;
 
   const selectedType = useMemo(
     () => endorsementTypes.find((item) => item.code === endorsementTypeCode),
@@ -509,7 +529,7 @@ export function PolicyEndorsementPage() {
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {endorsementTypes.map((item) => (
+                    {offeredTypes.map((item) => (
                       <SelectItem key={item.id} value={item.code}>
                         {item.name}
                       </SelectItem>
@@ -549,7 +569,36 @@ export function PolicyEndorsementPage() {
         </Card>
       )}
 
-      {step === 2 && (
+      {step === 2 &&
+        fleetVehicleTypeCode &&
+        activeEndorsementId &&
+        (FleetVehiclePanel ? (
+          <FleetVehiclePanel
+            endorsementId={activeEndorsementId}
+            endorsementTypeCode={fleetVehicleTypeCode}
+            snapshot={proposedSnapshot ?? null}
+            pricing={
+              (tx?.pricing_snapshot as unknown as Record<string, unknown>) ??
+              null
+            }
+            currencyCode={currencyCode}
+            editable={tx?.stage === 'DRAFT'}
+            tiraStatusCode={
+              ['FAILED', 'RETRYABLE', 'REJECTED'].includes(
+                tx?.submission_status ?? '',
+              )
+                ? String(tx?.regulatory_response?.['statusCode'] ?? '') || null
+                : null
+            }
+          />
+        ) : (
+          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Vehicles on this endorsement are added or removed from Underwrite
+            &gt; Fleet.
+          </p>
+        ))}
+
+      {step === 2 && !fleetVehicleTypeCode && (
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-2">

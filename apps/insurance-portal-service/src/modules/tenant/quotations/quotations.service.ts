@@ -7801,15 +7801,23 @@ export class QuotationsService {
     await manager.getRepository(Customer).save(customer);
   }
 
-  private mergeLifecycleState(quotation: Quotation, paymentMode: number) {
+  private mergeLifecycleState(
+    quotation: Quotation,
+    paymentMode: number,
+    approvalRequired = quotation.requires_approval,
+  ) {
     const requiresPayment = paymentMode !== DIRECT_PAYMENT_MODE;
-    const requiresApproval = quotation.requires_approval;
+    const requiresApproval = approvalRequired;
 
     return {
       requires_approval: requiresApproval,
       requires_payment: requiresPayment,
+      // Newly required approval starts unsubmitted; an existing approval
+      // flow keeps its status.
       approval_status: requiresApproval
-        ? quotation.approval_status
+        ? quotation.requires_approval
+          ? quotation.approval_status
+          : ApprovalStatus.NOT_SUBMITTED
         : ApprovalStatus.NOT_REQUIRED,
       payment_status: requiresPayment
         ? quotation.requires_payment
@@ -8002,6 +8010,25 @@ export class QuotationsService {
     };
   }
 
+  /** True when any requested discount needs approval (pricing controls). */
+  private payloadRequiresApproval(payload: CreateQuotationDto): boolean {
+    const visit = (value: unknown): boolean => {
+      if (Array.isArray(value)) return value.some(visit);
+      if (!value || typeof value !== 'object') return false;
+      const record = value as Record<string, unknown>;
+      if (
+        Array.isArray(record['discounts_offered']) &&
+        (record['discounts_offered'] as Array<Record<string, unknown>>).some(
+          (discount) => discount?.['approval_required'] === true,
+        )
+      ) {
+        return true;
+      }
+      return Object.values(record).some(visit);
+    };
+    return visit(payload);
+  }
+
   private async persistRoot(
     manager: EntityManager,
     companyId: string,
@@ -8016,10 +8043,14 @@ export class QuotationsService {
     const repository = manager.getRepository(Quotation);
     const quotation = current ?? repository.create();
     const header = this.resolveHeader(payload);
+    // A discount beyond the pricing control's approval threshold makes the
+    // whole quotation subject to approval before payment / TIRA submission.
+    const approvalRequired = this.payloadRequiresApproval(payload);
     const lifecycleState = current
-      ? this.mergeLifecycleState(current, header.payment_mode)
+      ? this.mergeLifecycleState(current, header.payment_mode, approvalRequired)
       : this.quotationLifecycleService.initializeForCreation({
           paymentMode: header.payment_mode,
+          existingApprovalRequired: approvalRequired,
         });
 
     Object.assign(quotation, {
@@ -8124,6 +8155,7 @@ export class QuotationsService {
           productDefinition?.tiramisProductCode ??
           header.product_code.trim().toUpperCase(),
         fleet_id: fleetHeader?.fleet_id?.trim().toUpperCase() ?? null,
+        is_policy_transaction: Boolean(quotation.source_policy_transaction_id),
         fleet_type: fleetHeader?.fleet_type ?? null,
         fleet_size: fleetHeader?.fleet_size ?? null,
         comprehensive_insured: fleetHeader?.comprehensive_insured ?? null,

@@ -15,6 +15,7 @@ import type {
 import type { UpdateQuotationDto } from '../../quotations/dto/quotation-payload.dto';
 import type { Quotation } from '../../quotations/entities/quotation.entity';
 import type { QuotationsService } from '../../quotations/quotations.service';
+import type { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
 import type { FleetRegisterService } from '../fleet/fleet-register.service';
 import { UnderwriteQuotationCommandService } from './underwrite-quotation-command.service';
 
@@ -53,6 +54,9 @@ function build(
           : { id: 'q-1', quotation_flow: options.storedFlow },
       ),
   };
+  const insuranceProductRepository = {
+    findOne: jest.fn().mockResolvedValue({ category_id: 'cat-1' }),
+  };
 
   const fleetRegister = {
     syncFromQuotation: options.syncFails
@@ -65,6 +69,7 @@ function build(
     access as unknown as CategoryAccessService,
     access as unknown as ProductAccessService,
     repository as unknown as Repository<Quotation>,
+    insuranceProductRepository as unknown as Repository<InsuranceProduct>,
     fleetRegister as unknown as FleetRegisterService,
   );
 

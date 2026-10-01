@@ -3,6 +3,7 @@ import { policiesApi } from '@/modules/tenant/policies/api';
 import type { PolicyTransactionScope } from '@/modules/tenant/policies/transaction-scope';
 import { underwriteApi } from './api';
 import { underwritePaths } from './paths';
+import { FleetVehicleEndorsementPanel } from './fleet/FleetVehicleEndorsementPanel';
 
 /**
  * Runs the shared policy detail / endorsement / cancellation / renewal screens
@@ -76,6 +77,9 @@ export function buildUnderwriteTransactionScope(
       declineRenewal: (id, reason) =>
         underwriteApi.declineRenewal(line, id, reason),
     },
+    ...(line === 'fleet'
+      ? { FleetVehiclePanel: FleetVehicleEndorsementPanel }
+      : {}),
     paths: {
       policies: underwritePaths.policies(line),
       policyDetail: (id) => underwritePaths.policyDetail(line, id),

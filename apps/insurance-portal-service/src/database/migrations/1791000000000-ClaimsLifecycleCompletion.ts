@@ -123,7 +123,7 @@ export class ClaimsLifecycleCompletion1791000000000 implements MigrationInterfac
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "business_document_sequences" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
         "company_id" uuid NOT NULL,
         "document_type" character varying(50) NOT NULL,
         "period_key" character varying(20) NOT NULL,

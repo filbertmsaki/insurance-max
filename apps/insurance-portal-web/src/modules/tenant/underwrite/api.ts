@@ -43,6 +43,51 @@ import type {
 
 const NON_MOTOR = '/tenant/underwrite/non-motor';
 
+/** TIRAMIS MotorDtl fields of a vehicle added to a fleet (camelCase). */
+export interface FleetVehicleMotorInput {
+  motorCategory: number;
+  motorType: number;
+  registrationNumber?: string;
+  chassisNumber: string;
+  make: string;
+  model: string;
+  modelNumber: string;
+  bodyType: string;
+  color: string;
+  engineNumber: string;
+  engineCapacity: string;
+  fuelUsed: string;
+  numberOfAxles?: number;
+  axleDistance?: number;
+  sittingCapacity?: number;
+  yearOfManufacture: number;
+  tareWeight: number;
+  grossWeight: number;
+  motorUsage?: number;
+  ownerName: string;
+  ownerCategory: number;
+  ownerAddress?: string;
+}
+
+export interface AddFleetVehiclePayload {
+  motor: FleetVehicleMotorInput;
+  sum_insured?: number;
+  template_fleet_entry?: number;
+}
+
+export interface FleetEndorsementVehicle {
+  index: number;
+  fleetEntry: number;
+  registrationNumber: string | null;
+  chassisNumber: string | null;
+  status: 'ACTIVE' | 'ADDED' | 'REMOVED' | 'CANCELLED';
+}
+
+export interface FleetVehicleChangeResult {
+  transaction: Record<string, unknown>;
+  vehicles: FleetEndorsementVehicle[];
+}
+
 export interface SaveRiskDetailsPayload {
   risk_data: Record<string, RiskDataValue>;
   risk_location?: string | null;
@@ -511,6 +556,28 @@ export const underwriteApi = {
     apiClient
       .get<FleetSummary>(
         `${base('fleet')}/${kind === 'quotation' ? 'quotations' : 'policies'}/${id}/vehicles`,
+      )
+      .then((response) => response.data),
+
+  addFleetVehicle: (endorsementId: string, payload: AddFleetVehiclePayload) =>
+    apiClient
+      .post<FleetVehicleChangeResult>(
+        `${base('fleet')}/endorsements/${endorsementId}/vehicles`,
+        payload,
+      )
+      .then((response) => response.data),
+
+  removeFleetVehicle: (endorsementId: string, fleetEntry: number) =>
+    apiClient
+      .delete<FleetVehicleChangeResult>(
+        `${base('fleet')}/endorsements/${endorsementId}/vehicles/${fleetEntry}`,
+      )
+      .then((response) => response.data),
+
+  revertFleetVehicle: (endorsementId: string, fleetEntry: number) =>
+    apiClient
+      .post<FleetVehicleChangeResult>(
+        `${base('fleet')}/endorsements/${endorsementId}/vehicles/${fleetEntry}/revert`,
       )
       .then((response) => response.data),
 

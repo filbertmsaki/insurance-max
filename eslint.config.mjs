@@ -6,7 +6,8 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    // The web app has its own config and dependencies (`npm run lint:web`).
+    ignores: ['eslint.config.mjs', 'apps/insurance-portal-web/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
