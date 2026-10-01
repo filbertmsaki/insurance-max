@@ -77,7 +77,21 @@ export class PolicyTransactionTiramisServiceContextService {
         )
       : undefined;
 
-    const riskWithPricingSnapshot = (quotation.cover_note?.entries ?? [])
+    // TIRAMIS checks the signed pricing against the payload's lead risk, so
+    // sign the fleet vehicle that leads the payload (entries load unordered).
+    const leadFleetEntry = Number(
+      (
+        (outboundPayload.fleet as { items?: Array<{ fleetEntry?: unknown }> })
+          ?.items ?? []
+      )[0]?.fleetEntry,
+    );
+    const entries = [...(quotation.cover_note?.entries ?? [])].sort(
+      (a, b) =>
+        Number(b.entry_number === leadFleetEntry) -
+          Number(a.entry_number === leadFleetEntry) ||
+        a.entry_number - b.entry_number,
+    );
+    const riskWithPricingSnapshot = entries
       .flatMap((entry) => entry.risks ?? [])
       .find((risk) => !!risk.pricing_snapshot);
     const pricing = riskWithPricingSnapshot?.pricing_snapshot

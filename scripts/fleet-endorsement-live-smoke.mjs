@@ -13,8 +13,8 @@
  * Fixture: a copy of the newest issued fleet policy (policy, current version,
  * risks, cover notes) with TIRA cover-note references, so existing policies
  * are never touched. Then, through /tenant/underwrite/fleet:
- *   1. remove vehicle 2 -> approve -> TIRA -> applied (risk cancelled);
- *   2. add a vehicle -> approve -> pay -> TIRA -> applied (own cover note).
+ *   1. add a vehicle -> approve -> pay -> TIRA -> applied (own cover note);
+ *   2. remove vehicle 2 -> approve -> TIRA -> applied (risk cancelled).
  */
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -200,7 +200,28 @@ async function fixture() {
       source.active_version_id,
     ])
   ).rows[0];
-  const snapshot = version.policy_snapshot;
+  // Rename the copied vehicles: the source policy still insures the originals,
+  // and TIRA refuses a fleet resubmission for a vehicle insured elsewhere.
+  const tag = suffix.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  let snapshotText = JSON.stringify(version.policy_snapshot);
+  for (const [index, entry] of (
+    version.policy_snapshot.entries ?? []
+  ).entries()) {
+    const motor = entry.motor ?? {};
+    for (const [field, prefix] of [
+      ['registrationNumber', 'T'],
+      ['chassisNumber', 'CH'],
+      ['engineNumber', 'EN'],
+    ]) {
+      const value = motor[field];
+      if (typeof value !== 'string' || !value) continue;
+      const renamed = `${prefix}${tag.slice(0, 5)}${index + 1}`;
+      snapshotText = snapshotText
+        .split(JSON.stringify(value))
+        .join(JSON.stringify(renamed));
+    }
+  }
+  const snapshot = JSON.parse(snapshotText);
   snapshot.policyId = policyId;
   snapshot.policyNo = policyNo;
   snapshot.coverNotes = (snapshot.coverNotes ?? []).map((note, index) => ({
@@ -303,8 +324,26 @@ async function approveAndSubmit(maker, checker, endorsementId) {
   context = await fleet(maker, 'GET', `${path}/context`);
   const tx = context.transaction;
   if (tx.payment_required) {
-    const invoice = await fleet(maker, 'POST', `${path}/request-payment`);
-    const invoiceId = invoice.id ?? invoice.invoice?.id;
+    const requested = await fleet(maker, 'POST', `${path}/request-payment`);
+    const invoiceId = requested.id ?? requested.invoice?.id;
+    // The endorsement invoice starts as a draft; finance issues it first.
+    const draft = await api(
+      maker,
+      'GET',
+      `/tenant/finance/invoices/${invoiceId}`,
+    );
+    const invoice =
+      draft.status === 'DRAFT'
+        ? await api(
+            maker,
+            'POST',
+            `/tenant/finance/invoices/${invoiceId}/issue`,
+            {
+              expected_state_version: Number(draft.state_version),
+              idempotency_key: randomUUID(),
+            },
+          )
+        : draft;
     const amount = Number(
       invoice.balance_amount ?? invoice.total_amount ?? tx.additional_premium,
     );
@@ -337,20 +376,76 @@ async function approveAndSubmit(maker, checker, endorsementId) {
       };
     });
   }
-  await fleet(maker, 'POST', `${path}/submit-tiramis`);
+  // Approval submits on its own when nothing is left to pay.
+  const before = (await fleet(maker, 'GET', `${path}/context`)).transaction;
+  if (
+    !['PROCESSING', 'SUBMITTED', 'ACCEPTED'].includes(before.submission_status)
+  ) {
+    await fleet(maker, 'POST', `${path}/submit-tiramis`);
+  }
   return waitApplied(maker, endorsementId);
 }
 
 async function main() {
   await db.connect();
-  const { companyId, branchId, policyId, policyNo, vehicles } =
-    await fixture();
-  log(`Fixture ${policyNo}: copy of an issued fleet policy (${vehicles} vehicles)`);
+  const { companyId, branchId, policyId, policyNo, vehicles } = await fixture();
+  log(
+    `Fixture ${policyNo}: copy of an issued fleet policy (${vehicles} vehicles)`,
+  );
   const maker = await createUser(companyId, branchId, 'Maker');
   const checker = await createUser(companyId, branchId, 'Checker');
   log('Users ready');
 
-  // 1. Remove vehicle 2.
+  // 1. Add a vehicle first, so a 2-vehicle fleet can then lose one.
+  const addition = await createEndorsement(
+    maker,
+    policyId,
+    'FLEET_ADD_VEHICLE',
+    'New vehicle joins the fleet',
+  );
+  const tag = suffix.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  await fleet(maker, 'POST', `/endorsements/${addition.id}/vehicles`, {
+    motor: {
+      motorCategory: 1,
+      motorType: 1,
+      registrationNumber: `T${tag.slice(0, 3)}ABC`,
+      chassisNumber: `CH${tag}001`,
+      make: 'Toyota',
+      model: 'Hiace',
+      modelNumber: 'KDH200',
+      bodyType: 'Minibus',
+      color: 'White',
+      engineNumber: `EN${tag}001`,
+      engineCapacity: '2800',
+      fuelUsed: 'Diesel',
+      numberOfAxles: 2,
+      axleDistance: 2.6,
+      sittingCapacity: 14,
+      yearOfManufacture: 2021,
+      tareWeight: 2000,
+      grossWeight: 3200,
+      motorUsage: 2,
+      ownerName: 'Fleet Smoke Ltd',
+      ownerCategory: 2,
+      ownerAddress: 'Dar es Salaam',
+    },
+  });
+  log(`Addition ${addition.transaction_no}: vehicle priced`);
+  await approveAndSubmit(maker, checker, addition.id);
+  const newNote = await db.query(
+    `SELECT cover_note_reference_number, sticker_number FROM cover_notes
+      WHERE policy_id = $1 AND quotation_entry_id IS NULL
+        AND cover_note_number LIKE $2`,
+    [policyId, `${addition.transaction_no}%`],
+  );
+  if (!newNote.rows[0]?.cover_note_reference_number) {
+    throw new Error('Added vehicle has no TIRA cover-note reference');
+  }
+  log(
+    `  ok: new vehicle cover note ${newNote.rows[0].cover_note_reference_number}, sticker ${newNote.rows[0].sticker_number}`,
+  );
+
+  // 2. Remove vehicle 2 (the fleet keeps its minimum of 2 vehicles).
   const removal = await createEndorsement(
     maker,
     policyId,
@@ -376,54 +471,6 @@ async function main() {
     throw new Error('Removed vehicle risks were not cancelled');
   }
   log(`  ok: ${cancelled.rows[0].n} policy risk(s) cancelled`);
-
-  // 2. Add a vehicle.
-  const addition = await createEndorsement(
-    maker,
-    policyId,
-    'FLEET_ADD_VEHICLE',
-    'New vehicle joins the fleet',
-  );
-  const tag = suffix.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  await fleet(maker, 'POST', `/endorsements/${addition.id}/vehicles`, {
-    motor: {
-      motorCategory: 1,
-      motorType: 1,
-      registrationNumber: `T${tag.slice(0, 3)}ABC`,
-      chassisNumber: `CH${tag}001`,
-      make: 'Toyota',
-      model: 'Hiace',
-      modelNumber: 'KDH200',
-      bodyType: 'Minibus',
-      color: 'White',
-      engineNumber: `EN${tag}001`,
-      engineCapacity: '2800',
-      fuelUsed: 'Diesel',
-      numberOfAxles: 2,
-      sittingCapacity: 14,
-      yearOfManufacture: 2021,
-      tareWeight: 2000,
-      grossWeight: 3200,
-      motorUsage: 2,
-      ownerName: 'Fleet Smoke Ltd',
-      ownerCategory: 2,
-      ownerAddress: 'Dar es Salaam',
-    },
-  });
-  log(`Addition ${addition.transaction_no}: vehicle priced`);
-  await approveAndSubmit(maker, checker, addition.id);
-  const newNote = await db.query(
-    `SELECT cover_note_reference_number, sticker_number FROM cover_notes
-      WHERE policy_id = $1 AND quotation_entry_id IS NULL
-        AND cover_note_number LIKE $2`,
-    [policyId, `${addition.transaction_no}%`],
-  );
-  if (!newNote.rows[0]?.cover_note_reference_number) {
-    throw new Error('Added vehicle has no TIRA cover-note reference');
-  }
-  log(
-    `  ok: new vehicle cover note ${newNote.rows[0].cover_note_reference_number}, sticker ${newNote.rows[0].sticker_number}`,
-  );
 
   const panel = await fleet(maker, 'GET', `/policies/${policyId}/vehicles`);
   log(

@@ -59,8 +59,13 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
     const policyVersionRepository = {
       findOne: jest.fn().mockResolvedValue(sourceVersion),
     };
+    const transactionManager = {};
     const quotationRepository = {
-      manager: {},
+      manager: {
+        transaction: jest.fn((work: (manager: unknown) => unknown) =>
+          work(transactionManager),
+        ),
+      },
       findOne: jest.fn().mockResolvedValue(quotation),
     };
     const payloadService = {
@@ -108,6 +113,7 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       serviceContextService,
       quotationFactory,
       quotationRepository,
+      transactionManager,
       tiramisBusinessSubmitService,
     };
   }
@@ -212,17 +218,21 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
         tiramisRequestId: 'tr-1',
       },
     });
-    const { service, quotationFactory, quotationRepository } = makeService(
-      submitAnyBusinessRecord,
-    );
+    const {
+      service,
+      quotationFactory,
+      quotationRepository,
+      transactionManager,
+    } = makeService(submitAnyBusinessRecord);
     quotationRepository.findOne
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(quotation);
 
     await service.submitCancellation(user, 'txn-1');
 
+    expect(quotationRepository.manager.transaction).toHaveBeenCalled();
     expect(quotationFactory.createTransactionDraft).toHaveBeenCalledWith(
-      quotationRepository.manager,
+      transactionManager,
       user,
       expect.objectContaining({
         policy,
