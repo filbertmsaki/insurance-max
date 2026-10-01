@@ -7,6 +7,7 @@ import { ForecastService } from './services/forecast.service';
 import { BenchmarkService } from './services/benchmark.service';
 import { AnalyticsMetricService } from './services/analytics-metric.service';
 import { AnalyticsPermissions } from './analytics.permissions';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 
 describe('AnalyticsController', () => {
   let controller: AnalyticsController;
@@ -22,7 +23,17 @@ describe('AnalyticsController', () => {
   const mockUser = {
     id: 'user-id',
     companyId: 'company-id',
+    scope: 'company',
+    companyType: 'INSURER',
+    companyMembershipId: 'membership-id',
+    quotationPolicyDataScope: 'COMPANY',
+    userType: 'STAFF',
   } as any;
+  const branchUser = (assignedBranchIds: string[]) => ({
+    ...mockUser,
+    quotationPolicyDataScope: 'BRANCH',
+    assignedBranchIds,
+  });
 
   beforeEach(async () => {
     analyticsMetricService = {
@@ -82,6 +93,7 @@ describe('AnalyticsController', () => {
         { provide: AnomalyService, useValue: anomalyService },
         { provide: ForecastService, useValue: forecastService },
         { provide: BenchmarkService, useValue: benchmarkService },
+        DataAccessScopeService,
       ],
     }).compile();
 
@@ -317,5 +329,40 @@ describe('AnalyticsController', () => {
     expect(() => controller.getKpis({ id: 'user-id' } as any)).toThrow(
       'Company context is required for analytics',
     );
+  });
+
+  describe('branch scope', () => {
+    const query = {
+      metricCode: 'premium.gross_written',
+      periodType: 'MONTH',
+      periodStart: '2026-01-01',
+      periodEnd: '2026-01-31',
+    } as any;
+    const branchSent = () =>
+      analyticsMetricService.queryMetric!.mock.calls.at(-1)[0].branchId;
+
+    it('lets company-wide users read all branches or any one', async () => {
+      await controller.queryMetric(mockUser, query);
+      expect(branchSent()).toBeNull();
+      await controller.queryMetric(mockUser, { ...query, branchId: 'b-9' });
+      expect(branchSent()).toBe('b-9');
+    });
+
+    it('defaults a single-branch user to their branch', async () => {
+      await controller.queryMetric(branchUser(['b-1']), query);
+      expect(branchSent()).toBe('b-1');
+    });
+
+    it('refuses another branch and asks multi-branch users to choose', () => {
+      expect(() =>
+        controller.queryMetric(branchUser(['b-1']), {
+          ...query,
+          branchId: 'b-2',
+        }),
+      ).toThrow('not allowed to access the requested branch');
+      expect(() =>
+        controller.queryMetric(branchUser(['b-1', 'b-2']), query),
+      ).toThrow('Select one of your branches');
+    });
   });
 });

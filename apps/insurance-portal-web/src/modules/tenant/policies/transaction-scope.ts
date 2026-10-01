@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ComponentType } from 'react';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { policiesApi } from './api';
 
@@ -20,9 +20,28 @@ export interface PolicyTransactionPaths {
   policyRenewalDetail: (policyId: string, renewalId: string) => string;
 }
 
+/** Props of the fleet add/remove-vehicle editor on the endorsement screen. */
+export interface FleetVehiclePanelProps {
+  endorsementId: string;
+  endorsementTypeCode: string;
+  /** Proposed snapshot (with pending changes) of the endorsement. */
+  snapshot: Record<string, unknown> | null;
+  pricing: Record<string, unknown> | null;
+  currencyCode: string;
+  /** False once the endorsement has left DRAFT. */
+  editable: boolean;
+  /** TIRA status code of the last submission, if it failed. */
+  tiraStatusCode?: string | null;
+}
+
 export interface PolicyTransactionScope {
   api: PolicyTransactionApi;
   paths: PolicyTransactionPaths;
+  /**
+   * Editor for 'Fleet - Add/Remove Vehicle' endorsements. Only the Underwrite
+   * Fleet scope provides it; elsewhere those types are not offered.
+   */
+  FleetVehiclePanel?: ComponentType<FleetVehiclePanelProps>;
 }
 
 /**

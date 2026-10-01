@@ -63,6 +63,10 @@ export interface FleetVehicleRow {
   motor_vehicle_id: string | null;
   fleet_item_id: string | null;
   policy_risk_statuses: string[];
+  /** Fleet membership after add/remove-vehicle endorsements. */
+  membership_status?: 'ACTIVE' | 'ADDED' | 'CANCELLED';
+  added_on?: string | null;
+  removed_on?: string | null;
 }
 
 export interface FleetSummary {

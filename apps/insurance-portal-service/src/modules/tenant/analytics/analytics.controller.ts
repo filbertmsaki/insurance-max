@@ -2,6 +2,7 @@ import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import {
   BadRequestException,
   Body,
+  ForbiddenException,
   Controller,
   Get,
   Param,
@@ -14,6 +15,7 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { AnalyticsPermissions } from './analytics.permissions';
 import { AnalyticsQueryDto } from './dto/analytics-query.dto';
 import { KpiQueryDto } from './dto/kpi-query.dto';
@@ -42,6 +44,7 @@ export class AnalyticsController {
     private readonly anomalyService: AnomalyService,
     private readonly forecastService: ForecastService,
     private readonly benchmarkService: BenchmarkService,
+    private readonly scopeService: DataAccessScopeService,
   ) {}
 
   @Get('metrics')
@@ -71,7 +74,7 @@ export class AnalyticsController {
       periodType: dto.periodType,
       periodStart: dto.periodStart,
       periodEnd: dto.periodEnd,
-      branchId: dto.branchId ?? null,
+      branchId: this.resolveBranchId(user, dto.branchId),
       dimensions: dto.dimensions,
       valueKind: dto.valueKind,
       currencyCode: dto.currencyCode ?? null,
@@ -91,7 +94,7 @@ export class AnalyticsController {
       periodType: dto.periodType,
       periodStart: dto.periodStart,
       periodEnd: dto.periodEnd,
-      branchId: dto.branchId ?? null,
+      branchId: this.resolveBranchId(user, dto.branchId),
       dimensions: dto.dimensions,
       valueKind: dto.valueKind,
       currencyCode: dto.currencyCode ?? null,
@@ -115,7 +118,10 @@ export class AnalyticsController {
     @Param('code') code: string,
     @Query() query: KpiQueryDto,
   ) {
-    return this.kpiService.calculateKpi(user, code, query);
+    return this.kpiService.calculateKpi(user, code, {
+      ...query,
+      branchId: this.resolveBranchId(user, query.branchId) ?? undefined,
+    });
   }
 
   @Get('scorecards/templates')
@@ -132,7 +138,10 @@ export class AnalyticsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: GenerateScorecardDto,
   ) {
-    return this.scorecardService.generateScorecard(user, dto);
+    return this.scorecardService.generateScorecard(user, {
+      ...dto,
+      branchId: this.resolveBranchId(user, dto.branchId) ?? undefined,
+    });
   }
 
   @Post('scorecards/publish')
@@ -152,7 +161,10 @@ export class AnalyticsController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: AnalyticsQueryDto,
   ) {
-    return this.anomalyService.listFindings(this.ensureCompanyId(user), query);
+    return this.anomalyService.listFindings(this.ensureCompanyId(user), {
+      ...query,
+      branchId: this.resolveBranchId(user, query.branchId) ?? undefined,
+    });
   }
 
   @Post('anomalies/run')
@@ -164,7 +176,10 @@ export class AnalyticsController {
   ) {
     return this.anomalyService.runDetection(
       { companyId: this.ensureCompanyId(user), id: user.id },
-      dto,
+      {
+        ...dto,
+        branchId: this.resolveBranchId(user, dto.branchId) ?? undefined,
+      },
     );
   }
 
@@ -184,8 +199,37 @@ export class AnalyticsController {
   ) {
     return this.forecastService.runForecast(
       { companyId: this.ensureCompanyId(user), id: user.id },
-      dto,
+      {
+        ...dto,
+        branchId: this.resolveBranchId(user, dto.branchId) ?? undefined,
+      },
     );
+  }
+
+  /**
+   * The branch an analytics request may read. Company-wide users may ask for
+   * any branch or none (all branches). A branch-restricted user may only ask
+   * for an allowed branch; with a single allowed branch it is the default,
+   * with several they must choose one (queries take one branch).
+   */
+  private resolveBranchId(
+    user: AuthenticatedUser,
+    requested?: string | null,
+  ): string | null {
+    const scope = this.scopeService.resolve(user);
+    if (scope.canViewAllBranches) return requested ?? null;
+
+    if (requested) {
+      this.scopeService.assertRequestedBranchAllowed(scope, requested);
+      return requested;
+    }
+    if (scope.allowedBranchIds.length === 1) return scope.allowedBranchIds[0];
+    if (scope.allowedBranchIds.length > 1) {
+      throw new BadRequestException(
+        'Select one of your branches to view analytics',
+      );
+    }
+    throw new ForbiddenException('You are not assigned to any branch');
   }
 
   private ensureCompanyId(user: AuthenticatedUser): string {

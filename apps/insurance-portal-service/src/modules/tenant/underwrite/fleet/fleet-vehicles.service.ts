@@ -22,6 +22,14 @@ export interface FleetVehicleRow {
   motor_vehicle_id: string | null;
   fleet_item_id: string | null;
   policy_risk_statuses: string[];
+  /**
+   * Fleet membership on the policy: ACTIVE, ADDED (by an endorsement, with
+   * `added_on`) or CANCELLED (removed by an endorsement from `removed_on`).
+   * Always ACTIVE for quotations.
+   */
+  membership_status: 'ACTIVE' | 'ADDED' | 'CANCELLED';
+  added_on: string | null;
+  removed_on: string | null;
 }
 
 export interface FleetSummary {
@@ -72,7 +80,132 @@ export class FleetVehiclesService {
     const [policy] = await this.dataSource.query<
       Array<{ quotation_id: string | null }>
     >(`SELECT quotation_id FROM policies WHERE id = $1`, [policyId]);
-    return this.build(policy?.quotation_id ?? null, policyId);
+    const summary = await this.build(policy?.quotation_id ?? null, policyId);
+    return this.withEndorsedMembership(summary, policyId);
+  }
+
+  /**
+   * Applies fleet add/remove-vehicle endorsements from the policy's current
+   * version: marks removed vehicles and appends vehicles added mid-term
+   * (they have no quotation entry), with their own cover notes.
+   */
+  private async withEndorsedMembership(
+    summary: FleetSummary,
+    policyId: string,
+  ): Promise<FleetSummary> {
+    const [version] = await this.dataSource.query<
+      Array<{ policy_snapshot: Record<string, unknown> | null }>
+    >(
+      `SELECT policy_snapshot FROM policy_versions
+        WHERE policy_id = $1 AND is_current = true
+        ORDER BY version_number DESC LIMIT 1`,
+      [policyId],
+    );
+    const entries = Array.isArray(version?.policy_snapshot?.['entries'])
+      ? (version.policy_snapshot['entries'] as RawRow[])
+      : [];
+    if (!entries.length) return summary;
+
+    const fleetEntryOf = (entry: RawRow, index: number) => {
+      const value = Number(entry['fleetEntry'] ?? entry['entryNumber']);
+      return Number.isInteger(value) && value > 0 ? value : index + 1;
+    };
+
+    const vehicles = summary.vehicles.map((vehicle) => {
+      const entry = entries.find(
+        (item, index) =>
+          item['entryId'] === vehicle.entry_id ||
+          fleetEntryOf(item, index) === vehicle.entry_number,
+      );
+      return entry?.['status'] === 'CANCELLED'
+        ? {
+            ...vehicle,
+            membership_status: 'CANCELLED' as const,
+            removed_on: str(entry['removedEffectiveDate']),
+          }
+        : vehicle;
+    });
+
+    const added = entries
+      .map((entry, index) => ({
+        entry,
+        fleetEntry: fleetEntryOf(entry, index),
+      }))
+      .filter(
+        ({ entry, fleetEntry }) =>
+          entry['addedEffectiveDate'] &&
+          !vehicles.some((vehicle) => vehicle.entry_number === fleetEntry),
+      );
+
+    if (added.length) {
+      const notes = await this.dataSource.query<RawRow[]>(
+        `SELECT fleet_entry, cover_note_number, cover_note_reference_number,
+                sticker_number, status, sum_insured, premium_excluding_tax,
+                premium_including_tax
+           FROM cover_notes
+          WHERE policy_id = $1 AND deleted_at IS NULL AND quotation_entry_id IS NULL`,
+        [policyId],
+      );
+      for (const { entry, fleetEntry } of added) {
+        const motor = (entry['motor'] ?? {}) as RawRow;
+        const note = notes.find((row) => num(row.fleet_entry) === fleetEntry);
+        const risks = Array.isArray(entry['risks'])
+          ? (entry['risks'] as RawRow[])
+          : [];
+        const cancelled = entry['status'] === 'CANCELLED';
+        vehicles.push({
+          entry_id: `endorsement-${fleetEntry}`,
+          entry_number: fleetEntry,
+          registration_number: str(motor['registrationNumber']),
+          chassis_number: str(motor['chassisNumber']),
+          make: str(motor['make']),
+          model: str(motor['model']),
+          body_type: str(motor['bodyType']),
+          year_of_manufacture:
+            motor['yearOfManufacture'] == null
+              ? null
+              : num(motor['yearOfManufacture']),
+          risk_codes: risks
+            .map((risk) => String(risk['riskCode'] ?? ''))
+            .filter(Boolean),
+          sum_insured: num(note?.sum_insured),
+          premium_excluding_tax: num(note?.premium_excluding_tax),
+          premium_including_tax: num(note?.premium_including_tax),
+          cover_note_number: str(
+            note?.cover_note_number ?? entry['coverNoteNumber'],
+          ),
+          cover_note_reference_number: str(note?.cover_note_reference_number),
+          sticker_number: str(note?.sticker_number),
+          cover_note_status: str(note?.status),
+          motor_vehicle_id: null,
+          fleet_item_id: null,
+          policy_risk_statuses: [cancelled ? 'CANCELLED' : 'ACTIVE'],
+          membership_status: cancelled ? 'CANCELLED' : 'ADDED',
+          added_on: str(entry['addedEffectiveDate']),
+          removed_on: str(entry['removedEffectiveDate']),
+        });
+      }
+    }
+
+    const onCover = vehicles.filter((v) => v.membership_status !== 'CANCELLED');
+    return {
+      ...summary,
+      vehicles,
+      totals: {
+        vehicles: onCover.length,
+        sum_insured: onCover.reduce((sum, v) => sum + v.sum_insured, 0),
+        premium_excluding_tax: onCover.reduce(
+          (sum, v) => sum + v.premium_excluding_tax,
+          0,
+        ),
+        premium_including_tax: onCover.reduce(
+          (sum, v) => sum + v.premium_including_tax,
+          0,
+        ),
+        issued_cover_notes: onCover.filter((v) => v.cover_note_reference_number)
+          .length,
+      },
+    };
   }
 
   private async build(
@@ -180,6 +313,9 @@ export class FleetVehiclesService {
       policy_risk_statuses: (
         (row.policy_risk_statuses as string[] | null) ?? []
       ).filter(Boolean),
+      membership_status: 'ACTIVE' as const,
+      added_on: null,
+      removed_on: null,
     }));
 
     return {
