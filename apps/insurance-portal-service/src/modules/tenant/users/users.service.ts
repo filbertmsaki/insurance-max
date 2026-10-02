@@ -26,6 +26,8 @@ import { UpdateUserDataScopeDto } from './dtos/update-user-data-scope.dto';
 import { UserProfileDto } from './dtos/user-profile-dto';
 import { UserAdminDetailDto } from './dtos/user-admin-detail.dto';
 import { User } from './entities/user.entity';
+import { Permission } from '../../platform/permissions/entities/permission.entity';
+import { SELECT_INSURANCE_CHANNEL_PERMISSION } from '../quotations/authorization/insurance-channel-permission';
 
 @Injectable()
 export class UsersService {
@@ -604,6 +606,45 @@ export class UsersService {
     await this.companiesService.findCompanyUserContext(companyId, id);
     await this.update(id, dto);
     return this.findProfileInCompany(id, companyId);
+  }
+
+  /**
+   * Grant or revoke the direct "select insurance channel" permission on a
+   * user's company membership. Role-granted access (e.g. administrators) is
+   * unaffected by a revoke.
+   */
+  async setInsuranceChannelAccessInCompany(
+    companyId: string,
+    id: string,
+    granted: boolean,
+    actor: AuthenticatedUser,
+  ): Promise<UserAdminDetailDto> {
+    const permission = await this.dataSource
+      .getRepository(Permission)
+      .findOne({ where: { name: SELECT_INSURANCE_CHANNEL_PERMISSION } });
+    if (!permission) {
+      throw new NotFoundException(
+        'Insurance channel permission is not configured.',
+      );
+    }
+
+    if (granted) {
+      await this.companiesService.grantPermission(
+        companyId,
+        id,
+        permission.id,
+        actor,
+      );
+    } else {
+      await this.companiesService.revokePermission(
+        companyId,
+        id,
+        permission.id,
+        actor,
+      );
+    }
+
+    return this.findAdminDetailInCompany(id, companyId);
   }
 
   async updateDataScopeInCompany(

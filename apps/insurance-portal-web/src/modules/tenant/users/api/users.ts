@@ -66,6 +66,18 @@ export const usersApi = {
       .patch<UserDetail>(`/users/${id}/data-scope`, data)
       .then((r) => r.data),
 
+  /** PUT /users/:id/insurance-channel-access */
+  grantInsuranceChannelAccess: (id: string) =>
+    apiClient
+      .put<UserDetail>(`/users/${id}/insurance-channel-access`)
+      .then((r) => r.data),
+
+  /** DELETE /users/:id/insurance-channel-access */
+  revokeInsuranceChannelAccess: (id: string) =>
+    apiClient
+      .delete<UserDetail>(`/users/${id}/insurance-channel-access`)
+      .then((r) => r.data),
+
   /** PATCH /users/me */
   updateMe: (data: UpdateUserDto) =>
     apiClient.patch<UserProfile>('/users/me', data).then((r) => r.data),

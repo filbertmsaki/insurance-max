@@ -60,6 +60,7 @@ import {
   useAssignRole,
   useRevokeRole,
   useUpdateUserDataScope,
+  useSetUserInsuranceChannelAccess,
 } from '@/modules/tenant/users/hooks';
 import type { QuotationPolicyDataScope, UserStatus, UserType } from '@/types';
 
@@ -151,6 +152,9 @@ const EDIT_FIELD_MAP: Partial<Record<string, keyof EditForm & string>> = {
   user_type: 'user_type',
 };
 
+const SELECT_INSURANCE_CHANNEL_PERMISSION =
+  'quotations:select-insurance-channel';
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function UserDetailPage() {
@@ -203,6 +207,7 @@ export function UserDetailPage() {
   const assignRoleMutation = useAssignRole();
   const revokeRoleMutation = useRevokeRole();
   const updateDataScopeMutation = useUpdateUserDataScope(id);
+  const insuranceChannelMutation = useSetUserInsuranceChannelAccess();
 
   const openEdit = () => {
     if (!user) return;
@@ -246,6 +251,10 @@ export function UserDetailPage() {
 
   const fullName = `${user.first_name} ${user.last_name}`;
   const currentDataScope = user.quotation_policy_data_scope ?? 'USER';
+  // Insurance channel selection is granted per user, never through a role.
+  const hasInsuranceChannelAccess = (user.permissions ?? []).some(
+    (permission) => permission.name === SELECT_INSURANCE_CHANNEL_PERMISSION,
+  );
 
   return (
     <div>
@@ -369,6 +378,31 @@ export function UserDetailPage() {
                   {
                     label: 'Quotation & Policy Scope',
                     value: DATA_SCOPE_LABELS[currentDataScope],
+                  },
+                  {
+                    label: 'Insurance channel selection',
+                    value: (
+                      <span className="flex items-center gap-2">
+                        {hasInsuranceChannelAccess ? 'Granted' : 'Not granted'}
+                        {canManageDataScope && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0"
+                            disabled={insuranceChannelMutation.isPending}
+                            onClick={() =>
+                              id &&
+                              insuranceChannelMutation.mutate({
+                                id,
+                                granted: !hasInsuranceChannelAccess,
+                              })
+                            }
+                          >
+                            {hasInsuranceChannelAccess ? 'Remove' : 'Grant'}
+                          </Button>
+                        )}
+                      </span>
+                    ),
                   },
                   {
                     label: 'Last login',

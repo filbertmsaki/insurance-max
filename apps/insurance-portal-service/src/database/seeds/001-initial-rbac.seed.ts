@@ -3345,6 +3345,11 @@ const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
   .filter((permission) => permission.scopes.includes('default_company'))
   .map((permission) => permission.name);
 
+// Granted to individual company memberships only, never through a role.
+const PER_USER_ONLY_PERMISSION_NAMES = new Set([
+  'quotations:select-insurance-channel',
+]);
+
 const FULL_COMPANY_PERMISSION_ROLE_NAMES = new Set([
   'ADMINISTRATOR',
   'INSURANCE_ADMIN',
@@ -3603,7 +3608,6 @@ const roleSeeds: RoleSeed[] = [
       'quotations:read',
       'quotations:create',
       'quotations:update',
-      'quotations:select-insurance-channel',
       'quotations:submit',
       'quotations:delete',
       'pricing.override.request',
@@ -3732,7 +3736,6 @@ const roleSeeds: RoleSeed[] = [
       'quotations:read',
       'quotations:create',
       'quotations:update',
-      'quotations:select-insurance-channel',
       'quotations:submit',
       'quotations:delete',
       'pricing.override.request',
@@ -3805,7 +3808,6 @@ const roleSeeds: RoleSeed[] = [
       'quotations:read',
       'quotations:create',
       'quotations:update',
-      'quotations:select-insurance-channel',
       'quotations:submit',
       'quotations:delete',
       'pricing.override.request',
@@ -3867,7 +3869,6 @@ const roleSeeds: RoleSeed[] = [
       'quotations:read',
       'quotations:create',
       'quotations:update',
-      'quotations:select-insurance-channel',
       'quotations:submit',
       'quotations:delete',
       'pricing.override.request',
@@ -3925,7 +3926,6 @@ const roleSeeds: RoleSeed[] = [
       'quotations:read',
       'quotations:create',
       'quotations:update',
-      'quotations:select-insurance-channel',
       'quotations:submit',
       'customers:read',
       'customers:create',
@@ -3976,7 +3976,6 @@ const roleSeeds: RoleSeed[] = [
       'quotations:read',
       'quotations:create',
       'quotations:update',
-      'quotations:select-insurance-channel',
       'quotations:submit',
       'pricing.override.request',
       'pricing.override.view',
@@ -4722,7 +4721,7 @@ export default class InitialRbacSeeder implements Seeder {
               withPricingPermissionAliases(sourcePermissionNames),
             ),
           ),
-        ];
+        ].filter((name) => !PER_USER_ONLY_PERMISSION_NAMES.has(name));
 
         role.permissions = permissionNames.map((permissionName) => {
           const permission = permissionsByName.get(permissionName);

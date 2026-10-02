@@ -1,5 +1,3 @@
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { KeyValueGrid } from '@/components/shared/DetailSections';
 import { useIntermediaryCompanyOptions } from '@/modules/tenant/quotations/hooks';
 import { CHANNEL_TYPES } from '@/modules/tenant/quotations/wizard/steps/CoverNoteSetupStep';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
@@ -28,70 +26,66 @@ export function BusinessSourceStep({
 }: {
   wizard: UnderwriteQuotationWizard;
 }) {
-  const { form, canSelectInsuranceChannel, salePointCode } = wizard;
+  const { form, canSelectInsuranceChannel } = wizard;
   const channelType = form.watch('channel_type');
   const productId = form.watch('product_id');
   const intermediaries = useIntermediaryCompanyOptions(
     canSelectInsuranceChannel ? channelType : 'DIRECT',
     productId,
   );
-  const user = useAuthStore((state) => state.user);
   const isIntermediated = canSelectInsuranceChannel && channelType !== 'DIRECT';
 
   return (
     <div className="space-y-6">
-      <StepSection
-        title="Insurance channel"
-        description={
-          canSelectInsuranceChannel
-            ? 'Choose how this business was sourced.'
-            : 'You can quote direct business only. Ask an administrator for insurance channel access to quote through an intermediary.'
-        }
-        first
-      >
-        <div className="grid gap-4 lg:grid-cols-3">
-          <WizardInput
-            form={form}
-            name="channel_type"
-            label="Channel"
-            required
-            disabled={!canSelectInsuranceChannel}
-            options={CHANNEL_TYPES.map((value) => ({
-              value,
-              label: CHANNEL_LABELS[value],
-            }))}
-            onChange={(value) => {
-              if (value === 'DIRECT') {
-                form.setValue('intermediary_company_id', '');
-                form.setValue('commission_paid', '');
-                form.setValue('commission_rate', '');
-              }
-            }}
-          />
-          {isIntermediated && (
+      {canSelectInsuranceChannel && (
+        <StepSection
+          title="Insurance channel"
+          description="Choose how this business was sourced."
+          first
+        >
+          <div className="grid gap-4 lg:grid-cols-3">
             <WizardInput
               form={form}
-              name="intermediary_company_id"
-              label="Intermediary"
+              name="channel_type"
+              label="Channel"
               required
-              searchable
-              options={intermediaries.map((item) => ({
-                value: item.id,
-                label: item.name,
+              options={CHANNEL_TYPES.map((value) => ({
+                value,
+                label: CHANNEL_LABELS[value],
               }))}
+              onChange={(value) => {
+                if (value === 'DIRECT') {
+                  form.setValue('intermediary_company_id', '');
+                  form.setValue('commission_paid', '');
+                  form.setValue('commission_rate', '');
+                }
+              }}
             />
+            {isIntermediated && (
+              <WizardInput
+                form={form}
+                name="intermediary_company_id"
+                label="Intermediary"
+                required
+                searchable
+                options={intermediaries.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                }))}
+              />
+            )}
+          </div>
+          {isIntermediated && intermediaries.length === 0 && (
+            <p className="mt-2 text-sm text-amber-700">
+              No active{' '}
+              {CHANNEL_LABELS[
+                channelType as keyof typeof CHANNEL_LABELS
+              ]?.toLowerCase()}{' '}
+              is set up to quote this product.
+            </p>
           )}
-        </div>
-        {isIntermediated && intermediaries.length === 0 && (
-          <p className="mt-2 text-sm text-amber-700">
-            No active{' '}
-            {CHANNEL_LABELS[
-              channelType as keyof typeof CHANNEL_LABELS
-            ]?.toLowerCase()}{' '}
-            is set up to quote this product.
-          </p>
-        )}
-      </StepSection>
+        </StepSection>
+      )}
 
       {isIntermediated && (
         <StepSection title="Commission">
@@ -111,25 +105,6 @@ export function BusinessSourceStep({
           </div>
         </StepSection>
       )}
-
-      <StepSection title="Issuing office">
-        <KeyValueGrid
-          items={[
-            {
-              label: 'Branch',
-              value: user?.activeBranchName || user?.activeBranchCode || '—',
-            },
-            {
-              label: 'Sales point',
-              value: salePointCode
-                ? [user?.defaultSalePointName, salePointCode]
-                    .filter(Boolean)
-                    .join(' · ')
-                : 'Not configured for your active branch',
-            },
-          ]}
-        />
-      </StepSection>
     </div>
   );
 }

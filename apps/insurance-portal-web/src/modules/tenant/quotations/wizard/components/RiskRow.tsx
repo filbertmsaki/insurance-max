@@ -1,5 +1,5 @@
 import { setPricingFormValue } from '../utils/pricingFormUpdates';
-import { Plus, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import {
 } from '../../schemas';
 import {
   DISCOUNT_TYPE_OPTIONS,
+  formatDiscountOptionLabel,
   getDiscountRateForType,
 } from '../utils/taxOptions';
 import {
@@ -39,6 +40,7 @@ import {
 } from '../utils/premiumAggregation';
 import { isMotorFactorCovered } from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
+import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { RiskTaxesFields } from './RiskTaxesFields';
 import { RatingFactorFields, type PricingFactorValue } from '@/modules/pricing';
 import { StepSection } from './StepSection';
@@ -79,8 +81,6 @@ export function RiskRow({
     name: `risks.${index}.risk_id` as const,
   });
   const selectedRisk = riskOptions.find((risk) => risk.id === riskId) ?? null;
-  const discountFieldArray =
-    form.getValues(`risks.${index}.discounts_offered` as const) ?? [];
   useEffect(() => {
     if (!selectedRisk) return;
     const nextRiskCode = selectedRisk.risk_code;
@@ -276,6 +276,11 @@ export function RiskRow({
     }
   }, [committedPremiumBeforeDiscount, discountsKey, form, index, taxesKey]);
 
+  const currencyCode =
+    useWatch({ control: form.control, name: 'currency' })
+      ?.trim()
+      .toUpperCase() || undefined;
+
   return (
     <StepSection
       variant="item"
@@ -298,9 +303,9 @@ export function RiskRow({
           <Trash2 className="h-4 w-4" />
         </Button>
       }
-      contentClassName="space-y-6"
+      contentClassName="space-y-4"
     >
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <FormField
           control={form.control}
           name={path(index, 'risk_id')}
@@ -370,218 +375,64 @@ export function RiskRow({
             )}
           />
         )}
-      </div>
 
-      {visibleRequiredFactors.length > 0 && (
-        <div className="space-y-2 border-t border-slate-100 pt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Underwriting Details
-          </p>
-          <RatingFactorFields
-            requiredFactors={visibleRequiredFactors}
-            values={factorValues}
-            isLoading={requiredFactorsQuery.isLoading}
-            onChange={handleFactorChange}
-          />
-        </div>
-      )}
-
-      <div className="space-y-1 rounded-lg border p-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Discounts Offered (optional)
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              form.setValue(path(index, 'discounts_offered'), [
-                ...discountFieldArray,
-                createEmptyRiskDiscountRow(),
-              ])
-            }
-          >
-            <Plus className="mr-2 h-3.5 w-3.5" />
-            Add Discount
-          </Button>
-        </div>
-
-        {discountFieldArray.length > 0 ? (
-          <div className="space-y-1">
-            {discountFieldArray.map((_, discountIndex) => (
-              <div
-                key={discountIndex}
-                className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-5"
+        <FormField
+          control={form.control}
+          name={path(index, 'discounts_offered.0.discount_type')}
+          render={() => (
+            <WizardFormItem>
+              <FormLabel>Discount Type</FormLabel>
+              <Select
+                value={toSelectValue(discounts[0]?.discount_type)}
+                onValueChange={(value) => {
+                  const nextType = fromSelectValue(value);
+                  // One discount per risk: the rate is resolved from the type
+                  // and the amount is recomputed by recomputeRiskRow above.
+                  form.setValue(path(index, 'discounts_offered'), [
+                    {
+                      ...createEmptyRiskDiscountRow(),
+                      ...(discounts[0] ?? {}),
+                      discount_type: nextType,
+                      discount_rate: nextType
+                        ? getDiscountRateForType(nextType)
+                        : '',
+                      discount_amount: '',
+                    },
+                  ]);
+                }}
               >
-                <FormField
-                  control={form.control}
-                  name={path(
-                    index,
-                    `discounts_offered.${discountIndex}.discount_type`,
-                  )}
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Discount Type</FormLabel>
-                      <Select
-                        value={toSelectValue(field.value as string)}
-                        onValueChange={(value) => {
-                          const nextValue = fromSelectValue(value);
-                          field.onChange(nextValue);
-                          if (value === SELECT_NONE_VALUE) {
-                            form.setValue(
-                              path(
-                                index,
-                                `discounts_offered.${discountIndex}.discount_rate`,
-                              ),
-                              '',
-                            );
-                            form.setValue(
-                              path(
-                                index,
-                                `discounts_offered.${discountIndex}.discount_amount`,
-                              ),
-                              '',
-                            );
-                          } else {
-                            form.setValue(
-                              path(
-                                index,
-                                `discounts_offered.${discountIndex}.discount_rate`,
-                              ),
-                              getDiscountRateForType(nextValue),
-                            );
-                          }
-                          // discount_amount is not computed here — with
-                          // automatic calculation currently disabled
-                          // (AUTO_CALCULATION_DISABLED), it's left for
-                          // manual entry below rather than guessed.
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select discount type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={SELECT_NONE_VALUE}>
-                            None
-                          </SelectItem>
-                          {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(
-                    index,
-                    `discounts_offered.${discountIndex}.discount_rate`,
-                  )}
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Rate</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.000001"
-                          {...field}
-                          value={field.value as string}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(
-                    index,
-                    `discounts_offered.${discountIndex}.discount_amount`,
-                  )}
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Amount</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          value={field.value as string}
-                        />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(
-                    index,
-                    `discounts_offered.${discountIndex}.request_reason_code`,
-                  )}
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Reason Code</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value as string}
-                          placeholder="e.g. LOYALTY"
-                        />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(
-                    index,
-                    `discounts_offered.${discountIndex}.request_comment`,
-                  )}
-                  render={({ field }) => (
-                    <WizardFormItem className="md:col-span-4">
-                      <FormLabel>Comment</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value as string}
-                          placeholder="Why is this discount requested?"
-                        />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <div className="flex items-end justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      const next = discountFieldArray.filter(
-                        (_, i) => i !== discountIndex,
-                      );
-                      form.setValue(
-                        path(index, 'discounts_offered'),
-                        next.length ? next : [createEmptyRiskDiscountRow()],
-                      );
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No discount" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value={SELECT_NONE_VALUE}>No discount</SelectItem>
+                  {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {formatDiscountOptionLabel(option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
 
-      <RiskTaxesFields form={form} riskPath={`risks.${index}`} />
+        <RiskTaxesFields form={form} riskPath={`risks.${index}`} inline />
+
+        {visibleRequiredFactors.length > 0 && (
+          <div className="col-span-full">
+            <RatingFactorFields
+              requiredFactors={visibleRequiredFactors}
+              values={factorValues}
+              isLoading={requiredFactorsQuery.isLoading}
+              onChange={handleFactorChange}
+            />
+          </div>
+        )}
+      </div>
 
       {calculateMutation.isPending && (
         <p role="status" className="text-sm">
@@ -594,17 +445,30 @@ export function RiskRow({
           again.
         </p>
       )}
-      <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-        <p>Discount total: {totalDiscount.toFixed(2)}</p>
-        <p>
-          Premium excluding tax:{' '}
-          {toNumber(premiumExcludingTaxEquivalent).toFixed(2)}
-        </p>
-        <p>Tax total: {totalTax.toFixed(2)}</p>
-        <p className="font-medium text-slate-900">
-          Premium including tax: {premiumIncludingTaxValue.toFixed(2)}
-        </p>
-      </div>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:grid-cols-4">
+        {totalDiscount > 0 && (
+          <div>
+            <dt className="text-xs">Discount</dt>
+            <dd>{formatMoney(totalDiscount, currencyCode)}</dd>
+          </div>
+        )}
+        <div>
+          <dt className="text-xs">Premium excl. tax</dt>
+          <dd>
+            {formatMoney(toNumber(premiumExcludingTaxEquivalent), currencyCode)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs">Tax</dt>
+          <dd>{formatMoney(totalTax, currencyCode)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs">Total premium</dt>
+          <dd className="font-semibold text-slate-900">
+            {formatMoney(premiumIncludingTaxValue, currencyCode)}
+          </dd>
+        </div>
+      </dl>
     </StepSection>
   );
 }

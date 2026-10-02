@@ -126,22 +126,19 @@ function setup(props: { fleet?: boolean; empty?: boolean } = {}) {
 
 describe('Multiple tax selection', () => {
   it.each([false, true])(
-    'keeps saved selections and recalculates after removal (fleet=%s)',
+    'keeps saved selections without add/remove controls (fleet=%s)',
     async (fleet) => {
       const read = setup({ fleet });
       await waitFor(() => expect(read().premium_including_tax).toBe('128000'));
       expect(
-        screen.getAllByRole('button', { name: /Remove tax/ }),
-      ).toHaveLength(2);
-      fireEvent.click(screen.getByRole('button', { name: 'Remove tax 2' }));
-      await waitFor(() => expect(read().premium_including_tax).toBe('118000'));
-      expect(
         read().taxes_charged.map((tax: { tax_code: string }) => tax.tax_code),
-      ).toEqual(['VAT-MAINLAND']);
-      fireEvent.click(screen.getByRole('button', { name: 'Add tax' }));
-      await waitFor(() => expect(read().taxes_charged).toHaveLength(2));
-      expect(read().taxes_charged[1].tax_code).toBe('');
-      expect(read().premium_including_tax).toBe('118000');
+      ).toEqual(['VAT-MAINLAND', 'WITHHOLDING']);
+      expect(
+        screen.queryByRole('button', { name: /Remove tax/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Add tax' }),
+      ).not.toBeInTheDocument();
     },
   );
   it('keeps the tax dropdown open while a calculation updates its row', async () => {
@@ -162,9 +159,5 @@ describe('Multiple tax selection', () => {
     const read = setup({ empty: true });
     await waitFor(() => expect(read().premium_including_tax).toBe('118000'));
     expect(read().taxes_charged[0].tax_code).toBe('VAT-MAINLAND');
-    fireEvent.click(screen.getByRole('button', { name: 'Add tax' }));
-    await waitFor(() => expect(read().taxes_charged).toHaveLength(2));
-    expect(read().taxes_charged[1].tax_code).toBe('');
-    expect(read().premium_including_tax).toBe('118000');
   });
 });

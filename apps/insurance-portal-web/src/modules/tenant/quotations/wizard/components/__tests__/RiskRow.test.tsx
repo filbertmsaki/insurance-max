@@ -167,7 +167,7 @@ describe('RiskRow', () => {
     expect(Number(form.getValues('risks.0.premium_before_discount'))).toBe(
       35000,
     );
-    expect(screen.getByLabelText('Rate (%)')).toHaveAttribute('readonly');
+    expect(screen.queryByLabelText('Rate (%)')).not.toBeInTheDocument();
   });
 
   it('keeps the discount dropdown open when a nested premium update refreshes the risk array', async () => {
@@ -186,7 +186,9 @@ describe('RiskRow', () => {
     act(() => form.setValue('risks.0.premium_before_discount', '40000'));
     expect(trigger).toBeInTheDocument();
     expect(screen.getByRole('listbox')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('option', { name: '1. Fleet discount' }));
+    fireEvent.click(
+      screen.getByRole('option', { name: 'Fleet discount (10%)' }),
+    );
     expect(form!.getValues('risks.0.discounts_offered.0.discount_type')).toBe(
       '1',
     );
@@ -216,7 +218,7 @@ describe('RiskRow', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('hides the pricing status card and still shows discount request fields', () => {
+  it('hides the pricing status card and hides non-editable discount fields', () => {
     render(<TestHarness />);
 
     expect(
@@ -226,10 +228,13 @@ describe('RiskRow', () => {
     expect(
       screen.queryByText('Pricing quote: PQ-2026-00000051'),
     ).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Reason Code')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Reason Code')).not.toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText('Why is this discount requested?'),
-    ).toBeInTheDocument();
+      screen.queryByRole('button', { name: /Add Discount/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText('Why is this discount requested?'),
+    ).not.toBeInTheDocument();
   });
 
   it('recomputes dependent amounts after an authoritative premium update', () => {

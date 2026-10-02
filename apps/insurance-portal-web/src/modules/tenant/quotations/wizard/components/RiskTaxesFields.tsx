@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,6 +28,7 @@ import {
   computePremiumIncludingTax,
   toNumber,
 } from '../utils/premiumAggregation';
+import { formatRatePercent } from '../utils/taxOptions';
 import { WizardFormItem } from './WizardFormItem';
 
 type RiskPath =
@@ -37,9 +37,12 @@ type RiskPath =
 export function RiskTaxesFields({
   form,
   riskPath,
+  inline = false,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
   riskPath: RiskPath;
+  /** Render fields directly into the parent grid (no own section/heading). */
+  inline?: boolean;
 }) {
   const companyId = useAuthStore(
     (state) => state.company?.id ?? state.user?.companyId,
@@ -111,22 +114,10 @@ export function RiskTaxesFields({
   }, [form, name, premium, query.data, riskPath, rows]);
 
   return (
-    <div className="space-y-3 border-t border-slate-100 pt-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium">Taxes charged</p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={query.isLoading || query.isError || !query.data?.length}
-          onClick={() => array.append(createEmptyRiskTaxRow())}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add tax
-        </Button>
-      </div>
+    <div className={inline ? 'contents' : 'space-y-2'}>
+      {!inline && <p className="text-sm font-medium">Tax</p>}
       {query.isError && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="col-span-full text-sm text-red-600">
           {getApiErrorMessage(query.error)}{' '}
           <Button
             type="button"
@@ -138,14 +129,16 @@ export function RiskTaxesFields({
         </p>
       )}
       {!query.isLoading && !query.isError && !query.data?.length && (
-        <p className="text-sm text-slate-500">
+        <p className="col-span-full text-sm text-slate-500">
           No active taxes. Add them in Taxes management.
         </p>
       )}
       {array.fields.map((_, index) => (
         <div
           key={index}
-          className="grid gap-3 rounded-lg border p-3 md:grid-cols-4"
+          className={
+            inline ? 'contents' : 'grid items-end gap-3 md:grid-cols-[2fr_1fr]'
+          }
         >
           <FormField
             control={form.control}
@@ -190,45 +183,11 @@ export function RiskTaxesFields({
                             item.tax_code === tax.tax_code,
                         )}
                       >
-                        {tax.tax_name} (
-                        {Number((Number(tax.tax_rate) * 100).toFixed(8))}%)
+                        {tax.tax_name} ({formatRatePercent(tax.tax_rate)}%)
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`${name}.${index}.tax_rate`}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Rate (%)</FormLabel>
-                <FormControl>
-                  <Input
-                    readOnly
-                    value={
-                      field.value
-                        ? Number((Number(field.value) * 100).toFixed(8))
-                        : ''
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`${name}.${index}.tax_amount`}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Amount</FormLabel>
-                <FormControl>
-                  <Input {...field} readOnly />
-                </FormControl>
                 <FormMessage />
               </WizardFormItem>
             )}
@@ -307,16 +266,6 @@ export function RiskTaxesFields({
               />
             </>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={`Remove tax ${index + 1}`}
-            onClick={() => array.remove(index)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Remove tax
-          </Button>
         </div>
       ))}
     </div>

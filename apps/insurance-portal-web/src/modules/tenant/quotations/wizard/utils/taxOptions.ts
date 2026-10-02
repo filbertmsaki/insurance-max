@@ -8,7 +8,7 @@ export const TAX_CODE_OPTIONS = [
 ] as const;
 
 export const DISCOUNT_TYPE_OPTIONS = [
-  { value: '1', label: '1. Fleet discount', rate: '0.10' },
+  { value: '1', label: 'Fleet discount', rate: '0.10' },
 ] as const;
 
 export const TAX_EXEMPTION_OPTIONS = [
@@ -38,6 +38,17 @@ export function getDiscountRateForType(
     DISCOUNT_TYPE_OPTIONS.find((option) => option.value === discountType)
       ?.rate ?? ''
   );
+}
+
+export function formatRatePercent(rate: string | number | null | undefined) {
+  return Number((Number(rate ?? 0) * 100).toFixed(8));
+}
+
+export function formatDiscountOptionLabel(option: {
+  label: string;
+  rate: string;
+}) {
+  return `${option.label} (${formatRatePercent(option.rate)}%)`;
 }
 
 export function isSupportedTaxCode(

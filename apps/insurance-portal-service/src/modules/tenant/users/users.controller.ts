@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Put,
   Param,
   Delete,
   Req,
@@ -149,6 +150,38 @@ export class UsersController {
       req.user.companyId!,
       id,
       dto,
+      req.user,
+    );
+  }
+
+  @Put(':id/insurance-channel-access')
+  @TenantScoped()
+  @Permissions('users:manage-data-scope')
+  @ApiOperation({ summary: 'Grant quotation insurance channel selection' })
+  grantInsuranceChannelAccess(
+    @Req() req: ExpressRequest & { user: AuthenticatedUser },
+    @Param('id') id: string,
+  ) {
+    return this.usersService.setInsuranceChannelAccessInCompany(
+      req.user.companyId!,
+      id,
+      true,
+      req.user,
+    );
+  }
+
+  @Delete(':id/insurance-channel-access')
+  @TenantScoped()
+  @Permissions('users:manage-data-scope')
+  @ApiOperation({ summary: 'Revoke quotation insurance channel selection' })
+  revokeInsuranceChannelAccess(
+    @Req() req: ExpressRequest & { user: AuthenticatedUser },
+    @Param('id') id: string,
+  ) {
+    return this.usersService.setInsuranceChannelAccessInCompany(
+      req.user.companyId!,
+      id,
+      false,
       req.user,
     );
   }

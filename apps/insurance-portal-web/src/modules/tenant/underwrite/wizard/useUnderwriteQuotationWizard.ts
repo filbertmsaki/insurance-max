@@ -107,7 +107,7 @@ export function findFirstErrorMessage(node: unknown): string | null {
 export function useUnderwriteQuotationWizard({
   line,
   quotationId,
-  steps,
+  steps: allSteps,
   stepAliases,
   deferDraftUntilStepId,
   hooks,
@@ -138,6 +138,15 @@ export function useUnderwriteQuotationWizard({
   const canSelectInsuranceChannel = hasPermission(
     currentUser,
     SELECT_INSURANCE_CHANNEL_PERMISSION,
+  );
+  // The business source step only holds channel/commission inputs, so it is
+  // dropped for users who can quote direct business only.
+  const steps = useMemo(
+    () =>
+      canSelectInsuranceChannel
+        ? allSteps
+        : allSteps.filter((step) => step.id !== 'source'),
+    [allSteps, canSelectInsuranceChannel],
   );
   const companyId = useQuotationCurrentCompanyId();
 
