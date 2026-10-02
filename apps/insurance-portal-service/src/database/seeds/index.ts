@@ -17,6 +17,7 @@ import ReferenceDataSeeder from './011-reference-data.seed';
 import EndorsementTypesSeeder from './012-endorsement-types.seed';
 import TaxRulesSeeder from './013-tax-rules.seed';
 import ClaimDocumentTemplatesSeeder from './014-claim-document-templates.seed';
+import MotorAddonsSeeder from './015-motor-addons.seed';
 
 const productionSeeders = [
   PlatformIdpSeeder,
@@ -34,6 +35,7 @@ const productionSeeders = [
   EndorsementTypesSeeder,
   TaxRulesSeeder,
   ClaimDocumentTemplatesSeeder,
+  MotorAddonsSeeder,
 ];
 
 export async function runAllSeeders(dataSource: DataSource): Promise<void> {

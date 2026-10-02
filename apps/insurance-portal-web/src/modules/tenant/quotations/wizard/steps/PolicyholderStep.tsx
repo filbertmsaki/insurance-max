@@ -1,8 +1,20 @@
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
-import { UserCircle2 } from 'lucide-react';
+import {
+  Building2,
+  ChevronDown,
+  CreditCard,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  UserCircle2,
+  type LucideIcon,
+} from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import type { FieldPath, UseFormReturn } from 'react-hook-form';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,169 +95,220 @@ function PolicyholderDetailsContainer({
   );
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string | number | null;
-}) {
+type DetailItem = [label: string, value?: string | number | null];
+
+function hasValue(value?: string | number | null) {
+  return value !== null && value !== undefined && value !== '';
+}
+
+function DetailGroup({ title, items }: { title: string; items: DetailItem[] }) {
+  const visible = items.filter(([, value]) => hasValue(value));
+  if (visible.length === 0) return null;
+
   return (
-    <div className="flex items-start gap-3">
-      <span className="min-w-28 shrink-0 text-xs text-slate-500">{label}</span>
-      <span className="text-sm font-medium text-slate-900">
-        {value === null || value === undefined || value === '' ? (
-          <span className="font-normal text-slate-400">Not provided</span>
-        ) : (
-          value
-        )}
-      </span>
+    <div>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        {title}
+      </p>
+      <dl className="space-y-1.5">
+        {visible.map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-3 text-sm">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="text-right font-medium text-slate-900">{value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
+}
+
+function QuickFact({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5 text-sm text-slate-600">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+function getInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('');
 }
 
 function ExistingCustomerCard({
   customer,
   onChangeCustomer,
+  onEditDetails,
 }: {
   customer: CustomerRecord;
   onChangeCustomer: () => void;
+  onEditDetails: () => void;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
+  const isCorporate = customer.customer_type === 'CORPORATE';
+  const displayName = getCustomerDisplayName(customer);
   const idTypeLabel = CUSTOMER_ID_TYPE_OPTIONS.find(
     (option) => option.value === customer.id_type,
   )?.label;
   const genderLabel = CUSTOMER_GENDER_OPTIONS.find(
     (option) => option.value === customer.gender,
   )?.label;
-  const hasContactPerson =
-    customer.contact_name ||
-    customer.contact_role ||
-    customer.contact_phone ||
-    customer.contact_email;
+  const location = [customer.district, customer.region]
+    .filter(Boolean)
+    .join(', ');
+  const kycVerified = customer.kyc_status === 'VERIFIED';
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100">
-            <UserCircle2 className="h-5 w-5 text-blue-600" />
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-base font-semibold text-slate-900">
-                {getCustomerDisplayName(customer)}
-              </p>
-              <Badge variant="outline">
-                {customer.customer_type.replace(/_/g, ' ')}
-              </Badge>
-              <CustomerStatusBadge status={customer.status} />
-            </div>
-            <code className="text-xs text-slate-400">
-              {customer.customer_no}
-            </code>
-          </div>
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-start gap-3 p-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
+          {isCorporate ? (
+            <Building2 className="h-5 w-5" />
+          ) : (
+            getInitials(displayName) || <UserCircle2 className="h-5 w-5" />
+          )}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onChangeCustomer}
-        >
-          Change customer
-        </Button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate font-semibold text-slate-900">
+              {displayName}
+            </p>
+            <CustomerStatusBadge status={customer.status} />
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {customer.customer_no} · {isCorporate ? 'Corporate' : 'Individual'}
+          </p>
+        </div>
+
+        <div className="flex gap-1">
+          <Button type="button" variant="ghost" size="sm" onClick={onEditDetails}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            Edit
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onChangeCustomer}
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Change
+          </Button>
+        </div>
       </div>
 
-      <p className="mt-2 text-sm">
-        {customer.phone} {customer.email}
-      </p>
-      <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            {customer.customer_type === 'CORPORATE'
-              ? 'Company Details'
-              : 'Personal Details'}
-          </p>
-          {customer.customer_type === 'CORPORATE' ? (
-            <>
-              <DetailRow label="Company Name" value={customer.company_name} />
-              <DetailRow
-                label="Registration No."
-                value={customer.registration_no}
-              />
-              <DetailRow
-                label="Incorporation No."
-                value={customer.incorporation_certificate_no}
-              />
-              <DetailRow label="TIN" value={customer.tin} />
-              <DetailRow label="VRN" value={customer.vrn} />
-            </>
+      <div className="grid gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2">
+        {customer.phone && <QuickFact icon={Phone}>{customer.phone}</QuickFact>}
+        {customer.email && <QuickFact icon={Mail}>{customer.email}</QuickFact>}
+        {customer.id_number && (
+          <QuickFact icon={CreditCard}>
+            {idTypeLabel ? `${idTypeLabel}: ` : ''}
+            {customer.id_number}
+          </QuickFact>
+        )}
+        {location && <QuickFact icon={MapPin}>{location}</QuickFact>}
+      </div>
+
+      <div className="flex items-center justify-between gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/70 px-4 py-2">
+        <span
+          className={[
+            'inline-flex items-center gap-1.5 text-xs font-medium',
+            kycVerified ? 'text-emerald-700' : 'text-amber-700',
+          ].join(' ')}
+        >
+          {kycVerified ? (
+            <ShieldCheck className="h-3.5 w-3.5" />
           ) : (
-            <>
-              <DetailRow label="First Name" value={customer.first_name} />
-              <DetailRow label="Middle Name" value={customer.middle_name} />
-              <DetailRow label="Last Name" value={customer.last_name} />
-              <DetailRow label="Gender" value={genderLabel} />
-              <DetailRow
-                label="Date of Birth"
-                value={
+            <ShieldAlert className="h-3.5 w-3.5" />
+          )}
+          KYC {customer.kyc_status.replace(/_/g, ' ').toLowerCase()}
+        </span>
+        <button
+          type="button"
+          onClick={() => setShowDetails((open) => !open)}
+          className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+          aria-expanded={showDetails}
+        >
+          {showDetails ? 'Hide details' : 'Show details'}
+          <ChevronDown
+            className={[
+              'h-3.5 w-3.5 transition-transform',
+              showDetails ? 'rotate-180' : '',
+            ].join(' ')}
+          />
+        </button>
+      </div>
+
+      {showDetails && (
+        <div className="grid gap-5 border-t border-slate-100 p-4 sm:grid-cols-2">
+          {isCorporate ? (
+            <DetailGroup
+              title="Company"
+              items={[
+                ['Company name', customer.company_name],
+                ['Registration no.', customer.registration_no],
+                ['Incorporation no.', customer.incorporation_certificate_no],
+                ['TIN', customer.tin],
+                ['VRN', customer.vrn],
+              ]}
+            />
+          ) : (
+            <DetailGroup
+              title="Personal"
+              items={[
+                ['Gender', genderLabel],
+                [
+                  'Date of birth',
                   customer.date_of_birth
                     ? formatCoverDateLabel(customer.date_of_birth)
-                    : null
-                }
-              />
-              <DetailRow label="Nationality" value={customer.nationality} />
-            </>
+                    : null,
+                ],
+                ['Nationality', customer.nationality],
+              ]}
+            />
           )}
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Contact Details
-          </p>
-          <DetailRow label="Phone" value={customer.phone} />
-          <DetailRow label="Alternate Phone" value={customer.alternate_phone} />
-          <DetailRow label="Email" value={customer.email} />
-          <DetailRow label="Fax" value={customer.fax} />
-          {hasContactPerson && (
-            <>
-              <DetailRow label="Contact Person" value={customer.contact_name} />
-              <DetailRow label="Contact Role" value={customer.contact_role} />
-              <DetailRow label="Contact Phone" value={customer.contact_phone} />
-              <DetailRow label="Contact Email" value={customer.contact_email} />
-            </>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Identification &amp; Verification
-          </p>
-          <DetailRow label="ID Type" value={idTypeLabel} />
-          <DetailRow label="ID Number" value={customer.id_number} />
-          <DetailRow label="Document Type" value={customer.document_type} />
-          <DetailRow label="Document No." value={customer.document_no} />
-          <DetailRow
-            label="KYC Status"
-            value={customer.kyc_status.replace(/_/g, ' ')}
+          <DetailGroup
+            title="Contact"
+            items={[
+              ['Alternate phone', customer.alternate_phone],
+              ['Fax', customer.fax],
+              ['Contact person', customer.contact_name],
+              ['Contact role', customer.contact_role],
+              ['Contact phone', customer.contact_phone],
+              ['Contact email', customer.contact_email],
+            ]}
           />
-          <DetailRow
-            label="Document Verified"
-            value={customer.document_verified ? 'Yes' : 'No'}
+          <DetailGroup
+            title="Verification"
+            items={[
+              ['Document type', customer.document_type],
+              ['Document no.', customer.document_no],
+              ['Document verified', customer.document_verified ? 'Yes' : 'No'],
+            ]}
+          />
+          <DetailGroup
+            title="Address"
+            items={[
+              ['Country', customer.country],
+              ['Ward', customer.ward],
+              ['Street', customer.street],
+              ['Postal address', customer.postal_address],
+            ]}
           />
         </div>
-
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Address
-          </p>
-          <DetailRow label="Country" value={customer.country} />
-          <DetailRow label="Region" value={customer.region} />
-          <DetailRow label="District" value={customer.district} />
-          <DetailRow label="Ward" value={customer.ward} />
-          <DetailRow label="Street" value={customer.street} />
-          <DetailRow label="Postal Address" value={customer.postal_address} />
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -413,26 +476,18 @@ export function PolicyholderStep({
         )}
 
         {mode === 'existing' && selectedCustomer && (
-          <>
-            <ExistingCustomerCard
-              customer={selectedCustomer}
-              onChangeCustomer={() => form.setValue('customer_id', '')}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                form.setValue(
-                  'policyholder',
-                  getCustomerDefaultValues(selectedCustomer),
-                );
-                form.setValue('policyholder_mode', 'new');
-                if (newCustomerInDialog) setIsNewCustomerDialogOpen(true);
-              }}
-            >
-              Edit policyholder details for this quotation
-            </Button>
-          </>
+          <ExistingCustomerCard
+            customer={selectedCustomer}
+            onChangeCustomer={() => form.setValue('customer_id', '')}
+            onEditDetails={() => {
+              form.setValue(
+                'policyholder',
+                getCustomerDefaultValues(selectedCustomer),
+              );
+              form.setValue('policyholder_mode', 'new');
+              if (newCustomerInDialog) setIsNewCustomerDialogOpen(true);
+            }}
+          />
         )}
       </StepSection>
 
