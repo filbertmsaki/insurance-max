@@ -127,6 +127,9 @@ export class TiramisConfigurationValidationController {
         errors: [],
         warnings: [],
       },
+      portalWebhook: {
+        apiKeyConfigured: Boolean(configuration.portalWebhookApiKeyEncrypted),
+      },
       certificates: security.certificates,
       warnings: security.warnings,
       errors: security.errors,

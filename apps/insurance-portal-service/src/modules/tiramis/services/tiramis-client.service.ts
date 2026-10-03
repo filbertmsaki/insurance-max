@@ -622,6 +622,7 @@ export class TiramisClientService {
     systemCode?: string;
     baseUrl?: string;
     apiKey?: { status?: string; masked?: string | null };
+    portalWebhook?: { apiKeyConfigured?: boolean };
     callback?: {
       ok?: boolean;
       configuredUrl?: string;
@@ -690,6 +691,7 @@ export class TiramisClientService {
         systemCode?: string;
         baseUrl?: string;
         apiKey?: { status?: string; masked?: string | null };
+        portalWebhook?: { apiKeyConfigured?: boolean };
         callback?: {
           ok?: boolean;
           configuredUrl?: string;
@@ -712,6 +714,7 @@ export class TiramisClientService {
         systemCode: result?.systemCode,
         baseUrl: result?.baseUrl,
         apiKey: result?.apiKey,
+        portalWebhook: result?.portalWebhook,
         callback: result?.callback,
         endpoints: result?.endpoints,
         certificates: result?.certificates,
@@ -867,7 +870,7 @@ export class TiramisClientService {
     baseUrl?: string;
     /** Omit to use TIRAMIS's own platform default for this environment. */
     callbackBaseUrl?: string;
-  }): Promise<{ baseUrl: string; callbackBaseUrl: string }> {
+  }): Promise<{ id: string; baseUrl: string; callbackBaseUrl: string }> {
     const requestId = this.requestContextService.getRequestId();
     const correlationId =
       this.requestContextService.getCorrelationId() || requestId;
@@ -927,20 +930,79 @@ export class TiramisClientService {
     }
 
     const result = unwrapApiResponse(response.data) as {
+      id?: string;
       baseUrl?: string;
       callbackBaseUrl?: string;
     };
 
-    if (!result?.baseUrl || !result?.callbackBaseUrl) {
+    if (!result?.id || !result?.baseUrl || !result?.callbackBaseUrl) {
       throw new ConflictException(
-        'TIRAMIS did not return the effective base/callback URL.',
+        'TIRAMIS did not return the configuration id and effective base/callback URL.',
       );
     }
 
     return {
+      id: result.id,
       baseUrl: result.baseUrl,
       callbackBaseUrl: result.callbackBaseUrl,
     };
+  }
+
+  /**
+   * Stores the portal API key TIRAMIS sends as X-API-Key when it pushes
+   * callback notifications to this portal's webhook. Without it TIRAMIS
+   * skips the webhook and the portal only learns about callbacks from the
+   * status-sync cron.
+   */
+  async setPortalWebhookApiKey(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    tiramisConfigurationId: string;
+    apiKey: string;
+  }): Promise<void> {
+    const requestId = this.requestContextService.getRequestId();
+    const correlationId =
+      this.requestContextService.getCorrelationId() || requestId;
+    const connection = await this.resolveConnectionConfig(
+      params.companyId,
+      params.environment,
+      { allowBootstrapFallback: true },
+    );
+    const serviceContext = this.encodeServiceContext({
+      tenant: {
+        companyId: params.companyId,
+        environment: params.environment,
+      },
+    });
+
+    const response = await firstValueFrom(
+      this.httpService.request({
+        method: 'PUT',
+        baseURL: connection.baseUrl ?? undefined,
+        url: `/api/tiramis/configurations/${encodeURIComponent(
+          params.tiramisConfigurationId,
+        )}/portal-webhook-api-key`,
+        data: { apiKey: params.apiKey },
+        validateStatus: () => true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': connection.apiKey,
+          'X-Service-Context': serviceContext,
+          ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
+          ...(correlationId
+            ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
+            : {}),
+        },
+      }),
+    );
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new ConflictException(
+        this.extractTiramisErrorMessage(response.data) ||
+          'Unable to store the portal webhook API key in TIRAMIS.',
+      );
+    }
   }
 
   async checkTiramisServiceHealth(authContext?: any) {

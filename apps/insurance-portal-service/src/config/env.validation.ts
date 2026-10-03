@@ -354,6 +354,10 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_SERVICE_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://127.0.0.1:9091'),
+  TIRAMIS_WEBHOOK_SOURCE_IP: Joi.string()
+    .ip({ cidr: 'optional' })
+    .allow('')
+    .optional(),
   // Dedicated encryption key for TIRAMIS service API keys stored in
   // tiramis_company_configurations. Optional: when unset, falls back to
   // deriving from JWT_ACCESS_SECRET for backward compatibility with

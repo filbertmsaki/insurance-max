@@ -66,7 +66,7 @@ export class TiramisPortalNotificationService {
       options?.clientConfigurationId,
     );
     if (!apiKey) {
-      this.logger.warn(
+      this.logger.error(
         `Portal notification skipped for requestId ${event.requestId}: portal webhook API key is not configured`,
       );
       return;
@@ -90,12 +90,12 @@ export class TiramisPortalNotificationService {
       );
 
       if (response.status < 200 || response.status >= 300) {
-        this.logger.warn(
+        this.logger.error(
           `Failed to notify insurance portal for requestId ${event.requestId}: HTTP ${response.status}`,
         );
       }
     } catch (error: any) {
-      this.logger.warn(
+      this.logger.error(
         `Portal notification publish failed for requestId ${event.requestId}: ${
           error?.message || 'Unknown error'
         }`,

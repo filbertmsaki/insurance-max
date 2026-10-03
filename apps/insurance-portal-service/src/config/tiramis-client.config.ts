@@ -17,6 +17,10 @@ export default registerAs('tiramisClient', () => ({
 
   bootstrapApiKey: process.env.TIRAMIS_BOOTSTRAP_API_KEY || null,
 
+  // IP the TIRAMIS service calls the portal webhook from; the webhook API key
+  // is allowlisted to it. Defaults to the host of TIRAMIS_SERVICE_BASE_URL.
+  webhookSourceIp: process.env.TIRAMIS_WEBHOOK_SOURCE_IP?.trim() || null,
+
   maxRedirects: 0,
 
   portalOutboxEnabled: process.env.TIRAMIS_PORTAL_OUTBOX_ENABLED !== 'false',

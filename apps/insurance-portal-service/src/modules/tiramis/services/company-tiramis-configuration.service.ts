@@ -13,6 +13,7 @@ import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from '../entities/tiramis-company-configuration.entity';
 import { TiramisClientService } from './tiramis-client.service';
 import { TiramisServiceApiKeyVaultService } from './tiramis-service-api-key-vault.service';
+import { TiramisWebhookCredentialService } from './tiramis-webhook-credential.service';
 import { UpsertCompanyTiramisConfigurationDto } from '../dto/upsert-company-tiramis-configuration.dto';
 
 @Injectable()
@@ -28,7 +29,88 @@ export class CompanyTiramisConfigurationService {
     private readonly auditService: AuditService,
     private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
     private readonly configService: ConfigService,
+    private readonly webhookCredentialService: TiramisWebhookCredentialService,
   ) {}
+
+  /**
+   * Re-syncs the portal webhook API key for every active company
+   * configuration. Used by `npm run tiramis:sync-webhook-keys` to repair
+   * environments provisioned before keys were synced automatically.
+   */
+  async syncAllPortalWebhookApiKeys() {
+    const configurations = await this.repository.find({
+      where: { isActive: true },
+    });
+    const results: Array<{
+      companyId: string;
+      environment: string;
+      ok: boolean;
+      message?: string;
+    }> = [];
+
+    for (const configuration of configurations) {
+      const environment = configuration.environment as 'test' | 'live';
+
+      try {
+        const validation =
+          await this.tiramisClientService.validateOrganizationConfiguration({
+            companyId: configuration.companyId,
+            environment,
+            companyCode: configuration.companyCode,
+            systemCode: configuration.systemCode,
+            insurerCompanyCode: configuration.insurerCompanyCode,
+            allowExpiredCertificates: true,
+          });
+
+        if (!validation.configurationId) {
+          throw new Error(
+            validation.message ||
+              'TIRAMIS did not return a client configuration id.',
+          );
+        }
+
+        await this.syncPortalWebhookApiKey(
+          configuration.companyId,
+          environment,
+          validation.configurationId,
+        );
+        results.push({
+          companyId: configuration.companyId,
+          environment,
+          ok: true,
+        });
+      } catch (error) {
+        results.push({
+          companyId: configuration.companyId,
+          environment,
+          ok: false,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return results;
+  }
+
+  private async syncPortalWebhookApiKey(
+    companyId: string,
+    environment: 'test' | 'live',
+    tiramisConfigurationId: string,
+  ) {
+    try {
+      await this.webhookCredentialService.syncWebhookApiKey({
+        companyId,
+        environment,
+        tiramisConfigurationId,
+      });
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to sync the portal webhook API key to TIRAMIS: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
 
   async findAll(companyId: string) {
     const [configs, company] = await Promise.all([
@@ -208,15 +290,22 @@ export class CompanyTiramisConfigurationService {
       // field for the TIRA gateway URL, so this always lets TIRAMIS apply
       // its own environment default (TIRAMIS_TEST/LIVE_BASE_URL,
       // TIRAMIS_TEST/LIVE_CALLBACK_URL).
-      await this.tiramisClientService.upsertClientConfiguration({
+      const tiramisConfiguration =
+        await this.tiramisClientService.upsertClientConfiguration({
+          companyId,
+          environment: saved.environment as 'test' | 'live',
+          companyCode: saved.companyCode,
+          systemCode: saved.systemCode!,
+          insurerCompanyCode: saved.insurerCompanyCode ?? saved.companyCode,
+          clientCode: saved.clientCode ?? saved.companyCode,
+          clientKey: dto.client_key,
+        });
+
+      await this.syncPortalWebhookApiKey(
         companyId,
-        environment: saved.environment as 'test' | 'live',
-        companyCode: saved.companyCode,
-        systemCode: saved.systemCode!,
-        insurerCompanyCode: saved.insurerCompanyCode ?? saved.companyCode,
-        clientCode: saved.clientCode ?? saved.companyCode,
-        clientKey: dto.client_key,
-      });
+        saved.environment as 'test' | 'live',
+        tiramisConfiguration.id,
+      );
     } catch (error) {
       saved.validationStatus = 'INVALID';
       saved.validatedAt = new Date();
@@ -337,6 +426,17 @@ export class CompanyTiramisConfigurationService {
           insurerCompanyCode: configuration.insurerCompanyCode,
           allowExpiredCertificates,
         });
+
+      // Self-heal: a configuration TIRAMIS cannot authenticate to our
+      // webhook with only gets callback updates via the 2-minute status sync.
+      if (result.configurationId && !result.portalWebhook?.apiKeyConfigured) {
+        await this.syncPortalWebhookApiKey(
+          companyId,
+          environment,
+          result.configurationId,
+        );
+        result.portalWebhook = { apiKeyConfigured: true };
+      }
 
       configuration.validationStatus = result.valid ? 'VALID' : 'INVALID';
       configuration.validatedAt = new Date();

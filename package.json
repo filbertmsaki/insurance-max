@@ -71,7 +71,8 @@
     "seed:tiramis:config": "node -r ts-node/register -r tsconfig-paths/register apps/tiramis/src/database/seeders/seed-tiramis-config.ts",
     "seed:tiramis:config:production": "node dist/apps/tiramis/apps/tiramis/src/database/seeders/seed-tiramis-config.js",
     "seed:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/run-seed.ts",
-    "seed:insurance-portal-service:production": "node dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/seeds/run-seed.js"
+    "seed:insurance-portal-service:production": "node dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/seeds/run-seed.js",
+    "tiramis:sync-webhook-keys": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/scripts/sync-tiramis-webhook-keys.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.1",

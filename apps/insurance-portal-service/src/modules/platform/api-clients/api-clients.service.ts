@@ -540,6 +540,11 @@ export class ApiClientsService {
       return null;
     }
 
+    // IPv4/IPv6 loopback are the same host; "localhost" resolves to either.
+    if (value === '::1') {
+      return '127.0.0.1';
+    }
+
     return value.startsWith('::ffff:') ? value.slice(7) : value;
   }
 }
