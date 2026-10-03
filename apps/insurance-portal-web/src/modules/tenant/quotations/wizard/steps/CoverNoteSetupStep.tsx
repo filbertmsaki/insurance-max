@@ -17,6 +17,7 @@ import {
   computeCoverNoteEndFromStart,
   inclusiveDayCount,
   dateOnlyPart,
+  todayLocalDatePart,
 } from '../utils/coverNoteDateRange';
 interface OptionLike {
   id: string;
@@ -155,6 +156,7 @@ export function CoverNoteSetupStep({
         {field('valid_from', 'Cover starts', {
           required: true,
           type: 'date',
+          min: todayLocalDatePart(),
           onChange: (start) =>
             form.setValue(
               'valid_until',

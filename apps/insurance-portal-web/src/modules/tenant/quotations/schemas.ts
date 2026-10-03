@@ -823,6 +823,14 @@ export const quotationFormSchema: z.ZodType<QuotationFormValues> =
       validateStandardCoverNoteFields(values, ctx);
     }
 
+    if (isBeforeToday(values.valid_from)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['valid_from'],
+        message: 'Cover start date cannot be earlier than today',
+      });
+    }
+
     if (values.valid_until < values.valid_from) {
       ctx.addIssue({
         code: 'custom',
@@ -893,14 +901,6 @@ export function createQuotationFormSchema(
 
   return quotationFormSchema.superRefine((values, ctx) => {
     if (values.quotation_flow === 'MOTOR_FLEET') return;
-
-    if (isBeforeToday(values.valid_from)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['valid_from'],
-        message: 'Cover start date cannot be earlier than today',
-      });
-    }
 
     const totalDays = inclusiveDayCount(values.valid_from, values.valid_until);
     if (totalDays !== null && totalDays < 30) {

@@ -94,6 +94,7 @@ export function WizardInput({
   required,
   searchable,
   uppercase,
+  min,
   onChange,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -110,6 +111,8 @@ export function WizardInput({
   searchable?: boolean;
   /** Stores typed text in upper case (ignored for selects). */
   uppercase?: boolean;
+  /** Lower bound for number/date inputs (`YYYY-MM-DD` for dates). */
+  min?: string;
   onChange?: (value: string) => void;
 }) {
   return (
@@ -195,6 +198,7 @@ export function WizardInput({
                 <Input
                   {...props}
                   type={type}
+                  min={min}
                   step={type === 'number' ? 'any' : undefined}
                 />
               )}
