@@ -38,7 +38,21 @@ cp .env.example .env
 
 ## Development
 
-Run the service locally on port `9092`:
+Run all three local services from the repository root so the portal can reach
+both its API and the TIRAMIS API:
+
+```bash
+npm run start:all
+```
+
+This starts the portal web app on `http://localhost:9092`, the portal API on
+`http://localhost:9090`, and the TIRAMIS API on `http://localhost:9091`.
+The portal API connects to TIRAMIS using the server-side
+`TIRAMIS_SERVICE_BASE_URL` and `TIRAMIS_BOOTSTRAP_API_KEY` settings in
+`apps/insurance-portal-service/.env`. Never put TIRAMIS service keys in
+`VITE_*` frontend variables.
+
+To run only the frontend after both APIs are already running:
 
 ```bash
 npm run dev
@@ -66,6 +80,10 @@ npm run preview
 
 - The frontend uses `src/api/client.ts` with a centralized `VITE_API_BASE_URL`.
 - The backend portal service must allow CORS from `http://localhost:9092`.
+- `VITE_BACKEND_URL` should point to the portal API, not directly to TIRAMIS.
+- Link and activate each insurer's TIRAMIS test/live configuration from the
+  platform TIRAMIS configuration screen; the browser uses the portal API for
+  these operations.
 - Authentication and token refresh are handled centrally in `src/api/client.ts`.
 - Existing routes, auth flow, and UI behavior are preserved.
 
