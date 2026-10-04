@@ -96,6 +96,30 @@ Set `TIRAMIS_REQUEST_LOG_ENABLED=false` to disable this feature. The existing
 `TIRAMIS_LOG_PAYLOADS` flag continues to control console payload logging only.
 File-write failures produce a warning and do not fail TIRA request processing.
 
+## Portal notification outbox
+
+TIRAMIS stores every final-callback notification to the portal in an outbox
+before attempting delivery. A successful portal `2xx` response marks the row
+`SENT` and stops retries. Failed delivery stays retryable until the max attempt
+count is reached.
+
+Defaults are applied by the app when values are omitted:
+
+```dotenv
+TIRAMIS_PORTAL_NOTIFY_ENABLED=true
+INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS=5000
+TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS=8
+TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE=20
+TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS=10000
+```
+
+Admin API keys with `tiramis:admin` can inspect and retry outbox rows:
+
+```bash
+GET  /api/tiramis/portal-notifications/outbox?status=FAILED
+POST /api/tiramis/portal-notifications/outbox/{id}/retry
+```
+
 ## Internal Callback Tests
 
 `POST /api/internal/tiramis/callback-tests/live` accepts the same XML callback

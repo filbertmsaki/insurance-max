@@ -19,6 +19,7 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { TiramisClientService } from './tiramis-client.service';
 import { PortalTiraSubmissionEvent } from './entities/portal-tira-submission-event.entity';
 import { PortalTiraSubmission } from './entities/portal-tira-submission.entity';
+import { TiramisNotificationReceipt } from './entities/tiramis-notification-receipt.entity';
 import { TiramisIntegrationController } from './tiramis-integration.controller';
 import { TiramisIntegrationWebhookController } from './tiramis-integration-webhook.controller';
 import { TiramisIntegrationService } from './tiramis-integration.service';
@@ -40,6 +41,7 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
       Branch,
       TiramisSalePointEntity,
       TiramisCompanyConfigurationEntity,
+      TiramisNotificationReceipt,
     ]),
     TiramisHttpModule,
     ApiClientsModule,

@@ -46,6 +46,15 @@ export default registerAs('tiramisService', () => {
     portalWebhookTimeoutMs: Number(
       process.env.INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS || 5000,
     ),
+    portalWebhookMaxAttempts: Number(
+      process.env.TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS || 8,
+    ),
+    portalOutboxBatchSize: Number(
+      process.env.TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE || 20,
+    ),
+    portalOutboxIntervalMs: Number(
+      process.env.TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS || 10000,
+    ),
 
     retryEnabled: process.env.TIRAMIS_RETRY_ENABLED !== 'false',
     retryBatchSize: Number(process.env.TIRAMIS_RETRY_BATCH_SIZE || 20),

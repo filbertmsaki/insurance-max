@@ -71,6 +71,12 @@ export const tiramisEnvValidationSchema = Joi.object({
   TIRAMIS_TCP_PORT: Joi.number().default(4001),
   TIRAMIS_PORTAL_NOTIFY_ENABLED: Joi.boolean().default(true),
   INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS: Joi.number().default(5000),
+  TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS: Joi.number().integer().min(1).default(8),
+  TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(20),
+  TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .default(10000),
 
   TIRAMIS_HTTP_TIMEOUT_MS: Joi.number()
     .integer()
