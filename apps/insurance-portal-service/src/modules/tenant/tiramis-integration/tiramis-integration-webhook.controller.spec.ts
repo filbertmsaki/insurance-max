@@ -87,4 +87,27 @@ describe('TiramisIntegrationWebhookController', () => {
     expect(receipt.processingStatus).toBe('COMPLETED');
     expect(receipt.lastError).toBeNull();
   });
+
+  it('hashes semantically identical payloads the same regardless of key order', () => {
+    const fixture = createFixture();
+    const hashPayload = (fixture.controller as any).hashPayload.bind(
+      fixture.controller,
+    );
+
+    expect(
+      hashPayload({
+        eventType: 'TIRAMIS_FINAL_SUCCESS',
+        requestId: 'REQ-1',
+        responseId: 'RES-1',
+        nested: { b: 2, a: 1 },
+      }),
+    ).toBe(
+      hashPayload({
+        responseId: 'RES-1',
+        nested: { a: 1, b: 2 },
+        requestId: 'REQ-1',
+        eventType: 'TIRAMIS_FINAL_SUCCESS',
+      }),
+    );
+  });
 });
