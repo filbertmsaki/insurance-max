@@ -495,7 +495,11 @@ export class TiramisIntegrationService {
     );
 
     const submission = await this.findOrCreateSubmissionFromEvent(payload);
-    const nextStatus = this.mapEventToPortalStatus(payload);
+    const mappedStatus = this.mapEventToPortalStatus(payload);
+    const nextStatus = this.resolvePortalStatus(
+      submission.status,
+      mappedStatus,
+    );
     const occurredAt = payload.occurredAt
       ? new Date(payload.occurredAt)
       : new Date();
@@ -1042,14 +1046,10 @@ export class TiramisIntegrationService {
       tracking.status,
     );
 
-    // A late or replayed ack must never regress an accepted claim stage;
-    // the claim workflow has already advanced on FINAL_SUCCESS.
-    tracking.status =
-      this.isClaimsSource(tracking.sourceModule) &&
-      tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS &&
-      mappedStatus !== TiramisSubmissionStatus.FINAL_SUCCESS
-        ? tracking.status
-        : mappedStatus;
+    tracking.status = this.resolveLocalTrackingStatus(
+      tracking.status,
+      mappedStatus,
+    );
     tracking.tiramisTransactionId =
       payload.tiramisTransactionId || tracking.tiramisTransactionId;
     tracking.tiramisRequestId = payload.requestId || tracking.tiramisRequestId;
@@ -1925,5 +1925,60 @@ export class TiramisIntegrationService {
       PortalTiraSubmissionStatus.FAILED,
       PortalTiraSubmissionStatus.CALLBACK_REJECTED,
     ].includes(status);
+  }
+
+  private resolvePortalStatus(
+    current: PortalTiraSubmissionStatus,
+    incoming: PortalTiraSubmissionStatus,
+  ): PortalTiraSubmissionStatus {
+    if (
+      current === PortalTiraSubmissionStatus.COMPLETED &&
+      incoming !== PortalTiraSubmissionStatus.COMPLETED
+    ) {
+      return current;
+    }
+
+    const currentIsFailure = [
+      PortalTiraSubmissionStatus.ACK_FAILED,
+      PortalTiraSubmissionStatus.FAILED,
+      PortalTiraSubmissionStatus.FINAL_FAILED,
+      PortalTiraSubmissionStatus.FINAL_CALLBACK_OVERDUE,
+      PortalTiraSubmissionStatus.CALLBACK_REJECTED,
+    ].includes(current);
+
+    if (currentIsFailure && incoming !== PortalTiraSubmissionStatus.COMPLETED) {
+      return current;
+    }
+
+    return incoming;
+  }
+
+  private resolveLocalTrackingStatus(
+    current: TiramisSubmissionStatus,
+    incoming: TiramisSubmissionStatus,
+  ): TiramisSubmissionStatus {
+    if (
+      current === TiramisSubmissionStatus.FINAL_SUCCESS &&
+      incoming !== TiramisSubmissionStatus.FINAL_SUCCESS
+    ) {
+      return current;
+    }
+
+    const currentIsFailure = [
+      TiramisSubmissionStatus.FINAL_FAILED,
+      TiramisSubmissionStatus.FAILED,
+      TiramisSubmissionStatus.ACK_FAILED,
+      TiramisSubmissionStatus.CALLBACK_OVERDUE,
+      TiramisSubmissionStatus.RETRY_EXHAUSTED,
+    ].includes(current);
+
+    if (
+      currentIsFailure &&
+      incoming !== TiramisSubmissionStatus.FINAL_SUCCESS
+    ) {
+      return current;
+    }
+
+    return incoming;
   }
 }

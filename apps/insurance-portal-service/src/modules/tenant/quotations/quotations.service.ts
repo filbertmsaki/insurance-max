@@ -3794,6 +3794,11 @@ export class QuotationsService {
       matchedRule?.ruleId?.trim() || pricingQuote?.matched_rule_id || '';
     const resultHash =
       snapshot.resultHash?.trim() || pricingQuote?.result_hash?.trim() || '';
+    const premiumIncludingTax =
+      this.readPricingResultPayloadString(pricingQuote, [
+        'premium_including_tax',
+        'premium_including_charges',
+      ]) ?? snapshot.finalPayablePremium;
 
     // Not every priced risk is backed by a rate book: risks priced from a
     // direct rating rule (e.g. TIRA base rates with no configured rate book,
@@ -3849,12 +3854,28 @@ export class QuotationsService {
       discountAmount: snapshot.discount.appliedAmount,
       premiumExcludingTax: snapshot.premiumExcludingCharges,
       taxAmount: snapshot.totalChargeAmount,
-      premiumIncludingTax: snapshot.finalPayablePremium,
+      premiumIncludingTax,
       finalPayablePremium: snapshot.finalPayablePremium,
       calculationVersion: snapshot.calculationVersion,
       inputHash: snapshot.inputHash,
       resultHash: snapshot.resultHash,
     };
+  }
+
+  private readPricingResultPayloadString(
+    pricingQuote: PricingQuote | null,
+    keys: string[],
+  ): string | null {
+    const payload = pricingQuote?.result_payload ?? {};
+
+    for (const key of keys) {
+      const value = payload[key];
+      if (value !== null && value !== undefined && value !== '') {
+        return String(value);
+      }
+    }
+
+    return null;
   }
 
   private async buildServiceInsuredDataContext(

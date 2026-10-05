@@ -53,6 +53,7 @@ import { TiramisMotorFleetItemEntity } from './modules/motor/entities/tiramis-mo
 import { TiramisMotorFleetEntity } from './modules/motor/entities/tiramis-motor-fleet.entity';
 import { TiramisPolicyCoverNoteEntity } from './modules/policies/entities/tiramis-policy-cover-note.entity';
 import { TiramisPolicyEntity } from './modules/policies/entities/tiramis-policy.entity';
+import { TiramisPortalNotificationOutboxEntity } from './modules/portal-notifications/entities/tiramis-portal-notification-outbox.entity';
 import { TiramisReinsuranceEntity } from './modules/reinsurance/entities/tiramis-reinsurance.entity';
 import { TiramisReinsuranceParticipantEntity } from './modules/reinsurance/entities/tiramis-reinsurance-participant.entity';
 import { TiramisSubmissionAttemptEntity } from './modules/submissions/entities/tiramis-submission-attempt.entity';
@@ -124,6 +125,7 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
               TiramisAccessAuditEntity,
               TiramisApiKeyEntity,
               TiramisApiKeyAuditEntity,
+              TiramisPortalNotificationOutboxEntity,
             ],
           },
         ),

@@ -28,8 +28,23 @@ async function upsertRecord(
     payload: Record<string, any>;
   },
 ) {
+  // No unique index backs this natural key, so ON CONFLICT cannot be used.
   await dataSource.query(
     `
+      WITH updated AS (
+        UPDATE tiramis_business_records
+        SET
+          status = 'READY',
+          payload = $5::jsonb,
+          metadata = COALESCE(metadata, '{}'::jsonb) || $6::jsonb,
+          updated_at = now()
+        WHERE company_id = $1
+          AND source_module = $2
+          AND request_type = $3
+          AND business_reference = $4
+          AND deleted_at IS NULL
+        RETURNING id
+      )
       INSERT INTO tiramis_business_records (
         company_id,
         source_module,
@@ -41,31 +56,8 @@ async function upsertRecord(
         created_at,
         updated_at
       )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        'READY',
-        $5::jsonb,
-        $6::jsonb,
-        now(),
-        now()
-      )
-      ON CONFLICT (
-        company_id,
-        source_module,
-        request_type,
-        business_reference
-      )
-      WHERE deleted_at IS NULL
-      DO UPDATE SET
-        status = 'READY',
-        payload = EXCLUDED.payload,
-        metadata =
-          COALESCE(tiramis_business_records.metadata, '{}'::jsonb)
-          || EXCLUDED.metadata,
-        updated_at = now()
+      SELECT $1, $2, $3, $4, 'READY', $5::jsonb, $6::jsonb, now(), now()
+      WHERE NOT EXISTS (SELECT 1 FROM updated)
     `,
     [
       params.companyId,
