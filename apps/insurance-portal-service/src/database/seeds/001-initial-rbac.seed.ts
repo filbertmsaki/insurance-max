@@ -3066,6 +3066,13 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'approvals:self-approve',
+    displayName: 'Self-approve (bypass maker-checker)',
+    description:
+      'Allow approving a quotation, endorsement or cancellation the user submitted themselves. Each self-approval is flagged in the approval history.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'cancellations:request-payment',
     displayName: 'Process cancellation refunds',
     description: 'Allow processing the refund/charge for a cancellation',
@@ -3483,6 +3490,7 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator with full access limited to their own company',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      'approvals:self-approve',
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       ...ANALYTICS_ADMIN_PERMISSION_NAMES,
       ...BASE_ADMIN_PERMISSION_NAMES,
@@ -3647,6 +3655,7 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator for an Insurance Company tenant',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      'approvals:self-approve',
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,

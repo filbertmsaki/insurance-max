@@ -29,8 +29,8 @@ export interface PolicyTransactionLifecycleContext {
   tiraResponseId?: string | null;
   metadata?: Record<string, unknown> | null;
   /**
-   * Set by the caller when the acting user holds a company-administrator
-   * role (see `hasCompanyAdminRole`), exempting them from the maker-checker
+   * Set by the caller when the acting user holds `approvals:self-approve`
+   * (see `canSelfApprove`), exempting them from the maker-checker
    * rule that otherwise blocks approving a transaction they requested.
    */
   isMakerCheckerExempt?: boolean;
@@ -156,11 +156,9 @@ export class PolicyTransactionLifecycleService {
           );
         }
 
-        if (
-          context.changedBy &&
-          context.changedBy === transaction.requested_by &&
-          !context.isMakerCheckerExempt
-        ) {
+        const isSelfApproval =
+          !!context.changedBy && context.changedBy === transaction.requested_by;
+        if (isSelfApproval && !context.isMakerCheckerExempt) {
           throw new ForbiddenException(
             'The maker of a transaction cannot approve it (maker-checker).',
           );
@@ -175,7 +173,12 @@ export class PolicyTransactionLifecycleService {
           transaction,
           previous,
           PolicyTransactionEventType.APPROVED,
-          context,
+          isSelfApproval
+            ? {
+                ...context,
+                metadata: { ...context.metadata, self_approved: true },
+              }
+            : context,
         );
       },
     );

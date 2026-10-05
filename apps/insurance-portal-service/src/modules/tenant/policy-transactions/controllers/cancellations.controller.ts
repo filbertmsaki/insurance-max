@@ -28,6 +28,7 @@ import { CreatePolicyReplacementDto } from '../dto/create-policy-replacement.dto
 import { PolicyTransactionLifecycleService } from '../services/policy-transaction-lifecycle.service';
 import { PolicyTransactionTiramisSubmissionService } from '../services/policy-transaction-tiramis-submission.service';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
+import { canSelfApprove } from '../../../shared/authorization/maker-checker';
 
 @ApiTags('cancellations')
 @ApiBearerAuth()
@@ -188,7 +189,7 @@ export class CancellationsController {
       id,
       {
         changedBy: user.id,
-        isMakerCheckerExempt: false,
+        isMakerCheckerExempt: canSelfApprove(user),
       },
     );
 

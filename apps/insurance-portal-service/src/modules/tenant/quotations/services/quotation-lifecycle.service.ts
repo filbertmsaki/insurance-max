@@ -39,8 +39,8 @@ export interface QuotationLifecycleContext {
   tiraResponseId?: string | null;
   metadata?: Record<string, unknown> | null;
   /**
-   * Set by the caller when the acting user holds a company-administrator
-   * role (see `hasCompanyAdminRole`), exempting them from the maker-checker
+   * Set by the caller when the acting user holds `approvals:self-approve`
+   * (see `canSelfApprove`), exempting them from the maker-checker
    * rule that blocks approving a quotation they submitted for approval.
    */
   isMakerCheckerExempt?: boolean;
@@ -261,13 +261,12 @@ export class QuotationLifecycleService {
         }
 
         // Maker-checker: whoever submitted the quotation for approval may not
-        // approve it, unless they are a company administrator.
-        if (
-          context.changedBy &&
-          quotation.approval_submitted_by &&
-          context.changedBy === quotation.approval_submitted_by &&
-          !context.isMakerCheckerExempt
-        ) {
+        // approve it, unless they hold `approvals:self-approve`.
+        const isSelfApproval =
+          !!context.changedBy &&
+          !!quotation.approval_submitted_by &&
+          context.changedBy === quotation.approval_submitted_by;
+        if (isSelfApproval && !context.isMakerCheckerExempt) {
           throw new ForbiddenException(
             'The user who submitted a quotation for approval cannot approve it (maker-checker).',
           );
@@ -287,7 +286,12 @@ export class QuotationLifecycleService {
           quotation,
           previous,
           'APPROVE',
-          context,
+          isSelfApproval
+            ? {
+                ...context,
+                metadata: { ...context.metadata, self_approved: true },
+              }
+            : context,
         );
       },
     );

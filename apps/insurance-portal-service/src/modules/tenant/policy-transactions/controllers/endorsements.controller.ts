@@ -22,6 +22,7 @@ import { EndorsementService } from '../services/endorsement.service';
 import { EndorsementReconciliationService } from '../services/endorsement-reconciliation.service';
 import { PolicyTransactionLifecycleService } from '../services/policy-transaction-lifecycle.service';
 import { PolicyTransactionTiramisSubmissionService } from '../services/policy-transaction-tiramis-submission.service';
+import { canSelfApprove } from '../../../shared/authorization/maker-checker';
 
 @ApiTags('endorsements')
 @ApiBearerAuth()
@@ -168,7 +169,7 @@ export class EndorsementsController {
       id,
       {
         changedBy: user.id,
-        isMakerCheckerExempt: false,
+        isMakerCheckerExempt: canSelfApprove(user),
       },
     );
 

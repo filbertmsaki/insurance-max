@@ -81,11 +81,11 @@ describe('PolicyTransactionLifecycleService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('allows a company-admin maker to approve their own transaction when exempted', async () => {
+    it('lets a maker with self-approve rights approve and flags the event', async () => {
       const transaction = makeTransaction({
         approval_status: WorkflowApprovalStatus.PENDING,
       });
-      const { service } = makeHarness(transaction);
+      const { service, eventRepo } = makeHarness(transaction);
 
       const result = await service.approveTransaction('company-1', 'txn-1', {
         changedBy: 'maker-user',
@@ -93,19 +93,25 @@ describe('PolicyTransactionLifecycleService', () => {
       });
 
       expect(result.approval_status).toBe(WorkflowApprovalStatus.APPROVED);
+      expect(eventRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: { self_approved: true } }),
+      );
     });
 
-    it('allows a different checker to approve', async () => {
+    it('allows a different checker to approve without a self-approval flag', async () => {
       const transaction = makeTransaction({
         approval_status: WorkflowApprovalStatus.PENDING,
       });
-      const { service } = makeHarness(transaction);
+      const { service, eventRepo } = makeHarness(transaction);
 
       const result = await service.approveTransaction('company-1', 'txn-1', {
         changedBy: 'checker-user',
       });
 
       expect(result.approval_status).toBe(WorkflowApprovalStatus.APPROVED);
+      expect(eventRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ metadata: null }),
+      );
     });
 
     it('rejects approval from a non-PENDING state', async () => {

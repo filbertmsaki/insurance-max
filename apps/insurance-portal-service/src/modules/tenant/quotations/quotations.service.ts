@@ -155,6 +155,7 @@ import {
 } from './utils/quotation-status-transition.util';
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
 import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
+import { canSelfApprove } from '../../shared/authorization/maker-checker';
 
 type NumericValue = number | string | null | undefined;
 
@@ -2405,7 +2406,7 @@ export class QuotationsService {
       tiraRequestId: dto.tira_request_id?.trim() || undefined,
       tiraResponseId: dto.tira_response_id?.trim() || undefined,
       metadata: dto.metadata ?? undefined,
-      isMakerCheckerExempt: false,
+      isMakerCheckerExempt: canSelfApprove(user),
     };
 
     if (

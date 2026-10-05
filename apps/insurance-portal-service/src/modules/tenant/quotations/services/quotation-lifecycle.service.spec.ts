@@ -250,7 +250,7 @@ describe('QuotationLifecycleService approval maker-checker', () => {
     expect(quotation.approval_decided_by).toBe('checker-1');
   });
 
-  it('exempts company administrators', async () => {
+  it('exempts users with self-approve rights', async () => {
     const quotation = pendingQuotation();
 
     await createService(quotation).approveQuotation(

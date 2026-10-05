@@ -44,6 +44,7 @@ import {
 } from './common/underwrite-line.access';
 import { UnderwriteLineGuard } from './common/underwrite-line.guard';
 import { UnderwriteTransactionsService } from './common/underwrite-transactions.service';
+import { canSelfApprove } from '../../shared/authorization/maker-checker';
 
 const LINE_PARAM = {
   name: 'line',
@@ -292,7 +293,7 @@ export class UnderwriteTransactionsController {
       id,
       {
         changedBy: user.id,
-        isMakerCheckerExempt: false,
+        isMakerCheckerExempt: canSelfApprove(user),
       },
     );
 
@@ -564,7 +565,7 @@ export class UnderwriteTransactionsController {
       id,
       {
         changedBy: user.id,
-        isMakerCheckerExempt: false,
+        isMakerCheckerExempt: canSelfApprove(user),
       },
     );
 
