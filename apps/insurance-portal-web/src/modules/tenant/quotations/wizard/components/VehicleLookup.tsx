@@ -122,7 +122,7 @@ export function VehicleLookup({
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,10rem)_minmax(0,11rem)_minmax(0,1fr)] xl:items-end">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,10rem)_minmax(0,11rem)_minmax(0,1fr)] items-start">
         <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${id}-category`}>Motor category</Label>
           <Select
