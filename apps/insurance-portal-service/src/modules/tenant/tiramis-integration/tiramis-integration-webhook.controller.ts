@@ -164,8 +164,7 @@ export class TiramisIntegrationWebhookController {
     return `{${Object.keys(record)
       .sort()
       .map(
-        (key) =>
-          `${JSON.stringify(key)}:${this.stableStringify(record[key])}`,
+        (key) => `${JSON.stringify(key)}:${this.stableStringify(record[key])}`,
       )
       .join(',')}}`;
   }
