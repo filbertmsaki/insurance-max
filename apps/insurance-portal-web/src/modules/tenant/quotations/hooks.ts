@@ -127,7 +127,7 @@ export function useQuotationsList() {
     ],
   );
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: quotationKeys.list(queryParams),
     queryFn: () => quotationsApi.getList(queryParams),
     placeholderData: (previousData) => previousData,
@@ -138,6 +138,7 @@ export function useQuotationsList() {
     data,
     isLoading,
     error,
+    refetch,
     page,
     limit,
     search: searchInput,

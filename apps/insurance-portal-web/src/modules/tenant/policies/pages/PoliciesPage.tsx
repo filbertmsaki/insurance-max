@@ -23,6 +23,7 @@ import {
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import type { PolicyRecord } from '../types';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { getApiErrorMessage } from '@/lib/api-error';
 
 export function PoliciesPage() {
   const navigate = useNavigate();
@@ -30,6 +31,8 @@ export function PoliciesPage() {
   const {
     data,
     isLoading,
+    error,
+    refetch,
     page,
     limit,
     search,
@@ -165,6 +168,8 @@ export function PoliciesPage() {
         columns={columns}
         data={data?.data ?? []}
         loading={isLoading}
+        error={error ? getApiErrorMessage(error) : undefined}
+        onRetry={() => void refetch()}
         page={page}
         limit={limit}
         total={data?.pagination.total ?? 0}

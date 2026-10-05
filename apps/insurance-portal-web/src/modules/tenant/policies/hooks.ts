@@ -92,7 +92,7 @@ export function usePoliciesList() {
     [page, limit, search, policyStatus, customerId],
   );
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: policyKeys.list(queryParams),
     queryFn: () => policiesApi.getList(queryParams),
     staleTime: 30_000,
@@ -115,6 +115,7 @@ export function usePoliciesList() {
     data,
     isLoading,
     error,
+    refetch,
     page,
     limit,
     search,

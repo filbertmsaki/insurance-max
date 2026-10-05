@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { getApiErrorMessage } from '@/lib/api-error';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import { TiraStatusBadge } from '../components/TiraStatusBadge';
 import { useDeleteQuotation, useQuotationsList } from '../hooks';
@@ -40,6 +41,8 @@ export function QuotationsPage() {
   const {
     data,
     isLoading,
+    error,
+    refetch,
     page,
     limit,
     search,
@@ -274,6 +277,8 @@ export function QuotationsPage() {
         columns={columns}
         data={data?.data ?? []}
         loading={isLoading}
+        error={error ? getApiErrorMessage(error) : undefined}
+        onRetry={() => void refetch()}
         page={page}
         limit={limit}
         total={data?.pagination.total ?? 0}
