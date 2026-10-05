@@ -104,7 +104,7 @@ export class PolicyTransactionsController {
     this.dataAccessScopeService.applyPolicyReadScope(
       query,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, 'policy-transactions:read'),
     );
 
     return query;
@@ -133,7 +133,7 @@ export class PolicyTransactionsController {
     this.dataAccessScopeService.applyPolicyReadScope(
       query,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, 'policy-transactions:read'),
     );
 
     return query;

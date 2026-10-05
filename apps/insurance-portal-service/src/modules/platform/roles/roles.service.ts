@@ -26,6 +26,8 @@ import { AuthorizationVersionService } from '../../shared/authorization/authoriz
 import { CreateRoleDto } from './dtos/create-role.dto';
 import { UpdateRoleDto } from './dtos/update-role.dto';
 import { Role } from './entities/role.entity';
+import { RolePermissionScope } from './entities/role-permission-scope.entity';
+import { QuotationPolicyDataScope } from '../../shared/authorization/quotation-policy-data-scope.enum';
 
 @Injectable()
 export class RolesService {
@@ -46,6 +48,7 @@ export class RolesService {
       .createQueryBuilder('role')
       .leftJoinAndSelect('role.company', 'company')
       .leftJoinAndSelect('role.permissions', 'permission')
+      .leftJoinAndSelect('role.permission_data_scopes', 'permissionScope')
       .distinct(true);
   }
 
@@ -232,6 +235,13 @@ export class RolesService {
 
       const saved = await roleRepository.save(role);
 
+      await this.replacePermissionDataScopes(
+        manager,
+        saved.id,
+        permissions.map((permission) => permission.id),
+        createRoleDto.permission_data_scopes,
+      );
+
       await this.auditService.logCritical(
         {
           userId: actor?.id,
@@ -251,6 +261,7 @@ export class RolesService {
             permission_ids: saved.permissions.map(
               (permission) => permission.id,
             ),
+            permission_data_scopes: createRoleDto.permission_data_scopes ?? [],
           },
         },
         manager,
@@ -354,7 +365,7 @@ export class RolesService {
 
       const role = await roleRepository.findOne({
         where: { id },
-        relations: { permissions: true },
+        relations: { permissions: true, permission_data_scopes: true },
       });
 
       if (!role) {
@@ -383,6 +394,9 @@ export class RolesService {
         scope: role.scope,
         company_id: role.company_id,
         permission_ids: role.permissions.map((permission) => permission.id),
+        permission_data_scopes: (role.permission_data_scopes ?? []).map(
+          ({ permission_id, data_scope }) => ({ permission_id, data_scope }),
+        ),
       };
 
       if (
@@ -435,6 +449,32 @@ export class RolesService {
         );
       }
 
+      if (updateRoleDto.permission_data_scopes !== undefined) {
+        await this.replacePermissionDataScopes(
+          manager,
+          role.id,
+          (role.permissions ?? []).map((permission) => permission.id),
+          updateRoleDto.permission_data_scopes,
+        );
+      } else if (updateRoleDto.permission_ids !== undefined) {
+        const currentIds = (role.permissions ?? []).map(
+          (permission) => permission.id,
+        );
+        const scopeRepository = manager.getRepository(RolePermissionScope);
+        if (currentIds.length) {
+          await scopeRepository
+            .createQueryBuilder()
+            .delete()
+            .where('role_id = :roleId', { roleId: role.id })
+            .andWhere('permission_id NOT IN (:...permissionIds)', {
+              permissionIds: currentIds,
+            })
+            .execute();
+        } else {
+          await scopeRepository.delete({ role_id: role.id });
+        }
+      }
+
       role.name = updateRoleDto.name ?? role.name;
       role.display_name = updateRoleDto.display_name ?? role.display_name;
       role.description =
@@ -459,6 +499,12 @@ export class RolesService {
 
       const saved = await roleRepository.save(role);
 
+      const savedScopes = await manager
+        .getRepository(RolePermissionScope)
+        .find({
+          where: { role_id: saved.id },
+        });
+
       await this.authorizationVersionService.bumpForRole(saved.id, manager);
 
       await this.auditService.logCritical(
@@ -481,6 +527,12 @@ export class RolesService {
             permission_ids: saved.permissions.map(
               (permission) => permission.id,
             ),
+            permission_data_scopes: savedScopes.map(
+              ({ permission_id, data_scope }) => ({
+                permission_id,
+                data_scope,
+              }),
+            ),
           },
         },
         manager,
@@ -488,6 +540,45 @@ export class RolesService {
 
       return saved;
     });
+  }
+
+  private async replacePermissionDataScopes(
+    manager: EntityManager,
+    roleId: string,
+    permissionIds: string[],
+    assignments: Array<{
+      permission_id: string;
+      data_scope: QuotationPolicyDataScope;
+    }> = [],
+  ): Promise<void> {
+    const permissionSet = new Set(permissionIds);
+    const configuredIds = assignments.map(
+      (assignment) => assignment.permission_id,
+    );
+    if (
+      new Set(configuredIds).size !== configuredIds.length ||
+      configuredIds.some((id) => !permissionSet.has(id))
+    ) {
+      throw new BadRequestException(
+        'Permission scopes must be unique and reference permissions assigned to this role.',
+      );
+    }
+
+    const repository = manager.getRepository(RolePermissionScope);
+    await repository.delete({ role_id: roleId });
+    if (assignments.length) {
+      await repository.save(
+        assignments.map((assignment) =>
+          repository.create({
+            role_id: roleId,
+            permission_id: assignment.permission_id,
+            data_scope: assignment.data_scope,
+            scope_branch_id: null,
+            scope_department_id: null,
+          }),
+        ),
+      );
+    }
   }
 
   /**

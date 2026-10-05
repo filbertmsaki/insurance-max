@@ -171,20 +171,32 @@ export function PolicyCancellationPage() {
     value: string | number | null | undefined,
     currency = policy?.currency ?? '',
   ) => (value == null ? '—' : formatMoney(value, currency));
-  const handleCreate = () => {
-    createCancellation.mutate(
-      {
+  // Create and submit in one step. Submission can still be blocked (e.g. a
+  // pending claims review); the draft is kept and the detail page shows why.
+  const submitNew = useMutation({
+    mutationFn: async () => {
+      const created = await createCancellation.mutateAsync({
         effective_date: effectiveDate,
         reason_type: reasonType,
         reason,
         idempotency_key: createBrowserSafeId(),
-      },
-      {
-        onSuccess: (created) =>
-          navigate(paths.policyCancellationDetail(policyId!, created.id)),
-      },
-    );
-  };
+      });
+      if (canCompleteCancellation) {
+        try {
+          await api.completeCancellation(created.id);
+          toast.success('Cancellation submitted');
+        } catch (e) {
+          toast.warning(
+            `Cancellation saved as draft: ${getApiErrorMessage(e)}`,
+          );
+        }
+      }
+      return created;
+    },
+    onSuccess: (created) =>
+      navigate(paths.policyCancellationDetail(policyId!, created.id)),
+  });
+  const handleCreate = () => submitNew.mutate();
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -339,16 +351,16 @@ export function PolicyCancellationPage() {
                       <Button
                         variant="destructive"
                         disabled={
-                          createCancellation.isPending ||
+                          submitNew.isPending ||
                           !reason.trim() ||
                           !effectiveDate ||
                           !policy
                         }
                         onClick={handleCreate}
                       >
-                        {createCancellation.isPending
-                          ? 'Creating request…'
-                          : 'Create cancellation'}
+                        {submitNew.isPending
+                          ? 'Submitting cancellation…'
+                          : 'Submit cancellation'}
                       </Button>
                     </div>
                   </div>

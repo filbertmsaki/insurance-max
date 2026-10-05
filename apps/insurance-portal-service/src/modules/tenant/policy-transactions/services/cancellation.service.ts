@@ -71,7 +71,7 @@ export class CancellationService {
     this.dataAccessScopeService.applyPolicyReadScope(
       policyQuery,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, 'cancellations:create'),
     );
     const policy = await policyQuery.getOne();
 
@@ -686,8 +686,19 @@ export class CancellationService {
    * Guards cancellation commands: the transaction must be a cancellation
    * within the user's policy read scope.
    */
-  async assertAccessible(user: AuthenticatedUser, id: string) {
-    await this.findOne(user, id);
+  async assertAccessible(
+    user: AuthenticatedUser,
+    id: string,
+    permission = 'cancellations:read',
+  ) {
+    const query = this.createScopedTransactionQuery(
+      this.dataSource.manager,
+      user,
+      permission,
+    ).andWhere('transaction.id = :id', { id });
+    if (!(await query.getOne())) {
+      throw new BadRequestException('Cancellation not found');
+    }
   }
 
   async findContext(user: AuthenticatedUser, id: string) {
@@ -712,6 +723,7 @@ export class CancellationService {
   private createScopedTransactionQuery(
     manager: EntityManager,
     user: AuthenticatedUser,
+    permission = 'cancellations:read',
   ) {
     const query = manager
       .getRepository(PolicyTransaction)
@@ -727,7 +739,7 @@ export class CancellationService {
     this.dataAccessScopeService.applyPolicyReadScope(
       query,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, permission),
     );
 
     return query;

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Permission } from '../permissions/entities/permission.entity';
 import { Role } from '../roles/entities/role.entity';
+import { RolePermissionScope } from '../roles/entities/role-permission-scope.entity';
 import { User } from '../../tenant/users/entities/user.entity';
 import { Company } from './entities/company.entity';
 import { CompanyUser } from './entities/company-user.entity';
@@ -26,6 +27,7 @@ import { CompanyConfigsModule } from '../company-configs/company-configs.module'
       CompanyUserPermission,
       User,
       Role,
+      RolePermissionScope,
       Permission,
       Branch,
       BranchUser,

@@ -11,10 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import {
-  TenantScoped,
-  hasCompanyAdminRole,
-} from '@insurance-max/portal-shared';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   WorkflowApprovalStatus,
@@ -129,7 +126,11 @@ export class CancellationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ClaimsReviewDto,
   ) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:claims-review',
+    );
     return this.cancellationService.completeClaimsReview(
       user,
       id,
@@ -160,7 +161,11 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:complete',
+    );
     return this.lifecycleService.submitForApproval(user.companyId!, id, {
       changedBy: user.id,
     });
@@ -173,13 +178,17 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:approve',
+    );
     const transaction = await this.lifecycleService.approveTransaction(
       user.companyId!,
       id,
       {
         changedBy: user.id,
-        isMakerCheckerExempt: hasCompanyAdminRole(user),
+        isMakerCheckerExempt: false,
       },
     );
 
@@ -197,7 +206,11 @@ export class CancellationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReasonDto,
   ) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:approve',
+    );
     return this.lifecycleService.rejectApproval(user.companyId!, id, {
       changedBy: user.id,
       reason: dto.reason,
@@ -212,7 +225,11 @@ export class CancellationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReasonDto,
   ) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:approve',
+    );
     return this.lifecycleService.requestChanges(user.companyId!, id, {
       changedBy: user.id,
       reason: dto.reason,
@@ -228,7 +245,11 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:request-payment',
+    );
     return this.cancellationService.requestPayment(user, id);
   }
 
@@ -242,7 +263,11 @@ export class CancellationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:submit-tiramis',
+    );
     return this.submissionService.submitCancellation(user, id);
   }
 
@@ -254,7 +279,11 @@ export class CancellationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReasonDto,
   ) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:cancel',
+    );
     return this.lifecycleService.cancelTransaction(user.companyId!, id, {
       changedBy: user.id,
       reason: dto.reason,
@@ -262,7 +291,11 @@ export class CancellationsController {
   }
 
   private async completeAndAdvance(user: AuthenticatedUser, id: string) {
-    await this.cancellationService.assertAccessible(user, id);
+    await this.cancellationService.assertAccessible(
+      user,
+      id,
+      'cancellations:complete',
+    );
     let transaction = await this.cancellationService.complete(user, id);
 
     if (

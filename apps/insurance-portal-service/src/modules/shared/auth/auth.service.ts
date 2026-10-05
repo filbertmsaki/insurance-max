@@ -513,6 +513,7 @@ export class AuthService {
           activeDepartmentName: companyContext.activeDepartmentName,
           assignedDepartmentIds: companyContext.assignedDepartmentIds,
           quotationPolicyDataScope: companyContext.quotationPolicyDataScope,
+          permissionDataScopes: companyContext.permissionDataScopes,
           authorizationVersion: companyContext.authorizationVersion,
         },
         companies: await this.companiesService.listUserCompanies(user.id),

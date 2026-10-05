@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Eye, Pencil, Trash2, RotateCcw } from 'lucide-react';
+import { Search, Eye, Pencil, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,7 +16,6 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatMoney } from '@/components/shared/detailFormat';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import {
-  useDeletePolicy,
   usePoliciesList,
   usePolicyCustomers,
   useRestorePolicy,
@@ -42,9 +41,7 @@ export function PoliciesPage() {
     setPage,
     setLimit,
   } = usePoliciesList();
-  const deleteMutation = useDeletePolicy();
   const restoreMutation = useRestorePolicy();
-  const [deleteItem, setDeleteItem] = useState<PolicyRecord | null>(null);
   const [restoreItem, setRestoreItem] = useState<PolicyRecord | null>(null);
 
   const columns: Column<PolicyRecord>[] = [
@@ -98,13 +95,6 @@ export function PoliciesPage() {
                 onClick={() => navigate(underwritingPaths.policyEdit(row.id))}
               >
                 <Pencil className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setDeleteItem(row)}
-              >
-                <Trash2 className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -183,20 +173,6 @@ export function PoliciesPage() {
         onLimitChange={setLimit}
       />
 
-      <ConfirmDialog
-        open={!!deleteItem}
-        onOpenChange={(open) => !open && setDeleteItem(null)}
-        title="Delete Policy"
-        description="This will soft-delete the policy."
-        confirmLabel="Delete"
-        loading={deleteMutation.isPending}
-        onConfirm={() =>
-          deleteItem &&
-          deleteMutation.mutate(deleteItem.id, {
-            onSuccess: () => setDeleteItem(null),
-          })
-        }
-      />
       <ConfirmDialog
         open={!!restoreItem}
         onOpenChange={(open) => !open && setRestoreItem(null)}

@@ -34,6 +34,7 @@ import { PolicyRenewal } from '../entities/policy-renewal.entity';
 import { RenewalEligibilityService } from './renewal-eligibility.service';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { RenewalQuotationFactoryService } from './renewal-quotation-factory.service';
+import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 
 const ACTIVE_RENEWAL_STAGES = [
   RenewalLifecycleStatus.ELIGIBLE,
@@ -93,15 +94,15 @@ export class RenewalService {
     private readonly configService: ConfigService,
     private readonly quotationFactory: RenewalQuotationFactoryService,
     private readonly hashService: ProductDefinitionHashService,
+    private readonly dataAccessScopeService: DataAccessScopeService,
   ) {}
 
   async getEligibility(user: AuthenticatedUser, policyId: string) {
-    const policy = await this.policyRepository.findOne({
-      where: {
-        id: policyId,
-        company_id: user.companyId!,
-      },
-    });
+    const policy = await this.findPolicyInUserScope(
+      user,
+      policyId,
+      'renewals:create',
+    );
 
     if (!policy) {
       throw new BadRequestException('Policy not found');
@@ -198,7 +199,14 @@ export class RenewalService {
     companyId: string,
     policyId: string,
     actorId: string | null = null,
+    actor?: AuthenticatedUser,
   ) {
+    if (
+      actor &&
+      !(await this.findPolicyInUserScope(actor, policyId, 'renewals:create'))
+    ) {
+      throw new BadRequestException('Policy not found');
+    }
     const policy = await this.policyRepository.findOne({
       where: { id: policyId, company_id: companyId },
     });
@@ -297,6 +305,11 @@ export class RenewalService {
   }
 
   async createRenewalOffer(user: AuthenticatedUser, renewalId: string) {
+    await this.assertRenewalInUserScope(
+      user,
+      renewalId,
+      'renewals:create-offer',
+    );
     const renewal = await this.requireRenewal(user.companyId!, renewalId);
 
     if (renewal.renewal_quotation_id) {
@@ -373,6 +386,11 @@ export class RenewalService {
     renewalId: string,
     quotationId: string,
   ) {
+    await this.assertRenewalInUserScope(
+      user,
+      renewalId,
+      'renewals:create-offer',
+    );
     const renewal = await this.renewalRepository.findOne({
       where: { id: renewalId, company_id: user.companyId! },
     });
@@ -381,9 +399,19 @@ export class RenewalService {
       throw new BadRequestException('Renewal not found');
     }
 
-    const quotation = await this.dataSource.getRepository(Quotation).findOne({
-      where: { id: quotationId, company_id: user.companyId! },
-    });
+    const quotationQuery = this.dataSource
+      .getRepository(Quotation)
+      .createQueryBuilder('quotation')
+      .where('quotation.id = :quotationId', { quotationId })
+      .andWhere('quotation.company_id = :companyId', {
+        companyId: user.companyId!,
+      });
+    this.dataAccessScopeService.applyQuotationReadScope(
+      quotationQuery,
+      'quotation',
+      this.dataAccessScopeService.resolve(user, 'quotations:update'),
+    );
+    const quotation = await quotationQuery.getOne();
 
     if (!quotation) {
       throw new BadRequestException('Quotation not found');
@@ -396,6 +424,7 @@ export class RenewalService {
   }
 
   async sendOffer(user: AuthenticatedUser, renewalId: string) {
+    await this.assertRenewalInUserScope(user, renewalId, 'renewals:send-offer');
     const renewal = await this.requireRenewal(user.companyId!, renewalId);
     this.assertRenewalStatus(renewal, SENDABLE_RENEWAL_STATUSES, 'sent');
 
@@ -419,6 +448,7 @@ export class RenewalService {
   }
 
   async accept(user: AuthenticatedUser, renewalId: string) {
+    await this.assertRenewalInUserScope(user, renewalId, 'renewals:accept');
     const renewal = await this.requireRenewal(user.companyId!, renewalId);
     this.assertRenewalStatus(renewal, ACCEPTABLE_RENEWAL_STATUSES, 'accepted');
 
@@ -463,6 +493,7 @@ export class RenewalService {
   }
 
   async decline(user: AuthenticatedUser, renewalId: string, reason: string) {
+    await this.assertRenewalInUserScope(user, renewalId, 'renewals:decline');
     const renewal = await this.requireRenewal(user.companyId!, renewalId);
 
     if (NON_DECLINABLE_RENEWAL_STATUSES.includes(renewal.renewal_status)) {
@@ -693,26 +724,39 @@ export class RenewalService {
     }
   }
 
-  findAll(companyId: string, policyId?: string) {
+  findAll(companyId: string, policyId?: string, user?: AuthenticatedUser) {
     const query = this.renewalRepository
       .createQueryBuilder('renewal')
+      .innerJoin(
+        PolicyTransaction,
+        'transaction',
+        'transaction.id = renewal.policy_transaction_id',
+      )
+      .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
       .where('renewal.company_id = :companyId', { companyId })
       .orderBy('renewal.created_at', 'DESC');
 
+    if (user)
+      this.dataAccessScopeService.applyPolicyReadScope(
+        query,
+        'policy',
+        this.dataAccessScopeService.resolve(user, 'renewals:read'),
+      );
+
     if (policyId) {
-      query
-        .innerJoin(
-          PolicyTransaction,
-          'transaction',
-          'transaction.id = renewal.policy_transaction_id',
-        )
-        .andWhere('transaction.source_policy_id = :policyId', { policyId });
+      query.andWhere('transaction.source_policy_id = :policyId', { policyId });
     }
 
     return query.getMany();
   }
 
-  async findContext(companyId: string, renewalId: string) {
+  async findContext(
+    companyId: string,
+    renewalId: string,
+    user?: AuthenticatedUser,
+  ) {
+    if (user)
+      await this.assertRenewalInUserScope(user, renewalId, 'renewals:read');
     const renewal = await this.requireRenewal(companyId, renewalId);
     const transaction = await this.transactionRepository.findOne({
       where: { id: renewal.policy_transaction_id, company_id: companyId },
@@ -842,5 +886,50 @@ export class RenewalService {
     }
 
     return renewal;
+  }
+
+  private async findPolicyInUserScope(
+    user: AuthenticatedUser,
+    policyId: string,
+    permission: string,
+  ): Promise<Policy | null> {
+    const query = this.policyRepository
+      .createQueryBuilder('policy')
+      .where('policy.id = :policyId', { policyId })
+      .andWhere('policy.company_id = :companyId', {
+        companyId: user.companyId!,
+      });
+    this.dataAccessScopeService.applyPolicyReadScope(
+      query,
+      'policy',
+      this.dataAccessScopeService.resolve(user, permission),
+    );
+    return query.getOne();
+  }
+
+  private async assertRenewalInUserScope(
+    user: AuthenticatedUser,
+    renewalId: string,
+    permission: string,
+  ): Promise<void> {
+    const query = this.renewalRepository
+      .createQueryBuilder('renewal')
+      .innerJoin(
+        PolicyTransaction,
+        'transaction',
+        'transaction.id = renewal.policy_transaction_id',
+      )
+      .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .where('renewal.id = :renewalId', { renewalId })
+      .andWhere('renewal.company_id = :companyId', {
+        companyId: user.companyId!,
+      });
+    this.dataAccessScopeService.applyPolicyReadScope(
+      query,
+      'policy',
+      this.dataAccessScopeService.resolve(user, permission),
+    );
+    if (!(await query.getOne()))
+      throw new BadRequestException('Renewal not found');
   }
 }

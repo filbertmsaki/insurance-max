@@ -772,12 +772,54 @@ export class CompaniesService {
       membership.company_id,
       branchContext.activeBranchId ?? null,
     );
+    const permissionScopeRows: Array<{
+      permission_name: string;
+      data_scope: QuotationPolicyDataScope;
+      scope_branch_id: string | null;
+      scope_department_id: string | null;
+      source: 'ROLE' | 'DIRECT';
+    }> = await (manager ?? this.dataSource.manager).query(
+      `
+        SELECT permission.name AS permission_name,
+          COALESCE(scope.data_scope, membership.quotation_policy_data_scope) AS data_scope,
+          scope.scope_branch_id,
+          scope.scope_department_id,
+          'ROLE'::varchar AS source
+        FROM company_user_roles assignment
+        INNER JOIN company_users membership ON membership.id = assignment.company_user_id
+        INNER JOIN permission_role role_permission ON role_permission.roles_id = assignment.role_id
+        INNER JOIN permissions permission ON permission.id = role_permission.permissions_id
+        LEFT JOIN role_permission_scopes scope
+          ON scope.role_id = assignment.role_id AND scope.permission_id = permission.id
+        WHERE membership.id = $1
+        UNION ALL
+        SELECT permission.name AS permission_name,
+          COALESCE(direct.data_scope, membership.quotation_policy_data_scope) AS data_scope,
+          direct.scope_branch_id,
+          direct.scope_department_id,
+          'DIRECT'::varchar AS source
+        FROM company_user_permissions direct
+        INNER JOIN company_users membership ON membership.id = direct.company_user_id
+        INNER JOIN permissions permission ON permission.id = direct.permission_id
+        WHERE membership.id = $1
+      `,
+      [membership.id],
+    );
+
+    const permissionDataScopes = permissionScopeRows.map((assignment) => ({
+      permission: assignment.permission_name,
+      dataScope: assignment.data_scope,
+      branchId: assignment.scope_branch_id,
+      departmentId: assignment.scope_department_id,
+      source: assignment.source,
+    }));
 
     return {
       ...this.mapMembershipSummary(membership),
       status: membership.status,
       ...branchContext,
       ...departmentContext,
+      permissionDataScopes,
     };
   }
 
@@ -1349,6 +1391,11 @@ export class CompaniesService {
     companyId: string,
     userId: string,
     permissionId: string,
+    scope: {
+      dataScope: QuotationPolicyDataScope;
+      branchId?: string | null;
+      departmentId?: string | null;
+    },
     actor?: AuthenticatedUser,
   ): Promise<CompanyMembershipContext> {
     await this.dataSource.transaction(async (manager) => {
@@ -1383,6 +1430,80 @@ export class CompaniesService {
         });
       }
 
+      if (
+        actor &&
+        !actor.permissions?.includes(permission.name) &&
+        !actor.roles?.some(
+          (name) =>
+            [
+              'COMPANY_ADMIN',
+              'COMPANY_ADMINISTRATOR',
+              'ADMINISTRATOR',
+            ].includes(name) || name.endsWith('_ADMIN'),
+        )
+      ) {
+        throw new ForbiddenException({
+          code: 'CANNOT_DELEGATE_UNHELD_PERMISSION',
+          message:
+            'You may only grant permissions you hold or administer as a company administrator.',
+        });
+      }
+
+      if (scope.dataScope === QuotationPolicyDataScope.BRANCH) {
+        if (scope.departmentId) {
+          throw new BadRequestException(
+            'A branch-scoped grant cannot target a department.',
+          );
+        }
+        if (scope.branchId) {
+          const targetBranch = await manager.getRepository(Branch).findOne({
+            where: {
+              id: scope.branchId,
+              company_id: companyId,
+              status: 'active',
+            },
+            select: { id: true },
+          });
+          const assigned = await manager.getRepository(BranchUser).exist({
+            where: {
+              branch_id: scope.branchId,
+              company_user_id: membership.id,
+            },
+          });
+          if (!targetBranch || !assigned) {
+            throw new BadRequestException(
+              'The target branch must be active and assigned to this company membership.',
+            );
+          }
+        }
+      } else if (scope.dataScope === QuotationPolicyDataScope.DEPARTMENT) {
+        if (scope.branchId) {
+          throw new BadRequestException(
+            'A department-scoped grant cannot target a branch.',
+          );
+        }
+        if (scope.departmentId) {
+          const targetDepartment = await manager
+            .getRepository(DepartmentUser)
+            .findOne({
+              where: {
+                company_id: companyId,
+                company_user_id: membership.id,
+                department_id: scope.departmentId,
+              },
+            });
+          if (!targetDepartment) {
+            throw new BadRequestException(
+              'The target department must belong to and be assigned within this company.',
+            );
+          }
+        }
+      } else if (scope.branchId || scope.departmentId) {
+        throw new BadRequestException(
+          'USER and COMPANY scoped grants cannot have branch or department targets.',
+        );
+      }
+
       const existingAssignment = await assignmentRepository.findOne({
         where: {
           company_user_id: membership.id,
@@ -1395,8 +1516,16 @@ export class CompaniesService {
           assignmentRepository.create({
             company_user_id: membership.id,
             permission_id: permissionId,
+            data_scope: scope.dataScope,
+            scope_branch_id: scope.branchId ?? null,
+            scope_department_id: scope.departmentId ?? null,
           }),
         );
+      } else {
+        existingAssignment.data_scope = scope.dataScope;
+        existingAssignment.scope_branch_id = scope.branchId ?? null;
+        existingAssignment.scope_department_id = scope.departmentId ?? null;
+        await assignmentRepository.save(existingAssignment);
       }
 
       await this.authorizationVersionService.bumpMembership(
@@ -1414,8 +1543,14 @@ export class CompaniesService {
           eventCategory: 'authorization',
           resource: 'company_user_permission',
           resourceId: membership.id,
-          metadata: { userId, permissionId },
-          afterState: { permission_id: permissionId, user_id: userId },
+          metadata: { userId, permissionId, scope },
+          afterState: {
+            permission_id: permissionId,
+            user_id: userId,
+            data_scope: scope.dataScope,
+            scope_branch_id: scope.branchId ?? null,
+            scope_department_id: scope.departmentId ?? null,
+          },
         },
         manager,
       );

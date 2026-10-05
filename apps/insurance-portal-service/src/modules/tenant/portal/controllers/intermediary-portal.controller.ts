@@ -206,7 +206,11 @@ export class IntermediaryPortalController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     await this.businessService.assertQuotation(account, id);
-    await this.quotationsService.removeDraft(account.company_id, id);
+    await this.quotationsService.removeDraft(
+      account.company_id,
+      id,
+      account.user_id,
+    );
 
     return { message: 'Quotation draft deleted successfully' };
   }

@@ -28,6 +28,7 @@ import { UserAdminDetailDto } from './dtos/user-admin-detail.dto';
 import { User } from './entities/user.entity';
 import { Permission } from '../../platform/permissions/entities/permission.entity';
 import { SELECT_INSURANCE_CHANNEL_PERMISSION } from '../quotations/authorization/insurance-channel-permission';
+import { QuotationPolicyDataScope } from '../../shared/authorization/quotation-policy-data-scope.enum';
 
 @Injectable()
 export class UsersService {
@@ -633,6 +634,7 @@ export class UsersService {
         companyId,
         id,
         permission.id,
+        { dataScope: QuotationPolicyDataScope.USER },
         actor,
       );
     } else {

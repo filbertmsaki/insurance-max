@@ -8,6 +8,10 @@ export interface CreateRoleDto {
   company_id?: string | null;
   permission_ids?: string[];
   is_system_generated?: boolean;
+  permission_data_scopes?: Array<{
+    permission_id: string;
+    data_scope: 'USER' | 'DEPARTMENT' | 'BRANCH' | 'COMPANY';
+  }>;
 }
 
 export type UpdateRoleDto = Partial<CreateRoleDto>;

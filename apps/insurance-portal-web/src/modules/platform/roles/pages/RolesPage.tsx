@@ -152,17 +152,29 @@ function ViewPermissionsDialog({
                   {group}
                 </p>
                 <div className="space-y-1">
-                  {perms.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center justify-between rounded-md px-3 py-1.5 bg-slate-50 border border-slate-100"
-                    >
-                      <span className="text-sm font-medium text-slate-700">
-                        {p.display_name}
-                      </span>
-                      <code className="text-xs text-slate-400">{p.name}</code>
-                    </div>
-                  ))}
+                  {perms.map((p) =>
+                    (() => {
+                      const scope = role.permission_data_scopes?.find(
+                        (item) => item.permission_id === p.id,
+                      )?.data_scope;
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between rounded-md px-3 py-1.5 bg-slate-50 border border-slate-100"
+                        >
+                          <span className="text-sm font-medium text-slate-700">
+                            {p.display_name}
+                          </span>
+                          <code className="text-xs text-slate-400">
+                            {p.name}
+                          </code>
+                          <Badge variant="outline" className="text-[10px]">
+                            {scope ?? 'Membership scope'}
+                          </Badge>
+                        </div>
+                      );
+                    })(),
+                  )}
                 </div>
               </div>
             ))}
@@ -188,7 +200,11 @@ interface RoleFormDialogProps {
   allPermissions: Permission[];
   isOwner: boolean;
   userCompanyId: string | null;
-  onSubmit: (values: FormValues, selectedPerms: string[]) => void;
+  onSubmit: (
+    values: FormValues,
+    selectedPerms: string[],
+    permissionDataScopes: NonNullable<Role['permission_data_scopes']>,
+  ) => void;
   isPending: boolean;
 }
 
@@ -202,6 +218,9 @@ function RoleFormDialog({
   isPending,
 }: RoleFormDialogProps) {
   const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
+  const [permissionScopes, setPermissionScopes] = useState<
+    Record<string, 'USER' | 'DEPARTMENT' | 'BRANCH' | 'COMPANY'>
+  >({});
   const [permSearch, setPermSearch] = useState('');
 
   const form = useForm<FormValues>({
@@ -233,6 +252,14 @@ function RoleFormDialog({
         is_system_generated: editRole?.is_system_generated ?? false,
       });
       setSelectedPerms(editRole?.permissions?.map((p) => p.id) ?? []);
+      setPermissionScopes(
+        Object.fromEntries(
+          (editRole?.permission_data_scopes ?? []).map((item) => [
+            item.permission_id,
+            item.data_scope,
+          ]),
+        ),
+      );
       setPermSearch('');
     }
   }
@@ -269,7 +296,16 @@ function RoleFormDialog({
   };
 
   const handleSubmit = (values: FormValues) => {
-    onSubmit(values, selectedPerms);
+    onSubmit(
+      values,
+      selectedPerms,
+      selectedPerms
+        .filter((permission_id) => permissionScopes[permission_id])
+        .map((permission_id) => ({
+          permission_id,
+          data_scope: permissionScopes[permission_id],
+        })),
+    );
   };
 
   const isSystemRole = editRole?.is_system_generated;
@@ -453,7 +489,7 @@ function RoleFormDialog({
                         </div>
                         <div className="divide-y divide-slate-50">
                           {perms.map((p) => (
-                            <label
+                            <div
                               key={p.id}
                               className="flex items-center gap-2.5 px-4 py-2 cursor-pointer hover:bg-slate-50 transition-colors"
                             >
@@ -470,7 +506,30 @@ function RoleFormDialog({
                               <code className="text-xs text-slate-400">
                                 {p.name}
                               </code>
-                            </label>
+                              {selectedPerms.includes(p.id) && (
+                                <select
+                                  aria-label={`${p.display_name} data scope`}
+                                  className="h-8 rounded border border-slate-200 bg-white px-2 text-xs"
+                                  value={permissionScopes[p.id] ?? ''}
+                                  onChange={(event) =>
+                                    setPermissionScopes((current) => ({
+                                      ...current,
+                                      [p.id]: event.target.value as
+                                        | 'USER'
+                                        | 'DEPARTMENT'
+                                        | 'BRANCH'
+                                        | 'COMPANY',
+                                    }))
+                                  }
+                                >
+                                  <option value="">Membership scope</option>
+                                  <option value="USER">User</option>
+                                  <option value="DEPARTMENT">Department</option>
+                                  <option value="BRANCH">Branch</option>
+                                  <option value="COMPANY">Company</option>
+                                </select>
+                              )}
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -561,9 +620,11 @@ export function RolesPage() {
     mutationFn: ({
       values,
       permIds,
+      permissionDataScopes,
     }: {
       values: FormValues;
       permIds: string[];
+      permissionDataScopes: NonNullable<Role['permission_data_scopes']>;
     }) =>
       rolesApi.createRole({
         name: values.name,
@@ -577,6 +638,7 @@ export function RolesPage() {
             ? null
             : userCompanyId,
         permission_ids: permIds,
+        permission_data_scopes: permissionDataScopes,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
@@ -594,14 +656,17 @@ export function RolesPage() {
     mutationFn: ({
       values,
       permIds,
+      permissionDataScopes,
     }: {
       values: FormValues;
       permIds: string[];
+      permissionDataScopes: NonNullable<Role['permission_data_scopes']>;
     }) =>
       rolesApi.updateRole(editRole!.id, {
         display_name: values.display_name,
         description: values.description,
         permission_ids: permIds,
+        permission_data_scopes: permissionDataScopes,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
@@ -629,11 +694,15 @@ export function RolesPage() {
     },
   });
 
-  const handleFormSubmit = (values: FormValues, permIds: string[]) => {
+  const handleFormSubmit = (
+    values: FormValues,
+    permIds: string[],
+    permissionDataScopes: NonNullable<Role['permission_data_scopes']>,
+  ) => {
     if (editRole) {
-      updateMutation.mutate({ values, permIds });
+      updateMutation.mutate({ values, permIds, permissionDataScopes });
     } else {
-      createMutation.mutate({ values, permIds });
+      createMutation.mutate({ values, permIds, permissionDataScopes });
     }
   };
 

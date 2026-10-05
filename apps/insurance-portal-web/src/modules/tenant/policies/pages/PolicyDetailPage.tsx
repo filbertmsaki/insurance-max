@@ -22,7 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import {
   ActionMenu,
@@ -44,7 +43,6 @@ import {
 } from '@/components/shared/detailFormat';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import {
-  useDeletePolicy,
   useCancellationEligibility,
   useEndorsementEligibility,
   usePendingPolicyTransaction,
@@ -355,7 +353,6 @@ export function PolicyDetailPage() {
   const canSubmitEndorsement = hasPermission('endorsements:submit-tiramis');
   const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
   const { data: policy, isLoading } = usePolicyDetail(id);
-  const deleteMutation = useDeletePolicy();
   const { data: endorsements = [], isLoading: endorsementsLoading } =
     usePolicyEndorsements(policy?.id, canViewEndorsements);
   const { data: eligibility } = useEndorsementEligibility(
@@ -394,7 +391,6 @@ export function PolicyDetailPage() {
   const { data: currentVersion, isLoading: currentVersionLoading } =
     usePolicyCurrentVersion(policy?.id);
   const { data: versions = [] } = usePolicyVersions(policy?.id);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [nonMotorOpen, setNonMotorOpen] = useState(false);
   const contractEntries = Array.isArray(
     currentVersion?.policy_snapshot?.['entries'],
@@ -733,11 +729,6 @@ export function PolicyDetailPage() {
             label: 'Edit',
             separatorBefore: true,
             onClick: () => navigate(underwritingPaths.policyEdit(policy.id)),
-          },
-          {
-            label: 'Delete',
-            destructive: true,
-            onClick: () => setDeleteOpen(true),
           },
         ]
       : []),
@@ -1480,19 +1471,6 @@ export function PolicyDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        title="Delete Policy"
-        description="This will soft-delete the policy."
-        confirmLabel="Delete"
-        loading={deleteMutation.isPending}
-        onConfirm={() =>
-          deleteMutation.mutate(policy.id, {
-            onSuccess: () => navigate(paths.policies),
-          })
-        }
-      />
     </div>
   );
 }

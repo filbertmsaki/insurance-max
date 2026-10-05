@@ -15,6 +15,7 @@ import {
 } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
+import { AuditService } from '../../shared/audit/audit.service';
 import { Branch } from '../branches/entities/branch.entity';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
@@ -115,6 +116,7 @@ export class PoliciesService {
     private readonly quotationLifecycleService: QuotationLifecycleService,
     private readonly insuranceChannelPermissionService: InsuranceChannelPermissionService,
     private readonly policyVersionDiffService: PolicyVersionDiffService,
+    private readonly auditService: AuditService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -263,7 +265,10 @@ export class PoliciesService {
     writeAccess = false,
     withDeleted = false,
   ): Promise<Policy> {
-    const scope = this.dataAccessScopeService.resolve(user);
+    const scope = this.dataAccessScopeService.resolve(
+      user,
+      writeAccess ? 'policies:update' : 'policies:read',
+    );
 
     const queryBuilder = this.policyRepository
       .createQueryBuilder('policy')
@@ -612,7 +617,7 @@ export class PoliciesService {
     user: AuthenticatedUser,
     dto: CreatePolicyDto,
   ): Promise<Policy> {
-    const scope = this.dataAccessScopeService.resolve(user);
+    const scope = this.dataAccessScopeService.resolve(user, 'policies:update');
 
     if (dto.branch_id) {
       this.dataAccessScopeService.assertRequestedBranchAllowed(
@@ -701,7 +706,7 @@ export class PoliciesService {
   }
 
   async findAllForUser(user: AuthenticatedUser, query: FilterPolicyDto) {
-    const scope = this.dataAccessScopeService.resolve(user);
+    const scope = this.dataAccessScopeService.resolve(user, 'policies:read');
     const {
       page = 1,
       limit = 20,
@@ -1042,22 +1047,34 @@ export class PoliciesService {
     return this.update(user.companyId!, id, dto, user.id, user);
   }
 
-  async remove(companyId: string, id: string): Promise<void> {
+  async remove(
+    companyId: string,
+    id: string,
+    actor?: AuthenticatedUser,
+  ): Promise<void> {
     const policy = await this.ensurePolicyOwnership(companyId, id);
-    this.assertGenericMutationAllowed(policy);
-
-    await this.dataSource.transaction(async (manager) => {
-      await manager
-        .getRepository(PolicyRisk)
-        .softDelete({ policy_id: policy.id });
-      await manager
-        .getRepository(PolicyPremiumBreakdown)
-        .softDelete({ policy_id: policy.id });
-      await manager
-        .getRepository(PolicyStatusHistory)
-        .softDelete({ policy_id: policy.id });
-      await manager.getRepository(Policy).softDelete(policy.id);
+    await this.auditService.logCritical({
+      userId: actor?.id,
+      companyId,
+      companyMembershipId: actor?.companyMembershipId,
+      branchId: actor?.activeBranchId,
+      action: 'policy.delete.blocked',
+      eventCategory: 'policy',
+      resource: 'policy',
+      resourceId: policy.id,
+      status: 'failure',
+      reason:
+        'Policy records are retained as contract history; use a lifecycle transaction.',
+      beforeState: {
+        policy_status: policy.policy_status,
+        issued_by_system: policy.issued_by_system,
+        tira_status: policy.tira_status,
+      },
     });
+
+    throw new ConflictException(
+      'Policies are retained as contract history. Use cancellation, voiding, or an authorized administrative amendment.',
+    );
   }
 
   async removeForUser(
@@ -1065,7 +1082,7 @@ export class PoliciesService {
     id: string,
   ): Promise<{ message: string }> {
     await this.findScopedPolicyEntity(user, id, true);
-    await this.remove(user.companyId!, id);
+    await this.remove(user.companyId!, id, user);
 
     return {
       message: 'Policy deleted successfully',

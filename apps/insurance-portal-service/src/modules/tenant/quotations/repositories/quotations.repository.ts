@@ -32,6 +32,7 @@ export interface QuotationAccessSnapshot {
   created_by: string | null;
   status: string;
   tira_status: string;
+  submitted_at: Date | null;
 }
 
 @Injectable()
@@ -95,6 +96,7 @@ export class QuotationsRepository {
         'quotation.created_by',
         'quotation.status',
         'quotation.tira_status',
+        'quotation.submitted_at',
       ])
       .where('quotation.id = :id', { id })
       .andWhere('quotation.deleted_at IS NULL');
@@ -118,6 +120,7 @@ export class QuotationsRepository {
       created_by: quotation.created_by,
       status: quotation.status,
       tira_status: quotation.tira_status,
+      submitted_at: quotation.submitted_at,
     };
   }
 

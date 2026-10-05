@@ -11,8 +11,11 @@ import {
   IsUUID,
   Matches,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { RoleScope } from '@insurance-max/contracts';
+import { RolePermissionDataScopeDto } from './role-permission-data-scope.dto';
 
 export class CreateRoleDto {
   @Transform(({ value }) =>
@@ -81,4 +84,11 @@ export class CreateRoleDto {
   @ArrayUnique()
   @IsOptional()
   permission_ids?: string[];
+
+  @ApiPropertyOptional({ type: [RolePermissionDataScopeDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RolePermissionDataScopeDto)
+  @IsOptional()
+  permission_data_scopes?: RolePermissionDataScopeDto[];
 }

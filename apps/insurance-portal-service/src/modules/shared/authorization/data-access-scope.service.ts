@@ -13,7 +13,7 @@ import { QuotationPolicyDataScope } from './quotation-policy-data-scope.enum';
 
 @Injectable()
 export class DataAccessScopeService {
-  resolve(user: AuthenticatedUser): TenantDataScope {
+  resolve(user: AuthenticatedUser, permissionName?: string): TenantDataScope {
     if (
       user.scope !== 'company' ||
       !user.companyId ||
@@ -27,9 +27,51 @@ export class DataAccessScopeService {
 
     const permissions = new Set(user.permissions ?? []);
 
-    const quotationPolicyDataScope = this.normalizeQuotationPolicyDataScope(
-      user.quotationPolicyDataScope,
+    const scopedAssignments = permissionName
+      ? (user.permissionDataScopes ?? []).filter(
+          (assignment) => assignment.permission === permissionName,
+        )
+      : [];
+    // Direct grants take precedence. When several role assignments provide
+    // the same permission, select the narrowest scope to fail closed.
+    const candidates = scopedAssignments.filter(
+      (item) => item.source === 'DIRECT',
     );
+    const effectiveAssignments = candidates.length
+      ? candidates
+      : scopedAssignments;
+    const scopeRank: Record<QuotationPolicyDataScope, number> = {
+      [QuotationPolicyDataScope.USER]: 0,
+      [QuotationPolicyDataScope.DEPARTMENT]: 1,
+      [QuotationPolicyDataScope.BRANCH]: 1,
+      [QuotationPolicyDataScope.COMPANY]: 2,
+    };
+    const selectedAssignment = effectiveAssignments.reduce(
+      (selected, current) =>
+        !selected ||
+        scopeRank[current.dataScope] < scopeRank[selected.dataScope]
+          ? current
+          : selected,
+      undefined as (typeof effectiveAssignments)[number] | undefined,
+    );
+    const isExternalUser = ['AGENT', 'BROKER', 'CUSTOMER'].includes(
+      user.userType,
+    );
+    const assignedBranchIds = Array.from(new Set(user.assignedBranchIds ?? []));
+    const configuredScope = this.normalizeQuotationPolicyDataScope(
+      selectedAssignment?.dataScope ?? user.quotationPolicyDataScope,
+    );
+    // Branch team access: internal staff on the default USER scope share
+    // records with colleagues in every branch they are assigned to, so they
+    // can follow up on work started by someone else. External users and an
+    // explicit own-records grant keep creator-only access.
+    const quotationPolicyDataScope =
+      configuredScope === QuotationPolicyDataScope.USER &&
+      !isExternalUser &&
+      !permissions.has(DataScopePermissions.OWN_RECORDS) &&
+      assignedBranchIds.length > 0
+        ? QuotationPolicyDataScope.BRANCH
+        : configuredScope;
 
     const canViewAllBranches =
       quotationPolicyDataScope === QuotationPolicyDataScope.COMPANY ||
@@ -40,7 +82,6 @@ export class DataAccessScopeService {
       (quotationPolicyDataScope === QuotationPolicyDataScope.BRANCH ||
         permissions.has(DataScopePermissions.ASSIGNED_BRANCHES));
 
-    const assignedBranchIds = Array.from(new Set(user.assignedBranchIds ?? []));
     const assignedDepartmentIds = Array.from(
       new Set(user.assignedDepartmentIds ?? []),
     );
@@ -48,7 +89,9 @@ export class DataAccessScopeService {
     let allowedBranchIds: string[] = [];
 
     if (canViewAssignedBranches) {
-      allowedBranchIds = assignedBranchIds;
+      allowedBranchIds = selectedAssignment?.branchId
+        ? assignedBranchIds.filter((id) => id === selectedAssignment.branchId)
+        : assignedBranchIds;
     } else if (!canViewAllBranches && user.activeBranchId) {
       allowedBranchIds = [user.activeBranchId];
     }
@@ -56,11 +99,15 @@ export class DataAccessScopeService {
     const ownRecordsOnly =
       quotationPolicyDataScope === QuotationPolicyDataScope.USER ||
       permissions.has(DataScopePermissions.OWN_RECORDS) ||
-      ['AGENT', 'BROKER', 'CUSTOMER'].includes(user.userType);
+      isExternalUser;
 
     const allowedDepartmentIds =
       quotationPolicyDataScope === QuotationPolicyDataScope.DEPARTMENT
-        ? assignedDepartmentIds
+        ? selectedAssignment?.departmentId
+          ? assignedDepartmentIds.filter(
+              (id) => id === selectedAssignment.departmentId,
+            )
+          : assignedDepartmentIds
         : [];
 
     /*
@@ -566,7 +613,11 @@ export class DataAccessScopeService {
           queryBuilder.andWhere('1 = 0');
           return;
         }
-        queryBuilder.andWhere(`${alias}.branch_id IN (:...scopeBranchIds)`);
+        // A user always keeps their own records, including legacy rows
+        // without a branch.
+        queryBuilder.andWhere(
+          `(${alias}.branch_id IN (:...scopeBranchIds) OR ${alias}.created_by = :scopeUserId)`,
+        );
         return;
       case QuotationPolicyDataScope.DEPARTMENT:
         if (!(scope.allowedDepartmentIds ?? []).length) {

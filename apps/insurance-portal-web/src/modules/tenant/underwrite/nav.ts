@@ -1,7 +1,6 @@
 import {
   CarFront,
   Ban,
-  FilePlus2,
   FileText,
   FileClock,
   Layers,
@@ -26,7 +25,7 @@ import { UNDERWRITE_LINE_META, type UnderwriteLineMeta } from './lines';
 import { underwritePaths } from './paths';
 
 /**
- * Sidebar section: Underwrite → Dashboard | Motor | Fleet | Non-Motor.
+ * Sidebar section: Underwrite → Dashboard (direct link) | Motor | Fleet | Non-Motor.
  *
  * Each leaf requires the line gate (`permission`) AND the existing action
  * permission (`anyPermission` with a single entry), matching the route guard
@@ -73,19 +72,6 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
       'quotations:read',
     ),
   ];
-
-  if (line.hasWizard) {
-    children.push(
-      leaf(
-        line,
-        line.line === 'FLEET' ? 'New Fleet Quotation' : 'New Quotation',
-        underwritePaths.quotationCreate(line.slug),
-        FilePlus2,
-        UnderwriteAction.CREATE,
-        'quotations:create',
-      ),
-    );
-  }
 
   children.push(
     leaf(
@@ -205,21 +191,14 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
 }
 
 export function buildUnderwriteNavNodes(): NavNode[] {
-  const dashboardGroup: NavGroup = {
-    kind: 'group',
+  const dashboard: NavLeaf = {
+    kind: 'link',
     section: 'Underwrite',
-    label: 'Underwrite',
+    label: 'Dashboard',
+    to: underwritePaths.dashboard,
     icon: LayoutDashboard,
-    children: [
-      {
-        kind: 'link',
-        label: 'Dashboard',
-        to: underwritePaths.dashboard,
-        icon: LayoutDashboard,
-        permission: UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
-        allowedScopes: ['company'],
-      },
-    ],
+    permission: UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
+    allowedScopes: ['company'],
   };
 
   const lines: NavGroup[] = UNDERWRITE_LINE_META.map((line) => ({
@@ -229,5 +208,5 @@ export function buildUnderwriteNavNodes(): NavNode[] {
     children: lineChildren(line),
   }));
 
-  return [dashboardGroup, ...lines];
+  return [dashboard, ...lines];
 }

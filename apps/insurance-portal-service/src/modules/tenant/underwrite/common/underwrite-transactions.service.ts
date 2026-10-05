@@ -87,7 +87,7 @@ export class UnderwriteTransactionsService {
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line })
       .orderBy('renewal.created_at', 'DESC');
 
-    this.applyPolicyScope(query, user);
+    this.applyPolicyScope(query, user, 'renewals:read');
 
     return query
       .getRawAndEntities<{ renewal_id: string; source_policy_no: string }>()
@@ -202,7 +202,7 @@ export class UnderwriteTransactionsService {
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line })
       .andWhere('policy.deleted_at IS NULL');
 
-    this.applyPolicyScope(query, user);
+    this.applyPolicyScope(query, user, 'policies:read');
 
     const row = await query.getRawOne<{ id: string }>();
     if (!row) {
@@ -232,7 +232,13 @@ export class UnderwriteTransactionsService {
       });
     }
 
-    this.applyPolicyScope(query, user);
+    const permission =
+      kind === 'endorsement'
+        ? 'endorsements:create'
+        : kind === 'cancellation'
+          ? 'cancellations:read'
+          : 'policy-transactions:read';
+    this.applyPolicyScope(query, user, permission);
 
     const row = await query.getRawOne<{ id: string }>();
     if (!row) {
@@ -260,7 +266,7 @@ export class UnderwriteTransactionsService {
     this.dataAccessScopeService.applyQuotationReadScope(
       query,
       'quotation',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, 'quotations:read'),
     );
 
     const row = await query.getRawOne<{ id: string }>();
@@ -292,7 +298,7 @@ export class UnderwriteTransactionsService {
       })
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
 
-    this.applyPolicyScope(query, user);
+    this.applyPolicyScope(query, user, 'renewals:read');
 
     const row = await query.getRawOne<{ id: string }>();
     if (!row) {
@@ -361,7 +367,7 @@ export class UnderwriteTransactionsService {
     this.dataAccessScopeService.applyQuotationReadScope(
       query,
       'quotation',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, 'quotations:read'),
     );
 
     const rows = await query.getRawMany<{
@@ -513,7 +519,7 @@ export class UnderwriteTransactionsService {
       })
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
 
-    this.applyPolicyScope(query, user);
+    this.applyPolicyScope(query, user, 'policies:read');
 
     return query;
   }
@@ -521,11 +527,12 @@ export class UnderwriteTransactionsService {
   private applyPolicyScope<T extends ObjectLiteral>(
     query: SelectQueryBuilder<T>,
     user: AuthenticatedUser,
+    permission = 'policies:read',
   ) {
     this.dataAccessScopeService.applyPolicyReadScope(
       query,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, permission),
     );
   }
 }

@@ -41,7 +41,7 @@ export class RenewalsController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('policy_id') policyId?: string,
   ) {
-    return this.renewalService.findAll(user.companyId!, policyId);
+    return this.renewalService.findAll(user.companyId!, policyId, user);
   }
 
   @Get('tenant/renewals/:id/context')
@@ -53,7 +53,7 @@ export class RenewalsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.renewalService.findContext(user.companyId!, id);
+    return this.renewalService.findContext(user.companyId!, id, user);
   }
 
   @Post('tenant/renewals/:id/create-offer')
@@ -125,6 +125,7 @@ export class RenewalsController {
       user.companyId!,
       policyId,
       user.id,
+      user,
     );
   }
 }

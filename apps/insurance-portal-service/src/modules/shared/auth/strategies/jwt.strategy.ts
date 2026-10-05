@@ -211,6 +211,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         activeDepartmentName: companyContext.activeDepartmentName ?? null,
         assignedDepartmentIds: companyContext.assignedDepartmentIds ?? [],
         quotationPolicyDataScope: companyContext.quotationPolicyDataScope,
+        permissionDataScopes: companyContext.permissionDataScopes,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
         authorizationVersion: companyContext.authorizationVersion,

@@ -257,6 +257,10 @@ export interface Role {
   company_id: string | null;
   is_system_generated: boolean;
   permissions?: Permission[];
+  permission_data_scopes?: Array<{
+    permission_id: string;
+    data_scope: 'USER' | 'DEPARTMENT' | 'BRANCH' | 'COMPANY';
+  }>;
   created_at: string;
   updated_at: string;
 }

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -23,6 +24,7 @@ import {
   UpdateCompanyStatusDto,
 } from './dtos/update-company.dto';
 import { UpdateNumberFormatSettingsDto } from './dtos/update-number-format-settings.dto';
+import { GrantCompanyUserPermissionDto } from './dtos/grant-company-user-permission.dto';
 import { CompaniesService } from './companies.service';
 
 @ApiTags('Companies')
@@ -57,6 +59,57 @@ export class CompaniesController {
   @ApiOperation({ summary: "Get the current user's active company profile" })
   async getMyCompany(@CurrentUser() user: AuthenticatedUser) {
     return this.companiesService.findCompanyById(user.companyId!);
+  }
+
+  @Post(':id/users/:userId/permissions')
+  @TenantScoped()
+  @Permissions('users:assign-role')
+  @ApiOperation({ summary: 'Grant a scoped permission to a company member' })
+  async grantMemberPermission(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Body() dto: GrantCompanyUserPermissionDto,
+  ) {
+    if (id !== actor.companyId) {
+      throw new ForbiddenException(
+        'A company administrator may only manage members in the active company.',
+      );
+    }
+    return this.companiesService.grantPermission(
+      id,
+      userId,
+      dto.permission_id,
+      {
+        dataScope: dto.data_scope,
+        branchId: dto.scope_branch_id,
+        departmentId: dto.scope_department_id,
+      },
+      actor,
+    );
+  }
+
+  @Delete(':id/users/:userId/permissions/:permissionId')
+  @TenantScoped()
+  @Permissions('users:assign-role')
+  @ApiOperation({ summary: 'Revoke a direct permission from a company member' })
+  async revokeMemberPermission(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Param('permissionId', ParseUUIDPipe) permissionId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    if (id !== actor.companyId) {
+      throw new ForbiddenException(
+        'A company administrator may only manage members in the active company.',
+      );
+    }
+    return this.companiesService.revokePermission(
+      id,
+      userId,
+      permissionId,
+      actor,
+    );
   }
 
   @Patch('my')

@@ -441,7 +441,10 @@ export class PolicyTransactionTiramisSubmissionService {
     this.dataAccessScopeService.applyPolicyReadScope(
       query,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(
+        user,
+        this.scopePermissionForType(type),
+      ),
     );
 
     const transaction = await query.getOne();
@@ -451,5 +454,18 @@ export class PolicyTransactionTiramisSubmissionService {
     }
 
     return transaction;
+  }
+
+  private scopePermissionForType(type: PolicyTransactionType): string {
+    switch (type) {
+      case PolicyTransactionType.ENDORSEMENT:
+        return 'endorsements:submit-tiramis';
+      case PolicyTransactionType.CANCELLATION:
+        return 'cancellations:submit-tiramis';
+      case PolicyTransactionType.RENEWAL:
+        return 'renewals:create';
+      default:
+        return 'policy-transactions:read';
+    }
   }
 }

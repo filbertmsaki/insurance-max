@@ -21,11 +21,7 @@ import {
   type UnderwriteLine,
   type WorkflowApprovalStatus as WorkflowApprovalStatusType,
 } from '@insurance-max/contracts';
-import {
-  AnyPermissions,
-  TenantScoped,
-  hasCompanyAdminRole,
-} from '@insurance-max/portal-shared';
+import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -296,7 +292,7 @@ export class UnderwriteTransactionsController {
       id,
       {
         changedBy: user.id,
-        isMakerCheckerExempt: hasCompanyAdminRole(user),
+        isMakerCheckerExempt: false,
       },
     );
 
@@ -568,7 +564,7 @@ export class UnderwriteTransactionsController {
       id,
       {
         changedBy: user.id,
-        isMakerCheckerExempt: hasCompanyAdminRole(user),
+        isMakerCheckerExempt: false,
       },
     );
 

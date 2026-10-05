@@ -11,11 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import {
-  AnyPermissions,
-  TenantScoped,
-  hasCompanyAdminRole,
-} from '@insurance-max/portal-shared';
+import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { CreateEndorsementDto } from '../dto/create-endorsement.dto';
@@ -145,7 +141,11 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.endorsementService.assertAccessible(user, id);
+    await this.endorsementService.assertAccessible(
+      user,
+      id,
+      'endorsements:submit-approval',
+    );
     return this.lifecycleService.submitForApproval(user.companyId!, id, {
       changedBy: user.id,
     });
@@ -158,13 +158,17 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.endorsementService.assertAccessible(user, id);
+    await this.endorsementService.assertAccessible(
+      user,
+      id,
+      'endorsements:approve',
+    );
     const transaction = await this.lifecycleService.approveTransaction(
       user.companyId!,
       id,
       {
         changedBy: user.id,
-        isMakerCheckerExempt: hasCompanyAdminRole(user),
+        isMakerCheckerExempt: false,
       },
     );
 
@@ -216,7 +220,11 @@ export class EndorsementsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReasonDto,
   ) {
-    await this.endorsementService.assertAccessible(user, id);
+    await this.endorsementService.assertAccessible(
+      user,
+      id,
+      'endorsements:approve',
+    );
     return this.lifecycleService.rejectApproval(user.companyId!, id, {
       changedBy: user.id,
       reason: dto.reason,
@@ -231,7 +239,11 @@ export class EndorsementsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReasonDto,
   ) {
-    await this.endorsementService.assertAccessible(user, id);
+    await this.endorsementService.assertAccessible(
+      user,
+      id,
+      'endorsements:approve',
+    );
     return this.lifecycleService.requestChanges(user.companyId!, id, {
       changedBy: user.id,
       reason: dto.reason,
@@ -259,7 +271,11 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.endorsementService.assertAccessible(user, id);
+    await this.endorsementService.assertAccessible(
+      user,
+      id,
+      'endorsements:submit-tiramis',
+    );
     return this.submissionService.submitEndorsement(user, id);
   }
 
@@ -272,7 +288,11 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.endorsementService.assertAccessible(user, id);
+    await this.endorsementService.assertAccessible(
+      user,
+      id,
+      'endorsements:retry-tiramis',
+    );
     return this.submissionService.submitEndorsement(user, id);
   }
 
@@ -283,7 +303,11 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.endorsementService.assertAccessible(user, id);
+    await this.endorsementService.assertAccessible(
+      user,
+      id,
+      'endorsements:reconcile',
+    );
     return this.reconciliationService.inspect(user.companyId!, id);
   }
 
@@ -296,7 +320,11 @@ export class EndorsementsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.endorsementService.assertAccessible(user, id);
+    await this.endorsementService.assertAccessible(
+      user,
+      id,
+      'endorsements:reconcile',
+    );
     return this.reconciliationService.reconcile(user.companyId!, id);
   }
 

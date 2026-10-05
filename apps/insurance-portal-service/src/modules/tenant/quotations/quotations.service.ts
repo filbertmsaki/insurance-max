@@ -6,7 +6,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
@@ -213,6 +212,7 @@ interface ReplaceQuotationOptions {
 
 interface QuotationWriteAccessOptions {
   allowBranchFailedCorrection?: boolean;
+  scopePermission?: string;
 }
 
 type QuotationPricingStatus = 'CURRENT' | 'STALE' | 'EXPIRED' | 'MISSING';
@@ -293,7 +293,6 @@ const QUOTATION_SUBMIT_TIRAMIS_PERMISSION = 'quotations:submit-tiramis';
 const QUOTATION_RETRY_TIRAMIS_PERMISSION = 'quotations:retry-tiramis';
 const QUOTATION_CANCEL_PERMISSION = 'quotations:cancel';
 const QUOTATION_DELETE_DRAFT_PERMISSION = 'quotations:delete-draft';
-const BRANCH_FAILED_CORRECTION_PERMISSION = 'quotations:update';
 const MONEY_TOLERANCE = 0.01;
 const RATE_TOLERANCE = 0.000001;
 const PRICING_VIEW_BREAKDOWN_PERMISSION = 'pricing.view_breakdown';
@@ -335,15 +334,18 @@ export class QuotationsService {
     private readonly nonMotorRiskService: NonMotorRiskService,
   ) {}
 
-  private resolveUserScope(user: AuthenticatedUser): TenantDataScope {
-    return this.dataAccessScopeService.resolve(user);
+  private resolveUserScope(
+    user: AuthenticatedUser,
+    permission = 'quotations:read',
+  ): TenantDataScope {
+    return this.dataAccessScopeService.resolve(user, permission);
   }
 
   private async assertUserCanReadQuotation(
     user: AuthenticatedUser,
     quotationId: string,
   ): Promise<TenantDataScope> {
-    const scope = this.resolveUserScope(user);
+    const scope = this.resolveUserScope(user, 'quotations:read');
 
     await this.quotationsRepository.assertReadable(scope, quotationId);
 
@@ -355,72 +357,32 @@ export class QuotationsService {
     quotationId: string,
     options: QuotationWriteAccessOptions = {},
   ): Promise<TenantDataScope> {
-    const scope = this.resolveUserScope(user);
+    const scope = this.resolveUserScope(
+      user,
+      options.scopePermission ?? 'quotations:update',
+    );
 
-    if (this.isBranchNormalUser(user, scope)) {
-      const quotation =
-        await this.quotationsRepository.findAccessSnapshotForScope(
-          scope,
-          quotationId,
-        );
-
-      const isOwner = quotation.created_by === user.id;
-      const canCorrectBranchFailure =
-        !!options.allowBranchFailedCorrection &&
-        this.hasPermission(user, BRANCH_FAILED_CORRECTION_PERMISSION) &&
-        this.isTiraFailureSnapshot(quotation);
-
-      if (!isOwner && !canCorrectBranchFailure) {
-        throw new ForbiddenException(
-          'You can only modify your own quotation unless a same-branch quotation failed during TIRAMIS submission.',
-        );
-      }
-
-      return scope;
-    }
-
+    // Users in the same branch may continue each other's quotations; the
+    // scope limits writes to the user's assigned branches.
     await this.quotationsRepository.assertWritable(scope, quotationId);
 
     return scope;
   }
 
-  private isBranchNormalUser(
-    user: AuthenticatedUser,
-    scope: TenantDataScope,
-  ): boolean {
-    const roles = new Set(user.roles ?? []);
-    const hasAdministrativeRole = Array.from(roles).some(
-      (role) =>
-        role === 'OWNER' ||
-        role === 'SUPER_ADMIN' ||
-        role === 'ADMINISTRATOR' ||
-        role === 'PORTAL_ADMIN' ||
-        role.endsWith('_ADMIN'),
-    );
-
-    return (
-      user.scope === 'company' &&
-      user.userType === 'COMPANY_USER' &&
-      roles.has('USER') &&
-      !hasAdministrativeRole &&
-      !scope.canViewAllBranches
-    );
-  }
-
   private isTiraFailureSnapshot(
-    quotation: Pick<QuotationAccessSnapshot, 'status' | 'tira_status'>,
+    quotation: Pick<QuotationAccessSnapshot, 'submitted_at' | 'tira_status'>,
   ): boolean {
     return (
-      quotation.status === QuotationStatus.FAILED ||
-      quotation.status === QuotationStatus.REJECTED ||
-      quotation.tira_status === TiraStatus.FAILED ||
-      quotation.tira_status === TiraStatus.REJECTED
+      !!quotation.submitted_at &&
+      [TiraStatus.FAILED, TiraStatus.REJECTED].includes(
+        quotation.tira_status as TiraStatus,
+      )
     );
   }
 
   private isTiraFailureQuotation(quotation: Quotation): boolean {
     return this.isTiraFailureSnapshot({
-      status: quotation.status,
+      submitted_at: quotation.submitted_at,
       tira_status: quotation.tira_status,
     });
   }
@@ -1246,7 +1208,9 @@ export class QuotationsService {
     user: AuthenticatedUser,
   ) {
     this.assertWorkflowPermission(user, QUOTATION_SUBMIT_APPROVAL_PERMISSION);
-    await this.assertUserCanWriteQuotation(user, id);
+    await this.assertUserCanWriteQuotation(user, id, {
+      scopePermission: QUOTATION_SUBMIT_APPROVAL_PERMISSION,
+    });
 
     await this.quotationLifecycleService.submitForApproval(companyId, id, {
       changedBy: user.id,
@@ -1260,7 +1224,9 @@ export class QuotationsService {
 
   async requestPayment(companyId: string, id: string, user: AuthenticatedUser) {
     this.assertWorkflowPermission(user, QUOTATION_REQUEST_PAYMENT_PERMISSION);
-    await this.assertUserCanWriteQuotation(user, id);
+    await this.assertUserCanWriteQuotation(user, id, {
+      scopePermission: QUOTATION_REQUEST_PAYMENT_PERMISSION,
+    });
 
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
@@ -1338,6 +1304,7 @@ export class QuotationsService {
     );
     await this.assertUserCanWriteQuotation(user, id, {
       allowBranchFailedCorrection: this.isTiraFailureQuotation(quotation),
+      scopePermission: QUOTATION_RETRY_TIRAMIS_PERMISSION,
     });
 
     return this.submit(
@@ -1357,7 +1324,9 @@ export class QuotationsService {
     user: AuthenticatedUser,
   ) {
     this.assertWorkflowPermission(user, QUOTATION_CANCEL_PERMISSION);
-    await this.assertUserCanWriteQuotation(user, id);
+    await this.assertUserCanWriteQuotation(user, id, {
+      scopePermission: QUOTATION_CANCEL_PERMISSION,
+    });
 
     const trimmedReason = cancellationReason.trim();
     if (!trimmedReason) {
@@ -1635,7 +1604,9 @@ export class QuotationsService {
     dto: RequestQuotationPremiumOverrideDto,
     user: AuthenticatedUser,
   ) {
-    await this.assertUserCanWriteQuotation(user, quotationId);
+    await this.assertUserCanWriteQuotation(user, quotationId, {
+      scopePermission: 'pricing.request_override',
+    });
 
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
@@ -1738,7 +1709,9 @@ export class QuotationsService {
     dto: DecideQuotationPremiumOverrideDto,
     user: AuthenticatedUser,
   ) {
-    await this.assertUserCanWriteQuotation(user, quotationId);
+    await this.assertUserCanWriteQuotation(user, quotationId, {
+      scopePermission: 'pricing.approve_override',
+    });
 
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
@@ -1830,7 +1803,9 @@ export class QuotationsService {
     dto: DecideQuotationPremiumOverrideDto,
     user: AuthenticatedUser,
   ) {
-    await this.assertUserCanWriteQuotation(user, quotationId);
+    await this.assertUserCanWriteQuotation(user, quotationId, {
+      scopePermission: 'pricing.approve_override',
+    });
 
     const rejectionReason = dto.rejection_reason?.trim();
     if (!rejectionReason) {
@@ -1904,30 +1879,60 @@ export class QuotationsService {
     };
   }
 
-  async remove(companyId: string, id: string): Promise<void> {
-    return this.removeDraft(companyId, id);
+  async remove(companyId: string, id: string, actorId?: string): Promise<void> {
+    return this.removeDraft(companyId, id, actorId);
   }
 
-  async removeDraft(companyId: string, id: string): Promise<void> {
+  async removeDraft(
+    companyId: string,
+    id: string,
+    actorId?: string,
+  ): Promise<void> {
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
     await this.assertDraftDeletionAllowed(companyId, quotation);
 
-    const result = await this.dataSource.getRepository(Quotation).softDelete({
-      id,
-      company_id: companyId,
-    });
+    await this.dataSource.transaction(async (manager) => {
+      const result = await manager.getRepository(Quotation).softDelete({
+        id,
+        company_id: companyId,
+      });
 
-    if (!result.affected) {
-      throw new NotFoundException('Quotation not found');
-    }
+      if (!result.affected) {
+        throw new NotFoundException('Quotation not found');
+      }
+
+      await this.auditService.logCritical(
+        {
+          userId: actorId,
+          actorType: actorId ? 'user' : 'service',
+          actorService: actorId ? undefined : 'intermediary-portal',
+          companyId,
+          action: 'quotation.draft.deleted',
+          eventCategory: 'quotation',
+          resource: 'quotation',
+          resourceId: id,
+          reason: 'Untouched quotation draft soft-deleted',
+          beforeState: {
+            status: quotation.status,
+            approval_status: quotation.approval_status,
+            payment_status: quotation.payment_status,
+            tira_status: quotation.tira_status,
+          },
+          afterState: { deleted: true },
+        },
+        manager,
+      );
+    });
   }
 
   async removeDraftForUser(user: AuthenticatedUser, id: string): Promise<void> {
     this.assertWorkflowPermission(user, QUOTATION_DELETE_DRAFT_PERMISSION);
-    await this.assertUserCanWriteQuotation(user, id);
+    await this.assertUserCanWriteQuotation(user, id, {
+      scopePermission: QUOTATION_DELETE_DRAFT_PERMISSION,
+    });
 
     const quotation = await this.quotationsRepository.findOneAggregate(
       user.companyId!,
@@ -1936,14 +1941,38 @@ export class QuotationsService {
 
     await this.assertDraftDeletionAllowed(user.companyId!, quotation);
 
-    const result = await this.dataSource.getRepository(Quotation).softDelete({
-      id,
-      company_id: user.companyId!,
-    });
+    await this.dataSource.transaction(async (manager) => {
+      const result = await manager.getRepository(Quotation).softDelete({
+        id,
+        company_id: user.companyId!,
+      });
 
-    if (!result.affected) {
-      throw new NotFoundException('Quotation not found');
-    }
+      if (!result.affected) {
+        throw new NotFoundException('Quotation not found');
+      }
+
+      await this.auditService.logCritical(
+        {
+          userId: user.id,
+          companyId: user.companyId,
+          companyMembershipId: user.companyMembershipId,
+          branchId: user.activeBranchId,
+          action: 'quotation.draft.deleted',
+          eventCategory: 'quotation',
+          resource: 'quotation',
+          resourceId: id,
+          reason: 'Untouched quotation draft soft-deleted',
+          beforeState: {
+            status: quotation.status,
+            approval_status: quotation.approval_status,
+            payment_status: quotation.payment_status,
+            tira_status: quotation.tira_status,
+          },
+          afterState: { deleted: true },
+        },
+        manager,
+      );
+    });
   }
 
   async submit(
@@ -2339,7 +2368,30 @@ export class QuotationsService {
     user: AuthenticatedUser,
   ) {
     this.assertTransitionPermission(user, dto.action);
-    await this.assertUserCanWriteQuotation(user, id);
+    const actionPermission: Partial<
+      Record<QuotationStatusTransitionAction, string>
+    > = {
+      [QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS]:
+        'quotations:update',
+      [QuotationStatusTransitionAction.SUBMIT_FOR_APPROVAL]:
+        QUOTATION_SUBMIT_APPROVAL_PERMISSION,
+      [QuotationStatusTransitionAction.APPROVE]: this.hasPermission(
+        user,
+        'quotations:approve-high-risk',
+      )
+        ? 'quotations:approve-high-risk'
+        : 'quotations:approve',
+      [QuotationStatusTransitionAction.REQUEST_CHANGES]:
+        QUOTATION_REQUEST_CHANGES_PERMISSION,
+      [QuotationStatusTransitionAction.REJECT_APPROVAL]:
+        QUOTATION_REJECT_PERMISSION,
+      [QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED]:
+        QUOTATION_REQUEST_PAYMENT_PERMISSION,
+      [QuotationStatusTransitionAction.CANCEL]: QUOTATION_CANCEL_PERMISSION,
+    };
+    await this.assertUserCanWriteQuotation(user, id, {
+      scopePermission: actionPermission[dto.action] ?? 'quotations:update',
+    });
 
     const userId = user.id;
     const context = {
@@ -2353,7 +2405,7 @@ export class QuotationsService {
       tiraRequestId: dto.tira_request_id?.trim() || undefined,
       tiraResponseId: dto.tira_response_id?.trim() || undefined,
       metadata: dto.metadata ?? undefined,
-      isMakerCheckerExempt: hasCompanyAdminRole(user),
+      isMakerCheckerExempt: false,
     };
 
     if (
@@ -3192,6 +3244,25 @@ export class QuotationsService {
     companyId: string,
     quotation: Quotation,
   ): Promise<void> {
+    if (
+      quotation.status !== QuotationStatus.DRAFT ||
+      quotation.approval_submitted_at ||
+      quotation.approval_decided_at ||
+      quotation.payment_requested_at ||
+      quotation.payment_completed_at ||
+      quotation.source_policy_transaction_id ||
+      ![ApprovalStatus.NOT_REQUIRED, ApprovalStatus.NOT_SUBMITTED].includes(
+        quotation.approval_status,
+      ) ||
+      ![PaymentStatus.NOT_REQUIRED, PaymentStatus.NOT_INITIATED].includes(
+        quotation.payment_status,
+      )
+    ) {
+      throw new ConflictException(
+        'Only an untouched draft with no approval, payment, or transaction history can be deleted.',
+      );
+    }
+
     if (quotation.submitted_at) {
       throw new ConflictException('A submitted quotation cannot be deleted');
     }
@@ -7168,6 +7239,7 @@ export class QuotationsService {
       originalCreatorId: quotation.created_by,
       quotationStatus: quotation.status,
       tiraStatus: quotation.tira_status,
+      submittedAt: quotation.submitted_at?.toISOString() ?? null,
       authoritativePayload:
         this.payloadMapper.toAuthoritativePayload(quotation),
     };
@@ -7188,18 +7260,18 @@ export class QuotationsService {
       return;
     }
 
-    const beforeStatus =
-      typeof params.before.quotationStatus === 'string'
-        ? params.before.quotationStatus
-        : '';
     const beforeTiraStatus =
       typeof params.before.tiraStatus === 'string'
         ? params.before.tiraStatus
         : '';
+    const beforeSubmittedAt =
+      typeof params.before.submittedAt === 'string'
+        ? new Date(params.before.submittedAt)
+        : null;
 
     if (
       !this.isTiraFailureSnapshot({
-        status: beforeStatus,
+        submitted_at: beforeSubmittedAt,
         tira_status: beforeTiraStatus,
       })
     ) {

@@ -303,7 +303,6 @@ export function useCreateCancellation(policyId?: string) {
       qc.removeQueries({
         queryKey: policyKeys.cancellationContext(cancellation.id),
       });
-      toast.success('Cancellation draft created');
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });

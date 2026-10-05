@@ -31,8 +31,28 @@ describe('DataAccessScopeService', () => {
     service = new DataAccessScopeService();
   });
 
-  it('defaults ordinary staff to own records', () => {
+  it('gives ordinary staff branch team access across every assigned branch', () => {
     const scope = service.resolve(baseUser);
+
+    expect(scope.quotationPolicyDataScope).toBe(
+      QuotationPolicyDataScope.BRANCH,
+    );
+    expect(scope.ownRecordsOnly).toBe(false);
+    expect(scope.allowedBranchIds).toEqual(['branch-1', 'branch-2']);
+  });
+
+  it('keeps own-records access for staff without a branch assignment', () => {
+    const scope = service.resolve({ ...baseUser, assignedBranchIds: [] });
+
+    expect(scope.quotationPolicyDataScope).toBe(QuotationPolicyDataScope.USER);
+    expect(scope.ownRecordsOnly).toBe(true);
+  });
+
+  it('keeps own-records access when explicitly granted', () => {
+    const scope = service.resolve({
+      ...baseUser,
+      permissions: [DataScopePermissions.OWN_RECORDS],
+    });
 
     expect(scope.quotationPolicyDataScope).toBe(QuotationPolicyDataScope.USER);
     expect(scope.ownRecordsOnly).toBe(true);

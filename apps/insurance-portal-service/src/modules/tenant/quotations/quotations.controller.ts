@@ -42,7 +42,7 @@ import {
 } from './dto/quotation-premium-override.dto';
 import { TransitionQuotationStatusDto } from './dto/transition-quotation-status.dto';
 import { QuotationsService } from './quotations.service';
-import { TenantScoped } from '@insurance-max/portal-shared';
+import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('quotations')
 @ApiBearerAuth()
@@ -502,7 +502,18 @@ export class QuotationsController {
 
   @Post(':id/status')
   @HttpCode(HttpStatus.OK)
-  @Permissions('quotations:update')
+  @AnyPermissions(
+    'quotations:update',
+    'quotations:submit-approval',
+    'quotations:approve',
+    'quotations:approve-high-risk',
+    'quotations:request-changes',
+    'quotations:reject',
+    'quotations:request-payment',
+    'quotations:cancel',
+    'quotations:submit-tiramis',
+    'quotations:retry-tiramis',
+  )
   @ApiOperation({
     summary: 'Transition a quotation status',
     description:

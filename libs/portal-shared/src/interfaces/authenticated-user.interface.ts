@@ -7,6 +7,14 @@ export type QuotationPolicyDataScope =
   | 'BRANCH'
   | 'COMPANY';
 
+export interface PermissionDataScopeAssignment {
+  permission: string;
+  dataScope: QuotationPolicyDataScope;
+  branchId?: string | null;
+  departmentId?: string | null;
+  source: 'ROLE' | 'DIRECT';
+}
+
 export type UserType =
   | 'SUPER_ADMIN'
   | 'COMPANY_ADMIN'
@@ -54,6 +62,7 @@ export interface AuthenticatedUser {
   activeDepartmentName?: string | null;
   assignedDepartmentIds?: string[];
   quotationPolicyDataScope?: QuotationPolicyDataScope;
+  permissionDataScopes?: PermissionDataScopeAssignment[];
   roles: string[];
   permissions: string[];
 }

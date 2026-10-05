@@ -8,6 +8,7 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -15,6 +16,7 @@ import { Company } from '../../companies/entities/company.entity';
 import { Permission } from '../../permissions/entities/permission.entity';
 import { User } from '../../../tenant/users/entities/user.entity';
 import { RoleScope } from '@insurance-max/contracts';
+import { RolePermissionScope } from './role-permission-scope.entity';
 
 @Entity('roles')
 @Index('IDX_role_company', ['company_id'])
@@ -81,4 +83,7 @@ export class Role {
     inverseJoinColumn: { name: 'permissions_id', referencedColumnName: 'id' },
   })
   permissions: Permission[];
+
+  @OneToMany(() => RolePermissionScope, (scope) => scope.role)
+  permission_data_scopes: RolePermissionScope[];
 }

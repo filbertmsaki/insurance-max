@@ -182,7 +182,7 @@ export class EndorsementService {
     this.dataAccessScopeService.applyPolicyReadScope(
       policyQuery,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, 'endorsements:create'),
     );
     const policy = await policyQuery.getOne();
 
@@ -246,7 +246,7 @@ export class EndorsementService {
       this.dataAccessScopeService.applyPolicyReadScope(
         policyQuery,
         'policy',
-        this.dataAccessScopeService.resolve(user),
+        this.dataAccessScopeService.resolve(user, 'endorsements:create'),
       );
       const policy = await policyQuery.getOne();
 
@@ -680,6 +680,7 @@ export class EndorsementService {
         manager,
         user,
         transactionId,
+        'endorsements:complete',
       );
       const updated = await this.rebuildProposedSnapshot(manager, current);
 
@@ -794,6 +795,7 @@ export class EndorsementService {
           manager,
           user,
           transactionId,
+          'endorsements:request-payment',
         );
 
         if (!transaction) {
@@ -864,7 +866,7 @@ export class EndorsementService {
   }
 
   async cancel(user: AuthenticatedUser, transactionId: string, reason: string) {
-    await this.assertAccessible(user, transactionId);
+    await this.assertAccessible(user, transactionId, 'endorsements:cancel');
 
     const transaction = await this.lifecycleService.cancelTransaction(
       user.companyId!,
@@ -1006,11 +1008,16 @@ export class EndorsementService {
     return transaction;
   }
 
-  async assertAccessible(user: AuthenticatedUser, transactionId: string) {
+  async assertAccessible(
+    user: AuthenticatedUser,
+    transactionId: string,
+    permission = 'endorsements:create',
+  ) {
     await this.requireAccessibleTransaction(
       this.dataSource.manager,
       user,
       transactionId,
+      permission,
     );
   }
 
@@ -1076,12 +1083,14 @@ export class EndorsementService {
     manager: EntityManager,
     user: AuthenticatedUser,
     transactionId: string,
+    permission = 'endorsements:update-draft',
   ) {
     const transaction = await this.createScopedTransactionQuery(
       manager,
       user,
       'transaction',
       'policy',
+      permission,
     )
       .setLock('pessimistic_write')
       .where('transaction.id = :transactionId', { transactionId })
@@ -1107,12 +1116,14 @@ export class EndorsementService {
     manager: EntityManager,
     user: AuthenticatedUser,
     transactionId: string,
+    permission = 'endorsements:create',
   ) {
     const transaction = await this.createScopedTransactionQuery(
       manager,
       user,
       'transaction',
       'policy',
+      permission,
     )
       .andWhere('transaction.id = :transactionId', { transactionId })
       .andWhere('transaction.transaction_type = :type', {
@@ -1132,6 +1143,7 @@ export class EndorsementService {
     user: AuthenticatedUser,
     transactionAlias: string,
     policyAlias: string,
+    permission = 'endorsements:create',
   ) {
     const query = manager
       .getRepository(PolicyTransaction)
@@ -1148,7 +1160,7 @@ export class EndorsementService {
     this.dataAccessScopeService.applyPolicyReadScope(
       query,
       policyAlias,
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, permission),
     );
 
     return query;

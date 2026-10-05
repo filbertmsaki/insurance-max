@@ -40,21 +40,15 @@ describe('underwrite navigation', () => {
       ['Motor', 'Fleet', 'Non-Motor'].includes(item.label),
     );
 
-  it('renders an Underwrite group and the line groups under one section', () => {
+  it('renders the dashboard as a direct link above the line groups', () => {
     expect(nodes[0]).toMatchObject({
-      kind: 'group',
+      kind: 'link',
       section: 'Underwrite',
-      label: 'Underwrite',
-      children: [
-        expect.objectContaining({
-          label: 'Dashboard',
-          to: '/underwrite/dashboard',
-          permission: 'underwrite.dashboard.view',
-        }),
-      ],
+      label: 'Dashboard',
+      to: '/underwrite/dashboard',
+      permission: 'underwrite.dashboard.view',
     });
     expect(groups.map((item) => item.label)).toEqual([
-      'Underwrite',
       'Motor',
       'Fleet',
       'Non-Motor',
@@ -67,30 +61,28 @@ describe('underwrite navigation', () => {
     }
   });
 
-  it('offers each line its own wizard and asset register', () => {
-    const motor = group('Motor').children.map((item) => item.to);
-    expect(motor).toContain(underwritePaths.quotationCreate('motor'));
-    expect(motor).toContain(underwritePaths.motorVehicles);
-
-    const fleet = group('Fleet').children;
-    expect(fleet.map((item) => item.to)).toContain(
+  it('offers each line its own asset register', () => {
+    expect(group('Motor').children.map((item) => item.to)).toContain(
+      underwritePaths.motorVehicles,
+    );
+    expect(group('Fleet').children.map((item) => item.to)).toContain(
       underwritePaths.fleetRegister,
     );
-    expect(
-      fleet.find(
-        (item) => item.to === underwritePaths.quotationCreate('fleet'),
-      ),
-    ).toMatchObject({
-      label: 'New Fleet Quotation',
-      permission: 'underwrite.fleet.create',
-    });
   });
 
-  it('offers Non-Motor its wizard, risks and risk schema admin', () => {
+  it('does not list New Quotation in the sidebar', () => {
+    const links = lineGroups()
+      .flatMap((entry) => entry.children)
+      .map((item) => item.to);
+    for (const slug of ['motor', 'fleet', 'non-motor'] as const) {
+      expect(links).not.toContain(underwritePaths.quotationCreate(slug));
+    }
+  });
+
+  it('offers Non-Motor its risks and risk schema admin', () => {
     const nonMotor = group('Non-Motor').children;
     expect(nonMotor.map((item) => item.to)).toEqual(
       expect.arrayContaining([
-        underwritePaths.quotationCreate('non-motor'),
         underwritePaths.nonMotorRisks,
         underwritePaths.riskSchemas,
       ]),
@@ -104,15 +96,6 @@ describe('underwrite navigation', () => {
     });
   });
 
-  it('requires quotations:create for New Quotation', () => {
-    const create = group('Motor').children.find(
-      (item) => item.to === underwritePaths.quotationCreate('motor'),
-    );
-    expect(create).toMatchObject({
-      permission: 'underwrite.motor.create',
-      anyPermission: ['quotations:create'],
-    });
-  });
 });
 
 describe('wizard defaults', () => {
