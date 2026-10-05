@@ -98,9 +98,10 @@ export class DataAccessScopeService {
     let allowedBranchIds: string[] = [];
 
     if (canViewAssignedBranches) {
-      allowedBranchIds = selectedAssignment?.branchId
-        ? assignedBranchIds.filter((id) => id === selectedAssignment.branchId)
-        : assignedBranchIds;
+      // A branch scope means shared read access across every branch assigned
+      // to this member. The Company Data Access setting is an enablement
+      // control; the member's branch assignments define the actual boundary.
+      allowedBranchIds = assignedBranchIds;
     } else if (!canViewAllBranches && user.activeBranchId) {
       allowedBranchIds = [user.activeBranchId];
     }

@@ -85,8 +85,10 @@ export function CompanyDataAccessTab() {
           <Shield className="h-4 w-4" /> Branch data access
         </CardTitle>
         <CardDescription>
-          Let a user read records from one of their assigned branches. This
-          changes data visibility only; it does not grant create, edit, approve,
+          Let a user read records shared by colleagues across all of their
+          assigned branches. The selected branch enables sharing for that
+          member; their branch assignments define which branches are visible.
+          This changes data visibility only; it does not grant create, edit, approve,
           or issue permissions. Company administrator roles remain unchanged.
         </CardDescription>
       </CardHeader>
