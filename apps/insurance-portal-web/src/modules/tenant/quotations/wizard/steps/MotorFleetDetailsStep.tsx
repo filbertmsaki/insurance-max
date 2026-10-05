@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import {
-  Copy,
-  Download,
-  Pencil,
-  Plus,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { Copy, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useFieldArray,
@@ -420,91 +413,91 @@ function FleetVehicleEditor({
           </button>
         </div>
         {wordingExpanded ? (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {coverNoteType !== '1' && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {coverNoteType !== '1' && (
+              <FormField
+                control={form.control}
+                name={`fleet.items.${index}.prev_cover_note_reference_number`}
+                render={({ field }) => (
+                  <WizardFormItem>
+                    <FormLabel>Previous cover reference</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </WizardFormItem>
+                )}
+              />
+            )}
             <FormField
               control={form.control}
-              name={`fleet.items.${index}.prev_cover_note_reference_number`}
+              name={`fleet.items.${index}.cover_note_desc` as const}
               render={({ field }) => (
                 <WizardFormItem>
-                  <FormLabel>Previous cover reference</FormLabel>
+                  <FormLabel required>Cover Note Description</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Textarea {...field} rows={3} />
                   </FormControl>
                   <FormMessage />
                 </WizardFormItem>
               )}
             />
-          )}
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.cover_note_desc` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel required>Cover Note Description</FormLabel>
-                <FormControl>
-                  <Textarea {...field} rows={3} />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.operative_clause` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel required>Operative Clause</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} rows={3} />
+                  </FormControl>
+                  <FormMessage />
+                </WizardFormItem>
+              )}
+            />
+            {coverNoteType === '3' && (
+              <>
+                <FormField
+                  control={form.control}
+                  name={`fleet.items.${index}.endorsement_type` as const}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Endorsement Type</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={
+                    `fleet.items.${index}.endorsement_premium_earned` as const
+                  }
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Endorsement Premium Earned</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} />
+                      </FormControl>
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`fleet.items.${index}.endorsement_reason` as const}
+                  render={({ field }) => (
+                    <WizardFormItem className="sm:col-span-2">
+                      <FormLabel>Endorsement Reason</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} rows={2} />
+                      </FormControl>
+                    </WizardFormItem>
+                  )}
+                />
+              </>
             )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.operative_clause` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel required>Operative Clause</FormLabel>
-                <FormControl>
-                  <Textarea {...field} rows={3} />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          {coverNoteType === '3' && (
-            <>
-              <FormField
-                control={form.control}
-                name={`fleet.items.${index}.endorsement_type` as const}
-                render={({ field }) => (
-                  <WizardFormItem>
-                    <FormLabel>Endorsement Type</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                  </WizardFormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name={
-                  `fleet.items.${index}.endorsement_premium_earned` as const
-                }
-                render={({ field }) => (
-                  <WizardFormItem>
-                    <FormLabel>Endorsement Premium Earned</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                  </WizardFormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name={`fleet.items.${index}.endorsement_reason` as const}
-                render={({ field }) => (
-                <WizardFormItem className="sm:col-span-2">
-                    <FormLabel>Endorsement Reason</FormLabel>
-                    <FormControl>
-                      <Textarea {...field} rows={2} />
-                    </FormControl>
-                  </WizardFormItem>
-                )}
-              />
-            </>
-          )}
-        </div>
+          </div>
         ) : (
           <div className="mt-2 space-y-1 text-sm text-slate-600">
             <p>{item.cover_note_desc || '—'}</p>
@@ -515,7 +508,9 @@ function FleetVehicleEditor({
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-base font-semibold text-slate-900">Cover &amp; premium</p>
+          <p className="text-base font-semibold text-slate-900">
+            Cover &amp; premium
+          </p>
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -633,7 +628,9 @@ function FleetVehicleEditor({
                 <>
                   Risk #{riskIndex + 1}{' '}
                   {selectedRisk?.risk_name ? (
-                    <span className="text-slate-500">{selectedRisk.risk_name}</span>
+                    <span className="text-slate-500">
+                      {selectedRisk.risk_name}
+                    </span>
                   ) : null}
                 </>
               }
@@ -649,10 +646,12 @@ function FleetVehicleEditor({
                 </Button>
               }
             >
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <FormField
                   control={form.control}
-                name={`fleet.items.${index}.risks_covered.${riskIndex}.risk_id` as const}
+                  name={
+                    `fleet.items.${index}.risks_covered.${riskIndex}.risk_id` as const
+                  }
                   render={({ field }) => (
                     <WizardFormItem>
                       <FormLabel required>Risk</FormLabel>
@@ -730,6 +729,59 @@ function FleetVehicleEditor({
                     </WizardFormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name={
+                    `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.0.discount_type` as const
+                  }
+                  render={() => (
+                    <WizardFormItem>
+                      <FormLabel>Discount Type</FormLabel>
+                      <Select
+                        value={toSelectValue(discountRows[0]?.discount_type)}
+                        onValueChange={(value) => {
+                          const nextType = fromSelectValue(value);
+                          form.setValue(
+                            `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
+                            [
+                              {
+                                ...createEmptyRiskDiscountRow(),
+                                ...(discountRows[0] ?? {}),
+                                discount_type: nextType,
+                                discount_rate: nextType
+                                  ? getDiscountRateForType(nextType)
+                                  : '',
+                                discount_amount: '',
+                              },
+                            ],
+                          );
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="No discount" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={SELECT_NONE_VALUE}>
+                            No discount
+                          </SelectItem>
+                          {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {formatDiscountOptionLabel(option)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <RiskTaxesFields
+                  form={form}
+                  riskPath={`fleet.items.${index}.risks_covered.${riskIndex}`}
+                  inline
+                />
               </div>
 
               <PricingStatusAlert
@@ -757,56 +809,6 @@ function FleetVehicleEditor({
                   />
                 </div>
               )}
-
-              <FormField
-                control={form.control}
-                name={`fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.0.discount_type` as const}
-                render={() => (
-                  <WizardFormItem>
-                    <FormLabel>Discount Type</FormLabel>
-                    <Select
-                      value={toSelectValue(discountRows[0]?.discount_type)}
-                      onValueChange={(value) => {
-                        const nextType = fromSelectValue(value);
-                        form.setValue(
-                          `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
-                          [
-                            {
-                              ...createEmptyRiskDiscountRow(),
-                              ...(discountRows[0] ?? {}),
-                              discount_type: nextType,
-                              discount_rate: nextType
-                                ? getDiscountRateForType(nextType)
-                                : '',
-                              discount_amount: '',
-                            },
-                          ],
-                        );
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="No discount" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={SELECT_NONE_VALUE}>No discount</SelectItem>
-                        {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {formatDiscountOptionLabel(option)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </WizardFormItem>
-                )}
-              />
-              <RiskTaxesFields
-                form={form}
-                riskPath={`fleet.items.${index}.risks_covered.${riskIndex}`}
-                inline
-              />
               <dl className="col-span-full grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:grid-cols-4">
                 {totalDiscount > 0 && (
                   <div>
@@ -1522,8 +1524,7 @@ export function MotorFleetDetailsStep({
       const missingSumInsuredRows = calculableRows.filter(
         ({ row }) =>
           (requiredFactorsByRisk.get(row.risk_id.trim()) ?? []).some(
-            (requiredFactor) =>
-              requiredFactor.factor.code === 'sum_insured',
+            (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
           ) &&
           (!Number.isFinite(Number(row.sum_insured)) ||
             Number(row.sum_insured) <= 0),
@@ -1780,9 +1781,10 @@ export function MotorFleetDetailsStep({
     );
   }
 
-  const dialogTitle = editingVehicle?.isNew || editingVehicle?.isFirstVehicle
-    ? 'Add Vehicle'
-    : `Edit Vehicle ${(editingVehicle?.index ?? 0) + 1}`;
+  const dialogTitle =
+    editingVehicle?.isNew || editingVehicle?.isFirstVehicle
+      ? 'Add Vehicle'
+      : `Edit Vehicle ${(editingVehicle?.index ?? 0) + 1}`;
 
   return (
     <>
@@ -1917,9 +1919,7 @@ export function MotorFleetDetailsStep({
                 role="alert"
                 className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
               >
-                <p className="font-medium">
-                  This vehicle can't be saved yet:
-                </p>
+                <p className="font-medium">This vehicle can't be saved yet:</p>
                 <ul className="mt-1 list-disc pl-5">
                   {vehicleErrors.map((error) => (
                     <li key={error}>{error}</li>

@@ -38,11 +38,14 @@ export function RiskTaxesFields({
   form,
   riskPath,
   inline = false,
+  inlineFieldClassName,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
   riskPath: RiskPath;
   /** Render fields directly into the parent grid (no own section/heading). */
   inline?: boolean;
+  /** Optional sizing for each field when rendered inline. */
+  inlineFieldClassName?: string;
 }) {
   const companyId = useAuthStore(
     (state) => state.company?.id ?? state.user?.companyId,
@@ -144,7 +147,9 @@ export function RiskTaxesFields({
             control={form.control}
             name={`${name}.${index}.tax_code`}
             render={({ field }) => (
-              <WizardFormItem>
+              <WizardFormItem
+                className={inline ? inlineFieldClassName : undefined}
+              >
                 <FormLabel>Tax</FormLabel>
                 <Select
                   value={field.value || '__none__'}
@@ -196,7 +201,9 @@ export function RiskTaxesFields({
             control={form.control}
             name={`${name}.${index}.is_tax_exempted`}
             render={({ field }) => (
-              <WizardFormItem>
+              <WizardFormItem
+                className={inline ? inlineFieldClassName : undefined}
+              >
                 <FormLabel>Exempted</FormLabel>
                 <Select
                   value={field.value ? 'Y' : 'N'}
@@ -231,7 +238,9 @@ export function RiskTaxesFields({
                 control={form.control}
                 name={`${name}.${index}.tax_exemption_type`}
                 render={({ field }) => (
-                  <WizardFormItem>
+                  <WizardFormItem
+                    className={inline ? inlineFieldClassName : undefined}
+                  >
                     <FormLabel>Exemption type</FormLabel>
                     <Select
                       value={field.value || ''}
@@ -255,7 +264,9 @@ export function RiskTaxesFields({
                 control={form.control}
                 name={`${name}.${index}.tax_exemption_reference`}
                 render={({ field }) => (
-                  <WizardFormItem>
+                  <WizardFormItem
+                    className={inline ? inlineFieldClassName : undefined}
+                  >
                     <FormLabel>Exemption reference</FormLabel>
                     <FormControl>
                       <Input {...field} />
