@@ -147,6 +147,9 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
+      // Wizard/page tests render large trees; the 5s default is too tight
+      // when the whole suite runs in parallel.
+      testTimeout: 20_000,
       pool: 'forks',
       execArgv: [
         `--localstorage-file=${path.resolve(

@@ -208,9 +208,27 @@ describe('Portal engagement access (real database)', () => {
     });
   }
 
-  async function copyIntermediaryPortalRole(companyId: string) {
+  /**
+   * Copies a global system role into a company unless it already exists, so
+   * the suite does not depend on which seeded company is picked.
+   */
+  async function ensureCompanyRole(
+    companyId: string,
+    roleName: string,
+    displayName: string,
+    description: string,
+  ) {
+    const existing = await dataSource.query(
+      `SELECT id FROM roles WHERE name = $1 AND company_id = $2`,
+      [roleName, companyId],
+    );
+    if (existing[0]) {
+      return;
+    }
+
     const globalRole = await dataSource.query(
-      `SELECT id FROM roles WHERE name = 'INTERMEDIARY_PORTAL' AND company_id IS NULL`,
+      `SELECT id FROM roles WHERE name = $1 AND company_id IS NULL`,
+      [roleName],
     );
     const permissionRows = await dataSource.query(
       `SELECT permissions_id FROM permission_role WHERE roles_id = $1`,
@@ -219,10 +237,10 @@ describe('Portal engagement access (real database)', () => {
     const roleRows = await dataSource.query(
       `
       INSERT INTO roles (name, display_name, description, company_id, is_system_generated)
-      VALUES ('INTERMEDIARY_PORTAL', 'Intermediary Portal', 'Broker portal user', $1, true)
+      VALUES ($1, $2, $3, $4, true)
       RETURNING id
       `,
-      [companyId],
+      [roleName, displayName, description, companyId],
     );
 
     for (const permissionRow of permissionRows) {
@@ -231,6 +249,15 @@ describe('Portal engagement access (real database)', () => {
         [roleRows[0].id, permissionRow.permissions_id],
       );
     }
+  }
+
+  function copyIntermediaryPortalRole(companyId: string) {
+    return ensureCompanyRole(
+      companyId,
+      'INTERMEDIARY_PORTAL',
+      'Intermediary Portal',
+      'Broker portal user',
+    );
   }
 
   async function createDocument(params: {
@@ -544,6 +571,12 @@ describe('Portal engagement access (real database)', () => {
     );
     const brokerBBranchId = brokerBBranch[0].id as string;
 
+    await ensureCompanyRole(
+      insurerCompanyId,
+      'CUSTOMER_PORTAL',
+      'Customer Portal',
+      'Customer self-service portal user',
+    );
     await copyIntermediaryPortalRole(brokerACompanyId);
     await copyIntermediaryPortalRole(brokerBCompanyId);
 

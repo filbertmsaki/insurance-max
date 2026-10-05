@@ -875,7 +875,7 @@ describe('QuotationsService', () => {
     );
   });
 
-  it('allows deletion of an unsubmitted quotation even when it is no longer in draft status', async () => {
+  it('blocks deletion of a quotation that has left draft or has approval/payment history', async () => {
     const fixture = createServiceFixture({
       status: QuotationStatus.READY_FOR_SUBMISSION,
       approval_status: ApprovalStatus.APPROVED,
@@ -899,16 +899,18 @@ describe('QuotationsService', () => {
         } as any,
         fixture.quotation.id,
       ),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow(
+      'Only an untouched draft with no approval, payment, or transaction history can be deleted.',
+    );
 
-    expect(fixture.quotationRepositoryMock.softDelete).toHaveBeenCalledWith({
-      id: fixture.quotation.id,
-      company_id: 'company-1',
-    });
+    expect(fixture.quotationRepositoryMock.softDelete).not.toHaveBeenCalled();
   });
 
   it('still blocks deletion when the quotation has already been submitted to TIRA', async () => {
     const fixture = createServiceFixture({
+      status: QuotationStatus.DRAFT,
+      approval_status: ApprovalStatus.NOT_SUBMITTED,
+      payment_status: PaymentStatus.NOT_INITIATED,
       tira_status: TiraStatus.SUBMITTED,
       submitted_at: new Date('2026-07-03T08:00:00.000Z'),
     });

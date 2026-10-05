@@ -26,6 +26,7 @@ import { NonMotorPolicyDetail } from '../non-motor/entities/non-motor-policy-det
 import { User } from '../users/entities/user.entity';
 import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
 import { PolicyVersionDiffService } from './services/policy-version-diff.service';
+import { AuditService } from '../../shared/audit/audit.service';
 
 function mockRepo(overrides: Record<string, any> = {}) {
   return {
@@ -206,6 +207,10 @@ describe('PoliciesService - quotation lifecycle conversion', () => {
           useValue: {
             diff: jest.fn().mockReturnValue([]),
           },
+        },
+        {
+          provide: AuditService,
+          useValue: { logCritical: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

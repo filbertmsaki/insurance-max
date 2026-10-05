@@ -89,6 +89,14 @@ describe('RenewalService', () => {
       findOne: jest.fn(async () => renewal),
       find: jest.fn(async () => [renewal]),
       save: jest.fn(save),
+      createQueryBuilder: jest.fn(() => {
+        const query: Record<string, jest.Mock> = {};
+        for (const method of ['innerJoin', 'where', 'andWhere']) {
+          query[method] = jest.fn(() => query);
+        }
+        query.getOne = jest.fn(async () => renewal);
+        return query;
+      }),
     };
     transactionRepository = { findOne: jest.fn(async () => transaction) };
     policyRepository = {
@@ -111,6 +119,10 @@ describe('RenewalService', () => {
       { get: jest.fn(() => undefined) } as any,
       {} as any,
       { hashDefinition: jest.fn(() => 'hash') } as any,
+      {
+        resolve: jest.fn(() => ({})),
+        applyPolicyReadScope: jest.fn(),
+      } as any,
     );
   });
 
