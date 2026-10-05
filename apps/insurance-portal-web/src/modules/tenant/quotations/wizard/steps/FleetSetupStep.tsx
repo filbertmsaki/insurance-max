@@ -89,8 +89,18 @@ export function FleetSetupStep({
             <WizardFormItem>
               <FormLabel>Fleet reference</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="FLEET-2026-0001" />
+                <Input
+                  {...field}
+                  readOnly
+                  tabIndex={-1}
+                  className="bg-slate-50 text-slate-600"
+                  placeholder="Auto-generated on save"
+                />
               </FormControl>
+              <p className="text-xs text-slate-500">
+                Assigned automatically in sequence when the quotation is
+                saved.
+              </p>
               <FormMessage />
             </WizardFormItem>
           )}

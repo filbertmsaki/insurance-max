@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import { Copy, Plus, Trash2, Upload, Download } from 'lucide-react';
+import {
+  Copy,
+  Download,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useFieldArray,
@@ -8,6 +15,13 @@ import {
   type UseFormReturn,
 } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -26,6 +40,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { formatMoney } from '@/modules/shared/formatting/number-format';
 import {
   PricingStatusAlert,
   RatingFactorFields,
@@ -57,6 +72,7 @@ import {
   applyFleetRiskPremiumResult,
   recomputeFleetRiskRow,
   resolveSelectedTaxCodes,
+  toNumber,
 } from '../utils/premiumAggregation';
 import { buildFleetRiskPricingSignature } from '../utils/pricingStaleness';
 import {
@@ -74,6 +90,11 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
+import {
+  DISCOUNT_TYPE_OPTIONS,
+  formatDiscountOptionLabel,
+  getDiscountRateForType,
+} from '../utils/taxOptions';
 import { RiskTaxesFields } from '../components/RiskTaxesFields';
 import { VehicleLookup } from '../components/VehicleLookup';
 import { VehicleDetailsFields } from '../components/VehicleDetailsFields';
@@ -195,7 +216,6 @@ function FleetVehicleEditor({
   form,
   riskOptions,
   vehicleOptions,
-  customerName,
   index,
   isCalculating,
   calculationErrorMessage,
@@ -204,7 +224,6 @@ function FleetVehicleEditor({
   form: UseFormReturn<QuotationFormSchemaValues>;
   riskOptions: InsuranceRisk[];
   vehicleOptions: MotorVehicleRecord[];
-  customerName: string;
   index: number;
   isCalculating: boolean;
   calculationErrorMessage: string | null;
@@ -223,6 +242,7 @@ function FleetVehicleEditor({
     name: `fleet.items.${index}.cover_note_addons`,
   });
   const [vehicleRevision, setVehicleRevision] = useState(0);
+  const [wordingExpanded, setWordingExpanded] = useState(false);
   const item = form.watch(`fleet.items.${index}` as const);
   const coverNoteType = form.watch('cover_note_type');
 
@@ -332,12 +352,7 @@ function FleetVehicleEditor({
   const issues = getVehicleIssues(item);
 
   return (
-    <StepSection
-      variant="item"
-      title={`Vehicle ${index + 1}`}
-      description={`Shared policyholder: ${customerName || 'Not selected yet'}`}
-      contentClassName="space-y-6"
-    >
+    <div className="space-y-6">
       <div className="space-y-4">
         <VehicleLookup
           initialCategory={item.motor_dtl.motor_category}
@@ -394,8 +409,18 @@ function FleetVehicleEditor({
         />
       </div>
       <div className="rounded-lg border p-3">
-        <p className="text-sm font-medium">Vehicle cover wording</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium">Cover wording</p>
+          <button
+            type="button"
+            className="text-xs font-medium text-primary hover:underline"
+            onClick={() => setWordingExpanded((previous) => !previous)}
+          >
+            {wordingExpanded ? 'Hide' : 'Edit wording'}
+          </button>
+        </div>
+        {wordingExpanded ? (
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {coverNoteType !== '1' && (
             <FormField
               control={form.control}
@@ -415,7 +440,7 @@ function FleetVehicleEditor({
             control={form.control}
             name={`fleet.items.${index}.cover_note_desc` as const}
             render={({ field }) => (
-              <WizardFormItem className="md:col-span-2">
+              <WizardFormItem>
                 <FormLabel required>Cover Note Description</FormLabel>
                 <FormControl>
                   <Textarea {...field} rows={3} />
@@ -428,7 +453,7 @@ function FleetVehicleEditor({
             control={form.control}
             name={`fleet.items.${index}.operative_clause` as const}
             render={({ field }) => (
-              <WizardFormItem className="md:col-span-2">
+              <WizardFormItem>
                 <FormLabel required>Operative Clause</FormLabel>
                 <FormControl>
                   <Textarea {...field} rows={3} />
@@ -469,7 +494,7 @@ function FleetVehicleEditor({
                 control={form.control}
                 name={`fleet.items.${index}.endorsement_reason` as const}
                 render={({ field }) => (
-                  <WizardFormItem className="md:col-span-2">
+                <WizardFormItem className="sm:col-span-2">
                     <FormLabel>Endorsement Reason</FormLabel>
                     <FormControl>
                       <Textarea {...field} rows={2} />
@@ -480,11 +505,17 @@ function FleetVehicleEditor({
             </>
           )}
         </div>
+        ) : (
+          <div className="mt-2 space-y-1 text-sm text-slate-600">
+            <p>{item.cover_note_desc || '—'}</p>
+            <p className="text-slate-500">{item.operative_clause || '—'}</p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-900">Vehicle Risks</p>
+          <p className="text-base font-semibold text-slate-900">Cover &amp; premium</p>
           <div className="flex items-center gap-2">
             <Button
               type="button"
@@ -531,6 +562,28 @@ function FleetVehicleEditor({
             form.watch(
               `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
             ) ?? [];
+          const taxRows =
+            form.watch(
+              `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged` as const,
+            ) ?? [];
+          const premiumAfterDiscount = form.watch(
+            `fleet.items.${index}.risks_covered.${riskIndex}.premium_after_discount` as const,
+          );
+          const premiumExcludingTax = form.watch(
+            `fleet.items.${index}.risks_covered.${riskIndex}.premium_excluding_tax_equivalent` as const,
+          );
+          const premiumIncludingTax = form.watch(
+            `fleet.items.${index}.risks_covered.${riskIndex}.premium_including_tax` as const,
+          );
+          const totalDiscount = discountRows.reduce(
+            (sum, row) => sum + toNumber(row.discount_amount),
+            0,
+          );
+          const totalTax = taxRows.reduce(
+            (sum, row) => sum + toNumber(row.tax_amount),
+            0,
+          );
+          const currencyCode = form.watch('currency')?.trim().toUpperCase();
           const ratingMetadata = readPricingQuoteMetadata(
             form.watch(
               `fleet.items.${index}.risks_covered.${riskIndex}.rating_result_metadata` as const,
@@ -539,6 +592,12 @@ function FleetVehicleEditor({
           const riskId = form.watch(
             `fleet.items.${index}.risks_covered.${riskIndex}.risk_id` as const,
           );
+          const riskCode = form.watch(
+            `fleet.items.${index}.risks_covered.${riskIndex}.risk_code` as const,
+          );
+          const selectedRisk =
+            riskOptions.find((risk) => risk.id === riskId) ??
+            riskOptions.find((risk) => risk.risk_code === riskCode);
           const rowFactorValues =
             (form.watch(
               `fleet.items.${index}.risks_covered.${riskIndex}.factor_values` as const,
@@ -570,7 +629,14 @@ function FleetVehicleEditor({
               key={field.client_ref || riskIndex}
               variant="item"
               className="bg-slate-50/50"
-              title={`Risk #${riskIndex + 1}`}
+              title={
+                <>
+                  Risk #{riskIndex + 1}{' '}
+                  {selectedRisk?.risk_name ? (
+                    <span className="text-slate-500">{selectedRisk.risk_name}</span>
+                  ) : null}
+                </>
+              }
               action={
                 <Button
                   type="button"
@@ -583,27 +649,25 @@ function FleetVehicleEditor({
                 </Button>
               }
             >
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   control={form.control}
-                  name={
-                    `fleet.items.${index}.risks_covered.${riskIndex}.risk_code` as const
-                  }
+                name={`fleet.items.${index}.risks_covered.${riskIndex}.risk_id` as const}
                   render={({ field }) => (
                     <WizardFormItem>
-                      <FormLabel required>Cover</FormLabel>
+                      <FormLabel required>Risk</FormLabel>
                       <Select
                         value={toSelectValue(field.value)}
                         onValueChange={(value) => {
-                          const nextRiskCode = fromSelectValue(value);
+                          const nextRiskId = fromSelectValue(value);
                           const selectedRisk =
                             riskOptions.find(
-                              (risk) => risk.risk_code === nextRiskCode,
+                              (risk) => risk.id === nextRiskId,
                             ) ?? null;
-                          field.onChange(nextRiskCode);
+                          field.onChange(nextRiskId);
                           form.setValue(
-                            `fleet.items.${index}.risks_covered.${riskIndex}.risk_id`,
-                            selectedRisk?.id ?? '',
+                            `fleet.items.${index}.risks_covered.${riskIndex}.risk_code`,
+                            selectedRisk?.risk_code ?? '',
                           );
                           form.setValue(
                             `fleet.items.${index}.risks_covered.${riskIndex}`,
@@ -613,8 +677,8 @@ function FleetVehicleEditor({
                                   `fleet.items.${index}.risks_covered.${riskIndex}`,
                                 ),
                               ),
-                              risk_code: nextRiskCode,
-                              risk_id: selectedRisk?.id ?? '',
+                              risk_code: selectedRisk?.risk_code ?? '',
+                              risk_id: nextRiskId,
                             },
                           );
                         }}
@@ -629,7 +693,7 @@ function FleetVehicleEditor({
                             None
                           </SelectItem>
                           {riskOptions.map((risk) => (
-                            <SelectItem key={risk.id} value={risk.risk_code}>
+                            <SelectItem key={risk.id} value={risk.id}>
                               {risk.risk_name}
                             </SelectItem>
                           ))}
@@ -694,155 +758,83 @@ function FleetVehicleEditor({
                 </div>
               )}
 
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Discounts
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      form.setValue(
-                        `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
-                        [
-                          ...discountRows,
-                          {
-                            ...createEmptyRiskDiscountRow(),
-                            discount_amount: '',
-                            request_reason_code: '',
-                            request_comment: '',
-                            effective_from: '',
-                            effective_to: '',
-                            requested_by: '',
-                            requested_at: '',
-                            max_permitted_rate: '',
-                            max_permitted_amount: '',
-                            approval_required: false,
-                            approval_status: '',
-                            approved_rate: '',
-                            approved_amount: '',
-                            approved_by: '',
-                            approval_date: '',
-                            rejection_reason: '',
-                          },
-                        ],
-                      )
-                    }
-                  >
-                    <Plus className="mr-2 h-3.5 w-3.5" />
-                    Add Discount
-                  </Button>
-                </div>
-                {discountRows.map((_, discountIndex) => (
-                  <div
-                    key={`${riskIndex}-discount-${discountIndex}`}
-                    className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-3"
-                  >
-                    <FormField
-                      control={form.control}
-                      name={
-                        `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.discount_type` as const
-                      }
-                      render={({ field }) => (
-                        <WizardFormItem>
-                          <FormLabel>Type</FormLabel>
-                          <FormControl>
-                            <Input {...field} />
-                          </FormControl>
-                        </WizardFormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={
-                        `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.discount_rate` as const
-                      }
-                      render={({ field }) => (
-                        <WizardFormItem>
-                          <FormLabel>Rate</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.000001" {...field} />
-                          </FormControl>
-                        </WizardFormItem>
-                      )}
-                    />
-                    <div className="flex items-end gap-2">
-                      <FormField
-                        control={form.control}
-                        name={
-                          `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.discount_amount` as const
-                        }
-                        render={({ field }) => (
-                          <WizardFormItem className="flex-1">
-                            <FormLabel>Amount</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                readOnly
-                                {...field}
-                              />
-                            </FormControl>
-                          </WizardFormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={
-                          `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.request_reason_code` as const
-                        }
-                        render={({ field }) => (
-                          <WizardFormItem className="flex-1">
-                            <FormLabel>Reason Code</FormLabel>
-                            <FormControl>
-                              <Input {...field} placeholder="LOYALTY" />
-                            </FormControl>
-                          </WizardFormItem>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() =>
-                          form.setValue(
-                            `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
-                            discountRows.filter(
-                              (__, rowIndex) => rowIndex !== discountIndex,
-                            ),
-                          )
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name={
-                        `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.request_comment` as const
-                      }
-                      render={({ field }) => (
-                        <WizardFormItem className="md:col-span-3">
-                          <FormLabel>Comment</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              placeholder="Why is this discount requested?"
-                            />
-                          </FormControl>
-                        </WizardFormItem>
-                      )}
-                    />
-                  </div>
-                ))}
-              </div>
-
+              <FormField
+                control={form.control}
+                name={`fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.0.discount_type` as const}
+                render={() => (
+                  <WizardFormItem>
+                    <FormLabel>Discount Type</FormLabel>
+                    <Select
+                      value={toSelectValue(discountRows[0]?.discount_type)}
+                      onValueChange={(value) => {
+                        const nextType = fromSelectValue(value);
+                        form.setValue(
+                          `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
+                          [
+                            {
+                              ...createEmptyRiskDiscountRow(),
+                              ...(discountRows[0] ?? {}),
+                              discount_type: nextType,
+                              discount_rate: nextType
+                                ? getDiscountRateForType(nextType)
+                                : '',
+                              discount_amount: '',
+                            },
+                          ],
+                        );
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="No discount" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={SELECT_NONE_VALUE}>No discount</SelectItem>
+                        {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {formatDiscountOptionLabel(option)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </WizardFormItem>
+                )}
+              />
               <RiskTaxesFields
                 form={form}
                 riskPath={`fleet.items.${index}.risks_covered.${riskIndex}`}
+                inline
               />
+              <dl className="col-span-full grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:grid-cols-4">
+                {totalDiscount > 0 && (
+                  <div>
+                    <dt className="text-xs">Discount</dt>
+                    <dd>{formatMoney(totalDiscount, currencyCode)}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-xs">Premium excl. tax</dt>
+                  <dd>
+                    {formatMoney(toNumber(premiumExcludingTax), currencyCode)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs">Tax</dt>
+                  <dd>{formatMoney(totalTax, currencyCode)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs">Total premium</dt>
+                  <dd className="font-semibold text-slate-900">
+                    {formatMoney(
+                      toNumber(premiumIncludingTax) ||
+                        toNumber(premiumAfterDiscount) + totalTax,
+                      currencyCode,
+                    )}
+                  </dd>
+                </div>
+              </dl>
             </StepSection>
           );
         })}
@@ -986,13 +978,248 @@ function FleetVehicleEditor({
           </div>
         </div>
       </div>
-    </StepSection>
+    </div>
+  );
+}
+
+type FleetItemValues = QuotationFormSchemaValues['fleet']['items'][number];
+
+function summarizeFleetItem(item: FleetItemValues) {
+  return {
+    sumInsured: item.risks_covered.reduce(
+      (sum, risk) => sum + (Number(risk.sum_insured) || 0),
+      0,
+    ),
+    premium: item.risks_covered.reduce(
+      (sum, risk) => sum + (Number(risk.premium_including_tax) || 0),
+      0,
+    ),
+    issueCount: getVehicleIssues(item).length,
+  };
+}
+
+// A fleet quotation starts with one blank vehicle row; until the user touches
+// it the step shows the empty state instead of an unnamed incomplete vehicle.
+function isBlankFleetItem(item: FleetItemValues) {
+  const motor = item.motor_dtl;
+  return (
+    !motor.registration_number.trim() &&
+    !motor.chassis_number.trim() &&
+    !motor.make.trim() &&
+    !motor.model.trim()
+  );
+}
+
+function FleetVehicleStatus({ issueCount }: { issueCount: number }) {
+  return (
+    <span
+      className={[
+        'inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
+        issueCount
+          ? 'bg-amber-50 text-amber-700'
+          : 'bg-emerald-50 text-emerald-700',
+      ].join(' ')}
+    >
+      {issueCount
+        ? `${issueCount} item${issueCount === 1 ? '' : 's'} missing`
+        : 'Ready'}
+    </span>
+  );
+}
+
+function FleetVehicleTable({
+  rows,
+  currency,
+  canRemove,
+  lookupMessages,
+  onEdit,
+  onDuplicate,
+  onRemove,
+}: {
+  rows: { key: string; index: number; item: FleetItemValues }[];
+  currency: string;
+  canRemove: boolean;
+  lookupMessages: Record<string, string>;
+  onEdit: (index: number) => void;
+  onDuplicate: (index: number) => void;
+  onRemove: (index: number) => void;
+}) {
+  const summaries = rows.map(({ item }) => summarizeFleetItem(item));
+  const totals = summaries.reduce(
+    (acc, summary) => ({
+      sumInsured: acc.sumInsured + summary.sumInsured,
+      premium: acc.premium + summary.premium,
+      ready: acc.ready + (summary.issueCount ? 0 : 1),
+    }),
+    { sumInsured: 0, premium: 0, ready: 0 },
+  );
+
+  const actions = (index: number) => (
+    <div className="flex justify-end gap-1">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => onEdit(index)}
+      >
+        <Pencil className="mr-1.5 h-3.5 w-3.5" />
+        Edit
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => onDuplicate(index)}
+        aria-label={`Duplicate vehicle ${index + 1}`}
+        title="Duplicate"
+      >
+        <Copy className="h-4 w-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-red-600 hover:text-red-700"
+        onClick={() => onRemove(index)}
+        disabled={!canRemove}
+        title={canRemove ? undefined : 'A fleet needs at least one vehicle'}
+      >
+        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+        Remove
+      </Button>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          ['Vehicles', String(rows.length)],
+          ['Ready', `${totals.ready} of ${rows.length}`],
+          ['Total sum insured', formatMoney(totals.sumInsured, currency)],
+          ['Total premium', formatMoney(totals.premium, currency)],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-lg bg-slate-50 px-3 py-2">
+            <p className="text-xs text-slate-500">{label}</p>
+            <p className="text-sm font-semibold tabular-nums text-slate-900">
+              {value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tablet and desktop */}
+      <div className="hidden overflow-x-auto rounded-lg border border-slate-200 md:block">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs text-slate-500">
+            <tr>
+              <th className="px-3 py-2 font-medium">#</th>
+              <th className="px-3 py-2 font-medium">Registration</th>
+              <th className="px-3 py-2 font-medium">Make / model</th>
+              <th className="px-3 py-2 font-medium">Year</th>
+              <th className="px-3 py-2 text-right font-medium">Sum insured</th>
+              <th className="px-3 py-2 text-right font-medium">Premium</th>
+              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map(({ key, index, item }, rowIndex) => {
+              const motor = item.motor_dtl;
+              const summary = summaries[rowIndex];
+              const message = lookupMessages[item.risks_covered[0]?.client_ref];
+              return (
+                <tr key={key}>
+                  <td className="px-3 py-2 text-slate-500">{index + 1}</td>
+                  <td className="px-3 py-2">
+                    <p className="font-medium text-slate-900">
+                      {motor.registration_number || motor.chassis_number || '—'}
+                    </p>
+                    {message && (
+                      <p role="status" className="text-xs text-slate-500">
+                        {message}
+                      </p>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {[motor.make, motor.model].filter(Boolean).join(' ') || '—'}
+                  </td>
+                  <td className="px-3 py-2 text-slate-700">
+                    {motor.year_of_manufacture || '—'}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatMoney(summary.sumInsured, currency)}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {formatMoney(summary.premium, currency)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <FleetVehicleStatus issueCount={summary.issueCount} />
+                  </td>
+                  <td className="px-3 py-2">{actions(index)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile */}
+      <ul className="space-y-2 md:hidden">
+        {rows.map(({ key, index, item }, rowIndex) => {
+          const motor = item.motor_dtl;
+          const summary = summaries[rowIndex];
+          const message = lookupMessages[item.risks_covered[0]?.client_ref];
+          return (
+            <li key={key} className="rounded-lg border border-slate-200 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-900">
+                    {index + 1}.{' '}
+                    {motor.registration_number || motor.chassis_number || '—'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {[motor.make, motor.model, motor.year_of_manufacture]
+                      .filter(Boolean)
+                      .join(' · ') || 'No vehicle details'}
+                  </p>
+                </div>
+                <FleetVehicleStatus issueCount={summary.issueCount} />
+              </div>
+              <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <dt className="text-slate-500">Sum insured</dt>
+                  <dd className="tabular-nums text-slate-900">
+                    {formatMoney(summary.sumInsured, currency)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500">Premium</dt>
+                  <dd className="tabular-nums text-slate-900">
+                    {formatMoney(summary.premium, currency)}
+                  </dd>
+                </div>
+              </dl>
+              {message && (
+                <p role="status" className="mt-1 text-xs text-slate-500">
+                  {message}
+                </p>
+              )}
+              <div className="mt-2 border-t border-slate-100 pt-2">
+                {actions(index)}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
 export function MotorFleetDetailsStep({
   form,
-  customerOptions,
   riskOptions,
   vehicleOptions,
   fieldArray,
@@ -1014,6 +1241,17 @@ export function MotorFleetDetailsStep({
     {},
   );
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  // Vehicle open in the editor dialog. A new vehicle is appended to the fleet
+  // immediately so the editor can bind to it, and hidden from the list until
+  // confirmed. An existing vehicle keeps a snapshot so Cancel can restore it.
+  const [editingVehicle, setEditingVehicle] = useState<{
+    index: number;
+    isNew: boolean;
+    /** Editing the untouched starter row, presented as adding a vehicle. */
+    isFirstVehicle?: boolean;
+    snapshot: FleetItemValues | null;
+  } | null>(null);
+  const [vehicleErrors, setVehicleErrors] = useState<string[]>([]);
   const fleetValues = form.watch('fleet');
   const commonDescription = form.watch('cover_note_desc');
   const commonClause = form.watch('operative_clause');
@@ -1187,22 +1425,6 @@ export function MotorFleetDetailsStep({
       toast.error(`${errors.length} row(s) skipped: ${shown}${more}`);
     }
   }
-  const policyholderName = useMemo(() => {
-    const customerId = form.watch('customer_id');
-    const existingCustomer = customerOptions.find(
-      (customer) => customer.id === customerId,
-    );
-    return (
-      existingCustomer?.company_name ||
-      [existingCustomer?.first_name, existingCustomer?.last_name]
-        .filter(Boolean)
-        .join(' ') ||
-      form.watch('policyholder.full_name') ||
-      form.watch('policyholder.company_name') ||
-      ''
-    );
-  }, [customerOptions, form]);
-
   useEffect(() => {
     form.setValue('fleet.header.fleet_size', String(fields.length || 0));
   }, [fields.length, form]);
@@ -1297,6 +1519,36 @@ export function MotorFleetDetailsStep({
         ),
       );
       const requiredFactorsByRisk = new Map(requiredFactorsEntries);
+      const missingSumInsuredRows = calculableRows.filter(
+        ({ row }) =>
+          (requiredFactorsByRisk.get(row.risk_id.trim()) ?? []).some(
+            (requiredFactor) =>
+              requiredFactor.factor.code === 'sum_insured',
+          ) &&
+          (!Number.isFinite(Number(row.sum_insured)) ||
+            Number(row.sum_insured) <= 0),
+      );
+      if (missingSumInsuredRows.length > 0) {
+        const message =
+          'Enter a sum insured greater than zero for each selected risk that requires it.';
+        missingSumInsuredRows.forEach(({ vehicleIndex, riskIndex, row }) => {
+          form.setValue(
+            `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}.rating_result_metadata`,
+            buildFleetFailureMetadata({
+              client_reference: row.client_ref,
+              risk_id: row.risk_id,
+              status: 'INCOMPLETE',
+              message,
+              validation_errors: [message],
+              validation_warnings: [],
+              details: null,
+            }),
+          );
+        });
+        setCalculationErrorMessage(message);
+        if (!silent) toast.error(message);
+        return;
+      }
       const request = {
         effective_date: form.getValues('valid_from'),
         quotation_type: 'MOTOR',
@@ -1314,7 +1566,9 @@ export function MotorFleetDetailsStep({
           return {
             client_reference: row.client_ref,
             risk_id: row.risk_id.trim(),
-            sum_insured: Number(row.sum_insured) || 0,
+            sum_insured: row.sum_insured.trim()
+              ? Number(row.sum_insured)
+              : undefined,
             cover_start_date: form.getValues('valid_from'),
             cover_end_date: form.getValues('valid_until'),
             factors: resolveFleetFactorValues(
@@ -1453,28 +1707,107 @@ export function MotorFleetDetailsStep({
     return () => clearTimeout(timeout);
   }, [fleetSignature, values.product_id, values.fleet.items.length]);
 
+  const currency = values.currency?.trim().toUpperCase() || 'TZS';
+  const showEmptyState =
+    fields.length === 0 ||
+    (fields.length === 1 &&
+      !editingVehicle &&
+      isBlankFleetItem(values.fleet.items[0]));
+  const tableRows = showEmptyState
+    ? []
+    : fields.flatMap((field, index) =>
+        editingVehicle?.isNew && index === editingVehicle.index
+          ? []
+          : [{ key: field.id, index, item: values.fleet.items[index] }],
+      );
+
+  function openNewVehicleDialog() {
+    setVehicleErrors([]);
+    // Fill the untouched starter row rather than appending a second vehicle;
+    // Cancel restores it from the snapshot.
+    if (showEmptyState && fields.length === 1) {
+      openEditVehicleDialog(0, true);
+      return;
+    }
+    const index = fields.length;
+    onAddVehicle();
+    setEditingVehicle({ index, isNew: true, snapshot: null });
+  }
+
+  function openEditVehicleDialog(index: number, isFirstVehicle = false) {
+    setVehicleErrors([]);
+    setEditingVehicle({
+      index,
+      isNew: false,
+      isFirstVehicle,
+      snapshot: structuredClone(form.getValues(`fleet.items.${index}`)),
+    });
+  }
+
+  function cancelVehicleDialog() {
+    if (!editingVehicle) return;
+    if (editingVehicle.isNew) {
+      // Drop the draft directly: onRemoveVehicle asks for confirmation and
+      // keeps the last vehicle, neither of which applies to an unsaved draft.
+      fieldArray.remove(editingVehicle.index);
+    } else if (editingVehicle.snapshot) {
+      form.setValue(
+        `fleet.items.${editingVehicle.index}`,
+        editingVehicle.snapshot,
+      );
+    }
+    form.clearErrors(`fleet.items.${editingVehicle.index}`);
+    setVehicleErrors([]);
+    setEditingVehicle(null);
+  }
+
+  async function confirmVehicleDialog() {
+    if (!editingVehicle) return;
+    const path = `fleet.items.${editingVehicle.index}` as const;
+    const fieldsValid = await form.trigger(path, { shouldFocus: true });
+    // The schema checks fleet items in a root-level refinement, which Zod
+    // skips while another step has invalid fields, so re-check here too.
+    const issues = getVehicleIssues(form.getValues(path));
+    if (fieldsValid && issues.length === 0) {
+      setVehicleErrors([]);
+      setEditingVehicle(null);
+      return;
+    }
+    setVehicleErrors(
+      issues.length > 0
+        ? issues
+        : ['Some fields need correction. Review the highlighted fields.'],
+    );
+  }
+
+  const dialogTitle = editingVehicle?.isNew || editingVehicle?.isFirstVehicle
+    ? 'Add Vehicle'
+    : `Edit Vehicle ${(editingVehicle?.index ?? 0) + 1}`;
+
   return (
     <>
       <StepSection
         title="Vehicles"
-        description="Import a list or add vehicles. Complete only the missing details."
+        description="Import a list or add vehicles one at a time. Use Edit to complete missing details."
         first
         action={
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={handleDownloadTemplate}
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="mr-1.5 h-3.5 w-3.5" />
               CSV Template
             </Button>
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => csvInputRef.current?.click()}
             >
-              <Upload className="mr-2 h-4 w-4" />
+              <Upload className="mr-1.5 h-3.5 w-3.5" />
               Import CSV
             </Button>
             <input
@@ -1484,34 +1817,37 @@ export function MotorFleetDetailsStep({
               className="hidden"
               onChange={(event) => void handleCsvFileSelected(event)}
             />
-            <Button
-              type="button"
-              variant="outline"
-              disabled={lookupPending}
-              onClick={() => void lookupFleetVehicles()}
-            >
-              {lookupPending ? 'Fetching vehicles...' : 'Fetch vehicle details'}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void calculateFleetPremiums()}
-              disabled={calculateMultiMutation.isPending || fields.length === 0}
-            >
-              Calculate Fleet Premiums
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                onAddVehicle();
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Vehicle
-            </Button>
+            {!showEmptyState && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={lookupPending}
+                  onClick={() => void lookupFleetVehicles()}
+                >
+                  {lookupPending
+                    ? 'Fetching vehicles...'
+                    : 'Fetch vehicle details'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void calculateFleetPremiums()}
+                  disabled={calculateMultiMutation.isPending}
+                >
+                  Calculate Fleet Premiums
+                </Button>
+                <Button type="button" size="sm" onClick={openNewVehicleDialog}>
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Add Vehicle
+                </Button>
+              </>
+            )}
           </div>
         }
-        contentClassName="space-y-1"
+        contentClassName="space-y-3"
       >
         {importErrors.length > 0 && (
           <div
@@ -1524,51 +1860,90 @@ export function MotorFleetDetailsStep({
             ))}
           </div>
         )}
-        {fields.map((field, index) => {
-          const item = form.watch(`fleet.items.${index}` as const);
-          return (
-            <div key={field.id} className="space-y-3 rounded-xl border p-3">
-              {lookupMessages[item.risks_covered[0]?.client_ref] && (
-                <p role="status" className="text-xs">
-                  {lookupMessages[item.risks_covered[0]?.client_ref]}
-                </p>
-              )}
+        {showEmptyState ? (
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-slate-300 px-4 py-10 text-center">
+            <p className="text-sm text-slate-500">
+              No vehicles added yet. Add a vehicle or import a CSV list.
+            </p>
+            <Button type="button" onClick={openNewVehicleDialog}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Vehicle
+            </Button>
+          </div>
+        ) : (
+          <FleetVehicleTable
+            rows={tableRows}
+            currency={currency}
+            canRemove={fields.length > 1}
+            lookupMessages={lookupMessages}
+            onEdit={(index) => openEditVehicleDialog(index)}
+            onDuplicate={onDuplicateVehicle}
+            onRemove={onRemoveVehicle}
+          />
+        )}
+      </StepSection>
+
+      <Dialog
+        open={editingVehicle !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelVehicleDialog();
+        }}
+      >
+        <DialogContent
+          className="flex max-w-5xl flex-col gap-0 p-0 sm:max-h-[90vh]"
+          onInteractOutside={(event) => event.preventDefault()}
+        >
+          <DialogHeader className="border-b border-slate-100 px-4 py-4 sm:px-6">
+            <DialogTitle>{dialogTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+            {editingVehicle && (
               <FleetVehicleEditor
                 form={form}
                 riskOptions={riskOptions}
                 vehicleOptions={vehicleOptions}
-                customerName={policyholderName}
-                index={index}
+                index={editingVehicle.index}
                 isCalculating={calculateMultiMutation.isPending}
                 calculationErrorMessage={calculationErrorMessage}
                 onCalculateVehicle={(vehicleIndex) =>
                   void calculateFleetPremiums(vehicleIndex)
                 }
               />
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onDuplicateVehicle(index)}
-                >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Duplicate Vehicle
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemoveVehicle(index)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Remove Vehicle
-                </Button>
+            )}
+          </div>
+          <div className="space-y-3 border-t border-slate-100 px-4 py-3 sm:px-6">
+            {vehicleErrors.length > 0 && (
+              <div
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+              >
+                <p className="font-medium">
+                  This vehicle can't be saved yet:
+                </p>
+                <ul className="mt-1 list-disc pl-5">
+                  {vehicleErrors.map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
               </div>
-            </div>
-          );
-        })}
-      </StepSection>
+            )}
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cancelVehicleDialog}
+              >
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => void confirmVehicleDialog()}>
+                {editingVehicle?.isNew || editingVehicle?.isFirstVehicle
+                  ? 'Add vehicle'
+                  : 'Save vehicle'}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

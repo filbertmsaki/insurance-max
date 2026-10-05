@@ -33,7 +33,9 @@ export function VehicleDetailsFields({
     <div className="space-y-4">
       <div>
         <p className="mb-3 text-sm font-medium">Vehicle details</p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className={`grid gap-4 sm:grid-cols-2 ${fleetIndex == null ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}
+        >
           {motorFields.map(renderField)}
         </div>
       </div>

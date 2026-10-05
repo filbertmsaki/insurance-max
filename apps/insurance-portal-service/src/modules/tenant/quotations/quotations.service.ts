@@ -156,6 +156,7 @@ import {
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
 import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
 import { canSelfApprove } from '../../shared/authorization/maker-checker';
+import { BusinessReferenceService } from '../../shared/identifiers/business-reference.service';
 
 type NumericValue = number | string | null | undefined;
 
@@ -333,6 +334,7 @@ export class QuotationsService {
     @InjectRepository(TiramisSalePointEntity)
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
     private readonly nonMotorRiskService: NonMotorRiskService,
+    private readonly businessReferenceService: BusinessReferenceService,
   ) {}
 
   private resolveUserScope(
@@ -8207,6 +8209,16 @@ export class QuotationsService {
     this.correctPayloadCoverPeriod(payload);
     const header = this.resolveHeader(payload);
     const fleetHeader = payload.cover_note_dtl.fleet_hdr;
+    // Fleet references are system-assigned per company. A reference that is
+    // already set (edits, endorsements) is kept so TIRA sees a stable fleet.
+    if (fleetHeader && !fleetHeader.fleet_id?.trim()) {
+      fleetHeader.fleet_id = await this.businessReferenceService.next({
+        companyId: quotation.company_id,
+        documentType: 'MOTOR_FLEET',
+        prefix: `FLT-${new Date().getFullYear()}-`,
+        manager,
+      });
+    }
     const coverNoteRepository = manager.getRepository(QuotationCoverNote);
     const productDefinition = quotation.product_definition_snapshot;
     const persistedExchangeRateSnapshot = exchangeRateSnapshot

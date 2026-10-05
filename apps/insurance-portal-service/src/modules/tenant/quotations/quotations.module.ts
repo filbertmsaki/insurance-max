@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { SharedModule } from '../../shared/shared.module';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
@@ -60,6 +61,7 @@ import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.serv
 
 @Module({
   imports: [
+    SharedModule,
     TypeOrmModule.forFeature([
       Quotation,
       QuotationStatusHistory,

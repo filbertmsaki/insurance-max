@@ -720,6 +720,9 @@ describe('QuotationsService', () => {
       branchUserRepository,
       salePointRepository,
       nonMotorRiskService as any,
+      {
+        next: jest.fn().mockResolvedValue('FLT-2026-00001'),
+      } as any,
     );
 
     return {
