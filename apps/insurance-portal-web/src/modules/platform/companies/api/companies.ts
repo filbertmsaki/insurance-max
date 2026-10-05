@@ -78,6 +78,23 @@ export interface CompanyUser {
   permissions: string[];
 }
 
+export interface CompanyDataAccessMember {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  roles: string[];
+  branches: Array<{
+    id: string;
+    name: string;
+    is_primary: boolean;
+    is_active_branch: boolean;
+  }>;
+  read_permissions: string[];
+  branch_id: string | null;
+  scope_is_mixed: boolean;
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 export const companiesApi = {
@@ -92,6 +109,18 @@ export const companiesApi = {
   /** GET /companies/my — Company-scoped users: get own company */
   getMyCompany: () =>
     apiClient.get<Company>('/companies/my').then((r) => r.data),
+
+  getMyCompanyDataAccess: () =>
+    apiClient
+      .get<CompanyDataAccessMember[]>('/companies/my/data-access')
+      .then((r) => r.data),
+
+  updateMemberBranchReadAccess: (userId: string, branchId: string | null) =>
+    apiClient
+      .patch<
+        CompanyDataAccessMember[]
+      >(`/companies/my/users/${userId}/data-access`, { branch_id: branchId })
+      .then((r) => r.data),
 
   /** PATCH /companies/my — Company-scoped users: update own company */
   updateMyCompany: (data: UpdateCompanyDto) =>

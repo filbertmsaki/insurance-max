@@ -39,7 +39,7 @@ export class EndorsementsController {
   ) {}
 
   @Get('tenant/policies/:policyId/endorsement-eligibility')
-  @Permissions('endorsements:create')
+  @Permissions('policy-transactions:read')
   @ApiOperation({
     summary: 'Check whether the current issued policy can be endorsed',
   })
@@ -67,7 +67,7 @@ export class EndorsementsController {
   }
 
   @Get('tenant/endorsements')
-  @Permissions('endorsements:create')
+  @Permissions('policy-transactions:read')
   @ApiOperation({ summary: 'List endorsements for the current company' })
   findAll(
     @CurrentUser() user: AuthenticatedUser,
@@ -90,7 +90,7 @@ export class EndorsementsController {
   }
 
   @Get('tenant/endorsements/:id')
-  @Permissions('endorsements:create')
+  @Permissions('policy-transactions:read')
   @ApiOperation({ summary: 'Get an endorsement by ID' })
   findOne(
     @CurrentUser() user: AuthenticatedUser,

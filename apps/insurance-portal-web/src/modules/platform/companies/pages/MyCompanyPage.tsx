@@ -9,6 +9,7 @@ import {
   Check,
   X,
   Settings,
+  Shield,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,6 +53,7 @@ import {
 } from '@/modules/platform/companies/hooks';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { TiramisConfigTab } from '@/modules/tenant/tiramis-config/components/TiramisConfigTab';
+import { CompanyDataAccessTab } from '../components/CompanyDataAccessTab';
 import type { Company } from '@/types';
 import type { UpdateCompanyDto } from '@/modules/platform/companies/api/companies';
 
@@ -440,6 +442,7 @@ export function MyCompanyPage() {
   const [editOpen, setEditOpen] = useState(false);
 
   const canEdit = hasPermission('update_company_data');
+  const canManageDataAccess = hasPermission('users:assign-role');
 
   const { data: company, isLoading } = useMyCompany();
   const updateMutation = useUpdateMyCompany();
@@ -552,6 +555,12 @@ export function MyCompanyPage() {
             <Settings className="mr-1.5 h-3.5 w-3.5" />
             Settings
           </TabsTrigger>
+          {canManageDataAccess && (
+            <TabsTrigger value="data-access">
+              <Shield className="mr-1.5 h-3.5 w-3.5" />
+              Data Access
+            </TabsTrigger>
+          )}
           <TabsTrigger value="tiramis">
             <Settings className="mr-1.5 h-3.5 w-3.5" />
             TIRA Configuration
@@ -704,6 +713,12 @@ export function MyCompanyPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {canManageDataAccess && (
+          <TabsContent value="data-access" className="mt-4">
+            <CompanyDataAccessTab />
+          </TabsContent>
+        )}
 
         <TabsContent value="tiramis" className="mt-4">
           <TiramisConfigTab />

@@ -13,6 +13,7 @@ export interface PermissionDataScopeAssignment {
   branchId?: string | null;
   departmentId?: string | null;
   source: 'ROLE' | 'DIRECT';
+  explicit?: boolean;
 }
 
 export type UserType =

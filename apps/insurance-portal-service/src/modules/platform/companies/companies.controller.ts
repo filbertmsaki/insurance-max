@@ -25,6 +25,7 @@ import {
 } from './dtos/update-company.dto';
 import { UpdateNumberFormatSettingsDto } from './dtos/update-number-format-settings.dto';
 import { GrantCompanyUserPermissionDto } from './dtos/grant-company-user-permission.dto';
+import { UpdateMemberBranchReadAccessDto } from './dtos/update-member-branch-read-access.dto';
 import { CompaniesService } from './companies.service';
 
 @ApiTags('Companies')
@@ -59,6 +60,35 @@ export class CompaniesController {
   @ApiOperation({ summary: "Get the current user's active company profile" })
   async getMyCompany(@CurrentUser() user: AuthenticatedUser) {
     return this.companiesService.findCompanyById(user.companyId!);
+  }
+
+  @Get('my/data-access')
+  @TenantScoped()
+  @Permissions('users:assign-role')
+  @ApiOperation({
+    summary: 'List branch data-access settings for company users',
+  })
+  async getMyCompanyDataAccess(@CurrentUser() user: AuthenticatedUser) {
+    return this.companiesService.getMyCompanyDataAccess(user.companyId!);
+  }
+
+  @Patch('my/users/:userId/data-access')
+  @TenantScoped()
+  @Permissions('users:assign-role')
+  @ApiOperation({
+    summary: 'Set branch-limited read access for a company user',
+  })
+  async updateMemberBranchReadAccess(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() dto: UpdateMemberBranchReadAccessDto,
+  ) {
+    return this.companiesService.updateMemberBranchReadAccess(
+      actor.companyId!,
+      userId,
+      dto.branch_id ?? null,
+      actor,
+    );
   }
 
   @Post(':id/users/:userId/permissions')

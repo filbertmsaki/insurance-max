@@ -182,7 +182,7 @@ export class EndorsementService {
     this.dataAccessScopeService.applyPolicyReadScope(
       policyQuery,
       'policy',
-      this.dataAccessScopeService.resolve(user, 'endorsements:create'),
+      this.dataAccessScopeService.resolve(user, 'policy-transactions:read'),
     );
     const policy = await policyQuery.getOne();
 
@@ -945,6 +945,7 @@ export class EndorsementService {
       user,
       'transaction',
       'policy',
+      'policy-transactions:read',
     )
       .andWhere('transaction.transaction_type = :transactionType', {
         transactionType: PolicyTransactionType.ENDORSEMENT,
@@ -994,6 +995,7 @@ export class EndorsementService {
       user,
       'transaction',
       'policy',
+      'policy-transactions:read',
     )
       .andWhere('transaction.id = :id', { id })
       .andWhere('transaction.transaction_type = :transactionType', {

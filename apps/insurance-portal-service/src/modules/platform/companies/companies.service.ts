@@ -12,7 +12,7 @@ import {
   SortDirection,
 } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { isDuplicateEntryError } from '@insurance-max/portal-shared/utils/db-error.util';
 import { RoleScope } from '@insurance-max/contracts';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -62,6 +62,13 @@ export interface NumberFormatSettings {
 }
 
 const NUMBER_FORMAT_CONFIG_KEY = 'number_format';
+const BRANCH_READ_ACCESS_PERMISSIONS = [
+  'quotations:read',
+  'policies:read',
+  'policy-transactions:read',
+  'renewals:read',
+  'cancellations:read',
+] as const;
 
 export const DEFAULT_NUMBER_FORMAT_SETTINGS: NumberFormatSettings = {
   currency_code: 'TZS',
@@ -777,6 +784,7 @@ export class CompaniesService {
       data_scope: QuotationPolicyDataScope;
       scope_branch_id: string | null;
       scope_department_id: string | null;
+      scope_configured: boolean;
       source: 'ROLE' | 'DIRECT';
     }> = await (manager ?? this.dataSource.manager).query(
       `
@@ -784,6 +792,7 @@ export class CompaniesService {
           COALESCE(scope.data_scope, membership.quotation_policy_data_scope) AS data_scope,
           scope.scope_branch_id,
           scope.scope_department_id,
+          (scope.id IS NOT NULL) AS scope_configured,
           'ROLE'::varchar AS source
         FROM company_user_roles assignment
         INNER JOIN company_users membership ON membership.id = assignment.company_user_id
@@ -797,6 +806,7 @@ export class CompaniesService {
           COALESCE(direct.data_scope, membership.quotation_policy_data_scope) AS data_scope,
           direct.scope_branch_id,
           direct.scope_department_id,
+          (direct.data_scope IS NOT NULL) AS scope_configured,
           'DIRECT'::varchar AS source
         FROM company_user_permissions direct
         INNER JOIN company_users membership ON membership.id = direct.company_user_id
@@ -812,6 +822,7 @@ export class CompaniesService {
       branchId: assignment.scope_branch_id,
       departmentId: assignment.scope_department_id,
       source: assignment.source,
+      explicit: assignment.scope_configured,
     }));
 
     return {
@@ -2054,6 +2065,253 @@ export class CompaniesService {
         hasPreviousPage: page > 1,
       },
     };
+  }
+
+  async getMyCompanyDataAccess(companyId: string) {
+    const members: Array<{
+      user_id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+      roles: string[];
+    }> = await this.dataSource.query(
+      `
+        SELECT membership.user_id, user_account.first_name,
+          user_account.last_name, user_account.email,
+          COALESCE(array_agg(DISTINCT role.name) FILTER (WHERE role.name IS NOT NULL), '{}') AS roles
+        FROM company_users membership
+        INNER JOIN users user_account ON user_account.id = membership.user_id
+        LEFT JOIN company_user_roles role_assignment
+          ON role_assignment.company_user_id = membership.id
+        LEFT JOIN roles role ON role.id = role_assignment.role_id
+        WHERE membership.company_id = $1 AND membership.status = 'active'
+          AND user_account.status = 'active'
+        GROUP BY membership.user_id, user_account.first_name,
+          user_account.last_name, user_account.email
+        ORDER BY user_account.last_name, user_account.first_name
+      `,
+      [companyId],
+    );
+
+    const branchAssignments: Array<{
+      user_id: string;
+      id: string;
+      name: string;
+      is_primary: boolean;
+      is_active_branch: boolean;
+    }> = await this.dataSource.query(
+      `
+        SELECT membership.user_id, branch.id, branch.name,
+          branch_user.is_primary, branch_user.is_active_branch
+        FROM branch_users branch_user
+        INNER JOIN company_users membership
+          ON membership.id = branch_user.company_user_id
+        INNER JOIN branches branch ON branch.id = branch_user.branch_id
+        WHERE membership.company_id = $1 AND membership.status = 'active'
+          AND branch.company_id = $1 AND branch.status = 'active'
+          AND branch.deleted_at IS NULL
+        ORDER BY branch.name
+      `,
+      [companyId],
+    );
+
+    const permissionRows: Array<{ user_id: string; name: string }> =
+      await this.dataSource.query(
+        `
+          SELECT membership.user_id, permission.name
+          FROM company_users membership
+          INNER JOIN company_user_roles role_assignment
+            ON role_assignment.company_user_id = membership.id
+          INNER JOIN permission_role role_permission
+            ON role_permission.roles_id = role_assignment.role_id
+          INNER JOIN permissions permission
+            ON permission.id = role_permission.permissions_id
+          WHERE membership.company_id = $1 AND membership.status = 'active'
+            AND permission.name = ANY($2::varchar[])
+          UNION
+          SELECT membership.user_id, permission.name
+          FROM company_users membership
+          INNER JOIN company_user_permissions direct
+            ON direct.company_user_id = membership.id
+          INNER JOIN permissions permission ON permission.id = direct.permission_id
+          WHERE membership.company_id = $1 AND membership.status = 'active'
+            AND permission.name = ANY($2::varchar[])
+        `,
+        [companyId, [...BRANCH_READ_ACCESS_PERMISSIONS]],
+      );
+
+    const directScopes: Array<{
+      user_id: string;
+      name: string;
+      data_scope: QuotationPolicyDataScope | null;
+      scope_branch_id: string | null;
+    }> = await this.dataSource.query(
+      `
+        SELECT membership.user_id, permission.name,
+          direct.data_scope, direct.scope_branch_id
+        FROM company_user_permissions direct
+        INNER JOIN company_users membership
+          ON membership.id = direct.company_user_id
+        INNER JOIN permissions permission ON permission.id = direct.permission_id
+        WHERE membership.company_id = $1 AND membership.status = 'active'
+          AND permission.name = ANY($2::varchar[])
+      `,
+      [companyId, [...BRANCH_READ_ACCESS_PERMISSIONS]],
+    );
+
+    return members.map((member) => {
+      const assignments = branchAssignments
+        .filter((branch) => branch.user_id === member.user_id)
+        .map(({ id, name, is_primary, is_active_branch }) => ({
+          id,
+          name,
+          is_primary,
+          is_active_branch,
+        }));
+      const scoped = directScopes.filter(
+        (scope) =>
+          scope.user_id === member.user_id &&
+          scope.data_scope === QuotationPolicyDataScope.BRANCH &&
+          scope.scope_branch_id,
+      );
+      const branchIds = Array.from(
+        new Set(scoped.map((scope) => scope.scope_branch_id!)),
+      );
+
+      return {
+        ...member,
+        branches: assignments,
+        read_permissions: permissionRows
+          .filter((permission) => permission.user_id === member.user_id)
+          .map((permission) => permission.name),
+        branch_id: branchIds.length === 1 ? branchIds[0] : null,
+        scope_is_mixed: branchIds.length > 1,
+      };
+    });
+  }
+
+  async updateMemberBranchReadAccess(
+    companyId: string,
+    targetUserId: string,
+    branchId: string | null,
+    actor: AuthenticatedUser,
+  ) {
+    await this.dataSource.transaction(async (manager) => {
+      const membership = await manager
+        .getRepository(CompanyUser)
+        .createQueryBuilder('membership')
+        .setLock('pessimistic_write')
+        .where('membership.company_id = :companyId', { companyId })
+        .andWhere('membership.user_id = :targetUserId', { targetUserId })
+        .andWhere('membership.status = :status', { status: 'active' })
+        .getOne();
+
+      if (!membership) {
+        throw new NotFoundException('Active company membership not found.');
+      }
+
+      if (branchId) {
+        const branch = await manager.getRepository(Branch).findOne({
+          where: { id: branchId, company_id: companyId, status: 'active' },
+          select: { id: true },
+        });
+        const assigned = await manager.getRepository(BranchUser).exist({
+          where: { branch_id: branchId, company_user_id: membership.id },
+        });
+        if (!branch || !assigned) {
+          throw new BadRequestException(
+            'Choose an active branch assigned to this company user.',
+          );
+        }
+      }
+
+      const heldPermissions: Array<{ id: string; name: string }> =
+        await manager.query(
+          `
+            SELECT DISTINCT permission.id, permission.name
+            FROM company_user_roles role_assignment
+            INNER JOIN permission_role role_permission
+              ON role_permission.roles_id = role_assignment.role_id
+            INNER JOIN permissions permission
+              ON permission.id = role_permission.permissions_id
+            WHERE role_assignment.company_user_id = $1
+              AND permission.name = ANY($2::varchar[])
+            UNION
+            SELECT permission.id, permission.name
+            FROM company_user_permissions direct
+            INNER JOIN permissions permission ON permission.id = direct.permission_id
+            WHERE direct.company_user_id = $1
+              AND permission.name = ANY($2::varchar[])
+          `,
+          [membership.id, [...BRANCH_READ_ACCESS_PERMISSIONS]],
+        );
+
+      if (!heldPermissions.length) {
+        throw new BadRequestException(
+          'This user has no read permissions that can be branch-scoped.',
+        );
+      }
+
+      const assignmentRepository = manager.getRepository(CompanyUserPermission);
+      const before = await assignmentRepository.find({
+        where: {
+          company_user_id: membership.id,
+          permission_id: In(heldPermissions.map(({ id }) => id)),
+        },
+        relations: { permission: true },
+      });
+      const existingByPermission = new Map(
+        before.map((assignment) => [assignment.permission_id, assignment]),
+      );
+
+      for (const permission of heldPermissions) {
+        let assignment = existingByPermission.get(permission.id);
+        if (!assignment && !branchId) continue;
+        assignment ??= assignmentRepository.create({
+          company_user_id: membership.id,
+          permission_id: permission.id,
+        });
+        assignment.data_scope = branchId
+          ? QuotationPolicyDataScope.BRANCH
+          : null;
+        assignment.scope_branch_id = branchId;
+        assignment.scope_department_id = null;
+        await assignmentRepository.save(assignment);
+      }
+
+      await this.authorizationVersionService.bumpMembership(
+        membership.id,
+        manager,
+      );
+      await this.auditService.logCritical(
+        {
+          userId: actor.id,
+          companyId,
+          companyMembershipId: actor.companyMembershipId,
+          sessionId: actor.sessionId,
+          action: 'company_member.branch_read_access.updated',
+          eventCategory: 'authorization',
+          resource: 'company_user_permission',
+          resourceId: membership.id,
+          metadata: { targetUserId, branchId },
+          beforeState: {
+            permissions: before.map((assignment) => ({
+              permission: assignment.permission?.name,
+              data_scope: assignment.data_scope,
+              scope_branch_id: assignment.scope_branch_id,
+            })),
+          },
+          afterState: {
+            permissions: heldPermissions.map(({ name }) => name),
+            data_scope: branchId ? QuotationPolicyDataScope.BRANCH : 'DEFAULT',
+            scope_branch_id: branchId,
+          },
+        },
+        manager,
+      );
+    });
+
+    return this.getMyCompanyDataAccess(companyId);
   }
 
   private getDefaultAdminRoleForCompanyType(companyType: CompanyType): string {

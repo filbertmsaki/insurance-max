@@ -29,7 +29,8 @@ export class DataAccessScopeService {
 
     const scopedAssignments = permissionName
       ? (user.permissionDataScopes ?? []).filter(
-          (assignment) => assignment.permission === permissionName,
+          (assignment) =>
+            assignment.permission === permissionName && assignment.explicit,
         )
       : [];
     // Direct grants take precedence. When several role assignments provide
@@ -54,6 +55,7 @@ export class DataAccessScopeService {
           : selected,
       undefined as (typeof effectiveAssignments)[number] | undefined,
     );
+    const hasExplicitPermissionScope = !!selectedAssignment;
     const isExternalUser = ['AGENT', 'BROKER', 'CUSTOMER'].includes(
       user.userType,
     );
@@ -67,20 +69,27 @@ export class DataAccessScopeService {
     // explicit own-records grant keep creator-only access.
     const quotationPolicyDataScope =
       configuredScope === QuotationPolicyDataScope.USER &&
+      !hasExplicitPermissionScope &&
       !isExternalUser &&
       !permissions.has(DataScopePermissions.OWN_RECORDS) &&
       assignedBranchIds.length > 0
         ? QuotationPolicyDataScope.BRANCH
         : configuredScope;
 
+    // An explicit scope for this permission takes precedence over generic
+    // membership-wide scope flags. This lets a company administrator retain
+    // administrative roles while limiting a specific business permission to
+    // one branch.
     const canViewAllBranches =
       quotationPolicyDataScope === QuotationPolicyDataScope.COMPANY ||
-      permissions.has(DataScopePermissions.COMPANY_ALL);
+      (!hasExplicitPermissionScope &&
+        permissions.has(DataScopePermissions.COMPANY_ALL));
 
     const canViewAssignedBranches =
       !canViewAllBranches &&
       (quotationPolicyDataScope === QuotationPolicyDataScope.BRANCH ||
-        permissions.has(DataScopePermissions.ASSIGNED_BRANCHES));
+        (!hasExplicitPermissionScope &&
+          permissions.has(DataScopePermissions.ASSIGNED_BRANCHES)));
 
     const assignedDepartmentIds = Array.from(
       new Set(user.assignedDepartmentIds ?? []),
@@ -98,7 +107,8 @@ export class DataAccessScopeService {
 
     const ownRecordsOnly =
       quotationPolicyDataScope === QuotationPolicyDataScope.USER ||
-      permissions.has(DataScopePermissions.OWN_RECORDS) ||
+      (!hasExplicitPermissionScope &&
+        permissions.has(DataScopePermissions.OWN_RECORDS)) ||
       isExternalUser;
 
     const allowedDepartmentIds =
