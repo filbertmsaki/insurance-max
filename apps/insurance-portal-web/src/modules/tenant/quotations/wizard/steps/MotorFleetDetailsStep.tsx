@@ -334,16 +334,6 @@ function FleetVehicleEditor({
     return map;
   }, [riskIds, requiredFactorsQueries]);
 
-  const totalPremium = item.risks_covered.reduce(
-    (sum, risk) => sum + (Number(risk.premium_including_tax) || 0),
-    0,
-  );
-  const totalSumInsured = item.risks_covered.reduce(
-    (sum, risk) => sum + (Number(risk.sum_insured) || 0),
-    0,
-  );
-  const issues = getVehicleIssues(item);
-
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -942,43 +932,6 @@ function FleetVehicleEditor({
             ))
           )}
         </StepSection>
-      </div>
-
-      <div className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 p-4">
-            <p className="text-sm font-medium text-slate-900">
-              Vehicle Summary
-            </p>
-            <div className="mt-2 space-y-1 text-sm text-slate-600">
-              <p>Cover note: {item.cover_note_number || '-'}</p>
-              <p>
-                Vehicle: {item.motor_dtl.registration_number || '-'} /{' '}
-                {item.motor_dtl.chassis_number || '-'}
-              </p>
-              <p>
-                Make & model: {item.motor_dtl.make || '-'}{' '}
-                {item.motor_dtl.model || ''}
-              </p>
-              <p>Total sum insured: {totalSumInsured.toFixed(2)}</p>
-              <p>Total premium: {totalPremium.toFixed(2)}</p>
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 p-4">
-            <p className="text-sm font-medium text-slate-900">Validation</p>
-            {issues.length > 0 ? (
-              <div className="mt-2 space-y-1 text-sm text-amber-700">
-                {issues.map((issue) => (
-                  <p key={issue}>{issue}</p>
-                ))}
-              </div>
-            ) : (
-              <p className="mt-2 text-sm text-emerald-700">
-                This vehicle entry is ready to save back to the fleet list.
-              </p>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
