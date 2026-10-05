@@ -56,6 +56,7 @@ export class DataAccessScopeService {
       undefined as (typeof effectiveAssignments)[number] | undefined,
     );
     const hasExplicitPermissionScope = !!selectedAssignment;
+    const hasDirectPermissionScope = selectedAssignment?.source === 'DIRECT';
     const isExternalUser = ['AGENT', 'BROKER', 'CUSTOMER'].includes(
       user.userType,
     );
@@ -63,26 +64,32 @@ export class DataAccessScopeService {
     const configuredScope = this.normalizeQuotationPolicyDataScope(
       selectedAssignment?.dataScope ?? user.quotationPolicyDataScope,
     );
+    // Company-wide access granted by a role (data-scope:company-all) wins
+    // over narrower role-level scopes. Only a direct per-member grant (the
+    // Company Data Access setting) may deliberately narrow it. External
+    // users and an own-records grant always stay creator-only.
+    const hasCompanyWideGrant =
+      permissions.has(DataScopePermissions.COMPANY_ALL) &&
+      !hasDirectPermissionScope &&
+      !isExternalUser &&
+      !permissions.has(DataScopePermissions.OWN_RECORDS);
     // Branch team access: internal staff on the default USER scope share
     // records with colleagues in every branch they are assigned to, so they
     // can follow up on work started by someone else. External users and an
     // explicit own-records grant keep creator-only access.
-    const quotationPolicyDataScope =
-      configuredScope === QuotationPolicyDataScope.USER &&
-      !hasExplicitPermissionScope &&
-      !isExternalUser &&
-      !permissions.has(DataScopePermissions.OWN_RECORDS) &&
-      assignedBranchIds.length > 0
+    const quotationPolicyDataScope = hasCompanyWideGrant
+      ? QuotationPolicyDataScope.COMPANY
+      : configuredScope === QuotationPolicyDataScope.USER &&
+          !hasExplicitPermissionScope &&
+          !isExternalUser &&
+          !permissions.has(DataScopePermissions.OWN_RECORDS) &&
+          assignedBranchIds.length > 0
         ? QuotationPolicyDataScope.BRANCH
         : configuredScope;
 
-    // An explicit scope for this permission takes precedence over generic
-    // membership-wide scope flags. This lets a company administrator retain
-    // administrative roles while limiting a specific business permission to
-    // one branch.
     const canViewAllBranches =
       quotationPolicyDataScope === QuotationPolicyDataScope.COMPANY ||
-      (!hasExplicitPermissionScope &&
+      (!hasDirectPermissionScope &&
         permissions.has(DataScopePermissions.COMPANY_ALL));
 
     const canViewAssignedBranches =

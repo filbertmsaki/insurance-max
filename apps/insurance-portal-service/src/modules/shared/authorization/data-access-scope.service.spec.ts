@@ -127,4 +127,83 @@ describe('DataAccessScopeService', () => {
 
     expect(scope.canViewCarrierPortfolio).toBe(false);
   });
+
+  describe('company-wide grant (data-scope:company-all)', () => {
+    const roleScope = (dataScope: QuotationPolicyDataScope) => ({
+      permission: 'quotations:read',
+      dataScope,
+      branchId: null as string | null,
+      departmentId: null,
+      source: 'ROLE' as 'ROLE' | 'DIRECT',
+      explicit: true,
+    });
+
+    it('gives company-wide quotation/policy access to a default-scope admin', () => {
+      const scope = service.resolve(
+        { ...baseUser, permissions: [DataScopePermissions.COMPANY_ALL] },
+        'quotations:read',
+      );
+
+      expect(scope.quotationPolicyDataScope).toBe(
+        QuotationPolicyDataScope.COMPANY,
+      );
+      expect(scope.canViewAllBranches).toBe(true);
+      expect(scope.ownRecordsOnly).toBe(false);
+    });
+
+    it('is not narrowed by a role-level own-records scope', () => {
+      const scope = service.resolve(
+        {
+          ...baseUser,
+          permissions: [DataScopePermissions.COMPANY_ALL],
+          permissionDataScopes: [roleScope(QuotationPolicyDataScope.USER)],
+        },
+        'quotations:read',
+      );
+
+      expect(scope.quotationPolicyDataScope).toBe(
+        QuotationPolicyDataScope.COMPANY,
+      );
+      expect(scope.ownRecordsOnly).toBe(false);
+    });
+
+    it('is narrowed by a direct per-member branch scope', () => {
+      const scope = service.resolve(
+        {
+          ...baseUser,
+          permissions: [DataScopePermissions.COMPANY_ALL],
+          permissionDataScopes: [
+            {
+              ...roleScope(QuotationPolicyDataScope.BRANCH),
+              branchId: 'branch-1',
+              source: 'DIRECT',
+            },
+          ],
+        },
+        'quotations:read',
+      );
+
+      expect(scope.quotationPolicyDataScope).toBe(
+        QuotationPolicyDataScope.BRANCH,
+      );
+      expect(scope.canViewAllBranches).toBe(false);
+      expect(scope.allowedBranchIds).toEqual(['branch-1', 'branch-2']);
+    });
+
+    it('keeps external users on their own records', () => {
+      const scope = service.resolve(
+        {
+          ...baseUser,
+          userType: 'AGENT',
+          permissions: [DataScopePermissions.COMPANY_ALL],
+        },
+        'quotations:read',
+      );
+
+      expect(scope.quotationPolicyDataScope).not.toBe(
+        QuotationPolicyDataScope.COMPANY,
+      );
+      expect(scope.ownRecordsOnly).toBe(true);
+    });
+  });
 });
