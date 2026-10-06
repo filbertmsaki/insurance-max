@@ -103,7 +103,7 @@ optional variables to that environment:
 
 The internal default is `http://127.0.0.1:9090/api/health`; keep internal checks
 local to each host. The public default is
-`https://ussdvd.alliance.co.tz/tiramis-api/api/health`. The Apache check resolves
+`https://api.example.com/tiramis-api/api/health`. The Apache check resolves
 the configured public hostname and port to `127.0.0.1`, so it checks the server
 being deployed even if public DNS points at a load balancer.
 

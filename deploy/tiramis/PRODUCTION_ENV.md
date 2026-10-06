@@ -28,7 +28,7 @@ real production `.env` file.
 ```
 
 ```bash
-sudo chown -R alliance:alliance /opt/apps/tiramis
+sudo chown -R deploy:deploy /opt/apps/tiramis
 chmod 600 /opt/apps/tiramis/shared/.env
 chmod 750 /opt/apps/tiramis/certificates
 find /opt/apps/tiramis/certificates -type d -exec chmod 750 {} \;
@@ -39,7 +39,7 @@ find /opt/apps/tiramis/certificates -type f -exec chmod 640 {} \;
 
 - `APP_ENV=production`
 - `APP_PORT=9090`
-- `APP_URL=https://ussdvd.alliance.co.tz/tiramis-api`
+- `APP_URL=https://api.example.com/tiramis-api`
 - `TIRAMIS_TARGET_ENV=live`
 - `DB_SYNCHRONIZE=false`
 - `DB_LOGGING=false`
@@ -67,7 +67,7 @@ TIRAMIS client keys and certificate passwords.
 
 TIRAMIS appends full outbound XML, the immediate TIRA HTTP response, callback
 XML, and callback acknowledgement XML to one file per TIRA `RequestId`, e.g.
-`/opt/apps/tiramis/shared/tira-requests/AICCNRR19070658.log`. Transport errors
+`/opt/apps/tiramis/shared/tira-requests/<request-id>.log`. Transport errors
 (including timeouts), callback rejections, and processing errors are also logged.
 Each line is a JSON object with a timestamp, request ID, event, and relevant
 payload. The `xml` field contains the complete XML as a JSON string.
@@ -152,8 +152,8 @@ Create the service API key after migrations have created `tiramis_api_keys`:
 ```bash
 cd /opt/apps/tiramis/current
 npm run tiramis:api-key:create:production -- \
-  --company-code=ICC110 \
-  --system-code=LSYS_ALLIANCE_003 \
+  --company-code=ICC000 \
+  --system-code=LSYS_EXAMPLE_001 \
   --environment=live
 ```
 
@@ -178,5 +178,5 @@ with `npm ci --omit=dev`; that development script requires `ts-node` and
 The public health URL should return HTTP 200:
 
 ```bash
-curl -k https://ussdvd.alliance.co.tz/tiramis-api/api/health
+curl -k https://api.example.com/tiramis-api/api/health
 ```

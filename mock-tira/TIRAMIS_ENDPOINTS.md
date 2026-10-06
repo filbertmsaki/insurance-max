@@ -7,8 +7,8 @@ The mock server now exposes every POST endpoint configured by `apps/tiramis/src/
 ```env
 PORT=5050
 
-CLIENT_CODE=ICC110
-CLIENT_KEY=RydLDE8CFJ
+CLIENT_CODE=ICC000
+CLIENT_KEY=your-client-key
 
 VERIFY_INCOMING_SIGNATURE=true
 SIGN_RESPONSES=true
@@ -16,16 +16,16 @@ ALLOW_MOCK_SIGNATURE=false
 SIGNATURE_XML_MODE=preserve
 
 CLIENT_PUBLIC_CERT_PATH=./certs/client/tiramisclientpublic.pfx
-CLIENT_PUBLIC_CERT_PASSWORD=password
+CLIENT_PUBLIC_CERT_PASSWORD=change-me
 
 CLIENT_PRIVATE_PFX_PATH=./certs/client/tiramisclientprivate.pfx
-CLIENT_PRIVATE_PFX_PASSWORD=password
+CLIENT_PRIVATE_PFX_PASSWORD=change-me
 
 TIRA_PRIVATE_PFX_PATH=./certs/tira/mock-tira-private.pfx
-TIRA_PRIVATE_PFX_PASSWORD=password
+TIRA_PRIVATE_PFX_PASSWORD=change-me
 
 TIRA_PUBLIC_CERT_PATH=./certs/tira/mock-tira-public.pfx
-TIRA_PUBLIC_CERT_PASSWORD=password
+TIRA_PUBLIC_CERT_PASSWORD=change-me
 
 CALLBACK_DELAY_MS=3000
 CALLBACK_RETRIES=3
@@ -65,8 +65,8 @@ Environment variables:
 | Variable | Value |
 | --- | --- |
 | `baseUrl` | `http://localhost:5050` |
-| `clientCode` | `ICC110` |
-| `clientKey` | `RydLDE8CFJ` |
+| `clientCode` | `ICC000` |
+| `clientKey` | `your-client-key` |
 | `callbackUrl` | `http://localhost:9091/api/v1/tiramis/callbacks/test` |
 
 Every TIRAMIS endpoint request uses:
@@ -123,11 +123,11 @@ Endpoint: `POST {{baseUrl}}/ecovernote/api/covernote/non-life/other/v2/request`
 <CoverNoteRefReq>
   <CoverNoteHdr>
     <RequestId>REQ-CN-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
-    <TranCompanyCode>ICC110</TranCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
+    <TranCompanyCode>ICC000</TranCompanyCode>
     <CoverNoteType>1</CoverNoteType>
   </CoverNoteHdr>
   <CoverNoteDtl>
@@ -144,11 +144,11 @@ Endpoint: `POST {{baseUrl}}/ecovernote/api/covernote/non-life/motor/v2/request`
 <MotorCoverNoteRefReq>
   <CoverNoteHdr>
     <RequestId>REQ-MCN-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
-    <TranCompanyCode>ICC110</TranCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
+    <TranCompanyCode>ICC000</TranCompanyCode>
     <CoverNoteType>3</CoverNoteType>
   </CoverNoteHdr>
   <CoverNoteDtl>
@@ -169,11 +169,11 @@ Endpoint: `POST {{baseUrl}}/ecovernote/api/covernote/non-life/motor-fleet/v2/req
 <MotorCoverNoteRefReq>
   <CoverNoteHdr>
     <RequestId>REQ-FLEET-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
-    <TranCompanyCode>ICC110</TranCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
+    <TranCompanyCode>ICC000</TranCompanyCode>
     <CoverNoteType>3</CoverNoteType>
   </CoverNoteHdr>
   <CoverNoteDtl>
@@ -193,10 +193,10 @@ Endpoint: `POST {{baseUrl}}/ecovernote/api/reinsurance/v1/request`
 <ReinsuranceReq>
   <ReinsuranceHdr>
     <RequestId>REQ-RI-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
     <CoverNoteReferenceNumber>TIRA-CN-001</CoverNoteReferenceNumber>
   </ReinsuranceHdr>
   <ReinsuranceDtl>
@@ -213,10 +213,10 @@ Endpoint: `POST {{baseUrl}}/ecovernote/api/policy/v1/request`
 <PolicyReq>
   <PolicyHdr>
     <RequestId>REQ-POL-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
   </PolicyHdr>
   <PolicyDtl>
     <PolicyNumber>POL-001</PolicyNumber>
@@ -235,10 +235,10 @@ Endpoint: `POST {{baseUrl}}/eclaim/api/claim/claim-notification/v1/request`
 <ClaimNotificationRefReq>
   <ClaimNotificationHdr>
     <RequestId>REQ-CLM-NOT-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
   </ClaimNotificationHdr>
   <ClaimNotificationDtl>
     <ClaimNotificationNumber>CLM-NOT-001</ClaimNotificationNumber>
@@ -255,10 +255,10 @@ Endpoint: `POST {{baseUrl}}/eclaim/api/claim/claim-intimation/v1/request`
 <ClaimIntimationReq>
   <ClaimIntimationHdr>
     <RequestId>REQ-CLM-INT-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
   </ClaimIntimationHdr>
   <ClaimIntimationDtl>
     <ClaimIntimationNumber>CLM-INT-001</ClaimIntimationNumber>
@@ -275,10 +275,10 @@ Endpoint: `POST {{baseUrl}}/eclaim/api/claim/claim-assessment/v1/request`
 <ClaimAssessmentReq>
   <ClaimAssessmentHdr>
     <RequestId>REQ-CLM-ASSESS-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
   </ClaimAssessmentHdr>
   <ClaimAssessmentDtl>
     <ClaimAssessmentNumber>CLM-ASSESS-001</ClaimAssessmentNumber>
@@ -295,10 +295,10 @@ Endpoint: `POST {{baseUrl}}/eclaim/api/claim/claim-dischargevoucher/v1/request`
 <DischargeVoucherReq>
   <DischargeVoucherHdr>
     <RequestId>REQ-DV-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
   </DischargeVoucherHdr>
   <DischargeVoucherDtl>
     <DischargeVoucherNumber>DV-001</DischargeVoucherNumber>
@@ -315,10 +315,10 @@ Endpoint: `POST {{baseUrl}}/eclaim/api/claim/claim-payment/v1/request`
 <ClaimPaymentReq>
   <ClaimPaymentHdr>
     <RequestId>REQ-CLM-PAY-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
   </ClaimPaymentHdr>
   <ClaimPaymentDtl>
     <ClaimPaymentNumber>CLM-PAY-001</ClaimPaymentNumber>
@@ -335,10 +335,10 @@ Endpoint: `POST {{baseUrl}}/eclaim/api/claim/claim-rejection/v1/request`
 <ClaimRejectionReq>
   <ClaimRejectionHdr>
     <RequestId>REQ-CLM-REJ-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
     <CallBackUrl>{{callbackUrl}}</CallBackUrl>
-    <InsurerCompanyCode>ICC110</InsurerCompanyCode>
+    <InsurerCompanyCode>ICC000</InsurerCompanyCode>
   </ClaimRejectionHdr>
   <ClaimRejectionDtl>
     <ClaimRejectionNumber>CLM-REJ-001</ClaimRejectionNumber>
@@ -366,7 +366,7 @@ At least one of the four fields must be provided with a non-empty value.
   <VerificationHdr>
     <RequestId>NIC22424232355</RequestId>
     <CompanyCode>IC0003</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
   </VerificationHdr>
   <VerificationDtl>
     <CoverNoteReferenceNumber>42424-246767-65768</CoverNoteReferenceNumber>
@@ -387,8 +387,8 @@ Endpoint: `POST {{baseUrl}}/dispatch/api/motor/verification/v3/request`
 <MotorVerificationReq>
   <VerificationHdr>
     <RequestId>REQ-MV-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
-    <SystemCode>LSYS_ALLIANCE_003</SystemCode>
+    <CompanyCode>ICC000</CompanyCode>
+    <SystemCode>LSYS_EXAMPLE_001</SystemCode>
   </VerificationHdr>
   <VerificationDtl>
     <RegistrationNumber>T123ABC</RegistrationNumber>
