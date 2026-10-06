@@ -12,7 +12,7 @@ async function findCompanyId(dataSource: DataSource) {
       ORDER BY created_at ASC
       LIMIT 1
     `,
-    [environment.SEED_TARGET_COMPANY_CODE ?? 'ICC739'],
+    [environment.SEED_TARGET_COMPANY_CODE ?? 'ICC110'],
   );
 
   return rows[0]?.id || null;

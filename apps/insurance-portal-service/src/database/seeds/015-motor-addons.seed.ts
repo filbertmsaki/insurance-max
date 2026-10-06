@@ -62,7 +62,7 @@ export default class MotorAddonsSeeder implements Seeder {
   ): Promise<void> {
     void factoryManager;
     const manager = dataSource.manager;
-    const companyCode = environment.SEED_TARGET_COMPANY_CODE ?? 'ICC739';
+    const companyCode = environment.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
     const company = await manager.getRepository(Company).findOne({
       where: { tira_company_code: companyCode },
     });
