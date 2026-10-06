@@ -16,7 +16,7 @@ Options:
   --base-dir PATH         App root (default /opt/apps/trbrdg)
   --log-dir PATH          PM2 log directory (default /var/log/pm2)
   --web-server VALUE      apache|nginx|skip (prompted/detected when omitted)
-  --app-port PORT         Local HTTP port (default 9090)
+  --app-port PORT         Local HTTP port (default 8090)
   --tcp-port PORT         Internal TCP gateway port (default 4001)
   --api-prefix PATH       Reverse-proxy prefix (default /bridge-api)
   --domain NAME           API hostname (auto-detected when omitted)
@@ -50,7 +50,7 @@ except ValueError: sys.exit(1)
 PY
 }
 
-DEPLOY_USER=''; BASE_DIR=/opt/apps/trbrdg; LOG_DIR=/var/log/pm2; WEB_SERVER=''; APP_PORT=9090; TCP_PORT=4001; API_PREFIX=/bridge-api; DOMAIN=''; ADMIN_CIDR=''; PORTAL_CIDRS=(); DB_HOST=''; DB_PORT=5432; DB_USER=bridge; DB_NAME=bridge_db; DB_SSL=true; TLS_CERT=''; TLS_KEY=''; WITH_POSTGRES=false; APPROVE_UFW=false
+DEPLOY_USER=''; BASE_DIR=/opt/apps/trbrdg; LOG_DIR=/var/log/pm2; WEB_SERVER=''; APP_PORT=8090; TCP_PORT=4001; API_PREFIX=/bridge-api; DOMAIN=''; ADMIN_CIDR=''; PORTAL_CIDRS=(); DB_HOST=''; DB_PORT=5432; DB_USER=bridge; DB_NAME=bridge_db; DB_SSL=true; TLS_CERT=''; TLS_KEY=''; WITH_POSTGRES=false; APPROVE_UFW=false
 while (($#)); do
   case "$1" in
     --user|--base-dir|--log-dir|--web-server|--app-port|--tcp-port|--api-prefix|--domain|--admin-cidr|--db-host|--db-port|--db-user|--db-name|--db-ssl|--tls-cert|--tls-key)
@@ -227,13 +227,13 @@ if [[ -x node_modules/.bin/typeorm ]]; then node_modules/.bin/typeorm migration:
 OLD=$(readlink -f "$APP_ROOT/current" 2>/dev/null || true); ln -sfn "$RELEASE" "$APP_ROOT/current"
 if pm2 describe bridge >/dev/null 2>&1; then pm2 reload "$APP_ROOT/ecosystem.config.js" --update-env; else pm2 start "$APP_ROOT/ecosystem.config.js"; fi
 pm2 save
-if ! curl --fail --silent --show-error --max-time 20 http://127.0.0.1:"${APP_PORT:-9090}"/ >/dev/null; then
+if ! curl --fail --silent --show-error --max-time 20 http://127.0.0.1:"${APP_PORT:-8090}"/ >/dev/null; then
   if [[ -n "$OLD" && -d "$OLD" ]]; then ln -sfn "$OLD" "$APP_ROOT/current"; pm2 reload "$APP_ROOT/ecosystem.config.js" --update-env; fi
   echo 'Local health check failed; release rolled back when possible.' >&2; exit 1
 fi
 DEPLOY
   # Set the default health-check port in the deploy helper.
-  sed -i "s|\${APP_PORT:-9090}|$APP_PORT|" "$BASE_DIR/deploy.sh"
+  sed -i "s|\${APP_PORT:-8090}|$APP_PORT|" "$BASE_DIR/deploy.sh"
   chown "$DEPLOY_USER:$DEPLOY_GROUP" "$BASE_DIR/deploy.sh"; chmod 750 "$BASE_DIR/deploy.sh"
 fi
 
