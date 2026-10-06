@@ -114,17 +114,17 @@ const testOnlySeed = environment.TIRAMIS_SEED_ENVIRONMENTS?.trim() === 'test';
 const configurations: ConfigurationSeed[] = [
   {
     environment: 'test',
-    companyCode: 'ICC110',
-    systemCode: 'LSYS_ALLIANCE_003',
-    clientCode: 'ICC110',
+    companyCode: 'ICC739',
+    systemCode: 'LSYS_DEMO_482',
+    clientCode: 'ICC739',
     clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_TEST'),
     clientPrivateCertificatePassword: mustEnv(
       'ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST',
     ),
     tiraPublicCertificatePassword: mustEnv('TIRA_PUBLIC_CERT_PASSWORD_TEST'),
-    insurerCompanyCode: 'ICC110',
+    insurerCompanyCode: 'ICC739',
     salePointCode: 'SP500',
-    tranCompanyCode: 'ICC110',
+    tranCompanyCode: 'ICC739',
     baseUrl: mustEnv('TIRAMIS_TEST_BASE_URL'),
     callbackBaseUrl: optionalEnv(
       'TIRAMIS_TEST_CALLBACK_URL',
@@ -138,9 +138,9 @@ const configurations: ConfigurationSeed[] = [
     ? [
         {
           environment: 'live',
-          companyCode: 'ICC110',
-          systemCode: 'LSYS_ALLIANCE_003',
-          clientCode: 'ICC110',
+          companyCode: 'ICC739',
+          systemCode: 'LSYS_DEMO_482',
+          clientCode: 'ICC739',
           clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_LIVE'),
           clientPrivateCertificatePassword: mustEnv(
             'ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE',
@@ -148,9 +148,9 @@ const configurations: ConfigurationSeed[] = [
           tiraPublicCertificatePassword: mustEnv(
             'TIRA_PUBLIC_CERT_PASSWORD_LIVE',
           ),
-          insurerCompanyCode: 'ICC110',
+          insurerCompanyCode: 'ICC739',
           salePointCode: 'SP500',
-          tranCompanyCode: 'ICC110',
+          tranCompanyCode: 'ICC739',
           baseUrl: mustEnv('TIRAMIS_LIVE_BASE_URL'),
           callbackBaseUrl: optionalEnv(
             'TIRAMIS_LIVE_CALLBACK_URL',

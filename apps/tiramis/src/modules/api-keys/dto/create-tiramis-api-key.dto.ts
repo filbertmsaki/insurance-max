@@ -17,13 +17,13 @@ export class CreateTiramisApiKeyDto {
   @MaxLength(120)
   serviceName!: string;
 
-  @ApiPropertyOptional({ example: 'ICC110' })
+  @ApiPropertyOptional({ example: 'ICC739' })
   @IsOptional()
   @IsString()
   @MaxLength(50)
   tenantCompanyCode?: string | null;
 
-  @ApiPropertyOptional({ example: 'LSYS_ALLIANCE_003' })
+  @ApiPropertyOptional({ example: 'LSYS_DEMO_482' })
   @IsOptional()
   @IsString()
   @MaxLength(80)

@@ -7,7 +7,7 @@ import { Tax } from '../../modules/tenant/taxes/entities/tax.entity';
 export default class TaxCatalogueSeeder implements Seeder {
   async run(dataSource: DataSource): Promise<void> {
     const company = await dataSource.getRepository(Company).findOneBy({
-      tira_company_code: environment.SEED_TARGET_COMPANY_CODE ?? 'ICC110',
+      tira_company_code: environment.SEED_TARGET_COMPANY_CODE ?? 'ICC739',
     });
     if (!company) throw new Error('Target seed company not found');
     await dataSource

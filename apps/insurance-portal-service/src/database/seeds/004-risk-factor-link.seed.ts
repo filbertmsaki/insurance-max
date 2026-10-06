@@ -55,7 +55,7 @@ export default class RiskFactorLinkSeeder implements Seeder {
   private async getTargetCompany(
     companyRepo: Repository<Company>,
   ): Promise<Company> {
-    const targetCompanyCode = environment.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
+    const targetCompanyCode = environment.SEED_TARGET_COMPANY_CODE ?? 'ICC739';
 
     const company = await companyRepo.findOne({
       where: {

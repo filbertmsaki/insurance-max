@@ -9,8 +9,8 @@ describe('IdentifierGeneratorService', () => {
       id: 'company-1',
       name: 'Alliance Insurance Corporation',
       identifier_prefix: 'AICL',
-      tira_company_code: 'ICC110',
-      tira_insurer_company_code: 'ICC110',
+      tira_company_code: 'ICC739',
+      tira_insurer_company_code: 'ICC739',
       ...overrides,
     } as Company;
   }
@@ -227,7 +227,7 @@ describe('IdentifierGeneratorService', () => {
     // but formatDate()'s `.includes('yy')` check also matches the 'yyyy'
     // substring, so this pre-existing (unrelated to this change) behavior
     // actually produces a 2-digit year here too.
-    expect(coverNoteNo).toMatch(/^ICC110-CN-260729-\d{6}-0007$/);
+    expect(coverNoteNo).toMatch(/^ICC739-CN-260729-\d{6}-0007$/);
   });
 
   it('leaves the TIRAMIS request id format (dashed, no time bucket) unchanged', async () => {

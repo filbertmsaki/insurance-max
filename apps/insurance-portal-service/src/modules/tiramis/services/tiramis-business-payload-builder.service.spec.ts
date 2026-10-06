@@ -28,10 +28,10 @@ describe('TiramisBusinessPayloadBuilderService company codes', () => {
       if (sql.includes('FROM tiramis_company_configurations')) {
         return [
           {
-            company_code: 'ICC110',
-            insurer_company_code: 'ICC110',
+            company_code: 'ICC739',
+            insurer_company_code: 'ICC739',
             tran_company_code: 'STALE_CODE',
-            system_code: 'LSYS_ALLIANCE_003',
+            system_code: 'LSYS_DEMO_482',
           },
         ];
       }
@@ -54,8 +54,8 @@ describe('TiramisBusinessPayloadBuilderService company codes', () => {
           {
             id: allianceId,
             company_type: 'INSURANCE_COMPANY',
-            tira_company_code: 'ICC110',
-            tira_insurer_company_code: 'ICC110',
+            tira_company_code: 'ICC739',
+            tira_insurer_company_code: 'ICC739',
           },
         ];
       }
@@ -88,7 +88,7 @@ describe('TiramisBusinessPayloadBuilderService company codes', () => {
     async (type, id, code) => {
       const payload = await build({ id, type, code });
 
-      expect(payload.insurerCompanyCode).toBe('ICC110');
+      expect(payload.insurerCompanyCode).toBe('ICC739');
       expect(payload.tranCompanyCode).toBe(code);
     },
   );
@@ -96,7 +96,7 @@ describe('TiramisBusinessPayloadBuilderService company codes', () => {
   it('uses the Alliance code for both codes on a direct transaction', async () => {
     const payload = await build(null);
 
-    expect(payload.insurerCompanyCode).toBe('ICC110');
-    expect(payload.tranCompanyCode).toBe('ICC110');
+    expect(payload.insurerCompanyCode).toBe('ICC739');
+    expect(payload.tranCompanyCode).toBe('ICC739');
   });
 });

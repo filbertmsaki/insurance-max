@@ -430,7 +430,7 @@ function EnvironmentPanel({
                       <FormLabel>TIRAMIS_SERVICE_BASE_URL (optional)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="https://ussdvd.alliance.co.tz/tiramis-api"
+                          placeholder="https://api.example.com/tiramis-api"
                           {...field}
                         />
                       </FormControl>

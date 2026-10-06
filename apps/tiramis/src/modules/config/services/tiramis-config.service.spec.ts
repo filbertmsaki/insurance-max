@@ -187,9 +187,9 @@ describe('TiramisConfigService certificate validation', () => {
   const baseConfiguration = {
     id: 'config-1',
     environment: 'live',
-    companyCode: 'ICC110',
-    systemCode: 'LSYS_ALLIANCE_003',
-    clientCode: 'ICC110',
+    companyCode: 'ICC739',
+    systemCode: 'LSYS_DEMO_482',
+    clientCode: 'ICC739',
     clientKey: '(encrypted)',
     clientKeyEncrypted: 'enc-client-key',
     clientPrivateCertificatePath: 'client.pfx',

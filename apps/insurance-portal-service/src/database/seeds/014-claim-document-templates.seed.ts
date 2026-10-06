@@ -76,7 +76,7 @@ const TEMPLATES = [
 export default class ClaimDocumentTemplatesSeeder implements Seeder {
   async run(dataSource: DataSource): Promise<void> {
     const company = await dataSource.getRepository(Company).findOneBy({
-      tira_company_code: environment.SEED_TARGET_COMPANY_CODE ?? 'ICC110',
+      tira_company_code: environment.SEED_TARGET_COMPANY_CODE ?? 'ICC739',
     });
 
     if (!company) {

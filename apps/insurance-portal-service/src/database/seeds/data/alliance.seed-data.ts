@@ -1,13 +1,13 @@
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 
 export const ALLIANCE_TENANT = {
-  companyCode: 'ICC110',
+  companyCode: 'ICC739',
   companyName: 'ALLIANCE INSURANCE CORPORATION',
   identifierPrefix: 'AICL',
-  insurerCompanyCode: 'ICC110',
+  insurerCompanyCode: 'ICC739',
   insurerCompanyName: 'ALLIANCE INSURANCE CORPORATION',
-  clientCode: 'ICC110',
-  systemCode: 'LSYS_ALLIANCE_003',
+  clientCode: 'ICC739',
+  systemCode: 'LSYS_DEMO_482',
   systemName: 'ALLIANCE INSURANCE SYSTEM',
   companyType: CompanyType.INSURANCE_COMPANY,
   slug: 'alliance-insurance-corporation',

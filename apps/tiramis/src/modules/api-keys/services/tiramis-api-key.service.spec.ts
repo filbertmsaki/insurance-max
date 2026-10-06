@@ -42,8 +42,8 @@ describe('TiramisApiKeyService', () => {
     const created = await service.create({
       name: 'Portal',
       serviceName: 'insurance-portal-service',
-      tenantCompanyCode: 'ICC110',
-      tenantSystemCode: 'LSYS_ALLIANCE_003',
+      tenantCompanyCode: 'ICC739',
+      tenantSystemCode: 'LSYS_DEMO_482',
       tenantEnvironment: 'live',
       scopes: ['tiramis:submit'],
     });
@@ -52,8 +52,8 @@ describe('TiramisApiKeyService', () => {
     expect(clientConfigurationRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          companyCode: 'ICC110',
-          systemCode: 'LSYS_ALLIANCE_003',
+          companyCode: 'ICC739',
+          systemCode: 'LSYS_DEMO_482',
           environment: 'live',
         }),
       }),
@@ -62,8 +62,8 @@ describe('TiramisApiKeyService', () => {
       expect.objectContaining({
         apiKey: created.apiKey,
         serviceName: 'insurance-portal-service',
-        tenantCompanyCode: 'ICC110',
-        tenantSystemCode: 'LSYS_ALLIANCE_003',
+        tenantCompanyCode: 'ICC739',
+        tenantSystemCode: 'LSYS_DEMO_482',
         tenantEnvironment: 'live',
         clientConfigurationId: 'config-1',
       }),
@@ -163,8 +163,8 @@ describe('TiramisApiKeyService', () => {
       apiKey: rawKey,
       serviceName: 'insurance-portal-service',
       scopes: ['tiramis:submit'],
-      tenantCompanyCode: 'ICC110',
-      tenantSystemCode: 'LSYS_ALLIANCE_003',
+      tenantCompanyCode: 'ICC739',
+      tenantSystemCode: 'LSYS_DEMO_482',
       tenantEnvironment: 'live',
       isActive: true,
       revokedAt: null,
@@ -185,8 +185,8 @@ describe('TiramisApiKeyService', () => {
       apiKey: rawKey,
       serviceName: 'insurance-portal-service',
       scopes: ['tiramis:submit'],
-      tenantCompanyCode: 'ICC110',
-      tenantSystemCode: 'LSYS_ALLIANCE_003',
+      tenantCompanyCode: 'ICC739',
+      tenantSystemCode: 'LSYS_DEMO_482',
       tenantEnvironment: 'live',
       isActive: true,
       revokedAt: null,
@@ -199,8 +199,8 @@ describe('TiramisApiKeyService', () => {
       id: 'key-id',
       serviceName: 'insurance-portal-service',
       scopes: ['tiramis:submit'],
-      tenantCompanyCode: 'ICC110',
-      tenantSystemCode: 'LSYS_ALLIANCE_003',
+      tenantCompanyCode: 'ICC739',
+      tenantSystemCode: 'LSYS_DEMO_482',
       tenantEnvironment: 'live',
     });
     expect(apiKeyRepository.update).toHaveBeenCalledWith('key-id', {

@@ -10,7 +10,7 @@ describe('TiramisHttpClientService request logs', () => {
     xml: '<TiraMsg><RequestId>AICCNRR19070658</RequestId></TiraMsg>',
     headers: {
       'Content-Type': 'application/xml',
-      ClientCode: 'ICC110',
+      ClientCode: 'ICC739',
       ClientKey: 'secret-client-key',
     },
   };
