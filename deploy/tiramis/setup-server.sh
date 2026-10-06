@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Interactive, repeatable Ubuntu host setup for the Tiramis service.
+# Interactive, repeatable Ubuntu host setup for the Bridge TR service.
 set -Eeuo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -7,25 +7,25 @@ usage() {
   cat <<'USAGE'
 Usage: sudo bash setup-server.sh [options]
 
-Prepares Ubuntu 20.04/22.04/24.04 x86_64 for Tiramis: deployment account,
+Prepares Ubuntu 20.04/22.04/24.04 x86_64 for Bridge TR: deployment account,
 Node.js 22, PM2, app directories and permissions, environment template,
 systemd startup, optional Apache/Nginx reverse proxy and optional UFW rules.
 
 Options:
   --user NAME             Deployment account (prompted when omitted)
-  --base-dir PATH         App root (default /opt/apps/tiramis)
+  --base-dir PATH         App root (default /opt/apps/trbrdg)
   --log-dir PATH          PM2 log directory (default /var/log/pm2)
   --web-server VALUE      apache|nginx|skip (prompted/detected when omitted)
   --app-port PORT         Local HTTP port (default 9090)
   --tcp-port PORT         Internal TCP gateway port (default 4001)
-  --api-prefix PATH       Reverse-proxy prefix (default /tiramis-api)
+  --api-prefix PATH       Reverse-proxy prefix (default /bridge-api)
   --domain NAME           API hostname (auto-detected when omitted)
   --admin-cidr CIDR       Trusted SSH source; only needed with --approve-ufw
   --portal-cidr CIDR      Allow TCP gateway from this source (repeatable)
   --db-host HOST          Database host to write into a new .env
   --db-port PORT          Database port (default 5432)
-  --db-user USER          Database user (default tiramis)
-  --db-name NAME          Database name (default tiramis_db)
+  --db-user USER          Database user (default bridge)
+  --db-name NAME          Database name (default bridge_db)
   --db-ssl true|false     Database TLS (default true)
   --tls-cert PATH         Full-chain TLS certificate (use with --tls-key)
   --tls-key PATH          TLS private key (use with --tls-cert)
@@ -50,7 +50,7 @@ except ValueError: sys.exit(1)
 PY
 }
 
-DEPLOY_USER=''; BASE_DIR=/opt/apps/tiramis; LOG_DIR=/var/log/pm2; WEB_SERVER=''; APP_PORT=9090; TCP_PORT=4001; API_PREFIX=/tiramis-api; DOMAIN=''; ADMIN_CIDR=''; PORTAL_CIDRS=(); DB_HOST=''; DB_PORT=5432; DB_USER=tiramis; DB_NAME=tiramis_db; DB_SSL=true; TLS_CERT=''; TLS_KEY=''; WITH_POSTGRES=false; APPROVE_UFW=false
+DEPLOY_USER=''; BASE_DIR=/opt/apps/trbrdg; LOG_DIR=/var/log/pm2; WEB_SERVER=''; APP_PORT=9090; TCP_PORT=4001; API_PREFIX=/bridge-api; DOMAIN=''; ADMIN_CIDR=''; PORTAL_CIDRS=(); DB_HOST=''; DB_PORT=5432; DB_USER=bridge; DB_NAME=bridge_db; DB_SSL=true; TLS_CERT=''; TLS_KEY=''; WITH_POSTGRES=false; APPROVE_UFW=false
 while (($#)); do
   case "$1" in
     --user|--base-dir|--log-dir|--web-server|--app-port|--tcp-port|--api-prefix|--domain|--admin-cidr|--db-host|--db-port|--db-user|--db-name|--db-ssl|--tls-cert|--tls-key)
@@ -115,8 +115,8 @@ else
 fi
 
 if command -v node >/dev/null && [[ "$(node -p 'process.versions.node.split(".")[0]')" != 22 ]]; then die 'Existing Node.js is not v22. Upgrade deliberately before setup.'; fi
-exec 9>/run/lock/tiramis-server-setup.lock; flock -n 9 || die 'Another setup is running'
-WORK_DIR=$(mktemp -d /tmp/tiramis-setup.XXXXXXXX); trap 'rm -rf -- "$WORK_DIR"; unset NEW_PASSWORD' EXIT; trap 'printf "Setup failed at line %s. Fix the error and rerun.\n" "$LINENO" >&2' ERR
+exec 9>/run/lock/trbrdg-server-setup.lock; flock -n 9 || die 'Another setup is running'
+WORK_DIR=$(mktemp -d /tmp/trbrdg-setup.XXXXXXXX); trap 'rm -rf -- "$WORK_DIR"; unset NEW_PASSWORD' EXIT; trap 'printf "Setup failed at line %s. Fix the error and rerun.\n" "$LINENO" >&2' ERR
 
 info 'Installing operating system packages'
 export DEBIAN_FRONTEND=noninteractive
@@ -149,7 +149,7 @@ if [[ ! -e "$ENV_FILE" ]]; then
   [[ ! -L "$ENV_FILE" ]] || die 'Environment file path must not be a symlink'
   secret=$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64"))')
   cat >"$ENV_FILE" <<EOF
-APP_NAME=TIRAMIS Service
+APP_NAME=Bridge Service
 APP_ENV=production
 APP_HOST=0.0.0.0
 APP_PORT=$APP_PORT
@@ -204,7 +204,7 @@ TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES=30
 TIRAMIS_HTTP_TIMEOUT_MS=60000
 TIRAMIS_LOG_PAYLOADS=false
 TIRAMIS_REQUEST_LOG_ENABLED=true
-TIRAMIS_REQUEST_LOG_DIR=$BASE_DIR/shared/tira-requests
+TIRAMIS_REQUEST_LOG_DIR=$BASE_DIR/shared/bridge-requests
 TIRAMIS_CALLBACK_ERROR_LOG_DIR=$BASE_DIR/shared
 EOF
   chown "$DEPLOY_USER:$DEPLOY_GROUP" "$ENV_FILE"; chmod 600 "$ENV_FILE"
@@ -212,7 +212,7 @@ else printf 'Preserving existing %s\n' "$ENV_FILE"; chown "$DEPLOY_USER:$DEPLOY_
 
 if [[ ! -e "$BASE_DIR/ecosystem.config.js" ]]; then
   cat >"$BASE_DIR/ecosystem.config.js" <<EOF
-module.exports = { apps: [{ name: 'tiramis', script: 'dist/main.js', cwd: '$BASE_DIR/current', instances: 1, exec_mode: 'fork', autorestart: true, max_memory_restart: '1G', time: true, out_file: '$LOG_DIR/tiramis-out.log', error_file: '$LOG_DIR/tiramis-error.log', env: { NODE_ENV: 'production' } }] };
+module.exports = { apps: [{ name: 'bridge', script: 'dist/main.js', cwd: '$BASE_DIR/current', instances: 1, exec_mode: 'fork', autorestart: true, max_memory_restart: '1G', time: true, out_file: '$LOG_DIR/bridge-out.log', error_file: '$LOG_DIR/bridge-error.log', env: { NODE_ENV: 'production' } }] };
 EOF
   chown "$DEPLOY_USER:$DEPLOY_GROUP" "$BASE_DIR/ecosystem.config.js"; chmod 640 "$BASE_DIR/ecosystem.config.js"
 fi
@@ -225,7 +225,7 @@ ln -sfn "$APP_ROOT/shared/.env" "$RELEASE/.env"
 cd "$RELEASE"; npm ci --omit=dev
 if [[ -x node_modules/.bin/typeorm ]]; then node_modules/.bin/typeorm migration:run -d dist/database/data-source.js; fi
 OLD=$(readlink -f "$APP_ROOT/current" 2>/dev/null || true); ln -sfn "$RELEASE" "$APP_ROOT/current"
-if pm2 describe tiramis >/dev/null 2>&1; then pm2 reload "$APP_ROOT/ecosystem.config.js" --update-env; else pm2 start "$APP_ROOT/ecosystem.config.js"; fi
+if pm2 describe bridge >/dev/null 2>&1; then pm2 reload "$APP_ROOT/ecosystem.config.js" --update-env; else pm2 start "$APP_ROOT/ecosystem.config.js"; fi
 pm2 save
 if ! curl --fail --silent --show-error --max-time 20 http://127.0.0.1:"${APP_PORT:-9090}"/ >/dev/null; then
   if [[ -n "$OLD" && -d "$OLD" ]]; then ln -sfn "$OLD" "$APP_ROOT/current"; pm2 reload "$APP_ROOT/ecosystem.config.js" --update-env; fi
@@ -237,11 +237,11 @@ DEPLOY
   chown "$DEPLOY_USER:$DEPLOY_GROUP" "$BASE_DIR/deploy.sh"; chmod 750 "$BASE_DIR/deploy.sh"
 fi
 
-if [[ -n "$TLS_CERT" ]]; then install -o root -g root -m 644 "$TLS_CERT" "/etc/ssl/certs/tiramis-$DOMAIN.pem"; install -o root -g root -m 600 "$TLS_KEY" "/etc/ssl/private/tiramis-$DOMAIN.key"; TLS_CERT_PATH=/etc/ssl/certs/tiramis-$DOMAIN.pem; TLS_KEY_PATH=/etc/ssl/private/tiramis-$DOMAIN.key; else TLS_CERT_PATH=''; TLS_KEY_PATH=''; fi
+if [[ -n "$TLS_CERT" ]]; then install -o root -g root -m 644 "$TLS_CERT" "/etc/ssl/certs/bridge-$DOMAIN.pem"; install -o root -g root -m 600 "$TLS_KEY" "/etc/ssl/private/bridge-$DOMAIN.key"; TLS_CERT_PATH=/etc/ssl/certs/bridge-$DOMAIN.pem; TLS_KEY_PATH=/etc/ssl/private/bridge-$DOMAIN.key; else TLS_CERT_PATH=''; TLS_KEY_PATH=''; fi
 
 if [[ "$WEB_SERVER" == nginx ]]; then
-  SITE=/etc/nginx/sites-available/tiramis
-  if [[ -e "$SITE" ]]; then read -r -p "$SITE exists. Replace this Tiramis site file? (y/N): " replace; [[ "$replace" == y || "$replace" == Y ]] || SITE=''; fi
+  SITE=/etc/nginx/sites-available/bridge
+  if [[ -e "$SITE" ]]; then read -r -p "$SITE exists. Replace this Bridge site file? (y/N): " replace; [[ "$replace" == y || "$replace" == Y ]] || SITE=''; fi
   if [[ -n "$SITE" ]]; then
     if [[ -n "$TLS_CERT_PATH" ]]; then
       cat >"$SITE" <<EOF
@@ -268,11 +268,11 @@ server {
 }
 EOF
     fi
-    ln -sfn "$SITE" /etc/nginx/sites-enabled/tiramis; nginx -t; systemctl enable --now nginx; systemctl reload nginx
+    ln -sfn "$SITE" /etc/nginx/sites-enabled/bridge; nginx -t; systemctl enable --now nginx; systemctl reload nginx
   fi
 elif [[ "$WEB_SERVER" == apache ]]; then
-  SITE=/etc/apache2/sites-available/tiramis.conf
-  if [[ -e "$SITE" ]]; then read -r -p "$SITE exists. Replace this Tiramis site file? (y/N): " replace; [[ "$replace" == y || "$replace" == Y ]] || SITE=''; fi
+  SITE=/etc/apache2/sites-available/bridge.conf
+  if [[ -e "$SITE" ]]; then read -r -p "$SITE exists. Replace this Bridge site file? (y/N): " replace; [[ "$replace" == y || "$replace" == Y ]] || SITE=''; fi
   if [[ -n "$SITE" ]]; then
     a2enmod proxy proxy_http headers ssl >/dev/null
     if [[ -n "$TLS_CERT_PATH" ]]; then
@@ -303,7 +303,7 @@ EOF
 </VirtualHost>
 EOF
     fi
-    a2ensite tiramis.conf >/dev/null; apache2ctl configtest; systemctl enable --now apache2; systemctl reload apache2
+    a2ensite bridge.conf >/dev/null; apache2ctl configtest; systemctl enable --now apache2; systemctl reload apache2
   fi
 fi
 
