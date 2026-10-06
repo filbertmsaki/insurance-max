@@ -8,7 +8,7 @@ usage() {
 Usage: sudo bash setup-server.sh [options]
 
 Prepares Ubuntu 20.04/22.04/24.04 x86_64 for Bridge TR: deployment account,
-Node.js 22, PM2, app directories and permissions, environment template,
+Node.js 24, PM2, app directories and permissions, environment template,
 systemd startup, optional Apache/Nginx reverse proxy and optional UFW rules.
 
 Options:
@@ -114,7 +114,7 @@ else
   prompt_secret NEW_PASSWORD 'Set deployment account password'
 fi
 
-if command -v node >/dev/null && [[ "$(node -p 'process.versions.node.split(".")[0]')" != 22 ]]; then die 'Existing Node.js is not v22. Upgrade deliberately before setup.'; fi
+if command -v node >/dev/null && [[ "$(node -p 'process.versions.node.split(".")[0]')" != 24 ]]; then die 'Existing Node.js is not v24. Upgrade deliberately before setup.'; fi
 exec 9>/run/lock/trbrdg-server-setup.lock; flock -n 9 || die 'Another setup is running'
 WORK_DIR=$(mktemp -d /tmp/trbrdg-setup.XXXXXXXX); trap 'rm -rf -- "$WORK_DIR"; unset NEW_PASSWORD' EXIT; trap 'printf "Setup failed at line %s. Fix the error and rerun.\n" "$LINENO" >&2' ERR
 
@@ -122,7 +122,7 @@ info 'Installing operating system packages'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y ca-certificates curl git python3 tar gzip coreutils util-linux build-essential pkg-config openssl acl postgresql-client
-if ! command -v node >/dev/null; then curl --fail --silent --show-error --location --retry 3 https://deb.nodesource.com/setup_22.x -o "$WORK_DIR/nodesource.sh"; bash "$WORK_DIR/nodesource.sh"; apt-get install -y nodejs; fi
+if ! command -v node >/dev/null; then curl --fail --silent --show-error --location --retry 3 https://deb.nodesource.com/setup_24.x -o "$WORK_DIR/nodesource.sh"; bash "$WORK_DIR/nodesource.sh"; apt-get install -y nodejs; fi
 command -v npm >/dev/null || die 'npm is missing from PATH'
 command -v pm2 >/dev/null || npm install -g pm2
 if [[ "$WITH_POSTGRES" == true ]]; then apt-get install -y postgresql; systemctl enable --now postgresql; DB_HOST=${DB_HOST:-127.0.0.1}; [[ "$DB_SSL" != true || "$DB_HOST" != 127.0.0.1 ]] || DB_SSL=false; fi

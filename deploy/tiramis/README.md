@@ -24,7 +24,7 @@ The installer prompts securely for a deployment username and password, detects
 an existing Apache or Nginx installation, and lets you choose whether to reuse
 it, install a server, or skip proxy configuration. Existing deployment accounts
 and app environment/config files are preserved; an existing account's password
-changes only if you opt in. It installs Node.js 22, PM2, PostgreSQL client tools,
+changes only if you opt in. It requires Node.js 24 (and installs it if absent), PM2, PostgreSQL client tools,
 and prepares the app folders, environment template, proxy site, permissions,
 and PM2 systemd startup.
 
@@ -71,7 +71,7 @@ repository before a complete rollout can finish.
 
 Match the existing production setup on both servers:
 
-- Install Node.js 22, npm, PM2, Python 3, Bash, curl, tar, sha256sum, and flock.
+- Install Node.js 24, npm, PM2, Python 3, Bash, curl, tar, sha256sum, and flock.
 - Provide `/opt/apps/tiramis/shared/.env` with that server's configuration and
   the certificates and other external files referenced by it.
 - Allow the runner service user to manage `/opt/apps/tiramis`, write PM2 logs

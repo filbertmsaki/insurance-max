@@ -3,7 +3,7 @@
 `setup-server.sh` prepares an Ubuntu 20.04, 22.04, or 24.04 x86_64 server for
 the Tiramis API. Run it from the deployment folder or copy the file to the
 server. It needs root access and an internet connection for Ubuntu packages and
-Node.js 22.
+Node.js 24.
 
 ## Run the installer
 
@@ -53,7 +53,7 @@ options.
 
 ## What it prepares
 
-- Installs Node.js 22, npm, PM2, build tools, PostgreSQL client utilities and
+- Requires Node.js 24 (installs it if absent), npm, PM2, build tools, PostgreSQL client utilities and
   other runtime prerequisites.
 - Creates the deployment account if absent, with no sudo grant. A pre-existing
   account is not silently reconfigured.
