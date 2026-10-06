@@ -378,7 +378,7 @@ function LimitDialog({
 }
 
 /**
- * Claims authority matrix (docs/claims-module-design.md §10). With no band
+ * Claims authority matrix. With no band
  * configured for an approval type, one level applies and any holder of the
  * approve permission may act.
  */

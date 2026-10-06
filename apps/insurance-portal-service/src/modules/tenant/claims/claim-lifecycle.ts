@@ -3,7 +3,7 @@ import { ClaimQueue, ClaimStage, ClaimStatus } from './enums/claim.enums';
 const S = ClaimStatus;
 
 /**
- * Allowed lifecycle edges (docs/claims-module-design.md §4). Anything not
+ * Allowed lifecycle edges. Anything not
  * listed is rejected by ClaimStateMachineService, so users cannot skip a
  * mandatory stage.
  */

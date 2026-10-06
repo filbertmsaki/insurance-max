@@ -88,8 +88,8 @@ import { ClaimsDashboardService } from './services/claims-dashboard.service';
 import { ClaimNumberFormatService } from './services/claim-number-format.service';
 
 /**
- * One claim case with its lifecycle stages as sub-resources
- * (docs/claims-module-design.md §7). Static routes are declared before
+ * One claim case with its lifecycle stages as sub-resources.
+ * Static routes are declared before
  * `:id` so they are never captured by it.
  */
 @Controller('tenant/claims')

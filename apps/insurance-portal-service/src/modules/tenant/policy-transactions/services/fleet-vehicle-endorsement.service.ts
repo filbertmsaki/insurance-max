@@ -77,8 +77,8 @@ export interface FleetVehicleView {
 }
 
 /**
- * Adds or removes whole vehicles on a fleet policy through an endorsement
- * (see docs/fleet-vehicle-endorsement-design.md). Entries are never spliced:
+ * Adds or removes whole vehicles on a fleet policy through an endorsement.
+ * Entries are never spliced:
  * a removal sets `entries.N.status = REMOVED`, an addition appends
  * `entries.<length>`. An added vehicle reuses a template vehicle's original
  * pricing quote, and repricing overrides sum insured and motor factors from

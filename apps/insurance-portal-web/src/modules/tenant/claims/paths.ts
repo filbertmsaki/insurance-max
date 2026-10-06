@@ -2,7 +2,7 @@ import type { ClaimQueue } from './types';
 
 type QueueSegment = ClaimQueue | ':queue';
 
-/** Route paths for the Claims module (docs/claims-module-design.md §3). */
+/** Route paths for the Claims module. */
 export const claimsPaths = {
   root: '/claims',
   list: '/claims',

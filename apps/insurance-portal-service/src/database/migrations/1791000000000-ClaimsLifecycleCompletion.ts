@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Claims lifecycle completion (additive, see docs/claims-module-design.md §5).
+ * Claims lifecycle completion (additive).
  *
  * 1. `business_document_sequences`, used by BusinessReferenceService but never
  *    created by a migration (it only existed in restored databases).

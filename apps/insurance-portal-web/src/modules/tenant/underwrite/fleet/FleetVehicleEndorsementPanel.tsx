@@ -42,8 +42,8 @@ const STATUS_BADGE: Record<
 };
 
 /**
- * Editor for "Fleet - Add Vehicle" / "Fleet - Remove Vehicle" endorsements
- * (docs/fleet-vehicle-endorsement-design.md). Each change is priced by the
+ * Editor for "Fleet - Add Vehicle" / "Fleet - Remove Vehicle" endorsements.
+ * Each change is priced by the
  * backend for the remaining period; the premium effect shows below.
  */
 export function FleetVehicleEndorsementPanel({

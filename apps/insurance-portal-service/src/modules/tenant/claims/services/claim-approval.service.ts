@@ -36,7 +36,7 @@ export interface ApprovalOutcome {
 }
 
 /**
- * Claims authority matrix (docs/claims-module-design.md §10).
+ * Claims authority matrix.
  *
  * The levels a subject needs are the distinct levels that have an active
  * band starting at or below its amount, so higher amounts escalate through

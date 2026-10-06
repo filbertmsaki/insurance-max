@@ -185,7 +185,7 @@ function ClaimWizardView({ existing }: { existing: ClaimDetail | null }) {
 }
 
 /**
- * Register a claim (docs/claims-module-design.md §8): policy → risk/vehicle →
+ * Register a claim: policy → risk/vehicle →
  * incident → claimants → review. With `:id` it edits a draft, or a claim whose
  * notification TIRA refused; the claim is loaded first so the form starts
  * from it.
