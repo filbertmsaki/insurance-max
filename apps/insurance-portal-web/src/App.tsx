@@ -107,6 +107,7 @@ import { TiramisSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisSu
 import { TiramisSubmissionDetailPage } from '@/modules/tenant/tiramis/pages/TiramisSubmissionDetailPage';
 import { TiramisDashboardPage } from '@/modules/tenant/tiramis/pages/TiramisDashboardPage';
 import { TiramisHealthPage } from '@/modules/tenant/tiramis/pages/TiramisHealthPage';
+import { TiramisWebhookDiagnosticsPage } from '@/modules/tenant/tiramis/pages/TiramisWebhookDiagnosticsPage';
 import { TiramisTrackingPage } from '@/modules/tenant/tiramis/pages/TiramisTrackingPage';
 import { TiramisFailedSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisFailedSubmissionsPage';
 import { TiramisRetryablePage } from '@/modules/tenant/tiramis/pages/TiramisRetryablePage';
@@ -1334,6 +1335,10 @@ export default function App() {
                 />
               }
             >
+              <Route
+                path="/tiramis/webhook"
+                element={<TiramisWebhookDiagnosticsPage />}
+              />
               <Route
                 path="/tiramis/configuration"
                 element={<TiramisConfigurationPage />}

@@ -1005,6 +1005,60 @@ export class TiramisClientService {
     }
   }
 
+  async testPortalWebhook(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    tiramisConfigurationId: string;
+    webhookUrl: string;
+  }) {
+    const requestId = `portal-webhook-test-${randomUUID()}`;
+    const connection = await this.resolveConnectionConfig(
+      params.companyId,
+      params.environment,
+    );
+    const serviceContext = this.encodeServiceContext({
+      tenant: {
+        companyId: params.companyId,
+        environment: params.environment,
+      },
+    });
+    const response = await firstValueFrom(
+      this.httpService.request({
+        method: 'POST',
+        baseURL: connection.baseUrl ?? undefined,
+        url: `/api/tiramis/configurations/${encodeURIComponent(
+          params.tiramisConfigurationId,
+        )}/portal-webhook-test`,
+        data: { webhookUrl: params.webhookUrl },
+        timeout: 10_000,
+        validateStatus: () => true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': connection.apiKey,
+          'X-Service-Context': serviceContext,
+          [HTTP_HEADERS.REQUEST_ID]: requestId,
+          [HTTP_HEADERS.CORRELATION_ID]: requestId,
+        },
+      }),
+    );
+    const result = unwrapApiResponse(response.data) as Record<string, any>;
+
+    return {
+      success:
+        response.status >= 200 && response.status < 300 && !!result?.success,
+      webhookUrl: params.webhookUrl,
+      httpStatus: result?.httpStatus ?? response.status,
+      requestId: result?.requestId ?? requestId,
+      message:
+        result?.message ||
+        (response.status >= 200 && response.status < 300
+          ? 'TIRAMIS reached the portal webhook successfully.'
+          : this.extractTiramisErrorMessage(response.data) ||
+            `TIRAMIS webhook test failed with HTTP ${response.status}.`),
+    };
+  }
+
   async checkTiramisServiceHealth(authContext?: any) {
     return this.send(
       TIRAMIS_MESSAGE_PATTERNS.HEALTH,

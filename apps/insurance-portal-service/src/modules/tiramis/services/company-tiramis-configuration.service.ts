@@ -15,6 +15,7 @@ import { TiramisClientService } from './tiramis-client.service';
 import { TiramisServiceApiKeyVaultService } from './tiramis-service-api-key-vault.service';
 import { TiramisWebhookCredentialService } from './tiramis-webhook-credential.service';
 import { UpsertCompanyTiramisConfigurationDto } from '../dto/upsert-company-tiramis-configuration.dto';
+import { resolveTiramisPortalWebhookUrl } from '../utils/tiramis-portal-webhook-url.util';
 
 @Injectable()
 export class CompanyTiramisConfigurationService {
@@ -460,6 +461,77 @@ export class CompanyTiramisConfigurationService {
 
       throw error;
     }
+  }
+
+  async getPortalWebhookDiagnostics(
+    companyId: string,
+    environment: 'test' | 'live',
+  ) {
+    const configuration = await this.repository.findOne({
+      where: { companyId, environment, isActive: true },
+    });
+
+    return {
+      environment,
+      webhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+      configured: Boolean(configuration),
+      validationStatus: configuration?.validationStatus ?? 'NOT_CONFIGURED',
+      validatedAt: configuration?.validatedAt ?? null,
+      webhookCredentialStatus: configuration?.validatedAt
+        ? 'CHECK_ON_TEST'
+        : 'NOT_CHECKED',
+    };
+  }
+
+  async testPortalWebhook(companyId: string, environment: 'test' | 'live') {
+    const configuration = await this.repository.findOne({
+      where: { companyId, environment, isActive: true },
+    });
+
+    if (!configuration) {
+      throw new NotFoundException(
+        'Active TIRAMIS configuration was not found for this environment.',
+      );
+    }
+
+    const validation = await this.validate(companyId, environment);
+    if (!validation.configurationId) {
+      throw new BadRequestException(
+        validation.message || 'TIRAMIS configuration could not be resolved.',
+      );
+    }
+
+    return this.tiramisClientService.testPortalWebhook({
+      companyId,
+      environment,
+      tiramisConfigurationId: validation.configurationId,
+      webhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+    });
+  }
+
+  async syncPortalWebhookCredential(
+    companyId: string,
+    environment: 'test' | 'live',
+  ) {
+    const validation = await this.validate(companyId, environment);
+    if (!validation.configurationId) {
+      throw new BadRequestException(
+        validation.message || 'TIRAMIS configuration could not be resolved.',
+      );
+    }
+
+    await this.syncPortalWebhookApiKey(
+      companyId,
+      environment,
+      validation.configurationId,
+    );
+
+    return {
+      success: true,
+      environment,
+      message:
+        'Portal webhook credential rotated and synced to TIRAMIS. Run the connection test to confirm delivery.',
+    };
   }
 
   async activate(

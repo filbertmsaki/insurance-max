@@ -585,6 +585,14 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
+        label: 'Notification Webhook',
+        to: '/tiramis/webhook',
+        icon: Globe2,
+        permission: 'company-tiramis-config:read',
+        allowedScopes: ['company'],
+      },
+      {
+        kind: 'link',
         label: 'Tracking',
         to: '/tiramis/tracking',
         icon: FileText,

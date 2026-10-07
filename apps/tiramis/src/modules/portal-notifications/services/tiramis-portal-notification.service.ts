@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { In, Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
 
 import {
   HTTP_HEADERS,
@@ -32,6 +33,89 @@ export class TiramisPortalNotificationService {
     @InjectRepository(TiramisPortalNotificationOutboxEntity)
     private readonly outboxRepository: Repository<TiramisPortalNotificationOutboxEntity>,
   ) {}
+
+  async testWebhook(configurationId: string, webhookUrl: string) {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(webhookUrl);
+    } catch {
+      return {
+        success: false,
+        message: 'Webhook URL is not a valid absolute URL.',
+      };
+    }
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return { success: false, message: 'Webhook URL must use HTTP or HTTPS.' };
+    }
+    if (
+      !parsedUrl.pathname
+        .replace(/\/$/, '')
+        .endsWith('/webhooks/tiramis/notifications')
+    ) {
+      return {
+        success: false,
+        message: 'Only the portal TIRAMIS notification endpoint can be tested.',
+      };
+    }
+
+    const configuration = await this.configurationRepository.findOne({
+      where: { id: configurationId, isActive: 1 },
+    });
+    if (!configuration) {
+      return {
+        success: false,
+        message: 'Active TIRAMIS configuration was not found.',
+      };
+    }
+    const apiKey = await this.resolvePortalApiKey(configurationId);
+    if (!apiKey) {
+      return {
+        success: false,
+        message: 'Portal webhook API key is not configured.',
+      };
+    }
+
+    const requestId = `portal-webhook-test-${randomUUID()}`;
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(
+          webhookUrl,
+          {
+            eventType: 'TIRAMIS_CONNECTION_TEST',
+            sourceService: 'tiramis-service',
+            requestId,
+            occurredAt: new Date().toISOString(),
+          },
+          {
+            timeout: 10_000,
+            validateStatus: () => true,
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              'X-API-Key': apiKey,
+              [HTTP_HEADERS.REQUEST_ID]: requestId,
+              [HTTP_HEADERS.CORRELATION_ID]: requestId,
+            },
+          },
+        ),
+      );
+      const success = response.status >= 200 && response.status < 300;
+      return {
+        success,
+        httpStatus: response.status,
+        requestId,
+        message: success
+          ? 'Portal webhook accepted the authenticated connection test.'
+          : `Portal webhook returned HTTP ${response.status}.`,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        requestId,
+        message: error?.message || 'Unable to connect to the portal webhook.',
+      };
+    }
+  }
 
   async publish(
     event: TiramisPortalNotificationEventDto,

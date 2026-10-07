@@ -7,6 +7,7 @@ import { TiramisServiceEndpointEntity } from './entities/tiramis-service-endpoin
 import { TiramisConfigService } from './services/tiramis-config.service';
 import { TiramisSecurityModule } from '../security/tiramis-security.module';
 import { TiramisConfigurationValidationController } from './controllers/tiramis-configuration-validation.controller';
+import { TiramisPortalNotificationsModule } from '../portal-notifications/tiramis-portal-notifications.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { TiramisConfigurationValidationController } from './controllers/tiramis-
       TiramisResponseCodeEntity,
     ]),
     TiramisSecurityModule,
+    TiramisPortalNotificationsModule,
   ],
   controllers: [TiramisConfigurationValidationController],
   providers: [TiramisConfigService],

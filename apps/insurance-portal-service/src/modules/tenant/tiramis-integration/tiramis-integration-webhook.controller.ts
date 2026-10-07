@@ -39,6 +39,14 @@ export class TiramisIntegrationWebhookController {
       );
     }
 
+    if (payload.eventType === 'TIRAMIS_CONNECTION_TEST') {
+      return {
+        success: true,
+        test: true,
+        requestId: payload.requestId,
+      };
+    }
+
     const eventKey = this.buildEventKey(payload);
     const payloadHash = this.hashPayload(payload);
     const receipt = await this.claimReceipt(eventKey, payload, payloadHash);

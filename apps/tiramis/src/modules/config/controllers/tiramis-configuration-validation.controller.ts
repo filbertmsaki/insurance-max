@@ -1,9 +1,10 @@
 import { Body, Controller, Logger, Param, Post, Put } from '@nestjs/common';
-import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, IsUrl } from 'class-validator';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
 import { TiramisConfigService } from '../services/tiramis-config.service';
+import { TiramisPortalNotificationService } from '../../portal-notifications/services/tiramis-portal-notification.service';
 
 class ValidateOrganizationConfigurationDto {
   @IsIn(['test', 'live'])
@@ -27,6 +28,12 @@ class ValidateOrganizationConfigurationDto {
 class SetPortalWebhookApiKeyDto {
   @IsString()
   apiKey!: string;
+}
+
+class TestPortalWebhookDto {
+  @IsString()
+  @IsUrl({ require_tld: false })
+  webhookUrl!: string;
 }
 
 class UpsertClientConfigurationDto {
@@ -80,7 +87,10 @@ export class TiramisConfigurationValidationController {
     TiramisConfigurationValidationController.name,
   );
 
-  constructor(private readonly configService: TiramisConfigService) {}
+  constructor(
+    private readonly configService: TiramisConfigService,
+    private readonly portalNotificationService: TiramisPortalNotificationService,
+  ) {}
 
   @Post('validate-organization')
   @ServiceScopes('tiramis:admin')
@@ -156,6 +166,18 @@ export class TiramisConfigurationValidationController {
     return this.configService.setPortalWebhookApiKey(
       configurationId,
       dto.apiKey,
+    );
+  }
+
+  @Post(':configurationId/portal-webhook-test')
+  @ServiceScopes('tiramis:admin')
+  testPortalWebhook(
+    @Param('configurationId') configurationId: string,
+    @Body() dto: TestPortalWebhookDto,
+  ) {
+    return this.portalNotificationService.testWebhook(
+      configurationId,
+      dto.webhookUrl,
     );
   }
 
