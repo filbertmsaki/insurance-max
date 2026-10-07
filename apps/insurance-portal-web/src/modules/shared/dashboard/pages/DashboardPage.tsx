@@ -1832,7 +1832,7 @@ function PlatformDashboardPage() {
   const trustedDevices =
     devices?.filter((device) => device.trusted).length ?? 0;
   const activeClients =
-    apiClients?.data?.filter((client) => client.status === 'active').length ??
+    apiClients?.filter((client) => client.status === 'active').length ??
     0;
 
   const platformActions: ShortcutAction[] = [
