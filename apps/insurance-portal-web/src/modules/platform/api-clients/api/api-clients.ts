@@ -1,5 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
-import type { ApiClient, PaginatedResponse } from '@/types';
+import type { ApiClient } from '@/types';
 
 export interface CreateApiClientDto {
   name: string;
@@ -16,7 +16,7 @@ export interface CreateApiClientResponse extends ApiClient {
 export const apiClientsApi = {
   getApiClients: (params?: { page?: number; limit?: number }) =>
     apiClient
-      .get<PaginatedResponse<ApiClient>>('/api-clients', { params })
+      .get<ApiClient[]>('/api-clients', { params })
       .then((r) => r.data),
 
   createApiClient: (data: CreateApiClientDto) =>

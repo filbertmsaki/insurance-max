@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -133,10 +133,16 @@ export function ApiClientsPage() {
     secret: '',
   });
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['api-clients', { page, limit }],
     queryFn: () => apiClientsApi.getApiClients({ page, limit }),
   });
+
+  const clients = useMemo(() => {
+    if (!Array.isArray(data)) return [];
+    const start = (page - 1) * limit;
+    return data.slice(start, start + limit);
+  }, [data, page, limit]);
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -267,17 +273,19 @@ export function ApiClientsPage() {
 
       <DataTable
         columns={columns}
-        data={data?.data ?? []}
+        data={clients}
         loading={isLoading}
         page={page}
         limit={limit}
-        total={data?.pagination?.total ?? 0}
-        totalPages={data?.pagination?.totalPages ?? 1}
+        total={data?.length ?? 0}
+        totalPages={Math.max(1, Math.ceil((data?.length ?? 0) / limit))}
         onPageChange={setPage}
         onLimitChange={(l) => {
           setLimit(l);
           setPage(1);
         }}
+        error={isError ? (error as Error).message : undefined}
+        onRetry={() => void refetch()}
       />
 
       {/* Create Dialog */}
