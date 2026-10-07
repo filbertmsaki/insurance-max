@@ -1,4 +1,11 @@
-import { Controller, Get, Param, ParseEnumPipe, Post } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseEnumPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
@@ -59,6 +66,26 @@ export class CompanyTiramisConfigurationController {
     );
   }
 
+  @Get('portal-webhook/:environment/deliveries')
+  @TenantScoped()
+  @Permissions('company-tiramis-config:read')
+  @ApiOperation({
+    summary: 'Inspect notification delivery and callback outcomes',
+  })
+  getDeliveryDiagnostics(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+    @Query('requestId') requestId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.companyTiramisConfigurationService.getDeliveryDiagnostics(
+      user.companyId!,
+      environment,
+      { requestId, limit: limit ? Number(limit) : undefined },
+    );
+  }
+
   @Post('portal-webhook/:environment/sync')
   @TenantScoped()
   @Permissions('company-tiramis-config:validate')
@@ -71,6 +98,40 @@ export class CompanyTiramisConfigurationController {
     return this.companyTiramisConfigurationService.syncPortalWebhookCredential(
       user.companyId!,
       environment,
+    );
+  }
+
+  @Get('secrets/:environment/health')
+  @TenantScoped()
+  @Permissions('company-tiramis-config:read')
+  @ApiOperation({ summary: 'Check whether TIRAMIS can decrypt its secrets' })
+  getSecretHealth(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+  ) {
+    return this.companyTiramisConfigurationService.getSecretHealth(
+      user.companyId!,
+      environment,
+    );
+  }
+
+  @Post('secrets/:environment/repair')
+  @TenantScoped()
+  @Permissions('company-tiramis-config:validate')
+  @ApiOperation({
+    summary:
+      'Re-encrypt TIRAMIS secrets with the current key and reissue the webhook key',
+  })
+  repairSecrets(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+  ) {
+    return this.companyTiramisConfigurationService.repairSecrets(
+      user.companyId!,
+      environment,
+      user.id,
     );
   }
 }

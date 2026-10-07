@@ -107,6 +107,9 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
   })
   portalWebhookApiKeyEncrypted?: string | null;
 
+  @Column({ name: 'portal_notification_events', type: 'jsonb', nullable: true })
+  portalNotificationEvents?: string[] | null;
+
   @Column({
     name: 'signature_algorithm',
     type: 'varchar',

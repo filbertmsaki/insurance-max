@@ -11,7 +11,10 @@ import { DataSource, Repository } from 'typeorm';
 import { AuditService } from '../../shared/audit/audit.service';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from '../entities/tiramis-company-configuration.entity';
-import { TiramisClientService } from './tiramis-client.service';
+import {
+  TiramisClientService,
+  type TiramisSecretName,
+} from './tiramis-client.service';
 import { TiramisServiceApiKeyVaultService } from './tiramis-service-api-key-vault.service';
 import { TiramisWebhookCredentialService } from './tiramis-webhook-credential.service';
 import { UpsertCompanyTiramisConfigurationDto } from '../dto/upsert-company-tiramis-configuration.dto';
@@ -53,27 +56,9 @@ export class CompanyTiramisConfigurationService {
       const environment = configuration.environment as 'test' | 'live';
 
       try {
-        const validation =
-          await this.tiramisClientService.validateOrganizationConfiguration({
-            companyId: configuration.companyId,
-            environment,
-            companyCode: configuration.companyCode,
-            systemCode: configuration.systemCode,
-            insurerCompanyCode: configuration.insurerCompanyCode,
-            allowExpiredCertificates: true,
-          });
-
-        if (!validation.configurationId) {
-          throw new Error(
-            validation.message ||
-              'TIRAMIS did not return a client configuration id.',
-          );
-        }
-
-        await this.syncPortalWebhookApiKey(
+        await this.syncPortalWebhookCredential(
           configuration.companyId,
           environment,
-          validation.configurationId,
         );
         results.push({
           companyId: configuration.companyId,
@@ -128,12 +113,27 @@ export class CompanyTiramisConfigurationService {
     const targetEnvironment =
       company?.settings?.tiramis_target_environment ?? null;
 
-    return configs.map((configuration) =>
+    const responses: Array<Record<string, any>> = configs.map((configuration) =>
       this.toResponse(
         configuration,
         configuration.environment === targetEnvironment,
       ),
     );
+    for (const response of responses) {
+      try {
+        const health = await this.getSecretHealth(
+          companyId,
+          response.environment as 'test' | 'live',
+        );
+        response.notificationCredentialStatus =
+          health.secrets.find((secret) => secret.name === 'portalWebhookApiKey')
+            ?.status ?? 'MISSING';
+      } catch (error) {
+        response.notificationCredentialStatus =
+          error instanceof Error ? error.message : 'Unable to check';
+      }
+    }
+    return responses;
   }
 
   findRaw(companyId: string) {
@@ -187,6 +187,9 @@ export class CompanyTiramisConfigurationService {
             sourceService: configuration.sourceService,
             allowExpiredCertificates:
               configuration.allowExpiredCertificates ?? false,
+            notificationEvents: configuration.notificationEvents ?? null,
+            integrationPermissions:
+              configuration.integrationPermissions ?? null,
             isActive: configuration.isActive,
           }
         : null;
@@ -206,6 +209,12 @@ export class CompanyTiramisConfigurationService {
           baseUrl: dto.base_url ?? null,
           sourceService: dto.source_service ?? null,
           allowExpiredCertificates: dto.allow_expired_certificates ?? false,
+          notificationEvents: dto.notification_events ?? null,
+          integrationPermissions: dto.integration_permissions ?? [
+            'submit',
+            'read_status',
+            'receive_notifications',
+          ],
           serviceApiKeyEncrypted: this.apiKeyVault.encrypt(
             dto.tiramis_service_api_key,
           ),
@@ -229,6 +238,12 @@ export class CompanyTiramisConfigurationService {
           dto.allow_expired_certificates ??
           configuration.allowExpiredCertificates ??
           false;
+        if (dto.notification_events !== undefined) {
+          configuration.notificationEvents = dto.notification_events;
+        }
+        if (dto.integration_permissions !== undefined) {
+          configuration.integrationPermissions = dto.integration_permissions;
+        }
         if (dto.tiramis_service_api_key) {
           configuration.serviceApiKeyEncrypted = this.apiKeyVault.encrypt(
             dto.tiramis_service_api_key,
@@ -264,6 +279,8 @@ export class CompanyTiramisConfigurationService {
             baseUrl: saved.baseUrl,
             sourceService: saved.sourceService,
             allowExpiredCertificates: saved.allowExpiredCertificates,
+            notificationEvents: saved.notificationEvents,
+            integrationPermissions: saved.integrationPermissions,
             isActive: saved.isActive,
             serviceApiKeyMasked: this.apiKeyVault.mask(
               saved.serviceApiKeyEncrypted,
@@ -307,6 +324,15 @@ export class CompanyTiramisConfigurationService {
         saved.environment as 'test' | 'live',
         tiramisConfiguration.id,
       );
+      await this.tiramisClientService.setPortalNotificationPolicy({
+        companyId,
+        environment: saved.environment as 'test' | 'live',
+        tiramisConfigurationId: tiramisConfiguration.id,
+        enabled: (
+          saved.integrationPermissions ?? ['receive_notifications']
+        ).includes('receive_notifications'),
+        eventTypes: saved.notificationEvents ?? [],
+      });
     } catch (error) {
       saved.validationStatus = 'INVALID';
       saved.validatedAt = new Date();
@@ -509,21 +535,49 @@ export class CompanyTiramisConfigurationService {
     });
   }
 
+  async getDeliveryDiagnostics(
+    companyId: string,
+    environment: 'test' | 'live',
+    params: { requestId?: string; limit?: number },
+  ) {
+    const configuration = await this.repository.findOne({
+      where: { companyId, environment, isActive: true },
+    });
+    if (!configuration)
+      throw new NotFoundException(
+        'Active TIRAMIS configuration was not found for this environment.',
+      );
+    const tiramisConfigurationId = await this.resolveTiramisConfigurationId(
+      companyId,
+      environment,
+    );
+    const result =
+      await this.tiramisClientService.getTiramisDeliveryDiagnostics({
+        companyId,
+        environment,
+        requestId: params.requestId,
+        limit: params.limit,
+      });
+    return {
+      environment,
+      configurationId: tiramisConfigurationId,
+      ...(result as object),
+    };
+  }
+
   async syncPortalWebhookCredential(
     companyId: string,
     environment: 'test' | 'live',
   ) {
-    const validation = await this.validate(companyId, environment);
-    if (!validation.configurationId) {
-      throw new BadRequestException(
-        validation.message || 'TIRAMIS configuration could not be resolved.',
-      );
-    }
+    const tiramisConfigurationId = await this.resolveTiramisConfigurationId(
+      companyId,
+      environment,
+    );
 
     await this.syncPortalWebhookApiKey(
       companyId,
       environment,
-      validation.configurationId,
+      tiramisConfigurationId,
     );
 
     return {
@@ -532,6 +586,115 @@ export class CompanyTiramisConfigurationService {
       message:
         'Portal webhook credential rotated and synced to TIRAMIS. Run the connection test to confirm delivery.',
     };
+  }
+
+  async getSecretHealth(companyId: string, environment: 'test' | 'live') {
+    const tiramisConfigurationId = await this.resolveTiramisConfigurationId(
+      companyId,
+      environment,
+    );
+
+    return this.tiramisClientService.getConfigurationSecretHealth({
+      companyId,
+      environment,
+      tiramisConfigurationId,
+    });
+  }
+
+  /**
+   * One-click recovery after TIRAMIS_SECRET_ENCRYPTION_KEY changes: TIRAMIS
+   * re-encrypts every secret it can still read (or that is supplied here)
+   * with its current key, and the portal webhook key — which the portal
+   * owns — is reissued whenever TIRAMIS cannot read it.
+   */
+  async repairSecrets(
+    companyId: string,
+    environment: 'test' | 'live',
+    actorId: string,
+    replacements: Partial<Record<TiramisSecretName, string>> = {},
+  ) {
+    const tiramisConfigurationId = await this.resolveTiramisConfigurationId(
+      companyId,
+      environment,
+    );
+    const suppliedReplacements = Object.fromEntries(
+      Object.entries(replacements).filter(
+        ([name, value]) => typeof value === 'string' && value.trim() !== '',
+      ),
+    ) as Partial<Record<TiramisSecretName, string>>;
+
+    let health = await this.tiramisClientService.repairConfigurationSecrets({
+      companyId,
+      environment,
+      tiramisConfigurationId,
+      replacements: suppliedReplacements,
+    });
+
+    const webhookSecret = health.secrets.find(
+      (secret) => secret.name === 'portalWebhookApiKey',
+    );
+    const webhookKeyReissued = webhookSecret?.status !== 'OK';
+    if (webhookKeyReissued) {
+      await this.syncPortalWebhookApiKey(
+        companyId,
+        environment,
+        tiramisConfigurationId,
+      );
+      health = await this.tiramisClientService.getConfigurationSecretHealth({
+        companyId,
+        environment,
+        tiramisConfigurationId,
+      });
+    }
+
+    await this.auditService.logCritical({
+      userId: actorId,
+      companyId,
+      action: 'tiramis.company_configuration.secrets_repaired',
+      eventCategory: 'organization',
+      resource: 'tiramis_company_configuration',
+      resourceId: tiramisConfigurationId,
+      afterState: {
+        environment,
+        replacedSecrets: Object.keys(suppliedReplacements),
+        webhookKeyReissued,
+        secrets: health.secrets.map(({ name, status }) => ({ name, status })),
+      },
+    });
+
+    return { ...health, webhookKeyReissued };
+  }
+
+  /**
+   * Finds the TIRAMIS client configuration id by company/system code
+   * without decrypting any TIRAMIS secret, unlike validate().
+   */
+  private async resolveTiramisConfigurationId(
+    companyId: string,
+    environment: 'test' | 'live',
+  ): Promise<string> {
+    const configuration = await this.repository.findOne({
+      where: { companyId, environment, isActive: true },
+    });
+
+    if (!configuration) {
+      throw new NotFoundException(
+        'Active TIRAMIS configuration was not found for this environment.',
+      );
+    }
+
+    if (!configuration.systemCode) {
+      throw new BadRequestException(
+        'TIRAMIS configuration has no system code.',
+      );
+    }
+
+    return this.tiramisClientService.resolveOrganizationConfigurationId({
+      companyId,
+      environment,
+      companyCode: configuration.companyCode,
+      systemCode: configuration.systemCode,
+    });
   }
 
   async activate(
@@ -643,6 +806,22 @@ export class CompanyTiramisConfigurationService {
 
     return {
       ...configuration,
+      notificationEvents: configuration.notificationEvents ?? [
+        'TIRAMIS_ACK_RECEIVED',
+        'TIRAMIS_ACK_FAILED',
+        'TIRAMIS_FINAL_RESPONSE_RECEIVED',
+        'TIRAMIS_FINAL_SUCCESS',
+        'TIRAMIS_FINAL_FAILED',
+        'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+        'TIRAMIS_RESPONSE_ACK_SENT',
+        'TIRAMIS_CALLBACK_REJECTED',
+        'TIRAMIS_SUBMISSION_FAILED',
+      ],
+      integrationPermissions: configuration.integrationPermissions ?? [
+        'submit',
+        'read_status',
+        'receive_notifications',
+      ],
       environmentLabel:
         configuration.environment === 'live' ? 'Live/Production' : 'Test/UAT',
       isTargetEnvironment,

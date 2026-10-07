@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, Copy, ExternalLink, RefreshCw, Send, X } from 'lucide-react';
+import { Check, Copy, ExternalLink, RefreshCw, Send, X, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { TiramisSecretHealthCard } from '@/components/shared/TiramisSecretHealthCard';
 import { tiramisApi } from '../api';
+import { Input } from '@/components/ui/input';
 
 export function TiramisWebhookDiagnosticsPage() {
   const [environment, setEnvironment] = useState<'test' | 'live'>('live');
   const [copied, setCopied] = useState(false);
+  const [requestIdInput, setRequestIdInput] = useState('');
+  const [requestId, setRequestId] = useState('');
   const queryClient = useQueryClient();
   const queryKey = ['tiramis', 'portal-webhook', environment];
   const { data, isLoading, isError, refetch } = useQuery({
@@ -44,6 +48,13 @@ export function TiramisWebhookDiagnosticsPage() {
           : 'Could not sync the portal webhook credential.',
       );
     },
+  });
+  const diagnostics = useQuery({
+    queryKey: ['tiramis', 'delivery-diagnostics', environment, requestId],
+    queryFn: () => tiramisApi.getDeliveryDiagnostics(environment, {
+      requestId: requestId || undefined,
+      limit: 50,
+    }),
   });
 
   const copyUrl = async () => {
@@ -189,6 +200,52 @@ export function TiramisWebhookDiagnosticsPage() {
                 scope. A network or timeout error suggests the portal URL is not
                 reachable from the TIRAMIS host.
               </p>
+            </CardContent>
+          </Card>
+
+          {data?.configured && (
+            <TiramisSecretHealthCard
+              scopeKey="my-company"
+              environment={environment}
+              fetchHealth={() => tiramisApi.getSecretHealth(environment)}
+              repair={() => tiramisApi.repairSecrets(environment)}
+            />
+          )}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <CardTitle className="text-base">Delivery and callback diagnostics</CardTitle>
+                <Button variant="outline" size="sm" onClick={() => void diagnostics.refetch()} disabled={diagnostics.isFetching}>
+                  <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); setRequestId(requestIdInput.trim()); }}>
+                <Input value={requestIdInput} onChange={(event) => setRequestIdInput(event.target.value)} placeholder="Filter by TIRA request ID" />
+                <Button type="submit"><Search className="mr-2 h-4 w-4" /> Search</Button>
+                {requestId && <Button type="button" variant="outline" onClick={() => { setRequestId(''); setRequestIdInput(''); }}>Clear</Button>}
+              </form>
+              {diagnostics.isError ? <p className="text-sm text-red-700">Could not load delivery diagnostics. Check integration access and refresh.</p> : null}
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">Notification deliveries</h3>
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="w-full text-left text-sm"><thead><tr className="bg-slate-50"><th className="p-2">Request ID</th><th className="p-2">Event</th><th className="p-2">Status</th><th className="p-2">Attempts</th><th className="p-2">Last error</th></tr></thead>
+                    <tbody>{diagnostics.data?.outbox.map((row) => <tr key={row.id} className="border-t"><td className="p-2 font-mono text-xs">{row.requestId}</td><td className="p-2">{row.eventType}</td><td className="p-2"><Badge variant={row.status === 'SENT' ? 'success' : row.status === 'DEAD' ? 'danger' : 'warning'}>{row.status}</Badge></td><td className="p-2">{row.attemptCount}</td><td className="max-w-sm p-2 text-xs text-slate-600">{row.lastError || '—'}</td></tr>)}</tbody>
+                  </table>
+                  {!diagnostics.data?.outbox.length && <p className="p-3 text-sm text-slate-500">No matching notification deliveries.</p>}
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-2 text-sm font-semibold">Inbound callbacks</h3>
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="w-full text-left text-sm"><thead><tr className="bg-slate-50"><th className="p-2">Request ID</th><th className="p-2">Response</th><th className="p-2">Signature</th><th className="p-2">Processing</th><th className="p-2">Error / verification detail</th></tr></thead>
+                    <tbody>{diagnostics.data?.callbacks.receipts.map((row, index) => <tr key={String(row.id ?? index)} className="border-t"><td className="p-2 font-mono text-xs">{String(row.requestId ?? '')}</td><td className="p-2">{String(row.responseStatusCode ?? '')} {String(row.responseStatusDesc ?? '')}</td><td className="p-2"><Badge variant={row.signatureVerified ? 'success' : 'danger'}>{row.signatureVerified ? 'Verified' : 'Rejected'}</Badge></td><td className="p-2">{String(row.processingStatus ?? '')}</td><td className="p-2 text-xs text-slate-600">{String(row.lastError ?? row.signatureVerificationReason ?? '—')}</td></tr>)}</tbody>
+                  </table>
+                  {!diagnostics.data?.callbacks.receipts.length && <p className="p-3 text-sm text-slate-500">No matching callback receipts.</p>}
+                </div>
+                {diagnostics.data?.callbacks.deadLetters.length ? <div className="mt-3 space-y-2">{diagnostics.data.callbacks.deadLetters.map((row, index) => <div key={String(row.id ?? index)} className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm"><div className="font-mono text-xs">{String(row.requestId ?? 'No request ID')} · {String(row.environment ?? '')}</div><div className="mt-1 text-amber-950">{String(row.reason ?? '')}</div><div className="mt-1 text-xs text-amber-800">Payload hash: {String(row.payloadHash ?? 'Unavailable')}</div></div>)}</div> : null}
+              </div>
             </CardContent>
           </Card>
         </>

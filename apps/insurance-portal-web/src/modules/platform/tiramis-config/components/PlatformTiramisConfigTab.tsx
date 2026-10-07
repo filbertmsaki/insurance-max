@@ -16,6 +16,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TiramisSecretHealthCard } from '@/components/shared/TiramisSecretHealthCard';
 import {
   Form,
   FormControl,
@@ -42,6 +43,8 @@ const schema = z.object({
   tiramis_service_api_key: z.string().max(500).optional().or(z.literal('')),
   allow_expired_certificates: z.boolean().optional(),
   use_as_target_environment: z.boolean().optional(),
+  integration_permissions: z.array(z.enum(['submit', 'read_status', 'receive_notifications'])),
+  notification_events: z.array(z.string()),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -77,6 +80,12 @@ function buildDefaultValues(
     use_as_target_environment:
       config?.isTargetEnvironment ??
       config?.effectiveTargetEnvironment === environment,
+    integration_permissions: (config?.integrationPermissions ?? ['submit', 'read_status', 'receive_notifications']) as FormValues['integration_permissions'],
+    notification_events: config?.notificationEvents ?? [
+      'TIRAMIS_ACK_RECEIVED', 'TIRAMIS_ACK_FAILED', 'TIRAMIS_FINAL_RESPONSE_RECEIVED',
+      'TIRAMIS_FINAL_SUCCESS', 'TIRAMIS_FINAL_FAILED', 'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+      'TIRAMIS_RESPONSE_ACK_SENT', 'TIRAMIS_CALLBACK_REJECTED', 'TIRAMIS_SUBMISSION_FAILED',
+    ],
   };
 }
 
@@ -153,6 +162,8 @@ function EnvironmentPanel({
           source_service: values.source_service || undefined,
           callback_url: values.callback_url || undefined,
           tiramis_service_api_key: values.tiramis_service_api_key || undefined,
+          integration_permissions: values.integration_permissions,
+          notification_events: values.notification_events,
           allow_expired_certificates:
             values.allow_expired_certificates ?? false,
           use_as_target_environment: values.use_as_target_environment,
@@ -489,6 +500,51 @@ function EnvironmentPanel({
                     </FormItem>
                   )}
                 />
+                <div className="col-span-2 rounded-md border p-3 space-y-3">
+                  <div className="font-medium">Integration permissions</div>
+                  {([
+                    ['submit', 'Submit requests'],
+                    ['read_status', 'Read status and history'],
+                    ['receive_notifications', 'Receive callback notifications'],
+                  ] as const).map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={form.watch('integration_permissions').includes(value)}
+                        onChange={(event) => {
+                          const current = form.getValues('integration_permissions');
+                          form.setValue('integration_permissions', event.target.checked
+                            ? [...current, value]
+                            : current.filter((item) => item !== value));
+                        }}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                  <div className="pt-2 border-t font-medium">Notification events</div>
+                  {[
+                    'TIRAMIS_ACK_RECEIVED', 'TIRAMIS_ACK_FAILED',
+                    'TIRAMIS_FINAL_RESPONSE_RECEIVED', 'TIRAMIS_FINAL_SUCCESS',
+                    'TIRAMIS_FINAL_FAILED', 'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+                    'TIRAMIS_RESPONSE_ACK_SENT', 'TIRAMIS_CALLBACK_REJECTED',
+                    'TIRAMIS_SUBMISSION_FAILED',
+                  ].map((eventType) => (
+                    <label key={eventType} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={form.watch('notification_events').includes(eventType)}
+                        disabled={!form.watch('integration_permissions').includes('receive_notifications')}
+                        onChange={(event) => {
+                          const current = form.getValues('notification_events');
+                          form.setValue('notification_events', event.target.checked
+                            ? [...current, eventType]
+                            : current.filter((item) => item !== eventType));
+                        }}
+                      />
+                      {eventType.replace('TIRAMIS_', '').replaceAll('_', ' ').toLowerCase()}
+                    </label>
+                  ))}
+                </div>
               </div>
               <FormField
                 control={form.control}
@@ -615,6 +671,10 @@ function EnvironmentPanel({
               <div>
                 <span className="text-slate-500">API Key Status:</span>{' '}
                 {config?.apiKeyStatus ?? 'NOT_CONFIGURED'}
+              </div>
+              <div>
+                <span className="text-slate-500">Notification credential:</span>{' '}
+                {config?.notificationCredentialStatus ?? 'Not checked'}
               </div>
               <div>
                 <span className="text-slate-500">Expired Cert Override:</span>{' '}
@@ -770,6 +830,31 @@ export function PlatformTiramisConfigTab({ companyId }: { companyId: string }) {
           environment="live"
           config={liveConfig}
         />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {[testConfig, liveConfig]
+          .filter((config) => config?.isActive)
+          .map((config) => (
+            <TiramisSecretHealthCard
+              key={config!.environment}
+              scopeKey={companyId}
+              environment={config!.environment}
+              allowReplacements
+              fetchHealth={() =>
+                platformTiramisConfigApi.getSecretHealth(
+                  companyId,
+                  config!.environment,
+                )
+              }
+              repair={(replacements) =>
+                platformTiramisConfigApi.repairSecrets(
+                  companyId,
+                  config!.environment,
+                  replacements,
+                )
+              }
+            />
+          ))}
       </div>
     </div>
   );

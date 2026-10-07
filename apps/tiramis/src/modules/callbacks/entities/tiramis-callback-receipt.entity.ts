@@ -118,4 +118,12 @@ export class TiramisCallbackReceiptEntity extends BaseEntity {
     nullable: true,
   })
   lastError?: string | null;
+
+  @Column({
+    name: 'signature_verification_reason',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  signatureVerificationReason?: string | null;
 }

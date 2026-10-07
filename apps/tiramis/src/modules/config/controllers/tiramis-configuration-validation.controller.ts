@@ -1,10 +1,19 @@
-import { Body, Controller, Logger, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Logger,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { IsBoolean, IsIn, IsOptional, IsString, IsUrl } from 'class-validator';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
 import { TiramisConfigService } from '../services/tiramis-config.service';
 import { TiramisPortalNotificationService } from '../../portal-notifications/services/tiramis-portal-notification.service';
+import { TIRAMIS_NOTIFICATION_EVENT_TYPES } from '../../portal-notifications/services/tiramis-portal-notification.service';
 
 class ValidateOrganizationConfigurationDto {
   @IsIn(['test', 'live'])
@@ -34,6 +43,17 @@ class TestPortalWebhookDto {
   @IsString()
   @IsUrl({ require_tld: false })
   webhookUrl!: string;
+}
+
+class NotificationPolicyDto {
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @IsOptional()
+  @IsIn(TIRAMIS_NOTIFICATION_EVENT_TYPES, { each: true })
+  @IsString({ each: true })
+  eventTypes?: string[];
 }
 
 class UpsertClientConfigurationDto {
@@ -79,6 +99,35 @@ class UpsertClientConfigurationDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+}
+
+class ResolveOrganizationConfigurationDto {
+  @IsIn(['test', 'live'])
+  environment!: 'test' | 'live';
+
+  @IsString()
+  companyCode!: string;
+
+  @IsString()
+  systemCode!: string;
+}
+
+class RepairSecretsDto {
+  @IsOptional()
+  @IsString()
+  clientKey?: string;
+
+  @IsOptional()
+  @IsString()
+  clientPrivateCertificatePassword?: string;
+
+  @IsOptional()
+  @IsString()
+  tiraPublicCertificatePassword?: string;
+
+  @IsOptional()
+  @IsString()
+  portalWebhookApiKey?: string;
 }
 
 @Controller('tiramis/configurations')
@@ -157,6 +206,42 @@ export class TiramisConfigurationValidationController {
     };
   }
 
+  /**
+   * Looks up the configuration id without decrypting any secret, so the
+   * portal can still reach the repair endpoints when secrets are unreadable.
+   */
+  @Post('resolve-organization')
+  @ServiceScopes('tiramis:admin')
+  async resolveOrganization(@Body() dto: ResolveOrganizationConfigurationDto) {
+    const configuration = await this.configService.getActiveConfiguration({
+      environment: dto.environment,
+      companyCode: dto.companyCode,
+      systemCode: dto.systemCode,
+    });
+
+    return {
+      configurationId: configuration.id,
+      environment: configuration.environment,
+      companyCode: configuration.companyCode,
+      systemCode: configuration.systemCode,
+    };
+  }
+
+  @Get(':configurationId/secret-health')
+  @ServiceScopes('tiramis:admin')
+  getSecretHealth(@Param('configurationId') configurationId: string) {
+    return this.configService.getSecretHealth(configurationId);
+  }
+
+  @Post(':configurationId/repair-secrets')
+  @ServiceScopes('tiramis:admin')
+  repairSecrets(
+    @Param('configurationId') configurationId: string,
+    @Body() dto: RepairSecretsDto,
+  ) {
+    return this.configService.repairSecrets(configurationId, dto);
+  }
+
   @Put(':configurationId/portal-webhook-api-key')
   @ServiceScopes('tiramis:admin')
   setPortalWebhookApiKey(
@@ -179,6 +264,15 @@ export class TiramisConfigurationValidationController {
       configurationId,
       dto.webhookUrl,
     );
+  }
+
+  @Put(':configurationId/portal-notification-policy')
+  @ServiceScopes('tiramis:admin')
+  setPortalNotificationPolicy(
+    @Param('configurationId') configurationId: string,
+    @Body() dto: NotificationPolicyDto,
+  ) {
+    return this.configService.setPortalNotificationPolicy(configurationId, dto);
   }
 
   @Put()

@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
+  IsArray,
   IsIn,
   IsNotEmpty,
   IsOptional,
@@ -10,6 +11,30 @@ import {
 } from 'class-validator';
 
 export class UpsertCompanyTiramisConfigurationDto {
+  @IsOptional()
+  @IsArray()
+  @IsIn(
+    [
+      'TIRAMIS_CONNECTION_TEST',
+      'TIRAMIS_ACK_RECEIVED',
+      'TIRAMIS_ACK_FAILED',
+      'TIRAMIS_FINAL_RESPONSE_RECEIVED',
+      'TIRAMIS_FINAL_SUCCESS',
+      'TIRAMIS_FINAL_FAILED',
+      'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+      'TIRAMIS_RESPONSE_ACK_SENT',
+      'TIRAMIS_CALLBACK_REJECTED',
+      'TIRAMIS_SUBMISSION_FAILED',
+    ],
+    { each: true },
+  )
+  notification_events?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(['submit', 'read_status', 'receive_notifications'], { each: true })
+  integration_permissions?: string[];
+
   @IsOptional()
   @IsIn(['test', 'live'])
   environment: 'test' | 'live';

@@ -7,6 +7,8 @@ import { TiramisPortalNotificationOutboxEntity } from './entities/tiramis-portal
 import { TiramisPortalNotificationOutboxWorkerService } from './services/tiramis-portal-notification-outbox-worker.service';
 import { TiramisPortalNotificationService } from './services/tiramis-portal-notification.service';
 import { TiramisClientConfigurationEntity } from '../config/entities/tiramis-client-configuration.entity';
+import { TiramisCallbackReceiptEntity } from '../callbacks/entities/tiramis-callback-receipt.entity';
+import { TiramisCallbackDeadLetterEntity } from '../callbacks/entities/tiramis-callback-dead-letter.entity';
 import { TiramisSecurityModule } from '../security/tiramis-security.module';
 
 @Module({
@@ -16,6 +18,8 @@ import { TiramisSecurityModule } from '../security/tiramis-security.module';
     TypeOrmModule.forFeature([
       TiramisClientConfigurationEntity,
       TiramisPortalNotificationOutboxEntity,
+      TiramisCallbackReceiptEntity,
+      TiramisCallbackDeadLetterEntity,
     ]),
   ],
   controllers: [TiramisPortalNotificationOutboxController],

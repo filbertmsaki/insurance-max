@@ -189,7 +189,6 @@ export class TiramisCallbackService {
         event: 'tira.callback.rejected',
         message: reason,
       });
-
       await this.quarantineCallback({
         environment: params.environment,
         parsedCallback,
@@ -274,6 +273,10 @@ export class TiramisCallbackService {
     }
 
     const callbackReceipt = receiptResult.receipt;
+    callbackReceipt.signatureVerified = signatureVerification.isValid ? 1 : 0;
+    callbackReceipt.signatureVerificationReason =
+      signatureVerification.reason ?? null;
+    await this.callbackReceiptRepository.save(callbackReceipt);
     let finalOutcomePersisted = false;
     let portalFinalOutcomeNotified = false;
 

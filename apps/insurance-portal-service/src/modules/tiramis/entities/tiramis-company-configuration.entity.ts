@@ -133,6 +133,12 @@ export class TiramisCompanyConfigurationEntity {
   })
   allowExpiredCertificates!: boolean;
 
+  @Column({ name: 'notification_events', type: 'jsonb', nullable: true })
+  notificationEvents!: string[] | null;
+
+  @Column({ name: 'integration_permissions', type: 'jsonb', nullable: true })
+  integrationPermissions!: string[] | null;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 

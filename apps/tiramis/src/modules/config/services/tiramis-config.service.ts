@@ -18,6 +18,35 @@ import { resolveTiramisCertificatePath } from '../utils/tiramis-certificate-path
 import { TiramisCertificateInspectorService } from '../../security/services/tiramis-certificate-inspector.service';
 import { TiramisSecretCryptoService } from '../../security/services/tiramis-secret-crypto.service';
 
+export const TIRAMIS_SECRET_FIELDS = [
+  {
+    name: 'clientKey',
+    label: 'TIRA client key',
+    encryptedColumn: 'clientKeyEncrypted',
+    legacyColumn: 'clientKey',
+  },
+  {
+    name: 'clientPrivateCertificatePassword',
+    label: 'Client private certificate password',
+    encryptedColumn: 'clientPrivateCertificatePasswordEncrypted',
+    legacyColumn: 'clientPrivateCertificatePassword',
+  },
+  {
+    name: 'tiraPublicCertificatePassword',
+    label: 'TIRA public certificate password',
+    encryptedColumn: 'tiraPublicCertificatePasswordEncrypted',
+    legacyColumn: 'tiraPublicCertificatePassword',
+  },
+  {
+    name: 'portalWebhookApiKey',
+    label: 'Portal webhook API key',
+    encryptedColumn: 'portalWebhookApiKeyEncrypted',
+    legacyColumn: null,
+  },
+] as const;
+
+export type TiramisSecretName = (typeof TIRAMIS_SECRET_FIELDS)[number]['name'];
+
 export interface TiramisRequestHeaders {
   [key: string]: string;
   'Content-Type': string;
@@ -73,6 +102,18 @@ export interface UpsertTiramisClientConfigurationParams {
   signatureAlgorithm?: string | null;
   isActive?: boolean;
 }
+
+const DEFAULT_PORTAL_NOTIFICATION_EVENTS = [
+  'TIRAMIS_ACK_RECEIVED',
+  'TIRAMIS_ACK_FAILED',
+  'TIRAMIS_FINAL_RESPONSE_RECEIVED',
+  'TIRAMIS_FINAL_SUCCESS',
+  'TIRAMIS_FINAL_FAILED',
+  'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+  'TIRAMIS_RESPONSE_ACK_SENT',
+  'TIRAMIS_CALLBACK_REJECTED',
+  'TIRAMIS_SUBMISSION_FAILED',
+];
 
 @Injectable()
 export class TiramisConfigService {
@@ -609,10 +650,16 @@ export class TiramisConfigService {
     const warnings: string[] = [];
     const allowExpiredCertificates = options?.allowExpiredCertificates ?? false;
 
-    const clientKey = this.getClientKey(configuration);
-
-    if (!clientKey) {
-      errors.push('ClientKey is missing');
+    let clientKey: string | null = null;
+    try {
+      clientKey = this.getClientKey(configuration);
+      if (!clientKey) {
+        errors.push('ClientKey is missing');
+      }
+    } catch {
+      errors.push(
+        'ClientKey cannot be decrypted with the current encryption key; repair the configuration secrets',
+      );
     }
 
     if (!configuration.clientKeyEncrypted) {
@@ -848,6 +895,116 @@ export class TiramisConfigService {
       ),
       updatedAt: saved.updatedAt,
     };
+  }
+
+  async setPortalNotificationPolicy(
+    configurationId: string,
+    policy: { enabled?: boolean; eventTypes?: string[] },
+  ) {
+    const configuration = await this.clientConfigurationRepository.findOne({
+      where: { id: configurationId },
+    });
+    if (!configuration)
+      throw new NotFoundException('TIRAMIS client configuration was not found');
+    configuration.portalNotificationEvents =
+      policy.enabled === false
+        ? []
+        : (policy.eventTypes ?? DEFAULT_PORTAL_NOTIFICATION_EVENTS);
+    const saved = await this.clientConfigurationRepository.save(configuration);
+    return {
+      configurationId: saved.id,
+      enabled: configuration.portalNotificationEvents.length > 0,
+      eventTypes: configuration.portalNotificationEvents,
+      updatedAt: saved.updatedAt,
+    };
+  }
+
+  /**
+   * Reports, per stored secret, whether this process can still read it with
+   * TIRAMIS_SECRET_ENCRYPTION_KEY (or a _PREVIOUS key). Never throws on an
+   * unreadable value — that is exactly what it reports.
+   */
+  async getSecretHealth(configurationId: string) {
+    const configuration = await this.getConfigurationById(configurationId);
+
+    return this.buildSecretHealth(configuration);
+  }
+
+  /**
+   * Brings every secret onto the current encryption key:
+   * - a supplied plaintext value replaces the stored one;
+   * - otherwise a readable value (legacy plaintext, previous key) is
+   *   re-encrypted with the current key;
+   * - an unreadable value with no replacement is left untouched and
+   *   reported, so nothing that still works is ever lost.
+   */
+  async repairSecrets(
+    configurationId: string,
+    replacements: Partial<Record<TiramisSecretName, string | null>>,
+  ) {
+    const configuration = await this.clientConfigurationRepository.findOne({
+      where: { id: configurationId },
+    });
+
+    if (!configuration) {
+      throw new NotFoundException('TIRAMIS client configuration was not found');
+    }
+
+    for (const secret of TIRAMIS_SECRET_FIELDS) {
+      const replacement = replacements[secret.name]?.trim();
+      const current = this.readSecretValue(configuration, secret);
+      const encrypted = replacement
+        ? this.secretCrypto.encrypt(replacement)
+        : this.secretCrypto.reEncrypt(current);
+
+      if (!encrypted) {
+        continue;
+      }
+
+      (configuration as any)[secret.encryptedColumn] = encrypted;
+      if (secret.legacyColumn) {
+        (configuration as any)[secret.legacyColumn] =
+          secret.legacyColumn === 'clientKey' ? '(encrypted)' : null;
+      }
+    }
+
+    await this.clientConfigurationRepository.save(configuration);
+
+    return this.buildSecretHealth(configuration);
+  }
+
+  private buildSecretHealth(configuration: TiramisClientConfigurationEntity) {
+    const secrets = TIRAMIS_SECRET_FIELDS.map((secret) => ({
+      name: secret.name,
+      label: secret.label,
+      status: this.secretCrypto.inspect(
+        this.readSecretValue(configuration, secret),
+      ),
+    }));
+
+    return {
+      configurationId: configuration.id,
+      environment: configuration.environment,
+      companyCode: configuration.companyCode,
+      systemCode: configuration.systemCode,
+      healthy: secrets.every((secret) => secret.status === 'OK'),
+      secrets,
+    };
+  }
+
+  private readSecretValue(
+    configuration: TiramisClientConfigurationEntity,
+    secret: (typeof TIRAMIS_SECRET_FIELDS)[number],
+  ): string | null {
+    const encrypted = (configuration as any)[secret.encryptedColumn] as
+      | string
+      | null
+      | undefined;
+    const legacy = secret.legacyColumn
+      ? ((configuration as any)[secret.legacyColumn] as string | null)
+      : null;
+
+    return encrypted || (legacy && legacy !== '(encrypted)' ? legacy : null);
   }
 
   async encryptExistingPlaintextSecrets(configurationId: string) {

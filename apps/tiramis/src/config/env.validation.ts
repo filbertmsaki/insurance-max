@@ -50,6 +50,7 @@ export const tiramisEnvValidationSchema = Joi.object({
   LOGGER_PRETTY: Joi.boolean().default(true),
 
   TIRAMIS_SECRET_ENCRYPTION_KEY: Joi.string().required(),
+  TIRAMIS_SECRET_ENCRYPTION_KEY_PREVIOUS: Joi.string().allow('').optional(),
   TIRAMIS_CERTIFICATE_BASE_DIR: Joi.string().default(
     '/opt/apps/tiramis/certificates',
   ),

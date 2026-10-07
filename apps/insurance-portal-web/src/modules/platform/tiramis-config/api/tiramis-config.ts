@@ -1,4 +1,8 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type {
+  TiramisSecretHealth,
+  TiramisSecretReplacements,
+} from '@/components/shared/TiramisSecretHealthCard';
 
 export interface PlatformTiramisConfiguration {
   id: string;
@@ -16,6 +20,8 @@ export interface PlatformTiramisConfiguration {
   sourceService: string | null;
   callbackUrl: string | null;
   allowExpiredCertificates: boolean;
+  notificationEvents?: string[] | null;
+  integrationPermissions?: string[] | null;
   effectiveCallbackUrl?: string | null;
   effectiveBaseUrl?: string | null;
   effectiveSourceService?: string | null;
@@ -28,6 +34,7 @@ export interface PlatformTiramisConfiguration {
   serviceApiKeyMasked?: string | null;
   serviceApiKeyConfigured?: boolean;
   apiKeyStatus?: 'ACTIVE' | 'NOT_CONFIGURED' | 'RECOVERY_REQUIRED';
+  notificationCredentialStatus?: string;
   isActive: boolean;
   validationStatus: 'NOT_VALIDATED' | 'VALID' | 'INVALID';
   validatedAt: string | null;
@@ -54,6 +61,8 @@ export interface UpsertPlatformTiramisConfigurationDto {
   callback_url?: string;
   tiramis_service_api_key?: string;
   allow_expired_certificates?: boolean;
+  notification_events?: string[];
+  integration_permissions?: string[];
   is_active?: boolean;
   use_as_target_environment?: boolean;
   confirm_live_activation?: boolean;
@@ -116,6 +125,32 @@ export const platformTiramisConfigApi = {
       .post<PlatformTiramisConfiguration>(
         `/platform/companies/${companyId}/tiramis-configurations/${environment}/activate`,
         data,
+      )
+      .then((r) => r.data),
+
+  getSecretHealth: (companyId: string, environment: 'test' | 'live') =>
+    apiClient
+      .get<TiramisSecretHealth>(
+        `/platform/companies/${companyId}/tiramis-configurations/${environment}/secrets/health`,
+      )
+      .then((r) => r.data),
+
+  repairSecrets: (
+    companyId: string,
+    environment: 'test' | 'live',
+    replacements: TiramisSecretReplacements,
+  ) =>
+    apiClient
+      .post<TiramisSecretHealth>(
+        `/platform/companies/${companyId}/tiramis-configurations/${environment}/secrets/repair`,
+        {
+          client_key: replacements.clientKey,
+          client_private_certificate_password:
+            replacements.clientPrivateCertificatePassword,
+          tira_public_certificate_password:
+            replacements.tiraPublicCertificatePassword,
+          portal_webhook_api_key: replacements.portalWebhookApiKey,
+        },
       )
       .then((r) => r.data),
 

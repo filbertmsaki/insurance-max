@@ -7,9 +7,18 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  MaxLength,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
@@ -30,11 +39,46 @@ class ActivateCompanyTiramisEnvironmentDto {
   force_activation?: boolean;
 }
 
+class RepairCompanyTiramisSecretsDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  client_key?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  client_private_certificate_password?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  tira_public_certificate_password?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  portal_webhook_api_key?: string;
+}
+
 class ValidateCompanyTiramisEnvironmentDto {
   @IsOptional()
   @Transform(({ value, obj }) => value ?? obj.allowExpiredCertificates)
   @IsBoolean()
   allow_expired_certificates?: boolean;
+}
+
+class DeliveryDiagnosticsQueryDto {
+  @IsOptional()
+  @IsString()
+  requestId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => Number(value))
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
 }
 
 /**
@@ -136,6 +180,69 @@ export class PlatformTiramisConfigurationController {
       companyId,
       environment,
       user.id,
+    );
+  }
+
+  @Get(':environment/delivery-diagnostics')
+  @Roles('OWNER')
+  @Permissions('company-tiramis-config:read')
+  @ApiOperation({
+    summary: 'Inspect notification delivery and callback outcomes',
+  })
+  getDeliveryDiagnostics(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+    @Query('requestId') requestId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.companyTiramisConfigurationService.getDeliveryDiagnostics(
+      companyId,
+      environment,
+      { requestId, limit: limit ? Number(limit) : undefined },
+    );
+  }
+
+  @Get(':environment/secrets/health')
+  @Roles('OWNER')
+  @Permissions('company-tiramis-config:read')
+  @ApiOperation({ summary: 'Check whether TIRAMIS can decrypt its secrets' })
+  getSecretHealth(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+  ) {
+    return this.companyTiramisConfigurationService.getSecretHealth(
+      companyId,
+      environment,
+    );
+  }
+
+  @Post(':environment/secrets/repair')
+  @Roles('OWNER')
+  @Permissions('company-tiramis-config:update')
+  @ApiOperation({
+    summary:
+      'Re-encrypt TIRAMIS secrets, replacing unreadable ones with the supplied values',
+  })
+  repairSecrets(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+    @Body() dto: RepairCompanyTiramisSecretsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.companyTiramisConfigurationService.repairSecrets(
+      companyId,
+      environment,
+      user.id,
+      {
+        clientKey: dto.client_key,
+        clientPrivateCertificatePassword:
+          dto.client_private_certificate_password,
+        tiraPublicCertificatePassword: dto.tira_public_certificate_password,
+        portalWebhookApiKey: dto.portal_webhook_api_key,
+      },
     );
   }
 }

@@ -6,6 +6,9 @@ import { ApiClientType } from '@insurance-max/contracts';
 
 import { ApiClientsService } from '../../platform/api-clients/api-clients.service';
 import { TiramisClientService } from './tiramis-client.service';
+import { TiramisCompanyConfigurationEntity } from '../entities/tiramis-company-configuration.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 export const TIRAMIS_WEBHOOK_SCOPE = 'tiramis:notify';
 
@@ -26,6 +29,8 @@ export class TiramisWebhookCredentialService {
     private readonly apiClientsService: ApiClientsService,
     private readonly tiramisClientService: TiramisClientService,
     private readonly configService: ConfigService,
+    @InjectRepository(TiramisCompanyConfigurationEntity)
+    private readonly configurationRepository: Repository<TiramisCompanyConfigurationEntity>,
   ) {}
 
   async syncWebhookApiKey(params: {
@@ -41,6 +46,14 @@ export class TiramisWebhookCredentialService {
 
     let apiClientId: string;
     let plainKey: string;
+    const configuration = await this.configurationRepository.findOne({
+      where: { companyId: params.companyId, environment: params.environment },
+    });
+    const notificationsEnabled =
+      configuration?.integrationPermissions?.includes(
+        'receive_notifications',
+      ) ?? true;
+    const webhookScopes = notificationsEnabled ? [TIRAMIS_WEBHOOK_SCOPE] : [];
 
     if (existing) {
       const rotated = await this.apiClientsService.rotateSecret(
@@ -52,7 +65,7 @@ export class TiramisWebhookCredentialService {
     } else {
       const created = await this.apiClientsService.create({
         name,
-        scopes: [TIRAMIS_WEBHOOK_SCOPE],
+        scopes: webhookScopes,
         ipWhitelist,
         clientType: ApiClientType.INTERNAL_SERVICE,
         description: `Used by TIRAMIS (${params.environment}) to push callback notifications to the portal webhook.`,
@@ -64,9 +77,7 @@ export class TiramisWebhookCredentialService {
     // Callback bursts must not be throttled back onto the 2-minute status
     // sync.
     await this.apiClientsService.update(apiClientId, undefined, {
-      scopes: Array.from(
-        new Set([...(existing?.scopes ?? []), TIRAMIS_WEBHOOK_SCOPE]),
-      ),
+      scopes: webhookScopes,
       ip_whitelist: ipWhitelist,
       rate_limit_per_minute: null,
     });

@@ -18,6 +18,21 @@ import {
 } from '../entities/tiramis-portal-notification-outbox.entity';
 import { TiramisClientConfigurationEntity } from '../../config/entities/tiramis-client-configuration.entity';
 import { TiramisSecretCryptoService } from '../../security/services/tiramis-secret-crypto.service';
+import { TiramisCallbackReceiptEntity } from '../../callbacks/entities/tiramis-callback-receipt.entity';
+import { TiramisCallbackDeadLetterEntity } from '../../callbacks/entities/tiramis-callback-dead-letter.entity';
+
+export const TIRAMIS_NOTIFICATION_EVENT_TYPES = [
+  'TIRAMIS_CONNECTION_TEST',
+  'TIRAMIS_ACK_RECEIVED',
+  'TIRAMIS_ACK_FAILED',
+  'TIRAMIS_FINAL_RESPONSE_RECEIVED',
+  'TIRAMIS_FINAL_SUCCESS',
+  'TIRAMIS_FINAL_FAILED',
+  'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+  'TIRAMIS_RESPONSE_ACK_SENT',
+  'TIRAMIS_CALLBACK_REJECTED',
+  'TIRAMIS_SUBMISSION_FAILED',
+] as const;
 
 @Injectable()
 export class TiramisPortalNotificationService {
@@ -32,6 +47,10 @@ export class TiramisPortalNotificationService {
     private readonly configurationRepository: Repository<TiramisClientConfigurationEntity>,
     @InjectRepository(TiramisPortalNotificationOutboxEntity)
     private readonly outboxRepository: Repository<TiramisPortalNotificationOutboxEntity>,
+    @InjectRepository(TiramisCallbackReceiptEntity)
+    private readonly callbackReceiptRepository: Repository<TiramisCallbackReceiptEntity>,
+    @InjectRepository(TiramisCallbackDeadLetterEntity)
+    private readonly callbackDeadLetterRepository: Repository<TiramisCallbackDeadLetterEntity>,
   ) {}
 
   async testWebhook(configurationId: string, webhookUrl: string) {
@@ -140,6 +159,12 @@ export class TiramisPortalNotificationService {
 
     const webhookUrl = options?.webhookUrl?.trim() || '';
 
+    const eventAllowed = await this.isEventEnabled(
+      options?.clientConfigurationId,
+      event.eventType,
+    );
+    if (!eventAllowed) return;
+
     if (!webhookUrl) {
       this.logger.warn(
         `Portal notification skipped for requestId ${event.requestId}: portalWebhookUrl was not provided in the source metadata`,
@@ -157,6 +182,19 @@ export class TiramisPortalNotificationService {
     }
 
     await this.deliver(outbox);
+  }
+
+  private async isEventEnabled(
+    clientConfigurationId: string | null | undefined,
+    eventType: string,
+  ): Promise<boolean> {
+    if (!clientConfigurationId) return true;
+    const configuration = await this.configurationRepository.findOne({
+      where: { id: clientConfigurationId },
+    });
+    const configured = configuration?.portalNotificationEvents;
+    // null means legacy/default behavior; an empty array explicitly disables all events.
+    return configured == null || configured.includes(eventType);
   }
 
   async processDueOutbox(limit = 20): Promise<number> {
@@ -210,7 +248,69 @@ export class TiramisPortalNotificationService {
       lastError: row.lastError,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
+      clientConfigurationId: row.clientConfigurationId,
     }));
+  }
+
+  async listCallbackDiagnostics(params: {
+    requestId?: string;
+    limit?: number;
+  }) {
+    const limit = Math.min(Math.max(Number(params.limit || 50), 1), 200);
+    const receiptQb = this.callbackReceiptRepository
+      .createQueryBuilder('receipt')
+      .orderBy('receipt.createdAt', 'DESC')
+      .limit(limit);
+    const deadLetterQb = this.callbackDeadLetterRepository
+      .createQueryBuilder('deadLetter')
+      .orderBy('deadLetter.createdAt', 'DESC')
+      .limit(limit);
+    if (params.requestId) {
+      receiptQb.where('receipt.requestId = :requestId', {
+        requestId: params.requestId,
+      });
+      deadLetterQb.where('deadLetter.requestId = :requestId', {
+        requestId: params.requestId,
+      });
+    }
+    const [receipts, deadLetters] = await Promise.all([
+      receiptQb.getMany(),
+      deadLetterQb.getMany(),
+    ]);
+    return {
+      receipts: receipts.map((row) => ({
+        id: row.id,
+        environment: row.environment,
+        requestId: row.requestId,
+        responseId: row.responseId,
+        rootName: row.rootName,
+        responseStatusCode: row.responseStatusCode,
+        responseStatusDesc: row.responseStatusDesc,
+        payloadHash: row.payloadHash,
+        signatureVerified: Boolean(row.signatureVerified),
+        signatureVerificationReason: row.signatureVerificationReason ?? null,
+        processingStatus: row.processingStatus,
+        receiveCount: row.receiveCount,
+        acknowledgementStatusCode: row.acknowledgementStatusCode,
+        acknowledgementStatusDesc: row.acknowledgementStatusDesc,
+        lastError: row.lastError,
+        lastReceivedAt: row.lastReceivedAt,
+        createdAt: row.createdAt,
+      })),
+      deadLetters: deadLetters.map((row) => ({
+        id: row.id,
+        environment: row.environment,
+        requestId: row.requestId,
+        responseId: row.responseId,
+        rootName: row.rootName,
+        statusCode: row.statusCode,
+        statusDesc: row.statusDesc,
+        payloadHash: row.payloadHash,
+        reason: row.reason,
+        isProcessed: Boolean(row.isProcessed),
+        createdAt: row.createdAt,
+      })),
+    };
   }
 
   async retryOutboxEntry(id: string) {
@@ -446,33 +546,17 @@ export class TiramisPortalNotificationService {
   private async resolvePortalApiKey(
     clientConfigurationId?: string | null,
   ): Promise<string | null> {
-    const configurationById = clientConfigurationId
-      ? await this.configurationRepository
-          .createQueryBuilder('configuration')
-          .where('configuration.id = :clientConfigurationId', {
-            clientConfigurationId,
-          })
-          .andWhere('configuration.isActive = 1')
-          .andWhere('configuration.portalWebhookApiKeyEncrypted IS NOT NULL')
-          .getOne()
-      : null;
-
-    if (configurationById) {
-      return this.decryptPortalApiKey(configurationById);
+    if (!clientConfigurationId) return null;
+    const configuration = await this.configurationRepository.findOne({
+      where: { id: clientConfigurationId, isActive: 1 },
+    });
+    if (!configuration) {
+      throw new Error(
+        `Portal webhook configuration ${clientConfigurationId} is unavailable; refusing environment fallback.`,
+      );
     }
-
-    const environment =
-      this.configService.get<string>('tiramisService.targetEnvironment') ??
-      'test';
-    const configuration = await this.configurationRepository
-      .createQueryBuilder('configuration')
-      .where('configuration.environment = :environment', { environment })
-      .andWhere('configuration.isActive = 1')
-      .andWhere('configuration.portalWebhookApiKeyEncrypted IS NOT NULL')
-      .orderBy('configuration.updatedAt', 'DESC')
-      .getOne();
-
-    return configuration ? this.decryptPortalApiKey(configuration) : null;
+    if (!configuration.portalWebhookApiKeyEncrypted) return null;
+    return this.decryptPortalApiKey(configuration);
   }
 
   private decryptPortalApiKey(configuration: {
@@ -485,8 +569,8 @@ export class TiramisPortalNotificationService {
       );
     } catch (error: any) {
       const message =
-        `Portal webhook API key for configuration ${configuration.id} cannot be decrypted. ` +
-        'TIRAMIS_SECRET_ENCRYPTION_KEY has likely changed since it was saved; re-save the API key.';
+        `PORTAL_WEBHOOK_SECRET_UNREADABLE: API key for configuration ${configuration.id} cannot be decrypted. ` +
+        'Check TIRAMIS_SECRET_ENCRYPTION_KEY and TIRAMIS_SECRET_ENCRYPTION_KEY_PREVIOUS, then use the admin secret repair action to reissue it.';
       this.logger.error(`${message} (${error?.message})`);
       throw new Error(message);
     }

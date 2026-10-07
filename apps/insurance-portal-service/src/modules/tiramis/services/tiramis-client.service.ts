@@ -65,6 +65,30 @@ import {
   TIRAMIS_SUBMIT_PATTERN_BY_REQUEST_TYPE,
 } from '../constants/tiramis-message-patterns.constant';
 
+export type TiramisSecretName =
+  | 'clientKey'
+  | 'clientPrivateCertificatePassword'
+  | 'tiraPublicCertificatePassword'
+  | 'portalWebhookApiKey';
+
+export type TiramisSecretStatus =
+  | 'MISSING'
+  | 'PLAINTEXT'
+  | 'OK'
+  | 'PREVIOUS_KEY'
+  | 'UNREADABLE';
+
+export interface TiramisSecretHealth {
+  configurationId: string;
+  environment: string;
+  healthy: boolean;
+  secrets: Array<{
+    name: TiramisSecretName;
+    label: string;
+    status: TiramisSecretStatus;
+  }>;
+}
+
 export const TIRAMIS_CLIENT = 'TIRAMIS_CLIENT';
 export const TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE =
   'TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE';
@@ -99,6 +123,10 @@ export class TiramisClientService {
         `Unsupported TIRAMIS request type: ${dto.requestType}`,
       );
     }
+    await this.assertConfiguredIntegrationPermission(
+      authContext?.companyId ?? authContext?.activeCompanyId,
+      pattern,
+    );
 
     const command = {
       sourceService: dto.sourceService || 'insurance-portal-service',
@@ -800,6 +828,26 @@ export class TiramisClientService {
         !key.revokedAt,
     );
 
+    const config = await this.companyConfigurationRepository.findOne({
+      where: { companyId: params.companyId, environment: params.environment },
+    });
+    const capabilities = config?.integrationPermissions ?? [
+      'submit',
+      'read_status',
+      'receive_notifications',
+    ];
+    const managedScopes = [
+      ...(capabilities.includes('submit')
+        ? ['tiramis:submit', 'tiramis:prepare', 'tiramis:verify']
+        : []),
+      ...(capabilities.includes('read_status') ? ['tiramis:read'] : []),
+      ...(capabilities.includes('receive_notifications')
+        ? ['tiramis:notify']
+        : []),
+      'tiramis:admin',
+      'tiramis:retry',
+    ];
+
     const keyResponse = await firstValueFrom(
       this.httpService.request({
         method: 'POST',
@@ -808,21 +856,14 @@ export class TiramisClientService {
           ? `/api/tiramis/api-keys/${existing.id}/rotate`
           : '/api/tiramis/api-keys',
         data: existing?.id
-          ? undefined
+          ? { scopes: managedScopes }
           : {
               name: `${connection.sourceService} ${params.companyCode} ${params.environment}`,
               serviceName: connection.sourceService,
               tenantCompanyCode: params.companyCode,
               tenantSystemCode: params.systemCode,
               tenantEnvironment: params.environment,
-              scopes: [
-                'tiramis:admin',
-                'tiramis:submit',
-                'tiramis:prepare',
-                'tiramis:read',
-                'tiramis:verify',
-                'tiramis:retry',
-              ],
+              scopes: managedScopes,
               description: `Managed from insurance portal ${params.environment} configuration.`,
               isActive: true,
             },
@@ -1005,6 +1046,138 @@ export class TiramisClientService {
     }
   }
 
+  async setPortalNotificationPolicy(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    tiramisConfigurationId: string;
+    enabled: boolean;
+    eventTypes: string[];
+  }) {
+    return this.configurationAdminRequest(params, {
+      method: 'PUT',
+      url: `/api/tiramis/configurations/${encodeURIComponent(params.tiramisConfigurationId)}/portal-notification-policy`,
+      data: { enabled: params.enabled, eventTypes: params.eventTypes },
+      failureMessage: 'Unable to save TIRAMIS notification policy.',
+    });
+  }
+
+  /**
+   * Resolves the TIRAMIS client configuration id without decrypting any
+   * secret, so secret repair still works when validation cannot.
+   */
+  async resolveOrganizationConfigurationId(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    companyCode: string;
+    systemCode: string;
+  }): Promise<string> {
+    const result = await this.configurationAdminRequest<{
+      configurationId?: string;
+    }>(params, {
+      method: 'POST',
+      url: '/api/tiramis/configurations/resolve-organization',
+      data: {
+        environment: params.environment,
+        companyCode: params.companyCode,
+        systemCode: params.systemCode,
+      },
+      failureMessage: 'Unable to resolve the TIRAMIS client configuration.',
+    });
+
+    if (!result?.configurationId) {
+      throw new ConflictException(
+        'TIRAMIS did not return a client configuration id.',
+      );
+    }
+
+    return result.configurationId;
+  }
+
+  getConfigurationSecretHealth(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    tiramisConfigurationId: string;
+  }) {
+    return this.configurationAdminRequest<TiramisSecretHealth>(params, {
+      method: 'GET',
+      url: `/api/tiramis/configurations/${encodeURIComponent(
+        params.tiramisConfigurationId,
+      )}/secret-health`,
+      failureMessage: 'Unable to read TIRAMIS secret health.',
+    });
+  }
+
+  repairConfigurationSecrets(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    tiramisConfigurationId: string;
+    replacements: Partial<Record<TiramisSecretName, string>>;
+  }) {
+    return this.configurationAdminRequest<TiramisSecretHealth>(params, {
+      method: 'POST',
+      url: `/api/tiramis/configurations/${encodeURIComponent(
+        params.tiramisConfigurationId,
+      )}/repair-secrets`,
+      data: params.replacements,
+      failureMessage: 'Unable to repair TIRAMIS secrets.',
+    });
+  }
+
+  private async configurationAdminRequest<T>(
+    params: { companyId: string; environment: 'test' | 'live' },
+    request: {
+      method: 'GET' | 'POST' | 'PUT';
+      url: string;
+      data?: unknown;
+      failureMessage: string;
+    },
+  ): Promise<T> {
+    const requestId = this.requestContextService.getRequestId();
+    const correlationId =
+      this.requestContextService.getCorrelationId() || requestId;
+    const connection = await this.resolveConnectionConfig(
+      params.companyId,
+      params.environment,
+      { allowBootstrapFallback: true },
+    );
+    const serviceContext = this.encodeServiceContext({
+      tenant: {
+        companyId: params.companyId,
+        environment: params.environment,
+      },
+    });
+
+    const response = await firstValueFrom(
+      this.httpService.request({
+        method: request.method,
+        baseURL: connection.baseUrl ?? undefined,
+        url: request.url,
+        data: request.data,
+        timeout: 15_000,
+        validateStatus: () => true,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': connection.apiKey,
+          'X-Service-Context': serviceContext,
+          ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
+          ...(correlationId
+            ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
+            : {}),
+        },
+      }),
+    );
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new ConflictException(
+        this.extractTiramisErrorMessage(response.data) ||
+          request.failureMessage,
+      );
+    }
+
+    return unwrapApiResponse(response.data) as T;
+  }
+
   async testPortalWebhook(params: {
     companyId: string;
     environment: 'test' | 'live';
@@ -1057,6 +1230,30 @@ export class TiramisClientService {
           : this.extractTiramisErrorMessage(response.data) ||
             `TIRAMIS webhook test failed with HTTP ${response.status}.`),
     };
+  }
+
+  async getTiramisDeliveryDiagnostics(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    requestId?: string;
+    limit?: number;
+  }) {
+    const query = new URLSearchParams();
+    if (params.requestId) query.set('requestId', params.requestId);
+    if (params.limit) query.set('limit', String(params.limit));
+    const suffix = query.size ? `?${query.toString()}` : '';
+    const result = await this.configurationAdminRequest<any>(params, {
+      method: 'GET',
+      url: `/api/tiramis/portal-notifications/outbox${suffix}`,
+      failureMessage:
+        'Unable to load TIRAMIS notification delivery diagnostics.',
+    });
+    const callbacks = await this.configurationAdminRequest<any>(params, {
+      method: 'GET',
+      url: `/api/tiramis/portal-notifications/outbox/callbacks${suffix}`,
+      failureMessage: 'Unable to load TIRAMIS callback diagnostics.',
+    });
+    return { outbox: result, callbacks };
   }
 
   async checkTiramisServiceHealth(authContext?: any) {
@@ -1474,6 +1671,33 @@ export class TiramisClientService {
     return [TiramisServiceScopes.SUBMIT];
   }
 
+  private async assertConfiguredIntegrationPermission(
+    companyId: string | null | undefined,
+    pattern: string,
+  ) {
+    if (!companyId) return;
+    const environment =
+      await this.organizationContextService.resolveCompanyTiramisEnvironment(
+        companyId,
+      );
+    const configuration = await this.companyConfigurationRepository.findOne({
+      where: { companyId, environment, isActive: true },
+    });
+    const permissions = configuration?.integrationPermissions;
+    if (!permissions?.length) return; // legacy rows retain prior behavior
+    const required = this.resolveServiceScopes(pattern);
+    const capability = required.includes(TiramisServiceScopes.READ)
+      ? 'read_status'
+      : 'submit';
+    if (!permissions.includes(capability)) {
+      throw new BadRequestException({
+        code: 'TIRAMIS_INTEGRATION_PERMISSION_DISABLED',
+        message: `This TIRAMIS integration does not have the ${capability} permission enabled.`,
+        details: { capability, requiredScopes: required },
+      });
+    }
+  }
+
   private encodeServiceContext(context: Record<string, unknown>): string {
     return Buffer.from(JSON.stringify(context), 'utf8').toString('base64url');
   }
@@ -1553,6 +1777,10 @@ export class TiramisClientService {
     financeContext?: ServiceFinanceContext,
   ) {
     try {
+      await this.assertConfiguredIntegrationPermission(
+        authContext?.companyId,
+        pattern,
+      );
       const route = this.httpRouteForPattern(pattern);
 
       const isQuery =
