@@ -192,7 +192,10 @@ function EnvironmentPanel({
 
   const validateMutation = useMutation({
     mutationFn: () =>
-      platformTiramisConfigApi.validateConfiguration(companyId, environment),
+      platformTiramisConfigApi.validateConfiguration(companyId, environment, {
+        allow_expired_certificates:
+          form.getValues('allow_expired_certificates') ?? false,
+      }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey });
       if (result.valid && result.warnings?.length) {
@@ -518,11 +521,12 @@ function EnvironmentPanel({
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3">
                     <div>
-                      <FormLabel>Allow Expired TIRA Certificate</FormLabel>
+                      <FormLabel>Allow Expired Certificates</FormLabel>
                       <p className="text-sm text-amber-900">
-                        Only bypasses the TIRA public certificate expiry-date
-                        check for this environment. Use temporarily while
-                        waiting for certificate renewal.
+                        Bypasses expiry-date checks for the TIRA public and
+                        client private certificates in this environment. Invalid
+                        or unreadable certificates still fail. Use temporarily
+                        while waiting for certificate renewal.
                       </p>
                     </div>
                     <FormControl>

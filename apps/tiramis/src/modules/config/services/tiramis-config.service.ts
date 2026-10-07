@@ -657,9 +657,16 @@ export class TiramisConfigService {
         });
 
         if (clientCertificate.isExpired) {
-          errors.push(
-            `Client private certificate has expired on ${clientCertificate.validTo}`,
-          );
+          const message = `Client private certificate expired on ${clientCertificate.validTo}`;
+          if (allowExpiredCertificates) {
+            warnings.push(
+              `${message}, but expiry validation was explicitly allowed.`,
+            );
+          } else {
+            errors.push(
+              `Client private certificate has expired on ${clientCertificate.validTo}`,
+            );
+          }
         } else if (clientCertificate.isExpiringSoon) {
           warnings.push(
             `Client private certificate is expiring soon: ${clientCertificate.validTo}`,

@@ -98,10 +98,21 @@ export class TiramisConfigurationValidationController {
 
     if (
       dto.allowExpiredCertificates === true &&
-      security.certificates?.tiraPublic?.isExpired
+      (security.certificates?.tiraPublic?.isExpired ||
+        security.certificates?.clientPrivate?.isExpired)
     ) {
+      const expiredCertificates = [
+        security.certificates?.clientPrivate?.isExpired
+          ? `client private certificate expired at ${security.certificates.clientPrivate.validTo}`
+          : null,
+        security.certificates?.tiraPublic?.isExpired
+          ? `TIRA public certificate expired at ${security.certificates.tiraPublic.validTo}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join('; ');
       this.logger.warn(
-        `TIRAMIS certificate expiry validation bypassed for company ${configuration.companyCode}. Certificate expired at ${security.certificates.tiraPublic.validTo}. Environment: ${configuration.environment}.`,
+        `TIRAMIS certificate expiry validation bypassed for company ${configuration.companyCode}. ${expiredCertificates}. Environment: ${configuration.environment}.`,
       );
     }
 
@@ -175,6 +186,10 @@ export class TiramisConfigurationValidationController {
       errors: string[];
       warnings: string[];
       certificates: {
+        clientPrivate: {
+          isExpired?: boolean;
+          validTo?: string;
+        } | null;
         tiraPublic: {
           isExpired?: boolean;
           validTo?: string;
@@ -187,12 +202,19 @@ export class TiramisConfigurationValidationController {
       return security.errors.join('; ');
     }
 
-    if (
-      allowExpiredCertificates &&
+    const expiredCertificates = [
+      security.certificates.clientPrivate?.isExpired &&
+      security.certificates.clientPrivate.validTo
+        ? `Client private certificate expired on ${security.certificates.clientPrivate.validTo}`
+        : null,
       security.certificates.tiraPublic?.isExpired &&
       security.certificates.tiraPublic.validTo
-    ) {
-      return `TIRAMIS organization configuration is valid. The TIRA public certificate expired on ${security.certificates.tiraPublic.validTo}, but certificate expiry validation is explicitly allowed for this configuration.`;
+        ? `TIRA public certificate expired on ${security.certificates.tiraPublic.validTo}`
+        : null,
+    ].filter(Boolean);
+
+    if (allowExpiredCertificates && expiredCertificates.length > 0) {
+      return `TIRAMIS organization configuration is valid. ${expiredCertificates.join(' and ')}, but certificate expiry validation is explicitly allowed for this configuration.`;
     }
 
     if (security.warnings.length > 0) {

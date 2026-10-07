@@ -299,7 +299,7 @@ describe('TiramisConfigService certificate validation', () => {
     );
   });
 
-  it('still rejects an expired client private certificate even when the override is enabled', async () => {
+  it('accepts an expired client private certificate with a warning when the override is enabled', async () => {
     const { service, certificateInspector } = createService();
     certificateInspector.assertCertificateHealthy
       .mockReturnValueOnce({
@@ -318,9 +318,10 @@ describe('TiramisConfigService certificate validation', () => {
       { allowExpiredCertificates: true },
     );
 
-    expect(result.ok).toBe(false);
-    expect(result.errors).toContain(
-      'Client private certificate has expired on 2026-03-03T18:50:06.000Z',
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toContain(
+      'Client private certificate expired on 2026-03-03T18:50:06.000Z, but expiry validation was explicitly allowed.',
     );
   });
 

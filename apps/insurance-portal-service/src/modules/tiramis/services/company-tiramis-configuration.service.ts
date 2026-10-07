@@ -704,6 +704,10 @@ export class CompanyTiramisConfigurationService {
     allowExpiredCertificates: boolean,
   ): string | null {
     const warnings = result.warnings ?? [];
+    const clientPrivateCertificate = this.extractCertificate(
+      result.certificates,
+      'clientPrivate',
+    );
     const tiraPublicCertificate = this.extractTiraPublicCertificate(
       result.certificates,
     );
@@ -712,12 +716,17 @@ export class CompanyTiramisConfigurationService {
       return result.message ?? null;
     }
 
-    if (
-      allowExpiredCertificates &&
-      tiraPublicCertificate?.isExpired &&
-      tiraPublicCertificate.validTo
-    ) {
-      return `Configuration validated with warning: TIRA public certificate expired on ${tiraPublicCertificate.validTo}, but expiry validation was explicitly allowed.`;
+    const expiredCertificates = [
+      clientPrivateCertificate?.isExpired && clientPrivateCertificate.validTo
+        ? `Client private certificate expired on ${clientPrivateCertificate.validTo}`
+        : null,
+      tiraPublicCertificate?.isExpired && tiraPublicCertificate.validTo
+        ? `TIRA public certificate expired on ${tiraPublicCertificate.validTo}`
+        : null,
+    ].filter(Boolean);
+
+    if (allowExpiredCertificates && expiredCertificates.length > 0) {
+      return `Configuration validated with warning: ${expiredCertificates.join(' and ')}, but expiry validation was explicitly allowed.`;
     }
 
     if (warnings.length > 0) {
@@ -731,17 +740,24 @@ export class CompanyTiramisConfigurationService {
     isExpired?: boolean;
     validTo?: string;
   } | null {
+    return this.extractCertificate(certificates, 'tiraPublic');
+  }
+
+  private extractCertificate(
+    certificates: unknown,
+    key: 'clientPrivate' | 'tiraPublic',
+  ): { isExpired?: boolean; validTo?: string } | null {
     if (!certificates || typeof certificates !== 'object') {
       return null;
     }
 
-    const tiraPublic = (certificates as { tiraPublic?: unknown }).tiraPublic;
+    const value = (certificates as Record<string, unknown>)[key];
 
-    if (!tiraPublic || typeof tiraPublic !== 'object') {
+    if (!value || typeof value !== 'object') {
       return null;
     }
 
-    const certificate = tiraPublic as {
+    const certificate = value as {
       isExpired?: boolean;
       validTo?: string;
     };
