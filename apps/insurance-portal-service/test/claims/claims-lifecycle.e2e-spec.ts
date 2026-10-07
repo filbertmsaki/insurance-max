@@ -297,10 +297,15 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
         };
       });
 
+    // Require every claims role this suite assigns: earlier runs leave behind
+    // "Other Insurer" companies that only carry a copied CLAIMS_OFFICER role.
     const insurer = await dataSource.query(
       `SELECT c.id FROM companies c
         WHERE c.company_type = 'INSURANCE_COMPANY'
-          AND EXISTS (SELECT 1 FROM roles r WHERE r.company_id = c.id AND r.name = 'CLAIMS_OFFICER')
+          AND (SELECT count(DISTINCT r.name) FROM roles r
+                WHERE r.company_id = c.id
+                  AND r.name IN ('CLAIMS_OFFICER', 'CLAIMS_MANAGER', 'CLAIMS_FINANCE', 'CLAIMS_ASSESSOR')) = 4
+        ORDER BY c.created_at ASC
         LIMIT 1`,
     );
     companyId = insurer[0].id;

@@ -43,6 +43,48 @@ describe('insurance portal environment validation', () => {
     expect(result.error?.details[0]?.path.join('.')).toBe('JWT_ACCESS_SECRET');
   });
 
+  describe('template placeholder secrets', () => {
+    const production = {
+      ...valid,
+      APP_ENV: 'production',
+      JWT_ACCESS_SECRET: 'c'.repeat(32),
+      JWT_REFRESH_SECRET: 'd'.repeat(32),
+      JWT_RESET_SECRET: 'e'.repeat(32),
+      JWT_2FA_SECRET: 'f'.repeat(32),
+    };
+
+    it('accepts real secrets in production', () => {
+      const result = insurancePortalEnvValidationSchema.validate(production);
+      expect(result.error).toBeUndefined();
+    });
+
+    it.each([
+      ['JWT_ACCESS_SECRET', 'replace-with-at-least-32-character-secret'],
+      ['AUTH_BACKUP_CODE_PEPPER', 'replace-with-at-least-32-random-characters'],
+      ['TIRAMIS_BOOTSTRAP_API_KEY', 'replace-with-generated-tms-key'],
+      // Base64 of "REPLACE-BEFORE-DEPLOY-32BYTE-KEY", the shipped sample.
+      [
+        'AUTH_SECRET_ENCRYPTION_KEY',
+        'UkVQTEFDRS1CRUZPUkUtREVQTE9ZLTMyQllURS1LRVk=',
+      ],
+    ])('rejects a placeholder %s in production', (key, value) => {
+      const result = insurancePortalEnvValidationSchema.validate({
+        ...production,
+        [key]: value,
+      });
+      expect(result.error?.message).toContain(key);
+    });
+
+    it('allows placeholders outside production', () => {
+      const result = insurancePortalEnvValidationSchema.validate({
+        ...valid,
+        AUTH_SECRET_ENCRYPTION_KEY:
+          'UkVQTEFDRS1CRUZPUkUtREVQTE9ZLTMyQllURS1LRVk=',
+      });
+      expect(result.error).toBeUndefined();
+    });
+  });
+
   it('accepts analytics-related environment settings', () => {
     const result = insurancePortalEnvValidationSchema.validate({
       ...valid,

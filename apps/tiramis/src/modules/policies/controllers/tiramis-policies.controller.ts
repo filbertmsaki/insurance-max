@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Post,
   Query,
@@ -22,6 +23,7 @@ import { TiramisPricingContextGuard } from '../../../common/guards/tiramis-prici
 import { TiramisInsuredDataContextGuard } from '../../../common/guards/tiramis-insured-data-context.guard';
 import { TiramisFinanceContextGuard } from '../../../common/guards/tiramis-finance-context.guard';
 import { TiramisQuotationGateGuard } from '../../../common/guards/tiramis-quotation-gate.guard';
+import { parseSourceMetadata } from '../../submissions/utils/parse-source-metadata';
 import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { TiramisPolicyService } from '../services/tiramis-policy.service';
 
@@ -67,8 +69,14 @@ export class TiramisPoliciesController {
     TiramisFinanceContextGuard,
   )
   @Post('submit')
-  submit(@Body() dto: CreatePolicyDto) {
-    return this.tiramisPolicyService.submit(dto);
+  submit(
+    @Body() dto: CreatePolicyDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.tiramisPolicyService.submit(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ServiceScopes('tiramis:read')
