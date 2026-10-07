@@ -117,6 +117,36 @@ describe('ApiClientsService', () => {
     expect(apiClientRepo.save).not.toHaveBeenCalled();
   });
 
+  it('preserves the API client id when rotating its secret', async () => {
+    apiClientRepo.findOne.mockResolvedValue({
+      id: 'api-client-id',
+      company_id: 'company-1',
+      client_id: 'iam_existing_client',
+      key_prefix: 'IMX_TEST',
+      client_secret_hash: 'old-secret-hash',
+    });
+
+    const rotated = await service.rotateSecret(
+      'api-client-id',
+      'user-1',
+      'company-1',
+    );
+
+    expect(rotated.plainSecret).toMatch(/^iam_existing_client\./);
+    expect(apiClientRepo.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ client_id: true }),
+      }),
+    );
+    expect(apiClientRepo.update).toHaveBeenCalledWith(
+      'api-client-id',
+      expect.objectContaining({
+        client_secret_hash: 'hashed-secret',
+        previous_secret_hash: 'old-secret-hash',
+      }),
+    );
+  });
+
   it('accepts CIDR allowlist rules and records the last user agent', async () => {
     apiClientRepo.findOne.mockResolvedValue({
       id: 'client-1',

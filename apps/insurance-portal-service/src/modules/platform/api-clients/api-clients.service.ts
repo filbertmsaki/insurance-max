@@ -375,6 +375,7 @@ export class ApiClientsService {
       select: {
         id: true,
         company_id: true,
+        client_id: true,
         key_prefix: true,
         client_secret_hash: true,
       },
@@ -385,6 +386,7 @@ export class ApiClientsService {
 
     const { clientSecret, displaySecret } = this.generateCredentials(
       client.key_prefix,
+      client.client_id,
     );
     const secretHash = await hashPassword(clientSecret);
     const graceHours = this.configService.get<number>(
@@ -412,8 +414,10 @@ export class ApiClientsService {
 
   private generateCredentials(
     existingPrefix?: string | null,
+    existingClientId?: string | null,
   ): ApiKeyCredentials {
-    const clientId = `iam_${crypto.randomBytes(12).toString('hex')}`;
+    const clientId =
+      existingClientId ?? `iam_${crypto.randomBytes(12).toString('hex')}`;
     const clientSecret = crypto.randomBytes(32).toString('hex');
     const keyPrefix =
       existingPrefix ??
