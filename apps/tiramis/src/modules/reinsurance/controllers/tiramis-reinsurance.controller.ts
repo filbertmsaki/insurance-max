@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -9,6 +17,7 @@ import {
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
+import { parseSourceMetadata } from '../../submissions/utils/parse-source-metadata';
 import { CreateReinsuranceDto } from '../dto/create-reinsurance.dto';
 import { TiramisReinsuranceService } from '../services/tiramis-reinsurance.service';
 
@@ -52,8 +61,14 @@ export class TiramisReinsuranceController {
   @ApiBody({ type: CreateReinsuranceDto })
   @ServiceScopes('tiramis:submit')
   @Post('submit')
-  submit(@Body() dto: CreateReinsuranceDto) {
-    return this.tiramisReinsuranceService.submit(dto);
+  submit(
+    @Body() dto: CreateReinsuranceDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.tiramisReinsuranceService.submit(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ServiceScopes('tiramis:read')

@@ -1,5 +1,49 @@
 import * as Joi from 'joi';
 
+// Secrets that must never keep the values shipped in the .env templates.
+// Template placeholders are long enough to pass the min-length rules (and the
+// sample AUTH_SECRET_ENCRYPTION_KEY decodes to a valid 32-byte key), so
+// production would otherwise boot with publicly known secrets.
+const PRODUCTION_SECRET_KEYS = [
+  'JWT_ACCESS_SECRET',
+  'JWT_REFRESH_SECRET',
+  'JWT_RESET_SECRET',
+  'JWT_2FA_SECRET',
+  'AUTH_SECRET_ENCRYPTION_KEY',
+  'AUTH_BACKUP_CODE_PEPPER',
+  'AUTH_DEVICE_TOKEN_PEPPER',
+  'TIRAMIS_SERVICE_API_KEY_ENCRYPTION_KEY',
+  'TIRAMIS_BOOTSTRAP_API_KEY',
+  'SIGNATURE_EVIDENCE_SECRET',
+] as const;
+
+const PLACEHOLDER_PATTERN = /replace-with|replace-before-deploy/i;
+
+function isPlaceholder(value: string): boolean {
+  return (
+    PLACEHOLDER_PATTERN.test(value) ||
+    PLACEHOLDER_PATTERN.test(Buffer.from(value, 'base64').toString('utf8'))
+  );
+}
+
+function rejectPlaceholderSecretsInProduction(
+  env: Record<string, unknown>,
+  helpers: Joi.CustomHelpers,
+) {
+  if (env.APP_ENV !== 'production') return env;
+
+  for (const key of PRODUCTION_SECRET_KEYS) {
+    const value = env[key];
+    if (typeof value === 'string' && isPlaceholder(value)) {
+      return helpers.message({
+        custom: `${key} still contains a template placeholder; generate a real secret before deploying to production`,
+      });
+    }
+  }
+
+  return env;
+}
+
 export const insurancePortalEnvValidationSchema = Joi.object({
   APP_NAME: Joi.string().trim().min(1).default('Insurance Portal Service'),
   APP_ENV: Joi.string()
@@ -411,4 +455,4 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_NOTIFICATION_NOTIFY_FINAL_SUCCESS: Joi.boolean().default(false),
   TIRAMIS_NOTIFICATION_NOTIFY_BUSINESS_SYNC_SUCCESS:
     Joi.boolean().default(false),
-});
+}).custom(rejectPlaceholderSecretsInProduction);

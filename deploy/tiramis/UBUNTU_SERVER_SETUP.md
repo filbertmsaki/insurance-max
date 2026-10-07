@@ -37,7 +37,10 @@ The host address is detected for the proxy site name by default. Use `--domain`
 to provide a DNS name. The script does not ask for public IP/CIDR addresses.
 UFW stays unchanged unless explicitly enabled with `--approve-ufw`; that option
 requires `--admin-cidr` so the installer can allow SSH from your trusted source.
-Use repeatable `--portal-cidr` options to add TCP gateway firewall rules.
+The TCP gateway (`--tcp-port`, default `4001`) is not used by the portal, which
+talks to TIRAMIS over HTTPS only, and it has no authentication. Do not pass
+`--portal-cidr` or otherwise expose that port. Instead, set
+`TIRAMIS_TCP_HOST=127.0.0.1` in `shared/.env`.
 
 The installer asks whether to install PostgreSQL locally. Choose no when the
 database is hosted elsewhere. It does not create database roles or ask for
@@ -59,8 +62,10 @@ options.
   account is not silently reconfigured.
 - Creates `releases`, `shared`, `certificates/live`, `certificates/test`, and
   persistent request-log folders under the app root with deployment ownership.
-- Creates `shared/.env` with restrictive permissions, PM2 ecosystem and a
-  deployment helper if those files are absent. Existing files are preserved.
+- Creates `shared/.env` with restrictive permissions if it is absent. An
+  existing file is preserved. The PM2 ecosystem file and deploy script are
+  installed into `shared/` by the CI workflow from `deploy/tiramis/`, not by
+  this script.
 - Configures PM2 systemd startup.
 - Optionally configures a dedicated Apache or Nginx reverse-proxy site. Existing
   Tiramis site files require confirmation before replacement. Other sites are
@@ -68,11 +73,12 @@ options.
 - Optionally allows UFW rules, only when explicitly approved.
 
 This prepares the server; it does not deploy a release or start the application.
-The environment template leaves the DB password, TIRA URLs and credentials,
-TIRA certificate passwords, and bootstrap API key blank. Edit
-`/opt/apps/tiramis/shared/.env` (or your chosen app root) before deployment.
-Supply `.pfx` files separately under `certificates/live` and
-`certificates/test`. If no TLS certificate is supplied, configure TLS with
+The environment template leaves the DB password, TIRA credentials, TIRA
+certificate passwords, and bootstrap API key blank. `APP_URL` and the TIRA
+base URLs are commented `REQUIRED` lines; an empty value fails startup
+validation. Edit `/opt/apps/tiramis/shared/.env` (or your chosen app root)
+before deployment. Supply the certificates separately as
+`certificates/{live,test}/clientprivate.pfx` and `tiramispublic.pfx`. If no TLS certificate is supplied, configure TLS with
 Certbot after DNS points at the server.
 
 ## Deploy the application
@@ -84,5 +90,11 @@ configure the runner separately according to the repository's deployment
 README.
 
 If the script is interrupted, review the displayed error and rerun it. It
-preserves existing environment, ecosystem, and deployment-helper files. Review
-the generated files before the first production deployment.
+preserves an existing environment file. Review the generated files before the
+first production deployment.
+
+Hosts prepared with an earlier version of this script may still have a
+`bridge` proxy site and `ecosystem.config.js`/`deploy.sh` directly in the app
+root. The script warns about an enabled `bridge` site. Disable that site once
+the `tiramis` site is verified. The root-level helper files are unused and
+can be removed.

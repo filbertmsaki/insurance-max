@@ -669,6 +669,24 @@ async function seedBootstrapApiKey(activeDataSource = dataSource) {
     return;
   }
 
+  // The .env templates ship "replace-with-generated-tms-key"; seeding it would
+  // create a publicly known tiramis:admin key.
+  if (/replace-with/i.test(bootstrapApiKey)) {
+    const message =
+      '[seed-tiramis-bootstrap-api-key] TIRAMIS_BOOTSTRAP_API_KEY still contains the template placeholder. ' +
+      "Generate one with: node -e \"console.log('tms_'+require('crypto').randomBytes(32).toString('base64url'))\"";
+
+    if (
+      environment.APP_ENV === 'production' ||
+      environment.NODE_ENV === 'production'
+    ) {
+      throw new Error(message);
+    }
+
+    console.warn(`${message} — skipping.`);
+    return;
+  }
+
   const apiKeyRepository = activeDataSource.getRepository(TiramisApiKeyEntity);
 
   const existing = await apiKeyRepository
