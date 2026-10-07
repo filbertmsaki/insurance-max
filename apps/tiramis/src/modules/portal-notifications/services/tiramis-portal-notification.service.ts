@@ -67,7 +67,12 @@ export class TiramisPortalNotificationService {
         message: 'Active TIRAMIS configuration was not found.',
       };
     }
-    const apiKey = await this.resolvePortalApiKey(configurationId);
+    let apiKey: string | null;
+    try {
+      apiKey = await this.resolvePortalApiKey(configurationId);
+    } catch (error: any) {
+      return { success: false, message: error?.message };
+    }
     if (!apiKey) {
       return {
         success: false,
@@ -328,7 +333,16 @@ export class TiramisPortalNotificationService {
     const correlationId =
       this.requestContextService.getCorrelationId() || requestId;
 
-    const apiKey = await this.resolvePortalApiKey(outbox.clientConfigurationId);
+    let apiKey: string | null;
+    try {
+      apiKey = await this.resolvePortalApiKey(outbox.clientConfigurationId);
+    } catch (error: any) {
+      await this.markDeliveryFailed(
+        outbox,
+        error?.message || 'Unable to resolve portal webhook API key',
+      );
+      return false;
+    }
     if (!apiKey) {
       await this.markDeliveryFailed(
         outbox,
@@ -444,9 +458,7 @@ export class TiramisPortalNotificationService {
       : null;
 
     if (configurationById) {
-      return this.secretCryptoService.decryptIfEncrypted(
-        configurationById.portalWebhookApiKeyEncrypted,
-      );
+      return this.decryptPortalApiKey(configurationById);
     }
 
     const environment =
@@ -460,8 +472,23 @@ export class TiramisPortalNotificationService {
       .orderBy('configuration.updatedAt', 'DESC')
       .getOne();
 
-    return this.secretCryptoService.decryptIfEncrypted(
-      configuration?.portalWebhookApiKeyEncrypted,
-    );
+    return configuration ? this.decryptPortalApiKey(configuration) : null;
+  }
+
+  private decryptPortalApiKey(configuration: {
+    id: string;
+    portalWebhookApiKeyEncrypted?: string | null;
+  }): string | null {
+    try {
+      return this.secretCryptoService.decryptIfEncrypted(
+        configuration.portalWebhookApiKeyEncrypted,
+      );
+    } catch (error: any) {
+      const message =
+        `Portal webhook API key for configuration ${configuration.id} cannot be decrypted. ` +
+        'TIRAMIS_SECRET_ENCRYPTION_KEY has likely changed since it was saved; re-save the API key.';
+      this.logger.error(`${message} (${error?.message})`);
+      throw new Error(message);
+    }
   }
 }
