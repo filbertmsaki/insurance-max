@@ -140,7 +140,10 @@ describe('TiramisClientService', () => {
       organizationContextService as any,
       {} as any,
       { decrypt: jest.fn().mockReturnValue('live-api-key') } as any,
-      { createQueryBuilder: jest.fn().mockReturnValue(queryBuilder) } as any,
+      {
+        findOne: jest.fn().mockResolvedValue({ integrationPermissions: null }),
+        createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+      } as any,
     );
 
     await service.checkTiramisServiceHealth({

@@ -25,6 +25,15 @@ describe('TiramisPortalNotificationService', () => {
       save: jest.fn(async (value) => value),
       findOne: jest.fn(),
     };
+    const configurationRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'configuration-for-transaction',
+        isActive: 1,
+        portalNotificationEvents: null,
+        portalWebhookApiKeyEncrypted: 'encrypted-transaction-key',
+      }),
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+    };
 
     const service = new TiramisPortalNotificationService(
       { post } as any,
@@ -44,17 +53,22 @@ describe('TiramisPortalNotificationService', () => {
           .fn()
           .mockImplementation((value: string) => `plain:${value}`),
       } as any,
-      {
-        createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
-      } as any,
+      configurationRepository as any,
       outboxRepository as any,
     );
 
-    return { post, queryBuilder, outboxRepository, service };
+    return {
+      post,
+      queryBuilder,
+      configurationRepository,
+      outboxRepository,
+      service,
+    };
   }
 
   it('uses the transaction client configuration when resolving the portal webhook API key', async () => {
-    const { post, queryBuilder, outboxRepository, service } = createService();
+    const { post, configurationRepository, outboxRepository, service } =
+      createService();
 
     await service.publish(
       {
@@ -83,10 +97,12 @@ describe('TiramisPortalNotificationService', () => {
         eventKey: 'REQ-1:none:TIRAMIS_FINAL_SUCCESS',
       }),
     );
-    expect(queryBuilder.where).toHaveBeenCalledWith(
-      'configuration.id = :clientConfigurationId',
-      { clientConfigurationId: 'configuration-for-transaction' },
-    );
+    expect(configurationRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'configuration-for-transaction' },
+    });
+    expect(configurationRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'configuration-for-transaction', isActive: 1 },
+    });
     expect(post).toHaveBeenCalledWith(
       'https://portal.example.test/api/v1/webhooks/tiramis/notifications',
       expect.objectContaining({ requestId: 'REQ-1' }),
