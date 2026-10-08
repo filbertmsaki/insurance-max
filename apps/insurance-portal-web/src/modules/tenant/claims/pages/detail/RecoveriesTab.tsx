@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { claimsApi } from '../../api';
-import type { ClaimDetail, ClaimRecoveryType } from '../../types';
+import type { ClaimDetail, ClaimRecovery, ClaimRecoveryType } from '../../types';
 import { formatClaimMoney } from '../../utils';
 
 const recoveryTypes: ClaimRecoveryType[] = [
@@ -19,6 +20,17 @@ const recoveryTypes: ClaimRecoveryType[] = [
   'CONTRIBUTION',
   'OTHER',
 ];
+
+const MONEY_PATTERN = /^\d+(\.\d{1,2})?$/;
+
+/** Whole cents, so outstanding/limit checks never drift through floats. */
+const toCents = (value: string | number | null | undefined) =>
+  Math.round(Number(value ?? 0) * 100);
+
+type PendingAction = {
+  kind: 'cancel' | 'write-off';
+  recovery: ClaimRecovery;
+};
 
 export function RecoveriesTab({ claim }: { claim: ClaimDetail }) {
   const queryClient = useQueryClient();
@@ -41,7 +53,10 @@ export function RecoveriesTab({ claim }: { claim: ClaimDetail }) {
   const [expected, setExpected] = useState('');
   const [notes, setNotes] = useState('');
   const [receiptAmounts, setReceiptAmounts] = useState<Record<string, string>>({});
+  const [receiptNotes, setReceiptNotes] = useState<Record<string, string>>({});
   const [writeOffReasons, setWriteOffReasons] = useState<Record<string, string>>({});
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
   const query = useQuery({
     queryKey: ['claims', 'recoveries', claim.id],
     queryFn: () => claimsApi.recoveries(claim.id),
@@ -72,9 +87,38 @@ export function RecoveriesTab({ claim }: { claim: ClaimDetail }) {
       await operation();
       await refresh();
       toast.success(success);
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Recovery action failed');
+      return false;
     }
+  };
+  const recordReceipt = async (recovery: ClaimRecovery) => {
+    const ok = await run(
+      () => claimsApi.recordRecoveryReceipt(
+        recovery.id,
+        receiptAmounts[recovery.id],
+        receiptNotes[recovery.id]?.trim() || undefined,
+      ),
+      'Recovery receipt recorded',
+    );
+    if (ok) {
+      setReceiptAmounts((current) => ({ ...current, [recovery.id]: '' }));
+      setReceiptNotes((current) => ({ ...current, [recovery.id]: '' }));
+    }
+  };
+  const confirmPendingAction = async () => {
+    if (!pendingAction) return;
+    const { kind, recovery } = pendingAction;
+    setActionBusy(true);
+    const ok = kind === 'cancel'
+      ? await run(() => claimsApi.cancelRecovery(recovery.id), 'Recovery cancelled')
+      : await run(
+        () => claimsApi.writeOffRecovery(recovery.id, writeOffReasons[recovery.id].trim()),
+        'Recovery written off',
+      );
+    setActionBusy(false);
+    if (ok) setPendingAction(null);
   };
 
   return (
@@ -103,7 +147,7 @@ export function RecoveriesTab({ claim }: { claim: ClaimDetail }) {
               <Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Counterparty or recovery details" />
             </label>
             <div className="md:col-span-4 md:flex md:justify-end">
-              <Button onClick={() => create.mutate()} disabled={create.isPending || !/^\d+(\.\d{1,2})?$/.test(expected) || Number(expected) <= 0}>
+              <Button onClick={() => create.mutate()} disabled={create.isPending || !MONEY_PATTERN.test(expected) || toCents(expected) <= 0}>
                 <Plus className="mr-2 h-4 w-4" />{create.isPending ? 'Saving…' : 'Add recovery'}
               </Button>
             </div>
@@ -116,7 +160,12 @@ export function RecoveriesTab({ claim }: { claim: ClaimDetail }) {
         <div className="rounded-md border border-dashed p-8 text-center text-sm text-slate-500"><ReceiptText className="mx-auto mb-2 h-6 w-6" />No recoveries recorded.</div>
       ) : null}
       {(query.data ?? []).map((recovery) => {
-        const openAmount = Math.max(0, Number(recovery.expected_amount) - Number(recovery.received_amount));
+        const openCents = Math.max(0, toCents(recovery.expected_amount) - toCents(recovery.received_amount));
+        const openAmount = openCents / 100;
+        const receiptInput = receiptAmounts[recovery.id] ?? '';
+        const receiptValid = MONEY_PATTERN.test(receiptInput)
+          && toCents(receiptInput) > 0
+          && toCents(receiptInput) <= openCents;
         const requestable = recovery.status === 'EXPECTED';
         const receivable = ['REQUESTED', 'PARTIALLY_RECEIVED'].includes(recovery.status);
         const cancellable = ['EXPECTED', 'REQUESTED'].includes(recovery.status);
@@ -139,20 +188,34 @@ export function RecoveriesTab({ claim }: { claim: ClaimDetail }) {
               <div className="flex flex-wrap items-end gap-2 border-t pt-3">
                 {requestable && canRequest ? <Button size="sm" onClick={() => void run(() => claimsApi.requestRecovery(recovery.id), 'Recovery request submitted')}>Request recovery</Button> : null}
                 {receivable && canReceive ? (
-                  <div className="flex items-end gap-2">
-                    <label className="space-y-1 text-xs"><span>Receipt amount</span><Input className="h-9 w-36" inputMode="decimal" value={receiptAmounts[recovery.id] ?? ''} onChange={(event) => setReceiptAmounts((current) => ({ ...current, [recovery.id]: event.target.value }))} placeholder={`Max ${openAmount.toFixed(2)}`} /></label>
-                    <Button size="sm" onClick={() => void run(() => claimsApi.recordRecoveryReceipt(recovery.id, receiptAmounts[recovery.id]), 'Recovery receipt recorded')} disabled={!/^\d+(\.\d{1,2})?$/.test(receiptAmounts[recovery.id] ?? '') || Number(receiptAmounts[recovery.id]) <= 0 || Number(receiptAmounts[recovery.id]) > openAmount}>Record receipt</Button>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="space-y-1 text-xs"><span>Receipt amount</span><Input className="h-9 w-36" inputMode="decimal" value={receiptInput} onChange={(event) => setReceiptAmounts((current) => ({ ...current, [recovery.id]: event.target.value }))} placeholder={`Max ${openAmount.toFixed(2)}`} /></label>
+                    <label className="space-y-1 text-xs"><span>Receipt notes</span><Input className="h-9 w-48" maxLength={500} value={receiptNotes[recovery.id] ?? ''} onChange={(event) => setReceiptNotes((current) => ({ ...current, [recovery.id]: event.target.value }))} placeholder="Bank reference, payer" /></label>
+                    <Button size="sm" onClick={() => void recordReceipt(recovery)} disabled={!receiptValid}>Record receipt</Button>
                   </div>
                 ) : null}
                 {writeOffable && canWriteOff ? (
-                  <div className="flex items-end gap-2"><label className="space-y-1 text-xs"><span>Write-off reason</span><Input className="h-9 w-48" value={writeOffReasons[recovery.id] ?? ''} onChange={(event) => setWriteOffReasons((current) => ({ ...current, [recovery.id]: event.target.value }))} /></label><Button size="sm" variant="outline" onClick={() => void run(() => claimsApi.writeOffRecovery(recovery.id, writeOffReasons[recovery.id]), 'Recovery written off')} disabled={!writeOffReasons[recovery.id]?.trim()}>Write off</Button></div>
+                  <div className="flex items-end gap-2"><label className="space-y-1 text-xs"><span>Write-off reason</span><Input className="h-9 w-48" maxLength={1000} value={writeOffReasons[recovery.id] ?? ''} onChange={(event) => setWriteOffReasons((current) => ({ ...current, [recovery.id]: event.target.value }))} /></label><Button size="sm" variant="outline" onClick={() => setPendingAction({ kind: 'write-off', recovery })} disabled={!writeOffReasons[recovery.id]?.trim()}>Write off</Button></div>
                 ) : null}
-                {cancellable && canCancel ? <Button size="sm" variant="outline" onClick={() => void run(() => claimsApi.cancelRecovery(recovery.id), 'Recovery cancelled')}>Cancel</Button> : null}
+                {cancellable && canCancel ? <Button size="sm" variant="outline" onClick={() => setPendingAction({ kind: 'cancel', recovery })}>Cancel</Button> : null}
               </div>
             </CardContent>
           </Card>
         );
       })}
+      {pendingAction ? (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => { if (!open && !actionBusy) setPendingAction(null); }}
+          title={pendingAction.kind === 'cancel' ? 'Cancel recovery' : 'Write off recovery'}
+          description={pendingAction.kind === 'cancel'
+            ? `Recovery ${pendingAction.recovery.recovery_no} will be cancelled and removed from expected recoveries. This cannot be undone.`
+            : `The unreceived ${formatClaimMoney((Math.max(0, toCents(pendingAction.recovery.expected_amount) - toCents(pendingAction.recovery.received_amount))) / 100)} of recovery ${pendingAction.recovery.recovery_no} will be written off. This cannot be undone.`}
+          confirmLabel={pendingAction.kind === 'cancel' ? 'Cancel recovery' : 'Write off'}
+          onConfirm={() => void confirmPendingAction()}
+          loading={actionBusy}
+        />
+      ) : null}
     </div>
   );
 }

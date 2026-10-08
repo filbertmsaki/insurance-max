@@ -4227,7 +4227,8 @@ const roleSeeds: RoleSeed[] = [
   {
     name: 'CLAIMS_FINANCE',
     displayName: 'Claims Finance',
-    description: 'Processes and confirms claim disbursements',
+    description:
+      'Processes and confirms claim disbursements and recovery receipts',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       'claims:read',
@@ -4235,6 +4236,7 @@ const roleSeeds: RoleSeed[] = [
       'claims:payment-submit',
       'claim-payments:request-disbursement',
       'claim-payments:confirm-disbursement',
+      'claim-recoveries:record-receipt',
       'claims:report-read',
       'claims:dashboard',
     ],

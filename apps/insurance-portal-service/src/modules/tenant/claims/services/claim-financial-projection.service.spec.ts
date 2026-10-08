@@ -126,4 +126,36 @@ describe('ClaimFinancialProjectionService', () => {
     expect(Number(result.gross_incurred_amount)).toBeGreaterThanOrEqual(0);
     expect(Number(result.net_incurred_amount)).toBe(0);
   });
+
+  it('counts only the received part of written-off recoveries as expected', async () => {
+    const claim = makeClaim();
+    const manager = makeManager({
+      claim,
+      reserveTotal: '0.00',
+      paidTotal: '0.00',
+      expenseTotal: '0.00',
+      recoveryExpected: '0.00',
+      recoveryReceived: '0.00',
+    });
+    const recoveryRepo = manager.getRepository({ name: 'ClaimRecovery' });
+    const builders: any[] = [];
+    const createQueryBuilder = recoveryRepo.createQueryBuilder;
+    recoveryRepo.createQueryBuilder = () => {
+      const builder = createQueryBuilder();
+      builders.push(builder);
+      return builder;
+    };
+
+    await service.recalculate(manager, claim.id);
+
+    const expectedQuery = builders[0];
+    const [selectSql] = expectedQuery.select.mock.calls[0];
+    expect(selectSql).toMatch(
+      /CASE WHEN recovery\.status = :writtenOff\s+THEN recovery\.received_amount\s+ELSE recovery\.expected_amount END/,
+    );
+    expect(expectedQuery.andWhere).toHaveBeenCalledWith(
+      'recovery.status <> :cancelled',
+      { cancelled: 'CANCELLED', writtenOff: 'WRITTEN_OFF' },
+    );
+  });
 });

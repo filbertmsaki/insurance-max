@@ -432,6 +432,17 @@ export class ReportScheduleService {
       job.progress_percent = 10;
       await this.jobRepository.save(job);
 
+      // Jobs queued before a report became scoped (or tampered contexts)
+      // carry no scope; refuse them rather than generating company-wide data.
+      if (
+        this.isQuotationPolicyScopedReport(definition) &&
+        !context.quotationPolicyDataScope
+      ) {
+        throw new ForbiddenException(
+          'This report job has no resolved data scope; re-save the schedule or run the report again',
+        );
+      }
+
       const generated = await generator.generate(context);
       this.ensureMaxRows(
         generated.rows.length,
@@ -1202,10 +1213,16 @@ export class ReportScheduleService {
     return Object.keys(next).length ? next : null;
   }
 
+  /**
+   * Reports whose generators filter by the branch/department/user scope in
+   * the job context. Every such report must carry a resolved scope, otherwise
+   * a branch-limited user would export company-wide data.
+   */
   private isQuotationPolicyScopedReport(definition: ReportDefinition): boolean {
     return (
       definition.generator_key === 'product-performance' ||
-      definition.code === 'PRODUCT_PERFORMANCE'
+      definition.code === 'PRODUCT_PERFORMANCE' ||
+      definition.generator_key === 'claims'
     );
   }
 
