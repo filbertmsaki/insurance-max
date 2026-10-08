@@ -294,6 +294,27 @@ export class SubscriptionService {
     });
   }
 
+  async findSubscription(id: string) {
+    const subscription = await this.getSubscription(id);
+    const [changes, entitlements] = await Promise.all([
+      this.subscriptionChangeRepository.find({
+        where: { subscription_id: id },
+        order: { effective_at: 'DESC', created_at: 'DESC' },
+        take: 50,
+      }),
+      this.entitlementRepository.find({
+        where: { subscription_id: id, effective_to: IsNull() },
+        order: { feature_code: 'ASC' },
+      }),
+    ]);
+
+    return {
+      ...subscription,
+      changes,
+      entitlements,
+    };
+  }
+
   async createSubscription(
     user: AuthenticatedUser,
     dto: {

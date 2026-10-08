@@ -62,19 +62,39 @@ export class UsageMeteringService {
     );
   }
 
-  async aggregateUsage(companyId: string, periodStart: Date, periodEnd: Date) {
+  async aggregateUsage(
+    companyId: string,
+    periodStart: Date,
+    periodEnd: Date,
+    subscriptionId?: string | null,
+  ) {
     const rows = await this.eventRepository
       .createQueryBuilder('event')
       .select('event.company_id', 'company_id')
-      .addSelect('event.subscription_id', 'subscription_id')
+      .addSelect(
+        subscriptionId
+          ? 'COALESCE(event.subscription_id, :subscriptionId)'
+          : 'event.subscription_id',
+        'subscription_id',
+      )
       .addSelect('event.metric_code', 'metric_code')
       .addSelect('event.dimension_key', 'dimension_key')
       .addSelect('COALESCE(SUM(event.quantity), 0)', 'quantity')
       .where('event.company_id = :companyId', { companyId })
       .andWhere('event.occurred_at >= :periodStart', { periodStart })
       .andWhere('event.occurred_at <= :periodEnd', { periodEnd })
+      .andWhere(
+        subscriptionId
+          ? '(event.subscription_id = :subscriptionId OR event.subscription_id IS NULL)'
+          : '1 = 1',
+        { subscriptionId },
+      )
       .groupBy('event.company_id')
-      .addGroupBy('event.subscription_id')
+      .addGroupBy(
+        subscriptionId
+          ? 'COALESCE(event.subscription_id, :subscriptionId)'
+          : 'event.subscription_id',
+      )
       .addGroupBy('event.metric_code')
       .addGroupBy('event.dimension_key')
       .getRawMany<{
