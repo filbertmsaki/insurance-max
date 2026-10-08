@@ -9,7 +9,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { ReinsuranceTerritory } from '@insurance-max/contracts';
-import { Brackets, DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  Brackets,
+  DataSource,
+  EntityManager,
+  In,
+  IsNull,
+  Repository,
+} from 'typeorm';
 
 import { Company } from '../../platform/companies/entities/company.entity';
 import { AuditService } from '../../shared/audit/audit.service';
@@ -58,6 +65,20 @@ import { ReinsuranceTreatyEligibilityRule } from './entities/reinsurance-treaty-
 import { ReinsuranceTreatySection } from './entities/reinsurance-treaty-section.entity';
 import { ReinsuranceTreaty } from './entities/reinsurance-treaty.entity';
 import { ReinsuranceCapacityService } from './services/reinsurance-capacity.service';
+
+/** Cessions whose shares are in force and count toward policy totals. */
+const LIVE_CESSION_STATUSES = [
+  ReinsuranceCessionStatus.ACTIVE,
+  ReinsuranceCessionStatus.DECLARED,
+];
+
+const WHOLE_POLICY_SCOPE = 'WHOLE_POLICY';
+
+interface CessionTotals {
+  retention_amount: string;
+  ceded_sum_insured: string;
+  ceded_premium: string;
+}
 
 @Injectable()
 export class ReinsuranceService {
@@ -1331,31 +1352,57 @@ export class ReinsuranceService {
     }
 
     await this.dataSource.transaction(async (manager) => {
-      cession.status = ReinsuranceCessionStatus.ACTIVE;
-      cession.applied_by = user.id;
-      cession.applied_at = new Date();
-      await manager.getRepository(PolicyCession).save(cession);
+      // Lock the policy first so concurrent applies on the same policy
+      // serialize, then re-check the cession under its own lock.
+      await manager
+        .getRepository(Policy)
+        .createQueryBuilder('policy')
+        .setLock('pessimistic_write')
+        .where('policy.id = :policyId', { policyId: cession.policy_id })
+        .getOne();
+
+      const locked = await manager
+        .getRepository(PolicyCession)
+        .createQueryBuilder('cession')
+        .setLock('pessimistic_write')
+        .where('cession.id = :id', { id: cession.id })
+        .getOneOrFail();
+
+      if (locked.status !== ReinsuranceCessionStatus.APPROVED) {
+        throw new ConflictException('Only an approved cession can be applied');
+      }
+
+      const liveCessions = await manager.getRepository(PolicyCession).find({
+        where: {
+          policy_id: locked.policy_id,
+          status: In(LIVE_CESSION_STATUSES),
+          deleted_at: IsNull(),
+        },
+      });
+      const totals = this.combineLiveCessions([...liveCessions, locked]);
+
+      locked.status = ReinsuranceCessionStatus.ACTIVE;
+      locked.applied_by = user.id;
+      locked.applied_at = new Date();
+      await manager.getRepository(PolicyCession).save(locked);
+      Object.assign(cession, locked);
 
       await manager.getRepository(Policy).update(
-        { id: cession.policy_id },
+        { id: locked.policy_id },
         {
           reinsurance_required: true,
           reinsurance_status: ReinsuranceCessionStatus.ACTIVE,
-          retention_amount: cession.retention_amount,
-          ceded_sum_insured: cession.ceded_sum_insured,
-          ceded_premium: cession.ceded_premium,
+          ...totals.policy,
         },
       );
 
-      if (cession.policy_risk_id) {
+      if (locked.policy_risk_id) {
         await manager.getRepository(PolicyRisk).update(
-          { id: cession.policy_risk_id },
+          { id: locked.policy_risk_id },
           {
             reinsurance_required: true,
             reinsurance_status: ReinsuranceCessionStatus.ACTIVE,
-            retention_amount: cession.retention_amount,
-            ceded_sum_insured: cession.ceded_sum_insured,
-            ceded_premium: cession.ceded_premium,
+            ...totals.risks.get(locked.policy_risk_id)!,
           },
         );
       }
@@ -1521,6 +1568,93 @@ export class ReinsuranceService {
     };
   }
 
+  /**
+   * Rolls every live cession of a policy up into policy and per-risk
+   * totals. Separate cessions on one risk add up (never replace each
+   * other) and together may not cede more than the risk's sum insured or
+   * premium. Combining whole-policy and per-risk cessions has no approved
+   * allocation rule yet, so it is refused rather than double counted.
+   */
+  combineLiveCessions(cessions: PolicyCession[]): {
+    policy: CessionTotals;
+    risks: Map<string, CessionTotals>;
+  } {
+    const unique = new Map(cessions.map((cession) => [cession.id, cession]));
+    const groups = new Map<string, PolicyCession[]>();
+    for (const cession of unique.values()) {
+      const key = cession.policy_risk_id ?? WHOLE_POLICY_SCOPE;
+      groups.set(key, [...(groups.get(key) ?? []), cession]);
+    }
+
+    if (groups.has(WHOLE_POLICY_SCOPE) && groups.size > 1) {
+      throw new ConflictException(
+        'Whole-policy and per-risk cessions cannot be combined on one policy until the allocation rule is approved',
+      );
+    }
+
+    const max = (values: string[]) =>
+      values.reduce(
+        (highest, value) =>
+          MoneyUtil.compare(value, highest) > 0 ? value : highest,
+        '0.00',
+      );
+
+    const policy: CessionTotals = {
+      retention_amount: '0.00',
+      ceded_sum_insured: '0.00',
+      ceded_premium: '0.00',
+    };
+    const risks = new Map<string, CessionTotals>();
+
+    for (const [key, group] of groups) {
+      const grossSumInsured = max(group.map((c) => c.gross_sum_insured));
+      const grossPremium = max(group.map((c) => c.gross_premium));
+      const cededSumInsured = MoneyUtil.add(
+        '0',
+        ...group.map((c) => c.ceded_sum_insured),
+      );
+      const cededPremium = MoneyUtil.add(
+        '0',
+        ...group.map((c) => c.ceded_premium),
+      );
+
+      if (
+        MoneyUtil.compare(cededSumInsured, grossSumInsured) > 0 ||
+        MoneyUtil.compare(cededPremium, grossPremium) > 0
+      ) {
+        throw new ConflictException(
+          `Combined cessions would cede more than 100% of the ${
+            key === WHOLE_POLICY_SCOPE ? 'policy' : 'risk'
+          } (ceded ${cededSumInsured} of ${grossSumInsured} sum insured)`,
+        );
+      }
+
+      const totals: CessionTotals = {
+        retention_amount: MoneyUtil.subtract(grossSumInsured, cededSumInsured),
+        ceded_sum_insured: cededSumInsured,
+        ceded_premium: cededPremium,
+      };
+      if (key !== WHOLE_POLICY_SCOPE) {
+        risks.set(key, totals);
+      }
+
+      policy.retention_amount = MoneyUtil.add(
+        policy.retention_amount,
+        totals.retention_amount,
+      );
+      policy.ceded_sum_insured = MoneyUtil.add(
+        policy.ceded_sum_insured,
+        totals.ceded_sum_insured,
+      );
+      policy.ceded_premium = MoneyUtil.add(
+        policy.ceded_premium,
+        totals.ceded_premium,
+      );
+    }
+
+    return { policy, risks };
+  }
+
   private async resolveParticipantsForCession(
     manager: EntityManager,
     dto: CreatePolicyCessionDto,
@@ -1544,6 +1678,21 @@ export class ReinsuranceService {
         treaty.effective_to < new Date().toISOString().slice(0, 10)
       ) {
         throw new ConflictException('The selected treaty is not active');
+      }
+
+      // The section carries the TIRA reinsurance form/type the insurer
+      // configured (e.g. non-proportional excess-of-loss); participants
+      // must report that, not a proportional default.
+      const section = dto.treaty_section_id
+        ? await manager.getRepository(ReinsuranceTreatySection).findOne({
+            where: { id: dto.treaty_section_id, treaty_id: treaty.id },
+          })
+        : null;
+
+      if (dto.treaty_section_id && !section) {
+        throw new BadRequestException(
+          'The selected treaty section does not belong to this treaty',
+        );
       }
 
       const participantQuery = manager
@@ -1583,8 +1732,8 @@ export class ReinsuranceService {
         source_facultative_offer_id: null,
         participant_code: participant.participant_code,
         participant_type: 1,
-        reinsurance_form: 1,
-        reinsurance_type: 1,
+        reinsurance_form: section?.reinsurance_form ?? 1,
+        reinsurance_type: section?.reinsurance_type ?? 1,
         re_broker_code: participant.re_broker_code,
         brokerage_commission: this.money(participant.brokerage_commission_rate),
         reinsurance_commission: this.money(
@@ -1615,6 +1764,8 @@ export class ReinsuranceService {
       const accepted = offers.filter(
         (offer) => Number(offer.accepted_amount) > 0,
       );
+      // Placements and offers do not record a TIRA form/type yet, so
+      // facultative participants still report the proportional default.
       return accepted.map((offer) => ({
         participant_company_id: offer.reinsurer_company_id,
         reinsurance_broker_company_id: offer.reinsurance_broker_company_id,
