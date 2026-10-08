@@ -231,10 +231,13 @@ export function SaasBillingPage() {
     onError: () => toast.error('Adjustment approval failed'),
   });
 
-  const invoices = invoicesQuery.data ?? [];
-  const cycles = cyclesQuery.data ?? [];
-  const subscriptions = subscriptionsQuery.data ?? [];
-  const plans = plansQuery.data ?? [];
+  const invoices = useMemo(() => invoicesQuery.data ?? [], [invoicesQuery.data]);
+  const cycles = useMemo(() => cyclesQuery.data ?? [], [cyclesQuery.data]);
+  const subscriptions = useMemo(
+    () => subscriptionsQuery.data ?? [],
+    [subscriptionsQuery.data],
+  );
+  const plans = useMemo(() => plansQuery.data ?? [], [plansQuery.data]);
 
   const summary = useMemo(
     () => ({

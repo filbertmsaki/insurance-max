@@ -148,10 +148,19 @@ export function PlatformIntelligencePage() {
     onError: () => toast.error('Benchmark rebuild failed'),
   });
 
-  const healthRows = healthQuery.data ?? [];
-  const benchmarkRows = benchmarksQuery.data ?? [];
-  const anomalyRows = anomaliesQuery.data ?? [];
-  const forecastRows = forecastsQuery.data ?? [];
+  const healthRows = useMemo(() => healthQuery.data ?? [], [healthQuery.data]);
+  const benchmarkRows = useMemo(
+    () => benchmarksQuery.data ?? [],
+    [benchmarksQuery.data],
+  );
+  const anomalyRows = useMemo(
+    () => anomaliesQuery.data ?? [],
+    [anomaliesQuery.data],
+  );
+  const forecastRows = useMemo(
+    () => forecastsQuery.data ?? [],
+    [forecastsQuery.data],
+  );
 
   const summary = useMemo(
     () => ({
