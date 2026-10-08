@@ -608,6 +608,35 @@ export interface ClaimDetail extends ClaimListItem {
   user_names?: Record<string, string>;
 }
 
+export type ClaimRecoveryType =
+  | 'REINSURANCE'
+  | 'SUBROGATION'
+  | 'SALVAGE'
+  | 'CONTRIBUTION'
+  | 'OTHER';
+
+export type ClaimRecoveryStatus =
+  | 'EXPECTED'
+  | 'REQUESTED'
+  | 'PARTIALLY_RECEIVED'
+  | 'RECEIVED'
+  | 'WRITTEN_OFF'
+  | 'CANCELLED';
+
+export interface ClaimRecovery {
+  id: string;
+  company_id: string;
+  claim_id: string;
+  recovery_no: string;
+  recovery_type: ClaimRecoveryType;
+  expected_amount: string;
+  received_amount: string;
+  status: ClaimRecoveryStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ClaimSubmissionResult {
   operationId: string;
   trackingId: string | null;

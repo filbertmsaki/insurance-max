@@ -23,6 +23,8 @@ import type {
   ClaimNumberFormatPayload,
   ClaimRejection,
   ClaimReserve,
+  ClaimRecovery,
+  ClaimRecoveryType,
   ClaimsDashboardParams,
   ClaimsDashboardSummary,
   DocumentRequirement,
@@ -397,6 +399,35 @@ export const claimsApi = {
         closure_reason: closureReason,
       })
       .then((r) => r.data),
+
+  recoveries: (claimId: string) =>
+    apiClient
+      .get<ClaimRecovery[]>(`${BASE}/${claimId}/recoveries`)
+      .then((r) => r.data),
+
+  createRecovery: (
+    claimId: string,
+    data: { recovery_type: ClaimRecoveryType; expected_amount: string; notes?: string },
+  ) =>
+    apiClient
+      .post<ClaimRecovery>(`${BASE}/${claimId}/recoveries`, data)
+      .then((r) => r.data),
+
+  requestRecovery: (id: string) =>
+    apiClient.post<ClaimRecovery>(`${BASE}/recoveries/${id}/request`).then((r) => r.data),
+
+  recordRecoveryReceipt: (id: string, received_amount: string, notes?: string) =>
+    apiClient
+      .post<ClaimRecovery>(`${BASE}/recoveries/${id}/record-receipt`, { received_amount, notes })
+      .then((r) => r.data),
+
+  writeOffRecovery: (id: string, reason: string) =>
+    apiClient
+      .post<ClaimRecovery>(`${BASE}/recoveries/${id}/write-off`, { reason })
+      .then((r) => r.data),
+
+  cancelRecovery: (id: string) =>
+    apiClient.post<ClaimRecovery>(`${BASE}/recoveries/${id}/cancel`).then((r) => r.data),
 
   reopenClaim: (id: string, reason: string) =>
     apiClient

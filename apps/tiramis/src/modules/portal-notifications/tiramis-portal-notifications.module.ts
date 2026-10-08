@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -14,6 +15,7 @@ import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
 
 @Module({
   imports: [
+    JwtModule.register({}),
     HttpModule,
     TiramisSecurityModule,
     TiramisApiKeysModule,

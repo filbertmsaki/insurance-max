@@ -46,6 +46,7 @@ import { PaymentsTab } from './detail/PaymentsTab';
 import { RejectionTab } from './detail/RejectionTab';
 import { ReserveTab } from './detail/ReserveTab';
 import { VoucherTab } from './detail/VoucherTab';
+import { RecoveriesTab } from './detail/RecoveriesTab';
 import { ReasonDialog } from '../components/ReasonDialog';
 import { claimsApi } from '../api';
 import {
@@ -676,6 +677,7 @@ export function ClaimDetailPage() {
           <TabsTrigger value="assessment">Assessment</TabsTrigger>
           <TabsTrigger value="voucher">Discharge Voucher</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="recoveries">Recoveries</TabsTrigger>
           <TabsTrigger value="rejection">Rejection</TabsTrigger>
           <TabsTrigger value="approvals">Approvals</TabsTrigger>
           <TabsTrigger value="tira">TIRA Transactions</TabsTrigger>
@@ -710,6 +712,9 @@ export function ClaimDetailPage() {
         </TabsContent>
         <TabsContent value="payments">
           <PaymentsTab claim={claim} />
+        </TabsContent>
+        <TabsContent value="recoveries">
+          <RecoveriesTab claim={claim} />
         </TabsContent>
         <TabsContent value="rejection">
           <RejectionTab claim={claim} />

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TiramisClientConfigurationEntity } from './entities/tiramis-client-configuration.entity';
@@ -12,6 +13,7 @@ import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
 
 @Module({
   imports: [
+    JwtModule.register({}),
     TypeOrmModule.forFeature([
       TiramisClientConfigurationEntity,
       TiramisServiceEndpointEntity,
