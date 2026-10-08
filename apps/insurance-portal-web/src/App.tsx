@@ -11,6 +11,7 @@ import { IntermediaryQuotationFormPage } from '@/modules/portal/pages/Intermedia
 import { IntermediaryRelationshipsPage } from '@/modules/portal/pages/IntermediaryRelationshipsPage';
 import { PortalRequestsReviewPage } from '@/modules/portal/pages/PortalRequestsReviewPage';
 import { PortalInvitationsPage } from '@/modules/portal/pages/PortalInvitationsPage';
+import { SecurityPolicyPage } from '@/modules/tenant/security-policy/pages/SecurityPolicyPage';
 import { PortalRequestReviewDetailPage } from '@/modules/portal/pages/PortalRequestReviewDetailPage';
 import { PortalCoverCheckPage } from '@/modules/portal/pages/PortalCoverCheckPage';
 import { PortalDocumentsPage } from '@/modules/portal/pages/PortalDocumentsPage';
@@ -697,6 +698,14 @@ export default function App() {
                 path="/portal-invitations"
                 element={<PortalInvitationsPage />}
               />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="security-policies:read" />
+              }
+            >
+              <Route path="/security-policy" element={<SecurityPolicyPage />} />
             </Route>
 
             <Route

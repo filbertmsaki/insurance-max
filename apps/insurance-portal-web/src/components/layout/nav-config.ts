@@ -192,6 +192,14 @@ export const NAV_NODES: NavNode[] = [
       { kind: 'link', label: 'Sessions', to: '/sessions', icon: Monitor },
       {
         kind: 'link',
+        label: 'Security Policy',
+        to: '/security-policy',
+        icon: ShieldCheck,
+        permission: 'security-policies:read',
+        allowedScopes: ['company'],
+      },
+      {
+        kind: 'link',
         label: 'API Clients',
         to: '/api-clients',
         icon: Key,
