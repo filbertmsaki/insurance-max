@@ -166,7 +166,7 @@ export class AnalyticsService {
   async listScorecardTemplates(
     companyId: string,
   ): Promise<Record<string, unknown>[]> {
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT
         id,
@@ -185,14 +185,13 @@ export class AnalyticsService {
       ORDER BY name
       `,
       [companyId],
-      [],
     );
   }
 
   async getScorecardTemplateItems(
     templateId: string,
   ): Promise<ScorecardTemplateItemRow[]> {
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT
         item.id,
@@ -221,7 +220,6 @@ export class AnalyticsService {
       ORDER BY item.display_order ASC
       `,
       [templateId],
-      [] as ScorecardTemplateItemRow[],
     );
   }
 
@@ -258,7 +256,7 @@ export class AnalyticsService {
     queryParams.push(params.branchIds ?? null);
     const branchesParam = queryParams.length;
 
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT
         metric_date AS "metricDate",
@@ -274,7 +272,6 @@ export class AnalyticsService {
       ORDER BY metric_date ASC
       `,
       queryParams,
-      [] as DailyMetricRow[],
     );
   }
 
@@ -293,7 +290,7 @@ export class AnalyticsService {
       branchIds ?? null,
     ];
 
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT *
       FROM analytics_anomaly_findings
@@ -305,12 +302,11 @@ export class AnalyticsService {
       ORDER BY metric_date DESC, severity DESC
       `,
       params,
-      [] as AnomalyFindingRow[],
     );
   }
 
   async listAnomalyRules(companyId: string): Promise<AnomalyRuleRow[]> {
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT *
       FROM analytics_anomaly_rules
@@ -319,7 +315,6 @@ export class AnalyticsService {
       ORDER BY name
       `,
       [companyId],
-      [] as AnomalyRuleRow[],
     );
   }
 
@@ -328,7 +323,7 @@ export class AnalyticsService {
     companyId: string,
     metricDate: string,
   ): Promise<AnomalyFindingRow[]> {
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT *
       FROM analytics_anomaly_findings
@@ -338,7 +333,6 @@ export class AnalyticsService {
       LIMIT 1
       `,
       [ruleId, companyId, metricDate],
-      [] as AnomalyFindingRow[],
     );
   }
 
@@ -359,7 +353,7 @@ export class AnalyticsService {
     explanation: string;
     evidence: Record<string, unknown>;
   }): Promise<AnomalyFindingRow | undefined> {
-    const rows = await this.queryOptional(
+    const rows = await this.dataSource.query(
       `
       INSERT INTO analytics_anomaly_findings (
         company_id,
@@ -397,7 +391,6 @@ export class AnalyticsService {
         finding.explanation,
         finding.evidence,
       ],
-      [] as AnomalyFindingRow[],
     );
 
     return rows[0];
@@ -406,7 +399,7 @@ export class AnalyticsService {
   async listForecastDefinitions(
     companyId: string,
   ): Promise<ForecastDefinitionRow[]> {
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT *
       FROM analytics_forecast_definitions
@@ -415,14 +408,13 @@ export class AnalyticsService {
       ORDER BY name
       `,
       [companyId],
-      [] as ForecastDefinitionRow[],
     );
   }
 
   async getForecastDefinition(
     definitionId: string,
   ): Promise<ForecastDefinitionRow | null> {
-    const rows = await this.queryOptional(
+    const rows = await this.dataSource.query(
       `
       SELECT *
       FROM analytics_forecast_definitions
@@ -430,7 +422,6 @@ export class AnalyticsService {
       LIMIT 1
       `,
       [definitionId],
-      [] as ForecastDefinitionRow[],
     );
 
     return rows[0] ?? null;
@@ -449,7 +440,7 @@ export class AnalyticsService {
     status: string;
     createdBy: string;
   }): Promise<ForecastRunRow> {
-    const rows = await this.queryOptional(
+    const rows = await this.dataSource.query(
       `
       INSERT INTO analytics_forecast_runs (
         company_id,
@@ -479,7 +470,6 @@ export class AnalyticsService {
         run.status,
         run.createdBy,
       ],
-      [] as ForecastRunRow[],
     );
 
     return rows[0];
@@ -515,7 +505,7 @@ export class AnalyticsService {
       return [];
     }
 
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       INSERT INTO analytics_forecast_points (
         forecast_run_id,
@@ -527,7 +517,6 @@ export class AnalyticsService {
       RETURNING *
       `,
       params,
-      [] as ForecastPointRow[],
     );
   }
 
@@ -543,113 +532,20 @@ export class AnalyticsService {
       query.from ?? null,
       query.to ?? null,
     ];
-    const conditions = [
-      '($1::varchar IS NULL OR metric_code = $1)',
-      '($2::varchar IS NULL OR cohort_key = $2)',
-    ];
 
-    if (query.from) {
-      conditions.push('period_start >= $3');
-    }
-
-    if (query.to) {
-      conditions.push('period_end <= $4');
-    }
-
-    return this.queryOptional(
+    // Every placeholder is always referenced: Postgres rejects a bind with
+    // more parameters than the statement uses.
+    return this.dataSource.query(
       `
       SELECT *
       FROM platform_benchmark_snapshots
-      WHERE ${conditions.join(' AND ')}
+      WHERE ($1::varchar IS NULL OR metric_code = $1)
+        AND ($2::varchar IS NULL OR cohort_key = $2)
+        AND ($3::date IS NULL OR period_start >= $3)
+        AND ($4::date IS NULL OR period_end <= $4)
       ORDER BY period_start DESC
       `,
       params,
-      [],
     );
-  }
-
-  async insertBenchmarkSnapshot(snapshot: {
-    metricCode: string;
-    cohortKey: string;
-    cohortDimensions: Record<string, unknown>;
-    periodStart: string;
-    periodEnd: string;
-    companyCount: number;
-    meanValue: number;
-    minimumValue: number;
-    percentile25: number;
-    medianValue: number;
-    percentile75: number;
-    maximumValue: number;
-    status: string;
-    minimumCohortSize: number;
-    metadata?: Record<string, unknown>;
-  }) {
-    const rows = await this.queryOptional(
-      `
-      INSERT INTO platform_benchmark_snapshots (
-        metric_code,
-        cohort_key,
-        cohort_dimensions,
-        period_start,
-        period_end,
-        company_count,
-        mean_value,
-        minimum_value,
-        percentile_25,
-        median_value,
-        percentile_75,
-        maximum_value,
-        status,
-        minimum_cohort_size,
-        metadata
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-      RETURNING *
-      `,
-      [
-        snapshot.metricCode,
-        snapshot.cohortKey,
-        snapshot.cohortDimensions,
-        snapshot.periodStart,
-        snapshot.periodEnd,
-        snapshot.companyCount,
-        snapshot.meanValue,
-        snapshot.minimumValue,
-        snapshot.percentile25,
-        snapshot.medianValue,
-        snapshot.percentile75,
-        snapshot.maximumValue,
-        snapshot.status,
-        snapshot.minimumCohortSize,
-        snapshot.metadata ?? {},
-      ],
-      [],
-    );
-
-    return rows[0];
-  }
-
-  private async queryOptional<T>(
-    query: string,
-    params: unknown[] = [],
-    fallback: T,
-  ): Promise<T> {
-    try {
-      return await this.dataSource.query(query, params);
-    } catch (error) {
-      if (this.isMissingRelationError(error)) {
-        return fallback;
-      }
-
-      throw error;
-    }
-  }
-
-  private isMissingRelationError(error: unknown): boolean {
-    if (!error || typeof error !== 'object') {
-      return false;
-    }
-
-    return 'code' in error && error.code === '42P01';
   }
 }

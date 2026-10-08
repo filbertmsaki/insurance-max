@@ -1,3 +1,5 @@
+import { RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PlatformIntelligenceController } from './platform-intelligence.controller';
 import { PlatformIntelligenceService } from './services/platform-intelligence.service';
@@ -36,10 +38,18 @@ describe('PlatformIntelligenceController', () => {
   });
 
   it('lists company health', async () => {
-    await expect(controller.listCompanyHealth()).resolves.toEqual([
+    const query = { limit: 25 };
+    await expect(controller.listCompanyHealth(query)).resolves.toEqual([
       { id: 'health-1' },
     ]);
-    expect(intelligenceService.listCompanyHealth).toHaveBeenCalled();
+    expect(intelligenceService.listCompanyHealth).toHaveBeenCalledWith(query);
+  });
+
+  it('only rebuilds benchmarks through POST, never a GET', () => {
+    const handler = PlatformIntelligenceController.prototype.rebuildBenchmarks;
+    expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(
+      RequestMethod.POST,
+    );
   });
 
   it('lists platform benchmark snapshots', async () => {
