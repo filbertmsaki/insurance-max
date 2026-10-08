@@ -37,6 +37,7 @@
     "format:check": "prettier --check \"apps/**/*.{ts,tsx}\" \"libs/**/*.ts\" \"scripts/**/*.{js,mjs,ts}\"",
     "test": "npm run test:backend",
     "test:backend": "jest --runInBand --passWithNoTests",
+    "test:e2e": "jest --config apps/insurance-portal-service/test/jest-e2e.json --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:web": "npm --prefix apps/insurance-portal-web run test",

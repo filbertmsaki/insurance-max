@@ -251,6 +251,22 @@ describe('Portal business scope (real database)', () => {
     );
     const brokerBBranchId = brokerBBranch[0].id;
 
+    // Intermediary portal access requires an active partner relationship
+    // with the insurer. LEGACY scope keeps every product visible, so the
+    // tests below isolate broker-vs-broker scoping only.
+    for (const brokerCompanyId of [brokerACompanyId, brokerBCompanyId]) {
+      await dataSource.query(
+        `
+        INSERT INTO insurance_company_partners (
+          insurer_company_id, intermediary_company_id, partner_type, status,
+          scope_mode, start_date
+        )
+        VALUES ($1, $2, 'BROKER', 'ACTIVE', 'LEGACY', CURRENT_DATE)
+        `,
+        [insurerCompanyId, brokerCompanyId],
+      );
+    }
+
     // Seed the CUSTOMER_PORTAL/INTERMEDIARY_PORTAL roles for the broker
     // companies too - the seeder only created company-scoped copies for
     // the insurer company, but roles are looked up by company_id.
