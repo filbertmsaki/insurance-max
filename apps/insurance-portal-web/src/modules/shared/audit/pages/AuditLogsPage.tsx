@@ -6,9 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { auditApi, type AuditFilters } from '../api/audit';
 
 export function AuditLogsPage() {
+  const canVerifyChain = useAuthStore((state) =>
+    state.hasPermission('audit:verify-chain'),
+  );
   const [filters, setFilters] = useState<AuditFilters>({ page: 1, limit: 50 });
   const logs = useQuery({
     queryKey: ['audit-logs', filters],
@@ -18,6 +22,7 @@ export function AuditLogsPage() {
     queryKey: ['audit-chain-status'],
     queryFn: auditApi.verifyChain,
     staleTime: 60_000,
+    enabled: canVerifyChain,
   });
 
   return (
@@ -38,30 +43,32 @@ export function AuditLogsPage() {
           </Button>
         }
       />
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
-          <div className="flex items-center gap-2 font-medium">
-            <ShieldCheck className="h-4 w-4" /> Hash chain
-          </div>
-          {chain.isLoading ? (
-            <span className="text-sm text-slate-500">Checking…</span>
-          ) : chain.isError ? (
-            <Badge variant="destructive">Status unavailable</Badge>
-          ) : (
-            <Badge variant={chain.data?.valid ? 'secondary' : 'destructive'}>
-              {chain.data?.valid ? 'Valid' : 'Integrity issue'}
-            </Badge>
-          )}
-          {chain.data ? (
-            <span className="text-sm text-slate-600">
-              {chain.data.totalEvents} events checked
-              {chain.data.brokenEventId
-                ? ` · issue ${chain.data.brokenEventId} (${chain.data.reason})`
-                : ''}
-            </span>
-          ) : null}
-        </CardContent>
-      </Card>
+      {canVerifyChain ? (
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3 p-4">
+            <div className="flex items-center gap-2 font-medium">
+              <ShieldCheck className="h-4 w-4" /> Hash chain
+            </div>
+            {chain.isLoading ? (
+              <span className="text-sm text-slate-500">Checking…</span>
+            ) : chain.isError ? (
+              <Badge variant="destructive">Status unavailable</Badge>
+            ) : (
+              <Badge variant={chain.data?.valid ? 'secondary' : 'destructive'}>
+                {chain.data?.valid ? 'Valid' : 'Integrity issue'}
+              </Badge>
+            )}
+            {chain.data ? (
+              <span className="text-sm text-slate-600">
+                {chain.data.totalEvents} events checked
+                {chain.data.brokenEventId
+                  ? ` · issue ${chain.data.brokenEventId} (${chain.data.reason})`
+                  : ''}
+              </span>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
       <Card>
         <CardContent className="space-y-4 p-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

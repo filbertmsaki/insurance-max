@@ -22,9 +22,16 @@ type ApiError = { response?: { data?: { message?: string } } };
 
 export function SalePointsPage() {
   const client = useQueryClient();
-  const canManage = useAuthStore((state) =>
+  const canCreate = useAuthStore((state) =>
     state.hasPermission('sale-points:create'),
   );
+  const canUpdate = useAuthStore((state) =>
+    state.hasPermission('sale-points:update'),
+  );
+  const canDelete = useAuthStore((state) =>
+    state.hasPermission('sale-points:delete'),
+  );
+  const canManage = canCreate || canUpdate || canDelete;
   const [branchId, setBranchId] = useState('');
   const [editing, setEditing] = useState<SalePointRecord | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -109,7 +116,7 @@ export function SalePointsPage() {
         title="Sales points"
         description="Manage TIRA sales-point codes assigned to your active branches."
         action={
-          canManage ? (
+          canCreate ? (
             <Button
               onClick={() => openForm()}
               disabled={!activeBranches.length}
@@ -188,14 +195,16 @@ export function SalePointsPage() {
                 </div>
                 {canManage ? (
                   <div className="flex flex-wrap gap-2 border-t pt-3">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openForm(point)}
-                    >
-                      <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
-                    </Button>
-                    {!point.isDefault && point.isActive ? (
+                    {canUpdate ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openForm(point)}
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                      </Button>
+                    ) : null}
+                    {canUpdate && !point.isDefault && point.isActive ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -210,27 +219,29 @@ export function SalePointsPage() {
                         Set default
                       </Button>
                     ) : null}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        void runAction(
-                          point,
-                          (branch, id) =>
-                            salePointsApi.setStatus(
-                              branch,
-                              id,
-                              !point.isActive,
-                            ),
-                          point.isActive
-                            ? 'Sales point deactivated'
-                            : 'Sales point activated',
-                        )
-                      }
-                    >
-                      {point.isActive ? 'Deactivate' : 'Activate'}
-                    </Button>
-                    {!point.isDefault ? (
+                    {canUpdate ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          void runAction(
+                            point,
+                            (branch, id) =>
+                              salePointsApi.setStatus(
+                                branch,
+                                id,
+                                !point.isActive,
+                              ),
+                            point.isActive
+                              ? 'Sales point deactivated'
+                              : 'Sales point activated',
+                          )
+                        }
+                      >
+                        {point.isActive ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    ) : null}
+                    {canDelete && !point.isDefault ? (
                       <Button
                         size="sm"
                         variant="destructive"
@@ -303,14 +314,16 @@ export function SalePointsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={() => save.mutate()}
-              disabled={
-                save.isPending || !branchId || !code.trim() || !name.trim()
-              }
-            >
-              {save.isPending ? 'Saving…' : 'Save sales point'}
-            </Button>
+            {(editing ? canUpdate : canCreate) ? (
+              <Button
+                onClick={() => save.mutate()}
+                disabled={
+                  save.isPending || !branchId || !code.trim() || !name.trim()
+                }
+              >
+                {save.isPending ? 'Saving…' : 'Save sales point'}
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>
