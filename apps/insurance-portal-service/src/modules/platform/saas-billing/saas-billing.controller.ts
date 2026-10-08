@@ -252,7 +252,7 @@ export class SaasBillingController {
   }
 
   @Post('invoice-adjustments/:id/approve')
-  @Permissions(SaasBillingPermissions.INVOICE_ADJUST)
+  @Permissions(SaasBillingPermissions.INVOICE_ADJUST_APPROVE)
   approveInvoiceAdjustment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -261,7 +261,7 @@ export class SaasBillingController {
   }
 
   @Post('operations/process-dunning')
-  @Permissions(SaasBillingPermissions.INVOICE_ADJUST)
+  @Permissions(SaasBillingPermissions.INVOICE_ADJUST_APPROVE)
   processDunning() {
     return this.cycleService.processDunning();
   }
