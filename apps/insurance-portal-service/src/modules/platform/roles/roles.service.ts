@@ -18,6 +18,7 @@ import {
   assertCanCreateSystemGeneratedRbacRecord,
   assertCanMutateSystemGeneratedRbacRecord,
   hasOwnerRole,
+  isReservedPlatformRoleName,
 } from '@insurance-max/portal-shared/utils/system-generated-rbac.util';
 import { Company } from '../companies/entities/company.entity';
 import { Permission } from '../permissions/entities/permission.entity';
@@ -197,6 +198,18 @@ export class RolesService {
     return { scope: RoleScope.TENANT, companyId: companyActor.companyId };
   }
 
+  /**
+   * Company role names become the role names in that company's tokens, so a
+   * tenant role may never impersonate a platform role such as OWNER.
+   */
+  private assertTenantRoleName(name: string | undefined) {
+    if (isReservedPlatformRoleName(name)) {
+      throw new ForbiddenException(
+        `"${name?.trim()}" is reserved for platform roles`,
+      );
+    }
+  }
+
   async create(
     createRoleDto: CreateRoleDto,
     actor?: AuthenticatedUser,
@@ -210,6 +223,7 @@ export class RolesService {
     const { scope, companyId } = this.resolveRoleScope(actor, createRoleDto);
 
     if (companyId !== null) {
+      this.assertTenantRoleName(createRoleDto.name);
       await this.assertCompanyExists(companyId);
     }
 
@@ -475,6 +489,9 @@ export class RolesService {
         }
       }
 
+      if (updateRoleDto.name !== undefined && role.company_id !== null) {
+        this.assertTenantRoleName(updateRoleDto.name);
+      }
       role.name = updateRoleDto.name ?? role.name;
       role.display_name = updateRoleDto.display_name ?? role.display_name;
       role.description =
