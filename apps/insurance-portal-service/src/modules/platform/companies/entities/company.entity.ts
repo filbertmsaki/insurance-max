@@ -52,7 +52,7 @@ export class Company {
   @Column({ default: 'active', length: 20 })
   status: string;
 
-  @Column({ type: 'varchar', length: 24, default: 'VERIFIED' })
+  @Column({ type: 'varchar', length: 24, default: 'PENDING_REVIEW' })
   verification_status!: 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED';
 
   @Column({ type: 'uuid', nullable: true })

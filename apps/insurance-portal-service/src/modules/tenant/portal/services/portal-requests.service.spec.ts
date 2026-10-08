@@ -275,6 +275,49 @@ describe('PortalRequestsService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('rejects a second active payment proof for the same invoice across portal accounts', async () => {
+    accessService.assertInvoice.mockResolvedValue({
+      id: invoiceId,
+      balance_amount: '100000.00',
+    });
+
+    const manager = buildManager(
+      {
+        invoice: mockRepo({
+          createQueryBuilder: jest.fn(() =>
+            mockQueryBuilder({
+              getOne: jest.fn().mockResolvedValue({
+                id: invoiceId,
+                status: 'UNPAID',
+                balance_amount: '100000.00',
+                currency: 'TZS',
+                policy_id: null,
+                quotation_id: null,
+                invoice_no: 'INV-001',
+              }),
+            }),
+          ),
+        }),
+      },
+      [{ id: 'existing-request-from-another-account' }],
+    );
+    dataSource.transaction = jest.fn((cb: any) => cb(manager));
+
+    await expect(
+      service.createPaymentProof(accountA as PortalAccount, userId, {
+        invoice_id: invoiceId,
+        amount: 50000,
+        payment_date: '2026-08-04',
+        description: 'Bank payment',
+      }),
+    ).rejects.toThrow(ConflictException);
+
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('request.company_id = $1'),
+      [companyId, invoiceId],
+    );
+  });
+
   it('requires a PAYMENT_PROOF attachment before verification', async () => {
     dataSource.transaction = jest.fn((cb: any) =>
       cb(

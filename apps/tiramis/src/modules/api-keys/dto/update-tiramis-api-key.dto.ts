@@ -6,6 +6,7 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   IsIP,
 } from 'class-validator';
@@ -14,6 +15,24 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { TIRAMIS_API_KEY_SCOPES } from './create-tiramis-api-key.dto';
 
 export class UpdateTiramisApiKeyDto {
+  @IsOptional()
+  @IsUUID()
+  clientConfigurationId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  tenantCompanyCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  tenantSystemCode?: string | null;
+
+  @IsOptional()
+  @IsIn(['test', 'live'])
+  tenantEnvironment?: 'test' | 'live' | null;
+
   @IsOptional()
   @ApiPropertyOptional({ example: ['203.0.113.10', '2001:db8::10'] })
   @IsArray()

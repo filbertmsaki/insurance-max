@@ -621,6 +621,17 @@ export class CompaniesService {
       where: { id: companyId },
     });
     if (!company) throw new NotFoundException('Company not found');
+    if (company.verification_status !== 'PENDING_REVIEW') {
+      throw new ConflictException(
+        `Company verification is already ${company.verification_status.toLowerCase().replace('_', ' ')}.`,
+      );
+    }
+    const normalizedNote = note?.trim() || null;
+    if (status === 'REJECTED' && !normalizedNote) {
+      throw new BadRequestException(
+        'A rejection reason is required when rejecting a company.',
+      );
+    }
     const before = {
       verification_status: company.verification_status,
       verified_by: company.verified_by,
@@ -630,7 +641,7 @@ export class CompaniesService {
     company.verification_status = status;
     company.verified_by = status === 'VERIFIED' ? actor.id : null;
     company.verified_at = status === 'VERIFIED' ? new Date() : null;
-    company.verification_note = note?.trim() || null;
+    company.verification_note = normalizedNote;
     const saved = await this.companyRepository.save(company);
     await this.auditService.logCritical({
       userId: actor.id,

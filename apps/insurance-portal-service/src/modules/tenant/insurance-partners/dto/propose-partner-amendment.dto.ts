@@ -3,6 +3,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUrl,
   Max,
   MaxLength,
   Min,
@@ -29,7 +30,11 @@ export class ProposePartnerAmendmentDto {
   agreement_reference?: string | null;
 
   @IsOptional()
-  @IsString()
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_protocol: true,
+    require_tld: false,
+  })
   @MaxLength(500)
   agreement_document_url?: string | null;
 

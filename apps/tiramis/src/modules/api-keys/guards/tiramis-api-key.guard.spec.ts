@@ -4,6 +4,10 @@ import { PUBLIC_SERVICE_ENDPOINT } from '@insurance-max/shared-kernel';
 import { TiramisApiKeyGuard } from './tiramis-api-key.guard';
 
 describe('TiramisApiKeyGuard', () => {
+  function serviceContextHeader(value: unknown) {
+    return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+  }
+
   const request = {
     headers: { 'x-api-key': 'service-key' },
     ip: '10.1.2.3',
@@ -31,6 +35,10 @@ describe('TiramisApiKeyGuard', () => {
         serviceName: 'insurance-portal-service',
         allowedIps: ['10.1.2.3'],
         scopes: ['tiramis:read'],
+        tenantCompanyCode: null,
+        tenantSystemCode: null,
+        tenantEnvironment: null,
+        clientConfigurationId: null,
       }),
     };
     const requestContextService = {
@@ -184,6 +192,93 @@ describe('TiramisApiKeyGuard', () => {
         serviceScopes: ['tiramis:submit'],
         allowed: false,
         denialReason: 'ForbiddenException',
+      }),
+    );
+  });
+
+  it('rejects a service context for a different TIRAMIS company binding', async () => {
+    const setup = createGuard(['tiramis:submit']);
+    setup.apiKeyService.validate.mockResolvedValue({
+      id: 'key-id',
+      serviceName: 'insurance-portal-service',
+      allowedIps: ['10.1.2.3'],
+      scopes: ['tiramis:submit'],
+      tenantCompanyCode: '123456',
+      tenantSystemCode: 'PORTAL',
+      tenantEnvironment: 'test',
+      clientConfigurationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    });
+    setup.context.switchToHttp = () => ({
+      getRequest: () => ({
+        ...request,
+        headers: {
+          ...request.headers,
+          'x-service-context': serviceContextHeader({
+            tenant: {
+              companyId: 'company-id',
+              companyCode: '654321',
+              systemCode: 'PORTAL',
+              environment: 'test',
+              clientConfigurationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            },
+          }),
+        },
+      }),
+    });
+
+    await expect(
+      setup.guard.canActivate(setup.context as any),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(setup.accessAuditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowed: false,
+        denialReason: 'ForbiddenException',
+      }),
+    );
+  });
+
+  it('uses the API-key tenant binding as authoritative when context matches', async () => {
+    const setup = createGuard(['tiramis:submit']);
+    setup.apiKeyService.validate.mockResolvedValue({
+      id: 'key-id',
+      serviceName: 'insurance-portal-service',
+      allowedIps: ['10.1.2.3'],
+      scopes: ['tiramis:submit'],
+      tenantCompanyCode: '123456',
+      tenantSystemCode: 'PORTAL',
+      tenantEnvironment: 'test',
+      clientConfigurationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    });
+    setup.context.switchToHttp = () => ({
+      getRequest: () => ({
+        ...request,
+        headers: {
+          ...request.headers,
+          'x-service-context': serviceContextHeader({
+            tenant: {
+              companyId: 'company-id',
+              companyCode: '123456',
+              systemCode: 'PORTAL',
+              environment: 'test',
+            },
+          }),
+        },
+      }),
+    });
+
+    await expect(setup.guard.canActivate(setup.context as any)).resolves.toBe(
+      true,
+    );
+    expect(
+      setup.requestContextService.setServicePrincipal,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenant: expect.objectContaining({
+          companyCode: '123456',
+          systemCode: 'PORTAL',
+          environment: 'test',
+          clientConfigurationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        }),
       }),
     );
   });

@@ -1,4 +1,8 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Repository } from 'typeorm';
 
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
@@ -16,6 +20,7 @@ import { CompanyUser } from './entities/company-user.entity';
 import { CompanyUserRole } from './entities/company-user-role.entity';
 import { CompanyUserPermission } from './entities/company-user-permission.entity';
 import { CompaniesService } from './companies.service';
+import { CompanyConfigsService } from '../company-configs/company-configs.service';
 
 describe('CompaniesService', () => {
   const companyId = 'company-1';
@@ -104,6 +109,7 @@ describe('CompaniesService', () => {
       {} as any,
       { log: jest.fn(), logCritical: jest.fn() } as unknown as AuditService,
       {} as AuthorizationVersionService,
+      {} as CompanyConfigsService,
     );
 
     // getMembershipContext is exercised indirectly through other tests in this
@@ -211,6 +217,73 @@ describe('CompaniesService', () => {
           true,
         ),
       ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('updateVerificationStatus', () => {
+    const actor = { id: 'reviewer-1', companyId: 'platform-company' } as any;
+
+    it('requires a rejection reason when rejecting a pending company', async () => {
+      companyRepository.findOne = jest.fn().mockResolvedValue({
+        id: companyId,
+        verification_status: 'PENDING_REVIEW',
+        verified_by: null,
+        verified_at: null,
+        verification_note: null,
+      } as Company);
+
+      await expect(
+        service.updateVerificationStatus(companyId, 'REJECTED', actor),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('does not allow terminal verification states to be changed again', async () => {
+      companyRepository.findOne = jest.fn().mockResolvedValue({
+        id: companyId,
+        verification_status: 'VERIFIED',
+        verified_by: 'reviewer-1',
+        verified_at: new Date(),
+        verification_note: null,
+      } as Company);
+
+      await expect(
+        service.updateVerificationStatus(
+          companyId,
+          'REJECTED',
+          actor,
+          'Incorrect registration',
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('records verifier details when approving a pending company', async () => {
+      const company = {
+        id: companyId,
+        verification_status: 'PENDING_REVIEW',
+        verified_by: null,
+        verified_at: null,
+        verification_note: null,
+      } as Company;
+      companyRepository.findOne = jest.fn().mockResolvedValue(company);
+      companyRepository.save = jest
+        .fn()
+        .mockImplementation(async (value) => value) as any;
+
+      const saved = await service.updateVerificationStatus(
+        companyId,
+        'VERIFIED',
+        actor,
+        'Documents checked',
+      );
+
+      expect(saved).toEqual(
+        expect.objectContaining({
+          verification_status: 'VERIFIED',
+          verified_by: 'reviewer-1',
+          verification_note: 'Documents checked',
+        }),
+      );
+      expect(saved.verified_at).toBeInstanceOf(Date);
     });
   });
 });
