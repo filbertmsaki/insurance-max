@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { Policy } from '../../policies/entities/policy.entity';
+import { returningRows } from '../../../../database/returning-rows.util';
 import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import {
@@ -216,7 +217,7 @@ export class FleetVehicleApplyService {
           .map((risk) => risk['id'])
           .filter((id): id is string => typeof id === 'string');
 
-    const cancelled = await manager.query<Array<{ id: string }>>(
+    const cancelledResult: unknown = await manager.query(
       `UPDATE policy_risks
           SET status = 'CANCELLED',
               cancelled_at = $2,
@@ -229,6 +230,7 @@ export class FleetVehicleApplyService {
         RETURNING id`,
       [policy.id, transaction.effective_date, quotationRiskIds, vehicleId],
     );
+    const cancelled = returningRows<{ id: string }>(cancelledResult);
 
     if (!cancelled.length) {
       this.logger.warn(

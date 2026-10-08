@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 
+import { returningRows } from '../../../../database/returning-rows.util';
+
 @Injectable()
 export class PartnerRelationshipExpiryJob {
   private readonly logger = new Logger(PartnerRelationshipExpiryJob.name);
@@ -11,12 +13,7 @@ export class PartnerRelationshipExpiryJob {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async expireEndedRelationships() {
     const expired = await this.dataSource.transaction(async (manager) => {
-      const rows: Array<{
-        id: string;
-        insurer_company_id: string;
-        intermediary_company_id: string;
-        previous_status: string;
-      }> = await manager.query(`
+      const result: unknown = await manager.query(`
         WITH expiring AS (
           SELECT id, status AS previous_status
           FROM insurance_company_partners
@@ -33,6 +30,12 @@ export class PartnerRelationshipExpiryJob {
         RETURNING relationship.id, relationship.insurer_company_id,
           relationship.intermediary_company_id, expiring.previous_status
       `);
+      const rows = returningRows<{
+        id: string;
+        insurer_company_id: string;
+        intermediary_company_id: string;
+        previous_status: string;
+      }>(result);
 
       if (rows.length) {
         await manager.query(
