@@ -36,6 +36,16 @@ async function bootstrap() {
   );
 
   const configService = app.get(ConfigService);
+  const trustedProxyIps = (process.env.TIRAMIS_TRUSTED_PROXY_IPS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  // Never trust arbitrary X-Forwarded-For values. Only configured proxy
+  // addresses may supply the client IP used for API-key allowlist checks.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .set('trust proxy', trustedProxyIps.length ? trustedProxyIps : false);
   const logger = new Logger('Bootstrap');
   const appHost = configService.getOrThrow<string>('app.host');
   const appPort = configService.getOrThrow<number>('app.port');
@@ -103,13 +113,16 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.TCP,
-    options: {
-      host: configService.getOrThrow<string>('transport.host'),
-      port: configService.getOrThrow<number>('transport.port'),
+  app.connectMicroservice<MicroserviceOptions>(
+    {
+      transport: Transport.TCP,
+      options: {
+        host: configService.getOrThrow<string>('transport.host'),
+        port: configService.getOrThrow<number>('transport.port'),
+      },
     },
-  });
+    { inheritAppConfig: true },
+  );
 
   await app.startAllMicroservices();
   await app.listen(appPort, appHost);

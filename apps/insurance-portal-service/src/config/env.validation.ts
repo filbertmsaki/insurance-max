@@ -13,7 +13,6 @@ const PRODUCTION_SECRET_KEYS = [
   'AUTH_BACKUP_CODE_PEPPER',
   'AUTH_DEVICE_TOKEN_PEPPER',
   'TIRAMIS_SERVICE_API_KEY_ENCRYPTION_KEY',
-  'TIRAMIS_BOOTSTRAP_API_KEY',
   'SIGNATURE_EVIDENCE_SECRET',
 ] as const;
 
@@ -305,6 +304,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
 
   REDIS_HOST: Joi.string().default('localhost'),
   REDIS_PORT: Joi.number().default(6379),
+  REDIS_ALLOW_IN_MEMORY_FALLBACK: Joi.boolean().default(false),
   REDIS_PASSWORD: Joi.string().allow('').default(''),
   REDIS_DB: Joi.number().default(0),
   REDIS_KEY_PREFIX: Joi.string().default('insurance-portal:'),

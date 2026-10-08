@@ -6,7 +6,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import type { ReinsuranceExposureSnapshot } from '@insurance-max/contracts';
+import type {
+  ReinsuranceExposureSnapshot,
+  ReinsuranceTerritory,
+} from '@insurance-max/contracts';
 import { Repository } from 'typeorm';
 
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
@@ -37,7 +40,7 @@ export interface EvaluateCapacityParams {
   treatySectionId?: string | null;
   exposureAmount: string | number;
   classOfBusiness?: string | null;
-  territory?: string | null;
+  territory?: ReinsuranceTerritory | null;
 }
 
 /**
@@ -81,6 +84,24 @@ export class ReinsuranceCapacityService {
       throw new NotFoundException('Treaty not found');
     }
 
+    const today = new Date().toISOString().slice(0, 10);
+    if (
+      treaty.status !== 'ACTIVE' ||
+      treaty.effective_from > today ||
+      treaty.effective_to < today
+    ) {
+      throw new ConflictException(
+        'Capacity is available only for an active treaty within its effective dates',
+      );
+    }
+
+    const exposureAmount = Number(params.exposureAmount ?? 0);
+    if (!Number.isFinite(exposureAmount) || exposureAmount <= 0) {
+      throw new BadRequestException(
+        'Exposure amount must be greater than zero',
+      );
+    }
+
     const section = params.treatySectionId
       ? await this.sectionRepository.findOne({
           where: { id: params.treatySectionId, treaty_id: treaty.id },
@@ -93,7 +114,6 @@ export class ReinsuranceCapacityService {
       );
     }
 
-    const exposureAmount = Number(params.exposureAmount ?? 0);
     const isNonProportional = NON_PROPORTIONAL_FORMS.includes(
       treaty.treaty_form,
     );
@@ -144,7 +164,7 @@ export class ReinsuranceCapacityService {
       availableCapacity: availableCapacity.toFixed(2),
       utilizationPercentage: utilizationPercentage.toFixed(4),
       classOfBusiness: params.classOfBusiness ?? null,
-      territory: null,
+      territory: params.territory ?? null,
       breachedRuleIds,
       evaluatedAt: new Date().toISOString(),
     };
@@ -224,7 +244,7 @@ export class ReinsuranceCapacityService {
     territory: string | null,
   ) {
     const rules = await this.eligibilityRuleRepository.find({
-      where: { treaty_id: treatyId, is_exclusion: true },
+      where: { treaty_id: treatyId },
     });
 
     const breached: string[] = [];
@@ -234,21 +254,34 @@ export class ReinsuranceCapacityService {
         exposureAmount > Number(rule.rule_value)
       ) {
         breached.push(rule.id);
-      } else if (
-        rule.rule_type === 'CLASS_OF_BUSINESS' &&
-        classOfBusiness &&
-        rule.rule_value === classOfBusiness
-      ) {
-        breached.push(rule.id);
-      } else if (
-        rule.rule_type === 'TERRITORY' &&
-        territory &&
-        rule.rule_value === territory
-      ) {
-        breached.push(rule.id);
       }
     }
 
-    return breached;
+    for (const [ruleType, actualValue] of [
+      ['CLASS_OF_BUSINESS', classOfBusiness],
+      ['TERRITORY', territory],
+    ] as const) {
+      if (!actualValue) continue;
+      const applicable = rules.filter((rule) => rule.rule_type === ruleType);
+      if (!actualValue && applicable.length) {
+        breached.push(...applicable.map((rule) => rule.id));
+        continue;
+      }
+      const exclusions = applicable.filter((rule) => rule.is_exclusion);
+      const inclusions = applicable.filter((rule) => !rule.is_exclusion);
+      breached.push(
+        ...exclusions
+          .filter((rule) => rule.rule_value === actualValue)
+          .map((rule) => rule.id),
+      );
+      if (
+        inclusions.length &&
+        !inclusions.some((rule) => rule.rule_value === actualValue)
+      ) {
+        breached.push(...inclusions.map((rule) => rule.id));
+      }
+    }
+
+    return [...new Set(breached)];
   }
 }

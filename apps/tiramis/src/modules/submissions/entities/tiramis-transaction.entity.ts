@@ -8,7 +8,11 @@ import { Column, Entity, Index } from 'typeorm';
 @Index(['sourceQuotationId'])
 @Index(['sourceWorkflowGateHash'])
 @Index(['requestType'])
-@Index(['idempotencyKey'])
+@Index(
+  'UQ_tiramis_transactions_configuration_idempotency',
+  ['clientConfigurationId', 'idempotencyKey'],
+  { unique: true, where: 'idempotency_key IS NOT NULL' },
+)
 export class TiramisTransactionEntity extends BaseEntity {
   @Column({
     name: 'schema_version',

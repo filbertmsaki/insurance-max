@@ -1,5 +1,7 @@
 export enum PartnerRelationshipStatus {
   PENDING = 'PENDING',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN',
   ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED',
   TERMINATED = 'TERMINATED',

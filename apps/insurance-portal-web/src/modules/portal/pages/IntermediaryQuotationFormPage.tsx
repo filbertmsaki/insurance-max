@@ -21,11 +21,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { getApiErrorMessage } from '@/lib/api-error';
-import {
-  useQuotationCategories,
-  useQuotationProducts,
-  useQuotationRisks,
-} from '@/modules/tenant/quotations/hooks';
 import type { InsuranceBusinessLine } from '@/types/product-engine';
 
 import {
@@ -37,6 +32,10 @@ import {
 type QuotationFlow = 'MOTOR_SINGLE' | 'MOTOR_FLEET' | 'NON_MOTOR';
 
 interface DraftFormState {
+  insurer_company_id: string;
+  branch_id: string;
+  distribution_branch_id: string;
+  distribution_sale_point_id: string;
   customer_id: string;
   category_id: string;
   product_id: string;
@@ -58,6 +57,10 @@ function defaultValidUntil() {
 }
 
 const emptyState: DraftFormState = {
+  insurer_company_id: '',
+  branch_id: '',
+  distribution_branch_id: '',
+  distribution_sale_point_id: '',
   customer_id: '',
   category_id: '',
   product_id: '',
@@ -88,6 +91,11 @@ export function IntermediaryQuotationFormPage() {
       portalApi.getBusinessRecord('intermediary', 'quotations', id!),
   });
 
+  const insurersQuery = useQuery({
+    queryKey: ['portal', 'intermediary', 'insurers'],
+    queryFn: () => portalApi.listIntermediaryInsurers(),
+  });
+
   const customersQuery = useQuery({
     queryKey: ['portal', 'intermediary', 'customers', 'selector'],
     queryFn: () =>
@@ -96,12 +104,54 @@ export function IntermediaryQuotationFormPage() {
       }),
   });
 
-  const { data: categories = [] } = useQuotationCategories(businessLine);
-  const { data: products = [] } = useQuotationProducts({
-    business_line: businessLine,
-    supports_fleet: form.quotation_flow === 'MOTOR_FLEET' ? true : undefined,
+  const insurers = insurersQuery.data ?? [];
+  const locationsQuery = useQuery({
+    queryKey: ['portal', 'intermediary', 'distribution-locations'],
+    queryFn: () => portalApi.getIntermediaryDistributionLocations(),
   });
-  const { data: risks = [] } = useQuotationRisks(form.product_id);
+  const locations = locationsQuery.data;
+  const isBancassurance = locations?.company_type === 'BANCASSURANCE';
+  const salePoints = (locations?.sale_points ?? []).filter(
+    (item) =>
+      !form.distribution_branch_id ||
+      !item.branch_id ||
+      item.branch_id === form.distribution_branch_id,
+  );
+  const selectedInsurer = insurers.find(
+    (insurer) => insurer.insurer_company_id === form.insurer_company_id,
+  );
+  const products = (selectedInsurer?.products ?? []).filter(
+    (product) =>
+      product.business_line === businessLine &&
+      (form.quotation_flow !== 'MOTOR_FLEET' || product.supports_fleet),
+  );
+  const categories = Array.from(
+    new Map(
+      products
+        .filter((product) => product.category)
+        .map((product) => [product.category_id, product.category!]),
+    ).values(),
+  );
+  const risksQuery = useQuery({
+    queryKey: [
+      'portal',
+      'intermediary',
+      'insurers',
+      form.insurer_company_id,
+      'products',
+      form.product_id,
+      'risks',
+      form.branch_id,
+    ],
+    enabled: Boolean(form.insurer_company_id && form.product_id),
+    queryFn: () =>
+      portalApi.listIntermediaryProductRisks(
+        form.insurer_company_id,
+        form.product_id,
+        form.branch_id || undefined,
+      ),
+  });
+  const risks = useMemo(() => risksQuery.data ?? [], [risksQuery.data]);
 
   useEffect(() => {
     if (!quotationQuery.data) {
@@ -113,6 +163,20 @@ export function IntermediaryQuotationFormPage() {
 
     const handle = window.setTimeout(() => {
       setForm({
+        insurer_company_id: text(quotation.insurer_company_id) ?? '',
+        branch_id: text(quotation.branch_id) ?? '',
+        distribution_branch_id:
+          text(
+            objectRecord(draftPayload?.['distribution_attribution'])?.[
+              'branch_id'
+            ],
+          ) ?? '',
+        distribution_sale_point_id:
+          text(
+            objectRecord(draftPayload?.['distribution_attribution'])?.[
+              'sale_point_id'
+            ],
+          ) ?? '',
         customer_id: text(quotation.customer_id) ?? '',
         category_id: text(quotation.category_id) ?? '',
         product_id: text(quotation.product_id) ?? '',
@@ -148,6 +212,10 @@ export function IntermediaryQuotationFormPage() {
   const saveMutation = useMutation({
     mutationFn: () => {
       const payload = buildDraftPayload(form, {
+        insurerCompanyId: form.insurer_company_id,
+        branchId: form.branch_id || null,
+        distributionBranchId: form.distribution_branch_id || null,
+        distributionSalePointId: form.distribution_sale_point_id || null,
         productCode:
           selectedProduct?.tiramis_product_code ??
           selectedProduct?.product_code ??
@@ -189,6 +257,30 @@ export function IntermediaryQuotationFormPage() {
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!form.insurer_company_id || !form.product_id || !form.customer_id) {
+      toast.error('Select an insurer, customer, and authorized product first.');
+      return;
+    }
+    if (
+      selectedProduct?.partner_scope.branch_ids !== null &&
+      selectedProduct?.partner_scope.branch_ids !== undefined &&
+      !form.branch_id
+    ) {
+      toast.error('Select an authorized insurer branch for this product.');
+      return;
+    }
+    if (
+      selectedInsurer?.partner_type === 'BANCASSURANCE' &&
+      selectedProduct?.partner_scope.branches.length &&
+      !form.branch_id
+    ) {
+      toast.error('Select the bank branch for this bancassurance sale.');
+      return;
+    }
+    if (isBancassurance && !form.distribution_branch_id) {
+      toast.error('Select your bank branch for sales attribution.');
+      return;
+    }
     saveMutation.mutate();
   };
 
@@ -257,6 +349,38 @@ export function IntermediaryQuotationFormPage() {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
+              <Label>Insurer</Label>
+              <Select
+                value={form.insurer_company_id}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    insurer_company_id: value,
+                    branch_id: '',
+                    category_id: '',
+                    product_id: '',
+                    risk_id: '',
+                  }))
+                }
+                disabled={isEdit}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select appointed insurer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {insurers.map((insurer) => (
+                    <SelectItem
+                      key={insurer.insurer_company_id}
+                      value={insurer.insurer_company_id}
+                    >
+                      {insurer.insurer_name ?? insurer.insurer_company_id}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Customer</Label>
               <Select
                 value={form.customer_id}
@@ -285,6 +409,7 @@ export function IntermediaryQuotationFormPage() {
                   setForm((current) => ({
                     ...current,
                     quotation_flow: value as QuotationFlow,
+                    branch_id: '',
                     category_id: '',
                     product_id: '',
                     risk_id: '',
@@ -301,6 +426,91 @@ export function IntermediaryQuotationFormPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label>Insurer branch</Label>
+              <Select
+                value={form.branch_id}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    branch_id: value,
+                    risk_id: '',
+                  }))
+                }
+                disabled={
+                  !selectedProduct ||
+                  !selectedProduct.partner_scope.branches.length
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select branch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedProduct?.partner_scope.branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isBancassurance ? (
+              <>
+                <div className="space-y-2">
+                  <Label>Bank branch (sales attribution)</Label>
+                  <Select
+                    value={form.distribution_branch_id}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        distribution_branch_id: value,
+                        distribution_sale_point_id: '',
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select bank branch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations?.branches.map((branch) => (
+                        <SelectItem key={branch.id} value={branch.id}>
+                          {branch.name} ({branch.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sales point (optional)</Label>
+                  <Select
+                    value={form.distribution_sale_point_id || 'none'}
+                    onValueChange={(value) =>
+                      setForm((current) => ({
+                        ...current,
+                        distribution_sale_point_id:
+                          value === 'none' ? '' : value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sales point" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        No specific sales point
+                      </SelectItem>
+                      {salePoints.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.name ?? item.code}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : null}
 
             <div className="space-y-2">
               <Label>Category</Label>
@@ -475,12 +685,21 @@ export function IntermediaryQuotationFormPage() {
 
 function buildDraftPayload(
   form: DraftFormState,
-  context: { productCode: string | null; riskName: string | null },
+  context: {
+    insurerCompanyId: string;
+    branchId: string | null;
+    productCode: string | null;
+    riskName: string | null;
+    distributionBranchId: string | null;
+    distributionSalePointId: string | null;
+  },
 ): CreateQuotationDraftPayload {
   const quotationType =
     form.quotation_flow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
 
   return {
+    insurer_company_id: context.insurerCompanyId,
+    branch_id: context.branchId,
     category_id: form.category_id,
     product_id: form.product_id,
     sub_class_id: form.sub_class_id || null,
@@ -494,6 +713,10 @@ function buildDraftPayload(
       quotation_type: quotationType,
       product_code: context.productCode,
       risk_name: context.riskName,
+      distribution_attribution: {
+        branch_id: context.distributionBranchId,
+        sale_point_id: context.distributionSalePointId,
+      },
     },
   };
 }

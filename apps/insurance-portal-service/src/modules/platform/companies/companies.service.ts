@@ -434,6 +434,9 @@ export class CompaniesService {
         slug: uniqueSlug,
         identifier_prefix: identifierPrefix,
         status: 'active',
+        verification_status: 'PENDING_REVIEW',
+        verified_by: null,
+        verified_at: null,
         company_type: dto.company_type,
         tira_license_number: dto.tira_license_number ?? null,
         tira_license_status: dto.tira_license_status ?? null,
@@ -558,6 +561,7 @@ export class CompaniesService {
         company.id,
         {
           isDefault: true,
+          allowUnverified: true,
           roleNames: [
             this.getDefaultAdminRoleForCompanyType(company.company_type),
           ],
@@ -581,6 +585,7 @@ export class CompaniesService {
           slug: company.slug,
           company_type: company.company_type,
           status: company.status,
+          verification_status: company.verification_status,
           tira_license_number: company.tira_license_number,
           tira_license_status: company.tira_license_status,
           created_at: company.created_at,
@@ -604,6 +609,46 @@ export class CompaniesService {
         },
       };
     });
+  }
+
+  async updateVerificationStatus(
+    companyId: string,
+    status: 'VERIFIED' | 'REJECTED',
+    actor: AuthenticatedUser,
+    note?: string,
+  ) {
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) throw new NotFoundException('Company not found');
+    const before = {
+      verification_status: company.verification_status,
+      verified_by: company.verified_by,
+      verified_at: company.verified_at,
+      verification_note: company.verification_note,
+    };
+    company.verification_status = status;
+    company.verified_by = status === 'VERIFIED' ? actor.id : null;
+    company.verified_at = status === 'VERIFIED' ? new Date() : null;
+    company.verification_note = note?.trim() || null;
+    const saved = await this.companyRepository.save(company);
+    await this.auditService.logCritical({
+      userId: actor.id,
+      companyId: actor.companyId ?? null,
+      action: `company.registry.${status.toLowerCase()}`,
+      eventCategory: 'company_registry',
+      resource: 'company',
+      resourceId: companyId,
+      beforeState: before,
+      afterState: {
+        verification_status: saved.verification_status,
+        verified_by: saved.verified_by,
+        verified_at: saved.verified_at,
+        verification_note: saved.verification_note,
+      },
+      reason: note,
+    });
+    return saved;
   }
 
   async findActiveCompanyBySlug(
@@ -634,6 +679,10 @@ export class CompaniesService {
         'company.slug AS slug',
         'company.identifier_prefix AS identifier_prefix',
         'company.status AS status',
+        'company.verification_status AS verification_status',
+        'company.verified_by AS verified_by',
+        'company.verified_at AS verified_at',
+        'company.verification_note AS verification_note',
         'company.contact_email AS contact_email',
         'company.contact_phone AS contact_phone',
         'company.website AS website',
@@ -652,6 +701,10 @@ export class CompaniesService {
       .addGroupBy('company.slug')
       .addGroupBy('company.identifier_prefix')
       .addGroupBy('company.status')
+      .addGroupBy('company.verification_status')
+      .addGroupBy('company.verified_by')
+      .addGroupBy('company.verified_at')
+      .addGroupBy('company.verification_note')
       .addGroupBy('company.contact_email')
       .addGroupBy('company.contact_phone')
       .addGroupBy('company.website')
@@ -669,6 +722,10 @@ export class CompaniesService {
         name: string;
         slug: string;
         status: string;
+        verification_status: string;
+        verified_by: string | null;
+        verified_at: Date | null;
+        verification_note: string | null;
         company_type: CompanyType | null;
         tira_license_number: string | null;
         tira_license_status: string | null;
@@ -688,6 +745,10 @@ export class CompaniesService {
       name: company.name,
       slug: company.slug,
       status: company.status,
+      verification_status: company.verification_status,
+      verified_by: company.verified_by,
+      verified_at: company.verified_at,
+      verification_note: company.verification_note,
       company_type: company.company_type ?? null,
       tira_license_number: company.tira_license_number ?? null,
       tira_license_status: company.tira_license_status ?? null,
@@ -735,7 +796,11 @@ export class CompaniesService {
     });
 
     return memberships
-      .filter((membership) => membership.company?.status === 'active')
+      .filter(
+        (membership) =>
+          membership.company?.status === 'active' &&
+          membership.company?.verification_status === 'VERIFIED',
+      )
       .map((membership) => this.mapMembershipSummary(membership));
   }
 
@@ -743,6 +808,7 @@ export class CompaniesService {
     userId: string,
     companyId: string,
     manager?: EntityManager,
+    options: { allowUnverified?: boolean } = {},
   ): Promise<CompanyMembershipContext> {
     const companyUserRepository = this.getCompanyUserRepository(manager);
 
@@ -767,6 +833,14 @@ export class CompaniesService {
 
     if (!membership || membership.company.status !== 'active') {
       throw new NotFoundException('Active company membership not found');
+    }
+    if (
+      !options.allowUnverified &&
+      membership.company.verification_status !== 'VERIFIED'
+    ) {
+      throw new ForbiddenException(
+        `Organization access is ${membership.company.verification_status.toLowerCase().replace('_', ' ')}.`,
+      );
     }
 
     const branchContext = await this.getActiveBranchContext(
@@ -1117,6 +1191,7 @@ export class CompaniesService {
     companyId: string,
     options?: {
       isDefault?: boolean;
+      allowUnverified?: boolean;
       roleIds?: string[];
       roleNames?: string[];
     },
@@ -1240,7 +1315,9 @@ export class CompaniesService {
       }
     }
 
-    return this.getMembershipContext(userId, companyId, manager);
+    return this.getMembershipContext(userId, companyId, manager, {
+      allowUnverified: options?.allowUnverified,
+    });
   }
 
   /**

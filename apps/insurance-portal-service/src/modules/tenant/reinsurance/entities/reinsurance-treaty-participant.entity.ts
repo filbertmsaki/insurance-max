@@ -77,6 +77,15 @@ export class ReinsuranceTreatyParticipant {
   status: TreatyParticipantStatus;
 
   @Column({ type: 'uuid', nullable: true })
+  invitation_responded_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  invitation_responded_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  invitation_response_note: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })

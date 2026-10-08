@@ -8,11 +8,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { ReinsuranceTerritory } from '@insurance-max/contracts';
+import { Brackets, DataSource, EntityManager, Repository } from 'typeorm';
 
 import { Company } from '../../platform/companies/entities/company.entity';
 import { AuditService } from '../../shared/audit/audit.service';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
+import { InsurancePartnersService } from '../insurance-partners/insurance-partners.service';
+import { PartnerType } from '../insurance-partners/enums/partner-type.enum';
 import { BusinessReferenceService } from '../../shared/identifiers/business-reference.service';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
 import { MoneyUtil } from '../billing-commission/utils/money.util';
@@ -25,10 +28,13 @@ import {
   CreateFacultativePlacementDto,
   CreatePolicyCessionDto,
   CreateTreatyDto,
+  CreateTreatyEligibilityRuleDto,
   CreateTreatyParticipantDto,
   CreateTreatySectionDto,
   InviteFacultativeOfferDto,
   RespondFacultativeOfferDto,
+  RespondTreatyInvitationDto,
+  TreatyInvitationDecision,
 } from './dto/reinsurance.dto';
 import {
   FacultativeOfferStatus,
@@ -48,6 +54,7 @@ import {
   ReinsuranceDeclarationParticipant,
 } from './entities/reinsurance-declaration.entity';
 import { ReinsuranceTreatyParticipant } from './entities/reinsurance-treaty-participant.entity';
+import { ReinsuranceTreatyEligibilityRule } from './entities/reinsurance-treaty-eligibility-rule.entity';
 import { ReinsuranceTreatySection } from './entities/reinsurance-treaty-section.entity';
 import { ReinsuranceTreaty } from './entities/reinsurance-treaty.entity';
 import { ReinsuranceCapacityService } from './services/reinsurance-capacity.service';
@@ -97,6 +104,7 @@ export class ReinsuranceService {
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
     private readonly capacityService: ReinsuranceCapacityService,
+    private readonly insurancePartnersService: InsurancePartnersService,
   ) {}
 
   async findTreaties(user: AuthenticatedUser) {
@@ -109,7 +117,156 @@ export class ReinsuranceService {
 
     this.scopeService.applyTreatyReadScope(query, 'treaty', scope);
 
-    return query.getMany();
+    const treaties = await query.getMany();
+    return treaties.map((treaty) => {
+      if (treaty.company_id === scope.companyId) return treaty;
+      const participants = (treaty.participants ?? []).filter(
+        (participant) =>
+          participant.participant_company_id === scope.companyId ||
+          participant.reinsurance_broker_company_id === scope.companyId,
+      );
+      const hasTreatyWideShare = participants.some(
+        (participant) => !participant.treaty_section_id,
+      );
+      const sectionIds = new Set(
+        participants
+          .map((participant) => participant.treaty_section_id)
+          .filter((id): id is string => Boolean(id)),
+      );
+      return {
+        ...treaty,
+        metadata: null,
+        participants,
+        sections: hasTreatyWideShare
+          ? treaty.sections
+          : (treaty.sections ?? []).filter((section) =>
+              sectionIds.has(section.id),
+            ),
+      };
+    });
+  }
+
+  async respondToTreatyInvitation(
+    user: AuthenticatedUser,
+    treatyId: string,
+    participantId: string,
+    dto: RespondTreatyInvitationDto,
+  ) {
+    const companyId = user.companyId;
+    if (!companyId)
+      throw new ForbiddenException('An active company is required');
+    const treaty = await this.treatyRepository.findOne({
+      where: { id: treatyId },
+    });
+    if (!treaty) throw new NotFoundException('Treaty not found');
+    if (
+      ![TreatyStatus.SUBMITTED, TreatyStatus.APPROVED].includes(treaty.status)
+    ) {
+      throw new ConflictException(
+        'Treaty invitations can only be answered after submission',
+      );
+    }
+    const relationship =
+      await this.insurancePartnersService.findActiveCompanyRelationship(
+        treaty.company_id,
+        companyId,
+        PartnerType.REINSURANCE_COMPANY,
+      );
+    if (!relationship) {
+      throw new ForbiddenException(
+        'An active cedant-reinsurer relationship is required',
+      );
+    }
+
+    const participant = await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(ReinsuranceTreatyParticipant);
+      const current = await repository
+        .createQueryBuilder('participant')
+        .setLock('pessimistic_write')
+        .where('participant.id = :participantId', { participantId })
+        .andWhere('participant.treaty_id = :treatyId', { treatyId })
+        .andWhere('participant.participant_company_id = :companyId', {
+          companyId,
+        })
+        .andWhere('participant.deleted_at IS NULL')
+        .getOne();
+      if (!current) throw new NotFoundException('Treaty invitation not found');
+      if (current.status !== TreatyParticipantStatus.INVITED) {
+        throw new ConflictException(
+          'This treaty invitation has already been answered',
+        );
+      }
+      current.status =
+        dto.decision === TreatyInvitationDecision.ACCEPT
+          ? TreatyParticipantStatus.CONFIRMED
+          : TreatyParticipantStatus.DECLINED;
+      current.invitation_responded_by = user.id;
+      current.invitation_responded_at = new Date();
+      current.invitation_response_note = dto.reason?.trim() || null;
+      return repository.save(current);
+    });
+
+    await this.auditService.log({
+      userId: user.id,
+      companyId,
+      action: `reinsurance.treaty.invitation.${dto.decision.toLowerCase()}`,
+      resource: 'reinsurance_treaty_participants',
+      resourceId: participant.id,
+      metadata: { treaty_id: treatyId, cedant_company_id: treaty.company_id },
+    });
+    return participant;
+  }
+
+  async findFacultativeOffers(user: AuthenticatedUser) {
+    const companyId = user.companyId;
+    if (!companyId)
+      throw new ForbiddenException('An active company is required');
+    const offers = await this.offerRepository
+      .createQueryBuilder('offer')
+      .leftJoinAndSelect('offer.placement', 'placement')
+      .where(
+        new Brackets((scope) =>
+          scope
+            .where('offer.company_id = :companyId', { companyId })
+            .orWhere('offer.reinsurer_company_id = :companyId', { companyId })
+            .orWhere('offer.reinsurance_broker_company_id = :companyId', {
+              companyId,
+            }),
+        ),
+      )
+      .andWhere('offer.deleted_at IS NULL')
+      .orderBy('offer.created_at', 'DESC')
+      .getMany();
+
+    return offers.map((offer) => ({
+      id: offer.id,
+      offer_no: offer.offer_no,
+      placement_id: offer.placement_id,
+      status: offer.status,
+      offered_share_percent: offer.offered_share_percent,
+      offered_amount: offer.offered_amount,
+      offered_premium: offer.offered_premium,
+      quoted_share_percent: offer.quoted_share_percent,
+      quoted_amount: offer.quoted_amount,
+      quoted_premium: offer.quoted_premium,
+      accepted_share_percent: offer.accepted_share_percent,
+      accepted_amount: offer.accepted_amount,
+      accepted_premium: offer.accepted_premium,
+      terms: offer.terms,
+      conditions: offer.conditions,
+      exclusions: offer.exclusions,
+      placement: offer.placement
+        ? {
+            placement_no: offer.placement.placement_no,
+            risk_description: offer.placement.risk_description,
+            amount_to_place: offer.placement.amount_to_place,
+            premium_to_place: offer.placement.premium_to_place,
+            currency: offer.placement.currency,
+            submission_deadline: offer.placement.submission_deadline,
+          }
+        : null,
+      created_at: offer.created_at,
+    }));
   }
 
   async createTreaty(user: AuthenticatedUser, dto: CreateTreatyDto) {
@@ -149,6 +306,14 @@ export class ReinsuranceService {
     });
 
     const saved = await this.treatyRepository.save(treaty);
+    await this.auditTransition(
+      user,
+      saved.company_id,
+      'reinsurance.treaty.submit',
+      'reinsurance_treaties',
+      saved.id,
+      { status: saved.status },
+    );
     await this.auditService.log({
       userId: user.id,
       companyId: user.companyId!,
@@ -209,16 +374,86 @@ export class ReinsuranceService {
     );
   }
 
+  async findTreatyEligibilityRules(user: AuthenticatedUser, treatyId: string) {
+    const treaty = await this.getTreatyForRead(user, treatyId);
+    return this.treatyRepository.manager
+      .getRepository(ReinsuranceTreatyEligibilityRule)
+      .find({ where: { company_id: treaty.company_id, treaty_id: treaty.id } });
+  }
+
+  async addTreatyEligibilityRule(
+    user: AuthenticatedUser,
+    treatyId: string,
+    dto: CreateTreatyEligibilityRuleDto,
+  ) {
+    const treaty = await this.getTreatyForWrite(user, treatyId);
+    if (![TreatyStatus.DRAFT, TreatyStatus.REJECTED].includes(treaty.status)) {
+      throw new ConflictException(
+        'Eligibility rules can only be changed while the treaty is in draft',
+      );
+    }
+    const value = dto.rule_value.trim();
+    if (!value)
+      throw new BadRequestException('Eligibility rule value is required');
+    if (dto.rule_type === 'SUM_INSURED_MAX') {
+      const maximum = Number(value);
+      if (!Number.isFinite(maximum) || maximum <= 0) {
+        throw new BadRequestException(
+          'Maximum sum insured rule must contain a positive amount',
+        );
+      }
+    }
+    const rule = await this.treatyRepository.manager
+      .getRepository(ReinsuranceTreatyEligibilityRule)
+      .save({
+        company_id: treaty.company_id,
+        treaty_id: treaty.id,
+        rule_type: dto.rule_type,
+        rule_value: value,
+        is_exclusion: dto.is_exclusion ?? true,
+      });
+    await this.auditTransition(
+      user,
+      treaty.company_id,
+      'reinsurance.treaty.eligibility-rule.create',
+      'reinsurance_treaty_eligibility_rules',
+      rule.id,
+      {
+        treaty_id: treaty.id,
+        rule_type: rule.rule_type,
+        is_exclusion: rule.is_exclusion,
+      },
+    );
+    return rule;
+  }
+
   async addTreatyParticipant(
     user: AuthenticatedUser,
     treatyId: string,
     dto: CreateTreatyParticipantDto,
   ) {
+    this.assertCedantCompany(user);
     const treaty = await this.getTreatyForWrite(user, treatyId);
 
     if (treaty.status !== TreatyStatus.DRAFT) {
       throw new ConflictException(
         'Participants can only be added to a draft treaty',
+      );
+    }
+
+    const sharePercent = this.percentage(dto.share_percent);
+    const signedLinePercent = this.percentage(
+      dto.signed_line_percent ?? dto.share_percent,
+    );
+    this.assertPercentage(sharePercent, 'Treaty share', false);
+    this.assertPercentage(signedLinePercent, 'Signed line', false);
+    if (
+      dto.effective_from &&
+      dto.effective_to &&
+      new Date(dto.effective_from) > new Date(dto.effective_to)
+    ) {
+      throw new BadRequestException(
+        'Participant effective end date must be on or after its start date',
       );
     }
 
@@ -234,6 +469,16 @@ export class ReinsuranceService {
         'Participant must be a registered reinsurance company',
       );
     }
+    if (dto.participant_role === 'REINSURANCE_BROKER') {
+      throw new BadRequestException(
+        'Treaty participant must be a reinsurer; record the broker separately as the arranging party',
+      );
+    }
+    await this.assertReinsuranceRelationship(
+      user.companyId!,
+      dto.participant_company_id,
+      dto.reinsurance_broker_company_id,
+    );
 
     if (dto.treaty_section_id) {
       const section = await this.sectionRepository.findOne({
@@ -250,10 +495,10 @@ export class ReinsuranceService {
     await this.assertTreatyShareAvailable({
       treatyId: treaty.id,
       treatySectionId: dto.treaty_section_id ?? null,
-      additionalShare: this.percentage(dto.share_percent),
+      additionalShare: sharePercent,
     });
 
-    return this.treatyParticipantRepository.save(
+    const participant = await this.treatyParticipantRepository.save(
       this.treatyParticipantRepository.create({
         company_id: treaty.company_id,
         treaty_id: treaty.id,
@@ -264,10 +509,8 @@ export class ReinsuranceService {
         participant_code: dto.participant_code.trim(),
         re_broker_code: dto.re_broker_code?.trim() ?? null,
         participant_role: dto.participant_role,
-        share_percent: this.percentage(dto.share_percent),
-        signed_line_percent: this.percentage(
-          dto.signed_line_percent ?? dto.share_percent,
-        ),
+        share_percent: sharePercent,
+        signed_line_percent: signedLinePercent,
         capacity_amount: this.money(dto.capacity_amount ?? 0),
         brokerage_commission_rate: this.percentage(
           dto.brokerage_commission_rate ?? 0,
@@ -284,6 +527,21 @@ export class ReinsuranceService {
         created_by: user.id,
       }),
     );
+    await this.auditTransition(
+      user,
+      treaty.company_id,
+      'reinsurance.treaty.participant.invite',
+      'reinsurance_treaty_participants',
+      participant.id,
+      {
+        treaty_id: treaty.id,
+        participant_company_id: participant.participant_company_id,
+        reinsurance_broker_company_id:
+          participant.reinsurance_broker_company_id,
+        share_percent: participant.share_percent,
+      },
+    );
+    return participant;
   }
 
   async submitTreaty(user: AuthenticatedUser, treatyId: string) {
@@ -331,7 +589,16 @@ export class ReinsuranceService {
     treaty.approved_by = user.id;
     treaty.approved_at = new Date();
 
-    return this.treatyRepository.save(treaty);
+    const saved = await this.treatyRepository.save(treaty);
+    await this.auditTransition(
+      user,
+      saved.company_id,
+      'reinsurance.treaty.approve',
+      'reinsurance_treaties',
+      saved.id,
+      { status: saved.status },
+    );
+    return saved;
   }
 
   async activateTreaty(user: AuthenticatedUser, treatyId: string) {
@@ -352,11 +619,20 @@ export class ReinsuranceService {
     treaty.activated_at = new Date();
 
     await this.treatyParticipantRepository.update(
-      { treaty_id: treaty.id, status: TreatyParticipantStatus.INVITED },
+      { treaty_id: treaty.id, status: TreatyParticipantStatus.CONFIRMED },
       { status: TreatyParticipantStatus.ACTIVE },
     );
 
-    return this.treatyRepository.save(treaty);
+    const saved = await this.treatyRepository.save(treaty);
+    await this.auditTransition(
+      user,
+      saved.company_id,
+      'reinsurance.treaty.activate',
+      'reinsurance_treaties',
+      saved.id,
+      { status: saved.status },
+    );
+    return saved;
   }
 
   async createFacultativePlacement(
@@ -390,13 +666,26 @@ export class ReinsuranceService {
         ),
     );
 
+    if (
+      Number(retention) < 0 ||
+      Number(retention) > Number(grossSumInsured) ||
+      Number(amountToPlace) <= 0 ||
+      Number(amountToPlace) > Number(grossSumInsured) - Number(retention) ||
+      Number(premiumToPlace) < 0 ||
+      Number(premiumToPlace) > Number(grossPremium)
+    ) {
+      throw new BadRequestException(
+        'Placement amounts must be positive and cannot exceed the policy risk after retention',
+      );
+    }
+
     const placementNo = await this.referenceService.next({
       companyId: user.companyId!,
       documentType: 'FACULTATIVE_PLACEMENT',
       prefix: `FAC-${new Date().getFullYear()}-`,
     });
 
-    return this.placementRepository.save(
+    const placement = await this.placementRepository.save(
       this.placementRepository.create({
         company_id: user.companyId!,
         branch_id: policy.branch_id,
@@ -422,6 +711,15 @@ export class ReinsuranceService {
         created_by: user.id,
       }),
     );
+    await this.auditTransition(
+      user,
+      placement.company_id,
+      'reinsurance.facultative.create',
+      'facultative_placements',
+      placement.id,
+      { status: placement.status, policy_id: placement.policy_id },
+    );
+    return placement;
   }
 
   async inviteFacultativeOffer(
@@ -430,6 +728,23 @@ export class ReinsuranceService {
     dto: InviteFacultativeOfferDto,
   ) {
     const placement = await this.getPlacementForWrite(user, placementId);
+    await this.assertPlacementMarketAccess(user, placement);
+
+    const brokerCompanyId =
+      user.companyType === CompanyType.REINSURANCE_BROKER
+        ? user.companyId
+        : dto.reinsurance_broker_company_id;
+    if (
+      user.companyType === CompanyType.REINSURANCE_BROKER &&
+      dto.reinsurance_broker_company_id !== user.companyId
+    ) {
+      throw new ForbiddenException(
+        'A reinsurance broker can only arrange an offer under its own appointed role',
+      );
+    }
+    if (user.companyType !== CompanyType.REINSURANCE_BROKER) {
+      this.assertCedantCompany(user);
+    }
 
     if (
       ![
@@ -455,8 +770,14 @@ export class ReinsuranceService {
         'Selected offer recipient is not a reinsurance company',
       );
     }
+    await this.assertReinsuranceRelationship(
+      placement.company_id,
+      dto.reinsurer_company_id,
+      brokerCompanyId,
+    );
 
     const offeredShare = this.percentage(dto.offered_share_percent);
+    this.assertPercentage(offeredShare, 'Offered share', false);
     const offerNo = await this.referenceService.next({
       companyId: user.companyId!,
       documentType: 'FACULTATIVE_OFFER',
@@ -468,8 +789,7 @@ export class ReinsuranceService {
         company_id: placement.company_id,
         placement_id: placement.id,
         reinsurer_company_id: dto.reinsurer_company_id,
-        reinsurance_broker_company_id:
-          dto.reinsurance_broker_company_id ?? null,
+        reinsurance_broker_company_id: brokerCompanyId ?? null,
         offer_no: offerNo,
         participant_code: dto.participant_code?.trim() ?? null,
         re_broker_code: dto.re_broker_code?.trim() ?? null,
@@ -496,6 +816,18 @@ export class ReinsuranceService {
       await this.placementRepository.save(placement);
     }
 
+    await this.auditTransition(
+      user,
+      offer.company_id,
+      'reinsurance.facultative.offer.invite',
+      'facultative_placement_offers',
+      offer.id,
+      {
+        placement_id: placement.id,
+        reinsurer_company_id: offer.reinsurer_company_id,
+        reinsurance_broker_company_id: offer.reinsurance_broker_company_id,
+      },
+    );
     return offer;
   }
 
@@ -519,11 +851,23 @@ export class ReinsuranceService {
       );
     }
 
+    await this.assertReinsuranceRelationship(
+      offer.company_id,
+      offer.reinsurer_company_id,
+      offer.reinsurance_broker_company_id,
+    );
+
     if (offer.status !== FacultativeOfferStatus.INVITED) {
       throw new ConflictException('This offer has already been responded to');
     }
 
     const quotedShare = this.percentage(dto.quoted_share_percent);
+    this.assertPercentage(quotedShare, 'Quoted share', true);
+    if (Number(quotedShare) > Number(offer.offered_share_percent)) {
+      throw new BadRequestException(
+        'Quoted share cannot exceed the share requested by the cedant',
+      );
+    }
     offer.quoted_share_percent = quotedShare;
     offer.quoted_amount = this.money(
       (Number(offer.placement.amount_to_place) * Number(quotedShare)) / 100,
@@ -549,6 +893,18 @@ export class ReinsuranceService {
     offer.responded_at = new Date();
 
     const saved = await this.offerRepository.save(offer);
+    await this.auditTransition(
+      user,
+      offer.company_id,
+      `reinsurance.facultative.offer.${saved.status.toLowerCase()}`,
+      'facultative_placement_offers',
+      saved.id,
+      {
+        placement_id: saved.placement_id,
+        reinsurer_company_id: saved.reinsurer_company_id,
+        status: saved.status,
+      },
+    );
 
     if (saved.placement.status === FacultativePlacementStatus.MARKETED) {
       saved.placement.status = FacultativePlacementStatus.QUOTED;
@@ -563,56 +919,117 @@ export class ReinsuranceService {
     offerId: string,
     dto: AcceptFacultativeOfferDto,
   ) {
-    const offer = await this.offerRepository.findOne({
-      where: { id: offerId },
-      relations: { placement: true },
+    this.assertCedantCompany(user);
+    const savedCession = await this.dataSource.transaction(async (manager) => {
+      const offerRepository = manager.getRepository(FacultativePlacementOffer);
+      const placementRepository = manager.getRepository(FacultativePlacement);
+      const candidate = await offerRepository.findOne({
+        where: { id: offerId },
+        relations: { placement: true },
+      });
+      if (!candidate) {
+        throw new NotFoundException('Facultative offer not found');
+      }
+      // Serialize every acceptance against the shared placement row. Locking
+      // only an offer would allow two different offers to exceed the target.
+      const lockedPlacement = await placementRepository
+        .createQueryBuilder('placement')
+        .setLock('pessimistic_write')
+        .where('placement.id = :placementId', {
+          placementId: candidate.placement_id,
+        })
+        .andWhere('placement.deleted_at IS NULL')
+        .getOne();
+      if (!lockedPlacement) {
+        throw new NotFoundException('Facultative placement not found');
+      }
+      const offer = await offerRepository.findOne({
+        where: { id: offerId },
+        relations: { placement: true },
+      });
+      if (!offer) {
+        throw new NotFoundException('Facultative offer not found');
+      }
+      offer.placement = lockedPlacement;
+
+      await this.assertPlacementWriteAccess(user, offer.placement);
+      if (offer.status !== FacultativeOfferStatus.QUOTED) {
+        throw new ConflictException('Only a quoted offer can be accepted');
+      }
+      if (
+        offer.placement.submission_deadline &&
+        offer.placement.submission_deadline < new Date()
+      ) {
+        throw new ConflictException(
+          'The placement submission deadline has passed',
+        );
+      }
+
+      const acceptedShare = this.percentage(dto.accepted_share_percent);
+      this.assertPercentage(acceptedShare, 'Accepted share', true);
+      if (Number(acceptedShare) > Number(offer.quoted_share_percent)) {
+        throw new BadRequestException(
+          "Accepted share cannot exceed the reinsurer's quoted share",
+        );
+      }
+
+      const prior = await offerRepository
+        .createQueryBuilder('other')
+        .select('COALESCE(SUM(other.accepted_share_percent), 0)', 'share')
+        .where('other.placement_id = :placementId', {
+          placementId: offer.placement_id,
+        })
+        .andWhere('other.status = :status', {
+          status: FacultativeOfferStatus.ACCEPTED,
+        })
+        .andWhere('other.id <> :offerId', { offerId })
+        .getRawOne<{ share: string }>();
+      const acceptedTotal = Number(prior?.share ?? 0) + Number(acceptedShare);
+      if (
+        acceptedTotal >
+        Number(offer.placement.target_share_percent) + 0.0000001
+      ) {
+        throw new ConflictException(
+          'Accepted participation would exceed the placement target share',
+        );
+      }
+
+      offer.accepted_share_percent = acceptedShare;
+      offer.accepted_amount = this.money(
+        (Number(offer.placement.amount_to_place) * Number(acceptedShare)) / 100,
+      );
+      offer.accepted_premium = this.money(
+        (Number(offer.placement.premium_to_place) * Number(acceptedShare)) /
+          100,
+      );
+      offer.status =
+        Number(acceptedShare) > 0
+          ? FacultativeOfferStatus.ACCEPTED
+          : FacultativeOfferStatus.DECLINED;
+      const saved = await offerRepository.save(offer);
+
+      saved.placement.accepted_share_percent = this.percentage(acceptedTotal);
+      saved.placement.status =
+        acceptedTotal >= Number(saved.placement.target_share_percent)
+          ? FacultativePlacementStatus.FULLY_PLACED
+          : FacultativePlacementStatus.PARTIALLY_PLACED;
+      await placementRepository.save(saved.placement);
+      await this.auditTransition(
+        user,
+        saved.company_id,
+        'reinsurance.facultative.offer.accept',
+        'facultative_placement_offers',
+        saved.id,
+        {
+          placement_id: saved.placement_id,
+          reinsurer_company_id: saved.reinsurer_company_id,
+          accepted_share_percent: saved.accepted_share_percent,
+          accepted_total_percent: acceptedTotal,
+        },
+      );
+      return saved;
     });
-
-    if (!offer) {
-      throw new NotFoundException('Facultative offer not found');
-    }
-
-    await this.assertPlacementWriteAccess(user, offer.placement);
-
-    if (offer.status !== FacultativeOfferStatus.QUOTED) {
-      throw new ConflictException('Only a quoted offer can be accepted');
-    }
-
-    const acceptedShare = this.percentage(dto.accepted_share_percent);
-    offer.accepted_share_percent = acceptedShare;
-    offer.accepted_amount = this.money(
-      (Number(offer.placement.amount_to_place) * Number(acceptedShare)) / 100,
-    );
-    offer.accepted_premium = this.money(
-      (Number(offer.placement.premium_to_place) * Number(acceptedShare)) / 100,
-    );
-    offer.status =
-      Number(acceptedShare) > 0
-        ? FacultativeOfferStatus.ACCEPTED
-        : FacultativeOfferStatus.DECLINED;
-
-    const saved = await this.offerRepository.save(offer);
-
-    const totals = await this.offerRepository
-      .createQueryBuilder('offer')
-      .select('COALESCE(SUM(offer.accepted_share_percent), 0)', 'share')
-      .where('offer.placement_id = :placementId', {
-        placementId: saved.placement_id,
-      })
-      .andWhere('offer.status = :status', {
-        status: FacultativeOfferStatus.ACCEPTED,
-      })
-      .getRawOne<{ share: string }>();
-
-    const acceptedTotal = Number(totals?.share ?? 0);
-    saved.placement.accepted_share_percent = this.percentage(acceptedTotal);
-    saved.placement.status =
-      acceptedTotal >= Number(saved.placement.target_share_percent)
-        ? FacultativePlacementStatus.FULLY_PLACED
-        : FacultativePlacementStatus.PARTIALLY_PLACED;
-    await this.placementRepository.save(saved.placement);
-
-    return saved;
+    return savedCession;
   }
 
   async findCessions(user: AuthenticatedUser) {
@@ -625,7 +1042,15 @@ export class ReinsuranceService {
 
     this.scopeService.applyReinsuranceCessionReadScope(query, 'cession', scope);
 
-    return query.getMany();
+    const cessions = await query.getMany();
+    return cessions.map((cession) => ({
+      ...cession,
+      participants: (cession.participants ?? []).filter(
+        (participant) =>
+          participant.participant_company_id === scope.companyId ||
+          participant.reinsurance_broker_company_id === scope.companyId,
+      ),
+    }));
   }
 
   async createPolicyCession(
@@ -634,20 +1059,34 @@ export class ReinsuranceService {
   ) {
     this.assertCedantCompany(user);
 
-    return this.dataSource.transaction(async (manager) => {
+    const savedCession = await this.dataSource.transaction(async (manager) => {
       const policy = await this.getPolicyForWrite(user, dto.policy_id, manager);
       const policyRisk = dto.policy_risk_id
         ? await this.getPolicyRisk(policy.id, dto.policy_risk_id, manager)
         : null;
 
+      if (dto.cession_type === ReinsuranceCessionType.MIXED) {
+        throw new BadRequestException(
+          'Mixed treaty and facultative allocation is not supported; create separate cessions so each share and premium remains attributable',
+        );
+      }
+
       const cessionParticipants = await this.resolveParticipantsForCession(
         manager,
         dto,
+        user.companyId!,
       );
 
       if (!cessionParticipants.length) {
         throw new ConflictException(
           'No participant capacity is available for this cession',
+        );
+      }
+      for (const participant of cessionParticipants) {
+        await this.assertReinsuranceRelationship(
+          user.companyId!,
+          participant.participant_company_id,
+          participant.reinsurance_broker_company_id,
         );
       }
 
@@ -657,26 +1096,83 @@ export class ReinsuranceService {
       const grossPremium = Number(
         policyRisk?.total_premium ?? policy.total_premium,
       );
-      const retentionAmount = Number(
+      let retentionAmount = Number(
         dto.retention_amount ??
           policyRisk?.retention_amount ??
           policy.retention_amount ??
           0,
       );
-      const cededSumInsured = Math.max(0, grossSumInsured - retentionAmount);
-      const cededPremium = Math.max(
+      if (
+        !Number.isFinite(retentionAmount) ||
+        retentionAmount < 0 ||
+        retentionAmount > grossSumInsured
+      ) {
+        throw new BadRequestException(
+          'Retention must be between zero and the policy risk sum insured',
+        );
+      }
+
+      let cededSumInsured = Math.max(0, grossSumInsured - retentionAmount);
+      let cededPremium = Math.max(
         0,
         grossPremium *
           (grossSumInsured > 0 ? cededSumInsured / grossSumInsured : 0),
       );
+
+      if (dto.cession_type === ReinsuranceCessionType.FACULTATIVE) {
+        const placement = await manager
+          .getRepository(FacultativePlacement)
+          .findOne({ where: { id: dto.facultative_placement_id } });
+        if (
+          !placement ||
+          placement.company_id !== user.companyId ||
+          placement.policy_id !== policy.id ||
+          (policyRisk && placement.policy_risk_id !== policyRisk.id) ||
+          ![
+            FacultativePlacementStatus.PARTIALLY_PLACED,
+            FacultativePlacementStatus.FULLY_PLACED,
+          ].includes(placement.status)
+        ) {
+          throw new BadRequestException(
+            'Facultative placement must belong to this insurer and policy risk',
+          );
+        }
+        const acceptedAmount = cessionParticipants.reduce(
+          (total, participant) =>
+            total + Number(participant.accepted_amount ?? 0),
+          0,
+        );
+        const acceptedPremium = cessionParticipants.reduce(
+          (total, participant) =>
+            total + Number(participant.accepted_premium ?? 0),
+          0,
+        );
+        if (acceptedAmount <= 0 || acceptedAmount > grossSumInsured) {
+          throw new ConflictException(
+            'Accepted facultative capacity is missing or exceeds the policy risk',
+          );
+        }
+        cededSumInsured = acceptedAmount;
+        cededPremium = acceptedPremium;
+        retentionAmount = grossSumInsured - cededSumInsured;
+        for (const participant of cessionParticipants) {
+          participant.premium_share = this.percentage(
+            (Number(participant.accepted_amount ?? 0) / acceptedAmount) * 100,
+          );
+        }
+      }
 
       if (dto.treaty_id) {
         await this.capacityService.assertCapacityAvailable(user, {
           treatyId: dto.treaty_id,
           treatySectionId: dto.treaty_section_id ?? null,
           exposureAmount: cededSumInsured,
-          classOfBusiness: policy.product_id,
-          territory: null,
+          classOfBusiness:
+            policy.business_line ?? policy.category_id ?? policy.product_id,
+          territory: this.policyTerritory(
+            policyRisk?.subject_matter?.country_code ?? null,
+            policy.customer_snapshot,
+          ),
         });
       }
 
@@ -765,6 +1261,22 @@ export class ReinsuranceService {
         relations: { participants: true, policy: true },
       });
     });
+    await this.auditTransition(
+      user,
+      savedCession.company_id,
+      'reinsurance.cession.calculate',
+      'policy_cessions',
+      savedCession.id,
+      {
+        cession_type: savedCession.cession_type,
+        status: savedCession.status,
+        treaty_id: savedCession.treaty_id,
+        facultative_placement_id: savedCession.facultative_placement_id,
+        ceded_sum_insured: savedCession.ceded_sum_insured,
+        ceded_premium: savedCession.ceded_premium,
+      },
+    );
+    return savedCession;
   }
 
   async submitCession(user: AuthenticatedUser, cessionId: string) {
@@ -777,7 +1289,16 @@ export class ReinsuranceService {
     cession.status = ReinsuranceCessionStatus.SUBMITTED;
     cession.submitted_by = user.id;
     cession.submitted_at = new Date();
-    return this.cessionRepository.save(cession);
+    const saved = await this.cessionRepository.save(cession);
+    await this.auditTransition(
+      user,
+      saved.company_id,
+      'reinsurance.cession.submit',
+      'policy_cessions',
+      saved.id,
+      { status: saved.status },
+    );
+    return saved;
   }
 
   async approveCession(user: AuthenticatedUser, cessionId: string) {
@@ -790,7 +1311,16 @@ export class ReinsuranceService {
     cession.status = ReinsuranceCessionStatus.APPROVED;
     cession.approved_by = user.id;
     cession.approved_at = new Date();
-    return this.cessionRepository.save(cession);
+    const saved = await this.cessionRepository.save(cession);
+    await this.auditTransition(
+      user,
+      saved.company_id,
+      'reinsurance.cession.approve',
+      'policy_cessions',
+      saved.id,
+      { status: saved.status },
+    );
+    return saved;
   }
 
   async applyCession(user: AuthenticatedUser, cessionId: string) {
@@ -830,6 +1360,19 @@ export class ReinsuranceService {
         );
       }
     });
+
+    await this.auditTransition(
+      user,
+      cession.company_id,
+      'reinsurance.cession.apply',
+      'policy_cessions',
+      cession.id,
+      {
+        status: ReinsuranceCessionStatus.ACTIVE,
+        ceded_sum_insured: cession.ceded_sum_insured,
+        ceded_premium: cession.ceded_premium,
+      },
+    );
 
     return this.cessionRepository.findOneOrFail({
       where: { id: cession.id },
@@ -886,7 +1429,7 @@ export class ReinsuranceService {
       prefix: `RED-${new Date().getFullYear()}-`,
     });
 
-    return this.declarationRepository.save(
+    const declaration = await this.declarationRepository.save(
       this.declarationRepository.create({
         company_id: cession.company_id,
         branch_id: cession.branch_id,
@@ -912,6 +1455,15 @@ export class ReinsuranceService {
         },
       }),
     );
+    await this.auditTransition(
+      user,
+      declaration.company_id,
+      'reinsurance.declaration.create',
+      'reinsurance_declarations',
+      declaration.id,
+      { cession_id: cession.id, status: declaration.status },
+    );
+    return declaration;
   }
 
   async submitDeclarationToTiramis(
@@ -945,6 +1497,14 @@ export class ReinsuranceService {
       result?.submittedPayload ?? declaration.tiramis_payload;
 
     await this.declarationRepository.save(declaration);
+    await this.auditTransition(
+      user,
+      declaration.company_id,
+      'reinsurance.declaration.submit',
+      'reinsurance_declarations',
+      declaration.id,
+      { status: declaration.status },
+    );
 
     await this.createWorkflowArtifacts({
       user,
@@ -964,6 +1524,7 @@ export class ReinsuranceService {
   private async resolveParticipantsForCession(
     manager: EntityManager,
     dto: CreatePolicyCessionDto,
+    cedantCompanyId: string,
   ) {
     if (dto.cession_type === ReinsuranceCessionType.TREATY) {
       if (!dto.treaty_id) {
@@ -973,12 +1534,14 @@ export class ReinsuranceService {
       }
 
       const treaty = await manager.getRepository(ReinsuranceTreaty).findOne({
-        where: { id: dto.treaty_id },
+        where: { id: dto.treaty_id, company_id: cedantCompanyId },
       });
 
       if (
         !treaty ||
-        ![TreatyStatus.ACTIVE, TreatyStatus.APPROVED].includes(treaty.status)
+        treaty.status !== TreatyStatus.ACTIVE ||
+        treaty.effective_from > new Date().toISOString().slice(0, 10) ||
+        treaty.effective_to < new Date().toISOString().slice(0, 10)
       ) {
         throw new ConflictException('The selected treaty is not active');
       }
@@ -1003,7 +1566,16 @@ export class ReinsuranceService {
 
       const participants = await participantQuery.getMany();
 
-      return participants.map((participant) => ({
+      const today = new Date().toISOString().slice(0, 10);
+      const activeParticipants = participants.filter(
+        (participant) =>
+          participant.status === TreatyParticipantStatus.ACTIVE &&
+          (!participant.effective_from ||
+            participant.effective_from <= today) &&
+          (!participant.effective_to || participant.effective_to >= today),
+      );
+
+      return activeParticipants.map((participant) => ({
         participant_company_id: participant.participant_company_id,
         reinsurance_broker_company_id:
           participant.reinsurance_broker_company_id,
@@ -1019,6 +1591,8 @@ export class ReinsuranceService {
           participant.reinsurance_commission_rate,
         ),
         premium_share: participant.share_percent,
+        accepted_amount: null,
+        accepted_premium: null,
       }));
     }
 
@@ -1038,7 +1612,10 @@ export class ReinsuranceService {
           },
         });
 
-      return offers.map((offer) => ({
+      const accepted = offers.filter(
+        (offer) => Number(offer.accepted_amount) > 0,
+      );
+      return accepted.map((offer) => ({
         participant_company_id: offer.reinsurer_company_id,
         reinsurance_broker_company_id: offer.reinsurance_broker_company_id,
         source_treaty_participant_id: null,
@@ -1051,20 +1628,30 @@ export class ReinsuranceService {
         brokerage_commission: this.money(offer.brokerage_commission_rate),
         reinsurance_commission: this.money(offer.reinsurance_commission_rate),
         premium_share: offer.accepted_share_percent,
+        accepted_amount: offer.accepted_amount,
+        accepted_premium: offer.accepted_premium,
       }));
     }
 
     const treatyParticipants = dto.treaty_id
-      ? await this.resolveParticipantsForCession(manager, {
-          ...dto,
-          cession_type: ReinsuranceCessionType.TREATY,
-        })
+      ? await this.resolveParticipantsForCession(
+          manager,
+          {
+            ...dto,
+            cession_type: ReinsuranceCessionType.TREATY,
+          },
+          cedantCompanyId,
+        )
       : [];
     const facParticipants = dto.facultative_placement_id
-      ? await this.resolveParticipantsForCession(manager, {
-          ...dto,
-          cession_type: ReinsuranceCessionType.FACULTATIVE,
-        })
+      ? await this.resolveParticipantsForCession(
+          manager,
+          {
+            ...dto,
+            cession_type: ReinsuranceCessionType.FACULTATIVE,
+          },
+          cedantCompanyId,
+        )
       : [];
 
     return [...treatyParticipants, ...facParticipants];
@@ -1087,21 +1674,43 @@ export class ReinsuranceService {
     return treaty;
   }
 
+  private async getTreatyForRead(user: AuthenticatedUser, treatyId: string) {
+    const scope = this.scopeService.resolve(user);
+    const query = this.treatyRepository
+      .createQueryBuilder('treaty')
+      .where('treaty.id = :id', { id: treatyId });
+    this.scopeService.applyTreatyReadScope(query, 'treaty', scope);
+    const treaty = await query.getOne();
+    if (!treaty) throw new NotFoundException('Reinsurance treaty not found');
+    return treaty;
+  }
+
   private async getPlacementForWrite(
     user: AuthenticatedUser,
     placementId: string,
   ) {
     const scope = this.scopeService.resolve(user);
-    const query = this.placementRepository
-      .createQueryBuilder('placement')
-      .where('placement.id = :id', { id: placementId });
-
-    this.scopeService.applyOwnedRecordWriteScope(query, 'placement', scope);
-
-    const placement = await query.getOne();
+    const placement = await this.placementRepository.findOne({
+      where: { id: placementId },
+    });
 
     if (!placement) {
       throw new NotFoundException('Facultative placement not found');
+    }
+
+    if (placement.company_id !== scope.companyId) {
+      if (user.companyType !== CompanyType.REINSURANCE_BROKER) {
+        throw new NotFoundException('Facultative placement not found');
+      }
+      const relationship =
+        await this.insurancePartnersService.findActiveCompanyRelationship(
+          placement.company_id,
+          scope.companyId,
+          PartnerType.REINSURANCE_BROKER,
+        );
+      if (!relationship) {
+        throw new NotFoundException('Facultative placement not found');
+      }
     }
 
     return placement;
@@ -1176,6 +1785,7 @@ export class ReinsuranceService {
       manager?.getRepository(PolicyRisk) ?? this.policyRiskRepository;
     const policyRisk = await repository.findOne({
       where: { id: policyRiskId, policy_id: policyId },
+      relations: { subject_matter: true },
     });
 
     if (!policyRisk) {
@@ -1196,7 +1806,14 @@ export class ReinsuranceService {
       .createQueryBuilder('participant')
       .select('COALESCE(SUM(participant.share_percent), 0)', 'share')
       .where('participant.treaty_id = :treatyId', { treatyId: params.treatyId })
-      .andWhere('participant.deleted_at IS NULL');
+      .andWhere('participant.deleted_at IS NULL')
+      .andWhere('participant.status IN (:...reservedStatuses)', {
+        reservedStatuses: [
+          TreatyParticipantStatus.INVITED,
+          TreatyParticipantStatus.CONFIRMED,
+          TreatyParticipantStatus.ACTIVE,
+        ],
+      });
 
     if (params.treatySectionId) {
       query.andWhere('participant.treaty_section_id = :sectionId', {
@@ -1214,6 +1831,48 @@ export class ReinsuranceService {
     }
   }
 
+  private async assertReinsuranceRelationship(
+    insurerCompanyId: string,
+    reinsurerCompanyId: string,
+    brokerCompanyId?: string | null,
+  ) {
+    const reinsurerRelationship =
+      await this.insurancePartnersService.findActiveCompanyRelationship(
+        insurerCompanyId,
+        reinsurerCompanyId,
+        PartnerType.REINSURANCE_COMPANY,
+      );
+    if (!reinsurerRelationship) {
+      throw new ForbiddenException(
+        'An active insurer-reinsurer relationship is required before sharing reinsurance business',
+      );
+    }
+    if (brokerCompanyId) {
+      const brokerRelationship =
+        await this.insurancePartnersService.findActiveCompanyRelationship(
+          insurerCompanyId,
+          brokerCompanyId,
+          PartnerType.REINSURANCE_BROKER,
+        );
+      if (!brokerRelationship) {
+        throw new ForbiddenException(
+          'The reinsurance broker must have an active relationship with the originating insurer',
+        );
+      }
+      const reinsurerBrokerRelationship =
+        await this.insurancePartnersService.findActiveCompanyRelationship(
+          reinsurerCompanyId,
+          brokerCompanyId,
+          PartnerType.REINSURANCE_BROKER,
+        );
+      if (!reinsurerBrokerRelationship) {
+        throw new ForbiddenException(
+          'The reinsurance broker must also be appointed by the participating reinsurer',
+        );
+      }
+    }
+  }
+
   /**
    * A single treaty participant push is only checked against a 100% ceiling
    * (`assertTreatyShareAvailable`) — nothing ever verified the shares add up
@@ -1222,15 +1881,18 @@ export class ReinsuranceService {
    * treaty as a whole.
    */
   private async assertParticipantSharesComplete(treatyId: string) {
+    const sectionCount =
+      (await this.sectionRepository.count?.({
+        where: { treaty_id: treatyId },
+      })) ?? 0;
     const rows = await this.treatyParticipantRepository
       .createQueryBuilder('participant')
       .select('participant.treaty_section_id', 'sectionId')
       .addSelect('COALESCE(SUM(participant.share_percent), 0)', 'share')
       .where('participant.treaty_id = :treatyId', { treatyId })
       .andWhere('participant.deleted_at IS NULL')
-      .andWhere('participant.status IN (:...statuses)', {
-        statuses: [
-          TreatyParticipantStatus.INVITED,
+      .andWhere('participant.status IN (:...acceptedStatuses)', {
+        acceptedStatuses: [
           TreatyParticipantStatus.CONFIRMED,
           TreatyParticipantStatus.ACTIVE,
         ],
@@ -1242,6 +1904,22 @@ export class ReinsuranceService {
       throw new BadRequestException(
         'Treaty has no participants — add participants before activation',
       );
+    }
+
+    if (sectionCount > 0) {
+      const configuredSections = new Set(
+        rows
+          .map((row) => row.sectionId)
+          .filter((sectionId): sectionId is string => Boolean(sectionId)),
+      );
+      if (
+        rows.some((row) => !row.sectionId) ||
+        configuredSections.size !== sectionCount
+      ) {
+        throw new BadRequestException(
+          'Every treaty section must have its own complete participant allocation before activation',
+        );
+      }
     }
 
     const EPSILON = 0.0001;
@@ -1268,6 +1946,114 @@ export class ReinsuranceService {
         'Only the placement owner can manage this facultative placement',
       );
     }
+  }
+
+  private async assertPlacementMarketAccess(
+    user: AuthenticatedUser,
+    placement: FacultativePlacement,
+  ) {
+    const scope = this.scopeService.resolve(user);
+    if (scope.companyId === placement.company_id) return;
+    if (user.companyType !== CompanyType.REINSURANCE_BROKER) {
+      throw new ForbiddenException(
+        'Only the cedant or its appointed reinsurance broker can market this placement',
+      );
+    }
+    const relationship =
+      await this.insurancePartnersService.findActiveCompanyRelationship(
+        placement.company_id,
+        scope.companyId,
+        PartnerType.REINSURANCE_BROKER,
+      );
+    if (!relationship) {
+      throw new ForbiddenException(
+        'An active cedant-reinsurance broker relationship is required',
+      );
+    }
+  }
+
+  private assertPercentage(value: string, label: string, allowZero: boolean) {
+    const amount = Number(value);
+    if (
+      !Number.isFinite(amount) ||
+      amount > 100 ||
+      amount < (allowZero ? 0 : Number.EPSILON)
+    ) {
+      throw new BadRequestException(
+        `${label} must be between ${allowZero ? '0' : 'a value above 0'} and 100 percent`,
+      );
+    }
+  }
+
+  private policyTerritory(
+    countryCode: string | null,
+    snapshot: Record<string, unknown> | null,
+  ): ReinsuranceTerritory | null {
+    const direct = snapshot?.territory;
+    if (
+      direct === ReinsuranceTerritory.DOMESTIC ||
+      direct === ReinsuranceTerritory.REGIONAL ||
+      direct === ReinsuranceTerritory.INTERNATIONAL
+    ) {
+      return direct;
+    }
+    const country = (
+      countryCode ??
+      (typeof snapshot?.country_code === 'string'
+        ? snapshot.country_code
+        : typeof snapshot?.country === 'string'
+          ? snapshot.country
+          : '')
+    )
+      .trim()
+      .toUpperCase();
+    if (!country) return null;
+    if (
+      ['TZ', 'TZA', 'TAN', 'TANZANIA', 'UNITED REPUBLIC OF TANZANIA'].includes(
+        country,
+      )
+    ) {
+      return ReinsuranceTerritory.DOMESTIC;
+    }
+    if (
+      [
+        'KE',
+        'KEN',
+        'UG',
+        'UGA',
+        'RW',
+        'RWA',
+        'BI',
+        'BDI',
+        'SS',
+        'SSD',
+        'CD',
+        'COD',
+      ].includes(country)
+    ) {
+      return ReinsuranceTerritory.REGIONAL;
+    }
+    return ReinsuranceTerritory.INTERNATIONAL;
+  }
+
+  private async auditTransition(
+    user: AuthenticatedUser,
+    companyId: string,
+    action: string,
+    resource: string,
+    resourceId: string,
+    afterState: Record<string, unknown>,
+  ) {
+    await this.auditService.log?.({
+      userId: user.id,
+      companyId,
+      action,
+      eventCategory: 'REINSURANCE',
+      resource,
+      resourceId,
+      afterState,
+      metadata: { actor_company_id: user.companyId ?? null },
+    });
   }
 
   private mapDeclarationParticipant(

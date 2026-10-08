@@ -6,6 +6,8 @@ import { MailModule } from '../../shared/mail/mail.module';
 
 import { Company } from '../../platform/companies/entities/company.entity';
 import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
+import { Branch } from '../branches/entities/branch.entity';
+import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
@@ -17,6 +19,7 @@ import { CustomersModule } from '../customers/customers.module';
 import { Customer } from '../customers/entities/customer.entity';
 import { ClaimsModule } from '../claims/claims.module';
 import { InsuranceDocumentsModule } from '../insurance-documents/insurance-documents.module';
+import { InsurancePartnersModule } from '../insurance-partners/insurance-partners.module';
 import { DocumentLink } from '../insurance-documents/entities/document-link.entity';
 import { Document } from '../insurance-documents/entities/document.entity';
 import { SignatureEvent } from '../insurance-documents/entities/signature-event.entity';
@@ -80,6 +83,8 @@ import { PublicMotorPurchaseService } from './services/public-motor-purchase.ser
       Customer,
       Company,
       CompanyUser,
+      Branch,
+      TiramisSalePointEntity,
       InsuranceProduct,
       InsuranceRisk,
       MotorVehicle,
@@ -105,6 +110,7 @@ import { PublicMotorPurchaseService } from './services/public-motor-purchase.ser
     CustomersModule,
     ClaimsModule,
     InsuranceDocumentsModule,
+    InsurancePartnersModule,
     VerificationsModule,
   ],
   controllers: [

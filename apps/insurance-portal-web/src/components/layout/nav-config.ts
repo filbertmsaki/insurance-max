@@ -40,6 +40,8 @@ import {
   MessagesSquare,
   Percent,
   ClipboardCheck,
+  MapPinned,
+  ScrollText,
 } from 'lucide-react';
 import { buildClaimsNavNodes } from '@/modules/tenant/claims/nav';
 import { buildUnderwriteNavNodes } from '@/modules/tenant/underwrite/nav';
@@ -135,6 +137,22 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
+        label: 'Sales Points',
+        to: '/sale-points',
+        icon: MapPinned,
+        permission: 'sale-points:read',
+        hideForStandardUser: true,
+      },
+      {
+        kind: 'link',
+        label: 'Insurance Partners',
+        to: '/insurance-partners',
+        icon: GitBranch,
+        permission: 'insurance-partners:read',
+        hideForStandardUser: true,
+      },
+      {
+        kind: 'link',
         label: 'Departments',
         to: '/departments',
         icon: FileText,
@@ -184,6 +202,13 @@ export const NAV_NODES: NavNode[] = [
         to: '/reference-data',
         icon: Globe2,
         anyRole: ['SUPER_ADMIN', 'OWNER'],
+      },
+      {
+        kind: 'link',
+        label: 'Audit Log',
+        to: '/audit-logs',
+        icon: ScrollText,
+        permission: 'audit:read',
       },
     ],
   },

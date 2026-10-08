@@ -249,6 +249,10 @@ export function PortalBusinessListPage({
   resource: PortalResource;
 }) {
   const [search, setSearch] = useState('');
+  const [selectedQuotationIds, setSelectedQuotationIds] = useState<string[]>(
+    [],
+  );
+  const [comparisonOpen, setComparisonOpen] = useState(false);
   const [paymentRecord, setPaymentRecord] =
     useState<PortalBusinessRecord | null>(null);
   const [paymentForm, setPaymentForm] = useState({
@@ -317,6 +321,17 @@ export function PortalBusinessListPage({
   const canOpenDetail = supportsDetail(resource);
   const hasActions =
     canOpenDetail || resource === 'invoices' || resource === 'requests';
+
+  const compareMutation = useMutation({
+    mutationFn: () =>
+      portalApi.compareIntermediaryQuotations(selectedQuotationIds),
+    onSuccess: () => setComparisonOpen(true),
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : 'Quotation comparison failed',
+      ),
+  });
+  const comparison = compareMutation.data ?? [];
 
   const paymentMutation = useMutation({
     mutationFn: async () => {
@@ -564,12 +579,24 @@ export function PortalBusinessListPage({
               </Button>
             ) : null}
             {audience === 'intermediary' && resource === 'quotations' ? (
-              <Button asChild>
-                <Link to="/intermediary/quotations/new">
-                  <Plus className="h-4 w-4" />
-                  New quotation
-                </Link>
-              </Button>
+              <>
+                {selectedQuotationIds.length >= 2 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={compareMutation.isPending}
+                    onClick={() => compareMutation.mutate()}
+                  >
+                    Compare ({selectedQuotationIds.length})
+                  </Button>
+                ) : null}
+                <Button asChild>
+                  <Link to="/intermediary/quotations/new">
+                    <Plus className="h-4 w-4" />
+                    New quotation
+                  </Link>
+                </Button>
+              </>
             ) : null}
             {resource === 'claims' ? (
               <Button type="button" onClick={() => setClaimDialogOpen(true)}>
@@ -614,6 +641,9 @@ export function PortalBusinessListPage({
             <Table>
               <TableHeader>
                 <TableRow>
+                  {audience === 'intermediary' && resource === 'quotations' ? (
+                    <TableHead>Select</TableHead>
+                  ) : null}
                   {config.columns.map((column) => (
                     <TableHead key={column.label}>{column.label}</TableHead>
                   ))}
@@ -626,6 +656,25 @@ export function PortalBusinessListPage({
               <TableBody>
                 {records.map((record) => (
                   <TableRow key={record.id}>
+                    {audience === 'intermediary' &&
+                    resource === 'quotations' ? (
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select quotation ${text(record.quotation_no) ?? ''} for comparison`}
+                          checked={selectedQuotationIds.includes(record.id)}
+                          onChange={(event) =>
+                            setSelectedQuotationIds((current) =>
+                              event.target.checked
+                                ? current.length < 10
+                                  ? [...current, record.id]
+                                  : current
+                                : current.filter((id) => id !== record.id),
+                            )
+                          }
+                        />
+                      </TableCell>
+                    ) : null}
                     {config.columns.map((column) => (
                       <TableCell key={column.label}>
                         {column.render(record) ?? '-'}
@@ -760,6 +809,64 @@ export function PortalBusinessListPage({
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={comparisonOpen} onOpenChange={setComparisonOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Quotation comparison</DialogTitle>
+            <DialogDescription>
+              Review authorized offers for this customer. Premiums and cover
+              dates come from each insurer’s saved quotation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Insurer</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Quotation</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Premium before tax</TableHead>
+                  <TableHead>Premium with tax</TableHead>
+                  <TableHead>Cover period</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {comparison.map((offer) => (
+                  <TableRow key={offer.id}>
+                    <TableCell>
+                      {offer.insurer_name ?? offer.insurer_company_id}
+                    </TableCell>
+                    <TableCell>
+                      {offer.product_name ?? offer.product_id}
+                    </TableCell>
+                    <TableCell>{offer.quotation_no}</TableCell>
+                    <TableCell>{offer.status}</TableCell>
+                    <TableCell>
+                      {offer.currency ?? ''}{' '}
+                      {offer.premium_excluding_tax ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      {offer.currency ?? ''}{' '}
+                      {offer.premium_including_tax ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      {date(offer.cover_note_start_date)} –{' '}
+                      {date(offer.cover_note_end_date)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setComparisonOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(paymentRecord)}

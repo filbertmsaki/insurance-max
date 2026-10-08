@@ -99,7 +99,7 @@ export class WorkItemsController {
   }
 
   @Post(':id/comment')
-  @Permissions('work-items:read')
+  @Permissions('work-items:comment', 'work-items:read')
   comment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

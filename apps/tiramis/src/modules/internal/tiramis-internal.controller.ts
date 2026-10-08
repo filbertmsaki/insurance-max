@@ -1,5 +1,6 @@
 import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
+import { ServiceScopes } from '@insurance-max/shared-kernel';
 
 import { TiramisClaimService } from '../claims/services/tiramis-claim.service';
 import { TiramisDischargeVoucherService } from '../claims/services/tiramis-discharge-voucher.service';
@@ -14,6 +15,7 @@ import type {
 } from './dto/submit-tiramis-command.dto';
 
 @Controller()
+@ServiceScopes('tiramis:submit')
 export class TiramisInternalController {
   private readonly logger = new Logger(TiramisInternalController.name);
 
@@ -145,6 +147,7 @@ export class TiramisInternalController {
   }
 
   @MessagePattern('tiramis.submission.status')
+  @ServiceScopes('tiramis:read')
   async getSubmissionStatus(
     @Payload() query: TiramisSubmissionQueryCommandDto,
   ) {
@@ -164,6 +167,7 @@ export class TiramisInternalController {
   }
 
   @MessagePattern('tiramis.submission.trace')
+  @ServiceScopes('tiramis:read')
   async getSubmissionTrace(@Payload() query: TiramisSubmissionQueryCommandDto) {
     try {
       return await this.submissionService.getSubmissionTrace({
@@ -188,33 +192,24 @@ export class TiramisInternalController {
     try {
       this.assertCommand(command, expectedType);
 
-      this.logger.log(
-        `Received ${command.requestType} submission from portal: ${
-          command.businessReference || this.resolveBusinessReference(command)
-        }`,
-      );
+      this.logger.log(`Received ${command.requestType} submission from portal`);
 
       const result = await handler();
 
       return this.formatSubmitResponse(result);
     } catch (error: any) {
+      // Do not put upstream payloads, customer fields, URLs, or credentials in
+      // transport logs or RPC error responses. Detailed diagnostics stay in
+      // the submission attempt record behind the separate read capability.
       this.logger.error(
-        `${command?.requestType || 'TIRAMIS'} submission failed: ${
-          error?.message || 'Unknown error'
-        }`,
-        error?.stack,
+        `${command?.requestType || 'TIRAMIS'} submission failed (${this.safeErrorCode(error)})`,
       );
-
-      const response = error?.response || error?.error || null;
 
       throw new RpcException({
         ok: false,
-        message: error?.message || 'TIRAMIS submission failed',
-        details: response,
-        ...(Array.isArray(response?.validation_errors)
-          ? { validation_errors: response.validation_errors }
-          : {}),
-        ...(Array.isArray(response?.errors) ? { errors: response.errors } : {}),
+        code: 'TIRAMIS_SUBMISSION_FAILED',
+        message:
+          'TIRAMIS submission failed; use the authorized submission trace for details.',
       });
     }
   }
@@ -242,6 +237,20 @@ export class TiramisInternalController {
     if (!command.payload) {
       throw new Error('payload is required');
     }
+  }
+
+  private safeErrorCode(error: unknown): string {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'constructor' in error &&
+      error.constructor &&
+      'name' in error.constructor &&
+      typeof error.constructor.name === 'string'
+    ) {
+      return error.constructor.name.slice(0, 40);
+    }
+    return 'UnknownError';
   }
 
   private buildSourceMetadata(command: SubmitTiramisCommandDto) {

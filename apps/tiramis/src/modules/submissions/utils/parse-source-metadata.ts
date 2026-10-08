@@ -26,6 +26,8 @@ export function parseSourceMetadata(
       'businessReference',
       'requestType',
       'requestId',
+      'idempotencyKey',
+      'payloadHash',
       'portalWebhookUrl',
     ];
     for (const field of fields) {
@@ -33,6 +35,18 @@ export function parseSourceMetadata(
       if (value != null && typeof value !== 'string') {
         throw new Error('Invalid source metadata');
       }
+    }
+    const idempotencyKey = (metadata as TiramisSourceMetadataDto)
+      .idempotencyKey;
+    if (
+      idempotencyKey &&
+      (idempotencyKey.trim().length === 0 || idempotencyKey.length > 180)
+    ) {
+      throw new Error('Invalid idempotency key');
+    }
+    const payloadHash = (metadata as TiramisSourceMetadataDto).payloadHash;
+    if (payloadHash && !/^[a-f0-9]{64}$/i.test(payloadHash)) {
+      throw new Error('Invalid payload hash');
     }
 
     const portalWebhookUrl = (metadata as TiramisSourceMetadataDto)

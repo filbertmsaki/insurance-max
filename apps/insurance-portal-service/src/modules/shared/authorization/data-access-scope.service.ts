@@ -505,6 +505,13 @@ export class DataAccessScopeService {
                   AND scoped_participant.participant_company_id = :reScopeCompanyId
                   AND scoped_participant.deleted_at IS NULL
               )
+            OR EXISTS (
+              SELECT 1
+              FROM reinsurance_treaty_participants scoped_broker
+              WHERE scoped_broker.treaty_id = ${alias}.id
+                AND scoped_broker.reinsurance_broker_company_id = :reScopeCompanyId
+                AND scoped_broker.deleted_at IS NULL
+            )
             `);
         }),
       );
@@ -512,7 +519,17 @@ export class DataAccessScopeService {
     if (!scope.canViewAllBranches) {
       if (!scope.allowedBranchIds.length) {
         queryBuilder.andWhere(
-          `(${alias}.branch_id IS NULL OR ${alias}.created_by = :scopeUserId)`,
+          `(${alias}.branch_id IS NULL OR ${alias}.created_by = :scopeUserId OR EXISTS (
+            SELECT 1 FROM reinsurance_treaty_participants participant
+            WHERE participant.treaty_id = ${alias}.id
+              AND participant.participant_company_id = :reScopeCompanyId
+              AND participant.deleted_at IS NULL
+          ) OR EXISTS (
+            SELECT 1 FROM reinsurance_treaty_participants broker
+            WHERE broker.treaty_id = ${alias}.id
+              AND broker.reinsurance_broker_company_id = :reScopeCompanyId
+              AND broker.deleted_at IS NULL
+          ))`,
           { scopeUserId: scope.userId },
         );
       } else {
@@ -527,6 +544,13 @@ export class DataAccessScopeService {
                   WHERE scoped_participant_branch.treaty_id = ${alias}.id
                     AND scoped_participant_branch.participant_company_id = :reScopeCompanyId
                     AND scoped_participant_branch.deleted_at IS NULL
+                )
+                OR EXISTS (
+                  SELECT 1
+                  FROM reinsurance_treaty_participants scoped_broker_branch
+                  WHERE scoped_broker_branch.treaty_id = ${alias}.id
+                    AND scoped_broker_branch.reinsurance_broker_company_id = :reScopeCompanyId
+                    AND scoped_broker_branch.deleted_at IS NULL
                 )
               `);
           }),
@@ -553,7 +577,9 @@ export class DataAccessScopeService {
                 SELECT 1
                 FROM policy_cession_participants scoped_participant
                 WHERE scoped_participant.cession_id = ${alias}.id
-                  AND scoped_participant.participant_company_id = :reCessionCompanyId
+                  AND (scoped_participant.participant_company_id = :reCessionCompanyId
+                    OR scoped_participant.reinsurance_broker_company_id = :reCessionCompanyId)
+                  AND scoped_participant.deleted_at IS NULL
               )
             `);
         }),
@@ -562,7 +588,15 @@ export class DataAccessScopeService {
     if (!scope.canViewAllBranches) {
       if (!scope.allowedBranchIds.length) {
         queryBuilder.andWhere(
-          `(${alias}.branch_id IS NULL OR ${alias}.created_by = :reCessionUserId)`,
+          `(
+            ${alias}.branch_id IS NULL OR ${alias}.created_by = :reCessionUserId OR EXISTS (
+              SELECT 1 FROM policy_cession_participants scoped_external
+              WHERE scoped_external.cession_id = ${alias}.id
+                AND (scoped_external.participant_company_id = :reCessionCompanyId
+                  OR scoped_external.reinsurance_broker_company_id = :reCessionCompanyId)
+                AND scoped_external.deleted_at IS NULL
+            )
+          )`,
         );
       } else {
         queryBuilder.andWhere(
@@ -575,7 +609,9 @@ export class DataAccessScopeService {
                   SELECT 1
                   FROM policy_cession_participants scoped_participant_branch
                   WHERE scoped_participant_branch.cession_id = ${alias}.id
-                    AND scoped_participant_branch.participant_company_id = :reCessionCompanyId
+                    AND (scoped_participant_branch.participant_company_id = :reCessionCompanyId
+                      OR scoped_participant_branch.reinsurance_broker_company_id = :reCessionCompanyId)
+                    AND scoped_participant_branch.deleted_at IS NULL
                 )
               `);
           }),

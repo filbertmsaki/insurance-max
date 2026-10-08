@@ -25,6 +25,12 @@ export class TiramisTransactionRepository {
     });
   }
 
+  findByIdempotencyKey(clientConfigurationId: string, idempotencyKey: string) {
+    return this.repository.findOne({
+      where: { clientConfigurationId, idempotencyKey },
+    });
+  }
+
   findByCurrentRequestId(requestId: string) {
     return this.repository.findOne({
       where: { currentRequestId: requestId },

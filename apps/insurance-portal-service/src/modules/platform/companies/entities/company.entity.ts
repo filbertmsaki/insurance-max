@@ -52,6 +52,18 @@ export class Company {
   @Column({ default: 'active', length: 20 })
   status: string;
 
+  @Column({ type: 'varchar', length: 24, default: 'VERIFIED' })
+  verification_status!: 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED';
+
+  @Column({ type: 'uuid', nullable: true })
+  verified_by!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verified_at!: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  verification_note!: string | null;
+
   @Column({
     type: 'enum',
     enum: CompanyType,

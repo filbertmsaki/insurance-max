@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 
 import {
   TiramisConfigService,
@@ -72,6 +74,8 @@ export class TiramisCoverNoteService {
       sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
       sourceUserId: sourceMetadata?.sourceUserId || null,
       portalWebhookUrl: sourceMetadata?.portalWebhookUrl || null,
+      idempotencyKey: sourceMetadata?.idempotencyKey || null,
+      payloadHash: sourceMetadata?.payloadHash || null,
       sourceModule: sourceMetadata?.sourceModule || 'cover-notes',
       sourceRecordId:
         sourceMetadata?.sourceRecordId ||
@@ -283,10 +287,47 @@ export class TiramisCoverNoteService {
         dto.coverNoteNumber,
       );
 
-    const { transaction, coverNote } = await this.createDraft(
-      resolvedDto,
-      sourceMetadata,
+    const payloadHash = createHash('sha256')
+      .update(this.canonicalize(resolvedDto))
+      .digest('hex');
+    const stableIdentity = [
+      resolvedDto.companyCode,
+      resolvedDto.coverNoteNumber,
+      resolvedDto.coverNoteType,
+      resolvedDto.prevCoverNoteReferenceNumber || '',
+    ].join(':');
+    const idempotencyKey =
+      sourceMetadata?.idempotencyKey?.trim() ||
+      `cover-note:${createHash('sha256')
+        .update(`${resolvedDto.clientConfigurationId}:${stableIdentity}`)
+        .digest('hex')}`;
+    const existing = await this.tiramisSubmissionService.findByIdempotencyKey(
+      resolvedDto.clientConfigurationId,
+      idempotencyKey,
     );
+    if (existing) {
+      if (existing.payloadHash !== payloadHash) {
+        throw new ConflictException({
+          code: 'TIRAMIS_IDEMPOTENCY_KEY_REUSED',
+          message: 'Idempotency key was already used with a different payload.',
+        });
+      }
+      const existingCoverNote =
+        await this.coverNoteRepository.findByTransactionId(existing.id);
+      return {
+        ...(await this.tiramisSubmissionService.getSubmissionStatus({
+          transactionId: existing.id,
+        })),
+        coverNote: existingCoverNote,
+        replayed: true,
+      };
+    }
+
+    const { transaction, coverNote } = await this.createDraft(resolvedDto, {
+      ...sourceMetadata,
+      idempotencyKey,
+      payloadHash,
+    });
 
     // Re-check against a fresh server timestamp immediately before building
     // and signing the outbound XML.
@@ -488,6 +529,21 @@ export class TiramisCoverNoteService {
     }
 
     this.payloadValidator.validateSignedPricingMatch(dto.risks || []);
+  }
+
+  private canonicalize(value: unknown): string {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => this.canonicalize(item)).join(',')}]`;
+    }
+    if (value && typeof value === 'object') {
+      return `{${Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(
+          ([key, item]) => `${JSON.stringify(key)}:${this.canonicalize(item)}`,
+        )
+        .join(',')}}`;
+    }
+    return JSON.stringify(value) ?? 'null';
   }
 
   private normalizeCoverPeriod(

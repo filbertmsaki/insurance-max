@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, IsNull, Repository } from 'typeorm';
 
 import { AuditService } from '../../shared/audit/audit.service';
 import { Company } from '../../platform/companies/entities/company.entity';
@@ -723,6 +723,8 @@ export class CompanyTiramisConfigurationService {
     companyId: string,
     environment: 'test' | 'live',
     actorId: string,
+    adminAccessToken: string,
+    allowedIps: string[],
   ) {
     return this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(
@@ -753,15 +755,24 @@ export class CompanyTiramisConfigurationService {
           environment,
           companyCode: configuration.companyCode,
           systemCode: configuration.systemCode,
+          adminAccessToken,
+          allowedIps,
         });
       const hadExistingApiKey = Boolean(configuration.serviceApiKeyEncrypted);
-      configuration.serviceApiKeyEncrypted =
-        this.apiKeyVault.encrypt(generatedApiKey);
+      const encryptedKey = this.apiKeyVault.encrypt(generatedApiKey);
+      configuration.serviceApiKeyEncrypted = encryptedKey;
       configuration.validationStatus = 'NOT_VALIDATED';
       configuration.validatedAt = null;
       configuration.validationMessage = null;
 
       const saved = await repository.save(configuration);
+      await repository.update(
+        {
+          environment,
+          sourceService: configuration.sourceService ?? IsNull(),
+        },
+        { serviceApiKeyEncrypted: encryptedKey },
+      );
 
       await this.auditService.logCritical(
         {

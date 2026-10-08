@@ -7,11 +7,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
+  PaymentTransactionStatus,
   ReconciliationBatchStatus,
   ReconciliationItemStatus,
+  ReceiptStatus,
 } from '@insurance-max/contracts';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
-import { DataSource, ILike, In } from 'typeorm';
+import { DataSource, ILike, In, IsNull } from 'typeorm';
+import { AuditService } from '../../../shared/audit/audit.service';
 
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
@@ -42,6 +45,7 @@ export class ReconciliationService {
     private readonly configService: ConfigService,
     private readonly identifierService: IdentifierGeneratorService,
     private readonly hashService: ProductDefinitionHashService,
+    private readonly auditService: AuditService,
   ) {}
 
   async listBatches(companyId: string) {
@@ -133,6 +137,10 @@ export class ReconciliationService {
         );
       }
 
+      if (dto.items.some((item) => Number(item.amount) === 0)) {
+        throw new BadRequestException('Statement line amount cannot be zero.');
+      }
+
       const normalizedPayload = dto.items.map((item, index) => ({
         lineNumber: item.line_number ?? index + 1,
         transactionDate: item.transaction_date,
@@ -143,6 +151,23 @@ export class ReconciliationService {
         amount: DecimalUtil.value(item.amount).toFixed(4),
         currencyCode: item.currency_code.trim().toUpperCase(),
       }));
+
+      const lineNumbers = normalizedPayload.map((item) => item.lineNumber);
+      if (new Set(lineNumbers).size !== lineNumbers.length) {
+        throw new BadRequestException(
+          'Statement line numbers must be unique within a batch.',
+        );
+      }
+
+      if (
+        normalizedPayload.some(
+          (item) => item.currencyCode !== batch.currency_code,
+        )
+      ) {
+        throw new BadRequestException(
+          'Every statement line must use the batch currency.',
+        );
+      }
 
       const fileHash =
         dto.file_hash?.trim() ||
@@ -208,8 +233,43 @@ export class ReconciliationService {
       batch.imported_at = new Date();
       batch.status = ReconciliationBatchStatus.IMPORTED;
 
+      const statementTotal = this.calculateStatementTotal(items);
+      if (
+        batch.opening_balance !== null &&
+        batch.closing_balance !== null &&
+        !DecimalUtil.value(batch.opening_balance)
+          .plus(statementTotal)
+          .equals(DecimalUtil.value(batch.closing_balance))
+      ) {
+        throw new BadRequestException(
+          'Closing balance must equal opening balance plus the imported statement total.',
+        );
+      }
+
       await this.recalculateBatchTotals(manager, batch);
-      return manager.getRepository(FinanceReconciliationBatch).save(batch);
+      const saved = await manager
+        .getRepository(FinanceReconciliationBatch)
+        .save(batch);
+      await this.auditService.logCritical(
+        {
+          userId: user.id,
+          companyId: user.companyId,
+          action: 'finance.reconciliation.imported',
+          resource: 'finance_reconciliation_batch',
+          resourceId: saved.id,
+          reason: 'Statement rows imported for reconciliation',
+          metadata: {
+            itemCount: normalizedPayload.length,
+            fileHash,
+            statementTotal: batch.statement_total,
+            duplicateCount: items.filter(
+              (item) => item.status === ReconciliationItemStatus.DUPLICATE,
+            ).length,
+          },
+        },
+        manager,
+      );
+      return saved;
     });
   }
 
@@ -253,6 +313,22 @@ export class ReconciliationService {
           },
         });
 
+      const existingMatchedItems = await manager
+        .getRepository(FinanceReconciliationItem)
+        .find({
+          where: {
+            company_id: user.companyId!,
+            status: ReconciliationItemStatus.MATCHED,
+          },
+          select: ['batch_id', 'matched_payment_transaction_id'],
+        });
+      const matchedPaymentIds = new Set(
+        existingMatchedItems
+          .filter((matched) => matched.batch_id !== batch.id)
+          .map((matched) => matched.matched_payment_transaction_id)
+          .filter((id): id is string => !!id),
+      );
+
       const threshold = this.configService.get<number>(
         'FINANCE_RECONCILIATION_AUTO_MATCH_SCORE',
         90,
@@ -264,6 +340,7 @@ export class ReconciliationService {
 
         if (
           best &&
+          !matchedPaymentIds.has(best.paymentTransactionId) &&
           best.score >= threshold &&
           suggestions.filter((candidate) => candidate.score === best.score)
             .length === 1
@@ -275,6 +352,7 @@ export class ReconciliationService {
           item.match_reason = best.reason;
           item.matched_by = user.id;
           item.matched_at = new Date();
+          matchedPaymentIds.add(best.paymentTransactionId);
         } else if (best) {
           item.status = ReconciliationItemStatus.SUGGESTED;
           item.match_score = String(best.score);
@@ -282,9 +360,28 @@ export class ReconciliationService {
         }
       }
 
-      await manager.getRepository(FinanceReconciliationItem).save(items);
+      await this.saveMatchedItems(manager, items);
       await this.recalculateBatchTotals(manager, batch);
       await manager.getRepository(FinanceReconciliationBatch).save(batch);
+
+      await this.auditService.logCritical(
+        {
+          userId: user.id,
+          companyId: user.companyId,
+          action: 'finance.reconciliation.auto_matched',
+          resource: 'finance_reconciliation_batch',
+          resourceId: batch.id,
+          metadata: {
+            matchedCount: items.filter(
+              (item) => item.status === ReconciliationItemStatus.MATCHED,
+            ).length,
+            suggestedCount: items.filter(
+              (item) => item.status === ReconciliationItemStatus.SUGGESTED,
+            ).length,
+          },
+        },
+        manager,
+      );
 
       return manager
         .getRepository(FinanceReconciliationBatch)
@@ -312,11 +409,26 @@ export class ReconciliationService {
         throw new NotFoundException('Reconciliation item was not found.');
       }
 
+      const itemBatch = await manager
+        .getRepository(FinanceReconciliationBatch)
+        .findOne({ where: { id: item.batch_id, company_id: user.companyId! } });
+      if (
+        !itemBatch ||
+        itemBatch.status === ReconciliationBatchStatus.POSTED ||
+        itemBatch.status === ReconciliationBatchStatus.APPROVED
+      ) {
+        throw new ConflictException(
+          'Items in an approved or posted reconciliation batch cannot be changed.',
+        );
+      }
+
       if (!dto.payment_transaction_id && !dto.receipt_id) {
         throw new BadRequestException(
           'A payment transaction or receipt must be selected.',
         );
       }
+
+      const previousPaymentId = item.matched_payment_transaction_id;
 
       if (dto.payment_transaction_id) {
         const payment = await manager
@@ -332,8 +444,28 @@ export class ReconciliationService {
           throw new NotFoundException('Payment transaction was not found.');
         }
 
+        this.assertPaymentMatchesItem(payment, item);
+        await this.assertPaymentNotMatched(manager, payment.id, item.id);
+
         item.matched_payment_transaction_id = payment.id;
-        item.matched_receipt_id = dto.receipt_id ?? payment.receipt_id;
+        if (dto.receipt_id) {
+          const receipt = await manager.getRepository(Receipt).findOne({
+            where: { id: dto.receipt_id, company_id: user.companyId! },
+          });
+          if (!receipt) {
+            throw new NotFoundException('Receipt was not found.');
+          }
+          this.assertReceiptMatchesItem(receipt, item);
+          await this.assertReceiptNotMatched(manager, receipt.id, item.id);
+          if (payment.receipt_id && payment.receipt_id !== receipt.id) {
+            throw new BadRequestException(
+              'The selected receipt does not belong to the payment transaction.',
+            );
+          }
+          item.matched_receipt_id = receipt.id;
+        } else {
+          item.matched_receipt_id = payment.receipt_id;
+        }
       } else if (dto.receipt_id) {
         const receipt = await manager.getRepository(Receipt).findOne({
           where: {
@@ -346,6 +478,9 @@ export class ReconciliationService {
           throw new NotFoundException('Receipt was not found.');
         }
 
+        this.assertReceiptMatchesItem(receipt, item);
+        await this.assertReceiptNotMatched(manager, receipt.id, item.id);
+
         item.matched_receipt_id = receipt.id;
       }
 
@@ -355,14 +490,45 @@ export class ReconciliationService {
       item.matched_by = user.id;
       item.matched_at = new Date();
 
-      const saved = await manager
-        .getRepository(FinanceReconciliationItem)
-        .save(item);
-      const batch = await manager
+      if (
+        previousPaymentId &&
+        previousPaymentId !== item.matched_payment_transaction_id
+      ) {
+        await manager
+          .getRepository(PaymentTransaction)
+          .update(
+            { id: previousPaymentId, company_id: user.companyId! },
+            { reconciliation_status: ReconciliationItemStatus.UNMATCHED },
+          );
+      }
+
+      const saved = await this.saveMatchedItem(manager, item);
+      const updatedBatch = await manager
         .getRepository(FinanceReconciliationBatch)
         .findOneByOrFail({ id: item.batch_id });
-      await this.recalculateBatchTotals(manager, batch);
-      await manager.getRepository(FinanceReconciliationBatch).save(batch);
+      await this.recalculateBatchTotals(manager, updatedBatch);
+      await manager
+        .getRepository(FinanceReconciliationBatch)
+        .save(updatedBatch);
+
+      await this.auditService.logCritical(
+        {
+          userId: user.id,
+          companyId: user.companyId,
+          action: 'finance.reconciliation.item_matched',
+          resource: 'finance_reconciliation_item',
+          resourceId: saved.id,
+          reason: saved.match_reason ?? undefined,
+          metadata: {
+            batchId: item.batch_id,
+            paymentTransactionId: saved.matched_payment_transaction_id,
+            receiptId: saved.matched_receipt_id,
+            amount: item.amount,
+            currency: item.currency_code,
+          },
+        },
+        manager,
+      );
 
       return saved;
     });
@@ -387,22 +553,65 @@ export class ReconciliationService {
         throw new NotFoundException('Reconciliation item was not found.');
       }
 
+      const itemBatch = await manager
+        .getRepository(FinanceReconciliationBatch)
+        .findOne({ where: { id: item.batch_id, company_id: user.companyId! } });
+      if (
+        !itemBatch ||
+        itemBatch.status === ReconciliationBatchStatus.POSTED ||
+        itemBatch.status === ReconciliationBatchStatus.APPROVED
+      ) {
+        throw new ConflictException(
+          'Items in an approved or posted reconciliation batch cannot be changed.',
+        );
+      }
+
       item.status = ReconciliationItemStatus.EXCLUDED;
       item.match_reason = dto.reason?.trim() ?? 'Excluded from reconciliation';
       item.match_score = null;
+      const matchedPaymentId = item.matched_payment_transaction_id;
       item.matched_payment_transaction_id = null;
       item.matched_receipt_id = null;
       item.matched_by = user.id;
       item.matched_at = new Date();
 
+      if (matchedPaymentId) {
+        await manager.getRepository(PaymentTransaction).update(
+          {
+            id: matchedPaymentId,
+            company_id: user.companyId!,
+          },
+          { reconciliation_status: ReconciliationItemStatus.UNMATCHED },
+        );
+      }
+
       const saved = await manager
         .getRepository(FinanceReconciliationItem)
         .save(item);
-      const batch = await manager
+      const updatedBatch = await manager
         .getRepository(FinanceReconciliationBatch)
         .findOneByOrFail({ id: item.batch_id });
-      await this.recalculateBatchTotals(manager, batch);
-      await manager.getRepository(FinanceReconciliationBatch).save(batch);
+      await this.recalculateBatchTotals(manager, updatedBatch);
+      await manager
+        .getRepository(FinanceReconciliationBatch)
+        .save(updatedBatch);
+
+      await this.auditService.logCritical(
+        {
+          userId: user.id,
+          companyId: user.companyId,
+          action: 'finance.reconciliation.item_excluded',
+          resource: 'finance_reconciliation_item',
+          resourceId: saved.id,
+          reason: saved.match_reason ?? undefined,
+          metadata: {
+            batchId: item.batch_id,
+            amount: item.amount,
+            currency: item.currency_code,
+          },
+        },
+        manager,
+      );
 
       return saved;
     });
@@ -443,11 +652,131 @@ export class ReconciliationService {
         );
       }
 
+      const matchedItems = await manager
+        .getRepository(FinanceReconciliationItem)
+        .find({
+          where: {
+            batch_id: batch.id,
+            status: ReconciliationItemStatus.MATCHED,
+          },
+        });
+      if (matchedItems.some((item) => item.matched_by === user.id)) {
+        throw new ConflictException(
+          'A user who matched a reconciliation line cannot approve the same batch.',
+        );
+      }
+      const paymentIds = matchedItems
+        .map((item) => item.matched_payment_transaction_id)
+        .filter((id): id is string => !!id);
+      const receiptIds = matchedItems
+        .map((item) => item.matched_receipt_id)
+        .filter((id): id is string => !!id);
+      if (new Set(paymentIds).size !== paymentIds.length) {
+        throw new ConflictException(
+          'A payment transaction cannot be matched to multiple statement lines.',
+        );
+      }
+      if (new Set(receiptIds).size !== receiptIds.length) {
+        throw new ConflictException(
+          'A receipt cannot be matched to multiple statement lines.',
+        );
+      }
+      const existingMatches = await manager
+        .getRepository(FinanceReconciliationItem)
+        .find({
+          where: {
+            company_id: user.companyId!,
+            status: ReconciliationItemStatus.MATCHED,
+          },
+          select: [
+            'id',
+            'batch_id',
+            'matched_payment_transaction_id',
+            'matched_receipt_id',
+          ],
+        });
+      const otherBatchMatches = existingMatches.filter(
+        (item) => item.batch_id !== batch.id,
+      );
+      if (
+        paymentIds.some((id) =>
+          otherBatchMatches.some(
+            (matched) => matched.matched_payment_transaction_id === id,
+          ),
+        ) ||
+        receiptIds.some((id) =>
+          otherBatchMatches.some(
+            (matched) => matched.matched_receipt_id === id,
+          ),
+        )
+      ) {
+        throw new ConflictException(
+          'A payment or receipt is already reconciled against another statement line.',
+        );
+      }
+      for (const item of matchedItems) {
+        if (item.matched_payment_transaction_id) {
+          const payment = await manager
+            .getRepository(PaymentTransaction)
+            .findOne({
+              where: {
+                id: item.matched_payment_transaction_id,
+                company_id: user.companyId!,
+              },
+            });
+          if (!payment) {
+            throw new ConflictException(
+              'A matched payment is no longer available to this company.',
+            );
+          }
+          this.assertPaymentMatchesItem(payment, item);
+          await manager.getRepository(PaymentTransaction).update(
+            {
+              id: payment.id,
+              company_id: user.companyId!,
+            },
+            {
+              reconciliation_status: ReconciliationItemStatus.MATCHED,
+              reconciled_by: user.id,
+              reconciled_at: new Date(),
+            },
+          );
+        }
+        if (item.matched_receipt_id) {
+          const receipt = await manager.getRepository(Receipt).findOne({
+            where: {
+              id: item.matched_receipt_id,
+              company_id: user.companyId!,
+            },
+          });
+          if (!receipt) {
+            throw new ConflictException(
+              'A matched receipt is no longer available to this company.',
+            );
+          }
+          this.assertReceiptMatchesItem(receipt, item);
+        }
+      }
+
       batch.status = ReconciliationBatchStatus.APPROVED;
       batch.approved_by = user.id;
       batch.approved_at = new Date();
 
-      return manager.getRepository(FinanceReconciliationBatch).save(batch);
+      const saved = await manager
+        .getRepository(FinanceReconciliationBatch)
+        .save(batch);
+      await this.auditService.logCritical(
+        {
+          userId: user.id,
+          companyId: user.companyId,
+          action: 'finance.reconciliation.approved',
+          resource: 'finance_reconciliation_batch',
+          resourceId: batch.id,
+          metadata: { status: saved.status, matchedTotal: saved.matched_total },
+        },
+        manager,
+      );
+      return saved;
     });
   }
 
@@ -490,25 +819,225 @@ export class ReconciliationService {
           },
         });
 
+      const matchedPaymentIds = new Set<string>();
+      const matchedReceiptIds = new Set<string>();
+      const existingMatches = await manager
+        .getRepository(FinanceReconciliationItem)
+        .find({
+          where: {
+            company_id: user.companyId!,
+            status: ReconciliationItemStatus.MATCHED,
+          },
+          select: [
+            'id',
+            'batch_id',
+            'matched_payment_transaction_id',
+            'matched_receipt_id',
+          ],
+        });
+      const otherBatchMatches = existingMatches.filter(
+        (matched) => matched.batch_id !== batch.id,
+      );
+
       for (const item of matchedItems) {
         if (item.matched_payment_transaction_id) {
-          await manager
-            .getRepository(PaymentTransaction)
-            .update(item.matched_payment_transaction_id, {
+          if (
+            matchedPaymentIds.has(item.matched_payment_transaction_id) ||
+            otherBatchMatches.some(
+              (matched) =>
+                matched.matched_payment_transaction_id ===
+                item.matched_payment_transaction_id,
+            )
+          ) {
+            throw new ConflictException(
+              'A payment transaction cannot be posted against multiple statement lines.',
+            );
+          }
+          matchedPaymentIds.add(item.matched_payment_transaction_id);
+        }
+        if (item.matched_receipt_id) {
+          if (
+            matchedReceiptIds.has(item.matched_receipt_id) ||
+            otherBatchMatches.some(
+              (matched) =>
+                matched.matched_receipt_id === item.matched_receipt_id,
+            )
+          ) {
+            throw new ConflictException(
+              'A receipt cannot be posted against multiple statement lines.',
+            );
+          }
+          matchedReceiptIds.add(item.matched_receipt_id);
+        }
+        if (item.matched_payment_transaction_id) {
+          await manager.getRepository(PaymentTransaction).update(
+            {
+              id: item.matched_payment_transaction_id,
+              company_id: user.companyId!,
+            },
+            {
               reconciliation_status: ReconciliationItemStatus.MATCHED,
               reconciled_by: user.id,
               reconciled_at: new Date(),
-            });
+            },
+          );
         }
       }
 
       batch.status = ReconciliationBatchStatus.POSTED;
-      return manager.getRepository(FinanceReconciliationBatch).save(batch);
+      const saved = await manager
+        .getRepository(FinanceReconciliationBatch)
+        .save(batch);
+      await this.auditService.logCritical(
+        {
+          userId: user.id,
+          companyId: user.companyId,
+          action: 'finance.reconciliation.posted',
+          resource: 'finance_reconciliation_batch',
+          resourceId: batch.id,
+          metadata: {
+            matchedItemCount: matchedItems.length,
+            matchedTotal: batch.matched_total,
+            statementTotal: batch.statement_total,
+          },
+        },
+        manager,
+      );
+      return saved;
     });
   }
 
   private normalizeDescription(description?: string) {
     return description?.trim().replace(/\s+/g, ' ') ?? null;
+  }
+
+  private calculateStatementTotal(items: FinanceReconciliationItem[]) {
+    return items.reduce(
+      (total, item) =>
+        item.status === ReconciliationItemStatus.DUPLICATE
+          ? total
+          : total.plus(DecimalUtil.value(item.amount)),
+      DecimalUtil.value(0),
+    );
+  }
+
+  private async saveMatchedItems(
+    manager: DataSource['manager'],
+    items: FinanceReconciliationItem[],
+  ) {
+    try {
+      return await manager.getRepository(FinanceReconciliationItem).save(items);
+    } catch (error) {
+      this.throwMatchConflict(error);
+      throw error;
+    }
+  }
+
+  private async saveMatchedItem(
+    manager: DataSource['manager'],
+    item: FinanceReconciliationItem,
+  ) {
+    try {
+      return await manager.getRepository(FinanceReconciliationItem).save(item);
+    } catch (error) {
+      this.throwMatchConflict(error);
+      throw error;
+    }
+  }
+
+  private throwMatchConflict(error: unknown): void {
+    const driverError = (error as { driverError?: Record<string, unknown> })
+      ?.driverError;
+    const constraint = driverError?.constraint;
+    if (
+      driverError?.code === '23505' &&
+      (constraint === 'UQ_reconciliation_matched_payment_active' ||
+        constraint === 'UQ_reconciliation_matched_receipt_active')
+    ) {
+      throw new ConflictException(
+        'The selected payment or receipt has already been matched to another statement line.',
+      );
+    }
+  }
+
+  private assertPaymentMatchesItem(
+    payment: PaymentTransaction,
+    item: FinanceReconciliationItem,
+  ) {
+    if (
+      payment.status !== PaymentTransactionStatus.SUCCESSFUL ||
+      payment.reversed_at !== null ||
+      payment.deleted_at !== null ||
+      payment.reconciliation_status === ReconciliationItemStatus.MATCHED ||
+      DecimalUtil.value(payment.amount).toFixed(4) !==
+        DecimalUtil.value(item.amount).toFixed(4) ||
+      payment.currency.trim().toUpperCase() !== item.currency_code
+    ) {
+      throw new BadRequestException(
+        'The payment must be successful and match the statement amount and currency.',
+      );
+    }
+  }
+
+  private assertReceiptMatchesItem(
+    receipt: Receipt,
+    item: FinanceReconciliationItem,
+  ) {
+    if (
+      !(
+        receipt.status === ReceiptStatus.POSTED ||
+        receipt.status === ReceiptStatus.PARTIALLY_ALLOCATED ||
+        receipt.status === ReceiptStatus.FULLY_ALLOCATED
+      ) ||
+      receipt.deleted_at !== null ||
+      DecimalUtil.value(receipt.amount).toFixed(4) !==
+        DecimalUtil.value(item.amount).toFixed(4) ||
+      receipt.currency.trim().toUpperCase() !== item.currency_code
+    ) {
+      throw new BadRequestException(
+        'The receipt must be posted and match the statement amount and currency.',
+      );
+    }
+  }
+
+  private async assertPaymentNotMatched(
+    manager: DataSource['manager'],
+    paymentId: string,
+    currentItemId: string,
+  ) {
+    const existing = await manager
+      .getRepository(FinanceReconciliationItem)
+      .findOne({
+        where: {
+          matched_payment_transaction_id: paymentId,
+          status: ReconciliationItemStatus.MATCHED,
+        },
+      });
+    if (existing && existing.id !== currentItemId) {
+      throw new ConflictException(
+        'This payment transaction is already matched to another statement line.',
+      );
+    }
+  }
+
+  private async assertReceiptNotMatched(
+    manager: DataSource['manager'],
+    receiptId: string,
+    currentItemId: string,
+  ) {
+    const existing = await manager
+      .getRepository(FinanceReconciliationItem)
+      .findOne({
+        where: {
+          matched_receipt_id: receiptId,
+          status: ReconciliationItemStatus.MATCHED,
+        },
+      });
+    if (existing && existing.id !== currentItemId) {
+      throw new ConflictException(
+        'This receipt is already matched to another statement line.',
+      );
+    }
   }
 
   private async findCandidates(
@@ -532,6 +1061,10 @@ export class ReconciliationService {
             provider_transaction_id: reference,
             currency: item.currency_code,
             amount,
+            status: PaymentTransactionStatus.SUCCESSFUL,
+            reconciliation_status: ReconciliationItemStatus.UNMATCHED,
+            reversed_at: IsNull(),
+            deleted_at: IsNull(),
           },
         });
 
@@ -551,18 +1084,30 @@ export class ReconciliationService {
             bank_reference: reference,
             currency: item.currency_code,
             amount,
+            status: PaymentTransactionStatus.SUCCESSFUL,
+            reconciliation_status: ReconciliationItemStatus.UNMATCHED,
+            reversed_at: IsNull(),
+            deleted_at: IsNull(),
           },
           {
             company_id: batch.company_id,
             payment_reference: reference,
             currency: item.currency_code,
             amount,
+            status: PaymentTransactionStatus.SUCCESSFUL,
+            reconciliation_status: ReconciliationItemStatus.UNMATCHED,
+            reversed_at: IsNull(),
+            deleted_at: IsNull(),
           },
           {
             company_id: batch.company_id,
             provider_reference: reference,
             currency: item.currency_code,
             amount,
+            status: PaymentTransactionStatus.SUCCESSFUL,
+            reconciliation_status: ReconciliationItemStatus.UNMATCHED,
+            reversed_at: IsNull(),
+            deleted_at: IsNull(),
           },
         ],
       });
@@ -595,6 +1140,10 @@ export class ReconciliationService {
           payer_name: ILike(`%${item.description.trim().slice(0, 30)}%`),
           currency: item.currency_code,
           amount,
+          status: PaymentTransactionStatus.SUCCESSFUL,
+          reconciliation_status: ReconciliationItemStatus.UNMATCHED,
+          reversed_at: IsNull(),
+          deleted_at: IsNull(),
         },
         take: 5,
       });
@@ -633,10 +1182,12 @@ export class ReconciliationService {
       where: { batch_id: batch.id },
     });
 
-    const statementTotal = items.reduce(
-      (total, item) => total.plus(DecimalUtil.value(item.amount)),
-      DecimalUtil.value(0),
-    );
+    const statementTotal = items
+      .filter((item) => item.status !== ReconciliationItemStatus.DUPLICATE)
+      .reduce(
+        (total, item) => total.plus(DecimalUtil.value(item.amount)),
+        DecimalUtil.value(0),
+      );
     const matchedTotal = items
       .filter((item) => item.status === ReconciliationItemStatus.MATCHED)
       .reduce(

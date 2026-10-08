@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
@@ -77,11 +78,11 @@ export class TiramisCoverNotesController {
   submit(
     @Body() dto: CreateCoverNoteDto,
     @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.tiramisCoverNoteService.submit(
-      dto,
-      parseSourceMetadata(sourceMetadata),
-    );
+    const metadata = parseSourceMetadata(sourceMetadata) ?? {};
+    if (idempotencyKey?.trim()) metadata.idempotencyKey = idempotencyKey.trim();
+    return this.tiramisCoverNoteService.submit(dto, metadata);
   }
 
   @ApiOperation({ summary: 'List non-motor cover notes submitted to TIRA' })
@@ -98,7 +99,7 @@ export class TiramisCoverNotesController {
 
   @ServiceScopes('tiramis:read')
   @Get(':id')
-  findById(@Param('id') id: string) {
+  findById(@Param('id', ParseUUIDPipe) id: string) {
     return this.tiramisCoverNoteService.findById(id);
   }
 

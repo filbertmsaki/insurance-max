@@ -154,10 +154,11 @@ export const platformTiramisConfigApi = {
       )
       .then((r) => r.data),
 
-  generateApiKey: (companyId: string, environment: 'test' | 'live') =>
+  generateApiKey: (companyId: string, environment: 'test' | 'live', allowed_ips: string[]) =>
     apiClient
       .post<GeneratedPlatformTiramisApiKeyResponse>(
         `/platform/companies/${companyId}/tiramis-configurations/${environment}/api-key/generate`,
+        { allowed_ips },
       )
       .then((r) => r.data),
 };

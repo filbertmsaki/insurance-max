@@ -1,41 +1,37 @@
 import {
+  ArrayMinSize,
+  ArrayUnique,
   IsArray,
-  IsBoolean,
   IsDateString,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
+  IsIP,
 } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+
+import { TIRAMIS_API_KEY_SCOPES } from './create-tiramis-api-key.dto';
 
 export class UpdateTiramisApiKeyDto {
   @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  name?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  serviceName?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  tenantCompanyCode?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  tenantSystemCode?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  tenantEnvironment?: string | null;
-
-  @IsOptional()
+  @ApiPropertyOptional({ example: ['203.0.113.10', '2001:db8::10'] })
   @IsArray()
-  @IsString({ each: true })
+  @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsIP(undefined, { each: true })
+  allowedIps!: string[];
+
+  @IsOptional()
+  @ApiPropertyOptional({
+    enum: TIRAMIS_API_KEY_SCOPES,
+    isArray: true,
+    example: ['tiramis:submit', 'tiramis:read'],
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsIn(TIRAMIS_API_KEY_SCOPES, { each: true })
   scopes?: string[];
 
   @IsOptional()
@@ -45,8 +41,4 @@ export class UpdateTiramisApiKeyDto {
   @IsOptional()
   @IsDateString()
   expiresAt?: string | null;
-
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
 }

@@ -11,6 +11,40 @@ describe('IssuanceService Policy V1 snapshots', () => {
     );
   }
 
+  it('copies bank branch and sales-point attribution into the issued policy snapshot', () => {
+    const service = createService();
+    const quotation = {
+      intermediary_company_id: 'bank-1',
+      channel_type: 'BANCASSURANCE',
+      draft_payload: {
+        distribution_attribution: {
+          branch_id: 'bank-branch-1',
+          branch_code: 'DAR-01',
+          branch_name: 'Dar es Salaam',
+          sale_point_id: 'sales-point-1',
+          sale_point_code: 'SP-01',
+          sale_point_name: 'City Centre',
+        },
+      },
+      finalization_snapshot: {
+        distribution: {
+          intermediaryCompanyId: 'bank-1',
+          channelType: 'BANCASSURANCE',
+        },
+      },
+    } as any;
+
+    const snapshot = (service as any).buildDistributionSnapshot(quotation);
+
+    expect(snapshot).toMatchObject({
+      intermediaryCompanyId: 'bank-1',
+      intermediaryBranchId: 'bank-branch-1',
+      intermediaryBranchCode: 'DAR-01',
+      intermediarySalePointId: 'sales-point-1',
+      intermediarySalePointCode: 'SP-01',
+    });
+  });
+
   it('preserves complete motor details in the asset snapshot', () => {
     const service = createService();
     const quotation = {

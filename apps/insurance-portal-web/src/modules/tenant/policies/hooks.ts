@@ -395,6 +395,12 @@ export function usePolicyTransactionRealtime(
   const qc = useQueryClient();
 
   useNotificationStream(!!transactionId, (notification) => {
+    if (notification.type?.startsWith('notification.')) {
+      qc.invalidateQueries({
+        queryKey: ['engagement', 'notifications'],
+      });
+      return;
+    }
     if (
       !transactionId ||
       notification.type !== 'policy-transaction.tiramis.updated' ||

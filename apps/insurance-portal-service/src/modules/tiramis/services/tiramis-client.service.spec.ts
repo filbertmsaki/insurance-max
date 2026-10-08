@@ -164,4 +164,69 @@ describe('TiramisClientService', () => {
       }),
     );
   });
+
+  it('updates capabilities atomically when rotating the portal system key', async () => {
+    const httpService = {
+      request: jest
+        .fn()
+        .mockReturnValueOnce(
+          of({
+            status: 200,
+            data: [
+              {
+                id: 'key-1',
+                serviceName: 'insurance-portal-service-live',
+                isActive: true,
+                revokedAt: null,
+              },
+            ],
+          }),
+        )
+        .mockReturnValueOnce(
+          of({
+            status: 201,
+            data: { apiKey: 'new-service-key' },
+          }),
+        ),
+    };
+    const service = new TiramisClientService(
+      httpService as any,
+      {
+        getOrThrow: jest.fn().mockReturnValue('insurance-portal-service'),
+      } as any,
+      { getRequestId: jest.fn(), getCorrelationId: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {
+        findOne: jest.fn().mockResolvedValue({
+          baseUrl: 'https://tiramis.example.test',
+          sourceService: 'insurance-portal-service',
+        }),
+      } as any,
+    );
+
+    await expect(
+      service.rotateOrganizationApiKey({
+        companyId: 'company-1',
+        environment: 'live',
+        companyCode: 'COMPANY-1',
+        systemCode: 'SYSTEM-1',
+        adminAccessToken: 'admin-access-token',
+        allowedIps: ['203.0.113.10'],
+      }),
+    ).resolves.toBe('new-service-key');
+
+    expect(httpService.request).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          scopes: ['tiramis:submit', 'tiramis:read', 'tiramis:verify'],
+        }),
+      }),
+    );
+  });
 });

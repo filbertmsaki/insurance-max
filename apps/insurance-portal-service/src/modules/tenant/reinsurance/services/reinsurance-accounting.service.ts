@@ -1,19 +1,23 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
+import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
+import { AuditService } from '../../../shared/audit/audit.service';
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import {
   GenerateReinsuranceBordereauDto,
   GenerateReinsurancePremiumAccountDto,
+  RespondReinsurancePremiumAccountDto,
 } from '../dto/reinsurance.dto';
 import { PolicyCessionParticipant } from '../entities/policy-cession-participant.entity';
 import { PolicyCession } from '../entities/policy-cession.entity';
@@ -70,15 +74,28 @@ export class ReinsuranceAccountingService {
 
     private readonly scopeService: DataAccessScopeService,
     private readonly referenceService: BusinessReferenceService,
+    private readonly auditService: AuditService,
   ) {}
 
   async findBordereaux(user: AuthenticatedUser) {
     const scope = this.scopeService.resolve(user);
-    return this.bordereauRepository.find({
-      where: { company_id: scope.companyId },
-      relations: { items: true },
-      order: { created_at: 'DESC' },
-    });
+    return this.bordereauRepository
+      .createQueryBuilder('bordereau')
+      .leftJoinAndSelect('bordereau.items', 'items')
+      .where(
+        new Brackets((party) =>
+          party
+            .where('bordereau.company_id = :companyId', {
+              companyId: scope.companyId,
+            })
+            .orWhere('bordereau.participant_company_id = :companyId', {
+              companyId: scope.companyId,
+            }),
+        ),
+      )
+      .andWhere('bordereau.deleted_at IS NULL')
+      .orderBy('bordereau.created_at', 'DESC')
+      .getMany();
   }
 
   async generateBordereau(
@@ -158,7 +175,21 @@ export class ReinsuranceAccountingService {
       ),
     );
 
-    return this.getBordereau(scope.companyId, bordereau.id);
+    const saved = await this.getBordereau(scope.companyId, bordereau.id);
+    await this.auditService.log({
+      userId: user.id,
+      companyId: scope.companyId,
+      action: 'reinsurance.bordereau.generate',
+      eventCategory: 'REINSURANCE',
+      resource: 'reinsurance_bordereaux',
+      resourceId: saved.id,
+      afterState: {
+        status: saved.status,
+        participant_company_id: saved.participant_company_id,
+        ceded_premium: saved.ceded_premium,
+      },
+    });
+    return saved;
   }
 
   async submitBordereau(user: AuthenticatedUser, bordereauId: string) {
@@ -172,7 +203,17 @@ export class ReinsuranceAccountingService {
     }
 
     bordereau.status = ReinsuranceBordereauStatus.SUBMITTED;
-    return this.bordereauRepository.save(bordereau);
+    const saved = await this.bordereauRepository.save(bordereau);
+    await this.auditService.log({
+      userId: user.id,
+      companyId: scope.companyId,
+      action: 'reinsurance.bordereau.submit',
+      eventCategory: 'REINSURANCE',
+      resource: 'reinsurance_bordereaux',
+      resourceId: saved.id,
+      afterState: { status: saved.status },
+    });
+    return saved;
   }
 
   async approveBordereau(user: AuthenticatedUser, bordereauId: string) {
@@ -184,16 +225,41 @@ export class ReinsuranceAccountingService {
     }
 
     bordereau.status = ReinsuranceBordereauStatus.APPROVED;
-    return this.bordereauRepository.save(bordereau);
+    const saved = await this.bordereauRepository.save(bordereau);
+    await this.auditService.log({
+      userId: user.id,
+      companyId: scope.companyId,
+      action: 'reinsurance.bordereau.approve',
+      eventCategory: 'REINSURANCE',
+      resource: 'reinsurance_bordereaux',
+      resourceId: saved.id,
+      afterState: { status: saved.status },
+    });
+    return saved;
   }
 
   async findPremiumAccounts(user: AuthenticatedUser) {
     const scope = this.scopeService.resolve(user);
-    return this.premiumAccountRepository.find({
-      where: { company_id: scope.companyId },
-      relations: { items: true },
-      order: { created_at: 'DESC' },
-    });
+    return this.premiumAccountRepository
+      .createQueryBuilder('account')
+      .leftJoinAndSelect('account.items', 'items')
+      .where(
+        new Brackets((party) =>
+          party
+            .where('account.company_id = :companyId', {
+              companyId: scope.companyId,
+            })
+            .orWhere('account.participant_company_id = :companyId', {
+              companyId: scope.companyId,
+            })
+            .orWhere('account.reinsurance_broker_company_id = :companyId', {
+              companyId: scope.companyId,
+            }),
+        ),
+      )
+      .andWhere('account.deleted_at IS NULL')
+      .orderBy('account.created_at', 'DESC')
+      .getMany();
   }
 
   async generatePremiumAccount(
@@ -258,6 +324,19 @@ export class ReinsuranceAccountingService {
         created_by: user.id,
       }),
     );
+    await this.auditService.log({
+      userId: user.id,
+      companyId: scope.companyId,
+      action: 'reinsurance.premium-account.generate',
+      eventCategory: 'REINSURANCE',
+      resource: 'reinsurance_premium_accounts',
+      resourceId: account.id,
+      afterState: {
+        status: account.status,
+        participant_company_id: account.participant_company_id,
+        net_premium_due: account.net_premium_due,
+      },
+    });
 
     await this.premiumAccountItemRepository.save(
       rows.map((row) => {
@@ -302,21 +381,69 @@ export class ReinsuranceAccountingService {
     }
 
     account.status = ReinsuranceAccountStatus.SUBMITTED;
-    return this.premiumAccountRepository.save(account);
+    const saved = await this.premiumAccountRepository.save(account);
+    await this.auditService.log({
+      userId: user.id,
+      companyId: scope.companyId,
+      action: 'reinsurance.premium-account.submit',
+      eventCategory: 'REINSURANCE',
+      resource: 'reinsurance_premium_accounts',
+      resourceId: saved.id,
+      afterState: { status: saved.status },
+    });
+    return saved;
   }
 
   async confirmPremiumAccount(user: AuthenticatedUser, accountId: string) {
+    return this.respondPremiumAccount(user, accountId, { decision: 'CONFIRM' });
+  }
+
+  async respondPremiumAccount(
+    user: AuthenticatedUser,
+    accountId: string,
+    dto: RespondReinsurancePremiumAccountDto,
+  ) {
     const scope = this.scopeService.resolve(user);
-    const account = await this.getPremiumAccount(scope.companyId, accountId);
+    if (user.companyType !== CompanyType.REINSURANCE_COMPANY) {
+      throw new ForbiddenException(
+        'Only the participating reinsurer can confirm or dispute a premium account',
+      );
+    }
+    const account = await this.premiumAccountRepository.findOne({
+      where: { id: accountId, participant_company_id: scope.companyId },
+      relations: { items: true },
+    });
+    if (!account)
+      throw new NotFoundException('Reinsurance premium account not found');
 
     if (account.status !== ReinsuranceAccountStatus.SUBMITTED) {
       throw new ConflictException(
-        'Only a submitted premium account can be confirmed',
+        'Only a submitted premium account can receive a counterparty response',
       );
     }
 
-    account.status = ReinsuranceAccountStatus.CONFIRMED;
-    return this.premiumAccountRepository.save(account);
+    if (dto.decision === 'DISPUTE' && !dto.note?.trim()) {
+      throw new BadRequestException('A dispute reason is required');
+    }
+    account.status =
+      dto.decision === 'CONFIRM'
+        ? ReinsuranceAccountStatus.CONFIRMED
+        : ReinsuranceAccountStatus.DISPUTED;
+    account.confirmed_by = user.id;
+    account.confirmed_at = new Date();
+    account.response_note = dto.note?.trim() ?? null;
+    const saved = await this.premiumAccountRepository.save(account);
+    await this.auditService.log({
+      userId: user.id,
+      companyId: scope.companyId,
+      action: `reinsurance.premium-account.${dto.decision.toLowerCase()}`,
+      eventCategory: 'REINSURANCE',
+      resource: 'reinsurance_premium_accounts',
+      resourceId: saved.id,
+      afterState: { status: saved.status, response_note: saved.response_note },
+      metadata: { cedant_company_id: saved.company_id },
+    });
+    return saved;
   }
 
   private async findSourceRows(

@@ -247,6 +247,24 @@ export class CategoryAccessService {
     companyId: string,
     dto: ResolveAccessDto,
   ): Promise<AccessResolution> {
+    await this.validateCompanyUser(companyId, dto.company_user_id);
+    if (dto.branch_id) await this.validateBranch(companyId, dto.branch_id);
+    if (dto.department_id) {
+      const department = await this.validateDepartment(
+        companyId,
+        dto.department_id,
+      );
+      if (
+        dto.branch_id &&
+        department.branch_id &&
+        department.branch_id !== dto.branch_id
+      ) {
+        throw new BadRequestException(
+          'Department does not belong to the selected branch',
+        );
+      }
+    }
+    await this.validateCategory(companyId, dto.category_id);
     // 1. User-level rule (highest priority)
     const userRule = await this.userAccessRepo.findOne({
       where: {
@@ -337,6 +355,9 @@ export class CategoryAccessService {
     branchId?: string,
     departmentId?: string,
   ) {
+    await this.validateCompanyUser(companyId, companyUserId);
+    if (branchId) await this.validateBranch(companyId, branchId);
+    if (departmentId) await this.validateDepartment(companyId, departmentId);
     const allCategories = await this.categoryRepository.find({
       where: { company_id: companyId, is_active: true },
       order: { name: 'ASC' },
@@ -375,7 +396,7 @@ export class CategoryAccessService {
   private async validateDepartment(
     companyId: string,
     departmentId: string,
-  ): Promise<void> {
+  ): Promise<Department> {
     const dept = await this.departmentRepository.findOne({
       where: { id: departmentId, company_id: companyId },
     });
@@ -383,6 +404,7 @@ export class CategoryAccessService {
       throw new BadRequestException(
         'Department not found or does not belong to this company',
       );
+    return dept;
   }
 
   private async validateCompanyUser(

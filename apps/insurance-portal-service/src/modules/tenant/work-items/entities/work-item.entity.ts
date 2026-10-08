@@ -9,6 +9,10 @@ import {
 
 @Entity('work_items')
 @Index('IDX_work_items_company_status', ['company_id', 'status', 'due_at'])
+@Index('UQ_work_items_company_idempotency', ['company_id', 'idempotency_key'], {
+  unique: true,
+  where: 'idempotency_key IS NOT NULL',
+})
 export class WorkItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;

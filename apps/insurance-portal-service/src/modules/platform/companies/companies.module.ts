@@ -15,6 +15,7 @@ import { Branch } from '../../tenant/branches/entities/branch.entity';
 import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { DepartmentUser } from '../../tenant/departments/entities/department-user.entity';
+import { CompanyLicenseExpiryJob } from './company-license-expiry.job';
 import { CompanyConfigsModule } from '../company-configs/company-configs.module';
 
 @Module({
@@ -37,7 +38,11 @@ import { CompanyConfigsModule } from '../company-configs/company-configs.module'
     ]),
   ],
   controllers: [CompaniesController],
-  providers: [CompaniesService, IdentifierGeneratorService],
+  providers: [
+    CompaniesService,
+    IdentifierGeneratorService,
+    CompanyLicenseExpiryJob,
+  ],
   exports: [CompaniesService, TypeOrmModule],
 })
 export class CompaniesModule {}

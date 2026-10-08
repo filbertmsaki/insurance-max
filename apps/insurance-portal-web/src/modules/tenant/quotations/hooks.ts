@@ -222,6 +222,12 @@ export function useQuotationRealtime(id?: string) {
   const queryClient = useQueryClient();
 
   useNotificationStream(!!id, (notification: NotificationStreamEvent) => {
+    if (notification.type?.startsWith('notification.')) {
+      queryClient.invalidateQueries({
+        queryKey: ['engagement', 'notifications'],
+      });
+      return;
+    }
     if (!id || notification.type !== 'quotation.tiramis.updated') {
       return;
     }

@@ -57,7 +57,7 @@ export class SecurityPoliciesService {
         this.readBoolean(twoFactor, 'allowTrustedDeviceBypass') ??
         base.allowTrustedDeviceBypass,
       stepUpMaxAgeMinutes:
-        this.readNumber(stepUp, 'maxAgeMinutes') ?? base.stepUpMaxAgeMinutes,
+        this.readStepUpMaxAge(stepUp) ?? base.stepUpMaxAgeMinutes,
     };
   }
 
@@ -107,26 +107,47 @@ export class SecurityPoliciesService {
     companyId: string | null,
   ): Promise<SecurityPolicyProfile | null> {
     if (companyId) {
-      const companyPolicy = await this.policyRepository.findOne({
+      const companyPolicies = await this.policyRepository.find({
         where: {
           company_id: companyId,
           status: SecurityPolicyStatus.ACTIVE,
         },
         order: { version_number: 'DESC', created_at: 'DESC' },
       });
-
-      if (companyPolicy) {
-        return companyPolicy;
-      }
+      const effectiveCompanyPolicy = companyPolicies.find((profile) =>
+        this.isEffective(profile),
+      );
+      if (effectiveCompanyPolicy) return effectiveCompanyPolicy;
     }
 
-    return this.policyRepository.findOne({
+    const globalPolicies = await this.policyRepository.find({
       where: {
         company_id: IsNull(),
         status: SecurityPolicyStatus.ACTIVE,
       },
       order: { version_number: 'DESC', created_at: 'DESC' },
     });
+    return globalPolicies.find((profile) => this.isEffective(profile)) ?? null;
+  }
+
+  private isEffective(profile: SecurityPolicyProfile): boolean {
+    const now = Date.now();
+    return (
+      (!profile.effective_from || profile.effective_from.getTime() <= now) &&
+      (!profile.effective_to || profile.effective_to.getTime() > now)
+    );
+  }
+
+  private readStepUpMaxAge(
+    root: Record<string, unknown> | null,
+  ): number | null {
+    const value = this.readNumber(root, 'maxAgeMinutes');
+    return value !== null &&
+      Number.isInteger(value) &&
+      value >= 1 &&
+      value <= 1440
+      ? value
+      : null;
   }
 
   private defaultPolicy(): EffectiveSecurityPolicy {

@@ -225,6 +225,21 @@ export class PortalDashboardService {
           )::integer AS completed
         FROM quotations
         WHERE intermediary_company_id = $1 AND deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM insurance_company_partners rel
+            WHERE rel.insurer_company_id = quotations.insurer_company_id
+              AND rel.intermediary_company_id = $1
+              AND rel.status IN ('ACTIVE','SUSPENDED')
+              AND (rel.start_date IS NULL OR rel.start_date <= CURRENT_DATE)
+              AND (rel.end_date IS NULL OR rel.end_date >= CURRENT_DATE)
+              AND (rel.scope_mode = 'LEGACY' OR EXISTS (
+                SELECT 1 FROM insurance_company_partner_product_scopes ps
+                WHERE ps.relationship_id = rel.id
+                  AND ps.product_id = quotations.product_id AND ps.is_active
+                  AND ps.allowed_operations @> ARRAY['VIEW_QUOTATION']::varchar[]
+                  AND (ps.branch_ids IS NULL OR quotations.branch_id = ANY(ps.branch_ids))
+              ))
+          )
         `,
         [intermediaryCompanyId],
       ),
@@ -243,6 +258,21 @@ export class PortalDashboardService {
           )::integer AS renewal_pipeline
         FROM policies
         WHERE intermediary_company_id = $1 AND deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM insurance_company_partners rel
+            WHERE rel.insurer_company_id = policies.insurer_company_id
+              AND rel.intermediary_company_id = $1
+              AND rel.status IN ('ACTIVE','SUSPENDED')
+              AND (rel.start_date IS NULL OR rel.start_date <= CURRENT_DATE)
+              AND (rel.end_date IS NULL OR rel.end_date >= CURRENT_DATE)
+              AND (rel.scope_mode = 'LEGACY' OR EXISTS (
+                SELECT 1 FROM insurance_company_partner_product_scopes ps
+                WHERE ps.relationship_id = rel.id
+                  AND ps.product_id = policies.product_id AND ps.is_active
+                  AND ps.allowed_operations @> ARRAY['VIEW_POLICY']::varchar[]
+                  AND (ps.branch_ids IS NULL OR policies.branch_id = ANY(ps.branch_ids))
+              ))
+          )
         `,
         [intermediaryCompanyId],
       ),
@@ -257,6 +287,21 @@ export class PortalDashboardService {
         WHERE intermediary_company_id = $1 AND deleted_at IS NULL
           AND status NOT IN ('VOID', 'CANCELLED', 'PAID')
           AND balance_amount > 0
+          AND EXISTS (
+            SELECT 1 FROM insurance_company_partners rel
+            JOIN policies p ON p.id = invoices.policy_id
+            WHERE rel.insurer_company_id = p.insurer_company_id
+              AND rel.intermediary_company_id = $1
+              AND rel.status IN ('ACTIVE','SUSPENDED')
+              AND (rel.start_date IS NULL OR rel.start_date <= CURRENT_DATE)
+              AND (rel.end_date IS NULL OR rel.end_date >= CURRENT_DATE)
+              AND (rel.scope_mode = 'LEGACY' OR EXISTS (
+                SELECT 1 FROM insurance_company_partner_product_scopes ps
+                WHERE ps.relationship_id = rel.id AND ps.product_id = p.product_id
+                  AND ps.is_active AND ps.allowed_operations @> ARRAY['VIEW_PAYMENT']::varchar[]
+                  AND (ps.branch_ids IS NULL OR p.branch_id = ANY(ps.branch_ids))
+              ))
+          )
         GROUP BY currency
         ORDER BY currency ASC
         `,
@@ -277,8 +322,24 @@ export class PortalDashboardService {
           ) AS outstanding_amount
         FROM commission_transactions commission
         LEFT JOIN policies policy ON policy.id = commission.policy_id
+        LEFT JOIN quotations quotation ON quotation.id = commission.quotation_id
         WHERE commission.intermediary_company_id = $1
           AND commission.deleted_at IS NULL
+          AND EXISTS (
+            SELECT 1 FROM insurance_company_partners rel
+            WHERE rel.insurer_company_id = COALESCE(policy.insurer_company_id, quotation.insurer_company_id)
+              AND rel.intermediary_company_id = $1
+              AND rel.status IN ('ACTIVE','SUSPENDED')
+              AND (rel.start_date IS NULL OR rel.start_date <= CURRENT_DATE)
+              AND (rel.end_date IS NULL OR rel.end_date >= CURRENT_DATE)
+              AND (rel.scope_mode = 'LEGACY' OR EXISTS (
+                SELECT 1 FROM insurance_company_partner_product_scopes ps
+                WHERE ps.relationship_id = rel.id
+                  AND ps.product_id = COALESCE(policy.product_id, quotation.product_id)
+                  AND ps.is_active AND ps.allowed_operations @> ARRAY['VIEW_COMMISSION']::varchar[]
+                  AND (ps.branch_ids IS NULL OR COALESCE(policy.branch_id, quotation.branch_id) = ANY(ps.branch_ids))
+              ))
+          )
         GROUP BY COALESCE(policy.currency, 'UNKNOWN')
         ORDER BY currency ASC
         `,

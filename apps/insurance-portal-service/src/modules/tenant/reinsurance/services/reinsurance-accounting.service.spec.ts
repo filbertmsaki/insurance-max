@@ -1,4 +1,5 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 
 import {
   ReinsuranceAccountStatus,
@@ -76,6 +77,7 @@ function makeService(rows: any[]) {
     cessionParticipantRepository as any,
     scopeService as any,
     referenceService as any,
+    { log: jest.fn().mockResolvedValue(undefined) } as any,
   );
 
   return {
@@ -84,6 +86,7 @@ function makeService(rows: any[]) {
     bordereauItemRepository,
     premiumAccountRepository,
     premiumAccountItemRepository,
+    scopeService,
   };
 }
 
@@ -191,5 +194,63 @@ describe('ReinsuranceAccountingService', () => {
         currency: 'TZS',
       }),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('lets only the participating reinsurer confirm a submitted account', async () => {
+    const { service, premiumAccountRepository, scopeService } = makeService([]);
+    scopeService.resolve.mockReturnValue({ companyId: 'reinsurer-1' });
+    premiumAccountRepository.findOne.mockResolvedValue({
+      id: 'account-1',
+      company_id: 'cedant-1',
+      participant_company_id: 'reinsurer-1',
+      status: ReinsuranceAccountStatus.SUBMITTED,
+    });
+    const reinsurer = {
+      id: 'reinsurer-user',
+      companyId: 'reinsurer-1',
+      companyType: CompanyType.REINSURANCE_COMPANY,
+    } as any;
+
+    const result = await service.confirmPremiumAccount(reinsurer, 'account-1');
+    expect(result.status).toBe(ReinsuranceAccountStatus.CONFIRMED);
+    expect(result.confirmed_by).toBe('reinsurer-user');
+    expect(result.confirmed_at).toBeInstanceOf(Date);
+  });
+
+  it('records a reason when the reinsurer disputes a premium account', async () => {
+    const { service, premiumAccountRepository, scopeService } = makeService([]);
+    scopeService.resolve.mockReturnValue({ companyId: 'reinsurer-1' });
+    premiumAccountRepository.findOne.mockResolvedValue({
+      id: 'account-1',
+      company_id: 'cedant-1',
+      participant_company_id: 'reinsurer-1',
+      status: ReinsuranceAccountStatus.SUBMITTED,
+    });
+
+    const result = await service.respondPremiumAccount(
+      {
+        id: 'reinsurer-user',
+        companyId: 'reinsurer-1',
+        companyType: CompanyType.REINSURANCE_COMPANY,
+      } as any,
+      'account-1',
+      {
+        decision: 'DISPUTE',
+        note: 'Premium total does not match the bordereau',
+      },
+    );
+    expect(result.status).toBe(ReinsuranceAccountStatus.DISPUTED);
+    expect(result.response_note).toContain('does not match');
+  });
+
+  it('does not allow the cedant or a broker to acknowledge its own premium account', async () => {
+    const { service, premiumAccountRepository } = makeService([]);
+    await expect(
+      service.confirmPremiumAccount(
+        { ...user, companyType: CompanyType.INSURANCE_COMPANY },
+        'account-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(premiumAccountRepository.findOne).not.toHaveBeenCalled();
   });
 });

@@ -19,6 +19,7 @@ import {
   CreatePolicyCessionDto,
   CreateReinsuranceSettlementDto,
   CreateTreatyDto,
+  CreateTreatyEligibilityRuleDto,
   CreateTreatyParticipantDto,
   CreateTreatySectionDto,
   EvaluateCapacityDto,
@@ -27,7 +28,10 @@ import {
   GenerateReinsurancePremiumAccountDto,
   InviteFacultativeOfferDto,
   RejectReinsuranceSettlementDto,
+  RecordRecoveryReceiptDto,
   RespondFacultativeOfferDto,
+  RespondReinsurancePremiumAccountDto,
+  RespondTreatyInvitationDto,
 } from './dto/reinsurance.dto';
 import { ReinsurancePermissions } from './reinsurance.permissions';
 import { ReinsuranceService } from './reinsurance.service';
@@ -54,6 +58,28 @@ export class ReinsuranceController {
     return this.reinsuranceService.findTreaties(user);
   }
 
+  @Post('treaties/:id/participants/:participantId/respond')
+  @Permissions(ReinsurancePermissions.OFFER_RESPOND)
+  respondToTreatyInvitation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('participantId', ParseUUIDPipe) participantId: string,
+    @Body() dto: RespondTreatyInvitationDto,
+  ) {
+    return this.reinsuranceService.respondToTreatyInvitation(
+      user,
+      id,
+      participantId,
+      dto,
+    );
+  }
+
+  @Get('facultative-offers')
+  @Permissions(ReinsurancePermissions.OFFER_READ)
+  findFacultativeOffers(@CurrentUser() user: AuthenticatedUser) {
+    return this.reinsuranceService.findFacultativeOffers(user);
+  }
+
   @Post('treaties')
   @Permissions(ReinsurancePermissions.TREATY_CREATE)
   createTreaty(
@@ -71,6 +97,25 @@ export class ReinsuranceController {
     @Body() dto: CreateTreatySectionDto,
   ) {
     return this.reinsuranceService.addTreatySection(user, id, dto);
+  }
+
+  @Get('treaties/:id/eligibility-rules')
+  @Permissions(ReinsurancePermissions.READ)
+  findTreatyEligibilityRules(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.reinsuranceService.findTreatyEligibilityRules(user, id);
+  }
+
+  @Post('treaties/:id/eligibility-rules')
+  @Permissions(ReinsurancePermissions.TREATY_UPDATE)
+  addTreatyEligibilityRule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateTreatyEligibilityRuleDto,
+  ) {
+    return this.reinsuranceService.addTreatyEligibilityRule(user, id, dto);
   }
 
   @Post('treaties/:id/participants')
@@ -218,6 +263,12 @@ export class ReinsuranceController {
     return this.recoveryService.calculateRecoveries(user, claimId);
   }
 
+  @Get('recoveries')
+  @Permissions(ReinsurancePermissions.READ)
+  findRecoveries(@CurrentUser() user: AuthenticatedUser) {
+    return this.recoveryService.findRecoveries(user);
+  }
+
   @Post('recoveries/:id/admit')
   @Permissions(ReinsurancePermissions.RECOVERY_APPROVE)
   admitRecovery(
@@ -226,6 +277,25 @@ export class ReinsuranceController {
     @Body() dto: AdmitRecoveryDto,
   ) {
     return this.recoveryService.admitRecovery(user, id, dto.admitted_amount);
+  }
+
+  @Get('recoveries/:id/receipts')
+  @Permissions(ReinsurancePermissions.READ)
+  findRecoveryReceipts(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.recoveryService.findReceipts(user, id);
+  }
+
+  @Post('recoveries/:id/receipts')
+  @Permissions(ReinsurancePermissions.RECOVERY_UPDATE)
+  recordRecoveryReceipt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordRecoveryReceiptDto,
+  ) {
+    return this.recoveryService.recordReceipt(user, id, dto);
   }
 
   @Post('capacity/evaluate')
@@ -323,6 +393,16 @@ export class ReinsuranceController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.accountingService.confirmPremiumAccount(user, id);
+  }
+
+  @Post('premium-accounts/:id/respond')
+  @Permissions(ReinsurancePermissions.ACCOUNT_APPROVE)
+  respondPremiumAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RespondReinsurancePremiumAccountDto,
+  ) {
+    return this.accountingService.respondPremiumAccount(user, id, dto);
   }
 
   @Get('settlements')

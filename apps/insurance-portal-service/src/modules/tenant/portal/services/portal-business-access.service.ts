@@ -11,11 +11,16 @@ import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enu
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { Company } from '../../../platform/companies/entities/company.entity';
+import { TiramisSalePointEntity } from '../../../tiramis/entities/tiramis-sale-point.entity';
+import { Branch } from '../../branches/entities/branch.entity';
+import { InsurancePartnersService } from '../../insurance-partners/insurance-partners.service';
+import { PartnerOperation } from '../../insurance-partners/enums/partner-operation.enum';
 import { CommissionTransaction } from '../../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../../billing-commission/entities/invoice.entity';
 import { Receipt } from '../../billing-commission/entities/receipt.entity';
 import { Complaint } from '../../claims/entities/complaint.entity';
 import { InsuranceClaim } from '../../claims/entities/claim.entity';
+import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
@@ -28,6 +33,7 @@ import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationsService } from '../../quotations/quotations.service';
 
 import { PortalListQueryDto } from '../dto/portal-query.dto';
+import { IntermediarySettlementReportQueryDto } from '../dto/intermediary-settlement-report-query.dto';
 import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalActorType } from '../enums/portal.enums';
 
@@ -55,9 +61,16 @@ export class PortalBusinessAccessService {
     private readonly commissionRepository: Repository<CommissionTransaction>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    @InjectRepository(InsuranceRisk)
+    private readonly riskRepository: Repository<InsuranceRisk>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
+    @InjectRepository(TiramisSalePointEntity)
+    private readonly salePointRepository: Repository<TiramisSalePointEntity>,
     private readonly quotationsService: QuotationsService,
+    private readonly insurancePartnersService: InsurancePartnersService,
   ) {}
 
   // =========================================================
@@ -143,6 +156,39 @@ export class PortalBusinessAccessService {
     };
   }
 
+  async findIntermediaryDistributionLocations(account: PortalAccount) {
+    this.assertIntermediaryAccount(account);
+    const companyId = account.intermediary_company_id;
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company)
+      throw new NotFoundException('Intermediary company was not found');
+    this.assertSupportedIntermediaryCompany(company);
+    const [branches, salePoints] = await Promise.all([
+      this.branchRepository.find({
+        where: { company_id: companyId, status: 'active' },
+        order: { name: 'ASC' },
+      }),
+      this.salePointRepository.find({
+        where: { companyId, isActive: true },
+        order: { salePointName: 'ASC' },
+      }),
+    ]);
+    return {
+      company_type: company.company_type,
+      branches: branches.map(({ id, name, code }) => ({ id, name, code })),
+      sale_points: salePoints.map(
+        ({ id, branchId, salePointCode, salePointName }) => ({
+          id,
+          branch_id: branchId,
+          code: salePointCode,
+          name: salePointName,
+        }),
+      ),
+    };
+  }
+
   // =========================================================
   // QUOTATIONS
   // =========================================================
@@ -219,6 +265,9 @@ export class PortalBusinessAccessService {
       // intermediary account. Don't return the internal submission
       // response, signing credentials, or raw TIRAMIS secret values.
       draft_payload: quotation.draft_payload ?? {},
+      distribution_attribution:
+        this.asRecord(quotation.draft_payload?.['distribution_attribution']) ??
+        null,
       insurer_company_id: quotation.insurer_company_id,
       intermediary_company_id: quotation.intermediary_company_id,
       customer_id: quotation.customer_id,
@@ -232,6 +281,13 @@ export class PortalBusinessAccessService {
     userId: string,
   ) {
     const scopedDto = await this.scopeDraft(account, dto);
+    await this.assertIntermediaryOperation(
+      account,
+      scopedDto.insurer_company_id,
+      scopedDto.product_id,
+      PartnerOperation.QUOTE,
+      scopedDto.branch_id,
+    );
 
     return this.quotationsService.createDraft(
       account.company_id,
@@ -251,6 +307,13 @@ export class PortalBusinessAccessService {
     this.assertQuotationEditable(quotation);
 
     const scopedDto = await this.scopeDraft(account, dto, quotation);
+    await this.assertIntermediaryOperation(
+      account,
+      scopedDto.insurer_company_id,
+      scopedDto.product_id,
+      PartnerOperation.QUOTE,
+      scopedDto.branch_id,
+    );
 
     return this.quotationsService.updateDraft(
       account.company_id,
@@ -274,6 +337,13 @@ export class PortalBusinessAccessService {
       account,
       quotation,
       payload,
+    );
+    await this.assertIntermediaryOperation(
+      account,
+      quotation.insurer_company_id,
+      quotation.product_id,
+      PartnerOperation.SUBMIT,
+      quotation.branch_id,
     );
 
     return this.quotationsService.finalize(
@@ -390,6 +460,7 @@ export class PortalBusinessAccessService {
       retention_amount: policy.retention_amount,
       ceded_sum_insured: policy.ceded_sum_insured,
       ceded_premium: policy.ceded_premium,
+      distribution_snapshot: policy.distribution_snapshot,
     };
   }
 
@@ -704,10 +775,20 @@ export class PortalBusinessAccessService {
     const qb = this.commissionRepository
       .createQueryBuilder('commission')
       .leftJoinAndSelect('commission.policy', 'policy')
+      .leftJoinAndSelect('commission.quotation', 'quotation')
       .where('commission.intermediary_company_id = :intermediaryCompanyId', {
         intermediaryCompanyId: account.intermediary_company_id,
       })
       .andWhere('commission.deleted_at IS NULL');
+
+    this.applyIntermediaryProductScope(
+      qb,
+      account.intermediary_company_id,
+      'commission.insurer_company_id',
+      'COALESCE(policy.product_id, quotation.product_id)',
+      PartnerOperation.VIEW_COMMISSION,
+      'COALESCE(policy.branch_id, quotation.branch_id)',
+    );
 
     if (query.status) {
       qb.andWhere('commission.status = :status', {
@@ -926,6 +1007,207 @@ export class PortalBusinessAccessService {
     return policy;
   }
 
+  async findIntermediarySettlementReport(
+    account: PortalAccount,
+    query: IntermediarySettlementReportQueryDto,
+  ) {
+    this.assertIntermediaryAccount(account);
+    const company = await this.companyRepository.findOne({
+      where: { id: account.intermediary_company_id, status: 'active' },
+    });
+    if (company?.company_type !== CompanyType.BANCASSURANCE) {
+      throw new ForbiddenException(
+        'This report is available to bancassurance partners only',
+      );
+    }
+    if (query.from_date && query.to_date && query.from_date > query.to_date) {
+      throw new BadRequestException('from_date must not be after to_date');
+    }
+
+    const branchId = `COALESCE(policy.distribution_snapshot ->> 'intermediaryBranchId', quotation.draft_payload #>> '{distribution_attribution,branch_id}')`;
+    const branchName = `COALESCE(policy.distribution_snapshot ->> 'intermediaryBranchName', quotation.draft_payload #>> '{distribution_attribution,branch_name}')`;
+    const salePointId = `COALESCE(policy.distribution_snapshot ->> 'intermediarySalePointId', quotation.draft_payload #>> '{distribution_attribution,sale_point_id}')`;
+    const salePointCode = `COALESCE(policy.distribution_snapshot ->> 'intermediarySalePointCode', quotation.draft_payload #>> '{distribution_attribution,sale_point_code}')`;
+    const salePointName = `COALESCE(policy.distribution_snapshot ->> 'intermediarySalePointName', quotation.draft_payload #>> '{distribution_attribution,sale_point_name}')`;
+    const qb = this.commissionRepository
+      .createQueryBuilder('commission')
+      .leftJoin('commission.policy', 'policy')
+      .leftJoin('commission.quotation', 'quotation')
+      .leftJoin('commission.insurer_company', 'insurer')
+      .where('commission.intermediary_company_id = :intermediaryCompanyId', {
+        intermediaryCompanyId: account.intermediary_company_id,
+      })
+      .andWhere('commission.deleted_at IS NULL');
+
+    this.applyIntermediaryProductScope(
+      qb,
+      account.intermediary_company_id,
+      'commission.insurer_company_id',
+      'COALESCE(policy.product_id, quotation.product_id)',
+      PartnerOperation.VIEW_COMMISSION,
+      'COALESCE(policy.branch_id, quotation.branch_id)',
+    );
+    if (query.from_date) {
+      qb.andWhere(
+        'COALESCE(commission.earned_at, commission.created_at)::date >= :fromDate',
+        {
+          fromDate: query.from_date,
+        },
+      );
+    }
+    if (query.to_date) {
+      qb.andWhere(
+        'COALESCE(commission.earned_at, commission.created_at)::date <= :toDate',
+        {
+          toDate: query.to_date,
+        },
+      );
+    }
+
+    const rows = await qb
+      .select('commission.insurer_company_id', 'insurer_company_id')
+      .addSelect('insurer.name', 'insurer_name')
+      .addSelect(branchId, 'branch_id')
+      .addSelect(branchName, 'branch_name')
+      .addSelect(salePointId, 'sale_point_id')
+      .addSelect(salePointCode, 'sale_point_code')
+      .addSelect(salePointName, 'sale_point_name')
+      .addSelect('commission.status', 'status')
+      .addSelect('COUNT(commission.id)::int', 'transaction_count')
+      .addSelect(
+        'COALESCE(SUM(commission.commission_amount), 0)',
+        'commission_amount',
+      )
+      .addSelect('COALESCE(SUM(commission.paid_amount), 0)', 'paid_amount')
+      .addSelect(
+        'COALESCE(SUM(commission.balance_amount), 0)',
+        'balance_amount',
+      )
+      .groupBy('commission.insurer_company_id')
+      .addGroupBy('insurer.name')
+      .addGroupBy(branchId)
+      .addGroupBy(branchName)
+      .addGroupBy(salePointId)
+      .addGroupBy(salePointCode)
+      .addGroupBy(salePointName)
+      .addGroupBy('commission.status')
+      .orderBy('insurer.name', 'ASC')
+      .addOrderBy(branchName, 'ASC')
+      .addOrderBy(salePointName, 'ASC')
+      .getRawMany();
+
+    return {
+      from_date: query.from_date ?? null,
+      to_date: query.to_date ?? null,
+      groups: rows.map((row) => ({
+        ...row,
+        branch_id: row.branch_id ?? null,
+        branch_name: row.branch_name ?? 'Unattributed branch',
+        sale_point_id: row.sale_point_id ?? null,
+        sale_point_code: row.sale_point_code ?? null,
+        sale_point_name: row.sale_point_name ?? 'Unattributed sales point',
+      })),
+      totals: rows.reduce(
+        (totals, row) => ({
+          transaction_count:
+            totals.transaction_count + Number(row.transaction_count ?? 0),
+          commission_amount:
+            totals.commission_amount + Number(row.commission_amount ?? 0),
+          paid_amount: totals.paid_amount + Number(row.paid_amount ?? 0),
+          balance_amount:
+            totals.balance_amount + Number(row.balance_amount ?? 0),
+        }),
+        {
+          transaction_count: 0,
+          commission_amount: 0,
+          paid_amount: 0,
+          balance_amount: 0,
+        },
+      ),
+    };
+  }
+
+  async compareQuotations(account: PortalAccount, quotationIds: string[]) {
+    this.assertIntermediaryAccount(account);
+    const ids = Array.from(new Set(quotationIds));
+    if (ids.length < 2 || ids.length > 10) {
+      throw new BadRequestException(
+        'Choose between 2 and 10 quotations to compare',
+      );
+    }
+    const items = await this.quotationRepository
+      .createQueryBuilder('quotation')
+      .leftJoinAndSelect('quotation.product', 'product')
+      .leftJoinAndSelect('quotation.category', 'category')
+      .leftJoinAndSelect('quotation.insurer_company', 'insurer')
+      .leftJoinAndSelect('quotation.cover_note', 'cover_note')
+      .where('quotation.id IN (:...ids)', { ids })
+      .andWhere('quotation.deleted_at IS NULL')
+      .andWhere('quotation.intermediary_company_id = :intermediaryId', {
+        intermediaryId: account.intermediary_company_id,
+      })
+      .andWhere(
+        `EXISTS (
+        SELECT 1 FROM insurance_company_partners rel
+        WHERE rel.insurer_company_id = quotation.insurer_company_id
+          AND rel.intermediary_company_id = :intermediaryId
+          AND rel.status = 'ACTIVE'
+          AND (rel.start_date IS NULL OR rel.start_date <= CURRENT_DATE)
+          AND (rel.end_date IS NULL OR rel.end_date >= CURRENT_DATE)
+          AND (rel.scope_mode = 'LEGACY' OR EXISTS (
+            SELECT 1 FROM insurance_company_partner_product_scopes ps
+            WHERE ps.relationship_id = rel.id AND ps.product_id = quotation.product_id
+              AND ps.is_active AND ps.allowed_operations @> ARRAY['VIEW_QUOTATION']::varchar[]
+              AND (ps.branch_ids IS NULL OR quotation.branch_id = ANY(ps.branch_ids))
+          ))
+      )`,
+      )
+      .getMany();
+
+    if (items.length !== ids.length) {
+      throw new NotFoundException('One or more quotations are unavailable');
+    }
+    const customerIds = new Set(items.map((item) => item.customer_id));
+    if (customerIds.size !== 1) {
+      throw new BadRequestException('Compare quotations for the same customer');
+    }
+
+    return items.map((item) => ({
+      id: item.id,
+      quotation_no: item.quotation_no,
+      insurer_company_id: item.insurer_company_id,
+      insurer_name: item.insurer_company?.name ?? null,
+      product_id: item.product_id,
+      product_name: item.product?.product_name,
+      category_name: item.category?.name,
+      status: item.status,
+      currency: item.cover_note?.currency_code ?? null,
+      premium_excluding_tax:
+        item.cover_note?.total_premium_excluding_tax ?? null,
+      premium_including_tax:
+        item.cover_note?.total_premium_including_tax ?? null,
+      cover_note_start_date: item.cover_note?.cover_note_start_date ?? null,
+      cover_note_end_date: item.cover_note?.cover_note_end_date ?? null,
+      product_definition_snapshot: item.product_definition_snapshot,
+      finalization_snapshot: item.finalization_snapshot,
+      created_at: item.created_at,
+    }));
+  }
+
+  async assertPolicyOperation(
+    account: PortalAccount,
+    policy: Policy,
+    operation: PartnerOperation,
+  ) {
+    await this.assertIntermediaryOperation(
+      account,
+      policy.insurer_company_id,
+      policy.product_id,
+      operation,
+      policy.branch_id,
+    );
+  }
+
   async assertInvoice(
     account: PortalAccount,
     invoiceId: string,
@@ -991,6 +1273,30 @@ export class PortalBusinessAccessService {
       'quotation.intermediary_company_id = :portalIntermediaryCompanyId',
       { portalIntermediaryCompanyId: account.intermediary_company_id },
     );
+    qb.andWhere(
+      `EXISTS (
+        SELECT 1
+        FROM insurance_company_partners scope_relationship
+        WHERE scope_relationship.insurer_company_id = quotation.insurer_company_id
+          AND scope_relationship.intermediary_company_id = :portalIntermediaryCompanyId
+          AND scope_relationship.status IN ('ACTIVE', 'SUSPENDED')
+          AND (scope_relationship.start_date IS NULL OR scope_relationship.start_date <= CURRENT_DATE)
+          AND (scope_relationship.end_date IS NULL OR scope_relationship.end_date >= CURRENT_DATE)
+          AND (
+            scope_relationship.scope_mode = 'LEGACY'
+            OR EXISTS (
+              SELECT 1
+              FROM insurance_company_partner_product_scopes product_scope
+              WHERE product_scope.relationship_id = scope_relationship.id
+                AND product_scope.product_id = quotation.product_id
+                AND product_scope.is_active = true
+                AND product_scope.allowed_operations @> ARRAY['VIEW_QUOTATION']::varchar[]
+                AND (product_scope.branch_ids IS NULL OR quotation.branch_id = ANY(product_scope.branch_ids))
+            )
+          )
+      )`,
+      { portalIntermediaryCompanyId: account.intermediary_company_id },
+    );
   }
 
   private applyPolicyScope(
@@ -1026,6 +1332,30 @@ export class PortalBusinessAccessService {
 
     qb.andWhere(
       'policy.intermediary_company_id = :portalIntermediaryCompanyId',
+      { portalIntermediaryCompanyId: account.intermediary_company_id },
+    );
+    qb.andWhere(
+      `EXISTS (
+        SELECT 1
+        FROM insurance_company_partners scope_relationship
+        WHERE scope_relationship.insurer_company_id = policy.insurer_company_id
+          AND scope_relationship.intermediary_company_id = :portalIntermediaryCompanyId
+          AND scope_relationship.status IN ('ACTIVE', 'SUSPENDED')
+          AND (scope_relationship.start_date IS NULL OR scope_relationship.start_date <= CURRENT_DATE)
+          AND (scope_relationship.end_date IS NULL OR scope_relationship.end_date >= CURRENT_DATE)
+          AND (
+            scope_relationship.scope_mode = 'LEGACY'
+            OR EXISTS (
+              SELECT 1
+              FROM insurance_company_partner_product_scopes product_scope
+              WHERE product_scope.relationship_id = scope_relationship.id
+                AND product_scope.product_id = policy.product_id
+                AND product_scope.is_active = true
+                AND product_scope.allowed_operations @> ARRAY['VIEW_POLICY']::varchar[]
+                AND (product_scope.branch_ids IS NULL OR policy.branch_id = ANY(product_scope.branch_ids))
+            )
+          )
+      )`,
       { portalIntermediaryCompanyId: account.intermediary_company_id },
     );
   }
@@ -1064,6 +1394,14 @@ export class PortalBusinessAccessService {
     qb.andWhere(
       'invoice.intermediary_company_id = :portalIntermediaryCompanyId',
       { portalIntermediaryCompanyId: account.intermediary_company_id },
+    );
+    this.applyIntermediaryProductScope(
+      qb,
+      account.intermediary_company_id,
+      'COALESCE(policy.insurer_company_id, quotation.insurer_company_id)',
+      'COALESCE(policy.product_id, quotation.product_id)',
+      PartnerOperation.VIEW_PAYMENT,
+      'COALESCE(policy.branch_id, quotation.branch_id)',
     );
   }
 
@@ -1104,6 +1442,14 @@ export class PortalBusinessAccessService {
       'invoice.intermediary_company_id = :portalIntermediaryCompanyId',
       { portalIntermediaryCompanyId: account.intermediary_company_id },
     );
+    this.applyIntermediaryProductScope(
+      qb,
+      account.intermediary_company_id,
+      'COALESCE(policy.insurer_company_id, quotation.insurer_company_id)',
+      'COALESCE(policy.product_id, quotation.product_id)',
+      PartnerOperation.VIEW_PAYMENT,
+      'COALESCE(policy.branch_id, quotation.branch_id)',
+    );
   }
 
   private applyClaimScope(
@@ -1140,6 +1486,14 @@ export class PortalBusinessAccessService {
     qb.andWhere(
       'claim.intermediary_company_id = :portalIntermediaryCompanyId',
       { portalIntermediaryCompanyId: account.intermediary_company_id },
+    );
+    this.applyIntermediaryProductScope(
+      qb,
+      account.intermediary_company_id,
+      'claim.insurer_company_id',
+      'policy.product_id',
+      PartnerOperation.VIEW_CLAIM,
+      'policy.branch_id',
     );
   }
 
@@ -1186,6 +1540,81 @@ export class PortalBusinessAccessService {
       `,
       { portalIntermediaryCompanyId: account.intermediary_company_id },
     );
+    this.applyIntermediaryProductScope(
+      qb,
+      account.intermediary_company_id,
+      'policy.insurer_company_id',
+      'policy.product_id',
+      PartnerOperation.VIEW_CLAIM,
+      'policy.branch_id',
+    );
+  }
+
+  async findAuthorizedInsurers(account: PortalAccount) {
+    this.assertIntermediaryAccount(account);
+    return this.insurancePartnersService.findAuthorizedInsurers(
+      account.intermediary_company_id,
+    );
+  }
+
+  async findAuthorizedProductRisks(
+    account: PortalAccount,
+    insurerCompanyId: string,
+    productId: string,
+    branchId?: string,
+  ) {
+    this.assertIntermediaryAccount(account);
+    await this.assertIntermediaryOperation(
+      account,
+      insurerCompanyId,
+      productId,
+      PartnerOperation.QUOTE,
+      branchId,
+    );
+    return this.riskRepository.find({
+      where: {
+        company_id: insurerCompanyId,
+        product_id: productId,
+        is_active: true,
+        lifecycle_status: 'ACTIVE',
+      },
+      order: { risk_name: 'ASC' },
+    });
+  }
+
+  private applyIntermediaryProductScope(
+    qb: SelectQueryBuilder<any>,
+    intermediaryCompanyId: string,
+    insurerCompanySql: string,
+    productIdSql: string,
+    operation: PartnerOperation,
+    branchIdSql?: string,
+    branchId?: string | null,
+  ) {
+    qb.andWhere(
+      `EXISTS (
+        SELECT 1
+        FROM insurance_company_partners scope_relationship
+        WHERE scope_relationship.insurer_company_id = ${insurerCompanySql}
+          AND scope_relationship.intermediary_company_id = :partnerScopeCompanyId
+          AND scope_relationship.status IN ('ACTIVE', 'SUSPENDED')
+          AND (scope_relationship.start_date IS NULL OR scope_relationship.start_date <= CURRENT_DATE)
+          AND (scope_relationship.end_date IS NULL OR scope_relationship.end_date >= CURRENT_DATE)
+          AND (
+            scope_relationship.scope_mode = 'LEGACY'
+            OR EXISTS (
+              SELECT 1
+              FROM insurance_company_partner_product_scopes product_scope
+              WHERE product_scope.relationship_id = scope_relationship.id
+                AND product_scope.product_id = ${productIdSql}
+                AND product_scope.is_active = true
+                AND product_scope.allowed_operations @> ARRAY['${operation}']::varchar[]
+                ${branchIdSql ? `AND (product_scope.branch_ids IS NULL OR ${branchIdSql} = ANY(product_scope.branch_ids))` : ''}
+            )
+          )
+      )`,
+      { partnerScopeCompanyId: intermediaryCompanyId },
+    );
   }
 
   // =========================================================
@@ -1226,13 +1655,79 @@ export class PortalBusinessAccessService {
 
     await this.assertPortfolioCustomer(account, customerId);
 
+    const draftPayload = { ...(dto.draft_payload ?? {}) };
+    if (
+      this.intermediaryChannel(account) === ProductChannelType.BANCASSURANCE
+    ) {
+      const attribution =
+        this.asRecord(draftPayload['distribution_attribution']) ?? {};
+      const branchId =
+        typeof attribution['branch_id'] === 'string'
+          ? attribution['branch_id']
+          : null;
+      const salePointId =
+        typeof attribution['sale_point_id'] === 'string'
+          ? attribution['sale_point_id']
+          : null;
+      const branch = branchId
+        ? await this.branchRepository.findOne({
+            where: {
+              id: branchId,
+              company_id: account.intermediary_company_id,
+              status: 'active',
+            },
+          })
+        : null;
+      if (branchId && !branch)
+        throw new BadRequestException(
+          'Distribution branch must be active and owned by the bank',
+        );
+      const salePoint = salePointId
+        ? await this.salePointRepository.findOne({
+            where: {
+              id: salePointId,
+              companyId: account.intermediary_company_id,
+              isActive: true,
+            },
+          })
+        : null;
+      if (
+        salePointId &&
+        (!salePoint ||
+          (branchId && salePoint.branchId && salePoint.branchId !== branchId))
+      ) {
+        throw new BadRequestException(
+          'Sales point must be active, owned by the bank, and linked to the selected branch',
+        );
+      }
+      if (branch || salePoint) {
+        draftPayload['distribution_attribution'] = {
+          branch_id: branch?.id ?? null,
+          branch_name: branch?.name ?? null,
+          branch_code: branch?.code ?? null,
+          sale_point_id: salePoint?.id ?? null,
+          sale_point_code: salePoint?.salePointCode ?? null,
+          sale_point_name: salePoint?.salePointName ?? null,
+        };
+      }
+    } else {
+      delete draftPayload['distribution_attribution'];
+    }
+
     return {
       ...dto,
       insurer_company_id: insurerCompanyId,
       intermediary_company_id: account.intermediary_company_id,
       customer_id: customerId,
       channel_type: this.intermediaryChannel(account),
+      draft_payload: draftPayload,
     };
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> | null {
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
   }
 
   private async scopeFinalPayload(
@@ -1313,6 +1808,26 @@ export class PortalBusinessAccessService {
     };
   }
 
+  private async assertIntermediaryOperation(
+    account: PortalAccount,
+    insurerCompanyId: string | null | undefined,
+    productId: string,
+    operation: PartnerOperation,
+    branchId?: string | null,
+  ) {
+    if (account.actor_type !== PortalActorType.INTERMEDIARY) return;
+    this.assertIntermediaryAccount(account);
+    if (!insurerCompanyId) {
+      throw new BadRequestException('Insurer company is required');
+    }
+    await this.insurancePartnersService.authorizeOperation(
+      insurerCompanyId,
+      account.intermediary_company_id,
+      productId,
+      operation,
+      branchId,
+    );
+  }
   private assertQuotationEditable(quotation: Quotation) {
     const editableStatuses = new Set(['DRAFT', 'INCOMPLETE', 'RETURNED']);
 

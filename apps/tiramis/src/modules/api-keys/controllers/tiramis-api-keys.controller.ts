@@ -9,19 +9,22 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiSecurity, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { ServiceScopes } from '@insurance-max/shared-kernel';
+import { PublicServiceEndpoint } from '@insurance-max/shared-kernel';
 
 import { CreateTiramisApiKeyDto } from '../dto/create-tiramis-api-key.dto';
 import { UpdateTiramisApiKeyDto } from '../dto/update-tiramis-api-key.dto';
 import { TiramisApiKeyService } from '../services/tiramis-api-key.service';
+import { TiramisAdministratorGuard } from '../guards/tiramis-administrator.guard';
 
 @ApiTags('TIRAMIS API keys')
-@ApiSecurity('api-key')
+@ApiBearerAuth()
 @Controller('tiramis/api-keys')
-@ServiceScopes('tiramis:admin')
+@PublicServiceEndpoint()
+@UseGuards(TiramisAdministratorGuard)
 export class TiramisApiKeysController {
   constructor(private readonly apiKeyService: TiramisApiKeyService) {}
 
@@ -68,9 +71,21 @@ export class TiramisApiKeysController {
     return this.apiKeyService.disable(id);
   }
 
+  @Post('systems/:serviceName/rotate')
+  @ApiOperation({ summary: 'Atomically rotate the active key for a system' })
+  rotateSystem(
+    @Param('serviceName') serviceName: string,
+    @Body() dto?: UpdateTiramisApiKeyDto,
+  ) {
+    return this.apiKeyService.rotateSystem(serviceName, dto?.scopes);
+  }
+
   @Post(':id/rotate')
-  rotate(@Param('id', ParseUUIDPipe) id: string) {
-    return this.apiKeyService.rotate(id);
+  rotate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto?: UpdateTiramisApiKeyDto,
+  ) {
+    return this.apiKeyService.rotate(id, dto?.scopes);
   }
 
   @Delete(':id')

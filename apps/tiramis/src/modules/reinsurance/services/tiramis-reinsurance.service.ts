@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import Decimal from 'decimal.js';
 
 import {
   TiramisConfigService,
@@ -15,6 +16,16 @@ import { TiramisSubmissionService } from '../../submissions/services/tiramis-sub
 import { CreateReinsuranceDto } from '../dto/create-reinsurance.dto';
 import { TiramisReinsuranceRepository } from '../repositories/tiramis-reinsurance.repository';
 import { TiramisReinsurancePayloadService } from './tiramis-reinsurance-payload.service';
+
+function parseDecimal(value: unknown): Decimal | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  try {
+    const parsed = new Decimal(value);
+    return parsed.isFinite() ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 @Injectable()
 export class TiramisReinsuranceService {
@@ -210,25 +221,28 @@ export class TiramisReinsuranceService {
 
   private validatePayload(dto: CreateReinsuranceDto) {
     const errors: string[] = [];
+    let totalPremiumShare = new Decimal(0);
+
+    const premium = parseDecimal(dto.premiumIncludingTax);
+    if (!premium?.greaterThan(0)) {
+      errors.push('premiumIncludingTax must be a positive decimal amount');
+    }
+
+    const exchangeRate = parseDecimal(dto.exchangeRate);
+    if (!exchangeRate?.greaterThan(0)) {
+      errors.push('exchangeRate must be a positive decimal amount');
+    }
 
     if (!dto.coverNoteReferenceNumber) {
       errors.push('coverNoteReferenceNumber is required');
-    }
-
-    if (!dto.premiumIncludingTax) {
-      errors.push('premiumIncludingTax is required');
     }
 
     if (!dto.currencyCode) {
       errors.push('currencyCode is required');
     }
 
-    if (dto.currencyCode && dto.currencyCode.length !== 3) {
+    if (dto.currencyCode && !/^[A-Z]{3}$/.test(dto.currencyCode)) {
       errors.push('currencyCode must be a 3-letter code, example: TZS');
-    }
-
-    if (!dto.exchangeRate) {
-      errors.push('exchangeRate is required');
     }
 
     if (!dto.authorizingOfficerName) {
@@ -266,22 +280,46 @@ export class TiramisReinsuranceService {
         errors.push(`${path}.reinsuranceType is required`);
       }
 
-      if (!participant.brokerageCommission) {
-        errors.push(`${path}.brokerageCommission is required`);
+      const brokerageCommission = parseDecimal(participant.brokerageCommission);
+      if (!brokerageCommission || brokerageCommission.isNegative()) {
+        errors.push(
+          `${path}.brokerageCommission must be a non-negative decimal`,
+        );
       }
 
-      if (!participant.reinsuranceCommission) {
-        errors.push(`${path}.reinsuranceCommission is required`);
+      const reinsuranceCommission = parseDecimal(
+        participant.reinsuranceCommission,
+      );
+      if (!reinsuranceCommission || reinsuranceCommission.isNegative()) {
+        errors.push(
+          `${path}.reinsuranceCommission must be a non-negative decimal`,
+        );
       }
 
-      if (!participant.premiumShare) {
-        errors.push(`${path}.premiumShare is required`);
+      const premiumShare = parseDecimal(participant.premiumShare);
+      if (
+        !premiumShare ||
+        !premiumShare.greaterThan(0) ||
+        premiumShare.greaterThan(100)
+      ) {
+        errors.push(
+          `${path}.premiumShare must be greater than 0 and at most 100`,
+        );
+      } else {
+        totalPremiumShare = totalPremiumShare.plus(premiumShare);
       }
 
-      if (!participant.participationDate) {
+      if (
+        !participant.participationDate ||
+        !Number.isFinite(new Date(participant.participationDate).getTime())
+      ) {
         errors.push(`${path}.participationDate is required`);
       }
     });
+
+    if (totalPremiumShare.greaterThan(100)) {
+      errors.push('The total participant premiumShare cannot exceed 100');
+    }
 
     if (errors.length > 0) {
       throw new BadRequestException({

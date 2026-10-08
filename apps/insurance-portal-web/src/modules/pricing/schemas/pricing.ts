@@ -31,6 +31,30 @@ export const pricingQuoteMetadataSchema = z.object({
     .optional(),
   minimum_applied: z.boolean().optional(),
   minimum_amount: z.number().finite().optional(),
+  discount_control: z
+    .object({
+      max_rate: z.number().finite().nullable(),
+      max_amount: z.number().finite().nullable(),
+      approval_threshold_rate: z.number().finite().nullable(),
+      approval_threshold_amount: z.number().finite().nullable(),
+      effective_from: z.string().nullable(),
+      effective_to: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
+  loading_control: z
+    .object({
+      max_rate: z.number().finite().nullable(),
+      max_amount: z.number().finite().nullable(),
+      approval_threshold_rate: z.number().finite().nullable(),
+      approval_threshold_amount: z.number().finite().nullable(),
+      effective_from: z.string().nullable(),
+      effective_to: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
+  discount_approval_required: z.boolean().optional(),
+  loading_approval_required: z.boolean().optional(),
   validation_errors: z.array(z.string()).optional(),
   validation_warnings: z.array(z.string()).optional(),
 });

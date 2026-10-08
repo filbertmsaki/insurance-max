@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { SharedModule } from '../../shared/shared.module';
 import { TiramisModule } from '../../tiramis/tiramis.module';
+import { InsurancePartnersModule } from '../insurance-partners/insurance-partners.module';
 import { BillingCommissionModule } from '../billing-commission/billing-commission.module';
 import { InsuranceClaim } from '../claims/entities/claim.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
@@ -71,6 +72,7 @@ import { ReinsuranceSettlementService } from './services/reinsurance-settlement.
     WorkItemsModule,
     TiramisModule,
     BillingCommissionModule,
+    InsurancePartnersModule,
   ],
   controllers: [ReinsuranceController],
   providers: [

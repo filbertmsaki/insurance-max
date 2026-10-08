@@ -378,21 +378,27 @@ export class ReportScheduleService {
   }
 
   async claimNextPendingJob(workerName = 'default-worker') {
-    const job = await this.jobRepository.findOne({
-      where: { status: ReportJobStatus.PENDING },
-      order: { created_at: 'ASC' },
+    return this.jobRepository.manager.transaction(async (manager) => {
+      const job = await manager
+        .getRepository(ReportJob)
+        .createQueryBuilder('job')
+        .setLock('pessimistic_write')
+        .setOnLocked('skip_locked')
+        .where('job.status = :status', { status: ReportJobStatus.PENDING })
+        .orderBy('job.created_at', 'ASC')
+        .getOne();
+
+      if (!job) {
+        return null;
+      }
+
+      job.status = ReportJobStatus.RUNNING;
+      job.claimed_at = new Date();
+      job.claimed_by = workerName;
+      job.started_at = new Date();
+      job.attempts += 1;
+      return manager.getRepository(ReportJob).save(job);
     });
-
-    if (!job) {
-      return null;
-    }
-
-    job.status = ReportJobStatus.RUNNING;
-    job.claimed_at = new Date();
-    job.claimed_by = workerName;
-    job.started_at = new Date();
-    job.attempts += 1;
-    return this.jobRepository.save(job);
   }
 
   async executeJob(jobId: string) {
@@ -438,8 +444,11 @@ export class ReportScheduleService {
       const artifact = await this.saveArtifact(job, definition, generated);
 
       if (job.schedule_id) {
-        const schedule = await this.scheduleRepository.findOneBy({
-          id: job.schedule_id,
+        const schedule = await this.scheduleRepository.findOne({
+          where: {
+            id: job.schedule_id,
+            company_id: job.company_id,
+          },
         });
         if (schedule?.recipient_emails.length) {
           const deliveryResult = await this.deliverArtifact(

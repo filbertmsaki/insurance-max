@@ -6,14 +6,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { Repository } from 'typeorm';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { IsNull, Repository } from 'typeorm';
 
 import { TiramisApiKeyAuditEntity } from '../entities/tiramis-api-key-audit.entity';
 import { TiramisApiKeyEntity } from '../entities/tiramis-api-key.entity';
 import { CreateTiramisApiKeyDto } from '../dto/create-tiramis-api-key.dto';
 import { UpdateTiramisApiKeyDto } from '../dto/update-tiramis-api-key.dto';
-import { TiramisClientConfigurationEntity } from '../../config/entities/tiramis-client-configuration.entity';
 
 export interface TiramisApiKeyAuthContext {
   ipAddress?: string | null;
@@ -25,11 +24,8 @@ export interface TiramisApiKeyAuthContext {
 export interface TiramisApiKeyPrincipal {
   id: string;
   serviceName: string;
+  allowedIps: string[];
   scopes: string[];
-  tenantCompanyCode?: string | null;
-  tenantSystemCode?: string | null;
-  tenantEnvironment?: string | null;
-  clientConfigurationId?: string | null;
 }
 
 @Injectable()
@@ -39,43 +35,50 @@ export class TiramisApiKeyService {
     private readonly apiKeyRepository: Repository<TiramisApiKeyEntity>,
     @InjectRepository(TiramisApiKeyAuditEntity)
     private readonly auditRepository: Repository<TiramisApiKeyAuditEntity>,
-    @InjectRepository(TiramisClientConfigurationEntity)
-    private readonly clientConfigurationRepository: Repository<TiramisClientConfigurationEntity>,
   ) {}
 
   async create(
     dto: CreateTiramisApiKeyDto,
   ): Promise<TiramisApiKeyEntity & { apiKey: string }> {
-    const clientConfigurationId = await this.resolveClientConfigurationId({
-      tenantCompanyCode: dto.tenantCompanyCode ?? null,
-      tenantSystemCode: dto.tenantSystemCode ?? null,
-      tenantEnvironment: dto.tenantEnvironment ?? null,
+    const active = await this.apiKeyRepository.findOne({
+      where: {
+        serviceName: dto.serviceName,
+        systemKey: true,
+        isActive: true,
+        revokedAt: IsNull(),
+      },
     });
+    if (active) {
+      throw new BadRequestException(
+        'This system already has an active key. Rotate its existing key instead.',
+      );
+    }
 
     const apiKey = this.generateRawKey();
     const entity = this.apiKeyRepository.create({
       name: dto.name,
       serviceName: dto.serviceName,
-      tenantCompanyCode: dto.tenantCompanyCode ?? null,
-      tenantSystemCode: dto.tenantSystemCode ?? null,
-      tenantEnvironment: dto.tenantEnvironment ?? null,
-      clientConfigurationId,
-      apiKey,
+      tenantCompanyCode: null,
+      tenantSystemCode: null,
+      tenantEnvironment: null,
+      clientConfigurationId: null,
+      apiKey: null as unknown as string,
+      apiKeyHash: this.hashApiKey(apiKey),
+      systemKey: true,
       keyPrefix: apiKey.slice(0, 18),
-      scopes: dto.scopes ?? [],
+      scopes: [...dto.scopes],
+      allowedIps: this.normalizeAllowedIps(dto.allowedIps),
       description: dto.description ?? null,
       expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
       isActive: dto.isActive ?? true,
       revokedAt: null,
       lastUsedAt: null,
     });
-
     const saved = await this.apiKeyRepository.save(entity);
     await this.audit(saved, 'CREATED', 'SUCCESS', {
-      scopes: saved.scopes ?? [],
+      allowedIps: saved.allowedIps,
       expiresAt: saved.expiresAt?.toISOString() ?? null,
     });
-
     return { ...this.redact(saved), apiKey };
   }
 
@@ -88,49 +91,17 @@ export class TiramisApiKeyService {
 
   async findById(id: string): Promise<TiramisApiKeyEntity> {
     const row = await this.apiKeyRepository.findOne({ where: { id } });
-    if (!row) {
-      throw new NotFoundException('API key was not found.');
-    }
+    if (!row) throw new NotFoundException('API key was not found.');
     return this.redact(row);
   }
 
   async update(id: string, dto: UpdateTiramisApiKeyDto) {
     const existing = await this.getExisting(id);
-
-    const tenantCompanyCode =
-      dto.tenantCompanyCode === undefined
-        ? existing.tenantCompanyCode
-        : dto.tenantCompanyCode;
-    const tenantSystemCode =
-      dto.tenantSystemCode === undefined
-        ? existing.tenantSystemCode
-        : dto.tenantSystemCode;
-    const tenantEnvironment =
-      dto.tenantEnvironment === undefined
-        ? existing.tenantEnvironment
-        : dto.tenantEnvironment;
-
-    const tenantChanged =
-      tenantCompanyCode !== existing.tenantCompanyCode ||
-      tenantSystemCode !== existing.tenantSystemCode ||
-      tenantEnvironment !== existing.tenantEnvironment;
-
-    const clientConfigurationId = tenantChanged
-      ? await this.resolveClientConfigurationId({
-          tenantCompanyCode,
-          tenantSystemCode,
-          tenantEnvironment,
-        })
-      : existing.clientConfigurationId;
-
     await this.apiKeyRepository.update(id, {
-      name: dto.name ?? existing.name,
-      serviceName: dto.serviceName ?? existing.serviceName,
-      tenantCompanyCode,
-      tenantSystemCode,
-      tenantEnvironment,
-      clientConfigurationId,
-      scopes: dto.scopes ?? existing.scopes,
+      scopes: dto.scopes ?? existing.scopes ?? [],
+      allowedIps: this.normalizeAllowedIps(
+        dto.allowedIps ?? existing.allowedIps ?? [],
+      ),
       description:
         dto.description === undefined ? existing.description : dto.description,
       expiresAt:
@@ -139,18 +110,29 @@ export class TiramisApiKeyService {
           : dto.expiresAt
             ? new Date(dto.expiresAt)
             : null,
-      isActive: dto.isActive ?? existing.isActive,
     });
-
-    await this.audit(existing, 'UPDATED', 'SUCCESS', dto as any);
+    await this.audit(existing, 'UPDATED', 'SUCCESS', {
+      allowedIps: dto.allowedIps,
+      scopes: dto.scopes,
+      expiresAt: dto.expiresAt,
+    });
     return this.findById(id);
   }
 
   async activate(id: string) {
     const existing = await this.getExisting(id);
-    await this.apiKeyRepository.update(id, {
-      isActive: true,
-      revokedAt: null,
+    if (existing.revokedAt) {
+      throw new BadRequestException(
+        'A revoked API key cannot be reactivated. Rotate the system key instead.',
+      );
+    }
+    await this.apiKeyRepository.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(TiramisApiKeyEntity);
+      await repo.update(
+        { serviceName: existing.serviceName, isActive: true },
+        { isActive: false },
+      );
+      await repo.update(id, { isActive: true, systemKey: true });
     });
     await this.audit(existing, 'ACTIVATED', 'SUCCESS');
     return this.findById(id);
@@ -172,17 +154,57 @@ export class TiramisApiKeyService {
     await this.audit(existing, 'REVOKED', 'SUCCESS');
   }
 
-  async rotate(id: string): Promise<TiramisApiKeyEntity & { apiKey: string }> {
+  /** Atomic replacement keeps one active key per system; the new secret is returned once. */
+  async rotate(
+    id: string,
+    scopes?: string[],
+  ): Promise<TiramisApiKeyEntity & { apiKey: string }> {
     const existing = await this.getExisting(id);
+    if (existing.revokedAt) {
+      throw new BadRequestException(
+        'A revoked API key cannot be rotated. Create a new system key instead.',
+      );
+    }
     const apiKey = this.generateRawKey();
-    await this.apiKeyRepository.update(id, {
-      apiKey,
-      keyPrefix: apiKey.slice(0, 18),
-      revokedAt: null,
-      isActive: true,
+    await this.apiKeyRepository.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(TiramisApiKeyEntity);
+      await repo.update(
+        { serviceName: existing.serviceName, isActive: true },
+        { isActive: false },
+      );
+      await repo.update(id, {
+        apiKey: null as unknown as string,
+        apiKeyHash: this.hashApiKey(apiKey),
+        keyPrefix: apiKey.slice(0, 18),
+        systemKey: true,
+        isActive: true,
+        ...(scopes ? { scopes } : {}),
+      });
     });
-    await this.audit(existing, 'ROTATED', 'SUCCESS');
+    await this.audit(existing, 'ROTATED', 'SUCCESS', {
+      scopes: scopes ?? existing.scopes ?? [],
+    });
     return { ...(await this.findById(id)), apiKey };
+  }
+
+  async rotateSystem(
+    serviceName: string,
+    scopes?: string[],
+  ): Promise<TiramisApiKeyEntity & { apiKey: string }> {
+    const existing = await this.apiKeyRepository.findOne({
+      where: {
+        serviceName,
+        systemKey: true,
+        isActive: true,
+        revokedAt: IsNull(),
+      },
+      order: { updatedAt: 'DESC' },
+    });
+    if (!existing)
+      throw new NotFoundException(
+        'Active API key for this system was not found.',
+      );
+    return this.rotate(existing.id, scopes);
   }
 
   async validate(
@@ -198,30 +220,38 @@ export class TiramisApiKeyService {
       throw new UnauthorizedException('Missing API key');
     }
 
-    const row = await this.apiKeyRepository.findOne({
-      where: { apiKey: rawKey },
-      select: {
-        id: true,
-        name: true,
-        apiKey: true,
-        keyPrefix: true,
-        serviceName: true,
-        tenantCompanyCode: true,
-        tenantSystemCode: true,
-        tenantEnvironment: true,
-        clientConfigurationId: true,
-        scopes: true,
-        description: true,
-        isActive: true,
-        expiresAt: true,
-        lastUsedAt: true,
-        revokedAt: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const hash = this.hashApiKey(rawKey);
+    let row = await this.apiKeyRepository.findOne({
+      where: { apiKeyHash: hash },
     });
-
-    if (!row || !this.constantTimeEquals(row.apiKey, rawKey)) {
+    // Compatibility window: legacy raw keys remain valid until rotated/replaced.
+    if (!row) {
+      row = await this.apiKeyRepository.findOne({
+        where: { apiKey: rawKey },
+        select: [
+          'id',
+          'name',
+          'apiKey',
+          'keyPrefix',
+          'serviceName',
+          'scopes',
+          'description',
+          'isActive',
+          'expiresAt',
+          'lastUsedAt',
+          'revokedAt',
+          'createdAt',
+          'updatedAt',
+        ],
+      });
+    }
+    if (
+      !row ||
+      !this.constantTimeEquals(
+        row.apiKeyHash || row.apiKey || '',
+        row.apiKeyHash ? hash : rawKey,
+      )
+    ) {
       await this.audit(null, 'AUTHENTICATE', 'FAILED', {
         reason: 'INVALID',
         keyPrefix: rawKey.slice(0, 18),
@@ -229,23 +259,35 @@ export class TiramisApiKeyService {
       });
       throw new UnauthorizedException('Invalid API key');
     }
-
-    if (row.revokedAt) {
+    if (requiredScopes.includes('tiramis:admin')) {
       await this.audit(row, 'AUTHENTICATE', 'FAILED', {
-        reason: 'REVOKED',
+        reason: 'ADMIN_LOGIN_REQUIRED',
         ...context,
       });
-      throw new ForbiddenException('API key has been revoked');
+      throw new ForbiddenException(
+        'Administrator login is required for this operation',
+      );
     }
-
-    if (!row.isActive) {
+    const grantedScopes = row.scopes ?? [];
+    const missingScopes = requiredScopes.filter(
+      (scope) => !grantedScopes.includes(scope),
+    );
+    if (missingScopes.length) {
       await this.audit(row, 'AUTHENTICATE', 'FAILED', {
-        reason: 'DISABLED',
+        reason: 'INSUFFICIENT_SCOPE',
+        requiredScopes,
+        missingScopes,
         ...context,
       });
-      throw new ForbiddenException('API key is disabled');
+      throw new ForbiddenException('API key does not have required scope');
     }
-
+    if (row.revokedAt || !row.isActive) {
+      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
+        reason: row.revokedAt ? 'REVOKED' : 'DISABLED',
+        ...context,
+      });
+      throw new ForbiddenException('API key is not active');
+    }
     if (row.expiresAt && row.expiresAt <= new Date()) {
       await this.audit(row, 'AUTHENTICATE', 'FAILED', {
         reason: 'EXPIRED',
@@ -253,35 +295,27 @@ export class TiramisApiKeyService {
       });
       throw new ForbiddenException('API key has expired');
     }
-
-    const scopes = row.scopes ?? [];
-
-    if (requiredScopes.length) {
-      const missingScopes = requiredScopes.filter(
-        (scope) => !scopes.includes(scope),
+    const allowedIps = this.normalizeAllowedIps(row.allowedIps ?? []);
+    if (
+      !context.ipAddress ||
+      !allowedIps.includes(this.normalizeIp(context.ipAddress))
+    ) {
+      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
+        reason: 'IP_NOT_ALLOWED',
+        ...context,
+      });
+      throw new ForbiddenException(
+        'API key is not allowed from this IP address',
       );
-
-      if (missingScopes.length) {
-        await this.audit(row, 'AUTHENTICATE', 'FAILED', {
-          reason: 'MISSING_SCOPE',
-          missingScopes,
-          ...context,
-        });
-        throw new ForbiddenException('API key is missing required scopes');
-      }
     }
 
     await this.apiKeyRepository.update(row.id, { lastUsedAt: new Date() });
     await this.audit(row, 'AUTHENTICATE', 'SUCCESS', context as any);
-
     return {
       id: row.id,
       serviceName: row.serviceName,
-      scopes,
-      tenantCompanyCode: row.tenantCompanyCode,
-      tenantSystemCode: row.tenantSystemCode,
-      tenantEnvironment: row.tenantEnvironment,
-      clientConfigurationId: row.clientConfigurationId,
+      allowedIps,
+      scopes: grantedScopes,
     };
   }
 
@@ -294,31 +328,8 @@ export class TiramisApiKeyService {
   }
 
   private async getExisting(id: string) {
-    const existing = await this.apiKeyRepository.findOne({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        apiKey: true,
-        keyPrefix: true,
-        serviceName: true,
-        tenantCompanyCode: true,
-        tenantSystemCode: true,
-        tenantEnvironment: true,
-        clientConfigurationId: true,
-        scopes: true,
-        description: true,
-        isActive: true,
-        expiresAt: true,
-        lastUsedAt: true,
-        revokedAt: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-    if (!existing) {
-      throw new NotFoundException('API key was not found.');
-    }
+    const existing = await this.apiKeyRepository.findOne({ where: { id } });
+    if (!existing) throw new NotFoundException('API key was not found.');
     return existing;
   }
 
@@ -343,68 +354,34 @@ export class TiramisApiKeyService {
     );
   }
 
-  /**
-   * Resolves the ClientConfiguration an API key's tenant fields should be
-   * bound to, at key-creation/update time rather than leaving it to be
-   * discovered (or silently unmatched) at first request time. Fails fast
-   * if a tenant triple is provided but doesn't correspond to any active
-   * configuration — a key that will never resolve a configuration should
-   * never be minted in the first place.
-   */
-  private async resolveClientConfigurationId(tenant: {
-    tenantCompanyCode: string | null;
-    tenantSystemCode: string | null;
-    tenantEnvironment: string | null;
-  }): Promise<string | null> {
-    const { tenantCompanyCode, tenantSystemCode, tenantEnvironment } = tenant;
-
-    if (!tenantCompanyCode && !tenantSystemCode && !tenantEnvironment) {
-      return null;
-    }
-
-    if (!tenantCompanyCode || !tenantSystemCode || !tenantEnvironment) {
-      throw new BadRequestException({
-        code: 'TIRAMIS_ORGANIZATION_CONTEXT_REQUIRED',
-        message:
-          'tenantCompanyCode, tenantSystemCode, and tenantEnvironment must all be provided together.',
-      });
-    }
-
-    const configuration = await this.clientConfigurationRepository.findOne({
-      where: {
-        companyCode: tenantCompanyCode,
-        systemCode: tenantSystemCode,
-        environment: tenantEnvironment,
-        isActive: 1,
-      },
-    });
-
-    if (!configuration) {
-      throw new NotFoundException({
-        code: 'TIRAMIS_CLIENT_CONFIGURATION_NOT_FOUND',
-        message:
-          'No active TIRAMIS client configuration matches the supplied company, system, and environment.',
-        details: { tenantCompanyCode, tenantSystemCode, tenantEnvironment },
-      });
-    }
-
-    return configuration.id;
-  }
-
   private generateRawKey(): string {
     return `tms_${randomBytes(32).toString('base64url')}`;
   }
 
+  private hashApiKey(value: string): string {
+    return createHash('sha256').update(value, 'utf8').digest('hex');
+  }
+
   private constantTimeEquals(left: string, right: string): boolean {
-    const leftBuffer = Buffer.from(left);
-    const rightBuffer = Buffer.from(right);
-    return (
-      leftBuffer.length === rightBuffer.length &&
-      timingSafeEqual(leftBuffer, rightBuffer)
-    );
+    const a = Buffer.from(left);
+    const b = Buffer.from(right);
+    return a.length === b.length && timingSafeEqual(a, b);
+  }
+
+  private normalizeAllowedIps(values: string[]): string[] {
+    return [...new Set(values.map((value) => this.normalizeIp(value)))];
+  }
+
+  private normalizeIp(value: string): string {
+    const trimmed = value.trim().toLowerCase();
+    return trimmed.startsWith('::ffff:') ? trimmed.slice(7) : trimmed;
   }
 
   private redact(entity: TiramisApiKeyEntity): TiramisApiKeyEntity {
-    return { ...entity, apiKey: undefined as unknown as string };
+    return {
+      ...entity,
+      apiKey: undefined as unknown as string,
+      apiKeyHash: undefined as unknown as string,
+    };
   }
 }

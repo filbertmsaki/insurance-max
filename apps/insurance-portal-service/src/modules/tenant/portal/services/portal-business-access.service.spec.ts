@@ -7,17 +7,21 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Company } from '../../../platform/companies/entities/company.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 import { CommissionTransaction } from '../../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../../billing-commission/entities/invoice.entity';
 import { Receipt } from '../../billing-commission/entities/receipt.entity';
 import { Complaint } from '../../claims/entities/complaint.entity';
 import { InsuranceClaim } from '../../claims/entities/claim.entity';
+import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { SaveQuotationDraftDto } from '../../quotations/dto/quotation-draft.dto';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationsService } from '../../quotations/quotations.service';
+import { TiramisSalePointEntity } from '../../../tiramis/entities/tiramis-sale-point.entity';
+import { InsurancePartnersService } from '../../insurance-partners/insurance-partners.service';
 
 import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalAccountStatus, PortalActorType } from '../enums/portal.enums';
@@ -64,6 +68,10 @@ describe('PortalBusinessAccessService', () => {
   let commissionRepository: ReturnType<typeof mockRepo>;
   let customerRepository: ReturnType<typeof mockRepo>;
   let companyRepository: ReturnType<typeof mockRepo>;
+  let riskRepository: ReturnType<typeof mockRepo>;
+  let branchRepository: ReturnType<typeof mockRepo>;
+  let salePointRepository: ReturnType<typeof mockRepo>;
+  let insurancePartnersService: { authorizeOperation: jest.Mock };
   let quotationsService: {
     createDraft: jest.Mock;
     updateDraft: jest.Mock;
@@ -101,6 +109,12 @@ describe('PortalBusinessAccessService', () => {
     commissionRepository = mockRepo();
     customerRepository = mockRepo();
     companyRepository = mockRepo();
+    riskRepository = mockRepo();
+    branchRepository = mockRepo();
+    salePointRepository = mockRepo();
+    insurancePartnersService = {
+      authorizeOperation: jest.fn().mockResolvedValue({ legacy: true }),
+    };
 
     quotationsService = {
       createDraft: jest.fn().mockResolvedValue({ id: 'quotation-1' }),
@@ -132,7 +146,20 @@ describe('PortalBusinessAccessService', () => {
         },
         { provide: getRepositoryToken(Customer), useValue: customerRepository },
         { provide: getRepositoryToken(Company), useValue: companyRepository },
+        {
+          provide: getRepositoryToken(InsuranceRisk),
+          useValue: riskRepository,
+        },
+        { provide: getRepositoryToken(Branch), useValue: branchRepository },
+        {
+          provide: getRepositoryToken(TiramisSalePointEntity),
+          useValue: salePointRepository,
+        },
         { provide: QuotationsService, useValue: quotationsService },
+        {
+          provide: InsurancePartnersService,
+          useValue: insurancePartnersService,
+        },
       ],
     }).compile();
 
@@ -234,6 +261,125 @@ describe('PortalBusinessAccessService', () => {
       }),
       'intermediary-user-1',
     );
+  });
+
+  it('validates and persists bancassurance-owned branch and sales-point attribution', async () => {
+    const bankAccount = {
+      ...intermediaryAccount,
+      intermediary_company: {
+        id: 'bank-1',
+        company_type: 'BANCASSURANCE',
+      } as Company,
+      intermediary_company_id: 'bank-1',
+    } as PortalAccount;
+    jest
+      .spyOn(service, 'assertPortfolioCustomer')
+      .mockResolvedValue({ id: 'customer-2' } as Customer);
+    companyRepository.findOne.mockResolvedValue({
+      id: 'insurer-1',
+      company_type: 'INSURANCE_COMPANY',
+      status: 'active',
+    });
+    branchRepository.findOne.mockResolvedValue({
+      id: 'bank-branch-1',
+      company_id: 'bank-1',
+      name: 'Central',
+      code: 'CEN',
+    });
+    salePointRepository.findOne.mockResolvedValue({
+      id: 'sale-point-1',
+      companyId: 'bank-1',
+      branchId: 'bank-branch-1',
+      salePointCode: 'SP-01',
+      salePointName: 'City Centre',
+    });
+
+    await service.createQuotationDraft(
+      bankAccount,
+      {
+        insurer_company_id: 'insurer-1',
+        customer_id: 'customer-2',
+        category_id: 'category-1',
+        product_id: 'product-1',
+        quotation_type: 'MOTOR',
+        quotation_flow: 'MOTOR_SINGLE',
+        channel_type: ProductChannelType.BROKER,
+        is_fleet: false,
+        draft_payload: {
+          distribution_attribution: {
+            branch_id: 'bank-branch-1',
+            sale_point_id: 'sale-point-1',
+            branch_name: 'client supplied value',
+          },
+        },
+      } as SaveQuotationDraftDto,
+      'bank-user-1',
+    );
+
+    expect(branchRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'bank-branch-1', company_id: 'bank-1', status: 'active' },
+    });
+    expect(salePointRepository.findOne).toHaveBeenCalledWith({
+      where: { id: 'sale-point-1', companyId: 'bank-1', isActive: true },
+    });
+    expect(quotationsService.createDraft).toHaveBeenCalledWith(
+      bankAccount.company_id,
+      expect.objectContaining({
+        channel_type: ProductChannelType.BANCASSURANCE,
+        draft_payload: expect.objectContaining({
+          distribution_attribution: {
+            branch_id: 'bank-branch-1',
+            branch_name: 'Central',
+            branch_code: 'CEN',
+            sale_point_id: 'sale-point-1',
+            sale_point_code: 'SP-01',
+            sale_point_name: 'City Centre',
+          },
+        }),
+      }),
+      'bank-user-1',
+    );
+  });
+
+  it('rejects bancassurance attribution that references another organization branch', async () => {
+    const bankAccount = {
+      ...intermediaryAccount,
+      intermediary_company: {
+        id: 'bank-1',
+        company_type: 'BANCASSURANCE',
+      } as Company,
+      intermediary_company_id: 'bank-1',
+    } as PortalAccount;
+    jest
+      .spyOn(service, 'assertPortfolioCustomer')
+      .mockResolvedValue({ id: 'customer-2' } as Customer);
+    companyRepository.findOne.mockResolvedValue({
+      id: 'insurer-1',
+      company_type: 'INSURANCE_COMPANY',
+      status: 'active',
+    });
+    branchRepository.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.createQuotationDraft(
+        bankAccount,
+        {
+          insurer_company_id: 'insurer-1',
+          customer_id: 'customer-2',
+          category_id: 'category-1',
+          product_id: 'product-1',
+          quotation_type: 'MOTOR',
+          quotation_flow: 'MOTOR_SINGLE',
+          channel_type: ProductChannelType.BANCASSURANCE,
+          is_fleet: false,
+          draft_payload: {
+            distribution_attribution: { branch_id: 'foreign-branch' },
+          },
+        } as SaveQuotationDraftDto,
+        'bank-user-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(quotationsService.createDraft).not.toHaveBeenCalled();
   });
 
   it('does not allow submitted quotations to be changed', async () => {

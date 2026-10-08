@@ -1,5 +1,6 @@
 import { Controller, Logger } from '@nestjs/common';
 import { MessagePattern, Payload, RpcException } from '@nestjs/microservices';
+import { ServiceScopes } from '@insurance-max/shared-kernel';
 
 import { TiramisMotorService } from '../motor/services/tiramis-motor.service';
 import { TiramisVerificationService } from '../verifications/services/tiramis-verification.service';
@@ -27,6 +28,7 @@ const PATTERNS = {
 };
 
 @Controller()
+@ServiceScopes('tiramis:submit')
 export class TiramisTcpGatewayController {
   private readonly logger = new Logger(TiramisTcpGatewayController.name);
 
@@ -36,6 +38,7 @@ export class TiramisTcpGatewayController {
   ) {}
 
   @MessagePattern(PATTERNS.HEALTH)
+  @ServiceScopes('tiramis:read')
   health(@Payload() payload: Record<string, any>) {
     return {
       success: true,
@@ -61,6 +64,7 @@ export class TiramisTcpGatewayController {
   }
 
   @MessagePattern(PATTERNS.SUBMIT_COVER_NOTE_VERIFICATION)
+  @ServiceScopes('tiramis:verify')
   async submitCoverNoteVerification(@Payload() command: TiramisPortalCommand) {
     return this.handleSubmit(
       PATTERNS.SUBMIT_COVER_NOTE_VERIFICATION,
@@ -71,6 +75,7 @@ export class TiramisTcpGatewayController {
   }
 
   @MessagePattern(PATTERNS.SUBMIT_MOTOR_VERIFICATION)
+  @ServiceScopes('tiramis:verify')
   async submitMotorVerification(@Payload() command: TiramisPortalCommand) {
     return this.handleSubmit(
       PATTERNS.SUBMIT_MOTOR_VERIFICATION,
@@ -80,6 +85,7 @@ export class TiramisTcpGatewayController {
   }
 
   @MessagePattern(PATTERNS.SUBMIT_NIN_VERIFICATION)
+  @ServiceScopes('tiramis:verify')
   async submitNinVerification(@Payload() command: TiramisPortalCommand) {
     return this.handleSubmit(
       PATTERNS.SUBMIT_NIN_VERIFICATION,
@@ -89,6 +95,7 @@ export class TiramisTcpGatewayController {
   }
 
   @MessagePattern(PATTERNS.SUBMIT_COMPANY_VERIFICATION)
+  @ServiceScopes('tiramis:verify')
   async submitCompanyVerification(@Payload() command: TiramisPortalCommand) {
     return this.handleSubmit(
       PATTERNS.SUBMIT_COMPANY_VERIFICATION,
@@ -105,31 +112,32 @@ export class TiramisTcpGatewayController {
   ) {
     try {
       this.logger.log(
-        `Received portal submission pattern=${pattern}, requestType=${
-          command?.requestType || 'unknown'
-        }`,
+        `Received portal submission pattern=${pattern}, requestType=${command?.requestType || 'unknown'}`,
       );
 
       const result = await action();
       return this.formatSubmitResponse(result);
     } catch (error: any) {
+      // Keep customer and upstream response data out of transport logs and
+      // caller-visible error envelopes. Authorized traces retain diagnostics.
+      const errorCode =
+        error &&
+        typeof error === 'object' &&
+        'constructor' in error &&
+        error.constructor &&
+        'name' in error.constructor &&
+        typeof error.constructor.name === 'string'
+          ? error.constructor.name.slice(0, 40)
+          : 'UnknownError';
       this.logger.error(
-        `${command?.requestType || 'TIRAMIS'} submission failed: ${
-          error?.message || 'Unknown error'
-        }`,
-        error?.stack,
+        `${command?.requestType || 'TIRAMIS'} submission failed (${errorCode})`,
       );
-
-      const response = error?.response || error?.error || null;
 
       throw new RpcException({
         ok: false,
-        message: error?.message || 'TIRAMIS submission failed',
-        details: response,
-        ...(Array.isArray(response?.validation_errors)
-          ? { validation_errors: response.validation_errors }
-          : {}),
-        ...(Array.isArray(response?.errors) ? { errors: response.errors } : {}),
+        code: 'TIRAMIS_SUBMISSION_FAILED',
+        message:
+          'TIRAMIS submission failed; use the authorized submission trace for details.',
       });
     }
   }

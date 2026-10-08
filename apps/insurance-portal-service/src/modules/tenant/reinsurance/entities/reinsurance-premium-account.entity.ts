@@ -77,6 +77,15 @@ export class ReinsurancePremiumAccount {
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  confirmed_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  confirmed_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  response_note: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

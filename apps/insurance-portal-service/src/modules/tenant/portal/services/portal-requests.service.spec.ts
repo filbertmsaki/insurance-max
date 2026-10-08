@@ -63,6 +63,7 @@ describe('PortalRequestsService', () => {
   let invoiceRepository: ReturnType<typeof mockRepo>;
   let accessService: {
     assertPolicy: jest.Mock;
+    assertPolicyOperation: jest.Mock;
     assertQuotation: jest.Mock;
     assertInvoice: jest.Mock;
   };
@@ -136,6 +137,7 @@ describe('PortalRequestsService', () => {
 
     accessService = {
       assertPolicy: jest.fn(),
+      assertPolicyOperation: jest.fn(),
       assertQuotation: jest.fn(),
       assertInvoice: jest.fn(),
     };

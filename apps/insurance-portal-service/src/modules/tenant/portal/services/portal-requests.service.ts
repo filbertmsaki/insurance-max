@@ -18,6 +18,7 @@ import {
 import { AuditService } from '../../../shared/audit/audit.service';
 import { CompanyUser } from '../../../platform/companies/entities/company-user.entity';
 import { Invoice } from '../../billing-commission/entities/invoice.entity';
+import { PartnerOperation } from '../../insurance-partners/enums/partner-operation.enum';
 
 import {
   AssignPortalRequestDto,
@@ -148,6 +149,17 @@ export class PortalRequestsService {
       dto.policy_id,
     );
 
+    const operationByRequestType = {
+      [PortalRequestType.RENEWAL]: PartnerOperation.REQUEST_RENEWAL,
+      [PortalRequestType.ENDORSEMENT]: PartnerOperation.REQUEST_ENDORSEMENT,
+      [PortalRequestType.CANCELLATION]: PartnerOperation.REQUEST_CANCELLATION,
+    } as const;
+    await this.accessService.assertPolicyOperation(
+      account,
+      policy,
+      operationByRequestType[dto.request_type],
+    );
+
     const policyStatus = String(policy.policy_status).toUpperCase();
 
     if (
@@ -206,6 +218,12 @@ export class PortalRequestsService {
     const policy = await this.accessService.assertPolicy(
       account,
       dto.policy_id,
+    );
+
+    await this.accessService.assertPolicyOperation(
+      account,
+      policy,
+      PartnerOperation.NOTIFY_CLAIM,
     );
 
     const policyStatus = String(policy.policy_status).toUpperCase();

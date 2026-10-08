@@ -16,12 +16,14 @@ import { TiramisRetrySchedulerService } from './services/tiramis-retry-scheduler
 import { TiramisResubmissionService } from './services/tiramis-resubmission.service';
 import { TiramisSubmissionService } from './services/tiramis-submission.service';
 import { TiramisCoverPeriodService } from '../shared/services/tiramis-cover-period.service';
+import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
 
 @Module({
   imports: [
     TiramisConfigModule,
     TiramisMessagingModule,
     TiramisPortalNotificationsModule,
+    TiramisApiKeysModule,
     TypeOrmModule.forFeature([
       TiramisTransactionEntity,
       TiramisSubmissionAttemptEntity,

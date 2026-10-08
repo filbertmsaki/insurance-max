@@ -379,6 +379,7 @@ const REINSURANCE_PARTNER_PERMISSION_NAMES = [
   'reinsurance:read',
   'reinsurance:offer-read',
   'reinsurance:offer-respond',
+  'reinsurance:account-approve',
   'reinsurance:recovery-update',
   'reinsurance:recovery-approve',
   'reinsurance:settlement-approve',
@@ -2044,6 +2045,30 @@ const permissionSeeds: PermissionSeed[] = [
       'Allow deleting rating factors and removing factor assignments from risks',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
+  {
+    name: 'risk-required-factors:read',
+    displayName: 'Read risk required factors',
+    description: 'Allow viewing risk factor requirements',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'risk-required-factors:create',
+    displayName: 'Create risk required factors',
+    description: 'Allow assigning factors as required for risks',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'risk-required-factors:update',
+    displayName: 'Update risk required factors',
+    description: 'Allow updating risk factor requirements',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'risk-required-factors:delete',
+    displayName: 'Delete risk required factors',
+    description: 'Allow deleting risk factor requirements',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
 
   // ── Risk Rating Rules & Conditions ────────────────────────────────────────
   {
@@ -2623,6 +2648,12 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'cover-notes:read',
     displayName: 'Read cover notes',
     description: 'Allow listing and viewing cover notes',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'cover-notes:issue',
+    displayName: 'Materialize accepted cover notes',
+    description: 'Allow materializing cover notes from accepted TIRA responses',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -3232,6 +3263,12 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'work-items:comment',
+    displayName: 'Comment on work items',
+    description: 'Allow adding comments to assigned or visible work items',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'work-items:manage',
     displayName: 'Manage work items',
     description: 'Allow completing and managing work items',
@@ -3256,6 +3293,12 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'communications:read-internal',
+    displayName: 'Read internal communications',
+    description: 'Read private insurer-side communication threads and messages',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'communications:create-thread',
     displayName: 'Create communication threads',
     description: 'Allow opening new communication threads',
@@ -3265,6 +3308,18 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'communications:send',
     displayName: 'Send communications',
     description: 'Allow posting outbound communication messages',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'communications:send-internal',
+    displayName: 'Send internal communications',
+    description: 'Send messages restricted to internal participants',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'communications:publish-external',
+    displayName: 'Publish external communications',
+    description: 'Create communications visible to customers or intermediaries',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {

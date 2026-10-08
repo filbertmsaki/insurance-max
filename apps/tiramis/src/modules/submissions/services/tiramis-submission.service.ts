@@ -1,5 +1,9 @@
 import { environment } from '@insurance-max/shared-config';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DeepPartial } from 'typeorm';
 
 import { RequestContextService } from '@insurance-max/shared-kernel';
@@ -50,6 +54,22 @@ export class TiramisSubmissionService {
     envelopeHash?: string | null;
   }) {
     const portalWebhookUrl = requirePortalWebhookUrl(params.portalWebhookUrl);
+    if (params.idempotencyKey) {
+      const existing = await this.transactionRepository.findByIdempotencyKey(
+        params.clientConfigurationId,
+        params.idempotencyKey,
+      );
+      if (existing) {
+        if (existing.payloadHash !== params.payloadHash) {
+          throw new ConflictException({
+            code: 'TIRAMIS_IDEMPOTENCY_KEY_REUSED',
+            message:
+              'Idempotency key was already used with a different payload.',
+          });
+        }
+        return existing;
+      }
+    }
     const principal = this.requestContextService.getServicePrincipal();
     const product = principal?.product;
     const pricing = principal?.pricing;
@@ -133,7 +153,31 @@ export class TiramisSubmissionService {
       sourceCommissionAmount: finance?.commissionAmount ?? null,
     });
 
-    return this.transactionRepository.save(transaction);
+    try {
+      return await this.transactionRepository.save(transaction);
+    } catch (error) {
+      if (!params.idempotencyKey) throw error;
+      // Resolve a concurrent request that won the unique-key race.
+      const existing = await this.transactionRepository.findByIdempotencyKey(
+        params.clientConfigurationId,
+        params.idempotencyKey,
+      );
+      if (!existing) throw error;
+      if (existing.payloadHash !== params.payloadHash) {
+        throw new ConflictException({
+          code: 'TIRAMIS_IDEMPOTENCY_KEY_REUSED',
+          message: 'Idempotency key was already used with a different payload.',
+        });
+      }
+      return existing;
+    }
+  }
+
+  findByIdempotencyKey(clientConfigurationId: string, idempotencyKey: string) {
+    return this.transactionRepository.findByIdempotencyKey(
+      clientConfigurationId,
+      idempotencyKey,
+    );
   }
 
   async createAttempt(params: {

@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/table';
 import { reinsuranceApi } from '../api';
 import { tiramisApi } from '@/modules/tenant/tiramis/api';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import type { ReinsuranceRecord } from '../types';
 import {
   formatReinsuranceDate,
@@ -31,12 +32,20 @@ import {
   reinsuranceTone,
 } from '../utils';
 
-type View = 'treaties' | 'cessions' | 'settlements' | 'capacity';
+type View =
+  | 'treaties'
+  | 'cessions'
+  | 'settlements'
+  | 'offers'
+  | 'recoveries'
+  | 'capacity';
 
 function recordLabel(record: ReinsuranceRecord) {
   return (
     record.treaty_no ??
     record.treaty_name ??
+    record.offer_no ??
+    record.recovery_no ??
     record.cession_no ??
     record.settlement_no ??
     record.id
@@ -57,7 +66,12 @@ function getDeclarationId(record: ReinsuranceRecord): string | null {
 
 export function ReinsuranceWorkbenchPage() {
   const queryClient = useQueryClient();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
   const [view, setView] = useState<View>('treaties');
+  const [offerShares, setOfferShares] = useState<Record<string, string>>({});
+  const [recoveryAmounts, setRecoveryAmounts] = useState<
+    Record<string, string>
+  >({});
   const [capacityInput, setCapacityInput] = useState({
     treaty_id: '',
     treaty_section_id: '',
@@ -70,6 +84,10 @@ export function ReinsuranceWorkbenchPage() {
     queryKey: ['reinsurance', 'treaties'],
     queryFn: reinsuranceApi.treaties,
   });
+  const offersQuery = useQuery({
+    queryKey: ['reinsurance', 'offers'],
+    queryFn: reinsuranceApi.facultativeOffers,
+  });
   const cessionsQuery = useQuery({
     queryKey: ['reinsurance', 'cessions'],
     queryFn: reinsuranceApi.cessions,
@@ -77,6 +95,29 @@ export function ReinsuranceWorkbenchPage() {
   const settlementsQuery = useQuery({
     queryKey: ['reinsurance', 'settlements'],
     queryFn: reinsuranceApi.settlements,
+  });
+  const recoveriesQuery = useQuery({
+    queryKey: ['reinsurance', 'recoveries'],
+    queryFn: reinsuranceApi.recoveries,
+  });
+
+  const recoveryMutation = useMutation({
+    mutationFn: ({
+      id,
+      amount,
+      action,
+    }: {
+      id: string;
+      amount: number;
+      action: 'admit' | 'receipt';
+    }) =>
+      action === 'admit'
+        ? reinsuranceApi.admitRecovery(id, amount)
+        : reinsuranceApi.recordRecoveryReceipt(id, amount),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ['reinsurance', 'recoveries'],
+      }),
   });
 
   const actionMutation = useMutation({
@@ -114,6 +155,42 @@ export function ReinsuranceWorkbenchPage() {
     },
   });
 
+  const offerMutation = useMutation({
+    mutationFn: ({
+      id,
+      action,
+      share,
+    }: {
+      id: string;
+      action: 'respond' | 'accept';
+      share: number;
+    }) =>
+      action === 'respond'
+        ? reinsuranceApi.respondToOffer(id, share)
+        : reinsuranceApi.acceptOffer(id, share),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['reinsurance'] }),
+  });
+
+  const treatyInvitationMutation = useMutation({
+    mutationFn: ({
+      treatyId,
+      participantId,
+      decision,
+    }: {
+      treatyId: string;
+      participantId: string;
+      decision: 'ACCEPT' | 'DECLINE';
+    }) =>
+      reinsuranceApi.respondToTreatyInvitation(
+        treatyId,
+        participantId,
+        decision,
+      ),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['reinsurance', 'treaties'] }),
+  });
+
   const capacityMutation = useMutation({
     mutationFn: () =>
       reinsuranceApi.evaluateCapacity({
@@ -128,8 +205,17 @@ export function ReinsuranceWorkbenchPage() {
   const rows = useMemo(() => {
     if (view === 'cessions') return cessionsQuery.data ?? [];
     if (view === 'settlements') return settlementsQuery.data ?? [];
+    if (view === 'offers') return offersQuery.data ?? [];
+    if (view === 'recoveries') return recoveriesQuery.data ?? [];
     return treatiesQuery.data ?? [];
-  }, [cessionsQuery.data, settlementsQuery.data, treatiesQuery.data, view]);
+  }, [
+    cessionsQuery.data,
+    offersQuery.data,
+    recoveriesQuery.data,
+    settlementsQuery.data,
+    treatiesQuery.data,
+    view,
+  ]);
 
   const reload = () => {
     void queryClient.invalidateQueries({ queryKey: ['reinsurance'] });
@@ -158,6 +244,8 @@ export function ReinsuranceWorkbenchPage() {
             <SelectItem value="treaties">Treaties</SelectItem>
             <SelectItem value="cessions">Cessions</SelectItem>
             <SelectItem value="settlements">Settlements</SelectItem>
+            <SelectItem value="offers">Facultative offers</SelectItem>
+            <SelectItem value="recoveries">Claim recoveries</SelectItem>
             <SelectItem value="capacity">Capacity evaluator</SelectItem>
           </SelectContent>
         </Select>
@@ -229,8 +317,20 @@ export function ReinsuranceWorkbenchPage() {
                 <TableRow>
                   <TableHead>Reference</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Effective</TableHead>
-                  <TableHead>Amount</TableHead>
+                  <TableHead>
+                    {view === 'offers'
+                      ? 'Risk / deadline'
+                      : view === 'recoveries'
+                        ? 'Claim / cession'
+                        : 'Effective'}
+                  </TableHead>
+                  <TableHead>
+                    {view === 'offers'
+                      ? 'Offered / quoted share'
+                      : view === 'recoveries'
+                        ? 'Expected / admitted / received'
+                        : 'Amount'}
+                  </TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -252,20 +352,101 @@ export function ReinsuranceWorkbenchPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {formatReinsuranceDate(record.effective_from)} -{' '}
-                      {formatReinsuranceDate(record.effective_to)}
+                      {view === 'offers'
+                        ? `${record.placement?.risk_description ?? record.placement?.placement_no ?? ''} · ${formatReinsuranceDate(record.placement?.submission_deadline)}`
+                        : view === 'recoveries'
+                          ? `${record.claim_id ?? 'Claim'} · ${record.cession_id ?? 'Cession'}`
+                          : `${formatReinsuranceDate(record.effective_from)} - ${formatReinsuranceDate(record.effective_to)}`}
                     </TableCell>
                     <TableCell>
-                      {formatReinsuranceMoney(
-                        record.ceded_premium ??
-                          record.settlement_amount ??
-                          record.ceded_sum_insured,
-                        record.currency_code ?? 'TZS',
+                      {view === 'offers' ? (
+                        <div className="space-y-1">
+                          <div>
+                            {record.offered_share_percent ?? 0}% offered ·{' '}
+                            {record.quoted_share_percent ?? 0}% quoted
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {formatReinsuranceMoney(
+                              record.placement?.amount_to_place,
+                              record.placement?.currency ?? 'TZS',
+                            )}
+                          </div>
+                        </div>
+                      ) : view === 'recoveries' ? (
+                        <div className="space-y-1 text-xs">
+                          <div>
+                            Expected:{' '}
+                            {formatReinsuranceMoney(
+                              record.expected_recovery,
+                              record.currency ?? record.currency_code ?? 'TZS',
+                            )}
+                          </div>
+                          <div>
+                            Admitted:{' '}
+                            {formatReinsuranceMoney(
+                              record.admitted_recovery,
+                              record.currency ?? record.currency_code ?? 'TZS',
+                            )}
+                          </div>
+                          <div>
+                            Received:{' '}
+                            {formatReinsuranceMoney(
+                              record.received_recovery,
+                              record.currency ?? record.currency_code ?? 'TZS',
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        formatReinsuranceMoney(
+                          record.ceded_premium ??
+                            record.settlement_amount ??
+                            record.ceded_sum_insured,
+                          record.currency_code ?? 'TZS',
+                        )
                       )}
                     </TableCell>
                     <TableCell className="space-x-1">
                       {view === 'treaties' && (
                         <>
+                          {(record.participants ?? [])
+                            .filter(
+                              (participant) => participant.status === 'INVITED',
+                            )
+                            .map((participant) => (
+                              <div
+                                key={participant.id}
+                                className="inline-flex items-center gap-1"
+                              >
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={treatyInvitationMutation.isPending}
+                                  onClick={() =>
+                                    treatyInvitationMutation.mutate({
+                                      treatyId: record.id,
+                                      participantId: participant.id,
+                                      decision: 'ACCEPT',
+                                    })
+                                  }
+                                >
+                                  Accept invite
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={treatyInvitationMutation.isPending}
+                                  onClick={() =>
+                                    treatyInvitationMutation.mutate({
+                                      treatyId: record.id,
+                                      participantId: participant.id,
+                                      decision: 'DECLINE',
+                                    })
+                                  }
+                                >
+                                  Decline
+                                </Button>
+                              </div>
+                            ))}
                           <Button
                             size="sm"
                             variant="ghost"
@@ -411,6 +592,115 @@ export function ReinsuranceWorkbenchPage() {
                           </Button>
                         </>
                       )}
+                      {view === 'recoveries' && (
+                        <div className="flex min-w-[300px] flex-wrap items-center gap-2">
+                          <Input
+                            aria-label={`Recovery amount for ${record.recovery_no ?? record.id}`}
+                            className="w-28"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value={recoveryAmounts[record.id] ?? ''}
+                            onChange={(event) =>
+                              setRecoveryAmounts((current) => ({
+                                ...current,
+                                [record.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Amount"
+                          />
+                          {hasPermission('reinsurance:recovery-approve') &&
+                          Number(record.admitted_recovery ?? 0) === 0 ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={
+                                recoveryMutation.isPending ||
+                                !recoveryAmounts[record.id]
+                              }
+                              onClick={() =>
+                                recoveryMutation.mutate({
+                                  id: record.id,
+                                  amount: Number(recoveryAmounts[record.id]),
+                                  action: 'admit',
+                                })
+                              }
+                            >
+                              Admit share
+                            </Button>
+                          ) : null}
+                          {hasPermission('reinsurance:recovery-create') &&
+                          Number(record.admitted_recovery ?? 0) >
+                            Number(record.received_recovery ?? 0) ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={
+                                recoveryMutation.isPending ||
+                                !recoveryAmounts[record.id]
+                              }
+                              onClick={() =>
+                                recoveryMutation.mutate({
+                                  id: record.id,
+                                  amount: Number(recoveryAmounts[record.id]),
+                                  action: 'receipt',
+                                })
+                              }
+                            >
+                              Record receipt
+                            </Button>
+                          ) : null}
+                        </div>
+                      )}
+                      {view === 'offers' &&
+                      ['INVITED', 'QUOTED'].includes(String(record.status)) ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            aria-label={`Share percent for ${record.offer_no ?? 'offer'}`}
+                            className="w-24"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={
+                              offerShares[record.id] ??
+                              String(
+                                record.status === 'INVITED'
+                                  ? (record.offered_share_percent ?? 0)
+                                  : (record.quoted_share_percent ?? 0),
+                              )
+                            }
+                            onChange={(event) =>
+                              setOfferShares((current) => ({
+                                ...current,
+                                [record.id]: event.target.value,
+                              }))
+                            }
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={offerMutation.isPending}
+                            onClick={() =>
+                              offerMutation.mutate({
+                                id: record.id,
+                                action:
+                                  record.status === 'INVITED'
+                                    ? 'respond'
+                                    : 'accept',
+                                share: Number(
+                                  offerShares[record.id] ??
+                                    (record.status === 'INVITED'
+                                      ? record.offered_share_percent
+                                      : record.quoted_share_percent) ??
+                                    0,
+                                ),
+                              })
+                            }
+                          >
+                            {record.status === 'INVITED' ? 'Respond' : 'Accept'}
+                          </Button>
+                        </div>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))}

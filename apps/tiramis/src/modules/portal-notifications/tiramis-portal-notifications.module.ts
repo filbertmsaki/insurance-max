@@ -10,11 +10,13 @@ import { TiramisClientConfigurationEntity } from '../config/entities/tiramis-cli
 import { TiramisCallbackReceiptEntity } from '../callbacks/entities/tiramis-callback-receipt.entity';
 import { TiramisCallbackDeadLetterEntity } from '../callbacks/entities/tiramis-callback-dead-letter.entity';
 import { TiramisSecurityModule } from '../security/tiramis-security.module';
+import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
 
 @Module({
   imports: [
     HttpModule,
     TiramisSecurityModule,
+    TiramisApiKeysModule,
     TypeOrmModule.forFeature([
       TiramisClientConfigurationEntity,
       TiramisPortalNotificationOutboxEntity,

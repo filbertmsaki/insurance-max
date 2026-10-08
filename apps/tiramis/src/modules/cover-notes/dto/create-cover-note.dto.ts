@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsOptional,
+  ValidateNested,
+} from 'class-validator';
 
 export class CreateCoverNoteTaxDto {
   @ApiProperty({ example: 'VAT-MAINLAND' })
@@ -76,11 +82,17 @@ export class CreateCoverNoteRiskDto {
 
   @ApiPropertyOptional({ type: () => [CreateCoverNoteDiscountDto] })
   @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateCoverNoteDiscountDto)
   discounts?: CreateCoverNoteDiscountDto[];
 
-  @ApiPropertyOptional({ type: () => [CreateCoverNoteTaxDto] })
-  @IsOptional()
-  taxes?: CreateCoverNoteTaxDto[];
+  @ApiProperty({ type: () => [CreateCoverNoteTaxDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateCoverNoteTaxDto)
+  taxes!: CreateCoverNoteTaxDto[];
 }
 
 export class CreateSubjectMatterDto {
@@ -122,9 +134,12 @@ export class CreateCoverNoteAddonDto {
   @IsOptional()
   premiumIncludingTax!: string;
 
-  @ApiPropertyOptional({ type: () => [CreateCoverNoteTaxDto] })
-  @IsOptional()
-  taxes?: CreateCoverNoteTaxDto[];
+  @ApiProperty({ type: () => [CreateCoverNoteTaxDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateCoverNoteTaxDto)
+  taxes!: CreateCoverNoteTaxDto[];
 }
 
 export class CreatePolicyHolderDto {
@@ -293,18 +308,30 @@ export class CreateCoverNoteDto {
   endorsementPremiumEarned?: string | null;
 
   @ApiProperty({ type: () => [CreateCoverNoteRiskDto] })
-  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateCoverNoteRiskDto)
   risks!: CreateCoverNoteRiskDto[];
 
-  @ApiPropertyOptional({ type: () => [CreateSubjectMatterDto] })
-  @IsOptional()
-  subjectMatters?: CreateSubjectMatterDto[];
+  @ApiProperty({ type: () => [CreateSubjectMatterDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateSubjectMatterDto)
+  subjectMatters!: CreateSubjectMatterDto[];
 
   @ApiPropertyOptional({ type: () => [CreateCoverNoteAddonDto] })
   @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateCoverNoteAddonDto)
   addons?: CreateCoverNoteAddonDto[];
 
   @ApiProperty({ type: () => [CreatePolicyHolderDto] })
-  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreatePolicyHolderDto)
   policyHolders!: CreatePolicyHolderDto[];
 }

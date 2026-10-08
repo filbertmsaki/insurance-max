@@ -9,5 +9,7 @@ export interface TiramisSourceMetadataDto {
   businessReference?: string | null;
   requestType?: string | null;
   requestId?: string | null;
+  idempotencyKey?: string | null;
+  payloadHash?: string | null;
   portalWebhookUrl?: string | null;
 }

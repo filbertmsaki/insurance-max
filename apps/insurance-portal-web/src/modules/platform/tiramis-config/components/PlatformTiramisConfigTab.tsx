@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, KeyRound, ShieldCheck, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,9 @@ const schema = z.object({
   tiramis_service_api_key: z.string().max(500).optional().or(z.literal('')),
   allow_expired_certificates: z.boolean().optional(),
   use_as_target_environment: z.boolean().optional(),
-  integration_permissions: z.array(z.enum(['submit', 'read_status', 'receive_notifications'])),
+  integration_permissions: z.array(
+    z.enum(['submit', 'read_status', 'receive_notifications']),
+  ),
   notification_events: z.array(z.string()),
 });
 
@@ -80,11 +82,21 @@ function buildDefaultValues(
     use_as_target_environment:
       config?.isTargetEnvironment ??
       config?.effectiveTargetEnvironment === environment,
-    integration_permissions: (config?.integrationPermissions ?? ['submit', 'read_status', 'receive_notifications']) as FormValues['integration_permissions'],
+    integration_permissions: (config?.integrationPermissions ?? [
+      'submit',
+      'read_status',
+      'receive_notifications',
+    ]) as FormValues['integration_permissions'],
     notification_events: config?.notificationEvents ?? [
-      'TIRAMIS_ACK_RECEIVED', 'TIRAMIS_ACK_FAILED', 'TIRAMIS_FINAL_RESPONSE_RECEIVED',
-      'TIRAMIS_FINAL_SUCCESS', 'TIRAMIS_FINAL_FAILED', 'TIRAMIS_FINAL_CALLBACK_OVERDUE',
-      'TIRAMIS_RESPONSE_ACK_SENT', 'TIRAMIS_CALLBACK_REJECTED', 'TIRAMIS_SUBMISSION_FAILED',
+      'TIRAMIS_ACK_RECEIVED',
+      'TIRAMIS_ACK_FAILED',
+      'TIRAMIS_FINAL_RESPONSE_RECEIVED',
+      'TIRAMIS_FINAL_SUCCESS',
+      'TIRAMIS_FINAL_FAILED',
+      'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+      'TIRAMIS_RESPONSE_ACK_SENT',
+      'TIRAMIS_CALLBACK_REJECTED',
+      'TIRAMIS_SUBMISSION_FAILED',
     ],
   };
 }
@@ -123,12 +135,21 @@ function EnvironmentPanel({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(!config);
   const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
+  const [allowedIpsInput, setAllowedIpsInput] = useState('');
   const queryKey = ['platform-tiramis-configurations', companyId];
   const requiresApiKeyRecovery = config?.apiKeyStatus === 'RECOVERY_REQUIRED';
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: buildDefaultValues(environment, config),
+  });
+  const integrationPermissions = useWatch({
+    control: form.control,
+    name: 'integration_permissions',
+  });
+  const notificationEvents = useWatch({
+    control: form.control,
+    name: 'notification_events',
   });
 
   const saveMutation = useMutation({
@@ -270,8 +291,25 @@ function EnvironmentPanel({
   });
 
   const generateApiKeyMutation = useMutation({
-    mutationFn: () =>
-      platformTiramisConfigApi.generateApiKey(companyId, environment),
+    mutationFn: () => {
+      const allowedIps = [
+        ...new Set(
+          allowedIpsInput
+            .split(/[\s,;]+/)
+            .map((ip) => ip.trim())
+            .filter(Boolean),
+        ),
+      ];
+      if (!allowedIps.length)
+        throw new Error(
+          'Enter at least one public egress IP address for this portal system.',
+        );
+      return platformTiramisConfigApi.generateApiKey(
+        companyId,
+        environment,
+        allowedIps,
+      );
+    },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey });
       setGeneratedApiKey(result.generatedApiKey ?? null);
@@ -502,46 +540,78 @@ function EnvironmentPanel({
                 />
                 <div className="col-span-2 rounded-md border p-3 space-y-3">
                   <div className="font-medium">Integration permissions</div>
-                  {([
-                    ['submit', 'Submit requests'],
-                    ['read_status', 'Read status and history'],
-                    ['receive_notifications', 'Receive callback notifications'],
-                  ] as const).map(([value, label]) => (
-                    <label key={value} className="flex items-center gap-2 text-sm">
+                  {(
+                    [
+                      ['submit', 'Submit requests'],
+                      ['read_status', 'Read status and history'],
+                      [
+                        'receive_notifications',
+                        'Receive callback notifications',
+                      ],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <label
+                      key={value}
+                      className="flex items-center gap-2 text-sm"
+                    >
                       <input
                         type="checkbox"
-                        checked={form.watch('integration_permissions').includes(value)}
+                        checked={integrationPermissions.includes(value)}
                         onChange={(event) => {
-                          const current = form.getValues('integration_permissions');
-                          form.setValue('integration_permissions', event.target.checked
-                            ? [...current, value]
-                            : current.filter((item) => item !== value));
+                          const current = form.getValues(
+                            'integration_permissions',
+                          );
+                          form.setValue(
+                            'integration_permissions',
+                            event.target.checked
+                              ? [...current, value]
+                              : current.filter((item) => item !== value),
+                          );
                         }}
                       />
                       {label}
                     </label>
                   ))}
-                  <div className="pt-2 border-t font-medium">Notification events</div>
+                  <div className="pt-2 border-t font-medium">
+                    Notification events
+                  </div>
                   {[
-                    'TIRAMIS_ACK_RECEIVED', 'TIRAMIS_ACK_FAILED',
-                    'TIRAMIS_FINAL_RESPONSE_RECEIVED', 'TIRAMIS_FINAL_SUCCESS',
-                    'TIRAMIS_FINAL_FAILED', 'TIRAMIS_FINAL_CALLBACK_OVERDUE',
-                    'TIRAMIS_RESPONSE_ACK_SENT', 'TIRAMIS_CALLBACK_REJECTED',
+                    'TIRAMIS_ACK_RECEIVED',
+                    'TIRAMIS_ACK_FAILED',
+                    'TIRAMIS_FINAL_RESPONSE_RECEIVED',
+                    'TIRAMIS_FINAL_SUCCESS',
+                    'TIRAMIS_FINAL_FAILED',
+                    'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+                    'TIRAMIS_RESPONSE_ACK_SENT',
+                    'TIRAMIS_CALLBACK_REJECTED',
                     'TIRAMIS_SUBMISSION_FAILED',
                   ].map((eventType) => (
-                    <label key={eventType} className="flex items-center gap-2 text-sm">
+                    <label
+                      key={eventType}
+                      className="flex items-center gap-2 text-sm"
+                    >
                       <input
                         type="checkbox"
-                        checked={form.watch('notification_events').includes(eventType)}
-                        disabled={!form.watch('integration_permissions').includes('receive_notifications')}
+                        checked={notificationEvents.includes(eventType)}
+                        disabled={
+                          !integrationPermissions.includes(
+                            'receive_notifications',
+                          )
+                        }
                         onChange={(event) => {
                           const current = form.getValues('notification_events');
-                          form.setValue('notification_events', event.target.checked
-                            ? [...current, eventType]
-                            : current.filter((item) => item !== eventType));
+                          form.setValue(
+                            'notification_events',
+                            event.target.checked
+                              ? [...current, eventType]
+                              : current.filter((item) => item !== eventType),
+                          );
                         }}
                       />
-                      {eventType.replace('TIRAMIS_', '').replaceAll('_', ' ').toLowerCase()}
+                      {eventType
+                        .replace('TIRAMIS_', '')
+                        .replaceAll('_', ' ')
+                        .toLowerCase()}
                     </label>
                   ))}
                 </div>
@@ -710,6 +780,28 @@ function EnvironmentPanel({
                 </div>
               </div>
             )}
+            <div className="max-w-xl space-y-1">
+              <label
+                className="text-sm font-medium"
+                htmlFor={`tiramis-allowed-ips-${environment}`}
+              >
+                Allowed portal server IP addresses
+              </label>
+              <Input
+                id={`tiramis-allowed-ips-${environment}`}
+                value={allowedIpsInput}
+                onChange={(event) => setAllowedIpsInput(event.target.value)}
+                placeholder="203.0.113.10, 203.0.113.11"
+                aria-describedby={`tiramis-allowed-ips-help-${environment}`}
+              />
+              <p
+                id={`tiramis-allowed-ips-help-${environment}`}
+                className="text-xs text-slate-500"
+              >
+                Enter every public NAT egress IP used by this portal system,
+                separated by commas or spaces.
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"

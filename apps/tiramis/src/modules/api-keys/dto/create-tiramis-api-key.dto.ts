@@ -1,12 +1,24 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsDateString,
+  IsIn,
+  IsIP,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
+
+export const TIRAMIS_API_KEY_SCOPES = [
+  'tiramis:prepare',
+  'tiramis:submit',
+  'tiramis:read',
+  'tiramis:verify',
+  'tiramis:callback:test',
+] as const;
 
 export class CreateTiramisApiKeyDto {
   @IsString()
@@ -17,29 +29,22 @@ export class CreateTiramisApiKeyDto {
   @MaxLength(120)
   serviceName!: string;
 
-  @ApiPropertyOptional({ example: 'ICC739' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  tenantCompanyCode?: string | null;
-
-  @ApiPropertyOptional({ example: 'LSYS_DEMO_482' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  tenantSystemCode?: string | null;
-
-  @ApiPropertyOptional({ example: 'live' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(20)
-  tenantEnvironment?: string | null;
-
-  @ApiPropertyOptional({ example: ['tiramis:submit', 'tiramis:read'] })
-  @IsOptional()
+  @ApiProperty({ example: ['203.0.113.10', '2001:db8::10'] })
   @IsArray()
-  @IsString({ each: true })
-  scopes?: string[];
+  @ArrayMinSize(1)
+  @IsIP(undefined, { each: true })
+  allowedIps!: string[];
+
+  @ApiProperty({
+    example: ['tiramis:submit', 'tiramis:read'],
+    enum: TIRAMIS_API_KEY_SCOPES,
+    isArray: true,
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique()
+  @IsIn(TIRAMIS_API_KEY_SCOPES, { each: true })
+  scopes!: string[];
 
   @IsOptional()
   @IsString()

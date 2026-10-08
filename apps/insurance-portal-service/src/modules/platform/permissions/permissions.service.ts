@@ -38,11 +38,22 @@ export class PermissionsService {
     id: string,
     actor?: AuthenticatedUser,
   ): Promise<Permission> {
-    void actor;
+    const query = this.createBaseQuery().where('permission.id = :id', { id });
+    if (!(hasOwnerRole(actor) && actor?.scope === 'platform')) {
+      ensureCompanyScopedActor(actor);
+      query.andWhere('permission.is_deprecated = false');
+      query.andWhere(
+        'permission.assignable_to_company_role = true AND permission.assignment_scope IN (:...scopes)',
+        {
+          scopes: [
+            PermissionAssignmentScope.TENANT,
+            PermissionAssignmentScope.SHARED,
+          ],
+        },
+      );
+    }
 
-    const permission = await this.createBaseQuery()
-      .where('permission.id = :id', { id })
-      .getOne();
+    const permission = await query.getOne();
 
     if (!permission) {
       throw new NotFoundException('Permission not found');

@@ -51,10 +51,12 @@ import { QuotationPaymentEventService } from './services/quotation-payment-event
 import { QuotationPaymentProjectionService } from './services/quotation-payment-projection.service';
 import { ReconciliationService } from './services/reconciliation.service';
 import { ReceiptBalanceService } from './services/receipt-balance.service';
+import { AuditModule } from '../../shared/audit/audit.module';
 
 @Module({
   imports: [
     SharedModule,
+    AuditModule,
     WorkItemsModule,
     forwardRef(() => QuotationsModule),
     forwardRef(() => PolicyTransactionsModule),

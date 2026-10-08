@@ -1,9 +1,15 @@
 import { randomUUID } from 'node:crypto';
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Repository } from 'typeorm';
+import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
+import { BranchUser } from '../branches/entities/branch-user.entity';
 
 import {
   AssignCommunicationThreadDto,
@@ -23,16 +29,34 @@ export class CommunicationsService {
   ) {}
 
   listThreads(user: AuthenticatedUser) {
-    return this.threadRepository.find({
-      where: { company_id: user.companyId! },
-      order: { updated_at: 'DESC' },
-    });
+    const qb = this.threadRepository
+      .createQueryBuilder('thread')
+      .where('thread.company_id = :companyId', { companyId: user.companyId })
+      .orderBy('thread.updated_at', 'DESC');
+    if (!this.hasPermission(user, 'communications:read-internal')) {
+      qb.andWhere(
+        user.scope === 'platform' || user.companyType === 'INSURANCE_COMPANY'
+          ? '(thread.customer_visible = true OR thread.intermediary_visible = true)'
+          : user.scope === 'customer'
+            ? 'thread.customer_visible = true'
+            : 'thread.intermediary_visible = true',
+      );
+    }
+    return qb.getMany();
   }
 
   async createThread(
     user: AuthenticatedUser,
     dto: CreateCommunicationThreadDto,
   ) {
+    if (
+      (dto.customer_visible || dto.intermediary_visible) &&
+      !this.hasPermission(user, 'communications:publish-external')
+    ) {
+      throw new ForbiddenException(
+        'External communication permission is required.',
+      );
+    }
     return this.threadRepository.save(
       this.threadRepository.create({
         company_id: user.companyId!,
@@ -66,11 +90,41 @@ export class CommunicationsService {
   }
 
   async listMessages(user: AuthenticatedUser, id: string) {
-    await this.findThread(user, id);
+    const thread = await this.findThread(user, id);
+    if (
+      !this.hasPermission(user, 'communications:read-internal') &&
+      !(
+        (user.companyType === 'INSURANCE_COMPANY' &&
+          (thread.customer_visible || thread.intermediary_visible)) ||
+        (user.scope === 'customer' && thread.customer_visible) ||
+        (['BROKER', 'AGENCY', 'BANCASSURANCE', 'REINSURANCE_BROKER'].includes(
+          String(user.companyType),
+        ) &&
+          thread.intermediary_visible)
+      )
+    ) {
+      throw new NotFoundException('Communication thread not found');
+    }
+    const canReadInternal = this.hasPermission(
+      user,
+      'communications:read-internal',
+    );
+    const externallyVisible =
+      (user.companyType === 'INSURANCE_COMPANY' &&
+        (thread.customer_visible || thread.intermediary_visible)) ||
+      (['BROKER', 'AGENCY', 'BANCASSURANCE', 'REINSURANCE_BROKER'].includes(
+        String(user.companyType),
+      ) &&
+        thread.intermediary_visible) ||
+      (user.scope === 'platform' &&
+        (thread.customer_visible || thread.intermediary_visible));
     return this.messageRepository.find({
       where: {
         company_id: user.companyId!,
         thread_id: id,
+        ...(canReadInternal || !externallyVisible
+          ? {}
+          : { internal_only: false }),
       },
       order: { created_at: 'ASC' },
     });
@@ -82,6 +136,27 @@ export class CommunicationsService {
     dto: CreateCommunicationMessageDto,
   ) {
     const thread = await this.findThread(user, id);
+    if (
+      (thread.customer_visible || thread.intermediary_visible) &&
+      !this.hasPermission(user, 'communications:publish-external')
+    ) {
+      throw new ForbiddenException(
+        'External communication permission is required.',
+      );
+    }
+    if (
+      dto.internal_only &&
+      !this.hasPermission(user, 'communications:send-internal')
+    ) {
+      throw new ForbiddenException(
+        'Internal communication permission is required.',
+      );
+    }
+    if (thread.closed_at) {
+      throw new ForbiddenException(
+        'Closed communication threads cannot receive messages.',
+      );
+    }
     const message = await this.messageRepository.save(
       this.messageRepository.create({
         company_id: user.companyId!,
@@ -114,7 +189,42 @@ export class CommunicationsService {
     id: string,
     dto: AssignCommunicationThreadDto,
   ) {
+    if (!this.hasPermission(user, 'communications:assign')) {
+      throw new ForbiddenException(
+        'Communication assignment permission is required.',
+      );
+    }
     const thread = await this.findThread(user, id);
+    if (dto.assigned_user_id) {
+      const assignment = await this.threadRepository.manager
+        .getRepository(CompanyUser)
+        .findOne({
+          where: {
+            user_id: dto.assigned_user_id,
+            company_id: user.companyId!,
+            status: 'active',
+          },
+          select: { id: true, user_id: true },
+        });
+      if (!assignment)
+        throw new NotFoundException(
+          'Assigned user not found in this organization.',
+        );
+      const branchUsers = await this.threadRepository.manager
+        .getRepository(BranchUser)
+        .find({ where: { company_user_id: assignment.id } });
+      if (
+        user.activeBranchId &&
+        branchUsers.length > 0 &&
+        !branchUsers.some(
+          (branchUser) => branchUser.branch_id === user.activeBranchId,
+        )
+      ) {
+        throw new NotFoundException(
+          'Assigned user not found in this organization.',
+        );
+      }
+    }
     thread.metadata = {
       ...(thread.metadata ?? {}),
       assigned_user_id: dto.assigned_user_id ?? user.id,
@@ -126,6 +236,7 @@ export class CommunicationsService {
 
   async close(user: AuthenticatedUser, id: string) {
     const thread = await this.findThread(user, id);
+    if (thread.closed_at) return thread;
     thread.closed_at = new Date();
     thread.closed_by = user.id;
     return this.threadRepository.save(thread);
@@ -133,8 +244,13 @@ export class CommunicationsService {
 
   async reopen(user: AuthenticatedUser, id: string) {
     const thread = await this.findThread(user, id);
+    if (!thread.closed_at) return thread;
     thread.closed_at = null;
     thread.closed_by = null;
     return this.threadRepository.save(thread);
+  }
+
+  private hasPermission(user: AuthenticatedUser, permission: string): boolean {
+    return (user.permissions ?? []).includes(permission);
   }
 }

@@ -1,4 +1,11 @@
-import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -43,5 +50,22 @@ export class CoverNotesController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.coverNotesService.findOne(user.companyId!, id);
+  }
+
+  @Post('issue/quotation/:quotationId')
+  @Permissions('cover-notes:issue')
+  @ApiOperation({
+    summary:
+      'Materialize cover notes from an accepted TIRA quotation submission',
+  })
+  issueForQuotation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('quotationId', ParseUUIDPipe) quotationId: string,
+  ) {
+    return this.coverNotesService.issueForQuotation(
+      user.companyId!,
+      quotationId,
+      user,
+    );
   }
 }

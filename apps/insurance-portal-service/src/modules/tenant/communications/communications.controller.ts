@@ -30,7 +30,7 @@ export class CommunicationsController {
   }
 
   @Post()
-  @Permissions('communications:create-thread', 'communications:read')
+  @Permissions('communications:create-thread')
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateCommunicationThreadDto,
@@ -57,7 +57,7 @@ export class CommunicationsController {
   }
 
   @Post(':id/messages')
-  @Permissions('communications:send', 'communications:read')
+  @Permissions('communications:send')
   postMessage(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -67,7 +67,7 @@ export class CommunicationsController {
   }
 
   @Post(':id/assign')
-  @Permissions('communications:assign', 'communications:read')
+  @Permissions('communications:assign')
   assign(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -77,7 +77,7 @@ export class CommunicationsController {
   }
 
   @Post(':id/close')
-  @Permissions('communications:close', 'communications:read')
+  @Permissions('communications:close')
   close(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -86,7 +86,7 @@ export class CommunicationsController {
   }
 
   @Post(':id/reopen')
-  @Permissions('communications:close', 'communications:read')
+  @Permissions('communications:close')
   reopen(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

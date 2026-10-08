@@ -1397,12 +1397,33 @@ export class IssuanceService {
             | undefined)
         : undefined;
 
-    return (
-      snapshot ?? {
+    const attribution = quotation.draft_payload?.['distribution_attribution'];
+    const intermediaryDistribution =
+      attribution && typeof attribution === 'object'
+        ? (attribution as Record<string, unknown>)
+        : null;
+
+    return {
+      ...(snapshot ?? {
         intermediaryCompanyId: quotation.intermediary_company_id,
         channelType: quotation.channel_type,
-      }
-    );
+      }),
+      ...(intermediaryDistribution
+        ? {
+            intermediaryBranchId: intermediaryDistribution['branch_id'] ?? null,
+            intermediaryBranchCode:
+              intermediaryDistribution['branch_code'] ?? null,
+            intermediaryBranchName:
+              intermediaryDistribution['branch_name'] ?? null,
+            intermediarySalePointId:
+              intermediaryDistribution['sale_point_id'] ?? null,
+            intermediarySalePointCode:
+              intermediaryDistribution['sale_point_code'] ?? null,
+            intermediarySalePointName:
+              intermediaryDistribution['sale_point_name'] ?? null,
+          }
+        : {}),
+    };
   }
 
   private buildAssetManifest(quotation: IssuableQuotation) {

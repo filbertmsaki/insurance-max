@@ -58,40 +58,46 @@ function parseSseMessage(rawMessage: string): ParsedSseMessage | null {
 async function readSseStream(
   body: ReadableStream<Uint8Array>,
   onEvent: (event: NotificationStreamEvent) => void,
+  signal: AbortSignal,
 ) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
 
-  while (true) {
-    const { value, done } = await reader.read();
+  const cancelReader = () => void reader.cancel().catch(() => undefined);
+  signal.addEventListener('abort', cancelReader, { once: true });
 
-    if (done) {
-      break;
-    }
+  try {
+    while (!signal.aborted) {
+      const { value, done } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
 
-    let boundaryIndex = buffer.indexOf('\n\n');
-    while (boundaryIndex >= 0) {
-      const rawMessage = buffer.slice(0, boundaryIndex);
-      buffer = buffer.slice(boundaryIndex + 2);
+      let boundaryIndex = buffer.indexOf('\n\n');
+      while (boundaryIndex >= 0) {
+        const rawMessage = buffer.slice(0, boundaryIndex);
+        buffer = buffer.slice(boundaryIndex + 2);
 
-      const parsed = parseSseMessage(rawMessage);
-      if (!parsed) {
+        const parsed = parseSseMessage(rawMessage);
+        if (!parsed) {
+          boundaryIndex = buffer.indexOf('\n\n');
+          continue;
+        }
+
+        try {
+          const event = JSON.parse(parsed.data) as NotificationStreamEvent;
+          onEvent({ ...event, type: event.type || parsed.event });
+        } catch {
+          // Ignore malformed stream frames; the connection itself can continue.
+        }
+
         boundaryIndex = buffer.indexOf('\n\n');
-        continue;
       }
-
-      try {
-        const event = JSON.parse(parsed.data) as NotificationStreamEvent;
-        onEvent({ ...event, type: event.type || parsed.event });
-      } catch {
-        // Ignore malformed stream frames; the connection itself can continue.
-      }
-
-      boundaryIndex = buffer.indexOf('\n\n');
     }
+  } finally {
+    signal.removeEventListener('abort', cancelReader);
+    reader.releaseLock();
   }
 }
 
@@ -117,12 +123,21 @@ export function useNotificationStream(
 
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 1000;
     const controller = new AbortController();
 
     const waitBeforeReconnect = () =>
       new Promise<void>((resolve) => {
-        retryTimer = setTimeout(resolve, 3000);
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          resolve();
+        }, retryDelay);
       });
+
+    const cancelReconnectWait = () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = null;
+    };
 
     const connect = async () => {
       while (!cancelled) {
@@ -140,8 +155,11 @@ export function useNotificationStream(
             throw new Error('Notification stream failed to open');
           }
 
-          await readSseStream(response.body, (event) =>
-            onEventRef.current(event),
+          retryDelay = 1000;
+          await readSseStream(
+            response.body,
+            (event) => onEventRef.current(event),
+            controller.signal,
           );
         } catch {
           if (cancelled || controller.signal.aborted) {
@@ -151,6 +169,7 @@ export function useNotificationStream(
 
         if (!cancelled) {
           await waitBeforeReconnect();
+          retryDelay = Math.min(retryDelay * 2, 30_000);
         }
       }
     };
@@ -160,10 +179,7 @@ export function useNotificationStream(
     return () => {
       cancelled = true;
       controller.abort();
-
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
+      cancelReconnectWait();
     };
   }, [accessToken, enabled]);
 }

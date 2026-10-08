@@ -6,10 +6,12 @@ import {
   Param,
   Post,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import { IsBoolean, IsIn, IsOptional, IsString, IsUrl } from 'class-validator';
 
-import { ServiceScopes } from '@insurance-max/shared-kernel';
+import { PublicServiceEndpoint } from '@insurance-max/shared-kernel';
+import { TiramisAdministratorGuard } from '../../api-keys/guards/tiramis-administrator.guard';
 
 import { TiramisConfigService } from '../services/tiramis-config.service';
 import { TiramisPortalNotificationService } from '../../portal-notifications/services/tiramis-portal-notification.service';
@@ -131,6 +133,8 @@ class RepairSecretsDto {
 }
 
 @Controller('tiramis/configurations')
+@PublicServiceEndpoint()
+@UseGuards(TiramisAdministratorGuard)
 export class TiramisConfigurationValidationController {
   private readonly logger = new Logger(
     TiramisConfigurationValidationController.name,
@@ -142,7 +146,6 @@ export class TiramisConfigurationValidationController {
   ) {}
 
   @Post('validate-organization')
-  @ServiceScopes('tiramis:admin')
   async validate(@Body() dto: ValidateOrganizationConfigurationDto) {
     const configuration = await this.configService.getActiveConfiguration({
       environment: dto.environment,
@@ -211,7 +214,6 @@ export class TiramisConfigurationValidationController {
    * portal can still reach the repair endpoints when secrets are unreadable.
    */
   @Post('resolve-organization')
-  @ServiceScopes('tiramis:admin')
   async resolveOrganization(@Body() dto: ResolveOrganizationConfigurationDto) {
     const configuration = await this.configService.getActiveConfiguration({
       environment: dto.environment,
@@ -228,13 +230,11 @@ export class TiramisConfigurationValidationController {
   }
 
   @Get(':configurationId/secret-health')
-  @ServiceScopes('tiramis:admin')
   getSecretHealth(@Param('configurationId') configurationId: string) {
     return this.configService.getSecretHealth(configurationId);
   }
 
   @Post(':configurationId/repair-secrets')
-  @ServiceScopes('tiramis:admin')
   repairSecrets(
     @Param('configurationId') configurationId: string,
     @Body() dto: RepairSecretsDto,
@@ -243,7 +243,6 @@ export class TiramisConfigurationValidationController {
   }
 
   @Put(':configurationId/portal-webhook-api-key')
-  @ServiceScopes('tiramis:admin')
   setPortalWebhookApiKey(
     @Param('configurationId') configurationId: string,
     @Body() dto: SetPortalWebhookApiKeyDto,
@@ -255,7 +254,6 @@ export class TiramisConfigurationValidationController {
   }
 
   @Post(':configurationId/portal-webhook-test')
-  @ServiceScopes('tiramis:admin')
   testPortalWebhook(
     @Param('configurationId') configurationId: string,
     @Body() dto: TestPortalWebhookDto,
@@ -267,7 +265,6 @@ export class TiramisConfigurationValidationController {
   }
 
   @Put(':configurationId/portal-notification-policy')
-  @ServiceScopes('tiramis:admin')
   setPortalNotificationPolicy(
     @Param('configurationId') configurationId: string,
     @Body() dto: NotificationPolicyDto,
@@ -276,7 +273,6 @@ export class TiramisConfigurationValidationController {
   }
 
   @Put()
-  @ServiceScopes('tiramis:admin')
   async upsertClientConfiguration(@Body() dto: UpsertClientConfigurationDto) {
     const configuration =
       await this.configService.upsertClientConfiguration(dto);

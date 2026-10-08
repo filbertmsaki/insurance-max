@@ -26,6 +26,14 @@ export const tiramisEnvValidationSchema = Joi.object({
   APP_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),
+  TIRAMIS_TRUSTED_PROXY_IPS: Joi.string().allow('').default(''),
+  PORTAL_ADMIN_JWT_ACCESS_SECRET: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string().allow('').default(''),
+  }),
+  PORTAL_ADMIN_JWT_ISSUER: Joi.string().default('insurance-idp.tz'),
+  PORTAL_ADMIN_JWT_AUDIENCE: Joi.string().default('insurance-platform'),
   // Selects the TIRA configuration independently from the application environment.
   TIRAMIS_TARGET_ENV: Joi.string().valid('test', 'live').optional(),
   DB_TYPE: Joi.string()

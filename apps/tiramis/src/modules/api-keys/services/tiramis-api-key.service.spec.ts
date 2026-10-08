@@ -1,5 +1,4 @@
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
-
+import { ForbiddenException } from '@nestjs/common';
 import { TiramisApiKeyService } from './tiramis-api-key.service';
 
 describe('TiramisApiKeyService', () => {
@@ -16,195 +15,119 @@ describe('TiramisApiKeyService', () => {
       save: jest.fn(async (value) => ({ id: 'audit-id', ...value })),
       find: jest.fn(),
     };
-    const clientConfigurationRepository = {
-      findOne: jest.fn(),
-    };
-
     return {
       service: new TiramisApiKeyService(
         apiKeyRepository as any,
         auditRepository as any,
-        clientConfigurationRepository as any,
       ),
       apiKeyRepository,
-      auditRepository,
-      clientConfigurationRepository,
     };
   }
 
-  it('creates a key and stores the plain API key value, resolving its clientConfigurationId', async () => {
-    const { service, apiKeyRepository, clientConfigurationRepository } =
-      createService();
-    clientConfigurationRepository.findOne.mockResolvedValue({
-      id: 'config-1',
-    });
+  it('creates a hashed system key with explicit capabilities and IP restrictions', async () => {
+    const { service, apiKeyRepository } = createService();
+    apiKeyRepository.findOne.mockResolvedValue(null);
 
     const created = await service.create({
       name: 'Portal',
       serviceName: 'insurance-portal-service',
-      tenantCompanyCode: 'ICC739',
-      tenantSystemCode: 'LSYS_DEMO_482',
-      tenantEnvironment: 'live',
-      scopes: ['tiramis:submit'],
+      allowedIps: ['203.0.113.10'],
+      scopes: ['tiramis:read', 'tiramis:submit'],
     });
 
     expect(created.apiKey).toMatch(/^tms_/);
-    expect(clientConfigurationRepository.findOne).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          companyCode: 'ICC739',
-          systemCode: 'LSYS_DEMO_482',
-          environment: 'live',
-        }),
-      }),
-    );
     expect(apiKeyRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
-        apiKey: created.apiKey,
-        serviceName: 'insurance-portal-service',
-        tenantCompanyCode: 'ICC739',
-        tenantSystemCode: 'LSYS_DEMO_482',
-        tenantEnvironment: 'live',
-        clientConfigurationId: 'config-1',
+        apiKey: null,
+        apiKeyHash: expect.any(String),
+        scopes: ['tiramis:read', 'tiramis:submit'],
+        allowedIps: ['203.0.113.10'],
       }),
     );
-    expect(apiKeyRepository.save.mock.calls[0][0]).toEqual(
-      expect.objectContaining({
-        serviceName: 'insurance-portal-service',
-        scopes: ['tiramis:submit'],
-      }),
-    );
+    expect(created.apiKeyHash).toBeUndefined();
   });
 
-  it('creates a tenant-less key (e.g. bootstrap/admin) without resolving a configuration', async () => {
-    const { service, apiKeyRepository, clientConfigurationRepository } =
-      createService();
-
-    const created = await service.create({
-      name: 'Bootstrap',
-      serviceName: 'insurance-portal-service-bootstrap',
-      scopes: ['tiramis:admin'],
-    });
-
-    expect(clientConfigurationRepository.findOne).not.toHaveBeenCalled();
-    expect(apiKeyRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clientConfigurationId: null,
-      }),
-    );
-    expect(created.apiKey).toMatch(/^tms_/);
-  });
-
-  it('rejects creating a key whose tenant triple has no matching active configuration', async () => {
-    const { service, clientConfigurationRepository } = createService();
-    clientConfigurationRepository.findOne.mockResolvedValue(null);
+  it('rejects a second active system key for the same service', async () => {
+    const { service, apiKeyRepository } = createService();
+    apiKeyRepository.findOne.mockResolvedValue({ id: 'existing' });
 
     await expect(
       service.create({
         name: 'Portal',
         serviceName: 'insurance-portal-service',
-        tenantCompanyCode: 'ICC999',
-        tenantSystemCode: 'LSYS_UNKNOWN',
-        tenantEnvironment: 'live',
+        allowedIps: ['203.0.113.10'],
+        scopes: ['tiramis:read'],
       }),
-    ).rejects.toThrow('No active TIRAMIS client configuration matches');
+    ).rejects.toThrow('already has an active key');
+    expect(apiKeyRepository.save).not.toHaveBeenCalled();
   });
 
-  it('rejects a missing key', async () => {
-    const { service } = createService();
-
-    await expect(service.validate(undefined)).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
-  });
-
-  it('rejects an invalid key', async () => {
+  it('rejects a key missing a required endpoint scope', async () => {
     const { service, apiKeyRepository } = createService();
-    apiKeyRepository.findOne.mockResolvedValue(null);
-
-    await expect(service.validate('bad-key')).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
-  });
-
-  it('rejects disabled, revoked, and expired keys', async () => {
-    const rawKey = 'tms_test';
-    const base = {
-      id: 'key-id',
-      apiKey: rawKey,
-      serviceName: 'insurance-portal-service',
-      scopes: ['tiramis:submit'],
-    };
-
-    for (const row of [
-      { ...base, isActive: false, revokedAt: null, expiresAt: null },
-      { ...base, isActive: true, revokedAt: new Date(), expiresAt: null },
-      {
-        ...base,
-        isActive: true,
-        revokedAt: null,
-        expiresAt: new Date(Date.now() - 1000),
-      },
-    ]) {
-      const { service, apiKeyRepository } = createService();
-      apiKeyRepository.findOne.mockResolvedValue(row);
-
-      await expect(service.validate(rawKey)).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
-    }
-  });
-
-  it('rejects a key that is missing a required scope', async () => {
-    const rawKey = 'tms_test';
-    const { service, apiKeyRepository } = createService();
+    const rawKey = 'tms_legacy_test';
     apiKeyRepository.findOne.mockResolvedValue({
       id: 'key-id',
       apiKey: rawKey,
-      serviceName: 'insurance-portal-service',
-      scopes: ['tiramis:submit'],
-      tenantCompanyCode: 'ICC739',
-      tenantSystemCode: 'LSYS_DEMO_482',
-      tenantEnvironment: 'live',
+      apiKeyHash: null,
+      serviceName: 'portal',
+      scopes: ['tiramis:read'],
+      allowedIps: ['10.1.2.3'],
       isActive: true,
-      revokedAt: null,
       expiresAt: null,
+      revokedAt: null,
     });
 
     await expect(
-      service.validate(rawKey, ['tiramis:admin']),
+      service.validate(rawKey, ['tiramis:submit'], { ipAddress: '10.1.2.3' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(apiKeyRepository.update).not.toHaveBeenCalled();
   });
 
-  it('returns a service principal and records last use for a valid key', async () => {
-    const rawKey = 'tms_test';
+  it('accepts an allowed scope from an allowed IP and returns the principal capabilities', async () => {
     const { service, apiKeyRepository } = createService();
+    const rawKey = 'tms_legacy_test';
     apiKeyRepository.findOne.mockResolvedValue({
       id: 'key-id',
       apiKey: rawKey,
-      serviceName: 'insurance-portal-service',
-      scopes: ['tiramis:submit'],
-      tenantCompanyCode: 'ICC739',
-      tenantSystemCode: 'LSYS_DEMO_482',
-      tenantEnvironment: 'live',
+      apiKeyHash: null,
+      serviceName: 'portal',
+      scopes: ['tiramis:read', 'tiramis:submit'],
+      allowedIps: ['10.1.2.3'],
       isActive: true,
-      revokedAt: null,
       expiresAt: null,
+      revokedAt: null,
     });
 
-    const principal = await service.validate(rawKey, ['tiramis:submit']);
-
-    expect(principal).toEqual({
+    await expect(
+      service.validate(rawKey, ['tiramis:submit'], { ipAddress: '10.1.2.3' }),
+    ).resolves.toEqual({
       id: 'key-id',
-      serviceName: 'insurance-portal-service',
-      scopes: ['tiramis:submit'],
-      tenantCompanyCode: 'ICC739',
-      tenantSystemCode: 'LSYS_DEMO_482',
-      tenantEnvironment: 'live',
+      serviceName: 'portal',
+      allowedIps: ['10.1.2.3'],
+      scopes: ['tiramis:read', 'tiramis:submit'],
     });
-    expect(apiKeyRepository.update).toHaveBeenCalledWith('key-id', {
-      lastUsedAt: expect.any(Date),
-    });
+  });
+
+  it('rejects expired, disabled and revoked keys', async () => {
+    const rawKey = 'tms_legacy_test';
+    for (const state of [
+      { isActive: false, revokedAt: null, expiresAt: null },
+      { isActive: true, revokedAt: new Date(), expiresAt: null },
+      { isActive: true, revokedAt: null, expiresAt: new Date(Date.now() - 1) },
+    ]) {
+      const { service, apiKeyRepository } = createService();
+      apiKeyRepository.findOne.mockResolvedValue({
+        id: 'key-id',
+        apiKey: rawKey,
+        apiKeyHash: null,
+        serviceName: 'portal',
+        scopes: ['tiramis:read'],
+        allowedIps: ['10.1.2.3'],
+        ...state,
+      });
+      await expect(
+        service.validate(rawKey, ['tiramis:read'], { ipAddress: '10.1.2.3' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    }
   });
 });

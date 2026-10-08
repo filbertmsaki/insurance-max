@@ -4,6 +4,7 @@ import {
   TreatyParticipantStatus,
   TreatyStatus,
 } from './enums/reinsurance.enums';
+import { PartnerType } from '../insurance-partners/enums/partner-type.enum';
 import { ReinsuranceService } from './reinsurance.service';
 
 function makeQueryBuilder(overrides: Record<string, any>) {
@@ -20,6 +21,7 @@ function makeQueryBuilder(overrides: Record<string, any>) {
 function makeService(params: {
   treaty: any;
   shareRows: Array<{ sectionId: string | null; share: string }>;
+  insurancePartnersService?: { findActiveCompanyRelationship: jest.Mock };
 }) {
   const treatyRepository = {
     createQueryBuilder: jest.fn().mockReturnValue(
@@ -37,11 +39,15 @@ function makeService(params: {
       }),
     ),
     update: jest.fn().mockResolvedValue(undefined),
+    update: jest.fn().mockResolvedValue(undefined),
   };
 
   const scopeService = {
     resolve: jest.fn().mockReturnValue({ companyId: 'company-1' }),
     applyOwnedRecordWriteScope: jest.fn(),
+  };
+  const insurancePartnersService = params.insurancePartnersService ?? {
+    findActiveCompanyRelationship: jest.fn(),
   };
 
   const service = new ReinsuranceService(
@@ -64,9 +70,15 @@ function makeService(params: {
     {} as any, // notificationsService
     {} as any, // auditService
     {} as any, // capacityService
+    insurancePartnersService as any,
   );
 
-  return { service, treatyRepository, treatyParticipantRepository };
+  return {
+    service,
+    treatyRepository,
+    treatyParticipantRepository,
+    insurancePartnersService,
+  };
 }
 
 describe('ReinsuranceService.activateTreaty', () => {
@@ -94,6 +106,16 @@ describe('ReinsuranceService.activateTreaty', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('rejects activation while external participant invitations remain unaccepted', async () => {
+    const { service } = makeService({
+      treaty: { id: 'treaty-1', status: TreatyStatus.APPROVED },
+      shareRows: [],
+    });
+    await expect(
+      service.activateTreaty(user, 'treaty-1'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('activates a treaty once every section totals exactly 100%', async () => {
     const { service, treatyRepository, treatyParticipantRepository } =
       makeService({
@@ -105,7 +127,7 @@ describe('ReinsuranceService.activateTreaty', () => {
 
     expect(result.status).toBe(TreatyStatus.ACTIVE);
     expect(treatyParticipantRepository.update).toHaveBeenCalledWith(
-      { treaty_id: 'treaty-1', status: TreatyParticipantStatus.INVITED },
+      { treaty_id: 'treaty-1', status: TreatyParticipantStatus.CONFIRMED },
       { status: TreatyParticipantStatus.ACTIVE },
     );
     expect(treatyRepository.save).toHaveBeenCalled();
@@ -120,5 +142,43 @@ describe('ReinsuranceService.activateTreaty', () => {
     await expect(
       service.activateTreaty(user, 'treaty-1'),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('requires separate reinsurer and reinsurance-broker appointments', async () => {
+    const links = {
+      findActiveCompanyRelationship: jest
+        .fn()
+        .mockResolvedValue({ id: 'link' }),
+    };
+    const { service } = makeService({
+      treaty: null,
+      shareRows: [],
+      insurancePartnersService: links,
+    });
+
+    await (service as any).assertReinsuranceRelationship(
+      'insurer-1',
+      'reinsurer-1',
+      're-broker-1',
+    );
+
+    expect(links.findActiveCompanyRelationship).toHaveBeenNthCalledWith(
+      1,
+      'insurer-1',
+      'reinsurer-1',
+      PartnerType.REINSURANCE_COMPANY,
+    );
+    expect(links.findActiveCompanyRelationship).toHaveBeenNthCalledWith(
+      2,
+      'insurer-1',
+      're-broker-1',
+      PartnerType.REINSURANCE_BROKER,
+    );
+    expect(links.findActiveCompanyRelationship).toHaveBeenNthCalledWith(
+      3,
+      'reinsurer-1',
+      're-broker-1',
+      PartnerType.REINSURANCE_BROKER,
+    );
   });
 });

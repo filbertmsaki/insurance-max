@@ -1,6 +1,6 @@
 import { apiClient } from '@/modules/shared/api/client';
 
-import type { PaginatedResponse } from '@/modules/shared/api/pagination';
+import type { BackendPaginatedResponse } from '@/modules/shared/api/pagination';
 
 export interface AuditLog {
   id: string;
@@ -51,7 +51,7 @@ export interface AuditFilters {
 export const auditApi = {
   search: (filters: AuditFilters) =>
     apiClient
-      .get<PaginatedResponse<AuditLog>>('/audit-logs', {
+      .get<BackendPaginatedResponse<AuditLog>>('/audit-logs', {
         params: filters,
       })
       .then((response) => response.data),
@@ -59,5 +59,16 @@ export const auditApi = {
   findOne: (id: string) =>
     apiClient
       .get<AuditLog>(`/audit-logs/${id}`)
+      .then((response) => response.data),
+
+  verifyChain: () =>
+    apiClient
+      .get<{
+        valid: boolean;
+        totalEvents: number;
+        brokenEventId: string | null;
+        brokenEventNo: string | null;
+        reason: string | null;
+      }>('/audit-logs/verify-chain/status')
       .then((response) => response.data),
 };

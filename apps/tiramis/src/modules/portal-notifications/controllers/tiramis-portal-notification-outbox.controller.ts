@@ -5,17 +5,20 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
-import { ServiceScopes } from '@insurance-max/shared-kernel';
+import { PublicServiceEndpoint } from '@insurance-max/shared-kernel';
+import { TiramisAdministratorGuard } from '../../api-keys/guards/tiramis-administrator.guard';
 
 import type { TiramisPortalNotificationOutboxStatus } from '../entities/tiramis-portal-notification-outbox.entity';
 import { TiramisPortalNotificationService } from '../services/tiramis-portal-notification.service';
 
 @ApiTags('TIRAMIS Portal Notification Outbox')
 @Controller('tiramis/portal-notifications/outbox')
-@ServiceScopes('tiramis:admin')
+@PublicServiceEndpoint()
+@UseGuards(TiramisAdministratorGuard)
 export class TiramisPortalNotificationOutboxController {
   constructor(
     private readonly notificationService: TiramisPortalNotificationService,

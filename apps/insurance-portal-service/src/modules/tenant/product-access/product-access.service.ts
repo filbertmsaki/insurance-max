@@ -249,6 +249,24 @@ export class ProductAccessService {
     companyId: string,
     dto: ResolveProductAccessDto,
   ): Promise<ProductAccessResolution> {
+    await this.validateCompanyUser(companyId, dto.company_user_id);
+    if (dto.branch_id) await this.validateBranch(companyId, dto.branch_id);
+    if (dto.department_id) {
+      const department = await this.validateDepartment(
+        companyId,
+        dto.department_id,
+      );
+      if (
+        dto.branch_id &&
+        department.branch_id &&
+        department.branch_id !== dto.branch_id
+      ) {
+        throw new BadRequestException(
+          'Department does not belong to the selected branch',
+        );
+      }
+    }
+    await this.validateProduct(companyId, dto.product_id);
     const userRule = await this.userAccessRepo.findOne({
       where: {
         company_id: companyId,
@@ -336,6 +354,9 @@ export class ProductAccessService {
     departmentId?: string,
     categoryId?: string,
   ) {
+    await this.validateCompanyUser(companyId, companyUserId);
+    if (branchId) await this.validateBranch(companyId, branchId);
+    if (departmentId) await this.validateDepartment(companyId, departmentId);
     const whereClause: any = { company_id: companyId, is_active: true };
     if (categoryId) whereClause.category_id = categoryId;
 
@@ -378,7 +399,7 @@ export class ProductAccessService {
   private async validateDepartment(
     companyId: string,
     departmentId: string,
-  ): Promise<void> {
+  ): Promise<Department> {
     const dept = await this.departmentRepository.findOne({
       where: { id: departmentId, company_id: companyId },
     });
@@ -386,6 +407,7 @@ export class ProductAccessService {
       throw new BadRequestException(
         'Department not found or does not belong to this company',
       );
+    return dept;
   }
 
   private async validateCompanyUser(

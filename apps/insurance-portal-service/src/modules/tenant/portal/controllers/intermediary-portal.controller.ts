@@ -42,6 +42,7 @@ import { QuotationsService } from '../../quotations/quotations.service';
 import { CurrentPortalAccount } from '../decorators/current-portal-account.decorator';
 import { PortalActors } from '../decorators/portal-actors.decorator';
 import { PortalListQueryDto } from '../dto/portal-query.dto';
+import { IntermediarySettlementReportQueryDto } from '../dto/intermediary-settlement-report-query.dto';
 import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalActorType } from '../enums/portal.enums';
 import { PortalGuard } from '../guards/portal.guard';
@@ -77,6 +78,38 @@ export class IntermediaryPortalController {
   @ApiOperation({ summary: 'Get intermediary company profile' })
   profile(@CurrentPortalAccount() account: PortalAccount) {
     return this.businessService.findIntermediaryProfile(account);
+  }
+
+  @Get('insurers')
+  @ApiOperation({
+    summary: 'List insurers and products authorized for this intermediary',
+  })
+  insurers(@CurrentPortalAccount() account: PortalAccount) {
+    return this.businessService.findAuthorizedInsurers(account);
+  }
+
+  @Get('distribution-locations')
+  @ApiOperation({
+    summary: 'List the intermediary own branches and sales points',
+  })
+  distributionLocations(@CurrentPortalAccount() account: PortalAccount) {
+    return this.businessService.findIntermediaryDistributionLocations(account);
+  }
+
+  @Get('insurers/:insurerId/products/:productId/risks')
+  @ApiOperation({ summary: 'List risks for an authorized insurer product' })
+  productRisks(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('insurerId', ParseUUIDPipe) insurerId: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Query('branch_id') branchId?: string,
+  ) {
+    return this.businessService.findAuthorizedProductRisks(
+      account,
+      insurerId,
+      productId,
+      branchId,
+    );
   }
 
   @Get('customers')
@@ -163,6 +196,15 @@ export class IntermediaryPortalController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.businessService.findQuotation(account, id);
+  }
+
+  @Post('quotations/compare')
+  @ApiOperation({ summary: 'Compare authorized quotations for one customer' })
+  compareQuotations(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Body('quotation_ids') quotationIds: string[],
+  ) {
+    return this.businessService.compareQuotations(account, quotationIds ?? []);
   }
 
   @Post('quotations/drafts')
@@ -258,6 +300,21 @@ export class IntermediaryPortalController {
     @Query() query: PortalListQueryDto,
   ) {
     return this.businessService.findCommissions(account, query);
+  }
+
+  @Get('commission-settlement-report')
+  @ApiOperation({
+    summary:
+      'Summarize bancassurance commission by insurer branch and sales point',
+  })
+  commissionSettlementReport(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Query() query: IntermediarySettlementReportQueryDto,
+  ) {
+    return this.businessService.findIntermediarySettlementReport(
+      account,
+      query,
+    );
   }
 
   @Get('receipts')

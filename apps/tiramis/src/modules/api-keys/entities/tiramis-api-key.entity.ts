@@ -13,7 +13,11 @@ import { TiramisClientConfigurationEntity } from '../../config/entities/tiramis-
 
 @Entity({ name: 'tiramis_api_keys' })
 @Index('IDX_tiramis_api_keys_service_name', ['serviceName'])
-@Index('IDX_tiramis_api_keys_api_key', ['apiKey'], { unique: true })
+@Index('IDX_tiramis_api_keys_api_key_hash', ['apiKeyHash'], { unique: true })
+@Index('UQ_tiramis_api_keys_one_active_per_system', ['serviceName'], {
+  unique: true,
+  where: 'system_key = true AND is_active = true AND revoked_at IS NULL',
+})
 @Index('IDX_tiramis_api_keys_client_configuration_id', [
   'clientConfigurationId',
 ])
@@ -24,14 +28,30 @@ export class TiramisApiKeyEntity {
   @Column({ type: 'varchar', length: 120 })
   name!: string;
 
-  @Column({ name: 'api_key', type: 'varchar', length: 255, select: false })
+  @Column({
+    name: 'api_key',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    select: false,
+  })
   apiKey!: string;
+
+  /** New credentials are one-way hashed; apiKey remains only for legacy rows. */
+  @Column({ name: 'api_key_hash', type: 'varchar', length: 64, nullable: true })
+  apiKeyHash!: string | null;
 
   @Column({ name: 'key_prefix', type: 'varchar', length: 24, nullable: true })
   keyPrefix!: string | null;
 
   @Column({ name: 'service_name', type: 'varchar', length: 120 })
   serviceName!: string;
+
+  @Column({ name: 'allowed_ips', type: 'jsonb', default: () => "'[]'" })
+  allowedIps!: string[];
+
+  @Column({ name: 'system_key', type: 'boolean', default: false })
+  systemKey!: boolean;
 
   @Column({
     name: 'tenant_company_code',

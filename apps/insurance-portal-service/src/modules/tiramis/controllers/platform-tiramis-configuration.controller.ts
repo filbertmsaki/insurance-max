@@ -8,7 +8,9 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
@@ -18,6 +20,9 @@ import {
   IsInt,
   Min,
   Max,
+  IsArray,
+  ArrayMinSize,
+  IsIP,
 } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -79,6 +84,13 @@ class DeliveryDiagnosticsQueryDto {
   @Min(1)
   @Max(200)
   limit?: number;
+}
+
+class GenerateTiramisApiKeyDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsIP(undefined, { each: true })
+  allowed_ips!: string[];
 }
 
 /**
@@ -175,11 +187,15 @@ export class PlatformTiramisConfigurationController {
     @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
     environment: 'test' | 'live',
     @CurrentUser() user: AuthenticatedUser,
+    @Req() req: ExpressRequest,
+    @Body() dto: GenerateTiramisApiKeyDto,
   ) {
     return this.companyTiramisConfigurationService.generateServiceApiKey(
       companyId,
       environment,
       user.id,
+      req.headers.authorization?.replace(/^Bearer\s+/i, '') ?? '',
+      dto.allowed_ips,
     );
   }
 

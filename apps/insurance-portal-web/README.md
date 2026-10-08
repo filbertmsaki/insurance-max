@@ -48,7 +48,7 @@ npm run start:all
 This starts the portal web app on `http://localhost:9092`, the portal API on
 `http://localhost:9090`, and the TIRAMIS API on `http://localhost:9091`.
 The portal API connects to TIRAMIS using the server-side
-`TIRAMIS_SERVICE_BASE_URL` and `TIRAMIS_BOOTSTRAP_API_KEY` settings in
+`TIRAMIS_SERVICE_BASE_URL` settings in
 `apps/insurance-portal-service/.env`. Never put TIRAMIS service keys in
 `VITE_*` frontend variables.
 

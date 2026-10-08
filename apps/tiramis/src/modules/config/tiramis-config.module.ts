@@ -8,6 +8,7 @@ import { TiramisConfigService } from './services/tiramis-config.service';
 import { TiramisSecurityModule } from '../security/tiramis-security.module';
 import { TiramisConfigurationValidationController } from './controllers/tiramis-configuration-validation.controller';
 import { TiramisPortalNotificationsModule } from '../portal-notifications/tiramis-portal-notifications.module';
+import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TiramisPortalNotificationsModule } from '../portal-notifications/tirami
     ]),
     TiramisSecurityModule,
     TiramisPortalNotificationsModule,
+    TiramisApiKeysModule,
   ],
   controllers: [TiramisConfigurationValidationController],
   providers: [TiramisConfigService],

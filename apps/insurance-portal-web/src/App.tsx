@@ -4,9 +4,11 @@ import { PortalShell } from '@/modules/portal/components/PortalShell';
 import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage';
 import { PortalBuyCoverPage } from '@/modules/portal/pages/PortalBuyCoverPage';
 import { PortalBusinessListPage } from '@/modules/portal/pages/PortalBusinessListPage';
+import { IntermediarySettlementReportPage } from '@/modules/portal/pages/IntermediarySettlementReportPage';
 import { PortalBusinessDetailPage } from '@/modules/portal/pages/PortalBusinessDetailPage';
 import { IntermediaryCustomerFormPage } from '@/modules/portal/pages/IntermediaryCustomerFormPage';
 import { IntermediaryQuotationFormPage } from '@/modules/portal/pages/IntermediaryQuotationFormPage';
+import { IntermediaryRelationshipsPage } from '@/modules/portal/pages/IntermediaryRelationshipsPage';
 import { PortalRequestsReviewPage } from '@/modules/portal/pages/PortalRequestsReviewPage';
 import { PortalRequestReviewDetailPage } from '@/modules/portal/pages/PortalRequestReviewDetailPage';
 import { PortalCoverCheckPage } from '@/modules/portal/pages/PortalCoverCheckPage';
@@ -44,6 +46,7 @@ import { MyCompanyPage } from '@/modules/platform/companies/pages/MyCompanyPage'
 import { NumberFormatSettingsPage } from '@/modules/platform/companies/pages/NumberFormatSettingsPage';
 import { BranchesListPage } from '@/modules/tenant/branches/pages/BranchesListPage';
 import { BranchDetailPage } from '@/modules/tenant/branches/pages/BranchDetailPage';
+import { InsurancePartnersPage } from '@/modules/tenant/InsurancePartnersPage';
 import { CompanyFeaturesPage } from '@/modules/tenant/company-features/pages/CompanyFeaturesPage';
 import { DepartmentsPage } from '@/modules/tenant/departments/pages/DepartmentsPage';
 import { DepartmentDetailPage } from '@/modules/tenant/departments/pages/DepartmentDetailPage';
@@ -54,6 +57,8 @@ import { CustomerEditPage } from '@/modules/tenant/customers/pages/CustomerEditP
 import { RolesPage } from '@/modules/platform/roles/pages/RolesPage';
 import { PermissionsPage } from '@/modules/platform/permissions/pages/PermissionsPage';
 import { ReferenceDataPage } from '@/modules/platform/reference-data/pages/ReferenceDataPage';
+import { AuditLogsPage } from '@/modules/shared/audit/pages/AuditLogsPage';
+import { SalePointsPage } from '@/modules/tenant/sale-points/pages/SalePointsPage';
 import { DevicesPage } from '@/modules/shared/devices/pages/DevicesPage';
 import { SessionsPage } from '@/modules/shared/sessions/pages/SessionsPage';
 import { ApiClientsPage } from '@/modules/platform/api-clients/pages/ApiClientsPage';
@@ -374,6 +379,10 @@ export default function App() {
                 element={<PortalProfilePage audience="intermediary" />}
               />
               <Route
+                path="insurer-connections"
+                element={<IntermediaryRelationshipsPage />}
+              />
+              <Route
                 path="customers"
                 element={
                   <PortalBusinessListPage
@@ -514,6 +523,10 @@ export default function App() {
                     resource="commissions"
                   />
                 }
+              />
+              <Route
+                path="commission-settlement-report"
+                element={<IntermediarySettlementReportPage />}
               />
               <Route
                 path="requests"
@@ -727,6 +740,20 @@ export default function App() {
             <Route
               element={
                 <ProtectedRoute
+                  requiredPermission="insurance-partners:read"
+                  hideForStandardUser
+                />
+              }
+            >
+              <Route
+                path="/insurance-partners"
+                element={<InsurancePartnersPage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
                   requiredPermission="view_company_data"
                   hideForStandardUser
                 />
@@ -746,10 +773,15 @@ export default function App() {
             >
               <Route path="/branches" element={<BranchesListPage />} />
               <Route path="/branches/:id" element={<BranchDetailPage />} />
+              <Route path="/sale-points" element={<SalePointsPage />} />
               <Route
                 path="/company-features"
                 element={<CompanyFeaturesPage />}
               />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="audit:read" />}>
+              <Route path="/audit-logs" element={<AuditLogsPage />} />
             </Route>
 
             <Route

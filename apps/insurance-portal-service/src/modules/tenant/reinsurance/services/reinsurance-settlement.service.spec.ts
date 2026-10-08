@@ -55,6 +55,7 @@ function makeHarness(settlement: any) {
     scopeService as any,
     referenceService as any,
     financeJournalService as any,
+    { log: jest.fn().mockResolvedValue(undefined) } as any,
   );
 
   return { service, settlementRepository, financeJournalService };

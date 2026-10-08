@@ -765,26 +765,28 @@ export class TiramisClientService {
     environment: 'test' | 'live';
     companyCode: string;
     systemCode: string | null;
+    adminAccessToken: string;
+    allowedIps: string[];
   }): Promise<string> {
     const requestId = this.requestContextService.getRequestId();
     const correlationId =
       this.requestContextService.getCorrelationId() || requestId;
-    const connection = await this.resolveConnectionConfig(
-      params.companyId,
-      params.environment,
-      { allowBootstrapFallback: true },
-    );
-    const serviceContext = this.encodeServiceContext({
-      tenant: {
+    const configuration = await this.companyConfigurationRepository.findOne({
+      where: {
         companyId: params.companyId,
         environment: params.environment,
+        isActive: true,
       },
     });
+    if (!configuration)
+      throw new ConflictException(
+        'Active TIRAMIS configuration was not found.',
+      );
+    const systemName = `${configuration.sourceService || this.configService.getOrThrow<string>('tiramisClient.sourceService')}-${params.environment}`;
     const headers = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      'X-API-Key': connection.apiKey,
-      'X-Service-Context': serviceContext,
+      Authorization: `Bearer ${params.adminAccessToken}`,
       ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
       ...(correlationId
         ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
@@ -794,7 +796,7 @@ export class TiramisClientService {
     const keysResponse = await firstValueFrom(
       this.httpService.request({
         method: 'GET',
-        baseURL: connection.baseUrl ?? undefined,
+        baseURL: configuration.baseUrl ?? undefined,
         url: '/api/tiramis/api-keys',
         validateStatus: () => true,
         headers,
@@ -811,60 +813,34 @@ export class TiramisClientService {
     const keys = unwrapApiResponse(keysResponse.data) as Array<{
       id?: string;
       serviceName?: string;
-      tenantCompanyCode?: string | null;
-      tenantSystemCode?: string | null;
-      tenantEnvironment?: string | null;
       revokedAt?: string | null;
       isActive?: boolean;
     }>;
     const existing = keys.find(
       (key) =>
         key.id &&
-        key.serviceName === connection.sourceService &&
-        key.tenantCompanyCode === params.companyCode &&
-        key.tenantSystemCode === params.systemCode &&
-        key.tenantEnvironment === params.environment &&
+        key.serviceName === systemName &&
         key.isActive !== false &&
         !key.revokedAt,
     );
 
-    const config = await this.companyConfigurationRepository.findOne({
-      where: { companyId: params.companyId, environment: params.environment },
-    });
-    const capabilities = config?.integrationPermissions ?? [
-      'submit',
-      'read_status',
-      'receive_notifications',
-    ];
-    const managedScopes = [
-      ...(capabilities.includes('submit')
-        ? ['tiramis:submit', 'tiramis:prepare', 'tiramis:verify']
-        : []),
-      ...(capabilities.includes('read_status') ? ['tiramis:read'] : []),
-      ...(capabilities.includes('receive_notifications')
-        ? ['tiramis:notify']
-        : []),
-      'tiramis:admin',
-      'tiramis:retry',
-    ];
-
     const keyResponse = await firstValueFrom(
       this.httpService.request({
         method: 'POST',
-        baseURL: connection.baseUrl ?? undefined,
+        baseURL: configuration.baseUrl ?? undefined,
         url: existing?.id
-          ? `/api/tiramis/api-keys/${existing.id}/rotate`
+          ? `/api/tiramis/api-keys/systems/${encodeURIComponent(systemName)}/rotate`
           : '/api/tiramis/api-keys',
         data: existing?.id
-          ? { scopes: managedScopes }
+          ? {
+              scopes: ['tiramis:submit', 'tiramis:read', 'tiramis:verify'],
+            }
           : {
-              name: `${connection.sourceService} ${params.companyCode} ${params.environment}`,
-              serviceName: connection.sourceService,
-              tenantCompanyCode: params.companyCode,
-              tenantSystemCode: params.systemCode,
-              tenantEnvironment: params.environment,
-              scopes: managedScopes,
-              description: `Managed from insurance portal ${params.environment} configuration.`,
+              name: systemName,
+              serviceName: systemName,
+              allowedIps: params.allowedIps,
+              scopes: ['tiramis:submit', 'tiramis:read', 'tiramis:verify'],
+              description: `Portal system key for ${params.environment}.`,
               isActive: true,
             },
         validateStatus: () => true,
@@ -1705,7 +1681,7 @@ export class TiramisClientService {
   private async resolveConnectionConfig(
     companyId?: string | null,
     environment?: string | null,
-    options?: { allowBootstrapFallback?: boolean },
+    _options?: { allowBootstrapFallback?: boolean },
   ): Promise<{
     apiKey: string;
     baseUrl: string | null;
@@ -1731,25 +1707,9 @@ export class TiramisClientService {
       .andWhere('configuration.isActive = true')
       .getOne();
 
-    let apiKey: string | null;
-
-    try {
-      apiKey = this.apiKeyVault.decrypt(configuration?.serviceApiKeyEncrypted);
-    } catch (error) {
-      if (!options?.allowBootstrapFallback) {
-        throw error;
-      }
-
-      this.logger.warn(
-        `TIRAMIS API key recovery is required for company ${companyId} in ${targetEnvironment}; using the configured bootstrap key for this management operation.`,
-      );
-      apiKey = null;
-    }
-
-    if (!apiKey && options?.allowBootstrapFallback) {
-      apiKey =
-        this.configService.get<string>('tiramisClient.bootstrapApiKey') ?? null;
-    }
+    const apiKey = this.apiKeyVault.decrypt(
+      configuration?.serviceApiKeyEncrypted,
+    );
 
     if (!apiKey) {
       throw new ConflictException(

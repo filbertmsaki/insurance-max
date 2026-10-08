@@ -24,6 +24,7 @@ import {
   UpdateCompanyStatusDto,
 } from './dtos/update-company.dto';
 import { UpdateNumberFormatSettingsDto } from './dtos/update-number-format-settings.dto';
+import { UpdateCompanyVerificationDto } from './dtos/update-company-verification.dto';
 import { GrantCompanyUserPermissionDto } from './dtos/grant-company-user-permission.dto';
 import { UpdateMemberBranchReadAccessDto } from './dtos/update-member-branch-read-access.dto';
 import { CompaniesService } from './companies.service';
@@ -225,6 +226,23 @@ export class CompaniesController {
     @Body() dto: UpdateCompanyStatusDto,
   ) {
     return this.companiesService.setCompanyStatus(id, dto.status);
+  }
+
+  @Patch(':id/verification')
+  @Roles('OWNER')
+  @Permissions('companies:update')
+  @ApiOperation({ summary: 'Verify or reject an organization registration' })
+  async updateCompanyVerification(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCompanyVerificationDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.companiesService.updateVerificationStatus(
+      id,
+      dto.status,
+      actor,
+      dto.note,
+    );
   }
 
   @Delete(':id')

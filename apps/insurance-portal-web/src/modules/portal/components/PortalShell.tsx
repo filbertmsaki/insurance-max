@@ -1,12 +1,14 @@
 import { Fragment, useLayoutEffect, useRef, useState } from 'react';
 import {
   BadgeDollarSign,
+  ChartNoAxesCombined,
   BellRing,
   BriefcaseBusiness,
   CarFront,
   ClipboardList,
   FileQuestion,
   Files,
+  GitBranch,
   FileText,
   HandCoins,
   LayoutGrid,
@@ -48,10 +50,12 @@ const navigationIcons = {
   requests: FileQuestion,
   customers: Users,
   commissions: BadgeDollarSign,
+  settlementReport: ChartNoAxesCombined,
   documents: Files,
   notifications: BellRing,
   messages: MessageSquareText,
   signatures: ShieldCheck,
+  connections: GitBranch,
 };
 
 export function PortalShell({ audience }: { audience: PortalAudience }) {
@@ -142,6 +146,11 @@ export function PortalShell({ audience }: { audience: PortalAudience }) {
     ...(audience === 'intermediary'
       ? [
           {
+            to: `${basePath}/insurer-connections`,
+            label: 'Insurer connections',
+            icon: navigationIcons.connections,
+          },
+          {
             to: `${basePath}/customers`,
             label: 'Customers',
             icon: navigationIcons.customers,
@@ -150,6 +159,11 @@ export function PortalShell({ audience }: { audience: PortalAudience }) {
             to: `${basePath}/commissions`,
             label: 'Commissions',
             icon: navigationIcons.commissions,
+          },
+          {
+            to: `${basePath}/commission-settlement-report`,
+            label: 'Settlement report',
+            icon: navigationIcons.settlementReport,
           },
         ]
       : []),

@@ -76,6 +76,9 @@ describe('ReinsuranceCapacityService.evaluate', () => {
     const { service } = makeService({
       treaty: {
         id: 'treaty-1',
+        status: 'ACTIVE',
+        effective_from: '2020-01-01',
+        effective_to: '2099-12-31',
         treaty_form: TreatyForm.QUOTA_SHARE,
         total_capacity: '1000000.00',
         aggregate_limit: '0',
@@ -96,6 +99,9 @@ describe('ReinsuranceCapacityService.evaluate', () => {
     const { service } = makeService({
       treaty: {
         id: 'treaty-1',
+        status: 'ACTIVE',
+        effective_from: '2020-01-01',
+        effective_to: '2099-12-31',
         treaty_form: TreatyForm.EXCESS_OF_LOSS,
         total_capacity: '0',
         aggregate_limit: '500000.00',
@@ -116,6 +122,9 @@ describe('ReinsuranceCapacityService.evaluate', () => {
     const { service } = makeService({
       treaty: {
         id: 'treaty-1',
+        status: 'ACTIVE',
+        effective_from: '2020-01-01',
+        effective_to: '2099-12-31',
         treaty_form: TreatyForm.QUOTA_SHARE,
         total_capacity: '1000000.00',
       },
@@ -137,10 +146,57 @@ describe('ReinsuranceCapacityService.evaluate', () => {
     expect(result.breachedRuleIds).toEqual(['rule-1']);
   });
 
+  it('enforces inclusion rules and returns the evaluated territory', async () => {
+    const { service } = makeService({
+      treaty: {
+        id: 'treaty-1',
+        status: 'ACTIVE',
+        effective_from: '2020-01-01',
+        effective_to: '2099-12-31',
+        treaty_form: TreatyForm.QUOTA_SHARE,
+        total_capacity: '1000000.00',
+      },
+      eligibilityRules: [
+        {
+          id: 'territory-rule',
+          rule_type: 'TERRITORY',
+          rule_value: 'DOMESTIC',
+          is_exclusion: false,
+        },
+      ],
+    });
+
+    const result = await service.evaluate(user, {
+      treatyId: 'treaty-1',
+      exposureAmount: 500,
+      territory: 'REGIONAL',
+    });
+    expect(result.territory).toBe('REGIONAL');
+    expect(result.breachedRuleIds).toEqual(['territory-rule']);
+  });
+
+  it('does not evaluate capacity for expired or inactive treaties', async () => {
+    const { service } = makeService({
+      treaty: {
+        id: 'treaty-1',
+        status: 'APPROVED',
+        effective_from: '2020-01-01',
+        effective_to: '2099-12-31',
+        treaty_form: TreatyForm.QUOTA_SHARE,
+      },
+    });
+    await expect(
+      service.evaluate(user, { treatyId: 'treaty-1', exposureAmount: 100 }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it('blocks live cessions when remaining treaty capacity is insufficient', async () => {
     const { service } = makeService({
       treaty: {
         id: 'treaty-1',
+        status: 'ACTIVE',
+        effective_from: '2020-01-01',
+        effective_to: '2099-12-31',
         treaty_form: TreatyForm.QUOTA_SHARE,
         total_capacity: '1000000.00',
       },
@@ -159,6 +215,9 @@ describe('ReinsuranceCapacityService.evaluate', () => {
     const { service } = makeService({
       treaty: {
         id: 'treaty-1',
+        status: 'ACTIVE',
+        effective_from: '2020-01-01',
+        effective_to: '2099-12-31',
         treaty_form: TreatyForm.QUOTA_SHARE,
         total_capacity: '1000000.00',
       },

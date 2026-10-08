@@ -28,7 +28,7 @@ export function usePricingRatingRequirements(riskId?: string) {
 
 export function usePricingRequiredFactors(riskId: string) {
   return useQuery({
-    queryKey: ['pricing', 'rating-requirements', riskId || 'none'],
+    queryKey: ['pricing', 'required-factors', riskId || 'none'],
     queryFn: () => pricingApi.getRatingRequirements(riskId),
     select: (data) => data.required_factors,
     enabled: !!riskId,

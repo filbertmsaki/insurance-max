@@ -26,7 +26,7 @@ export class RiskRequiredFactorsController {
   constructor(private readonly service: RiskRequiredFactorsService) {}
 
   @Get('by-risk/:riskId')
-  @Permissions('rating-factors:read')
+  @Permissions('risk-required-factors:read')
   @ApiOperation({
     summary: 'List all required factors for a risk (ordered by sort_order)',
   })
@@ -38,7 +38,7 @@ export class RiskRequiredFactorsController {
   }
 
   @Post()
-  @Permissions('rating-factors:create')
+  @Permissions('risk-required-factors:create')
   @ApiOperation({ summary: 'Assign a rating factor as required for a risk' })
   async assign(
     @CurrentUser() user: AuthenticatedUser,
@@ -48,7 +48,7 @@ export class RiskRequiredFactorsController {
   }
 
   @Patch(':id')
-  @Permissions('rating-factors:update')
+  @Permissions('risk-required-factors:update')
   @ApiOperation({
     summary: 'Update a required factor assignment (sort_order, is_required)',
   })
@@ -61,7 +61,7 @@ export class RiskRequiredFactorsController {
   }
 
   @Delete(':id')
-  @Permissions('rating-factors:delete')
+  @Permissions('risk-required-factors:delete')
   @ApiOperation({ summary: 'Remove a required factor from a risk' })
   async remove(
     @CurrentUser() user: AuthenticatedUser,

@@ -6,11 +6,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { DataSource, Repository } from 'typeorm';
+import { Brackets, DataSource, Repository } from 'typeorm';
 
 import { FinanceJournalService } from '../../billing-commission/services/finance-journal.service';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
+import { AuditService } from '../../../shared/audit/audit.service';
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { CreateReinsuranceSettlementDto } from '../dto/reinsurance.dto';
 import { ReinsuranceSettlement } from '../entities/reinsurance-settlement.entity';
@@ -27,14 +28,27 @@ export class ReinsuranceSettlementService {
     private readonly scopeService: DataAccessScopeService,
     private readonly referenceService: BusinessReferenceService,
     private readonly financeJournalService: FinanceJournalService,
+    private readonly auditService: AuditService,
   ) {}
 
   async findAll(user: AuthenticatedUser) {
     const scope = this.scopeService.resolve(user);
-    return this.settlementRepository.find({
-      where: { company_id: scope.companyId },
-      order: { created_at: 'DESC' },
-    });
+    return this.settlementRepository
+      .createQueryBuilder('settlement')
+      .where(
+        new Brackets((party) =>
+          party
+            .where('settlement.company_id = :companyId', {
+              companyId: scope.companyId,
+            })
+            .orWhere('settlement.counterparty_company_id = :companyId', {
+              companyId: scope.companyId,
+            }),
+        ),
+      )
+      .andWhere('settlement.deleted_at IS NULL')
+      .orderBy('settlement.created_at', 'DESC')
+      .getMany();
   }
 
   async create(user: AuthenticatedUser, dto: CreateReinsuranceSettlementDto) {
@@ -50,7 +64,7 @@ export class ReinsuranceSettlementService {
       prefix: `RIS-${new Date().getFullYear()}-`,
     });
 
-    return this.settlementRepository.save(
+    const settlement = await this.settlementRepository.save(
       this.settlementRepository.create({
         company_id: scope.companyId,
         branch_id: user.activeBranchId ?? null,
@@ -71,6 +85,12 @@ export class ReinsuranceSettlementService {
         created_by: user.id,
       }),
     );
+    await this.auditTransition(
+      user,
+      settlement,
+      'reinsurance.settlement.create',
+    );
+    return settlement;
   }
 
   async submit(user: AuthenticatedUser, settlementId: string) {
@@ -84,7 +104,9 @@ export class ReinsuranceSettlementService {
     settlement.submitted_by = user.id;
     settlement.submitted_at = new Date();
 
-    return this.settlementRepository.save(settlement);
+    const saved = await this.settlementRepository.save(settlement);
+    await this.auditTransition(user, saved, 'reinsurance.settlement.submit');
+    return saved;
   }
 
   async approve(user: AuthenticatedUser, settlementId: string) {
@@ -106,7 +128,9 @@ export class ReinsuranceSettlementService {
     settlement.approved_by = user.id;
     settlement.approved_at = new Date();
 
-    return this.settlementRepository.save(settlement);
+    const saved = await this.settlementRepository.save(settlement);
+    await this.auditTransition(user, saved, 'reinsurance.settlement.approve');
+    return saved;
   }
 
   async reject(user: AuthenticatedUser, settlementId: string, reason?: string) {
@@ -126,7 +150,9 @@ export class ReinsuranceSettlementService {
     settlement.status = ReinsuranceSettlementStatus.REJECTED;
     settlement.rejection_reason = reason ?? null;
 
-    return this.settlementRepository.save(settlement);
+    const saved = await this.settlementRepository.save(settlement);
+    await this.auditTransition(user, saved, 'reinsurance.settlement.reject');
+    return saved;
   }
 
   /**
@@ -178,7 +204,9 @@ export class ReinsuranceSettlementService {
       updated.settled_at = new Date();
       updated.finance_event_id = sourceEventId;
 
-      return repository.save(updated);
+      const saved = await repository.save(updated);
+      await this.auditTransition(user, saved, 'reinsurance.settlement.pay');
+      return saved;
     });
   }
 
@@ -197,5 +225,26 @@ export class ReinsuranceSettlementService {
 
   private money(value: string | number) {
     return MoneyUtil.fromMinor(MoneyUtil.toMinor(value ?? 0));
+  }
+
+  private async auditTransition(
+    user: AuthenticatedUser,
+    settlement: ReinsuranceSettlement,
+    action: string,
+  ) {
+    await this.auditService.log({
+      userId: user.id,
+      companyId: user.companyId ?? settlement.company_id,
+      action,
+      eventCategory: 'REINSURANCE',
+      resource: 'reinsurance_settlements',
+      resourceId: settlement.id,
+      afterState: {
+        status: settlement.status,
+        net_amount: settlement.net_amount,
+        counterparty_company_id: settlement.counterparty_company_id,
+      },
+      metadata: { owner_company_id: settlement.company_id },
+    });
   }
 }

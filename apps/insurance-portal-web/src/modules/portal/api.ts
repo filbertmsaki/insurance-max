@@ -164,8 +164,10 @@ export interface CustomerCoverCheckResult {
 }
 
 export interface CreateQuotationDraftPayload {
+  insurer_company_id?: string;
   category_id: string;
   product_id: string;
+  branch_id?: string | null;
   sub_class_id?: string | null;
   quotation_type: 'MOTOR' | 'NON_MOTOR';
   quotation_flow: 'NON_MOTOR' | 'MOTOR_SINGLE' | 'MOTOR_FLEET';
@@ -173,6 +175,48 @@ export interface CreateQuotationDraftPayload {
   is_fleet: boolean;
   current_wizard_step?: string | null;
   draft_payload: Record<string, unknown>;
+}
+
+export interface IntermediaryDistributionLocations {
+  company_type: string;
+  branches: Array<{ id: string; name: string; code: string }>;
+  sale_points: Array<{
+    id: string;
+    branch_id: string | null;
+    code: string;
+    name: string | null;
+  }>;
+}
+
+export interface IntermediarySettlementReport {
+  from_date: string | null;
+  to_date: string | null;
+  groups: Array<{
+    insurer_company_id: string;
+    insurer_name: string | null;
+    branch_id: string | null;
+    branch_name: string;
+    sale_point_id: string | null;
+    sale_point_code: string | null;
+    sale_point_name: string;
+    status: string;
+    transaction_count: number;
+    commission_amount: string;
+    paid_amount: string;
+    balance_amount: string;
+  }>;
+  totals: {
+    transaction_count: number;
+    commission_amount: number;
+    paid_amount: number;
+    balance_amount: number;
+  };
+}
+
+export interface PortalRiskRecord {
+  id: string;
+  risk_name: string;
+  risk_code?: string;
 }
 
 export interface CustomerCompanyContext {
@@ -281,6 +325,69 @@ function basePath(audience: PortalAudience) {
 }
 
 export const portalApi = {
+  intermediaryPartnerRelationships: () =>
+    apiClient
+      .get<IntermediaryPartnerRelationship[]>('/partner-relationships')
+      .then((r) => r.data),
+  relationshipInsurers: () =>
+    apiClient
+      .get<
+        Array<{ id: string; name: string; tira_license_number: string | null }>
+      >('/partner-relationships/insurers')
+      .then((r) => r.data),
+  requestInsurerAppointment: (
+    insurer_company_id: string,
+    request_note?: string,
+  ) =>
+    apiClient
+      .post('/partner-relationships/requests', {
+        insurer_company_id,
+        request_note,
+      })
+      .then((r) => r.data),
+  withdrawInsurerAppointment: (id: string, reason: string) =>
+    apiClient
+      .patch(`/partner-relationships/${id}/withdraw`, { reason })
+      .then((r) => r.data),
+  listIntermediaryInsurers: () =>
+    apiClient
+      .get<IntermediaryInsurerRecord[]>('/intermediary/insurers')
+      .then((response) => response.data),
+  getIntermediaryDistributionLocations: () =>
+    apiClient
+      .get<IntermediaryDistributionLocations>(
+        '/intermediary/distribution-locations',
+      )
+      .then((response) => response.data),
+  getIntermediarySettlementReport: (params?: {
+    from_date?: string;
+    to_date?: string;
+  }) =>
+    apiClient
+      .get<IntermediarySettlementReport>(
+        '/intermediary/commission-settlement-report',
+        { params },
+      )
+      .then((response) => response.data),
+
+  listIntermediaryProductRisks: (
+    insurerId: string,
+    productId: string,
+    branchId?: string,
+  ) =>
+    apiClient
+      .get<
+        PortalRiskRecord[]
+      >(`/intermediary/insurers/${insurerId}/products/${productId}/risks`, { params: branchId ? { branch_id: branchId } : undefined })
+      .then((response) => response.data),
+
+  compareIntermediaryQuotations: (quotationIds: string[]) =>
+    apiClient
+      .post<
+        IntermediaryQuotationComparison[]
+      >('/intermediary/quotations/compare', { quotation_ids: quotationIds })
+      .then((response) => response.data),
+
   getProfile: (audience: PortalAudience) =>
     apiClient
       .get<PortalProfileRecord>(`${basePath(audience)}/profile`)
@@ -657,3 +764,55 @@ export const portalApi = {
     window.URL.revokeObjectURL(objectUrl);
   },
 };
+
+export interface IntermediaryInsurerRecord {
+  relationship_id: string;
+  insurer_company_id: string;
+  insurer_name: string | null;
+  partner_type: string;
+  products: Array<{
+    id: string;
+    company_id: string;
+    category_id: string;
+    category?: { id: string; name: string } | null;
+    product_code: string;
+    product_name: string;
+    business_line: string;
+    supports_fleet: boolean;
+    tiramis_product_code?: string | null;
+    partner_scope: {
+      allowed_operations: string[];
+      branch_ids: string[] | null;
+      commission_rate?: string | null;
+      branches: Array<{ id: string; name: string; code: string }>;
+    };
+  }>;
+}
+
+export interface IntermediaryQuotationComparison {
+  id: string;
+  quotation_no: string;
+  insurer_company_id: string;
+  insurer_name?: string | null;
+  product_id: string;
+  product_name?: string;
+  category_name?: string;
+  status: string;
+  currency: string | null;
+  premium_excluding_tax: string | null;
+  premium_including_tax: string | null;
+  cover_note_start_date: string | null;
+  cover_note_end_date: string | null;
+  created_at: string;
+}
+
+export interface IntermediaryPartnerRelationship {
+  id: string;
+  partner_type: string;
+  status: string;
+  scope_mode: string;
+  start_date: string | null;
+  end_date: string | null;
+  agreement_reference: string | null;
+  insurer_company?: { id: string; name: string };
+}

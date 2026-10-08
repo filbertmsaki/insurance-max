@@ -6,21 +6,18 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { PartnerType } from '../enums/partner-type.enum';
 import { PartnerRelationshipStatus } from '../enums/partner-relationship-status.enum';
+import { InsuranceCompanyPartnerProductScope } from './insurance-company-partner-product-scope.entity';
 
 @Entity('insurance_company_partners')
 @Index('IDX_insurance_partner_insurer', ['insurer_company_id'])
 @Index('IDX_insurance_partner_company', ['intermediary_company_id'])
-@Index('UQ_current_agency_one_insurer', ['intermediary_company_id'], {
-  unique: true,
-  where:
-    "partner_type = 'AGENCY' AND deleted_at IS NULL AND status IN ('PENDING', 'ACTIVE', 'SUSPENDED')",
-})
 export class InsuranceCompanyPartner {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -31,6 +28,9 @@ export class InsuranceCompanyPartner {
   @Column({ type: 'uuid' })
   intermediary_company_id: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  requested_by_company_id!: string | null;
+
   @Column({ type: 'enum', enum: PartnerType })
   partner_type!: PartnerType;
 
@@ -40,6 +40,9 @@ export class InsuranceCompanyPartner {
     default: PartnerRelationshipStatus.PENDING,
   })
   status!: PartnerRelationshipStatus;
+
+  @Column({ type: 'varchar', length: 20, default: 'LEGACY' })
+  scope_mode!: 'LEGACY' | 'RESTRICTED';
 
   @Column({ type: 'numeric', precision: 18, scale: 10, nullable: true })
   commission_rate!: string | null;
@@ -87,4 +90,10 @@ export class InsuranceCompanyPartner {
   @ManyToOne(() => Company, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'intermediary_company_id' })
   intermediary_company: Company;
+
+  @OneToMany(
+    () => InsuranceCompanyPartnerProductScope,
+    (scope) => scope.relationship,
+  )
+  product_scopes: InsuranceCompanyPartnerProductScope[];
 }

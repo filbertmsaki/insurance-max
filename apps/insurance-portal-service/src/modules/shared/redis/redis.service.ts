@@ -5,6 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ServiceUnavailableException } from '@nestjs/common';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -17,8 +18,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   >();
   private readonly fallbackHashes = new Map<string, Map<string, string>>();
   private readonly fallbackSets = new Map<string, Set<string>>();
+  private readonly allowFallback: boolean;
+  private ready = false;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {
+    this.allowFallback =
+      this.configService.get<boolean>('redis.allowInMemoryFallback', false) ===
+      true;
+  }
 
   async onModuleInit(): Promise<void> {
     const host = this.configService.get<string>('redis.host', 'localhost');
@@ -40,21 +47,27 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
 
     client.on('connect', () => this.logger.log('Redis connected'));
-    client.on('error', (err) =>
-      this.logger.warn(
-        `Redis unavailable, using in-memory fallback: ${err.message}`,
-      ),
+    client.on('error', () =>
+      this.logger.warn('Redis client reported a connection or command error.'),
     );
     client.on('close', () => this.logger.warn('Redis connection closed'));
 
     try {
       await client.connect();
       this.client = client;
+      this.ready = true;
     } catch (error) {
+      if (!this.allowFallback) {
+        await client.disconnect();
+        throw new ServiceUnavailableException(
+          'Redis is required but could not be reached.',
+        );
+      }
       this.logger.warn(
         'Redis startup connection failed. Falling back to in-memory storage.',
       );
       this.client = null;
+      this.ready = false;
       await client.disconnect();
     }
   }
@@ -62,6 +75,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy(): Promise<void> {
     if (this.client) {
       await this.client.quit();
+      this.ready = false;
       this.logger.log('Redis disconnected');
     }
   }
@@ -281,7 +295,11 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  isReady(): boolean {
+    return this.ready || (this.allowFallback && this.client === null);
+  }
+
   isUsingFallback(): boolean {
-    return this.client === null;
+    return this.client === null && this.allowFallback;
   }
 }

@@ -18,6 +18,18 @@ import { FinanceReconciliationBatch } from './finance-reconciliation-batch.entit
 @Index('UQ_reconciliation_batch_line_entity', ['batch_id', 'line_number'], {
   unique: true,
 })
+@Index(
+  'UQ_reconciliation_matched_payment_active',
+  ['matched_payment_transaction_id'],
+  {
+    unique: true,
+    where: "status = 'MATCHED' AND matched_payment_transaction_id IS NOT NULL",
+  },
+)
+@Index('UQ_reconciliation_matched_receipt_active', ['matched_receipt_id'], {
+  unique: true,
+  where: "status = 'MATCHED' AND matched_receipt_id IS NOT NULL",
+})
 export class FinanceReconciliationItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;

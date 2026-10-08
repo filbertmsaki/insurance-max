@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -89,7 +90,7 @@ export class TiramisReinsuranceController {
 
   @ServiceScopes('tiramis:read')
   @Get(':id')
-  findById(@Param('id') id: string) {
+  findById(@Param('id', ParseUUIDPipe) id: string) {
     return this.tiramisReinsuranceService.findById(id);
   }
 }

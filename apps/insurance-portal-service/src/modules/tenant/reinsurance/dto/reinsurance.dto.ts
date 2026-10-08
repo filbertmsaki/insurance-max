@@ -1,10 +1,12 @@
 import { Type } from 'class-transformer';
+import { ReinsuranceTerritory } from '@insurance-max/contracts';
 import {
   ArrayMinSize,
   IsArray,
   IsDateString,
   IsEnum,
   IsInt,
+  IsIn,
   IsObject,
   IsOptional,
   IsString,
@@ -21,6 +23,18 @@ import {
   TreatyParticipantRole,
   TreatyType,
 } from '../enums/reinsurance.enums';
+
+export class CreateTreatyEligibilityRuleDto {
+  @IsIn(['CLASS_OF_BUSINESS', 'TERRITORY', 'SUM_INSURED_MAX'])
+  rule_type: 'CLASS_OF_BUSINESS' | 'TERRITORY' | 'SUM_INSURED_MAX';
+
+  @IsString()
+  rule_value: string;
+
+  @IsOptional()
+  @IsIn([true, false])
+  is_exclusion?: boolean;
+}
 
 export class CreateTreatyDto {
   @IsString()
@@ -183,6 +197,20 @@ export class CreateTreatyParticipantDto {
   effective_to?: string;
 }
 
+export enum TreatyInvitationDecision {
+  ACCEPT = 'ACCEPT',
+  DECLINE = 'DECLINE',
+}
+
+export class RespondTreatyInvitationDto {
+  @IsEnum(TreatyInvitationDecision)
+  decision!: TreatyInvitationDecision;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
 export class CreateFacultativePlacementDto {
   @IsUUID()
   policy_id: string;
@@ -305,6 +333,18 @@ export class AdmitRecoveryDto {
   admitted_amount: string | number;
 }
 
+export class RecordRecoveryReceiptDto {
+  amount: string | number;
+
+  @IsOptional()
+  @IsDateString()
+  received_at?: string;
+
+  @IsOptional()
+  @IsString()
+  reference?: string;
+}
+
 export class EvaluateCapacityDto {
   @IsUUID()
   treaty_id: string;
@@ -320,8 +360,8 @@ export class EvaluateCapacityDto {
   class_of_business?: string;
 
   @IsOptional()
-  @IsString()
-  territory?: string;
+  @IsEnum(ReinsuranceTerritory)
+  territory?: ReinsuranceTerritory;
 }
 
 export class EvaluateQuotationCapacityDto {
@@ -339,8 +379,8 @@ export class EvaluateQuotationCapacityDto {
   class_of_business?: string;
 
   @IsOptional()
-  @IsString()
-  territory?: string;
+  @IsEnum(ReinsuranceTerritory)
+  territory?: ReinsuranceTerritory;
 }
 
 export class CreateReinsuranceSettlementDto {
@@ -375,6 +415,15 @@ export class RejectReinsuranceSettlementDto {
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+export class RespondReinsurancePremiumAccountDto {
+  @IsIn(['CONFIRM', 'DISPUTE'])
+  decision: 'CONFIRM' | 'DISPUTE';
+
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class GenerateReinsuranceBordereauDto {
