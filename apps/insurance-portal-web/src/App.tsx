@@ -64,6 +64,8 @@ import { SalePointsPage } from '@/modules/tenant/sale-points/pages/SalePointsPag
 import { DevicesPage } from '@/modules/shared/devices/pages/DevicesPage';
 import { SessionsPage } from '@/modules/shared/sessions/pages/SessionsPage';
 import { ApiClientsPage } from '@/modules/platform/api-clients/pages/ApiClientsPage';
+import { SaasBillingPage } from '@/modules/platform/saas-billing/pages/SaasBillingPage';
+import { PlatformIntelligencePage } from '@/modules/platform/intelligence/pages/PlatformIntelligencePage';
 import { ProfilePage } from '@/modules/shared/profile/pages/ProfilePage';
 import { CategoriesPage } from '@/modules/tenant/product-engine/pages/categories/CategoriesPage';
 import { ProductsPage } from '@/modules/tenant/product-engine/pages/products/ProductsPage';
@@ -841,6 +843,11 @@ export default function App() {
               element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
             >
               <Route path="/reference-data" element={<ReferenceDataPage />} />
+              <Route path="/saas-billing" element={<SaasBillingPage />} />
+              <Route
+                path="/platform-intelligence"
+                element={<PlatformIntelligencePage />}
+              />
             </Route>
             <Route
               element={<ProtectedRoute anyRole={['SUPER_ADMIN', 'OWNER']} />}

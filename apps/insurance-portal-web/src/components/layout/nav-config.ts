@@ -214,6 +214,13 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
+        label: 'SaaS Billing',
+        to: '/saas-billing',
+        icon: Receipt,
+        anyRole: ['SUPER_ADMIN', 'OWNER'],
+      },
+      {
+        kind: 'link',
         label: 'Audit Log',
         to: '/audit-logs',
         icon: ScrollText,
@@ -559,6 +566,13 @@ export const NAV_NODES: NavNode[] = [
         to: '/analytics/metrics',
         icon: BarChart3,
         anyPermission: ['analytics:metrics:read', 'analytics:read'],
+      },
+      {
+        kind: 'link',
+        label: 'Platform Intelligence',
+        to: '/platform-intelligence',
+        icon: Radar,
+        anyRole: ['SUPER_ADMIN', 'OWNER'],
       },
       {
         kind: 'link',
