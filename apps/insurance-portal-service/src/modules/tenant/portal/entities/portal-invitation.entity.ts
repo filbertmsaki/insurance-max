@@ -12,7 +12,11 @@ import {
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 
-import { PortalActorType, PortalInvitationStatus } from '../enums/portal.enums';
+import {
+  PortalActorType,
+  PortalInvitationDeliveryStatus,
+  PortalInvitationStatus,
+} from '../enums/portal.enums';
 
 @Entity('portal_invitations')
 @Index('IDX_portal_invitations_company_email', [
@@ -80,6 +84,39 @@ export class PortalInvitation {
 
   @Column({ type: 'text', nullable: true })
   revocation_reason: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: PortalInvitationDeliveryStatus.QUEUED,
+  })
+  delivery_status: PortalInvitationDeliveryStatus;
+
+  @Column({ type: 'integer', default: 0 })
+  delivery_attempts: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  next_delivery_attempt_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_delivery_attempt_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  last_delivery_error: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  sent_at: Date | null;
+
+  @Column({ type: 'integer', default: 0 })
+  resend_count: number;
+
+  /**
+   * The raw invitation token, encrypted, kept only until the email is
+   * delivered (or the invitation is no longer pending), then cleared. Only
+   * token_hash is used to look invitations up.
+   */
+  @Column({ type: 'text', nullable: true, select: false })
+  delivery_token_ciphertext: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

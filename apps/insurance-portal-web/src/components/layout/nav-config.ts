@@ -40,6 +40,7 @@ import {
   MessagesSquare,
   Percent,
   ClipboardCheck,
+  MailCheck,
   MapPinned,
   ScrollText,
 } from 'lucide-react';
@@ -529,6 +530,13 @@ export const NAV_NODES: NavNode[] = [
           'portal:request-review',
           'portal:request-complete',
         ],
+      },
+      {
+        kind: 'link',
+        label: 'Portal Invitations',
+        to: '/portal-invitations',
+        icon: MailCheck,
+        anyPermission: ['portal:account-read', 'portal:account-invite'],
       },
     ],
   },

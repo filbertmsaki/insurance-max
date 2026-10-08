@@ -17,6 +17,17 @@ export enum PortalInvitationStatus {
   EXPIRED = 'EXPIRED',
 }
 
+/** Email delivery of an invitation, tracked separately from its lifecycle. */
+export enum PortalInvitationDeliveryStatus {
+  QUEUED = 'QUEUED',
+  SENDING = 'SENDING',
+  SENT = 'SENT',
+  FAILED = 'FAILED',
+  DEAD_LETTER = 'DEAD_LETTER',
+  /** No longer sendable: revoked, expired or accepted before delivery. */
+  CANCELLED = 'CANCELLED',
+}
+
 export enum PortalRequestType {
   QUOTATION_ASSISTANCE = 'QUOTATION_ASSISTANCE',
   ENDORSEMENT = 'ENDORSEMENT',

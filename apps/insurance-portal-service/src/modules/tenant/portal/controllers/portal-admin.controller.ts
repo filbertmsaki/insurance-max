@@ -25,6 +25,8 @@ import { RawResponse } from '@insurance-max/shared-kernel';
 import {
   InviteCustomerPortalDto,
   InviteIntermediaryPortalDto,
+  PortalInvitationFilterDto,
+  RevokePortalInvitationDto,
   SuspendPortalAccountDto,
 } from '../dto/portal-invitation.dto';
 import {
@@ -75,6 +77,49 @@ export class PortalAdminController {
       user.companyId!,
       user.id,
       dto,
+    );
+  }
+
+  @Get('invitations')
+  @UseGuards(PermissionsGuard)
+  @Permissions(PortalPermissions.ACCOUNT_READ)
+  @ApiOperation({
+    summary: 'List portal invitations with lifecycle and delivery status',
+  })
+  invitations(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() filters: PortalInvitationFilterDto,
+  ) {
+    return this.accountsService.listInvitations(user.companyId!, filters);
+  }
+
+  @Post('invitations/:id/resend')
+  @UseGuards(PermissionsGuard)
+  @Permissions(PortalPermissions.ACCOUNT_INVITE)
+  @ApiOperation({
+    summary: 'Re-issue a pending or expired invitation with a new link',
+  })
+  resendInvitation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.accountsService.resendInvitation(user.companyId!, id, user.id);
+  }
+
+  @Post('invitations/:id/revoke')
+  @UseGuards(PermissionsGuard)
+  @Permissions(PortalPermissions.ACCOUNT_INVITE)
+  @ApiOperation({ summary: 'Revoke a pending invitation' })
+  revokeInvitation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RevokePortalInvitationDto,
+  ) {
+    return this.accountsService.revokeInvitation(
+      user.companyId!,
+      id,
+      user.id,
+      dto.reason,
     );
   }
 

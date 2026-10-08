@@ -44,6 +44,9 @@ import { PortalServiceRequestEvent } from './entities/portal-service-request-eve
 
 import { PortalGuard } from './guards/portal.guard';
 import { PortalInvitationExpiryJob } from './jobs/portal-invitation-expiry.job';
+import { PortalInvitationDispatchJob } from './jobs/portal-invitation-dispatch.job';
+import { PortalInvitationDeliveryService } from './services/portal-invitation-delivery.service';
+import { AuthSecretCryptoService } from '../../shared/auth/2fa/auth-secret-crypto.service';
 
 import { CustomerPortalController } from './controllers/customer-portal.controller';
 import { CustomerMarketplaceController } from './controllers/customer-marketplace.controller';
@@ -134,7 +137,10 @@ import { PublicMotorPurchaseService } from './services/public-motor-purchase.ser
     PortalRequestsService,
     PortalEngagementService,
     PublicMotorPurchaseService,
+    PortalInvitationDeliveryService,
+    AuthSecretCryptoService,
     PortalInvitationExpiryJob,
+    PortalInvitationDispatchJob,
     PortalGuard,
   ],
   exports: [

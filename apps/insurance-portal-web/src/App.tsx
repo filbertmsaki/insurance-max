@@ -10,6 +10,7 @@ import { IntermediaryCustomerFormPage } from '@/modules/portal/pages/Intermediar
 import { IntermediaryQuotationFormPage } from '@/modules/portal/pages/IntermediaryQuotationFormPage';
 import { IntermediaryRelationshipsPage } from '@/modules/portal/pages/IntermediaryRelationshipsPage';
 import { PortalRequestsReviewPage } from '@/modules/portal/pages/PortalRequestsReviewPage';
+import { PortalInvitationsPage } from '@/modules/portal/pages/PortalInvitationsPage';
 import { PortalRequestReviewDetailPage } from '@/modules/portal/pages/PortalRequestReviewDetailPage';
 import { PortalCoverCheckPage } from '@/modules/portal/pages/PortalCoverCheckPage';
 import { PortalDocumentsPage } from '@/modules/portal/pages/PortalDocumentsPage';
@@ -679,6 +680,22 @@ export default function App() {
               <Route
                 path="/portal-requests/:id"
                 element={<PortalRequestReviewDetailPage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  anyPermissions={[
+                    'portal:account-read',
+                    'portal:account-invite',
+                  ]}
+                />
+              }
+            >
+              <Route
+                path="/portal-invitations"
+                element={<PortalInvitationsPage />}
               />
             </Route>
 
