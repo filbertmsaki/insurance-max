@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { CoverNote } from './entities/cover-note.entity';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { IssuanceService } from '../issuance/issuance.service';
 import { QuotationsService } from '../quotations/quotations.service';
 import { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -11,6 +16,12 @@ import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tir
 import { PortalTiraSubmissionStatus } from '../tiramis-integration/enums/portal-tira-submission-status.enum';
 import type { RegulatoryFinalResponse } from '@insurance-max/contracts';
 
+/**
+ * Read model for cover notes, plus a manual re-sync of an issuance TIRA has
+ * already accepted. Cover notes are normally created automatically by
+ * IssuanceService when the TIRAMIS outcome arrives; `issueForQuotation`
+ * replays that same idempotent pipeline when the automatic path missed it.
+ */
 @Injectable()
 export class CoverNotesService {
   constructor(
@@ -22,20 +33,18 @@ export class CoverNotesService {
     private readonly portalSubmissionRepository: Repository<PortalTiraSubmission>,
     private readonly quotationsService: QuotationsService,
     private readonly issuanceService: IssuanceService,
+    private readonly scopeService: DataAccessScopeService,
   ) {}
 
-  async issueForQuotation(
-    companyId: string,
-    quotationId: string,
-    user: AuthenticatedUser,
-  ) {
+  async issueForQuotation(user: AuthenticatedUser, quotationId: string) {
+    const companyId = user.companyId!;
     const quotation = await this.quotationsService.findOneForUser(
       user,
       quotationId,
     );
     if (quotation.tira_status !== 'SUCCESS') {
-      throw new NotFoundException(
-        'TIRA-accepted quotation submission not found',
+      throw new ConflictException(
+        'Cover notes can only be re-synced for a quotation TIRA has accepted',
       );
     }
     const tracking = await this.trackingRepository.findOne({
@@ -57,7 +66,7 @@ export class CoverNotesService {
         tiramis_tracking_id: tracking.id,
       },
     });
-    if (alreadyIssued) return this.findAll(companyId, { quotationId });
+    if (alreadyIssued) return this.findAll(user, { quotationId });
     const submission = await this.portalSubmissionRepository.findOne({
       where: {
         company_id: companyId,
@@ -80,32 +89,67 @@ export class CoverNotesService {
       regulatoryResponse:
         tracking.finalResponsePayload as unknown as RegulatoryFinalResponse,
     });
-    return issued?.coverNotes ?? [];
+    if (!issued) {
+      throw new ConflictException(
+        'The accepted submission does not issue cover notes (for example a policy transaction)',
+      );
+    }
+    return issued.coverNotes;
   }
 
   findAll(
-    companyId: string,
+    user: AuthenticatedUser,
     filters: { policyId?: string; quotationId?: string } = {},
   ) {
-    return this.coverNoteRepository.find({
-      where: {
-        company_id: companyId,
-        ...(filters.policyId ? { policy_id: filters.policyId } : {}),
-        ...(filters.quotationId ? { quotation_id: filters.quotationId } : {}),
-      },
-      order: { created_at: 'DESC' },
-    });
+    const queryBuilder = this.scopedQuery(user).orderBy(
+      'cover_note.created_at',
+      'DESC',
+    );
+
+    if (filters.policyId) {
+      queryBuilder.andWhere('cover_note.policy_id = :policyId', {
+        policyId: filters.policyId,
+      });
+    }
+    if (filters.quotationId) {
+      queryBuilder.andWhere('cover_note.quotation_id = :quotationId', {
+        quotationId: filters.quotationId,
+      });
+    }
+
+    return queryBuilder.getMany();
   }
 
-  async findOne(companyId: string, id: string) {
-    const coverNote = await this.coverNoteRepository.findOne({
-      where: { id, company_id: companyId },
-    });
+  async findOne(user: AuthenticatedUser, id: string) {
+    const coverNote = await this.scopedQuery(user)
+      .andWhere('cover_note.id = :id', { id })
+      .getOne();
 
     if (!coverNote) {
       throw new NotFoundException('Cover note not found');
     }
 
     return coverNote;
+  }
+
+  /**
+   * A cover note is visible exactly when its quotation is: same company,
+   * branch, department and own-record rules as the quotations list.
+   */
+  private scopedQuery(user: AuthenticatedUser) {
+    const queryBuilder = this.coverNoteRepository
+      .createQueryBuilder('cover_note')
+      .innerJoin('cover_note.quotation', 'quotation')
+      .where('cover_note.company_id = :coverNoteCompanyId', {
+        coverNoteCompanyId: user.companyId,
+      });
+
+    this.scopeService.applyQuotationReadScope(
+      queryBuilder,
+      'quotation',
+      this.scopeService.resolve(user),
+    );
+
+    return queryBuilder;
   }
 }
