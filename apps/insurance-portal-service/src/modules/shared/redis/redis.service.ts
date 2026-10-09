@@ -50,7 +50,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     client.on('error', () =>
       this.logger.warn('Redis client reported a connection or command error.'),
     );
-    client.on('close', () => this.logger.warn('Redis connection closed'));
+    // A close during onModuleDestroy is expected; only an unplanned one warns.
+    client.on('close', () => {
+      if (this.ready) this.logger.warn('Redis connection closed');
+    });
 
     try {
       await client.connect();
@@ -74,8 +77,8 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     if (this.client) {
-      await this.client.quit();
       this.ready = false;
+      await this.client.quit();
       this.logger.log('Redis disconnected');
     }
   }

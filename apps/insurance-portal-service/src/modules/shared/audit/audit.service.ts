@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
-import { EntityManager, IsNull, Not, Repository } from 'typeorm';
+import { EntityManager, IsNull, MoreThan, Not, Repository } from 'typeorm';
 import { RequestContextService } from '@insurance-max/shared-kernel';
 
 import { AuditLog, AuditAction } from './entities/audit-log.entity';
@@ -40,6 +40,10 @@ export interface AuditOptions {
 
 /** @deprecated use AuditOptions */
 type LogOptions = AuditOptions;
+
+/** pg advisory lock key that serializes appends to the audit hash chain. */
+const AUDIT_CHAIN_LOCK_KEY = 4_820_310_771;
+const VERIFY_CHAIN_BATCH_SIZE = 1000;
 
 @Injectable()
 export class AuditService {
@@ -154,8 +158,21 @@ export class AuditService {
       status: options.status ?? 'success',
     });
 
-    if (this.hashChainEnabled) {
-      const previousEvent = await repository.findOne({
+    if (!this.hashChainEnabled) {
+      await repository.save(entity);
+      return;
+    }
+
+    // Appending to the chain is read-latest-then-insert, so concurrent writers
+    // must be serialized or they claim the same event_no (and fork the chain).
+    // The advisory lock is transaction-scoped: reuse the caller's open
+    // transaction, otherwise open a short one just for this append.
+    const append = async (chainManager: EntityManager) => {
+      await chainManager.query('SELECT pg_advisory_xact_lock($1)', [
+        AUDIT_CHAIN_LOCK_KEY,
+      ]);
+      const chainRepository = chainManager.getRepository(AuditLog);
+      const previousEvent = await chainRepository.findOne({
         where: {
           event_no: Not(IsNull()),
         },
@@ -165,49 +182,67 @@ export class AuditService {
       entity.event_no = String((Number(previousEvent?.event_no ?? 0) || 0) + 1);
       entity.previous_event_hash = previousEvent?.event_hash ?? null;
       entity.event_hash = this.computeEventHash(entity);
-    }
 
-    await repository.save(entity);
+      await chainRepository.save(entity);
+    };
+
+    if (manager?.queryRunner?.isTransactionActive) {
+      await append(manager);
+    } else {
+      await (manager ?? this.auditRepo.manager).transaction(append);
+    }
   }
 
   async verifyChain() {
-    const events = await this.auditRepo.find({
-      where: {
-        event_no: Not(IsNull()),
-      },
-      order: { event_no: 'ASC', created_at: 'ASC' },
-    });
-
+    // Walk the chain in event_no batches so memory stays flat as the audit
+    // table grows; event_no is unique, so keyset paging is exact.
     let previousHash: string | null = null;
+    let lastEventNo: string | null = null;
+    let totalEvents = 0;
 
-    for (const event of events) {
-      const expectedHash = this.computeEventHash(event);
-      if (event.previous_event_hash !== previousHash) {
-        return {
-          valid: false,
-          totalEvents: events.length,
-          brokenEventId: event.id,
-          brokenEventNo: event.event_no,
-          reason: 'PREVIOUS_HASH_MISMATCH',
-        };
+    for (;;) {
+      const events = await this.auditRepo.find({
+        where: {
+          event_no:
+            lastEventNo === null ? Not(IsNull()) : MoreThan(lastEventNo),
+        },
+        order: { event_no: 'ASC' },
+        take: VERIFY_CHAIN_BATCH_SIZE,
+      });
+
+      for (const event of events) {
+        totalEvents += 1;
+        const expectedHash = this.computeEventHash(event);
+        if (event.previous_event_hash !== previousHash) {
+          return {
+            valid: false,
+            totalEvents,
+            brokenEventId: event.id,
+            brokenEventNo: event.event_no,
+            reason: 'PREVIOUS_HASH_MISMATCH',
+          };
+        }
+
+        if (event.event_hash !== expectedHash) {
+          return {
+            valid: false,
+            totalEvents,
+            brokenEventId: event.id,
+            brokenEventNo: event.event_no,
+            reason: 'EVENT_HASH_MISMATCH',
+          };
+        }
+
+        previousHash = event.event_hash;
       }
 
-      if (event.event_hash !== expectedHash) {
-        return {
-          valid: false,
-          totalEvents: events.length,
-          brokenEventId: event.id,
-          brokenEventNo: event.event_no,
-          reason: 'EVENT_HASH_MISMATCH',
-        };
-      }
-
-      previousHash = event.event_hash;
+      if (events.length < VERIFY_CHAIN_BATCH_SIZE) break;
+      lastEventNo = events[events.length - 1].event_no;
     }
 
     return {
       valid: true,
-      totalEvents: events.length,
+      totalEvents,
       brokenEventId: null,
       brokenEventNo: null,
       reason: null,

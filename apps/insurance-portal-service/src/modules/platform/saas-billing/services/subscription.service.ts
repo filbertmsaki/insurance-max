@@ -999,16 +999,15 @@ export class SubscriptionService {
   }
 
   private async buildPlanSnapshot(manager: EntityManager, plan: SaasPlan) {
-    const [features, meterRates] = await Promise.all([
-      manager.getRepository(SaasPlanFeature).find({
-        where: { plan_id: plan.id },
-        order: { feature_code: 'ASC' },
-      }),
-      manager.getRepository(SaasPlanMeterRate).find({
-        where: { plan_id: plan.id },
-        order: { metric_code: 'ASC' },
-      }),
-    ]);
+    // Sequential: the manager may be transactional (one pg connection).
+    const features = await manager.getRepository(SaasPlanFeature).find({
+      where: { plan_id: plan.id },
+      order: { feature_code: 'ASC' },
+    });
+    const meterRates = await manager.getRepository(SaasPlanMeterRate).find({
+      where: { plan_id: plan.id },
+      order: { metric_code: 'ASC' },
+    });
 
     const featureSnapshot = features.map((feature) => ({
       feature_code: feature.feature_code,

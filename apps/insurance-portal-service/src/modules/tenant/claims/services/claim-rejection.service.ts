@@ -365,32 +365,33 @@ export class ClaimRejectionService {
       );
     }
 
-    const [disbursements, payments, acceptedVouchers] = await Promise.all([
-      manager.getRepository(ClaimDisbursement).count({
-        where: {
-          claim_id: claim.id,
-          status: In([
-            ClaimDisbursementStatus.REQUESTED,
-            ClaimDisbursementStatus.PROCESSING,
-            ClaimDisbursementStatus.PAID,
-          ]),
-        },
-      }),
-      manager.getRepository(ClaimPayment).count({
-        where: {
-          claim_id: claim.id,
-          status: In([
-            ClaimPaymentStatus.SUBMITTED,
-            ClaimPaymentStatus.APPROVED,
-            ClaimPaymentStatus.PROCESSING,
-            ClaimPaymentStatus.PAID,
-          ]),
-        },
-      }),
-      manager.getRepository(ClaimDischargeVoucher).count({
+    // Sequential: the manager is transactional (one pg connection).
+    const disbursements = await manager.getRepository(ClaimDisbursement).count({
+      where: {
+        claim_id: claim.id,
+        status: In([
+          ClaimDisbursementStatus.REQUESTED,
+          ClaimDisbursementStatus.PROCESSING,
+          ClaimDisbursementStatus.PAID,
+        ]),
+      },
+    });
+    const payments = await manager.getRepository(ClaimPayment).count({
+      where: {
+        claim_id: claim.id,
+        status: In([
+          ClaimPaymentStatus.SUBMITTED,
+          ClaimPaymentStatus.APPROVED,
+          ClaimPaymentStatus.PROCESSING,
+          ClaimPaymentStatus.PAID,
+        ]),
+      },
+    });
+    const acceptedVouchers = await manager
+      .getRepository(ClaimDischargeVoucher)
+      .count({
         where: { claim_id: claim.id, status: ClaimDischargeStatus.ACCEPTED },
-      }),
-    ]);
+      });
 
     if (disbursements || payments) {
       throw new ConflictException(

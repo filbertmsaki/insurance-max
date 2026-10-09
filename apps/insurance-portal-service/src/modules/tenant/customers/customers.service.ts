@@ -933,24 +933,23 @@ export class CustomersService {
     contacts: CustomerContact[];
     documents: CustomerDocument[];
   }> {
-    const [identifiers, addresses, contacts, documents] = await Promise.all([
-      manager.getRepository(CustomerIdentifier).find({
-        where: { customer_id: customerId, deleted_at: IsNull() },
-        order: { is_primary: 'DESC', created_at: 'ASC' },
-      }),
-      manager.getRepository(CustomerAddress).find({
-        where: { customer_id: customerId, deleted_at: IsNull() },
-        order: { is_primary: 'DESC', created_at: 'ASC' },
-      }),
-      manager.getRepository(CustomerContact).find({
-        where: { customer_id: customerId, deleted_at: IsNull() },
-        order: { contact_type: 'ASC', is_primary: 'DESC', created_at: 'ASC' },
-      }),
-      manager.getRepository(CustomerDocument).find({
-        where: { customer_id: customerId, deleted_at: IsNull() },
-        order: { created_at: 'DESC' },
-      }),
-    ]);
+    // Sequential: the manager may be transactional (one pg connection).
+    const identifiers = await manager.getRepository(CustomerIdentifier).find({
+      where: { customer_id: customerId, deleted_at: IsNull() },
+      order: { is_primary: 'DESC', created_at: 'ASC' },
+    });
+    const addresses = await manager.getRepository(CustomerAddress).find({
+      where: { customer_id: customerId, deleted_at: IsNull() },
+      order: { is_primary: 'DESC', created_at: 'ASC' },
+    });
+    const contacts = await manager.getRepository(CustomerContact).find({
+      where: { customer_id: customerId, deleted_at: IsNull() },
+      order: { contact_type: 'ASC', is_primary: 'DESC', created_at: 'ASC' },
+    });
+    const documents = await manager.getRepository(CustomerDocument).find({
+      where: { customer_id: customerId, deleted_at: IsNull() },
+      order: { created_at: 'DESC' },
+    });
 
     return {
       identifiers,

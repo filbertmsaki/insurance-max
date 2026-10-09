@@ -371,17 +371,17 @@ export class CancellationService {
         throw new BadRequestException('Cancellation not found');
       }
 
-      const [cancellation, policy, version] = await Promise.all([
-        manager.getRepository(PolicyCancellation).findOne({
-          where: { policy_transaction_id: transaction.id },
-        }),
-        manager.getRepository(Policy).findOne({
-          where: { id: transaction.source_policy_id },
-        }),
-        manager.getRepository(PolicyVersion).findOne({
-          where: { id: transaction.source_policy_version_id },
-        }),
-      ]);
+      // Sequential: a transaction holds one pg connection, and concurrent
+      // queries on it are deprecated (removed in pg@9).
+      const cancellation = await manager
+        .getRepository(PolicyCancellation)
+        .findOne({ where: { policy_transaction_id: transaction.id } });
+      const policy = await manager
+        .getRepository(Policy)
+        .findOne({ where: { id: transaction.source_policy_id } });
+      const version = await manager
+        .getRepository(PolicyVersion)
+        .findOne({ where: { id: transaction.source_policy_version_id } });
 
       if (
         !cancellation ||

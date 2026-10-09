@@ -459,17 +459,17 @@ export class EndorsementService {
         throw new BadRequestException('Endorsement not found');
       }
 
-      const [endorsement, policy, version] = await Promise.all([
-        manager.getRepository(PolicyEndorsement).findOne({
-          where: { policy_transaction_id: transaction.id },
-        }),
-        manager.getRepository(Policy).findOne({
-          where: { id: transaction.source_policy_id },
-        }),
-        manager.getRepository(PolicyVersion).findOne({
-          where: { id: transaction.source_policy_version_id },
-        }),
-      ]);
+      // Sequential: a transaction holds one pg connection, and concurrent
+      // queries on it are deprecated (removed in pg@9).
+      const endorsement = await manager
+        .getRepository(PolicyEndorsement)
+        .findOne({ where: { policy_transaction_id: transaction.id } });
+      const policy = await manager
+        .getRepository(Policy)
+        .findOne({ where: { id: transaction.source_policy_id } });
+      const version = await manager
+        .getRepository(PolicyVersion)
+        .findOne({ where: { id: transaction.source_policy_version_id } });
 
       if (!endorsement || !policy || !version) {
         throw new BadRequestException(

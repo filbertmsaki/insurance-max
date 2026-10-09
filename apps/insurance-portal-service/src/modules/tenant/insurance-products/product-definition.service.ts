@@ -261,20 +261,17 @@ export class ProductDefinitionService {
 
       await manager.getRepository(InsuranceProductVersion).save(version);
 
-      await Promise.all([
-        manager
-          .getRepository(ProductDefinitionItem)
-          .delete({ product_version_id: version.id }),
-        manager
-          .getRepository(ProductAddonDefinition)
-          .delete({ product_version_id: version.id }),
-        manager
-          .getRepository(ProductDocumentRequirement)
-          .delete({ product_version_id: version.id }),
-        manager
-          .getRepository(ProductVersionSubClass)
-          .delete({ product_version_id: version.id }),
-      ]);
+      // Sequential: a transaction holds one pg connection.
+      for (const entity of [
+        ProductDefinitionItem,
+        ProductAddonDefinition,
+        ProductDocumentRequirement,
+        ProductVersionSubClass,
+      ]) {
+        await manager
+          .getRepository(entity)
+          .delete({ product_version_id: version.id });
+      }
 
       const duplicateCodes = this.findDuplicateCodes([
         ...dto.definition_items.map((item) => item.code),
