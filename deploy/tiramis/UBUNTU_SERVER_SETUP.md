@@ -18,8 +18,8 @@ choose to change that password.
 
 It detects an installed Apache or Nginx service and asks whether to reuse it.
 When neither is installed, select Apache, Nginx, or `skip`. The default
-application port is `9090`, internal TCP port `4001`, API proxy prefix
-`/tiramis-api`, app root `/opt/apps/tiramis`, and PM2 logs `/var/log/pm2`.
+application port is `9090`, API proxy prefix `/tiramis-api`, app root
+`/opt/apps/tiramis`, and PM2 logs `/var/log/pm2`.
 Ports and paths can be set explicitly:
 
 ```bash
@@ -29,7 +29,6 @@ sudo bash setup-server.sh \
   --log-dir /var/log/pm2 \
   --web-server nginx \
   --app-port 9090 \
-  --tcp-port 4001 \
   --api-prefix /tiramis-api
 ```
 
@@ -37,10 +36,7 @@ The host address is detected for the proxy site name by default. Use `--domain`
 to provide a DNS name. The script does not ask for public IP/CIDR addresses.
 UFW stays unchanged unless explicitly enabled with `--approve-ufw`; that option
 requires `--admin-cidr` so the installer can allow SSH from your trusted source.
-The TCP gateway (`--tcp-port`, default `4001`) is not used by the portal, which
-talks to TIRAMIS over HTTPS only, and it has no authentication. Do not pass
-`--portal-cidr` or otherwise expose that port. Instead, set
-`TIRAMIS_TCP_HOST=127.0.0.1` in `shared/.env`.
+TIRAMIS exposes the HTTP API only.
 
 The installer asks whether to install PostgreSQL locally. Choose no when the
 database is hosted elsewhere. It does not create database roles or ask for

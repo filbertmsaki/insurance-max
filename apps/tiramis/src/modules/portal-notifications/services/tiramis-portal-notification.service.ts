@@ -4,7 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { In, Repository } from 'typeorm';
-import { randomUUID } from 'crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'crypto';
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 
 import {
   HTTP_HEADERS,
@@ -41,6 +43,7 @@ export const TIRAMIS_NOTIFICATION_EVENT_TYPES = [
  * real next attempt time.
  */
 const DELIVERY_LEASE_MS = 60_000;
+const PORTAL_WEBHOOK_PATH = '/webhooks/tiramis/notifications';
 
 @Injectable()
 export class TiramisPortalNotificationService {
@@ -62,26 +65,12 @@ export class TiramisPortalNotificationService {
   ) {}
 
   async testWebhook(configurationId: string, webhookUrl: string) {
-    let parsedUrl: URL;
     try {
-      parsedUrl = new URL(webhookUrl);
-    } catch {
+      await this.assertWebhookUrlAllowed(webhookUrl);
+    } catch (error: any) {
       return {
         success: false,
-        message: 'Webhook URL is not a valid absolute URL.',
-      };
-    }
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      return { success: false, message: 'Webhook URL must use HTTP or HTTPS.' };
-    }
-    if (
-      !parsedUrl.pathname
-        .replace(/\/$/, '')
-        .endsWith('/webhooks/tiramis/notifications')
-    ) {
-      return {
-        success: false,
-        message: 'Only the portal TIRAMIS notification endpoint can be tested.',
+        message: error?.message || 'Webhook URL is not allowed.',
       };
     }
 
@@ -109,27 +98,23 @@ export class TiramisPortalNotificationService {
 
     const requestId = `portal-webhook-test-${randomUUID()}`;
     try {
+      const headers = this.buildWebhookHeaders({
+        apiKey,
+        event: {
+          eventType: 'TIRAMIS_CONNECTION_TEST',
+          sourceService: 'tiramis-service',
+          requestId,
+          occurredAt: new Date().toISOString(),
+        } as unknown as TiramisPortalNotificationEventDto,
+        requestId,
+        correlationId: requestId,
+      });
       const response = await firstValueFrom(
-        this.httpService.post(
-          webhookUrl,
-          {
-            eventType: 'TIRAMIS_CONNECTION_TEST',
-            sourceService: 'tiramis-service',
-            requestId,
-            occurredAt: new Date().toISOString(),
-          },
-          {
-            timeout: 10_000,
-            validateStatus: () => true,
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-              'X-API-Key': apiKey,
-              [HTTP_HEADERS.REQUEST_ID]: requestId,
-              [HTTP_HEADERS.CORRELATION_ID]: requestId,
-            },
-          },
-        ),
+        this.httpService.post(webhookUrl, headers.payload, {
+          timeout: 10_000,
+          validateStatus: () => true,
+          headers: headers.headers,
+        }),
       );
       const success = response.status >= 200 && response.status < 300;
       return {
@@ -466,19 +451,18 @@ export class TiramisPortalNotificationService {
       5000;
 
     try {
+      await this.assertWebhookUrlAllowed(outbox.webhookUrl);
+      const headers = this.buildWebhookHeaders({
+        apiKey,
+        event,
+        requestId,
+        correlationId,
+      });
       const response = await firstValueFrom(
-        this.httpService.post(outbox.webhookUrl, event, {
+        this.httpService.post(outbox.webhookUrl, headers.payload, {
           timeout: timeoutMs,
           validateStatus: () => true,
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-
-            'X-API-Key': apiKey,
-
-            [HTTP_HEADERS.REQUEST_ID]: requestId,
-            [HTTP_HEADERS.CORRELATION_ID]: correlationId,
-          },
+          headers: headers.headers,
         }),
       );
 
@@ -542,6 +526,185 @@ export class TiramisPortalNotificationService {
     return [event.requestId, event.responseId || 'none', event.eventType].join(
       ':',
     );
+  }
+
+  private buildWebhookHeaders(params: {
+    apiKey: string;
+    event: TiramisPortalNotificationEventDto;
+    requestId: string;
+    correlationId: string;
+  }): {
+    payload: TiramisPortalNotificationEventDto;
+    headers: Record<string, string>;
+  } {
+    const timestamp = new Date().toISOString();
+    const nonce = randomBytes(16).toString('hex');
+    const payloadHash = this.hashPayload(params.event);
+    const signatureBase = `${timestamp}.${nonce}.${payloadHash}`;
+    const signature = createHmac(
+      'sha256',
+      this.resolveWebhookSigningSecret(params.apiKey),
+    )
+      .update(signatureBase, 'utf8')
+      .digest('hex');
+
+    return {
+      payload: params.event,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-API-Key': params.apiKey,
+        'X-TIRAMIS-Signature': `v1=${signature}`,
+        'X-TIRAMIS-Signature-Alg': 'hmac-sha256',
+        'X-TIRAMIS-Timestamp': timestamp,
+        'X-TIRAMIS-Nonce': nonce,
+        'X-TIRAMIS-Payload-SHA256': payloadHash,
+        [HTTP_HEADERS.REQUEST_ID]: params.requestId,
+        [HTTP_HEADERS.CORRELATION_ID]: params.correlationId,
+      },
+    };
+  }
+
+  private resolveWebhookSigningSecret(apiKey: string): string {
+    return (
+      this.configService.get<string>('TIRAMIS_PORTAL_WEBHOOK_SIGNING_SECRET') ||
+      this.configService.get<string>(
+        'tiramisService.portalWebhookSigningSecret',
+      ) ||
+      apiKey
+    );
+  }
+
+  private hashPayload(payload: unknown): string {
+    return createHash('sha256')
+      .update(this.stableStringify(payload || {}), 'utf8')
+      .digest('hex');
+  }
+
+  private stableStringify(value: unknown): string {
+    if (value === null || typeof value !== 'object') {
+      return JSON.stringify(value);
+    }
+
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => this.stableStringify(item)).join(',')}]`;
+    }
+
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map(
+        (key) => `${JSON.stringify(key)}:${this.stableStringify(record[key])}`,
+      )
+      .join(',')}}`;
+  }
+
+  private async assertWebhookUrlAllowed(webhookUrl: string): Promise<URL> {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(webhookUrl);
+    } catch {
+      throw new BadRequestException('Webhook URL is not a valid absolute URL.');
+    }
+
+    const appEnv = this.configService.get<string>('app.env', 'development');
+    const requireHttps =
+      this.configService.get<boolean>(
+        'tiramisService.portalWebhookRequireHttps',
+      ) ?? appEnv === 'production';
+    if (requireHttps && parsedUrl.protocol !== 'https:') {
+      throw new BadRequestException(
+        'Portal webhook URL must use HTTPS in this environment.',
+      );
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      throw new BadRequestException('Webhook URL must use HTTP or HTTPS.');
+    }
+
+    if (!parsedUrl.pathname.replace(/\/$/, '').endsWith(PORTAL_WEBHOOK_PATH)) {
+      throw new BadRequestException(
+        'Only the portal TIRAMIS notification endpoint can be used.',
+      );
+    }
+
+    const allowedHosts = this.csvConfig(
+      'tiramisService.portalWebhookAllowedHosts',
+    );
+    if (allowedHosts.length && !allowedHosts.includes(parsedUrl.hostname)) {
+      throw new BadRequestException(
+        'Portal webhook host is not in the allowed host list.',
+      );
+    }
+
+    const blockPrivate =
+      this.configService.get<boolean>(
+        'tiramisService.portalWebhookBlockPrivateIps',
+      ) ?? appEnv === 'production';
+    if (blockPrivate) {
+      await this.assertWebhookHostIsPublic(parsedUrl.hostname);
+    }
+
+    return parsedUrl;
+  }
+
+  private async assertWebhookHostIsPublic(hostname: string): Promise<void> {
+    const addresses = isIP(hostname)
+      ? [{ address: hostname }]
+      : await lookup(hostname, { all: true, verbatim: false });
+
+    if (!addresses.length) {
+      throw new BadRequestException('Portal webhook host did not resolve.');
+    }
+
+    for (const result of addresses) {
+      if (this.isPrivateOrLocalAddress(result.address)) {
+        throw new BadRequestException(
+          'Portal webhook host resolves to a private or local address.',
+        );
+      }
+    }
+  }
+
+  private isPrivateOrLocalAddress(address: string): boolean {
+    const normalized = address.startsWith('::ffff:')
+      ? address.slice(7)
+      : address.toLowerCase();
+    if (normalized === '::1' || normalized === 'localhost') return true;
+
+    if (isIP(normalized) === 4) {
+      const octets = normalized.split('.').map((value) => Number(value));
+      const [a, b] = octets;
+      return (
+        a === 10 ||
+        a === 127 ||
+        (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) ||
+        (a === 192 && b === 168) ||
+        (a === 100 && b >= 64 && b <= 127) ||
+        a === 0
+      );
+    }
+
+    if (isIP(normalized) === 6) {
+      return (
+        normalized === '::' ||
+        normalized === '::1' ||
+        normalized.startsWith('fc') ||
+        normalized.startsWith('fd') ||
+        normalized.startsWith('fe80:')
+      );
+    }
+
+    return true;
+  }
+
+  private csvConfig(key: string): string[] {
+    const value = this.configService.get<string>(key, '');
+    return value
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
   }
 
   private isUniqueViolation(error: any): boolean {

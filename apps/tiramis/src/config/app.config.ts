@@ -30,6 +30,9 @@ export default registerAs('tiramisService', () => {
     logPayloads: process.env.TIRAMIS_LOG_PAYLOADS === 'true',
 
     requestLogEnabled: process.env.TIRAMIS_REQUEST_LOG_ENABLED !== 'false',
+    requestLogRedactXml: process.env.TIRAMIS_REQUEST_LOG_REDACT_XML !== 'false',
+    requestLogRedactedXmlTags:
+      process.env.TIRAMIS_REQUEST_LOG_REDACTED_XML_TAGS?.trim() || '',
     requestLogDir:
       process.env.TIRAMIS_REQUEST_LOG_DIR?.trim() ||
       join(
@@ -40,6 +43,14 @@ export default registerAs('tiramisService', () => {
             : join(process.cwd(), 'logs')),
         'tira-requests',
       ),
+    callbackDeadLetterRawXmlMode:
+      process.env.TIRAMIS_CALLBACK_DEAD_LETTER_RAW_XML_MODE?.trim() ||
+      'redacted',
+    callbackDiagnosticsRetentionEnabled:
+      process.env.TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_ENABLED !== 'false',
+    callbackDiagnosticsRetentionDays: Number(
+      process.env.TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_DAYS || 180,
+    ),
 
     portalNotifyEnabled: process.env.TIRAMIS_PORTAL_NOTIFY_ENABLED !== 'false',
 
@@ -49,6 +60,18 @@ export default registerAs('tiramisService', () => {
     portalWebhookMaxAttempts: Number(
       process.env.TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS || 8,
     ),
+    portalWebhookAllowedHosts:
+      process.env.TIRAMIS_PORTAL_WEBHOOK_ALLOWED_HOSTS?.trim() || '',
+    portalWebhookRequireHttps:
+      process.env.TIRAMIS_PORTAL_WEBHOOK_REQUIRE_HTTPS === 'true' ||
+      process.env.APP_ENV === 'production' ||
+      process.env.NODE_ENV === 'production',
+    portalWebhookBlockPrivateIps:
+      process.env.TIRAMIS_PORTAL_WEBHOOK_BLOCK_PRIVATE_IPS === 'true' ||
+      process.env.APP_ENV === 'production' ||
+      process.env.NODE_ENV === 'production',
+    portalWebhookSigningSecret:
+      process.env.TIRAMIS_PORTAL_WEBHOOK_SIGNING_SECRET?.trim() || '',
     portalOutboxBatchSize: Number(
       process.env.TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE || 20,
     ),

@@ -7,6 +7,7 @@ import {
   Post,
   Logger,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 
 import {
   PublicServiceEndpoint,
@@ -35,11 +36,12 @@ export class TiramisCallbackController {
     this.logger.debug(
       `Received callback for env=${environment}, bodyType=${typeof rawXml}, bodyLength=${
         typeof rawXml === 'string' ? rawXml.length : 0
+      }, bodySha256=${
+        typeof rawXml === 'string'
+          ? createHash('sha256').update(rawXml, 'utf8').digest('hex')
+          : 'n/a'
       }`,
     );
-    if (typeof rawXml === 'string') {
-      this.logger.debug(`Callback body preview: ${rawXml.slice(0, 200)}`);
-    }
 
     const acknowledgement = await this.tiramisCallbackService.handleCallback({
       environment,

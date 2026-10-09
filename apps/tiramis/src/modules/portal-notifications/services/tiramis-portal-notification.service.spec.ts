@@ -55,6 +55,8 @@ describe('TiramisPortalNotificationService', () => {
       } as any,
       configurationRepository as any,
       outboxRepository as any,
+      {} as any,
+      {} as any,
     );
 
     return {
@@ -109,6 +111,10 @@ describe('TiramisPortalNotificationService', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-API-Key': 'plain:encrypted-transaction-key',
+          'X-TIRAMIS-Signature': expect.stringMatching(/^v1=[a-f0-9]{64}$/),
+          'X-TIRAMIS-Timestamp': expect.any(String),
+          'X-TIRAMIS-Nonce': expect.any(String),
+          'X-TIRAMIS-Payload-SHA256': expect.stringMatching(/^[a-f0-9]{64}$/),
         }),
       }),
     );

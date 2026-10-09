@@ -2,6 +2,8 @@ import { BadRequestException } from '@nestjs/common';
 
 import type { TiramisSourceMetadataDto } from '../dto/tiramis-source-metadata.dto';
 
+const PORTAL_WEBHOOK_PATH = '/webhooks/tiramis/notifications';
+
 export function parseSourceMetadata(
   encoded?: string,
 ): TiramisSourceMetadataDto | undefined {
@@ -56,6 +58,11 @@ export function parseSourceMetadata(
       if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
         throw new Error('Invalid portal webhook URL');
       }
+      if (
+        !parsedUrl.pathname.replace(/\/$/, '').endsWith(PORTAL_WEBHOOK_PATH)
+      ) {
+        throw new Error('Invalid portal webhook URL');
+      }
     }
 
     return metadata;
@@ -87,10 +94,21 @@ export function requirePortalWebhookUrl(value?: string | null): string {
     protocol = '';
   }
 
-  if (!['http:', 'https:'].includes(protocol)) {
+  let pathname = '';
+  try {
+    pathname = new URL(portalWebhookUrl).pathname;
+  } catch {
+    pathname = '';
+  }
+
+  if (
+    !['http:', 'https:'].includes(protocol) ||
+    !pathname.replace(/\/$/, '').endsWith(PORTAL_WEBHOOK_PATH)
+  ) {
     throw new BadRequestException({
       code: 'TIRAMIS_PORTAL_WEBHOOK_URL_INVALID',
-      message: 'portalWebhookUrl must be an absolute http(s) URL.',
+      message:
+        'portalWebhookUrl must be an absolute http(s) URL for the portal TIRAMIS notification endpoint.',
     });
   }
 

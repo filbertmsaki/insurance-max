@@ -3,7 +3,6 @@ import * as bodyParser from 'body-parser';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { buildUrl, readLoggerEnv } from '@insurance-max/shared-config';
 import { bindRequestContext } from '@insurance-max/shared-kernel';
@@ -113,18 +112,6 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  app.connectMicroservice<MicroserviceOptions>(
-    {
-      transport: Transport.TCP,
-      options: {
-        host: configService.getOrThrow<string>('transport.host'),
-        port: configService.getOrThrow<number>('transport.port'),
-      },
-    },
-    { inheritAppConfig: true },
-  );
-
-  await app.startAllMicroservices();
   await app.listen(appPort, appHost);
 
   logger.log(`Tiramis service running at: ${appBaseUrl}`);

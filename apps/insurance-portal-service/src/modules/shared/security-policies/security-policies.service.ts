@@ -220,17 +220,17 @@ export class SecurityPoliciesService {
       requireTwoFactorForAllUsers:
         this.configService.get<boolean>('SECURITY_REQUIRE_2FA_FOR_ALL_USERS') ??
         false,
-      requireTwoFactorForRoles: this.readCsvEnv('SECURITY_REQUIRE_2FA_ROLES', [
-        'ADMINISTRATOR',
-        'SUPER_ADMIN',
-      ]),
+      requireTwoFactorForRoles: this.readCsvEnv(
+        'SECURITY_REQUIRE_2FA_ROLES',
+        [],
+      ),
       requireTwoFactorForPermissions: this.readCsvEnv(
         'SECURITY_REQUIRE_2FA_PERMISSIONS',
-        ['security-policies:activate', 'security-policies:approve'],
+        [],
       ),
       requireTwoFactorForUserTypes: this.readCsvEnv(
         'SECURITY_REQUIRE_2FA_USER_TYPES',
-        ['SUPER_ADMIN', 'COMPANY_ADMIN'],
+        [],
       ),
       allowTrustedDeviceBypass:
         this.configService.get<boolean>('AUTH_ALLOW_TRUSTED_DEVICE_BYPASS') ??

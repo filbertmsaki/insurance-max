@@ -28,12 +28,12 @@ changes only if you opt in. It requires Node.js 24 (and installs it if absent), 
 and prepares the app folders, environment template, proxy site, permissions,
 and PM2 systemd startup.
 
-Defaults are `/opt/apps/tiramis`, `/var/log/pm2`, HTTP port `9090`, TCP port
-`4001`, and `/tiramis-api`. Override settings as needed:
+Defaults are `/opt/apps/tiramis`, `/var/log/pm2`, HTTP port `9090`, and
+`/tiramis-api`. Override settings as needed:
 
 ```bash
 sudo bash setup-server.sh --user deploy --base-dir /opt/apps/tiramis \
-  --web-server nginx --app-port 9090 --tcp-port 4001 \
+  --web-server nginx --app-port 9090 \
   --api-prefix /tiramis-api --domain api.example.com
 ```
 

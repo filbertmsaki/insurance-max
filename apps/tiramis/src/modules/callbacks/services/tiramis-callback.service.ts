@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import { appendFile } from 'fs/promises';
@@ -90,6 +91,7 @@ export class TiramisCallbackService {
     private readonly portalNotificationService: TiramisPortalNotificationService,
     private readonly callbackBusinessUpdater: TiramisCallbackBusinessUpdaterService,
     private readonly requestLog: TiramisRequestLogService,
+    private readonly configService: ConfigService,
   ) {}
 
   async handleCallback(params: {
@@ -538,6 +540,7 @@ export class TiramisCallbackService {
     reason: string;
     parsedCallback?: ParsedTiramisCallbackDto;
   }) {
+    const deadLetterRawXml = this.deadLetterRawXml(params.rawXml);
     const deadLetter = this.deadLetterRepository.create({
       environment: params.environment,
       rootName: params.parsedCallback?.rootName || null,
@@ -546,7 +549,7 @@ export class TiramisCallbackService {
       statusCode: params.parsedCallback?.responseStatusCode || null,
       statusDesc: params.parsedCallback?.responseStatusDesc || null,
       signature: params.parsedCallback?.signature || null,
-      rawXml: params.rawXml || null,
+      rawXml: deadLetterRawXml,
       payloadHash: params.rawXml ? this.hashPayload(params.rawXml) : null,
       reason: params.reason,
       isProcessed: 0,
@@ -559,6 +562,23 @@ export class TiramisCallbackService {
       reason: params.reason,
       parsedCallback: params.parsedCallback,
     });
+  }
+
+  private deadLetterRawXml(rawXml: string): string | null {
+    const mode = this.configService.get<string>(
+      'tiramisService.callbackDeadLetterRawXmlMode',
+      'redacted',
+    );
+
+    if (mode === 'off') {
+      return null;
+    }
+
+    if (mode === 'full') {
+      return rawXml || null;
+    }
+
+    return this.requestLog.sanitizeXml(rawXml);
   }
 
   private async logCallbackErrorToFile(params: {

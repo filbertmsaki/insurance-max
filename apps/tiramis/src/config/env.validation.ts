@@ -23,6 +23,18 @@ export const tiramisEnvValidationSchema = Joi.object({
   }),
   PORTAL_ADMIN_JWT_ISSUER: Joi.string().default('insurance-idp.tz'),
   PORTAL_ADMIN_JWT_AUDIENCE: Joi.string().default('insurance-platform'),
+  PORTAL_ADMIN_SESSION_VALIDATION_ENABLED: Joi.boolean().default(false),
+  PORTAL_ADMIN_SESSION_INTROSPECTION_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .allow('')
+    .default(''),
+  PORTAL_ADMIN_REQUIRED_PERMISSIONS: Joi.string().allow('').default(''),
+  PORTAL_ADMIN_MFA_MAX_AGE_MINUTES: Joi.number().integer().min(0).default(0),
+  PORTAL_ADMIN_RATE_LIMIT_MAX: Joi.number().integer().min(0).default(60),
+  PORTAL_ADMIN_RATE_LIMIT_WINDOW_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .default(60000),
   // Selects the TIRA configuration independently from the application environment.
   TIRAMIS_TARGET_ENV: Joi.string().valid('test', 'live').optional(),
   DB_TYPE: Joi.string()
@@ -63,11 +75,17 @@ export const tiramisEnvValidationSchema = Joi.object({
     .uri({ scheme: ['http', 'https'] })
     .optional(),
 
-  TIRAMIS_TCP_HOST: Joi.string().default('0.0.0.0'),
-  TIRAMIS_TCP_PORT: Joi.number().default(4001),
   TIRAMIS_PORTAL_NOTIFY_ENABLED: Joi.boolean().default(true),
   INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS: Joi.number().default(5000),
   TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS: Joi.number().integer().min(1).default(8),
+  TIRAMIS_PORTAL_WEBHOOK_ALLOWED_HOSTS: Joi.string().allow('').default(''),
+  TIRAMIS_PORTAL_WEBHOOK_REQUIRE_HTTPS: Joi.boolean().default(false),
+  TIRAMIS_PORTAL_WEBHOOK_BLOCK_PRIVATE_IPS: Joi.boolean().default(false),
+  TIRAMIS_PORTAL_WEBHOOK_SIGNING_SECRET: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).allow('').default(''),
+    otherwise: Joi.string().allow('').default(''),
+  }),
   TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(20),
   TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS: Joi.number()
     .integer()
@@ -81,7 +99,18 @@ export const tiramisEnvValidationSchema = Joi.object({
     .default(60000),
   TIRAMIS_LOG_PAYLOADS: Joi.boolean().default(false),
   TIRAMIS_REQUEST_LOG_ENABLED: Joi.boolean().default(true),
+  TIRAMIS_REQUEST_LOG_REDACT_XML: Joi.boolean().default(true),
+  TIRAMIS_REQUEST_LOG_REDACTED_XML_TAGS: Joi.string().allow('').default(''),
   TIRAMIS_REQUEST_LOG_DIR: Joi.string().trim().min(1).optional(),
+  TIRAMIS_CALLBACK_DEAD_LETTER_RAW_XML_MODE: Joi.string()
+    .valid('full', 'redacted', 'off')
+    .default('redacted'),
+  TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_ENABLED: Joi.boolean().default(true),
+  TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_DAYS: Joi.number()
+    .integer()
+    .min(1)
+    .default(180),
+  TIRAMIS_LEGACY_RAW_API_KEYS_ENABLED: Joi.boolean().default(true),
   TIRAMIS_RETRY_ENABLED: Joi.boolean().default(true),
   TIRAMIS_RETRY_BATCH_SIZE: Joi.number().integer().min(1).default(20),
   TIRAMIS_RETRY_MAX_ATTEMPTS: Joi.number().integer().min(1).default(5),

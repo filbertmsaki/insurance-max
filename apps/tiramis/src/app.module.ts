@@ -23,7 +23,6 @@ import applicationConfig from './config/application.config';
 import tiramisAppConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import { tiramisEnvValidationSchema } from './config/env.validation';
-import transportConfig from './config/transport.config';
 import { TiramisAccessAuditEntity } from './modules/audit/entities/tiramis-access-audit.entity';
 import { TiramisAuditModule } from './modules/audit/tiramis-audit.module';
 import { TiramisApiKeyAuditEntity } from './modules/api-keys/entities/tiramis-api-key-audit.entity';
@@ -46,7 +45,6 @@ import { TiramisCoverNoteEntity } from './modules/cover-notes/entities/tiramis-c
 import { TiramisCoverNoteRiskEntity } from './modules/cover-notes/entities/tiramis-cover-note-risk.entity';
 import { TiramisCoverNoteTaxEntity } from './modules/cover-notes/entities/tiramis-cover-note-tax.entity';
 import { TiramisPolicyHolderEntity } from './modules/cover-notes/entities/tiramis-policy-holder.entity';
-import { TiramisInternalModule } from './modules/internal/tiramis-internal.module';
 import { TiramisSubjectMatterEntity } from './modules/cover-notes/entities/tiramis-subject-matter.entity';
 import { TiramisMotorDetailEntity } from './modules/motor/entities/tiramis-motor-detail.entity';
 import { TiramisMotorFleetItemEntity } from './modules/motor/entities/tiramis-motor-fleet-item.entity';
@@ -80,7 +78,6 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
         applicationConfig,
         loggerConfig,
         tiramisAppConfig,
-        transportConfig,
         databaseConfig,
       ],
     }),
@@ -131,7 +128,6 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
         ),
     }),
     TiramisModule,
-    TiramisInternalModule,
     TiramisAuditModule,
     HealthModule,
   ],

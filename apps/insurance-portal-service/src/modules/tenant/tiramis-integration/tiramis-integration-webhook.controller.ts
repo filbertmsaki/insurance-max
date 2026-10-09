@@ -4,10 +4,12 @@ import {
   ConflictException,
   Controller,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { Request } from 'express';
 import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
 
@@ -17,6 +19,7 @@ import { ApiKeyGuard } from '../../platform/api-clients/guards/api-key.guard';
 
 import type { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';
 import { TiramisNotificationReceipt } from './entities/tiramis-notification-receipt.entity';
+import { TiramisWebhookSignatureService } from './services/tiramis-webhook-signature.service';
 import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @ApiExcludeController()
@@ -27,17 +30,23 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
 export class TiramisIntegrationWebhookController {
   constructor(
     private readonly tiramisIntegrationService: TiramisIntegrationService,
+    private readonly signatureService: TiramisWebhookSignatureService,
     @InjectRepository(TiramisNotificationReceipt)
     private readonly receiptRepository: Repository<TiramisNotificationReceipt>,
   ) {}
 
   @Post('notifications')
-  async receiveNotification(@Body() payload: TiramisNotificationEventDto) {
+  async receiveNotification(
+    @Body() payload: TiramisNotificationEventDto,
+    @Req() request: Request,
+  ) {
     if (!payload?.eventType || !payload?.requestId) {
       throw new BadRequestException(
         'eventType and requestId are required in the TIRAMIS webhook payload',
       );
     }
+
+    await this.signatureService.verify(request, payload);
 
     if (payload.eventType === 'TIRAMIS_CONNECTION_TEST') {
       return {

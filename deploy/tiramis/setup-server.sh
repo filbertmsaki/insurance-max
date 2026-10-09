@@ -17,11 +17,9 @@ Options:
   --log-dir PATH          PM2 log directory (default /var/log/pm2)
   --web-server VALUE      apache|nginx|skip (prompted/detected when omitted)
   --app-port PORT         Local HTTP port (default 9090)
-  --tcp-port PORT         Internal TCP gateway port (default 4001)
   --api-prefix PATH       Reverse-proxy prefix (default /tiramis-api)
   --domain NAME           API hostname (auto-detected when omitted)
   --admin-cidr CIDR       Trusted SSH source; only needed with --approve-ufw
-  --portal-cidr CIDR      Allow TCP gateway from this source (repeatable)
   --db-host HOST          Database host to write into a new .env
   --db-port PORT          Database port (default 5432)
   --db-user USER          Database user (default tiramis_app)
@@ -50,20 +48,19 @@ except ValueError: sys.exit(1)
 PY
 }
 
-DEPLOY_USER=''; BASE_DIR=/opt/apps/tiramis; LOG_DIR=/var/log/pm2; WEB_SERVER=''; APP_PORT=9090; TCP_PORT=4001; API_PREFIX=/tiramis-api; DOMAIN=''; ADMIN_CIDR=''; PORTAL_CIDRS=(); DB_HOST=''; DB_PORT=5432; DB_USER=tiramis_app; DB_NAME=tiramis_db; DB_SSL=true; TLS_CERT=''; TLS_KEY=''; WITH_POSTGRES=false; APPROVE_UFW=false
+DEPLOY_USER=''; BASE_DIR=/opt/apps/tiramis; LOG_DIR=/var/log/pm2; WEB_SERVER=''; APP_PORT=9090; API_PREFIX=/tiramis-api; DOMAIN=''; ADMIN_CIDR=''; DB_HOST=''; DB_PORT=5432; DB_USER=tiramis_app; DB_NAME=tiramis_db; DB_SSL=true; TLS_CERT=''; TLS_KEY=''; WITH_POSTGRES=false; APPROVE_UFW=false
 while (($#)); do
   case "$1" in
-    --user|--base-dir|--log-dir|--web-server|--app-port|--tcp-port|--api-prefix|--domain|--admin-cidr|--db-host|--db-port|--db-user|--db-name|--db-ssl|--tls-cert|--tls-key)
+    --user|--base-dir|--log-dir|--web-server|--app-port|--api-prefix|--domain|--admin-cidr|--db-host|--db-port|--db-user|--db-name|--db-ssl|--tls-cert|--tls-key)
       (($# >= 2)) && [[ -n "$2" && "$2" != --* ]] || die "$1 needs a value"
       case "$1" in
         --user) DEPLOY_USER=$2 ;; --base-dir) BASE_DIR=$2 ;; --log-dir) LOG_DIR=$2 ;;
-        --web-server) WEB_SERVER=$2 ;; --app-port) APP_PORT=$2 ;; --tcp-port) TCP_PORT=$2 ;;
+        --web-server) WEB_SERVER=$2 ;; --app-port) APP_PORT=$2 ;;
         --api-prefix) API_PREFIX=$2 ;; --domain) DOMAIN=$2 ;; --admin-cidr) ADMIN_CIDR=$2 ;;
         --db-host) DB_HOST=$2 ;; --db-port) DB_PORT=$2 ;; --db-user) DB_USER=$2 ;;
         --db-name) DB_NAME=$2 ;; --db-ssl) DB_SSL=$2 ;; --tls-cert) TLS_CERT=$2 ;; --tls-key) TLS_KEY=$2 ;;
       esac
       shift 2 ;;
-    --portal-cidr) (($# >= 2)) && [[ -n "$2" ]] || die '--portal-cidr needs a value'; PORTAL_CIDRS+=("$2"); shift 2 ;;
     --with-postgres) WITH_POSTGRES=true; shift ;;
     --approve-ufw) APPROVE_UFW=true; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -75,12 +72,10 @@ done
 [[ "$BASE_DIR" == /* && "$BASE_DIR" != *' '* && "$BASE_DIR" != / ]] || die 'App path must be an absolute path without spaces'
 [[ "$LOG_DIR" == /* && "$LOG_DIR" != *' '* ]] || die 'Log path must be absolute and contain no spaces'
 [[ "$API_PREFIX" =~ ^/[A-Za-z0-9/_-]+$ && "$API_PREFIX" != */ ]] || die 'API prefix must start with / and have no trailing slash'
-valid_port "$APP_PORT" || die 'Invalid application port'; valid_port "$TCP_PORT" || die 'Invalid TCP port'; valid_port "$DB_PORT" || die 'Invalid database port'
+valid_port "$APP_PORT" || die 'Invalid application port'; valid_port "$DB_PORT" || die 'Invalid database port'
 [[ "$DB_SSL" == true || "$DB_SSL" == false ]] || die 'DB SSL must be true or false'
 [[ -z "$TLS_CERT" && -z "$TLS_KEY" || -n "$TLS_CERT" && -n "$TLS_KEY" ]] || die 'Provide both --tls-cert and --tls-key'
-[[ "$APP_PORT" != "$TCP_PORT" ]] || die 'Application and TCP ports must differ'
 [[ "$APPROVE_UFW" == false || -n "$ADMIN_CIDR" ]] || die '--approve-ufw requires --admin-cidr so SSH access can be allowed safely'
-for cidr in "${PORTAL_CIDRS[@]}"; do valid_cidr "$cidr" || die "Invalid portal CIDR: $cidr"; done
 [[ -z "$ADMIN_CIDR" ]] || valid_cidr "$ADMIN_CIDR" || die 'Invalid --admin-cidr'
 
 [[ $EUID -eq 0 ]] || die 'Run with sudo: sudo bash setup-server.sh'
@@ -201,8 +196,6 @@ TIRA_PUBLIC_CERT_PASSWORD_LIVE=
 # TIRAMIS_LIVE_CALLBACK_URL=
 # Set to test to seed only the test configuration while live credentials are pending
 # TIRAMIS_SEED_ENVIRONMENTS=test
-TIRAMIS_TCP_HOST=0.0.0.0
-TIRAMIS_TCP_PORT=$TCP_PORT
 TIRAMIS_PORTAL_NOTIFY_ENABLED=true
 INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS=5000
 TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS=8
@@ -302,7 +295,6 @@ fi
 if [[ "$APPROVE_UFW" == true ]]; then
   ufw allow from "$ADMIN_CIDR" to any port 22 proto tcp
   if [[ "$WEB_SERVER" != skip ]]; then ufw allow 80/tcp; [[ -z "$TLS_CERT_PATH" ]] || ufw allow 443/tcp; fi
-  for cidr in "${PORTAL_CIDRS[@]}"; do ufw allow from "$cidr" to any port "$TCP_PORT" proto tcp; done
   ufw --force enable
 fi
 
@@ -319,7 +311,6 @@ Environment:        $ENV_FILE
 PM2 logs:           $LOG_DIR
 Web server:         $WEB_SERVER
 API route:          $DOMAIN$API_PREFIX/ -> 127.0.0.1:$APP_PORT
-TCP gateway:        internal port $TCP_PORT
 Database:           $DB_HOST:$DB_PORT/$DB_NAME (configure password in .env)
 
 Review and complete the blank database/TIRA values in .env (uncomment the

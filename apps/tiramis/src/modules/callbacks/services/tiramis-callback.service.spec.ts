@@ -59,7 +59,25 @@ function createService(overrides: Record<string, any> = {}) {
 
   const xmlParser = new TiramisXmlParserService();
 
-  const requestLog = { append: jest.fn().mockResolvedValue(undefined) };
+  const requestLog = {
+    append: jest.fn().mockResolvedValue(undefined),
+    sanitizeXml: jest.fn((xml?: string | null) =>
+      xml
+        ? xml.replace(
+            /<MsgSignature>[\s\S]*?<\/MsgSignature>/gi,
+            '<MsgSignature>[redacted]</MsgSignature>',
+          )
+        : (xml ?? null),
+    ),
+  };
+  const configService = {
+    get: jest.fn((key: string, fallback?: unknown) => {
+      if (key === 'tiramisService.callbackDeadLetterRawXmlMode') {
+        return overrides.callbackDeadLetterRawXmlMode ?? fallback;
+      }
+      return fallback;
+    }),
+  };
   const service = new TiramisCallbackService(
     {} as any,
     {} as any,
@@ -74,6 +92,7 @@ function createService(overrides: Record<string, any> = {}) {
     portalNotificationService,
     callbackBusinessUpdater,
     requestLog as any,
+    configService as any,
   );
 
   return {
@@ -87,6 +106,7 @@ function createService(overrides: Record<string, any> = {}) {
     callbackBusinessUpdater,
     xmlParser,
     requestLog,
+    configService,
   };
 }
 
@@ -474,9 +494,10 @@ describe('TiramisCallbackService', () => {
     );
   });
 
-  it('stores a payload hash when quarantining callback XML', async () => {
+  it('stores a payload hash and redacted XML when quarantining callback XML', async () => {
     const { service, deadLetterRepository } = createService();
-    const rawXml = '<TiraMsg><BadCallback /></TiraMsg>';
+    const rawXml =
+      '<TiraMsg><BadCallback /><MsgSignature>secret-signature</MsgSignature></TiraMsg>';
 
     await (service as any).quarantineCallback({
       environment: 'test',
@@ -486,9 +507,30 @@ describe('TiramisCallbackService', () => {
 
     expect(deadLetterRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        rawXml,
+        rawXml:
+          '<TiraMsg><BadCallback /><MsgSignature>[redacted]</MsgSignature></TiraMsg>',
         payloadHash: createHash('sha256').update(rawXml, 'utf8').digest('hex'),
         reason: 'Invalid callback',
+      }),
+    );
+  });
+
+  it('can disable raw XML storage in callback dead letters', async () => {
+    const { service, deadLetterRepository } = createService({
+      callbackDeadLetterRawXmlMode: 'off',
+    });
+    const rawXml = '<TiraMsg><MsgSignature>secret</MsgSignature></TiraMsg>';
+
+    await (service as any).quarantineCallback({
+      environment: 'test',
+      rawXml,
+      reason: 'Invalid callback',
+    });
+
+    expect(deadLetterRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rawXml: null,
+        payloadHash: createHash('sha256').update(rawXml, 'utf8').digest('hex'),
       }),
     );
   });

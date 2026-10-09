@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'crypto';
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -92,6 +93,25 @@ describe('TiramisRequestLogService', () => {
     );
     await disabled.append('Aiic', { xml: 'private' });
     expect(await readdir(root)).toEqual([]);
+  });
+
+  it('redacts sensitive XML fields while storing the original payload hash', async () => {
+    const xml =
+      '<TiraMsg><RequestId>Aiic</RequestId><MsgSignature>secret</MsgSignature></TiraMsg>';
+
+    await service.append('Aiic', { event: 'received', xml });
+
+    const [entry] = (await readFile(join(directory, 'Aiic.log'), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+
+    expect(entry.xml).toBe(
+      '<TiraMsg><RequestId>Aiic</RequestId><MsgSignature>[redacted]</MsgSignature></TiraMsg>',
+    );
+    expect(entry.xmlSha256).toBe(
+      createHash('sha256').update(xml, 'utf8').digest('hex'),
+    );
   });
 
   it('reports filesystem errors without interrupting request processing', async () => {

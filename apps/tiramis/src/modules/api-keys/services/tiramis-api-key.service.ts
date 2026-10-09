@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { IsNull, Repository } from 'typeorm';
@@ -34,11 +36,14 @@ export interface TiramisApiKeyPrincipal {
 
 @Injectable()
 export class TiramisApiKeyService {
+  private readonly logger = new Logger(TiramisApiKeyService.name);
+
   constructor(
     @InjectRepository(TiramisApiKeyEntity)
     private readonly apiKeyRepository: Repository<TiramisApiKeyEntity>,
     @InjectRepository(TiramisApiKeyAuditEntity)
     private readonly auditRepository: Repository<TiramisApiKeyAuditEntity>,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(
@@ -244,8 +249,12 @@ export class TiramisApiKeyService {
     let row = await this.apiKeyRepository.findOne({
       where: { apiKeyHash: hash },
     });
+    const legacyRawKeysEnabled = this.configService.get<boolean>(
+      'TIRAMIS_LEGACY_RAW_API_KEYS_ENABLED',
+      true,
+    );
     // Compatibility window: legacy raw keys remain valid until rotated/replaced.
-    if (!row) {
+    if (!row && legacyRawKeysEnabled) {
       row = await this.apiKeyRepository.findOne({
         where: { apiKey: rawKey },
         select: [
@@ -269,6 +278,12 @@ export class TiramisApiKeyService {
           'updatedAt',
         ],
       });
+      if (row) {
+        this.logger.warn(
+          `Legacy raw TIRAMIS API key ${row.keyPrefix || row.id} was used; rotate it to remove raw secret storage.`,
+        );
+        await this.audit(row, 'LEGACY_RAW_KEY_USED', 'SUCCESS', context as any);
+      }
     }
     if (
       !row ||

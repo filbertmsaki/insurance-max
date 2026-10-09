@@ -19,6 +19,7 @@ describe('TiramisApiKeyService', () => {
       service: new TiramisApiKeyService(
         apiKeyRepository as any,
         auditRepository as any,
+        { get: jest.fn((_: string, fallback?: unknown) => fallback) } as any,
       ),
       apiKeyRepository,
     };

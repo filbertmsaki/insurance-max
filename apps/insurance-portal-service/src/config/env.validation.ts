@@ -123,15 +123,9 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   SECURITY_STEP_UP_MAX_AGE_MINUTES: Joi.number().integer().min(1).default(10),
   SECURITY_AUDIT_HASH_CHAIN_ENABLED: Joi.boolean().default(true),
   SECURITY_REQUIRE_2FA_FOR_ALL_USERS: Joi.boolean().default(false),
-  SECURITY_REQUIRE_2FA_ROLES: Joi.string()
-    .trim()
-    .default('ADMINISTRATOR,SUPER_ADMIN'),
-  SECURITY_REQUIRE_2FA_PERMISSIONS: Joi.string()
-    .trim()
-    .default('security-policies:activate,security-policies:approve'),
-  SECURITY_REQUIRE_2FA_USER_TYPES: Joi.string()
-    .trim()
-    .default('SUPER_ADMIN,COMPANY_ADMIN'),
+  SECURITY_REQUIRE_2FA_ROLES: Joi.string().trim().allow('').default(''),
+  SECURITY_REQUIRE_2FA_PERMISSIONS: Joi.string().trim().allow('').default(''),
+  SECURITY_REQUIRE_2FA_USER_TYPES: Joi.string().trim().allow('').default(''),
   SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(1440),
   SESSION_ABSOLUTE_HOURS: Joi.number().integer().min(1).default(24),
   SESSION_REFRESH_REUSE_DETECTION: Joi.boolean().default(true),
@@ -360,4 +354,11 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_NOTIFICATION_NOTIFY_FINAL_SUCCESS: Joi.boolean().default(false),
   TIRAMIS_NOTIFICATION_NOTIFY_BUSINESS_SYNC_SUCCESS:
     Joi.boolean().default(false),
+  TIRAMIS_PORTAL_WEBHOOK_SIGNATURE_REQUIRED: Joi.boolean().default(true),
+  TIRAMIS_PORTAL_WEBHOOK_SIGNATURE_MAX_AGE_SECONDS: Joi.number()
+    .integer()
+    .min(30)
+    .max(3600)
+    .default(300),
+  TIRAMIS_PORTAL_WEBHOOK_SIGNING_SECRET: Joi.string().allow('').default(''),
 }).custom(rejectPlaceholderSecretsInProduction);

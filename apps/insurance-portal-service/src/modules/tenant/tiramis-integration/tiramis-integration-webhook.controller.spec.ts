@@ -7,6 +7,9 @@ describe('TiramisIntegrationWebhookController', () => {
     const service = {
       handleTiramisNotification: jest.fn().mockResolvedValue(undefined),
     };
+    const signatureService = {
+      verify: jest.fn().mockResolvedValue(undefined),
+    };
 
     const receiptRepository = {
       create: jest.fn((value) => ({ ...value })),
@@ -24,10 +27,11 @@ describe('TiramisIntegrationWebhookController', () => {
 
     const controller = new TiramisIntegrationWebhookController(
       service as any,
+      signatureService as any,
       receiptRepository as any,
     );
 
-    return { controller, receiptRepository, service };
+    return { controller, receiptRepository, service, signatureService };
   }
 
   const payload = {
@@ -35,6 +39,7 @@ describe('TiramisIntegrationWebhookController', () => {
     requestId: 'REQ-1',
     responseId: 'RES-1',
   } as any;
+  const request = { headers: {} } as any;
 
   it('returns success without reprocessing a completed duplicate', async () => {
     const receipt = {
@@ -45,10 +50,17 @@ describe('TiramisIntegrationWebhookController', () => {
     };
     const fixture = createFixture(receipt);
 
-    const result = await fixture.controller.receiveNotification(payload);
+    const result = await fixture.controller.receiveNotification(
+      payload,
+      request,
+    );
 
     expect(result).toEqual(
       expect.objectContaining({ success: true, duplicate: true }),
+    );
+    expect(fixture.signatureService.verify).toHaveBeenCalledWith(
+      request,
+      payload,
     );
     expect(fixture.service.handleTiramisNotification).not.toHaveBeenCalled();
   });
@@ -63,7 +75,7 @@ describe('TiramisIntegrationWebhookController', () => {
     const fixture = createFixture(receipt);
 
     await expect(
-      fixture.controller.receiveNotification(payload),
+      fixture.controller.receiveNotification(payload, request),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(fixture.service.handleTiramisNotification).not.toHaveBeenCalled();
   });
@@ -78,7 +90,10 @@ describe('TiramisIntegrationWebhookController', () => {
     };
     const fixture = createFixture(receipt);
 
-    const result = await fixture.controller.receiveNotification(payload);
+    const result = await fixture.controller.receiveNotification(
+      payload,
+      request,
+    );
 
     expect(result).toEqual(expect.objectContaining({ success: true }));
     expect(fixture.service.handleTiramisNotification).toHaveBeenCalledWith(

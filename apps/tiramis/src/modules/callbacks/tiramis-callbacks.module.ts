@@ -17,6 +17,7 @@ import { TiramisCallbackController } from './controllers/tiramis-callback.contro
 import { TiramisInternalCallbackTestController } from './controllers/tiramis-internal-callback-test.controller';
 import { TiramisCallbackService } from './services/tiramis-callback.service';
 import { TiramisCallbackBusinessUpdaterService } from './services/tiramis-callback-business-updater.service';
+import { TiramisCallbackRetentionService } from './services/tiramis-callback-retention.service';
 
 @Module({
   imports: [
@@ -38,7 +39,11 @@ import { TiramisCallbackBusinessUpdaterService } from './services/tiramis-callba
     TiramisCallbackController,
     TiramisInternalCallbackTestController,
   ],
-  providers: [TiramisCallbackService, TiramisCallbackBusinessUpdaterService],
+  providers: [
+    TiramisCallbackService,
+    TiramisCallbackBusinessUpdaterService,
+    TiramisCallbackRetentionService,
+  ],
   exports: [TiramisCallbackService, TiramisCallbackBusinessUpdaterService],
 })
 export class TiramisCallbacksModule {}

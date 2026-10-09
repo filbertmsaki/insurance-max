@@ -38,10 +38,10 @@ describe('SecurityPoliciesService', () => {
 
     expect(layers.baselineSource).toBe('DEFAULTS');
     expect(layers.companyProfile).toBeNull();
-    expect(layers.effective.requireTwoFactorForRoles).toEqual([
-      'ADMINISTRATOR',
-      'SUPER_ADMIN',
-    ]);
+    expect(layers.effective.requireTwoFactorForAllUsers).toBe(false);
+    expect(layers.effective.requireTwoFactorForRoles).toEqual([]);
+    expect(layers.effective.requireTwoFactorForPermissions).toEqual([]);
+    expect(layers.effective.requireTwoFactorForUserTypes).toEqual([]);
   });
 
   it('uses an active global policy as the baseline', async () => {
@@ -76,11 +76,7 @@ describe('SecurityPoliciesService', () => {
 
     const policy = await service.getEffectivePolicy('company-1');
 
-    expect(policy.requireTwoFactorForRoles).toEqual([
-      'ADMINISTRATOR',
-      'SUPER_ADMIN',
-      'CLAIMS_MANAGER',
-    ]);
+    expect(policy.requireTwoFactorForRoles).toEqual(['CLAIMS_MANAGER']);
     expect(policy.requireTwoFactorForAllUsers).toBe(true);
     expect(policy.allowTrustedDeviceBypass).toBe(false);
   });
@@ -89,6 +85,8 @@ describe('SecurityPoliciesService', () => {
     const service = makeService({
       env: {
         SECURITY_REQUIRE_2FA_FOR_ALL_USERS: true,
+        SECURITY_REQUIRE_2FA_ROLES: 'ADMINISTRATOR,SUPER_ADMIN',
+        SECURITY_REQUIRE_2FA_USER_TYPES: 'SUPER_ADMIN,COMPANY_ADMIN',
         AUTH_ALLOW_TRUSTED_DEVICE_BYPASS: false,
       },
       company: [
@@ -159,10 +157,7 @@ describe('SecurityPoliciesService', () => {
     const policy = await service.getEffectivePolicy('company-1');
 
     expect(policy.requireTwoFactorForAllUsers).toBe(false);
-    expect(policy.requireTwoFactorForRoles).toEqual([
-      'ADMINISTRATOR',
-      'SUPER_ADMIN',
-    ]);
+    expect(policy.requireTwoFactorForRoles).toEqual([]);
   });
 
   it('requires 2FA for a user holding a role the company added', async () => {
