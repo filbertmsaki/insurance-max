@@ -383,9 +383,9 @@ describe('PortalRequestsService', () => {
     expect(managerInvoiceRepo.save).not.toHaveBeenCalled();
   });
 
-  it.todo(
-    'prevents two finance officers from reviewing the same proof (requires a real PostgreSQL integration run against the pessimistic lock)',
-  );
+  // Two finance officers reviewing the same proof concurrently is covered
+  // against real PostgreSQL locks in
+  // test/portal/payment-proof-review-lock.e2e-spec.ts (npm run test:e2e).
 
   it('requires a rejection reason', async () => {
     dataSource.transaction = jest.fn((cb: any) =>

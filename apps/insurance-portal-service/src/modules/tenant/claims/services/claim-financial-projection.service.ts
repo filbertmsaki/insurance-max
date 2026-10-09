@@ -107,14 +107,24 @@ export class ClaimFinancialProjectionService {
     return row?.total ?? '0.00';
   }
 
+  /**
+   * A written-off recovery is no longer expected beyond what was actually
+   * received, so it contributes its received amount only.
+   */
   private async sumExpectedRecoveries(manager: EntityManager, claimId: string) {
     const row = await manager
       .getRepository(ClaimRecovery)
       .createQueryBuilder('recovery')
-      .select('COALESCE(SUM(recovery.expected_amount), 0)', 'total')
+      .select(
+        `COALESCE(SUM(CASE WHEN recovery.status = :writtenOff
+          THEN recovery.received_amount
+          ELSE recovery.expected_amount END), 0)`,
+        'total',
+      )
       .where('recovery.claim_id = :claimId', { claimId })
       .andWhere('recovery.status <> :cancelled', {
         cancelled: ClaimRecoveryStatus.CANCELLED,
+        writtenOff: ClaimRecoveryStatus.WRITTEN_OFF,
       })
       .getRawOne<{ total: string }>();
 

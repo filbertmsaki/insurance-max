@@ -667,7 +667,7 @@ jobs:
       #
       # db:seed
       #
-      # Real-database specs (e.g. portal-engagement.spec.ts) look
+      # Real-database specs (e.g. portal-engagement.e2e-spec.ts) look
       # up seeded reference rows such as the baseline
       # INSURANCE_COMPANY record and fail with
       # "Cannot read properties of undefined" if this has not run.
@@ -706,6 +706,29 @@ jobs:
           set -Eeuo pipefail
 
           npm run test:backend
+
+
+      # -------------------------------------------------------
+      # Backend real-database (e2e) tests
+      #
+      # *.e2e-spec.ts files are not matched by the unit-test
+      # regex, so they need their own run. They boot AppModule
+      # against the migrated + seeded CI database above and
+      # cover cross-organization denial and row-lock behaviour
+      # that mocks cannot prove.
+      # -------------------------------------------------------
+
+      - name: Run backend e2e tests
+
+        shell: bash
+
+        env:
+          NODE_ENV: test
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run test:e2e
 
 
       # -------------------------------------------------------

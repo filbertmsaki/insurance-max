@@ -11,6 +11,7 @@ export class CreateClaimRecoveryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   notes?: string;
 }
 

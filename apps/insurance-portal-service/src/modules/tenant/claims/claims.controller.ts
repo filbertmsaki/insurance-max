@@ -992,22 +992,20 @@ export class ClaimsController {
 
   @Get(':id/recoveries')
   @Permissions(ClaimsPermissions.READ)
-  async listRecoveries(
+  listRecoveries(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const claim = await this.claimsService.findOne(user, id);
-    return this.claimRecoveryService.findAll(user.companyId!, claim.id);
+    return this.claimRecoveryService.findAll(user, id);
   }
 
   @Post(':id/recoveries')
   @Permissions(ClaimsPermissions.RECOVERY_CREATE)
-  async createRecovery(
+  createRecovery(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateClaimRecoveryDto,
   ) {
-    await this.claimsService.findOne(user, id);
     return this.claimRecoveryService.create(user, id, dto);
   }
 
@@ -1031,6 +1029,7 @@ export class ClaimsController {
       user,
       recoveryId,
       dto.received_amount,
+      dto.notes,
     );
   }
 

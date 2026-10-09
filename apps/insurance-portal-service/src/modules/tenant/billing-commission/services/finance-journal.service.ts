@@ -350,6 +350,52 @@ export class FinanceJournalService {
   }
 
   /**
+   * Posts cash received against a claim recovery (salvage, subrogation,
+   * third-party). Recoveries are recognised on receipt only, so a write-off
+   * needs no journal; the credit offsets claims cost as a contra-expense.
+   */
+  async postClaimRecoveryReceipt(
+    manager: EntityManager,
+    params: {
+      companyId: string;
+      recoveryId: string;
+      recoveryNo: string;
+      recoveryType: string;
+      amount: string;
+      currencyCode: string;
+    },
+    sourceEventId: string,
+    userId: string | null,
+  ) {
+    return this.postJournal(
+      manager,
+      params.companyId,
+      {
+        sourceType: 'CLAIM_RECOVERY_RECEIPT',
+        sourceId: params.recoveryId,
+        sourceEventId,
+        description: `Claim recovery ${params.recoveryNo} (${params.recoveryType}) received`,
+        currencyCode: params.currencyCode,
+        lines: [
+          {
+            accountCode: '1100',
+            accountName: 'Bank/Cash',
+            accountType: 'ASSET',
+            debit: params.amount,
+          },
+          {
+            accountCode: '5300',
+            accountName: 'Claim Recoveries',
+            accountType: 'EXPENSE',
+            credit: params.amount,
+          },
+        ],
+      },
+      userId,
+    );
+  }
+
+  /**
    * Posts a reinsurance settlement. Takes primitives rather than a
    * `ReinsuranceSettlement` entity so `billing-commission` doesn't need to
    * depend on the `reinsurance` module — reinsurance owns settlement

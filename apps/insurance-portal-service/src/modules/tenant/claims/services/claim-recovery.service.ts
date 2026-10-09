@@ -1,25 +1,35 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
-import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
+import { FinanceJournalService } from '../../billing-commission/services/finance-journal.service';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
-import { ClaimRecoveryStatus } from '../enums/claim.enums';
+import { ClaimRecoveryStatus, ClaimStatus } from '../enums/claim.enums';
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimRecovery } from '../entities/claim-recovery.entity';
 import { ClaimEvent } from '../entities/claim-event.entity';
 import type { CreateClaimRecoveryDto } from '../dto/claim-recovery.dto';
+import { ClaimAccessService } from './claim-access.service';
 import { ClaimFinancialProjectionService } from './claim-financial-projection.service';
+
+/**
+ * Claims that never became (or no longer are) a live loss cannot carry a
+ * recovery. Closed and settled claims stay open to recoveries because
+ * salvage and subrogation routinely arrive after settlement.
+ */
+const RECOVERY_BLOCKED_CLAIM_STATUSES: ClaimStatus[] = [
+  ClaimStatus.DRAFT,
+  ClaimStatus.REJECTED,
+  ClaimStatus.CANCELLED,
+];
 
 /**
  * Builds out the previously-unwired recovery stub (§14.24) — the entity and
  * permission strings already existed, but no service ever touched them.
+ * Every recovery is resolved through its claim's scope, so a branch-limited
+ * user cannot act on another branch's recovery by id.
  */
 @Injectable()
 export class ClaimRecoveryService {
@@ -27,10 +37,9 @@ export class ClaimRecoveryService {
     private readonly dataSource: DataSource,
     @InjectRepository(ClaimRecovery)
     private readonly recoveryRepository: Repository<ClaimRecovery>,
-    @InjectRepository(InsuranceClaim)
-    private readonly claimRepository: Repository<InsuranceClaim>,
     private readonly referenceService: BusinessReferenceService,
-    private readonly scopeService: DataAccessScopeService,
+    private readonly claimAccess: ClaimAccessService,
+    private readonly financeJournalService: FinanceJournalService,
     private readonly financialProjectionService: ClaimFinancialProjectionService,
   ) {}
 
@@ -39,8 +48,6 @@ export class ClaimRecoveryService {
     claimId: string,
     dto: CreateClaimRecoveryDto,
   ) {
-    const claim = await this.requireClaim(user, claimId);
-
     const expectedAmount = MoneyUtil.fromMinor(
       MoneyUtil.toMinor(dto.expected_amount),
     );
@@ -51,6 +58,13 @@ export class ClaimRecoveryService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      const claim = await this.claimAccess.getForWrite(user, claimId, manager);
+      if (RECOVERY_BLOCKED_CLAIM_STATUSES.includes(claim.status)) {
+        throw new ConflictException(
+          `Recoveries cannot be added to a ${claim.status} claim`,
+        );
+      }
+
       const recoveryNo = await this.referenceService.next({
         companyId: claim.company_id,
         documentType: 'CLAIM_RECOVERY',
@@ -64,7 +78,7 @@ export class ClaimRecoveryService {
         expected_amount: expectedAmount,
         received_amount: '0.00',
         status: ClaimRecoveryStatus.EXPECTED,
-        notes: dto.notes?.trim() ?? null,
+        notes: dto.notes?.trim() || null,
         created_by: user.id,
       });
       await this.recordEvent(
@@ -92,27 +106,21 @@ export class ClaimRecoveryService {
 
   /**
    * "Actual recovery receipts must be confirmed by Finance" — gated by the
-   * `claim-recoveries:record-receipt` permission at the controller.
+   * `claim-recoveries:record-receipt` permission at the controller. Each
+   * receipt posts its own cash journal, keyed by the receipt event.
    */
   async recordReceipt(
     user: AuthenticatedUser,
     recoveryId: string,
     receivedAmount: string | number,
+    notes?: string,
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const recovery = await manager
-        .getRepository(ClaimRecovery)
-        .createQueryBuilder('recovery')
-        .setLock('pessimistic_write')
-        .where('recovery.id = :id', { id: recoveryId })
-        .andWhere('recovery.company_id = :companyId', {
-          companyId: user.companyId,
-        })
-        .getOne();
-
-      if (!recovery) {
-        throw new NotFoundException('Claim recovery not found');
-      }
+      const { record: recovery, claim } = await this.lockRecovery(
+        manager,
+        user,
+        recoveryId,
+      );
 
       if (
         ![
@@ -141,6 +149,7 @@ export class ClaimRecoveryService {
         );
       }
       const previousStatus = recovery.status;
+      const receiptNotes = notes?.trim() || null;
       recovery.received_amount = MoneyUtil.add(
         recovery.received_amount,
         amount,
@@ -150,16 +159,35 @@ export class ClaimRecoveryService {
         0
           ? ClaimRecoveryStatus.RECEIVED
           : ClaimRecoveryStatus.PARTIALLY_RECEIVED;
+      if (receiptNotes) {
+        recovery.notes = this.appendNote(
+          recovery.notes,
+          `Receipt ${amount}: ${receiptNotes}`,
+        );
+      }
 
       await manager.getRepository(ClaimRecovery).save(recovery);
-      await this.recordEvent(
+      const event = await this.recordEvent(
         manager,
         recovery,
         user.id,
         'RECOVERY_RECEIPT_RECORDED',
         previousStatus,
         recovery.status,
-        { received_amount: amount },
+        { received_amount: amount, notes: receiptNotes },
+      );
+      await this.financeJournalService.postClaimRecoveryReceipt(
+        manager,
+        {
+          companyId: recovery.company_id,
+          recoveryId: recovery.id,
+          recoveryNo: recovery.recovery_no,
+          recoveryType: recovery.recovery_type,
+          amount,
+          currencyCode: claim.currency_code,
+        },
+        `recovery-receipt:${event.id}`,
+        user.id,
       );
       await this.financialProjectionService.recalculate(
         manager,
@@ -193,37 +221,26 @@ export class ClaimRecoveryService {
     );
   }
 
-  findAll(companyId: string, claimId: string) {
+  async findAll(user: AuthenticatedUser, claimId: string) {
+    const claim = await this.claimAccess.getForRead(user, claimId);
     return this.recoveryRepository.find({
-      where: { company_id: companyId, claim_id: claimId },
+      where: { company_id: claim.company_id, claim_id: claim.id },
       order: { created_at: 'DESC' },
     });
   }
 
-  private async requireRecovery(companyId: string, id: string) {
-    const recovery = await this.recoveryRepository.findOne({
-      where: { id, company_id: companyId },
-    });
-
-    if (!recovery) {
-      throw new NotFoundException('Claim recovery not found');
-    }
-
-    return recovery;
-  }
-
-  private async requireClaim(user: AuthenticatedUser, claimId: string) {
-    this.scopeService.resolve(user);
-
-    const claim = await this.claimRepository.findOne({
-      where: { id: claimId, company_id: user.companyId! },
-    });
-
-    if (!claim) {
-      throw new NotFoundException('Claim not found');
-    }
-
-    return claim;
+  private lockRecovery(
+    manager: EntityManager,
+    user: AuthenticatedUser,
+    recoveryId: string,
+  ): Promise<{ record: ClaimRecovery; claim: InsuranceClaim }> {
+    return this.claimAccess.getRecordForWrite(
+      manager,
+      user,
+      ClaimRecovery,
+      recoveryId,
+      'Claim recovery',
+    );
   }
 
   private async transition(
@@ -235,16 +252,11 @@ export class ClaimRecoveryService {
     reason?: string,
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const recovery = await manager
-        .getRepository(ClaimRecovery)
-        .createQueryBuilder('recovery')
-        .setLock('pessimistic_write')
-        .where('recovery.id = :id', { id: recoveryId })
-        .andWhere('recovery.company_id = :companyId', {
-          companyId: user.companyId,
-        })
-        .getOne();
-      if (!recovery) throw new NotFoundException('Claim recovery not found');
+      const { record: recovery } = await this.lockRecovery(
+        manager,
+        user,
+        recoveryId,
+      );
       const previousStatus = recovery.status;
       if (!allowed.includes(previousStatus)) {
         throw new ConflictException(
@@ -253,9 +265,10 @@ export class ClaimRecoveryService {
       }
       recovery.status = next;
       if (reason)
-        recovery.notes = [recovery.notes, `Written off: ${reason}`]
-          .filter(Boolean)
-          .join(' | ');
+        recovery.notes = this.appendNote(
+          recovery.notes,
+          `Written off: ${reason}`,
+        );
       const saved = await manager.getRepository(ClaimRecovery).save(recovery);
       await this.recordEvent(
         manager,
@@ -274,8 +287,12 @@ export class ClaimRecoveryService {
     });
   }
 
-  private async recordEvent(
-    manager: import('typeorm').EntityManager,
+  private appendNote(existing: string | null, note: string) {
+    return [existing, note].filter(Boolean).join(' | ');
+  }
+
+  private recordEvent(
+    manager: EntityManager,
     recovery: ClaimRecovery,
     actorId: string,
     eventType: string,
@@ -283,7 +300,7 @@ export class ClaimRecoveryService {
     newStatus: string | null,
     metadata?: Record<string, unknown>,
   ) {
-    await manager.getRepository(ClaimEvent).save({
+    return manager.getRepository(ClaimEvent).save({
       company_id: recovery.company_id,
       claim_id: recovery.claim_id,
       event_type: eventType,
