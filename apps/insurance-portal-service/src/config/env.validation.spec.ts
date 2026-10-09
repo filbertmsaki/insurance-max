@@ -61,7 +61,10 @@ describe('insurance portal environment validation', () => {
     it.each([
       ['JWT_ACCESS_SECRET', 'replace-with-at-least-32-character-secret'],
       ['AUTH_BACKUP_CODE_PEPPER', 'replace-with-at-least-32-random-characters'],
-      ['TIRAMIS_BOOTSTRAP_API_KEY', 'replace-with-generated-tms-key'],
+      [
+        'TIRAMIS_SERVICE_API_KEY_ENCRYPTION_KEY',
+        'replace-with-at-least-32-character-secret',
+      ],
       // Base64 of "REPLACE-BEFORE-DEPLOY-32BYTE-KEY", the shipped sample.
       [
         'AUTH_SECRET_ENCRYPTION_KEY',

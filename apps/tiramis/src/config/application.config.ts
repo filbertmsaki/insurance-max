@@ -22,8 +22,6 @@ export default registerAs('app', () => {
 
     version: process.env.APP_VERSION?.trim() || 'v1',
 
-    timezone: process.env.APP_TIMEZONE?.trim() || 'Africa/Dar_es_Salaam',
-
     url: appUrl,
 
     apiBaseUrl: buildUrl(appUrl, globalPrefix),

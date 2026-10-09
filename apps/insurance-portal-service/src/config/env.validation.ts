@@ -105,16 +105,9 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .min(31)
     .max(1095)
     .default(366),
-  DASHBOARD_MAX_DATE_RANGE_DAYS: Joi.number()
-    .integer()
-    .min(31)
-    .max(1095)
-    .default(1095),
-  SAAS_BILLING_ENABLED: Joi.boolean().default(true),
-  SAAS_BILLING_CYCLE_CRON: Joi.string().default('0 30 1 * * *'),
+  SAAS_BILLING_CRON: Joi.string().default('0 30 1 * * *'),
   SAAS_INVOICE_DUE_DAYS: Joi.number().integer().min(1).default(14),
   SAAS_PAST_DUE_GRACE_DAYS: Joi.number().integer().min(0).default(7),
-  SAAS_USAGE_AGGREGATION_CRON: Joi.string().default('0 15 1 * * *'),
   SAAS_DUNNING_CRON: Joi.string().default('0 15 1 * * *'),
   SAAS_AUTO_SUSPEND_ENABLED: Joi.boolean().default(true),
   SAAS_AUTO_RESTORE_AFTER_PAYMENT: Joi.boolean().default(true),
@@ -127,9 +120,6 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .default(60),
   API_KEY_ROTATION_GRACE_HOURS: Joi.number().integer().min(1).default(24),
   API_KEY_MAX_VALIDITY_DAYS: Joi.number().integer().min(1).default(365),
-  SECURITY_ENCRYPTION_KEY: Joi.string().allow('').default(''),
-  SECURITY_ENCRYPTION_KEY_VERSION: Joi.number().integer().min(1).default(1),
-  SECURITY_STEP_UP_ENABLED: Joi.boolean().default(true),
   SECURITY_STEP_UP_MAX_AGE_MINUTES: Joi.number().integer().min(1).default(10),
   SECURITY_AUDIT_HASH_CHAIN_ENABLED: Joi.boolean().default(true),
   SECURITY_REQUIRE_2FA_FOR_ALL_USERS: Joi.boolean().default(false),
@@ -144,18 +134,9 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .default('SUPER_ADMIN,COMPANY_ADMIN'),
   SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(1440),
   SESSION_ABSOLUTE_HOURS: Joi.number().integer().min(1).default(24),
-  SESSION_MAX_CONCURRENT: Joi.number().integer().min(1).default(5),
-  SESSION_REFRESH_ROTATION_ENABLED: Joi.boolean().default(true),
   SESSION_REFRESH_REUSE_DETECTION: Joi.boolean().default(true),
-  SESSION_REFRESH_ROTATION_GRACE_SECONDS: Joi.number()
-    .integer()
-    .min(0)
-    .default(30),
-  AUDIT_ENABLED: Joi.boolean().default(true),
   AUDIT_HASH_CHAIN_ENABLED: Joi.boolean().default(true),
-  AUDIT_SENSITIVE_METADATA_REDACTION: Joi.boolean().default(true),
   DATA_RETENTION_ENABLED: Joi.boolean().default(true),
-  DATA_RETENTION_CRON: Joi.string().default('0 0 2 * * *'),
   DATA_RETENTION_DRY_RUN_DEFAULT: Joi.boolean().default(true),
   OBSERVABILITY_ENABLED: Joi.boolean().default(true),
   METRICS_ENABLED: Joi.boolean().default(true),
@@ -186,37 +167,13 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   RELEASE_APPROVALS_UAT_APPROVED: Joi.boolean().default(false),
   RELEASE_APPROVALS_TECHNICAL_APPROVED: Joi.boolean().default(false),
   RELEASE_APPROVALS_BUSINESS_APPROVED: Joi.boolean().default(false),
-  REGULATORY_ENABLED: Joi.boolean().default(true),
-  REGULATORY_CALENDAR_ENABLED: Joi.boolean().default(true),
-  REGULATORY_CALENDAR_GENERATION_CRON: Joi.string().default('0 10 0 * * *'),
-  REGULATORY_MONITOR_CRON: Joi.string().default('0 15 0 * * *'),
-  REGULATORY_DUE_MONITOR_CRON: Joi.string().default('0 * * * *'),
-  REGULATORY_MONITOR_BATCH_SIZE: Joi.number().integer().min(1).default(500),
-  REGULATORY_WARNING_DAYS: Joi.number().integer().min(1).default(7),
   REGULATORY_DEFAULT_TIMEZONE: Joi.string().default('Africa/Dar_es_Salaam'),
   REGULATORY_RECONCILIATION_TOLERANCE: Joi.number().min(0).default(0.01),
   REGULATORY_REQUIRE_SUBMISSION_EVIDENCE: Joi.boolean().default(true),
   PREMIUM_LEVY_DEFAULT_RATE: Joi.number().min(0).max(100).default(1.5),
-  PREMIUM_LEVY_AUTO_CALCULATE: Joi.boolean().default(false),
   PREMIUM_LEVY_REQUIRE_ADJUSTMENT_EVIDENCE: Joi.boolean().default(true),
-  REPORTING_ENABLED: Joi.boolean().default(true),
-  REPORTING_QUEUE_ENABLED: Joi.boolean().default(true),
-  REPORTING_PAGE_SIZE: Joi.number().integer().min(1).default(5000),
   REPORTING_DEFAULT_MAX_ROWS: Joi.number().integer().min(1).default(100000),
-  REPORTING_HARD_MAX_ROWS: Joi.number().integer().min(1).default(1000000),
   REPORTING_DEFAULT_RETENTION_DAYS: Joi.number().integer().min(1).default(90),
-  REPORTING_MAX_RETENTION_DAYS: Joi.number().integer().min(1).default(3650),
-  REPORTING_DOWNLOAD_TOKEN_MINUTES: Joi.number().integer().min(1).default(10),
-  REPORTING_SCHEDULE_MONITOR_CRON: Joi.string().default('* * * * *'),
-  REPORTING_DELIVERY_MAX_ATTEMPTS: Joi.number().integer().min(1).default(5),
-  REPORTING_DELIVERY_BASE_DELAY_SECONDS: Joi.number()
-    .integer()
-    .min(1)
-    .default(60),
-  REPORTS_ENABLED: Joi.boolean().default(true),
-  REPORTS_SCHEDULER_CRON: Joi.string().default('0 * * * * *'),
-  REPORTS_WORKER_CRON: Joi.string().default('15 * * * * *'),
-
   PORTAL_INVITATION_EXPIRY_HOURS: Joi.number()
     .integer()
     .min(1)
@@ -231,7 +188,6 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   DOCUMENT_ALLOWED_MIME_TYPES: Joi.string()
     .trim()
     .default('application/pdf,image/jpeg,image/png'),
-  NOTIFICATION_QUEUE_ENABLED: Joi.boolean().default(true),
   PORTAL_SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(1440),
   PORTAL_UPLOAD_ROOT: Joi.string().trim().default('./uploads'),
   PORTAL_UPLOAD_MAX_BYTES: Joi.number()
@@ -242,22 +198,10 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   PORTAL_ALLOWED_MIME_TYPES: Joi.string()
     .trim()
     .default('application/pdf,image/jpeg,image/png'),
-  REPORTS_MAX_RETRIES: Joi.number().integer().min(0).max(10).default(3),
   REPORTS_ARTIFACT_RETENTION_DAYS: Joi.number().integer().min(1).default(30),
   REPORTS_REQUIRE_MAIL_VERIFICATION: Joi.boolean().default(true),
-  REPORTS_MAIL_VERIFICATION_VALID_HOURS: Joi.number()
-    .integer()
-    .min(1)
-    .default(24),
   REPORTS_MAX_ROWS: Joi.number().integer().min(1).default(200000),
   REPORTS_DEFAULT_TIMEZONE: Joi.string().default('Africa/Dar_es_Salaam'),
-  FINANCE_BASE_CURRENCY: Joi.string()
-    .trim()
-    .uppercase()
-    .length(3)
-    .default('TZS'),
-  FINANCE_DEFAULT_INVOICE_DUE_DAYS: Joi.number().integer().min(0).default(0),
-  FINANCE_ALLOW_OVERPAYMENT: Joi.boolean().default(false),
   FINANCE_AUTO_RECEIPT_PROVIDER_PAYMENTS: Joi.boolean().default(true),
   FINANCE_AUTO_ALLOCATE_EXACT_INVOICE_REFERENCE: Joi.boolean().default(true),
   FINANCE_RECONCILIATION_AUTO_MATCH_SCORE: Joi.number()
@@ -265,18 +209,10 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .min(0)
     .max(100)
     .default(90),
-  FINANCE_REFUND_APPROVAL_THRESHOLD: Joi.number().min(0).default(0),
-  FINANCE_RECEIPT_REVERSAL_APPROVAL_THRESHOLD: Joi.number().min(0).default(0),
-  FINANCE_COMMISSION_PAYMENT_APPROVAL_THRESHOLD: Joi.number().min(0).default(0),
   FINANCE_OUTBOX_ENABLED: Joi.boolean().default(true),
   FINANCE_OUTBOX_CRON: Joi.string().default('*/1 * * * *'),
   FINANCE_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(100),
   FINANCE_OUTBOX_MAX_ATTEMPTS: Joi.number().integer().min(1).default(10),
-  FINANCE_PROVIDER_PAYLOAD_RETENTION_DAYS: Joi.number()
-    .integer()
-    .min(1)
-    .default(90),
-
   CORS_ENABLED: Joi.boolean().default(true),
   CORS_ALLOWED_ORIGINS: Joi.string().default('http://localhost:9092'),
   CORS_METHODS: Joi.string().default('GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'),
@@ -284,8 +220,6 @@ export const insurancePortalEnvValidationSchema = Joi.object({
 
   LOGGER_ENABLED: Joi.boolean().default(true),
   LOGGER_LEVEL: Joi.string().default('log,error,warn,debug,verbose'),
-  LOGGER_PRETTY: Joi.boolean().default(true),
-
   MAIL_ENABLED: Joi.boolean().default(true),
   MAIL_HOST: Joi.string().default('smtp.gmail.com'),
   MAIL_PORT: Joi.number().default(587),
@@ -296,35 +230,16 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   MAIL_FROM_EMAIL: Joi.string().email().default('no-reply@example.com'),
 
   QUEUE_ENABLED: Joi.boolean().default(true),
-  QUEUE_PREFIX: Joi.string().default('insurance-portal-service'),
-  QUEUE_DEFAULT_JOB_ATTEMPTS: Joi.number().default(3),
-  QUEUE_DEFAULT_JOB_DELAY: Joi.number().default(0),
-  QUEUE_REMOVE_ON_COMPLETE: Joi.boolean().default(true),
-  QUEUE_REMOVE_ON_FAIL: Joi.boolean().default(false),
-
   REDIS_HOST: Joi.string().default('localhost'),
   REDIS_PORT: Joi.number().default(6379),
   REDIS_ALLOW_IN_MEMORY_FALLBACK: Joi.boolean().default(false),
   REDIS_PASSWORD: Joi.string().allow('').default(''),
   REDIS_DB: Joi.number().default(0),
-  REDIS_KEY_PREFIX: Joi.string().default('insurance-portal:'),
-  REDIS_RETRY_ATTEMPTS: Joi.number().default(5),
-  REDIS_RETRY_DELAY: Joi.number().default(3000),
-  REDIS_OTP_TTL: Joi.number().default(300),
-  REDIS_SESSION_TTL: Joi.number().default(86400),
-
   ANALYTICS_ENABLED: Joi.boolean().default(true),
   ANALYTICS_PROJECTION_BATCH_SIZE: Joi.number().integer().min(1).default(100),
   ANALYTICS_PROJECTION_MAX_ATTEMPTS: Joi.number().integer().min(1).default(8),
-  ANALYTICS_EVENT_CONSUMER_ENABLED: Joi.boolean().default(true),
   ANALYTICS_CURRENT_LAG_SECONDS: Joi.number().integer().min(0).default(300),
   ANALYTICS_STALE_LAG_SECONDS: Joi.number().integer().min(0).default(3600),
-  ANALYTICS_REBUILD_ENABLED: Joi.boolean().default(true),
-  ANALYTICS_FORECAST_ENABLED: Joi.boolean().default(true),
-  ANALYTICS_ANOMALY_ENABLED: Joi.boolean().default(true),
-  ANALYTICS_ANOMALY_CRON: Joi.string().default('0 */1 * * *'),
-  ANALYTICS_BENCHMARK_MIN_COMPANIES: Joi.number().integer().min(2).default(5),
-
   JWT_ACCESS_SECRET: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(32).required(),
@@ -423,16 +338,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_STATUS_SYNC_LIMIT: Joi.number().default(50),
   TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD: Joi.boolean().default(true),
   TIRAMIS_STATUS_SYNC_MAX_AGE_HOURS: Joi.number().default(72),
-  TIRAMIS_PORTAL_OUTBOX_ENABLED: Joi.boolean().default(true),
-  TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(50),
-  TIRAMIS_PORTAL_OUTBOX_MAX_ATTEMPTS: Joi.number().integer().min(1).default(10),
-  TIRAMIS_RECONCILIATION_ENABLED: Joi.boolean().default(true),
-  TIRAMIS_RECONCILIATION_CRON: Joi.string().default('*/5 * * * *'),
-  TIRAMIS_RECONCILIATION_BATCH_SIZE: Joi.number().integer().min(1).default(50),
   TIRAMIS_CALLBACK_OVERDUE_MINUTES: Joi.number().default(10),
-  TIRAMIS_PORTAL_TRANSPORT_RETRY_ENABLED: Joi.boolean().default(false),
-  TIRAMIS_LEGACY_ROUTES_ENABLED: Joi.boolean().default(true),
-  TIRAMIS_LEGACY_WEBHOOK_ENABLED: Joi.boolean().default(false),
   TIRAMIS_RETRY_ENABLED: Joi.boolean().default(true),
   TIRAMIS_RETRY_CRON: Joi.string().default('*/3 * * * *'),
   TIRAMIS_RETRY_LIMIT: Joi.number().default(25),
@@ -440,7 +346,6 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_RETRY_BASE_DELAY_SECONDS: Joi.number().default(60),
   TIRAMIS_RETRY_LOCK_MINUTES: Joi.number().default(5),
   TIRAMIS_RETRY_MAX_DELAY_MINUTES: Joi.number().default(30),
-  TIRAMIS_RETRY_LOCK_TIMEOUT_MINUTES: Joi.number().default(15),
   TIRAMIS_AUDIT_ENABLED: Joi.boolean().default(true),
   TIRAMIS_AUDIT_STORE_PAYLOAD_SNAPSHOT: Joi.boolean().default(false),
   RENEWAL_WINDOW_BEFORE_DAYS: Joi.number().integer().min(0).default(7),

@@ -28,13 +28,11 @@ cp .env.example .env
 ### Important env values
 
 - `VITE_APP_NAME` — application display name
-- `VITE_APP_ENV` — `development` or `production`
-- `VITE_APP_PORT` — frontend port
-- `VITE_API_BASE_URL` — backend API base URL
-- `VITE_AUTH_API_URL` — auth-specific API endpoint
-- `VITE_FILE_UPLOAD_API_URL` — file upload API endpoint
-- `VITE_TIRAMIS_API_URL` — TIRAMIS service URL
-- `VITE_WEBSOCKET_URL` — WebSocket URL
+- `VITE_APP_PORT` — dev/preview server port
+- `VITE_BACKEND_URL` + `VITE_API_PREFIX` — portal API origin and path (`/api/v1`)
+- `VITE_API_BASE_URL` — optional full API URL; overrides the two above
+- `VITE_API_TIMEOUT_MS`, `VITE_API_WITH_CREDENTIALS` — HTTP client settings
+- `VITE_SUPPORT_EMAIL`, `VITE_SUPPORT_PHONE`, `VITE_SUPPORT_ADDRESS`, `VITE_SUPPORT_HOURS` — public website contact details
 
 ## Development
 

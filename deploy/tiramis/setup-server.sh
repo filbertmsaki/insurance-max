@@ -33,8 +33,8 @@ Options:
   --approve-ufw           Enable UFW after adding SSH and configured service rules
   --help                  Show this help
 
-TIRA URLs, client keys/passwords, bootstrap API key, and DB password are left
-blank in shared/.env for you to configure. Existing .env and user settings are
+TIRA URLs, client keys/passwords, PORTAL_ADMIN_JWT_ACCESS_SECRET, and DB password are
+left blank in shared/.env for you to configure. Existing .env and user settings are
 preserved. This prepares the host; it does not deploy application code.
 USAGE
 }
@@ -178,9 +178,11 @@ LOGGER_LEVEL=log,error,warn
 LOGGER_PRETTY=false
 TIRAMIS_SECRET_ENCRYPTION_KEY=$secret
 TIRAMIS_SECRET_ENCRYPTION_KEY_PREVIOUS=
-# Must equal the portal service TIRAMIS_BOOTSTRAP_API_KEY. Generate with:
-# node -e "console.log('tms_'+require('crypto').randomBytes(32).toString('base64url'))"
-TIRAMIS_BOOTSTRAP_API_KEY=
+# Must equal the portal service JWT_ACCESS_SECRET (and JWT_ISSUER/JWT_AUDIENCE);
+# only signed-in portal platform admins may call TIRAMIS key/configuration endpoints.
+PORTAL_ADMIN_JWT_ACCESS_SECRET=
+PORTAL_ADMIN_JWT_ISSUER=insurance-idp.tz
+PORTAL_ADMIN_JWT_AUDIENCE=insurance-platform
 TIRAMIS_CERTIFICATE_BASE_DIR=$BASE_DIR/certificates
 TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS=30
 ALLIANCE_TIRA_CLIENT_KEY_TEST=

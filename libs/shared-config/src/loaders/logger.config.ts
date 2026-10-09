@@ -7,7 +7,6 @@ export function readLoggerEnv() {
     levels: (process.env.LOGGER_LEVEL || 'log,error,warn')
       .split(',')
       .map((level) => level.trim()) as LogLevel[],
-    pretty: process.env.LOGGER_PRETTY !== 'false',
   };
 }
 

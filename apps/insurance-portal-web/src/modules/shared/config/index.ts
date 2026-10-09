@@ -7,13 +7,7 @@ const optionalUrl = z
 const environmentSchema = z.object({
   VITE_APP_NAME: z.string().trim().min(1).default('Insurance Portal'),
 
-  VITE_APP_ENV: z
-    .enum(['local', 'development', 'test', 'uat', 'staging', 'production'])
-    .default('development'),
-
   VITE_APP_PORT: z.coerce.number().int().min(1).max(65535).default(9092),
-
-  VITE_APP_URL: z.string().trim().url().default('http://localhost:9092'),
 
   VITE_BACKEND_URL: z.string().trim().url().default('http://localhost:9090'),
 
@@ -29,8 +23,6 @@ const environmentSchema = z.object({
     .default(60000),
 
   VITE_API_WITH_CREDENTIALS: z.enum(['true', 'false']).default('false'),
-
-  VITE_WEBSOCKET_URL: optionalUrl,
 });
 
 const result = environmentSchema.safeParse(import.meta.env);
@@ -54,10 +46,7 @@ function normalizePath(value: string): string {
 }
 
 export const APP_NAME = environment.VITE_APP_NAME;
-export const APP_ENV = environment.VITE_APP_ENV;
 export const APP_PORT = environment.VITE_APP_PORT;
-
-export const APP_URL = normalizeBaseUrl(environment.VITE_APP_URL);
 
 export const PORTAL_BACKEND_URL = normalizeBaseUrl(
   environment.VITE_BACKEND_URL,
@@ -77,5 +66,3 @@ export const API_WITH_CREDENTIALS =
 export const AUTH_API_URL = `${API_BASE_URL}/auth`;
 
 export const FILE_UPLOAD_API_URL = `${API_BASE_URL}/uploads`;
-
-export const WEBSOCKET_URL = environment.VITE_WEBSOCKET_URL || '';

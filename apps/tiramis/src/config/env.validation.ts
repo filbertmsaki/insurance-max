@@ -12,17 +12,6 @@ export const tiramisEnvValidationSchema = Joi.object({
     .pattern(/^[^/]+(?:\/[^/]+)*$/)
     .default('api'),
   APP_VERSION: Joi.string().default('v1'),
-  APP_TIMEZONE: Joi.string()
-    .trim()
-    .custom((value, helpers) => {
-      try {
-        new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
-        return value;
-      } catch {
-        return helpers.error('any.invalid');
-      }
-    })
-    .default('Africa/Dar_es_Salaam'),
   APP_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),
@@ -55,8 +44,6 @@ export const tiramisEnvValidationSchema = Joi.object({
 
   LOGGER_ENABLED: Joi.boolean().default(true),
   LOGGER_LEVEL: Joi.string().default('log,error,warn,debug,verbose'),
-  LOGGER_PRETTY: Joi.boolean().default(true),
-
   TIRAMIS_SECRET_ENCRYPTION_KEY: Joi.string().required(),
   TIRAMIS_SECRET_ENCRYPTION_KEY_PREVIOUS: Joi.string().allow('').optional(),
   TIRAMIS_CERTIFICATE_BASE_DIR: Joi.string().default(

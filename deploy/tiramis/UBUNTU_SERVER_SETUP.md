@@ -74,7 +74,8 @@ options.
 
 This prepares the server; it does not deploy a release or start the application.
 The environment template leaves the DB password, TIRA credentials, TIRA
-certificate passwords, and bootstrap API key blank. `APP_URL` and the TIRA
+certificate passwords, and `PORTAL_ADMIN_JWT_ACCESS_SECRET` (must equal the
+portal `JWT_ACCESS_SECRET`) blank. `APP_URL` and the TIRA
 base URLs are commented `REQUIRED` lines; an empty value fails startup
 validation. Edit `/opt/apps/tiramis/shared/.env` (or your chosen app root)
 before deployment. Supply the certificates separately as
