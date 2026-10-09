@@ -17,6 +17,18 @@ import { resolveTiramisCertificatePath } from '../../config/utils/tiramis-certif
 export class TiramisSignatureService {
   private readonly logger = new Logger(TiramisSignatureService.name);
 
+  /**
+   * TIRA XML carries policyholder PII, so logs get a digest by default and the
+   * raw XML only when TIRAMIS_LOG_PAYLOADS=true.
+   */
+  private describeXml(key: string, xml: string): Record<string, unknown> {
+    return {
+      [`${key}Sha256`]: createHash('sha256').update(xml, 'utf8').digest('hex'),
+      [`${key}Length`]: xml.length,
+      ...(process.env.TIRAMIS_LOG_PAYLOADS === 'true' ? { [key]: xml } : {}),
+    };
+  }
+
   signXmlContent(params: {
     contentXml: string;
     privateKeyPfxPath: string;
@@ -41,7 +53,7 @@ export class TiramisSignatureService {
           algorithm: 'RSA-SHA1',
           padding: 'RSA_PKCS1_PADDING',
           clientPublicKeyFingerprint: this.publicKeyFingerprint(privateKeyPem),
-          unsignedXml: contentXml,
+          ...this.describeXml('unsignedXml', contentXml),
           signature: encodedSignature,
         }),
       );
@@ -87,7 +99,7 @@ export class TiramisSignatureService {
           algorithm: 'RSA-SHA1',
           padding: 'RSA_PKCS1_PADDING',
           verified: result,
-          signedXml: contentXml,
+          ...this.describeXml('signedXml', contentXml),
         }),
       );
 

@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { TiramisCoverNoteAddonEntity } from '../entities/tiramis-cover-note-addon.entity';
+import { TiramisCoverNoteRiskEntity } from '../entities/tiramis-cover-note-risk.entity';
 import { TiramisCoverNoteEntity } from '../entities/tiramis-cover-note.entity';
+import { TiramisSubjectMatterEntity } from '../entities/tiramis-subject-matter.entity';
 
 @Injectable()
 export class TiramisCoverNoteRepository {
@@ -17,6 +20,43 @@ export class TiramisCoverNoteRepository {
 
   save(entity: TiramisCoverNoteEntity) {
     return this.repository.save(entity);
+  }
+
+  /**
+   * Inserts child collections for an already-saved cover note. Re-saving the
+   * cover note instead would make TypeORM reload its existing relations
+   * concurrently on one connection (deprecated in pg, removed in pg@9).
+   */
+  async addCollections(
+    coverNoteId: string,
+    collections: {
+      risks: Partial<TiramisCoverNoteRiskEntity>[];
+      subjectMatters: Partial<TiramisSubjectMatterEntity>[];
+      addons: Partial<TiramisCoverNoteAddonEntity>[];
+    },
+  ) {
+    const manager = this.repository.manager;
+    const risks = await manager.save(
+      TiramisCoverNoteRiskEntity,
+      collections.risks.map((risk) => ({ ...risk, coverNoteId })),
+    );
+    const subjectMatters = await manager.save(
+      TiramisSubjectMatterEntity,
+      collections.subjectMatters.map((subject) => ({
+        ...subject,
+        coverNoteId,
+      })),
+    );
+    const addons = await manager.save(
+      TiramisCoverNoteAddonEntity,
+      collections.addons.map((addon) => ({ ...addon, coverNoteId })),
+    );
+    return { risks, subjectMatters, addons };
+  }
+
+  /** Targeted column update: save() would reload every cascaded relation. */
+  async setCurrentAttempt(id: string, currentAttemptId: string) {
+    await this.repository.update(id, { currentAttemptId });
   }
 
   findById(id: string) {

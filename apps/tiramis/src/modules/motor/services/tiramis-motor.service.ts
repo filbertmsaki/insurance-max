@@ -209,10 +209,17 @@ export class TiramisMotorService {
         await this.motorRepository.saveMotorDetail(motorDetail);
       }
 
-      savedCoverNote.risks = fleetRisks;
-      savedCoverNote.subjectMatters = fleetSubjectMatters;
-      savedCoverNote.addons = fleetAddons;
-      await this.coverNoteRepository.save(savedCoverNote);
+      const collections = await this.coverNoteRepository.addCollections(
+        savedCoverNote.id,
+        {
+          risks: fleetRisks,
+          subjectMatters: fleetSubjectMatters,
+          addons: fleetAddons,
+        },
+      );
+      savedCoverNote.risks = collections.risks;
+      savedCoverNote.subjectMatters = collections.subjectMatters;
+      savedCoverNote.addons = collections.addons;
     }
 
     if (!resolvedDto.isFleet && resolvedDto.motorDetail) {
@@ -441,7 +448,7 @@ export class TiramisMotorService {
     });
 
     coverNote.currentAttemptId = attempt.id;
-    await this.coverNoteRepository.save(coverNote);
+    await this.coverNoteRepository.setCurrentAttempt(coverNote.id, attempt.id);
 
     const endpoint =
       await this.tiramisConfigService.getFullEndpointUrlForConfiguration({

@@ -34,6 +34,14 @@ export const TIRAMIS_NOTIFICATION_EVENT_TYPES = [
   'TIRAMIS_SUBMISSION_FAILED',
 ] as const;
 
+/**
+ * How long a row being delivered is hidden from the outbox worker. Inline
+ * delivery and worker claims both take this lease so the same event is never
+ * posted to the portal twice concurrently; success or failure then sets the
+ * real next attempt time.
+ */
+const DELIVERY_LEASE_MS = 60_000;
+
 @Injectable()
 export class TiramisPortalNotificationService {
   private readonly logger = new Logger(TiramisPortalNotificationService.name);
@@ -365,7 +373,7 @@ export class TiramisPortalNotificationService {
       clientConfigurationId: options.clientConfigurationId || null,
       payload: event as unknown as Record<string, any>,
       status: 'PENDING',
-      nextAttemptAt: new Date(),
+      nextAttemptAt: new Date(Date.now() + DELIVERY_LEASE_MS),
     });
 
     try {
@@ -411,12 +419,14 @@ export class TiramisPortalNotificationService {
         return [];
       }
 
-      await manager
-        .getRepository(TiramisPortalNotificationOutboxEntity)
-        .update(
-          { id: In(rows.map((row) => row.id)) },
-          { status: 'PENDING', lastAttemptAt: new Date() },
-        );
+      await manager.getRepository(TiramisPortalNotificationOutboxEntity).update(
+        { id: In(rows.map((row) => row.id)) },
+        {
+          status: 'PENDING',
+          lastAttemptAt: new Date(),
+          nextAttemptAt: new Date(Date.now() + DELIVERY_LEASE_MS),
+        },
+      );
 
       return rows;
     });

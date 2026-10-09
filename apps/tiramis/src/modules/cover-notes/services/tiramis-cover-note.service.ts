@@ -370,7 +370,7 @@ export class TiramisCoverNoteService {
     });
 
     coverNote.currentAttemptId = attempt.id;
-    await this.coverNoteRepository.save(coverNote);
+    await this.coverNoteRepository.setCurrentAttempt(coverNote.id, attempt.id);
 
     const endpoint =
       await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
