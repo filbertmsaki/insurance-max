@@ -5002,6 +5002,7 @@ export default class InitialRbacSeeder implements Seeder {
         slug: uniqueSlug,
         identifier_prefix: identifierPrefix,
         status: 'active',
+        verification_status: 'VERIFIED',
         company_type: CompanyType.INSURANCE_COMPANY,
         metadata: {
           seeded: true,

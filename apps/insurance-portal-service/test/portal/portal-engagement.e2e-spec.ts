@@ -497,9 +497,13 @@ describe('Portal engagement access (real database)', () => {
     await dataSource.runMigrations();
 
     const insurer = await dataSource.query(
-      `SELECT id FROM companies WHERE company_type = 'INSURANCE_COMPANY' LIMIT 1`,
+      `SELECT id FROM companies WHERE slug = 'alliance-insurance-corporation'`,
     );
     insurerCompanyId = insurer[0].id;
+    await dataSource.query(
+      `UPDATE companies SET verification_status = 'VERIFIED' WHERE id = $1`,
+      [insurerCompanyId],
+    );
 
     const branch = await dataSource.query(
       `SELECT id FROM branches WHERE company_id = $1 AND status = 'active' ORDER BY created_at ASC LIMIT 1`,
@@ -541,8 +545,10 @@ describe('Portal engagement access (real database)', () => {
 
     const brokerA = await dataSource.query(
       `
-      INSERT INTO companies (name, slug, company_type, status)
-      VALUES ($1, $2, 'BROKER', 'active')
+      INSERT INTO companies (
+        name, slug, company_type, status, verification_status
+      )
+      VALUES ($1, $2, 'BROKER', 'active', 'VERIFIED')
       RETURNING id
       `,
       [`Engagement Broker A ${suffix}`, `engagement-broker-a-${suffix}`],
@@ -551,8 +557,10 @@ describe('Portal engagement access (real database)', () => {
 
     const brokerB = await dataSource.query(
       `
-      INSERT INTO companies (name, slug, company_type, status)
-      VALUES ($1, $2, 'BROKER', 'active')
+      INSERT INTO companies (
+        name, slug, company_type, status, verification_status
+      )
+      VALUES ($1, $2, 'BROKER', 'active', 'VERIFIED')
       RETURNING id
       `,
       [`Engagement Broker B ${suffix}`, `engagement-broker-b-${suffix}`],
