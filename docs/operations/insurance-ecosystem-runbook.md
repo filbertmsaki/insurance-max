@@ -67,29 +67,17 @@ Use two insurer organizations (A and B), a broker appointed to A and B, a broker
 
 Rotate credentials through the approved secret manager. Use a documented overlap window where supported, verify service recovery with the new credential, revoke the prior credential, and test that it fails. For monitoring, trigger controlled readiness and queue/integration failures in non-production, verify alert arrival/acknowledgement/escalation, then restore service and record closure. Do not test with production customer transactions.
 
-### TIRAMIS service capability keys and TCP callers
+### TIRAMIS service capability keys
 
-TIRAMIS HTTP and TCP service endpoints require an API key with every capability declared by the endpoint (`tiramis:prepare`, `tiramis:submit`, `tiramis:read`, `tiramis:verify`, or, for the internal callback test endpoint only, `tiramis:callback:test`). Create keys with only the capabilities the calling service needs and an explicit source IP allowlist. Administrator-only TIRAMIS configuration, key management, and outbox operations use a platform administrator access token and must not be granted as API-key scopes.
+TIRAMIS HTTP service endpoints require an API key with every capability declared by the endpoint (`tiramis:prepare`, `tiramis:submit`, `tiramis:read`, `tiramis:verify`, or, for the internal callback test endpoint only, `tiramis:callback:test`). Create keys with only the capabilities the calling service needs and an explicit source IP allowlist. Administrator-only TIRAMIS configuration, key management, and outbox operations use a platform administrator access token and must not be granted as API-key scopes.
 
 For the portal's organization/environment service key, provision only `tiramis:submit`, `tiramis:read`, and `tiramis:verify`; add `tiramis:prepare` only for a caller that uses prepare routes. Never provision `tiramis:callback:test` for ordinary production traffic. Rotating an existing portal system key updates the capability set atomically with the new credential.
 
-For the TCP transport, wrap each RPC payload using the existing top-level fields plus:
-
-```json
-{
-  "__serviceAuth": { "apiKey": "<service-key>" }
-}
-```
-
-The guard removes `__serviceAuth` before passing the business payload to the handler. Calls without a key, a declared endpoint scope, the required capability, or an allowlisted source IP fail closed. When upgrading, update legacy TCP clients to send this envelope. Existing keys with empty scopes must be assigned reviewed capabilities through the administrator API before deployment; do not grant a broad default scope to preserve compatibility.
-
-Access audit records cover protected HTTP/RPC handlers and guard-level authentication/scope denials. The interceptor durably writes a started record before invoking protected handler code, then updates it with the outcome. Handler errors remain authorized accesses; `allowed` describes authorization, while `status_code` records the final HTTP or generic RPC outcome. A status code of `102` means a request was started but no completion was saved, usually because the process exited or the database became unavailable. Alert on old `102` rows and investigate using request/correlation IDs. Query strings, raw credentials, customer payloads, and upstream response bodies are excluded. If audit intent or outcome persistence fails, protected handlers fail closed with service unavailable; guard denials also fail closed if they cannot be recorded. Public health/readiness endpoints marked public are not audited and should use their own monitoring. RPC submit failures return a generic error code; authorized callers should use the `tiramis:read` submission trace for detailed diagnostics.
+Access audit records cover protected HTTP handlers and guard-level authentication/scope denials. The interceptor durably writes a started record before invoking protected handler code, then updates it with the outcome. Handler errors remain authorized accesses; `allowed` describes authorization, while `status_code` records the final HTTP outcome. A status code of `102` means a request was started but no completion was saved, usually because the process exited or the database became unavailable. Alert on old `102` rows and investigate using request/correlation IDs. Query strings, raw credentials, customer payloads, and upstream response bodies are excluded. If audit intent or outcome persistence fails, protected handlers fail closed with service unavailable; guard denials also fail closed if they cannot be recorded. Public health/readiness endpoints marked public are not audited and should use their own monitoring.
 
 Audit persistence guarantees do not set the retention period. The deployment owner must configure database backups, access restrictions, retention/deletion policy, and any legal hold or jurisdiction-specific requirements. Before production, document the approved period and verify a restore of recent audit rows from the configured backup.
 
 For TIRA connectivity, execute a target-environment smoke submission using a TIRA-approved test organization, certificate, callback endpoint, and test policy data. Record endpoint DNS/TLS validation, request ID, acknowledgement status and callback delivery; do not use production customer data for the smoke test. Confirm retry/duplicate behavior with the TIRA operator before enabling production retries.
-
-For the TCP gateway, verify the deployed listener address/port, container/service network, and host/cloud firewall rules against an approved source-CIDR allowlist. Confirm only required application subnets can reach it and that denied sources cannot establish or invoke RPC requests. Capture the applied rule identifiers and a permitted/denied connection test in deployment evidence; an application API-key allowlist does not replace network ACLs.
 
 ## Incident response
 

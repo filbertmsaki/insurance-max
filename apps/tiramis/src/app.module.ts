@@ -74,12 +74,7 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
     SharedConfigModule.forRoot({
       appName: 'tiramis',
       validationSchema: tiramisEnvValidationSchema,
-      load: [
-        applicationConfig,
-        loggerConfig,
-        tiramisAppConfig,
-        databaseConfig,
-      ],
+      load: [applicationConfig, loggerConfig, tiramisAppConfig, databaseConfig],
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

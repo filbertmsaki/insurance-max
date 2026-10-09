@@ -66,7 +66,7 @@ Each of these produces a failure that looks like a configuration error. Details 
 | # | Service | Code | Runs as | Listens on | Production host / dir | Deployed by |
 |---|---|---|---|---|---|---|
 | — | TIRA (regulator, external) | — | — | HTTPS | TIRA | — |
-| 1 | **TIRAMIS gateway** | `apps/tiramis` | PM2 `tiramis` | HTTP `0.0.0.0:9090`, TCP `0.0.0.0:4001` (unused) | `<TIRAMIS_HOST>`, `/opt/apps/tiramis` | GitHub workflow `insurance-tiramis-cicd.yml` on a **self-hosted runner** on the TIRAMIS host (label `tiramis-self-hosted-runner`) |
+| 1 | **TIRAMIS gateway** | `apps/tiramis` | PM2 `tiramis` | HTTP `0.0.0.0:9090` | `<TIRAMIS_HOST>`, `/opt/apps/tiramis` | GitHub workflow `insurance-tiramis-cicd.yml` on a **self-hosted runner** on the TIRAMIS host (label `tiramis-self-hosted-runner`) |
 | 2 | **Portal API** | `apps/insurance-portal-service` | PM2 `insurance-max-prod-api` | HTTP `127.0.0.1:9090` | `<PORTAL_HOST>`, `/opt/apps/insurance-max/prod/backend` | `insurance-backend-cicd.yml` (GitHub-hosted runner, SSH to `DEPLOY_HOST`) |
 | 3 | **Portal Web** | `apps/insurance-portal-web` | PM2 `insurance-max-prod-web` (Node static server) behind nginx | Node `127.0.0.1:9290`, nginx `:9092` | `<PORTAL_HOST>`, `/opt/apps/insurance-max/prod/frontend` | `insurance-frontend-cicd.yml` (GitHub-hosted runner, SSH to `DEPLOY_HOST`) |
 | dev | mock TIRA | `mock-tira/` | `npm start` | `5050` | test only | manual |
@@ -97,7 +97,7 @@ Notes on the flow:
   - TIRAMIS routes are `/api/...`, with **no** `/v1`.
   - Neither portal-side base-URL variable contains `/api`, because the code appends it.
 - **Fallback when webhooks fail.** The portal polls TIRAMIS every 2 minutes for status (`GET /api/tiramis/submissions/status`), so a missed webhook delays the update; the result is not lost.
-- **TIRAMIS TCP port 4001 is not used by anything.** It has no authentication. Bind it to localhost (see [C6](#c6-tiramis-tcp-port-4001-is-unused-and-unauthenticated)).
+- **TIRAMIS is HTTP-only.** The former internal TCP transport and port `4001` have been removed.
 
 ### Authentication mechanisms (one per hop)
 
@@ -274,7 +274,6 @@ The Portal API trusts exactly `TRUST_PROXY_HOPS=1` proxy. If a load balancer sit
 | Portal API → Redis | 6379 | OTP, 2FA, blacklist | yes |
 | Portal API → SMTP / SMS / ClamAV | 587 / 443 / 3310 | notifications, scanning | as used |
 | anything → TIRAMIS 9090, Portal 9090, Web 9290 | — | must stay **local only** (proxied) | block |
-| anything → TIRAMIS 4001 | — | unused, unauthenticated TCP transport | **block**, and set `TIRAMIS_TCP_HOST=127.0.0.1` |
 
 ---
 
@@ -286,7 +285,7 @@ The Portal API trusts exactly `TRUST_PROXY_HOPS=1` proxy. If a load balancer sit
 |---|---|
 | Purpose | Gateway between the portal and the TIRA regulator. It holds TIRA credentials and certificates, builds and signs XML, submits to TIRA, receives TIRA callbacks, and pushes outcomes to the portal webhook through an outbox. |
 | Depends on | PostgreSQL (`tiramis_db`), TIRA certificates on disk, TIRA base URLs, outbound HTTPS to TIRA and to the portal |
-| Ports | HTTP `9090` (prod; `9091` in local dev), TCP `4001` (unused) |
+| Ports | HTTP `9090` (prod; `9091` in local dev) |
 | Talks to | TIRA (outbound XML), Portal API webhook (outbound JSON), receives Portal API calls and TIRA callbacks |
 | URL shape | `/api/...`, for example `/api/health` and `/api/tiramis/motor/submit` |
 | Process | PM2 `tiramis`, script `dist/apps/tiramis/apps/tiramis/src/main.js`, cwd `/opt/apps/tiramis/current` |
@@ -297,7 +296,7 @@ The Portal API trusts exactly `TRUST_PROXY_HOPS=1` proxy. If a load balancer sit
 
 ```bash
 sudo bash deploy/tiramis/setup-server.sh --user <deploy-user> --base-dir /opt/apps/tiramis \
-  --web-server apache --app-port 9090 --tcp-port 4001 --api-prefix /tiramis-api --domain <domain>
+  --web-server apache --app-port 9090 --api-prefix /tiramis-api --domain <domain>
 ```
 
 - It installs Node 24, PM2 and the PostgreSQL client tools, and creates `/opt/apps/tiramis/{releases,shared,certificates}` and `/var/log/pm2`.
@@ -376,6 +375,12 @@ TIRAMIS_SECRET_ENCRYPTION_KEY_PREVIOUS=
 PORTAL_ADMIN_JWT_ACCESS_SECRET=<portal JWT_ACCESS_SECRET>  # MUST equal the portal value
 PORTAL_ADMIN_JWT_ISSUER=insurance-idp.tz                   # = portal JWT_ISSUER
 PORTAL_ADMIN_JWT_AUDIENCE=insurance-platform               # = portal JWT_AUDIENCE
+PORTAL_ADMIN_SESSION_VALIDATION_ENABLED=false
+PORTAL_ADMIN_SESSION_INTROSPECTION_URL=
+PORTAL_ADMIN_REQUIRED_PERMISSIONS=
+PORTAL_ADMIN_MFA_MAX_AGE_MINUTES=0
+PORTAL_ADMIN_RATE_LIMIT_MAX=60
+PORTAL_ADMIN_RATE_LIMIT_WINDOW_MS=60000
 TIRAMIS_CERTIFICATE_BASE_DIR=/opt/apps/tiramis/certificates
 TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS=30
 
@@ -392,14 +397,14 @@ TIRAMIS_LIVE_BASE_URL=<TIRA_LIVE_BASE_URL>                 # REQUIRED, non-empty
 TIRAMIS_LIVE_CALLBACK_URL=<TIRAMIS_PUBLIC_URL>/api/tiramis/callbacks/live
 # TIRAMIS_SEED_ENVIRONMENTS=test   # only if LIVE credentials are not available yet (the seeder then needs only _TEST)
 
-# --- Internal transport (unused, see C6) ---
-TIRAMIS_TCP_HOST=127.0.0.1          # recommended: do not expose an unauthenticated port
-TIRAMIS_TCP_PORT=4001
-
 # --- Portal notifications (outbox) ---
 TIRAMIS_PORTAL_NOTIFY_ENABLED=true
 INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS=5000     # TIRAMIS's own outbox HTTP timeout
 TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS=8
+TIRAMIS_PORTAL_WEBHOOK_ALLOWED_HOSTS=
+TIRAMIS_PORTAL_WEBHOOK_REQUIRE_HTTPS=true
+TIRAMIS_PORTAL_WEBHOOK_BLOCK_PRIVATE_IPS=true
+TIRAMIS_PORTAL_WEBHOOK_SIGNING_SECRET=<shared portal webhook signing secret>
 TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE=20
 TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS=10000      # ignored from .env (C8); 10000 applies
 
@@ -416,7 +421,13 @@ TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES=30
 TIRAMIS_HTTP_TIMEOUT_MS=60000
 TIRAMIS_LOG_PAYLOADS=false
 TIRAMIS_REQUEST_LOG_ENABLED=true
+TIRAMIS_REQUEST_LOG_REDACT_XML=true
+TIRAMIS_REQUEST_LOG_REDACTED_XML_TAGS=
 TIRAMIS_REQUEST_LOG_DIR=/opt/apps/tiramis/shared/tira-requests
+TIRAMIS_CALLBACK_DEAD_LETTER_RAW_XML_MODE=redacted
+TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_ENABLED=true
+TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_DAYS=180
+TIRAMIS_LEGACY_RAW_API_KEYS_ENABLED=false
 TIRAMIS_CALLBACK_ERROR_LOG_DIR=/opt/apps/tiramis/shared
 ```
 
@@ -853,7 +864,7 @@ Conventions used throughout Part B:
 | B1.4 | TIRA reachable from the TIRAMIS host | `curl -sv -o /dev/null <TIRA_TEST_BASE_URL>` | TCP and TLS connect (any HTTP status) |
 | B1.5 | TIRAMIS public URL reachable from the portal host | `curl -sv -o /dev/null $TMS/` | TLS OK; 502 is fine before TIRAMIS is running |
 | B1.6 | Portal API origin reachable from the TIRAMIS host | `curl -sv -o /dev/null <PORTAL_API_ORIGIN>/` | TLS OK |
-| B1.7 | Local-only ports not exposed | from another host: `nc -zv <TIRAMIS_HOST> 9090 4001` and `nc -zv <PORTAL_HOST> 9090 9290` | refused or filtered |
+| B1.7 | Local-only ports not exposed | from another host: `nc -zv <TIRAMIS_HOST> 9090` and `nc -zv <PORTAL_HOST> 9090 9290` | refused or filtered |
 
 ## B2. Service 1 — TIRAMIS tests
 
@@ -955,13 +966,13 @@ This test runs from the portal after A4, step 3 (validate). Validation checks th
 
 ### B2.8 Checklist — Service 1 complete
 
-- [ ] `shared/.env` complete: no empty required values, no placeholders, `APP_ENV=production`, `DB_LOGGING=false`, `TIRAMIS_TCP_HOST=127.0.0.1`
+- [ ] `shared/.env` complete: no empty required values, no placeholders, `APP_ENV=production`, `DB_LOGGING=false`
 - [ ] Certificates in place with correct names, owner and `600` permissions
 - [ ] Migrations all `[X]`; seeder run; `PORTAL_ADMIN_JWT_*` set to the portal JWT values
 - [ ] B2.1 health is 200/UP locally **and** through Apache
 - [ ] B2.4 a/b/c/d all give the expected codes
 - [ ] B2.5 callback probe is reachable from outside (returns 400)
-- [ ] Ports 9090 and 4001 not reachable externally; Swagger blocked at Apache
+- [ ] Port 9090 not reachable externally; Swagger blocked at Apache
 - [ ] `pm2 save` done
 
 ## B3. Service 2 — Portal API tests
@@ -1366,11 +1377,10 @@ The items are ordered by impact. "Doc" means the fix only needs a template or do
 - **Fixed:** `deploy/backend/shared.env.example` is now an exact copy of `apps/insurance-portal-service/.env.live.example`, and both headers say to keep them identical. The path is corrected to `/opt/apps/insurance-max/prod/backend/shared/.env`.
 - **Later:** a longer-term option is to delete one of the two copies.
 
-### C6. TIRAMIS TCP port 4001 is unused and unauthenticated — Config, then Code
+### C6. TIRAMIS TCP transport removed
 
-- **What is wrong:** nothing calls the TCP transport. The API-key guard skips non-HTTP contexts, so `tiramis.submission.status` and `tiramis.submission.trace` answer anyone who can reach the port. `UBUNTU_SERVER_SETUP.md` still suggests opening it to the portal.
-- **Fix now:** set `TIRAMIS_TCP_HOST=127.0.0.1` and block the port in the firewall.
-- **Fix later:** remove `connectMicroservice` and the TCP controllers.
+- **Resolved:** TIRAMIS no longer starts a Nest TCP microservice and no longer registers TCP/RPC controllers.
+- **Deployment impact:** remove any old TCP transport entries from environment files and keep firewall rules focused on the HTTP reverse-proxy path.
 
 ### C7. Every portal-provisioned company key gets `tiramis:admin` — Code
 
@@ -1451,7 +1461,7 @@ Still read, so kept, but worth knowing:
   - All names say `tiramis`.
   - The dead helper files are no longer generated.
   - The script warns if an old `bridge` site is still enabled, because it would conflict with the new `tiramis` site.
-  - `UBUNTU_SERVER_SETUP.md` is updated to match, including advice not to open TCP 4001.
+  - `UBUNTU_SERVER_SETUP.md` is updated to match the HTTP-only service.
 - **Existing hosts:** this changes behaviour only when the script is re-run there. It then creates `tiramis` proxy sites alongside any old `bridge` site. Disable the old site after verifying the new one.
 
 ### C16. Default seed credentials — Doc

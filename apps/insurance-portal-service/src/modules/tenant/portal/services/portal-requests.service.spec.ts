@@ -304,7 +304,7 @@ describe('PortalRequestsService', () => {
     dataSource.transaction = jest.fn((cb: any) => cb(manager));
 
     await expect(
-      service.createPaymentProof(accountA as PortalAccount, userId, {
+      service.createPaymentProof(accountA, userId, {
         invoice_id: invoiceId,
         amount: 50000,
         payment_date: '2026-08-04',

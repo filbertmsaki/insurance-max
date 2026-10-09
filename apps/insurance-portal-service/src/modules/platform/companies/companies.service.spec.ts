@@ -230,7 +230,7 @@ describe('CompaniesService', () => {
         verified_by: null,
         verified_at: null,
         verification_note: null,
-      } as Company);
+      });
 
       await expect(
         service.updateVerificationStatus(companyId, 'REJECTED', actor),
@@ -244,7 +244,7 @@ describe('CompaniesService', () => {
         verified_by: 'reviewer-1',
         verified_at: new Date(),
         verification_note: null,
-      } as Company);
+      });
 
       await expect(
         service.updateVerificationStatus(
