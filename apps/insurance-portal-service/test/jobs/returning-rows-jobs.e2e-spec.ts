@@ -1,4 +1,4 @@
-import { INestApplication, NotFoundException } from '@nestjs/common';
+import { INestApplication, Logger, NotFoundException } from '@nestjs/common';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
@@ -95,6 +95,9 @@ describe('Jobs reading UPDATE ... RETURNING (real database)', () => {
 
   describe('analytics projection', () => {
     it('reclaims a stale PROCESSING event and records the outcome', async () => {
+      const loggerError = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
       const [event] = await dataSource.query(
         `INSERT INTO analytics_projection_events (
            event_key, source_module, aggregate_type, aggregate_id, event_type,
@@ -106,18 +109,30 @@ describe('Jobs reading UPDATE ... RETURNING (real database)', () => {
         [`e2e-${randomUUID()}`, randomUUID()],
       );
 
-      await app.get(AnalyticsProjectionJob).process();
+      try {
+        await app.get(AnalyticsProjectionJob).process();
 
-      const [after] = await dataSource.query(
-        `SELECT status, attempt_count, locked_at
-         FROM analytics_projection_events WHERE id = $1`,
-        [event.id],
-      );
-      // No handler exists for this aggregate type, so the projection fails;
-      // what matters is that the stranded row was claimed and moved on.
-      expect(after.status).toBe('FAILED');
-      expect(after.attempt_count).toBe(2);
-      expect(after.locked_at).toBeNull();
+        const [after] = await dataSource.query(
+          `SELECT status, attempt_count, locked_at
+           FROM analytics_projection_events WHERE id = $1`,
+          [event.id],
+        );
+        // No handler exists for this aggregate type, so the projection fails;
+        // what matters is that the stranded row was claimed and moved on.
+        expect(after.status).toBe('FAILED');
+        expect(after.attempt_count).toBe(2);
+        expect(after.locked_at).toBeNull();
+        expect(loggerError).toHaveBeenCalledWith(
+          `Analytics projection failed: ${event.id}`,
+          'No analytics handler registered for E2E_UNREGISTERED',
+        );
+      } finally {
+        await dataSource.query(
+          `DELETE FROM analytics_projection_events WHERE id = $1`,
+          [event.id],
+        );
+        loggerError.mockRestore();
+      }
     });
   });
 
