@@ -4,6 +4,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 
+import { TIRAMIS_DEFAULTS } from '../../../config/tiramis-defaults';
 import { TiramisCallbackDeadLetterEntity } from '../entities/tiramis-callback-dead-letter.entity';
 import { TiramisCallbackReceiptEntity } from '../entities/tiramis-callback-receipt.entity';
 
@@ -29,7 +30,7 @@ export class TiramisCallbackRetentionService {
     if (
       !this.configService.get<boolean>(
         'tiramisService.callbackDiagnosticsRetentionEnabled',
-        true,
+        TIRAMIS_DEFAULTS.callbackDiagnosticsRetentionEnabled,
       )
     ) {
       return null;
@@ -43,7 +44,7 @@ export class TiramisCallbackRetentionService {
     try {
       const retentionDays = this.configService.get<number>(
         'tiramisService.callbackDiagnosticsRetentionDays',
-        180,
+        TIRAMIS_DEFAULTS.callbackDiagnosticsRetentionDays,
       );
       const cutoff = new Date(
         Date.now() - Math.max(retentionDays, 1) * 24 * 60 * 60 * 1000,

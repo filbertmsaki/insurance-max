@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import { join } from 'path';
 import { Repository } from 'typeorm';
 
 import type { ServicePrincipal } from '@insurance-max/contracts';
@@ -320,7 +321,7 @@ export class TiramisConfigService {
         );
       }
 
-      return configuration;
+      return this.withEnvironmentRuntimeConfiguration(configuration);
     }
 
     const params = environmentOrParams;
@@ -350,7 +351,7 @@ export class TiramisConfigService {
       });
     }
 
-    return configuration;
+    return this.withEnvironmentRuntimeConfiguration(configuration);
   }
 
   async resolveSubmissionContext<TDto>(
@@ -445,7 +446,7 @@ export class TiramisConfigService {
       throw new NotFoundException('TIRAMIS configuration not found');
     }
 
-    return configuration;
+    return this.withEnvironmentRuntimeConfiguration(configuration);
   }
 
   async getRuntimeConfigurationById(
@@ -512,12 +513,15 @@ export class TiramisConfigService {
     configuration: TiramisClientConfigurationEntity;
     serviceType: string;
   }): Promise<string> {
+    const configuration = this.withEnvironmentRuntimeConfiguration(
+      params.configuration,
+    );
     const endpoint = await this.getEndpointForConfiguration(
-      params.configuration.id,
+      configuration.id,
       params.serviceType,
     );
 
-    return this.joinUrl(params.configuration.baseUrl, endpoint.endpointUrl);
+    return this.joinUrl(configuration.baseUrl, endpoint.endpointUrl);
   }
 
   async getRequestHeaders(environment: string): Promise<TiramisRequestHeaders> {
@@ -540,6 +544,7 @@ export class TiramisConfigService {
   async getRequestHeadersForConfiguration(
     configuration: TiramisClientConfigurationEntity,
   ): Promise<TiramisRequestHeaders> {
+    configuration = this.withEnvironmentRuntimeConfiguration(configuration);
     const clientKey = this.getClientKey(configuration);
 
     if (!configuration.clientCode || !clientKey) {
@@ -567,6 +572,7 @@ export class TiramisConfigService {
   private resolveTiraCallbackUrl(
     configuration: TiramisClientConfigurationEntity,
   ): string {
+    configuration = this.withEnvironmentRuntimeConfiguration(configuration);
     const configuredUrl = configuration.callbackBaseUrl.trim();
 
     if (/\/api\/tiramis\/callbacks\/(test|live)\/?$/i.test(configuredUrl)) {
@@ -627,6 +633,8 @@ export class TiramisConfigService {
     tiraPublicCertificatePassword?: string | null;
     signatureAlgorithm?: string | null;
   }> {
+    configuration = this.withEnvironmentRuntimeConfiguration(configuration);
+
     return {
       clientPrivateCertificatePath: resolveTiramisCertificatePath(
         configuration.clientPrivateCertificatePath,
@@ -646,6 +654,8 @@ export class TiramisConfigService {
     configuration: TiramisClientConfigurationEntity,
     options?: { allowExpiredCertificates?: boolean },
   ) {
+    configuration = this.withEnvironmentRuntimeConfiguration(configuration);
+
     const errors: string[] = [];
     const warnings: string[] = [];
     const allowExpiredCertificates = options?.allowExpiredCertificates ?? false;
@@ -662,11 +672,16 @@ export class TiramisConfigService {
       );
     }
 
-    if (!configuration.clientKeyEncrypted) {
+    const envBackedRuntimeConfig = Boolean(
+      (configuration as any).__envBackedRuntimeConfig,
+    );
+
+    if (!envBackedRuntimeConfig && !configuration.clientKeyEncrypted) {
       warnings.push('ClientKey is still stored in plaintext column');
     }
 
     if (
+      !envBackedRuntimeConfig &&
       configuration.clientPrivateCertificatePassword &&
       !configuration.clientPrivateCertificatePasswordEncrypted
     ) {
@@ -676,6 +691,7 @@ export class TiramisConfigService {
     }
 
     if (
+      !envBackedRuntimeConfig &&
       configuration.tiraPublicCertificatePassword &&
       !configuration.tiraPublicCertificatePasswordEncrypted
     ) {
@@ -872,6 +888,78 @@ export class TiramisConfigService {
     }
 
     return configured;
+  }
+
+  private withEnvironmentRuntimeConfiguration(
+    configuration: TiramisClientConfigurationEntity,
+  ): TiramisClientConfigurationEntity {
+    const environment = this.normalizeConfigurationEnvironment(
+      configuration.environment,
+    );
+    const runtimeConfiguration = Object.assign(
+      Object.create(Object.getPrototypeOf(configuration)),
+      configuration,
+    ) as TiramisClientConfigurationEntity;
+
+    runtimeConfiguration.baseUrl = this.resolveDefaultBaseUrl(environment);
+    runtimeConfiguration.callbackBaseUrl =
+      this.resolveDefaultCallbackUrl(environment);
+    runtimeConfiguration.clientKeyEncrypted = this.envValue(
+      `ALLIANCE_TIRA_CLIENT_KEY_${environment.toUpperCase()}`,
+    );
+    runtimeConfiguration.clientKey = runtimeConfiguration.clientKeyEncrypted
+      ? '(env)'
+      : '';
+    runtimeConfiguration.clientPrivateCertificatePath = join(
+      this.getCertificateBaseDir(),
+      environment,
+      'clientprivate.pfx',
+    );
+    runtimeConfiguration.clientPrivateCertificatePassword = null;
+    runtimeConfiguration.clientPrivateCertificatePasswordEncrypted =
+      this.envValue(
+        `ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_${environment.toUpperCase()}`,
+      );
+    runtimeConfiguration.tiraPublicCertificatePath = join(
+      this.getCertificateBaseDir(),
+      environment,
+      'tiramispublic.pfx',
+    );
+    runtimeConfiguration.tiraPublicCertificatePassword = null;
+    runtimeConfiguration.tiraPublicCertificatePasswordEncrypted = this.envValue(
+      `TIRA_PUBLIC_CERT_PASSWORD_${environment.toUpperCase()}`,
+    );
+    runtimeConfiguration.signatureAlgorithm =
+      runtimeConfiguration.signatureAlgorithm || 'sha1WithRSAEncryption';
+    (runtimeConfiguration as any).__envBackedRuntimeConfig = true;
+
+    return runtimeConfiguration;
+  }
+
+  private normalizeConfigurationEnvironment(
+    environment: string,
+  ): 'test' | 'live' {
+    const normalized = environment?.toLowerCase();
+
+    if (normalized === 'test' || normalized === 'live') {
+      return normalized;
+    }
+
+    throw new BadRequestException({
+      code: 'TIRAMIS_ENVIRONMENT_INVALID',
+      message: `Unsupported TIRAMIS environment: ${environment}`,
+    });
+  }
+
+  private getCertificateBaseDir(): string {
+    return (
+      this.configService.get<string>('TIRAMIS_CERTIFICATE_BASE_DIR')?.trim() ||
+      '/opt/apps/tiramis/certificates'
+    );
+  }
+
+  private envValue(name: string): string | null {
+    return this.configService.get<string>(name)?.trim() || null;
   }
 
   async setPortalWebhookApiKey(configurationId: string, apiKey: string) {

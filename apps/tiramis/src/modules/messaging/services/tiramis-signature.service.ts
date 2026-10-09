@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   constants,
   createPrivateKey,
@@ -11,21 +12,28 @@ import * as forge from 'node-forge';
 import { readFileSync } from 'fs';
 import { extname } from 'path';
 
+import { TIRAMIS_DEFAULTS } from '../../../config/tiramis-defaults';
 import { resolveTiramisCertificatePath } from '../../config/utils/tiramis-certificate-path.util';
 
 @Injectable()
 export class TiramisSignatureService {
   private readonly logger = new Logger(TiramisSignatureService.name);
 
+  constructor(private readonly configService?: ConfigService) {}
+
   /**
-   * TIRA XML carries policyholder PII, so logs get a digest by default and the
-   * raw XML only when TIRAMIS_LOG_PAYLOADS=true.
+   * TIRA XML carries policyholder PII, so logs get a digest by default.
    */
   private describeXml(key: string, xml: string): Record<string, unknown> {
     return {
       [`${key}Sha256`]: createHash('sha256').update(xml, 'utf8').digest('hex'),
       [`${key}Length`]: xml.length,
-      ...(process.env.TIRAMIS_LOG_PAYLOADS === 'true' ? { [key]: xml } : {}),
+      ...(this.configService?.get<boolean>(
+        'tiramisService.logPayloads',
+        TIRAMIS_DEFAULTS.logPayloads,
+      )
+        ? { [key]: xml }
+        : {}),
     };
   }
 

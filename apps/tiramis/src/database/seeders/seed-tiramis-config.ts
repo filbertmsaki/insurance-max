@@ -1,8 +1,5 @@
 import 'reflect-metadata';
 
-import { createCipheriv, randomBytes } from 'crypto';
-import { join } from 'path';
-import { buildUrl } from '@insurance-max/shared-config';
 import { environment } from '@insurance-max/shared-config';
 
 import dataSource from '../data-source';
@@ -18,150 +15,85 @@ type ConfigurationSeed = {
   companyCode: string;
   systemCode: string;
   clientCode: string;
-  clientKey: string;
-  clientPrivateCertificatePassword: string;
-  tiraPublicCertificatePassword: string;
   insurerCompanyCode: string;
   salePointCode: string;
   tranCompanyCode: string;
-  baseUrl: string;
-  callbackBaseUrl: string;
-  clientPrivateCertificatePath?: string | null;
-  tiraPublicCertificatePath?: string | null;
   signatureAlgorithm: string;
 };
 
-const certificateRootPath =
-  environment.TIRAMIS_CERTIFICATE_BASE_DIR?.trim() ||
-  join('apps', 'tiramis', 'src', 'assets', 'certificaties');
+type SeedEnvironment = Record<string, string | undefined>;
 
-function getClientPrivateCertificatePath(environment: EnvironmentName): string {
-  return join(certificateRootPath, environment, 'clientprivate.pfx');
-}
+export type TiramisSeedOptions = {
+  includeLive: boolean;
+  skippedLiveKeys: string[];
+  legacySeedEnvironment?: string;
+};
 
-function getTiraPublicCertificatePath(environment: EnvironmentName): string {
-  return join(certificateRootPath, environment, 'tiramispublic.pfx');
-}
+export function resolveTiramisSeedOptions(
+  activeEnvironment: SeedEnvironment = environment,
+  argv: string[] = process.argv.slice(2),
+): TiramisSeedOptions {
+  const legacySeedEnvironment =
+    activeEnvironment.TIRAMIS_SEED_ENVIRONMENTS?.trim().toLowerCase();
 
-function mustEnv(name: string): string {
-  const value = environment[name];
-
-  if (!value?.trim()) {
-    throw new Error(
-      `[seed-env] Missing required environment variable: ${name}`,
-    );
+  if (argv.includes('--test-only') || legacySeedEnvironment === 'test') {
+    return {
+      includeLive: false,
+      skippedLiveKeys: [],
+      legacySeedEnvironment,
+    };
   }
 
-  return value.trim();
-}
-
-function optionalEnv(name: string, fallback: string): string {
-  const value = environment[name];
-  return value?.trim() ? value.trim() : fallback;
-}
-
-const appUrl = mustEnv('APP_URL');
-const globalPrefix = mustEnv('APP_GLOBAL_PREFIX');
-
-function defaultCallbackUrl(environmentName: 'test' | 'live') {
-  return buildUrl(
-    appUrl,
-    globalPrefix,
-    'tiramis',
-    'callbacks',
-    environmentName,
-  );
-}
-
-function encryptSecret(plainText: string): string {
-  if (!plainText) {
-    return plainText;
+  if (
+    argv.includes('--include-live') ||
+    argv.includes('--both') ||
+    ['both', 'all', 'live'].includes(legacySeedEnvironment || '')
+  ) {
+    return {
+      includeLive: true,
+      skippedLiveKeys: [],
+      legacySeedEnvironment,
+    };
   }
 
-  if (plainText.startsWith('enc:v1:')) {
-    return plainText;
-  }
+  return {
+    includeLive: true,
+    skippedLiveKeys: [],
+    legacySeedEnvironment,
+  };
+}
 
-  const rawKey = mustEnv('TIRAMIS_SECRET_ENCRYPTION_KEY');
-  const key = Buffer.from(rawKey, 'base64');
-
-  if (key.length !== 32) {
-    throw new Error(
-      'TIRAMIS_SECRET_ENCRYPTION_KEY must be a base64 encoded 32-byte key',
-    );
-  }
-
-  const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([
-    cipher.update(plainText, 'utf8'),
-    cipher.final(),
-  ]);
-  const authTag = cipher.getAuthTag();
-
+export function buildTiramisConfigurationSeeds(
+  activeEnvironment: SeedEnvironment = environment,
+  options = resolveTiramisSeedOptions(activeEnvironment),
+): ConfigurationSeed[] {
   return [
-    'enc',
-    'v1',
-    iv.toString('base64'),
-    authTag.toString('base64'),
-    encrypted.toString('base64'),
-  ].join(':');
+    {
+      environment: 'test',
+      companyCode: 'ICC110',
+      systemCode: 'LSYS_ALLIANCE_003',
+      clientCode: 'ICC110',
+      insurerCompanyCode: 'ICC110',
+      salePointCode: 'SP500',
+      tranCompanyCode: 'ICC110',
+      signatureAlgorithm: 'sha1WithRSAEncryption',
+    },
+    ...(options.includeLive
+      ? [
+          {
+            environment: 'live',
+            companyCode: 'ICC110',
+            systemCode: 'LSYS_ALLIANCE_003',
+            clientCode: 'ICC110',
+            insurerCompanyCode: 'ICC110',
+            salePointCode: 'SP500',
+            tranCompanyCode: 'ICC110',
+            signatureAlgorithm: 'sha1WithRSAEncryption',
+          } as ConfigurationSeed,
+        ]
+      : []),
+  ];
 }
-
-const testOnlySeed = environment.TIRAMIS_SEED_ENVIRONMENTS?.trim() === 'test';
-
-const configurations: ConfigurationSeed[] = [
-  {
-    environment: 'test',
-    companyCode: 'ICC110',
-    systemCode: 'LSYS_ALLIANCE_003',
-    clientCode: 'ICC110',
-    clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_TEST'),
-    clientPrivateCertificatePassword: mustEnv(
-      'ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST',
-    ),
-    tiraPublicCertificatePassword: mustEnv('TIRA_PUBLIC_CERT_PASSWORD_TEST'),
-    insurerCompanyCode: 'ICC110',
-    salePointCode: 'SP500',
-    tranCompanyCode: 'ICC110',
-    baseUrl: mustEnv('TIRAMIS_TEST_BASE_URL'),
-    callbackBaseUrl: optionalEnv(
-      'TIRAMIS_TEST_CALLBACK_URL',
-      defaultCallbackUrl('test'),
-    ),
-    clientPrivateCertificatePath: getClientPrivateCertificatePath('test'),
-    tiraPublicCertificatePath: getTiraPublicCertificatePath('test'),
-    signatureAlgorithm: 'sha1WithRSAEncryption',
-  },
-  ...(!testOnlySeed
-    ? [
-        {
-          environment: 'live',
-          companyCode: 'ICC110',
-          systemCode: 'LSYS_ALLIANCE_003',
-          clientCode: 'ICC110',
-          clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_LIVE'),
-          clientPrivateCertificatePassword: mustEnv(
-            'ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE',
-          ),
-          tiraPublicCertificatePassword: mustEnv(
-            'TIRA_PUBLIC_CERT_PASSWORD_LIVE',
-          ),
-          insurerCompanyCode: 'ICC110',
-          salePointCode: 'SP500',
-          tranCompanyCode: 'ICC110',
-          baseUrl: mustEnv('TIRAMIS_LIVE_BASE_URL'),
-          callbackBaseUrl: optionalEnv(
-            'TIRAMIS_LIVE_CALLBACK_URL',
-            defaultCallbackUrl('live'),
-          ),
-          clientPrivateCertificatePath: getClientPrivateCertificatePath('live'),
-          tiraPublicCertificatePath: getTiraPublicCertificatePath('live'),
-          signatureAlgorithm: 'sha1WithRSAEncryption',
-        } as ConfigurationSeed,
-      ]
-    : []),
-];
 
 const endpointSeeds = [
   {
@@ -546,7 +478,10 @@ const responseCodeSeeds: ResponseCodeSeed[] = responseCodeSeedEntries.map(
   }),
 );
 
-async function seedClientConfigurations(activeDataSource = dataSource) {
+async function seedClientConfigurations(
+  configurations: ConfigurationSeed[],
+  activeDataSource = dataSource,
+) {
   const configurationRepository = activeDataSource.getRepository(
     TiramisClientConfigurationEntity,
   );
@@ -555,14 +490,6 @@ async function seedClientConfigurations(activeDataSource = dataSource) {
   );
 
   for (const configurationSeed of configurations) {
-    const encryptedClientKey = encryptSecret(configurationSeed.clientKey);
-    const encryptedClientPrivatePassword = encryptSecret(
-      configurationSeed.clientPrivateCertificatePassword,
-    );
-    const encryptedTiraPublicPassword = encryptSecret(
-      configurationSeed.tiraPublicCertificatePassword,
-    );
-
     let configuration = await configurationRepository.findOne({
       where: {
         environment: configurationSeed.environment,
@@ -579,24 +506,19 @@ async function seedClientConfigurations(activeDataSource = dataSource) {
     configuration.companyCode = configurationSeed.companyCode;
     configuration.systemCode = configurationSeed.systemCode;
     configuration.clientCode = configurationSeed.clientCode;
-    configuration.clientKey = encryptedClientKey;
-    configuration.clientKeyEncrypted = encryptedClientKey;
+    configuration.clientKey = '(env)';
+    configuration.clientKeyEncrypted = null;
     configuration.insurerCompanyCode = configurationSeed.insurerCompanyCode;
     configuration.salePointCode = configurationSeed.salePointCode;
     configuration.tranCompanyCode = configurationSeed.tranCompanyCode;
-    configuration.baseUrl = configurationSeed.baseUrl;
-    configuration.callbackBaseUrl = configurationSeed.callbackBaseUrl;
-    configuration.clientPrivateCertificatePath =
-      configurationSeed.clientPrivateCertificatePath;
-    configuration.clientPrivateCertificatePassword =
-      encryptedClientPrivatePassword;
-    configuration.clientPrivateCertificatePasswordEncrypted =
-      encryptedClientPrivatePassword;
-    configuration.tiraPublicCertificatePath =
-      configurationSeed.tiraPublicCertificatePath;
-    configuration.tiraPublicCertificatePassword = encryptedTiraPublicPassword;
-    configuration.tiraPublicCertificatePasswordEncrypted =
-      encryptedTiraPublicPassword;
+    configuration.baseUrl = '(env)';
+    configuration.callbackBaseUrl = '(env)';
+    configuration.clientPrivateCertificatePath = null;
+    configuration.clientPrivateCertificatePassword = null;
+    configuration.clientPrivateCertificatePasswordEncrypted = null;
+    configuration.tiraPublicCertificatePath = null;
+    configuration.tiraPublicCertificatePassword = null;
+    configuration.tiraPublicCertificatePasswordEncrypted = null;
     configuration.signatureAlgorithm = configurationSeed.signatureAlgorithm;
     configuration.isActive = 1;
 
@@ -661,17 +583,39 @@ export async function runTiramisConfigSeed(
   activeDataSource = dataSource,
 ): Promise<void> {
   const shouldManageConnection = !activeDataSource.isInitialized;
+  const seedOptions = resolveTiramisSeedOptions(environment);
+  const configurations = buildTiramisConfigurationSeeds(
+    environment,
+    seedOptions,
+  );
 
   if (shouldManageConnection) {
     await activeDataSource.initialize();
   }
 
   try {
-    await seedClientConfigurations(activeDataSource);
+    if (!seedOptions.includeLive) {
+      console.log(
+        `Skipping live TIRAMIS client configuration seed. Missing live values: ${seedOptions.skippedLiveKeys.join(
+          ', ',
+        )}`,
+      );
+    }
+
+    if (seedOptions.legacySeedEnvironment) {
+      console.warn(
+        'TIRAMIS_SEED_ENVIRONMENTS is deprecated. Use --test-only only when you need to skip live seeding.',
+      );
+    }
+
+    await seedClientConfigurations(configurations, activeDataSource);
     await seedResponseCodes(activeDataSource);
 
     console.log(
       'Seeded Tiramis client configurations, service endpoints, and response codes.',
+    );
+    console.log(
+      'TIRA URLs, client secrets, and certificate paths/passwords are resolved from environment variables at runtime and are not stored by this seeder.',
     );
     console.log(
       'Note: NIN_VERIFICATION and COMPANY_VERIFICATION endpoints are now seeded alongside the other supported verification endpoints.',

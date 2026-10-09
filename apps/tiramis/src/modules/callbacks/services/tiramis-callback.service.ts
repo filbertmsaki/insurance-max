@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import type { RegulatoryFinalResponse } from '@insurance-max/contracts';
 import { environment } from '@insurance-max/shared-config';
 
+import { TIRAMIS_DEFAULTS } from '../../../config/tiramis-defaults';
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
 import { TiramisCoverNoteEntity } from '../../cover-notes/entities/tiramis-cover-note.entity';
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
@@ -567,7 +568,7 @@ export class TiramisCallbackService {
   private deadLetterRawXml(rawXml: string): string | null {
     const mode = this.configService.get<string>(
       'tiramisService.callbackDeadLetterRawXmlMode',
-      'redacted',
+      TIRAMIS_DEFAULTS.callbackDeadLetterRawXmlMode,
     );
 
     if (mode === 'off') {

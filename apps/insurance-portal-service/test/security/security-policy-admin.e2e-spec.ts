@@ -58,6 +58,7 @@ describe('Security policy administration (real database)', () => {
     expect(overview.active_version_id).toBeNull();
     expect(overview.versions).toEqual([]);
     expect(overview.effective).toEqual(overview.baseline);
+    expect(overview.baseline.requireTwoFactorForRoles).toEqual([]);
     expect(overview.effective).not.toHaveProperty('stepUpMaxAgeMinutes');
   });
 
@@ -83,7 +84,7 @@ describe('Security policy administration (real database)', () => {
     });
     const effective = await policies.getEffectivePolicy(companyId);
     expect(effective.requireTwoFactorForRoles).toContain('CLAIMS_MANAGER');
-    expect(effective.requireTwoFactorForRoles).toContain('ADMINISTRATOR');
+    expect(effective.requireTwoFactorForRoles).not.toContain('ADMINISTRATOR');
   });
 
   it('supersedes the previous active version on the next activation', async () => {

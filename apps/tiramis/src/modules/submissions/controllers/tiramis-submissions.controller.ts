@@ -70,7 +70,7 @@ export class TiramisSubmissionsController {
 
   @ApiOperation({
     summary:
-      'Manually retry a single TIRAMIS submission attempt. Bypasses TIRAMIS_RETRY_ENABLED, the retry schedule, and retry-exhaustion state since automatic retrying is disabled.',
+      'Manually retry a single TIRAMIS submission attempt. Bypasses the automatic retry schedule and retry-exhaustion state.',
   })
   @ApiParam({ name: 'id', description: 'Submission attempt id' })
   @PublicServiceEndpoint()

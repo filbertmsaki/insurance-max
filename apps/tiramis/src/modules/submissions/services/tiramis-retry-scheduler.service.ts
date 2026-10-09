@@ -1,12 +1,13 @@
-import { environment } from '@insurance-max/shared-config';
 import {
   BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
+import { TIRAMIS_DEFAULTS } from '../../../config/tiramis-defaults';
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
 import { TiramisPortalNotificationService } from '../../portal-notifications/services/tiramis-portal-notification.service';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
@@ -41,11 +42,17 @@ export class TiramisRetrySchedulerService {
     private readonly coverPeriodService: TiramisCoverPeriodService,
     private readonly portalNotificationService: TiramisPortalNotificationService,
     private readonly resubmissionService: TiramisResubmissionService,
+    private readonly configService?: ConfigService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
   async run() {
-    if (environment.TIRAMIS_RETRY_ENABLED === 'false') {
+    if (
+      !this.configBoolean(
+        'tiramisService.retryEnabled',
+        TIRAMIS_DEFAULTS.retryEnabled,
+      )
+    ) {
       return;
     }
 
@@ -69,7 +76,10 @@ export class TiramisRetrySchedulerService {
   }
 
   private async retryFailedDeliveries() {
-    const limit = Number(environment.TIRAMIS_RETRY_BATCH_SIZE || 20);
+    const limit = this.configNumber(
+      'tiramisService.retryBatchSize',
+      TIRAMIS_DEFAULTS.retryBatchSize,
+    );
 
     const attempts = await this.attemptRepository.findRetryableDueAttempts({
       now: new Date(),
@@ -83,7 +93,7 @@ export class TiramisRetrySchedulerService {
 
   /**
    * Manually retries a single submission attempt regardless of the
-   * TIRAMIS_RETRY_ENABLED flag, schedule, or retry-exhaustion state.
+   * automatic retry schedule or retry-exhaustion state.
    * Used by the admin-triggered retry endpoint now that automatic
    * retrying is disabled.
    */
@@ -299,8 +309,9 @@ export class TiramisRetrySchedulerService {
       if (isSuccess) {
         retryAttempt.status = TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS;
 
-        const callbackTimeoutMinutes = Number(
-          environment.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
+        const callbackTimeoutMinutes = this.configNumber(
+          'tiramisService.finalCallbackTimeoutMinutes',
+          TIRAMIS_DEFAULTS.finalCallbackTimeoutMinutes,
         );
 
         retryAttempt.finalCallbackDeadlineAt = new Date(
@@ -425,7 +436,10 @@ export class TiramisRetrySchedulerService {
   }
 
   private async detectMissingFinalCallbacks() {
-    const limit = Number(environment.TIRAMIS_RETRY_BATCH_SIZE || 20);
+    const limit = this.configNumber(
+      'tiramisService.retryBatchSize',
+      TIRAMIS_DEFAULTS.retryBatchSize,
+    );
 
     const attempts =
       await this.attemptRepository.findFinalCallbackOverdueAttempts({
@@ -481,12 +495,13 @@ export class TiramisRetrySchedulerService {
   }
 
   private calculateNextRetryAt(currentRetryCount: number): Date {
-    const baseDelaySeconds = Number(
-      environment.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60,
+    const baseDelaySeconds = this.configNumber(
+      'tiramisService.retryBaseDelaySeconds',
+      TIRAMIS_DEFAULTS.retryBaseDelaySeconds,
     );
-
-    const maxDelaySeconds = Number(
-      environment.TIRAMIS_RETRY_MAX_DELAY_SECONDS || 900,
+    const maxDelaySeconds = this.configNumber(
+      'tiramisService.retryMaxDelaySeconds',
+      TIRAMIS_DEFAULTS.retryMaxDelaySeconds,
     );
 
     const delaySeconds = Math.min(
@@ -495,6 +510,14 @@ export class TiramisRetrySchedulerService {
     );
 
     return new Date(Date.now() + delaySeconds * 1000);
+  }
+
+  private configBoolean(key: string, fallback: boolean): boolean {
+    return this.configService?.get<boolean>(key, fallback) ?? fallback;
+  }
+
+  private configNumber(key: string, fallback: number): number {
+    return this.configService?.get<number>(key, fallback) ?? fallback;
   }
 
   private replaceXmlElement(

@@ -16,12 +16,25 @@ describe('TiramisConfigService organization context resolution', () => {
   let clientConfigurationRepository: { findOne: jest.Mock };
   let requestContextService: { getServicePrincipal: jest.Mock };
   let service: TiramisConfigService;
+  let configGet: jest.Mock;
 
   beforeEach(() => {
     clientConfigurationRepository = {
       findOne: jest.fn().mockResolvedValue(configuration),
     };
     requestContextService = { getServicePrincipal: jest.fn() };
+    configGet = jest.fn((key: string) => {
+      const values: Record<string, string> = {
+        'tiramisService.testBaseUrl': 'https://tira.test',
+        'tiramisService.liveBaseUrl': 'https://tira.live',
+        'tiramisService.url': 'https://tiramis.example.com',
+        TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
+        ALLIANCE_TIRA_CLIENT_KEY_TEST: 'test-client-key',
+        ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST: 'test-private-password',
+        TIRA_PUBLIC_CERT_PASSWORD_TEST: 'test-public-password',
+      };
+      return values[key];
+    });
 
     service = new (TiramisConfigService as any)(
       clientConfigurationRepository,
@@ -29,7 +42,7 @@ describe('TiramisConfigService organization context resolution', () => {
       {},
       {},
       {},
-      { get: jest.fn() },
+      { get: configGet },
       requestContextService,
     );
   });
@@ -126,7 +139,10 @@ describe('TiramisConfigService organization context resolution', () => {
 
     expect(result.dto.companyCode).toBe('COMP-A');
     expect(result.dto.systemCode).toBe('SYS-A');
-    expect(result.configuration).toBe(configuration);
+    expect(result.configuration).toMatchObject({
+      id: configuration.id,
+      baseUrl: 'https://tira.test',
+    });
     expect(clientConfigurationRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -179,7 +195,10 @@ describe('TiramisConfigService organization context resolution', () => {
     expect(result.dto.insurerCompanyCode).toBe('INS-A');
     expect(result.dto.companyCode).toBe('COMP-A');
     expect(result.dto.systemCode).toBe('SYS-A');
-    expect(result.configuration).toBe(configuration);
+    expect(result.configuration).toMatchObject({
+      id: configuration.id,
+      baseUrl: 'https://tira.test',
+    });
   });
 });
 
@@ -200,7 +219,9 @@ describe('TiramisConfigService certificate validation', () => {
     tiraPublicCertificatePasswordEncrypted: null,
   };
 
-  function createService() {
+  function createService(
+    envOverrides: Record<string, string | undefined> = {},
+  ) {
     const certificateInspector = {
       assertCertificateHealthy: jest.fn(),
     };
@@ -210,6 +231,18 @@ describe('TiramisConfigService certificate validation', () => {
       ),
       mask: jest.fn((value) => (value ? '***masked***' : null)),
     };
+    const configGet = jest.fn((key: string) => {
+      const values: Record<string, string | undefined> = {
+        'tiramisService.liveBaseUrl': 'https://tira.live',
+        'tiramisService.url': 'https://tiramis.example.com',
+        TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
+        ALLIANCE_TIRA_CLIENT_KEY_LIVE: 'live-client-key',
+        ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE: 'live-private-password',
+        TIRA_PUBLIC_CERT_PASSWORD_LIVE: 'live-public-password',
+        ...envOverrides,
+      };
+      return values[key];
+    });
 
     const service = new (TiramisConfigService as any)(
       { findOne: jest.fn() },
@@ -217,7 +250,7 @@ describe('TiramisConfigService certificate validation', () => {
       {},
       secretCrypto,
       certificateInspector,
-      { get: jest.fn() },
+      { get: configGet },
       { getServicePrincipal: jest.fn() },
     ) as TiramisConfigService;
 
@@ -347,7 +380,9 @@ describe('TiramisConfigService certificate validation', () => {
   });
 
   it('rejects a missing client key regardless of allowExpiredCertificates', async () => {
-    const { service, certificateInspector } = createService();
+    const { service, certificateInspector } = createService({
+      ALLIANCE_TIRA_CLIENT_KEY_LIVE: '',
+    });
     certificateInspector.assertCertificateHealthy
       .mockReturnValueOnce({
         validTo: '2026-12-31T00:00:00.000Z',

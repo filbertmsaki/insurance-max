@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { IsNull, Repository } from 'typeorm';
 
+import { TIRAMIS_DEFAULTS } from '../../../config/tiramis-defaults';
 import { TiramisApiKeyAuditEntity } from '../entities/tiramis-api-key-audit.entity';
 import { TiramisApiKeyEntity } from '../entities/tiramis-api-key.entity';
 import { CreateTiramisApiKeyDto } from '../dto/create-tiramis-api-key.dto';
@@ -250,8 +251,8 @@ export class TiramisApiKeyService {
       where: { apiKeyHash: hash },
     });
     const legacyRawKeysEnabled = this.configService.get<boolean>(
-      'TIRAMIS_LEGACY_RAW_API_KEYS_ENABLED',
-      true,
+      'tiramisService.legacyRawApiKeysEnabled',
+      TIRAMIS_DEFAULTS.legacyRawApiKeysEnabled,
     );
     // Compatibility window: legacy raw keys remain valid until rotated/replaced.
     if (!row && legacyRawKeysEnabled) {

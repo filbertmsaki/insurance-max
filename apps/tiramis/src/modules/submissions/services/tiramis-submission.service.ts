@@ -1,12 +1,13 @@
-import { environment } from '@insurance-max/shared-config';
 import {
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DeepPartial } from 'typeorm';
 
 import { RequestContextService } from '@insurance-max/shared-kernel';
+import { TIRAMIS_DEFAULTS } from '../../../config/tiramis-defaults';
 import {
   TIRAMIS_ATTEMPT_STATUS,
   TIRAMIS_SUBMISSION_EVENT_TYPE,
@@ -24,6 +25,7 @@ export class TiramisSubmissionService {
     private readonly attemptRepository: TiramisSubmissionAttemptRepository,
     private readonly eventRepository: TiramisSubmissionEventRepository,
     private readonly requestContextService: RequestContextService,
+    private readonly configService?: ConfigService,
   ) {}
 
   async createTransaction(params: {
@@ -305,8 +307,9 @@ export class TiramisSubmissionService {
     if (params.isSuccess) {
       attempt.status = TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS;
 
-      const callbackTimeoutMinutes = Number(
-        environment.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
+      const callbackTimeoutMinutes = this.configNumber(
+        'tiramisService.finalCallbackTimeoutMinutes',
+        TIRAMIS_DEFAULTS.finalCallbackTimeoutMinutes,
       );
 
       attempt.finalCallbackDeadlineAt = new Date(
@@ -430,9 +433,12 @@ export class TiramisSubmissionService {
     attempt.lastRetryAt = attempt.lastRetryAt || null;
 
     if (params.isRetryable) {
-      attempt.maxRetries = Number(
-        environment.TIRAMIS_RETRY_MAX_ATTEMPTS || attempt.maxRetries || 5,
-      );
+      attempt.maxRetries =
+        attempt.maxRetries ||
+        this.configNumber(
+          'tiramisService.retryMaxAttempts',
+          TIRAMIS_DEFAULTS.retryMaxAttempts,
+        );
 
       attempt.nextRetryAt =
         params.nextRetryAt ||
@@ -927,12 +933,13 @@ export class TiramisSubmissionService {
   }
 
   private calculateNextRetryAt(currentRetryCount: number): Date {
-    const baseDelaySeconds = Number(
-      environment.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60,
+    const baseDelaySeconds = this.configNumber(
+      'tiramisService.retryBaseDelaySeconds',
+      TIRAMIS_DEFAULTS.retryBaseDelaySeconds,
     );
-
-    const maxDelaySeconds = Number(
-      environment.TIRAMIS_RETRY_MAX_DELAY_SECONDS || 900,
+    const maxDelaySeconds = this.configNumber(
+      'tiramisService.retryMaxDelaySeconds',
+      TIRAMIS_DEFAULTS.retryMaxDelaySeconds,
     );
 
     const delaySeconds = Math.min(
@@ -941,5 +948,9 @@ export class TiramisSubmissionService {
     );
 
     return new Date(Date.now() + delaySeconds * 1000);
+  }
+
+  private configNumber(key: string, fallback: number): number {
+    return this.configService?.get<number>(key, fallback) ?? fallback;
   }
 }

@@ -2,6 +2,14 @@ import { registerAs } from '@nestjs/config';
 import { join } from 'path';
 
 import { buildUrl, normalizeBaseUrl } from '@insurance-max/shared-config';
+import {
+  isProductionEnvironment,
+  optionalBooleanEnv,
+  optionalNumberEnv,
+  optionalNumberListEnv,
+  optionalStringEnv,
+  TIRAMIS_DEFAULTS,
+} from './tiramis-defaults';
 
 export default registerAs('tiramisService', () => {
   const appUrl = normalizeBaseUrl(
@@ -9,6 +17,7 @@ export default registerAs('tiramisService', () => {
   );
 
   const globalPrefix = process.env.APP_GLOBAL_PREFIX || 'api';
+  const productionEnvironment = isProductionEnvironment();
 
   return {
     url: appUrl,
@@ -25,14 +34,28 @@ export default registerAs('tiramisService', () => {
 
     targetEnvironment: process.env.TIRAMIS_TARGET_ENV?.trim() || 'test',
 
-    requestTimeoutMs: Number(process.env.TIRAMIS_HTTP_TIMEOUT_MS || 60000),
+    requestTimeoutMs: optionalNumberEnv(
+      'TIRAMIS_HTTP_TIMEOUT_MS',
+      TIRAMIS_DEFAULTS.requestTimeoutMs,
+    ),
 
-    logPayloads: process.env.TIRAMIS_LOG_PAYLOADS === 'true',
+    logPayloads: optionalBooleanEnv(
+      'TIRAMIS_LOG_PAYLOADS',
+      TIRAMIS_DEFAULTS.logPayloads,
+    ),
 
-    requestLogEnabled: process.env.TIRAMIS_REQUEST_LOG_ENABLED !== 'false',
-    requestLogRedactXml: process.env.TIRAMIS_REQUEST_LOG_REDACT_XML !== 'false',
-    requestLogRedactedXmlTags:
-      process.env.TIRAMIS_REQUEST_LOG_REDACTED_XML_TAGS?.trim() || '',
+    requestLogEnabled: optionalBooleanEnv(
+      'TIRAMIS_REQUEST_LOG_ENABLED',
+      TIRAMIS_DEFAULTS.requestLogEnabled,
+    ),
+    requestLogRedactXml: optionalBooleanEnv(
+      'TIRAMIS_REQUEST_LOG_REDACT_XML',
+      TIRAMIS_DEFAULTS.requestLogRedactXml,
+    ),
+    requestLogRedactedXmlTags: optionalStringEnv(
+      'TIRAMIS_REQUEST_LOG_REDACTED_XML_TAGS',
+      TIRAMIS_DEFAULTS.requestLogRedactedXmlTags,
+    ),
     requestLogDir:
       process.env.TIRAMIS_REQUEST_LOG_DIR?.trim() ||
       join(
@@ -43,53 +66,88 @@ export default registerAs('tiramisService', () => {
             : join(process.cwd(), 'logs')),
         'tira-requests',
       ),
-    callbackDeadLetterRawXmlMode:
-      process.env.TIRAMIS_CALLBACK_DEAD_LETTER_RAW_XML_MODE?.trim() ||
-      'redacted',
-    callbackDiagnosticsRetentionEnabled:
-      process.env.TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_ENABLED !== 'false',
-    callbackDiagnosticsRetentionDays: Number(
-      process.env.TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_DAYS || 180,
+    callbackDeadLetterRawXmlMode: optionalStringEnv(
+      'TIRAMIS_CALLBACK_DEAD_LETTER_RAW_XML_MODE',
+      TIRAMIS_DEFAULTS.callbackDeadLetterRawXmlMode,
+    ),
+    callbackDiagnosticsRetentionEnabled: optionalBooleanEnv(
+      'TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_ENABLED',
+      TIRAMIS_DEFAULTS.callbackDiagnosticsRetentionEnabled,
+    ),
+    callbackDiagnosticsRetentionDays: optionalNumberEnv(
+      'TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_DAYS',
+      TIRAMIS_DEFAULTS.callbackDiagnosticsRetentionDays,
     ),
 
-    portalNotifyEnabled: process.env.TIRAMIS_PORTAL_NOTIFY_ENABLED !== 'false',
-
-    portalWebhookTimeoutMs: Number(
-      process.env.INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS || 5000,
+    portalNotifyEnabled: optionalBooleanEnv(
+      'TIRAMIS_PORTAL_NOTIFY_ENABLED',
+      TIRAMIS_DEFAULTS.portalNotifyEnabled,
     ),
-    portalWebhookMaxAttempts: Number(
-      process.env.TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS || 8,
+
+    portalWebhookTimeoutMs: optionalNumberEnv(
+      'INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS',
+      TIRAMIS_DEFAULTS.portalWebhookTimeoutMs,
+    ),
+    portalWebhookMaxAttempts: optionalNumberEnv(
+      'TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS',
+      TIRAMIS_DEFAULTS.portalWebhookMaxAttempts,
+    ),
+    portalWebhookRetryDelaysSeconds: optionalNumberListEnv(
+      'TIRAMIS_PORTAL_WEBHOOK_RETRY_DELAYS_SECONDS',
+      TIRAMIS_DEFAULTS.portalWebhookRetryDelaysSeconds,
     ),
     portalWebhookAllowedHosts:
       process.env.TIRAMIS_PORTAL_WEBHOOK_ALLOWED_HOSTS?.trim() || '',
-    portalWebhookRequireHttps:
-      process.env.TIRAMIS_PORTAL_WEBHOOK_REQUIRE_HTTPS === 'true' ||
-      process.env.APP_ENV === 'production' ||
-      process.env.NODE_ENV === 'production',
-    portalWebhookBlockPrivateIps:
-      process.env.TIRAMIS_PORTAL_WEBHOOK_BLOCK_PRIVATE_IPS === 'true' ||
-      process.env.APP_ENV === 'production' ||
-      process.env.NODE_ENV === 'production',
+    portalWebhookRequireHttps: optionalBooleanEnv(
+      'TIRAMIS_PORTAL_WEBHOOK_REQUIRE_HTTPS',
+      productionEnvironment,
+    ),
+    portalWebhookBlockPrivateIps: optionalBooleanEnv(
+      'TIRAMIS_PORTAL_WEBHOOK_BLOCK_PRIVATE_IPS',
+      productionEnvironment,
+    ),
     portalWebhookSigningSecret:
       process.env.TIRAMIS_PORTAL_WEBHOOK_SIGNING_SECRET?.trim() || '',
-    portalOutboxBatchSize: Number(
-      process.env.TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE || 20,
+    portalOutboxBatchSize: optionalNumberEnv(
+      'TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE',
+      TIRAMIS_DEFAULTS.portalOutboxBatchSize,
     ),
-    portalOutboxIntervalMs: Number(
-      process.env.TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS || 10000,
+    portalOutboxIntervalMs: optionalNumberEnv(
+      'TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS',
+      TIRAMIS_DEFAULTS.portalOutboxIntervalMs,
     ),
 
-    retryEnabled: process.env.TIRAMIS_RETRY_ENABLED !== 'false',
-    retryBatchSize: Number(process.env.TIRAMIS_RETRY_BATCH_SIZE || 20),
-    retryMaxAttempts: Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 5),
-    retryBaseDelaySeconds: Number(
-      process.env.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60,
+    retryEnabled: optionalBooleanEnv(
+      'TIRAMIS_RETRY_ENABLED',
+      TIRAMIS_DEFAULTS.retryEnabled,
     ),
-    retryMaxDelaySeconds: Number(
-      process.env.TIRAMIS_RETRY_MAX_DELAY_SECONDS || 900,
+    retryBatchSize: optionalNumberEnv(
+      'TIRAMIS_RETRY_BATCH_SIZE',
+      TIRAMIS_DEFAULTS.retryBatchSize,
     ),
-    finalCallbackTimeoutMinutes: Number(
-      process.env.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
+    retryMaxAttempts: optionalNumberEnv(
+      'TIRAMIS_RETRY_MAX_ATTEMPTS',
+      TIRAMIS_DEFAULTS.retryMaxAttempts,
+    ),
+    retryBaseDelaySeconds: optionalNumberEnv(
+      'TIRAMIS_RETRY_BASE_DELAY_SECONDS',
+      TIRAMIS_DEFAULTS.retryBaseDelaySeconds,
+    ),
+    retryMaxDelaySeconds: optionalNumberEnv(
+      'TIRAMIS_RETRY_MAX_DELAY_SECONDS',
+      TIRAMIS_DEFAULTS.retryMaxDelaySeconds,
+    ),
+    finalCallbackTimeoutMinutes: optionalNumberEnv(
+      'TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES',
+      TIRAMIS_DEFAULTS.finalCallbackTimeoutMinutes,
+    ),
+    legacyRawApiKeysEnabled: optionalBooleanEnv(
+      'TIRAMIS_LEGACY_RAW_API_KEYS_ENABLED',
+      TIRAMIS_DEFAULTS.legacyRawApiKeysEnabled,
+    ),
+    internalCallbackTestsEnabled: optionalBooleanEnv(
+      'TIRAMIS_INTERNAL_CALLBACK_TESTS_ENABLED',
+      TIRAMIS_DEFAULTS.internalCallbackTestsEnabled,
     ),
   };
 });

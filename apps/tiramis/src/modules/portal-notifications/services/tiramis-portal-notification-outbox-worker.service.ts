@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 
-import { environment } from '@insurance-max/shared-config';
-
+import {
+  optionalNumberEnv,
+  TIRAMIS_DEFAULTS,
+} from '../../../config/tiramis-defaults';
 import { TiramisPortalNotificationService } from './tiramis-portal-notification.service';
 
 @Injectable()
@@ -14,11 +17,22 @@ export class TiramisPortalNotificationOutboxWorkerService {
 
   constructor(
     private readonly notificationService: TiramisPortalNotificationService,
+    private readonly configService: ConfigService,
   ) {}
 
-  @Interval(Number(process.env.TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS || 10000))
+  @Interval(
+    optionalNumberEnv(
+      'TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS',
+      TIRAMIS_DEFAULTS.portalOutboxIntervalMs,
+    ),
+  )
   async run() {
-    if (environment.TIRAMIS_PORTAL_NOTIFY_ENABLED === 'false') {
+    if (
+      !this.configService.get<boolean>(
+        'tiramisService.portalNotifyEnabled',
+        TIRAMIS_DEFAULTS.portalNotifyEnabled,
+      )
+    ) {
       return;
     }
 
@@ -29,7 +43,10 @@ export class TiramisPortalNotificationOutboxWorkerService {
     this.isRunning = true;
 
     try {
-      const limit = Number(environment.TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE || 20);
+      const limit = this.configService.get<number>(
+        'tiramisService.portalOutboxBatchSize',
+        TIRAMIS_DEFAULTS.portalOutboxBatchSize,
+      );
       await this.notificationService.processDueOutbox(limit);
     } catch (error: any) {
       this.logger.error(

@@ -1,5 +1,90 @@
 import * as Joi from 'joi';
 
+import { TIRAMIS_DEFAULTS } from './tiramis-defaults';
+
+function optionalBoolean(defaultValue: boolean) {
+  return Joi.any()
+    .custom((value, helpers) => {
+      if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ''
+      ) {
+        return defaultValue;
+      }
+
+      const normalized = String(value).trim().toLowerCase();
+
+      if (['true', '1', 'yes', 'on'].includes(normalized)) {
+        return true;
+      }
+
+      if (['false', '0', 'no', 'off'].includes(normalized)) {
+        return false;
+      }
+
+      return helpers.error('any.invalid');
+    })
+    .default(defaultValue);
+}
+
+function optionalInteger(
+  defaultValue: number,
+  min = 0,
+  max = Number.MAX_SAFE_INTEGER,
+) {
+  return Joi.any()
+    .custom((value, helpers) => {
+      if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ''
+      ) {
+        return defaultValue;
+      }
+
+      const parsed = Number(String(value).trim());
+
+      if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+        return helpers.error('number.integer');
+      }
+
+      return parsed;
+    })
+    .default(defaultValue);
+}
+
+function optionalString(defaultValue = '') {
+  return Joi.string().trim().empty('').default(defaultValue);
+}
+
+function optionalNumberList(defaultValue: number[], min = 0) {
+  return Joi.any()
+    .custom((value, helpers) => {
+      if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ''
+      ) {
+        return defaultValue;
+      }
+
+      const values = String(value)
+        .split(',')
+        .map((entry) => Number(entry.trim()));
+
+      if (
+        !values.length ||
+        values.some((entry) => !Number.isFinite(entry) || entry < min)
+      ) {
+        return helpers.error('any.invalid');
+      }
+
+      return values;
+    })
+    .default(defaultValue);
+}
+
 export const tiramisEnvValidationSchema = Joi.object({
   APP_NAME: Joi.string().trim().min(1).default('Alliance Platform'),
   APP_ENV: Joi.string()
@@ -51,7 +136,7 @@ export const tiramisEnvValidationSchema = Joi.object({
   DB_DATABASE: Joi.string().default('alliance_db'),
   DB_ORACLE_CONNECT_STRING: Joi.string().allow('').default(''),
   DB_SYNCHRONIZE: Joi.boolean().default(false),
-  DB_LOGGING: Joi.boolean().default(true),
+  DB_LOGGING: Joi.boolean().default(false),
   DB_SSL: Joi.boolean().default(false),
 
   LOGGER_ENABLED: Joi.boolean().default(true),
@@ -62,6 +147,27 @@ export const tiramisEnvValidationSchema = Joi.object({
     '/opt/apps/tiramis/certificates',
   ),
   TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS: Joi.number().default(30),
+  ALLIANCE_TIRA_CLIENT_KEY_TEST: Joi.string().trim().min(1).required(),
+  ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST: Joi.string()
+    .trim()
+    .min(1)
+    .required(),
+  TIRA_PUBLIC_CERT_PASSWORD_TEST: Joi.string().trim().min(1).required(),
+  ALLIANCE_TIRA_CLIENT_KEY_LIVE: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().trim().min(1).required(),
+    otherwise: Joi.string().allow('').default(''),
+  }),
+  ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().trim().min(1).required(),
+    otherwise: Joi.string().allow('').default(''),
+  }),
+  TIRA_PUBLIC_CERT_PASSWORD_LIVE: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().trim().min(1).required(),
+    otherwise: Joi.string().allow('').default(''),
+  }),
   TIRAMIS_TEST_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),
@@ -75,54 +181,97 @@ export const tiramisEnvValidationSchema = Joi.object({
     .uri({ scheme: ['http', 'https'] })
     .optional(),
 
-  TIRAMIS_PORTAL_NOTIFY_ENABLED: Joi.boolean().default(true),
-  INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS: Joi.number().default(5000),
-  TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS: Joi.number().integer().min(1).default(8),
+  TIRAMIS_PORTAL_NOTIFY_ENABLED: optionalBoolean(
+    TIRAMIS_DEFAULTS.portalNotifyEnabled,
+  ),
+  INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS: optionalInteger(
+    TIRAMIS_DEFAULTS.portalWebhookTimeoutMs,
+    1000,
+    300000,
+  ),
+  TIRAMIS_PORTAL_WEBHOOK_MAX_ATTEMPTS: optionalInteger(
+    TIRAMIS_DEFAULTS.portalWebhookMaxAttempts,
+    1,
+  ),
+  TIRAMIS_PORTAL_WEBHOOK_RETRY_DELAYS_SECONDS: optionalNumberList(
+    TIRAMIS_DEFAULTS.portalWebhookRetryDelaysSeconds,
+    1,
+  ),
   TIRAMIS_PORTAL_WEBHOOK_ALLOWED_HOSTS: Joi.string().allow('').default(''),
-  TIRAMIS_PORTAL_WEBHOOK_REQUIRE_HTTPS: Joi.boolean().default(false),
-  TIRAMIS_PORTAL_WEBHOOK_BLOCK_PRIVATE_IPS: Joi.boolean().default(false),
+  TIRAMIS_PORTAL_WEBHOOK_REQUIRE_HTTPS: Joi.when('APP_ENV', {
+    is: 'production',
+    then: optionalBoolean(true),
+    otherwise: optionalBoolean(false),
+  }),
+  TIRAMIS_PORTAL_WEBHOOK_BLOCK_PRIVATE_IPS: Joi.when('APP_ENV', {
+    is: 'production',
+    then: optionalBoolean(true),
+    otherwise: optionalBoolean(false),
+  }),
   TIRAMIS_PORTAL_WEBHOOK_SIGNING_SECRET: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(32).allow('').default(''),
     otherwise: Joi.string().allow('').default(''),
   }),
-  TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(20),
-  TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS: Joi.number()
-    .integer()
-    .min(1000)
-    .default(10000),
+  TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE: optionalInteger(
+    TIRAMIS_DEFAULTS.portalOutboxBatchSize,
+    1,
+  ),
+  TIRAMIS_PORTAL_OUTBOX_INTERVAL_MS: optionalInteger(
+    TIRAMIS_DEFAULTS.portalOutboxIntervalMs,
+    1000,
+  ),
 
-  TIRAMIS_HTTP_TIMEOUT_MS: Joi.number()
-    .integer()
-    .min(1000)
-    .max(300000)
-    .default(60000),
-  TIRAMIS_LOG_PAYLOADS: Joi.boolean().default(false),
-  TIRAMIS_REQUEST_LOG_ENABLED: Joi.boolean().default(true),
-  TIRAMIS_REQUEST_LOG_REDACT_XML: Joi.boolean().default(true),
-  TIRAMIS_REQUEST_LOG_REDACTED_XML_TAGS: Joi.string().allow('').default(''),
+  TIRAMIS_HTTP_TIMEOUT_MS: optionalInteger(
+    TIRAMIS_DEFAULTS.requestTimeoutMs,
+    1000,
+    300000,
+  ),
+  TIRAMIS_LOG_PAYLOADS: optionalBoolean(TIRAMIS_DEFAULTS.logPayloads),
+  TIRAMIS_REQUEST_LOG_ENABLED: optionalBoolean(
+    TIRAMIS_DEFAULTS.requestLogEnabled,
+  ),
+  TIRAMIS_REQUEST_LOG_REDACT_XML: optionalBoolean(
+    TIRAMIS_DEFAULTS.requestLogRedactXml,
+  ),
+  TIRAMIS_REQUEST_LOG_REDACTED_XML_TAGS: optionalString(
+    TIRAMIS_DEFAULTS.requestLogRedactedXmlTags,
+  ),
   TIRAMIS_REQUEST_LOG_DIR: Joi.string().trim().min(1).optional(),
-  TIRAMIS_CALLBACK_DEAD_LETTER_RAW_XML_MODE: Joi.string()
-    .valid('full', 'redacted', 'off')
-    .default('redacted'),
-  TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_ENABLED: Joi.boolean().default(true),
-  TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_DAYS: Joi.number()
-    .integer()
-    .min(1)
-    .default(180),
-  TIRAMIS_LEGACY_RAW_API_KEYS_ENABLED: Joi.boolean().default(true),
-  TIRAMIS_RETRY_ENABLED: Joi.boolean().default(true),
-  TIRAMIS_RETRY_BATCH_SIZE: Joi.number().integer().min(1).default(20),
-  TIRAMIS_RETRY_MAX_ATTEMPTS: Joi.number().integer().min(1).default(5),
-  TIRAMIS_RETRY_BASE_DELAY_SECONDS: Joi.number().integer().min(1).default(60),
-  TIRAMIS_RETRY_MAX_DELAY_SECONDS: Joi.number().integer().min(1).default(900),
-  TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES: Joi.number()
-    .integer()
-    .min(1)
-    .default(30),
-  // Protects the signature-bypassed internal callback test route. It must be
-  // explicitly enabled for each deployment and defaults to disabled.
-  TIRAMIS_INTERNAL_CALLBACK_TESTS_ENABLED: Joi.boolean().default(false),
+  TIRAMIS_CALLBACK_DEAD_LETTER_RAW_XML_MODE: optionalString(
+    TIRAMIS_DEFAULTS.callbackDeadLetterRawXmlMode,
+  ).valid('full', 'redacted', 'off'),
+  TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_ENABLED: optionalBoolean(
+    TIRAMIS_DEFAULTS.callbackDiagnosticsRetentionEnabled,
+  ),
+  TIRAMIS_CALLBACK_DIAGNOSTICS_RETENTION_DAYS: optionalInteger(
+    TIRAMIS_DEFAULTS.callbackDiagnosticsRetentionDays,
+    1,
+  ),
+  TIRAMIS_LEGACY_RAW_API_KEYS_ENABLED: optionalBoolean(
+    TIRAMIS_DEFAULTS.legacyRawApiKeysEnabled,
+  ),
+  TIRAMIS_RETRY_ENABLED: optionalBoolean(TIRAMIS_DEFAULTS.retryEnabled),
+  TIRAMIS_RETRY_BATCH_SIZE: optionalInteger(TIRAMIS_DEFAULTS.retryBatchSize, 1),
+  TIRAMIS_RETRY_MAX_ATTEMPTS: optionalInteger(
+    TIRAMIS_DEFAULTS.retryMaxAttempts,
+    1,
+  ),
+  TIRAMIS_RETRY_BASE_DELAY_SECONDS: optionalInteger(
+    TIRAMIS_DEFAULTS.retryBaseDelaySeconds,
+    1,
+  ),
+  TIRAMIS_RETRY_MAX_DELAY_SECONDS: optionalInteger(
+    TIRAMIS_DEFAULTS.retryMaxDelaySeconds,
+    1,
+  ),
+  TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES: optionalInteger(
+    TIRAMIS_DEFAULTS.finalCallbackTimeoutMinutes,
+    1,
+  ),
+  TIRAMIS_INTERNAL_CALLBACK_TESTS_ENABLED: optionalBoolean(
+    TIRAMIS_DEFAULTS.internalCallbackTestsEnabled,
+  ),
   // Directory for tiramis_callback_error.log. Must be a path that survives
   // deploys (e.g. /opt/apps/tiramis/shared) — PM2's cwd is a per-release
   // directory that gets replaced on every release. Defaults to cwd for local dev.

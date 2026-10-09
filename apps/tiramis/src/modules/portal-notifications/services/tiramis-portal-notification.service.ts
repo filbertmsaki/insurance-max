@@ -13,6 +13,7 @@ import {
   RequestContextService,
 } from '@insurance-max/shared-kernel';
 
+import { TIRAMIS_DEFAULTS } from '../../../config/tiramis-defaults';
 import { TiramisPortalNotificationEventDto } from '../dto/tiramis-portal-notification-event.dto';
 import {
   TiramisPortalNotificationOutboxEntity,
@@ -448,7 +449,7 @@ export class TiramisPortalNotificationService {
 
     const timeoutMs =
       this.configService.get<number>('tiramisService.portalWebhookTimeoutMs') ||
-      5000;
+      TIRAMIS_DEFAULTS.portalWebhookTimeoutMs;
 
     try {
       await this.assertWebhookUrlAllowed(outbox.webhookUrl);
@@ -518,7 +519,10 @@ export class TiramisPortalNotificationService {
   }
 
   private retryDelayMs(attemptCount: number): number {
-    const seconds = [5, 15, 30, 60, 300, 900, 1800, 3600];
+    const seconds = this.configService.get<number[]>(
+      'tiramisService.portalWebhookRetryDelaysSeconds',
+      TIRAMIS_DEFAULTS.portalWebhookRetryDelaysSeconds,
+    );
     return seconds[Math.min(attemptCount - 1, seconds.length - 1)] * 1000;
   }
 
