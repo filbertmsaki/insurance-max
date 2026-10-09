@@ -9,6 +9,7 @@ import {
   IsIP,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 
@@ -28,6 +29,24 @@ export class CreateTiramisApiKeyDto {
   @IsString()
   @MaxLength(120)
   serviceName!: string;
+
+  @IsOptional()
+  @IsUUID()
+  clientConfigurationId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  tenantCompanyCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  tenantSystemCode?: string | null;
+
+  @IsOptional()
+  @IsIn(['test', 'live'])
+  tenantEnvironment?: 'test' | 'live' | null;
 
   @ApiProperty({ example: ['203.0.113.10', '2001:db8::10'] })
   @IsArray()

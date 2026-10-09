@@ -705,7 +705,10 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          npm run test:backend
+          # --coverage enforces coverageThreshold in package.json; the
+          # threshold sits just under the measured baseline, so it fails
+          # on a real drop. Raise it as coverage grows.
+          npm run test:backend -- --coverage --coverageReporters=text-summary
 
 
       # -------------------------------------------------------

@@ -10,6 +10,8 @@ import { IntermediaryCustomerFormPage } from '@/modules/portal/pages/Intermediar
 import { IntermediaryQuotationFormPage } from '@/modules/portal/pages/IntermediaryQuotationFormPage';
 import { IntermediaryRelationshipsPage } from '@/modules/portal/pages/IntermediaryRelationshipsPage';
 import { PortalRequestsReviewPage } from '@/modules/portal/pages/PortalRequestsReviewPage';
+import { PortalInvitationsPage } from '@/modules/portal/pages/PortalInvitationsPage';
+import { SecurityPolicyPage } from '@/modules/tenant/security-policy/pages/SecurityPolicyPage';
 import { PortalRequestReviewDetailPage } from '@/modules/portal/pages/PortalRequestReviewDetailPage';
 import { PortalCoverCheckPage } from '@/modules/portal/pages/PortalCoverCheckPage';
 import { PortalDocumentsPage } from '@/modules/portal/pages/PortalDocumentsPage';
@@ -62,6 +64,8 @@ import { SalePointsPage } from '@/modules/tenant/sale-points/pages/SalePointsPag
 import { DevicesPage } from '@/modules/shared/devices/pages/DevicesPage';
 import { SessionsPage } from '@/modules/shared/sessions/pages/SessionsPage';
 import { ApiClientsPage } from '@/modules/platform/api-clients/pages/ApiClientsPage';
+import { SaasBillingPage } from '@/modules/platform/saas-billing/pages/SaasBillingPage';
+import { PlatformIntelligencePage } from '@/modules/platform/intelligence/pages/PlatformIntelligencePage';
 import { ProfilePage } from '@/modules/shared/profile/pages/ProfilePage';
 import { CategoriesPage } from '@/modules/tenant/product-engine/pages/categories/CategoriesPage';
 import { ProductsPage } from '@/modules/tenant/product-engine/pages/products/ProductsPage';
@@ -686,6 +690,30 @@ export default function App() {
               element={
                 <ProtectedRoute
                   anyPermissions={[
+                    'portal:account-read',
+                    'portal:account-invite',
+                  ]}
+                />
+              }
+            >
+              <Route
+                path="/portal-invitations"
+                element={<PortalInvitationsPage />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="security-policies:read" />
+              }
+            >
+              <Route path="/security-policy" element={<SecurityPolicyPage />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  anyPermissions={[
                     'reports:definition-read',
                     'reports:run',
                     'reports:job-read',
@@ -815,6 +843,11 @@ export default function App() {
               element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
             >
               <Route path="/reference-data" element={<ReferenceDataPage />} />
+              <Route path="/saas-billing" element={<SaasBillingPage />} />
+              <Route
+                path="/platform-intelligence"
+                element={<PlatformIntelligencePage />}
+              />
             </Route>
             <Route
               element={<ProtectedRoute anyRole={['SUPER_ADMIN', 'OWNER']} />}

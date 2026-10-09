@@ -356,7 +356,11 @@ export class PortalRequestsService {
         );
       }
 
-      await this.assertNoActivePaymentProof(manager, account.id, invoice.id);
+      await this.assertNoActivePaymentProof(
+        manager,
+        account.company_id,
+        invoice.id,
+      );
 
       const requestNo = await this.referenceService.next(
         account.company_id,
@@ -1230,7 +1234,7 @@ export class PortalRequestsService {
 
   private async assertNoActivePaymentProof(
     manager: EntityManager,
-    accountId: string,
+    companyId: string,
     invoiceId: string,
   ) {
     const rows = await manager.query(
@@ -1238,7 +1242,7 @@ export class PortalRequestsService {
       SELECT request.id
       FROM portal_service_requests request
       INNER JOIN portal_payment_proofs proof ON proof.request_id = request.id
-      WHERE request.portal_account_id = $1
+      WHERE request.company_id = $1
         AND request.invoice_id = $2
         AND request.deleted_at IS NULL
         AND request.status IN (
@@ -1248,7 +1252,7 @@ export class PortalRequestsService {
       LIMIT 1
       FOR UPDATE
       `,
-      [accountId, invoiceId],
+      [companyId, invoiceId],
     );
 
     if (rows[0]) {

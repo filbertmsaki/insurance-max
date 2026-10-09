@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
 import { AuditService } from '../../../shared/audit/audit.service';
-import { MailService } from '../../../shared/mail/mail.service';
+import { PortalInvitationDeliveryService } from './portal-invitation-delivery.service';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { CompanyUser } from '../../../platform/companies/entities/company-user.entity';
 import { CompanyUserRole } from '../../../platform/companies/entities/company-user-role.entity';
@@ -20,6 +20,7 @@ import { PortalInvitation } from '../entities/portal-invitation.entity';
 import {
   PortalAccountStatus,
   PortalActorType,
+  PortalInvitationDeliveryStatus,
   PortalInvitationStatus,
 } from '../enums/portal.enums';
 import { PortalAccountsService } from './portal-accounts.service';
@@ -96,8 +97,10 @@ describe('PortalAccountsService', () => {
         },
         { provide: AuditService, useValue: { log: jest.fn() } },
         {
-          provide: MailService,
-          useValue: { sendPortalInvitationEmail: jest.fn() },
+          provide: PortalInvitationDeliveryService,
+          useValue: {
+            sealToken: jest.fn((token: string) => `sealed:${token}`),
+          },
         },
         {
           provide: getRepositoryToken(PortalAccount),
@@ -295,6 +298,131 @@ describe('PortalAccountsService', () => {
 
       await expect(
         service.suspend('company-id', 'account-id', 'admin-id', 'Fraud review'),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('invitation administration', () => {
+    function withLockedInvitation(invitation: any) {
+      const repo = mockRepo({
+        createQueryBuilder: jest.fn(() => ({
+          setLock: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(invitation),
+        })),
+        save: jest.fn(async (value: any) => value),
+      });
+      dataSource.transaction.mockImplementation((cb: any) =>
+        cb(buildManager({ invitation: repo })),
+      );
+      return repo;
+    }
+
+    const pending = () => ({
+      id: 'inv-1',
+      company_id: 'company-id',
+      email: 'customer@example.com',
+      status: PortalInvitationStatus.PENDING,
+      token_hash: 'old-hash',
+      resend_count: 0,
+      delivery_status: PortalInvitationDeliveryStatus.SENT,
+      delivery_token_ciphertext: null,
+    });
+
+    it('resend issues a new token and queues the email again', async () => {
+      const invitation = pending();
+      withLockedInvitation(invitation);
+
+      const result = await service.resendInvitation(
+        'company-id',
+        'inv-1',
+        'admin-id',
+      );
+
+      expect(invitation.token_hash).not.toBe('old-hash');
+      expect(result).toMatchObject({
+        status: PortalInvitationStatus.PENDING,
+        delivery_status: PortalInvitationDeliveryStatus.QUEUED,
+        resend_count: 1,
+      });
+      expect(invitation.delivery_token_ciphertext).toMatch(/^sealed:/);
+    });
+
+    it('resend reactivates an expired invitation', async () => {
+      const invitation = {
+        ...pending(),
+        status: PortalInvitationStatus.EXPIRED,
+      };
+      withLockedInvitation(invitation);
+
+      await service.resendInvitation('company-id', 'inv-1', 'admin-id');
+
+      expect(invitation.status).toBe(PortalInvitationStatus.PENDING);
+    });
+
+    it.each([PortalInvitationStatus.ACCEPTED, PortalInvitationStatus.REVOKED])(
+      'refuses to resend a %s invitation',
+      async (status) => {
+        withLockedInvitation({ ...pending(), status });
+
+        await expect(
+          service.resendInvitation('company-id', 'inv-1', 'admin-id'),
+        ).rejects.toThrow(ConflictException);
+      },
+    );
+
+    it("returns 404 for another company's invitation", async () => {
+      withLockedInvitation(null);
+
+      await expect(
+        service.resendInvitation('company-id', 'inv-1', 'admin-id'),
+      ).rejects.toThrow('Portal invitation not found');
+    });
+
+    it('revoking an undelivered invitation cancels its delivery and token', async () => {
+      const invitation = {
+        ...pending(),
+        delivery_status: PortalInvitationDeliveryStatus.QUEUED,
+        delivery_token_ciphertext: 'sealed:abc',
+      };
+      withLockedInvitation(invitation);
+
+      const result = await service.revokeInvitation(
+        'company-id',
+        'inv-1',
+        'admin-id',
+        '  wrong email ',
+      );
+
+      expect(result).toMatchObject({
+        status: PortalInvitationStatus.REVOKED,
+        delivery_status: PortalInvitationDeliveryStatus.CANCELLED,
+        revocation_reason: 'wrong email',
+      });
+      expect(invitation.delivery_token_ciphertext).toBeNull();
+    });
+
+    it('revoking keeps SENT as the delivery record', async () => {
+      withLockedInvitation(pending());
+
+      const result = await service.revokeInvitation(
+        'company-id',
+        'inv-1',
+        'admin-id',
+      );
+
+      expect(result.delivery_status).toBe(PortalInvitationDeliveryStatus.SENT);
+    });
+
+    it('refuses to revoke an accepted invitation', async () => {
+      withLockedInvitation({
+        ...pending(),
+        status: PortalInvitationStatus.ACCEPTED,
+      });
+
+      await expect(
+        service.revokeInvitation('company-id', 'inv-1', 'admin-id'),
       ).rejects.toThrow(ConflictException);
     });
   });

@@ -68,7 +68,8 @@ describe('AnalyticsProjectionJob', () => {
       registry,
     );
 
-    manager.query.mockResolvedValueOnce([event]);
+    // TypeORM returns [rows, rowCount] for UPDATE ... RETURNING.
+    manager.query.mockResolvedValueOnce([[event], 1]);
     manager.query.mockResolvedValueOnce(undefined);
 
     await job.process();
@@ -117,8 +118,11 @@ describe('AnalyticsProjectionJob', () => {
     );
 
     manager.query.mockResolvedValueOnce([
-      { id: null, aggregate_type: AnalyticsAggregateType.POLICY },
-      { id: 'missing-type', aggregate_type: null },
+      [
+        { id: null, aggregate_type: AnalyticsAggregateType.POLICY },
+        { id: 'missing-type', aggregate_type: null },
+      ],
+      2,
     ]);
 
     await job.process();

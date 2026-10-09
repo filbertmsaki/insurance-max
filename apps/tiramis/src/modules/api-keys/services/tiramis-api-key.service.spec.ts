@@ -42,6 +42,10 @@ describe('TiramisApiKeyService', () => {
         apiKeyHash: expect.any(String),
         scopes: ['tiramis:read', 'tiramis:submit'],
         allowedIps: ['203.0.113.10'],
+        tenantCompanyCode: null,
+        tenantSystemCode: null,
+        tenantEnvironment: null,
+        clientConfigurationId: null,
       }),
     );
     expect(created.apiKeyHash).toBeUndefined();
@@ -75,6 +79,10 @@ describe('TiramisApiKeyService', () => {
       isActive: true,
       expiresAt: null,
       revokedAt: null,
+      tenantCompanyCode: '123456',
+      tenantSystemCode: 'PORTAL',
+      tenantEnvironment: 'test',
+      clientConfigurationId: 'configuration-id',
     });
 
     await expect(
@@ -96,6 +104,10 @@ describe('TiramisApiKeyService', () => {
       isActive: true,
       expiresAt: null,
       revokedAt: null,
+      tenantCompanyCode: '123456',
+      tenantSystemCode: 'PORTAL',
+      tenantEnvironment: 'test',
+      clientConfigurationId: 'configuration-id',
     });
 
     await expect(
@@ -105,6 +117,10 @@ describe('TiramisApiKeyService', () => {
       serviceName: 'portal',
       allowedIps: ['10.1.2.3'],
       scopes: ['tiramis:read', 'tiramis:submit'],
+      tenantCompanyCode: '123456',
+      tenantSystemCode: 'PORTAL',
+      tenantEnvironment: 'test',
+      clientConfigurationId: 'configuration-id',
     });
   });
 

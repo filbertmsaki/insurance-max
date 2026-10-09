@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 
 import { SaasCycleBillingService } from './saas-cycle-billing.service';
 import { CompanySubscription } from '../entities/company-subscription.entity';
@@ -11,6 +12,7 @@ import { SaasInvoiceAdjustment } from '../entities/saas-invoice-adjustment.entit
 import { SaasInvoiceItem } from '../entities/saas-invoice-item.entity';
 import { SaasPayment } from '../entities/saas-payment.entity';
 import { SubscriptionChange } from '../entities/subscription-change.entity';
+import { UsageMeteringService } from './usage-metering.service';
 import {
   SaasInvoiceAdjustmentType,
   SaasInvoiceStatus,
@@ -20,6 +22,7 @@ import {
 describe('SaasCycleBillingService', () => {
   let service: SaasCycleBillingService;
   let subscriptionRepository: {
+    findOne: jest.Mock;
     findOneBy: jest.Mock;
     find: jest.Mock;
     save: jest.Mock;
@@ -34,6 +37,7 @@ describe('SaasCycleBillingService', () => {
     find: jest.Mock;
     findOne: jest.Mock;
     findOneBy: jest.Mock;
+    findOneByOrFail: jest.Mock;
     save: jest.Mock;
     create: jest.Mock;
     count: jest.Mock;
@@ -42,14 +46,24 @@ describe('SaasCycleBillingService', () => {
     create: jest.Mock;
     save: jest.Mock;
     find: jest.Mock;
-    findOneBy: jest.Mock;
+    findOne: jest.Mock;
   };
   let invoiceItemRepository: { create: jest.Mock; save: jest.Mock };
-  let paymentRepository: { create: jest.Mock; save: jest.Mock };
+  let paymentRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+  };
   let subscriptionChangeRepository: { create: jest.Mock; save: jest.Mock };
+  let dataSource: {
+    transaction: jest.Mock;
+    manager: { getRepository: jest.Mock };
+  };
+  let usageMeteringService: { aggregateUsage: jest.Mock };
 
   beforeEach(async () => {
     subscriptionRepository = {
+      findOne: jest.fn(),
       findOneBy: jest.fn(),
       find: jest.fn(),
       save: jest.fn().mockImplementation(async (value) => value),
@@ -72,6 +86,7 @@ describe('SaasCycleBillingService', () => {
       find: jest.fn(),
       findOne: jest.fn(),
       findOneBy: jest.fn(),
+      findOneByOrFail: jest.fn(),
       save: jest.fn().mockImplementation(async (value) => value),
       create: jest.fn().mockImplementation((value) => value),
       count: jest.fn().mockResolvedValue(0),
@@ -84,7 +99,7 @@ describe('SaasCycleBillingService', () => {
         ...value,
       })),
       find: jest.fn().mockResolvedValue([]),
-      findOneBy: jest.fn(),
+      findOne: jest.fn(),
     };
 
     invoiceItemRepository = {
@@ -98,11 +113,36 @@ describe('SaasCycleBillingService', () => {
         id: 'payment-1',
         ...value,
       })),
+      findOne: jest.fn(),
     };
 
     subscriptionChangeRepository = {
       create: jest.fn().mockImplementation((value) => value),
       save: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const repositoryMap = new Map<unknown, unknown>([
+      [CompanySubscription, subscriptionRepository],
+      [PlatformUsageSnapshot, snapshotRepository],
+      [SaasBillingCycle, cycleRepository],
+      [SaasInvoice, invoiceRepository],
+      [SaasInvoiceAdjustment, invoiceAdjustmentRepository],
+      [SaasInvoiceItem, invoiceItemRepository],
+      [SaasPayment, paymentRepository],
+      [SubscriptionChange, subscriptionChangeRepository],
+    ]);
+    dataSource = {
+      transaction: jest.fn((callback) =>
+        callback({
+          getRepository: (entity: unknown) => repositoryMap.get(entity),
+        }),
+      ),
+      manager: {
+        getRepository: jest.fn((entity: unknown) => repositoryMap.get(entity)),
+      },
+    };
+    usageMeteringService = {
+      aggregateUsage: jest.fn().mockResolvedValue({ snapshots: [] }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -155,6 +195,14 @@ describe('SaasCycleBillingService', () => {
                 return config[key] ?? fallback;
               }),
           },
+        },
+        {
+          provide: DataSource,
+          useValue: dataSource,
+        },
+        {
+          provide: UsageMeteringService,
+          useValue: usageMeteringService,
         },
       ],
     }).compile();
@@ -233,17 +281,18 @@ describe('SaasCycleBillingService', () => {
       grace_period_ends_at: null,
     } as CompanySubscription;
 
-    invoiceRepository.find.mockResolvedValue([
-      {
-        id: 'invoice-1',
-        subscription_id: 'subscription-1',
-        company_id: 'company-1',
-        due_at: dueAt,
-        balance_amount: '150.00',
-        status: SaasInvoiceStatus.ISSUED,
-      } as SaasInvoice,
-    ]);
-    subscriptionRepository.findOneBy.mockResolvedValue(subscription);
+    const invoice = {
+      id: 'invoice-1',
+      subscription_id: 'subscription-1',
+      company_id: 'company-1',
+      due_at: dueAt,
+      balance_amount: '150.00',
+      status: SaasInvoiceStatus.ISSUED,
+    } as SaasInvoice;
+
+    invoiceRepository.find.mockResolvedValue([invoice]);
+    invoiceRepository.findOne.mockResolvedValue(invoice);
+    subscriptionRepository.findOne.mockResolvedValue(subscription);
 
     const result = await service.processDunning();
 
@@ -257,14 +306,14 @@ describe('SaasCycleBillingService', () => {
   });
 
   it('applies approved credit adjustments through a tracked adjustment record', async () => {
-    invoiceAdjustmentRepository.findOneBy.mockResolvedValue({
+    invoiceAdjustmentRepository.findOne.mockResolvedValue({
       id: 'adjustment-1',
       invoice_id: 'invoice-1',
       amount: '25.0000',
       adjustment_type: SaasInvoiceAdjustmentType.CREDIT,
       status: 'DRAFT',
     });
-    invoiceRepository.findOneBy.mockResolvedValue({
+    invoiceRepository.findOne.mockResolvedValue({
       id: 'invoice-1',
       subscription_id: 'subscription-1',
       company_id: 'company-1',
@@ -274,7 +323,7 @@ describe('SaasCycleBillingService', () => {
       status: SaasInvoiceStatus.PARTIALLY_PAID,
       metadata: null,
     });
-    subscriptionRepository.findOneBy.mockResolvedValue({
+    subscriptionRepository.findOne.mockResolvedValue({
       id: 'subscription-1',
       company_id: 'company-1',
       plan_version_id: 'plan-version-1',

@@ -33,13 +33,12 @@ export class CoverNotesController {
   @ApiQuery({ name: 'quotation_id', required: false })
   findAll(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('policy_id') policyId?: string,
-    @Query('quotation_id') quotationId?: string,
+    @Query('policy_id', new ParseUUIDPipe({ optional: true }))
+    policyId?: string,
+    @Query('quotation_id', new ParseUUIDPipe({ optional: true }))
+    quotationId?: string,
   ) {
-    return this.coverNotesService.findAll(user.companyId!, {
-      policyId,
-      quotationId,
-    });
+    return this.coverNotesService.findAll(user, { policyId, quotationId });
   }
 
   @Get(':id')
@@ -49,23 +48,19 @@ export class CoverNotesController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.coverNotesService.findOne(user.companyId!, id);
+    return this.coverNotesService.findOne(user, id);
   }
 
   @Post('issue/quotation/:quotationId')
   @Permissions('cover-notes:issue')
   @ApiOperation({
     summary:
-      'Materialize cover notes from an accepted TIRA quotation submission',
+      'Re-sync cover notes for a quotation TIRA has already accepted (idempotent)',
   })
   issueForQuotation(
     @CurrentUser() user: AuthenticatedUser,
     @Param('quotationId', ParseUUIDPipe) quotationId: string,
   ) {
-    return this.coverNotesService.issueForQuotation(
-      user.companyId!,
-      quotationId,
-      user,
-    );
+    return this.coverNotesService.issueForQuotation(user, quotationId);
   }
 }

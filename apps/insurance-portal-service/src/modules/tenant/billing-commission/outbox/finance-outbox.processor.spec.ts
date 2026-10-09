@@ -42,7 +42,8 @@ describe('FinanceOutboxProcessor', () => {
       quotationPaymentEventService as any,
     );
 
-    manager.query.mockResolvedValueOnce([{ id: null }, {}]);
+    // TypeORM returns [rows, rowCount] for UPDATE ... RETURNING.
+    manager.query.mockResolvedValueOnce([[{ id: null }, {}], 2]);
 
     await processor.processPending();
 
@@ -88,7 +89,7 @@ describe('FinanceOutboxProcessor', () => {
       quotationPaymentEventService as any,
     );
 
-    manager.query.mockResolvedValueOnce([{ id: 'event-1' }]);
+    manager.query.mockResolvedValueOnce([[{ id: 'event-1' }], 1]);
 
     await processor.processPending();
 
@@ -144,7 +145,7 @@ describe('FinanceOutboxProcessor', () => {
       quotationPaymentEventService as any,
     );
 
-    manager.query.mockResolvedValueOnce([{ id: 'event-2' }]);
+    manager.query.mockResolvedValueOnce([[{ id: 'event-2' }], 1]);
 
     await processor.processPending();
 

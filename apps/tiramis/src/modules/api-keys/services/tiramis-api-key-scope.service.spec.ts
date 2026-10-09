@@ -41,6 +41,10 @@ describe('TiramisApiKeyService capability scopes', () => {
         isActive: true,
         revokedAt: null,
         expiresAt: null,
+        tenantCompanyCode: null,
+        tenantSystemCode: null,
+        tenantEnvironment: null,
+        clientConfigurationId: null,
       },
     };
   }
@@ -80,6 +84,10 @@ describe('TiramisApiKeyService capability scopes', () => {
       serviceName: 'portal',
       allowedIps: ['10.1.2.3'],
       scopes: ['tiramis:submit', 'tiramis:read'],
+      tenantCompanyCode: null,
+      tenantSystemCode: null,
+      tenantEnvironment: null,
+      clientConfigurationId: null,
     });
     expect(apiKeyRepository.update).toHaveBeenCalledWith('key-id', {
       lastUsedAt: expect.any(Date),

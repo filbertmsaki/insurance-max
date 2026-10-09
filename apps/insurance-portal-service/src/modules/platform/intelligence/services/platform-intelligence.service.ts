@@ -1,69 +1,62 @@
-import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { DataSource, EntityManager } from 'typeorm';
+
+export const DEFAULT_LIST_LIMIT = 100;
+export const MAX_LIST_LIMIT = 500;
+
+export interface ListPage {
+  limit?: number;
+  offset?: number;
+}
 
 @Injectable()
 export class PlatformIntelligenceService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async listCompanyHealth() {
-    try {
-      return await this.dataSource.query(
-        `
-        SELECT
-          company.id,
-          company.name,
-          company.tira_company_code AS "companyCode",
-          COUNT(DISTINCT scorecard.id) AS "publishedScorecards",
-          COUNT(DISTINCT finding.id) AS "openAnomalies",
-          COUNT(DISTINCT forecastRun.id) AS "forecastRuns"
-        FROM companies company
-        LEFT JOIN analytics_scorecard_snapshots scorecard
-          ON scorecard.company_id = company.id
-          AND scorecard.status = 'PUBLISHED'
-        LEFT JOIN analytics_anomaly_findings finding
-          ON finding.company_id = company.id
-          AND finding.status = 'OPEN'
-        LEFT JOIN analytics_forecast_runs forecastRun
-          ON forecastRun.company_id = company.id
-        GROUP BY company.id
-        ORDER BY company.name ASC
-        `,
-      );
-    } catch (error) {
-      if (!this.isMissingRelationError(error)) {
-        throw error;
-      }
+  async listCompanyHealth(page: ListPage = {}) {
+    const { limit, offset } = this.page(page);
 
-      return this.dataSource.query(
-        `
-        SELECT
-          company.id,
-          company.name,
-          company.tira_company_code AS "companyCode",
-          0::bigint AS "publishedScorecards",
-          0::bigint AS "openAnomalies",
-          0::bigint AS "forecastRuns"
-        FROM companies company
-        ORDER BY company.name ASC
-        `,
-      );
-    }
+    // Each count is a separate subquery: joining three child tables and
+    // counting DISTINCT would multiply rows per company first.
+    return this.dataSource.query(
+      `
+      SELECT
+        company.id,
+        company.name,
+        company.tira_company_code AS "companyCode",
+        (
+          SELECT COUNT(*) FROM analytics_scorecard_snapshots scorecard
+          WHERE scorecard.company_id = company.id
+            AND scorecard.status = 'PUBLISHED'
+        ) AS "publishedScorecards",
+        (
+          SELECT COUNT(*) FROM analytics_anomaly_findings finding
+          WHERE finding.company_id = company.id
+            AND finding.status = 'OPEN'
+        ) AS "openAnomalies",
+        (
+          SELECT COUNT(*) FROM analytics_forecast_runs forecast_run
+          WHERE forecast_run.company_id = company.id
+        ) AS "forecastRuns"
+      FROM companies company
+      ORDER BY company.name ASC
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset],
+    );
   }
 
-  async listBenchmarkSnapshots(query: {
-    metricCode?: string;
-    cohortKey?: string;
-    from?: string;
-    to?: string;
-  }) {
-    const params: Array<string | null> = [
-      query.metricCode ?? null,
-      query.cohortKey ?? null,
-      query.from ?? null,
-      query.to ?? null,
-    ];
+  async listBenchmarkSnapshots(
+    query: {
+      metricCode?: string;
+      cohortKey?: string;
+      from?: string;
+      to?: string;
+    } & ListPage,
+  ) {
+    const { limit, offset } = this.page(query);
 
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT *
       FROM platform_benchmark_snapshots
@@ -71,27 +64,31 @@ export class PlatformIntelligenceService {
         AND ($2::varchar IS NULL OR cohort_key = $2)
         AND ($3::date IS NULL OR period_start >= $3)
         AND ($4::date IS NULL OR period_end <= $4)
-      ORDER BY period_start DESC
+      ORDER BY period_start DESC, metric_code ASC
+      LIMIT $5 OFFSET $6
       `,
-      params,
-      [],
+      [
+        query.metricCode ?? null,
+        query.cohortKey ?? null,
+        query.from ?? null,
+        query.to ?? null,
+        limit,
+        offset,
+      ],
     );
   }
 
-  async listAnomalyFindings(query: {
-    companyId?: string;
-    branchId?: string;
-    from?: string;
-    to?: string;
-  }) {
-    const params: Array<string | null> = [
-      query.companyId ?? null,
-      query.branchId ?? null,
-      query.from ?? null,
-      query.to ?? null,
-    ];
+  async listAnomalyFindings(
+    query: {
+      companyId?: string;
+      branchId?: string;
+      from?: string;
+      to?: string;
+    } & ListPage,
+  ) {
+    const { limit, offset } = this.page(query);
 
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT
         finding.*,
@@ -103,24 +100,29 @@ export class PlatformIntelligenceService {
         AND ($3::date IS NULL OR finding.metric_date >= $3)
         AND ($4::date IS NULL OR finding.metric_date <= $4)
       ORDER BY finding.metric_date DESC, finding.severity DESC
+      LIMIT $5 OFFSET $6
       `,
-      params,
-      [],
+      [
+        query.companyId ?? null,
+        query.branchId ?? null,
+        query.from ?? null,
+        query.to ?? null,
+        limit,
+        offset,
+      ],
     );
   }
 
-  async listForecastRuns(query: {
-    companyId?: string;
-    branchId?: string;
-    status?: string;
-  }) {
-    const params: Array<string | null> = [
-      query.companyId ?? null,
-      query.branchId ?? null,
-      query.status ?? null,
-    ];
+  async listForecastRuns(
+    query: {
+      companyId?: string;
+      branchId?: string;
+      status?: string;
+    } & ListPage,
+  ) {
+    const { limit, offset } = this.page(query);
 
-    return this.queryOptional(
+    return this.dataSource.query(
       `
       SELECT
         run.*,
@@ -132,17 +134,42 @@ export class PlatformIntelligenceService {
         AND ($2::uuid IS NULL OR run.branch_id = $2)
         AND ($3::varchar IS NULL OR run.status = $3)
       ORDER BY run.created_at DESC
+      LIMIT $4 OFFSET $5
       `,
-      params,
-      [],
+      [
+        query.companyId ?? null,
+        query.branchId ?? null,
+        query.status ?? null,
+        limit,
+        offset,
+      ],
     );
   }
 
-  async rebuildBenchmarkSnapshots() {
+  /**
+   * Recomputes every benchmark in one transaction, so a failure part-way
+   * leaves the previous snapshots in place instead of a half-deleted set.
+   */
+  rebuildBenchmarkSnapshots() {
+    return this.dataSource.transaction((manager) =>
+      this.rebuildWithin(manager),
+    );
+  }
+
+  private async rebuildWithin(manager: EntityManager) {
     const minimumCohortSize = 3;
     const rebuiltBy = 'platform-intelligence.rebuildBenchmarkSnapshots';
 
-    await this.dataSource.query(
+    // One rebuild at a time across app instances (nightly job + manual).
+    const [lock] = await manager.query(
+      `SELECT pg_try_advisory_xact_lock(hashtext($1)) AS acquired`,
+      [rebuiltBy],
+    );
+    if (!lock?.acquired) {
+      throw new ConflictException('A benchmark rebuild is already running');
+    }
+
+    await manager.query(
       `
       DELETE FROM platform_benchmark_snapshots
       WHERE metadata ->> 'rebuiltBy' = $1
@@ -150,7 +177,7 @@ export class PlatformIntelligenceService {
       [rebuiltBy],
     );
 
-    const usageRows = await this.dataSource.query(
+    const usageRows = await manager.query(
       `
       WITH source_values AS (
         SELECT
@@ -223,21 +250,21 @@ export class PlatformIntelligenceService {
           period_start,
           period_end,
           company_count,
-          CASE WHEN company_count >= $2 THEN mean_value END,
-          CASE WHEN company_count >= $2 THEN minimum_value END,
-          CASE WHEN company_count >= $2 THEN percentile_25 END,
-          CASE WHEN company_count >= $2 THEN median_value END,
-          CASE WHEN company_count >= $2 THEN percentile_75 END,
-          CASE WHEN company_count >= $2 THEN maximum_value END,
+          CASE WHEN company_count >= $2::integer THEN mean_value END,
+          CASE WHEN company_count >= $2::integer THEN minimum_value END,
+          CASE WHEN company_count >= $2::integer THEN percentile_25 END,
+          CASE WHEN company_count >= $2::integer THEN median_value END,
+          CASE WHEN company_count >= $2::integer THEN percentile_75 END,
+          CASE WHEN company_count >= $2::integer THEN maximum_value END,
           CASE
-            WHEN company_count >= $2 THEN 'PUBLISHED'
+            WHEN company_count >= $2::integer THEN 'PUBLISHED'
             ELSE 'INSUFFICIENT_COHORT'
           END,
           $2,
-          CASE WHEN company_count >= $2 THEN NOW() END,
+          CASE WHEN company_count >= $2::integer THEN NOW() END,
           jsonb_build_object(
             'rebuiltBy',
-            $1,
+            $1::text,
             'source',
             'platform_usage_snapshots'
           )
@@ -265,7 +292,7 @@ export class PlatformIntelligenceService {
       [rebuiltBy, minimumCohortSize],
     );
 
-    const billingRows = await this.dataSource.query(
+    const billingRows = await manager.query(
       `
       WITH source_values AS (
         SELECT
@@ -292,7 +319,7 @@ export class PlatformIntelligenceService {
             ('saas.billing.tax_amount', cycle.tax_amount),
             ('saas.billing.total_amount', cycle.total_amount)
         ) AS metric(metric_code, metric_value)
-        WHERE cycle.status <> 'VOID'
+        WHERE cycle.status <> 'CANCELLED'
       ),
       aggregated AS (
         SELECT
@@ -340,21 +367,21 @@ export class PlatformIntelligenceService {
           period_start,
           period_end,
           company_count,
-          CASE WHEN company_count >= $2 THEN mean_value END,
-          CASE WHEN company_count >= $2 THEN minimum_value END,
-          CASE WHEN company_count >= $2 THEN percentile_25 END,
-          CASE WHEN company_count >= $2 THEN median_value END,
-          CASE WHEN company_count >= $2 THEN percentile_75 END,
-          CASE WHEN company_count >= $2 THEN maximum_value END,
+          CASE WHEN company_count >= $2::integer THEN mean_value END,
+          CASE WHEN company_count >= $2::integer THEN minimum_value END,
+          CASE WHEN company_count >= $2::integer THEN percentile_25 END,
+          CASE WHEN company_count >= $2::integer THEN median_value END,
+          CASE WHEN company_count >= $2::integer THEN percentile_75 END,
+          CASE WHEN company_count >= $2::integer THEN maximum_value END,
           CASE
-            WHEN company_count >= $2 THEN 'PUBLISHED'
+            WHEN company_count >= $2::integer THEN 'PUBLISHED'
             ELSE 'INSUFFICIENT_COHORT'
           END,
           $2,
-          CASE WHEN company_count >= $2 THEN NOW() END,
+          CASE WHEN company_count >= $2::integer THEN NOW() END,
           jsonb_build_object(
             'rebuiltBy',
-            $1,
+            $1::text,
             'source',
             'saas_billing_cycles'
           )
@@ -390,27 +417,16 @@ export class PlatformIntelligenceService {
     };
   }
 
-  private async queryOptional<T>(
-    query: string,
-    params: unknown[] = [],
-    fallback: T,
-  ): Promise<T> {
-    try {
-      return await this.dataSource.query(query, params);
-    } catch (error) {
-      if (this.isMissingRelationError(error)) {
-        return fallback;
-      }
+  private page(page: ListPage) {
+    const limit = Math.trunc(Number(page.limit ?? DEFAULT_LIST_LIMIT));
+    const offset = Math.trunc(Number(page.offset ?? 0));
 
-      throw error;
-    }
-  }
-
-  private isMissingRelationError(error: unknown): boolean {
-    if (!error || typeof error !== 'object') {
-      return false;
-    }
-
-    return 'code' in error && error.code === '42P01';
+    return {
+      limit:
+        Number.isFinite(limit) && limit > 0
+          ? Math.min(limit, MAX_LIST_LIMIT)
+          : DEFAULT_LIST_LIMIT,
+      offset: Number.isFinite(offset) && offset > 0 ? offset : 0,
+    };
   }
 }

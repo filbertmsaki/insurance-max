@@ -1,2 +1,2 @@
-export { DataTable } from '@/components/shared/DataTable';
-export type { Column } from '@/components/shared/DataTable';
+export { DataTable } from './DataTable';
+export type { Column, DataTableFilter, DataTableProps } from './types';

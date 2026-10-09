@@ -68,6 +68,7 @@ import {
 import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/PolicyNonMotorDetailForm';
 import type { NonMotorPolicyDetailRecord } from '@/modules/tenant/non-motor/types';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
 import type {
   PolicyCancellationRecord,
   PolicyEndorsementRecord,
@@ -883,6 +884,7 @@ export function PolicyDetailPage() {
               ]}
             />
           </SectionCard>
+          <CoverNotesSection policyId={policy.id} />
         </TabsContent>
 
         <TabsContent value="contract" className="space-y-4">

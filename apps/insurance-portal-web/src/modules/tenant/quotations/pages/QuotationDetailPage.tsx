@@ -21,6 +21,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
 import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import {
@@ -659,6 +660,10 @@ export function QuotationDetailPage() {
 
         <TabsContent value="tiramis" className="space-y-4">
           <TiramisSubmissionPreview tiramis={preview.tiramis} />
+          <CoverNotesSection
+            quotationId={preview.overview.quotation_id}
+            tiraAccepted={preview.overview.tira_status === 'SUCCESS'}
+          />
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">

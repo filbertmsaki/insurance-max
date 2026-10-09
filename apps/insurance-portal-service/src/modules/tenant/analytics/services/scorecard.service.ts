@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { returningRows } from '../../../../database/returning-rows.util';
 import { KpiService } from './kpi.service';
 import { AnalyticsService } from './analytics.service';
 
@@ -151,7 +152,7 @@ export class ScorecardService {
   }
 
   async publishScorecard(user: AuthenticatedUser, snapshotId: string) {
-    const result = await this.dataSource.query(
+    const raw: unknown = await this.dataSource.query(
       `
       UPDATE analytics_scorecard_snapshots
       SET status = 'PUBLISHED',
@@ -164,6 +165,7 @@ export class ScorecardService {
       `,
       [snapshotId, user.id, user.companyId],
     );
+    const result = returningRows<Record<string, unknown>>(raw);
 
     if (!result.length) {
       throw new NotFoundException('Scorecard snapshot not found');

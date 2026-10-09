@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { DataSource } from 'typeorm';
 
+import { returningRows } from '../../../../database/returning-rows.util';
 import { AnalyticsProjectionEvent } from '../entities/analytics-projection-event.entity';
 
 import { AnalyticsProjectionStatus } from '../enums/analytics.enums';
@@ -44,18 +45,27 @@ export class AnalyticsProjectionJob {
   private async claimBatch(
     batchSize: number,
   ): Promise<AnalyticsProjectionEvent[]> {
-    const rows = await this.dataSource.transaction(async (manager) => {
+    const staleLockMinutes = this.configService.get<number>(
+      'ANALYTICS_PROJECTION_STALE_LOCK_MINUTES',
+      10,
+    );
+    const result = await this.dataSource.transaction(async (manager) => {
+      // PROCESSING rows whose lock is stale belong to a worker that died
+      // mid-projection; reclaim them instead of stranding them forever.
       return manager.query(
         `
             WITH picked AS (
               SELECT id
               FROM analytics_projection_events
               WHERE
-                status IN (
-                  'PENDING',
-                  'FAILED'
+                (
+                  status IN ('PENDING', 'FAILED')
+                  AND next_attempt_at <= now()
                 )
-                AND next_attempt_at <= now()
+                OR (
+                  status = 'PROCESSING'
+                  AND locked_at < now() - make_interval(mins => $2)
+                )
               ORDER BY sequence_no ASC
               FOR UPDATE SKIP LOCKED
               LIMIT $1
@@ -70,11 +80,13 @@ export class AnalyticsProjectionJob {
             WHERE event.id = picked.id
             RETURNING event.*
             `,
-        [batchSize],
+        [batchSize, staleLockMinutes],
       );
     });
 
-    return rows.filter(
+    return returningRows<Partial<AnalyticsProjectionEvent> | null>(
+      result,
+    ).filter(
       (
         row: Partial<AnalyticsProjectionEvent> | null | undefined,
       ): row is AnalyticsProjectionEvent => !!row?.id && !!row.aggregate_type,

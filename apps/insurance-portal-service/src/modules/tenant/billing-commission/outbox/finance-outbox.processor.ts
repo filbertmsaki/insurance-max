@@ -4,6 +4,7 @@ import { Cron } from '@nestjs/schedule';
 import { QuotationFinanceEvent } from '@insurance-max/contracts';
 import { DataSource } from 'typeorm';
 
+import { returningRows } from '../../../../database/returning-rows.util';
 import { FinanceOutboxEvent } from '../entities/finance-outbox-event.entity';
 import { QuotationPaymentEventService } from '../services/quotation-payment-event.service';
 
@@ -39,7 +40,12 @@ export class FinanceOutboxProcessor {
       const events = await this.claimBatch(batchSize);
 
       for (const event of events) {
-        await this.publishOne(event.id);
+        try {
+          await this.publishOne(event.id);
+        } catch {
+          // Already recorded as FAILED/DEAD_LETTER; keep draining the batch
+          // so one bad event cannot strand the rest in PROCESSING.
+        }
       }
     } finally {
       this.isRunning = false;
@@ -47,29 +53,36 @@ export class FinanceOutboxProcessor {
   }
 
   private async claimBatch(batchSize: number): Promise<Array<{ id: string }>> {
-    const rows = await this.dataSource.transaction(async (manager) => {
+    const leaseMinutes = this.configService.get<number>(
+      'FINANCE_OUTBOX_LEASE_MINUTES',
+      10,
+    );
+    const result = await this.dataSource.transaction(async (manager) => {
+      // next_attempt_at doubles as a lease while PROCESSING: a worker that
+      // dies mid-publish leaves the row reclaimable once the lease passes.
       return manager.query(
         `
           WITH picked AS (
             SELECT id
             FROM finance_outbox_events
-            WHERE status IN ('PENDING', 'FAILED')
+            WHERE status IN ('PENDING', 'FAILED', 'PROCESSING')
               AND next_attempt_at <= now()
             ORDER BY created_at ASC
             FOR UPDATE SKIP LOCKED
             LIMIT $1
           )
           UPDATE finance_outbox_events event
-          SET status = 'PROCESSING'
+          SET status = 'PROCESSING',
+              next_attempt_at = now() + make_interval(mins => $2)
           FROM picked
           WHERE event.id = picked.id
           RETURNING event.id
         `,
-        [batchSize],
+        [batchSize, leaseMinutes],
       );
     });
 
-    return rows.filter(
+    return returningRows<{ id?: string | null } | null>(result).filter(
       (row: { id?: string | null } | null | undefined): row is { id: string } =>
         typeof row?.id === 'string' && row.id.length > 0,
     );

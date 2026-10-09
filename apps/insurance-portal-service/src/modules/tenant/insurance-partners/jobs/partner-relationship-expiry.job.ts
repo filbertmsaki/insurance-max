@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { DateTime } from 'luxon';
 import { DataSource } from 'typeorm';
+
+import { returningRows } from '../../../../database/returning-rows.util';
 
 @Injectable()
 export class PartnerRelationshipExpiryJob {
@@ -8,21 +11,20 @@ export class PartnerRelationshipExpiryJob {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, {
+    timeZone: 'Africa/Dar_es_Salaam',
+  })
   async expireEndedRelationships() {
+    const today = DateTime.now().setZone('Africa/Dar_es_Salaam').toISODate();
     const expired = await this.dataSource.transaction(async (manager) => {
-      const rows: Array<{
-        id: string;
-        insurer_company_id: string;
-        intermediary_company_id: string;
-        previous_status: string;
-      }> = await manager.query(`
+      const result: unknown = await manager.query(
+        `
         WITH expiring AS (
           SELECT id, status AS previous_status
           FROM insurance_company_partners
           WHERE status IN ('ACTIVE', 'SUSPENDED')
             AND end_date IS NOT NULL
-            AND end_date < CURRENT_DATE
+            AND end_date < $1::date
             AND deleted_at IS NULL
           FOR UPDATE
         )
@@ -32,7 +34,15 @@ export class PartnerRelationshipExpiryJob {
         WHERE relationship.id = expiring.id
         RETURNING relationship.id, relationship.insurer_company_id,
           relationship.intermediary_company_id, expiring.previous_status
-      `);
+      `,
+        [today],
+      );
+      const rows = returningRows<{
+        id: string;
+        insurer_company_id: string;
+        intermediary_company_id: string;
+        previous_status: string;
+      }>(result);
 
       if (rows.length) {
         await manager.query(

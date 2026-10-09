@@ -40,6 +40,7 @@ import {
   MessagesSquare,
   Percent,
   ClipboardCheck,
+  MailCheck,
   MapPinned,
   ScrollText,
 } from 'lucide-react';
@@ -191,6 +192,14 @@ export const NAV_NODES: NavNode[] = [
       { kind: 'link', label: 'Sessions', to: '/sessions', icon: Monitor },
       {
         kind: 'link',
+        label: 'Security Policy',
+        to: '/security-policy',
+        icon: ShieldCheck,
+        permission: 'security-policies:read',
+        allowedScopes: ['company'],
+      },
+      {
+        kind: 'link',
         label: 'API Clients',
         to: '/api-clients',
         icon: Key,
@@ -201,6 +210,13 @@ export const NAV_NODES: NavNode[] = [
         label: 'Reference Data',
         to: '/reference-data',
         icon: Globe2,
+        anyRole: ['SUPER_ADMIN', 'OWNER'],
+      },
+      {
+        kind: 'link',
+        label: 'SaaS Billing',
+        to: '/saas-billing',
+        icon: Receipt,
         anyRole: ['SUPER_ADMIN', 'OWNER'],
       },
       {
@@ -530,6 +546,13 @@ export const NAV_NODES: NavNode[] = [
           'portal:request-complete',
         ],
       },
+      {
+        kind: 'link',
+        label: 'Portal Invitations',
+        to: '/portal-invitations',
+        icon: MailCheck,
+        anyPermission: ['portal:account-read', 'portal:account-invite'],
+      },
     ],
   },
   {
@@ -543,6 +566,13 @@ export const NAV_NODES: NavNode[] = [
         to: '/analytics/metrics',
         icon: BarChart3,
         anyPermission: ['analytics:metrics:read', 'analytics:read'],
+      },
+      {
+        kind: 'link',
+        label: 'Platform Intelligence',
+        to: '/platform-intelligence',
+        icon: Radar,
+        anyRole: ['SUPER_ADMIN', 'OWNER'],
       },
       {
         kind: 'link',

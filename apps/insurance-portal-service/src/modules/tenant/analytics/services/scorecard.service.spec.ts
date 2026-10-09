@@ -108,7 +108,8 @@ describe('ScorecardService', () => {
   });
 
   it('throws when snapshot to publish is not found', async () => {
-    dataSource.query.mockResolvedValue([]);
+    // TypeORM returns [rows, rowCount] for UPDATE ... RETURNING.
+    dataSource.query.mockResolvedValue([[], 0]);
 
     await expect(
       service.publishScorecard(

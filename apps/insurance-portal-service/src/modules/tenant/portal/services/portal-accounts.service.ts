@@ -10,13 +10,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'crypto';
 
-import { buildUrl } from '@insurance-max/shared-config';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
 
 import { AuditService } from '../../../shared/audit/audit.service';
-import { MailService } from '../../../shared/mail/mail.service';
 
 import { CompanyUserRole } from '../../../platform/companies/entities/company-user-role.entity';
 import { CompanyUser } from '../../../platform/companies/entities/company-user.entity';
@@ -41,8 +39,10 @@ import { PortalInvitation } from '../entities/portal-invitation.entity';
 import {
   PortalAccountStatus,
   PortalActorType,
+  PortalInvitationDeliveryStatus,
   PortalInvitationStatus,
 } from '../enums/portal.enums';
+import { PortalInvitationDeliveryService } from './portal-invitation-delivery.service';
 
 @Injectable()
 export class PortalAccountsService {
@@ -50,7 +50,7 @@ export class PortalAccountsService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
-    private readonly mailService: MailService,
+    private readonly deliveryService: PortalInvitationDeliveryService,
     @InjectRepository(PortalAccount)
     private readonly accountRepository: Repository<PortalAccount>,
     @InjectRepository(PortalInvitation)
@@ -978,8 +978,9 @@ export class PortalAccountsService {
   }
 
   /**
-   * Create a new invitation. Existing pending invitations for the same
-   * company and email are revoked before the new token is created.
+   * Create a new invitation and queue its email in the same transaction.
+   * Existing pending invitations for the same company and email are revoked
+   * first. Delivery (with retries) is done by PortalInvitationDeliveryService.
    */
   private async createInvitation(params: {
     company: Company;
@@ -992,60 +993,44 @@ export class PortalAccountsService {
     lastName: string | null;
     invitedBy: string;
   }) {
-    await this.invitationRepository.update(
-      {
-        company_id: params.company.id,
-        email: params.email,
-        status: PortalInvitationStatus.PENDING,
-      },
-      {
-        status: PortalInvitationStatus.REVOKED,
-        revoked_by: params.invitedBy,
-        revoked_at: new Date(),
-        revocation_reason: 'Superseded by a newer invitation',
-      },
-    );
-
     const rawToken = randomBytes(32).toString('hex');
 
-    const expiryHours = this.configService.get<number>(
-      'PORTAL_INVITATION_EXPIRY_HOURS',
-      48,
-    );
+    const invitation = await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(PortalInvitation);
 
-    const invitation = await this.invitationRepository.save(
-      this.invitationRepository.create({
-        company_id: params.company.id,
-        actor_type: params.actorType,
-        customer_id: params.customerId,
-        intermediary_company_id: params.intermediaryCompanyId,
-        email: params.email,
-        phone: params.phone,
-        first_name: params.firstName,
-        last_name: params.lastName,
-        token_hash: this.hashToken(rawToken),
-        status: PortalInvitationStatus.PENDING,
-        expires_at: new Date(Date.now() + expiryHours * 60 * 60 * 1000),
-        invited_by: params.invitedBy,
-      }),
-    );
+      await repository.update(
+        {
+          company_id: params.company.id,
+          email: params.email,
+          status: PortalInvitationStatus.PENDING,
+        },
+        {
+          status: PortalInvitationStatus.REVOKED,
+          revoked_by: params.invitedBy,
+          revoked_at: new Date(),
+          revocation_reason: 'Superseded by a newer invitation',
+          delivery_token_ciphertext: null,
+        },
+      );
 
-    const invitationUrl = buildUrl(
-      this.configService.getOrThrow<string>('app.frontendUrl'),
-      'portal',
-      'accept-invitation',
-      { token: rawToken },
-    );
-
-    // For the first implementation this is sent directly. A later phase
-    // should queue the communication and persist delivery status/retries.
-    await this.mailService.sendPortalInvitationEmail(
-      invitation.email,
-      invitation.first_name ?? 'User',
-      params.company.name,
-      invitationUrl,
-      invitation.expires_at,
-    );
+      return repository.save(
+        repository.create({
+          company_id: params.company.id,
+          actor_type: params.actorType,
+          customer_id: params.customerId,
+          intermediary_company_id: params.intermediaryCompanyId,
+          email: params.email,
+          phone: params.phone,
+          first_name: params.firstName,
+          last_name: params.lastName,
+          token_hash: this.hashToken(rawToken),
+          status: PortalInvitationStatus.PENDING,
+          expires_at: this.invitationExpiry(),
+          invited_by: params.invitedBy,
+          ...this.queuedDelivery(rawToken),
+        }),
+      );
+    });
 
     await this.auditService.log({
       userId: params.invitedBy,
@@ -1066,11 +1051,197 @@ export class PortalAccountsService {
       email: invitation.email,
       expires_at: invitation.expires_at,
       status: invitation.status,
+      delivery_status: invitation.delivery_status,
       // Expose the invitation token only outside production, for local and
       // automated testing.
       ...(this.configService.get<string>('app.env') !== 'production'
         ? { invitation_token: rawToken }
         : {}),
+    };
+  }
+
+  // =========================================================
+  // INVITATION ADMINISTRATION
+  // =========================================================
+
+  async listInvitations(
+    companyId: string,
+    filters: {
+      status?: PortalInvitationStatus;
+      delivery_status?: PortalInvitationDeliveryStatus;
+      actor_type?: PortalActorType;
+      page?: number;
+      limit?: number;
+    } = {},
+  ) {
+    const page = Math.max(1, Math.trunc(filters.page ?? 1));
+    const limit = Math.min(100, Math.max(1, Math.trunc(filters.limit ?? 25)));
+
+    const [rows, total] = await this.invitationRepository.findAndCount({
+      where: {
+        company_id: companyId,
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.delivery_status
+          ? { delivery_status: filters.delivery_status }
+          : {}),
+        ...(filters.actor_type ? { actor_type: filters.actor_type } : {}),
+      },
+      order: { created_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data: rows.map((invitation) => this.mapInvitation(invitation)),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Re-issues a pending or expired invitation: a new token (the old link
+   * stops working), a fresh expiry, and a new queued email.
+   */
+  async resendInvitation(companyId: string, id: string, userId: string) {
+    const rawToken = randomBytes(32).toString('hex');
+
+    const invitation = await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(PortalInvitation);
+      const current = await repository
+        .createQueryBuilder('invitation')
+        .setLock('pessimistic_write')
+        .where('invitation.id = :id', { id })
+        .andWhere('invitation.company_id = :companyId', { companyId })
+        .getOne();
+
+      if (!current) {
+        throw new NotFoundException('Portal invitation not found');
+      }
+      if (
+        ![
+          PortalInvitationStatus.PENDING,
+          PortalInvitationStatus.EXPIRED,
+        ].includes(current.status)
+      ) {
+        throw new ConflictException(
+          'Only pending or expired invitations can be resent',
+        );
+      }
+
+      Object.assign(current, {
+        status: PortalInvitationStatus.PENDING,
+        token_hash: this.hashToken(rawToken),
+        expires_at: this.invitationExpiry(),
+        resend_count: current.resend_count + 1,
+        ...this.queuedDelivery(rawToken),
+      });
+      return repository.save(current);
+    });
+
+    await this.auditService.log({
+      userId,
+      companyId,
+      action: 'portal.invitation.resent',
+      resource: 'portal_invitation',
+      resourceId: invitation.id,
+      metadata: {
+        resendCount: invitation.resend_count,
+        maskedEmail: this.maskEmail(invitation.email),
+      },
+    });
+
+    return this.mapInvitation(invitation);
+  }
+
+  async revokeInvitation(
+    companyId: string,
+    id: string,
+    userId: string,
+    reason?: string,
+  ) {
+    const invitation = await this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(PortalInvitation);
+      const current = await repository
+        .createQueryBuilder('invitation')
+        .setLock('pessimistic_write')
+        .where('invitation.id = :id', { id })
+        .andWhere('invitation.company_id = :companyId', { companyId })
+        .getOne();
+
+      if (!current) {
+        throw new NotFoundException('Portal invitation not found');
+      }
+      if (current.status !== PortalInvitationStatus.PENDING) {
+        throw new ConflictException('Only pending invitations can be revoked');
+      }
+
+      current.status = PortalInvitationStatus.REVOKED;
+      current.revoked_by = userId;
+      current.revoked_at = new Date();
+      current.revocation_reason = reason?.trim() || 'Revoked by administrator';
+      current.delivery_token_ciphertext = null;
+      if (current.delivery_status !== PortalInvitationDeliveryStatus.SENT) {
+        current.delivery_status = PortalInvitationDeliveryStatus.CANCELLED;
+        current.next_delivery_attempt_at = null;
+      }
+      return repository.save(current);
+    });
+
+    await this.auditService.log({
+      userId,
+      companyId,
+      action: 'portal.invitation.revoked',
+      resource: 'portal_invitation',
+      resourceId: invitation.id,
+      metadata: { maskedEmail: this.maskEmail(invitation.email) },
+    });
+
+    return this.mapInvitation(invitation);
+  }
+
+  private invitationExpiry() {
+    const expiryHours = this.configService.get<number>(
+      'PORTAL_INVITATION_EXPIRY_HOURS',
+      48,
+    );
+    return new Date(Date.now() + expiryHours * 60 * 60 * 1000);
+  }
+
+  /** Delivery fields that hand a (re)issued invitation to the outbox. */
+  private queuedDelivery(rawToken: string) {
+    return {
+      delivery_status: PortalInvitationDeliveryStatus.QUEUED,
+      delivery_attempts: 0,
+      next_delivery_attempt_at: new Date(),
+      last_delivery_error: null,
+      sent_at: null,
+      delivery_token_ciphertext: this.deliveryService.sealToken(rawToken),
+    };
+  }
+
+  private mapInvitation(invitation: PortalInvitation) {
+    return {
+      id: invitation.id,
+      actor_type: invitation.actor_type,
+      email: invitation.email,
+      phone: invitation.phone,
+      first_name: invitation.first_name,
+      last_name: invitation.last_name,
+      status: invitation.status,
+      expires_at: invitation.expires_at,
+      invited_by: invitation.invited_by,
+      accepted_at: invitation.accepted_at,
+      revoked_at: invitation.revoked_at,
+      revocation_reason: invitation.revocation_reason,
+      delivery_status: invitation.delivery_status,
+      delivery_attempts: invitation.delivery_attempts,
+      last_delivery_error: invitation.last_delivery_error,
+      next_delivery_attempt_at: invitation.next_delivery_attempt_at,
+      sent_at: invitation.sent_at,
+      resend_count: invitation.resend_count,
+      created_at: invitation.created_at,
     };
   }
 

@@ -26,6 +26,10 @@ export interface TiramisApiKeyPrincipal {
   serviceName: string;
   allowedIps: string[];
   scopes: string[];
+  tenantCompanyCode: string | null;
+  tenantSystemCode: string | null;
+  tenantEnvironment: 'test' | 'live' | null;
+  clientConfigurationId: string | null;
 }
 
 @Injectable()
@@ -58,10 +62,10 @@ export class TiramisApiKeyService {
     const entity = this.apiKeyRepository.create({
       name: dto.name,
       serviceName: dto.serviceName,
-      tenantCompanyCode: null,
-      tenantSystemCode: null,
-      tenantEnvironment: null,
-      clientConfigurationId: null,
+      tenantCompanyCode: dto.tenantCompanyCode ?? null,
+      tenantSystemCode: dto.tenantSystemCode ?? null,
+      tenantEnvironment: dto.tenantEnvironment ?? null,
+      clientConfigurationId: dto.clientConfigurationId ?? null,
       apiKey: null as unknown as string,
       apiKeyHash: this.hashApiKey(apiKey),
       systemKey: true,
@@ -99,6 +103,22 @@ export class TiramisApiKeyService {
     const existing = await this.getExisting(id);
     await this.apiKeyRepository.update(id, {
       scopes: dto.scopes ?? existing.scopes ?? [],
+      clientConfigurationId:
+        dto.clientConfigurationId === undefined
+          ? existing.clientConfigurationId
+          : dto.clientConfigurationId,
+      tenantCompanyCode:
+        dto.tenantCompanyCode === undefined
+          ? existing.tenantCompanyCode
+          : dto.tenantCompanyCode,
+      tenantSystemCode:
+        dto.tenantSystemCode === undefined
+          ? existing.tenantSystemCode
+          : dto.tenantSystemCode,
+      tenantEnvironment:
+        dto.tenantEnvironment === undefined
+          ? existing.tenantEnvironment
+          : dto.tenantEnvironment,
       allowedIps: this.normalizeAllowedIps(
         dto.allowedIps ?? existing.allowedIps ?? [],
       ),
@@ -234,6 +254,11 @@ export class TiramisApiKeyService {
           'apiKey',
           'keyPrefix',
           'serviceName',
+          'allowedIps',
+          'tenantCompanyCode',
+          'tenantSystemCode',
+          'tenantEnvironment',
+          'clientConfigurationId',
           'scopes',
           'description',
           'isActive',
@@ -259,6 +284,20 @@ export class TiramisApiKeyService {
       });
       throw new UnauthorizedException('Invalid API key');
     }
+    if (row.revokedAt || !row.isActive) {
+      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
+        reason: row.revokedAt ? 'REVOKED' : 'DISABLED',
+        ...context,
+      });
+      throw new ForbiddenException('API key is not active');
+    }
+    if (row.expiresAt && row.expiresAt <= new Date()) {
+      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
+        reason: 'EXPIRED',
+        ...context,
+      });
+      throw new ForbiddenException('API key has expired');
+    }
     if (requiredScopes.includes('tiramis:admin')) {
       await this.audit(row, 'AUTHENTICATE', 'FAILED', {
         reason: 'ADMIN_LOGIN_REQUIRED',
@@ -281,20 +320,6 @@ export class TiramisApiKeyService {
       });
       throw new ForbiddenException('API key does not have required scope');
     }
-    if (row.revokedAt || !row.isActive) {
-      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
-        reason: row.revokedAt ? 'REVOKED' : 'DISABLED',
-        ...context,
-      });
-      throw new ForbiddenException('API key is not active');
-    }
-    if (row.expiresAt && row.expiresAt <= new Date()) {
-      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
-        reason: 'EXPIRED',
-        ...context,
-      });
-      throw new ForbiddenException('API key has expired');
-    }
     const allowedIps = this.normalizeAllowedIps(row.allowedIps ?? []);
     if (
       !context.ipAddress ||
@@ -316,6 +341,10 @@ export class TiramisApiKeyService {
       serviceName: row.serviceName,
       allowedIps,
       scopes: grantedScopes,
+      tenantCompanyCode: row.tenantCompanyCode ?? null,
+      tenantSystemCode: row.tenantSystemCode ?? null,
+      tenantEnvironment: this.normalizeTenantEnvironment(row.tenantEnvironment),
+      clientConfigurationId: row.clientConfigurationId ?? null,
     };
   }
 
@@ -375,6 +404,10 @@ export class TiramisApiKeyService {
   private normalizeIp(value: string): string {
     const trimmed = value.trim().toLowerCase();
     return trimmed.startsWith('::ffff:') ? trimmed.slice(7) : trimmed;
+  }
+
+  private normalizeTenantEnvironment(value: string | null | undefined) {
+    return value === 'test' || value === 'live' ? value : null;
   }
 
   private redact(entity: TiramisApiKeyEntity): TiramisApiKeyEntity {

@@ -79,6 +79,18 @@ export class NotificationsService {
   }
 
   async listForUser(user: AuthenticatedUser) {
+    return this.visibleTo(user)
+      .orderBy('notification.created_at', 'DESC')
+      .getMany();
+  }
+
+  /**
+   * The single visibility rule for reading and acting on notifications: a
+   * notification addressed to a user is theirs alone; an unaddressed one is
+   * for everyone, or only for holders of its recipient role; and branch
+   * notifications stay inside the caller's branch scope.
+   */
+  private visibleTo(user: AuthenticatedUser) {
     const scope = this.scopeService.resolve(user);
 
     const queryBuilder = this.notificationRepository
@@ -92,13 +104,23 @@ export class NotificationsService {
             .where('notification.recipient_user_id = :userId', {
               userId: user.id,
             })
-            .orWhere('notification.recipient_user_id IS NULL')
-            .orWhere('notification.recipient_role IN (:...roles)', {
-              roles: user.roles.length ? user.roles : ['NO_ROLE'],
-            });
+            .orWhere(
+              new Brackets((unaddressed) => {
+                unaddressed
+                  .where('notification.recipient_user_id IS NULL')
+                  .andWhere(
+                    new Brackets((role) => {
+                      role
+                        .where('notification.recipient_role IS NULL')
+                        .orWhere('notification.recipient_role IN (:...roles)', {
+                          roles: user.roles.length ? user.roles : ['NO_ROLE'],
+                        });
+                    }),
+                  );
+              }),
+            );
         }),
-      )
-      .orderBy('notification.created_at', 'DESC');
+      );
 
     if (!scope.canViewAllBranches) {
       queryBuilder.andWhere(
@@ -114,7 +136,7 @@ export class NotificationsService {
       );
     }
 
-    return queryBuilder.getMany();
+    return queryBuilder;
   }
 
   async latestForUser(user: AuthenticatedUser, limit = 5) {
@@ -134,12 +156,9 @@ export class NotificationsService {
   }
 
   async findOne(user: AuthenticatedUser, id: string) {
-    const notification = await this.notificationRepository.findOne({
-      where: {
-        id,
-        company_id: user.companyId!,
-      },
-    });
+    const notification = await this.visibleTo(user)
+      .andWhere('notification.id = :id', { id })
+      .getOne();
 
     if (!notification) {
       throw new NotFoundException('Notification not found');

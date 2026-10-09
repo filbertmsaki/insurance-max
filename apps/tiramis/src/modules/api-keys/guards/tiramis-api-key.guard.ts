@@ -18,6 +18,8 @@ import { TiramisApiKeyService } from '../services/tiramis-api-key.service';
 import { AuthenticatedTiramisContext } from '../../../common/interfaces/authenticated-tiramis-context.interface';
 import { TiramisAccessAuditService } from '../../audit/services/tiramis-access-audit.service';
 
+type TiramisPrincipal = Awaited<ReturnType<TiramisApiKeyService['validate']>>;
+
 @Injectable()
 export class TiramisApiKeyGuard implements CanActivate {
   private readonly logger = new Logger(TiramisApiKeyGuard.name);
@@ -75,12 +77,17 @@ export class TiramisApiKeyGuard implements CanActivate {
       throw error;
     }
     const serviceContext = this.resolveServiceContext(request);
+    let tenant: ServicePrincipal['tenant'] | undefined;
+    try {
+      tenant = this.resolveBoundTenant(principal, serviceContext.tenant);
+    } catch (error) {
+      await this.auditRejectedAccess(context, requiredScopes, error);
+      throw error;
+    }
     const servicePrincipal: ServicePrincipal = {
       serviceId: principal.serviceName,
       scopes: principal.scopes,
-      // Business context selects configured TIRA routing only. It does not
-      // establish the caller's identity or restrict the key to a company.
-      tenant: serviceContext.tenant,
+      tenant,
       actor: serviceContext.actor,
       product: serviceContext.product,
       pricing: serviceContext.pricing,
@@ -92,11 +99,10 @@ export class TiramisApiKeyGuard implements CanActivate {
       apiKeyId: principal.id,
       serviceName: principal.serviceName,
       scopes: principal.scopes,
-      companyCode: servicePrincipal.tenant?.companyCode ?? null,
-      systemCode: servicePrincipal.tenant?.systemCode ?? null,
-      environment: servicePrincipal.tenant?.environment ?? null,
-      clientConfigurationId:
-        servicePrincipal.tenant?.clientConfigurationId ?? null,
+      companyCode: tenant?.companyCode ?? null,
+      systemCode: tenant?.systemCode ?? null,
+      environment: tenant?.environment ?? null,
+      clientConfigurationId: tenant?.clientConfigurationId ?? null,
     };
     Object.assign(request, { servicePrincipal, tiramisContext });
     this.requestContextService.setServicePrincipal(servicePrincipal);
@@ -178,6 +184,81 @@ export class TiramisApiKeyGuard implements CanActivate {
       );
       return {};
     }
+  }
+
+  private resolveBoundTenant(
+    principal: TiramisPrincipal,
+    requestedTenant: ServicePrincipal['tenant'] | undefined,
+  ): ServicePrincipal['tenant'] | undefined {
+    const binding = {
+      companyCode: principal.tenantCompanyCode,
+      systemCode: principal.tenantSystemCode,
+      environment: principal.tenantEnvironment,
+      clientConfigurationId: principal.clientConfigurationId,
+    };
+    const hasBinding = Object.values(binding).some((value) => Boolean(value));
+    const hasRequestedTenant =
+      requestedTenant &&
+      [
+        requestedTenant.companyCode,
+        requestedTenant.systemCode,
+        requestedTenant.environment,
+        requestedTenant.clientConfigurationId,
+      ].some((value) => Boolean(value));
+
+    if (!hasBinding && hasRequestedTenant) {
+      throw new ForbiddenException(
+        'API key is not bound to a TIRAMIS company configuration',
+      );
+    }
+
+    this.assertTenantMatch(
+      'client configuration',
+      binding.clientConfigurationId,
+      requestedTenant?.clientConfigurationId,
+    );
+    this.assertTenantMatch(
+      'company',
+      binding.companyCode,
+      requestedTenant?.companyCode,
+    );
+    this.assertTenantMatch(
+      'system',
+      binding.systemCode,
+      requestedTenant?.systemCode,
+    );
+    this.assertTenantMatch(
+      'environment',
+      binding.environment,
+      requestedTenant?.environment,
+    );
+
+    if (!hasBinding) {
+      return requestedTenant;
+    }
+
+    return {
+      ...(requestedTenant ?? {}),
+      ...(binding.companyCode ? { companyCode: binding.companyCode } : {}),
+      ...(binding.systemCode ? { systemCode: binding.systemCode } : {}),
+      ...(binding.environment ? { environment: binding.environment } : {}),
+      ...(binding.clientConfigurationId
+        ? { clientConfigurationId: binding.clientConfigurationId }
+        : {}),
+    } as ServicePrincipal['tenant'];
+  }
+
+  private assertTenantMatch(
+    label: string,
+    bound: string | null | undefined,
+    requested: string | null | undefined,
+  ) {
+    if (!bound || !requested || bound === requested) {
+      return;
+    }
+    throw new ForbiddenException(
+      `API key is not authorized for the requested TIRAMIS ${label}`,
+    );
   }
 
   private async auditRejectedAccess(

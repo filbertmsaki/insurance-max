@@ -1225,7 +1225,7 @@ export class CustomersService {
     const contactRepository = manager.getRepository(CustomerContact);
     const documentRepository = manager.getRepository(CustomerDocument);
 
-    const identifiers = payload.identifiers.map((identifier, index) => {
+    const identifiers = payload.identifiers.map((identifier) => {
       const normalizedValue = this.normalizeIdentifierValue(
         identifier.identifier_value,
       );
@@ -1242,7 +1242,7 @@ export class CustomersService {
         normalized_value: normalizedValue,
         fingerprint: this.hashIdentifier(normalizedValue),
         country_code: this.normalizeCountryCode(identifier.country_code),
-        is_primary: identifier.is_primary ?? index === 0,
+        is_primary: identifier.is_primary !== false,
         is_verified: identifier.is_verified ?? false,
         issued_at: this.normalizeDate(identifier.issued_at),
         expires_at: this.normalizeDate(identifier.expires_at),
@@ -1252,7 +1252,7 @@ export class CustomersService {
       });
     });
 
-    const addresses = payload.addresses.map((address, index) =>
+    const addresses = payload.addresses.map((address) =>
       addressRepository.create({
         company_id: customer.company_id,
         customer_id: customer.id,
@@ -1266,7 +1266,7 @@ export class CustomersService {
         postal_address: this.normalizeText(address.postal_address),
         latitude: this.normalizeNumeric(address.latitude),
         longitude: this.normalizeNumeric(address.longitude),
-        is_primary: address.is_primary ?? index === 0,
+        is_primary: address.is_primary !== false,
         created_by: userId,
         updated_by: userId,
       }),
@@ -1294,7 +1294,7 @@ export class CustomersService {
         contact_role: this.normalizeText(contact.contact_role),
         value: this.normalizeText(contact.value)!,
         normalized_value: normalizedValue,
-        is_primary: contact.is_primary ?? false,
+        is_primary: contact.is_primary !== false,
         is_verified: contact.is_verified ?? false,
         created_by: userId,
         updated_by: userId,

@@ -1,14 +1,24 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
+  IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsStrongPassword,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
+
+import {
+  PortalActorType,
+  PortalInvitationDeliveryStatus,
+  PortalInvitationStatus,
+} from '../enums/portal.enums';
 
 const normalizeEmail = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toLowerCase() : value;
@@ -75,4 +85,38 @@ export class SuspendPortalAccountDto {
   @IsNotEmpty()
   @MaxLength(1000)
   reason: string;
+}
+
+export class PortalInvitationFilterDto {
+  @IsOptional()
+  @IsEnum(PortalInvitationStatus)
+  status?: PortalInvitationStatus;
+
+  @IsOptional()
+  @IsEnum(PortalInvitationDeliveryStatus)
+  delivery_status?: PortalInvitationDeliveryStatus;
+
+  @IsOptional()
+  @IsEnum(PortalActorType)
+  actor_type?: PortalActorType;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+export class RevokePortalInvitationDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }

@@ -17,7 +17,16 @@ import { RolesGuard } from '@insurance-max/portal-shared/guards/roles.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { SaasBillingPermissions } from './saas-billing.permissions';
-import { SaasInvoiceAdjustmentType } from './enums/saas-billing.enums';
+import {
+  CreateSaasInvoiceAdjustmentDto,
+  CreateSubscriptionDto,
+  RecordSaasPaymentDto,
+  ReverseSaasPaymentDto,
+  ScheduleCancellationDto,
+  SchedulePlanChangeDto,
+  SuspendSubscriptionDto,
+  VoidSaasInvoiceDto,
+} from './dto/saas-billing.dto';
 import { SaasCycleBillingService } from './services/saas-cycle-billing.service';
 import { SubscriptionService } from './services/subscription.service';
 import { UsageMeteringService } from './services/usage-metering.service';
@@ -111,9 +120,15 @@ export class SaasBillingController {
   @Permissions(SaasBillingPermissions.SUBSCRIPTION_CREATE)
   createSubscription(
     @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: { company_id: string; plan_id: string; started_at?: string },
+    @Body() dto: CreateSubscriptionDto,
   ) {
     return this.subscriptionService.createSubscription(user, dto);
+  }
+
+  @Get('subscriptions/:id')
+  @Permissions(SaasBillingPermissions.SUBSCRIPTION_READ)
+  getSubscription(@Param('id', ParseUUIDPipe) id: string) {
+    return this.subscriptionService.findSubscription(id);
   }
 
   @Post('subscriptions/:id/suspend')
@@ -121,7 +136,7 @@ export class SaasBillingController {
   suspendSubscription(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { reason?: string },
+    @Body() dto: SuspendSubscriptionDto,
   ) {
     return this.subscriptionService.suspendSubscription(user, id, dto.reason);
   }
@@ -140,12 +155,7 @@ export class SaasBillingController {
   schedulePlanChange(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body()
-    dto: {
-      plan_id: string;
-      effective_at?: string;
-      reason?: string;
-    },
+    @Body() dto: SchedulePlanChangeDto,
   ) {
     return this.subscriptionService.schedulePlanChange(user, id, dto);
   }
@@ -155,7 +165,7 @@ export class SaasBillingController {
   scheduleCancellation(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { reason?: string },
+    @Body() dto: ScheduleCancellationDto,
   ) {
     return this.subscriptionService.scheduleCancellation(user, id, dto.reason);
   }
@@ -178,6 +188,12 @@ export class SaasBillingController {
     return this.cycleService.listInvoices();
   }
 
+  @Get('cycles')
+  @Permissions(SaasBillingPermissions.INVOICE_READ)
+  listCycles() {
+    return this.cycleService.listCycles();
+  }
+
   @Post('cycles/:id/issue-invoice')
   @Permissions(SaasBillingPermissions.INVOICE_ISSUE)
   issueInvoice(
@@ -193,14 +209,29 @@ export class SaasBillingController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
-    dto: {
-      amount: string | number;
-      payment_reference: string;
-      payment_date?: string;
-      notes?: string;
-    },
+    dto: RecordSaasPaymentDto,
   ) {
     return this.cycleService.recordPayment(user, id, dto);
+  }
+
+  @Post('payments/:id/reverse')
+  @Permissions(SaasBillingPermissions.PAYMENT_RECORD)
+  reversePayment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReverseSaasPaymentDto,
+  ) {
+    return this.cycleService.reversePayment(user, id, dto.reason);
+  }
+
+  @Post('invoices/:id/void')
+  @Permissions(SaasBillingPermissions.INVOICE_VOID)
+  voidInvoice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: VoidSaasInvoiceDto,
+  ) {
+    return this.cycleService.voidInvoice(user, id, dto.reason);
   }
 
   @Get('invoices/:id/adjustments')
@@ -215,18 +246,13 @@ export class SaasBillingController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body()
-    dto: {
-      adjustment_type: SaasInvoiceAdjustmentType;
-      amount: string | number;
-      reason: string;
-      metadata?: Record<string, unknown>;
-    },
+    dto: CreateSaasInvoiceAdjustmentDto,
   ) {
     return this.cycleService.createInvoiceAdjustment(user, id, dto);
   }
 
   @Post('invoice-adjustments/:id/approve')
-  @Permissions(SaasBillingPermissions.INVOICE_ADJUST)
+  @Permissions(SaasBillingPermissions.INVOICE_ADJUST_APPROVE)
   approveInvoiceAdjustment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -235,8 +261,14 @@ export class SaasBillingController {
   }
 
   @Post('operations/process-dunning')
-  @Permissions(SaasBillingPermissions.INVOICE_ADJUST)
+  @Permissions(SaasBillingPermissions.INVOICE_ADJUST_APPROVE)
   processDunning() {
     return this.cycleService.processDunning();
+  }
+
+  @Post('operations/process-billing')
+  @Permissions(SaasBillingPermissions.INVOICE_ISSUE)
+  processBilling() {
+    return this.cycleService.processDailyBilling();
   }
 }

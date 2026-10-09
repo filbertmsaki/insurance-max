@@ -178,10 +178,25 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "apps/**/*.ts",
-      "libs/**/*.ts"
+      "apps/insurance-portal-service/src/**/*.ts",
+      "apps/tiramis/src/**/*.ts",
+      "libs/*/src/**/*.ts",
+      "!**/*.spec.ts",
+      "!**/*.e2e-spec.ts",
+      "!**/database/migrations/**",
+      "!**/database/seeds/**",
+      "!**/database/seeders/**",
+      "!**/main.ts"
     ],
     "coverageDirectory": "coverage",
+    "coverageThreshold": {
+      "global": {
+        "statements": 42,
+        "branches": 31,
+        "functions": 28,
+        "lines": 41
+      }
+    },
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^@insurance-max/contracts$": "<rootDir>/libs/contracts/src",

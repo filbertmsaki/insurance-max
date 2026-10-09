@@ -242,21 +242,24 @@ export class WorkItemsService {
         break;
       default:
         queryBuilder.andWhere(`item.status <> 'CANCELLED'`);
-        if (!scope.canViewAllBranches) {
-          queryBuilder.andWhere(
-            new Brackets((assignmentScope) => {
-              assignmentScope
-                .where('item.assigned_user_id = :viewerId', {
-                  viewerId: user.id,
-                })
-                .orWhere('item.assigned_user_id IS NULL')
-                .orWhere('item.assigned_role IN (:...viewerRoles)', {
-                  viewerRoles: user.roles?.length ? user.roles : ['NO_ROLE'],
-                });
-            }),
-          );
-        }
         break;
+    }
+
+    // Branch-limited users never see colleagues' personally assigned items,
+    // whichever view they pick; "my" and "team" already restrict further.
+    if (!scope.canViewAllBranches && view !== 'my' && view !== 'team') {
+      queryBuilder.andWhere(
+        new Brackets((assignmentScope) => {
+          assignmentScope
+            .where('item.assigned_user_id = :viewerId', {
+              viewerId: user.id,
+            })
+            .orWhere('item.assigned_user_id IS NULL')
+            .orWhere('item.assigned_role IN (:...viewerRoles)', {
+              viewerRoles: user.roles?.length ? user.roles : ['NO_ROLE'],
+            });
+        }),
+      );
     }
 
     return queryBuilder.getMany();
@@ -309,13 +312,18 @@ export class WorkItemsService {
   }
 
   async findOne(user: AuthenticatedUser, id: string): Promise<WorkItem> {
-    const scope = this.scopeService.resolve(user);
     const item = await this.workItemRepository.findOne({
       where: {
         id,
         company_id: user.companyId!,
       },
     });
+
+    return this.assertVisible(user, item);
+  }
+
+  private assertVisible(user: AuthenticatedUser, item: WorkItem | null) {
+    const scope = this.scopeService.resolve(user);
 
     if (!item) {
       throw new NotFoundException('Work item not found');
@@ -331,6 +339,39 @@ export class WorkItemsService {
     return item;
   }
 
+  /**
+   * Status changes lock the row and re-check state under the lock, so two
+   * users acting on the same item at once cannot both succeed (for example
+   * both claiming it, the second silently overwriting the first).
+   */
+  private transition(
+    user: AuthenticatedUser,
+    id: string,
+    apply: (item: WorkItem) => { eventType: string; comment?: string },
+  ): Promise<WorkItem> {
+    return this.dataSource.transaction(async (manager) => {
+      const locked = await manager
+        .getRepository(WorkItem)
+        .createQueryBuilder('item')
+        .setLock('pessimistic_write')
+        .where('item.id = :id', { id })
+        .andWhere('item.company_id = :companyId', {
+          companyId: user.companyId,
+        })
+        .getOne();
+      const item = this.assertVisible(user, locked);
+
+      const event = apply(item);
+      await manager.getRepository(WorkItem).save(item);
+      await this.addEvent(
+        item,
+        { actorId: user.id, ...event },
+        manager.getRepository(WorkItemEvent),
+      );
+      return item;
+    });
+  }
+
   async timeline(user: AuthenticatedUser, id: string) {
     await this.findOne(user, id);
     return this.workItemEventRepository.find({
@@ -344,24 +385,20 @@ export class WorkItemsService {
     });
   }
 
-  async claim(user: AuthenticatedUser, id: string): Promise<WorkItem> {
-    const item = await this.findOne(user, id);
-    if (item.assigned_user_id && item.assigned_user_id !== user.id) {
-      throw new ConflictException(
-        'Work item is already assigned to another user.',
-      );
-    }
-    if (item.status !== 'OPEN') {
-      throw new ConflictException('Only open work items can be claimed.');
-    }
-    item.assigned_user_id = user.id;
-    item.claimed_at = new Date();
-    await this.workItemRepository.save(item);
-    await this.addEvent(item, {
-      actorId: user.id,
-      eventType: 'CLAIMED',
+  claim(user: AuthenticatedUser, id: string): Promise<WorkItem> {
+    return this.transition(user, id, (item) => {
+      if (item.assigned_user_id && item.assigned_user_id !== user.id) {
+        throw new ConflictException(
+          'Work item is already assigned to another user.',
+        );
+      }
+      if (item.status !== 'OPEN') {
+        throw new ConflictException('Only open work items can be claimed.');
+      }
+      item.assigned_user_id = user.id;
+      item.claimed_at = new Date();
+      return { eventType: 'CLAIMED' };
     });
-    return item;
   }
 
   async assign(
@@ -404,28 +441,24 @@ export class WorkItemsService {
     return item;
   }
 
-  async start(user: AuthenticatedUser, id: string): Promise<WorkItem> {
-    const item = await this.findOne(user, id);
-    if (item.assigned_user_id && item.assigned_user_id !== user.id) {
-      throw new ForbiddenException('Work item is assigned to another user.');
-    }
-    if (!['OPEN', 'BLOCKED'].includes(item.status)) {
-      throw new ConflictException(
-        'Work item cannot be started from its current state.',
-      );
-    }
-    item.status = 'IN_PROGRESS';
-    item.started_at = new Date();
-    if (!item.assigned_user_id) {
-      item.assigned_user_id = user.id;
-      item.claimed_at = item.claimed_at ?? new Date();
-    }
-    await this.workItemRepository.save(item);
-    await this.addEvent(item, {
-      actorId: user.id,
-      eventType: 'STARTED',
+  start(user: AuthenticatedUser, id: string): Promise<WorkItem> {
+    return this.transition(user, id, (item) => {
+      if (item.assigned_user_id && item.assigned_user_id !== user.id) {
+        throw new ForbiddenException('Work item is assigned to another user.');
+      }
+      if (!['OPEN', 'BLOCKED'].includes(item.status)) {
+        throw new ConflictException(
+          'Work item cannot be started from its current state.',
+        );
+      }
+      item.status = 'IN_PROGRESS';
+      item.started_at = new Date();
+      if (!item.assigned_user_id) {
+        item.assigned_user_id = user.id;
+        item.claimed_at = item.claimed_at ?? new Date();
+      }
+      return { eventType: 'STARTED' };
     });
-    return item;
   }
 
   async comment(
@@ -445,47 +478,38 @@ export class WorkItemsService {
     return { success: true };
   }
 
-  async execute(user: AuthenticatedUser, id: string): Promise<WorkItem> {
-    const item = await this.findOne(user, id);
-    if (item.assigned_user_id && item.assigned_user_id !== user.id) {
-      throw new ForbiddenException('Work item is assigned to another user.');
-    }
-    if (item.status !== 'IN_PROGRESS') {
-      throw new ConflictException(
-        'Only in-progress work items can be completed.',
-      );
-    }
-    item.status = 'COMPLETED';
-    item.completed_by = user.id;
-    item.completed_at = new Date();
-    await this.workItemRepository.save(item);
-    await this.addEvent(item, {
-      actorId: user.id,
-      eventType: 'EXECUTED',
+  execute(user: AuthenticatedUser, id: string): Promise<WorkItem> {
+    return this.transition(user, id, (item) => {
+      if (item.assigned_user_id && item.assigned_user_id !== user.id) {
+        throw new ForbiddenException('Work item is assigned to another user.');
+      }
+      if (item.status !== 'IN_PROGRESS') {
+        throw new ConflictException(
+          'Only in-progress work items can be completed.',
+        );
+      }
+      item.status = 'COMPLETED';
+      item.completed_by = user.id;
+      item.completed_at = new Date();
+      return { eventType: 'EXECUTED' };
     });
-    return item;
   }
 
-  async cancel(
+  cancel(
     user: AuthenticatedUser,
     id: string,
     dto: CancelWorkItemDto,
   ): Promise<WorkItem> {
-    const item = await this.findOne(user, id);
-    if (item.status === 'COMPLETED' || item.status === 'CANCELLED') {
-      throw new ConflictException('Closed work items cannot be cancelled.');
-    }
-    item.status = 'CANCELLED';
-    item.cancelled_by = user.id;
-    item.cancelled_at = new Date();
-    item.cancellation_reason = dto.reason;
-    await this.workItemRepository.save(item);
-    await this.addEvent(item, {
-      actorId: user.id,
-      eventType: 'CANCELLED',
-      comment: dto.reason,
+    return this.transition(user, id, (item) => {
+      if (item.status === 'COMPLETED' || item.status === 'CANCELLED') {
+        throw new ConflictException('Closed work items cannot be cancelled.');
+      }
+      item.status = 'CANCELLED';
+      item.cancelled_by = user.id;
+      item.cancelled_at = new Date();
+      item.cancellation_reason = dto.reason;
+      return { eventType: 'CANCELLED', comment: dto.reason };
     });
-    return item;
   }
 
   async complete(user: AuthenticatedUser, id: string): Promise<WorkItem> {
@@ -501,9 +525,10 @@ export class WorkItemsService {
       comment?: string;
       metadata?: Record<string, unknown>;
     },
+    repository: Repository<WorkItemEvent> = this.workItemEventRepository,
   ) {
-    await this.workItemEventRepository.save(
-      this.workItemEventRepository.create({
+    await repository.save(
+      repository.create({
         company_id: item.company_id,
         work_item_id: item.id,
         event_type: params.eventType,

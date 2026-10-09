@@ -444,24 +444,17 @@ export class AnalyticsMetricService {
       ORDER BY 1 ASC
     `;
 
-    let rows: Array<Record<string, unknown>> = [];
-
-    try {
-      rows = await this.dataSource.query(query, [
+    const rows: Array<Record<string, unknown>> = await this.dataSource.query(
+      query,
+      [
         input.companyId,
         definition.code,
         input.periodStart,
         input.periodEnd,
         input.branchId ?? null,
         input.branchIds?.length ? input.branchIds : null,
-      ]);
-    } catch (error) {
-      if (!this.isMissingRelationError(error)) {
-        throw error;
-      }
-
-      rows = [];
-    }
+      ],
+    );
 
     const freshness = await this.resolveFreshness(
       input.companyId,
@@ -630,14 +623,6 @@ export class AnalyticsMetricService {
     }
 
     return String(current - previous);
-  }
-
-  private isMissingRelationError(error: unknown): boolean {
-    if (!error || typeof error !== 'object') {
-      return false;
-    }
-
-    return 'code' in error && error.code === '42P01';
   }
 
   private legacyPeriodExpression(periodType: AnalyticsPeriodType) {
