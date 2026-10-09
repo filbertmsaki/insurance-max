@@ -5,6 +5,8 @@ export interface RequestContext {
   requestId: string;
   correlationId: string;
   startedAt: number;
+  /** Inbound `Authorization: Bearer` token, forwarded on admin-only downstream calls. */
+  bearerToken?: string;
 
   servicePrincipal?: ServicePrincipal;
 }

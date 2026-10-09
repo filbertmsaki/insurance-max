@@ -37,6 +37,7 @@ export class RequestContextMiddleware implements NestMiddleware {
         requestId,
         correlationId,
         startedAt: Date.now(),
+        bearerToken: this.readBearerToken(request.headers.authorization),
       },
       next,
     );
@@ -53,6 +54,11 @@ export class RequestContextMiddleware implements NestMiddleware {
     }
 
     return fallback || randomUUID();
+  }
+
+  private readBearerToken(value: string | undefined): string | undefined {
+    const match = value?.match(/^Bearer\s+(.+)$/i);
+    return match?.[1].trim() || undefined;
   }
 
   private readHeader(value: string | string[] | undefined): string | undefined {

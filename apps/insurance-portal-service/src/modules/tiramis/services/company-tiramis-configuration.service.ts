@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 import { AuditService } from '../../shared/audit/audit.service';
 import { Company } from '../../platform/companies/entities/company.entity';
@@ -42,18 +42,33 @@ export class CompanyTiramisConfigurationService {
    * environments provisioned before keys were synced automatically.
    */
   async syncAllPortalWebhookApiKeys() {
-    const configurations = await this.repository.find({
-      where: { isActive: true },
-    });
+    const configurations = await this.repository
+      .createQueryBuilder('configuration')
+      .addSelect('configuration.serviceApiKeyEncrypted')
+      .where('configuration.isActive = true')
+      .getMany();
     const results: Array<{
       companyId: string;
       environment: string;
       ok: boolean;
+      skipped?: boolean;
       message?: string;
     }> = [];
 
     for (const configuration of configurations) {
       const environment = configuration.environment as 'test' | 'live';
+
+      // An environment that was never linked has nothing to sync yet.
+      if (!configuration.serviceApiKeyEncrypted) {
+        results.push({
+          companyId: configuration.companyId,
+          environment,
+          ok: true,
+          skipped: true,
+          message: 'no TIRAMIS service API key has been generated yet',
+        });
+        continue;
+      }
 
       try {
         await this.syncPortalWebhookCredential(
@@ -766,13 +781,6 @@ export class CompanyTiramisConfigurationService {
       configuration.validationMessage = null;
 
       const saved = await repository.save(configuration);
-      await repository.update(
-        {
-          environment,
-          sourceService: configuration.sourceService ?? IsNull(),
-        },
-        { serviceApiKeyEncrypted: encryptedKey },
-      );
 
       await this.auditService.logCritical(
         {

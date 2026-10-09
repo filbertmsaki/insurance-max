@@ -730,7 +730,7 @@ function EnvironmentPanel({
                 <div className="col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950">
                   The stored API key cannot be decrypted with the current
                   encryption key. Recovering it replaces the old key using the
-                  configured TIRAMIS bootstrap credential.
+                  signed-in platform administrator session.
                 </div>
               )}
               <div>

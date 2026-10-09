@@ -694,6 +694,7 @@ export class TiramisClientService {
           headers: {
             Accept: 'application/json',
             'X-API-Key': connection.apiKey,
+            ...this.adminAuthorizationHeader(),
             'X-Service-Context': serviceContext,
             ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
             ...(correlationId
@@ -782,7 +783,9 @@ export class TiramisClientService {
       throw new ConflictException(
         'Active TIRAMIS configuration was not found.',
       );
-    const systemName = `${configuration.sourceService || this.configService.getOrThrow<string>('tiramisClient.sourceService')}-${params.environment}`;
+    // TIRAMIS keeps one active key per system name and rejects tenant-scoped
+    // calls from unbound keys, so each company/environment gets its own key.
+    const systemName = `${configuration.sourceService || this.configService.getOrThrow<string>('tiramisClient.sourceService')}-${params.companyCode}-${params.environment}`;
     const headers = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
@@ -839,6 +842,9 @@ export class TiramisClientService {
               name: systemName,
               serviceName: systemName,
               allowedIps: params.allowedIps,
+              tenantCompanyCode: params.companyCode,
+              tenantSystemCode: params.systemCode,
+              tenantEnvironment: params.environment,
               scopes: ['tiramis:submit', 'tiramis:read', 'tiramis:verify'],
               description: `Portal system key for ${params.environment}.`,
               isActive: true,
@@ -869,8 +875,8 @@ export class TiramisClientService {
   /**
    * Creates or updates the ClientConfiguration TIRAMIS resolves API keys
    * against for this company/environment — the TIRA-issued clientCode/
-   * clientKey/baseUrl/callbackBaseUrl. Uses the bootstrap key like
-   * rotateOrganizationApiKey, since this must work even before any
+   * clientKey/baseUrl/callbackBaseUrl. Authorized by the calling platform
+   * administrator's token, since this must work even before any
    * company-specific key exists yet.
    */
   async upsertClientConfiguration(params: {
@@ -894,7 +900,6 @@ export class TiramisClientService {
     const connection = await this.resolveConnectionConfig(
       params.companyId,
       params.environment,
-      { allowBootstrapFallback: true },
     );
     const serviceContext = this.encodeServiceContext({
       tenant: {
@@ -906,6 +911,7 @@ export class TiramisClientService {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       'X-API-Key': connection.apiKey,
+      ...this.adminAuthorizationHeader(),
       'X-Service-Context': serviceContext,
       ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
       ...(correlationId
@@ -983,7 +989,6 @@ export class TiramisClientService {
     const connection = await this.resolveConnectionConfig(
       params.companyId,
       params.environment,
-      { allowBootstrapFallback: true },
     );
     const serviceContext = this.encodeServiceContext({
       tenant: {
@@ -1005,6 +1010,7 @@ export class TiramisClientService {
           Accept: 'application/json',
           'Content-Type': 'application/json',
           'X-API-Key': connection.apiKey,
+          ...this.adminAuthorizationHeader(),
           'X-Service-Context': serviceContext,
           ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
           ...(correlationId
@@ -1099,6 +1105,15 @@ export class TiramisClientService {
     });
   }
 
+  /**
+   * TIRAMIS guards its configuration routes with the portal administrator's
+   * access token, so forward the caller's bearer token when one is present.
+   */
+  private adminAuthorizationHeader(): Record<string, string> {
+    const token = this.requestContextService.getBearerToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   private async configurationAdminRequest<T>(
     params: { companyId: string; environment: 'test' | 'live' },
     request: {
@@ -1114,7 +1129,6 @@ export class TiramisClientService {
     const connection = await this.resolveConnectionConfig(
       params.companyId,
       params.environment,
-      { allowBootstrapFallback: true },
     );
     const serviceContext = this.encodeServiceContext({
       tenant: {
@@ -1135,6 +1149,7 @@ export class TiramisClientService {
           Accept: 'application/json',
           'Content-Type': 'application/json',
           'X-API-Key': connection.apiKey,
+          ...this.adminAuthorizationHeader(),
           'X-Service-Context': serviceContext,
           ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
           ...(correlationId
@@ -1185,6 +1200,7 @@ export class TiramisClientService {
           Accept: 'application/json',
           'Content-Type': 'application/json',
           'X-API-Key': connection.apiKey,
+          ...this.adminAuthorizationHeader(),
           'X-Service-Context': serviceContext,
           [HTTP_HEADERS.REQUEST_ID]: requestId,
           [HTTP_HEADERS.CORRELATION_ID]: requestId,
@@ -1681,7 +1697,6 @@ export class TiramisClientService {
   private async resolveConnectionConfig(
     companyId?: string | null,
     environment?: string | null,
-    _options?: { allowBootstrapFallback?: boolean },
   ): Promise<{
     apiKey: string;
     baseUrl: string | null;

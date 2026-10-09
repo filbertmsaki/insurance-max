@@ -24,6 +24,10 @@ export class RequestContextService {
     return this.getContext()?.correlationId;
   }
 
+  getBearerToken(): string | undefined {
+    return this.getContext()?.bearerToken;
+  }
+
   setServicePrincipal(principal: ServicePrincipal): void {
     const context = this.storage.getStore();
 
