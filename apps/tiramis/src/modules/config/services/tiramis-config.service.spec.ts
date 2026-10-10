@@ -276,7 +276,7 @@ describe('TiramisConfigService organization context resolution', () => {
     });
   });
 
-  it('does not duplicate the callback route when the callback URL already points at the callbacks base path', () => {
+  it('uses the callbacks base path as the default callback URL without appending the environment', () => {
     configGet.mockImplementation((key: string) => {
       const values: Record<string, string> = {
         TIRAMIS_BASE_URL: 'https://tira.uat',
@@ -298,7 +298,30 @@ describe('TiramisConfigService organization context resolution', () => {
       ...configuration,
     } as any);
 
-    expect(callbackUrl).toBe('http://localhost:9091/api/tiramis/callbacks/uat');
+    expect(callbackUrl).toBe('http://localhost:9091/api/tiramis/callbacks');
+  });
+
+  it('allows a request callback path to override the default callback URL', async () => {
+    requestContextService.getServicePrincipal.mockReturnValue({
+      serviceId: 'svc-1',
+      scopes: [],
+      tenant: {
+        companyId: 'company-a',
+        companyCode: 'COMP-A',
+        systemCode: 'SYS-A',
+        environment: 'uat',
+        insurerCompanyCode: 'INS-A',
+      },
+    });
+
+    const result = await service.resolveSubmissionContext(
+      { callbackUrl: 'motor' },
+      'record-1',
+    );
+
+    expect(result.dto.callbackUrl).toBe(
+      'https://tiramis.example.com/api/tiramis/callbacks/motor',
+    );
   });
 });
 

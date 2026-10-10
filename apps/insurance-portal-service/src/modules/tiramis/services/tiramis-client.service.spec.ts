@@ -19,7 +19,7 @@ describe('TiramisClientService', () => {
       {} as any,
     ) as any;
 
-  it('strips portal-only callback URL fields from motor submit payloads', () => {
+  it('keeps request callbackUrl overrides on motor submit payloads', () => {
     const service = createService();
 
     const payload = service.httpPayload(TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR, {
@@ -37,6 +37,7 @@ describe('TiramisClientService', () => {
 
     expect(payload).toEqual({
       salePointCode: 'SP500',
+      callbackUrl: 'https://portal.example.test/callback',
       coverNoteNumber: 'CN-001',
     });
   });
@@ -152,6 +153,7 @@ describe('TiramisClientService', () => {
       // No platform key yet: the company's legacy key is the fallback.
       {
         getServiceApiKey: jest.fn().mockResolvedValue(null),
+        getActiveEnvironment: jest.fn().mockResolvedValue('production'),
         getIntegrationPermissions: jest
           .fn()
           .mockResolvedValue(['submit', 'read_status']),
@@ -168,7 +170,7 @@ describe('TiramisClientService', () => {
     ).toHaveBeenCalledWith('company-1');
     expect(queryBuilder.andWhere).toHaveBeenCalledWith(
       'configuration.environment = :environment',
-      { environment: 'live' },
+      { environment: 'production' },
     );
     expect(httpService.request).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -246,7 +248,7 @@ describe('TiramisClientService', () => {
       requestPayload: { coverNoteNumber: 'CN-1' },
       sourceCompanyId: 'company-1',
       sourceUserId: 'user-1',
-      tiramisEnvironment: 'test',
+      tiramisEnvironment: 'uat',
     };
     const service = new TiramisClientService(
       {} as any,
@@ -273,7 +275,7 @@ describe('TiramisClientService', () => {
       expect.anything(),
       expect.objectContaining({
         companyId: 'company-1',
-        tiramisEnvironment: 'test',
+        tiramisEnvironment: 'uat',
       }),
     );
   });
@@ -284,7 +286,7 @@ describe('TiramisClientService', () => {
       tiramis: {
         companyCode: 'ICC110',
         insurerCompanyCode: 'ICC110',
-        environment: 'test',
+        environment: 'uat',
       },
       activeBranch: { id: 'branch-1', code: 'BR1' },
       activeDepartment: null,
@@ -307,16 +309,16 @@ describe('TiramisClientService', () => {
     const context = await (service as any).buildTiramisReadyTenantContext({
       id: 'user-1',
       companyId: 'company-1',
-      tiramisEnvironment: 'test',
+      tiramisEnvironment: 'uat',
     });
 
     expect(requireTiramisReady).toHaveBeenCalledWith(
       'user-1',
       'company-1',
-      'test',
+      'uat',
       { followUp: false },
     );
-    expect(context.environment).toBe('test');
+    expect(context.environment).toBe('uat');
   });
 
   it("uses the platform service key for the submission's environment", async () => {
@@ -336,15 +338,15 @@ describe('TiramisClientService', () => {
       {} as any,
       {} as any,
       { createQueryBuilder: jest.fn() } as any,
-      { getServiceApiKey } as any,
+      { getServiceApiKey, getActiveEnvironment: jest.fn() } as any,
     );
 
     const connection = await (service as any).resolveConnectionConfig(
       'company-1',
-      'live',
+      'production',
     );
 
-    expect(getServiceApiKey).toHaveBeenCalledWith('live');
+    expect(getServiceApiKey).toHaveBeenCalledWith('production');
     expect(connection.apiKey).toBe('platform-live-key');
   });
 
@@ -354,7 +356,7 @@ describe('TiramisClientService', () => {
       tiramis: {
         companyCode: 'C',
         insurerCompanyCode: 'C',
-        environment: 'test',
+        environment: 'uat',
       },
       activeBranch: { id: 'b', code: 'B' },
       activeDepartment: null,
@@ -377,14 +379,14 @@ describe('TiramisClientService', () => {
     await (service as any).buildTiramisReadyTenantContext({
       id: 'user-1',
       companyId: 'company-1',
-      tiramisEnvironment: 'test',
+      tiramisEnvironment: 'uat',
       tiramisFollowUp: true,
     });
 
     expect(requireTiramisReady).toHaveBeenCalledWith(
       'user-1',
       'company-1',
-      'test',
+      'uat',
       { followUp: true },
     );
   });

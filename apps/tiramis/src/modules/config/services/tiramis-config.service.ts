@@ -440,7 +440,10 @@ export class TiramisConfigService {
         sourceRecordId,
         companyCode: configuration.companyCode,
         systemCode: configuration.systemCode,
-        callbackUrl: this.resolveTiraCallbackUrl(configuration),
+        callbackUrl: this.resolveRequestCallbackUrl(
+          configuration,
+          incomingDto.callbackUrl ?? incomingDto.callback_url,
+        ),
 
         /**
          * Client/company business identifiers. The API-key-authenticated
@@ -577,31 +580,49 @@ export class TiramisConfigService {
     configuration = this.withEnvironmentRuntimeConfiguration(configuration);
     const configuredUrl = configuration.callbackBaseUrl.trim();
 
-    if (
-      /\/api\/tiramis\/callbacks\/(uat|test|production|live)\/?$/i.test(
-        configuredUrl,
-      )
-    ) {
-      return configuredUrl;
-    }
-
-    if (/\/api\/tiramis\/callbacks\/?$/i.test(configuredUrl)) {
-      return this.joinUrl(
-        configuredUrl,
-        configuration.environment.toLowerCase(),
+    const legacyEnvironmentPath =
+      /\/api\/tiramis\/callbacks\/(uat|test|production|live)\/?$/i;
+    if (legacyEnvironmentPath.test(configuredUrl)) {
+      return configuredUrl.replace(
+        legacyEnvironmentPath,
+        '/api/tiramis/callbacks',
       );
     }
 
-    return this.joinUrl(
-      configuredUrl,
-      `api/tiramis/callbacks/${configuration.environment.toLowerCase()}`,
-    );
+    if (/\/api\/tiramis\/callbacks\/?$/i.test(configuredUrl)) {
+      return configuredUrl.replace(/\/+$/, '');
+    }
+
+    return this.joinUrl(configuredUrl, 'api/tiramis/callbacks');
   }
 
   getTiraCallbackUrlForConfiguration(
     configuration: TiramisClientConfigurationEntity,
   ): string {
     return this.resolveTiraCallbackUrl(configuration);
+  }
+
+  private resolveRequestCallbackUrl(
+    configuration: TiramisClientConfigurationEntity,
+    requestCallbackUrl: unknown,
+  ): string {
+    const defaultCallbackUrl = this.resolveTiraCallbackUrl(configuration);
+    if (typeof requestCallbackUrl !== 'string') return defaultCallbackUrl;
+
+    const override = requestCallbackUrl.trim();
+    if (!override) return defaultCallbackUrl;
+    if (/^[a-z][a-z\d+.-]*:\/\//i.test(override)) return override;
+
+    if (/^\/?api\/tiramis\/callbacks(\/|$)/i.test(override)) {
+      try {
+        const defaultUrl = new URL(defaultCallbackUrl);
+        return this.joinUrl(defaultUrl.origin, override);
+      } catch {
+        return this.joinUrl(defaultCallbackUrl, override);
+      }
+    }
+
+    return this.joinUrl(defaultCallbackUrl, override);
   }
 
   async getResponseCode(

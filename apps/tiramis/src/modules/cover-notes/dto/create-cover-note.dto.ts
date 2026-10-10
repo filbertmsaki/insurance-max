@@ -204,6 +204,15 @@ export class CreatePolicyHolderDto {
 }
 
 export class CreateCoverNoteDto {
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'motor',
+    description:
+      'Optional callback override. Use a full URL or a path such as motor, non-motor, or fleet. Defaults to the configured TIRAMIS callback URL.',
+  })
+  @IsOptional()
+  callbackUrl?: string | null;
+
   @ApiProperty({
     example: 'ICC999',
     description:

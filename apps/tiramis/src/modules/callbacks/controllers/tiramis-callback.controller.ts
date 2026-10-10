@@ -33,21 +33,32 @@ export class TiramisCallbackController {
   @Header('Content-Type', 'application/xml')
   @RawResponse()
   async handleActiveCallback(@Body() rawXml: string): Promise<string> {
-    return this.handleCallback(
+    return this.processCallback(
       this.tiramisConfigService.resolveRuntimeEnvironment(),
       rawXml,
+      null,
     );
   }
 
-  @Post(':environment')
+  @Post(':callbackRoute')
   @HttpCode(200)
   @Header('Content-Type', 'application/xml')
   @RawResponse()
   async handleCallback(
-    @Param('environment') environment: string,
+    @Param('callbackRoute') callbackRoute: string,
     @Body() rawXml: string,
   ): Promise<string> {
-    const normalizedEnvironment = this.normalizeEnvironment(environment);
+    const normalizedEnvironment =
+      this.resolveCallbackRouteEnvironment(callbackRoute);
+
+    return this.processCallback(normalizedEnvironment, rawXml, callbackRoute);
+  }
+
+  private async processCallback(
+    normalizedEnvironment: 'uat' | 'production',
+    rawXml: string,
+    callbackRoute: string | null,
+  ): Promise<string> {
     const activeEnvironment =
       this.tiramisConfigService.resolveRuntimeEnvironment();
     if (normalizedEnvironment !== activeEnvironment) {
@@ -57,7 +68,7 @@ export class TiramisCallbackController {
     }
 
     this.logger.debug(
-      `Received callback for env=${normalizedEnvironment}, bodyType=${typeof rawXml}, bodyLength=${
+      `Received callback for env=${normalizedEnvironment}, route=${callbackRoute ?? 'default'}, bodyType=${typeof rawXml}, bodyLength=${
         typeof rawXml === 'string' ? rawXml.length : 0
       }, bodySha256=${
         typeof rawXml === 'string'
@@ -72,6 +83,18 @@ export class TiramisCallbackController {
     });
 
     return acknowledgement.acknowledgementXml;
+  }
+
+  private resolveCallbackRouteEnvironment(
+    callbackRoute: string,
+  ): 'uat' | 'production' {
+    const value = callbackRoute.trim().toLowerCase();
+    if (this.isEnvironmentRoute(value)) return this.normalizeEnvironment(value);
+    return this.tiramisConfigService.resolveRuntimeEnvironment();
+  }
+
+  private isEnvironmentRoute(value: string): boolean {
+    return ['uat', 'test', 'local', 'production', 'live'].includes(value);
   }
 
   private normalizeEnvironment(environment: string): 'uat' | 'production' {

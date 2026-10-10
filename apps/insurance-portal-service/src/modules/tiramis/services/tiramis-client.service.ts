@@ -2067,8 +2067,8 @@ export class TiramisClientService {
   }
 
   private stripSignedTenantBodyFields(payload: Record<string, any>) {
-    // callbackUrl/callback_url are resolved server-side from company config and must not be
-    // overridable by tenant-supplied payload data before we attach our own webhook URL.
+    // callbackUrl is a request-level TIRA callback override. Keep it so
+    // motor/non-motor/fleet submissions can choose a public callback route.
     const {
       companyCode,
       systemCode,
@@ -2077,7 +2077,6 @@ export class TiramisClientService {
       branchCode,
       insurerCompanyCode,
       tranCompanyCode,
-      callbackUrl,
       callback_url,
       ...body
     } = payload;
@@ -2089,7 +2088,6 @@ export class TiramisClientService {
     void branchCode;
     void insurerCompanyCode;
     void tranCompanyCode;
-    void callbackUrl;
     void callback_url;
 
     return body;
