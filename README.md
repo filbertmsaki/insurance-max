@@ -71,7 +71,8 @@ npm run start:dev
 npm run start:dev:insurance-portal-service
 npm run test
 npm run db:prepare:tiramis:e2e
-npm run test:e2e
+npm run test:e2e          # disposable test databases, see docs/testing.md
+npm run test:verify-clean
 npm run test:tiramis:e2e
 ```
 

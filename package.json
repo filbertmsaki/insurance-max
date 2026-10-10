@@ -38,6 +38,8 @@
     "test": "npm run test:backend",
     "test:backend": "jest --runInBand --passWithNoTests",
     "test:e2e": "jest --config apps/insurance-portal-service/test/jest-e2e.json --runInBand",
+    "test:db:clean": "node -r ts-node/register apps/insurance-portal-service/test/support/test-database-cli.ts clean",
+    "test:verify-clean": "node -r ts-node/register apps/insurance-portal-service/test/support/test-database-cli.ts verify",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:web": "npm --prefix apps/insurance-portal-web run test",

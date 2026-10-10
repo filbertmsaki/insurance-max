@@ -9,6 +9,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   ServiceDatabaseConfig,
   SharedConfigModule,
+  assertDatabaseMatchesEnvironment,
   cacheConfig,
   corsConfig,
   createTypeOrmOptions,
@@ -81,16 +82,21 @@ import { DatabaseInfrastructureGuard } from './modules/shared/identifiers/databa
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) =>
-        createTypeOrmOptions(
-          configService.getOrThrow<ServiceDatabaseConfig>(
-            'insurancePortalDatabase',
-          ),
-          {
-            autoLoadEntities: true,
-            entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          },
-        ),
+      useFactory: (configService: ConfigService) => {
+        const database = configService.getOrThrow<ServiceDatabaseConfig>(
+          'insurancePortalDatabase',
+        );
+        assertDatabaseMatchesEnvironment({
+          appEnv: configService.get<string>('APP_ENV'),
+          nodeEnv: process.env.NODE_ENV,
+          database: database.database,
+        });
+
+        return createTypeOrmOptions(database, {
+          autoLoadEntities: true,
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        });
+      },
     }),
     InsurancePortalServiceModule,
     TiramisModule,

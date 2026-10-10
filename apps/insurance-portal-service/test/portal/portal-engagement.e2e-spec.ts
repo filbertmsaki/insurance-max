@@ -494,7 +494,6 @@ describe('Portal engagement access (real database)', () => {
     jwtService = app.get(JwtService);
     sessionsService = app.get(SessionsService);
     companiesService = app.get(CompaniesService);
-    await dataSource.runMigrations();
 
     const insurer = await dataSource.query(
       `SELECT id FROM companies WHERE slug = 'alliance-insurance-corporation'`,
