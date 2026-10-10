@@ -38,9 +38,9 @@ All three branches are stacked: each is based on the one above it.
 8. Clean up test rows left in the local dev database by
    `portal-engagement` spec runs (customers `CUST-E?-*`, users
    `engaged.*@example.com`, companies "Engagement Broker A/B").
-9. A local `insurance_portal_e2e` database and gitignored
-   `apps/insurance-portal-service/.env.e2e` exist for running
-   `NODE_ENV=e2e npm run test:e2e` without touching the dev database.
+9. `npm run test:e2e` now runs on disposable `insurance_portal_test_*`
+   databases (see `docs/testing.md`). The old local `insurance_portal_e2e`
+   database and `.env.e2e` are obsolete and can be dropped.
 
 ## 3. Planned next steps
 

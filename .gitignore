@@ -60,6 +60,8 @@ apps/**/.env
 apps/**/.env.*
 !apps/**/.env.example
 !apps/**/.env.*.example
+# Test overrides only - no secrets; shared so local runs and CI agree.
+!apps/insurance-portal-service/.env.test
 certificates/
 *.pfx
 *.p12

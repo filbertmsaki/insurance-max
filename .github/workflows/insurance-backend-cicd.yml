@@ -106,7 +106,9 @@ env:
   CI_DB_USERNAME: "insurance_ci"
   CI_DB_PASSWORD: "insurance_ci_password"
 
-  CI_DB_DATABASE: "insurance_portal_ci"
+  # "_test" in the name satisfies the app's guard that refuses
+  # APP_ENV=test against a non-test database.
+  CI_DB_DATABASE: "insurance_portal_ci_test"
 
   # ----------------------------------------------------------
   # CI Redis
@@ -356,6 +358,10 @@ jobs:
 
       # -------------------------------------------------------
       # Create CI PostgreSQL user + DB
+      #
+      # CREATEDB lets the e2e suite create its own disposable
+      # insurance_portal_test_<run> databases (and drop them in
+      # its global teardown) instead of writing into this one.
       # -------------------------------------------------------
 
       - name: Create CI PostgreSQL database
@@ -373,6 +379,7 @@ jobs:
             --command "
               CREATE ROLE ${CI_DB_USERNAME}
               LOGIN
+              CREATEDB
               PASSWORD '${CI_DB_PASSWORD}';
             "
 
@@ -621,13 +628,9 @@ jobs:
       # This executes your TypeScript data source against a real
       # PostgreSQL instance.
       #
-      # IMPORTANT:
-      #
-      # This MUST run before the test suite. Several specs boot
-      # the real AppModule against this database, and
-      # DatabaseInfrastructureGuard fails startup if
-      # infrastructure objects (e.g. pricing_quote_identifier_seq
-      # from CoreInfrastructureSequences) do not exist yet.
+      # This validates the migrations against the CI database.
+      # The e2e suite does not use this database: it migrates
+      # and seeds its own disposable copy (see test:e2e below).
       # -------------------------------------------------------
 
       - name: Run backend database migrations
@@ -667,10 +670,9 @@ jobs:
       #
       # db:seed
       #
-      # Real-database specs (e.g. portal-engagement.e2e-spec.ts) look
-      # up seeded reference rows such as the baseline
-      # INSURANCE_COMPANY record and fail with
-      # "Cannot read properties of undefined" if this has not run.
+      # Validates that the seeders run cleanly on a freshly
+      # migrated database. The e2e suite seeds its own disposable
+      # database the same way.
       # -------------------------------------------------------
 
       - name: Seed backend baseline data
@@ -715,13 +717,19 @@ jobs:
       # Backend real-database (e2e) tests
       #
       # *.e2e-spec.ts files are not matched by the unit-test
-      # regex, so they need their own run. They boot AppModule
-      # against the migrated + seeded CI database above and
-      # cover cross-organization denial and row-lock behaviour
-      # that mocks cannot prove.
+      # regex, so they need their own run. They cover
+      # cross-organization denial and row-lock behaviour that
+      # mocks cannot prove.
+      #
+      # Jest global setup creates a disposable
+      # insurance_portal_test_<run> database (migrated + seeded),
+      # each spec file gets its own copy, and global teardown
+      # drops them all and checks the CI database for e2e rows.
       # -------------------------------------------------------
 
       - name: Run backend e2e tests
+
+        id: e2e
 
         shell: bash
 
@@ -732,6 +740,29 @@ jobs:
           set -Eeuo pipefail
 
           npm run test:e2e
+
+
+      # -------------------------------------------------------
+      # Test isolation check
+      #
+      # Runs whenever the e2e step started, even if it failed or
+      # was cancelled before its teardown: fails if any test database is
+      # left behind or e2e rows reached the CI database.
+      # -------------------------------------------------------
+
+      - name: Verify test isolation
+
+        if: ${{ always() && steps.e2e.outcome != 'skipped' }}
+
+        shell: bash
+
+        env:
+          NODE_ENV: test
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run test:verify-clean
 
 
       # -------------------------------------------------------
