@@ -857,7 +857,7 @@ export class TiramisConfigService {
   /**
    * callbackBaseUrl is embedded in outbound requests to TIRA, telling it
    * where to POST its async callback — TIRAMIS's own public base URL, not the
-   * portal's webhook. Platform profile, then environment, then APP_URL.
+   * portal's webhook. Platform profile override, then APP_URL.
    */
   private resolveDefaultCallbackUrl(environment: string): string {
     const configured =
@@ -867,8 +867,8 @@ export class TiramisConfigService {
 
     if (!configured) {
       throw new BadRequestException({
-        code: 'TIRAMIS_CALLBACK_URL_REQUIRED',
-        message: `No TIRA callback URL is configured for the ${environment} environment (set it under Platform -> TIRAMIS Integration, or TIRAMIS_CALLBACK_URL / APP_URL).`,
+        code: 'TIRAMIS_CALLBACK_BASE_URL_REQUIRED',
+        message: `No TIRA callback base URL is configured for the ${environment} environment (set APP_URL, or override it under Platform -> TIRAMIS Integration).`,
       });
     }
 

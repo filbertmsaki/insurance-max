@@ -163,9 +163,6 @@ export const tiramisEnvValidationSchema = Joi.object({
   TIRAMIS_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),
-  TIRAMIS_CALLBACK_URL: Joi.string()
-    .uri({ scheme: ['http', 'https'] })
-    .optional(),
 
   TIRAMIS_PORTAL_NOTIFY_ENABLED: optionalBoolean(
     TIRAMIS_DEFAULTS.portalNotifyEnabled,

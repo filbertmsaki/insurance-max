@@ -41,7 +41,6 @@ describe('TiramisConfigService organization context resolution', () => {
       const values: Record<string, string> = {
         TIRAMIS_BASE_URL: 'https://tira.uat',
         'tiramisService.url': 'https://tiramis.example.com',
-        TIRAMIS_CALLBACK_URL: 'https://tiramis.example.com',
         TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
         TIRA_ENV: 'uat',
         TIRA_CLIENT_CODE: 'CLIENT-PLATFORM',
@@ -281,7 +280,6 @@ describe('TiramisConfigService organization context resolution', () => {
       const values: Record<string, string> = {
         TIRAMIS_BASE_URL: 'https://tira.uat',
         'tiramisService.url': 'https://tiramis.example.com',
-        TIRAMIS_CALLBACK_URL: 'http://localhost:9091/api/tiramis/callbacks',
         TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
         TIRA_ENV: 'uat',
         TIRA_CLIENT_CODE: 'CLIENT-PLATFORM',
@@ -298,7 +296,9 @@ describe('TiramisConfigService organization context resolution', () => {
       ...configuration,
     } as any);
 
-    expect(callbackUrl).toBe('http://localhost:9091/api/tiramis/callbacks');
+    expect(callbackUrl).toBe(
+      'https://tiramis.example.com/api/tiramis/callbacks',
+    );
   });
 
   it('allows a request callback path to override the default callback URL', async () => {

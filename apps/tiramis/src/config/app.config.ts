@@ -29,8 +29,6 @@ export default registerAs('tiramisService', () => {
 
     baseUrl: normalizeBaseUrl(process.env.TIRAMIS_BASE_URL || ''),
 
-    callbackUrl: process.env.TIRAMIS_CALLBACK_URL?.trim() || '',
-
     requestTimeoutMs: optionalNumberEnv(
       'TIRAMIS_HTTP_TIMEOUT_MS',
       TIRAMIS_DEFAULTS.requestTimeoutMs,

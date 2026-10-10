@@ -157,11 +157,7 @@ export class TiramisSystemProfileService
       systemCode: pick('systemCode', row?.systemCode, ENV_NAMES.systemCode),
       systemName: pick('systemName', row?.systemName, ENV_NAMES.systemName),
       baseUrl: pick('baseUrl', row?.baseUrl, 'TIRAMIS_BASE_URL'),
-      callbackUrl: pick(
-        'callbackUrl',
-        row?.callbackUrl,
-        'TIRAMIS_CALLBACK_URL',
-      ),
+      callbackUrl: pick('callbackUrl', row?.callbackUrl, null),
       clientCertificatePath: join(
         join(this.certificateBaseDir(), activeEnvironment),
         TIRAMIS_CERTIFICATE_FILES.clientPrivate,
