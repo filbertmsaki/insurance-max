@@ -3976,12 +3976,6 @@ export class QuotationsService {
       );
     }
 
-    if (customer.kyc_status !== CustomerKycStatus.VERIFIED) {
-      throw new ConflictException(
-        'Customer KYC must be verified before submitting this quotation to TIRAMIS.',
-      );
-    }
-
     const policyHolderManifest =
       this.buildTiramisPolicyHolderManifest(outboundPayload);
 
