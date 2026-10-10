@@ -10,7 +10,7 @@ import { TiramisSystemProfileService } from './tiramis-system-profile.service';
 /** Profile service with no stored profiles, so values come from env. */
 function envOnlyProfiles(secretCrypto: any, configService: any) {
   return new TiramisSystemProfileService(
-    { find: jest.fn().mockResolvedValue([]) } as any,
+    { findOne: jest.fn().mockResolvedValue(null) } as any,
     secretCrypto,
     configService,
   );
@@ -19,7 +19,7 @@ function envOnlyProfiles(secretCrypto: any, configService: any) {
 describe('TiramisConfigService organization context resolution', () => {
   const configuration = {
     id: 'config-1',
-    environment: 'local',
+    environment: 'uat',
     companyCode: 'COMP-A',
     systemCode: 'SYS-A',
     insurerCompanyCode: 'INS-A',
@@ -39,16 +39,16 @@ describe('TiramisConfigService organization context resolution', () => {
     requestContextService = { getServicePrincipal: jest.fn() };
     configGet = jest.fn((key: string) => {
       const values: Record<string, string> = {
-        TIRAMIS_BASE_URL: 'https://tira.local',
+        TIRAMIS_BASE_URL: 'https://tira.uat',
         'tiramisService.url': 'https://tiramis.example.com',
         TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
-        TIRA_ENV: 'local',
+        TIRA_ENV: 'uat',
         TIRA_CLIENT_CODE: 'CLIENT-PLATFORM',
-        TIRA_CLIENT_KEY: 'local-client-key',
+        TIRA_CLIENT_KEY: 'uat-client-key',
         TIRA_SYSTEM_CODE: 'SYS-A',
         TIRA_SYSTEM_NAME: 'Platform System',
-        TIRA_CLIENT_CERT_PASSWORD: 'local-private-password',
-        TIRA_PUBLIC_CERT_PASSWORD: 'local-public-password',
+        TIRA_CLIENT_CERT_PASSWORD: 'uat-private-password',
+        TIRA_PUBLIC_CERT_PASSWORD: 'uat-public-password',
       };
       return values[key];
     });
@@ -96,7 +96,7 @@ describe('TiramisConfigService organization context resolution', () => {
         companyId: 'company-a',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'local',
+        environment: 'uat',
         insurerCompanyCode: 'INS-A',
       },
     });
@@ -109,7 +109,7 @@ describe('TiramisConfigService organization context resolution', () => {
     expect(clientConfigurationRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          environment: 'local',
+          environment: 'uat',
           companyCode: 'COMP-A',
           isActive: 1,
         }),
@@ -123,7 +123,7 @@ describe('TiramisConfigService organization context resolution', () => {
     await expect(
       service.resolveSubmissionContext(
         {
-          environment: 'local',
+          environment: 'uat',
           companyCode: 'COMP-A',
           systemCode: 'SYS-A',
           insurerCompanyCode: 'INS-B-FROM-REQUEST',
@@ -143,7 +143,7 @@ describe('TiramisConfigService organization context resolution', () => {
         companyId: 'company-a',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'local',
+        environment: 'uat',
         insurerCompanyCode: 'INS-A',
       },
     });
@@ -161,12 +161,12 @@ describe('TiramisConfigService organization context resolution', () => {
     expect(result.dto.systemCode).toBe('SYS-A');
     expect(result.configuration).toMatchObject({
       id: configuration.id,
-      baseUrl: 'https://tira.local',
+      baseUrl: 'https://tira.uat',
     });
     expect(clientConfigurationRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          environment: 'local',
+          environment: 'uat',
           companyCode: 'COMP-A',
         }),
       }),
@@ -183,7 +183,7 @@ describe('TiramisConfigService organization context resolution', () => {
         companyId: 'company-a',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'local',
+        environment: 'uat',
         insurerCompanyCode: 'INS-A',
       },
     });
@@ -206,7 +206,7 @@ describe('TiramisConfigService organization context resolution', () => {
         companyId: 'company-a',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'local',
+        environment: 'uat',
         insurerCompanyCode: 'INS-A',
       },
     });
@@ -218,7 +218,7 @@ describe('TiramisConfigService organization context resolution', () => {
     expect(result.dto.systemCode).toBe('SYS-A');
     expect(result.configuration).toMatchObject({
       id: configuration.id,
-      baseUrl: 'https://tira.local',
+      baseUrl: 'https://tira.uat',
     });
   });
 
@@ -235,11 +235,11 @@ describe('TiramisConfigService organization context resolution', () => {
       .mockResolvedValueOnce(companyB);
 
     const a = await service.getActiveConfiguration({
-      environment: 'local',
+      environment: 'uat',
       companyCode: 'COMP-A',
     });
     const b = await service.getActiveConfiguration({
-      environment: 'local',
+      environment: 'uat',
       companyCode: 'COMP-B',
     });
 
@@ -248,8 +248,8 @@ describe('TiramisConfigService organization context resolution', () => {
         systemCode: 'SYS-A',
         systemName: 'Platform System',
         clientCode: 'CLIENT-PLATFORM',
-        clientKey: 'local-client-key',
-        baseUrl: 'https://tira.local',
+        clientKey: 'uat-client-key',
+        baseUrl: 'https://tira.uat',
       });
     }
     expect(a.companyCode).toBe('COMP-A');
@@ -260,7 +260,7 @@ describe('TiramisConfigService organization context resolution', () => {
   it('rejects a system code that does not match the platform system code', async () => {
     await expect(
       service.getActiveConfiguration({
-        environment: 'local',
+        environment: 'uat',
         companyCode: 'COMP-A',
         systemCode: 'SYS-OTHER',
       }),
@@ -271,7 +271,7 @@ describe('TiramisConfigService organization context resolution', () => {
     await expect(service.getRequestHeaders('local')).resolves.toEqual({
       'Content-Type': 'application/xml',
       ClientCode: 'CLIENT-PLATFORM',
-      ClientKey: 'local-client-key',
+      ClientKey: 'uat-client-key',
     });
   });
 });

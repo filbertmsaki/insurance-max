@@ -37,7 +37,7 @@ export class TiramisWebhookCredentialService {
 
   async syncWebhookApiKey(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     tiramisConfigurationId: string;
   }): Promise<{ apiClientId: string }> {
     const name = `TIRAMIS webhook ${params.tiramisConfigurationId}`;
@@ -104,7 +104,7 @@ export class TiramisWebhookCredentialService {
    * that environment's platform profile. Rotates the secret on each sync.
    */
   async syncPlatformWebhookApiKey(
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
   ): Promise<{ apiClientId: string }> {
     const name = `TIRAMIS webhook (${environment})`;
     const ipWhitelist = [this.resolveTiramisSourceIp()];

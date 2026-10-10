@@ -1817,13 +1817,6 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_SCOPE,
   },
   {
-    name: 'platform:tiramis-integration:switch-environment',
-    displayName: 'Switch TIRAMIS environment',
-    description:
-      'Switch the platform-wide active TIRA environment between Test and Production',
-    scopes: GLOBAL_SCOPE,
-  },
-  {
     name: 'platform:tiramis-integration:company-access',
     displayName: 'Manage company TIRAMIS access',
     description:
@@ -3587,7 +3580,6 @@ const roleSeeds: RoleSeed[] = [
       'tiramis.config.manage',
       'platform:tiramis-integration:read',
       'platform:tiramis-integration:manage',
-      'platform:tiramis-integration:switch-environment',
       'platform:tiramis-integration:company-access',
       ...GOVERNANCE_PERMISSION_NAMES,
     ],

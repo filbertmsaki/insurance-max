@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
@@ -15,10 +20,7 @@ import {
   TiramisCompanyLinkEntity,
   TiramisCompanyLinkStatus,
 } from '../entities/tiramis-company-link.entity';
-import {
-  TiramisEnvironmentName,
-  TiramisPlatformSettingsEntity,
-} from '../entities/tiramis-platform-settings.entity';
+import { TiramisPlatformSettingsEntity } from '../entities/tiramis-platform-settings.entity';
 import { TiramisSubmissionTrackingEntity } from '../entities/tiramis-submission-tracking.entity';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 import { TiramisClientService } from './tiramis-client.service';
@@ -37,8 +39,6 @@ const PENDING_STATUSES = [
   TiramisSubmissionStatus.RETRYING,
   TiramisSubmissionStatus.CALLBACK_OVERDUE,
 ];
-
-const ENVIRONMENTS: TiramisEnvironmentName[] = ['local', 'uat', 'production'];
 
 /**
  * Platform → TIRAMIS Integration. The platform owner manages the TIRA
@@ -68,12 +68,12 @@ export class PlatformTiramisIntegrationService {
   async getOverview() {
     const settings = await this.platformAccess.getSettings();
     const activeEnvironment = await this.platformAccess.getActiveEnvironment();
-    const [profiles, pending, links, keys] = await Promise.all([
+    const [profile, pending, links, keys] = await Promise.all([
       this.tiramisClientService
         .platformAdminRequest<Record<string, unknown>>({
           method: 'GET',
-          url: '/api/tiramis/platform/profiles',
-          failureMessage: 'Unable to read the TIRA profiles from TIRAMIS.',
+          url: '/api/tiramis/platform/profiles/active',
+          failureMessage: 'Unable to read the TIRA profile from TIRAMIS.',
         })
         .catch((error: Error) => ({ error: error.message })),
       this.pendingByEnvironment(),
@@ -87,73 +87,46 @@ export class PlatformTiramisIntegrationService {
       integrationPermissions:
         settings.integrationPermissions ??
         DEFAULT_TIRAMIS_INTEGRATION_PERMISSIONS,
-      environments: Object.fromEntries(
-        ENVIRONMENTS.map((environment) => [
-          environment,
-          {
-            validationStatus:
-              environment === activeEnvironment
-                ? settings.validationStatus
-                : 'NOT_VALIDATED',
-            validatedAt:
-              environment === activeEnvironment
-                ? (settings.validatedAt ?? null)
-                : null,
-            serviceApiKeyConfigured:
-              environment === activeEnvironment ? keys : false,
-            pendingSubmissions: pending[environment] ?? 0,
-          },
-        ]),
-      ),
       environment: {
+        name: activeEnvironment,
         validationStatus: settings.validationStatus,
         validatedAt: settings.validatedAt ?? null,
         serviceApiKeyConfigured: keys,
         pendingSubmissions: pending[activeEnvironment] ?? 0,
       },
-      profiles:
-        profiles && typeof profiles === 'object' && !('error' in profiles)
-          ? Object.fromEntries(
-              ENVIRONMENTS.map((environment) => [
-                environment,
-                (profiles as { active?: unknown }).active ?? profiles,
-              ]),
-            )
-          : profiles,
+      profile,
       companies: links,
     };
   }
 
   // ---------------------------------------------------------------- profiles
 
-  updateProfile(environment: TiramisEnvironmentName, profile: unknown) {
+  updateProfile(profile: unknown) {
     return this.tiramisClientService.platformAdminRequest({
       method: 'PUT',
-      url: `/api/tiramis/platform/profiles/${environment}`,
+      url: '/api/tiramis/platform/profiles/active',
       data: profile,
-      environment,
       failureMessage: 'Unable to save the TIRA profile.',
     });
   }
 
-  uploadCertificate(environment: TiramisEnvironmentName, upload: unknown) {
+  uploadCertificate(upload: unknown) {
     return this.tiramisClientService.platformAdminRequest({
       method: 'POST',
-      url: `/api/tiramis/platform/profiles/${environment}/certificates`,
+      url: '/api/tiramis/platform/profiles/active/certificates',
       data: upload,
-      environment,
       failureMessage: 'Unable to store the certificate.',
     });
   }
 
-  async validateProfile(_environment: TiramisEnvironmentName, actorId: string) {
+  async validateProfile(actorId: string) {
     const environment = await this.platformAccess.getActiveEnvironment();
     const result = await this.tiramisClientService.platformAdminRequest<{
       valid: boolean;
       message: string;
     }>({
       method: 'POST',
-      url: `/api/tiramis/platform/profiles/${environment}/validate`,
+      url: '/api/tiramis/platform/profiles/active/validate',
       environment,
       failureMessage: 'Unable to validate the TIRA profile.',
     });
@@ -174,11 +147,8 @@ export class PlatformTiramisIntegrationService {
 
   // ---------------------------------------------------------------- credentials
 
-  async generateServiceApiKey(
-    environment: TiramisEnvironmentName,
-    allowedIps: string[],
-    actorId: string,
-  ) {
+  async generateServiceApiKey(allowedIps: string[], actorId: string) {
+    const environment = await this.platformAccess.getActiveEnvironment();
     const apiKey = await this.tiramisClientService.issuePlatformServiceKey({
       environment,
       allowedIps,
@@ -198,10 +168,8 @@ export class PlatformTiramisIntegrationService {
     return { environment, serviceApiKeyConfigured: true };
   }
 
-  async syncWebhookApiKey(
-    environment: TiramisEnvironmentName,
-    actorId: string,
-  ) {
+  async syncWebhookApiKey(actorId: string) {
+    const environment = await this.platformAccess.getActiveEnvironment();
     await this.webhookCredentialService.syncPlatformWebhookApiKey(environment);
     await this.audit(actorId, 'tiramis.platform.webhook_api_key.rotated', {
       environment,
@@ -402,7 +370,7 @@ export class PlatformTiramisIntegrationService {
         .groupBy('tracking.tiramisEnvironment')
         .getRawMany();
     return Object.fromEntries(
-      rows.map((row) => [row.environment ?? 'test', Number(row.count)]),
+      rows.map((row) => [row.environment ?? 'uat', Number(row.count)]),
     );
   }
 

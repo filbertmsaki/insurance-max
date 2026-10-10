@@ -25,7 +25,7 @@ function createService(stored: Record<string, unknown>[] = []) {
     ),
   };
   const env: Record<string, string> = {
-    TIRA_ENV: 'local',
+    TIRA_ENV: 'uat',
     TIRA_CLIENT_CODE: 'ENV-CLIENT',
     TIRA_CLIENT_KEY: 'env-key',
     TIRA_SYSTEM_CODE: 'ENV-SYSTEM',
@@ -44,7 +44,7 @@ describe('TiramisSystemProfileService', () => {
   it('uses the stored platform profile first and environment variables as fallback', async () => {
     const { service } = createService([
       {
-        environment: 'local',
+        environment: 'uat',
         clientCode: 'PROFILE-CLIENT',
         clientKeyEncrypted: 'enc:profile-key',
         systemCode: null,
@@ -52,7 +52,7 @@ describe('TiramisSystemProfileService', () => {
     ]);
     await service.refresh();
 
-    const effective = service.getEffective('local');
+    const effective = service.getEffective('uat');
 
     expect(effective).toMatchObject({
       clientCode: 'PROFILE-CLIENT',
@@ -69,17 +69,17 @@ describe('TiramisSystemProfileService', () => {
       signatureAlgorithm: 'default',
     });
     expect(effective.clientCertificatePath.replace(/\\/g, '/')).toBe(
-      '/certs/local/clientprivate.pfx',
+      '/certs/uat/clientprivate.pfx',
     );
   });
 
   it('stores secrets encrypted, resets validation, and never exposes them', async () => {
     const { service, rows } = createService([
-      { environment: 'production', validationStatus: 'VALID' },
+      { environment: 'uat', validationStatus: 'VALID' },
     ]);
 
     await service.update(
-      'production',
+      'uat',
       { clientKey: 'new-key', clientCode: 'PROD-CLIENT' },
       'admin@example.com',
     );
@@ -90,14 +90,14 @@ describe('TiramisSystemProfileService', () => {
       validationStatus: 'NOT_VALIDATED',
       updatedBy: 'admin@example.com',
     });
-    const view = service.describe('production');
+    const view = service.describe('uat');
     expect(view.clientKeyMasked).toBe('****-key');
     expect(JSON.stringify(view)).not.toContain('new-key');
   });
 
   it('keeps a stored secret when an update omits it', async () => {
     const { service, rows } = createService([
-      { environment: 'local', clientKeyEncrypted: 'enc:kept' },
+      { environment: 'uat', clientKeyEncrypted: 'enc:kept' },
     ]);
 
     await service.update('local', { systemName: 'Platform' }, 'admin');

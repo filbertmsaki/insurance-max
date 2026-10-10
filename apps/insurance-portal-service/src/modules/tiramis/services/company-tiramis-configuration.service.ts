@@ -56,7 +56,7 @@ export class CompanyTiramisConfigurationService {
     }> = [];
 
     for (const configuration of configurations) {
-      const environment = configuration.environment as 'local' | 'uat' | 'production';
+      const environment = configuration.environment as 'uat' | 'production';
 
       // An environment that was never linked has nothing to sync yet.
       if (!configuration.serviceApiKeyEncrypted) {
@@ -95,7 +95,7 @@ export class CompanyTiramisConfigurationService {
 
   private async syncPortalWebhookApiKey(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
     tiramisConfigurationId: string,
   ) {
     try {
@@ -119,14 +119,16 @@ export class CompanyTiramisConfigurationService {
         .createQueryBuilder('configuration')
         .addSelect('configuration.serviceApiKeyEncrypted')
         .where('configuration.companyId = :companyId', { companyId })
+        .andWhere('configuration.environment = :environment', {
+          environment: this.resolveDefaultTargetEnvironment(),
+        })
         .orderBy('configuration.environment', 'ASC')
         .getMany(),
       this.dataSource.getRepository(Company).findOne({
         where: { id: companyId },
       }),
     ]);
-    const targetEnvironment =
-      company?.settings?.tiramis_target_environment ?? null;
+    const targetEnvironment = this.resolveDefaultTargetEnvironment();
 
     const responses: Array<Record<string, any>> = configs.map((configuration) =>
       this.toResponse(
@@ -138,7 +140,7 @@ export class CompanyTiramisConfigurationService {
       try {
         const health = await this.getSecretHealth(
           companyId,
-          response.environment as 'local' | 'uat' | 'production',
+          response.environment as 'uat' | 'production',
         );
         response.notificationCredentialStatus =
           health.secrets.find((secret) => secret.name === 'portalWebhookApiKey')
@@ -163,6 +165,14 @@ export class CompanyTiramisConfigurationService {
     dto: UpsertCompanyTiramisConfigurationDto,
     actorId: string,
   ) {
+    const activeEnvironment = this.resolveDefaultTargetEnvironment();
+    if (dto.environment && dto.environment !== activeEnvironment) {
+      throw new BadRequestException(
+        `This server is configured for TIRA_ENV=${activeEnvironment}; ${dto.environment} configuration cannot be saved here.`,
+      );
+    }
+    const requestedEnvironment = activeEnvironment;
+
     // The configuration (including the API key) is written and committed
     // in its own transaction first. Activation, when requested, validates
     // against TIRAMIS afterwards: validateOrganizationConfiguration reads
@@ -188,7 +198,7 @@ export class CompanyTiramisConfigurationService {
       }
 
       let configuration = await repository.findOne({
-        where: { companyId, environment: dto.environment },
+        where: { companyId, environment: requestedEnvironment },
       });
 
       const beforeState = configuration
@@ -205,7 +215,7 @@ export class CompanyTiramisConfigurationService {
       if (!configuration) {
         configuration = repository.create({
           companyId,
-          environment: dto.environment,
+          environment: requestedEnvironment,
           companyCode: dto.company_code,
           companyName: company.name,
           insurerCompanyCode: dto.insurer_company_code ?? dto.company_code,
@@ -286,7 +296,7 @@ export class CompanyTiramisConfigurationService {
       const tiramisConfiguration =
         await this.tiramisClientService.upsertClientConfiguration({
           companyId,
-          environment: saved.environment as 'local' | 'uat' | 'production',
+          environment: saved.environment as 'uat' | 'production',
           companyCode: saved.companyCode,
           insurerCompanyCode: saved.insurerCompanyCode ?? saved.companyCode,
           salePointCode: dto.sale_point_code,
@@ -295,12 +305,12 @@ export class CompanyTiramisConfigurationService {
 
       await this.syncPortalWebhookApiKey(
         companyId,
-        saved.environment as 'local' | 'uat' | 'production',
+        saved.environment as 'uat' | 'production',
         tiramisConfiguration.id,
       );
       await this.tiramisClientService.setPortalNotificationPolicy({
         companyId,
-        environment: saved.environment as 'local' | 'uat' | 'production',
+        environment: saved.environment as 'uat' | 'production',
         tiramisConfigurationId: tiramisConfiguration.id,
         enabled: (
           saved.integrationPermissions ?? ['receive_notifications']
@@ -319,13 +329,9 @@ export class CompanyTiramisConfigurationService {
     }
 
     if (!dto.use_as_target_environment) {
-      const company = await this.dataSource
-        .getRepository(Company)
-        .findOne({ where: { id: companyId } });
-
       return this.toResponse(
         saved,
-        company?.settings?.tiramis_target_environment === saved.environment,
+        saved.environment === this.resolveDefaultTargetEnvironment(),
       );
     }
 
@@ -343,7 +349,7 @@ export class CompanyTiramisConfigurationService {
   ) {
     const validation = await this.assertEnvironmentCanBeActivated({
       companyId,
-      environment: saved.environment as 'local' | 'uat' | 'production',
+      environment: saved.environment as 'uat' | 'production',
       companyCode: saved.companyCode,
       insurerCompanyCode: saved.insurerCompanyCode,
       confirmLive: options.confirmLive,
@@ -362,13 +368,10 @@ export class CompanyTiramisConfigurationService {
         throw new NotFoundException('Company was not found.');
       }
 
-      const previousEnvironment =
-        company.settings?.tiramis_target_environment ?? null;
+      const previousEnvironment = this.resolveDefaultTargetEnvironment();
       company.tira_integration_enabled = true;
-      company.settings = {
-        ...(company.settings ?? {}),
-        tiramis_target_environment: saved.environment,
-      };
+      company.settings = { ...(company.settings ?? {}) };
+      delete company.settings.tiramis_target_environment;
       await companyRepository.save(company);
 
       await this.auditService.logCritical(
@@ -397,7 +400,7 @@ export class CompanyTiramisConfigurationService {
 
   async validate(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
     options?: { allowExpiredCertificates?: boolean },
   ) {
     const configuration = await this.repository.findOne({
@@ -461,7 +464,7 @@ export class CompanyTiramisConfigurationService {
 
   async getPortalWebhookDiagnostics(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
   ) {
     const configuration = await this.repository.findOne({
       where: { companyId, environment, isActive: true },
@@ -479,7 +482,10 @@ export class CompanyTiramisConfigurationService {
     };
   }
 
-  async testPortalWebhook(companyId: string, environment: 'local' | 'uat' | 'production') {
+  async testPortalWebhook(
+    companyId: string,
+    environment: 'uat' | 'production',
+  ) {
     const configuration = await this.repository.findOne({
       where: { companyId, environment, isActive: true },
     });
@@ -507,7 +513,7 @@ export class CompanyTiramisConfigurationService {
 
   async getDeliveryDiagnostics(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
     params: { requestId?: string; limit?: number },
   ) {
     const configuration = await this.repository.findOne({
@@ -537,7 +543,7 @@ export class CompanyTiramisConfigurationService {
 
   async syncPortalWebhookCredential(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
   ) {
     const tiramisConfigurationId = await this.resolveTiramisConfigurationId(
       companyId,
@@ -559,14 +565,14 @@ export class CompanyTiramisConfigurationService {
   }
 
   /** Platform-wide TIRA system identity, owned by TIRAMIS (read-only here). */
-  getSystemIdentity(companyId: string, environment: 'local' | 'uat' | 'production') {
+  getSystemIdentity(companyId: string, environment: 'uat' | 'production') {
     return this.tiramisClientService.getSystemIdentity({
       companyId,
       environment,
     });
   }
 
-  async getSecretHealth(companyId: string, environment: 'local' | 'uat' | 'production') {
+  async getSecretHealth(companyId: string, environment: 'uat' | 'production') {
     const tiramisConfigurationId = await this.resolveTiramisConfigurationId(
       companyId,
       environment,
@@ -587,7 +593,7 @@ export class CompanyTiramisConfigurationService {
    */
   async repairSecrets(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
     actorId: string,
     replacements: Partial<Record<TiramisSecretName, string>> = {},
   ) {
@@ -649,7 +655,7 @@ export class CompanyTiramisConfigurationService {
    */
   private async resolveTiramisConfigurationId(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
   ): Promise<string> {
     const configuration = await this.repository.findOne({
       where: { companyId, environment, isActive: true },
@@ -670,10 +676,16 @@ export class CompanyTiramisConfigurationService {
 
   async activate(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
     actorId: string,
     options: { confirmLive?: boolean; forceActivation?: boolean } = {},
   ) {
+    if (environment !== this.resolveDefaultTargetEnvironment()) {
+      throw new BadRequestException(
+        `This server is configured for TIRA_ENV=${this.resolveDefaultTargetEnvironment()}; ${environment} cannot be activated here.`,
+      );
+    }
+
     const configuration = await this.repository.findOne({
       where: { companyId, environment, isActive: true },
     });
@@ -692,7 +704,7 @@ export class CompanyTiramisConfigurationService {
 
   async generateServiceApiKey(
     companyId: string,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
     actorId: string,
     adminAccessToken: string,
     allowedIps: string[],
@@ -752,7 +764,9 @@ export class CompanyTiramisConfigurationService {
           afterState: {
             environment,
             environmentLabel:
-              environment === 'production' ? 'Production' : environment.toUpperCase(),
+              environment === 'production'
+                ? 'Production'
+                : environment.toUpperCase(),
             serviceApiKeyConfigured: true,
             serviceApiKeyMasked: this.apiKeyVault.mask(
               saved.serviceApiKeyEncrypted,
@@ -765,7 +779,7 @@ export class CompanyTiramisConfigurationService {
       return {
         ...this.toResponse(
           saved,
-          company?.settings?.tiramis_target_environment === saved.environment,
+          saved.environment === this.resolveDefaultTargetEnvironment(),
         ),
         generatedApiKey,
       };
@@ -841,7 +855,7 @@ export class CompanyTiramisConfigurationService {
 
   private async assertEnvironmentCanBeActivated(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     companyCode: string;
     insurerCompanyCode?: string | null;
     allowExpiredCertificates?: boolean;
@@ -890,9 +904,8 @@ export class CompanyTiramisConfigurationService {
 
   private resolveDefaultTargetEnvironment() {
     return (
-      this.configService.get<'local' | 'uat' | 'production'>(
-        'tiramisClient.tiraEnv',
-      ) ?? 'local'
+      this.configService.get<'uat' | 'production'>('tiramisClient.tiraEnv') ??
+      'uat'
     );
   }
 

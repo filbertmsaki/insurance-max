@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   tiramisIntegrationApi,
   type TiramisCertificateKind,
-  type TiramisEnvironment,
   type TiramisIntegrationPermission,
   type TiramisProfileUpdate,
 } from './api';
@@ -35,48 +34,48 @@ function useInvalidateTiramisIntegration() {
     queryClient.invalidateQueries({ queryKey: tiramisIntegrationKeys.all });
 }
 
-export function useUpdateTiramisProfile(env: TiramisEnvironment) {
+export function useUpdateTiramisProfile() {
   const invalidate = useInvalidateTiramisIntegration();
   return useMutation({
     mutationFn: (data: TiramisProfileUpdate) =>
-      tiramisIntegrationApi.updateProfile(env, data),
+      tiramisIntegrationApi.updateProfile(data),
     onSuccess: () => void invalidate(),
   });
 }
 
-export function useUploadTiramisCertificate(env: TiramisEnvironment) {
+export function useUploadTiramisCertificate() {
   const invalidate = useInvalidateTiramisIntegration();
   return useMutation({
     mutationFn: (data: {
       kind: TiramisCertificateKind;
       contentBase64: string;
       password?: string;
-    }) => tiramisIntegrationApi.uploadCertificate(env, data),
+    }) => tiramisIntegrationApi.uploadCertificate(data),
     onSuccess: () => void invalidate(),
   });
 }
 
-export function useValidateTiramisProfile(env: TiramisEnvironment) {
+export function useValidateTiramisProfile() {
   const invalidate = useInvalidateTiramisIntegration();
   return useMutation({
-    mutationFn: () => tiramisIntegrationApi.validate(env),
+    mutationFn: () => tiramisIntegrationApi.validate(),
     onSettled: () => void invalidate(),
   });
 }
 
-export function useGenerateTiramisServiceKey(env: TiramisEnvironment) {
+export function useGenerateTiramisServiceKey() {
   const invalidate = useInvalidateTiramisIntegration();
   return useMutation({
     mutationFn: (allowedIps: string[]) =>
-      tiramisIntegrationApi.generateServiceApiKey(env, allowedIps),
+      tiramisIntegrationApi.generateServiceApiKey(allowedIps),
     onSuccess: () => void invalidate(),
   });
 }
 
-export function useRotateTiramisWebhookKey(env: TiramisEnvironment) {
+export function useRotateTiramisWebhookKey() {
   const invalidate = useInvalidateTiramisIntegration();
   return useMutation({
-    mutationFn: () => tiramisIntegrationApi.rotateWebhookApiKey(env),
+    mutationFn: () => tiramisIntegrationApi.rotateWebhookApiKey(),
     onSuccess: () => void invalidate(),
   });
 }

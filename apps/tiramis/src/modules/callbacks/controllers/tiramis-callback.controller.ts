@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Header,
@@ -46,8 +47,17 @@ export class TiramisCallbackController {
     @Param('environment') environment: string,
     @Body() rawXml: string,
   ): Promise<string> {
+    const normalizedEnvironment = this.normalizeEnvironment(environment);
+    const activeEnvironment =
+      this.tiramisConfigService.resolveRuntimeEnvironment();
+    if (normalizedEnvironment !== activeEnvironment) {
+      throw new BadRequestException(
+        `This server is configured for TIRA_ENV=${activeEnvironment}; ${normalizedEnvironment} callbacks are not accepted here.`,
+      );
+    }
+
     this.logger.debug(
-      `Received callback for env=${environment}, bodyType=${typeof rawXml}, bodyLength=${
+      `Received callback for env=${normalizedEnvironment}, bodyType=${typeof rawXml}, bodyLength=${
         typeof rawXml === 'string' ? rawXml.length : 0
       }, bodySha256=${
         typeof rawXml === 'string'
@@ -57,10 +67,19 @@ export class TiramisCallbackController {
     );
 
     const acknowledgement = await this.tiramisCallbackService.handleCallback({
-      environment,
+      environment: normalizedEnvironment,
       rawXml,
     });
 
     return acknowledgement.acknowledgementXml;
+  }
+
+  private normalizeEnvironment(environment: string): 'uat' | 'production' {
+    const value = environment.trim().toLowerCase();
+    if (value === 'live' || value === 'production') return 'production';
+    if (value === 'test' || value === 'local' || value === 'uat') return 'uat';
+    throw new BadRequestException(
+      `Unsupported TIRA callback environment: ${environment}`,
+    );
   }
 }

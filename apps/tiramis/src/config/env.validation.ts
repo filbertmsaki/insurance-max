@@ -123,7 +123,7 @@ export const tiramisEnvValidationSchema = Joi.object({
     .min(1000)
     .default(60000),
   // Selects this server's one active TIRA integration environment.
-  TIRA_ENV: Joi.string().valid('local', 'uat', 'production').required(),
+  TIRA_ENV: Joi.string().valid('uat', 'production').default('uat'),
   DB_TYPE: Joi.string()
     .valid('postgres', 'mysql', 'oracle')
     .default('postgres'),

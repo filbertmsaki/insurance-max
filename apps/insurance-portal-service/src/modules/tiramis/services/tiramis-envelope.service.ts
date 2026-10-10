@@ -30,18 +30,16 @@ export class TiramisEnvelopeService {
     context: TiramisSubmissionContext;
     payload: Record<string, unknown>;
     /** The environment the submission is sent to (company/platform active). */
-    environment?: 'local' | 'uat' | 'production';
+    environment?: 'uat' | 'production';
   }): TiramisSubmissionEnvelope {
     const payloadHash = this.hashService.hashDefinition(params.payload);
     const contextHash = this.hashService.hashDefinition(
       params.context as unknown as Record<string, unknown>,
     );
-    const environment =
+    const environment: 'uat' | 'production' =
       params.environment ??
-      this.configService.get<'local' | 'uat' | 'production'>(
-        'tiramisClient.tiraEnv',
-      ) ??
-      'local';
+      this.configService.get<'uat' | 'production'>('tiramisClient.tiraEnv') ??
+      'uat';
 
     const unsigned = {
       schemaVersion: TiramisIntegrationSchemaVersion.V1,

@@ -11,30 +11,17 @@ import { tiramisIntegrationApi, type TiramisIntegrationOverview } from '../api';
 import { PlatformTiramisIntegrationPage } from '../pages/PlatformTiramisIntegrationPage';
 
 const overview: TiramisIntegrationOverview = {
-  activeEnvironment: 'local',
+  activeEnvironment: 'uat',
   environmentSwitchedAt: null,
   integrationPermissions: ['submit'],
-  environments: {
-    local: {
-      validationStatus: 'VALID',
-      validatedAt: null,
-      serviceApiKeyConfigured: true,
-      pendingSubmissions: 4,
-    },
-    uat: {
-      validationStatus: 'NOT_VALIDATED',
-      validatedAt: null,
-      serviceApiKeyConfigured: false,
-      pendingSubmissions: 0,
-    },
-    production: {
-      validationStatus: 'NOT_VALIDATED',
-      validatedAt: null,
-      serviceApiKeyConfigured: false,
-      pendingSubmissions: 0,
-    },
+  environment: {
+    name: 'uat',
+    validationStatus: 'VALID',
+    validatedAt: null,
+    serviceApiKeyConfigured: true,
+    pendingSubmissions: 4,
   },
-  profiles: { error: 'unavailable' },
+  profile: { error: 'unavailable' },
   companies: { ACTIVE: 3, REVOKED: 1 },
 };
 
@@ -74,7 +61,7 @@ describe('PlatformTiramisIntegrationPage', () => {
 
     renderPage(['platform:tiramis-integration:read']);
 
-    expect(await screen.findByText('Active: Test')).toBeInTheDocument();
+    expect(await screen.findByText('Active: UAT')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(tiramisIntegrationApi.getOverview).toHaveBeenCalledTimes(1);

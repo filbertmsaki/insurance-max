@@ -128,7 +128,8 @@ export class TiramisConfigurationValidationController {
   @Post('validate-organization')
   async validate(@Body() dto: ValidateOrganizationConfigurationDto) {
     const configuration = await this.configService.getActiveConfiguration({
-      environment: dto.environment ?? this.configService.resolveRuntimeEnvironment(),
+      environment:
+        dto.environment ?? this.configService.resolveRuntimeEnvironment(),
       companyCode: dto.companyCode,
       systemCode: dto.systemCode,
     });
@@ -199,7 +200,8 @@ export class TiramisConfigurationValidationController {
   @Post('resolve-organization')
   async resolveOrganization(@Body() dto: ResolveOrganizationConfigurationDto) {
     const configuration = await this.configService.getActiveConfiguration({
-      environment: dto.environment ?? this.configService.resolveRuntimeEnvironment(),
+      environment:
+        dto.environment ?? this.configService.resolveRuntimeEnvironment(),
       companyCode: dto.companyCode,
       systemCode: dto.systemCode,
     });
@@ -215,7 +217,9 @@ export class TiramisConfigurationValidationController {
   /** The platform-wide TIRA system identity (no secrets) for an environment. */
   @Post('system-identity')
   getSystemIdentity(@Body() dto: SystemIdentityQueryDto) {
-    return this.configService.getSystemIdentity(dto.environment ?? 'local');
+    return this.configService.getSystemIdentity(
+      dto.environment ?? this.configService.resolveRuntimeEnvironment(),
+    );
   }
 
   @Get(':configurationId/secret-health')

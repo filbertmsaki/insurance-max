@@ -125,7 +125,7 @@ export class TiramisSubmissionTrackingEntity {
     length: 10,
     nullable: true,
   })
-  tiramisEnvironment?: 'local' | 'uat' | 'production' | null;
+  tiramisEnvironment?: 'uat' | 'production' | null;
 
   @Column({
     name: 'source_user_id',

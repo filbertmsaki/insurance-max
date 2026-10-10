@@ -317,7 +317,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   // already-encrypted values, but a dedicated secret should be set so this
   // purpose doesn't share a key with token signing.
   TIRAMIS_SERVICE_API_KEY_ENCRYPTION_KEY: Joi.string().optional(),
-  TIRA_ENV: Joi.string().valid('local', 'uat', 'production').default('local'),
+  TIRA_ENV: Joi.string().valid('uat', 'production').default('uat'),
   TIRAMIS_SOURCE_SERVICE: Joi.string()
     .trim()
     .min(1)

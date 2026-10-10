@@ -30,7 +30,7 @@ export interface TiramisApiKeyPrincipal {
   allowedIps: string[];
   scopes: string[];
   tenantCompanyCode: string | null;
-  tenantEnvironment: 'local' | 'uat' | 'production' | null;
+  tenantEnvironment: 'uat' | 'production' | null;
   clientConfigurationId: string | null;
 }
 
@@ -415,11 +415,9 @@ export class TiramisApiKeyService {
   }
 
   private normalizeTenantEnvironment(value: string | null | undefined) {
-    if (value === 'test') return 'local';
+    if (value === 'test' || value === 'local') return 'uat';
     if (value === 'live') return 'production';
-    return value === 'local' || value === 'uat' || value === 'production'
-      ? value
-      : null;
+    return value === 'uat' || value === 'production' ? value : null;
   }
 
   private redact(entity: TiramisApiKeyEntity): TiramisApiKeyEntity {

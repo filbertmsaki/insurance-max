@@ -84,7 +84,7 @@ export interface TiramisSubmissionEnvelope<
   contractVersion: '1.0';
   command: TiramisIntegrationCommand;
   requestType: TiramisIntegrationRequestType;
-  environment: 'local' | 'uat' | 'production';
+  environment: 'uat' | 'production';
   idempotencyKey: string;
   correlationId: string;
   causationId: string | null;

@@ -416,7 +416,7 @@ export class ReleaseGateService {
 
   private async loadTiramisEvidence(): Promise<ReleaseCheckEvidence<boolean>> {
     const checkedAt = new Date().toISOString();
-    const environment = this.configService.get<string>('TIRA_ENV') ?? 'local';
+    const environment = this.configService.get<string>('TIRA_ENV') ?? 'uat';
 
     try {
       const [configRow] = await this.dataSource.query(

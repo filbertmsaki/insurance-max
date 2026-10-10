@@ -124,6 +124,6 @@ export class TiramisPlatformAccessService {
   private defaultEnvironment(): TiramisEnvironmentName {
     const value = this.configService.get<string>('tiramisClient.tiraEnv');
     if (value === 'uat' || value === 'production') return value;
-    return 'local';
+    return 'uat';
   }
 }

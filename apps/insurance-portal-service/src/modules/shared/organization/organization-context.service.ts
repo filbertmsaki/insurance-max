@@ -48,7 +48,7 @@ export class OrganizationContextService {
   async resolve(
     userId: string,
     companyId: string,
-    environment?: 'local' | 'uat' | 'production',
+    environment?: 'uat' | 'production',
     options: { followUp?: boolean } = {},
   ): Promise<OrganizationContext> {
     const membership = await this.membershipRepository.findOne({
@@ -233,7 +233,7 @@ export class OrganizationContextService {
   async requireTiramisReady(
     userId: string,
     companyId: string,
-    environment?: 'local' | 'uat' | 'production',
+    environment?: 'uat' | 'production',
     options: { followUp?: boolean } = {},
   ): Promise<OrganizationContext> {
     const context = await this.resolve(userId, companyId, environment, options);
@@ -258,7 +258,7 @@ export class OrganizationContextService {
    */
   async resolveCompanyTiramisEnvironment(
     _companyId?: string,
-  ): Promise<'local' | 'uat' | 'production'> {
+  ): Promise<'uat' | 'production'> {
     return this.platformAccess.getActiveEnvironment();
   }
 }

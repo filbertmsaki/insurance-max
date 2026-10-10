@@ -6,9 +6,7 @@ const ENVIRONMENT_COLUMNS: Array<[string, string]> = [
   ['tiramis_submission_tracking', 'tiramis_environment'],
 ];
 
-export class SingleTiraEnvironmentConfiguration1793500000000
-  implements MigrationInterface
-{
+export class SingleTiraEnvironmentConfiguration1793500000000 implements MigrationInterface {
   name = 'SingleTiraEnvironmentConfiguration1793500000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -86,7 +84,9 @@ export class SingleTiraEnvironmentConfiguration1793500000000
     await queryRunner.query(
       `ALTER TABLE "tiramis_company_configurations" DROP CONSTRAINT IF EXISTS "UQ_tiramis_company_config_company_environment"`,
     );
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tiramis_company_config_environment"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_tiramis_company_config_environment"`,
+    );
     await queryRunner.query(`
       ALTER TABLE "tiramis_company_configurations"
       ADD CONSTRAINT "UQ_tiramis_company_config_company" UNIQUE ("company_id")`);

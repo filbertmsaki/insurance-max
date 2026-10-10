@@ -11,7 +11,7 @@ import { Column, Entity, Index } from 'typeorm';
 @Index(['environment'], { unique: true })
 export class TiramisSystemProfileEntity extends BaseEntity {
   @Column({ length: 10 })
-  environment!: 'local' | 'uat' | 'production';
+  environment!: 'uat' | 'production';
 
   @Column({ name: 'client_code', type: 'varchar', length: 100, nullable: true })
   clientCode?: string | null;

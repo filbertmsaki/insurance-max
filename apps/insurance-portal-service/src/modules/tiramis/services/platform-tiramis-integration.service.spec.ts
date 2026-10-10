@@ -14,7 +14,7 @@ function createService(
 ) {
   const settings = {
     id: 'platform',
-    activeEnvironment: 'local',
+    activeEnvironment: 'uat',
     validationStatus: 'VALID',
     ...overrides.settings,
   };
@@ -49,7 +49,7 @@ function createService(
   };
   const platformAccess = {
     getSettings: jest.fn().mockResolvedValue(settings),
-    getActiveEnvironment: jest.fn().mockResolvedValue('local'),
+    getActiveEnvironment: jest.fn().mockResolvedValue('uat'),
     getServiceApiKey: jest
       .fn()
       .mockResolvedValue(
@@ -77,8 +77,8 @@ describe('PlatformTiramisIntegrationService', () => {
 
     const overview = await service.getOverview();
 
-    expect(overview.activeEnvironment).toBe('local');
-    expect(overview.environments.local).toBeDefined();
+    expect(overview.activeEnvironment).toBe('uat');
+    expect(overview.environment.name).toBe('uat');
   });
 
   it('revokes access with a reason and reports pending submissions', async () => {

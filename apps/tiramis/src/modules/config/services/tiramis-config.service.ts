@@ -33,7 +33,7 @@ export type TiramisSecretName = (typeof TIRAMIS_SECRET_FIELDS)[number]['name'];
 
 /**
  * Platform-wide TIRA system identity, read from the environment per TIRA
- * environment (test/live). Never stored per company.
+ * environment. Never stored per company.
  */
 export const TIRAMIS_SYSTEM_ENV = {
   clientCode: 'TIRA_CLIENT_CODE',
@@ -544,7 +544,7 @@ export class TiramisConfigService {
   private buildRequestHeaders(
     clientCode: string | null,
     clientKey: string | null,
-    environment: 'local' | 'uat' | 'production',
+    environment: 'uat' | 'production',
   ): TiramisRequestHeaders {
     if (!clientCode || !clientKey) {
       throw new BadRequestException(
@@ -578,9 +578,7 @@ export class TiramisConfigService {
     const configuredUrl = configuration.callbackBaseUrl.trim();
 
     if (
-      /\/api\/tiramis\/callbacks\/(test|live|local|uat|production)\/?$/i.test(
-        configuredUrl,
-      )
+      /\/api\/tiramis\/callbacks\/(uat|production)\/?$/i.test(configuredUrl)
     ) {
       return configuredUrl;
     }
@@ -826,8 +824,7 @@ export class TiramisConfigService {
     const configured =
       this.systemProfiles.getEffective(
         this.normalizeConfigurationEnvironment(environment),
-      ).callbackUrl ||
-      this.configService.get<string>('tiramisService.url');
+      ).callbackUrl || this.configService.get<string>('tiramisService.url');
 
     if (!configured) {
       throw new BadRequestException({
@@ -898,7 +895,7 @@ export class TiramisConfigService {
 
   private normalizeConfigurationEnvironment(
     environment: string,
-  ): 'local' | 'uat' | 'production' {
+  ): 'uat' | 'production' {
     try {
       return this.systemProfiles.normalizeEnvironment(environment);
     } catch {

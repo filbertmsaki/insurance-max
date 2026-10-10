@@ -18,7 +18,7 @@ export default registerAs('tiramisService', () => {
 
   const globalPrefix = process.env.APP_GLOBAL_PREFIX || 'api';
   const productionEnvironment = isProductionEnvironment();
-  const tiraEnv = process.env.TIRA_ENV?.trim() || 'local';
+  const tiraEnv = process.env.TIRA_ENV?.trim() || 'uat';
 
   return {
     url: appUrl,

@@ -41,7 +41,7 @@ export class CreateTiramisApiKeyDto {
 
   @IsOptional()
   @IsIn(['test', 'live'])
-  tenantEnvironment?: 'local' | 'uat' | 'production' | null;
+  tenantEnvironment?: 'uat' | 'production' | null;
 
   @ApiProperty({ example: ['203.0.113.10', '2001:db8::10'] })
   @IsArray()

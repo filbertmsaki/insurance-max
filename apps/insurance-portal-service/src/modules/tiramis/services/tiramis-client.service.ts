@@ -652,7 +652,7 @@ export class TiramisClientService {
 
   async validateOrganizationConfiguration(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     companyCode: string;
     insurerCompanyCode?: string | null;
     allowExpiredCertificates?: boolean;
@@ -782,7 +782,7 @@ export class TiramisClientService {
 
   async rotateOrganizationApiKey(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     companyCode: string;
     adminAccessToken: string;
     allowedIps: string[];
@@ -899,7 +899,7 @@ export class TiramisClientService {
    */
   async upsertClientConfiguration(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     companyCode: string;
     insurerCompanyCode: string;
     salePointCode?: string | null;
@@ -938,7 +938,7 @@ export class TiramisClientService {
   /** The platform-wide TIRA system identity (no secrets) for an environment. */
   getSystemIdentity(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
   }) {
     return this.configurationAdminRequest<{
       environment: string;
@@ -963,7 +963,7 @@ export class TiramisClientService {
    */
   async setPortalWebhookApiKey(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     tiramisConfigurationId: string;
     apiKey: string;
   }): Promise<void> {
@@ -1014,7 +1014,7 @@ export class TiramisClientService {
 
   async setPortalNotificationPolicy(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     tiramisConfigurationId: string;
     enabled: boolean;
     eventTypes: string[];
@@ -1033,7 +1033,7 @@ export class TiramisClientService {
    */
   async resolveOrganizationConfigurationId(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     companyCode: string;
   }): Promise<string> {
     const result = await this.configurationAdminRequest<{
@@ -1059,7 +1059,7 @@ export class TiramisClientService {
 
   getConfigurationSecretHealth(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     tiramisConfigurationId: string;
   }) {
     return this.configurationAdminRequest<TiramisSecretHealth>(params, {
@@ -1073,7 +1073,7 @@ export class TiramisClientService {
 
   repairConfigurationSecrets(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     tiramisConfigurationId: string;
     replacements: Partial<Record<TiramisSecretName, string>>;
   }) {
@@ -1105,10 +1105,10 @@ export class TiramisClientService {
     url: string;
     data?: unknown;
     failureMessage: string;
-    environment?: 'local' | 'uat' | 'production';
+    environment?: 'uat' | 'production';
   }): Promise<T> {
     return this.configurationAdminRequest<T>(
-      { companyId: null, environment: request.environment ?? 'local' },
+      { companyId: null, environment: request.environment ?? 'uat' },
       request,
     );
   }
@@ -1119,7 +1119,7 @@ export class TiramisClientService {
    * company, whose identity travels in the authenticated service context.
    */
   async issuePlatformServiceKey(params: {
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     allowedIps: string[];
   }): Promise<string> {
     const serviceName = `${this.configService.getOrThrow<string>('tiramisClient.sourceService')}-platform-${params.environment}`;
@@ -1173,7 +1173,7 @@ export class TiramisClientService {
   }
 
   private async configurationAdminRequest<T>(
-    params: { companyId: string | null; environment: 'local' | 'uat' | 'production' },
+    params: { companyId: string | null; environment: 'uat' | 'production' },
     request: {
       method: 'GET' | 'POST' | 'PUT';
       url: string;
@@ -1233,7 +1233,7 @@ export class TiramisClientService {
 
   async testPortalWebhook(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     tiramisConfigurationId: string;
     webhookUrl: string;
   }) {
@@ -1288,7 +1288,7 @@ export class TiramisClientService {
 
   async getTiramisDeliveryDiagnostics(params: {
     companyId: string;
-    environment: 'local' | 'uat' | 'production';
+    environment: 'uat' | 'production';
     requestId?: string;
     limit?: number;
   }) {
@@ -1472,7 +1472,7 @@ export class TiramisClientService {
       await this.organizationContextService.requireTiramisReady(
         authContext.id,
         authContext.companyId!,
-        authContext.tiramisEnvironment,
+        authContext.tiramisEnvironment === 'production' ? 'production' : 'uat',
         { followUp: authContext.tiramisFollowUp === true },
       );
 
@@ -1766,9 +1766,7 @@ export class TiramisClientService {
     }
 
     const targetEnvironment =
-      environment === 'local' ||
-      environment === 'uat' ||
-      environment === 'production'
+      environment === 'uat' || environment === 'production'
         ? environment
         : await this.platformAccess.getActiveEnvironment();
 
@@ -1805,7 +1803,7 @@ export class TiramisClientService {
   /** The environment a new submission is sent to (one source of truth). */
   private async resolveSubmissionEnvironment(
     companyId: string | null,
-  ): Promise<'local' | 'uat' | 'production'> {
+  ): Promise<'uat' | 'production'> {
     if (companyId) {
       return this.organizationContextService.resolveCompanyTiramisEnvironment(
         companyId,
@@ -1814,7 +1812,7 @@ export class TiramisClientService {
     const configured = this.configService.get<string>('tiramisClient.tiraEnv');
     return configured === 'uat' || configured === 'production'
       ? configured
-      : 'local';
+      : 'uat';
   }
 
   private async send(

@@ -26,7 +26,7 @@ export class UpdateTiramisApiKeyDto {
 
   @IsOptional()
   @IsIn(['test', 'live'])
-  tenantEnvironment?: 'local' | 'uat' | 'production' | null;
+  tenantEnvironment?: 'uat' | 'production' | null;
 
   @IsOptional()
   @ApiPropertyOptional({ example: ['203.0.113.10', '2001:db8::10'] })

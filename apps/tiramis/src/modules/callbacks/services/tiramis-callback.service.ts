@@ -106,14 +106,14 @@ export class TiramisCallbackService {
   }
 
   /**
-   * Processes an authenticated, explicitly enabled internal live test callback.
+   * Processes an authenticated, explicitly enabled internal production test callback.
    * The controller is responsible for enforcing the API-key scope and feature gate.
    */
   async handleInternalLiveTestCallback(
     rawXml: string,
   ): Promise<TiramisCallbackAckResultDto> {
     return this.processCallback({
-      environment: 'live',
+      environment: 'production',
       rawXml,
       bypassSignatureVerification: true,
     });

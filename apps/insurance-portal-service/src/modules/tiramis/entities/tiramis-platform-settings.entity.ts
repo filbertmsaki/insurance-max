@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export type TiramisEnvironmentName = 'local' | 'uat' | 'production';
+export type TiramisEnvironmentName = 'uat' | 'production';
 
 /**
  * Platform-wide TIRAMIS integration settings (a single row, id 'platform'),
@@ -24,7 +24,7 @@ export class TiramisPlatformSettingsEntity {
     name: 'active_environment',
     type: 'varchar',
     length: 10,
-    default: 'local',
+    default: 'uat',
   })
   activeEnvironment!: TiramisEnvironmentName;
 

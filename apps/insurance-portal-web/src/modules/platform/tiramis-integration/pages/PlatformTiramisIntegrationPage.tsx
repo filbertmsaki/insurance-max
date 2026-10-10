@@ -24,7 +24,6 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 import {
   TIRAMIS_ENVIRONMENT_LABELS,
-  TIRAMIS_ENVIRONMENTS,
   TIRAMIS_INTEGRATION_PERMISSIONS,
   TIRAMIS_NOTIFICATION_EVENTS,
   TIRAMIS_PERMISSIONS,
@@ -116,55 +115,46 @@ function OverviewSection({
 }) {
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        {TIRAMIS_ENVIRONMENTS.map((env) => {
-          const summary = overview.environments[env];
-          return (
-            <Card key={env}>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between text-base">
-                  {envLabel(env)}
-                  {overview.activeEnvironment === env && (
-                    <Badge variant="success">Active</Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Validation</span>
-                  <Badge variant={validationVariant(summary?.validationStatus)}>
-                    {summary?.validationStatus ?? 'NOT_VALIDATED'}
-                  </Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Validated at</span>
-                  <span>{formatDate(summary?.validatedAt)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Service key</span>
-                  <Badge
-                    variant={
-                      summary?.serviceApiKeyConfigured ? 'success' : 'warning'
-                    }
-                  >
-                    {summary?.serviceApiKeyConfigured
-                      ? 'Configured'
-                      : 'Not configured'}
-                  </Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Pending submissions
-                  </span>
-                  <span className="font-medium">
-                    {summary?.pendingSubmissions ?? 0}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center justify-between text-base">
+            {envLabel(overview.environment.name)}
+            <Badge variant="success">Active</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm md:grid-cols-4">
+          <div>
+            <div className="text-muted-foreground">Validation</div>
+            <Badge variant={validationVariant(overview.environment.validationStatus)}>
+              {overview.environment.validationStatus}
+            </Badge>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Validated at</div>
+            <div>{formatDate(overview.environment.validatedAt)}</div>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Service key</div>
+            <Badge
+              variant={
+                overview.environment.serviceApiKeyConfigured
+                  ? 'success'
+                  : 'warning'
+              }
+            >
+              {overview.environment.serviceApiKeyConfigured
+                ? 'Configured'
+                : 'Not configured'}
+            </Badge>
+          </div>
+          <div>
+            <div className="text-muted-foreground">Pending submissions</div>
+            <div className="font-medium">
+              {overview.environment.pendingSubmissions}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Insurer access</CardTitle>
@@ -234,21 +224,19 @@ function buildProfileUpdate(form: ProfileFormState): TiramisProfileUpdate {
 }
 
 function CertificateUpload({
-  env,
   kind,
   label,
   path,
   passwordConfigured,
   disabled,
 }: {
-  env: TiramisEnvironment;
   kind: TiramisCertificateKind;
   label: string;
   path: string | null;
   passwordConfigured: boolean;
   disabled: boolean;
 }) {
-  const upload = useUploadTiramisCertificate(env);
+  const upload = useUploadTiramisCertificate();
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
   const [inputKey, setInputKey] = useState(0);
@@ -335,10 +323,10 @@ function EnvironmentPanel({
     warnings?: string[];
   } | null>(null);
 
-  const update = useUpdateTiramisProfile(env);
-  const validate = useValidateTiramisProfile(env);
-  const serviceKey = useGenerateTiramisServiceKey(env);
-  const webhookKey = useRotateTiramisWebhookKey(env);
+  const update = useUpdateTiramisProfile();
+  const validate = useValidateTiramisProfile();
+  const serviceKey = useGenerateTiramisServiceKey();
+  const webhookKey = useRotateTiramisWebhookKey();
 
   const set = <K extends keyof ProfileFormState>(
     key: K,
@@ -509,7 +497,6 @@ function EnvironmentPanel({
 
         <div className="grid gap-3 md:grid-cols-2">
           <CertificateUpload
-            env={env}
             kind="clientPrivate"
             label="Client private certificate"
             path={profile.clientCertificatePath}
@@ -517,7 +504,6 @@ function EnvironmentPanel({
             disabled={!canManage}
           />
           <CertificateUpload
-            env={env}
             kind="tiraPublic"
             label="TIRA public certificate"
             path={profile.publicCertificatePath}
@@ -566,7 +552,7 @@ function EnvironmentPanel({
             <DialogTitle>Generate {envLabel(env)} service key</DialogTitle>
             <DialogDescription>
               Generates or rotates the platform's TIRAMIS service key for this
-              environment. The portal webhook key is rotated as well.
+              server. The portal webhook key is rotated as well.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
@@ -607,7 +593,7 @@ function NotificationEventsCard({
   const initial =
     profile.portalNotificationEvents ?? TIRAMIS_NOTIFICATION_EVENTS;
   const [selected, setSelected] = useState<string[]>(initial);
-  const update = useUpdateTiramisProfile(env);
+  const update = useUpdateTiramisProfile();
 
   const save = (events: string[]) =>
     update.mutate(
@@ -732,19 +718,13 @@ function SettingsSection({
           )}
         </CardContent>
       </Card>
-      {hasProfiles(overview.profiles) && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {TIRAMIS_ENVIRONMENTS.map((env) =>
-            hasProfiles(overview.profiles) ? (
-              <NotificationEventsCard
-                key={`${env}-${(overview.profiles[env].portalNotificationEvents ?? []).join(',')}`}
-                env={env}
-                profile={overview.profiles[env]}
-                canManage={canManage}
-              />
-            ) : null,
-          )}
-        </div>
+      {hasProfiles(overview.profile) && (
+        <NotificationEventsCard
+          key={(overview.profile.portalNotificationEvents ?? []).join(',')}
+          env={overview.profile.environment}
+          profile={overview.profile}
+          canManage={canManage}
+        />
       )}
     </div>
   );
@@ -761,7 +741,7 @@ export function PlatformTiramisIntegrationPage() {
       <PageHeader
         eyebrow="Platform"
         title="TIRAMIS Integration"
-        description="Manage the platform's TIRAMIS credentials, active environment and insurer access centrally."
+        description="Manage the platform's TIRAMIS credentials and insurer access centrally."
         action={
           overview ? (
             <Badge
@@ -788,7 +768,7 @@ export function PlatformTiramisIntegrationPage() {
         <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="environments">Environments</TabsTrigger>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="settings">Integration settings</TabsTrigger>
           </TabsList>
 
@@ -796,21 +776,17 @@ export function PlatformTiramisIntegrationPage() {
             <OverviewSection overview={overview} />
           </TabsContent>
 
-          <TabsContent value="environments" className="mt-4 space-y-4">
-            {hasProfiles(overview.profiles) ? (
-              TIRAMIS_ENVIRONMENTS.map((env) =>
-                hasProfiles(overview.profiles) ? (
-                  <EnvironmentPanel
-                    key={`${env}-${overview.profiles[env].updatedAt ?? ''}-${overview.profiles[env].validationStatus}`}
-                    env={env}
-                    profile={overview.profiles[env]}
-                    canManage={canManage}
-                  />
-                ) : null,
-              )
+          <TabsContent value="profile" className="mt-4 space-y-4">
+            {hasProfiles(overview.profile) ? (
+              <EnvironmentPanel
+                key={`${overview.profile.environment}-${overview.profile.updatedAt ?? ''}-${overview.profile.validationStatus}`}
+                env={overview.profile.environment}
+                profile={overview.profile}
+                canManage={canManage}
+              />
             ) : (
               <p className="text-sm text-red-600">
-                Profiles unavailable: {overview.profiles.error}
+                Profile unavailable: {overview.profile.error}
               </p>
             )}
           </TabsContent>

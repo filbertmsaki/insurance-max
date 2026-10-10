@@ -1,6 +1,6 @@
 import { apiClient } from '@/modules/shared/api/client';
 
-export type TiramisEnvironment = 'local' | 'uat' | 'production';
+export type TiramisEnvironment = 'uat' | 'production';
 export type TiramisValidationStatus = 'NOT_VALIDATED' | 'VALID' | 'INVALID';
 export type TiramisFieldSource =
   | 'profile'
@@ -14,14 +14,7 @@ export type TiramisIntegrationPermission =
 export type TiramisLinkStatus = 'LINKED' | 'ACTIVE' | 'REVOKED';
 export type TiramisCertificateKind = 'clientPrivate' | 'tiraPublic';
 
-export const TIRAMIS_ENVIRONMENTS: TiramisEnvironment[] = [
-  'local',
-  'uat',
-  'production',
-];
-
 export const TIRAMIS_ENVIRONMENT_LABELS: Record<TiramisEnvironment, string> = {
-  local: 'Local',
   uat: 'UAT',
   production: 'Production',
 };
@@ -51,6 +44,7 @@ export const TIRAMIS_PERMISSIONS = {
 } as const;
 
 export interface TiramisEnvironmentSummary {
+  name: TiramisEnvironment;
   validationStatus: TiramisValidationStatus;
   validatedAt: string | null;
   serviceApiKeyConfigured: boolean;
@@ -85,8 +79,8 @@ export interface TiramisIntegrationOverview {
   activeEnvironment: TiramisEnvironment;
   environmentSwitchedAt: string | null;
   integrationPermissions: string[];
-  environments: Record<TiramisEnvironment, TiramisEnvironmentSummary>;
-  profiles: Record<TiramisEnvironment, TiramisProfile> | { error: string };
+  environment: TiramisEnvironmentSummary;
+  profile: TiramisProfile | { error: string };
   companies: Partial<Record<TiramisLinkStatus, number>>;
 }
 
@@ -135,8 +129,8 @@ export interface TiramisCompanyAccess {
 }
 
 export function hasProfiles(
-  profiles: TiramisIntegrationOverview['profiles'] | undefined,
-): profiles is Record<TiramisEnvironment, TiramisProfile> {
+  profiles: TiramisIntegrationOverview['profile'] | undefined,
+): profiles is TiramisProfile {
   return Boolean(profiles && !('error' in profiles));
 }
 
@@ -146,13 +140,12 @@ export const tiramisIntegrationApi = {
   getOverview: () =>
     apiClient.get<TiramisIntegrationOverview>(BASE).then((r) => r.data),
 
-  updateProfile: (env: TiramisEnvironment, data: TiramisProfileUpdate) =>
+  updateProfile: (data: TiramisProfileUpdate) =>
     apiClient
-      .put<TiramisProfile>(`${BASE}/profiles/${env}`, data)
+      .put<TiramisProfile>(`${BASE}/profile`, data)
       .then((r) => r.data),
 
   uploadCertificate: (
-    env: TiramisEnvironment,
     data: {
       kind: TiramisCertificateKind;
       contentBase64: string;
@@ -160,28 +153,28 @@ export const tiramisIntegrationApi = {
     },
   ) =>
     apiClient
-      .post<TiramisProfile>(`${BASE}/profiles/${env}/certificates`, data)
+      .post<TiramisProfile>(`${BASE}/profile/certificates`, data)
       .then((r) => r.data),
 
-  validate: (env: TiramisEnvironment) =>
+  validate: () =>
     apiClient
-      .post<TiramisValidationResult>(`${BASE}/profiles/${env}/validate`)
+      .post<TiramisValidationResult>(`${BASE}/profile/validate`)
       .then((r) => r.data),
 
-  generateServiceApiKey: (env: TiramisEnvironment, allowedIps: string[]) =>
+  generateServiceApiKey: (allowedIps: string[]) =>
     apiClient
       .post<{
         environment: TiramisEnvironment;
         serviceApiKeyConfigured: boolean;
-      }>(`${BASE}/profiles/${env}/service-api-key`, { allowedIps })
+      }>(`${BASE}/profile/service-api-key`, { allowedIps })
       .then((r) => r.data),
 
-  rotateWebhookApiKey: (env: TiramisEnvironment) =>
+  rotateWebhookApiKey: () =>
     apiClient
       .post<{
         environment: TiramisEnvironment;
         portalWebhookApiKeyConfigured: boolean;
-      }>(`${BASE}/profiles/${env}/webhook-api-key`)
+      }>(`${BASE}/profile/webhook-api-key`)
       .then((r) => r.data),
 
   updateSettings: (data: {

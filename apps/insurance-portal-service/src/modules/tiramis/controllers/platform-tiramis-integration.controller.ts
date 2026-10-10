@@ -115,78 +115,62 @@ export class PlatformTiramisIntegrationController {
   @Roles('OWNER')
   @Permissions(READ)
   @ApiOperation({
-    summary: 'Integration overview: environments, profiles, companies',
+    summary: 'Integration overview: active profile and companies',
   })
   overview() {
     return this.service.getOverview();
   }
 
-  @Put('profiles/:environment')
+  @Put('profile')
   @Roles('OWNER')
   @Permissions(MANAGE)
   @ApiOperation({
-    summary: 'Update the TIRA identity and credentials for an environment',
+    summary: 'Update the active TIRA identity and credentials',
   })
-  updateProfile(
-    @Param('environment') environment: 'local' | 'uat' | 'production',
-    @Body() dto: UpdateProfileDto,
-  ) {
-    return this.service.updateProfile(environment, dto);
+  updateProfile(@Body() dto: UpdateProfileDto) {
+    return this.service.updateProfile(dto);
   }
 
-  @Post('profiles/:environment/certificates')
+  @Post('profile/certificates')
   @Roles('OWNER')
   @Permissions(MANAGE)
   @ApiOperation({
-    summary: 'Upload a private or public certificate for an environment',
+    summary:
+      'Upload a private or public certificate for the active environment',
   })
-  uploadCertificate(
-    @Param('environment') environment: 'local' | 'uat' | 'production',
-    @Body() dto: UploadCertificateDto,
-  ) {
-    return this.service.uploadCertificate(environment, dto);
+  uploadCertificate(@Body() dto: UploadCertificateDto) {
+    return this.service.uploadCertificate(dto);
   }
 
-  @Post('profiles/:environment/validate')
+  @Post('profile/validate')
   @Roles('OWNER')
   @Permissions(MANAGE)
   @ApiOperation({
     summary: 'Validate the identity, credentials and certificates',
   })
-  validateProfile(
-    @Param('environment') environment: 'local' | 'uat' | 'production',
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.service.validateProfile(environment, user.id);
+  validateProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.service.validateProfile(user.id);
   }
 
-  @Post('profiles/:environment/service-api-key')
+  @Post('profile/service-api-key')
   @Roles('OWNER')
   @Permissions(MANAGE)
   @ApiOperation({
     summary: 'Generate or rotate the platform TIRAMIS service key',
   })
   generateServiceApiKey(
-    @Param('environment') environment: 'local' | 'uat' | 'production',
     @Body() dto: GenerateServiceKeyDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.service.generateServiceApiKey(
-      environment,
-      dto.allowedIps,
-      user.id,
-    );
+    return this.service.generateServiceApiKey(dto.allowedIps, user.id);
   }
 
-  @Post('profiles/:environment/webhook-api-key')
+  @Post('profile/webhook-api-key')
   @Roles('OWNER')
   @Permissions(MANAGE)
   @ApiOperation({ summary: 'Rotate the platform webhook key TIRAMIS uses' })
-  syncWebhookApiKey(
-    @Param('environment') environment: 'local' | 'uat' | 'production',
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.service.syncWebhookApiKey(environment, user.id);
+  syncWebhookApiKey(@CurrentUser() user: AuthenticatedUser) {
+    return this.service.syncWebhookApiKey(user.id);
   }
 
   @Put('settings')

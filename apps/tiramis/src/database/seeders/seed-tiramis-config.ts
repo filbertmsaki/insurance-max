@@ -8,7 +8,7 @@ import { TiramisClientConfigurationEntity } from '../../modules/config/entities/
 import { TiramisResponseCodeEntity } from '../../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../../modules/config/entities/tiramis-service-endpoint.entity';
 
-type EnvironmentName = 'local' | 'uat' | 'production';
+type EnvironmentName = 'uat' | 'production';
 
 /**
  * A company's TIRAMIS configuration: company-specific settings only. The TIRA
@@ -34,12 +34,12 @@ function resolveActiveTiraEnvironment(
   activeEnvironment: SeedEnvironment = environment,
 ): EnvironmentName {
   const value = activeEnvironment.TIRA_ENV?.trim().toLowerCase();
-  if (value === 'local' || value === 'uat' || value === 'production') {
+  if (value === 'uat' || value === 'production') {
     return value;
   }
-  if (value === 'test') return 'local';
+  if (value === 'test' || value === 'local') return 'uat';
   if (value === 'live') return 'production';
-  return 'local';
+  return 'uat';
 }
 
 export function resolveTiramisSeedOptions(

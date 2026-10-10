@@ -94,9 +94,56 @@ export class TiramisPlatformProfileController {
     };
   }
 
+  @Get('active')
+  getActive() {
+    return this.profiles.describe(this.profiles.getActiveEnvironment());
+  }
+
+  @Put('active')
+  async updateActive(
+    @Body() dto: UpdatePlatformProfileDto,
+    @Req() request: Request,
+  ) {
+    const activeEnvironment = this.profiles.getActiveEnvironment();
+    await this.profiles.update(activeEnvironment, dto, this.actor(request));
+    return this.profiles.describe(activeEnvironment);
+  }
+
+  @Post('active/certificates')
+  async uploadActiveCertificate(
+    @Body() dto: UploadCertificateDto,
+    @Req() request: Request,
+  ) {
+    return this.storeCertificateForActive(dto, request);
+  }
+
+  @Post('active/validate')
+  async validateActive() {
+    return this.validateActiveProfile();
+  }
+
+  @Put('active/portal-webhook-api-key')
+  async setActivePortalWebhookApiKey(
+    @Body() dto: PortalWebhookKeyDto,
+    @Req() request: Request,
+  ) {
+    const activeEnvironment = this.profiles.getActiveEnvironment();
+    await this.profiles.setPortalWebhookApiKey(
+      activeEnvironment,
+      dto.apiKey,
+      this.actor(request),
+    );
+    return {
+      environment: activeEnvironment,
+      portalWebhookApiKeyConfigured: true,
+    };
+  }
+
   @Get(':environment')
   get(@Param('environment') environment: string) {
-    return this.profiles.describe(this.profiles.normalizeEnvironment(environment));
+    return this.profiles.describe(
+      this.profiles.normalizeEnvironment(environment),
+    );
   }
 
   @Put(':environment')
@@ -116,7 +163,15 @@ export class TiramisPlatformProfileController {
     @Body() dto: UploadCertificateDto,
     @Req() request: Request,
   ) {
-    const activeEnvironment = this.profiles.normalizeEnvironment(environment);
+    this.profiles.describe(this.profiles.normalizeEnvironment(environment));
+    return this.storeCertificateForActive(dto, request);
+  }
+
+  private async storeCertificateForActive(
+    dto: UploadCertificateDto,
+    request: Request,
+  ) {
+    const activeEnvironment = this.profiles.getActiveEnvironment();
     const effective = this.profiles.getEffective(activeEnvironment);
     const password =
       dto.password ??
@@ -124,7 +179,7 @@ export class TiramisPlatformProfileController {
         ? effective.clientCertificatePassword
         : effective.publicCertificatePassword);
 
-      await this.profiles.storeCertificate({
+    await this.profiles.storeCertificate({
       environment: activeEnvironment,
       kind: dto.kind,
       contentBase64: dto.contentBase64,
@@ -158,7 +213,12 @@ export class TiramisPlatformProfileController {
   /** Checks identity, credentials and both certificates for an environment. */
   @Post(':environment/validate')
   async validate(@Param('environment') environment: string) {
-    const activeEnvironment = this.profiles.normalizeEnvironment(environment);
+    this.profiles.describe(this.profiles.normalizeEnvironment(environment));
+    return this.validateActiveProfile();
+  }
+
+  private async validateActiveProfile() {
+    const activeEnvironment = this.profiles.getActiveEnvironment();
     let security: Awaited<
       ReturnType<TiramisConfigService['validateConfigurationSecurity']>
     >;
@@ -206,7 +266,10 @@ export class TiramisPlatformProfileController {
       dto.apiKey,
       this.actor(request),
     );
-    return { environment: activeEnvironment, portalWebhookApiKeyConfigured: true };
+    return {
+      environment: activeEnvironment,
+      portalWebhookApiKeyConfigured: true,
+    };
   }
 
   private actor(request: Request) {

@@ -10,9 +10,7 @@ const ENVIRONMENT_COLUMNS: Array<[string, string]> = [
   ['tiramis_transactions', 'environment'],
 ];
 
-export class SingleTiraEnvironmentConfiguration1793500000000
-  implements MigrationInterface
-{
+export class SingleTiraEnvironmentConfiguration1793500000000 implements MigrationInterface {
   name = 'SingleTiraEnvironmentConfiguration1793500000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -20,9 +18,15 @@ export class SingleTiraEnvironmentConfiguration1793500000000
       await this.normalizeEnvironmentColumn(queryRunner, table, column);
     }
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_431d444d17189d9ffeb50b1ec8"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_30da4e184a5906a438a5866412"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_708112a775077b60804e3b6c0f"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_431d444d17189d9ffeb50b1ec8"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_30da4e184a5906a438a5866412"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_708112a775077b60804e3b6c0f"`,
+    );
 
     await queryRunner.query(`
       DELETE FROM "tiramis_client_configurations" loser

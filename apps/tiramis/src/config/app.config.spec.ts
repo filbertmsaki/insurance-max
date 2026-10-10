@@ -57,7 +57,7 @@ describe('tiramisService config', () => {
       {
         APP_URL: 'http://localhost:9091',
         TIRAMIS_SECRET_ENCRYPTION_KEY: 'replace-with-key',
-        TIRA_ENV: 'local',
+        TIRA_ENV: 'uat',
         TIRA_CLIENT_CODE: 'CLIENT-PLATFORM',
         TIRA_CLIENT_KEY: 'client-key',
         TIRA_SYSTEM_CODE: 'SYS-PLATFORM',
