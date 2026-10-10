@@ -41,6 +41,7 @@ describe('TiramisConfigService organization context resolution', () => {
       const values: Record<string, string> = {
         TIRAMIS_BASE_URL: 'https://tira.uat',
         'tiramisService.url': 'https://tiramis.example.com',
+        TIRAMIS_CALLBACK_URL: 'https://tiramis.example.com',
         TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
         TIRA_ENV: 'uat',
         TIRA_CLIENT_CODE: 'CLIENT-PLATFORM',
@@ -273,6 +274,31 @@ describe('TiramisConfigService organization context resolution', () => {
       ClientCode: 'CLIENT-PLATFORM',
       ClientKey: 'uat-client-key',
     });
+  });
+
+  it('does not duplicate the callback route when the callback URL already points at the callbacks base path', () => {
+    configGet.mockImplementation((key: string) => {
+      const values: Record<string, string> = {
+        TIRAMIS_BASE_URL: 'https://tira.uat',
+        'tiramisService.url': 'https://tiramis.example.com',
+        TIRAMIS_CALLBACK_URL: 'http://localhost:9091/api/tiramis/callbacks',
+        TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
+        TIRA_ENV: 'uat',
+        TIRA_CLIENT_CODE: 'CLIENT-PLATFORM',
+        TIRA_CLIENT_KEY: 'uat-client-key',
+        TIRA_SYSTEM_CODE: 'SYS-A',
+        TIRA_SYSTEM_NAME: 'Platform System',
+        TIRA_CLIENT_CERT_PASSWORD: 'uat-private-password',
+        TIRA_PUBLIC_CERT_PASSWORD: 'uat-public-password',
+      };
+      return values[key];
+    });
+
+    const callbackUrl = service.getTiraCallbackUrlForConfiguration({
+      ...configuration,
+    } as any);
+
+    expect(callbackUrl).toBe('http://localhost:9091/api/tiramis/callbacks/uat');
   });
 });
 

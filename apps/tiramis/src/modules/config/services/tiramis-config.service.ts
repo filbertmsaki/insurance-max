@@ -578,9 +578,18 @@ export class TiramisConfigService {
     const configuredUrl = configuration.callbackBaseUrl.trim();
 
     if (
-      /\/api\/tiramis\/callbacks\/(uat|production)\/?$/i.test(configuredUrl)
+      /\/api\/tiramis\/callbacks\/(uat|test|production|live)\/?$/i.test(
+        configuredUrl,
+      )
     ) {
       return configuredUrl;
+    }
+
+    if (/\/api\/tiramis\/callbacks\/?$/i.test(configuredUrl)) {
+      return this.joinUrl(
+        configuredUrl,
+        configuration.environment.toLowerCase(),
+      );
     }
 
     return this.joinUrl(
