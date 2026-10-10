@@ -18,16 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { getApiErrorMessage } from '@/lib/api/errors';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
@@ -41,7 +32,6 @@ import {
   hasProfiles,
   parseIpList,
   type TiramisCertificateKind,
-  type TiramisCompanyAccess,
   type TiramisEnvironment,
   type TiramisFieldSource,
   type TiramisIntegrationOverview,
@@ -54,8 +44,6 @@ import {
   useGenerateTiramisServiceKey,
   useRotateTiramisWebhookKey,
   useSwitchTiramisEnvironment,
-  useTiramisCompanyAccessMutations,
-  useTiramisIntegrationCompanies,
   useTiramisIntegrationOverview,
   useUpdateTiramisProfile,
   useUpdateTiramisSettings,
@@ -78,13 +66,6 @@ function validationVariant(status?: TiramisValidationStatus | null) {
   if (status === 'VALID') return 'success' as const;
   if (status === 'INVALID') return 'danger' as const;
   return 'warning' as const;
-}
-
-function linkVariant(status?: string | null) {
-  if (status === 'ACTIVE') return 'success' as const;
-  if (status === 'REVOKED') return 'danger' as const;
-  if (status === 'LINKED') return 'info' as const;
-  return 'muted' as const;
 }
 
 function sourceVariant(source?: TiramisFieldSource) {
@@ -881,298 +862,10 @@ function SettingsSection({
   );
 }
 
-// ─── Companies ───────────────────────────────────────────────────────────────
-
-type CompanyDialog =
-  | { mode: 'link'; row: TiramisCompanyAccess }
-  | { mode: 'revoke'; row: TiramisCompanyAccess }
-  | null;
-
-function CompaniesSection({ canManageAccess }: { canManageAccess: boolean }) {
-  const companiesQuery = useTiramisIntegrationCompanies();
-  const mutations = useTiramisCompanyAccessMutations();
-  const [dialog, setDialog] = useState<CompanyDialog>(null);
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [reason, setReason] = useState('');
-
-  const openLink = (row: TiramisCompanyAccess) => {
-    setCode(
-      row.link?.insurerCompanyCode ?? row.suggestedInsurerCompanyCode ?? '',
-    );
-    setName(row.link?.insurerCompanyName ?? '');
-    setDialog({ mode: 'link', row });
-  };
-
-  const openRevoke = (row: TiramisCompanyAccess) => {
-    setReason('');
-    setDialog({ mode: 'revoke', row });
-  };
-
-  const onError = (error: unknown) => toast.error(getApiErrorMessage(error));
-
-  const submitLink = () => {
-    if (dialog?.mode !== 'link') return;
-    mutations.link.mutate(
-      {
-        companyId: dialog.row.companyId,
-        insurerCompanyCode: code.trim().toUpperCase(),
-        insurerCompanyName: name.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success(`${dialog.row.companyName} linked`);
-          setDialog(null);
-        },
-        onError,
-      },
-    );
-  };
-
-  const submitRevoke = () => {
-    if (dialog?.mode !== 'revoke') return;
-    mutations.revoke.mutate(
-      { companyId: dialog.row.companyId, reason: reason.trim() },
-      {
-        onSuccess: (result) => {
-          toast.success(
-            `TIRA access revoked. Pending submissions: ${result.pendingSubmissions ?? 0}`,
-          );
-          setDialog(null);
-        },
-        onError,
-      },
-    );
-  };
-
-  const rows = companiesQuery.data ?? [];
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Insurer TIRA access</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {companiesQuery.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading companies...</p>
-        ) : companiesQuery.isError ? (
-          <p className="text-sm text-red-600">
-            {getApiErrorMessage(companiesQuery.error)}
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Company</TableHead>
-                <TableHead>Insurer code</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Updated</TableHead>
-                {canManageAccess && (
-                  <TableHead className="text-right">Actions</TableHead>
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={canManageAccess ? 5 : 4}
-                    className="text-center text-muted-foreground"
-                  >
-                    No insurer companies found.
-                  </TableCell>
-                </TableRow>
-              )}
-              {rows.map((row) => {
-                const status = row.link?.status;
-                return (
-                  <TableRow key={row.companyId}>
-                    <TableCell>
-                      <div className="font-medium">{row.companyName}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.companyStatus}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {row.link?.insurerCompanyCode ?? (
-                        <span className="text-muted-foreground">
-                          {row.suggestedInsurerCompanyCode ?? '—'}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={linkVariant(status)}>
-                        {status ?? 'NOT LINKED'}
-                      </Badge>
-                      {status === 'REVOKED' && row.link?.revokeReason && (
-                        <div className="text-xs text-muted-foreground">
-                          {row.link.revokeReason}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {formatDate(
-                        row.link?.revokedAt ??
-                          row.link?.restoredAt ??
-                          row.link?.activatedAt ??
-                          row.link?.linkedAt,
-                      )}
-                    </TableCell>
-                    {canManageAccess && (
-                      <TableCell className="space-x-2 text-right">
-                        {status !== 'REVOKED' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openLink(row)}
-                          >
-                            {row.link ? 'Edit link' : 'Link'}
-                          </Button>
-                        )}
-                        {status === 'LINKED' && (
-                          <Button
-                            size="sm"
-                            disabled={mutations.activate.isPending}
-                            onClick={() =>
-                              mutations.activate.mutate(row.companyId, {
-                                onSuccess: () =>
-                                  toast.success(`${row.companyName} activated`),
-                                onError,
-                              })
-                            }
-                          >
-                            Activate
-                          </Button>
-                        )}
-                        {(status === 'LINKED' || status === 'ACTIVE') && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => openRevoke(row)}
-                          >
-                            Revoke
-                          </Button>
-                        )}
-                        {status === 'REVOKED' && (
-                          <Button
-                            size="sm"
-                            disabled={mutations.restore.isPending}
-                            onClick={() =>
-                              mutations.restore.mutate(row.companyId, {
-                                onSuccess: () =>
-                                  toast.success(`${row.companyName} restored`),
-                                onError,
-                              })
-                            }
-                          >
-                            Restore
-                          </Button>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-
-      <Dialog
-        open={dialog?.mode === 'link'}
-        onOpenChange={(open) => !open && setDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Link {dialog?.row.companyName} to TIRA</DialogTitle>
-            <DialogDescription>
-              Set the insurer company code registered with TIRA.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="tiramis-insurer-code">Insurer company code</Label>
-              <Input
-                id="tiramis-insurer-code"
-                maxLength={30}
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="tiramis-insurer-name">
-                Insurer company name (optional)
-              </Label>
-              <Input
-                id="tiramis-insurer-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={submitLink}
-              disabled={!code.trim() || mutations.link.isPending}
-            >
-              Save link
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={dialog?.mode === 'revoke'}
-        onOpenChange={(open) => !open && setDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Revoke TIRA access for {dialog?.row.companyName}
-            </DialogTitle>
-            <DialogDescription>
-              Revoking blocks new TIRAMIS submissions and new business for this
-              insurer and hides it from insurer lists. History is kept,
-              submissions already in flight finish, and queued retries are held
-              until access is restored.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-1.5">
-            <Label htmlFor="tiramis-revoke-reason">Reason</Label>
-            <Textarea
-              id="tiramis-revoke-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={submitRevoke}
-              disabled={!reason.trim() || mutations.revoke.isPending}
-            >
-              Revoke access
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
-  );
-}
-
-// ─── Page ────────────────────────────────────────────────────────────────────
-
 export function PlatformTiramisIntegrationPage() {
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(TIRAMIS_PERMISSIONS.manage);
   const canSwitch = hasPermission(TIRAMIS_PERMISSIONS.switchEnvironment);
-  const canManageAccess = hasPermission(TIRAMIS_PERMISSIONS.companyAccess);
   const overviewQuery = useTiramisIntegrationOverview();
   const overview = overviewQuery.data;
 
@@ -1211,7 +904,6 @@ export function PlatformTiramisIntegrationPage() {
             <TabsTrigger value="environments">Environments</TabsTrigger>
             <TabsTrigger value="switch">Environment switch</TabsTrigger>
             <TabsTrigger value="settings">Integration settings</TabsTrigger>
-            <TabsTrigger value="companies">Companies</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-4">
@@ -1252,9 +944,6 @@ export function PlatformTiramisIntegrationPage() {
             />
           </TabsContent>
 
-          <TabsContent value="companies" className="mt-4">
-            <CompaniesSection canManageAccess={canManageAccess} />
-          </TabsContent>
         </Tabs>
       )}
     </div>
