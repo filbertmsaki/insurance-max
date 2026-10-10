@@ -51,6 +51,25 @@ describe('TiramisApiKeyService', () => {
     expect(created.apiKeyHash).toBeUndefined();
   });
 
+  it('normalizes legacy tenant environment aliases when creating keys', async () => {
+    const { service, apiKeyRepository } = createService();
+    apiKeyRepository.findOne.mockResolvedValue(null);
+
+    await service.create({
+      name: 'Portal',
+      serviceName: 'insurance-portal-service',
+      allowedIps: ['203.0.113.10'],
+      scopes: ['tiramis:read'],
+      tenantEnvironment: 'live',
+    });
+
+    expect(apiKeyRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantEnvironment: 'production',
+      }),
+    );
+  });
+
   it('rejects a second active system key for the same service', async () => {
     const { service, apiKeyRepository } = createService();
     apiKeyRepository.findOne.mockResolvedValue({ id: 'existing' });
@@ -116,7 +135,7 @@ describe('TiramisApiKeyService', () => {
       allowedIps: ['10.1.2.3'],
       scopes: ['tiramis:read', 'tiramis:submit'],
       tenantCompanyCode: '123456',
-      tenantEnvironment: 'test',
+      tenantEnvironment: 'uat',
       clientConfigurationId: 'configuration-id',
     });
   });

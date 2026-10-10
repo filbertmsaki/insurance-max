@@ -68,7 +68,7 @@ export class TiramisApiKeyService {
       name: dto.name,
       serviceName: dto.serviceName,
       tenantCompanyCode: dto.tenantCompanyCode ?? null,
-      tenantEnvironment: dto.tenantEnvironment ?? null,
+      tenantEnvironment: this.normalizeTenantEnvironment(dto.tenantEnvironment),
       clientConfigurationId: dto.clientConfigurationId ?? null,
       apiKey: null as unknown as string,
       apiKeyHash: this.hashApiKey(apiKey),
@@ -118,7 +118,7 @@ export class TiramisApiKeyService {
       tenantEnvironment:
         dto.tenantEnvironment === undefined
           ? existing.tenantEnvironment
-          : dto.tenantEnvironment,
+          : this.normalizeTenantEnvironment(dto.tenantEnvironment),
       allowedIps: this.normalizeAllowedIps(
         dto.allowedIps ?? existing.allowedIps ?? [],
       ),

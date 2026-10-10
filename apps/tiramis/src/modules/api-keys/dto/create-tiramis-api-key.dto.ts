@@ -21,6 +21,16 @@ export const TIRAMIS_API_KEY_SCOPES = [
   'tiramis:callback:test',
 ] as const;
 
+export const TIRAMIS_TENANT_ENVIRONMENTS = [
+  'uat',
+  'test',
+  'production',
+  'live',
+] as const;
+
+export type TiramisTenantEnvironment =
+  (typeof TIRAMIS_TENANT_ENVIRONMENTS)[number];
+
 export class CreateTiramisApiKeyDto {
   @IsString()
   @MaxLength(120)
@@ -40,8 +50,8 @@ export class CreateTiramisApiKeyDto {
   tenantCompanyCode?: string | null;
 
   @IsOptional()
-  @IsIn(['test', 'live'])
-  tenantEnvironment?: 'uat' | 'production' | null;
+  @IsIn(TIRAMIS_TENANT_ENVIRONMENTS)
+  tenantEnvironment?: TiramisTenantEnvironment | null;
 
   @ApiProperty({ example: ['203.0.113.10', '2001:db8::10'] })
   @IsArray()

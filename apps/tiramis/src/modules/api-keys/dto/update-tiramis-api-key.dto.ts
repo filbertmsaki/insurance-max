@@ -12,7 +12,11 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
-import { TIRAMIS_API_KEY_SCOPES } from './create-tiramis-api-key.dto';
+import {
+  TIRAMIS_API_KEY_SCOPES,
+  TIRAMIS_TENANT_ENVIRONMENTS,
+  TiramisTenantEnvironment,
+} from './create-tiramis-api-key.dto';
 
 export class UpdateTiramisApiKeyDto {
   @IsOptional()
@@ -25,8 +29,8 @@ export class UpdateTiramisApiKeyDto {
   tenantCompanyCode?: string | null;
 
   @IsOptional()
-  @IsIn(['test', 'live'])
-  tenantEnvironment?: 'uat' | 'production' | null;
+  @IsIn(TIRAMIS_TENANT_ENVIRONMENTS)
+  tenantEnvironment?: TiramisTenantEnvironment | null;
 
   @IsOptional()
   @ApiPropertyOptional({ example: ['203.0.113.10', '2001:db8::10'] })
