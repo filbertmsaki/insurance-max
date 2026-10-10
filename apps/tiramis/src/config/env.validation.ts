@@ -85,29 +85,7 @@ function optionalNumberList(defaultValue: number[], min = 0) {
     .default(defaultValue);
 }
 
-/** TIRA client/system identity for one TIRA environment (TEST or LIVE). */
-function tiraSystemIdentitySchema(
-  suffix: 'TEST' | 'LIVE',
-  alwaysRequired: boolean,
-) {
-  const value = () =>
-    alwaysRequired
-      ? Joi.string().trim().min(1).required()
-      : Joi.when('APP_ENV', {
-          is: 'production',
-          then: Joi.string().trim().min(1).required(),
-          otherwise: Joi.string().allow('').default(''),
-        });
-
-  return {
-    [`TIRA_CLIENT_CODE_${suffix}`]: value(),
-    [`TIRA_CLIENT_KEY_${suffix}`]: value(),
-    [`TIRA_SYSTEM_CODE_${suffix}`]: value(),
-    [`TIRA_SYSTEM_NAME_${suffix}`]: Joi.string().allow('').default(''),
-    [`TIRA_CLIENT_CERT_PASSWORD_${suffix}`]: value(),
-    [`TIRA_PUBLIC_CERT_PASSWORD_${suffix}`]: value(),
-  };
-}
+const requiredValue = () => Joi.string().trim().min(1).required();
 
 export const tiramisEnvValidationSchema = Joi.object({
   APP_NAME: Joi.string().trim().min(1).default('Alliance Platform'),
@@ -144,8 +122,8 @@ export const tiramisEnvValidationSchema = Joi.object({
     .integer()
     .min(1000)
     .default(60000),
-  // Selects the TIRA configuration independently from the application environment.
-  TIRAMIS_TARGET_ENV: Joi.string().valid('test', 'live').optional(),
+  // Selects this server's one active TIRA integration environment.
+  TIRA_ENV: Joi.string().valid('local', 'uat', 'production').required(),
   DB_TYPE: Joi.string()
     .valid('postgres', 'mysql', 'oracle')
     .default('postgres'),
@@ -171,25 +149,21 @@ export const tiramisEnvValidationSchema = Joi.object({
     '/opt/apps/tiramis/certificates',
   ),
   TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS: Joi.number().default(30),
-  // Platform-wide TIRA system identity (one per TIRA environment, shared by
-  // every company). Test values are always required; live values are
-  // required in production.
-  ...tiraSystemIdentitySchema('TEST', true),
-  ...tiraSystemIdentitySchema('LIVE', false),
+  // Platform-wide TIRA system identity for this server's active TIRA_ENV.
+  TIRA_CLIENT_CODE: requiredValue(),
+  TIRA_CLIENT_KEY: requiredValue(),
+  TIRA_SYSTEM_CODE: requiredValue(),
+  TIRA_SYSTEM_NAME: Joi.string().allow('').default(''),
+  TIRA_CLIENT_CERT_PASSWORD: requiredValue(),
+  TIRA_PUBLIC_CERT_PASSWORD: requiredValue(),
   TIRA_ALLOW_EXPIRED_CERTIFICATES: optionalBoolean(false),
   TIRA_SIGNATURE_ALGORITHM: Joi.string()
     .trim()
     .default('sha1WithRSAEncryption'),
-  TIRAMIS_TEST_BASE_URL: Joi.string()
+  TIRAMIS_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),
-  TIRAMIS_LIVE_BASE_URL: Joi.string()
-    .uri({ scheme: ['http', 'https'] })
-    .required(),
-  TIRAMIS_TEST_CALLBACK_URL: Joi.string()
-    .uri({ scheme: ['http', 'https'] })
-    .optional(),
-  TIRAMIS_LIVE_CALLBACK_URL: Joi.string()
+  TIRAMIS_CALLBACK_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .optional(),
 

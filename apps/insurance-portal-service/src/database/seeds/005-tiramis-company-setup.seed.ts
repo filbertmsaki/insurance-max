@@ -136,12 +136,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         await this.upsertPortalSideTiramisConfig(
           queryRunner,
           companyId,
-          'test',
-        );
-        await this.upsertPortalSideTiramisConfig(
-          queryRunner,
-          companyId,
-          'live',
+          'local',
         );
         await this.upsertPlatformTiramisAccess(queryRunner, companyId);
         await this.seedBranches(queryRunner, companyId);
@@ -300,7 +295,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
   }
 
   /**
-   * Platform-level integration: test is the active environment and is
+   * Platform-level integration: local is the active environment and is
    * validated for local use; Alliance is linked with active access.
    */
   private async upsertPlatformTiramisAccess(
@@ -310,10 +305,17 @@ export default class TiramisCompanySetupSeeder implements Seeder {
     await queryRunner.query(
       `
         INSERT INTO tiramis_platform_settings (
-          id, active_environment, test_validation_status, test_validated_at
+          id, active_environment, validation_status, validated_at
         )
-        VALUES ('platform', 'test', 'VALID', now())
-        ON CONFLICT (id) DO NOTHING
+        VALUES ('platform', 'local', 'VALID', now())
+        ON CONFLICT (id) DO UPDATE SET
+          active_environment = EXCLUDED.active_environment,
+          validation_status = EXCLUDED.validation_status,
+          validated_at = COALESCE(
+            tiramis_platform_settings.validated_at,
+            EXCLUDED.validated_at
+          ),
+          updated_at = now()
       `,
     );
     await queryRunner.query(
@@ -341,7 +343,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
   private async upsertPortalSideTiramisConfig(
     queryRunner: QueryRunner,
     companyId: string,
-    environment: 'test' | 'live',
+    environment: 'local' | 'uat' | 'production',
   ): Promise<void> {
     await queryRunner.query(
       `
@@ -375,8 +377,9 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           now(),
           now()
         )
-        ON CONFLICT (company_id, environment)
+        ON CONFLICT (company_id)
         DO UPDATE SET
+          environment = EXCLUDED.environment,
           company_code = EXCLUDED.company_code,
           company_name = EXCLUDED.company_name,
           insurer_company_code = EXCLUDED.insurer_company_code,
@@ -398,17 +401,17 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         ALLIANCE_TENANT.companyName,
         ALLIANCE_TENANT.insurerCompanyCode,
         ALLIANCE_TENANT.insurerCompanyName,
-        environment === 'test' ? 'VALID' : 'NOT_VALIDATED',
-        environment === 'test'
-          ? 'Seeded local/test configuration is ready for TIRAMIS sandbox submission.'
-          : 'Live configuration requires validation with production credentials before submission.',
+        environment === 'local' ? 'VALID' : 'NOT_VALIDATED',
+        environment === 'local'
+          ? 'Seeded local configuration is ready for TIRAMIS sandbox submission.'
+          : 'Configuration requires validation with this server TIRA_ENV before submission.',
         JSON.stringify({
           seededBy: '005-tiramis-company-setup.seed',
           secretsManagedBy: 'apps/tiramis',
           readinessPolicy:
-            environment === 'test'
-              ? 'local-test-seed-validated'
-              : 'live-requires-explicit-validation',
+            environment === 'local'
+              ? 'local-seed-validated'
+              : 'requires-explicit-validation',
         }),
       ],
     );

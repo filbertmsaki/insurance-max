@@ -42,7 +42,7 @@ find /opt/apps/tiramis/certificates -type f -exec chmod 640 {} \;
 - `NODE_ENV=production`
 - `APP_PORT=9090`
 - `APP_URL=https://api.example.com/tiramis-api`
-- `TIRAMIS_TARGET_ENV=live`
+- `TIRA_ENV=production`
 - `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_DATABASE`
 - `DB_SSL=true` when the production database requires TLS
 - `TIRAMIS_CERTIFICATE_BASE_DIR=/opt/apps/tiramis/certificates`

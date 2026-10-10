@@ -18,12 +18,8 @@ import { Company } from '../../platform/companies/entities/company.entity';
  * and callback URLs) is platform-wide and owned by TIRAMIS (environment).
  */
 @Entity({ name: 'tiramis_company_configurations' })
-@Unique('UQ_tiramis_company_config_company_environment', [
-  'companyId',
-  'environment',
-])
+@Unique('UQ_tiramis_company_config_company', ['companyId'])
 @Index('IDX_tiramis_company_config_company_id', ['companyId'])
-@Index('IDX_tiramis_company_config_environment', ['environment'])
 @Index('IDX_tiramis_company_config_company_code', ['companyCode'])
 export class TiramisCompanyConfigurationEntity {
   @PrimaryGeneratedColumn('uuid')

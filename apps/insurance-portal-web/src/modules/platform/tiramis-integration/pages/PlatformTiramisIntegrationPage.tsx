@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+﻿import { useState, type ReactNode } from 'react';
 import { KeyRound, RefreshCcw, ShieldCheck, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -43,7 +43,6 @@ import {
 import {
   useGenerateTiramisServiceKey,
   useRotateTiramisWebhookKey,
-  useSwitchTiramisEnvironment,
   useTiramisIntegrationOverview,
   useUpdateTiramisProfile,
   useUpdateTiramisSettings,
@@ -594,117 +593,6 @@ function EnvironmentPanel({
   );
 }
 
-// ─── Environment switch ──────────────────────────────────────────────────────
-
-function EnvironmentSwitchSection({
-  overview,
-  canSwitch,
-}: {
-  overview: TiramisIntegrationOverview;
-  canSwitch: boolean;
-}) {
-  const current = overview.activeEnvironment;
-  const target: TiramisEnvironment = current === 'live' ? 'test' : 'live';
-  const [open, setOpen] = useState(false);
-  const [confirmLive, setConfirmLive] = useState(false);
-  const switchEnv = useSwitchTiramisEnvironment();
-  const pendingLeaving =
-    overview.environments[current]?.pendingSubmissions ?? 0;
-
-  const submit = () =>
-    switchEnv.mutate(
-      {
-        environment: target,
-        confirmLive: target === 'live' ? confirmLive : undefined,
-      },
-      {
-        onSuccess: () => {
-          toast.success(`Switched to ${envLabel(target)}`);
-          setOpen(false);
-          setConfirmLive(false);
-        },
-        onError: (error) => toast.error(getApiErrorMessage(error)),
-      },
-    );
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Active environment</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div className="flex items-center gap-2">
-          Currently active:
-          <Badge variant={current === 'live' ? 'success' : 'info'}>
-            {envLabel(current)}
-          </Badge>
-          <span className="text-muted-foreground">
-            since {formatDate(overview.environmentSwitchedAt)}
-          </span>
-        </div>
-        <p className="text-muted-foreground">
-          Submissions already sent finish in their original environment; keep
-          both environments configured until the old one has no pending
-          submissions.
-        </p>
-        {canSwitch && (
-          <Button onClick={() => setOpen(true)}>
-            Switch to {envLabel(target)}
-          </Button>
-        )}
-      </CardContent>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Switch to {envLabel(target)}?</DialogTitle>
-            <DialogDescription>
-              New TIRAMIS submissions for all insurers will be sent to the{' '}
-              {envLabel(target)} environment.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 text-sm">
-            <p>
-              Pending submissions in {envLabel(current)}:{' '}
-              <strong>{pendingLeaving}</strong>
-            </p>
-            <p className="text-muted-foreground">
-              Submissions already sent finish in their original environment;
-              keep both environments configured until the old one has no pending
-              submissions.
-            </p>
-            {target === 'live' && (
-              <label className="flex items-start gap-2">
-                <Checkbox
-                  checked={confirmLive}
-                  onCheckedChange={(v) => setConfirmLive(v === true)}
-                />
-                <span>
-                  I confirm that real policies will be submitted to the TIRA
-                  Production environment.
-                </span>
-              </label>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={submit}
-              disabled={
-                switchEnv.isPending || (target === 'live' && !confirmLive)
-              }
-            >
-              Switch
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
-  );
-}
-
 // ─── Integration settings ────────────────────────────────────────────────────
 
 function NotificationEventsCard({
@@ -865,7 +753,6 @@ function SettingsSection({
 export function PlatformTiramisIntegrationPage() {
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(TIRAMIS_PERMISSIONS.manage);
-  const canSwitch = hasPermission(TIRAMIS_PERMISSIONS.switchEnvironment);
   const overviewQuery = useTiramisIntegrationOverview();
   const overview = overviewQuery.data;
 
@@ -879,7 +766,7 @@ export function PlatformTiramisIntegrationPage() {
           overview ? (
             <Badge
               variant={
-                overview.activeEnvironment === 'live' ? 'success' : 'info'
+                overview.activeEnvironment === 'production' ? 'success' : 'info'
               }
             >
               Active: {envLabel(overview.activeEnvironment)}
@@ -902,7 +789,6 @@ export function PlatformTiramisIntegrationPage() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="environments">Environments</TabsTrigger>
-            <TabsTrigger value="switch">Environment switch</TabsTrigger>
             <TabsTrigger value="settings">Integration settings</TabsTrigger>
           </TabsList>
 
@@ -929,12 +815,8 @@ export function PlatformTiramisIntegrationPage() {
             )}
           </TabsContent>
 
-          <TabsContent value="switch" className="mt-4">
-            <EnvironmentSwitchSection
-              overview={overview}
-              canSwitch={canSwitch}
-            />
-          </TabsContent>
+
+
 
           <TabsContent value="settings" className="mt-4">
             <SettingsSection

@@ -14,9 +14,8 @@ function createService(
 ) {
   const settings = {
     id: 'platform',
-    activeEnvironment: 'test',
-    testValidationStatus: 'VALID',
-    liveValidationStatus: 'NOT_VALIDATED',
+    activeEnvironment: 'local',
+    validationStatus: 'VALID',
     ...overrides.settings,
   };
   const queryBuilder = {
@@ -50,6 +49,7 @@ function createService(
   };
   const platformAccess = {
     getSettings: jest.fn().mockResolvedValue(settings),
+    getActiveEnvironment: jest.fn().mockResolvedValue('local'),
     getServiceApiKey: jest
       .fn()
       .mockResolvedValue(
@@ -72,44 +72,13 @@ function createService(
 }
 
 describe('PlatformTiramisIntegrationService', () => {
-  it('requires explicit confirmation to switch to Production', async () => {
+  it('reports the single server environment from TIRA_ENV', async () => {
     const { service } = createService();
-    await expect(
-      service.switchEnvironment('live', {}, 'admin'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-  });
 
-  it('refuses to switch to an environment whose profile is not valid', async () => {
-    const { service, settings } = createService({
-      validation: { valid: false, message: 'ClientKey is not configured' },
-    });
-    await expect(
-      service.switchEnvironment('live', { confirmLive: true }, 'admin'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(settings.activeEnvironment).toBe('test');
-  });
+    const overview = await service.getOverview();
 
-  it('refuses to switch when the platform service key is missing', async () => {
-    const { service, settings } = createService({ serviceKey: null });
-    await expect(
-      service.switchEnvironment('live', { confirmLive: true }, 'admin'),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    expect(settings.activeEnvironment).toBe('test');
-  });
-
-  it('switches the whole platform and audits it', async () => {
-    const { service, settings, auditService } = createService();
-    jest.spyOn(service, 'getOverview').mockResolvedValue({} as any);
-
-    await service.switchEnvironment('live', { confirmLive: true }, 'admin');
-
-    expect(settings.activeEnvironment).toBe('live');
-    expect(auditService.logCritical).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: 'tiramis.platform.environment.switched',
-        afterState: expect.objectContaining({ from: 'test', to: 'live' }),
-      }),
-    );
+    expect(overview.activeEnvironment).toBe('local');
+    expect(overview.environments.local).toBeDefined();
   });
 
   it('revokes access with a reason and reports pending submissions', async () => {

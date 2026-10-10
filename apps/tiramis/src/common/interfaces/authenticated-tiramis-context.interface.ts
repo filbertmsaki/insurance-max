@@ -12,6 +12,6 @@ export interface AuthenticatedTiramisContext {
 
   companyCode?: string | null;
   systemCode?: string | null;
-  environment?: 'test' | 'live' | null;
+  environment?: 'local' | 'uat' | 'production' | null;
   clientConfigurationId?: string | null;
 }

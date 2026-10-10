@@ -30,7 +30,7 @@ export interface OrganizationSalePointContext {
 
 export interface OrganizationTiramisContext {
   enabled: boolean;
-  environment: 'test' | 'live';
+  environment: 'local' | 'uat' | 'production';
   configured: boolean;
   validated: boolean;
   ready: boolean;

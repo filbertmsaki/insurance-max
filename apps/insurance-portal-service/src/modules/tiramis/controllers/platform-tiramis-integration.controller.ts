@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseEnumPipe,
   ParseUUIDPipe,
   Post,
   Put,
@@ -30,10 +29,8 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 
 import { PlatformTiramisIntegrationService } from '../services/platform-tiramis-integration.service';
 
-const ENVIRONMENTS = { test: 'test', live: 'live' } as const;
 const READ = 'platform:tiramis-integration:read';
 const MANAGE = 'platform:tiramis-integration:manage';
-const SWITCH = 'platform:tiramis-integration:switch-environment';
 const COMPANY_ACCESS = 'platform:tiramis-integration:company-access';
 
 class UpdateProfileDto {
@@ -79,15 +76,6 @@ class IntegrationSettingsDto {
   @IsArray()
   @IsIn(['submit', 'read_status', 'receive_notifications'], { each: true })
   integrationPermissions?: string[];
-}
-
-class SwitchEnvironmentDto {
-  @IsIn(['test', 'live'])
-  environment!: 'test' | 'live';
-
-  @IsOptional()
-  @IsBoolean()
-  confirmLive?: boolean;
 }
 
 class LinkCompanyDto {
@@ -140,8 +128,7 @@ export class PlatformTiramisIntegrationController {
     summary: 'Update the TIRA identity and credentials for an environment',
   })
   updateProfile(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
+    @Param('environment') environment: 'local' | 'uat' | 'production',
     @Body() dto: UpdateProfileDto,
   ) {
     return this.service.updateProfile(environment, dto);
@@ -154,8 +141,7 @@ export class PlatformTiramisIntegrationController {
     summary: 'Upload a private or public certificate for an environment',
   })
   uploadCertificate(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
+    @Param('environment') environment: 'local' | 'uat' | 'production',
     @Body() dto: UploadCertificateDto,
   ) {
     return this.service.uploadCertificate(environment, dto);
@@ -168,8 +154,7 @@ export class PlatformTiramisIntegrationController {
     summary: 'Validate the identity, credentials and certificates',
   })
   validateProfile(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
+    @Param('environment') environment: 'local' | 'uat' | 'production',
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.validateProfile(environment, user.id);
@@ -182,8 +167,7 @@ export class PlatformTiramisIntegrationController {
     summary: 'Generate or rotate the platform TIRAMIS service key',
   })
   generateServiceApiKey(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
+    @Param('environment') environment: 'local' | 'uat' | 'production',
     @Body() dto: GenerateServiceKeyDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
@@ -199,8 +183,7 @@ export class PlatformTiramisIntegrationController {
   @Permissions(MANAGE)
   @ApiOperation({ summary: 'Rotate the platform webhook key TIRAMIS uses' })
   syncWebhookApiKey(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
+    @Param('environment') environment: 'local' | 'uat' | 'production',
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.syncWebhookApiKey(environment, user.id);
@@ -215,21 +198,6 @@ export class PlatformTiramisIntegrationController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.service.updateIntegrationSettings(dto, user.id);
-  }
-
-  @Post('environment')
-  @Roles('OWNER')
-  @Permissions(SWITCH)
-  @ApiOperation({ summary: 'Switch the platform-wide active TIRA environment' })
-  switchEnvironment(
-    @Body() dto: SwitchEnvironmentDto,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
-    return this.service.switchEnvironment(
-      dto.environment,
-      { confirmLive: dto.confirmLive },
-      user.id,
-    );
   }
 
   @Get('companies')

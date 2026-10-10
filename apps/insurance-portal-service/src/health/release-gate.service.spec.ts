@@ -66,7 +66,7 @@ describe('ReleaseGateService', () => {
       OBSERVABILITY_ENABLED: true,
       METRICS_ENABLED: true,
       TRACING_ENABLED: true,
-      TIRAMIS_TARGET_ENV: 'test',
+      TIRA_ENV: 'local',
       APP_RELEASE_SHA: '',
       APP_RELEASE_VERSION: '',
       APP_BUILT_AT: '',
@@ -89,7 +89,7 @@ describe('ReleaseGateService', () => {
         }
 
         if (sql.includes('tiramis_company_configurations')) {
-          expect(params).toEqual(['test']);
+          expect(params).toEqual(['local']);
           return [
             {
               enabled_companies: 1,

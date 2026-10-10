@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
@@ -43,7 +38,7 @@ const PENDING_STATUSES = [
   TiramisSubmissionStatus.CALLBACK_OVERDUE,
 ];
 
-const ENVIRONMENTS: TiramisEnvironmentName[] = ['test', 'live'];
+const ENVIRONMENTS: TiramisEnvironmentName[] = ['local', 'uat', 'production'];
 
 /**
  * Platform → TIRAMIS Integration. The platform owner manages the TIRA
@@ -72,6 +67,7 @@ export class PlatformTiramisIntegrationService {
 
   async getOverview() {
     const settings = await this.platformAccess.getSettings();
+    const activeEnvironment = await this.platformAccess.getActiveEnvironment();
     const [profiles, pending, links, keys] = await Promise.all([
       this.tiramisClientService
         .platformAdminRequest<Record<string, unknown>>({
@@ -82,12 +78,12 @@ export class PlatformTiramisIntegrationService {
         .catch((error: Error) => ({ error: error.message })),
       this.pendingByEnvironment(),
       this.linkCounts(),
-      this.serviceKeysConfigured(),
+      this.serviceKeyConfigured(),
     ]);
 
     return {
-      activeEnvironment: settings.activeEnvironment,
-      environmentSwitchedAt: settings.environmentSwitchedAt ?? null,
+      activeEnvironment,
+      environmentSwitchedAt: null,
       integrationPermissions:
         settings.integrationPermissions ??
         DEFAULT_TIRAMIS_INTEGRATION_PERMISSIONS,
@@ -96,19 +92,34 @@ export class PlatformTiramisIntegrationService {
           environment,
           {
             validationStatus:
-              environment === 'live'
-                ? settings.liveValidationStatus
-                : settings.testValidationStatus,
+              environment === activeEnvironment
+                ? settings.validationStatus
+                : 'NOT_VALIDATED',
             validatedAt:
-              (environment === 'live'
-                ? settings.liveValidatedAt
-                : settings.testValidatedAt) ?? null,
-            serviceApiKeyConfigured: keys[environment],
+              environment === activeEnvironment
+                ? (settings.validatedAt ?? null)
+                : null,
+            serviceApiKeyConfigured:
+              environment === activeEnvironment ? keys : false,
             pendingSubmissions: pending[environment] ?? 0,
           },
         ]),
       ),
-      profiles,
+      environment: {
+        validationStatus: settings.validationStatus,
+        validatedAt: settings.validatedAt ?? null,
+        serviceApiKeyConfigured: keys,
+        pendingSubmissions: pending[activeEnvironment] ?? 0,
+      },
+      profiles:
+        profiles && typeof profiles === 'object' && !('error' in profiles)
+          ? Object.fromEntries(
+              ENVIRONMENTS.map((environment) => [
+                environment,
+                (profiles as { active?: unknown }).active ?? profiles,
+              ]),
+            )
+          : profiles,
       companies: links,
     };
   }
@@ -135,7 +146,8 @@ export class PlatformTiramisIntegrationService {
     });
   }
 
-  async validateProfile(environment: TiramisEnvironmentName, actorId: string) {
+  async validateProfile(_environment: TiramisEnvironmentName, actorId: string) {
+    const environment = await this.platformAccess.getActiveEnvironment();
     const result = await this.tiramisClientService.platformAdminRequest<{
       valid: boolean;
       message: string;
@@ -147,13 +159,8 @@ export class PlatformTiramisIntegrationService {
     });
 
     const settings = await this.loadSettings();
-    if (environment === 'live') {
-      settings.liveValidationStatus = result.valid ? 'VALID' : 'INVALID';
-      settings.liveValidatedAt = new Date();
-    } else {
-      settings.testValidationStatus = result.valid ? 'VALID' : 'INVALID';
-      settings.testValidatedAt = new Date();
-    }
+    settings.validationStatus = result.valid ? 'VALID' : 'INVALID';
+    settings.validatedAt = new Date();
     settings.updatedBy = actorId;
     await this.settingsRepository.save(settings);
 
@@ -178,8 +185,7 @@ export class PlatformTiramisIntegrationService {
     });
     const settings = await this.loadSettings();
     const encrypted = this.apiKeyVault.encrypt(apiKey);
-    if (environment === 'live') settings.serviceApiKeyLiveEncrypted = encrypted;
-    else settings.serviceApiKeyTestEncrypted = encrypted;
+    settings.serviceApiKeyEncrypted = encrypted;
     settings.updatedBy = actorId;
     await this.settingsRepository.save(settings);
 
@@ -217,62 +223,6 @@ export class PlatformTiramisIntegrationService {
     return this.getOverview();
   }
 
-  // ---------------------------------------------------------------- environment
-
-  /**
-   * Switches the platform's active TIRA environment. New submissions from
-   * every linked company go to the new environment immediately; submissions
-   * already sent keep following up (status, retries, callbacks, notifications)
-   * in the environment they were sent to, so both environments' credentials
-   * must stay configured until the old environment's pending count is zero.
-   */
-  async switchEnvironment(
-    environment: TiramisEnvironmentName,
-    options: { confirmLive?: boolean },
-    actorId: string,
-  ) {
-    if (environment === 'live' && options.confirmLive !== true) {
-      throw new BadRequestException(
-        'Switching the platform to Production requires explicit confirmation.',
-      );
-    }
-
-    const settings = await this.loadSettings();
-    const previous = settings.activeEnvironment;
-    if (previous === environment) {
-      return this.getOverview();
-    }
-
-    const validation = await this.validateProfile(environment, actorId);
-    if (!validation.valid) {
-      throw new BadRequestException({
-        code: 'TIRAMIS_ENVIRONMENT_NOT_VALID',
-        message: `The ${environment} TIRA profile is not valid: ${validation.message}`,
-      });
-    }
-    if (!(await this.platformAccess.getServiceApiKey(environment))) {
-      throw new BadRequestException({
-        code: 'TIRAMIS_SERVICE_KEY_MISSING',
-        message: `Generate the platform service key for ${environment} before switching to it.`,
-      });
-    }
-
-    const refreshed = await this.loadSettings();
-    refreshed.activeEnvironment = environment;
-    refreshed.environmentSwitchedAt = new Date();
-    refreshed.environmentSwitchedBy = actorId;
-    refreshed.updatedBy = actorId;
-    await this.settingsRepository.save(refreshed);
-
-    const pending = await this.pendingByEnvironment();
-    await this.audit(actorId, 'tiramis.platform.environment.switched', {
-      from: previous,
-      to: environment,
-      pendingInPreviousEnvironment: pending[previous] ?? 0,
-    });
-    return this.getOverview();
-  }
-
   // ---------------------------------------------------------------- companies
 
   async listCompanies() {
@@ -301,7 +251,7 @@ export class PlatformTiramisIntegrationService {
     }));
   }
 
-  /** Links a registered insurer to the platform integration (both environments). */
+  /** Links a registered insurer to the platform integration. */
   async linkCompany(
     companyId: string,
     params: { insurerCompanyCode: string; insurerCompanyName?: string },
@@ -327,16 +277,12 @@ export class PlatformTiramisIntegrationService {
       );
     }
 
-    // Provision the company in TIRAMIS for both environments, so an
-    // environment switch never requires per-company work.
-    for (const environment of ENVIRONMENTS) {
-      await this.tiramisClientService.upsertClientConfiguration({
-        companyId,
-        environment,
-        companyCode: insurerCompanyCode,
-        insurerCompanyCode,
-      });
-    }
+    await this.tiramisClientService.upsertClientConfiguration({
+      companyId,
+      environment: await this.platformAccess.getActiveEnvironment(),
+      companyCode: insurerCompanyCode,
+      insurerCompanyCode,
+    });
 
     const existing = await this.linkRepository.findOne({
       where: { companyId },
@@ -433,21 +379,15 @@ export class PlatformTiramisIntegrationService {
   private async loadSettings() {
     const settings = await this.settingsRepository
       .createQueryBuilder('settings')
-      .addSelect([
-        'settings.serviceApiKeyTestEncrypted',
-        'settings.serviceApiKeyLiveEncrypted',
-      ])
+      .addSelect(['settings.serviceApiKeyEncrypted'])
       .where('settings.id = :id', { id: TIRAMIS_PLATFORM_SETTINGS_ID })
       .getOne();
     return settings ?? (await this.platformAccess.getSettings());
   }
 
-  private async serviceKeysConfigured() {
+  private async serviceKeyConfigured() {
     const settings = await this.loadSettings();
-    return {
-      test: Boolean(settings.serviceApiKeyTestEncrypted),
-      live: Boolean(settings.serviceApiKeyLiveEncrypted),
-    } as Record<TiramisEnvironmentName, boolean>;
+    return Boolean(settings.serviceApiKeyEncrypted);
   }
 
   private async pendingByEnvironment(): Promise<Record<string, number>> {

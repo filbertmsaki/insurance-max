@@ -14,9 +14,9 @@ import { Repository } from 'typeorm';
 import { TiramisSystemProfileEntity } from '../entities/tiramis-system-profile.entity';
 import { TiramisSecretCryptoService } from '../../security/services/tiramis-secret-crypto.service';
 
-export type TiramisEnvironmentName = 'test' | 'live';
+export type TiramisEnvironmentName = 'local' | 'uat' | 'production';
 
-/** Fully resolved platform settings for one TIRA environment. */
+/** Fully resolved platform settings for this server's one active TIRA environment. */
 export interface EffectiveTiramisSystemProfile {
   environment: TiramisEnvironmentName;
   clientCode: string | null;
@@ -70,7 +70,7 @@ export const TIRAMIS_CERTIFICATE_FILES = {
 } as const;
 
 /**
- * Platform-level TIRA settings per environment. Profiles are cached in memory
+ * Platform-level TIRA settings for the active server environment. Profiles are cached in memory
  * because runtime configuration is resolved synchronously on every request;
  * the cache reloads after each change and every minute, so instances converge.
  */
@@ -79,7 +79,7 @@ export class TiramisSystemProfileService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(TiramisSystemProfileService.name);
-  private cache = new Map<TiramisEnvironmentName, TiramisSystemProfileEntity>();
+  private cache = new Map<string, TiramisSystemProfileEntity>();
   private refreshTimer?: NodeJS.Timeout;
 
   constructor(
@@ -110,12 +110,12 @@ export class TiramisSystemProfileService
     this.cache = new Map(rows.map((row) => [row.environment, row]));
   }
 
-  /** Effective settings for an environment: profile first, then env vars. */
+  /** Effective settings: profile first, then this server's unified env vars. */
   getEffective(
     environment: TiramisEnvironmentName,
   ): EffectiveTiramisSystemProfile {
-    const row = this.cache.get(environment);
-    const suffix = environment.toUpperCase();
+    const activeEnvironment = this.normalizeEnvironment(environment);
+    const row = this.cache.get(activeEnvironment);
     const sources: EffectiveTiramisSystemProfile['sources'] = {};
 
     const pick = (
@@ -135,7 +135,6 @@ export class TiramisSystemProfileService
     const secret = (value?: string | null) =>
       value ? this.secretCrypto.decryptIfEncrypted(value) : null;
 
-    const certificateDirectory = join(this.certificateBaseDir(), environment);
     const allowExpiredFromEnv =
       this.envValue('TIRA_ALLOW_EXPIRED_CERTIFICATES') === 'true';
     const algorithm = pick(
@@ -146,50 +145,38 @@ export class TiramisSystemProfileService
     if (!algorithm) sources.signatureAlgorithm = 'default';
 
     return {
-      environment,
-      clientCode: pick(
-        'clientCode',
-        row?.clientCode,
-        `${ENV_NAMES.clientCode}_${suffix}`,
-      ),
+      environment: activeEnvironment,
+      clientCode: pick('clientCode', row?.clientCode, ENV_NAMES.clientCode),
       clientKey: pick(
         'clientKey',
         secret(row?.clientKeyEncrypted),
-        `${ENV_NAMES.clientKey}_${suffix}`,
+        ENV_NAMES.clientKey,
       ),
-      systemCode: pick(
-        'systemCode',
-        row?.systemCode,
-        `${ENV_NAMES.systemCode}_${suffix}`,
-      ),
-      systemName: pick(
-        'systemName',
-        row?.systemName,
-        `${ENV_NAMES.systemName}_${suffix}`,
-      ),
-      baseUrl: pick('baseUrl', row?.baseUrl, `TIRAMIS_${suffix}_BASE_URL`),
+      systemCode: pick('systemCode', row?.systemCode, ENV_NAMES.systemCode),
+      systemName: pick('systemName', row?.systemName, ENV_NAMES.systemName),
+      baseUrl: pick('baseUrl', row?.baseUrl, 'TIRAMIS_BASE_URL'),
       callbackUrl: pick(
         'callbackUrl',
         row?.callbackUrl,
-        `TIRAMIS_${suffix}_CALLBACK_URL`,
+        'TIRAMIS_CALLBACK_URL',
       ),
       clientCertificatePath: join(
-        certificateDirectory,
+        join(this.certificateBaseDir(), activeEnvironment),
         TIRAMIS_CERTIFICATE_FILES.clientPrivate,
       ),
       clientCertificatePassword: pick(
         'clientCertificatePassword',
         secret(row?.clientCertificatePasswordEncrypted),
-        `${ENV_NAMES.clientCertificatePassword}_${suffix}`,
+        ENV_NAMES.clientCertificatePassword,
       ),
       publicCertificatePath: join(
-        certificateDirectory,
+        join(this.certificateBaseDir(), activeEnvironment),
         TIRAMIS_CERTIFICATE_FILES.tiraPublic,
       ),
       publicCertificatePassword: pick(
         'publicCertificatePassword',
         secret(row?.publicCertificatePasswordEncrypted),
-        `${ENV_NAMES.publicCertificatePassword}_${suffix}`,
+        ENV_NAMES.publicCertificatePassword,
       ),
       signatureAlgorithm: algorithm ?? DEFAULT_SIGNATURE_ALGORITHM,
       allowExpiredCertificates:
@@ -201,7 +188,7 @@ export class TiramisSystemProfileService
   }
 
   getStored(environment: TiramisEnvironmentName) {
-    return this.cache.get(environment) ?? null;
+    return this.cache.get(this.normalizeEnvironment(environment)) ?? null;
   }
 
   async update(
@@ -209,7 +196,7 @@ export class TiramisSystemProfileService
     params: UpdateTiramisSystemProfileParams,
     actor: string,
   ) {
-    const row = await this.loadOrCreate(environment);
+    const row = await this.loadOrCreate(this.normalizeEnvironment(environment));
     const text = (value: string | null | undefined) =>
       value === undefined ? undefined : value?.trim() || null;
     const encrypt = (value: string | null | undefined) =>
@@ -262,7 +249,7 @@ export class TiramisSystemProfileService
     apiKey: string,
     actor: string,
   ) {
-    const row = await this.loadOrCreate(environment);
+    const row = await this.loadOrCreate(this.normalizeEnvironment(environment));
     row.portalWebhookApiKeyEncrypted = this.secretCrypto.encrypt(apiKey);
     row.updatedBy = actor;
     return this.save(row);
@@ -272,7 +259,7 @@ export class TiramisSystemProfileService
     environment: TiramisEnvironmentName,
     result: { valid: boolean; message: string },
   ) {
-    const row = await this.loadOrCreate(environment);
+    const row = await this.loadOrCreate(this.normalizeEnvironment(environment));
     row.validationStatus = result.valid ? 'VALID' : 'INVALID';
     row.validatedAt = new Date();
     row.validationMessage = result.message;
@@ -293,7 +280,8 @@ export class TiramisSystemProfileService
     if (!content.length) {
       throw new BadRequestException('The certificate file is empty.');
     }
-    const directory = join(this.certificateBaseDir(), params.environment);
+    const environment = this.normalizeEnvironment(params.environment);
+    const directory = join(this.certificateBaseDir(), environment);
     mkdirSync(directory, { recursive: true });
     const target = join(directory, TIRAMIS_CERTIFICATE_FILES[params.kind]);
     const temporary = `${target}.upload-${Date.now()}.pfx`;
@@ -310,7 +298,7 @@ export class TiramisSystemProfileService
     }
     renameSync(temporary, target);
 
-    const row = await this.loadOrCreate(params.environment);
+    const row = await this.loadOrCreate(environment);
     row.validationStatus = 'NOT_VALIDATED';
     row.validatedAt = null;
     row.validationMessage = null;
@@ -320,12 +308,13 @@ export class TiramisSystemProfileService
 
   /** Masked view for administrators (never returns secrets). */
   describe(environment: TiramisEnvironmentName) {
-    const effective = this.getEffective(environment);
-    const stored = this.getStored(environment);
+    const activeEnvironment = this.normalizeEnvironment(environment);
+    const effective = this.getEffective(activeEnvironment);
+    const stored = this.getStored(activeEnvironment);
     const mask = (value: string | null) =>
       value ? (value.length <= 4 ? '****' : `****${value.slice(-4)}`) : null;
     return {
-      environment,
+      environment: activeEnvironment,
       clientCode: effective.clientCode,
       clientKeyMasked: mask(effective.clientKey),
       systemCode: effective.systemCode,
@@ -377,5 +366,25 @@ export class TiramisSystemProfileService
     const value = this.configService.get<unknown>(name);
     if (value === undefined || value === null) return null;
     return String(value).trim() || null;
+  }
+
+  getActiveEnvironment(): TiramisEnvironmentName {
+    return this.normalizeEnvironment(
+      this.envValue('TIRA_ENV') ?? 'local',
+    );
+  }
+
+  normalizeEnvironment(environment: string): TiramisEnvironmentName {
+    const normalized = environment?.toLowerCase();
+    if (normalized === 'test') return 'local';
+    if (normalized === 'live') return 'production';
+    if (
+      normalized === 'local' ||
+      normalized === 'uat' ||
+      normalized === 'production'
+    ) {
+      return normalized;
+    }
+    throw new BadRequestException(`Unsupported TIRA_ENV: ${environment}`);
   }
 }

@@ -21,7 +21,7 @@ export interface ServiceTenantContext {
   salePointId?: string | null;
   salePointCode?: string | null;
 
-  environment?: 'test' | 'live' | null;
+  environment?: 'local' | 'uat' | 'production' | null;
 }
 
 export interface ServiceActorContext {

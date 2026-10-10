@@ -18,21 +18,18 @@ export default registerAs('tiramisService', () => {
 
   const globalPrefix = process.env.APP_GLOBAL_PREFIX || 'api';
   const productionEnvironment = isProductionEnvironment();
+  const tiraEnv = process.env.TIRA_ENV?.trim() || 'local';
 
   return {
     url: appUrl,
 
     apiBaseUrl: buildUrl(appUrl, globalPrefix),
 
-    testBaseUrl: normalizeBaseUrl(process.env.TIRAMIS_TEST_BASE_URL || ''),
+    tiraEnv,
 
-    liveBaseUrl: normalizeBaseUrl(process.env.TIRAMIS_LIVE_BASE_URL || ''),
+    baseUrl: normalizeBaseUrl(process.env.TIRAMIS_BASE_URL || ''),
 
-    testCallbackUrl: process.env.TIRAMIS_TEST_CALLBACK_URL?.trim() || '',
-
-    liveCallbackUrl: process.env.TIRAMIS_LIVE_CALLBACK_URL?.trim() || '',
-
-    targetEnvironment: process.env.TIRAMIS_TARGET_ENV?.trim() || 'test',
+    callbackUrl: process.env.TIRAMIS_CALLBACK_URL?.trim() || '',
 
     requestTimeoutMs: optionalNumberEnv(
       'TIRAMIS_HTTP_TIMEOUT_MS',

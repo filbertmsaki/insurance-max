@@ -8,7 +8,7 @@ import { TiramisClientConfigurationEntity } from '../../modules/config/entities/
 import { TiramisResponseCodeEntity } from '../../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../../modules/config/entities/tiramis-service-endpoint.entity';
 
-type EnvironmentName = 'live' | 'test';
+type EnvironmentName = 'local' | 'uat' | 'production';
 
 /**
  * A company's TIRAMIS configuration: company-specific settings only. The TIRA
@@ -26,10 +26,21 @@ type ConfigurationSeed = {
 type SeedEnvironment = Record<string, string | undefined>;
 
 export type TiramisSeedOptions = {
-  includeLive: boolean;
-  skippedLiveKeys: string[];
+  environment: EnvironmentName;
   legacySeedEnvironment?: string;
 };
+
+function resolveActiveTiraEnvironment(
+  activeEnvironment: SeedEnvironment = environment,
+): EnvironmentName {
+  const value = activeEnvironment.TIRA_ENV?.trim().toLowerCase();
+  if (value === 'local' || value === 'uat' || value === 'production') {
+    return value;
+  }
+  if (value === 'test') return 'local';
+  if (value === 'live') return 'production';
+  return 'local';
+}
 
 export function resolveTiramisSeedOptions(
   activeEnvironment: SeedEnvironment = environment,
@@ -38,29 +49,8 @@ export function resolveTiramisSeedOptions(
   const legacySeedEnvironment =
     activeEnvironment.TIRAMIS_SEED_ENVIRONMENTS?.trim().toLowerCase();
 
-  if (argv.includes('--test-only') || legacySeedEnvironment === 'test') {
-    return {
-      includeLive: false,
-      skippedLiveKeys: [],
-      legacySeedEnvironment,
-    };
-  }
-
-  if (
-    argv.includes('--include-live') ||
-    argv.includes('--both') ||
-    ['both', 'all', 'live'].includes(legacySeedEnvironment || '')
-  ) {
-    return {
-      includeLive: true,
-      skippedLiveKeys: [],
-      legacySeedEnvironment,
-    };
-  }
-
   return {
-    includeLive: true,
-    skippedLiveKeys: [],
+    environment: resolveActiveTiraEnvironment(activeEnvironment),
     legacySeedEnvironment,
   };
 }
@@ -69,7 +59,7 @@ export function resolveTiramisSeedOptions(
 export function resolveSeedEnvironments(
   options: TiramisSeedOptions,
 ): EnvironmentName[] {
-  return options.includeLive ? ['test', 'live'] : ['test'];
+  return [options.environment];
 }
 
 /**
@@ -582,13 +572,9 @@ export async function runTiramisConfigSeed(
   }
 
   try {
-    if (!seedOptions.includeLive) {
-      console.log('Skipping live TIRAMIS seed (--test-only).');
-    }
-
     if (seedOptions.legacySeedEnvironment) {
       console.warn(
-        'TIRAMIS_SEED_ENVIRONMENTS is deprecated. Use --test-only only when you need to skip live seeding.',
+        'TIRAMIS_SEED_ENVIRONMENTS is deprecated. TIRAMIS now seeds only the active TIRA_ENV.',
       );
     }
 

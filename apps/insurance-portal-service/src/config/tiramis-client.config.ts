@@ -7,8 +7,11 @@ export default registerAs('tiramisClient', () => ({
     process.env.TIRAMIS_SERVICE_BASE_URL || 'http://127.0.0.1:9091',
   ),
 
-  targetEnvironment:
-    process.env.TIRAMIS_TARGET_ENV === 'live' ? 'live' : 'test',
+  tiraEnv: ['local', 'uat', 'production'].includes(
+    process.env.TIRA_ENV?.trim() || '',
+  )
+    ? process.env.TIRA_ENV!.trim()
+    : 'local',
 
   timeoutMs: Number(process.env.TIRAMIS_HTTP_TIMEOUT_MS || 60000),
 

@@ -41,7 +41,7 @@ export interface AuthenticatedUser {
    * System follow-ups (status sync, retry) pin the TIRAMIS environment a
    * submission was originally sent to; never set from a user request.
    */
-  tiramisEnvironment?: 'test' | 'live';
+  tiramisEnvironment?: 'local' | 'uat' | 'production';
   /**
    * A follow-up of an existing submission (status sync): company access and
    * environment validation don't apply. Never set from a user request.

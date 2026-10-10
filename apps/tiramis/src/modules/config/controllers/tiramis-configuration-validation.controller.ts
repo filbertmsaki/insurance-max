@@ -18,8 +18,9 @@ import { TiramisPortalNotificationService } from '../../portal-notifications/ser
 import { TIRAMIS_NOTIFICATION_EVENT_TYPES } from '../../portal-notifications/services/tiramis-portal-notification.service';
 
 class ValidateOrganizationConfigurationDto {
-  @IsIn(['test', 'live'])
-  environment!: 'test' | 'live';
+  @IsOptional()
+  @IsString()
+  environment?: string;
 
   @IsString()
   companyCode!: string;
@@ -62,8 +63,9 @@ class NotificationPolicyDto {
 
 /** Company-specific settings only; the TIRA system identity is platform-wide. */
 class UpsertClientConfigurationDto {
-  @IsIn(['test', 'live'])
-  environment!: 'test' | 'live';
+  @IsOptional()
+  @IsString()
+  environment?: string;
 
   @IsString()
   companyCode!: string;
@@ -85,8 +87,9 @@ class UpsertClientConfigurationDto {
 }
 
 class ResolveOrganizationConfigurationDto {
-  @IsIn(['test', 'live'])
-  environment!: 'test' | 'live';
+  @IsOptional()
+  @IsString()
+  environment?: string;
 
   @IsString()
   companyCode!: string;
@@ -97,8 +100,9 @@ class ResolveOrganizationConfigurationDto {
 }
 
 class SystemIdentityQueryDto {
-  @IsIn(['test', 'live'])
-  environment!: 'test' | 'live';
+  @IsOptional()
+  @IsString()
+  environment?: string;
 }
 
 /** Only per-company secrets are stored; TIRA system secrets live in env. */
@@ -124,7 +128,7 @@ export class TiramisConfigurationValidationController {
   @Post('validate-organization')
   async validate(@Body() dto: ValidateOrganizationConfigurationDto) {
     const configuration = await this.configService.getActiveConfiguration({
-      environment: dto.environment,
+      environment: dto.environment ?? this.configService.resolveRuntimeEnvironment(),
       companyCode: dto.companyCode,
       systemCode: dto.systemCode,
     });
@@ -195,7 +199,7 @@ export class TiramisConfigurationValidationController {
   @Post('resolve-organization')
   async resolveOrganization(@Body() dto: ResolveOrganizationConfigurationDto) {
     const configuration = await this.configService.getActiveConfiguration({
-      environment: dto.environment,
+      environment: dto.environment ?? this.configService.resolveRuntimeEnvironment(),
       companyCode: dto.companyCode,
       systemCode: dto.systemCode,
     });
@@ -211,7 +215,7 @@ export class TiramisConfigurationValidationController {
   /** The platform-wide TIRA system identity (no secrets) for an environment. */
   @Post('system-identity')
   getSystemIdentity(@Body() dto: SystemIdentityQueryDto) {
-    return this.configService.getSystemIdentity(dto.environment);
+    return this.configService.getSystemIdentity(dto.environment ?? 'local');
   }
 
   @Get(':configurationId/secret-health')

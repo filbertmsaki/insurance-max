@@ -36,7 +36,7 @@ export class UpsertCompanyTiramisConfigurationDto {
 
   @IsOptional()
   @IsIn(['test', 'live'])
-  environment: 'test' | 'live';
+  environment: 'local' | 'uat' | 'production';
 
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toUpperCase() : value,

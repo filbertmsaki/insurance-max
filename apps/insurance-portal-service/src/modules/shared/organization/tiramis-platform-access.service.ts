@@ -46,24 +46,19 @@ export class TiramisPlatformAccessService {
       this.settingsRepository.create({
         id: TIRAMIS_PLATFORM_SETTINGS_ID,
         activeEnvironment: this.defaultEnvironment(),
-        testValidationStatus: 'NOT_VALIDATED',
-        liveValidationStatus: 'NOT_VALIDATED',
+        validationStatus: 'NOT_VALIDATED',
       })
     );
   }
 
-  /** The environment every new submission uses, platform-wide. */
+  /** The environment every new submission uses, platform-wide from TIRA_ENV. */
   async getActiveEnvironment(): Promise<TiramisEnvironmentName> {
-    return (await this.getSettings()).activeEnvironment;
+    return this.defaultEnvironment();
   }
 
-  async isEnvironmentValidated(environment: TiramisEnvironmentName) {
+  async isEnvironmentValidated(_environment: TiramisEnvironmentName) {
     const settings = await this.getSettings();
-    return (
-      (environment === 'live'
-        ? settings.liveValidationStatus
-        : settings.testValidationStatus) === 'VALID'
-    );
+    return settings.validationStatus === 'VALID';
   }
 
   /** The platform's TIRAMIS service key for an environment, decrypted. */
@@ -72,17 +67,11 @@ export class TiramisPlatformAccessService {
   ): Promise<string | null> {
     const settings = await this.settingsRepository
       .createQueryBuilder('settings')
-      .addSelect([
-        'settings.serviceApiKeyTestEncrypted',
-        'settings.serviceApiKeyLiveEncrypted',
-      ])
+      .addSelect(['settings.serviceApiKeyEncrypted'])
       .where('settings.id = :id', { id: TIRAMIS_PLATFORM_SETTINGS_ID })
       .getOne();
-    return this.apiKeyVault.decrypt(
-      environment === 'live'
-        ? settings?.serviceApiKeyLiveEncrypted
-        : settings?.serviceApiKeyTestEncrypted,
-    );
+    void environment;
+    return this.apiKeyVault.decrypt(settings?.serviceApiKeyEncrypted);
   }
 
   async getIntegrationPermissions(): Promise<string[]> {
@@ -133,9 +122,8 @@ export class TiramisPlatformAccessService {
   }
 
   private defaultEnvironment(): TiramisEnvironmentName {
-    return this.configService.get<string>('tiramisClient.targetEnvironment') ===
-      'live'
-      ? 'live'
-      : 'test';
+    const value = this.configService.get<string>('tiramisClient.tiraEnv');
+    if (value === 'uat' || value === 'production') return value;
+    return 'local';
   }
 }

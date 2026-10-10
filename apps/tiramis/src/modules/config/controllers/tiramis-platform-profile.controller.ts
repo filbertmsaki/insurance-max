@@ -4,7 +4,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseEnumPipe,
   Post,
   Put,
   Req,
@@ -29,8 +28,6 @@ import {
   TIRAMIS_CERTIFICATE_FILES,
   TiramisSystemProfileService,
 } from '../services/tiramis-system-profile.service';
-
-const ENVIRONMENTS = { test: 'test', live: 'live' } as const;
 
 class UpdatePlatformProfileDto {
   @IsOptional() @IsString() @MaxLength(100) clientCode?: string | null;
@@ -75,7 +72,7 @@ class PortalWebhookKeyDto {
 
 /**
  * Platform → TIRAMIS Integration: the TIRA identity, credentials, certificates
- * and notification policy for each environment, shared by every company.
+ * and notification policy for this server's active TIRA_ENV, shared by every company.
  * Platform administrators only.
  */
 @Controller('tiramis/platform/profiles')
@@ -90,47 +87,45 @@ export class TiramisPlatformProfileController {
 
   @Get()
   list() {
+    const active = this.profiles.getActiveEnvironment();
     return {
-      test: this.profiles.describe('test'),
-      live: this.profiles.describe('live'),
+      environment: active,
+      active: this.profiles.describe(active),
     };
   }
 
   @Get(':environment')
-  get(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
-  ) {
-    return this.profiles.describe(environment);
+  get(@Param('environment') environment: string) {
+    return this.profiles.describe(this.profiles.normalizeEnvironment(environment));
   }
 
   @Put(':environment')
   async update(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
+    @Param('environment') environment: string,
     @Body() dto: UpdatePlatformProfileDto,
     @Req() request: Request,
   ) {
-    await this.profiles.update(environment, dto, this.actor(request));
-    return this.profiles.describe(environment);
+    const activeEnvironment = this.profiles.normalizeEnvironment(environment);
+    await this.profiles.update(activeEnvironment, dto, this.actor(request));
+    return this.profiles.describe(activeEnvironment);
   }
 
   @Post(':environment/certificates')
   async uploadCertificate(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
+    @Param('environment') environment: string,
     @Body() dto: UploadCertificateDto,
     @Req() request: Request,
   ) {
-    const effective = this.profiles.getEffective(environment);
+    const activeEnvironment = this.profiles.normalizeEnvironment(environment);
+    const effective = this.profiles.getEffective(activeEnvironment);
     const password =
       dto.password ??
       (dto.kind === 'clientPrivate'
         ? effective.clientCertificatePassword
         : effective.publicCertificatePassword);
 
-    await this.profiles.storeCertificate({
-      environment,
+      await this.profiles.storeCertificate({
+      environment: activeEnvironment,
       kind: dto.kind,
       contentBase64: dto.contentBase64,
       validate: (temporaryPath) => {
@@ -149,7 +144,7 @@ export class TiramisPlatformProfileController {
 
     if (dto.password !== undefined) {
       await this.profiles.update(
-        environment,
+        activeEnvironment,
         dto.kind === 'clientPrivate'
           ? { clientCertificatePassword: dto.password }
           : { publicCertificatePassword: dto.password },
@@ -157,25 +152,23 @@ export class TiramisPlatformProfileController {
       );
     }
 
-    return this.profiles.describe(environment);
+    return this.profiles.describe(activeEnvironment);
   }
 
   /** Checks identity, credentials and both certificates for an environment. */
   @Post(':environment/validate')
-  async validate(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
-  ) {
+  async validate(@Param('environment') environment: string) {
+    const activeEnvironment = this.profiles.normalizeEnvironment(environment);
     let security: Awaited<
       ReturnType<TiramisConfigService['validateConfigurationSecurity']>
     >;
     try {
       security = await this.configService.validateConfigurationSecurity(
-        this.configService.getSystemRuntimeConfiguration(environment),
+        this.configService.getSystemRuntimeConfiguration(activeEnvironment),
       );
     } catch (error: any) {
       const message = error?.message || 'Validation failed';
-      await this.profiles.recordValidation(environment, {
+      await this.profiles.recordValidation(activeEnvironment, {
         valid: false,
         message,
       });
@@ -187,7 +180,7 @@ export class TiramisPlatformProfileController {
         ? `Valid with warnings: ${security.warnings.join('; ')}`
         : 'Valid.'
       : security.errors.join('; ');
-    await this.profiles.recordValidation(environment, {
+    await this.profiles.recordValidation(activeEnvironment, {
       valid: security.ok,
       message,
     });
@@ -203,17 +196,17 @@ export class TiramisPlatformProfileController {
   /** Key TIRAMIS sends to the portal webhook for this environment. */
   @Put(':environment/portal-webhook-api-key')
   async setPortalWebhookApiKey(
-    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
-    environment: 'test' | 'live',
+    @Param('environment') environment: string,
     @Body() dto: PortalWebhookKeyDto,
     @Req() request: Request,
   ) {
+    const activeEnvironment = this.profiles.normalizeEnvironment(environment);
     await this.profiles.setPortalWebhookApiKey(
-      environment,
+      activeEnvironment,
       dto.apiKey,
       this.actor(request),
     );
-    return { environment, portalWebhookApiKeyConfigured: true };
+    return { environment: activeEnvironment, portalWebhookApiKeyConfigured: true };
   }
 
   private actor(request: Request) {

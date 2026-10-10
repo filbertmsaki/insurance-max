@@ -15,6 +15,7 @@ import {
 } from '@insurance-max/shared-kernel';
 
 import { TiramisCallbackService } from '../services/tiramis-callback.service';
+import { TiramisConfigService } from '../../config/services/tiramis-config.service';
 
 @Controller('tiramis/callbacks')
 @PublicServiceEndpoint()
@@ -23,7 +24,19 @@ export class TiramisCallbackController {
 
   constructor(
     private readonly tiramisCallbackService: TiramisCallbackService,
+    private readonly tiramisConfigService: TiramisConfigService,
   ) {}
+
+  @Post()
+  @HttpCode(200)
+  @Header('Content-Type', 'application/xml')
+  @RawResponse()
+  async handleActiveCallback(@Body() rawXml: string): Promise<string> {
+    return this.handleCallback(
+      this.tiramisConfigService.resolveRuntimeEnvironment(),
+      rawXml,
+    );
+  }
 
   @Post(':environment')
   @HttpCode(200)

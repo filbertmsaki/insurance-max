@@ -9,8 +9,7 @@ import { Column, Entity, Index } from 'typeorm';
  * the environment on every configuration it returns.
  */
 @Entity({ name: 'tiramis_client_configurations' })
-@Index(['environment'])
-@Index(['environment', 'companyCode'], { unique: true })
+@Index(['companyCode'], { unique: true })
 export class TiramisClientConfigurationEntity extends BaseEntity {
   @Column({ length: 30 })
   environment!: string;

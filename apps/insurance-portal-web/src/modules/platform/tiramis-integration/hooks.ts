@@ -90,21 +90,6 @@ export function useUpdateTiramisSettings() {
   });
 }
 
-export function useSwitchTiramisEnvironment() {
-  const invalidate = useInvalidateTiramisIntegration();
-  return useMutation({
-    mutationFn: (vars: {
-      environment: TiramisEnvironment;
-      confirmLive?: boolean;
-    }) =>
-      tiramisIntegrationApi.switchEnvironment(
-        vars.environment,
-        vars.confirmLive,
-      ),
-    onSuccess: () => void invalidate(),
-  });
-}
-
 export function useTiramisCompanyAccessMutations() {
   const invalidate = useInvalidateTiramisIntegration();
   const onSuccess = () => void invalidate();

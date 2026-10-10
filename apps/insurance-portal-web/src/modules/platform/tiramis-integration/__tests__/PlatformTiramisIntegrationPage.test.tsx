@@ -11,17 +11,23 @@ import { tiramisIntegrationApi, type TiramisIntegrationOverview } from '../api';
 import { PlatformTiramisIntegrationPage } from '../pages/PlatformTiramisIntegrationPage';
 
 const overview: TiramisIntegrationOverview = {
-  activeEnvironment: 'test',
+  activeEnvironment: 'local',
   environmentSwitchedAt: null,
   integrationPermissions: ['submit'],
   environments: {
-    test: {
+    local: {
       validationStatus: 'VALID',
       validatedAt: null,
       serviceApiKeyConfigured: true,
       pendingSubmissions: 4,
     },
-    live: {
+    uat: {
+      validationStatus: 'NOT_VALIDATED',
+      validatedAt: null,
+      serviceApiKeyConfigured: false,
+      pendingSubmissions: 0,
+    },
+    production: {
       validationStatus: 'NOT_VALIDATED',
       validatedAt: null,
       serviceApiKeyConfigured: false,

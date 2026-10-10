@@ -1,6 +1,6 @@
 import { apiClient } from '@/modules/shared/api/client';
 
-export type TiramisEnvironment = 'test' | 'live';
+export type TiramisEnvironment = 'local' | 'uat' | 'production';
 export type TiramisValidationStatus = 'NOT_VALIDATED' | 'VALID' | 'INVALID';
 export type TiramisFieldSource =
   | 'profile'
@@ -14,11 +14,16 @@ export type TiramisIntegrationPermission =
 export type TiramisLinkStatus = 'LINKED' | 'ACTIVE' | 'REVOKED';
 export type TiramisCertificateKind = 'clientPrivate' | 'tiraPublic';
 
-export const TIRAMIS_ENVIRONMENTS: TiramisEnvironment[] = ['test', 'live'];
+export const TIRAMIS_ENVIRONMENTS: TiramisEnvironment[] = [
+  'local',
+  'uat',
+  'production',
+];
 
 export const TIRAMIS_ENVIRONMENT_LABELS: Record<TiramisEnvironment, string> = {
-  test: 'Test',
-  live: 'Production',
+  local: 'Local',
+  uat: 'UAT',
+  production: 'Production',
 };
 
 export const TIRAMIS_INTEGRATION_PERMISSIONS: TiramisIntegrationPermission[] = [
@@ -42,7 +47,6 @@ export const TIRAMIS_NOTIFICATION_EVENTS: string[] = [
 export const TIRAMIS_PERMISSIONS = {
   read: 'platform:tiramis-integration:read',
   manage: 'platform:tiramis-integration:manage',
-  switchEnvironment: 'platform:tiramis-integration:switch-environment',
   companyAccess: 'platform:tiramis-integration:company-access',
 } as const;
 
@@ -185,14 +189,6 @@ export const tiramisIntegrationApi = {
   }) =>
     apiClient
       .put<TiramisIntegrationOverview>(`${BASE}/settings`, data)
-      .then((r) => r.data),
-
-  switchEnvironment: (environment: TiramisEnvironment, confirmLive?: boolean) =>
-    apiClient
-      .post<TiramisIntegrationOverview>(`${BASE}/environment`, {
-        environment,
-        ...(confirmLive ? { confirmLive: true } : {}),
-      })
       .then((r) => r.data),
 
   listCompanies: () =>

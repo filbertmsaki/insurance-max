@@ -82,7 +82,7 @@ export interface TiramisResolvedRequestContext<TDto> {
 
 /** Company-specific settings only; the TIRA system identity comes from env. */
 export interface UpsertTiramisClientConfigurationParams {
-  environment: 'test' | 'live';
+  environment?: string | null;
   companyCode: string;
   insurerCompanyCode: string;
   /** Default sale point, used only when a request carries no branch sale point. */
@@ -93,7 +93,7 @@ export interface UpsertTiramisClientConfigurationParams {
 }
 
 export interface TiramisSystemIdentity {
-  environment: 'test' | 'live';
+  environment: string;
   clientCode: string;
   systemCode: string;
   systemName: string;
@@ -142,19 +142,8 @@ export class TiramisConfigService {
   ) {}
 
   resolveRuntimeEnvironment(appEnv?: string) {
-    const configuredTarget =
-      this.configService.get<string>('TIRAMIS_TARGET_ENV');
-
-    if (configuredTarget === 'test' || configuredTarget === 'live') {
-      return configuredTarget;
-    }
-
-    const environment =
-      appEnv ??
-      this.configService.get<string>('app.env') ??
-      this.configService.get<string>('APP_ENV') ??
-      'development';
-    return environment === 'production' ? 'live' : 'test';
+    void appEnv;
+    return this.systemProfiles.getActiveEnvironment();
   }
 
   /**
@@ -555,12 +544,11 @@ export class TiramisConfigService {
   private buildRequestHeaders(
     clientCode: string | null,
     clientKey: string | null,
-    environment: 'test' | 'live',
+    environment: 'local' | 'uat' | 'production',
   ): TiramisRequestHeaders {
     if (!clientCode || !clientKey) {
-      const suffix = environment.toUpperCase();
       throw new BadRequestException(
-        `TIRA ClientCode or ClientKey is not configured (set ${TIRAMIS_SYSTEM_ENV.clientCode}_${suffix} and ${TIRAMIS_SYSTEM_ENV.clientKey}_${suffix}).`,
+        `TIRA ClientCode or ClientKey is not configured (set ${TIRAMIS_SYSTEM_ENV.clientCode} and ${TIRAMIS_SYSTEM_ENV.clientKey}).`,
       );
     }
 
@@ -589,7 +577,11 @@ export class TiramisConfigService {
     configuration = this.withEnvironmentRuntimeConfiguration(configuration);
     const configuredUrl = configuration.callbackBaseUrl.trim();
 
-    if (/\/api\/tiramis\/callbacks\/(test|live)\/?$/i.test(configuredUrl)) {
+    if (
+      /\/api\/tiramis\/callbacks\/(test|live|local|uat|production)\/?$/i.test(
+        configuredUrl,
+      )
+    ) {
       return configuredUrl;
     }
 
@@ -680,7 +672,6 @@ export class TiramisConfigService {
         this.normalizeConfigurationEnvironment(configuration.environment),
       ).allowExpiredCertificates;
 
-    const suffix = configuration.environment.toUpperCase();
     for (const [field, label] of [
       ['clientCode', 'ClientCode'],
       ['clientKey', 'ClientKey'],
@@ -688,7 +679,7 @@ export class TiramisConfigService {
     ] as const) {
       if (!configuration[field]) {
         errors.push(
-          `${label} is not configured (set ${TIRAMIS_SYSTEM_ENV[field]}_${suffix})`,
+          `${label} is not configured (set ${TIRAMIS_SYSTEM_ENV[field]})`,
         );
       }
     }
@@ -789,7 +780,7 @@ export class TiramisConfigService {
     params: UpsertTiramisClientConfigurationParams,
   ): Promise<TiramisClientConfigurationEntity> {
     const environment = this.normalizeConfigurationEnvironment(
-      params.environment,
+      params.environment ?? this.systemProfiles.getActiveEnvironment(),
     );
     let configuration = await this.clientConfigurationRepository.findOne({
       where: { environment, companyCode: params.companyCode },
@@ -811,13 +802,15 @@ export class TiramisConfigService {
     return this.withEnvironmentRuntimeConfiguration(saved);
   }
 
-  private resolveDefaultBaseUrl(environment: 'test' | 'live'): string {
-    const configured = this.systemProfiles.getEffective(environment).baseUrl;
+  private resolveDefaultBaseUrl(environment: string): string {
+    const configured = this.systemProfiles.getEffective(
+      this.normalizeConfigurationEnvironment(environment),
+    ).baseUrl;
 
     if (!configured) {
       throw new BadRequestException({
         code: 'TIRAMIS_BASE_URL_REQUIRED',
-        message: `No TIRA base URL is configured for the ${environment} environment (set it under Platform → TIRAMIS Integration, or TIRAMIS_${environment.toUpperCase()}_BASE_URL).`,
+        message: `No TIRA base URL is configured for the ${environment} environment (set it under Platform -> TIRAMIS Integration, or TIRAMIS_BASE_URL).`,
       });
     }
 
@@ -829,15 +822,17 @@ export class TiramisConfigService {
    * where to POST its async callback — TIRAMIS's own public base URL, not the
    * portal's webhook. Platform profile, then environment, then APP_URL.
    */
-  private resolveDefaultCallbackUrl(environment: 'test' | 'live'): string {
+  private resolveDefaultCallbackUrl(environment: string): string {
     const configured =
-      this.systemProfiles.getEffective(environment).callbackUrl ||
+      this.systemProfiles.getEffective(
+        this.normalizeConfigurationEnvironment(environment),
+      ).callbackUrl ||
       this.configService.get<string>('tiramisService.url');
 
     if (!configured) {
       throw new BadRequestException({
         code: 'TIRAMIS_CALLBACK_URL_REQUIRED',
-        message: `No TIRA callback URL is configured for the ${environment} environment (set it under Platform → TIRAMIS Integration, or TIRAMIS_${environment.toUpperCase()}_CALLBACK_URL / APP_URL).`,
+        message: `No TIRA callback URL is configured for the ${environment} environment (set it under Platform -> TIRAMIS Integration, or TIRAMIS_CALLBACK_URL / APP_URL).`,
       });
     }
 
@@ -855,7 +850,9 @@ export class TiramisConfigService {
       configuration,
     ) as TiramisClientConfigurationEntity;
 
-    const profile = this.systemProfiles.getEffective(environment);
+    const profile = this.systemProfiles.getEffective(
+      this.normalizeConfigurationEnvironment(environment),
+    );
     runtimeConfiguration.systemCode = profile.systemCode ?? '';
     runtimeConfiguration.systemName = profile.systemName ?? '';
     runtimeConfiguration.clientCode = profile.clientCode ?? '';
@@ -878,9 +875,11 @@ export class TiramisConfigService {
 
   private systemEnv(
     field: keyof typeof TIRAMIS_SYSTEM_ENV,
-    environment: 'test' | 'live',
+    environment: string,
   ): string | null {
-    const profile = this.systemProfiles.getEffective(environment);
+    const profile = this.systemProfiles.getEffective(
+      this.normalizeConfigurationEnvironment(environment),
+    );
     const values: Record<keyof typeof TIRAMIS_SYSTEM_ENV, string | null> = {
       clientCode: profile.clientCode,
       clientKey: profile.clientKey,
@@ -899,17 +898,15 @@ export class TiramisConfigService {
 
   private normalizeConfigurationEnvironment(
     environment: string,
-  ): 'test' | 'live' {
-    const normalized = environment?.toLowerCase();
-
-    if (normalized === 'test' || normalized === 'live') {
-      return normalized;
+  ): 'local' | 'uat' | 'production' {
+    try {
+      return this.systemProfiles.normalizeEnvironment(environment);
+    } catch {
+      throw new BadRequestException({
+        code: 'TIRAMIS_ENVIRONMENT_INVALID',
+        message: `Unsupported TIRAMIS environment: ${environment}`,
+      });
     }
-
-    throw new BadRequestException({
-      code: 'TIRAMIS_ENVIRONMENT_INVALID',
-      message: `Unsupported TIRAMIS environment: ${environment}`,
-    });
   }
 
   private getCertificateBaseDir(): string {
@@ -1031,7 +1028,6 @@ export class TiramisConfigService {
         this.readSecretValue(configuration, secret),
       ),
     }));
-    const suffix = configuration.environment.toUpperCase();
     const systemSecrets = (
       [
         ['clientKey', 'TIRA client key'],
@@ -1044,7 +1040,7 @@ export class TiramisConfigService {
     ).map(([field, label]) => ({
       name: field,
       label,
-      source: `${TIRAMIS_SYSTEM_ENV[field]}_${suffix}`,
+      source: TIRAMIS_SYSTEM_ENV[field],
       status: configuration[field] ? 'OK' : 'MISSING',
     }));
 

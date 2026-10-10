@@ -754,10 +754,15 @@ export class TiramisPortalNotificationService {
   }
 
   private platformProfile(environment?: string | null) {
-    const env = String(environment ?? '').toLowerCase();
-    return env === 'test' || env === 'live'
-      ? this.systemProfiles.getEffective(env)
-      : null;
+    try {
+      return this.systemProfiles.getEffective(
+        this.systemProfiles.normalizeEnvironment(
+          String(environment ?? this.systemProfiles.getActiveEnvironment()),
+        ),
+      );
+    } catch {
+      return null;
+    }
   }
 
   private decryptPortalApiKey(configuration: {

@@ -25,10 +25,11 @@ function createService(stored: Record<string, unknown>[] = []) {
     ),
   };
   const env: Record<string, string> = {
-    TIRA_CLIENT_CODE_TEST: 'ENV-CLIENT',
-    TIRA_CLIENT_KEY_TEST: 'env-key',
-    TIRA_SYSTEM_CODE_TEST: 'ENV-SYSTEM',
-    TIRAMIS_TEST_BASE_URL: 'https://tira.env',
+    TIRA_ENV: 'local',
+    TIRA_CLIENT_CODE: 'ENV-CLIENT',
+    TIRA_CLIENT_KEY: 'env-key',
+    TIRA_SYSTEM_CODE: 'ENV-SYSTEM',
+    TIRAMIS_BASE_URL: 'https://tira.env',
     TIRAMIS_CERTIFICATE_BASE_DIR: '/certs',
   };
   const service = new TiramisSystemProfileService(
@@ -43,7 +44,7 @@ describe('TiramisSystemProfileService', () => {
   it('uses the stored platform profile first and environment variables as fallback', async () => {
     const { service } = createService([
       {
-        environment: 'test',
+        environment: 'local',
         clientCode: 'PROFILE-CLIENT',
         clientKeyEncrypted: 'enc:profile-key',
         systemCode: null,
@@ -51,7 +52,7 @@ describe('TiramisSystemProfileService', () => {
     ]);
     await service.refresh();
 
-    const effective = service.getEffective('test');
+    const effective = service.getEffective('local');
 
     expect(effective).toMatchObject({
       clientCode: 'PROFILE-CLIENT',
@@ -68,38 +69,38 @@ describe('TiramisSystemProfileService', () => {
       signatureAlgorithm: 'default',
     });
     expect(effective.clientCertificatePath.replace(/\\/g, '/')).toBe(
-      '/certs/test/clientprivate.pfx',
+      '/certs/local/clientprivate.pfx',
     );
   });
 
   it('stores secrets encrypted, resets validation, and never exposes them', async () => {
     const { service, rows } = createService([
-      { environment: 'live', validationStatus: 'VALID' },
+      { environment: 'production', validationStatus: 'VALID' },
     ]);
 
     await service.update(
-      'live',
-      { clientKey: 'new-key', clientCode: 'LIVE-CLIENT' },
+      'production',
+      { clientKey: 'new-key', clientCode: 'PROD-CLIENT' },
       'admin@example.com',
     );
 
     expect(rows[0]).toMatchObject({
       clientKeyEncrypted: 'enc:new-key',
-      clientCode: 'LIVE-CLIENT',
+      clientCode: 'PROD-CLIENT',
       validationStatus: 'NOT_VALIDATED',
       updatedBy: 'admin@example.com',
     });
-    const view = service.describe('live');
+    const view = service.describe('production');
     expect(view.clientKeyMasked).toBe('****-key');
     expect(JSON.stringify(view)).not.toContain('new-key');
   });
 
   it('keeps a stored secret when an update omits it', async () => {
     const { service, rows } = createService([
-      { environment: 'test', clientKeyEncrypted: 'enc:kept' },
+      { environment: 'local', clientKeyEncrypted: 'enc:kept' },
     ]);
 
-    await service.update('test', { systemName: 'Platform' }, 'admin');
+    await service.update('local', { systemName: 'Platform' }, 'admin');
 
     expect(rows[0]).toMatchObject({
       clientKeyEncrypted: 'enc:kept',

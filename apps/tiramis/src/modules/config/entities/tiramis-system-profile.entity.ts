@@ -2,16 +2,16 @@ import { BaseEntity } from '@insurance-max/persistence';
 import { Column, Entity, Index } from 'typeorm';
 
 /**
- * The platform's TIRA integration settings for one TIRA environment (test or
- * live), managed centrally by platform administrators and shared by every
- * linked company. Secrets are encrypted with TIRAMIS_SECRET_ENCRYPTION_KEY.
- * Any value left empty falls back to the matching environment variable.
+ * The platform's TIRA integration settings for this server's one TIRA_ENV,
+ * managed centrally by platform administrators and shared by every linked
+ * company. Secrets are encrypted with TIRAMIS_SECRET_ENCRYPTION_KEY. Any value
+ * left empty falls back to the matching unified environment variable.
  */
 @Entity({ name: 'tiramis_system_profiles' })
 @Index(['environment'], { unique: true })
 export class TiramisSystemProfileEntity extends BaseEntity {
   @Column({ length: 10 })
-  environment!: 'test' | 'live';
+  environment!: 'local' | 'uat' | 'production';
 
   @Column({ name: 'client_code', type: 'varchar', length: 100, nullable: true })
   clientCode?: string | null;

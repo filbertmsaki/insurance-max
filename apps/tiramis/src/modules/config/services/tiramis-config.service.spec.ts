@@ -19,7 +19,7 @@ function envOnlyProfiles(secretCrypto: any, configService: any) {
 describe('TiramisConfigService organization context resolution', () => {
   const configuration = {
     id: 'config-1',
-    environment: 'test',
+    environment: 'local',
     companyCode: 'COMP-A',
     systemCode: 'SYS-A',
     insurerCompanyCode: 'INS-A',
@@ -39,16 +39,16 @@ describe('TiramisConfigService organization context resolution', () => {
     requestContextService = { getServicePrincipal: jest.fn() };
     configGet = jest.fn((key: string) => {
       const values: Record<string, string> = {
-        TIRAMIS_TEST_BASE_URL: 'https://tira.test',
-        TIRAMIS_LIVE_BASE_URL: 'https://tira.live',
+        TIRAMIS_BASE_URL: 'https://tira.local',
         'tiramisService.url': 'https://tiramis.example.com',
         TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
-        TIRA_CLIENT_CODE_TEST: 'CLIENT-PLATFORM',
-        TIRA_CLIENT_KEY_TEST: 'test-client-key',
-        TIRA_SYSTEM_CODE_TEST: 'SYS-A',
-        TIRA_SYSTEM_NAME_TEST: 'Platform System',
-        TIRA_CLIENT_CERT_PASSWORD_TEST: 'test-private-password',
-        TIRA_PUBLIC_CERT_PASSWORD_TEST: 'test-public-password',
+        TIRA_ENV: 'local',
+        TIRA_CLIENT_CODE: 'CLIENT-PLATFORM',
+        TIRA_CLIENT_KEY: 'local-client-key',
+        TIRA_SYSTEM_CODE: 'SYS-A',
+        TIRA_SYSTEM_NAME: 'Platform System',
+        TIRA_CLIENT_CERT_PASSWORD: 'local-private-password',
+        TIRA_PUBLIC_CERT_PASSWORD: 'local-public-password',
       };
       return values[key];
     });
@@ -96,7 +96,7 @@ describe('TiramisConfigService organization context resolution', () => {
         companyId: 'company-a',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'test',
+        environment: 'local',
         insurerCompanyCode: 'INS-A',
       },
     });
@@ -109,7 +109,7 @@ describe('TiramisConfigService organization context resolution', () => {
     expect(clientConfigurationRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          environment: 'test',
+          environment: 'local',
           companyCode: 'COMP-A',
           isActive: 1,
         }),
@@ -123,7 +123,7 @@ describe('TiramisConfigService organization context resolution', () => {
     await expect(
       service.resolveSubmissionContext(
         {
-          environment: 'test',
+          environment: 'local',
           companyCode: 'COMP-A',
           systemCode: 'SYS-A',
           insurerCompanyCode: 'INS-B-FROM-REQUEST',
@@ -143,14 +143,14 @@ describe('TiramisConfigService organization context resolution', () => {
         companyId: 'company-a',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'test',
+        environment: 'local',
         insurerCompanyCode: 'INS-A',
       },
     });
 
     const result = await service.resolveSubmissionContext(
       {
-        environment: 'live',
+        environment: 'production',
         companyCode: 'COMP-OTHER-CLIENT',
         systemCode: 'SYS-OTHER-CLIENT',
       },
@@ -161,12 +161,12 @@ describe('TiramisConfigService organization context resolution', () => {
     expect(result.dto.systemCode).toBe('SYS-A');
     expect(result.configuration).toMatchObject({
       id: configuration.id,
-      baseUrl: 'https://tira.test',
+      baseUrl: 'https://tira.local',
     });
     expect(clientConfigurationRepository.findOne).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          environment: 'test',
+          environment: 'local',
           companyCode: 'COMP-A',
         }),
       }),
@@ -183,7 +183,7 @@ describe('TiramisConfigService organization context resolution', () => {
         companyId: 'company-a',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'test',
+        environment: 'local',
         insurerCompanyCode: 'INS-A',
       },
     });
@@ -206,7 +206,7 @@ describe('TiramisConfigService organization context resolution', () => {
         companyId: 'company-a',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'test',
+        environment: 'local',
         insurerCompanyCode: 'INS-A',
       },
     });
@@ -218,7 +218,7 @@ describe('TiramisConfigService organization context resolution', () => {
     expect(result.dto.systemCode).toBe('SYS-A');
     expect(result.configuration).toMatchObject({
       id: configuration.id,
-      baseUrl: 'https://tira.test',
+      baseUrl: 'https://tira.local',
     });
   });
 
@@ -235,11 +235,11 @@ describe('TiramisConfigService organization context resolution', () => {
       .mockResolvedValueOnce(companyB);
 
     const a = await service.getActiveConfiguration({
-      environment: 'test',
+      environment: 'local',
       companyCode: 'COMP-A',
     });
     const b = await service.getActiveConfiguration({
-      environment: 'test',
+      environment: 'local',
       companyCode: 'COMP-B',
     });
 
@@ -248,8 +248,8 @@ describe('TiramisConfigService organization context resolution', () => {
         systemCode: 'SYS-A',
         systemName: 'Platform System',
         clientCode: 'CLIENT-PLATFORM',
-        clientKey: 'test-client-key',
-        baseUrl: 'https://tira.test',
+        clientKey: 'local-client-key',
+        baseUrl: 'https://tira.local',
       });
     }
     expect(a.companyCode).toBe('COMP-A');
@@ -260,7 +260,7 @@ describe('TiramisConfigService organization context resolution', () => {
   it('rejects a system code that does not match the platform system code', async () => {
     await expect(
       service.getActiveConfiguration({
-        environment: 'test',
+        environment: 'local',
         companyCode: 'COMP-A',
         systemCode: 'SYS-OTHER',
       }),
@@ -268,10 +268,10 @@ describe('TiramisConfigService organization context resolution', () => {
   });
 
   it('builds TIRA request headers from the platform client identity', async () => {
-    await expect(service.getRequestHeaders('test')).resolves.toEqual({
+    await expect(service.getRequestHeaders('local')).resolves.toEqual({
       'Content-Type': 'application/xml',
       ClientCode: 'CLIENT-PLATFORM',
-      ClientKey: 'test-client-key',
+      ClientKey: 'local-client-key',
     });
   });
 });
@@ -279,7 +279,7 @@ describe('TiramisConfigService organization context resolution', () => {
 describe('TiramisConfigService certificate validation', () => {
   const baseConfiguration = {
     id: 'config-1',
-    environment: 'live',
+    environment: 'production',
     companyCode: 'ICC739',
     systemCode: 'LSYS_DEMO_482',
     clientCode: 'ICC739',
@@ -307,14 +307,15 @@ describe('TiramisConfigService certificate validation', () => {
     };
     const configGet = jest.fn((key: string) => {
       const values: Record<string, string | undefined> = {
-        TIRAMIS_LIVE_BASE_URL: 'https://tira.live',
+        TIRAMIS_BASE_URL: 'https://tira.production',
         'tiramisService.url': 'https://tiramis.example.com',
         TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
-        TIRA_CLIENT_CODE_LIVE: 'CLIENT-PLATFORM',
-        TIRA_CLIENT_KEY_LIVE: 'live-client-key',
-        TIRA_SYSTEM_CODE_LIVE: 'LSYS_DEMO_482',
-        TIRA_CLIENT_CERT_PASSWORD_LIVE: 'live-private-password',
-        TIRA_PUBLIC_CERT_PASSWORD_LIVE: 'live-public-password',
+        TIRA_ENV: 'production',
+        TIRA_CLIENT_CODE: 'CLIENT-PLATFORM',
+        TIRA_CLIENT_KEY: 'production-client-key',
+        TIRA_SYSTEM_CODE: 'LSYS_DEMO_482',
+        TIRA_CLIENT_CERT_PASSWORD: 'production-private-password',
+        TIRA_PUBLIC_CERT_PASSWORD: 'production-public-password',
         ...envOverrides,
       };
       return values[key];
@@ -483,7 +484,7 @@ describe('TiramisConfigService certificate validation', () => {
 
   it('rejects a missing client key regardless of allowExpiredCertificates', async () => {
     const { service, certificateInspector } = createService({
-      TIRA_CLIENT_KEY_LIVE: '',
+      TIRA_CLIENT_KEY: '',
     });
     certificateInspector.assertCertificateHealthy
       .mockReturnValueOnce({
@@ -508,7 +509,7 @@ describe('TiramisConfigService certificate validation', () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors).toContain(
-      'ClientKey is not configured (set TIRA_CLIENT_KEY_LIVE)',
+      'ClientKey is not configured (set TIRA_CLIENT_KEY)',
     );
   });
 });
