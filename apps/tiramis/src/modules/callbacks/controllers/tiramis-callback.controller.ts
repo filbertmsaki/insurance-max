@@ -48,10 +48,13 @@ export class TiramisCallbackController {
     @Param('callbackRoute') callbackRoute: string,
     @Body() rawXml: string,
   ): Promise<string> {
-    const normalizedEnvironment =
-      this.resolveCallbackRouteEnvironment(callbackRoute);
+    this.assertSupportedCallbackRoute(callbackRoute);
 
-    return this.processCallback(normalizedEnvironment, rawXml, callbackRoute);
+    return this.processCallback(
+      this.tiramisConfigService.resolveRuntimeEnvironment(),
+      rawXml,
+      callbackRoute,
+    );
   }
 
   private async processCallback(
@@ -85,24 +88,11 @@ export class TiramisCallbackController {
     return acknowledgement.acknowledgementXml;
   }
 
-  private resolveCallbackRouteEnvironment(
-    callbackRoute: string,
-  ): 'uat' | 'production' {
+  private assertSupportedCallbackRoute(callbackRoute: string): void {
     const value = callbackRoute.trim().toLowerCase();
-    if (this.isEnvironmentRoute(value)) return this.normalizeEnvironment(value);
-    return this.tiramisConfigService.resolveRuntimeEnvironment();
-  }
-
-  private isEnvironmentRoute(value: string): boolean {
-    return ['uat', 'test', 'local', 'production', 'live'].includes(value);
-  }
-
-  private normalizeEnvironment(environment: string): 'uat' | 'production' {
-    const value = environment.trim().toLowerCase();
-    if (value === 'live' || value === 'production') return 'production';
-    if (value === 'test' || value === 'local' || value === 'uat') return 'uat';
+    if (['motor', 'non-motor', 'fleet'].includes(value)) return;
     throw new BadRequestException(
-      `Unsupported TIRA callback environment: ${environment}`,
+      `Unsupported TIRA callback route: ${callbackRoute}`,
     );
   }
 }

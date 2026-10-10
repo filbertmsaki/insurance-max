@@ -45,6 +45,12 @@ export const TIRAMIS_SYSTEM_ENV = {
 } as const;
 
 const DEFAULT_SIGNATURE_ALGORITHM = 'sha1WithRSAEncryption';
+const TIRAMIS_CALLBACK_BASE_PATH = 'api/tiramis/callbacks';
+const TIRAMIS_SERVICE_CALLBACK_ROUTES: Record<string, string> = {
+  COVER_NOTE_NON_MOTOR: 'non-motor',
+  MOTOR_COVER_NOTE_NON_FLEET: 'motor',
+  MOTOR_COVER_NOTE_FLEET: 'fleet',
+};
 
 export interface TiramisRequestHeaders {
   [key: string]: string;
@@ -580,26 +586,29 @@ export class TiramisConfigService {
     configuration = this.withEnvironmentRuntimeConfiguration(configuration);
     const configuredUrl = configuration.callbackBaseUrl.trim();
 
-    const legacyEnvironmentPath =
-      /\/api\/tiramis\/callbacks\/(uat|test|production|live)\/?$/i;
-    if (legacyEnvironmentPath.test(configuredUrl)) {
-      return configuredUrl.replace(
-        legacyEnvironmentPath,
-        '/api/tiramis/callbacks',
-      );
-    }
-
     if (/\/api\/tiramis\/callbacks\/?$/i.test(configuredUrl)) {
       return configuredUrl.replace(/\/+$/, '');
     }
 
-    return this.joinUrl(configuredUrl, 'api/tiramis/callbacks');
+    return this.joinUrl(configuredUrl, TIRAMIS_CALLBACK_BASE_PATH);
   }
 
   getTiraCallbackUrlForConfiguration(
     configuration: TiramisClientConfigurationEntity,
   ): string {
     return this.resolveTiraCallbackUrl(configuration);
+  }
+
+  getTiraCallbackUrlForServiceType(
+    configuration: TiramisClientConfigurationEntity,
+    serviceType: string,
+    requestCallbackUrl?: unknown,
+  ): string {
+    const route = TIRAMIS_SERVICE_CALLBACK_ROUTES[serviceType];
+    return this.resolveRequestCallbackUrl(
+      configuration,
+      requestCallbackUrl || route,
+    );
   }
 
   private resolveRequestCallbackUrl(

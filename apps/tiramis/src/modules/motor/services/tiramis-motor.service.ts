@@ -53,15 +53,19 @@ export class TiramisMotorService {
       | (CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields),
     sourceMetadata?: TiramisSourceMetadataDto,
   ) {
+    let configuration: any = null;
     const resolvedDto =
       'clientConfigurationId' in dto
         ? dto
-        : (
-            await this.tiramisConfigService.resolveSubmissionContext(
-              dto,
-              dto.coverNoteNumber,
-            )
-          ).dto;
+        : await (async () => {
+            const resolved =
+              await this.tiramisConfigService.resolveSubmissionContext(
+                dto,
+                dto.coverNoteNumber,
+              );
+            configuration = resolved.configuration;
+            return resolved.dto;
+          })();
 
     this.normalizeCoverPeriod(resolvedDto);
     this.validateMotorPayload(resolvedDto);
@@ -71,6 +75,14 @@ export class TiramisMotorService {
     const serviceType = resolvedDto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
       : 'MOTOR_COVER_NOTE_NON_FLEET';
+    if (configuration) {
+      resolvedDto.callbackUrl =
+        this.tiramisConfigService.getTiraCallbackUrlForServiceType(
+          configuration,
+          serviceType,
+          dto.callbackUrl,
+        );
+    }
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -306,6 +318,12 @@ export class TiramisMotorService {
     const serviceType = resolvedDto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
       : 'MOTOR_COVER_NOTE_NON_FLEET';
+    resolvedDto.callbackUrl =
+      this.tiramisConfigService.getTiraCallbackUrlForServiceType(
+        configuration,
+        serviceType,
+        dto.callbackUrl,
+      );
 
     const requestId = this.tiramisRequestIdService.generate('AIC');
 
@@ -406,6 +424,12 @@ export class TiramisMotorService {
     const serviceType = dto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
       : 'MOTOR_COVER_NOTE_NON_FLEET';
+    resolvedDto.callbackUrl =
+      this.tiramisConfigService.getTiraCallbackUrlForServiceType(
+        configuration,
+        serviceType,
+        dto.callbackUrl,
+      );
 
     // Re-check against a fresh server timestamp immediately before building
     // and signing the outbound XML.

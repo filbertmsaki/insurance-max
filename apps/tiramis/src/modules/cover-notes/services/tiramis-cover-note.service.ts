@@ -51,15 +51,27 @@ export class TiramisCoverNoteService {
       | (CreateCoverNoteDto & TiramisResolvedRequestDtoFields),
     sourceMetadata?: TiramisSourceMetadataDto,
   ) {
+    let configuration: any = null;
     const resolvedDto =
       'clientConfigurationId' in dto
         ? dto
-        : (
-            await this.tiramisConfigService.resolveSubmissionContext(
-              dto,
-              dto.coverNoteNumber,
-            )
-          ).dto;
+        : await (async () => {
+            const resolved =
+              await this.tiramisConfigService.resolveSubmissionContext(
+                dto,
+                dto.coverNoteNumber,
+              );
+            configuration = resolved.configuration;
+            return resolved.dto;
+          })();
+    if (configuration) {
+      resolvedDto.callbackUrl =
+        this.tiramisConfigService.getTiraCallbackUrlForServiceType(
+          configuration,
+          this.serviceType,
+          dto.callbackUrl,
+        );
+    }
 
     this.normalizeCoverPeriod(resolvedDto);
     this.validateNonMotorPayload(resolvedDto);
@@ -196,6 +208,12 @@ export class TiramisCoverNoteService {
         dto,
         dto.coverNoteNumber,
       );
+    resolvedDto.callbackUrl =
+      this.tiramisConfigService.getTiraCallbackUrlForServiceType(
+        configuration,
+        this.serviceType,
+        dto.callbackUrl,
+      );
 
     this.validateNonMotorPayload(resolvedDto);
 
@@ -285,6 +303,12 @@ export class TiramisCoverNoteService {
       await this.tiramisConfigService.resolveSubmissionContext(
         dto,
         dto.coverNoteNumber,
+      );
+    resolvedDto.callbackUrl =
+      this.tiramisConfigService.getTiraCallbackUrlForServiceType(
+        configuration,
+        this.serviceType,
+        dto.callbackUrl,
       );
 
     const payloadHash = createHash('sha256')

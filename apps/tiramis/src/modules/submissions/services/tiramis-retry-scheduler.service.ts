@@ -205,8 +205,9 @@ export class TiramisRetrySchedulerService {
       const normalizedRequest =
         this.coverPeriodService.normalizeRequestXml(requestXml);
       const callbackUrl =
-        this.tiramisConfigService.getTiraCallbackUrlForConfiguration(
+        this.tiramisConfigService.getTiraCallbackUrlForServiceType(
           configuration,
+          transaction.serviceType,
         );
       const requestWithCallback = this.replaceXmlElement(
         normalizedRequest.xml,

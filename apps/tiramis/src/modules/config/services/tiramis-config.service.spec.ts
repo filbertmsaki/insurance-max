@@ -323,6 +323,27 @@ describe('TiramisConfigService organization context resolution', () => {
       'https://tiramis.example.com/api/tiramis/callbacks/motor',
     );
   });
+
+  it('builds permanent callback URLs by TIRAMIS service type', () => {
+    expect(
+      service.getTiraCallbackUrlForServiceType(
+        configuration as any,
+        'COVER_NOTE_NON_MOTOR',
+      ),
+    ).toBe('https://tiramis.example.com/api/tiramis/callbacks/non-motor');
+    expect(
+      service.getTiraCallbackUrlForServiceType(
+        configuration as any,
+        'MOTOR_COVER_NOTE_NON_FLEET',
+      ),
+    ).toBe('https://tiramis.example.com/api/tiramis/callbacks/motor');
+    expect(
+      service.getTiraCallbackUrlForServiceType(
+        configuration as any,
+        'MOTOR_COVER_NOTE_FLEET',
+      ),
+    ).toBe('https://tiramis.example.com/api/tiramis/callbacks/fleet');
+  });
 });
 
 describe('TiramisConfigService certificate validation', () => {
