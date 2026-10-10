@@ -1,3 +1,5 @@
+import type { Client } from 'pg';
+
 import {
   assertSafeTestDatabase,
   dropTestDatabase,
@@ -69,15 +71,16 @@ describe('test database safeguards', () => {
   });
 
   it('never issues DROP for a database outside the naming scheme', async () => {
-    const client = { query: jest.fn() };
+    const query = jest.fn();
+    const client = { query } as unknown as Client;
 
     await expect(
-      dropTestDatabase(client as never, 'insurance_portal_db'),
+      dropTestDatabase(client, 'insurance_portal_db'),
     ).rejects.toThrow(/Refusing to touch/);
-    expect(client.query).not.toHaveBeenCalled();
+    expect(query).not.toHaveBeenCalled();
 
-    await dropTestDatabase(client as never, template);
-    expect(client.query).toHaveBeenCalledWith(
+    await dropTestDatabase(client, template);
+    expect(query).toHaveBeenCalledWith(
       `DROP DATABASE IF EXISTS "${template}" WITH (FORCE)`,
     );
   });
