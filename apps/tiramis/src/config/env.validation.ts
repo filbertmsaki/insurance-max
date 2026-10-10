@@ -157,9 +157,6 @@ export const tiramisEnvValidationSchema = Joi.object({
   TIRA_CLIENT_CERT_PASSWORD: requiredValue(),
   TIRA_PUBLIC_CERT_PASSWORD: requiredValue(),
   TIRA_ALLOW_EXPIRED_CERTIFICATES: optionalBoolean(false),
-  TIRA_SIGNATURE_ALGORITHM: Joi.string()
-    .trim()
-    .default('sha1WithRSAEncryption'),
   TIRAMIS_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),

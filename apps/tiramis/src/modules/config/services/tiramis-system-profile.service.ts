@@ -139,11 +139,7 @@ export class TiramisSystemProfileService
 
     const allowExpiredFromEnv =
       this.envValue('TIRA_ALLOW_EXPIRED_CERTIFICATES') === 'true';
-    const algorithm = pick(
-      'signatureAlgorithm',
-      row?.signatureAlgorithm,
-      'TIRA_SIGNATURE_ALGORITHM',
-    );
+    const algorithm = pick('signatureAlgorithm', row?.signatureAlgorithm, null);
     if (!algorithm) sources.signatureAlgorithm = 'default';
 
     return {
