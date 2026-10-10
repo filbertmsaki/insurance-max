@@ -85,6 +85,30 @@ function optionalNumberList(defaultValue: number[], min = 0) {
     .default(defaultValue);
 }
 
+/** TIRA client/system identity for one TIRA environment (TEST or LIVE). */
+function tiraSystemIdentitySchema(
+  suffix: 'TEST' | 'LIVE',
+  alwaysRequired: boolean,
+) {
+  const value = () =>
+    alwaysRequired
+      ? Joi.string().trim().min(1).required()
+      : Joi.when('APP_ENV', {
+          is: 'production',
+          then: Joi.string().trim().min(1).required(),
+          otherwise: Joi.string().allow('').default(''),
+        });
+
+  return {
+    [`TIRA_CLIENT_CODE_${suffix}`]: value(),
+    [`TIRA_CLIENT_KEY_${suffix}`]: value(),
+    [`TIRA_SYSTEM_CODE_${suffix}`]: value(),
+    [`TIRA_SYSTEM_NAME_${suffix}`]: Joi.string().allow('').default(''),
+    [`TIRA_CLIENT_CERT_PASSWORD_${suffix}`]: value(),
+    [`TIRA_PUBLIC_CERT_PASSWORD_${suffix}`]: value(),
+  };
+}
+
 export const tiramisEnvValidationSchema = Joi.object({
   APP_NAME: Joi.string().trim().min(1).default('Alliance Platform'),
   APP_ENV: Joi.string()
@@ -147,27 +171,15 @@ export const tiramisEnvValidationSchema = Joi.object({
     '/opt/apps/tiramis/certificates',
   ),
   TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS: Joi.number().default(30),
-  ALLIANCE_TIRA_CLIENT_KEY_TEST: Joi.string().trim().min(1).required(),
-  ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST: Joi.string()
+  // Platform-wide TIRA system identity (one per TIRA environment, shared by
+  // every company). Test values are always required; live values are
+  // required in production.
+  ...tiraSystemIdentitySchema('TEST', true),
+  ...tiraSystemIdentitySchema('LIVE', false),
+  TIRA_ALLOW_EXPIRED_CERTIFICATES: optionalBoolean(false),
+  TIRA_SIGNATURE_ALGORITHM: Joi.string()
     .trim()
-    .min(1)
-    .required(),
-  TIRA_PUBLIC_CERT_PASSWORD_TEST: Joi.string().trim().min(1).required(),
-  ALLIANCE_TIRA_CLIENT_KEY_LIVE: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.string().trim().min(1).required(),
-    otherwise: Joi.string().allow('').default(''),
-  }),
-  ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.string().trim().min(1).required(),
-    otherwise: Joi.string().allow('').default(''),
-  }),
-  TIRA_PUBLIC_CERT_PASSWORD_LIVE: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.string().trim().min(1).required(),
-    otherwise: Joi.string().allow('').default(''),
-  }),
+    .default('sha1WithRSAEncryption'),
   TIRAMIS_TEST_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),

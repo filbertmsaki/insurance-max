@@ -195,13 +195,6 @@ export class CompanyTiramisConfigurationService {
         ? {
             companyCode: configuration.companyCode,
             insurerCompanyCode: configuration.insurerCompanyCode,
-            clientCode: configuration.clientCode,
-            systemCode: configuration.systemCode,
-            systemName: configuration.systemName,
-            baseUrl: configuration.baseUrl,
-            sourceService: configuration.sourceService,
-            allowExpiredCertificates:
-              configuration.allowExpiredCertificates ?? false,
             notificationEvents: configuration.notificationEvents ?? null,
             integrationPermissions:
               configuration.integrationPermissions ?? null,
@@ -217,13 +210,6 @@ export class CompanyTiramisConfigurationService {
           companyName: company.name,
           insurerCompanyCode: dto.insurer_company_code ?? dto.company_code,
           insurerCompanyName: company.name,
-          clientCode: dto.client_code ?? null,
-          systemCode: dto.system_code,
-          systemName: dto.system_name ?? null,
-          callbackUrl: dto.callback_url ?? null,
-          baseUrl: dto.base_url ?? null,
-          sourceService: dto.source_service ?? null,
-          allowExpiredCertificates: dto.allow_expired_certificates ?? false,
           notificationEvents: dto.notification_events ?? null,
           integrationPermissions: dto.integration_permissions ?? [
             'submit',
@@ -243,16 +229,6 @@ export class CompanyTiramisConfigurationService {
         configuration.companyCode = dto.company_code;
         configuration.insurerCompanyCode =
           dto.insurer_company_code ?? dto.company_code;
-        configuration.clientCode = dto.client_code ?? null;
-        configuration.systemCode = dto.system_code;
-        configuration.systemName = dto.system_name ?? null;
-        configuration.callbackUrl = dto.callback_url ?? null;
-        configuration.baseUrl = dto.base_url ?? null;
-        configuration.sourceService = dto.source_service ?? null;
-        configuration.allowExpiredCertificates =
-          dto.allow_expired_certificates ??
-          configuration.allowExpiredCertificates ??
-          false;
         if (dto.notification_events !== undefined) {
           configuration.notificationEvents = dto.notification_events;
         }
@@ -288,12 +264,6 @@ export class CompanyTiramisConfigurationService {
             environment: saved.environment,
             companyCode: saved.companyCode,
             insurerCompanyCode: saved.insurerCompanyCode,
-            clientCode: saved.clientCode,
-            systemCode: saved.systemCode,
-            systemName: saved.systemName,
-            baseUrl: saved.baseUrl,
-            sourceService: saved.sourceService,
-            allowExpiredCertificates: saved.allowExpiredCertificates,
             notificationEvents: saved.notificationEvents,
             integrationPermissions: saved.integrationPermissions,
             isActive: saved.isActive,
@@ -308,30 +278,19 @@ export class CompanyTiramisConfigurationService {
       return saved;
     });
 
-    // Ensure TIRAMIS's own ClientConfiguration (the TIRA-issued
-    // clientCode/clientKey/baseUrl/callbackBaseUrl) exists/updates to match
-    // — this is what lets a platform admin link a company entirely through
-    // this one form, with no seeder or manual DB work on the TIRAMIS side.
-    // Runs after commit (not inside the transaction above) since it's an
-    // outbound network call, not something that should hold a DB lock.
+    // Create/update the company's TIRAMIS configuration (company settings
+    // only; the TIRA system identity is platform-wide in TIRAMIS's env), so
+    // a platform admin can link a company entirely from this form. Runs after
+    // commit since it is an outbound network call.
     try {
-      // saved.baseUrl/saved.callbackUrl are a DIFFERENT concept (which
-      // TIRAMIS instance the *portal* calls) from TIRAMIS's own
-      // ClientConfiguration baseUrl/callbackBaseUrl (which TIRA gateway
-      // *TIRAMIS* calls, and where it tells TIRA to send callbacks) — they
-      // must never be conflated. There is currently no per-company override
-      // field for the TIRA gateway URL, so this always lets TIRAMIS apply
-      // its own environment default (TIRAMIS_TEST/LIVE_BASE_URL,
-      // TIRAMIS_TEST/LIVE_CALLBACK_URL).
       const tiramisConfiguration =
         await this.tiramisClientService.upsertClientConfiguration({
           companyId,
           environment: saved.environment as 'test' | 'live',
           companyCode: saved.companyCode,
-          systemCode: saved.systemCode!,
           insurerCompanyCode: saved.insurerCompanyCode ?? saved.companyCode,
-          clientCode: saved.clientCode ?? saved.companyCode,
-          clientKey: dto.client_key,
+          salePointCode: dto.sale_point_code,
+          tranCompanyCode: dto.tran_company_code,
         });
 
       await this.syncPortalWebhookApiKey(
@@ -386,9 +345,7 @@ export class CompanyTiramisConfigurationService {
       companyId,
       environment: saved.environment as 'test' | 'live',
       companyCode: saved.companyCode,
-      systemCode: saved.systemCode,
       insurerCompanyCode: saved.insurerCompanyCode,
-      allowExpiredCertificates: saved.allowExpiredCertificates,
       confirmLive: options.confirmLive,
       forceActivation: options.forceActivation,
     });
@@ -429,7 +386,6 @@ export class CompanyTiramisConfigurationService {
             environment: saved.environment,
             validation,
             forced,
-            serviceCallbackUrl: this.resolveCallbackUrl(saved),
           },
         },
         manager,
@@ -455,18 +411,15 @@ export class CompanyTiramisConfigurationService {
     }
 
     try {
-      const allowExpiredCertificates =
-        options?.allowExpiredCertificates ??
-        configuration.allowExpiredCertificates ??
-        false;
+      // Certificate expiry tolerance is a TIRAMIS system setting; an explicit
+      // per-call override is still honoured. TIRAMIS reports the effective one.
       const result =
         await this.tiramisClientService.validateOrganizationConfiguration({
           companyId,
           environment,
           companyCode: configuration.companyCode,
-          systemCode: configuration.systemCode,
           insurerCompanyCode: configuration.insurerCompanyCode,
-          allowExpiredCertificates,
+          allowExpiredCertificates: options?.allowExpiredCertificates,
         });
 
       // Self-heal: a configuration TIRAMIS cannot authenticate to our
@@ -484,7 +437,9 @@ export class CompanyTiramisConfigurationService {
       configuration.validatedAt = new Date();
       configuration.validationMessage = this.buildStoredValidationMessage(
         result,
-        allowExpiredCertificates,
+        result.allowExpiredCertificates ??
+          options?.allowExpiredCertificates ??
+          false,
       );
 
       await this.repository.save(configuration);
@@ -603,6 +558,14 @@ export class CompanyTiramisConfigurationService {
     };
   }
 
+  /** Platform-wide TIRA system identity, owned by TIRAMIS (read-only here). */
+  getSystemIdentity(companyId: string, environment: 'test' | 'live') {
+    return this.tiramisClientService.getSystemIdentity({
+      companyId,
+      environment,
+    });
+  }
+
   async getSecretHealth(companyId: string, environment: 'test' | 'live') {
     const tiramisConfigurationId = await this.resolveTiramisConfigurationId(
       companyId,
@@ -698,17 +661,10 @@ export class CompanyTiramisConfigurationService {
       );
     }
 
-    if (!configuration.systemCode) {
-      throw new BadRequestException(
-        'TIRAMIS configuration has no system code.',
-      );
-    }
-
     return this.tiramisClientService.resolveOrganizationConfigurationId({
       companyId,
       environment,
       companyCode: configuration.companyCode,
-      systemCode: configuration.systemCode,
     });
   }
 
@@ -769,7 +725,6 @@ export class CompanyTiramisConfigurationService {
           companyId,
           environment,
           companyCode: configuration.companyCode,
-          systemCode: configuration.systemCode,
           adminAccessToken,
           allowedIps,
         });
@@ -845,21 +800,15 @@ export class CompanyTiramisConfigurationService {
         configuration.environment === 'live' ? 'Live/Production' : 'Test/UAT',
       isTargetEnvironment,
       apiKeyStatus: apiKey.status,
-      effectiveCallbackUrl: this.resolveCallbackUrl(configuration),
-      effectiveBaseUrl: this.resolveBaseUrl(configuration),
-      effectiveSourceService: this.resolveSourceService(configuration),
+      // Portal -> TIRAMIS connection settings (portal env, not per company).
+      effectiveBaseUrl: this.resolveBaseUrl(),
+      effectiveSourceService: this.resolveSourceService(),
       effectiveTargetEnvironment: isTargetEnvironment
         ? configuration.environment
         : this.resolveDefaultTargetEnvironment(),
-      serviceCallbackUrl: this.resolveCallbackUrl(configuration),
-      tiramisCallbackUrl: this.resolveCallbackUrl(configuration),
-      tiramisCallbackPath: null,
-      isActiveCallback:
-        isTargetEnvironment && Boolean(this.resolveCallbackUrl(configuration)),
       serviceApiKeyMasked: apiKey.masked,
       serviceApiKeyConfigured: Boolean(configuration.serviceApiKeyEncrypted),
       serviceApiKeyEncrypted: undefined,
-      clientKey: undefined,
     };
   }
 
@@ -892,7 +841,6 @@ export class CompanyTiramisConfigurationService {
     companyId: string;
     environment: 'test' | 'live';
     companyCode: string;
-    systemCode: string | null;
     insurerCompanyCode?: string | null;
     allowExpiredCertificates?: boolean;
     confirmLive?: boolean;
@@ -909,7 +857,6 @@ export class CompanyTiramisConfigurationService {
         companyId: params.companyId,
         environment: params.environment,
         companyCode: params.companyCode,
-        systemCode: params.systemCode,
         insurerCompanyCode: params.insurerCompanyCode,
         allowExpiredCertificates: params.allowExpiredCertificates,
       });
@@ -926,31 +873,14 @@ export class CompanyTiramisConfigurationService {
     return validation;
   }
 
-  /**
-   * This is a portal-local display field only — it is NOT the same concept
-   * as TIRAMIS's own ClientConfiguration.callbackBaseUrl (where TIRAMIS
-   * tells TIRA to send callbacks) or the per-submission portalWebhookUrl
-   * (where TIRAMIS pushes async notifications to the portal). Neither of
-   * those belongs in this fallback — if nothing was explicitly entered
-   * here, there simply isn't a portal-local override configured.
-   */
-  private resolveCallbackUrl(configuration: TiramisCompanyConfigurationEntity) {
-    return configuration.callbackUrl?.trim() || null;
-  }
-
-  private resolveBaseUrl(configuration: TiramisCompanyConfigurationEntity) {
+  private resolveBaseUrl() {
     return (
-      configuration.baseUrl?.trim() ||
-      this.configService.get<string>('tiramisClient.baseUrl')?.trim() ||
-      null
+      this.configService.get<string>('tiramisClient.baseUrl')?.trim() || null
     );
   }
 
-  private resolveSourceService(
-    configuration: TiramisCompanyConfigurationEntity,
-  ) {
+  private resolveSourceService() {
     return (
-      configuration.sourceService?.trim() ||
       this.configService.get<string>('tiramisClient.sourceService')?.trim() ||
       null
     );

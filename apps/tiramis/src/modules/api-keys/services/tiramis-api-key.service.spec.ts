@@ -44,7 +44,6 @@ describe('TiramisApiKeyService', () => {
         scopes: ['tiramis:read', 'tiramis:submit'],
         allowedIps: ['203.0.113.10'],
         tenantCompanyCode: null,
-        tenantSystemCode: null,
         tenantEnvironment: null,
         clientConfigurationId: null,
       }),
@@ -81,7 +80,6 @@ describe('TiramisApiKeyService', () => {
       expiresAt: null,
       revokedAt: null,
       tenantCompanyCode: '123456',
-      tenantSystemCode: 'PORTAL',
       tenantEnvironment: 'test',
       clientConfigurationId: 'configuration-id',
     });
@@ -106,7 +104,6 @@ describe('TiramisApiKeyService', () => {
       expiresAt: null,
       revokedAt: null,
       tenantCompanyCode: '123456',
-      tenantSystemCode: 'PORTAL',
       tenantEnvironment: 'test',
       clientConfigurationId: 'configuration-id',
     });
@@ -119,7 +116,6 @@ describe('TiramisApiKeyService', () => {
       allowedIps: ['10.1.2.3'],
       scopes: ['tiramis:read', 'tiramis:submit'],
       tenantCompanyCode: '123456',
-      tenantSystemCode: 'PORTAL',
       tenantEnvironment: 'test',
       clientConfigurationId: 'configuration-id',
     });

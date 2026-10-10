@@ -19,6 +19,7 @@ import { TiramisCallbackDeadLetterEntity } from '../modules/callbacks/entities/t
 import { TiramisClientConfigurationEntity } from '../modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../modules/config/entities/tiramis-service-endpoint.entity';
+import { TiramisSystemProfileEntity } from '../modules/config/entities/tiramis-system-profile.entity';
 import { TiramisClaimAssessmentEntity } from '../modules/claims/entities/tiramis-claim-assessment.entity';
 import { TiramisClaimIntimationEntity } from '../modules/claims/entities/tiramis-claim-intimation.entity';
 import { TiramisClaimNotificationEntity } from '../modules/claims/entities/tiramis-claim-notification.entity';
@@ -78,6 +79,7 @@ export default new DataSource(
     entities: [
       TiramisClientConfigurationEntity,
       TiramisServiceEndpointEntity,
+      TiramisSystemProfileEntity,
       TiramisResponseCodeEntity,
       TiramisTransactionEntity,
       TiramisSubmissionAttemptEntity,

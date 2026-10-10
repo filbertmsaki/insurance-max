@@ -115,6 +115,18 @@ export class TiramisSubmissionTrackingEntity {
   })
   sourceCompanyId?: string | null;
 
+  /**
+   * TIRAMIS environment this submission was sent to. Status sync, retries
+   * and follow-ups stay on it even if the active environment changes later.
+   */
+  @Column({
+    name: 'tiramis_environment',
+    type: 'varchar',
+    length: 10,
+    nullable: true,
+  })
+  tiramisEnvironment?: 'test' | 'live' | null;
+
   @Column({
     name: 'source_user_id',
     type: 'uuid',

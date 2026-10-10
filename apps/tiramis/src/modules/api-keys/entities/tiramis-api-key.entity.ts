@@ -62,14 +62,6 @@ export class TiramisApiKeyEntity {
   tenantCompanyCode!: string | null;
 
   @Column({
-    name: 'tenant_system_code',
-    type: 'varchar',
-    length: 80,
-    nullable: true,
-  })
-  tenantSystemCode!: string | null;
-
-  @Column({
     name: 'tenant_environment',
     type: 'varchar',
     length: 20,
@@ -80,7 +72,7 @@ export class TiramisApiKeyEntity {
   /**
    * Root trusted link from this API key to its owning TIRAMIS client
    * configuration. Nullable during the migration window while existing
-   * keys are backfilled from tenantCompanyCode/tenantSystemCode/
+   * keys are backfilled from tenantCompanyCode/
    * tenantEnvironment; new code should resolve configuration through this
    * relation rather than by re-matching the free-text tenant columns above.
    */

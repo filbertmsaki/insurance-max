@@ -6,7 +6,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsUrl,
   MaxLength,
 } from 'class-validator';
 
@@ -55,52 +54,31 @@ export class UpsertCompanyTiramisConfigurationDto {
   @MaxLength(30)
   insurer_company_code?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  client_code?: string;
-
   /**
-   * The TIRA-issued client secret for this company/environment. Optional on
-   * update (blank keeps the existing value on both sides); required the
-   * first time a company/environment is linked to TIRAMIS.
+   * Default TIRA sale point for this company, used only when a request has no
+   * branch sale point. The TIRA system identity (client code/key, system
+   * code/name, certificates, URLs) is platform-wide and not set per company.
    */
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   @IsString()
-  @MaxLength(500)
-  client_key?: string;
+  @MaxLength(12)
+  sale_point_code?: string;
 
+  /** Defaults to the insurer company code. */
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(100)
-  system_code: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  system_name?: string;
-
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  base_url?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  source_service?: string;
-
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  callback_url?: string;
+  @MaxLength(6)
+  tran_company_code?: string;
 
   @IsOptional()
   @IsString()
   tiramis_service_api_key?: string;
-
-  @IsOptional()
-  @Transform(({ value, obj }) => value ?? obj.allowExpiredCertificates)
-  @IsBoolean()
-  allow_expired_certificates?: boolean;
 
   @IsOptional()
   @IsBoolean()

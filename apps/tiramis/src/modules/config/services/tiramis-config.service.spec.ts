@@ -1,6 +1,20 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 
 import { TiramisConfigService } from './tiramis-config.service';
+import { TiramisSystemProfileService } from './tiramis-system-profile.service';
+
+/** Profile service with no stored profiles, so values come from env. */
+function envOnlyProfiles(secretCrypto: any, configService: any) {
+  return new TiramisSystemProfileService(
+    { find: jest.fn().mockResolvedValue([]) } as any,
+    secretCrypto,
+    configService,
+  );
+}
 
 describe('TiramisConfigService organization context resolution', () => {
   const configuration = {
@@ -25,12 +39,15 @@ describe('TiramisConfigService organization context resolution', () => {
     requestContextService = { getServicePrincipal: jest.fn() };
     configGet = jest.fn((key: string) => {
       const values: Record<string, string> = {
-        'tiramisService.testBaseUrl': 'https://tira.test',
-        'tiramisService.liveBaseUrl': 'https://tira.live',
+        TIRAMIS_TEST_BASE_URL: 'https://tira.test',
+        TIRAMIS_LIVE_BASE_URL: 'https://tira.live',
         'tiramisService.url': 'https://tiramis.example.com',
         TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
-        ALLIANCE_TIRA_CLIENT_KEY_TEST: 'test-client-key',
-        ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST: 'test-private-password',
+        TIRA_CLIENT_CODE_TEST: 'CLIENT-PLATFORM',
+        TIRA_CLIENT_KEY_TEST: 'test-client-key',
+        TIRA_SYSTEM_CODE_TEST: 'SYS-A',
+        TIRA_SYSTEM_NAME_TEST: 'Platform System',
+        TIRA_CLIENT_CERT_PASSWORD_TEST: 'test-private-password',
         TIRA_PUBLIC_CERT_PASSWORD_TEST: 'test-public-password',
       };
       return values[key];
@@ -40,10 +57,14 @@ describe('TiramisConfigService organization context resolution', () => {
       clientConfigurationRepository,
       {},
       {},
-      {},
+      { decryptIfEncrypted: (value: string | null) => value || null },
       {},
       { get: configGet },
       requestContextService,
+      envOnlyProfiles(
+        { decryptIfEncrypted: (value: string | null) => value || null },
+        { get: configGet },
+      ),
     );
   });
 
@@ -90,7 +111,6 @@ describe('TiramisConfigService organization context resolution', () => {
         where: expect.objectContaining({
           environment: 'test',
           companyCode: 'COMP-A',
-          systemCode: 'SYS-A',
           isActive: 1,
         }),
       }),
@@ -148,10 +168,11 @@ describe('TiramisConfigService organization context resolution', () => {
         where: expect.objectContaining({
           environment: 'test',
           companyCode: 'COMP-A',
-          systemCode: 'SYS-A',
         }),
       }),
     );
+    const where = clientConfigurationRepository.findOne.mock.calls[0][0].where;
+    expect(where).not.toHaveProperty('systemCode');
   });
 
   it('does not reject incoming insurerCompanyCode because it is business context, not authentication', async () => {
@@ -200,6 +221,59 @@ describe('TiramisConfigService organization context resolution', () => {
       baseUrl: 'https://tira.test',
     });
   });
+
+  it('gives every company the same platform system identity but its own company codes', async () => {
+    const companyB = {
+      ...configuration,
+      id: 'config-2',
+      companyCode: 'COMP-B',
+      insurerCompanyCode: 'INS-B',
+      tranCompanyCode: 'INS-B',
+    };
+    clientConfigurationRepository.findOne
+      .mockResolvedValueOnce(configuration)
+      .mockResolvedValueOnce(companyB);
+
+    const a = await service.getActiveConfiguration({
+      environment: 'test',
+      companyCode: 'COMP-A',
+    });
+    const b = await service.getActiveConfiguration({
+      environment: 'test',
+      companyCode: 'COMP-B',
+    });
+
+    for (const resolved of [a, b]) {
+      expect(resolved).toMatchObject({
+        systemCode: 'SYS-A',
+        systemName: 'Platform System',
+        clientCode: 'CLIENT-PLATFORM',
+        clientKey: 'test-client-key',
+        baseUrl: 'https://tira.test',
+      });
+    }
+    expect(a.companyCode).toBe('COMP-A');
+    expect(b.companyCode).toBe('COMP-B');
+    expect(b.insurerCompanyCode).toBe('INS-B');
+  });
+
+  it('rejects a system code that does not match the platform system code', async () => {
+    await expect(
+      service.getActiveConfiguration({
+        environment: 'test',
+        companyCode: 'COMP-A',
+        systemCode: 'SYS-OTHER',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('builds TIRA request headers from the platform client identity', async () => {
+    await expect(service.getRequestHeaders('test')).resolves.toEqual({
+      'Content-Type': 'application/xml',
+      ClientCode: 'CLIENT-PLATFORM',
+      ClientKey: 'test-client-key',
+    });
+  });
 });
 
 describe('TiramisConfigService certificate validation', () => {
@@ -233,11 +307,13 @@ describe('TiramisConfigService certificate validation', () => {
     };
     const configGet = jest.fn((key: string) => {
       const values: Record<string, string | undefined> = {
-        'tiramisService.liveBaseUrl': 'https://tira.live',
+        TIRAMIS_LIVE_BASE_URL: 'https://tira.live',
         'tiramisService.url': 'https://tiramis.example.com',
         TIRAMIS_CERTIFICATE_BASE_DIR: '/opt/apps/tiramis/certificates',
-        ALLIANCE_TIRA_CLIENT_KEY_LIVE: 'live-client-key',
-        ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE: 'live-private-password',
+        TIRA_CLIENT_CODE_LIVE: 'CLIENT-PLATFORM',
+        TIRA_CLIENT_KEY_LIVE: 'live-client-key',
+        TIRA_SYSTEM_CODE_LIVE: 'LSYS_DEMO_482',
+        TIRA_CLIENT_CERT_PASSWORD_LIVE: 'live-private-password',
         TIRA_PUBLIC_CERT_PASSWORD_LIVE: 'live-public-password',
         ...envOverrides,
       };
@@ -252,6 +328,7 @@ describe('TiramisConfigService certificate validation', () => {
       certificateInspector,
       { get: configGet },
       { getServicePrincipal: jest.fn() },
+      envOnlyProfiles(secretCrypto, { get: configGet }),
     ) as TiramisConfigService;
 
     return { service, certificateInspector };
@@ -358,6 +435,31 @@ describe('TiramisConfigService certificate validation', () => {
     );
   });
 
+  it('honours TIRA_ALLOW_EXPIRED_CERTIFICATES as a validated boolean when no override is given', async () => {
+    // Joi turns the env flag into a real boolean before it reaches config.
+    const { service, certificateInspector } = createService({
+      TIRA_ALLOW_EXPIRED_CERTIFICATES: true as unknown as string,
+    });
+    certificateInspector.assertCertificateHealthy
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      })
+      .mockReturnValueOnce({
+        validTo: '2026-03-03T18:50:06.000Z',
+        isExpired: true,
+        isExpiringSoon: false,
+      });
+
+    const result = await service.validateConfigurationSecurity(
+      baseConfiguration as any,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.allowExpiredCertificates).toBe(true);
+  });
+
   it('rejects a corrupted TIRA public certificate even when the override is enabled', async () => {
     const { service, certificateInspector } = createService();
     certificateInspector.assertCertificateHealthy
@@ -381,7 +483,7 @@ describe('TiramisConfigService certificate validation', () => {
 
   it('rejects a missing client key regardless of allowExpiredCertificates', async () => {
     const { service, certificateInspector } = createService({
-      ALLIANCE_TIRA_CLIENT_KEY_LIVE: '',
+      TIRA_CLIENT_KEY_LIVE: '',
     });
     certificateInspector.assertCertificateHealthy
       .mockReturnValueOnce({
@@ -405,6 +507,8 @@ describe('TiramisConfigService certificate validation', () => {
     );
 
     expect(result.ok).toBe(false);
-    expect(result.errors).toContain('ClientKey is missing');
+    expect(result.errors).toContain(
+      'ClientKey is not configured (set TIRA_CLIENT_KEY_LIVE)',
+    );
   });
 });

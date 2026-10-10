@@ -535,3 +535,55 @@ describe('TiramisCallbackService', () => {
     );
   });
 });
+
+describe('TiramisCallbackService callback configuration resolution', () => {
+  it('rejects a callback whose URL environment differs from the transaction environment', async () => {
+    const { service } = createService({
+      tiramisConfigService: {
+        getRuntimeConfigurationById: jest
+          .fn()
+          .mockResolvedValue({ id: 'config-test', environment: 'test' }),
+      },
+    });
+
+    await expect(
+      (service as any).verifyCallbackSignature({
+        environment: 'live',
+        parsedCallback: {
+          requestId: 'REQ-1',
+          signature: 'sig',
+          contentXml: '<Content/>',
+        },
+      }),
+    ).resolves.toEqual({
+      isValid: false,
+      reason:
+        'TIRAMIS callback environment live does not match the test environment of request REQ-1',
+    });
+  });
+
+  it("verifies an unknown request with the environment's system identity, never another company's configuration", async () => {
+    const systemConfiguration = { id: undefined, environment: 'live' };
+    const { service, tiramisConfigService } = createService({
+      tiramisSubmissionService: {
+        getTransactionForNotification: jest.fn().mockResolvedValue(null),
+      },
+      tiramisConfigService: {
+        getSystemRuntimeConfiguration: jest
+          .fn()
+          .mockReturnValue(systemConfiguration),
+      },
+    });
+
+    await expect(
+      (service as any).resolveCallbackConfiguration({
+        environment: 'live',
+        requestId: 'UNKNOWN',
+      }),
+    ).resolves.toBe(systemConfiguration);
+    expect(
+      tiramisConfigService.getSystemRuntimeConfiguration,
+    ).toHaveBeenCalledWith('live');
+    expect(tiramisConfigService.getActiveConfiguration).not.toHaveBeenCalled();
+  });
+});

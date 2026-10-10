@@ -44,22 +44,11 @@ class ActivateCompanyTiramisEnvironmentDto {
   force_activation?: boolean;
 }
 
+/**
+ * Only the per-company webhook key is stored per company; the TIRA client key
+ * and certificate passwords are platform-wide in TIRAMIS's environment.
+ */
 class RepairCompanyTiramisSecretsDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  client_key?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  client_private_certificate_password?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  tira_public_certificate_password?: string;
-
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -219,6 +208,24 @@ export class PlatformTiramisConfigurationController {
     );
   }
 
+  @Get(':environment/system-identity')
+  @Roles('OWNER')
+  @Permissions('company-tiramis-config:read')
+  @ApiOperation({
+    summary:
+      'Read the platform-wide TIRA system identity (client code, system code/name, URLs)',
+  })
+  getSystemIdentity(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+  ) {
+    return this.companyTiramisConfigurationService.getSystemIdentity(
+      companyId,
+      environment,
+    );
+  }
+
   @Get(':environment/secrets/health')
   @Roles('OWNER')
   @Permissions('company-tiramis-config:read')
@@ -252,13 +259,7 @@ export class PlatformTiramisConfigurationController {
       companyId,
       environment,
       user.id,
-      {
-        clientKey: dto.client_key,
-        clientPrivateCertificatePassword:
-          dto.client_private_certificate_password,
-        tiraPublicCertificatePassword: dto.tira_public_certificate_password,
-        portalWebhookApiKey: dto.portal_webhook_api_key,
-      },
+      { portalWebhookApiKey: dto.portal_webhook_api_key },
     );
   }
 }

@@ -40,11 +40,6 @@ export class CreateTiramisApiKeyDto {
   tenantCompanyCode?: string | null;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  tenantSystemCode?: string | null;
-
-  @IsOptional()
   @IsIn(['test', 'live'])
   tenantEnvironment?: 'test' | 'live' | null;
 

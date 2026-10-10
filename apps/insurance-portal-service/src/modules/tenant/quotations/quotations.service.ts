@@ -10058,7 +10058,9 @@ export class QuotationsService {
         // Duplicate sequence_no within a risk/entry/addon's line items —
         // typically a payload-building bug (e.g. two discount rows sharing
         // the same sequence number) rather than a real data conflict.
-        if (constraint.includes('_sequence')) {
+        // Only the quotation line-item indexes (UQ_q*_sequence), not e.g.
+        // UQ_identifier_sequences_scope, which is about numbering.
+        if (/^UQ_q[a-z]+_[a-z_]+_sequence$/.test(constraint)) {
           throw new ConflictException(
             'Duplicate line-item sequence detected while saving the quotation. Refresh the quotation and try again.',
           );

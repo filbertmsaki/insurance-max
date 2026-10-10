@@ -6,6 +6,7 @@ import { ApiClientType } from '@insurance-max/contracts';
 
 import { ApiClientsService } from '../../platform/api-clients/api-clients.service';
 import { TiramisClientService } from './tiramis-client.service';
+import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 import { TiramisCompanyConfigurationEntity } from '../entities/tiramis-company-configuration.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -31,6 +32,7 @@ export class TiramisWebhookCredentialService {
     private readonly configService: ConfigService,
     @InjectRepository(TiramisCompanyConfigurationEntity)
     private readonly configurationRepository: Repository<TiramisCompanyConfigurationEntity>,
+    private readonly platformAccess: TiramisPlatformAccessService,
   ) {}
 
   async syncWebhookApiKey(params: {
@@ -93,6 +95,63 @@ export class TiramisWebhookCredentialService {
       `Portal webhook API key synced to TIRAMIS configuration ${params.tiramisConfigurationId} (${params.environment})`,
     );
 
+    return { apiClientId };
+  }
+
+  /**
+   * The platform's webhook credential for an environment: one api client per
+   * environment, shared by every linked company, whose key TIRAMIS keeps on
+   * that environment's platform profile. Rotates the secret on each sync.
+   */
+  async syncPlatformWebhookApiKey(
+    environment: 'test' | 'live',
+  ): Promise<{ apiClientId: string }> {
+    const name = `TIRAMIS webhook (${environment})`;
+    const ipWhitelist = [this.resolveTiramisSourceIp()];
+    const notificationsEnabled = (
+      await this.platformAccess.getIntegrationPermissions()
+    ).includes('receive_notifications');
+    const webhookScopes = notificationsEnabled ? [TIRAMIS_WEBHOOK_SCOPE] : [];
+    const existing = (await this.apiClientsService.findAll()).find(
+      (client) => client.name === name,
+    );
+
+    let apiClientId: string;
+    let plainKey: string;
+    if (existing) {
+      const rotated = await this.apiClientsService.rotateSecret(
+        existing.id,
+        'tiramis-platform-webhook-sync',
+      );
+      apiClientId = existing.id;
+      plainKey = rotated.plainSecret;
+    } else {
+      const created = await this.apiClientsService.create({
+        name,
+        scopes: webhookScopes,
+        ipWhitelist,
+        clientType: ApiClientType.INTERNAL_SERVICE,
+        description: `Used by TIRAMIS (${environment}) to push callback notifications for every linked company.`,
+      });
+      apiClientId = created.id;
+      plainKey = created.plainSecret;
+    }
+
+    await this.apiClientsService.update(apiClientId, undefined, {
+      scopes: webhookScopes,
+      ip_whitelist: ipWhitelist,
+      rate_limit_per_minute: null,
+    });
+
+    await this.tiramisClientService.platformAdminRequest({
+      method: 'PUT',
+      url: `/api/tiramis/platform/profiles/${environment}/portal-webhook-api-key`,
+      data: { apiKey: plainKey },
+      environment,
+      failureMessage: 'Unable to store the platform webhook key in TIRAMIS.',
+    });
+
+    this.logger.log(`Platform webhook API key synced to TIRAMIS (${environment})`);
     return { apiClientId };
   }
 

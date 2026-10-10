@@ -118,8 +118,6 @@ describe('TiramisClientService', () => {
       andWhere: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue({
         serviceApiKeyEncrypted: 'encrypted-live-key',
-        baseUrl: 'https://tiramis.example.test',
-        sourceService: 'insurance-portal-service',
       }),
     };
     const httpService = {
@@ -131,7 +129,14 @@ describe('TiramisClientService', () => {
     const service = new TiramisClientService(
       httpService as any,
       // Service-wide default stays on test; the company has activated live.
-      { get: jest.fn().mockReturnValue('test') } as any,
+      {
+        get: jest.fn((key: string) =>
+          key === 'tiramisClient.baseUrl'
+            ? 'https://tiramis.example.test'
+            : 'test',
+        ),
+        getOrThrow: jest.fn().mockReturnValue('insurance-portal-service'),
+      } as any,
       { getRequestId: jest.fn(), getCorrelationId: jest.fn() } as any,
       {} as any,
       {} as any,
@@ -192,6 +197,7 @@ describe('TiramisClientService', () => {
     const service = new TiramisClientService(
       httpService as any,
       {
+        get: jest.fn().mockReturnValue('https://tiramis.example.test'),
         getOrThrow: jest.fn().mockReturnValue('insurance-portal-service'),
       } as any,
       { getRequestId: jest.fn(), getCorrelationId: jest.fn() } as any,
@@ -203,10 +209,7 @@ describe('TiramisClientService', () => {
       {} as any,
       {} as any,
       {
-        findOne: jest.fn().mockResolvedValue({
-          baseUrl: 'https://tiramis.example.test',
-          sourceService: 'insurance-portal-service',
-        }),
+        findOne: jest.fn().mockResolvedValue({ isActive: true }),
       } as any,
     );
 
@@ -215,7 +218,6 @@ describe('TiramisClientService', () => {
         companyId: 'company-1',
         environment: 'live',
         companyCode: 'COMPANY-1',
-        systemCode: 'SYSTEM-1',
         adminAccessToken: 'admin-access-token',
         allowedIps: ['203.0.113.10'],
       }),
@@ -228,5 +230,84 @@ describe('TiramisClientService', () => {
         }),
       }),
     );
+  });
+
+  it('retries a submission on the environment it was originally sent to', async () => {
+    const tracking = {
+      id: 'tracking-1',
+      requestType: 'NON_MOTOR_COVER_NOTE',
+      requestPayload: { coverNoteNumber: 'CN-1' },
+      sourceCompanyId: 'company-1',
+      sourceUserId: 'user-1',
+      tiramisEnvironment: 'test',
+    };
+    const service = new TiramisClientService(
+      {} as any,
+      { get: jest.fn() } as any,
+      { getRequestId: jest.fn(), getCorrelationId: jest.fn() } as any,
+      { findById: jest.fn().mockResolvedValue(tracking) } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+    (service as any).submitPatternMap = { NON_MOTOR_COVER_NOTE: 'pattern' };
+    const send = jest
+      .spyOn(service as any, 'send')
+      .mockResolvedValue({ success: true });
+
+    await service.resendTrackingRecord('tracking-1');
+
+    expect(send).toHaveBeenCalledWith(
+      'pattern',
+      expect.anything(),
+      expect.objectContaining({
+        companyId: 'company-1',
+        tiramisEnvironment: 'test',
+      }),
+    );
+  });
+
+  it('checks readiness against a pinned environment instead of the active one', async () => {
+    const requireTiramisReady = jest.fn().mockResolvedValue({
+      company: { id: 'company-1' },
+      tiramis: {
+        companyCode: 'ICC110',
+        insurerCompanyCode: 'ICC110',
+        environment: 'test',
+      },
+      activeBranch: { id: 'branch-1', code: 'BR1' },
+      activeDepartment: null,
+      defaultSalePoint: { id: 'sp-1', code: 'SP500' },
+    });
+    const service = new TiramisClientService(
+      {} as any,
+      { get: jest.fn() } as any,
+      { getRequestId: jest.fn(), getCorrelationId: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { requireTiramisReady } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    const context = await (service as any).buildTiramisReadyTenantContext({
+      id: 'user-1',
+      companyId: 'company-1',
+      tiramisEnvironment: 'test',
+    });
+
+    expect(requireTiramisReady).toHaveBeenCalledWith(
+      'user-1',
+      'company-1',
+      'test',
+    );
+    expect(context.environment).toBe('test');
   });
 });

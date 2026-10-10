@@ -498,10 +498,18 @@ export class TiramisCallbackService {
       };
     }
 
-    const configuration = await this.resolveCallbackConfiguration({
-      environment: params.environment,
-      requestId: params.parsedCallback.requestId,
-    });
+    let configuration: Awaited<
+      ReturnType<typeof this.resolveCallbackConfiguration>
+    >;
+    try {
+      configuration = await this.resolveCallbackConfiguration({
+        environment: params.environment,
+        requestId: params.parsedCallback.requestId,
+      });
+    } catch (error: any) {
+      // e.g. a callback on the live URL for a test transaction: quarantine it.
+      return { isValid: false, reason: error?.message || String(error) };
+    }
 
     const pfxPaths =
       await this.tiramisConfigService.getPfxPathsForConfiguration(
@@ -1222,11 +1230,27 @@ export class TiramisCallbackService {
       });
 
     if (transaction?.clientConfigurationId) {
-      return this.tiramisConfigService.getRuntimeConfigurationById(
-        transaction.clientConfigurationId,
-      );
+      const configuration =
+        await this.tiramisConfigService.getRuntimeConfigurationById(
+          transaction.clientConfigurationId,
+        );
+      // A transaction always completes in the environment it was sent to.
+      if (
+        configuration.environment &&
+        configuration.environment.toLowerCase() !==
+          String(params.environment).toLowerCase()
+      ) {
+        throw new BadRequestException(
+          `TIRAMIS callback environment ${params.environment} does not match the ${configuration.environment} environment of request ${params.requestId}`,
+        );
+      }
+      return configuration;
     }
 
-    return this.tiramisConfigService.getActiveConfiguration(params.environment);
+    // Unknown request: verify with the platform's system identity for the
+    // callback's environment only, never with another company's configuration.
+    return this.tiramisConfigService.getSystemRuntimeConfiguration(
+      params.environment,
+    );
   }
 }

@@ -11,6 +11,7 @@ import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
 import { TiramisClientService } from './tiramis-client.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
+import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 
 @Injectable()
 export class TiramisRetryService {
@@ -24,6 +25,7 @@ export class TiramisRetryService {
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
     private readonly notificationService: TiramisNotificationService,
+    private readonly platformAccess: TiramisPlatformAccessService,
   ) {}
 
   @Cron(environment.TIRAMIS_RETRY_CRON || '*/3 * * * *')
@@ -185,6 +187,21 @@ export class TiramisRetryService {
         reason: 'next_retry_time_not_reached',
         status: record.status,
         nextRetryAt: record.nextRetryAt,
+      };
+    }
+
+    // A retry sends to TIRA again, which a company without active access may
+    // not do. Hold it (no attempt counted) so it resumes when access is
+    // restored, instead of exhausting its retries meanwhile.
+    if (
+      record.sourceCompanyId &&
+      !(await this.platformAccess.isCompanyActive(record.sourceCompanyId))
+    ) {
+      return {
+        trackingId: record.id,
+        skipped: true,
+        reason: 'company_tiramis_access_not_active',
+        status: record.status,
       };
     }
 

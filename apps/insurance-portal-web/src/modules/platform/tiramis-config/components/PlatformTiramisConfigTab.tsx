@@ -33,15 +33,9 @@ import {
 const schema = z.object({
   company_code: z.string().min(1, 'Required').max(30),
   insurer_company_code: z.string().max(30).optional().or(z.literal('')),
-  client_code: z.string().max(60).optional().or(z.literal('')),
-  client_key: z.string().max(500).optional().or(z.literal('')),
-  system_code: z.string().min(1, 'Required').max(100),
-  system_name: z.string().max(150).optional().or(z.literal('')),
-  base_url: z.string().url('Invalid URL').optional().or(z.literal('')),
-  source_service: z.string().max(100).optional().or(z.literal('')),
-  callback_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+  sale_point_code: z.string().max(12).optional().or(z.literal('')),
+  tran_company_code: z.string().max(6).optional().or(z.literal('')),
   tiramis_service_api_key: z.string().max(500).optional().or(z.literal('')),
-  allow_expired_certificates: z.boolean().optional(),
   use_as_target_environment: z.boolean().optional(),
   integration_permissions: z.array(
     z.enum(['submit', 'read_status', 'receive_notifications']),
@@ -69,16 +63,9 @@ function buildDefaultValues(
   return {
     company_code: config?.companyCode ?? '',
     insurer_company_code: config?.insurerCompanyCode ?? '',
-    client_code: config?.clientCode ?? '',
-    client_key: '',
-    system_code: config?.systemCode ?? '',
-    system_name: config?.systemName ?? '',
-    base_url: config?.baseUrl ?? config?.effectiveBaseUrl ?? '',
-    source_service:
-      config?.sourceService ?? config?.effectiveSourceService ?? '',
-    callback_url: config?.callbackUrl ?? config?.effectiveCallbackUrl ?? '',
+    sale_point_code: '',
+    tran_company_code: '',
     tiramis_service_api_key: '',
-    allow_expired_certificates: config?.allowExpiredCertificates ?? false,
     use_as_target_environment:
       config?.isTargetEnvironment ??
       config?.effectiveTargetEnvironment === environment,
@@ -136,6 +123,7 @@ function EnvironmentPanel({
   const [editing, setEditing] = useState(!config);
   const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
   const [allowedIpsInput, setAllowedIpsInput] = useState('');
+  const [allowExpiredOnce, setAllowExpiredOnce] = useState(false);
   const queryKey = ['platform-tiramis-configurations', companyId];
   const requiresApiKeyRecovery = config?.apiKeyStatus === 'RECOVERY_REQUIRED';
 
@@ -175,18 +163,11 @@ function EnvironmentPanel({
         {
           company_code: values.company_code,
           insurer_company_code: values.insurer_company_code || undefined,
-          client_code: values.client_code || undefined,
-          client_key: values.client_key || undefined,
-          system_code: values.system_code,
-          system_name: values.system_name || undefined,
-          base_url: values.base_url || undefined,
-          source_service: values.source_service || undefined,
-          callback_url: values.callback_url || undefined,
+          sale_point_code: values.sale_point_code || undefined,
+          tran_company_code: values.tran_company_code || undefined,
           tiramis_service_api_key: values.tiramis_service_api_key || undefined,
           integration_permissions: values.integration_permissions,
           notification_events: values.notification_events,
-          allow_expired_certificates:
-            values.allow_expired_certificates ?? false,
           use_as_target_environment: values.use_as_target_environment,
           confirm_live_activation:
             values.use_as_target_environment && environment === 'live'
@@ -225,8 +206,7 @@ function EnvironmentPanel({
   const validateMutation = useMutation({
     mutationFn: () =>
       platformTiramisConfigApi.validateConfiguration(companyId, environment, {
-        allow_expired_certificates:
-          form.getValues('allow_expired_certificates') ?? false,
+        allow_expired_certificates: allowExpiredOnce,
       }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey });
@@ -392,38 +372,15 @@ function EnvironmentPanel({
                 />
                 <FormField
                   control={form.control}
-                  name="client_code"
+                  name="sale_point_code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Client Code</FormLabel>
+                      <FormLabel>Default Sale Point Code (optional)</FormLabel>
                       <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="client_key"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>TIRA Client Key</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          autoComplete="off"
-                          placeholder={
-                            config
-                              ? 'Leave blank to keep the current TIRA client key'
-                              : 'Paste the client key issued by TIRA'
-                          }
-                          {...field}
-                        />
+                        <Input maxLength={12} {...field} />
                       </FormControl>
                       <p className="mt-1 text-xs text-slate-500">
-                        The secret TIRA issued for this company/environment —
-                        required the first time this environment is linked.
+                        Used only when a request has no branch sale point.
                       </p>
                       <FormMessage />
                     </FormItem>
@@ -431,80 +388,14 @@ function EnvironmentPanel({
                 />
                 <FormField
                   control={form.control}
-                  name="system_code"
+                  name="tran_company_code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>System Code</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="system_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>System Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="callback_url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Callback URL (optional, informational)
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://…" {...field} />
-                      </FormControl>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Portal-local reference only — TIRA's actual callback
-                        endpoint is configured on TIRAMIS itself, not here.
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="base_url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>TIRAMIS_SERVICE_BASE_URL (optional)</FormLabel>
+                      <FormLabel>Transaction Company Code (optional)</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="https://api.example.com/tiramis-api"
-                          {...field}
-                        />
-                      </FormControl>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Where the portal sends its own requests to the TIRAMIS
-                        service — leave blank to use the platform default.
-                        Unrelated to which TIRA gateway TIRAMIS itself connects
-                        to.
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="source_service"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>TIRAMIS_SOURCE_SERVICE</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="insurance-portal-service"
+                          maxLength={6}
+                          placeholder="Defaults to insurer company code"
                           {...field}
                         />
                       </FormControl>
@@ -641,33 +532,6 @@ function EnvironmentPanel({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="allow_expired_certificates"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3">
-                    <div>
-                      <FormLabel>Allow Expired Certificates</FormLabel>
-                      <p className="text-sm text-amber-900">
-                        Bypasses expiry-date checks for the TIRA public and
-                        client private certificates in this environment. Invalid
-                        or unreadable certificates still fail. Use temporarily
-                        while waiting for certificate renewal.
-                      </p>
-                    </div>
-                    <FormControl>
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300"
-                        checked={!!field.value}
-                        onChange={(event) =>
-                          field.onChange(event.target.checked)
-                        }
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
               <div className="flex justify-end gap-2">
                 {config && (
                   <Button
@@ -696,24 +560,12 @@ function EnvironmentPanel({
                 {config?.insurerCompanyCode ?? '—'}
               </div>
               <div>
-                <span className="text-slate-500">System Code:</span>{' '}
-                {config?.systemCode ?? '—'}
-              </div>
-              <div>
-                <span className="text-slate-500">System Name:</span>{' '}
-                {config?.systemName ?? '—'}
-              </div>
-              <div>
                 <span className="text-slate-500">Service URL:</span>{' '}
-                {config?.baseUrl ??
-                  config?.effectiveBaseUrl ??
-                  'Global default'}
+                {config?.effectiveBaseUrl ?? 'Global default'}
               </div>
               <div>
                 <span className="text-slate-500">Source Service:</span>{' '}
-                {config?.sourceService ??
-                  config?.effectiveSourceService ??
-                  'Global default'}
+                {config?.effectiveSourceService ?? 'Global default'}
               </div>
               <div>
                 <span className="text-slate-500">API Key:</span>{' '}
@@ -745,24 +597,6 @@ function EnvironmentPanel({
               <div>
                 <span className="text-slate-500">Notification credential:</span>{' '}
                 {config?.notificationCredentialStatus ?? 'Not checked'}
-              </div>
-              <div>
-                <span className="text-slate-500">Expired Cert Override:</span>{' '}
-                {config?.allowExpiredCertificates ? 'Enabled' : 'Disabled'}
-              </div>
-              <div className="col-span-2">
-                <span className="text-slate-500">
-                  Callback URL (portal note, not TIRA's actual config):
-                </span>{' '}
-                {config?.serviceCallbackUrl ??
-                  config?.effectiveCallbackUrl ??
-                  config?.callbackUrl ??
-                  'Not configured'}
-                {config?.isActiveCallback ? (
-                  <Badge className="ml-2" variant="secondary">
-                    Active callback
-                  </Badge>
-                ) : null}
               </div>
               {config?.validationMessage && (
                 <div className="col-span-2 text-slate-500">
@@ -802,6 +636,18 @@ function EnvironmentPanel({
                 separated by commas or spaces.
               </p>
             </div>
+            <label className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-slate-300"
+                checked={allowExpiredOnce}
+                onChange={(event) => setAllowExpiredOnce(event.target.checked)}
+              />
+              <span>
+                Allow expired certificates for the next validation only. Not
+                stored; invalid or unreadable certificates still fail.
+              </span>
+            </label>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
@@ -869,6 +715,64 @@ function EnvironmentPanel({
 }
 
 /**
+ * Read-only view of the platform-wide TIRA system identity (TIRAMIS server
+ * environment). Shared by every company; never edited per company.
+ */
+function SystemIdentityPanel({
+  companyId,
+  environment,
+}: {
+  companyId: string;
+  environment: 'test' | 'live';
+}) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['platform-tiramis-system-identity', companyId, environment],
+    queryFn: () =>
+      platformTiramisConfigApi.getSystemIdentity(companyId, environment),
+    retry: false,
+  });
+
+  const rows: Array<[string, string | null | undefined]> = [
+    ['Client code', data?.clientCode],
+    ['System code', data?.systemCode],
+    ['System name', data?.systemName],
+    ['TIRA base URL', data?.baseUrl],
+    ['Callback URL', data?.callbackBaseUrl],
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">
+          TIRA system identity (platform-wide) - {environment.toUpperCase()}
+        </CardTitle>
+        <CardDescription>
+          These values come from the TIRAMIS server environment and are shared
+          by all companies. They cannot be edited per company.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-20" />
+        ) : isError ? (
+          <p className="text-sm text-red-700">
+            Could not load the TIRA system identity.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2">
+            {rows.map(([label, value]) => (
+              <div key={label} className="break-all">
+                <span className="text-slate-500">{label}:</span> {value || '-'}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
  * Platform-admin view for linking a specific company to TIRAMIS — full
  * configuration, key generation/rotation, validation, and environment
  * activation, acting on behalf of the company.
@@ -905,12 +809,11 @@ export function PlatformTiramisConfigTab({ companyId }: { companyId: string }) {
               ? 'TEST / UAT'
               : 'Not selected'}
         </div>
-        {activeConfig?.serviceCallbackUrl ? (
-          <div className="mt-2 text-sm text-slate-600">
-            Callback URL note: {activeConfig.serviceCallbackUrl}
-          </div>
-        ) : null}
       </div>
+      <SystemIdentityPanel
+        companyId={companyId}
+        environment={activeConfig?.environment ?? 'test'}
+      />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <EnvironmentPanel
           companyId={companyId}

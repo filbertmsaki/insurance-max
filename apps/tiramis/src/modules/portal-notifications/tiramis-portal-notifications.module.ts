@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TiramisSystemProfileModule } from '../config/tiramis-system-profile.module';
 import { JwtModule } from '@nestjs/jwt';
 import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -19,6 +20,7 @@ import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
     HttpModule,
     TiramisSecurityModule,
     TiramisApiKeysModule,
+    TiramisSystemProfileModule,
     TypeOrmModule.forFeature([
       TiramisClientConfigurationEntity,
       TiramisPortalNotificationOutboxEntity,

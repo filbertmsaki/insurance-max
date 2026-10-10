@@ -460,6 +460,12 @@ export class IdentifierGeneratorService {
           )
           SELECT $1, $2, $3, $4, 1
           WHERE NOT EXISTS (SELECT 1 FROM existing)
+          -- With no row yet there is nothing to lock, so concurrent first
+          -- callers both reach this INSERT; the loser waits for the winner
+          -- and increments instead of failing on UQ_identifier_sequences_scope.
+          ON CONFLICT (company_id, identifier_type, sequence_date, sequence_time_bucket)
+          DO UPDATE SET current_value = identifier_sequences.current_value + 1,
+                        updated_at = NOW()
           RETURNING current_value
         )
         SELECT current_value FROM updated

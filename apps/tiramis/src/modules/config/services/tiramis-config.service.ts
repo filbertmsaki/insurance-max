@@ -18,35 +18,33 @@ import { TiramisServiceEndpointEntity } from '../entities/tiramis-service-endpoi
 import { resolveTiramisCertificatePath } from '../utils/tiramis-certificate-path.util';
 import { TiramisCertificateInspectorService } from '../../security/services/tiramis-certificate-inspector.service';
 import { TiramisSecretCryptoService } from '../../security/services/tiramis-secret-crypto.service';
+import { TiramisSystemProfileService } from './tiramis-system-profile.service';
 
+/** Per-company secrets stored (encrypted) on the company configuration. */
 export const TIRAMIS_SECRET_FIELDS = [
-  {
-    name: 'clientKey',
-    label: 'TIRA client key',
-    encryptedColumn: 'clientKeyEncrypted',
-    legacyColumn: 'clientKey',
-  },
-  {
-    name: 'clientPrivateCertificatePassword',
-    label: 'Client private certificate password',
-    encryptedColumn: 'clientPrivateCertificatePasswordEncrypted',
-    legacyColumn: 'clientPrivateCertificatePassword',
-  },
-  {
-    name: 'tiraPublicCertificatePassword',
-    label: 'TIRA public certificate password',
-    encryptedColumn: 'tiraPublicCertificatePasswordEncrypted',
-    legacyColumn: 'tiraPublicCertificatePassword',
-  },
   {
     name: 'portalWebhookApiKey',
     label: 'Portal webhook API key',
     encryptedColumn: 'portalWebhookApiKeyEncrypted',
-    legacyColumn: null,
   },
 ] as const;
 
 export type TiramisSecretName = (typeof TIRAMIS_SECRET_FIELDS)[number]['name'];
+
+/**
+ * Platform-wide TIRA system identity, read from the environment per TIRA
+ * environment (test/live). Never stored per company.
+ */
+export const TIRAMIS_SYSTEM_ENV = {
+  clientCode: 'TIRA_CLIENT_CODE',
+  clientKey: 'TIRA_CLIENT_KEY',
+  systemCode: 'TIRA_SYSTEM_CODE',
+  systemName: 'TIRA_SYSTEM_NAME',
+  clientPrivateCertificatePassword: 'TIRA_CLIENT_CERT_PASSWORD',
+  tiraPublicCertificatePassword: 'TIRA_PUBLIC_CERT_PASSWORD',
+} as const;
+
+const DEFAULT_SIGNATURE_ALGORITHM = 'sha1WithRSAEncryption';
 
 export interface TiramisRequestHeaders {
   [key: string]: string;
@@ -82,26 +80,25 @@ export interface TiramisResolvedRequestContext<TDto> {
   dto: TDto & TiramisResolvedRequestDtoFields;
 }
 
+/** Company-specific settings only; the TIRA system identity comes from env. */
 export interface UpsertTiramisClientConfigurationParams {
   environment: 'test' | 'live';
   companyCode: string;
-  systemCode: string;
   insurerCompanyCode: string;
-  clientCode: string;
-  /** The TIRA-issued client secret. Optional on update — omitted keeps the
-   * existing encrypted value; required when creating a new configuration. */
-  clientKey?: string;
+  /** Default sale point, used only when a request carries no branch sale point. */
   salePointCode?: string | null;
+  /** Defaults to the insurer company code when omitted. */
   tranCompanyCode?: string | null;
-  /** Defaults to the platform's TIRAMIS_TEST_BASE_URL/TIRAMIS_LIVE_BASE_URL
-   * for this environment when omitted — every company in an environment
-   * talks to the same TIRA gateway, so this only needs overriding if a
-   * company genuinely has a distinct endpoint. */
-  baseUrl?: string;
-  /** Defaults to TIRAMIS_TEST_CALLBACK_URL/TIRAMIS_LIVE_CALLBACK_URL when omitted. */
-  callbackBaseUrl?: string;
-  signatureAlgorithm?: string | null;
   isActive?: boolean;
+}
+
+export interface TiramisSystemIdentity {
+  environment: 'test' | 'live';
+  clientCode: string;
+  systemCode: string;
+  systemName: string;
+  baseUrl: string;
+  callbackBaseUrl: string;
 }
 
 const DEFAULT_PORTAL_NOTIFICATION_EVENTS = [
@@ -141,6 +138,7 @@ export class TiramisConfigService {
     private readonly certificateInspector: TiramisCertificateInspectorService,
     private readonly configService: ConfigService,
     private readonly requestContextService: RequestContextService,
+    private readonly systemProfiles: TiramisSystemProfileService,
   ) {}
 
   resolveRuntimeEnvironment(appEnv?: string) {
@@ -249,13 +247,7 @@ export class TiramisConfigService {
       });
     }
 
-    if (tenant?.systemCode && configuration.systemCode !== tenant.systemCode) {
-      throw new ForbiddenException({
-        code: 'TIRAMIS_ENVIRONMENT_MISMATCH',
-        message:
-          'The API key system code does not match its configured TIRAMIS configuration.',
-      });
-    }
+    this.assertSystemCode(configuration, tenant?.systemCode);
 
     return configuration;
   }
@@ -263,11 +255,11 @@ export class TiramisConfigService {
   private resolveConfigurationByTenantTriple(
     tenant: ServicePrincipal['tenant'],
   ): Promise<TiramisClientConfigurationEntity> {
-    if (!tenant?.companyCode || !tenant.systemCode || !tenant.environment) {
+    if (!tenant?.companyCode || !tenant.environment) {
       throw new BadRequestException({
         code: 'TIRAMIS_ORGANIZATION_CONTEXT_REQUIRED',
         message:
-          'Company code, system code, and environment are required for this TIRAMIS operation.',
+          'Company code and environment are required for this TIRAMIS operation.',
       });
     }
 
@@ -279,15 +271,30 @@ export class TiramisConfigService {
   }
 
   /**
+   * The system code is platform-wide, so it never selects a configuration;
+   * a caller that supplies one must match the platform's system code.
+   */
+  private assertSystemCode(
+    configuration: TiramisClientConfigurationEntity,
+    systemCode: string | null | undefined,
+  ) {
+    if (systemCode && systemCode !== configuration.systemCode) {
+      throw new ForbiddenException({
+        code: 'TIRAMIS_SYSTEM_CODE_MISMATCH',
+        message: `System code ${systemCode} does not match this platform's TIRA system code.`,
+      });
+    }
+  }
+
+  /**
    * @param environment Legacy single-environment lookup, kept for internal
-   * helper methods (`getEndpoint`, `getCallbackUrl`, etc.) that already
-   * operate on a previously-resolved configuration's environment and don't
-   * need company/system scoping.
+   * helper methods (`getCallbackUrl`, etc.) that only need the platform-wide
+   * system identity for an environment, not a specific company.
    *
-   * Prefer the `{ environment, companyCode, systemCode }` form for any path
-   * that resolves a configuration on behalf of a Portal-originated,
-   * company-scoped request — it is unsafe to pick "the first active
-   * configuration" on a multi-company platform.
+   * Prefer the `{ environment, companyCode }` form for any path that resolves
+   * a configuration on behalf of a Portal-originated, company-scoped request —
+   * it is unsafe to pick "the first active configuration" on a multi-company
+   * platform.
    */
   async getActiveConfiguration(
     environment: string,
@@ -295,12 +302,16 @@ export class TiramisConfigService {
   async getActiveConfiguration(params: {
     environment: string;
     companyCode: string;
-    systemCode: string;
+    systemCode?: string | null;
   }): Promise<TiramisClientConfigurationEntity>;
   async getActiveConfiguration(
     environmentOrParams:
       | string
-      | { environment: string; companyCode: string; systemCode: string },
+      | {
+          environment: string;
+          companyCode: string;
+          systemCode?: string | null;
+        },
   ): Promise<TiramisClientConfigurationEntity> {
     if (typeof environmentOrParams === 'string') {
       const environment = environmentOrParams;
@@ -309,9 +320,6 @@ export class TiramisConfigService {
         where: {
           environment,
           isActive: 1,
-        },
-        relations: {
-          endpoints: true,
         },
       });
 
@@ -326,32 +334,61 @@ export class TiramisConfigService {
 
     const params = environmentOrParams;
 
-    const configuration = await this.clientConfigurationRepository.findOne({
+    const stored = await this.clientConfigurationRepository.findOne({
       where: {
         environment: params.environment,
         companyCode: params.companyCode,
-        systemCode: params.systemCode,
         isActive: 1,
-      },
-      relations: {
-        endpoints: true,
       },
     });
 
-    if (!configuration) {
+    if (!stored) {
       throw new NotFoundException({
         code: 'TIRAMIS_CLIENT_CONFIGURATION_NOT_FOUND',
         message:
-          'No active TIRAMIS client configuration matches the supplied company and system context.',
+          'No active TIRAMIS client configuration matches the supplied company context.',
         details: {
           environment: params.environment,
           companyCode: params.companyCode,
-          systemCode: params.systemCode,
         },
       });
     }
 
-    return this.withEnvironmentRuntimeConfiguration(configuration);
+    const configuration = this.withEnvironmentRuntimeConfiguration(stored);
+    this.assertSystemCode(configuration, params.systemCode);
+    return configuration;
+  }
+
+  /**
+   * Runtime configuration carrying only the platform system identity for an
+   * environment (no company). For work that is not tied to a company, such as
+   * verifying a callback whose request is unknown.
+   */
+  getSystemRuntimeConfiguration(
+    environment: string,
+  ): TiramisClientConfigurationEntity {
+    const env = this.normalizeConfigurationEnvironment(environment);
+    return this.withEnvironmentRuntimeConfiguration(
+      Object.assign(new TiramisClientConfigurationEntity(), {
+        environment: env,
+        companyCode: '',
+        insurerCompanyCode: '',
+        isActive: 1,
+      }),
+    );
+  }
+
+  /** The platform-wide TIRA system identity for an environment. */
+  getSystemIdentity(environment: string): TiramisSystemIdentity {
+    const env = this.normalizeConfigurationEnvironment(environment);
+    return {
+      environment: env,
+      clientCode: this.systemEnv('clientCode', env) ?? '',
+      systemCode: this.systemEnv('systemCode', env) ?? '',
+      systemName: this.systemEnv('systemName', env) ?? '',
+      baseUrl: this.resolveDefaultBaseUrl(env),
+      callbackBaseUrl: this.resolveDefaultCallbackUrl(env),
+    };
   }
 
   async resolveSubmissionContext<TDto>(
@@ -437,9 +474,6 @@ export class TiramisConfigService {
   ): Promise<TiramisClientConfigurationEntity> {
     const configuration = await this.clientConfigurationRepository.findOne({
       where: { id },
-      relations: {
-        endpoints: true,
-      },
     });
 
     if (!configuration) {
@@ -459,11 +493,12 @@ export class TiramisConfigService {
     environment: string;
     serviceType: string;
   }): Promise<TiramisServiceEndpointEntity> {
-    const configuration = await this.getActiveConfiguration(params.environment);
-
+    const environment = this.normalizeConfigurationEnvironment(
+      params.environment,
+    );
     const endpoint = await this.serviceEndpointRepository.findOne({
       where: {
-        clientConfigurationId: configuration.id,
+        environment,
         serviceType: params.serviceType,
         isActive: 1,
       },
@@ -471,28 +506,7 @@ export class TiramisConfigService {
 
     if (!endpoint) {
       throw new NotFoundException(
-        `TIRAMIS endpoint not configured for service type: ${params.serviceType}`,
-      );
-    }
-
-    return endpoint;
-  }
-
-  async getEndpointForConfiguration(
-    configurationId: string,
-    serviceType: string,
-  ): Promise<TiramisServiceEndpointEntity> {
-    const endpoint = await this.serviceEndpointRepository.findOne({
-      where: {
-        clientConfigurationId: configurationId,
-        serviceType,
-        isActive: 1,
-      },
-    });
-
-    if (!endpoint) {
-      throw new NotFoundException(
-        `TIRAMIS endpoint not configured for service type: ${serviceType}`,
+        `TIRAMIS endpoint not configured for service type: ${params.serviceType} (${environment})`,
       );
     }
 
@@ -503,59 +517,56 @@ export class TiramisConfigService {
     environment: string;
     serviceType: string;
   }): Promise<string> {
-    const configuration = await this.getActiveConfiguration(params.environment);
     const endpoint = await this.getEndpoint(params);
 
-    return this.joinUrl(configuration.baseUrl, endpoint.endpointUrl);
+    return this.joinUrl(
+      this.resolveDefaultBaseUrl(
+        this.normalizeConfigurationEnvironment(params.environment),
+      ),
+      endpoint.endpointUrl,
+    );
   }
 
   async getFullEndpointUrlForConfiguration(params: {
     configuration: TiramisClientConfigurationEntity;
     serviceType: string;
   }): Promise<string> {
-    const configuration = this.withEnvironmentRuntimeConfiguration(
-      params.configuration,
-    );
-    const endpoint = await this.getEndpointForConfiguration(
-      configuration.id,
-      params.serviceType,
-    );
-
-    return this.joinUrl(configuration.baseUrl, endpoint.endpointUrl);
+    return this.getFullEndpointUrl({
+      environment: params.configuration.environment,
+      serviceType: params.serviceType,
+    });
   }
 
   async getRequestHeaders(environment: string): Promise<TiramisRequestHeaders> {
-    const configuration = await this.getActiveConfiguration(environment);
-    const clientKey = this.getClientKey(configuration);
-
-    if (!configuration.clientCode || !clientKey) {
-      throw new BadRequestException(
-        'TIRAMIS ClientCode or ClientKey is missing in configuration',
-      );
-    }
-
-    return {
-      'Content-Type': 'application/xml',
-      ClientCode: configuration.clientCode,
-      ClientKey: clientKey,
-    };
+    const env = this.normalizeConfigurationEnvironment(environment);
+    return this.buildRequestHeaders(
+      this.systemEnv('clientCode', env),
+      this.systemEnv('clientKey', env),
+      env,
+    );
   }
 
   async getRequestHeadersForConfiguration(
     configuration: TiramisClientConfigurationEntity,
   ): Promise<TiramisRequestHeaders> {
-    configuration = this.withEnvironmentRuntimeConfiguration(configuration);
-    const clientKey = this.getClientKey(configuration);
+    return this.getRequestHeaders(configuration.environment);
+  }
 
-    if (!configuration.clientCode || !clientKey) {
+  private buildRequestHeaders(
+    clientCode: string | null,
+    clientKey: string | null,
+    environment: 'test' | 'live',
+  ): TiramisRequestHeaders {
+    if (!clientCode || !clientKey) {
+      const suffix = environment.toUpperCase();
       throw new BadRequestException(
-        'TIRAMIS ClientCode or ClientKey is missing in configuration',
+        `TIRA ClientCode or ClientKey is not configured (set ${TIRAMIS_SYSTEM_ENV.clientCode}_${suffix} and ${TIRAMIS_SYSTEM_ENV.clientKey}_${suffix}).`,
       );
     }
 
     return {
       'Content-Type': 'application/xml',
-      ClientCode: configuration.clientCode,
+      ClientCode: clientCode,
       ClientKey: clientKey,
     };
   }
@@ -564,9 +575,12 @@ export class TiramisConfigService {
     environment: string;
     callbackPath: string;
   }): Promise<string> {
-    const configuration = await this.getActiveConfiguration(params.environment);
-
-    return this.joinUrl(configuration.callbackBaseUrl, params.callbackPath);
+    return this.joinUrl(
+      this.resolveDefaultCallbackUrl(
+        this.normalizeConfigurationEnvironment(params.environment),
+      ),
+      params.callbackPath,
+    );
   }
 
   private resolveTiraCallbackUrl(
@@ -658,46 +672,25 @@ export class TiramisConfigService {
 
     const errors: string[] = [];
     const warnings: string[] = [];
-    const allowExpiredCertificates = options?.allowExpiredCertificates ?? false;
+    // Certificates are platform-wide, so expiry tolerance is a system setting
+    // (TIRA_ALLOW_EXPIRED_CERTIFICATES); an explicit per-call flag overrides it.
+    const allowExpiredCertificates =
+      options?.allowExpiredCertificates ??
+      this.systemProfiles.getEffective(
+        this.normalizeConfigurationEnvironment(configuration.environment),
+      ).allowExpiredCertificates;
 
-    let clientKey: string | null = null;
-    try {
-      clientKey = this.getClientKey(configuration);
-      if (!clientKey) {
-        errors.push('ClientKey is missing');
+    const suffix = configuration.environment.toUpperCase();
+    for (const [field, label] of [
+      ['clientCode', 'ClientCode'],
+      ['clientKey', 'ClientKey'],
+      ['systemCode', 'SystemCode'],
+    ] as const) {
+      if (!configuration[field]) {
+        errors.push(
+          `${label} is not configured (set ${TIRAMIS_SYSTEM_ENV[field]}_${suffix})`,
+        );
       }
-    } catch {
-      errors.push(
-        'ClientKey cannot be decrypted with the current encryption key; repair the configuration secrets',
-      );
-    }
-
-    const envBackedRuntimeConfig = Boolean(
-      (configuration as any).__envBackedRuntimeConfig,
-    );
-
-    if (!envBackedRuntimeConfig && !configuration.clientKeyEncrypted) {
-      warnings.push('ClientKey is still stored in plaintext column');
-    }
-
-    if (
-      !envBackedRuntimeConfig &&
-      configuration.clientPrivateCertificatePassword &&
-      !configuration.clientPrivateCertificatePasswordEncrypted
-    ) {
-      warnings.push(
-        'Client private certificate password is still stored in plaintext column',
-      );
-    }
-
-    if (
-      !envBackedRuntimeConfig &&
-      configuration.tiraPublicCertificatePassword &&
-      !configuration.tiraPublicCertificatePasswordEncrypted
-    ) {
-      warnings.push(
-        'TIRA public certificate password is still stored in plaintext column',
-      );
     }
 
     if (!configuration.clientPrivateCertificatePath) {
@@ -771,14 +764,14 @@ export class TiramisConfigService {
 
     return {
       ok: errors.length === 0,
+      allowExpiredCertificates,
       environment: configuration.environment,
       configurationId: configuration.id,
       companyCode: configuration.companyCode,
       systemCode: configuration.systemCode,
+      systemName: configuration.systemName,
       clientCode: configuration.clientCode,
-      clientKeyMasked: this.secretCrypto.mask(
-        configuration.clientKeyEncrypted || configuration.clientKey,
-      ),
+      clientKeyMasked: this.maskPlain(configuration.clientKey),
       certificates: {
         clientPrivate: clientCertificate,
         tiraPublic: tiraCertificate,
@@ -789,77 +782,42 @@ export class TiramisConfigService {
   }
 
   /**
-   * Creates or updates the ClientConfiguration a company/environment's
-   * TIRA-issued credentials live in. This is the one piece of data that
-   * genuinely can't be self-generated by the platform — companyCode/
-   * systemCode/clientCode/clientKey are issued by TIRA itself — so a
-   * platform admin enters them once here, after which API key minting,
-   * validation, and activation all work without any further seeder/DB work.
+   * Creates or updates a company's TIRAMIS configuration. Only company
+   * settings are stored; the TIRA system identity is platform-wide (env).
    */
   async upsertClientConfiguration(
     params: UpsertTiramisClientConfigurationParams,
   ): Promise<TiramisClientConfigurationEntity> {
+    const environment = this.normalizeConfigurationEnvironment(
+      params.environment,
+    );
     let configuration = await this.clientConfigurationRepository.findOne({
-      where: {
-        environment: params.environment,
-        companyCode: params.companyCode,
-        systemCode: params.systemCode,
-      },
+      where: { environment, companyCode: params.companyCode },
     });
-
-    if (!configuration && !params.clientKey) {
-      throw new BadRequestException({
-        code: 'TIRAMIS_CLIENT_KEY_REQUIRED',
-        message:
-          'clientKey is required when creating a new TIRAMIS client configuration.',
-      });
-    }
 
     if (!configuration) {
       configuration = this.clientConfigurationRepository.create({
-        environment: params.environment,
+        environment,
         companyCode: params.companyCode,
-        systemCode: params.systemCode,
       });
     }
 
     configuration.insurerCompanyCode = params.insurerCompanyCode;
-    configuration.clientCode = params.clientCode;
-    configuration.salePointCode = params.salePointCode ?? null;
-    configuration.tranCompanyCode = params.tranCompanyCode ?? null;
-    configuration.baseUrl =
-      params.baseUrl?.trim() || this.resolveDefaultBaseUrl(params.environment);
-    configuration.callbackBaseUrl =
-      params.callbackBaseUrl?.trim() ||
-      this.resolveDefaultCallbackUrl(params.environment);
-    if (params.signatureAlgorithm !== undefined) {
-      configuration.signatureAlgorithm = params.signatureAlgorithm;
-    }
+    configuration.salePointCode = params.salePointCode?.trim() || null;
+    configuration.tranCompanyCode = params.tranCompanyCode?.trim() || null;
     configuration.isActive = params.isActive === false ? 0 : 1;
 
-    if (params.clientKey) {
-      // The clientKey column is NOT NULL for legacy compatibility, but the
-      // real secret only ever lives in the encrypted column — never store
-      // the TIRA-issued secret in plaintext here.
-      configuration.clientKey = '(encrypted)';
-      configuration.clientKeyEncrypted = this.secretCrypto.encrypt(
-        params.clientKey,
-      );
-    }
-
-    return this.clientConfigurationRepository.save(configuration);
+    const saved = await this.clientConfigurationRepository.save(configuration);
+    return this.withEnvironmentRuntimeConfiguration(saved);
   }
 
   private resolveDefaultBaseUrl(environment: 'test' | 'live'): string {
-    const configured =
-      environment === 'live'
-        ? this.configService.get<string>('tiramisService.liveBaseUrl')
-        : this.configService.get<string>('tiramisService.testBaseUrl');
+    const configured = this.systemProfiles.getEffective(environment).baseUrl;
 
     if (!configured) {
       throw new BadRequestException({
         code: 'TIRAMIS_BASE_URL_REQUIRED',
-        message: `No baseUrl was provided and no platform default is configured for the ${environment} environment (set TIRAMIS_${environment.toUpperCase()}_BASE_URL).`,
+        message: `No TIRA base URL is configured for the ${environment} environment (set it under Platform → TIRAMIS Integration, or TIRAMIS_${environment.toUpperCase()}_BASE_URL).`,
       });
     }
 
@@ -868,22 +826,18 @@ export class TiramisConfigService {
 
   /**
    * callbackBaseUrl is embedded in outbound requests to TIRA, telling it
-   * where to POST its async callback — TIRAMIS's own public base URL
-   * (this service's TiramisCallbackController), not the portal's webhook.
-   * Defaults to TIRAMIS_{TEST,LIVE}_CALLBACK_URL if set, else this
-   * service's own APP_URL (the same host serving this request).
+   * where to POST its async callback — TIRAMIS's own public base URL, not the
+   * portal's webhook. Platform profile, then environment, then APP_URL.
    */
   private resolveDefaultCallbackUrl(environment: 'test' | 'live'): string {
     const configured =
-      (environment === 'live'
-        ? this.configService.get<string>('tiramisService.liveCallbackUrl')
-        : this.configService.get<string>('tiramisService.testCallbackUrl')) ||
+      this.systemProfiles.getEffective(environment).callbackUrl ||
       this.configService.get<string>('tiramisService.url');
 
     if (!configured) {
       throw new BadRequestException({
         code: 'TIRAMIS_CALLBACK_URL_REQUIRED',
-        message: `No callbackBaseUrl was provided and no platform default is configured for the ${environment} environment (set TIRAMIS_${environment.toUpperCase()}_CALLBACK_URL or APP_URL).`,
+        message: `No TIRA callback URL is configured for the ${environment} environment (set it under Platform → TIRAMIS Integration, or TIRAMIS_${environment.toUpperCase()}_CALLBACK_URL / APP_URL).`,
       });
     }
 
@@ -901,39 +855,46 @@ export class TiramisConfigService {
       configuration,
     ) as TiramisClientConfigurationEntity;
 
+    const profile = this.systemProfiles.getEffective(environment);
+    runtimeConfiguration.systemCode = profile.systemCode ?? '';
+    runtimeConfiguration.systemName = profile.systemName ?? '';
+    runtimeConfiguration.clientCode = profile.clientCode ?? '';
+    runtimeConfiguration.clientKey = profile.clientKey ?? '';
     runtimeConfiguration.baseUrl = this.resolveDefaultBaseUrl(environment);
     runtimeConfiguration.callbackBaseUrl =
       this.resolveDefaultCallbackUrl(environment);
-    runtimeConfiguration.clientKeyEncrypted = this.envValue(
-      `ALLIANCE_TIRA_CLIENT_KEY_${environment.toUpperCase()}`,
-    );
-    runtimeConfiguration.clientKey = runtimeConfiguration.clientKeyEncrypted
-      ? '(env)'
-      : '';
-    runtimeConfiguration.clientPrivateCertificatePath = join(
-      this.getCertificateBaseDir(),
-      environment,
-      'clientprivate.pfx',
-    );
-    runtimeConfiguration.clientPrivateCertificatePassword = null;
-    runtimeConfiguration.clientPrivateCertificatePasswordEncrypted =
-      this.envValue(
-        `ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_${environment.toUpperCase()}`,
-      );
-    runtimeConfiguration.tiraPublicCertificatePath = join(
-      this.getCertificateBaseDir(),
-      environment,
-      'tiramispublic.pfx',
-    );
-    runtimeConfiguration.tiraPublicCertificatePassword = null;
-    runtimeConfiguration.tiraPublicCertificatePasswordEncrypted = this.envValue(
-      `TIRA_PUBLIC_CERT_PASSWORD_${environment.toUpperCase()}`,
-    );
-    runtimeConfiguration.signatureAlgorithm =
-      runtimeConfiguration.signatureAlgorithm || 'sha1WithRSAEncryption';
-    (runtimeConfiguration as any).__envBackedRuntimeConfig = true;
+    runtimeConfiguration.clientPrivateCertificatePath =
+      profile.clientCertificatePath;
+    runtimeConfiguration.clientPrivateCertificatePassword =
+      profile.clientCertificatePassword;
+    runtimeConfiguration.tiraPublicCertificatePath =
+      profile.publicCertificatePath;
+    runtimeConfiguration.tiraPublicCertificatePassword =
+      profile.publicCertificatePassword;
+    runtimeConfiguration.signatureAlgorithm = profile.signatureAlgorithm;
 
     return runtimeConfiguration;
+  }
+
+  private systemEnv(
+    field: keyof typeof TIRAMIS_SYSTEM_ENV,
+    environment: 'test' | 'live',
+  ): string | null {
+    const profile = this.systemProfiles.getEffective(environment);
+    const values: Record<keyof typeof TIRAMIS_SYSTEM_ENV, string | null> = {
+      clientCode: profile.clientCode,
+      clientKey: profile.clientKey,
+      systemCode: profile.systemCode,
+      systemName: profile.systemName,
+      clientPrivateCertificatePassword: profile.clientCertificatePassword,
+      tiraPublicCertificatePassword: profile.publicCertificatePassword,
+    };
+    return values[field];
+  }
+
+  private maskPlain(value: string | null | undefined): string | null {
+    if (!value) return null;
+    return value.length <= 4 ? '****' : `****${value.slice(-4)}`;
   }
 
   private normalizeConfigurationEnvironment(
@@ -958,8 +919,11 @@ export class TiramisConfigService {
     );
   }
 
+  /** Validated config can hold booleans/numbers (Joi converts them). */
   private envValue(name: string): string | null {
-    return this.configService.get<string>(name)?.trim() || null;
+    const value = this.configService.get<unknown>(name);
+    if (value === undefined || value === null) return null;
+    return String(value).trim() || null;
   }
 
   async setPortalWebhookApiKey(configurationId: string, apiKey: string) {
@@ -1050,15 +1014,13 @@ export class TiramisConfigService {
       }
 
       (configuration as any)[secret.encryptedColumn] = encrypted;
-      if (secret.legacyColumn) {
-        (configuration as any)[secret.legacyColumn] =
-          secret.legacyColumn === 'clientKey' ? '(encrypted)' : null;
-      }
     }
 
-    await this.clientConfigurationRepository.save(configuration);
+    const saved = await this.clientConfigurationRepository.save(configuration);
 
-    return this.buildSecretHealth(configuration);
+    return this.buildSecretHealth(
+      this.withEnvironmentRuntimeConfiguration(saved),
+    );
   }
 
   private buildSecretHealth(configuration: TiramisClientConfigurationEntity) {
@@ -1069,14 +1031,33 @@ export class TiramisConfigService {
         this.readSecretValue(configuration, secret),
       ),
     }));
+    const suffix = configuration.environment.toUpperCase();
+    const systemSecrets = (
+      [
+        ['clientKey', 'TIRA client key'],
+        [
+          'clientPrivateCertificatePassword',
+          'Client private certificate password',
+        ],
+        ['tiraPublicCertificatePassword', 'TIRA public certificate password'],
+      ] as const
+    ).map(([field, label]) => ({
+      name: field,
+      label,
+      source: `${TIRAMIS_SYSTEM_ENV[field]}_${suffix}`,
+      status: configuration[field] ? 'OK' : 'MISSING',
+    }));
 
     return {
       configurationId: configuration.id,
       environment: configuration.environment,
       companyCode: configuration.companyCode,
       systemCode: configuration.systemCode,
-      healthy: secrets.every((secret) => secret.status === 'OK'),
+      healthy: [...secrets, ...systemSecrets].every(
+        (secret) => secret.status === 'OK',
+      ),
       secrets,
+      systemSecrets,
     };
   }
 
@@ -1084,52 +1065,9 @@ export class TiramisConfigService {
     configuration: TiramisClientConfigurationEntity,
     secret: (typeof TIRAMIS_SECRET_FIELDS)[number],
   ): string | null {
-    const encrypted = (configuration as any)[secret.encryptedColumn] as
-      | string
-      | null
-      | undefined;
-    const legacy = secret.legacyColumn
-      ? ((configuration as any)[secret.legacyColumn] as string | null)
-      : null;
-
-    return encrypted || (legacy && legacy !== '(encrypted)' ? legacy : null);
-  }
-
-  async encryptExistingPlaintextSecrets(configurationId: string) {
-    const configuration = await this.getConfigurationById(configurationId);
-
-    if (configuration.clientKey && !configuration.clientKeyEncrypted) {
-      configuration.clientKeyEncrypted = this.secretCrypto.encrypt(
-        configuration.clientKey,
-      );
-    }
-
-    if (
-      configuration.clientPrivateCertificatePassword &&
-      !configuration.clientPrivateCertificatePasswordEncrypted
-    ) {
-      configuration.clientPrivateCertificatePasswordEncrypted =
-        this.secretCrypto.encrypt(
-          configuration.clientPrivateCertificatePassword,
-        );
-    }
-
-    if (
-      configuration.tiraPublicCertificatePassword &&
-      !configuration.tiraPublicCertificatePasswordEncrypted
-    ) {
-      configuration.tiraPublicCertificatePasswordEncrypted =
-        this.secretCrypto.encrypt(configuration.tiraPublicCertificatePassword);
-    }
-
-    await this.clientConfigurationRepository.save(configuration);
-
-    return {
-      id: configuration.id,
-      environment: configuration.environment,
-      encrypted: true,
-      clientKeyMasked: this.secretCrypto.mask(configuration.clientKeyEncrypted),
-    };
+    return (
+      ((configuration as any)[secret.encryptedColumn] as string | null) ?? null
+    );
   }
 
   private resolveBusinessCode(params: {
@@ -1156,38 +1094,16 @@ export class TiramisConfigService {
     return value;
   }
 
-  private getClientKey(
-    configuration: TiramisClientConfigurationEntity,
-  ): string | null {
-    return (
-      this.secretCrypto.decryptIfEncrypted(
-        configuration.clientKeyEncrypted || configuration.clientKey || null,
-      ) || null
-    );
-  }
-
   private getClientPrivateCertificatePassword(
     configuration: TiramisClientConfigurationEntity,
   ): string | null {
-    return (
-      this.secretCrypto.decryptIfEncrypted(
-        configuration.clientPrivateCertificatePasswordEncrypted ||
-          configuration.clientPrivateCertificatePassword ||
-          null,
-      ) || null
-    );
+    return configuration.clientPrivateCertificatePassword || null;
   }
 
   private getTiraPublicCertificatePassword(
     configuration: TiramisClientConfigurationEntity,
   ): string | null {
-    return (
-      this.secretCrypto.decryptIfEncrypted(
-        configuration.tiraPublicCertificatePasswordEncrypted ||
-          configuration.tiraPublicCertificatePassword ||
-          null,
-      ) || null
-    );
+    return configuration.tiraPublicCertificatePassword || null;
   }
 
   private joinUrl(baseUrl: string, path: string): string {

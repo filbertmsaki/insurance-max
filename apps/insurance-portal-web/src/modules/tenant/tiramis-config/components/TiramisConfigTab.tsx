@@ -78,14 +78,6 @@ function EnvironmentPanel({
               {config.insurerCompanyCode ?? '—'}
             </div>
             <div>
-              <span className="text-slate-500">System Code:</span>{' '}
-              {config.systemCode ?? '—'}
-            </div>
-            <div>
-              <span className="text-slate-500">System Name:</span>{' '}
-              {config.systemName ?? '—'}
-            </div>
-            <div>
               <span className="text-slate-500">API Key:</span>{' '}
               {config.serviceApiKeyMasked ? (
                 <span className="inline-flex items-center gap-1">
@@ -99,24 +91,6 @@ function EnvironmentPanel({
             <div>
               <span className="text-slate-500">API Key Status:</span>{' '}
               {config.apiKeyStatus ?? 'NOT_CONFIGURED'}
-            </div>
-            <div>
-              <span className="text-slate-500">Expired Cert Override:</span>{' '}
-              {config.allowExpiredCertificates ? 'Enabled' : 'Disabled'}
-            </div>
-            <div className="col-span-2">
-              <span className="text-slate-500">
-                Callback URL (portal note, not TIRA's actual config):
-              </span>{' '}
-              {config.serviceCallbackUrl ??
-                config.effectiveCallbackUrl ??
-                config.callbackUrl ??
-                'Not configured'}
-              {config.isActiveCallback ? (
-                <Badge className="ml-2" variant="secondary">
-                  Active callback
-                </Badge>
-              ) : null}
             </div>
             {config.validationMessage && (
               <div className="col-span-2 text-slate-500">
@@ -172,11 +146,6 @@ export function TiramisConfigTab() {
               ? 'TEST / UAT'
               : 'Not selected'}
         </div>
-        {activeConfig?.serviceCallbackUrl ? (
-          <div className="mt-2 text-sm text-slate-600">
-            Callback URL note: {activeConfig.serviceCallbackUrl}
-          </div>
-        ) : null}
         <p className="mt-2 text-xs text-slate-500">
           This connection is managed by your platform administrator.
         </p>

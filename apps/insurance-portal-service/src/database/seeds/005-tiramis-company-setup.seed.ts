@@ -87,9 +87,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           'company_type',
           'tira_company_code',
           'tira_insurer_company_code',
-          'tira_client_code',
-          'tira_system_code',
-          'tira_system_name',
           'settings',
           'regulatory_metadata',
           'metadata',
@@ -107,8 +104,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           'company_id',
           'environment',
           'company_code',
-          'client_code',
-          'system_code',
           'is_active',
           'validation_status',
           'validated_at',
@@ -168,10 +163,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           name,
           slug,
           tira_company_code,
-          tira_insurer_company_code,
-          tira_client_code,
-          tira_system_code,
-          tira_system_name
+          tira_insurer_company_code
         FROM companies
         WHERE deleted_at IS NULL
           AND (
@@ -184,18 +176,9 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           AND (
             COALESCE(tira_company_code, '') <> $1
             OR COALESCE(tira_insurer_company_code, '') <> $2
-            OR COALESCE(tira_client_code, '') <> $3
-            OR COALESCE(tira_system_code, '') <> $4
-            OR COALESCE(tira_system_name, '') <> $5
           )
       `,
-      [
-        ALLIANCE_TENANT.companyCode,
-        ALLIANCE_TENANT.insurerCompanyCode,
-        ALLIANCE_TENANT.clientCode,
-        ALLIANCE_TENANT.systemCode,
-        ALLIANCE_TENANT.systemName,
-      ],
+      [ALLIANCE_TENANT.companyCode, ALLIANCE_TENANT.insurerCompanyCode],
     );
 
     const companyCodeMismatchRows = wrongRows.filter(
@@ -224,19 +207,13 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           identifier_prefix = COALESCE(identifier_prefix, $1),
           tira_company_code = $2,
           tira_insurer_company_code = $3,
-          tira_client_code = $4,
-          tira_system_code = $5,
-          tira_system_name = $6,
           updated_at = now()
-        WHERE id = ANY($7::uuid[])
+        WHERE id = ANY($4::uuid[])
       `,
       [
         ALLIANCE_TENANT.identifierPrefix,
         ALLIANCE_TENANT.companyCode,
         ALLIANCE_TENANT.insurerCompanyCode,
-        ALLIANCE_TENANT.clientCode,
-        ALLIANCE_TENANT.systemCode,
-        ALLIANCE_TENANT.systemName,
         wrongRows.map((row: RowWithId) => row.id),
       ],
     );
@@ -255,9 +232,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           company_type,
           tira_company_code,
           tira_insurer_company_code,
-          tira_client_code,
-          tira_system_code,
-          tira_system_name,
           settings,
           regulatory_metadata,
           metadata,
@@ -272,12 +246,9 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           $4,
           $5,
           $6,
-          $7,
-          $8,
-          $9,
-          $10::jsonb,
-          $11::jsonb,
-          $12::jsonb,
+          $7::jsonb,
+          $8::jsonb,
+          $9::jsonb,
           now(),
           now()
         )
@@ -291,9 +262,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           company_type = COALESCE(companies.company_type, EXCLUDED.company_type),
           tira_company_code = EXCLUDED.tira_company_code,
           tira_insurer_company_code = EXCLUDED.tira_insurer_company_code,
-          tira_client_code = EXCLUDED.tira_client_code,
-          tira_system_code = EXCLUDED.tira_system_code,
-          tira_system_name = EXCLUDED.tira_system_name,
           settings = COALESCE(companies.settings, '{}'::jsonb)
             || EXCLUDED.settings,
           regulatory_metadata = COALESCE(
@@ -312,9 +280,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         ALLIANCE_TENANT.companyType,
         ALLIANCE_TENANT.companyCode,
         ALLIANCE_TENANT.insurerCompanyCode,
-        ALLIANCE_TENANT.clientCode,
-        ALLIANCE_TENANT.systemCode,
-        ALLIANCE_TENANT.systemName,
         JSON.stringify({
           currency: ALLIANCE_TENANT.currency,
           timezone: ALLIANCE_TENANT.timezone,
@@ -322,8 +287,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         JSON.stringify({
           tiraCompanyCode: ALLIANCE_TENANT.companyCode,
           insurerCompanyCode: ALLIANCE_TENANT.insurerCompanyCode,
-          clientCode: ALLIANCE_TENANT.clientCode,
-          systemCode: ALLIANCE_TENANT.systemCode,
         }),
         JSON.stringify({
           seedSource: 'Companies.xlsx',
@@ -349,12 +312,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           company_name,
           insurer_company_code,
           insurer_company_name,
-          client_code,
-          client_key,
-          system_code,
-          system_name,
-          base_url,
-          callback_url,
           is_active,
           validation_status,
           validated_at,
@@ -370,17 +327,11 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           $4,
           $5,
           $6,
-          $7,
-          NULL,
-          $8,
-          $9,
-          NULL,
-          NULL,
           true,
-          $10::varchar,
-          CASE WHEN $10::varchar = 'VALID' THEN now() ELSE NULL END,
-          $11,
-          $12::jsonb,
+          $7::varchar,
+          CASE WHEN $7::varchar = 'VALID' THEN now() ELSE NULL END,
+          $8,
+          $9::jsonb,
           now(),
           now()
         )
@@ -390,9 +341,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           company_name = EXCLUDED.company_name,
           insurer_company_code = EXCLUDED.insurer_company_code,
           insurer_company_name = EXCLUDED.insurer_company_name,
-          client_code = EXCLUDED.client_code,
-          system_code = EXCLUDED.system_code,
-          system_name = EXCLUDED.system_name,
           is_active = true,
           validation_status = EXCLUDED.validation_status,
           validated_at = EXCLUDED.validated_at,
@@ -410,9 +358,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         ALLIANCE_TENANT.companyName,
         ALLIANCE_TENANT.insurerCompanyCode,
         ALLIANCE_TENANT.insurerCompanyName,
-        ALLIANCE_TENANT.clientCode,
-        ALLIANCE_TENANT.systemCode,
-        ALLIANCE_TENANT.systemName,
         environment === 'test' ? 'VALID' : 'NOT_VALIDATED',
         environment === 'test'
           ? 'Seeded local/test configuration is ready for TIRAMIS sandbox submission.'
@@ -602,7 +547,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
             company_type = $2,
             identifier_prefix = COALESCE(identifier_prefix, $3),
             tira_company_code = COALESCE(tira_company_code, $3),
-            tira_client_code = COALESCE(tira_client_code, $3),
             regulatory_metadata = COALESCE(
               regulatory_metadata,
               '{}'::jsonb
@@ -631,7 +575,6 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           status,
           company_type,
           tira_company_code,
-          tira_client_code,
           operating_timezone,
           default_currency,
           regulatory_metadata,
@@ -640,7 +583,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           updated_at
         )
         VALUES (
-          $1, $2, $3, 'active', $4, $3, $3,
+          $1, $2, $3, 'active', $4, $3,
           'Africa/Dar_es_Salaam', 'TZS', $5::jsonb, $6::jsonb, now(), now()
         )
         RETURNING id

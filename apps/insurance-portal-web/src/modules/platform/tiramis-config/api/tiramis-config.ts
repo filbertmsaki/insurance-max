@@ -13,23 +13,11 @@ export interface PlatformTiramisConfiguration {
   companyName: string | null;
   insurerCompanyCode: string | null;
   insurerCompanyName: string | null;
-  clientCode: string | null;
-  systemCode: string | null;
-  systemName: string | null;
-  baseUrl: string | null;
-  sourceService: string | null;
-  callbackUrl: string | null;
-  allowExpiredCertificates: boolean;
   notificationEvents?: string[] | null;
   integrationPermissions?: string[] | null;
-  effectiveCallbackUrl?: string | null;
   effectiveBaseUrl?: string | null;
   effectiveSourceService?: string | null;
   effectiveTargetEnvironment?: 'test' | 'live';
-  serviceCallbackUrl?: string | null;
-  tiramisCallbackUrl?: string | null;
-  tiramisCallbackPath?: string | null;
-  isActiveCallback?: boolean;
   isTargetEnvironment?: boolean;
   serviceApiKeyMasked?: string | null;
   serviceApiKeyConfigured?: boolean;
@@ -47,20 +35,38 @@ export interface GeneratedPlatformTiramisApiKeyResponse extends PlatformTiramisC
   generatedApiKey?: string;
 }
 
+/** Platform-wide TIRA system identity (TIRAMIS server environment, read-only). */
+export interface TiramisSystemIdentity {
+  environment: 'test' | 'live';
+  clientCode: string | null;
+  systemCode: string | null;
+  systemName: string | null;
+  baseUrl: string | null;
+  callbackBaseUrl: string | null;
+}
+
+export interface TiramisValidationResult {
+  valid: boolean;
+  message?: string;
+  allowExpiredCertificates?: boolean;
+  systemCode?: string | null;
+  systemName?: string | null;
+  clientCode?: string | null;
+  baseUrl?: string | null;
+  callback?: unknown;
+  certificates?: unknown;
+  warnings?: string[];
+  errors?: string[];
+}
+
 export interface UpsertPlatformTiramisConfigurationDto {
   company_code: string;
   insurer_company_code?: string;
-  client_code?: string;
-  /** The TIRA-issued client secret. Required the first time this
-   * company/environment is linked; leave blank on later edits to keep it. */
-  client_key?: string;
-  system_code: string;
-  system_name?: string;
-  base_url?: string;
-  source_service?: string;
-  callback_url?: string;
+  /** Default TIRA sale point, used only when a request has no branch sale point. */
+  sale_point_code?: string;
+  /** Defaults to the insurer company code. */
+  tran_company_code?: string;
   tiramis_service_api_key?: string;
-  allow_expired_certificates?: boolean;
   notification_events?: string[];
   integration_permissions?: string[];
   is_active?: boolean;
@@ -94,20 +100,23 @@ export const platformTiramisConfigApi = {
       )
       .then((r) => r.data),
 
+  getSystemIdentity: (companyId: string, environment: 'test' | 'live') =>
+    apiClient
+      .get<TiramisSystemIdentity>(
+        `/platform/companies/${companyId}/tiramis-configurations/${environment}/system-identity`,
+      )
+      .then((r) => r.data),
+
   validateConfiguration: (
     companyId: string,
     environment: 'test' | 'live',
+    /** One-off override for this validation call only; never stored. */
     data: {
       allow_expired_certificates?: boolean;
     } = {},
   ) =>
     apiClient
-      .post<{
-        valid: boolean;
-        message?: string;
-        warnings?: string[];
-        errors?: string[];
-      }>(
+      .post<TiramisValidationResult>(
         `/platform/companies/${companyId}/tiramis-configurations/${environment}/validate`,
         data,
       )
@@ -143,18 +152,15 @@ export const platformTiramisConfigApi = {
     apiClient
       .post<TiramisSecretHealth>(
         `/platform/companies/${companyId}/tiramis-configurations/${environment}/secrets/repair`,
-        {
-          client_key: replacements.clientKey,
-          client_private_certificate_password:
-            replacements.clientPrivateCertificatePassword,
-          tira_public_certificate_password:
-            replacements.tiraPublicCertificatePassword,
-          portal_webhook_api_key: replacements.portalWebhookApiKey,
-        },
+        { portal_webhook_api_key: replacements.portalWebhookApiKey },
       )
       .then((r) => r.data),
 
-  generateApiKey: (companyId: string, environment: 'test' | 'live', allowed_ips: string[]) =>
+  generateApiKey: (
+    companyId: string,
+    environment: 'test' | 'live',
+    allowed_ips: string[],
+  ) =>
     apiClient
       .post<GeneratedPlatformTiramisApiKeyResponse>(
         `/platform/companies/${companyId}/tiramis-configurations/${environment}/api-key/generate`,

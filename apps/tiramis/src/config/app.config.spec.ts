@@ -57,8 +57,10 @@ describe('tiramisService config', () => {
       {
         APP_URL: 'http://localhost:9091',
         TIRAMIS_SECRET_ENCRYPTION_KEY: 'replace-with-key',
-        ALLIANCE_TIRA_CLIENT_KEY_TEST: 'test-client-key',
-        ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST: 'test-client-password',
+        TIRA_CLIENT_CODE_TEST: 'CLIENT-PLATFORM',
+        TIRA_CLIENT_KEY_TEST: 'test-client-key',
+        TIRA_SYSTEM_CODE_TEST: 'SYS-PLATFORM',
+        TIRA_CLIENT_CERT_PASSWORD_TEST: 'test-client-password',
         TIRA_PUBLIC_CERT_PASSWORD_TEST: 'test-public-password',
         TIRAMIS_TEST_BASE_URL: 'https://test-tira.example.com',
         TIRAMIS_LIVE_BASE_URL: 'https://live-tira.example.com',

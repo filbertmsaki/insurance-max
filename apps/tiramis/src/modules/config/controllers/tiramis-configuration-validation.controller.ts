@@ -24,8 +24,10 @@ class ValidateOrganizationConfigurationDto {
   @IsString()
   companyCode!: string;
 
+  /** Optional; when given it must match the platform's TIRA system code. */
+  @IsOptional()
   @IsString()
-  systemCode!: string;
+  systemCode?: string;
 
   @IsOptional()
   @IsString()
@@ -58,6 +60,7 @@ class NotificationPolicyDto {
   eventTypes?: string[];
 }
 
+/** Company-specific settings only; the TIRA system identity is platform-wide. */
 class UpsertClientConfigurationDto {
   @IsIn(['test', 'live'])
   environment!: 'test' | 'live';
@@ -66,17 +69,7 @@ class UpsertClientConfigurationDto {
   companyCode!: string;
 
   @IsString()
-  systemCode!: string;
-
-  @IsString()
   insurerCompanyCode!: string;
-
-  @IsString()
-  clientCode!: string;
-
-  @IsOptional()
-  @IsString()
-  clientKey?: string;
 
   @IsOptional()
   @IsString()
@@ -85,18 +78,6 @@ class UpsertClientConfigurationDto {
   @IsOptional()
   @IsString()
   tranCompanyCode?: string;
-
-  @IsOptional()
-  @IsString()
-  baseUrl?: string;
-
-  @IsOptional()
-  @IsString()
-  callbackBaseUrl?: string;
-
-  @IsOptional()
-  @IsString()
-  signatureAlgorithm?: string;
 
   @IsOptional()
   @IsBoolean()
@@ -110,23 +91,18 @@ class ResolveOrganizationConfigurationDto {
   @IsString()
   companyCode!: string;
 
+  @IsOptional()
   @IsString()
-  systemCode!: string;
+  systemCode?: string;
 }
 
+class SystemIdentityQueryDto {
+  @IsIn(['test', 'live'])
+  environment!: 'test' | 'live';
+}
+
+/** Only per-company secrets are stored; TIRA system secrets live in env. */
 class RepairSecretsDto {
-  @IsOptional()
-  @IsString()
-  clientKey?: string;
-
-  @IsOptional()
-  @IsString()
-  clientPrivateCertificatePassword?: string;
-
-  @IsOptional()
-  @IsString()
-  tiraPublicCertificatePassword?: string;
-
   @IsOptional()
   @IsString()
   portalWebhookApiKey?: string;
@@ -159,7 +135,7 @@ export class TiramisConfigurationValidationController {
     );
 
     if (
-      dto.allowExpiredCertificates === true &&
+      security.allowExpiredCertificates &&
       (security.certificates?.tiraPublic?.isExpired ||
         security.certificates?.clientPrivate?.isExpired)
     ) {
@@ -180,14 +156,17 @@ export class TiramisConfigurationValidationController {
 
     return {
       valid: security.ok,
+      allowExpiredCertificates: security.allowExpiredCertificates,
       message: this.buildValidationMessage(
         security,
-        dto.allowExpiredCertificates === true,
+        security.allowExpiredCertificates,
       ),
       configurationId: configuration.id,
       environment: configuration.environment,
       companyCode: configuration.companyCode,
       systemCode: configuration.systemCode,
+      systemName: configuration.systemName,
+      clientCode: configuration.clientCode,
       baseUrl: configuration.baseUrl,
       apiKey: {
         status: security.clientKeyMasked ? 'ACTIVE' : 'MISSING',
@@ -227,6 +206,12 @@ export class TiramisConfigurationValidationController {
       companyCode: configuration.companyCode,
       systemCode: configuration.systemCode,
     };
+  }
+
+  /** The platform-wide TIRA system identity (no secrets) for an environment. */
+  @Post('system-identity')
+  getSystemIdentity(@Body() dto: SystemIdentityQueryDto) {
+    return this.configService.getSystemIdentity(dto.environment);
   }
 
   @Get(':configurationId/secret-health')
@@ -281,14 +266,15 @@ export class TiramisConfigurationValidationController {
       id: configuration.id,
       environment: configuration.environment,
       companyCode: configuration.companyCode,
-      systemCode: configuration.systemCode,
       insurerCompanyCode: configuration.insurerCompanyCode,
-      clientCode: configuration.clientCode,
       salePointCode: configuration.salePointCode,
       tranCompanyCode: configuration.tranCompanyCode,
+      isActive: configuration.isActive,
+      // Platform-wide system identity, returned for display only.
+      systemCode: configuration.systemCode,
+      clientCode: configuration.clientCode,
       baseUrl: configuration.baseUrl,
       callbackBaseUrl: configuration.callbackBaseUrl,
-      isActive: configuration.isActive,
     };
   }
 

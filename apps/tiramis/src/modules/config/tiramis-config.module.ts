@@ -10,6 +10,8 @@ import { TiramisSecurityModule } from '../security/tiramis-security.module';
 import { TiramisConfigurationValidationController } from './controllers/tiramis-configuration-validation.controller';
 import { TiramisPortalNotificationsModule } from '../portal-notifications/tiramis-portal-notifications.module';
 import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
+import { TiramisSystemProfileModule } from './tiramis-system-profile.module';
+import { TiramisPlatformProfileController } from './controllers/tiramis-platform-profile.controller';
 
 @Module({
   imports: [
@@ -22,9 +24,13 @@ import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
     TiramisSecurityModule,
     TiramisPortalNotificationsModule,
     TiramisApiKeysModule,
+    TiramisSystemProfileModule,
   ],
-  controllers: [TiramisConfigurationValidationController],
+  controllers: [
+    TiramisConfigurationValidationController,
+    TiramisPlatformProfileController,
+  ],
   providers: [TiramisConfigService],
-  exports: [TiramisConfigService, TypeOrmModule],
+  exports: [TiramisConfigService, TypeOrmModule, TiramisSystemProfileModule],
 })
 export class TiramisConfigModule {}

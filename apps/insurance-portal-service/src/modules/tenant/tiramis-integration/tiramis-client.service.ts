@@ -15,6 +15,7 @@ import {
   HTTP_HEADERS,
   RequestContextService,
 } from '@insurance-max/shared-kernel';
+import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 import { TiramisCompanyConfigurationEntity } from '../../tiramis/entities/tiramis-company-configuration.entity';
 import { TiramisServiceApiKeyVaultService } from '../../tiramis/services/tiramis-service-api-key-vault.service';
 import { resolveTiramisPortalWebhookUrl } from '../../tiramis/utils/tiramis-portal-webhook-url.util';
@@ -32,6 +33,7 @@ export class TiramisClientService {
     private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
     @InjectRepository(TiramisCompanyConfigurationEntity)
     private readonly companyConfigurationRepository: Repository<TiramisCompanyConfigurationEntity>,
+    private readonly platformAccess: TiramisPlatformAccessService,
   ) {}
 
   async submit(params: {
@@ -218,24 +220,25 @@ export class TiramisClientService {
       );
     }
 
-    const environment =
-      this.configService.get<string>('tiramisClient.targetEnvironment') ??
-      'test';
-    const configuration = await this.companyConfigurationRepository
-      .createQueryBuilder('configuration')
-      .addSelect('configuration.serviceApiKeyEncrypted')
-      .where('configuration.companyId = :companyId', { companyId })
-      .andWhere('configuration.environment = :environment', { environment })
-      .andWhere('configuration.isActive = true')
-      .getOne();
-
-    const apiKey = this.apiKeyVault.decrypt(
-      configuration?.serviceApiKeyEncrypted,
-    );
+    // Same source of truth as the main client: the platform's active
+    // environment and its service key; legacy per-company keys only as a
+    // fallback until the platform key is generated.
+    await this.platformAccess.assertCompanyCanTransact(companyId);
+    const environment = await this.platformAccess.getActiveEnvironment();
+    let apiKey = await this.platformAccess.getServiceApiKey(environment);
+    if (!apiKey) {
+      const legacy = await this.companyConfigurationRepository
+        .createQueryBuilder('configuration')
+        .addSelect('configuration.serviceApiKeyEncrypted')
+        .where('configuration.companyId = :companyId', { companyId })
+        .andWhere('configuration.environment = :environment', { environment })
+        .getOne();
+      apiKey = this.apiKeyVault.decrypt(legacy?.serviceApiKeyEncrypted);
+    }
 
     if (!apiKey) {
       throw new BadRequestException(
-        'TIRAMIS API key is not configured for the current company',
+        `The platform TIRAMIS service key for the ${environment} environment is not configured`,
       );
     }
 

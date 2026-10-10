@@ -36,6 +36,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared';
 
 import { TiramisServiceScopes } from '../constants/tiramis-service-scopes.constant';
 import { OrganizationContextService } from '../../shared/organization/organization-context.service';
+import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
 import { TiramisStatusQueryDto } from '../dto/tiramis-status-query.dto';
@@ -65,11 +66,8 @@ import {
   TIRAMIS_SUBMIT_PATTERN_BY_REQUEST_TYPE,
 } from '../constants/tiramis-message-patterns.constant';
 
-export type TiramisSecretName =
-  | 'clientKey'
-  | 'clientPrivateCertificatePassword'
-  | 'tiraPublicCertificatePassword'
-  | 'portalWebhookApiKey';
+/** Per-company secrets stored in TIRAMIS (the TIRA system secrets live in its env). */
+export type TiramisSecretName = 'portalWebhookApiKey';
 
 export type TiramisSecretStatus =
   | 'MISSING'
@@ -86,6 +84,13 @@ export interface TiramisSecretHealth {
     name: TiramisSecretName;
     label: string;
     status: TiramisSecretStatus;
+  }>;
+  /** Platform-wide TIRA secrets, configured in TIRAMIS's environment. */
+  systemSecrets?: Array<{
+    name: string;
+    label: string;
+    source: string;
+    status: 'OK' | 'MISSING';
   }>;
 }
 
@@ -113,6 +118,7 @@ export class TiramisClientService {
     private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
     @InjectRepository(TiramisCompanyConfigurationEntity)
     private readonly companyConfigurationRepository: Repository<TiramisCompanyConfigurationEntity>,
+    private readonly platformAccess: TiramisPlatformAccessService,
   ) {}
 
   async submit(dto: SubmitTiramisDto, authContext?: any) {
@@ -292,11 +298,21 @@ export class TiramisClientService {
           })
         : null;
 
+    // Resolve the environment once: the tracking row records it and every
+    // follow-up (status sync, retry) stays on it, even after a switch.
+    const submissionEnvironment = await this.resolveSubmissionEnvironment(
+      authContext?.companyId ?? null,
+    );
+    const pinnedAuthContext = authContext
+      ? { ...authContext, tiramisEnvironment: submissionEnvironment }
+      : authContext;
+
     let tracking: any;
     try {
       tracking = await this.trackingRepository.save(
         this.trackingRepository.create({
           requestType: dto.requestType,
+          tiramisEnvironment: submissionEnvironment,
           status: TiramisSubmissionStatus.PENDING,
           schemaVersion:
             canonicalEnvelope?.schemaVersion ??
@@ -444,7 +460,7 @@ export class TiramisClientService {
       const response = canonicalEnvelope
         ? await this.sendCanonicalEnvelope(
             canonicalEnvelope,
-            authContext,
+            pinnedAuthContext,
             dto.productContext,
             dto.pricingContext,
             dto.insuredDataContext,
@@ -454,7 +470,7 @@ export class TiramisClientService {
         : await this.send(
             pattern,
             command,
-            authContext,
+            pinnedAuthContext,
             dto.productContext,
             dto.pricingContext,
             dto.insuredDataContext,
@@ -638,11 +654,11 @@ export class TiramisClientService {
     companyId: string;
     environment: 'test' | 'live';
     companyCode: string;
-    systemCode: string | null;
     insurerCompanyCode?: string | null;
     allowExpiredCertificates?: boolean;
   }): Promise<{
     valid: boolean;
+    allowExpiredCertificates?: boolean;
     message?: string;
     configurationId?: string;
     environment?: string;
@@ -686,9 +702,10 @@ export class TiramisClientService {
           data: {
             environment: params.environment,
             companyCode: params.companyCode,
-            systemCode: params.systemCode,
             insurerCompanyCode: params.insurerCompanyCode ?? null,
-            allowExpiredCertificates: params.allowExpiredCertificates ?? false,
+            ...(params.allowExpiredCertificates !== undefined
+              ? { allowExpiredCertificates: params.allowExpiredCertificates }
+              : {}),
           },
           validateStatus: () => true,
           headers: {
@@ -713,6 +730,7 @@ export class TiramisClientService {
 
       const result = unwrapApiResponse(response.data) as {
         valid?: boolean;
+        allowExpiredCertificates?: boolean;
         message?: string;
         configurationId?: string;
         environment?: string;
@@ -736,6 +754,7 @@ export class TiramisClientService {
 
       return {
         valid: result?.valid === true,
+        allowExpiredCertificates: result?.allowExpiredCertificates,
         message: result?.message,
         configurationId: result?.configurationId,
         environment: result?.environment,
@@ -765,7 +784,6 @@ export class TiramisClientService {
     companyId: string;
     environment: 'test' | 'live';
     companyCode: string;
-    systemCode: string | null;
     adminAccessToken: string;
     allowedIps: string[];
   }): Promise<string> {
@@ -785,7 +803,8 @@ export class TiramisClientService {
       );
     // TIRAMIS keeps one active key per system name and rejects tenant-scoped
     // calls from unbound keys, so each company/environment gets its own key.
-    const systemName = `${configuration.sourceService || this.configService.getOrThrow<string>('tiramisClient.sourceService')}-${params.companyCode}-${params.environment}`;
+    const systemName = `${this.configService.getOrThrow<string>('tiramisClient.sourceService')}-${params.companyCode}-${params.environment}`;
+    const baseUrl = this.configService.get<string>('tiramisClient.baseUrl');
     const headers = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
@@ -799,7 +818,7 @@ export class TiramisClientService {
     const keysResponse = await firstValueFrom(
       this.httpService.request({
         method: 'GET',
-        baseURL: configuration.baseUrl ?? undefined,
+        baseURL: baseUrl ?? undefined,
         url: '/api/tiramis/api-keys',
         validateStatus: () => true,
         headers,
@@ -830,7 +849,7 @@ export class TiramisClientService {
     const keyResponse = await firstValueFrom(
       this.httpService.request({
         method: 'POST',
-        baseURL: configuration.baseUrl ?? undefined,
+        baseURL: baseUrl ?? undefined,
         url: existing?.id
           ? `/api/tiramis/api-keys/systems/${encodeURIComponent(systemName)}/rotate`
           : '/api/tiramis/api-keys',
@@ -843,7 +862,6 @@ export class TiramisClientService {
               serviceName: systemName,
               allowedIps: params.allowedIps,
               tenantCompanyCode: params.companyCode,
-              tenantSystemCode: params.systemCode,
               tenantEnvironment: params.environment,
               scopes: ['tiramis:submit', 'tiramis:read', 'tiramis:verify'],
               description: `Portal system key for ${params.environment}.`,
@@ -873,102 +891,68 @@ export class TiramisClientService {
   }
 
   /**
-   * Creates or updates the ClientConfiguration TIRAMIS resolves API keys
-   * against for this company/environment — the TIRA-issued clientCode/
-   * clientKey/baseUrl/callbackBaseUrl. Authorized by the calling platform
-   * administrator's token, since this must work even before any
-   * company-specific key exists yet.
+   * Creates or updates a company's TIRAMIS configuration: company-specific
+   * settings only. The TIRA system identity (client code/key, system code,
+   * certificates, base/callback URLs) is platform-wide in TIRAMIS's env.
+   * Authorized by the calling platform administrator's token, since this
+   * must work before any company-specific key exists.
    */
   async upsertClientConfiguration(params: {
     companyId: string;
     environment: 'test' | 'live';
     companyCode: string;
-    systemCode: string;
     insurerCompanyCode: string;
-    clientCode: string;
-    clientKey?: string;
     salePointCode?: string | null;
     tranCompanyCode?: string | null;
-    /** Omit to use TIRAMIS's own platform default for this environment. */
-    baseUrl?: string;
-    /** Omit to use TIRAMIS's own platform default for this environment. */
-    callbackBaseUrl?: string;
-  }): Promise<{ id: string; baseUrl: string; callbackBaseUrl: string }> {
-    const requestId = this.requestContextService.getRequestId();
-    const correlationId =
-      this.requestContextService.getCorrelationId() || requestId;
-    const connection = await this.resolveConnectionConfig(
-      params.companyId,
-      params.environment,
-    );
-    const serviceContext = this.encodeServiceContext({
-      tenant: {
-        companyId: params.companyId,
-        environment: params.environment,
-      },
-    });
-    const headers = {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-API-Key': connection.apiKey,
-      ...this.adminAuthorizationHeader(),
-      'X-Service-Context': serviceContext,
-      ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
-      ...(correlationId
-        ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
-        : {}),
-    };
-
-    const response = await firstValueFrom(
-      this.httpService.request({
-        method: 'PUT',
-        baseURL: connection.baseUrl ?? undefined,
-        url: '/api/tiramis/configurations',
-        data: {
-          environment: params.environment,
-          companyCode: params.companyCode,
-          systemCode: params.systemCode,
-          insurerCompanyCode: params.insurerCompanyCode,
-          clientCode: params.clientCode,
-          clientKey: params.clientKey,
-          salePointCode: params.salePointCode ?? undefined,
-          tranCompanyCode: params.tranCompanyCode ?? undefined,
-          baseUrl: params.baseUrl,
-          callbackBaseUrl: params.callbackBaseUrl,
-          isActive: true,
-        },
-        validateStatus: () => true,
-        headers,
-      }),
-    );
-
-    if (response.status < 200 || response.status >= 300) {
-      this.logger.error(
-        `TIRAMIS rejected upsertClientConfiguration for company ${params.companyId} (${params.environment}): status=${response.status} body=${JSON.stringify(response.data)}`,
-      );
-      throw new ConflictException(
-        this.extractTiramisErrorMessage(response.data) ||
-          'Unable to link this company to TIRAMIS.',
-      );
-    }
-
-    const result = unwrapApiResponse(response.data) as {
+  }): Promise<{ id: string; systemCode: string | null }> {
+    const result = await this.configurationAdminRequest<{
       id?: string;
-      baseUrl?: string;
-      callbackBaseUrl?: string;
-    };
+      systemCode?: string;
+    }>(params, {
+      method: 'PUT',
+      url: '/api/tiramis/configurations',
+      data: {
+        environment: params.environment,
+        companyCode: params.companyCode,
+        insurerCompanyCode: params.insurerCompanyCode,
+        ...(params.salePointCode
+          ? { salePointCode: params.salePointCode }
+          : {}),
+        ...(params.tranCompanyCode
+          ? { tranCompanyCode: params.tranCompanyCode }
+          : {}),
+        isActive: true,
+      },
+      failureMessage: 'Unable to link this company to TIRAMIS.',
+    });
 
-    if (!result?.id || !result?.baseUrl || !result?.callbackBaseUrl) {
+    if (!result?.id) {
       throw new ConflictException(
-        'TIRAMIS did not return the configuration id and effective base/callback URL.',
+        'TIRAMIS did not return the company configuration id.',
       );
     }
 
-    return {
-      id: result.id,
-      baseUrl: result.baseUrl,
-      callbackBaseUrl: result.callbackBaseUrl,
-    };
+    return { id: result.id, systemCode: result.systemCode ?? null };
+  }
+
+  /** The platform-wide TIRA system identity (no secrets) for an environment. */
+  getSystemIdentity(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+  }) {
+    return this.configurationAdminRequest<{
+      environment: string;
+      clientCode: string;
+      systemCode: string;
+      systemName: string;
+      baseUrl: string;
+      callbackBaseUrl: string;
+    }>(params, {
+      method: 'POST',
+      url: '/api/tiramis/configurations/system-identity',
+      data: { environment: params.environment },
+      failureMessage: 'Unable to read the TIRA system identity.',
+    });
   }
 
   /**
@@ -1051,7 +1035,6 @@ export class TiramisClientService {
     companyId: string;
     environment: 'test' | 'live';
     companyCode: string;
-    systemCode: string;
   }): Promise<string> {
     const result = await this.configurationAdminRequest<{
       configurationId?: string;
@@ -1061,7 +1044,6 @@ export class TiramisClientService {
       data: {
         environment: params.environment,
         companyCode: params.companyCode,
-        systemCode: params.systemCode,
       },
       failureMessage: 'Unable to resolve the TIRAMIS client configuration.',
     });
@@ -1114,8 +1096,79 @@ export class TiramisClientService {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
 
+  /**
+   * Platform-level TIRAMIS administration (profiles, platform keys, company
+   * provisioning), authorized by the calling platform administrator's token.
+   */
+  platformAdminRequest<T>(request: {
+    method: 'GET' | 'POST' | 'PUT';
+    url: string;
+    data?: unknown;
+    failureMessage: string;
+    environment?: 'test' | 'live';
+  }): Promise<T> {
+    return this.configurationAdminRequest<T>(
+      { companyId: null, environment: request.environment ?? 'test' },
+      request,
+    );
+  }
+
+  /**
+   * Issues (or rotates) the platform's TIRAMIS service key for an
+   * environment, bound to that environment only so it can serve every linked
+   * company, whose identity travels in the authenticated service context.
+   */
+  async issuePlatformServiceKey(params: {
+    environment: 'test' | 'live';
+    allowedIps: string[];
+  }): Promise<string> {
+    const serviceName = `${this.configService.getOrThrow<string>('tiramisClient.sourceService')}-platform-${params.environment}`;
+    const keys = await this.platformAdminRequest<
+      Array<{ id?: string; serviceName?: string; isActive?: boolean; revokedAt?: string | null }>
+    >({
+      method: 'GET',
+      url: '/api/tiramis/api-keys',
+      failureMessage: 'Unable to read TIRAMIS API keys.',
+    });
+    const existing = keys.find(
+      (key) =>
+        key.id &&
+        key.serviceName === serviceName &&
+        key.isActive !== false &&
+        !key.revokedAt,
+    );
+    const scopes = ['tiramis:submit', 'tiramis:read', 'tiramis:verify'];
+    const result = await this.platformAdminRequest<{ apiKey?: string }>(
+      existing
+        ? {
+            method: 'POST',
+            url: `/api/tiramis/api-keys/systems/${encodeURIComponent(serviceName)}/rotate`,
+            data: { scopes },
+            failureMessage: 'Unable to rotate the platform TIRAMIS key.',
+          }
+        : {
+            method: 'POST',
+            url: '/api/tiramis/api-keys',
+            data: {
+              name: serviceName,
+              serviceName,
+              allowedIps: params.allowedIps,
+              tenantEnvironment: params.environment,
+              scopes,
+              description: `Platform service key for ${params.environment}; serves every linked company.`,
+              isActive: true,
+            },
+            failureMessage: 'Unable to issue the platform TIRAMIS key.',
+          },
+    );
+    if (!result?.apiKey) {
+      throw new ConflictException('TIRAMIS did not return the generated key.');
+    }
+    return result.apiKey;
+  }
+
   private async configurationAdminRequest<T>(
-    params: { companyId: string; environment: 'test' | 'live' },
+    params: { companyId: string | null; environment: 'test' | 'live' },
     request: {
       method: 'GET' | 'POST' | 'PUT';
       url: string;
@@ -1126,21 +1179,26 @@ export class TiramisClientService {
     const requestId = this.requestContextService.getRequestId();
     const correlationId =
       this.requestContextService.getCorrelationId() || requestId;
-    const connection = await this.resolveConnectionConfig(
-      params.companyId,
-      params.environment,
+    const serviceContext = this.encodeServiceContext(
+      params.companyId
+        ? {
+            tenant: {
+              companyId: params.companyId,
+              environment: params.environment,
+            },
+          }
+        : {},
     );
-    const serviceContext = this.encodeServiceContext({
-      tenant: {
-        companyId: params.companyId,
-        environment: params.environment,
-      },
-    });
 
+    // TIRAMIS authorizes configuration routes with the platform
+    // administrator's token alone, so these calls must not depend on the
+    // company already having a TIRAMIS API key: linking a new company starts
+    // here, before any key exists.
     const response = await firstValueFrom(
       this.httpService.request({
         method: request.method,
-        baseURL: connection.baseUrl ?? undefined,
+        baseURL:
+          this.configService.get<string>('tiramisClient.baseUrl') ?? undefined,
         url: request.url,
         data: request.data,
         timeout: 15_000,
@@ -1148,7 +1206,6 @@ export class TiramisClientService {
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
-          'X-API-Key': connection.apiKey,
           ...this.adminAuthorizationHeader(),
           'X-Service-Context': serviceContext,
           ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
@@ -1345,6 +1402,9 @@ export class TiramisClientService {
             companyId: tracking.sourceCompanyId,
             roles: [],
             permissions: [],
+            ...(tracking.tiramisEnvironment
+              ? { tiramisEnvironment: tracking.tiramisEnvironment }
+              : {}),
           }
         : undefined;
 
@@ -1407,14 +1467,14 @@ export class TiramisClientService {
       await this.organizationContextService.requireTiramisReady(
         authContext.id,
         authContext.companyId!,
+        authContext.tiramisEnvironment,
+        { followUp: authContext.tiramisFollowUp === true },
       );
 
     return {
       companyId: organizationContext.company.id,
       companyCode: organizationContext.tiramis.companyCode!,
       insurerCompanyCode: organizationContext.tiramis.insurerCompanyCode!,
-      systemCode: organizationContext.tiramis.systemCode!,
-      clientCode: organizationContext.tiramis.clientCode,
       branchId: organizationContext.activeBranch!.id,
       branchCode: organizationContext.activeBranch!.code,
       departmentId: organizationContext.activeDepartment?.id ?? null,
@@ -1474,9 +1534,7 @@ export class TiramisClientService {
         intermediaryCompanyId: null,
         intermediaryAgentId: null,
         transactionCompanyCode:
-          tenantContext.companyCode ||
-          tenantContext.systemCode ||
-          tenantContext.companyId,
+          tenantContext.companyCode || tenantContext.companyId,
         commissionRate: params.dto.financeContext?.commissionRate ?? null,
         commissionAmount: params.dto.financeContext?.commissionAmount ?? null,
       },
@@ -1522,6 +1580,7 @@ export class TiramisClientService {
     };
 
     return this.tiramisEnvelopeService.build({
+      environment: tenantContext.environment,
       command: TiramisIntegrationCommand.SUBMIT,
       requestType: canonicalRequestType,
       idempotencyKey: params.idempotencyKey,
@@ -1668,15 +1727,8 @@ export class TiramisClientService {
     pattern: string,
   ) {
     if (!companyId) return;
-    const environment =
-      await this.organizationContextService.resolveCompanyTiramisEnvironment(
-        companyId,
-      );
-    const configuration = await this.companyConfigurationRepository.findOne({
-      where: { companyId, environment, isActive: true },
-    });
-    const permissions = configuration?.integrationPermissions;
-    if (!permissions?.length) return; // legacy rows retain prior behavior
+    // Integration capabilities are platform-level, the same for every company.
+    const permissions = await this.platformAccess.getIntegrationPermissions();
     const required = this.resolveServiceScopes(pattern);
     const capability = required.includes(TiramisServiceScopes.READ)
       ? 'read_status'
@@ -1708,37 +1760,54 @@ export class TiramisClientService {
       );
     }
 
-    const targetEnvironment =
-      environment ??
-      this.configService.get<string>('tiramisClient.targetEnvironment') ??
-      'test';
-    const configuration = await this.companyConfigurationRepository
-      .createQueryBuilder('configuration')
-      .addSelect('configuration.serviceApiKeyEncrypted')
-      .where('configuration.companyId = :companyId', { companyId })
-      .andWhere('configuration.environment = :environment', {
-        environment: targetEnvironment,
-      })
-      .andWhere('configuration.isActive = true')
-      .getOne();
+    const targetEnvironment: 'test' | 'live' =
+      environment === 'live' || environment === 'test'
+        ? environment
+        : await this.platformAccess.getActiveEnvironment();
 
-    const apiKey = this.apiKeyVault.decrypt(
-      configuration?.serviceApiKeyEncrypted,
-    );
+    // The platform's service key for the environment. A company's legacy
+    // per-company key is used only until the platform key is generated.
+    let apiKey = await this.platformAccess.getServiceApiKey(targetEnvironment);
+    if (!apiKey) {
+      const legacy = await this.companyConfigurationRepository
+        .createQueryBuilder('configuration')
+        .addSelect('configuration.serviceApiKeyEncrypted')
+        .where('configuration.companyId = :companyId', { companyId })
+        .andWhere('configuration.environment = :environment', {
+          environment: targetEnvironment,
+        })
+        .getOne();
+      apiKey = this.apiKeyVault.decrypt(legacy?.serviceApiKeyEncrypted);
+    }
 
     if (!apiKey) {
       throw new ConflictException(
-        'TIRAMIS API key is not configured for the current company.',
+        `The platform TIRAMIS service key for the ${targetEnvironment} environment is not configured (Platform → TIRAMIS Integration).`,
       );
     }
 
     return {
       apiKey,
-      baseUrl: configuration?.baseUrl ?? null,
-      sourceService:
-        configuration?.sourceService ||
-        this.configService.getOrThrow<string>('tiramisClient.sourceService'),
+      baseUrl: this.configService.get<string>('tiramisClient.baseUrl') ?? null,
+      sourceService: this.configService.getOrThrow<string>(
+        'tiramisClient.sourceService',
+      ),
     };
+  }
+
+  /** The environment a new submission is sent to (one source of truth). */
+  private async resolveSubmissionEnvironment(
+    companyId: string | null,
+  ): Promise<'test' | 'live'> {
+    if (companyId) {
+      return this.organizationContextService.resolveCompanyTiramisEnvironment(
+        companyId,
+      );
+    }
+    return this.configService.get<string>('tiramisClient.targetEnvironment') ===
+      'live'
+      ? 'live'
+      : 'test';
   }
 
   private async send(
@@ -1781,9 +1850,10 @@ export class TiramisClientService {
                 // Check the environment the company activated, as submissions
                 // do, rather than the service-wide default.
                 environment:
-                  await this.organizationContextService.resolveCompanyTiramisEnvironment(
+                  authContext.tiramisEnvironment ??
+                  (await this.organizationContextService.resolveCompanyTiramisEnvironment(
                     authContext.companyId,
-                  ),
+                  )),
               }
             : await this.buildTiramisReadyTenantContext(authContext)
           : undefined;

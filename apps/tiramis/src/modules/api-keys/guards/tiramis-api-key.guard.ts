@@ -192,7 +192,6 @@ export class TiramisApiKeyGuard implements CanActivate {
   ): ServicePrincipal['tenant'] | undefined {
     const binding = {
       companyCode: principal.tenantCompanyCode,
-      systemCode: principal.tenantSystemCode,
       environment: principal.tenantEnvironment,
       clientConfigurationId: principal.clientConfigurationId,
     };
@@ -201,7 +200,6 @@ export class TiramisApiKeyGuard implements CanActivate {
       requestedTenant &&
       [
         requestedTenant.companyCode,
-        requestedTenant.systemCode,
         requestedTenant.environment,
         requestedTenant.clientConfigurationId,
       ].some((value) => Boolean(value));
@@ -223,11 +221,6 @@ export class TiramisApiKeyGuard implements CanActivate {
       requestedTenant?.companyCode,
     );
     this.assertTenantMatch(
-      'system',
-      binding.systemCode,
-      requestedTenant?.systemCode,
-    );
-    this.assertTenantMatch(
       'environment',
       binding.environment,
       requestedTenant?.environment,
@@ -240,7 +233,6 @@ export class TiramisApiKeyGuard implements CanActivate {
     return {
       ...(requestedTenant ?? {}),
       ...(binding.companyCode ? { companyCode: binding.companyCode } : {}),
-      ...(binding.systemCode ? { systemCode: binding.systemCode } : {}),
       ...(binding.environment ? { environment: binding.environment } : {}),
       ...(binding.clientConfigurationId
         ? { clientConfigurationId: binding.clientConfigurationId }

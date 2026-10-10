@@ -6,6 +6,10 @@ import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
 import { DepartmentUser } from '../../tenant/departments/entities/department-user.entity';
 import { TiramisCompanyConfigurationEntity } from '../../tiramis/entities/tiramis-company-configuration.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
+import { TiramisCompanyLinkEntity } from '../../tiramis/entities/tiramis-company-link.entity';
+import { TiramisPlatformSettingsEntity } from '../../tiramis/entities/tiramis-platform-settings.entity';
+import { TiramisServiceApiKeyVaultService } from '../../tiramis/services/tiramis-service-api-key-vault.service';
+import { TiramisPlatformAccessService } from './tiramis-platform-access.service';
 
 import { OrganizationController } from './organization.controller';
 import { OrganizationContextService } from './organization-context.service';
@@ -19,10 +23,16 @@ import { OrganizationContextService } from './organization-context.service';
       DepartmentUser,
       TiramisCompanyConfigurationEntity,
       TiramisSalePointEntity,
+      TiramisCompanyLinkEntity,
+      TiramisPlatformSettingsEntity,
     ]),
   ],
   controllers: [OrganizationController],
-  providers: [OrganizationContextService],
-  exports: [OrganizationContextService],
+  providers: [
+    OrganizationContextService,
+    TiramisPlatformAccessService,
+    TiramisServiceApiKeyVaultService,
+  ],
+  exports: [OrganizationContextService, TiramisPlatformAccessService],
 })
 export class OrganizationModule {}

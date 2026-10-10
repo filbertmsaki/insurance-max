@@ -37,6 +37,16 @@ export const COMPANY_USER_TYPES: UserType[] = [
 ];
 
 export interface AuthenticatedUser {
+  /**
+   * System follow-ups (status sync, retry) pin the TIRAMIS environment a
+   * submission was originally sent to; never set from a user request.
+   */
+  tiramisEnvironment?: 'test' | 'live';
+  /**
+   * A follow-up of an existing submission (status sync): company access and
+   * environment validation don't apply. Never set from a user request.
+   */
+  tiramisFollowUp?: boolean;
   id: string;
   email: string;
   scope: AuthScope;

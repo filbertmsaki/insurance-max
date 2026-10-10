@@ -12,13 +12,9 @@ type BuilderContext = {
   companyId: string | null;
   branchId: string | null;
   companyCode: string | null;
-  systemCode: string | null;
-  systemName: string | null;
   insurerCompanyCode: string | null;
   tranCompanyCode: string | null;
-  clientCode: string | null;
   salePointCode: string | null;
-  callbackUrl: string | null;
 };
 
 @Injectable()
@@ -330,29 +326,9 @@ export class TiramisBusinessPayloadBuilderService {
         company?.tira_company_code ||
         this.value(params.record, 'company_code', 'companyCode') ||
         null,
-      systemCode:
-        config?.system_code ||
-        company?.tira_system_code ||
-        this.value(params.record, 'system_code', 'systemCode') ||
-        null,
-      systemName:
-        config?.system_name ||
-        company?.tira_system_name ||
-        this.value(params.record, 'system_name', 'systemName') ||
-        null,
       insurerCompanyCode,
       tranCompanyCode: intermediaryCompanyCode || insurerCompanyCode,
-      clientCode:
-        config?.client_code ||
-        company?.tira_client_code ||
-        this.value(params.record, 'client_code', 'clientCode') ||
-        null,
       salePointCode,
-      callbackUrl:
-        config?.callback_url ||
-        company?.tira_callback_url ||
-        this.value(params.record, 'callback_url', 'callbackUrl') ||
-        null,
     };
   }
 
@@ -374,7 +350,6 @@ export class TiramisBusinessPayloadBuilderService {
         SELECT
           company_type,
           tira_company_code,
-          tira_client_code,
           regulatory_metadata
         FROM companies
         WHERE id = $1
@@ -396,7 +371,6 @@ export class TiramisBusinessPayloadBuilderService {
     const companyCode =
       intermediary.tira_company_code ||
       intermediary.regulatory_metadata?.tiraCompanyCode ||
-      intermediary.tira_client_code ||
       intermediary.regulatory_metadata?.clientCode ||
       null;
 
@@ -498,15 +472,13 @@ export class TiramisBusinessPayloadBuilderService {
   }
 
   private buildCommonPayload(context: BuilderContext) {
+    // Company identifiers only; TIRAMIS adds the platform-wide TIRA system
+    // identity (system code, client code, callback URL) itself.
     return this.cleanObject({
       companyCode: context.companyCode,
-      systemCode: context.systemCode,
-      systemName: context.systemName,
       insurerCompanyCode: context.insurerCompanyCode,
       tranCompanyCode: context.tranCompanyCode || context.insurerCompanyCode,
-      clientCode: context.clientCode,
       salePointCode: context.salePointCode,
-      callbackUrl: context.callbackUrl,
     });
   }
 

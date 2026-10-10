@@ -384,17 +384,25 @@ PORTAL_ADMIN_RATE_LIMIT_WINDOW_MS=60000
 TIRAMIS_CERTIFICATE_BASE_DIR=/opt/apps/tiramis/certificates
 TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS=30
 
-# --- TIRA credentials (read by seed:tiramis:config only) ---
-ALLIANCE_TIRA_CLIENT_KEY_TEST=<from TIRA>
-ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST=<from TIRA>
+# --- TIRA system identity (platform-wide; shared by every company, never per company) ---
+TIRA_CLIENT_CODE_TEST=<from TIRA>
+TIRA_CLIENT_KEY_TEST=<from TIRA>
+TIRA_SYSTEM_CODE_TEST=<from TIRA>
+TIRA_SYSTEM_NAME_TEST=<from TIRA>
+TIRA_CLIENT_CERT_PASSWORD_TEST=<from TIRA>
 TIRA_PUBLIC_CERT_PASSWORD_TEST=<from TIRA>
 TIRAMIS_TEST_BASE_URL=<TIRA_TEST_BASE_URL>                 # REQUIRED, non-empty
 TIRAMIS_TEST_CALLBACK_URL=<TIRAMIS_PUBLIC_URL>/api/tiramis/callbacks/test
-ALLIANCE_TIRA_CLIENT_KEY_LIVE=<from TIRA>
-ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE=<from TIRA>
+TIRA_CLIENT_CODE_LIVE=<from TIRA>
+TIRA_CLIENT_KEY_LIVE=<from TIRA>
+TIRA_SYSTEM_CODE_LIVE=<from TIRA>
+TIRA_SYSTEM_NAME_LIVE=<from TIRA>
+TIRA_CLIENT_CERT_PASSWORD_LIVE=<from TIRA>
 TIRA_PUBLIC_CERT_PASSWORD_LIVE=<from TIRA>
 TIRAMIS_LIVE_BASE_URL=<TIRA_LIVE_BASE_URL>                 # REQUIRED, non-empty
 TIRAMIS_LIVE_CALLBACK_URL=<TIRAMIS_PUBLIC_URL>/api/tiramis/callbacks/live
+TIRA_ALLOW_EXPIRED_CERTIFICATES=false                      # system-wide; keep false in production
+# Certificates: <TIRAMIS_CERTIFICATE_BASE_DIR>/<test|live>/clientprivate.pfx and tiramispublic.pfx (one set per environment)
 # TIRAMIS_SEED_ENVIRONMENTS=test   # only if LIVE credentials are not available yet (the seeder then needs only _TEST)
 
 # --- Portal notifications (outbox) ---
@@ -730,11 +738,16 @@ FROM tiramis_company_configurations;
 ```bash
 CID=<companyId>; ENV=test     # repeat everything with ENV=live afterwards
 
-# 1. upsert (client_key is required the first time a company is linked)
+# 1. upsert the company's settings (company fields only; the TIRA client code/key,
+#    system code/name, certificates and URLs are platform-wide in TIRAMIS's env)
 curl -s -X PUT $API/platform/companies/$CID/tiramis-configurations/$ENV \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"company_code":"ICC110","system_code":"LSYS_ALLIANCE_003","client_code":"ICC110",
-       "client_key":"<TIRA client key for this env>","is_active":true}' | jq '.success, .data'
+  -d '{"company_code":"ICC110","insurer_company_code":"ICC110","sale_point_code":"SP500",
+       "is_active":true}' | jq '.success, .data'
+
+# (optional) view the platform-wide system identity this company will use
+curl -s $API/platform/companies/$CID/tiramis-configurations/$ENV/system-identity \
+  -H "Authorization: Bearer $TOKEN" | jq '.data'
 
 # 2. generate the per-company TIRAMIS key
 curl -s -X POST $API/platform/companies/$CID/tiramis-configurations/$ENV/api-key/generate \
@@ -895,8 +908,8 @@ Expected: no Joi `Config validation error` and no `ECONNREFUSED`. The error log 
 
 ```sql
 -- in tiramis_db
-SELECT environment, company_code, system_code, is_active, base_url, callback_base_url FROM tiramis_client_configurations;
-SELECT count(*) FROM tiramis_service_endpoints;                      -- 15 per seeded environment
+SELECT environment, company_code, insurer_company_code, sale_point_code, is_active FROM tiramis_client_configurations;
+SELECT environment, count(*) FROM tiramis_service_endpoints GROUP BY 1; -- 15 per environment (shared by all companies)
 SELECT count(*) FROM tiramis_response_codes;                         -- > 0 (TIRA001…)
 SELECT name, key_prefix, scopes, is_active FROM tiramis_api_keys;    -- empty after seeding; company keys appear after A4
 ```
@@ -1079,7 +1092,7 @@ The second call requires a user with TIRAMIS view permission.
 
 ```sql
 -- TIRAMIS DB: key exists and was used
-SELECT key_prefix, tenant_company_code, tenant_system_code, tenant_environment, last_used_at FROM tiramis_api_keys WHERE tenant_company_code='ICC110';
+SELECT key_prefix, tenant_company_code, tenant_environment, last_used_at FROM tiramis_api_keys WHERE tenant_company_code='ICC110';
 SELECT created_at, action, outcome, service_name, ip_address FROM tiramis_api_key_audit_logs ORDER BY created_at DESC LIMIT 10;
 ```
 
@@ -1145,7 +1158,9 @@ curl -s -X POST -H "Authorization: Bearer $CTOKEN" $API/companies/my/tiramis-con
 | `API key is not bound to a TIRAMIS company configuration` | TIRAMIS log | The company key is old or unbound. Regenerate it with `POST …/tiramis-configurations/{env}/api-key/generate` and `{"allowed_ips":[…]}`, then validate. |
 | Upsert fails: `Set TIRAMIS_WEBHOOK_SOURCE_IP to the IP the TIRAMIS service calls the portal from…` | Portal log / API response | `TIRAMIS_SERVICE_BASE_URL` is a hostname and `TIRAMIS_WEBHOOK_SOURCE_IP` is unset. Set it. |
 | Calls go to `…/tiramis-api/api/api/tiramis/…` (404) | Portal log, Apache access log | `TIRAMIS_SERVICE_BASE_URL` ends in `/api`. Remove it. |
-| Validate: `TIRAMIS_CLIENT_CONFIGURATION_NOT_FOUND` / `TIRAMIS_ENVIRONMENT_MISMATCH` | TIRAMIS log | `company_code`/`system_code`/env in the portal do not match the TIRAMIS configuration row. Use `ICC110` / `LSYS_ALLIANCE_003`. |
+| Validate: `TIRAMIS_CLIENT_CONFIGURATION_NOT_FOUND` / `TIRAMIS_ENVIRONMENT_MISMATCH` | TIRAMIS log | No TIRAMIS configuration for this `company_code` + environment. Save the company's TIRA settings in the portal (step 1), which creates it. |
+| `TIRAMIS_SYSTEM_CODE_MISMATCH` | TIRAMIS log | A caller sent a system code different from `TIRA_SYSTEM_CODE_<ENV>`. The system code is platform-wide; don't send one per company. |
+| Validate: "ClientKey/ClientCode/SystemCode is not configured (set TIRA_…)" | TIRAMIS env | Set the named `TIRA_*_<ENV>` variable in the TIRAMIS `.env` and restart. |
 | Validate fails right after upsert with "no API key" | — | Generate the company key first (A4 step 2). Validation uses the company key. |
 | Webhook test 401 | Portal log; nginx access log on the portal host (look at the remote address of `POST /api/v1/webhooks/tiramis/notifications`) | Allowlisted IP ≠ address seen by the portal. Set `TIRAMIS_WEBHOOK_SOURCE_IP` to the observed address, check `TRUST_PROXY_HOPS`, restart, then re-sync (B4.4). |
 | Webhook test timeout | TIRAMIS log | Firewall or DNS from the TIRAMIS host to `<PORTAL_API_ORIGIN>` (B1.6) |

@@ -21,6 +21,7 @@ import {
 } from '../entities/tiramis-portal-notification-outbox.entity';
 import { TiramisClientConfigurationEntity } from '../../config/entities/tiramis-client-configuration.entity';
 import { TiramisSecretCryptoService } from '../../security/services/tiramis-secret-crypto.service';
+import { TiramisSystemProfileService } from '../../config/services/tiramis-system-profile.service';
 import { TiramisCallbackReceiptEntity } from '../../callbacks/entities/tiramis-callback-receipt.entity';
 import { TiramisCallbackDeadLetterEntity } from '../../callbacks/entities/tiramis-callback-dead-letter.entity';
 
@@ -63,6 +64,7 @@ export class TiramisPortalNotificationService {
     private readonly callbackReceiptRepository: Repository<TiramisCallbackReceiptEntity>,
     @InjectRepository(TiramisCallbackDeadLetterEntity)
     private readonly callbackDeadLetterRepository: Repository<TiramisCallbackDeadLetterEntity>,
+    private readonly systemProfiles: TiramisSystemProfileService,
   ) {}
 
   async testWebhook(configurationId: string, webhookUrl: string) {
@@ -186,8 +188,15 @@ export class TiramisPortalNotificationService {
     const configuration = await this.configurationRepository.findOne({
       where: { id: clientConfigurationId },
     });
-    const configured = configuration?.portalNotificationEvents;
-    // null means legacy/default behavior; an empty array explicitly disables all events.
+    // Platform policy for the transaction's environment wins; a company's
+    // legacy per-row policy applies only while no platform policy is set.
+    const platformEvents = configuration
+      ? this.platformProfile(configuration.environment)
+          ?.portalNotificationEvents
+      : null;
+    const configured =
+      platformEvents ?? configuration?.portalNotificationEvents ?? null;
+    // null means the default set; an empty array disables all events.
     return configured == null || configured.includes(eventType);
   }
 
@@ -724,16 +733,31 @@ export class TiramisPortalNotificationService {
     clientConfigurationId?: string | null,
   ): Promise<string | null> {
     if (!clientConfigurationId) return null;
+    // Deliberately not filtered on isActive: a deactivated company's
+    // in-flight transactions must still deliver their results.
     const configuration = await this.configurationRepository.findOne({
-      where: { id: clientConfigurationId, isActive: 1 },
+      where: { id: clientConfigurationId },
     });
     if (!configuration) {
       throw new Error(
         `Portal webhook configuration ${clientConfigurationId} is unavailable; refusing environment fallback.`,
       );
     }
+    // The platform webhook key of the transaction's environment; a company's
+    // legacy per-row key is used only until the platform key is configured.
+    const platformKey = this.platformProfile(
+      configuration.environment,
+    )?.portalWebhookApiKey;
+    if (platformKey) return platformKey;
     if (!configuration.portalWebhookApiKeyEncrypted) return null;
     return this.decryptPortalApiKey(configuration);
+  }
+
+  private platformProfile(environment?: string | null) {
+    const env = String(environment ?? '').toLowerCase();
+    return env === 'test' || env === 'live'
+      ? this.systemProfiles.getEffective(env)
+      : null;
   }
 
   private decryptPortalApiKey(configuration: {

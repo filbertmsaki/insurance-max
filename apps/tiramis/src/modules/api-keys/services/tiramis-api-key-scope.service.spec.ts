@@ -43,7 +43,6 @@ describe('TiramisApiKeyService capability scopes', () => {
         revokedAt: null,
         expiresAt: null,
         tenantCompanyCode: null,
-        tenantSystemCode: null,
         tenantEnvironment: null,
         clientConfigurationId: null,
       },
@@ -86,7 +85,6 @@ describe('TiramisApiKeyService capability scopes', () => {
       allowedIps: ['10.1.2.3'],
       scopes: ['tiramis:submit', 'tiramis:read'],
       tenantCompanyCode: null,
-      tenantSystemCode: null,
       tenantEnvironment: null,
       clientConfigurationId: null,
     });

@@ -35,11 +35,10 @@ export interface OrganizationTiramisContext {
   validated: boolean;
   ready: boolean;
 
+  /** Company-specific TIRA identifiers. The TIRA system identity (client
+   * code, system code/name) is platform-wide and owned by TIRAMIS. */
   companyCode: string | null;
   insurerCompanyCode: string | null;
-  clientCode: string | null;
-  systemCode: string | null;
-  systemName: string | null;
 
   missingRequirements: string[];
 }

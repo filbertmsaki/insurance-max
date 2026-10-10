@@ -29,13 +29,17 @@ export class TiramisEnvelopeService {
     source: TiramisSubmissionSource;
     context: TiramisSubmissionContext;
     payload: Record<string, unknown>;
+    /** The environment the submission is sent to (company/platform active). */
+    environment?: 'test' | 'live';
   }): TiramisSubmissionEnvelope {
     const payloadHash = this.hashService.hashDefinition(params.payload);
     const contextHash = this.hashService.hashDefinition(
       params.context as unknown as Record<string, unknown>,
     );
     const environment =
-      this.configService.get<'test' | 'live'>('TIRAMIS_TARGET_ENV') ?? 'test';
+      params.environment ??
+      this.configService.get<'test' | 'live'>('TIRAMIS_TARGET_ENV') ??
+      'test';
 
     const unsigned = {
       schemaVersion: TiramisIntegrationSchemaVersion.V1,

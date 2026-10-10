@@ -1,23 +1,12 @@
 import { BaseEntity } from '@insurance-max/persistence';
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, Index } from 'typeorm';
 
-import { TiramisClientConfigurationEntity } from './tiramis-client-configuration.entity';
-
+/** TIRA service endpoints are the same for every company in an environment. */
 @Entity({ name: 'tiramis_service_endpoints' })
-@Index(['clientConfigurationId', 'serviceType'], { unique: true })
+@Index(['environment', 'serviceType'], { unique: true })
 export class TiramisServiceEndpointEntity extends BaseEntity {
-  @Column({ name: 'client_configuration_id' })
-  clientConfigurationId!: string;
-
-  @ManyToOne(
-    () => TiramisClientConfigurationEntity,
-    (configuration) => configuration.endpoints,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
-  @JoinColumn({ name: 'client_configuration_id' })
-  clientConfiguration!: TiramisClientConfigurationEntity;
+  @Column({ length: 30 })
+  environment!: string;
 
   @Column({ name: 'service_type', length: 80 })
   serviceType!: string;

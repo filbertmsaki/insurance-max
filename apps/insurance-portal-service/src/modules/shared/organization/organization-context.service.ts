@@ -13,8 +13,9 @@ import { Company } from '../../platform/companies/entities/company.entity';
 import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
 import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
 import { DepartmentUser } from '../../tenant/departments/entities/department-user.entity';
-import { TiramisCompanyConfigurationEntity } from '../../tiramis/entities/tiramis-company-configuration.entity';
+import { TiramisCompanyLinkStatus } from '../../tiramis/entities/tiramis-company-link.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
+import { TiramisPlatformAccessService } from './tiramis-platform-access.service';
 
 @Injectable()
 export class OrganizationContextService {
@@ -31,15 +32,24 @@ export class OrganizationContextService {
     @InjectRepository(TiramisSalePointEntity)
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
 
-    @InjectRepository(TiramisCompanyConfigurationEntity)
-    private readonly configurationRepository: Repository<TiramisCompanyConfigurationEntity>,
+    private readonly platformAccess: TiramisPlatformAccessService,
 
     private readonly configService: ConfigService,
   ) {}
 
+  /**
+   * @param environment Pin the TIRAMIS environment (e.g. a submission's own
+   * environment for a status sync or retry) instead of the platform's active
+   * environment.
+   * @param options.followUp A follow-up of an existing submission (status
+   * sync, retry): company access and environment validation don't apply, so
+   * results already in flight are never stranded by a revoke or a switch.
+   */
   async resolve(
     userId: string,
     companyId: string,
+    environment?: 'test' | 'live',
+    options: { followUp?: boolean } = {},
   ): Promise<OrganizationContext> {
     const membership = await this.membershipRepository.findOne({
       where: {
@@ -122,17 +132,13 @@ export class OrganizationContextService {
         })
       : null;
 
-    const environment = this.resolveTiramisEnvironment(
-      membership.company.settings,
-    );
-
-    const configuration = await this.configurationRepository.findOne({
-      where: {
-        companyId,
-        environment,
-        isActive: true,
-      },
-    });
+    // Platform-level integration: the platform's active environment and the
+    // company's link status; companies have no TIRAMIS settings of their own.
+    const tiramisEnvironment =
+      environment ?? (await this.platformAccess.getActiveEnvironment());
+    const link = await this.platformAccess.getLink(companyId);
+    const environmentValidated =
+      await this.platformAccess.isEnvironmentValidated(tiramisEnvironment);
 
     const missingRequirements: string[] = [];
 
@@ -144,12 +150,18 @@ export class OrganizationContextService {
       missingRequirements.push('DEFAULT_SALE_POINT');
     }
 
-    if (membership.company.tira_integration_enabled && !configuration) {
-      missingRequirements.push('TIRAMIS_COMPANY_CONFIGURATION');
-    }
+    if (!options.followUp) {
+      if (!link) {
+        missingRequirements.push('TIRAMIS_ACCESS_NOT_LINKED');
+      } else if (link.status === TiramisCompanyLinkStatus.REVOKED) {
+        missingRequirements.push('TIRAMIS_ACCESS_REVOKED');
+      } else if (link.status !== TiramisCompanyLinkStatus.ACTIVE) {
+        missingRequirements.push('TIRAMIS_ACCESS_NOT_ACTIVE');
+      }
 
-    if (configuration && configuration.validationStatus !== 'VALID') {
-      missingRequirements.push('VALIDATED_TIRAMIS_CONFIGURATION');
+      if (!environmentValidated) {
+        missingRequirements.push('PLATFORM_ENVIRONMENT_NOT_VALIDATED');
+      }
     }
 
     return {
@@ -206,16 +218,13 @@ export class OrganizationContextService {
         : null,
 
       tiramis: {
-        enabled: membership.company.tira_integration_enabled,
-        environment,
-        configured: Boolean(configuration),
-        validated: configuration?.validationStatus === 'VALID',
+        enabled: link?.status === TiramisCompanyLinkStatus.ACTIVE,
+        environment: tiramisEnvironment,
+        configured: Boolean(link),
+        validated: environmentValidated,
         ready: missingRequirements.length === 0,
-        companyCode: configuration?.companyCode ?? null,
-        insurerCompanyCode: configuration?.insurerCompanyCode ?? null,
-        clientCode: configuration?.clientCode ?? null,
-        systemCode: configuration?.systemCode ?? null,
-        systemName: configuration?.systemName ?? null,
+        companyCode: link?.insurerCompanyCode ?? null,
+        insurerCompanyCode: link?.insurerCompanyCode ?? null,
         missingRequirements,
       },
     };
@@ -224,8 +233,10 @@ export class OrganizationContextService {
   async requireTiramisReady(
     userId: string,
     companyId: string,
+    environment?: 'test' | 'live',
+    options: { followUp?: boolean } = {},
   ): Promise<OrganizationContext> {
-    const context = await this.resolve(userId, companyId);
+    const context = await this.resolve(userId, companyId, environment, options);
 
     if (!context.tiramis.ready) {
       throw new BadRequestException({
@@ -242,34 +253,12 @@ export class OrganizationContextService {
   }
 
   /**
-   * Resolves the TIRAMIS environment a company has activated without loading
-   * the full membership context, for callers that only know the company.
+   * The TIRAMIS environment new submissions use. It is platform-wide: every
+   * linked company uses the environment the platform owner activated.
    */
   async resolveCompanyTiramisEnvironment(
-    companyId: string,
+    _companyId?: string,
   ): Promise<'test' | 'live'> {
-    const company = await this.membershipRepository.manager.findOne(Company, {
-      where: { id: companyId },
-      select: { id: true, settings: true },
-    });
-
-    return this.resolveTiramisEnvironment(company?.settings);
-  }
-
-  private resolveTiramisEnvironment(
-    companySettings?: Record<string, unknown> | null,
-  ): 'test' | 'live' {
-    const companyOverride = companySettings?.tiramis_target_environment;
-    if (companyOverride === 'live' || companyOverride === 'test') {
-      return companyOverride;
-    }
-
-    const configured = this.configService.get<string>('TIRAMIS_TARGET_ENV');
-
-    if (configured === 'live') {
-      return 'live';
-    }
-
-    return 'test';
+    return this.platformAccess.getActiveEnvironment();
   }
 }

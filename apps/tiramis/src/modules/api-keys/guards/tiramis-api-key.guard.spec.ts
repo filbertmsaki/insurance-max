@@ -36,7 +36,6 @@ describe('TiramisApiKeyGuard', () => {
         allowedIps: ['10.1.2.3'],
         scopes: ['tiramis:read'],
         tenantCompanyCode: null,
-        tenantSystemCode: null,
         tenantEnvironment: null,
         clientConfigurationId: null,
       }),
@@ -204,7 +203,6 @@ describe('TiramisApiKeyGuard', () => {
       allowedIps: ['10.1.2.3'],
       scopes: ['tiramis:submit'],
       tenantCompanyCode: '123456',
-      tenantSystemCode: 'PORTAL',
       tenantEnvironment: 'test',
       clientConfigurationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     });
@@ -245,7 +243,6 @@ describe('TiramisApiKeyGuard', () => {
       allowedIps: ['10.1.2.3'],
       scopes: ['tiramis:submit'],
       tenantCompanyCode: '123456',
-      tenantSystemCode: 'PORTAL',
       tenantEnvironment: 'test',
       clientConfigurationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     });

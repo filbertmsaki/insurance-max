@@ -30,7 +30,6 @@ export interface TiramisApiKeyPrincipal {
   allowedIps: string[];
   scopes: string[];
   tenantCompanyCode: string | null;
-  tenantSystemCode: string | null;
   tenantEnvironment: 'test' | 'live' | null;
   clientConfigurationId: string | null;
 }
@@ -69,7 +68,6 @@ export class TiramisApiKeyService {
       name: dto.name,
       serviceName: dto.serviceName,
       tenantCompanyCode: dto.tenantCompanyCode ?? null,
-      tenantSystemCode: dto.tenantSystemCode ?? null,
       tenantEnvironment: dto.tenantEnvironment ?? null,
       clientConfigurationId: dto.clientConfigurationId ?? null,
       apiKey: null as unknown as string,
@@ -117,10 +115,6 @@ export class TiramisApiKeyService {
         dto.tenantCompanyCode === undefined
           ? existing.tenantCompanyCode
           : dto.tenantCompanyCode,
-      tenantSystemCode:
-        dto.tenantSystemCode === undefined
-          ? existing.tenantSystemCode
-          : dto.tenantSystemCode,
       tenantEnvironment:
         dto.tenantEnvironment === undefined
           ? existing.tenantEnvironment
@@ -266,7 +260,6 @@ export class TiramisApiKeyService {
           'serviceName',
           'allowedIps',
           'tenantCompanyCode',
-          'tenantSystemCode',
           'tenantEnvironment',
           'clientConfigurationId',
           'scopes',
@@ -358,7 +351,6 @@ export class TiramisApiKeyService {
       allowedIps,
       scopes: grantedScopes,
       tenantCompanyCode: row.tenantCompanyCode ?? null,
-      tenantSystemCode: row.tenantSystemCode ?? null,
       tenantEnvironment: this.normalizeTenantEnvironment(row.tenantEnvironment),
       clientConfigurationId: row.clientConfigurationId ?? null,
     };

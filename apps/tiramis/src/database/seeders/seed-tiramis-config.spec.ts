@@ -8,15 +8,24 @@ const baseEnvironment = {
 };
 
 describe('seed-tiramis-config', () => {
-  it('includes test and live configuration rows without reading env credentials', () => {
+  it('seeds company-only configuration rows for test and live', () => {
     const options = resolveTiramisSeedOptions(baseEnvironment, []);
     const seeds = buildTiramisConfigurationSeeds(baseEnvironment, options);
 
     expect(options.includeLive).toBe(true);
     expect(options.skippedLiveKeys).toEqual([]);
     expect(seeds.map((seed) => seed.environment)).toEqual(['test', 'live']);
-    expect(seeds[0]).not.toHaveProperty('clientKey');
-    expect(seeds[1]).not.toHaveProperty('baseUrl');
+    for (const seed of seeds) {
+      // System identity is platform-wide (env), never seeded per company.
+      for (const field of [
+        'systemCode',
+        'clientCode',
+        'clientKey',
+        'baseUrl',
+      ]) {
+        expect(seed).not.toHaveProperty(field);
+      }
+    }
   });
 
   it('supports the explicit test-only CLI flag', () => {

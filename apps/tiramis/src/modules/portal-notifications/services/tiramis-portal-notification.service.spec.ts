@@ -103,7 +103,7 @@ describe('TiramisPortalNotificationService', () => {
       where: { id: 'configuration-for-transaction' },
     });
     expect(configurationRepository.findOne).toHaveBeenCalledWith({
-      where: { id: 'configuration-for-transaction', isActive: 1 },
+      where: { id: 'configuration-for-transaction' },
     });
     expect(post).toHaveBeenCalledWith(
       'https://portal.example.test/api/v1/webhooks/tiramis/notifications',

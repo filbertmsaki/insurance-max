@@ -10,15 +10,17 @@ import { TiramisServiceEndpointEntity } from '../../modules/config/entities/tira
 
 type EnvironmentName = 'live' | 'test';
 
+/**
+ * A company's TIRAMIS configuration: company-specific settings only. The TIRA
+ * system identity (client code/key, system code/name, certificates, URLs) is
+ * platform-wide and comes from the environment, never from this seeder.
+ */
 type ConfigurationSeed = {
   environment: EnvironmentName;
   companyCode: string;
-  systemCode: string;
-  clientCode: string;
   insurerCompanyCode: string;
   salePointCode: string;
   tranCompanyCode: string;
-  signatureAlgorithm: string;
 };
 
 type SeedEnvironment = Record<string, string | undefined>;
@@ -63,36 +65,28 @@ export function resolveTiramisSeedOptions(
   };
 }
 
+/** Environments whose system data (endpoints) this run seeds. */
+export function resolveSeedEnvironments(
+  options: TiramisSeedOptions,
+): EnvironmentName[] {
+  return options.includeLive ? ['test', 'live'] : ['test'];
+}
+
+/**
+ * Demo company (Alliance, ICC110) so a fresh development database can submit
+ * straight away. Other companies are added from the portal's TIRA setup.
+ */
 export function buildTiramisConfigurationSeeds(
   activeEnvironment: SeedEnvironment = environment,
   options = resolveTiramisSeedOptions(activeEnvironment),
 ): ConfigurationSeed[] {
-  return [
-    {
-      environment: 'test',
-      companyCode: 'ICC110',
-      systemCode: 'LSYS_ALLIANCE_003',
-      clientCode: 'ICC110',
-      insurerCompanyCode: 'ICC110',
-      salePointCode: 'SP500',
-      tranCompanyCode: 'ICC110',
-      signatureAlgorithm: 'sha1WithRSAEncryption',
-    },
-    ...(options.includeLive
-      ? [
-          {
-            environment: 'live',
-            companyCode: 'ICC110',
-            systemCode: 'LSYS_ALLIANCE_003',
-            clientCode: 'ICC110',
-            insurerCompanyCode: 'ICC110',
-            salePointCode: 'SP500',
-            tranCompanyCode: 'ICC110',
-            signatureAlgorithm: 'sha1WithRSAEncryption',
-          } as ConfigurationSeed,
-        ]
-      : []),
-  ];
+  return resolveSeedEnvironments(options).map((seedEnvironment) => ({
+    environment: seedEnvironment,
+    companyCode: 'ICC110',
+    insurerCompanyCode: 'ICC110',
+    salePointCode: 'SP500',
+    tranCompanyCode: 'ICC110',
+  }));
 }
 
 const endpointSeeds = [
@@ -478,15 +472,51 @@ const responseCodeSeeds: ResponseCodeSeed[] = responseCodeSeedEntries.map(
   }),
 );
 
-async function seedClientConfigurations(
+/** TIRA service endpoints are system data, shared by every company. */
+async function seedServiceEndpoints(
+  environments: EnvironmentName[],
+  activeDataSource = dataSource,
+) {
+  const endpointRepository = activeDataSource.getRepository(
+    TiramisServiceEndpointEntity,
+  );
+
+  for (const seedEnvironment of environments) {
+    await endpointRepository.delete({
+      environment: seedEnvironment,
+      serviceType: 'DETAILS_VERIFICATION',
+    });
+
+    for (const endpointSeed of endpointSeeds) {
+      let endpoint = await endpointRepository.findOne({
+        where: {
+          environment: seedEnvironment,
+          serviceType: endpointSeed.serviceType,
+        },
+      });
+
+      if (!endpoint) {
+        endpoint = endpointRepository.create();
+      }
+
+      endpoint.environment = seedEnvironment;
+      endpoint.serviceType = endpointSeed.serviceType;
+      endpoint.endpointUrl = endpointSeed.endpointUrl;
+      endpoint.httpMethod = 'POST';
+      endpoint.contentType = 'application/xml';
+      endpoint.isActive = 1;
+
+      await endpointRepository.save(endpoint);
+    }
+  }
+}
+
+async function seedCompanyConfigurations(
   configurations: ConfigurationSeed[],
   activeDataSource = dataSource,
 ) {
   const configurationRepository = activeDataSource.getRepository(
     TiramisClientConfigurationEntity,
-  );
-  const endpointRepository = activeDataSource.getRepository(
-    TiramisServiceEndpointEntity,
   );
 
   for (const configurationSeed of configurations) {
@@ -494,7 +524,6 @@ async function seedClientConfigurations(
       where: {
         environment: configurationSeed.environment,
         companyCode: configurationSeed.companyCode,
-        systemCode: configurationSeed.systemCode,
       },
     });
 
@@ -504,53 +533,12 @@ async function seedClientConfigurations(
 
     configuration.environment = configurationSeed.environment;
     configuration.companyCode = configurationSeed.companyCode;
-    configuration.systemCode = configurationSeed.systemCode;
-    configuration.clientCode = configurationSeed.clientCode;
-    configuration.clientKey = '(env)';
-    configuration.clientKeyEncrypted = null;
     configuration.insurerCompanyCode = configurationSeed.insurerCompanyCode;
     configuration.salePointCode = configurationSeed.salePointCode;
     configuration.tranCompanyCode = configurationSeed.tranCompanyCode;
-    configuration.baseUrl = '(env)';
-    configuration.callbackBaseUrl = '(env)';
-    configuration.clientPrivateCertificatePath = null;
-    configuration.clientPrivateCertificatePassword = null;
-    configuration.clientPrivateCertificatePasswordEncrypted = null;
-    configuration.tiraPublicCertificatePath = null;
-    configuration.tiraPublicCertificatePassword = null;
-    configuration.tiraPublicCertificatePasswordEncrypted = null;
-    configuration.signatureAlgorithm = configurationSeed.signatureAlgorithm;
     configuration.isActive = 1;
 
-    const savedConfiguration =
-      await configurationRepository.save(configuration);
-
-    await endpointRepository.delete({
-      clientConfigurationId: savedConfiguration.id,
-      serviceType: 'DETAILS_VERIFICATION',
-    });
-
-    for (const endpointSeed of endpointSeeds) {
-      let endpoint = await endpointRepository.findOne({
-        where: {
-          clientConfigurationId: savedConfiguration.id,
-          serviceType: endpointSeed.serviceType,
-        },
-      });
-
-      if (!endpoint) {
-        endpoint = endpointRepository.create();
-      }
-
-      endpoint.clientConfigurationId = savedConfiguration.id;
-      endpoint.serviceType = endpointSeed.serviceType;
-      endpoint.endpointUrl = endpointSeed.endpointUrl;
-      endpoint.httpMethod = 'POST';
-      endpoint.contentType = 'application/xml';
-      endpoint.isActive = 1;
-
-      await endpointRepository.save(endpoint);
-    }
+    await configurationRepository.save(configuration);
   }
 }
 
@@ -595,11 +583,7 @@ export async function runTiramisConfigSeed(
 
   try {
     if (!seedOptions.includeLive) {
-      console.log(
-        `Skipping live TIRAMIS client configuration seed. Missing live values: ${seedOptions.skippedLiveKeys.join(
-          ', ',
-        )}`,
-      );
+      console.log('Skipping live TIRAMIS seed (--test-only).');
     }
 
     if (seedOptions.legacySeedEnvironment) {
@@ -608,14 +592,18 @@ export async function runTiramisConfigSeed(
       );
     }
 
-    await seedClientConfigurations(configurations, activeDataSource);
+    await seedServiceEndpoints(
+      resolveSeedEnvironments(seedOptions),
+      activeDataSource,
+    );
     await seedResponseCodes(activeDataSource);
+    await seedCompanyConfigurations(configurations, activeDataSource);
 
     console.log(
-      'Seeded Tiramis client configurations, service endpoints, and response codes.',
+      'Seeded TIRA service endpoints and response codes (system data) and the demo company configuration (ICC110).',
     );
     console.log(
-      'TIRA URLs, client secrets, and certificate paths/passwords are resolved from environment variables at runtime and are not stored by this seeder.',
+      'The TIRA system identity (client code/key, system code/name, certificates, URLs) comes from environment variables and is never stored per company.',
     );
     console.log(
       'Note: NIN_VERIFICATION and COMPANY_VERIFICATION endpoints are now seeded alongside the other supported verification endpoints.',

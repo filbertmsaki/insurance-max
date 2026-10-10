@@ -7,11 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 
-export type TiramisSecretName =
-  | 'clientKey'
-  | 'clientPrivateCertificatePassword'
-  | 'tiraPublicCertificatePassword'
-  | 'portalWebhookApiKey';
+/** Per-company secrets stored by TIRAMIS. The TIRA client key and certificate
+ * passwords are platform-wide (TIRAMIS environment) and are not stored here. */
+export type TiramisSecretName = 'portalWebhookApiKey';
 
 export type TiramisSecretStatus =
   | 'MISSING'
@@ -23,6 +21,8 @@ export type TiramisSecretStatus =
 export interface TiramisSecretHealth {
   configurationId: string;
   environment: string;
+  companyCode?: string;
+  systemCode?: string | null;
   healthy: boolean;
   webhookKeyReissued?: boolean;
   secrets: Array<{
@@ -30,9 +30,18 @@ export interface TiramisSecretHealth {
     label: string;
     status: TiramisSecretStatus;
   }>;
+  /** Platform-wide secrets read from the TIRAMIS server environment. */
+  systemSecrets?: Array<{
+    name: string;
+    label: string;
+    source: string;
+    status: 'OK' | 'MISSING';
+  }>;
 }
 
-export type TiramisSecretReplacements = Partial<Record<TiramisSecretName, string>>;
+export type TiramisSecretReplacements = Partial<
+  Record<TiramisSecretName, string>
+>;
 
 const STATUS_BADGE: Record<
   TiramisSecretStatus,
@@ -55,8 +64,9 @@ function errorMessage(error: unknown, fallback: string) {
 /**
  * Shows whether TIRAMIS can still decrypt each stored secret with its
  * current TIRAMIS_SECRET_ENCRYPTION_KEY, and repairs them in one click.
- * When `allowReplacements` is set (platform admins), unreadable TIRA-issued
- * secrets can be re-entered here; the webhook key is always reissued.
+ * When `allowReplacements` is set (platform admins), the portal
+ * webhook key can be re-entered here; otherwise it is reissued on repair.
+ * Platform-wide TIRA secrets are shown read-only.
  */
 export function TiramisSecretHealthCard({
   scopeKey,
@@ -113,6 +123,7 @@ export function TiramisSecretHealthCard({
   });
 
   const secrets = health.data?.secrets ?? [];
+  const systemSecrets = health.data?.systemSecrets ?? [];
   const needsRepair = secrets.some((secret) => secret.status !== 'OK');
   const hasReplacement = Object.values(replacements).some((value) =>
     value?.trim(),
@@ -161,8 +172,7 @@ export function TiramisSecretHealthCard({
               const badge = STATUS_BADGE[secret.status];
               const canReplace =
                 allowReplacements &&
-                (secret.status === 'UNREADABLE' ||
-                  secret.status === 'MISSING');
+                (secret.status === 'UNREADABLE' || secret.status === 'MISSING');
 
               return (
                 <li key={secret.name} className="space-y-2 p-3">
@@ -188,16 +198,49 @@ export function TiramisSecretHealthCard({
                       }
                     />
                   )}
-                  {!allowReplacements &&
-                    secret.status === 'UNREADABLE' && (
-                      <p className="text-xs text-slate-500">
-                        A platform administrator must re-enter this value.
-                      </p>
-                    )}
+                  {!allowReplacements && secret.status === 'UNREADABLE' && (
+                    <p className="text-xs text-slate-500">
+                      A platform administrator must re-enter this value.
+                    </p>
+                  )}
                 </li>
               );
             })}
           </ul>
+        )}
+
+        {!health.isError && systemSecrets.length > 0 && (
+          <div className="space-y-2">
+            <p className="font-medium">
+              Platform-wide TIRA secrets (TIRAMIS environment, read-only)
+            </p>
+            <ul className="divide-y rounded-md border">
+              {systemSecrets.map((secret) => (
+                <li
+                  key={secret.name}
+                  className="flex items-center justify-between gap-3 p-3"
+                >
+                  <span>
+                    {secret.label}{' '}
+                    <code className="text-xs text-slate-500">
+                      {secret.source}
+                    </code>
+                  </span>
+                  <Badge
+                    variant={secret.status === 'OK' ? 'success' : 'danger'}
+                  >
+                    {secret.status === 'OK' ? 'OK' : 'Missing'}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+            {systemSecrets.some((secret) => secret.status !== 'OK') && (
+              <p className="text-xs text-slate-500">
+                Missing platform secrets must be set in the TIRAMIS server
+                environment; they cannot be entered per company.
+              </p>
+            )}
+          </div>
         )}
 
         <div className="flex flex-wrap gap-2">

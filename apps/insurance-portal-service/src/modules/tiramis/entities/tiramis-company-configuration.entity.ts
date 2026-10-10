@@ -12,6 +12,11 @@ import {
 
 import { Company } from '../../platform/companies/entities/company.entity';
 
+/**
+ * A company's TIRA settings in the portal: company-specific values only. The
+ * TIRA system identity (client code/key, system code/name, certificates, base
+ * and callback URLs) is platform-wide and owned by TIRAMIS (environment).
+ */
 @Entity({ name: 'tiramis_company_configurations' })
 @Unique('UQ_tiramis_company_config_company_environment', [
   'companyId',
@@ -58,80 +63,12 @@ export class TiramisCompanyConfigurationEntity {
   insurerCompanyName!: string | null;
 
   @Column({
-    name: 'client_code',
-    type: 'varchar',
-    length: 60,
-    nullable: true,
-  })
-  clientCode!: string | null;
-
-  /**
-   * @deprecated Client secrets belong to the TIRAMIS Service.
-   * Retained only for legacy data migration.
-   */
-  @Column({
-    name: 'client_key',
-    type: 'varchar',
-    length: 255,
-    nullable: true,
-    select: false,
-  })
-  clientKey!: string | null;
-
-  @Column({
     name: 'service_api_key_encrypted',
     type: 'text',
     nullable: true,
     select: false,
   })
   serviceApiKeyEncrypted!: string | null;
-
-  @Column({
-    name: 'system_code',
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-  })
-  systemCode!: string | null;
-
-  @Column({
-    name: 'system_name',
-    type: 'varchar',
-    length: 150,
-    nullable: true,
-  })
-  systemName!: string | null;
-
-  @Column({
-    name: 'base_url',
-    type: 'varchar',
-    length: 500,
-    nullable: true,
-  })
-  baseUrl!: string | null;
-
-  @Column({
-    name: 'source_service',
-    type: 'varchar',
-    length: 100,
-    nullable: true,
-  })
-  sourceService!: string | null;
-
-  @Column({
-    name: 'callback_url',
-    type: 'varchar',
-    length: 500,
-    nullable: true,
-  })
-  callbackUrl!: string | null;
-
-  @Column({
-    name: 'allow_expired_certificates',
-    type: 'boolean',
-    default: false,
-  })
-  allowExpiredCertificates!: boolean;
 
   @Column({ name: 'notification_events', type: 'jsonb', nullable: true })
   notificationEvents!: string[] | null;

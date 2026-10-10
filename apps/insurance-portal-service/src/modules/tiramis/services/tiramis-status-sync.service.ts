@@ -348,6 +348,12 @@ export class TiramisStatusSyncService {
       companyId: record.sourceCompanyId,
       roles: [],
       permissions: [],
+      ...(record.tiramisEnvironment
+        ? { tiramisEnvironment: record.tiramisEnvironment }
+        : {}),
+      // Reading the status of an existing submission is never blocked by a
+      // later access revoke or environment switch.
+      tiramisFollowUp: true,
     };
   }
 

@@ -27,20 +27,19 @@ describe('CompanyTiramisConfigurationService', () => {
     };
   }
 
-  it('uses the stored allowExpiredCertificates flag when validation is requested without an override', async () => {
+  it("defers to TIRAMIS's system expiry setting when validation has no override", async () => {
     const { service, repository, tiramisClientService } = createService();
     repository.findOne.mockResolvedValue({
       id: 'config-1',
       companyId: 'company-1',
       environment: 'live',
       companyCode: 'ICC739',
-      systemCode: 'LSYS_DEMO_482',
       insurerCompanyCode: 'ICC739',
-      allowExpiredCertificates: true,
       isActive: true,
     });
     tiramisClientService.validateOrganizationConfiguration.mockResolvedValue({
       valid: true,
+      allowExpiredCertificates: true,
       message: 'TIRAMIS organization configuration is valid.',
       warnings: [
         'TIRA public certificate expired on 2026-03-03T18:50:06.000Z, but expiry validation was explicitly allowed.',
@@ -59,7 +58,8 @@ describe('CompanyTiramisConfigurationService', () => {
       tiramisClientService.validateOrganizationConfiguration,
     ).toHaveBeenCalledWith(
       expect.objectContaining({
-        allowExpiredCertificates: true,
+        companyCode: 'ICC739',
+        allowExpiredCertificates: undefined,
       }),
     );
     expect(repository.save).toHaveBeenCalledWith(
@@ -72,20 +72,19 @@ describe('CompanyTiramisConfigurationService', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('keeps an expired certificate invalid when the flag is not explicitly enabled', async () => {
+  it('keeps an expired certificate invalid when TIRAMIS does not allow expired certificates', async () => {
     const { service, repository, tiramisClientService } = createService();
     repository.findOne.mockResolvedValue({
       id: 'config-1',
       companyId: 'company-1',
       environment: 'live',
       companyCode: 'ICC739',
-      systemCode: 'LSYS_DEMO_482',
       insurerCompanyCode: 'ICC739',
-      allowExpiredCertificates: false,
       isActive: true,
     });
     tiramisClientService.validateOrganizationConfiguration.mockResolvedValue({
       valid: false,
+      allowExpiredCertificates: false,
       message:
         'TIRA public certificate has expired on 2026-03-03T18:50:06.000Z',
       warnings: [],
@@ -103,7 +102,8 @@ describe('CompanyTiramisConfigurationService', () => {
       tiramisClientService.validateOrganizationConfiguration,
     ).toHaveBeenCalledWith(
       expect.objectContaining({
-        allowExpiredCertificates: false,
+        companyCode: 'ICC739',
+        allowExpiredCertificates: undefined,
       }),
     );
     expect(repository.save).toHaveBeenCalledWith(
