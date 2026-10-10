@@ -143,6 +143,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           companyId,
           'live',
         );
+        await this.upsertPlatformTiramisAccess(queryRunner, companyId);
         await this.seedBranches(queryRunner, companyId);
         await this.seedSalePoints(queryRunner, companyId);
         await this.seedAllianceIntermediaries(queryRunner, companyId);
@@ -296,6 +297,45 @@ export default class TiramisCompanySetupSeeder implements Seeder {
     );
 
     return rows[0].id;
+  }
+
+  /**
+   * Platform-level integration: test is the active environment and is
+   * validated for local use; Alliance is linked with active access.
+   */
+  private async upsertPlatformTiramisAccess(
+    queryRunner: QueryRunner,
+    companyId: string,
+  ): Promise<void> {
+    await queryRunner.query(
+      `
+        INSERT INTO tiramis_platform_settings (
+          id, active_environment, test_validation_status, test_validated_at
+        )
+        VALUES ('platform', 'test', 'VALID', now())
+        ON CONFLICT (id) DO NOTHING
+      `,
+    );
+    await queryRunner.query(
+      `
+        INSERT INTO tiramis_company_links (
+          company_id, company_name, insurer_company_code,
+          insurer_company_name, status, linked_at, activated_at
+        )
+        VALUES ($1, $2, $3, $4, 'ACTIVE', now(), now())
+        ON CONFLICT (company_id) DO UPDATE SET
+          company_name = EXCLUDED.company_name,
+          insurer_company_code = EXCLUDED.insurer_company_code,
+          insurer_company_name = EXCLUDED.insurer_company_name,
+          updated_at = now()
+      `,
+      [
+        companyId,
+        ALLIANCE_TENANT.companyName,
+        ALLIANCE_TENANT.insurerCompanyCode,
+        ALLIANCE_TENANT.insurerCompanyName,
+      ],
+    );
   }
 
   private async upsertPortalSideTiramisConfig(

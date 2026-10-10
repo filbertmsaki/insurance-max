@@ -6,8 +6,7 @@ function createService(stored: Record<string, unknown>[] = []) {
     find: jest.fn(async () => rows),
     findOne: jest.fn(
       async ({ where }: any) =>
-        rows.find((row: any) => row.environment === where.environment) ??
-        null,
+        rows.find((row: any) => row.environment === where.environment) ?? null,
     ),
     create: jest.fn((value) => ({ ...value })),
     save: jest.fn(async (value) => {

@@ -52,7 +52,6 @@ import {
   useUpdateMyCompany,
 } from '@/modules/platform/companies/hooks';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { TiramisConfigTab } from '@/modules/tenant/tiramis-config/components/TiramisConfigTab';
 import { CompanyDataAccessTab } from '../components/CompanyDataAccessTab';
 import type { Company } from '@/types';
 import type { UpdateCompanyDto } from '@/modules/platform/companies/api/companies';
@@ -561,10 +560,6 @@ export function MyCompanyPage() {
               Data Access
             </TabsTrigger>
           )}
-          <TabsTrigger value="tiramis">
-            <Settings className="mr-1.5 h-3.5 w-3.5" />
-            TIRA Configuration
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-4">
@@ -719,10 +714,6 @@ export function MyCompanyPage() {
             <CompanyDataAccessTab />
           </TabsContent>
         )}
-
-        <TabsContent value="tiramis" className="mt-4">
-          <TiramisConfigTab />
-        </TabsContent>
       </Tabs>
 
       {editOpen && (

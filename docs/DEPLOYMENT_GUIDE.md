@@ -700,79 +700,77 @@ The Portal Web build needs `VITE_BACKEND_URL=<PORTAL_API_ORIGIN>` and `VITE_API_
 
 ---
 
-## A4. Integration — link Portal API ↔ TIRAMIS
+## A4. Integration — Platform → TIRAMIS Integration
 
 TIRAMIS (A2) and the Portal API (A3) must both be running and must pass B2 and B3 before you start this step.
 
-### A4.1 What gets created
+**The platform owner manages TIRAMIS once, for every company. Companies configure nothing**: they are linked and activated, then carry on with business using their normal permissions. Everything below is in the UI under **Platform → TIRAMIS Integration** (`/platform/tiramis-integration`, OWNER with `platform:tiramis-integration:*` permissions).
 
-All of this is driven from the Portal API. Nothing runs automatically.
+### A4.1 What lives where
 
-| Step | Portal call (as OWNER) | What happens in TIRAMIS | Auth used to reach TIRAMIS |
-|---|---|---|---|
-| 1. Upsert config | `PUT /api/v1/platform/companies/{companyId}/tiramis-configurations/{env}` | `PUT /api/tiramis/configurations` upserts the client configuration. The portal then **creates the webhook API client** (allowlisted to `TIRAMIS_WEBHOOK_SOURCE_IP`) and pushes it with `PUT /api/tiramis/configurations/{id}/portal-webhook-api-key`. | admin's bearer JWT (forwarded) |
-| 2. Generate company key | `POST …/tiramis-configurations/{env}/api-key/generate` | `GET`/`POST /api/tiramis/api-keys` (or `/{id}/rotate`) creates a `tms_` key named `<sourceService>-<companyCode>-<env>` (e.g. `insurance-portal-service-ICC110-test`), bound to company + system + env, scopes `tiramis:submit`, `tiramis:read`, `tiramis:verify`. Body: `{"allowed_ips":[…]}`. The portal stores it encrypted for **that company only** (`service_api_key_encrypted`; keys are no longer copied to other companies). | admin's bearer JWT (forwarded) |
-| 3. Validate | `POST …/tiramis-configurations/{env}/validate` | `POST /api/tiramis/configurations/validate-organization` checks the configuration, certificates and secrets. It also syncs the portal webhook API key (scope `tiramis:notify`) to TIRAMIS. | **company key**, so step 2 must be done first |
-| 4. Activate | `POST …/tiramis-configurations/{env}/activate` | Marks the environment active in the portal. Live requires `confirm_live_activation:true`. | company key |
+| Setting | Scope | Stored in |
+|---|---|---|
+| Client code, client key, system code/name, base URL, callback URL, certificates and passwords, signature algorithm, allow-expired-certificates | per environment (Test / Production), shared by all companies | TIRAMIS `tiramis_system_profiles` (secrets encrypted); certificate files in `<TIRAMIS_CERTIFICATE_BASE_DIR>/<test\|live>/`. Empty fields fall back to the `TIRA_*_<ENV>` / `TIRAMIS_<ENV>_*` environment variables. |
+| Portal → TIRAMIS service key | per environment | portal `tiramis_platform_settings` (encrypted); TIRAMIS key `<sourceService>-platform-<env>`, bound to the environment only |
+| TIRAMIS → portal webhook key, notification events | per environment | portal api client `TIRAMIS webhook (<env>)`; TIRAMIS profile |
+| Integration permissions (submit, read_status, receive_notifications), **active environment** | platform | portal `tiramis_platform_settings` |
+| Company name, insurer company code, insurer company name, access status | per company | portal `tiramis_company_links`; TIRAMIS `tiramis_client_configurations` (both environments, provisioned on link) |
+| `TIRAMIS_SERVICE_BASE_URL`, `TIRAMIS_SOURCE_SERVICE` | infrastructure | portal `.env` (shown read-only) |
 
-The same steps exist in the UI under **Platform → TIRAMIS configuration**.
-
-### A4.2 Get an OWNER token and the company id
+### A4.2 Set up the platform (once per environment)
 
 ```bash
-API=<PORTAL_API_ORIGIN>/api/v1
-TOKEN=$(curl -s -X POST $API/auth/login -H 'Content-Type: application/json' \
+API=<PORTAL_API_ORIGIN>/api/v1/platform/tiramis-integration
+TOKEN=$(curl -s -X POST <PORTAL_API_ORIGIN>/api/v1/auth/login -H 'Content-Type: application/json' \
   -d '{"email":"<INITIAL_OWNER_EMAIL>","password":"<INITIAL_OWNER_PASSWORD>"}' | jq -r '.data.access_token')
+H=(-H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json')
+ENV=test   # then repeat with ENV=live
+
+# identity and credentials (secrets are write-only; omit to keep)
+curl -s -X PUT $API/profiles/$ENV "${H[@]}" -d '{"clientCode":"…","clientKey":"…","systemCode":"…","systemName":"…"}'
+# certificates (base64 of the .pfx; rejected if it can't be opened with the password)
+curl -s -X POST $API/profiles/$ENV/certificates "${H[@]}" \
+  -d "{\"kind\":\"clientPrivate\",\"contentBase64\":\"$(base64 -w0 clientprivate.pfx)\",\"password\":\"…\"}"
+curl -s -X POST $API/profiles/$ENV/validate "${H[@]}" | jq '.data'
+# platform service key (also issues the platform webhook key)
+curl -s -X POST $API/profiles/$ENV/service-api-key "${H[@]}" -d '{"allowedIps":["<PORTAL_EGRESS_IP>"]}'
 ```
 
-Find the company id by querying the portal database:
-
-```sql
-SELECT company_id, environment, is_active, validation_status,
-       (service_api_key_encrypted IS NOT NULL) AS has_key
-FROM tiramis_company_configurations;
-```
-
-### A4.3 Run the steps (test first, then live)
+### A4.3 Onboard a company
 
 ```bash
-CID=<companyId>; ENV=test     # repeat everything with ENV=live afterwards
-
-# 1. upsert the company's settings (company fields only; the TIRA client code/key,
-#    system code/name, certificates and URLs are platform-wide in TIRAMIS's env)
-curl -s -X PUT $API/platform/companies/$CID/tiramis-configurations/$ENV \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"company_code":"ICC110","insurer_company_code":"ICC110","sale_point_code":"SP500",
-       "is_active":true}' | jq '.success, .data'
-
-# (optional) view the platform-wide system identity this company will use
-curl -s $API/platform/companies/$CID/tiramis-configurations/$ENV/system-identity \
-  -H "Authorization: Bearer $TOKEN" | jq '.data'
-
-# 2. generate the per-company TIRAMIS key
-curl -s -X POST $API/platform/companies/$CID/tiramis-configurations/$ENV/api-key/generate \
-  -H "Authorization: Bearer $TOKEN" | jq '.success'
-
-# 3. validate (add {"allow_expired_certificates":true} for live until TIRA reissues its certificate)
-curl -s -X POST $API/platform/companies/$CID/tiramis-configurations/$ENV/validate \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' | jq '.data'
-
-# 4. activate (live needs confirm_live_activation; add force_activation only for the known expired-cert case)
-curl -s -X POST $API/platform/companies/$CID/tiramis-configurations/$ENV/activate \
-  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"confirm_live_activation":true}' | jq '.data'
+CID=<companyId>   # GET $API/companies lists insurers and their link status
+curl -s -X PUT  $API/companies/$CID/link     "${H[@]}" -d '{"insurerCompanyCode":"ICC110"}'
+curl -s -X POST $API/companies/$CID/activate "${H[@]}"
 ```
 
-The DTOs use `forbidNonWhitelisted`, so any field not listed in the API returns 400. Optional `PUT` fields are: `insurer_company_code`, `system_name`, `base_url`, `source_service`, `callback_url`, `tiramis_service_api_key`, `allow_expired_certificates`, `use_as_target_environment`, `confirm_live_activation`, `force_activation`, `notification_events[]` and `integration_permissions[]`.
+The company can now use every TIRAMIS-backed function its users' permissions allow. **Revoke** (`POST …/revoke {"reason":"…"}`):
 
-### A4.4 Expected end state
+- blocks new submissions and new business (quotations, partner quotes/submissions/renewals) with `TIRAMIS_ACCESS_REVOKED`;
+- hides the insurer from intermediary, directory, marketplace and public-purchase insurer lists;
+- keeps all policies, quotations, transactions, relationships and audit records, readable as before;
+- lets submissions already sent finish: status sync, callbacks and portal notifications continue;
+- **holds** queued retries (no attempt counted) until access is restored.
+
+**Restore** (`POST …/restore`) needs no technical setup.
+
+### A4.4 Switch the active environment
+
+`POST $API/environment {"environment":"live","confirmLive":true}`: refused unless the target profile validates and its platform service key exists. Every company switches at once.
+
+- New submissions use the active environment, recorded on each submission (`tiramis_submission_tracking.tiramis_environment`).
+- Pending submissions, retries, status sync, callbacks and notifications always stay in **the environment each submission was sent to**; a callback arriving on the other environment's URL is quarantined.
+- Keep both environment profiles, keys and certificates configured until the old environment shows **0 pending submissions** (overview).
+
+### A4.5 Expected end state
 
 | Where | Check | Expected |
 |---|---|---|
-| Portal DB | `SELECT environment, is_active, validation_status, service_api_key_encrypted IS NOT NULL FROM tiramis_company_configurations WHERE company_id='<CID>';` | key present; status `VALID`, or forced active for live with the expired cert |
-| Portal DB | `SELECT name, client_id, status, ip_whitelist, last_used_ip, last_used_at FROM api_clients WHERE name LIKE 'TIRAMIS webhook%';` | one active client per TIRAMIS configuration, `ip_whitelist` = `<TIRAMIS_EGRESS_IP>` |
-| TIRAMIS DB | `SELECT name, key_prefix, tenant_company_code, tenant_environment, is_active FROM tiramis_api_keys;` | one key per company and environment (no admin/bootstrap key exists) |
-| TIRAMIS DB | `SELECT environment, company_code, is_active, portal_webhook_api_key_encrypted IS NOT NULL FROM tiramis_client_configurations;` | webhook key present |
+| Portal DB | `SELECT active_environment, test_validation_status, live_validation_status, service_api_key_test_encrypted IS NOT NULL FROM tiramis_platform_settings;` | active environment set; validated; key present |
+| Portal DB | `SELECT company_name, insurer_company_code, status FROM tiramis_company_links;` | `ACTIVE` for onboarded companies |
+| Portal DB | `SELECT name, status, ip_whitelist FROM api_clients WHERE name LIKE 'TIRAMIS webhook (%';` | one client per environment |
+| TIRAMIS DB | `SELECT environment, validation_status, portal_webhook_api_key_encrypted IS NOT NULL FROM tiramis_system_profiles;` | profile per environment; webhook key present |
+| TIRAMIS DB | `SELECT name, tenant_environment, is_active FROM tiramis_api_keys WHERE name LIKE '%-platform-%';` | one platform key per environment |
 
 ---
 

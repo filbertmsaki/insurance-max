@@ -1,9 +1,11 @@
+import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
@@ -335,7 +337,14 @@ export class QuotationsService {
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
     private readonly nonMotorRiskService: NonMotorRiskService,
     private readonly businessReferenceService: BusinessReferenceService,
+    @Optional()
+    private readonly platformAccess?: TiramisPlatformAccessService,
   ) {}
+
+  /** New business needs the insurer's TIRAMIS access to be active. */
+  private async assertInsurerCanTransact(companyId: string) {
+    await this.platformAccess?.assertCompanyCanTransact(companyId);
+  }
 
   private resolveUserScope(
     user: AuthenticatedUser,
@@ -396,6 +405,7 @@ export class QuotationsService {
     user: Pick<AuthenticatedUser, 'id' | 'permissions'> &
       Partial<AuthenticatedUser>,
   ) {
+    await this.assertInsurerCanTransact(companyId);
     const authorizedPayload =
       await this.insuranceChannelPermissionService.authorizeQuotationPayload(
         companyId,
@@ -508,6 +518,7 @@ export class QuotationsService {
     dto: SaveQuotationDraftDto,
     user: AuthenticatedUser | string,
   ) {
+    await this.assertInsurerCanTransact(companyId);
     try {
       const channelUser =
         typeof user === 'string'
@@ -770,6 +781,7 @@ export class QuotationsService {
     dto: SaveQuotationDraftDto,
     user: AuthenticatedUser,
   ) {
+    await this.assertInsurerCanTransact(companyId);
     const draftBranchContext =
       await this.resolveCompanyDefaultDraftBranchContext(companyId);
 

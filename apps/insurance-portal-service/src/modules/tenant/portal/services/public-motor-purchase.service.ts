@@ -229,7 +229,13 @@ export class PublicMotorPurchaseService {
       },
     });
 
-    if (!company) {
+    const accessRows: unknown[] = company
+      ? await this.dataSource.query(
+          `SELECT 1 FROM tiramis_company_links WHERE company_id = $1 AND status = 'ACTIVE'`,
+          [companyId],
+        )
+      : [];
+    if (!company || !accessRows.length) {
       throw new NotFoundException(
         'The selected insurance company is not available.',
       );

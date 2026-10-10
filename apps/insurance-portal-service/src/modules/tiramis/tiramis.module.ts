@@ -9,8 +9,10 @@ import { TiramisPermissionGuard } from './auth/tiramis-permission.guard';
 import { TiramisAdminController } from './controllers/tiramis-admin.controller';
 import { TiramisBusinessController } from './controllers/tiramis-business.controller';
 import { TiramisController } from './controllers/tiramis.controller';
-import { CompanyTiramisConfigurationController } from './controllers/company-tiramis-configuration.controller';
-import { PlatformTiramisConfigurationController } from './controllers/platform-tiramis-configuration.controller';
+import { PlatformTiramisIntegrationController } from './controllers/platform-tiramis-integration.controller';
+import { PlatformTiramisIntegrationService } from './services/platform-tiramis-integration.service';
+import { TiramisCompanyLinkEntity } from './entities/tiramis-company-link.entity';
+import { TiramisPlatformSettingsEntity } from './entities/tiramis-platform-settings.entity';
 import { CompanyTiramisConfigurationService } from './services/company-tiramis-configuration.service';
 import { Company } from '../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from './entities/tiramis-company-configuration.entity';
@@ -66,6 +68,8 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
       TiramisNotificationEntity,
       TiramisBusinessRecordEntity,
       TiramisCompanyConfigurationEntity,
+      TiramisPlatformSettingsEntity,
+      TiramisCompanyLinkEntity,
       TiramisLookupEntity,
       TiramisSalePointEntity,
       Quotation,
@@ -93,11 +97,13 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisController,
     TiramisBusinessController,
     TiramisAdminController,
-    CompanyTiramisConfigurationController,
-    PlatformTiramisConfigurationController,
+    // Platform → TIRAMIS Integration replaces the per-company configuration
+    // screens: companies no longer configure TIRAMIS themselves.
+    PlatformTiramisIntegrationController,
   ],
   providers: [
     TiramisClientService,
+    PlatformTiramisIntegrationService,
     CompanyTiramisConfigurationService,
     TiramisSubmissionTrackingRepository,
     TiramisAuditLogRepository,

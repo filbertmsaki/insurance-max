@@ -1,9 +1,11 @@
+import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
@@ -30,6 +32,12 @@ import {
   PartnerAmendmentStatus,
 } from './entities/insurance-company-partner-amendment.entity';
 
+const NEW_BUSINESS_OPERATIONS = new Set<PartnerOperation>([
+  PartnerOperation.QUOTE,
+  PartnerOperation.SUBMIT,
+  PartnerOperation.REQUEST_RENEWAL,
+]);
+
 @Injectable()
 export class InsurancePartnersService {
   constructor(
@@ -44,6 +52,8 @@ export class InsurancePartnersService {
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
     private readonly dataSource: DataSource,
+    @Optional()
+    private readonly platformAccess?: TiramisPlatformAccessService,
   ) {}
 
   async findAmendments(id: string, companyId: string | undefined) {
@@ -378,7 +388,7 @@ export class InsurancePartnersService {
   }
 
   async findRelationshipInsurerDirectory() {
-    return this.companyRepository.find({
+    const insurers = await this.companyRepository.find({
       where: {
         company_type: CompanyType.INSURANCE_COMPANY,
         status: 'active',
@@ -387,6 +397,17 @@ export class InsurancePartnersService {
       select: { id: true, name: true, tira_license_number: true },
       order: { name: 'ASC' },
     });
+    return this.onlyTiramisActive(insurers, (insurer) => insurer.id);
+  }
+
+  /** Insurers without active TIRAMIS access are hidden from new business. */
+  private async onlyTiramisActive<T>(
+    rows: T[],
+    insurerId: (row: T) => string,
+  ): Promise<T[]> {
+    if (!this.platformAccess) return rows;
+    const active = await this.platformAccess.activeCompanyIds();
+    return rows.filter((row) => active.has(insurerId(row)));
   }
 
   async findIntermediaryRelationships(
@@ -420,6 +441,10 @@ export class InsurancePartnersService {
       },
       order: { created_at: 'DESC' },
     });
+    const activeRelationships = await this.onlyTiramisActive(
+      relationships,
+      (relationship) => relationship.insurer_company_id,
+    );
     const today = new Date();
     const results: Array<{
       relationship_id: string;
@@ -428,7 +453,7 @@ export class InsurancePartnersService {
       partner_type: PartnerType;
       products: Array<Record<string, unknown>>;
     }> = [];
-    for (const relationship of relationships) {
+    for (const relationship of activeRelationships) {
       if (
         (relationship.start_date && relationship.start_date > today) ||
         (relationship.end_date && relationship.end_date < today)
@@ -723,6 +748,11 @@ export class InsurancePartnersService {
     operation: PartnerOperation,
     branchId?: string | null,
   ) {
+    // New business with an insurer requires its TIRAMIS access to be active;
+    // viewing and servicing existing business does not.
+    if (NEW_BUSINESS_OPERATIONS.has(operation)) {
+      await this.platformAccess?.assertCompanyCanTransact(insurerCompanyId);
+    }
     const relationship = await this.partnerRepository.findOne({
       where: {
         insurer_company_id: insurerCompanyId,

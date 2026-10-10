@@ -1,5 +1,4 @@
 import { apiClient } from '@/modules/shared/api/client';
-import type { TiramisSecretHealth } from '@/components/shared/TiramisSecretHealthCard';
 import type {
   BackendPaginatedResponse,
   PaginatedResponse,
@@ -50,62 +49,6 @@ function normalizeLegacyPage<T>(
 }
 
 export const tiramisApi = {
-  getPortalWebhookDiagnostics: (environment: 'test' | 'live') =>
-    apiClient
-      .get<{
-        environment: 'test' | 'live';
-        webhookUrl: string;
-        configured: boolean;
-        validationStatus: string;
-        validatedAt: string | null;
-        webhookCredentialStatus: string;
-      }>(`/companies/my/tiramis-configurations/portal-webhook/${environment}`)
-      .then((r) => r.data),
-  testPortalWebhook: (environment: 'test' | 'live') =>
-    apiClient
-      .post<{
-        success: boolean;
-        webhookUrl: string;
-        httpStatus?: number;
-        requestId?: string;
-        message: string;
-      }>(
-        `/companies/my/tiramis-configurations/portal-webhook/${environment}/test`,
-      )
-      .then((r) => r.data),
-  getDeliveryDiagnostics: (
-    environment: 'test' | 'live',
-    params: { requestId?: string; limit?: number } = {},
-  ) => apiClient
-    .get<{
-      outbox: Array<{
-        id: string; eventKey: string; requestId: string; responseId: string | null;
-        eventType: string; status: string; attemptCount: number; nextAttemptAt: string | null;
-        sentAt: string | null; lastError: string | null; createdAt: string;
-      }>;
-      callbacks: { receipts: Array<Record<string, unknown>>; deadLetters: Array<Record<string, unknown>> };
-    }>(`/companies/my/tiramis-configurations/portal-webhook/${environment}/deliveries`, { params })
-    .then((r) => r.data),
-  syncPortalWebhookCredential: (environment: 'test' | 'live') =>
-    apiClient
-      .post<{
-        success: boolean;
-        environment: string;
-        message: string;
-      }>(`/companies/my/tiramis-configurations/portal-webhook/${environment}/sync`)
-      .then((r) => r.data),
-  getSecretHealth: (environment: 'test' | 'live') =>
-    apiClient
-      .get<TiramisSecretHealth>(
-        `/companies/my/tiramis-configurations/secrets/${environment}/health`,
-      )
-      .then((r) => r.data),
-  repairSecrets: (environment: 'test' | 'live') =>
-    apiClient
-      .post<TiramisSecretHealth>(
-        `/companies/my/tiramis-configurations/secrets/${environment}/repair`,
-      )
-      .then((r) => r.data),
   submit: (data: PortalTiramisSubmitPayload) =>
     apiClient
       .post('/tenant/tiramis-submissions/submit', data)

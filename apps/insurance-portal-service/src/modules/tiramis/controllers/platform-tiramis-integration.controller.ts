@@ -1,0 +1,288 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseEnumPipe,
+  ParseUUIDPipe,
+  Post,
+  Put,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsIP,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+
+import { PlatformScoped } from '@insurance-max/portal-shared';
+import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
+import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
+import { Roles } from '@insurance-max/portal-shared/decorators/roles.decorator';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+
+import { PlatformTiramisIntegrationService } from '../services/platform-tiramis-integration.service';
+
+const ENVIRONMENTS = { test: 'test', live: 'live' } as const;
+const READ = 'platform:tiramis-integration:read';
+const MANAGE = 'platform:tiramis-integration:manage';
+const SWITCH = 'platform:tiramis-integration:switch-environment';
+const COMPANY_ACCESS = 'platform:tiramis-integration:company-access';
+
+class UpdateProfileDto {
+  @IsOptional() @IsString() @MaxLength(100) clientCode?: string;
+  @IsOptional() @IsString() @MaxLength(500) clientKey?: string;
+  @IsOptional() @IsString() @MaxLength(50) systemCode?: string;
+  @IsOptional() @IsString() @MaxLength(150) systemName?: string;
+  @IsOptional() @IsString() @MaxLength(500) baseUrl?: string;
+  @IsOptional() @IsString() @MaxLength(500) callbackUrl?: string;
+  @IsOptional() @IsString() @MaxLength(500) clientCertificatePassword?: string;
+  @IsOptional() @IsString() @MaxLength(500) publicCertificatePassword?: string;
+  @IsOptional() @IsString() @MaxLength(100) signatureAlgorithm?: string;
+  @IsOptional() @IsBoolean() allowExpiredCertificates?: boolean;
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  portalNotificationEvents?: string[];
+}
+
+class UploadCertificateDto {
+  @IsIn(['clientPrivate', 'tiraPublic'])
+  kind!: 'clientPrivate' | 'tiraPublic';
+
+  @IsString()
+  @IsNotEmpty()
+  contentBase64!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  password?: string;
+}
+
+class GenerateServiceKeyDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsIP(undefined, { each: true })
+  allowedIps!: string[];
+}
+
+class IntegrationSettingsDto {
+  @IsOptional()
+  @IsArray()
+  @IsIn(['submit', 'read_status', 'receive_notifications'], { each: true })
+  integrationPermissions?: string[];
+}
+
+class SwitchEnvironmentDto {
+  @IsIn(['test', 'live'])
+  environment!: 'test' | 'live';
+
+  @IsOptional()
+  @IsBoolean()
+  confirmLive?: boolean;
+}
+
+class LinkCompanyDto {
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(30)
+  insurerCompanyCode!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  insurerCompanyName?: string;
+}
+
+class RevokeCompanyDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  reason!: string;
+}
+
+/**
+ * Platform → TIRAMIS Integration. The platform owner configures the TIRA
+ * integration once, for every company; companies configure nothing.
+ */
+@ApiTags('Platform TIRAMIS integration')
+@ApiBearerAuth()
+@PlatformScoped()
+@Controller({ path: 'platform/tiramis-integration', version: '1' })
+export class PlatformTiramisIntegrationController {
+  constructor(private readonly service: PlatformTiramisIntegrationService) {}
+
+  @Get()
+  @Roles('OWNER')
+  @Permissions(READ)
+  @ApiOperation({
+    summary: 'Integration overview: environments, profiles, companies',
+  })
+  overview() {
+    return this.service.getOverview();
+  }
+
+  @Put('profiles/:environment')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  @ApiOperation({
+    summary: 'Update the TIRA identity and credentials for an environment',
+  })
+  updateProfile(
+    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
+    environment: 'test' | 'live',
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.service.updateProfile(environment, dto);
+  }
+
+  @Post('profiles/:environment/certificates')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  @ApiOperation({
+    summary: 'Upload a private or public certificate for an environment',
+  })
+  uploadCertificate(
+    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
+    environment: 'test' | 'live',
+    @Body() dto: UploadCertificateDto,
+  ) {
+    return this.service.uploadCertificate(environment, dto);
+  }
+
+  @Post('profiles/:environment/validate')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  @ApiOperation({
+    summary: 'Validate the identity, credentials and certificates',
+  })
+  validateProfile(
+    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
+    environment: 'test' | 'live',
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.validateProfile(environment, user.id);
+  }
+
+  @Post('profiles/:environment/service-api-key')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  @ApiOperation({
+    summary: 'Generate or rotate the platform TIRAMIS service key',
+  })
+  generateServiceApiKey(
+    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
+    environment: 'test' | 'live',
+    @Body() dto: GenerateServiceKeyDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.generateServiceApiKey(
+      environment,
+      dto.allowedIps,
+      user.id,
+    );
+  }
+
+  @Post('profiles/:environment/webhook-api-key')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  @ApiOperation({ summary: 'Rotate the platform webhook key TIRAMIS uses' })
+  syncWebhookApiKey(
+    @Param('environment', new ParseEnumPipe(ENVIRONMENTS))
+    environment: 'test' | 'live',
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.syncWebhookApiKey(environment, user.id);
+  }
+
+  @Put('settings')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  @ApiOperation({ summary: 'Update platform integration permissions' })
+  updateSettings(
+    @Body() dto: IntegrationSettingsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.updateIntegrationSettings(dto, user.id);
+  }
+
+  @Post('environment')
+  @Roles('OWNER')
+  @Permissions(SWITCH)
+  @ApiOperation({ summary: 'Switch the platform-wide active TIRA environment' })
+  switchEnvironment(
+    @Body() dto: SwitchEnvironmentDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.switchEnvironment(
+      dto.environment,
+      { confirmLive: dto.confirmLive },
+      user.id,
+    );
+  }
+
+  @Get('companies')
+  @Roles('OWNER')
+  @Permissions(READ)
+  @ApiOperation({ summary: 'Insurers and their TIRAMIS link status' })
+  listCompanies() {
+    return this.service.listCompanies();
+  }
+
+  @Put('companies/:companyId/link')
+  @Roles('OWNER')
+  @Permissions(COMPANY_ACCESS)
+  @ApiOperation({ summary: 'Link a registered company to TIRAMIS' })
+  linkCompany(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @Body() dto: LinkCompanyDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.linkCompany(companyId, dto, user.id);
+  }
+
+  @Post('companies/:companyId/activate')
+  @Roles('OWNER')
+  @Permissions(COMPANY_ACCESS)
+  @ApiOperation({ summary: "Grant the company's TIRAMIS integration access" })
+  activateCompany(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.activateCompany(companyId, user.id);
+  }
+
+  @Post('companies/:companyId/revoke')
+  @Roles('OWNER')
+  @Permissions(COMPANY_ACCESS)
+  @ApiOperation({ summary: "Revoke the company's TIRAMIS integration access" })
+  revokeCompany(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @Body() dto: RevokeCompanyDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.revokeCompany(companyId, dto.reason, user.id);
+  }
+
+  @Post('companies/:companyId/restore')
+  @Roles('OWNER')
+  @Permissions(COMPANY_ACCESS)
+  @ApiOperation({ summary: "Restore the company's TIRAMIS integration access" })
+  restoreCompany(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.restoreCompany(companyId, user.id);
+  }
+}

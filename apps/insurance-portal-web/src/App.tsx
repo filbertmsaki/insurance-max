@@ -116,11 +116,10 @@ import { TiramisSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisSu
 import { TiramisSubmissionDetailPage } from '@/modules/tenant/tiramis/pages/TiramisSubmissionDetailPage';
 import { TiramisDashboardPage } from '@/modules/tenant/tiramis/pages/TiramisDashboardPage';
 import { TiramisHealthPage } from '@/modules/tenant/tiramis/pages/TiramisHealthPage';
-import { TiramisWebhookDiagnosticsPage } from '@/modules/tenant/tiramis/pages/TiramisWebhookDiagnosticsPage';
 import { TiramisTrackingPage } from '@/modules/tenant/tiramis/pages/TiramisTrackingPage';
 import { TiramisFailedSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisFailedSubmissionsPage';
 import { TiramisRetryablePage } from '@/modules/tenant/tiramis/pages/TiramisRetryablePage';
-import { TiramisConfigurationPage } from '@/modules/tenant/tiramis-config/pages/TiramisConfigurationPage';
+import { PlatformTiramisIntegrationPage } from '@/modules/platform/tiramis-integration/pages/PlatformTiramisIntegrationPage';
 import { VerificationsPage } from '@/modules/tenant/verifications/pages/VerificationsPage';
 import { FinanceDashboardPage } from '@/modules/tenant/finance/pages/FinanceDashboardPage';
 import { FinanceInvoicesPage } from '@/modules/tenant/finance/pages/FinanceInvoicesPage';
@@ -854,6 +853,19 @@ export default function App() {
             >
               <Route path="/api-clients" element={<ApiClientsPage />} />
             </Route>
+            <Route
+              element={
+                <ProtectedRoute
+                  anyRole={['OWNER', 'SUPER_ADMIN']}
+                  requiredPermission="platform:tiramis-integration:read"
+                />
+              }
+            >
+              <Route
+                path="/platform/tiramis-integration"
+                element={<PlatformTiramisIntegrationPage />}
+              />
+            </Route>
             <Route path="/settings/profile" element={<ProfilePage />} />
             <Route
               path="/settings/number-format"
@@ -1390,23 +1402,6 @@ export default function App() {
               <Route
                 path="/tiramis/retryable"
                 element={<TiramisRetryablePage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute
-                  requiredPermission="company-tiramis-config:read"
-                  allowedScopes={['company']}
-                />
-              }
-            >
-              <Route
-                path="/tiramis/webhook"
-                element={<TiramisWebhookDiagnosticsPage />}
-              />
-              <Route
-                path="/tiramis/configuration"
-                element={<TiramisConfigurationPage />}
               />
             </Route>
             <Route

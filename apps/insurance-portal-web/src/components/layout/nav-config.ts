@@ -221,6 +221,15 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
+        label: 'TIRAMIS Integration',
+        to: '/platform/tiramis-integration',
+        icon: Radar,
+        anyRole: ['SUPER_ADMIN', 'OWNER'],
+        permission: 'platform:tiramis-integration:read',
+        allowedScopes: ['platform'],
+      },
+      {
+        kind: 'link',
         label: 'Audit Log',
         to: '/audit-logs',
         icon: ScrollText,
@@ -618,14 +627,6 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
-        label: 'Configuration',
-        to: '/tiramis/configuration',
-        icon: Key,
-        permission: 'company-tiramis-config:read',
-        allowedScopes: ['company'],
-      },
-      {
-        kind: 'link',
         label: 'Dashboard',
         to: '/tiramis/dashboard',
         icon: Radar,
@@ -637,14 +638,6 @@ export const NAV_NODES: NavNode[] = [
         to: '/tiramis/health',
         icon: HeartPulse,
         permission: 'tiramis.monitoring.view',
-      },
-      {
-        kind: 'link',
-        label: 'Notification Webhook',
-        to: '/tiramis/webhook',
-        icon: Globe2,
-        permission: 'company-tiramis-config:read',
-        allowedScopes: ['company'],
       },
       {
         kind: 'link',

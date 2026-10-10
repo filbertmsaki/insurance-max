@@ -149,6 +149,13 @@ describe('TiramisClientService', () => {
         findOne: jest.fn().mockResolvedValue({ integrationPermissions: null }),
         createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
       } as any,
+      // No platform key yet: the company's legacy key is the fallback.
+      {
+        getServiceApiKey: jest.fn().mockResolvedValue(null),
+        getIntegrationPermissions: jest
+          .fn()
+          .mockResolvedValue(['submit', 'read_status']),
+      } as any,
     );
 
     await service.checkTiramisServiceHealth({
@@ -307,7 +314,78 @@ describe('TiramisClientService', () => {
       'user-1',
       'company-1',
       'test',
+      { followUp: false },
     );
     expect(context.environment).toBe('test');
+  });
+
+  it("uses the platform service key for the submission's environment", async () => {
+    const getServiceApiKey = jest.fn().mockResolvedValue('platform-live-key');
+    const service = new TiramisClientService(
+      {} as any,
+      {
+        get: jest.fn(),
+        getOrThrow: jest.fn().mockReturnValue('portal'),
+      } as any,
+      { getRequestId: jest.fn(), getCorrelationId: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { createQueryBuilder: jest.fn() } as any,
+      { getServiceApiKey } as any,
+    );
+
+    const connection = await (service as any).resolveConnectionConfig(
+      'company-1',
+      'live',
+    );
+
+    expect(getServiceApiKey).toHaveBeenCalledWith('live');
+    expect(connection.apiKey).toBe('platform-live-key');
+  });
+
+  it('marks status-sync reads as follow-ups so a later revoke never strands them', async () => {
+    const requireTiramisReady = jest.fn().mockResolvedValue({
+      company: { id: 'company-1' },
+      tiramis: {
+        companyCode: 'C',
+        insurerCompanyCode: 'C',
+        environment: 'test',
+      },
+      activeBranch: { id: 'b', code: 'B' },
+      activeDepartment: null,
+      defaultSalePoint: { id: 's', code: 'S' },
+    });
+    const service = new TiramisClientService(
+      {} as any,
+      { get: jest.fn() } as any,
+      { getRequestId: jest.fn(), getCorrelationId: jest.fn() } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      { requireTiramisReady } as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    await (service as any).buildTiramisReadyTenantContext({
+      id: 'user-1',
+      companyId: 'company-1',
+      tiramisEnvironment: 'test',
+      tiramisFollowUp: true,
+    });
+
+    expect(requireTiramisReady).toHaveBeenCalledWith(
+      'user-1',
+      'company-1',
+      'test',
+      { followUp: true },
+    );
   });
 });

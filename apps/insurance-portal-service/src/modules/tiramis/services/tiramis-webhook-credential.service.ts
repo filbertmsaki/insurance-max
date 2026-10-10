@@ -151,7 +151,9 @@ export class TiramisWebhookCredentialService {
       failureMessage: 'Unable to store the platform webhook key in TIRAMIS.',
     });
 
-    this.logger.log(`Platform webhook API key synced to TIRAMIS (${environment})`);
+    this.logger.log(
+      `Platform webhook API key synced to TIRAMIS (${environment})`,
+    );
     return { apiClientId };
   }
 

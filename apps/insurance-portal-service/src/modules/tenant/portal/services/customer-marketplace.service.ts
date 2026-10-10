@@ -44,13 +44,19 @@ export class CustomerMarketplaceService {
   async listEligibleCompanies(user: AuthenticatedUser) {
     this.assertAuthenticatedSession(user);
 
-    const companies = await this.companyRepository.find({
-      where: {
-        status: 'active',
-        company_type: CompanyType.INSURANCE_COMPANY,
-      },
-      order: { name: 'ASC' },
-    });
+    // Only insurers whose TIRAMIS integration access is active can take new
+    // business; revoked or not-yet-activated insurers are not offered.
+    const companies = await this.companyRepository
+      .createQueryBuilder('company')
+      .where('company.status = :status', { status: 'active' })
+      .andWhere('company.company_type = :companyType', {
+        companyType: CompanyType.INSURANCE_COMPANY,
+      })
+      .andWhere(
+        `EXISTS (SELECT 1 FROM tiramis_company_links link WHERE link.company_id = company.id AND link.status = 'ACTIVE')`,
+      )
+      .orderBy('company.name', 'ASC')
+      .getMany();
 
     return companies.map((company) => ({
       id: company.id,
@@ -61,7 +67,7 @@ export class CustomerMarketplaceService {
       contact_phone: company.contact_phone,
       website: company.website,
       description: this.publicDescription(company),
-      tira_ready: company.tira_integration_enabled === true,
+      tira_ready: true,
     }));
   }
 
@@ -82,6 +88,9 @@ export class CustomerMarketplaceService {
       .andWhere('company.company_type = :companyType', {
         companyType: CompanyType.INSURANCE_COMPANY,
       })
+      .andWhere(
+        `EXISTS (SELECT 1 FROM tiramis_company_links link WHERE link.company_id = company.id AND link.status = 'ACTIVE')`,
+      )
       .orderBy('category.sort_order', 'ASC')
       .addOrderBy('category.name', 'ASC')
       .addOrderBy('product.product_name', 'ASC')

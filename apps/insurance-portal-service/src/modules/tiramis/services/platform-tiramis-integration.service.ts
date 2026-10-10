@@ -356,9 +356,7 @@ export class PlatformTiramisIntegrationService {
 
     await this.audit(
       actorId,
-      existing
-        ? 'tiramis.company_link.updated'
-        : 'tiramis.company_link.linked',
+      existing ? 'tiramis.company_link.updated' : 'tiramis.company_link.linked',
       { insurerCompanyCode, status: saved.status },
       companyId,
     );
@@ -476,7 +474,9 @@ export class PlatformTiramisIntegrationService {
         .addSelect('COUNT(*)', 'count')
         .groupBy('link.status')
         .getRawMany();
-    return Object.fromEntries(rows.map((row) => [row.status, Number(row.count)]));
+    return Object.fromEntries(
+      rows.map((row) => [row.status, Number(row.count)]),
+    );
   }
 
   private audit(
@@ -490,7 +490,9 @@ export class PlatformTiramisIntegrationService {
       companyId: companyId ?? null,
       action,
       eventCategory: 'platform',
-      resource: companyId ? 'tiramis_company_link' : 'tiramis_platform_settings',
+      resource: companyId
+        ? 'tiramis_company_link'
+        : 'tiramis_platform_settings',
       resourceId: companyId ?? TIRAMIS_PLATFORM_SETTINGS_ID,
       afterState,
     });

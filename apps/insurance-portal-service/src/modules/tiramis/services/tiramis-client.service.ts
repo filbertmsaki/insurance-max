@@ -1124,7 +1124,12 @@ export class TiramisClientService {
   }): Promise<string> {
     const serviceName = `${this.configService.getOrThrow<string>('tiramisClient.sourceService')}-platform-${params.environment}`;
     const keys = await this.platformAdminRequest<
-      Array<{ id?: string; serviceName?: string; isActive?: boolean; revokedAt?: string | null }>
+      Array<{
+        id?: string;
+        serviceName?: string;
+        isActive?: boolean;
+        revokedAt?: string | null;
+      }>
     >({
       method: 'GET',
       url: '/api/tiramis/api-keys',

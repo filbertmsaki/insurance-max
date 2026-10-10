@@ -45,7 +45,44 @@ function stringMessages(value: unknown): string[] {
   return [];
 }
 
+const TIRAMIS_ERROR_MESSAGES: Record<string, string> = {
+  TIRAMIS_ACCESS_REVOKED:
+    'TIRA access for this company has been revoked by the platform owner.',
+  TIRAMIS_ACCESS_NOT_ACTIVE:
+    'TIRA access for this company is not active yet. Contact the platform owner.',
+  TIRAMIS_ACCESS_NOT_LINKED:
+    'This company is not linked to TIRA yet. Contact the platform owner.',
+  PLATFORM_ENVIRONMENT_NOT_VALIDATED:
+    'The platform TIRAMIS environment has not been validated yet.',
+  ACTIVE_BRANCH: 'An active branch is required.',
+  DEFAULT_SALE_POINT: 'A default sale point is required.',
+};
+
+/** Replaces TIRAMIS access/readiness error codes with friendly messages. */
+function withFriendlyTiramisMessage(details: ApiErrorDetails): ApiErrorDetails {
+  const direct = TIRAMIS_ERROR_MESSAGES[details.code];
+  if (direct) return { ...details, message: direct };
+
+  if (details.code === 'ORGANIZATION_NOT_TIRAMIS_READY') {
+    const missing = stringMessages(details.details?.missingRequirements).map(
+      (code) => TIRAMIS_ERROR_MESSAGES[code] ?? code,
+    );
+    if (missing.length > 0) {
+      return {
+        ...details,
+        message: `This company is not ready for TIRAMIS: ${missing.join(' ')}`,
+      };
+    }
+  }
+
+  return details;
+}
+
 export function parseApiError(error: unknown): ApiErrorDetails {
+  return withFriendlyTiramisMessage(parseRawApiError(error));
+}
+
+function parseRawApiError(error: unknown): ApiErrorDetails {
   if (error instanceof AxiosError && error.response) {
     const status = error.response.status;
 

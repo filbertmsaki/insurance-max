@@ -66,7 +66,7 @@ import {
   companiesApi,
   type UpdateCompanyDto,
 } from '@/modules/platform/companies/api/companies';
-import { PlatformTiramisConfigTab } from '@/modules/platform/tiramis-config/components/PlatformTiramisConfigTab';
+import { CompanyTiramisAccessCard } from '@/modules/platform/tiramis-integration/components/CompanyTiramisAccessCard';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -612,7 +612,7 @@ export function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
-  const canViewTiramis = hasPermission('company-tiramis-config:read');
+  const canViewTiramis = hasPermission('platform:tiramis-integration:read');
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -952,7 +952,7 @@ export function CompanyDetailPage() {
 
         {canViewTiramis && (
           <TabsContent value="tiramis" className="mt-4">
-            <PlatformTiramisConfigTab companyId={company.id} />
+            <CompanyTiramisAccessCard companyId={company.id} />
           </TabsContent>
         )}
       </Tabs>
