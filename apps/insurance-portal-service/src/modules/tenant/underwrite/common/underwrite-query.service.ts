@@ -22,7 +22,7 @@ import { QuotationsService } from '../../quotations/quotations.service';
  *
  * Every call delegates to the existing `*ForUser` methods, so data scope
  * (company, branch, department, own records) is applied exactly as it is for
- * the legacy `/underwriting` screens. This layer only pins the line and
+ * the shared quotation and policy screens. This layer only pins the line and
  * rejects records that belong to a different line (404, not 403, so ids from
  * other lines are not disclosed).
  */

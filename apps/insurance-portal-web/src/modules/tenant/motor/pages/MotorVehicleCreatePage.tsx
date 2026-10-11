@@ -16,7 +16,7 @@ export function MotorVehicleCreatePage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/underwriting/motor/vehicles')}
+          onClick={() => navigate('/underwrite/motor/vehicles')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -32,7 +32,7 @@ export function MotorVehicleCreatePage() {
         submitLabel="Create Vehicle"
         onSubmit={(values) =>
           createMutation.mutate(values, {
-            onSuccess: () => navigate('/underwriting/motor/vehicles'),
+            onSuccess: () => navigate('/underwrite/motor/vehicles'),
           })
         }
       />

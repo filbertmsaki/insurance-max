@@ -46,7 +46,7 @@ export function SubjectMatterDetailPage() {
         <p className="font-medium">Subject matter not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/underwriting/non-motor/subject-matters')}
+          onClick={() => navigate('/underwrite/non-motor/risks')}
         >
           Back to Subject Matters
         </Button>
@@ -61,7 +61,7 @@ export function SubjectMatterDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/underwriting/non-motor/subject-matters')}
+            onClick={() => navigate('/underwrite/non-motor/risks')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -85,7 +85,7 @@ export function SubjectMatterDetailPage() {
             size="sm"
             onClick={() =>
               navigate(
-                `/underwriting/non-motor/subject-matters/${subjectMatter.id}/edit`,
+                `/underwrite/non-motor/risks/${subjectMatter.id}/edit`,
               )
             }
           >
@@ -149,7 +149,7 @@ export function SubjectMatterDetailPage() {
         onConfirm={() =>
           deleteMutation.mutate(subjectMatter.id, {
             onSuccess: () =>
-              navigate('/underwriting/non-motor/subject-matters'),
+              navigate('/underwrite/non-motor/risks'),
           })
         }
       />

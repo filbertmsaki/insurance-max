@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { PortalShell } from '@/modules/portal/components/PortalShell';
 import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage';
@@ -52,10 +52,6 @@ import { InsurancePartnersPage } from '@/modules/tenant/InsurancePartnersPage';
 import { CompanyFeaturesPage } from '@/modules/tenant/company-features/pages/CompanyFeaturesPage';
 import { DepartmentsPage } from '@/modules/tenant/departments/pages/DepartmentsPage';
 import { DepartmentDetailPage } from '@/modules/tenant/departments/pages/DepartmentDetailPage';
-import { CustomersPage } from '@/modules/tenant/customers/pages/CustomersPage';
-import { CustomerDetailPage } from '@/modules/tenant/customers/pages/CustomerDetailPage';
-import { CustomerCreatePage } from '@/modules/tenant/customers/pages/CustomerCreatePage';
-import { CustomerEditPage } from '@/modules/tenant/customers/pages/CustomerEditPage';
 import { RolesPage } from '@/modules/platform/roles/pages/RolesPage';
 import { PermissionsPage } from '@/modules/platform/permissions/pages/PermissionsPage';
 import { ReferenceDataPage } from '@/modules/platform/reference-data/pages/ReferenceDataPage';
@@ -80,36 +76,9 @@ import { TaxesPage } from '@/modules/tenant/taxes/TaxesPage';
 import { CategoryAccessPage } from '@/modules/tenant/product-engine/pages/access/categories/CategoryAccessPage';
 import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/products/ProductAccessPage';
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { renderClaimsRoutes } from '@/modules/tenant/claims/routes';
 import { renderUnderwriteRoutes } from '@/modules/tenant/underwrite/routes';
-import { MotorVehiclesPage } from '@/modules/tenant/motor/pages/MotorVehiclesPage';
-import { MotorVehicleDetailPage } from '@/modules/tenant/motor/pages/MotorVehicleDetailPage';
-import { MotorVehicleCreatePage } from '@/modules/tenant/motor/pages/MotorVehicleCreatePage';
-import { MotorVehicleEditPage } from '@/modules/tenant/motor/pages/MotorVehicleEditPage';
-import { MotorFleetsPage } from '@/modules/tenant/motor/pages/MotorFleetsPage';
-import { MotorFleetDetailPage } from '@/modules/tenant/motor/pages/MotorFleetDetailPage';
-import { MotorFleetCreatePage } from '@/modules/tenant/motor/pages/MotorFleetCreatePage';
-import { MotorFleetEditPage } from '@/modules/tenant/motor/pages/MotorFleetEditPage';
-import { SubjectMattersPage } from '@/modules/tenant/non-motor/pages/SubjectMattersPage';
-import { SubjectMatterDetailPage } from '@/modules/tenant/non-motor/pages/SubjectMatterDetailPage';
-import { SubjectMatterCreatePage } from '@/modules/tenant/non-motor/pages/SubjectMatterCreatePage';
-import { SubjectMatterEditPage } from '@/modules/tenant/non-motor/pages/SubjectMatterEditPage';
-import { QuotationsPage } from '@/modules/tenant/quotations/pages/QuotationsPage';
-import { QuotationDetailPage } from '@/modules/tenant/quotations/pages/QuotationDetailPage';
-import { QuotationCreatePage } from '@/modules/tenant/quotations/pages/QuotationCreatePage';
-import { QuotationEditPage } from '@/modules/tenant/quotations/pages/QuotationEditPage';
-import { QuotationWizardPage } from '@/modules/tenant/quotations/pages/QuotationWizardPage';
-import { QuotationPaymentPage } from '@/modules/tenant/quotations/pages/QuotationPaymentPage';
-import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage';
-import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage';
-import { EndorsementsPage } from '@/modules/tenant/policies/pages/EndorsementsPage';
-import { RenewalsPage } from '@/modules/tenant/policies/pages/RenewalsPage';
-import { PolicyEndorsementPage } from '@/modules/tenant/policies/pages/PolicyEndorsementPage';
 import { EndorsementTypesPage } from '@/modules/tenant/policies/pages/EndorsementTypesPage';
-import { PolicyCancellationPage } from '@/modules/tenant/policies/pages/PolicyCancellationPage';
-import { PolicyRenewalPage } from '@/modules/tenant/policies/pages/PolicyRenewalPage';
-import { PolicyEditPage } from '@/modules/tenant/policies/pages/PolicyEditPage';
 import { ComplaintsPage } from '@/modules/tenant/complaints/pages/ComplaintsPage';
 import { ComplaintDetailPage } from '@/modules/tenant/complaints/pages/ComplaintDetailPage';
 import { TiramisSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisSubmissionsPage';
@@ -164,15 +133,6 @@ import {
   BuyCoverPage,
   MotorInsurancePurchasePage,
 } from '@/modules/public/PublicWebsite';
-
-/**
- * The old `/underwriting/submissions/:id` link rendered the submission
- * without a permission check; send it to the guarded TIRA route instead.
- */
-function LegacySubmissionDetailRedirect() {
-  const { id } = useParams<{ id: string }>();
-  return <Navigate to={`/tiramis/submissions/${id}`} replace />;
-}
 
 export default function App() {
   return (
@@ -873,91 +833,6 @@ export default function App() {
             />
 
             <Route
-              element={<ProtectedRoute requiredPermission="quotations:read" />}
-            >
-              <Route
-                path={underwritingPaths.quotations}
-                element={<QuotationsPage />}
-              />
-              <Route
-                path={underwritingPaths.quotationDetail(':id')}
-                element={<QuotationDetailPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="quotations:create" />
-              }
-            >
-              <Route
-                path={underwritingPaths.quotationCreate}
-                element={<QuotationCreatePage />}
-              />
-              <Route
-                path={underwritingPaths.quotationWizard}
-                element={<QuotationWizardPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="quotations:update" />
-              }
-            >
-              <Route
-                path={underwritingPaths.quotationWizardEdit(':id')}
-                element={<QuotationWizardPage />}
-              />
-              <Route
-                path={underwritingPaths.quotationEdit(':id')}
-                element={<QuotationEditPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="quotations:request-payment" />
-              }
-            >
-              <Route
-                path={underwritingPaths.quotationPayment(':id')}
-                element={<QuotationPaymentPage />}
-              />
-            </Route>
-
-            <Route
-              element={<ProtectedRoute requiredPermission="policies:read" />}
-            >
-              <Route
-                path={underwritingPaths.policies}
-                element={<PoliciesPage />}
-              />
-              <Route
-                path={underwritingPaths.policyDetail(':id')}
-                element={<PolicyDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="policies:update" />}
-            >
-              <Route
-                path={underwritingPaths.policyEdit(':id')}
-                element={<PolicyEditPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="endorsements:create" />
-              }
-            >
-              <Route
-                path={underwritingPaths.endorsements}
-                element={<EndorsementsPage />}
-              />
-              <Route
-                path={underwritingPaths.policyEndorsementCreate(':policyId')}
-                element={<PolicyEndorsementPage />}
-              />
-            </Route>
-            <Route
               element={
                 <ProtectedRoute
                   requiredPermission="endorsements:create"
@@ -968,57 +843,6 @@ export default function App() {
               <Route
                 path="/endorsement-types"
                 element={<EndorsementTypesPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="endorsements:update-draft" />
-              }
-            >
-              <Route
-                path={underwritingPaths.policyEndorsementEdit(
-                  ':policyId',
-                  ':endorsementId',
-                )}
-                element={<PolicyEndorsementPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="cancellations:create" />
-              }
-            >
-              <Route
-                path={underwritingPaths.policyCancellationCreate(':policyId')}
-                element={<PolicyCancellationPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="cancellations:read" />
-              }
-            >
-              <Route
-                path={underwritingPaths.policyCancellationDetail(
-                  ':policyId',
-                  ':cancellationId',
-                )}
-                element={<PolicyCancellationPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="renewals:read" />}
-            >
-              <Route
-                path={underwritingPaths.renewals}
-                element={<RenewalsPage />}
-              />
-              <Route
-                path={underwritingPaths.policyRenewalDetail(
-                  ':policyId',
-                  ':renewalId',
-                )}
-                element={<PolicyRenewalPage />}
               />
             </Route>
             <Route
@@ -1054,35 +878,6 @@ export default function App() {
               }
             >
               <Route path="/verifications" element={<VerificationsPage />} />
-            </Route>
-
-            <Route
-              element={<ProtectedRoute requiredPermission="customers:read" />}
-            >
-              <Route
-                path={underwritingPaths.customers}
-                element={<CustomersPage />}
-              />
-              <Route
-                path={underwritingPaths.customerDetail(':id')}
-                element={<CustomerDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="customers:create" />}
-            >
-              <Route
-                path={underwritingPaths.customerCreate}
-                element={<CustomerCreatePage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="customers:update" />}
-            >
-              <Route
-                path={underwritingPaths.customerEdit(':id')}
-                element={<CustomerEditPage />}
-              />
             </Route>
 
             {/* Product Engine */}
@@ -1199,78 +994,6 @@ export default function App() {
                   element={<CalculatorPage />}
                 />
               </Route>
-            </Route>
-
-            <Route element={<ProtectedRoute requiredPermission="motor:read" />}>
-              <Route
-                path={underwritingPaths.motorVehicles}
-                element={<MotorVehiclesPage />}
-              />
-              <Route
-                path={underwritingPaths.motorVehicleDetail(':id')}
-                element={<MotorVehicleDetailPage />}
-              />
-              <Route
-                path={underwritingPaths.motorFleets}
-                element={<MotorFleetsPage />}
-              />
-              <Route
-                path={underwritingPaths.motorFleetDetail(':id')}
-                element={<MotorFleetDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="motor:create" />}
-            >
-              <Route
-                path={underwritingPaths.motorVehicleCreate}
-                element={<MotorVehicleCreatePage />}
-              />
-              <Route
-                path={underwritingPaths.motorFleetCreate}
-                element={<MotorFleetCreatePage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="motor:update" />}
-            >
-              <Route
-                path={underwritingPaths.motorVehicleEdit(':id')}
-                element={<MotorVehicleEditPage />}
-              />
-              <Route
-                path={underwritingPaths.motorFleetEdit(':id')}
-                element={<MotorFleetEditPage />}
-              />
-            </Route>
-
-            <Route
-              element={<ProtectedRoute requiredPermission="non-motor:read" />}
-            >
-              <Route
-                path={underwritingPaths.nonMotorSubjectMatters}
-                element={<SubjectMattersPage />}
-              />
-              <Route
-                path={underwritingPaths.nonMotorSubjectMatterDetail(':id')}
-                element={<SubjectMatterDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="non-motor:create" />}
-            >
-              <Route
-                path={underwritingPaths.nonMotorSubjectMatterCreate}
-                element={<SubjectMatterCreatePage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="non-motor:update" />}
-            >
-              <Route
-                path={underwritingPaths.nonMotorSubjectMatterEdit(':id')}
-                element={<SubjectMatterEditPage />}
-              />
             </Route>
 
             <Route
@@ -1422,138 +1145,6 @@ export default function App() {
             </Route>
           </Route>
         </Route>
-
-        {/* Legacy route redirects */}
-        <Route
-          path="/quotations"
-          element={<Navigate to={underwritingPaths.quotations} replace />}
-        />
-        <Route
-          path="/quotations/new"
-          element={<Navigate to={underwritingPaths.quotationCreate} replace />}
-        />
-        <Route
-          path="/quotations/wizard"
-          element={<Navigate to={underwritingPaths.quotationWizard} replace />}
-        />
-        <Route
-          path="/quotations/:id"
-          element={<Navigate to={underwritingPaths.quotations} replace />}
-        />
-        <Route path="/quotations/:id/edit" element={<QuotationEditPage />} />
-        <Route
-          path="/policies"
-          element={<Navigate to={underwritingPaths.policies} replace />}
-        />
-        <Route
-          path="/policies/new"
-          element={<Navigate to={underwritingPaths.policies} replace />}
-        />
-        <Route
-          path="/underwriting/policies/new"
-          element={<Navigate to={underwritingPaths.policies} replace />}
-        />
-        <Route
-          path="/policies/:id"
-          element={<Navigate to={underwritingPaths.policies} replace />}
-        />
-        <Route
-          path="/policies/:id/edit"
-          element={<Navigate to={underwritingPaths.policies} replace />}
-        />
-        <Route
-          path="/motor/vehicles"
-          element={<Navigate to={underwritingPaths.motorVehicles} replace />}
-        />
-        <Route
-          path="/motor/vehicles/new"
-          element={
-            <Navigate to={underwritingPaths.motorVehicleCreate} replace />
-          }
-        />
-        <Route
-          path="/motor/vehicles/:id"
-          element={<Navigate to={underwritingPaths.motorVehicles} replace />}
-        />
-        <Route
-          path="/motor/vehicles/:id/edit"
-          element={<Navigate to={underwritingPaths.motorVehicles} replace />}
-        />
-        <Route
-          path="/motor/fleets"
-          element={<Navigate to={underwritingPaths.motorFleets} replace />}
-        />
-        <Route
-          path="/motor/fleets/new"
-          element={<Navigate to={underwritingPaths.motorFleetCreate} replace />}
-        />
-        <Route
-          path="/motor/fleets/:id"
-          element={<Navigate to={underwritingPaths.motorFleets} replace />}
-        />
-        <Route
-          path="/motor/fleets/:id/edit"
-          element={<Navigate to={underwritingPaths.motorFleets} replace />}
-        />
-        <Route
-          path="/motor/quotation-details"
-          element={<Navigate to={underwritingPaths.motorVehicles} replace />}
-        />
-        <Route
-          path="/motor/policy-details"
-          element={<Navigate to={underwritingPaths.motorVehicles} replace />}
-        />
-        <Route
-          path="/non-motor/subject-matters"
-          element={
-            <Navigate to={underwritingPaths.nonMotorSubjectMatters} replace />
-          }
-        />
-        <Route
-          path="/non-motor/subject-matters/new"
-          element={
-            <Navigate
-              to={underwritingPaths.nonMotorSubjectMatterCreate}
-              replace
-            />
-          }
-        />
-        <Route
-          path="/non-motor/subject-matters/:id"
-          element={
-            <Navigate to={underwritingPaths.nonMotorSubjectMatters} replace />
-          }
-        />
-        <Route
-          path="/non-motor/subject-matters/:id/edit"
-          element={
-            <Navigate to={underwritingPaths.nonMotorSubjectMatters} replace />
-          }
-        />
-        <Route
-          path={underwritingPaths.submissions}
-          element={<Navigate to="/tiramis/submissions" replace />}
-        />
-        <Route
-          path={underwritingPaths.submissionDetail(':id')}
-          element={<LegacySubmissionDetailRedirect />}
-        />
-        <Route
-          path="/customers"
-          element={<Navigate to={underwritingPaths.customers} replace />}
-        />
-        <Route
-          path="/customers/new"
-          element={<Navigate to={underwritingPaths.customerCreate} replace />}
-        />
-        <Route
-          path="/customers/:id"
-          element={<Navigate to={underwritingPaths.customers} replace />}
-        />
-        <Route
-          path="/customers/:id/edit"
-          element={<Navigate to={underwritingPaths.customers} replace />}
-        />
 
         {/* Public website */}
         <Route path="/" element={<HomePage />} />

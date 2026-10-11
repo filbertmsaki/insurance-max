@@ -69,9 +69,9 @@ describe('underwrite transaction scope', () => {
     );
   });
 
-  it('leaves the legacy scope on the legacy routes', () => {
+  it('defaults shared policy navigation to the Motor underwrite line', () => {
     expect(legacyPolicyTransactionScope.paths.policyDetail('p1')).toBe(
-      '/underwriting/policies/p1',
+      '/underwrite/motor/policies/p1',
     );
   });
 
@@ -79,6 +79,8 @@ describe('underwrite transaction scope', () => {
     expect(underwriteSlugFromPath('/underwrite/fleet/policies/p1')).toBe(
       'fleet',
     );
-    expect(underwriteSlugFromPath('/underwriting/policies/p1')).toBeUndefined();
+    expect(underwriteSlugFromPath('/underwrite/motor/policies/p1')).toBe(
+      'motor',
+    );
   });
 });

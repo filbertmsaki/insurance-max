@@ -76,7 +76,7 @@ import { devicesApi } from '@/modules/shared/devices/api/devices';
 import { sessionsApi } from '@/modules/shared/sessions/api/sessions';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { analyticsApi } from '@/modules/tenant/analytics/api';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { companiesApi } from '@/modules/platform/companies/api/companies';
 import { isStandardCompanyUser } from '@/lib/auth/permissions';
 import {
@@ -2076,7 +2076,7 @@ export function DashboardPage() {
         description:
           'Open the sales dashboard tab and jump into the quotation register.',
         tab: 'sales',
-        to: underwritingPaths.quotations,
+        to: sharedUnderwritePaths.quotations,
       });
     }
 
@@ -2087,7 +2087,7 @@ export function DashboardPage() {
         description:
           'Open policy performance on the dashboard and inspect live policies.',
         tab: 'policies',
-        to: underwritingPaths.policies,
+        to: sharedUnderwritePaths.policies,
       });
     }
 

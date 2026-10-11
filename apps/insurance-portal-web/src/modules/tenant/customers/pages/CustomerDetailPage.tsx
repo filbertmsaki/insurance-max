@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CustomerStatusBadge } from '../components/CustomerStatusBadge';
 import {
   useCustomer,
@@ -100,7 +100,7 @@ export function CustomerDetailPage() {
         <p className="font-medium">Customer not found</p>
         <Button
           variant="link"
-          onClick={() => navigate(underwritingPaths.customers)}
+          onClick={() => navigate(sharedUnderwritePaths.customers)}
         >
           Back to Customers
         </Button>
@@ -117,7 +117,7 @@ export function CustomerDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(underwritingPaths.customers)}
+            onClick={() => navigate(sharedUnderwritePaths.customers)}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -145,7 +145,7 @@ export function CustomerDetailPage() {
             variant="outline"
             size="sm"
             onClick={() =>
-              navigate(underwritingPaths.customerEdit(customer.id))
+              navigate(sharedUnderwritePaths.customerEdit(customer.id))
             }
           >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
@@ -350,7 +350,7 @@ export function CustomerDetailPage() {
                   type="button"
                   className="block w-full rounded-md border border-slate-200 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50/40"
                   onClick={() =>
-                    navigate(underwritingPaths.motorVehicleDetail(vehicle.id))
+                    navigate(sharedUnderwritePaths.motorVehicleDetail(vehicle.id))
                   }
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -379,7 +379,7 @@ export function CustomerDetailPage() {
                 size="sm"
                 onClick={() =>
                   navigate(
-                    `${underwritingPaths.motorVehicles}?customer_id=${customer.id}`,
+                    `${sharedUnderwritePaths.motorVehicles}?customer_id=${customer.id}`,
                   )
                 }
               >
@@ -526,7 +526,7 @@ export function CustomerDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() =>
           deleteMutation.mutate(customer.id, {
-            onSuccess: () => navigate(underwritingPaths.customers),
+            onSuccess: () => navigate(sharedUnderwritePaths.customers),
           })
         }
       />

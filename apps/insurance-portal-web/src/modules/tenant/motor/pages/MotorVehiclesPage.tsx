@@ -102,7 +102,7 @@ export function MotorVehiclesPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(`/underwriting/motor/vehicles/${row.id}`)}
+            onClick={() => navigate(`/underwrite/motor/vehicles/${row.id}`)}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -110,7 +110,7 @@ export function MotorVehiclesPage() {
             variant="ghost"
             size="icon"
             onClick={() =>
-              navigate(`/underwriting/motor/vehicles/${row.id}/edit`)
+              navigate(`/underwrite/motor/vehicles/${row.id}/edit`)
             }
           >
             <Pencil className="h-4 w-4" />
@@ -133,7 +133,7 @@ export function MotorVehiclesPage() {
         title="Motor Vehicles"
         description="Register vehicles for motor underwriting"
         action={
-          <Button onClick={() => navigate('/underwriting/motor/vehicles/new')}>
+          <Button onClick={() => navigate('/underwrite/motor/vehicles/new')}>
             <Plus className="mr-2 h-4 w-4" />
             Create Vehicle
           </Button>

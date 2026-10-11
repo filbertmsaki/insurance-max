@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CustomerForm } from '../components/CustomerForm';
 import { useCreateCustomer } from '../hooks';
 
@@ -16,7 +16,7 @@ export function CustomerCreatePage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(underwritingPaths.customers)}
+          onClick={() => navigate(sharedUnderwritePaths.customers)}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -31,7 +31,7 @@ export function CustomerCreatePage() {
         submitLabel="Create Customer"
         onSubmit={(values) =>
           createMutation.mutate(values, {
-            onSuccess: () => navigate(underwritingPaths.customers),
+            onSuccess: () => navigate(sharedUnderwritePaths.customers),
           })
         }
       />

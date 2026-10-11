@@ -3,7 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CustomerForm } from '../components/CustomerForm';
 import { useCustomer, useUpdateCustomer } from '../hooks';
 
@@ -28,7 +28,7 @@ export function CustomerEditPage() {
         <p className="font-medium">Customer not found</p>
         <Button
           variant="link"
-          onClick={() => navigate(underwritingPaths.customers)}
+          onClick={() => navigate(sharedUnderwritePaths.customers)}
         >
           Back to Customers
         </Button>
@@ -43,7 +43,7 @@ export function CustomerEditPage() {
           variant="ghost"
           size="icon"
           onClick={() =>
-            navigate(underwritingPaths.customerDetail(customer.id))
+            navigate(sharedUnderwritePaths.customerDetail(customer.id))
           }
         >
           <ArrowLeft className="h-4 w-4" />
@@ -58,7 +58,7 @@ export function CustomerEditPage() {
         onSubmit={(values) =>
           updateMutation.mutate(values, {
             onSuccess: () =>
-              navigate(underwritingPaths.customerDetail(customer.id)),
+              navigate(sharedUnderwritePaths.customerDetail(customer.id)),
           })
         }
       />

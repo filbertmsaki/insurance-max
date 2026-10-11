@@ -16,7 +16,7 @@ export function SubjectMatterCreatePage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/underwriting/non-motor/subject-matters')}
+          onClick={() => navigate('/underwrite/non-motor/risks')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -33,7 +33,7 @@ export function SubjectMatterCreatePage() {
         onSubmit={(values) =>
           createMutation.mutate(values, {
             onSuccess: () =>
-              navigate('/underwriting/non-motor/subject-matters'),
+              navigate('/underwrite/non-motor/risks'),
           })
         }
       />

@@ -1,5 +1,5 @@
 import { Navigate, useParams } from 'react-router-dom';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 
 /**
  * Retired in favor of the wizard's edit mode — editing a quotation
@@ -9,5 +9,5 @@ import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
  */
 export function QuotationEditPage() {
   const { id } = useParams<{ id: string }>();
-  return <Navigate to={underwritingPaths.quotationWizardEdit(id!)} replace />;
+  return <Navigate to={sharedUnderwritePaths.quotationWizardEdit(id!)} replace />;
 }

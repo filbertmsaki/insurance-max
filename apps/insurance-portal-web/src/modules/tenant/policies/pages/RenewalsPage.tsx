@@ -6,7 +6,7 @@ import { DataTable, type Column } from '@/components/shared/DataTable';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { policiesApi } from '../api';
 import { useAllRenewals } from '../hooks';
 import type { PolicyRenewalRecord } from '../types';
@@ -26,7 +26,7 @@ export function RenewalsPage() {
         return;
       }
       navigate(
-        underwritingPaths.policyRenewalDetail(
+        sharedUnderwritePaths.policyRenewalDetail(
           context.transaction.source_policy_id,
           renewal.id,
         ),

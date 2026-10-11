@@ -21,7 +21,7 @@ import { Form } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import {
@@ -711,7 +711,7 @@ export function QuotationWizardPage() {
     toast.error(
       'This quotation cannot be edited in its current status. Please create an endorsement or renewal where required.',
     );
-    navigate(underwritingPaths.quotationDetail(quotationContext.id), {
+    navigate(sharedUnderwritePaths.quotationDetail(quotationContext.id), {
       replace: true,
     });
   }, [isEditMode, navigate, quotationContext]);
@@ -884,7 +884,7 @@ export function QuotationWizardPage() {
 
         setDraftId(quotation.id);
         if (!id) {
-          navigate(underwritingPaths.quotationWizardEdit(quotation.id), {
+          navigate(sharedUnderwritePaths.quotationWizardEdit(quotation.id), {
             replace: true,
           });
         }
@@ -1130,7 +1130,7 @@ export function QuotationWizardPage() {
         expectedUpdatedAt: existingQuotation?.updated_at,
       });
 
-      navigate(underwritingPaths.quotationDetail(quotation.id));
+      navigate(sharedUnderwritePaths.quotationDetail(quotation.id));
     } catch {
       // Mutation hooks already surface the error toast.
     }
@@ -1155,12 +1155,12 @@ export function QuotationWizardPage() {
     clearDraft();
 
     if (!activeDraftId) {
-      navigate(underwritingPaths.quotations);
+      navigate(sharedUnderwritePaths.quotations);
       return;
     }
 
     deleteDraftMutation.mutate(activeDraftId, {
-      onSuccess: () => navigate(underwritingPaths.quotations),
+      onSuccess: () => navigate(sharedUnderwritePaths.quotations),
     });
   }, [activeDraftId, clearDraft, deleteDraftMutation, navigate]);
 
@@ -1368,7 +1368,7 @@ export function QuotationWizardPage() {
         <p>Could not load this quotation for editing: {String(error)}</p>
         <Button
           variant="outline"
-          onClick={() => navigate(underwritingPaths.quotations)}
+          onClick={() => navigate(sharedUnderwritePaths.quotations)}
         >
           Back to Quotations
         </Button>
@@ -1393,7 +1393,7 @@ export function QuotationWizardPage() {
           initialSelection={startModalInitialSelection}
           canSelectInsuranceChannel={canSelectInsuranceChannel}
           onProceed={handleStartProceed}
-          onClose={() => navigate(underwritingPaths.quotations)}
+          onClose={() => navigate(sharedUnderwritePaths.quotations)}
         />
 
         {hasCompletedStartSetup && (

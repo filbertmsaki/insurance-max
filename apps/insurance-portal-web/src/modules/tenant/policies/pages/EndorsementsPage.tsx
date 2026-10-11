@@ -5,7 +5,7 @@ import { DataTable, type Column } from '@/components/shared/DataTable';
 import { formatMoney } from '@/components/shared/detailFormat';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { useAllEndorsements } from '../hooks';
 import type { PolicyEndorsementRecord } from '../types';
 
@@ -80,7 +80,7 @@ export function EndorsementsPage() {
             size="icon"
             onClick={() =>
               navigate(
-                underwritingPaths.policyEndorsementEdit(
+                sharedUnderwritePaths.policyEndorsementEdit(
                   row.source_policy_id,
                   row.id,
                 ),

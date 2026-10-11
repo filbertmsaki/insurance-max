@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { CustomersTable } from '@/modules/tenant/customers/components/CustomersTable';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { underwritePaths } from '@/modules/tenant/underwrite/paths';
 import { useUnderwriteCustomers, useUnderwriteLineParam } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
 
@@ -40,7 +40,9 @@ function CustomersList({ line }: { line: UnderwriteLineMeta }) {
         description={`Customers with ${line.label.toLowerCase()} quotations or policies`}
         action={
           canCreate ? (
-            <Button onClick={() => navigate(underwritingPaths.customerCreate)}>
+            <Button
+              onClick={() => navigate(underwritePaths.customerCreate(line.slug))}
+            >
               <Plus className="mr-2 h-4 w-4" />
               New customer
             </Button>

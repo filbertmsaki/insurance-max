@@ -83,7 +83,7 @@ export function SubjectMattersPage() {
             variant="ghost"
             size="icon"
             onClick={() =>
-              navigate(`/underwriting/non-motor/subject-matters/${row.id}`)
+              navigate(`/underwrite/non-motor/risks/${row.id}`)
             }
           >
             <Eye className="h-4 w-4" />
@@ -92,7 +92,7 @@ export function SubjectMattersPage() {
             variant="ghost"
             size="icon"
             onClick={() =>
-              navigate(`/underwriting/non-motor/subject-matters/${row.id}/edit`)
+              navigate(`/underwrite/non-motor/risks/${row.id}/edit`)
             }
           >
             <Pencil className="h-4 w-4" />
@@ -117,7 +117,7 @@ export function SubjectMattersPage() {
         action={
           <Button
             onClick={() =>
-              navigate('/underwriting/non-motor/subject-matters/new')
+              navigate('/underwrite/non-motor/risks/new')
             }
           >
             <Plus className="mr-2 h-4 w-4" />

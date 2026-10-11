@@ -12,15 +12,27 @@ import { UnderwriteRecordGate } from './components/UnderwriteRecordGate';
 import { UnderwriteTransactionScope } from './components/UnderwriteTransactionScope';
 import {
   FleetPolicyDetailPage,
+  CustomerCreatePage,
+  CustomerDetailPage,
+  CustomerEditPage,
   NonMotorPolicyDetailPage,
   NonMotorQuotationDetailPage,
   NonMotorQuotationWizardPage,
   RiskSchemasPage,
   SubjectMattersPage,
+  SubjectMatterCreatePage,
+  SubjectMatterDetailPage,
+  SubjectMatterEditPage,
   FleetQuotationDetailPage,
   FleetQuotationWizardPage,
+  MotorFleetCreatePage,
+  MotorFleetDetailPage,
+  MotorFleetEditPage,
   MotorFleetsPage,
   MotorQuotationWizardPage,
+  MotorVehicleCreatePage,
+  MotorVehicleDetailPage,
+  MotorVehicleEditPage,
   MotorVehiclesPage,
   Page,
   PolicyCancellationPage,
@@ -185,6 +197,48 @@ export function renderUnderwriteRoutes() {
           element={
             <Page>
               <UnderwriteCustomersPage />
+            </Page>
+          }
+        />
+        <Route
+          path={underwritePaths.customerDetail(LINE, ':id')}
+          element={
+            <Page>
+              <CustomerDetailPage />
+            </Page>
+          }
+        />
+      </Route>
+      <Route
+        element={
+          <UnderwriteLineRoute
+            action={UnderwriteAction.CREATE}
+            permission="customers:create"
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.customerCreate(LINE)}
+          element={
+            <Page>
+              <CustomerCreatePage />
+            </Page>
+          }
+        />
+      </Route>
+      <Route
+        element={
+          <UnderwriteLineRoute
+            action={UnderwriteAction.EDIT}
+            permission="customers:update"
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.customerEdit(LINE, ':id')}
+          element={
+            <Page>
+              <CustomerEditPage />
             </Page>
           }
         />
@@ -413,6 +467,55 @@ export function renderUnderwriteRoutes() {
             </Page>
           }
         />
+        <Route
+          path={underwritePaths.motorVehicleDetail(':id')}
+          element={
+            <Page>
+              <MotorVehicleDetailPage />
+            </Page>
+          }
+        />
+      </Route>
+      <Route
+        element={
+          <ProtectedRoute
+            allPermissions={[
+              underwritePermission(
+                UnderwriteLine.MOTOR,
+                UnderwriteAction.CREATE,
+              ),
+              'motor:create',
+            ]}
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.motorVehicleCreate}
+          element={
+            <Page>
+              <MotorVehicleCreatePage />
+            </Page>
+          }
+        />
+      </Route>
+      <Route
+        element={
+          <ProtectedRoute
+            allPermissions={[
+              underwritePermission(UnderwriteLine.MOTOR, UnderwriteAction.EDIT),
+              'motor:update',
+            ]}
+          />
+        }
+      >
+        <Route
+          path={underwritePaths.motorVehicleEdit(':id')}
+          element={
+            <Page>
+              <MotorVehicleEditPage />
+            </Page>
+          }
+        />
       </Route>
 
       {/* Fleet: its own wizard and vehicle-level detail screens. */}
@@ -442,6 +545,21 @@ export function renderUnderwriteRoutes() {
         [fleetGate(UnderwriteAction.VIEW), 'motor:read'],
         underwritePaths.fleetRegister,
         <MotorFleetsPage />,
+      )}
+      {guardedRoute(
+        [fleetGate(UnderwriteAction.VIEW), 'motor:read'],
+        underwritePaths.fleetDetail(':id'),
+        <MotorFleetDetailPage />,
+      )}
+      {guardedRoute(
+        [fleetGate(UnderwriteAction.CREATE), 'motor:create'],
+        underwritePaths.fleetCreate,
+        <MotorFleetCreatePage />,
+      )}
+      {guardedRoute(
+        [fleetGate(UnderwriteAction.EDIT), 'motor:update'],
+        underwritePaths.fleetEdit(':id'),
+        <MotorFleetEditPage />,
       )}
 
       {/* Non-Motor: its own wizard, risk schemas and risk-aware details. */}
@@ -476,6 +594,21 @@ export function renderUnderwriteRoutes() {
         [nonMotorGate(UnderwriteAction.VIEW), 'non-motor:read'],
         underwritePaths.nonMotorRisks,
         <SubjectMattersPage />,
+      )}
+      {guardedRoute(
+        [nonMotorGate(UnderwriteAction.VIEW), 'non-motor:read'],
+        underwritePaths.nonMotorRiskDetail(':id'),
+        <SubjectMatterDetailPage />,
+      )}
+      {guardedRoute(
+        [nonMotorGate(UnderwriteAction.CREATE), 'non-motor:create'],
+        underwritePaths.nonMotorRiskCreate,
+        <SubjectMatterCreatePage />,
+      )}
+      {guardedRoute(
+        [nonMotorGate(UnderwriteAction.EDIT), 'non-motor:update'],
+        underwritePaths.nonMotorRiskEdit(':id'),
+        <SubjectMatterEditPage />,
       )}
     </>
   );

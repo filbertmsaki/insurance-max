@@ -37,7 +37,7 @@ export function MotorFleetEditPage() {
         <p className="font-medium">Fleet not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/underwriting/motor/fleets')}
+          onClick={() => navigate('/underwrite/fleet/fleets')}
         >
           Back to Fleets
         </Button>
@@ -51,7 +51,7 @@ export function MotorFleetEditPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(`/underwriting/motor/fleets/${fleet.id}`)}
+          onClick={() => navigate(`/underwrite/fleet/fleets/${fleet.id}`)}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -67,7 +67,7 @@ export function MotorFleetEditPage() {
         defaultValues={motorFleetRecordToFormValues(fleet)}
         onSubmit={(values) =>
           updateMutation.mutate(values, {
-            onSuccess: () => navigate(`/underwriting/motor/fleets/${fleet.id}`),
+            onSuccess: () => navigate(`/underwrite/fleet/fleets/${fleet.id}`),
           })
         }
       />

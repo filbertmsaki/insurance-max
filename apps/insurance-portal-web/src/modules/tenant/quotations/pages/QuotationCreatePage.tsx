@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 
 export function QuotationCreatePage() {
-  return <Navigate to={underwritingPaths.quotationWizard} replace />;
+  return <Navigate to={sharedUnderwritePaths.quotationWizard} replace />;
 }

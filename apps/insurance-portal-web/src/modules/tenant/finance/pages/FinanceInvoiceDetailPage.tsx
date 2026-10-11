@@ -195,9 +195,7 @@ export function FinanceInvoiceDetailPage() {
         ) : null}
         {invoice.quotation_id ? (
           <Button variant="outline" asChild>
-            <Link
-              to={`/underwriting/quotations/${invoice.quotation_id}/payment`}
-            >
+            <Link to={`/underwrite/motor/quotations/${invoice.quotation_id}`}>
               Open Quotation Payment
             </Link>
           </Button>

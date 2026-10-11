@@ -13,7 +13,7 @@ import {
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import {
   useCustomersList,
   useDeleteCustomer,
@@ -70,7 +70,7 @@ export function CustomersPage() {
         description="Manage your company customer database"
         action={
           canCreate ? (
-            <Button onClick={() => navigate(underwritingPaths.customerCreate)}>
+            <Button onClick={() => navigate(sharedUnderwritePaths.customerCreate)}>
               <Plus className="mr-2 h-4 w-4" />
               Create Customer
             </Button>
@@ -163,7 +163,7 @@ export function CustomersPage() {
         canDelete={canDelete}
         canRestore={canUpdate}
         onEdit={(customer) =>
-          navigate(underwritingPaths.customerEdit(customer.id))
+          navigate(sharedUnderwritePaths.customerEdit(customer.id))
         }
         onDelete={(customer) => setDeleteItem(customer)}
         onRestore={(customer) => setRestoreItem(customer)}

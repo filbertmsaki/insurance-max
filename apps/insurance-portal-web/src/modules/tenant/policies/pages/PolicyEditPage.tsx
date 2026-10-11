@@ -12,7 +12,7 @@ import {
 } from '../hooks';
 import { PolicyForm } from '../components/PolicyForm';
 import { policyRecordToFormValues } from '../schemas';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 
 export function PolicyEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -33,7 +33,7 @@ export function PolicyEditPage() {
         <p className="font-medium">Policy not found</p>
         <Button
           variant="link"
-          onClick={() => navigate(underwritingPaths.policies)}
+          onClick={() => navigate(sharedUnderwritePaths.policies)}
         >
           Back to Policies
         </Button>
@@ -47,7 +47,7 @@ export function PolicyEditPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(underwritingPaths.policyDetail(policy.id))}
+          onClick={() => navigate(sharedUnderwritePaths.policyDetail(policy.id))}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -65,7 +65,7 @@ export function PolicyEditPage() {
         onSubmit={(values) =>
           updateMutation.mutate(values, {
             onSuccess: () =>
-              navigate(underwritingPaths.policyDetail(policy.id)),
+              navigate(sharedUnderwritePaths.policyDetail(policy.id)),
           })
         }
       />

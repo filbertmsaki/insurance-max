@@ -16,7 +16,7 @@ import { ActionMenu } from '@/components/shared/ActionMenu';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import { TiraStatusBadge } from '../components/TiraStatusBadge';
@@ -160,14 +160,14 @@ export function QuotationsPage() {
                 label: 'View quotation',
                 icon: <Eye className="h-4 w-4" />,
                 onClick: () => {
-                  void navigate(underwritingPaths.quotationDetail(row.id));
+                  void navigate(sharedUnderwritePaths.quotationDetail(row.id));
                 },
               },
               {
                 label: 'Edit quotation',
                 icon: <Pencil className="h-4 w-4" />,
                 onClick: () => {
-                  void navigate(underwritingPaths.quotationWizardEdit(row.id));
+                  void navigate(sharedUnderwritePaths.quotationWizardEdit(row.id));
                 },
               },
               ...(row.tira_status === 'NOT_SUBMITTED'
@@ -196,7 +196,7 @@ export function QuotationsPage() {
         action={
           <Button
             onClick={() => {
-              void navigate(underwritingPaths.quotationWizard);
+              void navigate(sharedUnderwritePaths.quotationWizard);
             }}
           >
             <Plus className="mr-2 h-4 w-4" />

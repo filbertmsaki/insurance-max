@@ -67,7 +67,7 @@ import {
 } from '@/modules/tenant/non-motor/hooks';
 import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/PolicyNonMotorDetailForm';
 import type { NonMotorPolicyDetailRecord } from '@/modules/tenant/non-motor/types';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
 import type {
   PolicyCancellationRecord,
@@ -729,7 +729,7 @@ export function PolicyDetailPage() {
           {
             label: 'Edit',
             separatorBefore: true,
-            onClick: () => navigate(underwritingPaths.policyEdit(policy.id)),
+            onClick: () => navigate(sharedUnderwritePaths.policyEdit(policy.id)),
           },
         ]
       : []),

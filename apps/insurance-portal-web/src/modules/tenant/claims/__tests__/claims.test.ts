@@ -58,14 +58,12 @@ describe('claims navigation', () => {
     }
   });
 
-  it('no longer lists Claims under the legacy Underwriting menu', () => {
+  it('does not render the legacy Underwriting menu', () => {
     const underwriting = NAV_NODES.find(
       (node): node is NavGroup =>
         node.kind === 'group' && node.label === 'Underwriting',
     );
-    expect(underwriting?.children.map((item) => item.to)).not.toContain(
-      '/claims',
-    );
+    expect(underwriting).toBeUndefined();
     expect(
       NAV_NODES.filter(
         (node): node is NavGroup =>

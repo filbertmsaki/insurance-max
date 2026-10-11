@@ -1,5 +1,5 @@
 import { createContext, useContext, type ComponentType } from 'react';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { policiesApi } from './api';
 
 export type PolicyTransactionApi = typeof policiesApi;
@@ -46,13 +46,12 @@ export interface PolicyTransactionScope {
 
 /**
  * Where the policy detail, endorsement, cancellation and renewal screens send
- * their API calls and navigation. Defaults to the legacy `/underwriting`
- * endpoints and routes; the Underwrite module provides a line-scoped scope so
- * the same screens run against `tenant/underwrite/:line/...`.
+ * their API calls and navigation. Defaults to the Motor line in the active
+ * Underwrite module; line-scoped routes provide their own scope.
  */
 export const legacyPolicyTransactionScope: PolicyTransactionScope = {
   api: policiesApi,
-  paths: underwritingPaths,
+  paths: sharedUnderwritePaths,
 };
 
 export const PolicyTransactionScopeContext =

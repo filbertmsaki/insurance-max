@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
 import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
@@ -405,7 +405,7 @@ export function QuotationDetailPage() {
         <p className="font-medium">Quotation not found</p>
         <Button
           variant="link"
-          onClick={() => navigate(underwritingPaths.quotations)}
+          onClick={() => navigate(sharedUnderwritePaths.quotations)}
         >
           Back to Quotations
         </Button>
@@ -422,7 +422,7 @@ export function QuotationDetailPage() {
     submitMutation.mutate(undefined, {
       onSuccess: () => {
         navigate(
-          underwritingPaths.quotationDetail(preview.overview.quotation_id),
+          sharedUnderwritePaths.quotationDetail(preview.overview.quotation_id),
         );
       },
     });
@@ -577,7 +577,7 @@ export function QuotationDetailPage() {
   return (
     <div className="space-y-6">
       <DetailPageHeader
-        onBack={() => navigate(underwritingPaths.quotations)}
+        onBack={() => navigate(sharedUnderwritePaths.quotations)}
         title={preview.overview.quotation_no}
         badges={
           <>

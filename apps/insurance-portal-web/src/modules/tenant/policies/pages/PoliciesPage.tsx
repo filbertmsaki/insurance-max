@@ -22,7 +22,7 @@ import {
 } from '../hooks';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import type { PolicyRecord } from '../types';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { getApiErrorMessage } from '@/lib/api-error';
 
 export function PoliciesPage() {
@@ -86,7 +86,7 @@ export function PoliciesPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(underwritingPaths.policyDetail(row.id))}
+            onClick={() => navigate(sharedUnderwritePaths.policyDetail(row.id))}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -95,7 +95,7 @@ export function PoliciesPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(underwritingPaths.policyEdit(row.id))}
+                onClick={() => navigate(sharedUnderwritePaths.policyEdit(row.id))}
               >
                 <Pencil className="h-4 w-4" />
               </Button>

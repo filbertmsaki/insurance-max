@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { financeApi } from '@/modules/tenant/finance/api';
 import {
   FinanceStatusBadge,
@@ -126,7 +126,7 @@ export function QuotationPaymentPage() {
         <p className="font-medium">Quotation not found</p>
         <Button
           variant="link"
-          onClick={() => navigate(underwritingPaths.quotations)}
+          onClick={() => navigate(sharedUnderwritePaths.quotations)}
         >
           Back to Quotations
         </Button>
@@ -158,7 +158,7 @@ export function QuotationPaymentPage() {
           variant="ghost"
           size="icon"
           onClick={() =>
-            navigate(underwritingPaths.quotationDetail(quotation.id))
+            navigate(sharedUnderwritePaths.quotationDetail(quotation.id))
           }
         >
           <ArrowLeft className="h-4 w-4" />
@@ -331,7 +331,7 @@ export function QuotationPaymentPage() {
             <Button
               type="button"
               onClick={() =>
-                navigate(underwritingPaths.quotationDetail(quotation.id))
+                navigate(sharedUnderwritePaths.quotationDetail(quotation.id))
               }
             >
               Back to Quotation

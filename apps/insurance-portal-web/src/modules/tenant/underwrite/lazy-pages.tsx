@@ -26,6 +26,21 @@ export const UnderwriteCustomersPage = lazy(() =>
     default: module.UnderwriteCustomersPage,
   })),
 );
+export const CustomerDetailPage = lazy(() =>
+  import('@/modules/tenant/customers/pages/CustomerDetailPage').then(
+    (module) => ({ default: module.CustomerDetailPage }),
+  ),
+);
+export const CustomerCreatePage = lazy(() =>
+  import('@/modules/tenant/customers/pages/CustomerCreatePage').then(
+    (module) => ({ default: module.CustomerCreatePage }),
+  ),
+);
+export const CustomerEditPage = lazy(() =>
+  import('@/modules/tenant/customers/pages/CustomerEditPage').then(
+    (module) => ({ default: module.CustomerEditPage }),
+  ),
+);
 export const UnderwriteTransactionsPage = lazy(() =>
   import('./pages/UnderwriteTransactionsPage').then((module) => ({
     default: module.UnderwriteTransactionsPage,
@@ -88,11 +103,56 @@ export const MotorFleetsPage = lazy(() =>
     default: module.MotorFleetsPage,
   })),
 );
+export const MotorFleetDetailPage = lazy(() =>
+  import('@/modules/tenant/motor/pages/MotorFleetDetailPage').then(
+    (module) => ({ default: module.MotorFleetDetailPage }),
+  ),
+);
+export const MotorFleetCreatePage = lazy(() =>
+  import('@/modules/tenant/motor/pages/MotorFleetCreatePage').then(
+    (module) => ({ default: module.MotorFleetCreatePage }),
+  ),
+);
+export const MotorFleetEditPage = lazy(() =>
+  import('@/modules/tenant/motor/pages/MotorFleetEditPage').then((module) => ({
+    default: module.MotorFleetEditPage,
+  })),
+);
 // Central asset registry screen, reused for Motor > Vehicles.
 export const MotorVehiclesPage = lazy(() =>
   import('@/modules/tenant/motor/pages/MotorVehiclesPage').then((module) => ({
     default: module.MotorVehiclesPage,
   })),
+);
+export const MotorVehicleDetailPage = lazy(() =>
+  import('@/modules/tenant/motor/pages/MotorVehicleDetailPage').then(
+    (module) => ({ default: module.MotorVehicleDetailPage }),
+  ),
+);
+export const MotorVehicleCreatePage = lazy(() =>
+  import('@/modules/tenant/motor/pages/MotorVehicleCreatePage').then(
+    (module) => ({ default: module.MotorVehicleCreatePage }),
+  ),
+);
+export const MotorVehicleEditPage = lazy(() =>
+  import('@/modules/tenant/motor/pages/MotorVehicleEditPage').then(
+    (module) => ({ default: module.MotorVehicleEditPage }),
+  ),
+);
+export const SubjectMatterDetailPage = lazy(() =>
+  import('@/modules/tenant/non-motor/pages/SubjectMatterDetailPage').then(
+    (module) => ({ default: module.SubjectMatterDetailPage }),
+  ),
+);
+export const SubjectMatterCreatePage = lazy(() =>
+  import('@/modules/tenant/non-motor/pages/SubjectMatterCreatePage').then(
+    (module) => ({ default: module.SubjectMatterCreatePage }),
+  ),
+);
+export const SubjectMatterEditPage = lazy(() =>
+  import('@/modules/tenant/non-motor/pages/SubjectMatterEditPage').then(
+    (module) => ({ default: module.SubjectMatterEditPage }),
+  ),
 );
 // Shared detail screens are reused as-is until the per-line screens land.
 export const QuotationDetailPage = lazy(() =>
