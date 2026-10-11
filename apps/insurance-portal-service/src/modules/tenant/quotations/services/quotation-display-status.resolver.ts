@@ -17,7 +17,9 @@ export class QuotationDisplayStatusResolver {
     quotation: Pick<
       Quotation,
       'status' | 'approval_status' | 'payment_status' | 'tira_status'
-    >,
+    > & {
+      cover_note?: { payment_mode?: number | null } | null;
+    },
   ): ResolvedQuotationDisplayStatus {
     if (quotation.status === QuotationStatus.COMPLETED) {
       return this.status(QuotationDisplayStatus.COMPLETED, 'Completed');
@@ -90,8 +92,13 @@ export class QuotationDisplayStatusResolver {
       );
     }
 
+    const isCashPayment = Number(quotation.cover_note?.payment_mode) === 1;
+
     switch (quotation.payment_status) {
       case PaymentStatus.NOT_INITIATED:
+        if (isCashPayment) {
+          break;
+        }
         return this.status(
           QuotationDisplayStatus.PAYMENT_REQUIRED,
           'Payment Required',
@@ -128,7 +135,14 @@ export class QuotationDisplayStatusResolver {
         );
     }
 
-    if (quotation.status === QuotationStatus.READY_FOR_SUBMISSION) {
+    if (
+      quotation.status === QuotationStatus.READY_FOR_SUBMISSION ||
+      (isCashPayment &&
+        quotation.status === QuotationStatus.PENDING_REQUIREMENTS &&
+        [ApprovalStatus.APPROVED, ApprovalStatus.NOT_REQUIRED].includes(
+          quotation.approval_status,
+        ))
+    ) {
       return this.status(
         QuotationDisplayStatus.READY_FOR_TIRA_SUBMISSION,
         'Ready for TIRAMIS Submission',

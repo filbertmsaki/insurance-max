@@ -2171,6 +2171,37 @@ describe('QuotationsService', () => {
     );
   });
 
+  it('bypasses the visible payment requirement for cash quotations', async () => {
+    const fixture = createServiceFixture({
+      requires_approval: true,
+      approval_status: ApprovalStatus.APPROVED,
+      requires_payment: true,
+      payment_status: PaymentStatus.NOT_INITIATED,
+      status: QuotationStatus.PENDING_REQUIREMENTS,
+    });
+
+    const workflow = await fixture.service.getWorkflowView(
+      'company-1',
+      'quotation-1',
+      {
+        permissions: [
+          'quotations:submit-tiramis',
+          'quotations:request-payment',
+        ],
+      },
+    );
+    const display = new QuotationDisplayStatusResolver().resolve(
+      fixture.quotation,
+    );
+
+    expect(workflow.payment.required).toBe(false);
+    expect(workflow.payment.status).toBe('PAID');
+    expect(workflow.submission.status).toBe('READY');
+    expect(workflow.availableCommands.SUBMIT_TIRAMIS).toBe(true);
+    expect(workflow.availableCommands.REQUEST_PAYMENT).toBe(false);
+    expect(display.displayLabel).toBe('Ready for TIRAMIS Submission');
+  });
+
   it('normalizes quotation taxes from backend charge rules before submission', async () => {
     const fixture = createServiceFixture();
     fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged[0].tax_amount = 1;

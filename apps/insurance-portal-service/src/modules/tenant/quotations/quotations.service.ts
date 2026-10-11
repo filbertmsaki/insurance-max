@@ -4628,7 +4628,8 @@ export class QuotationsService {
 
     const paymentSatisfied =
       !quotation.requires_payment ||
-      quotation.payment_status === PaymentStatus.PAID;
+      quotation.payment_status === PaymentStatus.PAID ||
+      this.isCashPaymentMode(quotation);
     if (!paymentSatisfied) {
       throw new ConflictException(
         `Quotation payment is not complete. Current payment status is ${quotation.payment_status}.`,
@@ -4636,7 +4637,10 @@ export class QuotationsService {
     }
 
     const readyForInitialSubmission =
-      quotation.status === QuotationStatus.READY_FOR_SUBMISSION &&
+      (quotation.status === QuotationStatus.READY_FOR_SUBMISSION ||
+        (this.isCashPaymentMode(quotation) &&
+          approvalSatisfied &&
+          quotation.status === QuotationStatus.PENDING_REQUIREMENTS)) &&
       quotation.tira_status === TiraStatus.NOT_SUBMITTED;
     const readyForRetry =
       !!submitOptions.force_resubmit &&
@@ -6639,11 +6643,25 @@ export class QuotationsService {
       quotation.quotation_stage ?? this.mapQuotationStageForGate(quotation, {});
     const approvalStatus =
       quotation.approval_status_v2 ?? this.mapApprovalStatusForGate(quotation);
-    const paymentStatus =
-      quotation.payment_status_v2 ?? this.mapPaymentStatusForGate(quotation);
+    const cashPaymentMode = this.isCashPaymentMode(quotation);
+    const approvalSatisfiedForWorkflow =
+      !quotation.requires_approval ||
+      quotation.approval_status === ApprovalStatus.APPROVED;
+    const paymentStatus = cashPaymentMode
+      ? QuotationPaymentStatus.PAID
+      : (quotation.payment_status_v2 ??
+        this.mapPaymentStatusForGate(quotation));
     const submissionStatus =
       quotation.submission_status_v2 ??
-      this.mapSubmissionStatusForGate(quotation, {});
+      (cashPaymentMode &&
+      quotation.tira_status === TiraStatus.NOT_SUBMITTED &&
+      approvalSatisfiedForWorkflow &&
+      [
+        QuotationStatus.READY_FOR_SUBMISSION,
+        QuotationStatus.PENDING_REQUIREMENTS,
+      ].includes(quotation.status)
+        ? QuotationSubmissionStatus.READY
+        : this.mapSubmissionStatusForGate(quotation, {}));
 
     const pricingIntegration = this.canViewPricingBreakdown(user)
       ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
@@ -6864,7 +6882,7 @@ export class QuotationsService {
         reason: quotation.approval_reason ?? null,
       },
       payment: {
-        required: quotation.requires_payment,
+        required: cashPaymentMode ? false : quotation.requires_payment,
         status: paymentStatus,
         mode: null,
         reference: quotation.payment_request_reference ?? null,
