@@ -85,6 +85,23 @@ export interface FinancePaymentTransaction {
   created_at?: string;
 }
 
+export interface FinancePaymentReference {
+  id: string;
+  invoice_id: string;
+  provider: string;
+  method: string;
+  channel?: string | null;
+  control_number?: string | null;
+  provider_reference: string;
+  external_bill_id?: string | null;
+  amount: string;
+  currency: string;
+  status: string;
+  expires_at?: string | null;
+  provider_metadata?: Record<string, unknown> | null;
+  created_at?: string;
+}
+
 export interface FinanceReceipt {
   id: string;
   receipt_no: string;

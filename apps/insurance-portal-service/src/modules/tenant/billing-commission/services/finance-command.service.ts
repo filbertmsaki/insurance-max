@@ -57,6 +57,7 @@ import { PolicyTransactionRefundProjectionService } from '../../policy-transacti
 import { QuotationPaymentProjectionService } from './quotation-payment-projection.service';
 import { ReceiptBalanceService } from './receipt-balance.service';
 import { ReceiptAllocationStatus } from '../enums/finance-status.enums';
+import { PaymentReferenceService } from './payment-reference.service';
 
 @Injectable()
 export class FinanceCommandService {
@@ -71,6 +72,7 @@ export class FinanceCommandService {
     private readonly quotationPaymentProjectionService: QuotationPaymentProjectionService,
     private readonly policyTransactionPaymentProjectionService: PolicyTransactionPaymentProjectionService,
     private readonly policyTransactionRefundProjectionService: PolicyTransactionRefundProjectionService,
+    private readonly paymentReferenceService: PaymentReferenceService,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(PaymentTransaction)
@@ -274,6 +276,14 @@ export class FinanceCommandService {
               'The idempotency key was already used for another payment.',
           });
         }
+        await this.paymentReferenceService.markPaidByReference(
+          manager,
+          user.companyId!,
+          existing.invoice_id,
+          existing.payment_method,
+          existing.payment_reference,
+          user.id,
+        );
         return existing;
       }
 
@@ -306,7 +316,7 @@ export class FinanceCommandService {
           manager,
         );
 
-      return manager.getRepository(PaymentTransaction).save({
+      const payment = await manager.getRepository(PaymentTransaction).save({
         company_id: user.companyId!,
         transaction_no: transactionNo,
         customer_id: dto.customer_id ?? invoice?.customer_id ?? null,
@@ -335,6 +345,17 @@ export class FinanceCommandService {
         created_by: user.id,
         updated_by: user.id,
       });
+
+      await this.paymentReferenceService.markPaidByReference(
+        manager,
+        user.companyId!,
+        payment.invoice_id,
+        payment.payment_method,
+        payment.payment_reference,
+        user.id,
+      );
+
+      return payment;
     });
   }
 

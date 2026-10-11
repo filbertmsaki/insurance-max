@@ -10,6 +10,7 @@ import type {
   FinanceJournalEntry,
   FinanceListParams,
   FinancePage,
+  FinancePaymentReference,
   FinancePaymentTransaction,
   FinanceReceipt,
   FinanceReconciliationBatch,
@@ -49,6 +50,27 @@ export const financeApi = {
   ) =>
     apiClient
       .post<FinanceInvoice>(`/tenant/finance/invoices/${id}/void`, data)
+      .then((r) => r.data),
+  getPaymentReferences: (invoiceId: string) =>
+    apiClient
+      .get<
+        FinancePaymentReference[]
+      >(`/tenant/finance/invoices/${invoiceId}/payment-references`)
+      .then((r) => r.data),
+  createPaymentReference: (
+    invoiceId: string,
+    data: {
+      method: string;
+      provider?: string;
+      channel?: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) =>
+    apiClient
+      .post<FinancePaymentReference>(
+        `/tenant/finance/invoices/${invoiceId}/payment-references`,
+        data,
+      )
       .then((r) => r.data),
 
   getPaymentTransactions: (params?: FinanceListParams) =>

@@ -40,7 +40,9 @@ import {
   VoidInvoiceDto,
 } from './dto/finance-operations.dto';
 import { FilterBillingDto } from './dto/filter-billing.dto';
+import { CreatePaymentReferenceDto } from './dto/payment-reference.dto';
 import { FinanceCommandService } from './services/finance-command.service';
+import { PaymentReferenceService } from './services/payment-reference.service';
 import { ReconciliationService } from './services/reconciliation.service';
 
 @Controller('tenant/finance')
@@ -50,6 +52,7 @@ export class FinanceController {
     private readonly billingCommissionService: BillingCommissionService,
     private readonly financeCommandService: FinanceCommandService,
     private readonly reconciliationService: ReconciliationService,
+    private readonly paymentReferenceService: PaymentReferenceService,
   ) {}
 
   @Get('invoices')
@@ -68,6 +71,25 @@ export class FinanceController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.billingCommissionService.findInvoice(user.companyId!, id);
+  }
+
+  @Get('invoices/:id/payment-references')
+  @Permissions(FinancePermissions.PAYMENTS_READ)
+  listInvoicePaymentReferences(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.paymentReferenceService.listForInvoice(user, id);
+  }
+
+  @Post('invoices/:id/payment-references')
+  @Permissions(FinancePermissions.PAYMENTS_RECORD_MANUAL)
+  createInvoicePaymentReference(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreatePaymentReferenceDto,
+  ) {
+    return this.paymentReferenceService.createOrReuse(user, id, dto);
   }
 
   @Post('invoices/:id/issue')

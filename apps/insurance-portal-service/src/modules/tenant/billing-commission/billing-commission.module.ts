@@ -26,6 +26,7 @@ import { FinancialReversal } from './entities/financial-reversal.entity';
 import { Invoice } from './entities/invoice.entity';
 import { InvoiceItem } from './entities/invoice-item.entity';
 import { PaymentTransaction } from './entities/payment-transaction.entity';
+import { PaymentReference } from './entities/payment-reference.entity';
 import { ReceiptAllocation } from './entities/receipt-allocation.entity';
 import { Receipt } from './entities/receipt.entity';
 import { BillingCommissionController } from './billing-commission.controller';
@@ -43,6 +44,7 @@ import { InvoiceBalanceService } from './services/invoice-balance.service';
 import { CommissionAccrualService } from './services/commission-accrual.service';
 import { PaymentPayloadRedactionService } from './services/payment-payload-redaction.service';
 import { PaymentProviderRegistry } from './services/payment-provider.registry';
+import { PaymentReferenceService } from './services/payment-reference.service';
 import { PaymentTransactionProviderService } from './services/payment-transaction-provider.service';
 import { PolicyTransactionPaymentProjectionService } from './services/policy-transaction-payment-projection.service';
 import { ProviderWebhookService } from './services/provider-webhook.service';
@@ -81,6 +83,7 @@ import { AuditModule } from '../../shared/audit/audit.module';
       FinanceJournalLine,
       FinancialReversal,
       PaymentTransaction,
+      PaymentReference,
       CommissionTransaction,
       CommissionPayment,
       CommissionPaymentItem,
@@ -106,6 +109,7 @@ import { AuditModule } from '../../shared/audit/audit.module';
     FinanceJournalService,
     PaymentPayloadRedactionService,
     PaymentProviderRegistry,
+    PaymentReferenceService,
     PaymentTransactionProviderService,
     ProviderWebhookService,
     ReconciliationService,
@@ -127,6 +131,7 @@ import { AuditModule } from '../../shared/audit/audit.module';
     FinanceJournalService,
     PaymentPayloadRedactionService,
     PaymentProviderRegistry,
+    PaymentReferenceService,
     PaymentTransactionProviderService,
     ProviderWebhookService,
     ReconciliationService,

@@ -1,13 +1,21 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { financeApi } from '../api';
@@ -20,12 +28,30 @@ import {
   formatMoney,
   partyName,
 } from '../components';
+import type { FinancePaymentReference } from '../types';
+
+const paymentMethods = [
+  { value: 'CONTROL_NUMBER', label: 'Control number', provider: 'GEPG' },
+  { value: 'CASH', label: 'Cash', provider: 'CASH_DESK' },
+  { value: 'EFT', label: 'EFT', provider: 'BANK' },
+  { value: 'BANK_TRANSFER', label: 'Bank transfer', provider: 'BANK' },
+  { value: 'MOBILE_MONEY', label: 'Mobile money', provider: 'MOBILE_MONEY' },
+  { value: 'CARD', label: 'Card', provider: 'CARD' },
+] as const;
+
+function referenceValue(reference?: FinancePaymentReference | null) {
+  return reference?.control_number ?? reference?.provider_reference ?? '';
+}
+
+function referenceLabel(reference: FinancePaymentReference) {
+  return reference.control_number ? 'Control number' : 'Reference';
+}
 
 export function FinanceInvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [paymentMethod, setPaymentMethod] = useState('BANK_TRANSFER');
+  const [paymentMethod, setPaymentMethod] = useState('CONTROL_NUMBER');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
   const [payerName, setPayerName] = useState('');
@@ -36,8 +62,17 @@ export function FinanceInvoiceDetailPage() {
     enabled: !!id,
   });
 
+  const referencesQuery = useQuery({
+    queryKey: ['finance', 'invoice', id, 'payment-references'],
+    queryFn: () => financeApi.getPaymentReferences(id!),
+    enabled: !!id,
+  });
+
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['finance', 'invoice', id] });
+    queryClient.invalidateQueries({
+      queryKey: ['finance', 'invoice', id, 'payment-references'],
+    });
     queryClient.invalidateQueries({ queryKey: ['finance', 'invoices'] });
     queryClient.invalidateQueries({ queryKey: ['finance', 'payments'] });
     queryClient.invalidateQueries({ queryKey: ['finance', 'receipts'] });
@@ -67,6 +102,34 @@ export function FinanceInvoiceDetailPage() {
     onSuccess: (result) => {
       if (!result) return;
       toast.success('Invoice voided');
+      refresh();
+    },
+  });
+
+  const createReferenceMutation = useMutation({
+    mutationFn: async () => {
+      const invoice = invoiceQuery.data;
+      if (!invoice) throw new Error('Invoice not loaded');
+      const option = paymentMethods.find(
+        (item) => item.value === paymentMethod,
+      );
+      return financeApi.createPaymentReference(invoice.id, {
+        method: paymentMethod,
+        provider: option?.provider,
+        channel: paymentMethod,
+        metadata: {
+          payer_name: payerName || partyName(invoice.customer),
+        },
+      });
+    },
+    onSuccess: (reference) => {
+      const value = referenceValue(reference);
+      if (value) setPaymentReference(value);
+      toast.success(
+        reference.control_number
+          ? 'Control number generated'
+          : 'Payment reference generated',
+      );
       refresh();
     },
   });
@@ -123,6 +186,12 @@ export function FinanceInvoiceDetailPage() {
   }
 
   const currency = invoice.currency ?? invoice.currency_code ?? 'TZS';
+  const references = referencesQuery.data ?? [];
+  const activeReference = references.find(
+    (reference) =>
+      reference.method === paymentMethod &&
+      ['ACTIVE', 'PENDING'].includes(reference.status),
+  );
 
   return (
     <div className="space-y-6">
@@ -236,23 +305,39 @@ export function FinanceInvoiceDetailPage() {
       {['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status) ? (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Record Manual Payment</CardTitle>
+            <CardTitle className="text-base">Billing and Payment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-slate-500">
-              This records a successful payment transaction, posts the receipt,
-              and allocates it through finance commands.
+              Generate a payment reference for the channel, then record the
+              received payment and allocate it through finance commands.
             </p>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="payment-method">Payment method</Label>
-                <Input
-                  id="payment-method"
+                <Select
                   value={paymentMethod}
-                  onChange={(event) =>
-                    setPaymentMethod(event.target.value.toUpperCase())
-                  }
-                />
+                  onValueChange={(value) => {
+                    setPaymentMethod(value);
+                    const existing = references.find(
+                      (reference) =>
+                        reference.method === value &&
+                        ['ACTIVE', 'PENDING'].includes(reference.status),
+                    );
+                    setPaymentReference(referenceValue(existing));
+                  }}
+                >
+                  <SelectTrigger id="payment-method">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentMethods.map((method) => (
+                      <SelectItem key={method.value} value={method.value}>
+                        {method.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="payment-amount">Amount</Label>
@@ -282,14 +367,83 @@ export function FinanceInvoiceDetailPage() {
                 />
               </div>
             </div>
-            <Button
-              onClick={() => recordPaymentMutation.mutate()}
-              disabled={recordPaymentMutation.isPending}
-            >
-              {recordPaymentMutation.isPending
-                ? 'Posting...'
-                : 'Record and Allocate Payment'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => createReferenceMutation.mutate()}
+                disabled={createReferenceMutation.isPending}
+              >
+                {createReferenceMutation.isPending
+                  ? 'Generating...'
+                  : activeReference
+                    ? 'Use Existing Reference'
+                    : 'Generate Reference'}
+              </Button>
+              <Button
+                onClick={() => recordPaymentMutation.mutate()}
+                disabled={recordPaymentMutation.isPending}
+              >
+                {recordPaymentMutation.isPending
+                  ? 'Posting...'
+                  : 'Record and Allocate Payment'}
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Payment references
+              </p>
+              {references.length > 0 ? (
+                references.map((reference) => {
+                  const value = referenceValue(reference);
+                  return (
+                    <div
+                      key={reference.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 p-3"
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-sm font-semibold text-slate-900">
+                            {value}
+                          </span>
+                          <Badge variant="outline">{reference.method}</Badge>
+                          <FinanceStatusBadge status={reference.status} />
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          {referenceLabel(reference)} via {reference.provider}
+                          {reference.expires_at
+                            ? `, expires ${formatDate(reference.expires_at)}`
+                            : ''}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPaymentReference(value)}
+                        >
+                          Use
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(value);
+                            toast.success('Copied');
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="text-sm text-slate-500">
+                  No payment reference generated yet.
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       ) : null}

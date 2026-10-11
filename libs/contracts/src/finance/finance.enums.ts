@@ -41,6 +41,7 @@ export type PaymentTransactionStatus =
 
 export const PaymentMethod = {
   CASH: 'CASH',
+  CONTROL_NUMBER: 'CONTROL_NUMBER',
   BANK_TRANSFER: 'BANK_TRANSFER',
   CHEQUE: 'CHEQUE',
   MOBILE_MONEY: 'MOBILE_MONEY',
