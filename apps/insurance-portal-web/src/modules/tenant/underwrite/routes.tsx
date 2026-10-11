@@ -391,7 +391,7 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.inTransitQuotationCreate}
+          path={underwritePaths.shortTermMotorQuotationCreate}
           element={
             <Page>
               <ShortTermMotorQuotationWizardPage />
@@ -410,7 +410,7 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.inTransitQuotationEdit(':id')}
+          path={underwritePaths.shortTermMotorQuotationEdit(':id')}
           element={
             <Page>
               <ShortTermMotorQuotationWizardPage />
