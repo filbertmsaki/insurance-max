@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
 import { useReferenceCurrencies } from '@/modules/platform/reference-data/hooks';
 import { CURRENCY_OPTIONS } from '@/modules/tenant/quotations/wizard/QuotationStartModal';
 import { CoverNoteSetupStep } from '@/modules/tenant/quotations/wizard/steps/CoverNoteSetupStep';
@@ -113,6 +112,30 @@ export function ProductCoverStep({
               }
             }}
           />
+          {isMotor && (
+            <WizardInput
+              form={form}
+              name="risks.0.risk_id"
+              label="Risk"
+              required
+              searchable
+              disabled={!productId}
+              options={wizard.riskOptions.map((risk) => ({
+                value: risk.id,
+                label: risk.risk_name,
+              }))}
+              onChange={(value) => {
+                const risk = wizard.riskOptions.find(
+                  (option) => option.id === value,
+                );
+                form.setValue('risks.0.risk_code', risk?.risk_code ?? '', {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+                resetMotorPricing();
+              }}
+            />
+          )}
           <WizardInput
             form={form}
             name="currency"
@@ -131,57 +154,6 @@ export function ProductCoverStep({
           </p>
         )}
       </StepSection>
-
-      {isMotor && productId && (
-        <StepSection
-          title="Cover"
-          description="Motor quotations use one cover risk at a time."
-          action={
-            selectedRiskId ? (
-              <button
-                type="button"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-                onClick={() => {
-                  form.setValue('risks.0.risk_id', '', {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                  form.setValue('risks.0.risk_code', '', {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                  resetMotorPricing();
-                }}
-                aria-label="Clear selected cover"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            ) : null
-          }
-        >
-          <WizardInput
-            form={form}
-            name="risks.0.risk_id"
-            label="Risk"
-            required
-            searchable
-            options={wizard.riskOptions.map((risk) => ({
-              value: risk.id,
-              label: risk.risk_name,
-            }))}
-            onChange={(value) => {
-              const risk = wizard.riskOptions.find(
-                (option) => option.id === value,
-              );
-              form.setValue('risks.0.risk_code', risk?.risk_code ?? '', {
-                shouldDirty: true,
-                shouldValidate: true,
-              });
-              resetMotorPricing();
-            }}
-          />
-        </StepSection>
-      )}
 
       {/* The legacy cover step owns class selection for non-Motor lines. */}
       {(isMotor
