@@ -48,11 +48,19 @@ export function MotorDetailsStep({
 }: Props) {
   const [revision, setRevision] = useState(0);
   const motor = useWatch({ control: form.control, name: 'motor' });
+  const selectedRiskId = useWatch({
+    control: form.control,
+    name: 'risks.0.risk_id',
+  });
   const { requiredFactorsQuery, handleSumInsuredBlur } =
     useRiskPremiumCalculation(form, 0, factorContext);
   const requiresSumInsured = (requiredFactorsQuery.data ?? []).some(
     (item) => item.factor.code === 'sum_insured',
   );
+  const showSumInsured =
+    Boolean(selectedRiskId) &&
+    !requiredFactorsQuery.isLoading &&
+    requiresSumInsured;
 
   function resolveMotorCategoryCode(vehicle: MotorVehicleRecord) {
     const metadata = vehicle.metadata ?? {};
@@ -333,41 +341,43 @@ export function MotorDetailsStep({
           </Select>
         </div>
       )}
-      <FormField
-        control={form.control}
-        name="risks.0.sum_insured"
-        render={({ field }) => (
-          <WizardFormItem>
-            <FormLabel required={requiresSumInsured}>Sum Insured</FormLabel>
-            <FormControl>
-              <Input
-                type="number"
-                min="0"
-                {...field}
-                value={field.value as string}
-                onChange={(event) => {
-                  field.onChange(event);
-                  form.setValue(
-                    'risks.0.sum_insured_equivalent',
-                    event.target.value,
-                    { shouldDirty: true },
-                  );
-                }}
-                onBlur={() => {
-                  field.onBlur();
-                  form.setValue(
-                    'risks.0.sum_insured_equivalent',
-                    (form.getValues('risks.0.sum_insured') as string) ?? '',
-                    { shouldDirty: true, shouldValidate: true },
-                  );
-                  handleSumInsuredBlur();
-                }}
-              />
-            </FormControl>
-            <FormMessage />
-          </WizardFormItem>
-        )}
-      />
+      {showSumInsured && (
+        <FormField
+          control={form.control}
+          name="risks.0.sum_insured"
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel required>Sum Insured</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min="0"
+                  {...field}
+                  value={field.value as string}
+                  onChange={(event) => {
+                    field.onChange(event);
+                    form.setValue(
+                      'risks.0.sum_insured_equivalent',
+                      event.target.value,
+                      { shouldDirty: true },
+                    );
+                  }}
+                  onBlur={() => {
+                    field.onBlur();
+                    form.setValue(
+                      'risks.0.sum_insured_equivalent',
+                      (form.getValues('risks.0.sum_insured') as string) ?? '',
+                      { shouldDirty: true, shouldValidate: true },
+                    );
+                    handleSumInsuredBlur();
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+      )}
       <VehicleDetailsFields key={revision} form={form} />
     </StepSection>
   );
