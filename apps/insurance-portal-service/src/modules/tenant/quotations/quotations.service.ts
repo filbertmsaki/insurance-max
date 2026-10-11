@@ -3227,9 +3227,13 @@ export class QuotationsService {
       throw new ConflictException('Payment is not required for this quotation');
     }
 
+    const isCashPayment =
+      Number(quotation.cover_note?.payment_mode) === DEFAULT_PAYMENT_MODE;
+
     if (
       quotation.requires_approval &&
-      quotation.approval_status !== ApprovalStatus.APPROVED
+      quotation.approval_status !== ApprovalStatus.APPROVED &&
+      !isCashPayment
     ) {
       throw new ConflictException(
         `Approval must be completed before requesting payment. Current approval status is ${quotation.approval_status}.`,

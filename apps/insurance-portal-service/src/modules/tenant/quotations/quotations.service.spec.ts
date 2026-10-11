@@ -1912,6 +1912,63 @@ describe('QuotationsService', () => {
     );
   });
 
+  it('allows cash payment requests before approval is completed', async () => {
+    const fixture = createServiceFixture({
+      requires_approval: true,
+      approval_status: ApprovalStatus.PENDING,
+      requires_payment: true,
+      payment_status: PaymentStatus.NOT_INITIATED,
+      status: QuotationStatus.PENDING_REQUIREMENTS,
+    });
+    jest.spyOn(fixture.service as any, 'findLatestInvoice').mockResolvedValue({
+      id: 'invoice-1',
+      invoice_no: 'INV-2026-000001',
+      status: 'ISSUED',
+    });
+
+    await expect(
+      fixture.service.requestPayment('company-1', fixture.quotation.id, {
+        id: 'user-1',
+        permissions: ['quotations:request-payment'],
+      } as any),
+    ).resolves.toBeDefined();
+
+    expect(
+      fixture.quotationLifecycleService.markPaymentRequested,
+    ).toHaveBeenCalledWith(
+      'company-1',
+      fixture.quotation.id,
+      expect.objectContaining({
+        requestId: 'invoice-1',
+        reason: 'Invoice INV-2026-000001 generated for quotation payment',
+      }),
+    );
+  });
+
+  it('still requires approval before requesting non-cash payment', async () => {
+    const fixture = createServiceFixture({
+      requires_approval: true,
+      approval_status: ApprovalStatus.PENDING,
+      requires_payment: true,
+      payment_status: PaymentStatus.NOT_INITIATED,
+      status: QuotationStatus.PENDING_REQUIREMENTS,
+    });
+    fixture.quotation.cover_note.payment_mode = 2;
+
+    await expect(
+      fixture.service.requestPayment('company-1', fixture.quotation.id, {
+        id: 'user-1',
+        permissions: ['quotations:request-payment'],
+      } as any),
+    ).rejects.toThrow(
+      'Approval must be completed before requesting payment. Current approval status is PENDING.',
+    );
+
+    expect(
+      fixture.quotationLifecycleService.markPaymentRequested,
+    ).not.toHaveBeenCalled();
+  });
+
   it('logs pricing expiry, invalidation, and recalculation-required when a quote is expired', async () => {
     const fixture = createServiceFixture({
       pricingQuote: {
