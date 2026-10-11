@@ -1312,7 +1312,6 @@ function validateTiraMotorPurchaseDetails(
 ) {
   const missing: string[] = [];
   const requiredVehicleFields: Array<[keyof PublicMotorVehicle, string]> = [
-    ['registration_number', 'vehicle registration number'],
     ['chassis_number', 'chassis number'],
     ['make', 'vehicle make'],
     ['model', 'vehicle model'],
@@ -1322,8 +1321,11 @@ function validateTiraMotorPurchaseDetails(
     ['engine_capacity', 'engine capacity'],
     ['fuel_used', 'fuel used'],
     ['owner_name', 'owner name'],
-    ['owner_address', 'owner address'],
   ];
+
+  if (vehicle.motor_type === 1 && isBlank(vehicle.registration_number)) {
+    missing.push('vehicle registration number');
+  }
 
   requiredVehicleFields.forEach(([key, label]) => {
     const value = vehicle[key];
@@ -1344,8 +1346,6 @@ function validateTiraMotorPurchaseDetails(
   }
   if (Number(vehicle.engine_capacity) <= 0)
     missing.push('positive engine capacity');
-  if (vehicle.axle_distance <= 0)
-    missing.push('axle distance greater than zero');
   if (vehicle.tare_weight <= 0) missing.push('tare weight greater than zero');
   if (vehicle.gross_weight <= 0) missing.push('gross weight greater than zero');
   if (

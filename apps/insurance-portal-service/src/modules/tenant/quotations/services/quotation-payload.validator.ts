@@ -750,13 +750,15 @@ export class QuotationPayloadValidator {
     path: string,
     errors: string[],
   ): void {
-    this.validateMotorRequiredString(
-      motor.registration_number,
-      `${path}.registration_number`,
-      errors,
-      /^[A-Z0-9-]{3,50}$/,
-      'must contain 3 to 50 uppercase letters, digits or hyphens without spaces',
-    );
+    if (motor.motor_type === 1 || motor.registration_number) {
+      this.validateMotorRequiredString(
+        motor.registration_number,
+        `${path}.registration_number`,
+        errors,
+        /^[A-Z0-9-]{3,50}$/,
+        'must contain 3 to 50 uppercase letters, digits or hyphens without spaces',
+      );
+    }
     this.validateMotorRequiredString(
       motor.chassis_number,
       `${path}.chassis_number`,
@@ -789,12 +791,6 @@ export class QuotationPayloadValidator {
       `${path}.owner_name`,
       errors,
     );
-    this.validateMotorRequiredString(
-      motor.owner_address,
-      `${path}.owner_address`,
-      errors,
-    );
-
     const engineCapacity = Number(motor.engine_capacity);
     if (
       !motor.engine_capacity?.trim() ||
@@ -811,7 +807,7 @@ export class QuotationPayloadValidator {
       );
     }
 
-    if (motor.axle_distance <= 0) {
+    if (motor.axle_distance !== null && motor.axle_distance <= 0) {
       errors.push(`${path}.axle_distance must be greater than zero`);
     }
 

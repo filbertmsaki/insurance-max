@@ -104,11 +104,29 @@ export class TiramisBusinessValidationService {
         this.requireField(payload, 'coverNoteEndDate', errors);
 
         if (requestType === TiramisRequestType.MOTOR) {
-          this.requireField(payload, 'motorDetail.registrationNumber', errors);
+          this.requireField(payload, 'motorDetail', errors);
         }
 
         if (requestType === TiramisRequestType.MOTOR_FLEET) {
           this.requireField(payload, 'fleet', errors);
+        }
+
+        for (const [path, motor] of this.collectMotorDetails(payload)) {
+          if (
+            this.isRegisteredMotor(motor) &&
+            this.isBlank(motor?.registrationNumber)
+          ) {
+            errors.push(`${path}.registrationNumber is required`);
+          }
+        }
+
+        for (const [path, holder] of this.collectPolicyHolders(payload)) {
+          if (
+            Number(holder?.policyHolderType) === 1 &&
+            this.isBlank(holder?.gender)
+          ) {
+            errors.push(`${path}.gender is required`);
+          }
         }
         break;
 
@@ -264,12 +282,14 @@ export class TiramisBusinessValidationService {
           `policyHolders[${index}].identityType`,
           errors,
         );
-        await this.requireLookupValue(
-          'GENDER',
-          holder?.gender,
-          `policyHolders[${index}].gender`,
-          errors,
-        );
+        if (!this.isBlank(holder?.gender)) {
+          await this.requireLookupValue(
+            'GENDER',
+            holder?.gender,
+            `policyHolders[${index}].gender`,
+            errors,
+          );
+        }
       }
     }
 
@@ -287,12 +307,14 @@ export class TiramisBusinessValidationService {
         `${path}.motorType`,
         errors,
       );
-      await this.requireLookupValue(
-        'MOTOR_USAGE',
-        motor?.motorUsage,
-        `${path}.motorUsage`,
-        errors,
-      );
+      if (!this.isBlank(motor?.motorUsage)) {
+        await this.requireLookupValue(
+          'MOTOR_USAGE',
+          motor?.motorUsage,
+          `${path}.motorUsage`,
+          errors,
+        );
+      }
       await this.requireLookupValue(
         'OWNER_CATEGORY',
         motor?.ownerCategory,
@@ -619,6 +641,10 @@ export class TiramisBusinessValidationService {
     return String(value).trim().toUpperCase();
   }
 
+  private isRegisteredMotor(motor: any): boolean {
+    return Number(motor?.motorType) === 1;
+  }
+
   private formatDate(value: unknown): string {
     if (this.isBlank(value)) {
       return '';
@@ -759,6 +785,20 @@ export class TiramisBusinessValidationService {
       if (item?.motorDetail) {
         result.push([`fleet.items[${index}].motorDetail`, item.motorDetail]);
       }
+    });
+
+    return result;
+  }
+
+  private collectPolicyHolders(
+    payload: Record<string, any>,
+  ): Array<[string, any]> {
+    const result = this.toArray(payload.policyHolders).map(
+      (holder, index) => [`policyHolders[${index}]`, holder] as [string, any],
+    );
+
+    this.toArray(payload.fleet?.policyHolders).forEach((holder, index) => {
+      result.push([`fleet.policyHolders[${index}]`, holder]);
     });
 
     return result;

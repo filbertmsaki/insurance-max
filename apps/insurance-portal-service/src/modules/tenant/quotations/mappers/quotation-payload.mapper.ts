@@ -538,7 +538,10 @@ export class QuotationPayloadMapper {
       engine_capacity: motor.engine_capacity,
       fuel_used: motor.fuel_used,
       number_of_axles: motor.number_of_axles,
-      axle_distance: this.toNumber(motor.axle_distance, 'axle_distance'),
+      axle_distance:
+        motor.axle_distance === null
+          ? null
+          : this.toNumber(motor.axle_distance, 'axle_distance'),
       sitting_capacity: motor.sitting_capacity,
       year_of_manufacture: motor.year_of_manufacture,
       tare_weight: this.toNumber(motor.tare_weight, 'tare_weight'),

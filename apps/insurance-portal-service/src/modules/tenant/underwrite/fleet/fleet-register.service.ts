@@ -146,7 +146,7 @@ export class FleetRegisterService {
     companyId: string,
     customerId: string,
     details: Array<{
-      registration_number: string;
+      registration_number: string | null;
       chassis_number: string;
     } | null>,
   ): Promise<Array<MotorVehicle | null>> {

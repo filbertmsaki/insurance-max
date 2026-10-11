@@ -291,19 +291,21 @@ export class PublicMotorPurchaseService {
     const start = dto.cover_start_date ?? this.today();
     const end = dto.cover_end_date ?? this.addDays(start, 364);
     const sumInsured = Number(dto.sum_insured ?? dto.vehicle.gross_weight ?? 0);
-    const factors = {
+    const factors: Record<string, string | number | boolean> = {
       ...(dto.factors ?? {}),
       sum_insured: sumInsured,
-      seat_capacity: dto.vehicle.sitting_capacity,
-      sitting_capacity: dto.vehicle.sitting_capacity,
+      seat_capacity: dto.vehicle.sitting_capacity ?? 0,
+      sitting_capacity: dto.vehicle.sitting_capacity ?? 0,
       year_of_manufacture: dto.vehicle.year_of_manufacture,
       gross_weight_tons: dto.vehicle.gross_weight,
       gross_weight: dto.vehicle.gross_weight,
       engine_capacity:
         Number(dto.vehicle.engine_capacity) || dto.vehicle.engine_capacity,
-      motor_usage: dto.vehicle.motor_usage,
       motor_type: dto.vehicle.motor_type,
     };
+    if (dto.vehicle.motor_usage !== null) {
+      factors.motor_usage = dto.vehicle.motor_usage;
+    }
     const defaultTax = await this.resolveDefaultTax(companyId);
 
     try {
@@ -320,9 +322,9 @@ export class PublicMotorPurchaseService {
           currency_code: 'TZS',
           exchange_rate: 1,
           tax_codes: defaultTax ? [defaultTax.tax_code] : undefined,
-          client_reference: this.normalizeRegistration(
-            dto.vehicle.registration_number,
-          ),
+          client_reference:
+            this.optionalRegistration(dto.vehicle.registration_number) ??
+            dto.vehicle.chassis_number,
         },
         null,
         this.publicActor(companyId, null),
@@ -515,9 +517,11 @@ export class PublicMotorPurchaseService {
           ],
           subject_matters_covered: [
             {
-              subject_matter_reference: dto.vehicle.registration_number,
-              subject_matter_desc:
-                `${dto.vehicle.make} ${dto.vehicle.model} ${dto.vehicle.registration_number}`.trim(),
+              subject_matter_reference:
+                dto.vehicle.registration_number ?? dto.vehicle.chassis_number,
+              subject_matter_desc: `${dto.vehicle.make} ${dto.vehicle.model} ${
+                dto.vehicle.registration_number ?? dto.vehicle.chassis_number
+              }`.trim(),
             },
           ],
           cover_note_addons: [],
@@ -1070,6 +1074,13 @@ export class PublicMotorPurchaseService {
       throw new BadRequestException('Vehicle registration number is required.');
     }
     return normalized;
+  }
+
+  private optionalRegistration(
+    value: string | null | undefined,
+  ): string | null {
+    const normalized = value?.replace(/[^A-Za-z0-9]/g, '').toUpperCase() ?? '';
+    return normalized || null;
   }
 
   private today() {

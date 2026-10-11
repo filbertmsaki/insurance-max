@@ -38,8 +38,9 @@ export class QuotationMotorDetail {
   @Column({
     type: 'varchar',
     length: 50,
+    nullable: true,
   })
-  registration_number: string;
+  registration_number: string | null;
 
   @Column({
     type: 'varchar',
@@ -96,18 +97,19 @@ export class QuotationMotorDetail {
   })
   fuel_used: string;
 
-  @Column({ type: 'smallint' })
-  number_of_axles: number;
+  @Column({ type: 'smallint', nullable: true })
+  number_of_axles: number | null;
 
   @Column({
     type: 'numeric',
     precision: 10,
     scale: 2,
+    nullable: true,
   })
-  axle_distance: string;
+  axle_distance: string | null;
 
-  @Column({ type: 'smallint' })
-  sitting_capacity: number;
+  @Column({ type: 'smallint', nullable: true })
+  sitting_capacity: number | null;
 
   @Column({ type: 'smallint' })
   year_of_manufacture: number;
@@ -126,8 +128,8 @@ export class QuotationMotorDetail {
   })
   gross_weight: string;
 
-  @Column({ type: 'smallint' })
-  motor_usage: number;
+  @Column({ type: 'smallint', nullable: true })
+  motor_usage: number | null;
 
   @Column({
     type: 'varchar',
@@ -141,8 +143,9 @@ export class QuotationMotorDetail {
   @Column({
     type: 'varchar',
     length: 300,
+    nullable: true,
   })
-  owner_address: string;
+  owner_address: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

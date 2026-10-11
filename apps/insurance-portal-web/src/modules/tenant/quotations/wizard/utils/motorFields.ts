@@ -44,6 +44,7 @@ export const motorFields: ReadonlyArray<{
     key: 'motor_usage_code',
     fleetKey: 'motor_usage',
     label: 'Vehicle usage',
+    optional: true,
     options: [
       { value: '1', label: 'Private' },
       { value: '2', label: 'Commercial' },
@@ -73,15 +74,30 @@ export const motorFields: ReadonlyArray<{
     options: MANUFACTURE_YEAR_OPTIONS,
     searchable: true,
   },
-  { key: 'seating_capacity', fleetKey: 'sitting_capacity', label: 'Seats' },
+  {
+    key: 'seating_capacity',
+    fleetKey: 'sitting_capacity',
+    label: 'Seats',
+    optional: true,
+  },
   {
     key: 'cubic_capacity',
     fleetKey: 'engine_capacity',
     label: 'Engine capacity (cc)',
   },
   { key: 'fuel_type', fleetKey: 'fuel_used', label: 'Fuel' },
-  { key: 'number_of_axles', fleetKey: 'number_of_axles', label: 'Axles' },
-  { key: 'axle_distance', fleetKey: 'axle_distance', label: 'Axle distance' },
+  {
+    key: 'number_of_axles',
+    fleetKey: 'number_of_axles',
+    label: 'Axles',
+    optional: true,
+  },
+  {
+    key: 'axle_distance',
+    fleetKey: 'axle_distance',
+    label: 'Axle distance',
+    optional: true,
+  },
   { key: 'tare_weight', fleetKey: 'tare_weight', label: 'Tare weight (kg)' },
   { key: 'gross_weight', fleetKey: 'gross_weight', label: 'Gross weight (kg)' },
   { key: 'owner_name', fleetKey: 'owner_name', label: 'Owner name' },
@@ -94,7 +110,12 @@ export const motorFields: ReadonlyArray<{
       { value: '2', label: 'Corporate' },
     ],
   },
-  { key: 'owner_address', fleetKey: 'owner_address', label: 'Owner address' },
+  {
+    key: 'owner_address',
+    fleetKey: 'owner_address',
+    label: 'Owner address',
+    optional: true,
+  },
 ];
 
 export function motorFieldError(
@@ -103,8 +124,10 @@ export function motorFieldError(
   motor: Partial<Motor>,
 ): string | null {
   const definition = motorFields.find((field) => field.key === key);
+  const isRegistrationOptional =
+    key === 'registration_no' && motor.motor_type_code === '2';
   if (!value?.trim())
-    return definition?.optional
+    return definition?.optional || isRegistrationOptional
       ? null
       : `Enter ${definition?.label.toLowerCase() ?? key}.`;
   if (

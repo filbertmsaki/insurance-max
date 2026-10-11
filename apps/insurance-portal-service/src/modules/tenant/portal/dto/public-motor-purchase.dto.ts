@@ -1,9 +1,10 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsObject,
@@ -13,9 +14,24 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { MotorVerificationCategory } from '../../verifications/dto/verify.dto';
+
+const REGISTERED_MOTOR_TYPE = 1;
+
+function emptyStringToNull(value: unknown) {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function optionalNumber(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'string' && !value.trim()) return null;
+  return typeof value === 'number' ? value : Number(value);
+}
 
 export class PublicMotorVerifyDto {
   @IsOptional()
@@ -47,9 +63,15 @@ export class PublicMotorVehicleDto {
   @Min(1)
   motor_type!: number;
 
+  @Transform(({ value }) => emptyStringToNull(value))
+  @ValidateIf(
+    (vehicle: PublicMotorVehicleDto, value) =>
+      Number(vehicle.motor_type) === REGISTERED_MOTOR_TYPE ||
+      (value !== null && value !== undefined),
+  )
   @IsString()
   @MaxLength(50)
-  registration_number!: string;
+  registration_number!: string | null;
 
   @IsString()
   @MaxLength(100)
@@ -88,17 +110,23 @@ export class PublicMotorVehicleDto {
   @MaxLength(50)
   fuel_used!: string;
 
+  @Transform(({ value }) => optionalNumber(value))
+  @IsOptional()
   @IsInt()
   @Min(1)
-  number_of_axles!: number;
+  number_of_axles!: number | null;
 
+  @Transform(({ value }) => optionalNumber(value))
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  axle_distance!: number;
+  axle_distance!: number | null;
 
+  @Transform(({ value }) => optionalNumber(value))
+  @IsOptional()
   @IsInt()
   @Min(1)
-  sitting_capacity!: number;
+  sitting_capacity!: number | null;
 
   @IsInt()
   @Min(1886)
@@ -113,9 +141,11 @@ export class PublicMotorVehicleDto {
   @Min(0)
   gross_weight!: number;
 
+  @Transform(({ value }) => optionalNumber(value))
+  @IsOptional()
   @IsInt()
   @Min(1)
-  motor_usage!: number;
+  motor_usage!: number | null;
 
   @IsString()
   @MaxLength(200)
@@ -125,9 +155,11 @@ export class PublicMotorVehicleDto {
   @Min(1)
   owner_category!: number;
 
+  @Transform(({ value }) => emptyStringToNull(value))
+  @IsOptional()
   @IsString()
   @MaxLength(300)
-  owner_address!: string;
+  owner_address!: string | null;
 }
 
 export class PublicMotorPolicyHolderDto {
@@ -150,9 +182,13 @@ export class PublicMotorPolicyHolderDto {
   @MaxLength(100)
   policy_holder_id_number!: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(1)
+  @Transform(({ value }) => emptyStringToNull(value))
+  @ValidateIf(
+    (holder: PublicMotorPolicyHolderDto, value) =>
+      Number(holder.policy_holder_type) === 1 ||
+      (value !== null && value !== undefined),
+  )
+  @IsIn(['M', 'F'])
   gender?: 'M' | 'F' | null;
 
   @IsString()
@@ -179,16 +215,19 @@ export class PublicMotorPolicyHolderDto {
   @IsOptional()
   @IsString()
   @MaxLength(30)
+  @Transform(({ value }) => emptyStringToNull(value))
   policy_holder_fax?: string | null;
 
   @IsOptional()
   @IsString()
   @MaxLength(250)
+  @Transform(({ value }) => emptyStringToNull(value))
   postal_address?: string | null;
 
   @IsOptional()
   @IsEmail()
   @MaxLength(150)
+  @Transform(({ value }) => emptyStringToNull(value))
   email_address?: string | null;
 
   @IsOptional()

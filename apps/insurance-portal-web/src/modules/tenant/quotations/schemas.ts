@@ -74,6 +74,17 @@ function normalizePositiveNumber(value?: string | number | null, fallback = 1) {
   return parsed > 0 ? parsed : fallback;
 }
 
+function normalizeOptionalNumber(value?: string | number | null) {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeOptionalPositiveNumber(value?: string | number | null) {
+  const parsed = normalizeOptionalNumber(value);
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
 function normalizeMoneyNumber(value?: string | number | null, fallback = 0) {
   return roundMoney(normalizeNumber(value, fallback));
 }
@@ -1444,7 +1455,7 @@ export function buildMotorSingleQuotationPayload(
           values.motor.motor_category_code,
         ),
         motor_type: normalizePositiveNumber(values.motor.motor_type_code),
-        registration_number: registrationNumber,
+        registration_number: registrationNumber || null,
         chassis_number: chassisNumber,
         make,
         model,
@@ -1454,9 +1465,11 @@ export function buildMotorSingleQuotationPayload(
         engine_number: engineNumber,
         engine_capacity: values.motor.cubic_capacity,
         fuel_used: values.motor.fuel_type,
-        number_of_axles: normalizePositiveNumber(values.motor.number_of_axles),
-        axle_distance: normalizeNumber(values.motor.axle_distance),
-        sitting_capacity: normalizePositiveNumber(
+        number_of_axles: normalizeOptionalPositiveNumber(
+          values.motor.number_of_axles,
+        ),
+        axle_distance: normalizeOptionalNumber(values.motor.axle_distance),
+        sitting_capacity: normalizeOptionalPositiveNumber(
           values.motor.seating_capacity,
         ),
         year_of_manufacture: normalizePositiveNumber(
@@ -1464,10 +1477,12 @@ export function buildMotorSingleQuotationPayload(
         ),
         tare_weight: normalizeNumber(values.motor.tare_weight),
         gross_weight: normalizeNumber(values.motor.gross_weight),
-        motor_usage: normalizePositiveNumber(values.motor.motor_usage_code),
+        motor_usage: normalizeOptionalPositiveNumber(
+          values.motor.motor_usage_code,
+        ),
         owner_name: values.motor.owner_name,
         owner_category: normalizePositiveNumber(values.motor.owner_category),
-        owner_address: values.motor.owner_address,
+        owner_address: normalizeText(values.motor.owner_address),
       },
     },
   };
@@ -1561,7 +1576,7 @@ export function buildMotorFleetQuotationPayload(
       motor_dtl: {
         motor_category: normalizePositiveNumber(item.motor_dtl.motor_category),
         motor_type: normalizePositiveNumber(item.motor_dtl.motor_type),
-        registration_number: registrationNumber,
+        registration_number: registrationNumber || null,
         chassis_number: chassisNumber,
         make,
         model,
@@ -1571,11 +1586,11 @@ export function buildMotorFleetQuotationPayload(
         engine_number: engineNumber,
         engine_capacity: item.motor_dtl.engine_capacity,
         fuel_used: item.motor_dtl.fuel_used,
-        number_of_axles: normalizePositiveNumber(
+        number_of_axles: normalizeOptionalPositiveNumber(
           item.motor_dtl.number_of_axles,
         ),
-        axle_distance: normalizeNumber(item.motor_dtl.axle_distance),
-        sitting_capacity: normalizePositiveNumber(
+        axle_distance: normalizeOptionalNumber(item.motor_dtl.axle_distance),
+        sitting_capacity: normalizeOptionalPositiveNumber(
           item.motor_dtl.sitting_capacity,
         ),
         year_of_manufacture: normalizePositiveNumber(
@@ -1583,10 +1598,12 @@ export function buildMotorFleetQuotationPayload(
         ),
         tare_weight: normalizeNumber(item.motor_dtl.tare_weight),
         gross_weight: normalizeNumber(item.motor_dtl.gross_weight),
-        motor_usage: normalizePositiveNumber(item.motor_dtl.motor_usage),
+        motor_usage: normalizeOptionalPositiveNumber(
+          item.motor_dtl.motor_usage,
+        ),
         owner_name: item.motor_dtl.owner_name,
         owner_category: normalizePositiveNumber(item.motor_dtl.owner_category),
-        owner_address: item.motor_dtl.owner_address,
+        owner_address: normalizeText(item.motor_dtl.owner_address),
       },
     };
   });
@@ -2049,19 +2066,30 @@ export function quotationRecordToFormValues(
       color: motor.color,
       manufacture_year: String(motor.year_of_manufacture),
       usage_type: '',
-      motor_usage_code: String(motor.motor_usage) as '' | '1' | '2',
+      motor_usage_code: motor.motor_usage
+        ? (String(motor.motor_usage) as '' | '1' | '2')
+        : '',
       vehicle_category: '',
-      seating_capacity: String(motor.sitting_capacity),
+      seating_capacity:
+        motor.sitting_capacity === null || motor.sitting_capacity === undefined
+          ? ''
+          : String(motor.sitting_capacity),
       tonnage: '',
       cubic_capacity: motor.engine_capacity,
       fuel_type: motor.fuel_used,
-      number_of_axles: String(motor.number_of_axles),
-      axle_distance: String(motor.axle_distance),
+      number_of_axles:
+        motor.number_of_axles === null || motor.number_of_axles === undefined
+          ? ''
+          : String(motor.number_of_axles),
+      axle_distance:
+        motor.axle_distance === null || motor.axle_distance === undefined
+          ? ''
+          : String(motor.axle_distance),
       tare_weight: String(motor.tare_weight),
       gross_weight: String(motor.gross_weight),
       owner_name: motor.owner_name,
       owner_category: String(motor.owner_category) as '' | '1' | '2',
-      owner_address: motor.owner_address,
+      owner_address: motor.owner_address ?? '',
       vehicle_value: '',
     };
   }
@@ -2186,16 +2214,32 @@ export function quotationRecordToFormValues(
           engine_number: normalizeMotorTextInput(item.motor_dtl.engine_number),
           engine_capacity: item.motor_dtl.engine_capacity,
           fuel_used: item.motor_dtl.fuel_used,
-          number_of_axles: String(item.motor_dtl.number_of_axles),
-          axle_distance: String(item.motor_dtl.axle_distance),
-          sitting_capacity: String(item.motor_dtl.sitting_capacity),
+          number_of_axles:
+            item.motor_dtl.number_of_axles === null ||
+            item.motor_dtl.number_of_axles === undefined
+              ? ''
+              : String(item.motor_dtl.number_of_axles),
+          axle_distance:
+            item.motor_dtl.axle_distance === null ||
+            item.motor_dtl.axle_distance === undefined
+              ? ''
+              : String(item.motor_dtl.axle_distance),
+          sitting_capacity:
+            item.motor_dtl.sitting_capacity === null ||
+            item.motor_dtl.sitting_capacity === undefined
+              ? ''
+              : String(item.motor_dtl.sitting_capacity),
           year_of_manufacture: String(item.motor_dtl.year_of_manufacture),
           tare_weight: String(item.motor_dtl.tare_weight),
           gross_weight: String(item.motor_dtl.gross_weight),
-          motor_usage: String(item.motor_dtl.motor_usage),
+          motor_usage:
+            item.motor_dtl.motor_usage === null ||
+            item.motor_dtl.motor_usage === undefined
+              ? ''
+              : String(item.motor_dtl.motor_usage),
           owner_name: item.motor_dtl.owner_name,
           owner_category: String(item.motor_dtl.owner_category),
-          owner_address: item.motor_dtl.owner_address,
+          owner_address: item.motor_dtl.owner_address ?? '',
         },
       })),
     };

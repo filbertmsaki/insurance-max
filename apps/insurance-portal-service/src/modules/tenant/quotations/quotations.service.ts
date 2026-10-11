@@ -4821,13 +4821,10 @@ export class QuotationsService {
       policy_holder_type:
         policyHolder?.policy_holder_type === 2 ? 'Corporate' : 'Individual',
       year_of_manufacture: motorDetail.year_of_manufacture,
-      seat_capacity: motorDetail.sitting_capacity,
       vehicle_weight_kg: motorDetail.gross_weight,
       cargo_weight_ton: motorDetail.gross_weight,
-      motor_usage: this.resolveMotorUsageFactorValue(motorDetail.motor_usage),
       motor_category: String(motorDetail.motor_category),
       motor_type: String(motorDetail.motor_type),
-      registration_number: motorDetail.registration_number,
       chassis_number: motorDetail.chassis_number,
       make: motorDetail.make.trim(),
       model: motorDetail.model.trim(),
@@ -4838,6 +4835,20 @@ export class QuotationsService {
       owner_name: motorDetail.owner_name.trim(),
       owner_category: String(motorDetail.owner_category),
     };
+
+    if (motorDetail.sitting_capacity !== null) {
+      factors.seat_capacity = motorDetail.sitting_capacity;
+    }
+
+    if (motorDetail.motor_usage !== null) {
+      factors.motor_usage = this.resolveMotorUsageFactorValue(
+        motorDetail.motor_usage,
+      );
+    }
+
+    if (motorDetail.registration_number) {
+      factors.registration_number = motorDetail.registration_number;
+    }
 
     if (includeSumInsured) {
       factors.sum_insured = roundMoney(sumInsured);
@@ -8557,7 +8568,7 @@ export class QuotationsService {
   ): Promise<void> {
     const repository = manager.getRepository(MotorVehicle);
     const registrationNumber =
-      normalizeMotorTextValue(motor.registration_number) ?? '';
+      normalizeMotorTextValue(motor.registration_number) ?? null;
     const chassisNumber = normalizeMotorTextValue(motor.chassis_number) ?? '';
     const engineNumber = normalizeMotorTextValue(motor.engine_number) ?? '';
     const make = normalizeMotorTextValue(motor.make) ?? '';
@@ -8619,7 +8630,7 @@ export class QuotationsService {
       fuel_type: motor.fuel_used.trim(),
       model_no: modelNumber,
       number_of_axles: motor.number_of_axles,
-      axle_distance: this.numeric(motor.axle_distance, 2),
+      axle_distance: this.optionalNumeric(motor.axle_distance, 2),
       tare_weight: this.numeric(motor.tare_weight, 2),
       gross_weight: this.numeric(motor.gross_weight, 2),
       motor_category: motor.motor_category,
@@ -8627,7 +8638,7 @@ export class QuotationsService {
       motor_usage: motor.motor_usage,
       owner_name: motor.owner_name.trim(),
       owner_category: motor.owner_category,
-      owner_address: motor.owner_address.trim(),
+      owner_address: motor.owner_address?.trim() || null,
       vehicle_value: '0',
       currency: currencyCode.trim().toUpperCase(),
       status: 'ACTIVE',
@@ -8688,7 +8699,7 @@ export class QuotationsService {
       motorUsage: motor.motor_usage,
       ownerName: motor.owner_name.trim(),
       ownerCategory: motor.owner_category,
-      ownerAddress: motor.owner_address.trim(),
+      ownerAddress: motor.owner_address?.trim() || null,
       sourceQuotationId: quotation.id,
       sourceQuotationNo: quotation.quotation_no,
     };
@@ -9290,7 +9301,7 @@ export class QuotationsService {
       motor_category: motor.motor_category,
       motor_type: motor.motor_type,
       registration_number:
-        normalizeMotorTextValue(motor.registration_number) ?? '',
+        normalizeMotorTextValue(motor.registration_number) ?? null,
       chassis_number: normalizeMotorTextValue(motor.chassis_number) ?? '',
       make: normalizeMotorTextValue(motor.make) ?? '',
       model: normalizeMotorTextValue(motor.model) ?? '',
@@ -9301,7 +9312,7 @@ export class QuotationsService {
       engine_capacity: motor.engine_capacity.trim(),
       fuel_used: motor.fuel_used.trim(),
       number_of_axles: motor.number_of_axles,
-      axle_distance: this.numeric(motor.axle_distance, 2),
+      axle_distance: this.optionalNumeric(motor.axle_distance, 2),
       sitting_capacity: motor.sitting_capacity,
       year_of_manufacture: motor.year_of_manufacture,
       tare_weight: this.numeric(motor.tare_weight, 2),
@@ -9309,7 +9320,7 @@ export class QuotationsService {
       motor_usage: motor.motor_usage,
       owner_name: motor.owner_name.trim(),
       owner_category: motor.owner_category,
-      owner_address: motor.owner_address.trim(),
+      owner_address: motor.owner_address?.trim() || null,
     };
   }
 
@@ -10123,6 +10134,17 @@ export class QuotationsService {
     }
 
     return numberValue.toFixed(scale);
+  }
+
+  private optionalNumeric(
+    value: NumericValue | null | undefined,
+    scale: number,
+  ): string | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    return this.numeric(value, scale);
   }
 
   private normalizeUppercase(value: string): string {

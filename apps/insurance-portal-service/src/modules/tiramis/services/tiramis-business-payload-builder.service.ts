@@ -1272,24 +1272,27 @@ export class TiramisBusinessPayloadBuilderService {
   }
 
   private buildMotorDetail(record: any) {
+    const motorType = this.requiredNumber(
+      'motorType',
+      this.value(record, 'motor_type', 'motorType'),
+    );
+    const registrationNumber = this.value(
+      record,
+      'registration_no',
+      'registrationNumber',
+      'motorRegistrationNumber',
+    );
+
     return this.cleanObject({
       motorCategory: this.requiredNumber(
         'motorCategory',
         this.value(record, 'motor_category', 'motorCategory'),
       ),
-      motorType: this.requiredNumber(
-        'motorType',
-        this.value(record, 'motor_type', 'motorType'),
-      ),
-      registrationNumber: this.required(
-        'registrationNumber',
-        this.value(
-          record,
-          'registration_no',
-          'registrationNumber',
-          'motorRegistrationNumber',
-        ),
-      ),
+      motorType,
+      registrationNumber:
+        Number(motorType) === 1
+          ? this.required('registrationNumber', registrationNumber)
+          : registrationNumber,
       chassisNumber: this.required(
         'chassisNumber',
         this.value(record, 'chassis_no', 'chassisNumber'),
@@ -1314,17 +1317,12 @@ export class TiramisBusinessPayloadBuilderService {
         'fuelUsed',
         this.value(record, 'fuel_used', 'fuelUsed'),
       ),
-      numberOfAxles: this.requiredNumber(
-        'numberOfAxles',
-        this.value(record, 'number_of_axles', 'numberOfAxles'),
-      ),
-      axleDistance: this.required(
-        'axleDistance',
-        this.value(record, 'axle_distance', 'axleDistance'),
-      ),
-      sittingCapacity: this.requiredNumber(
+      numberOfAxles: this.value(record, 'number_of_axles', 'numberOfAxles'),
+      axleDistance: this.value(record, 'axle_distance', 'axleDistance'),
+      sittingCapacity: this.value(
+        record,
+        'sitting_capacity',
         'sittingCapacity',
-        this.value(record, 'sitting_capacity', 'sittingCapacity'),
       ),
       yearOfManufacture: this.requiredNumber(
         'yearOfManufacture',
@@ -1343,20 +1341,15 @@ export class TiramisBusinessPayloadBuilderService {
         'grossWeight',
         this.value(record, 'gross_weight', 'grossWeight'),
       ),
-      motorUsage: this.requiredNumber(
-        'motorUsage',
-        this.value(record, 'motor_usage', 'motorUsage'),
-      ),
+      motorUsage: this.value(record, 'motor_usage', 'motorUsage'),
       ownerName: this.required('ownerName', this.buildCustomerName(record)),
       ownerCategory: this.requiredNumber(
         'ownerCategory',
         this.value(record, 'owner_category', 'ownerCategory'),
       ),
-      ownerAddress: this.required(
-        'ownerAddress',
+      ownerAddress:
         this.value(record, 'owner_address', 'ownerAddress') ||
-          this.value(record, 'address'),
-      ),
+        this.value(record, 'address'),
     });
   }
 
@@ -1498,11 +1491,10 @@ export class TiramisBusinessPayloadBuilderService {
           this.value(record, 'phone'),
       ),
       fax: this.value(record, 'fax') || '',
-      postalAddress: this.required(
-        'postalAddress',
+      postalAddress:
         this.value(record, 'postal_address', 'postalAddress', 'address') ||
-          this.value(record, 'postalAddress'),
-      ),
+        this.value(record, 'postalAddress') ||
+        '',
       emailAddress: this.value(record, 'email', 'emailAddress'),
     });
   }

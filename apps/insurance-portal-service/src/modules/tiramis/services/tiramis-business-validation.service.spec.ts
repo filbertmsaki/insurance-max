@@ -51,14 +51,14 @@ describe('TiramisBusinessValidationService', () => {
         salePointCode: 'SP500',
         coverNoteStartDate: '2026-01-01',
         coverNoteEndDate: '2027-01-01',
-        motorDetail: { registrationNumber: 'T123ABC' },
+        motorDetail: { motorType: 1, registrationNumber: 'T123ABC' },
       },
       invalid: {
         coverNoteNumber: 'CN1',
         salePointCode: 'SP500',
         coverNoteStartDate: '2026-01-01',
         coverNoteEndDate: '2027-01-01',
-        motorDetail: {},
+        motorDetail: { motorType: 1 },
       },
       invalidErrorSubstring: 'motorDetail.registrationNumber',
     },
@@ -310,6 +310,39 @@ describe('TiramisBusinessValidationService', () => {
         },
       }),
     ).resolves.toMatchObject({ isValid: true });
+  });
+
+  it('requires gender for individual policyholders but not corporates', async () => {
+    const basePayload = {
+      coverNoteNumber: 'CN1',
+      salePointCode: 'SP500',
+      coverNoteStartDate: '2026-01-01',
+      coverNoteEndDate: '2027-01-01',
+      motorDetail: { motorType: 2, chassisNumber: 'CHASSIS123' },
+    };
+
+    await expect(
+      service.validateBeforeSubmit({
+        requestType: TiramisRequestType.MOTOR,
+        payload: {
+          ...basePayload,
+          policyHolders: [{ policyHolderType: 1 }],
+        },
+      }),
+    ).resolves.toMatchObject({
+      isValid: false,
+      errors: expect.arrayContaining(['policyHolders[0].gender is required']),
+    });
+
+    await expect(
+      service.validateBeforeSubmit({
+        requestType: TiramisRequestType.MOTOR,
+        payload: {
+          ...basePayload,
+          policyHolders: [{ policyHolderType: 2 }],
+        },
+      }),
+    ).resolves.toMatchObject({ isValid: true, errors: [] });
   });
 
   it('has no special-casing left for unhandled request types (falls through to no checks)', async () => {

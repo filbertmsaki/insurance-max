@@ -245,7 +245,7 @@ export interface QuotationPolicyHolderPayload {
 export interface QuotationMotorDetailPayload {
   motor_category: number;
   motor_type: number;
-  registration_number: string;
+  registration_number: string | null;
   chassis_number: string;
   make: string;
   model: string;
@@ -255,16 +255,16 @@ export interface QuotationMotorDetailPayload {
   engine_number: string;
   engine_capacity: string;
   fuel_used: string;
-  number_of_axles: number;
-  axle_distance: number;
-  sitting_capacity: number;
+  number_of_axles: number | null;
+  axle_distance: number | null;
+  sitting_capacity: number | null;
   year_of_manufacture: number;
   tare_weight: number;
   gross_weight: number;
-  motor_usage: number;
+  motor_usage: number | null;
   owner_name: string;
   owner_category: number;
-  owner_address: string;
+  owner_address: string | null;
 }
 
 export interface FleetHeaderPayload {

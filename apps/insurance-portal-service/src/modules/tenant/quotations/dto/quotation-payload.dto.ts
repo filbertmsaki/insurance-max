@@ -15,12 +15,31 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
 import { normalizeMotorTextValue } from '../utils/motor-text.util';
+
+const REGISTERED_MOTOR_TYPE = 1;
+
+function emptyStringToNull(value: unknown) {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function optionalNormalizedMotorText(value: unknown) {
+  return typeof value === 'string' ? normalizeMotorTextValue(value) : value;
+}
+
+function optionalNumber(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'string' && !value.trim()) return null;
+  return typeof value === 'number' ? value : Number(value);
+}
 
 export class InternalQuotationDto {
   @IsUUID()
@@ -298,7 +317,12 @@ export class PolicyHolderDto {
   @Min(1)
   policy_holder_id_type: number;
 
-  @IsOptional()
+  @Transform(({ value }) => emptyStringToNull(value))
+  @ValidateIf(
+    (holder: PolicyHolderDto, value) =>
+      Number(holder.policy_holder_type) === 1 ||
+      (value !== null && value !== undefined),
+  )
   @IsIn(['M', 'F'])
   gender: 'M' | 'F' | null;
 
@@ -323,16 +347,19 @@ export class PolicyHolderDto {
   @MaxLength(30)
   policy_holder_phone_number: string;
 
+  @Transform(({ value }) => emptyStringToNull(value))
   @IsOptional()
   @IsString()
   @MaxLength(30)
   policy_holder_fax: string | null;
 
+  @Transform(({ value }) => emptyStringToNull(value))
   @IsOptional()
   @IsString()
   @MaxLength(250)
   postal_address: string | null;
 
+  @Transform(({ value }) => emptyStringToNull(value))
   @IsOptional()
   @IsEmail()
   @MaxLength(150)
@@ -348,12 +375,15 @@ export class MotorDetailDto {
   @Min(1)
   motor_type: number;
 
-  @Transform(({ value }) =>
-    typeof value === 'string' ? (normalizeMotorTextValue(value) ?? '') : value,
+  @Transform(({ value }) => optionalNormalizedMotorText(value))
+  @ValidateIf(
+    (motor: MotorDetailDto, value) =>
+      Number(motor.motor_type) === REGISTERED_MOTOR_TYPE ||
+      (value !== null && value !== undefined),
   )
   @IsString()
   @MaxLength(50)
-  registration_number: string;
+  registration_number: string | null;
 
   @Transform(({ value }) =>
     typeof value === 'string' ? (normalizeMotorTextValue(value) ?? '') : value,
@@ -407,17 +437,23 @@ export class MotorDetailDto {
   @MaxLength(50)
   fuel_used: string;
 
+  @Transform(({ value }) => optionalNumber(value))
+  @IsOptional()
   @IsInt()
   @Min(1)
-  number_of_axles: number;
+  number_of_axles: number | null;
 
+  @Transform(({ value }) => optionalNumber(value))
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  axle_distance: number;
+  axle_distance: number | null;
 
+  @Transform(({ value }) => optionalNumber(value))
+  @IsOptional()
   @IsInt()
   @Min(1)
-  sitting_capacity: number;
+  sitting_capacity: number | null;
 
   @IsInt()
   @Min(1886)
@@ -432,9 +468,11 @@ export class MotorDetailDto {
   @Min(0)
   gross_weight: number;
 
+  @Transform(({ value }) => optionalNumber(value))
+  @IsOptional()
   @IsInt()
   @Min(1)
-  motor_usage: number;
+  motor_usage: number | null;
 
   @IsString()
   @MaxLength(200)
@@ -444,9 +482,11 @@ export class MotorDetailDto {
   @Min(1)
   owner_category: number;
 
+  @Transform(({ value }) => emptyStringToNull(value))
+  @IsOptional()
   @IsString()
   @MaxLength(300)
-  owner_address: string;
+  owner_address: string | null;
 }
 
 export class FleetHeaderDto {
