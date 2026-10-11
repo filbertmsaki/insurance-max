@@ -54,6 +54,8 @@ interface Props {
   onRemove: (index: number) => void;
   canRemove: boolean;
   factorContext?: QuotationFactorContext;
+  showRiskSelector?: boolean;
+  showSumInsured?: boolean;
 }
 
 const EMPTY_TAX_ROWS: QuotationFormSchemaValues['risks'][number]['taxes_charged'] =
@@ -75,6 +77,8 @@ export function RiskRow({
   onRemove,
   canRemove,
   factorContext,
+  showRiskSelector = true,
+  showSumInsured = true,
 }: Props) {
   const riskId = useWatch({
     control: form.control,
@@ -293,88 +297,94 @@ export function RiskRow({
         </>
       }
       action={
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => onRemove(index)}
-          disabled={!canRemove}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        canRemove ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onRemove(index)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        ) : null
       }
       contentClassName="space-y-4"
     >
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <FormField
-          control={form.control}
-          name={path(index, 'risk_id')}
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel required>Risk</FormLabel>
-              <Select
-                value={toSelectValue(field.value as string)}
-                onValueChange={(value) =>
-                  field.onChange(fromSelectValue(value))
-                }
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select risk" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                  {riskOptions.map((risk) => (
-                    <SelectItem key={risk.id} value={risk.id}>
-                      {risk.risk_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </WizardFormItem>
-          )}
-        />
-        {(requiredFactorsQuery.isLoading ||
-          requiresSumInsured ||
-          Number(sumInsuredValue) > 0) && (
+        {showRiskSelector && (
           <FormField
             control={form.control}
-            name={path(index, 'sum_insured')}
+            name={path(index, 'risk_id')}
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel required={requiresSumInsured}>Sum Insured</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min="0"
-                    {...field}
-                    value={field.value as string}
-                    onChange={(event) => {
-                      field.onChange(event);
-                      form.setValue(
-                        path(index, 'sum_insured_equivalent'),
-                        event.target.value,
-                      );
-                    }}
-                    onBlur={() => {
-                      field.onBlur();
-                      form.setValue(
-                        path(index, 'sum_insured_equivalent'),
-                        (form.getValues(
-                          path(index, 'sum_insured'),
-                        ) as string) ?? '',
-                      );
-                      handleSumInsuredBlur();
-                    }}
-                  />
-                </FormControl>
+                <FormLabel required>Risk</FormLabel>
+                <Select
+                  value={toSelectValue(field.value as string)}
+                  onValueChange={(value) =>
+                    field.onChange(fromSelectValue(value))
+                  }
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select risk" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                    {riskOptions.map((risk) => (
+                      <SelectItem key={risk.id} value={risk.id}>
+                        {risk.risk_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </WizardFormItem>
             )}
           />
         )}
+        {showSumInsured &&
+          (requiredFactorsQuery.isLoading ||
+            requiresSumInsured ||
+            Number(sumInsuredValue) > 0) && (
+            <FormField
+              control={form.control}
+              name={path(index, 'sum_insured')}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel required={requiresSumInsured}>
+                    Sum Insured
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      {...field}
+                      value={field.value as string}
+                      onChange={(event) => {
+                        field.onChange(event);
+                        form.setValue(
+                          path(index, 'sum_insured_equivalent'),
+                          event.target.value,
+                        );
+                      }}
+                      onBlur={() => {
+                        field.onBlur();
+                        form.setValue(
+                          path(index, 'sum_insured_equivalent'),
+                          (form.getValues(
+                            path(index, 'sum_insured'),
+                          ) as string) ?? '',
+                        );
+                        handleSumInsuredBlur();
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </WizardFormItem>
+              )}
+            />
+          )}
 
         <FormField
           control={form.control}

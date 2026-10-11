@@ -1,6 +1,13 @@
 import { useCallback, useState } from 'react';
 import { useWatch, type UseFormReturn } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  FormControl,
+  FormField,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
@@ -22,14 +29,31 @@ import { mergeVerifiedMotor } from '../utils/motorFields';
 import { StepSection } from '../components/StepSection';
 import { VehicleLookup } from '../components/VehicleLookup';
 import { VehicleDetailsFields } from '../components/VehicleDetailsFields';
+import { WizardFormItem } from '../components/WizardFormItem';
+import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
+import type { QuotationFactorContext } from '../utils/riskFactorResolver';
+
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   vehicleOptions: MotorVehicleRecord[];
+  factorContext?: QuotationFactorContext;
 }
+
 const getUsageCodeFromLabel = getMotorUsageCodeFromLabel;
-export function MotorDetailsStep({ form, vehicleOptions }: Props) {
+
+export function MotorDetailsStep({
+  form,
+  vehicleOptions,
+  factorContext,
+}: Props) {
   const [revision, setRevision] = useState(0);
   const motor = useWatch({ control: form.control, name: 'motor' });
+  const { requiredFactorsQuery, handleSumInsuredBlur } =
+    useRiskPremiumCalculation(form, 0, factorContext);
+  const requiresSumInsured = (requiredFactorsQuery.data ?? []).some(
+    (item) => item.factor.code === 'sum_insured',
+  );
+
   function resolveMotorCategoryCode(vehicle: MotorVehicleRecord) {
     const metadata = vehicle.metadata ?? {};
     const metadataCode = metadata.motor_category_code;
@@ -309,6 +333,41 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
           </Select>
         </div>
       )}
+      <FormField
+        control={form.control}
+        name="risks.0.sum_insured"
+        render={({ field }) => (
+          <WizardFormItem>
+            <FormLabel required={requiresSumInsured}>Sum Insured</FormLabel>
+            <FormControl>
+              <Input
+                type="number"
+                min="0"
+                {...field}
+                value={field.value as string}
+                onChange={(event) => {
+                  field.onChange(event);
+                  form.setValue(
+                    'risks.0.sum_insured_equivalent',
+                    event.target.value,
+                    { shouldDirty: true },
+                  );
+                }}
+                onBlur={() => {
+                  field.onBlur();
+                  form.setValue(
+                    'risks.0.sum_insured_equivalent',
+                    (form.getValues('risks.0.sum_insured') as string) ?? '',
+                    { shouldDirty: true, shouldValidate: true },
+                  );
+                  handleSumInsuredBlur();
+                }}
+              />
+            </FormControl>
+            <FormMessage />
+          </WizardFormItem>
+        )}
+      />
       <VehicleDetailsFields key={revision} form={form} />
     </StepSection>
   );

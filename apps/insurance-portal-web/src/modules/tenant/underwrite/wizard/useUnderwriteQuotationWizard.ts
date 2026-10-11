@@ -741,7 +741,9 @@ export function useUnderwriteQuotationWizard({
       toast.error(pricingIssues[0]);
       const premiumStep = steps.find((step) =>
         step.fields.some((field) =>
-          ['risks', 'fleet.items', 'nonMotor'].includes(field),
+          ['risks', 'fleet.items', 'nonMotor'].some((prefix) =>
+            String(field).startsWith(prefix),
+          ),
         ),
       );
       if (premiumStep) setSelectedStepId(premiumStep.id);

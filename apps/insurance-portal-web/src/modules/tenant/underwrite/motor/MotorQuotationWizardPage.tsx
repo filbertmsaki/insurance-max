@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import { UnderwriteLine } from '@insurance-max/contracts';
-import { createEmptyRiskRow } from '@/modules/tenant/quotations/schemas';
 import { AddOnsStep } from '@/modules/tenant/quotations/wizard/steps/AddOnsStep';
 import { MotorDetailsStep } from '@/modules/tenant/quotations/wizard/steps/MotorDetailsStep';
 import { PolicyholderStep } from '@/modules/tenant/quotations/wizard/steps/PolicyholderStep';
@@ -32,20 +32,20 @@ const MOTOR_WIZARD_STEPS: UnderwriteWizardStep[] = [
       'valid_until',
       'cover_note_desc',
       'operative_clause',
+      'risks.0.risk_id',
     ],
   },
   {
     id: 'customer-vehicle',
     label: 'Customer & Vehicle',
     description: 'Select the policyholder and capture the insured vehicle',
-    fields: ['customer_id', 'policyholder', 'motor'],
+    fields: ['customer_id', 'policyholder', 'motor', 'risks.0.sum_insured'],
   },
   {
     id: 'premium-source',
     label: 'Premium & Business Source',
     description: 'Set the premium, covers, channel and intermediary',
     fields: [
-      'risks',
       'addons',
       'channel_type',
       'intermediary_company_id',
@@ -97,6 +97,13 @@ export function MotorQuotationWizardPage() {
   });
   const { form } = wizard;
 
+  useEffect(() => {
+    const risks = form.getValues('risks');
+    if (risks.length > 1) {
+      wizard.riskFieldArray.replace([risks[0]]);
+    }
+  }, [form, wizard.riskFieldArray, wizard.riskFieldArray.fields.length]);
+
   return (
     <UnderwriteWizardShell
       wizard={wizard}
@@ -116,6 +123,7 @@ export function MotorQuotationWizardPage() {
                 <MotorDetailsStep
                   form={form}
                   vehicleOptions={wizard.vehicleOptions}
+                  factorContext={wizard.factorContext}
                 />
               </div>
             );
@@ -127,15 +135,16 @@ export function MotorQuotationWizardPage() {
                   riskOptions={wizard.riskOptions}
                   fieldArray={wizard.riskFieldArray}
                   flow="MOTOR_SINGLE"
-                  onAddRisk={() =>
-                    wizard.riskFieldArray.append(createEmptyRiskRow())
-                  }
+                  onAddRisk={() => undefined}
                   onRemoveRisk={(index) => {
                     if (wizard.riskFieldArray.fields.length > 1) {
                       wizard.riskFieldArray.remove(index);
                     }
                   }}
                   factorContext={wizard.factorContext}
+                  allowMultipleRisks={false}
+                  showRiskSelector={false}
+                  showSumInsured={false}
                 />
                 <AddOnsStep form={form} fieldArray={wizard.addonFieldArray} />
                 <BusinessSourceStep wizard={wizard} />

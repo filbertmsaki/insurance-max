@@ -38,6 +38,9 @@ interface Props {
   onRemoveRisk: (index: number) => void;
   onAddRisk: () => void;
   factorContext?: QuotationFactorContext;
+  allowMultipleRisks?: boolean;
+  showRiskSelector?: boolean;
+  showSumInsured?: boolean;
 }
 
 export function RiskPremiumStep({
@@ -50,6 +53,9 @@ export function RiskPremiumStep({
   onRemoveRisk,
   onAddRisk,
   factorContext,
+  allowMultipleRisks = true,
+  showRiskSelector = true,
+  showSumInsured = true,
 }: Props) {
   const { fields } = fieldArray;
   const showSubjectMatters = flow === 'NON_MOTOR' && subjectMatterFieldArray;
@@ -60,10 +66,17 @@ export function RiskPremiumStep({
         title="Cover & premium"
         first
         action={
-          <Button type="button" variant="outline" size="sm" onClick={onAddRisk}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add cover
-          </Button>
+          allowMultipleRisks ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAddRisk}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add cover
+            </Button>
+          ) : null
         }
       >
         {fields.map((field, index) => (
@@ -73,8 +86,10 @@ export function RiskPremiumStep({
             index={index}
             riskOptions={riskOptions}
             onRemove={onRemoveRisk}
-            canRemove={fields.length > 1}
+            canRemove={allowMultipleRisks && fields.length > 1}
             factorContext={factorContext}
+            showRiskSelector={showRiskSelector}
+            showSumInsured={showSumInsured}
           />
         ))}
       </StepSection>
