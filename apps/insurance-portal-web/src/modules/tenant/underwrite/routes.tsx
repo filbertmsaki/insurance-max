@@ -28,7 +28,6 @@ import {
   PolicyEndorsementPage,
   PolicyRenewalPage,
   QuotationDetailPage,
-  ShortTermMotorQuotationWizardPage,
   UnderwriteCustomersPage,
   UnderwriteDashboardPage,
   UnderwriteLineDashboardPage,
@@ -373,47 +372,6 @@ export function renderUnderwriteRoutes() {
           element={
             <Page>
               <MotorQuotationWizardPage />
-            </Page>
-          }
-        />
-      </Route>
-      <Route
-        element={
-          <ProtectedRoute
-            allPermissions={[
-              underwritePermission(
-                UnderwriteLine.MOTOR,
-                UnderwriteAction.CREATE,
-              ),
-              'quotations:create',
-            ]}
-          />
-        }
-      >
-        <Route
-          path={underwritePaths.shortTermMotorQuotationCreate}
-          element={
-            <Page>
-              <ShortTermMotorQuotationWizardPage />
-            </Page>
-          }
-        />
-      </Route>
-      <Route
-        element={
-          <ProtectedRoute
-            allPermissions={[
-              underwritePermission(UnderwriteLine.MOTOR, UnderwriteAction.EDIT),
-              'quotations:update',
-            ]}
-          />
-        }
-      >
-        <Route
-          path={underwritePaths.shortTermMotorQuotationEdit(':id')}
-          element={
-            <Page>
-              <ShortTermMotorQuotationWizardPage />
             </Page>
           }
         />

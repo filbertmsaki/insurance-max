@@ -41,11 +41,6 @@ export const MotorQuotationWizardPage = lazy(() =>
     default: module.MotorQuotationWizardPage,
   })),
 );
-export const ShortTermMotorQuotationWizardPage = lazy(() =>
-  import('./motor/ShortTermMotorQuotationWizardPage').then((module) => ({
-    default: module.ShortTermMotorQuotationWizardPage,
-  })),
-);
 export const NonMotorQuotationWizardPage = lazy(() =>
   import('./non-motor/NonMotorQuotationWizardPage').then((module) => ({
     default: module.NonMotorQuotationWizardPage,
