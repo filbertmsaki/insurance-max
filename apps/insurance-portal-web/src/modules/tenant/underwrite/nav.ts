@@ -3,11 +3,8 @@ import {
   Ban,
   FileText,
   FileClock,
-  Layers,
   LayoutDashboard,
-  RefreshCcw,
   ShieldCheck,
-  SlidersHorizontal,
   Truck,
   Users,
 } from 'lucide-react';
@@ -114,30 +111,6 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
       UnderwriteAction.CANCELLATIONS_VIEW,
       'cancellations:read',
     ),
-    leaf(
-      line,
-      'TIRA Failed',
-      underwritePaths.tiraFailed(line.slug),
-      RefreshCcw,
-      UnderwriteAction.TIRA_RETRY,
-      [
-        'quotations:retry-tiramis',
-        'endorsements:retry-tiramis',
-        'cancellations:submit-tiramis',
-      ],
-    ),
-    leaf(
-      line,
-      'TIRA Pending',
-      underwritePaths.tiraPending(line.slug),
-      RefreshCcw,
-      UnderwriteAction.TIRA_RETRY,
-      [
-        'quotations:retry-tiramis',
-        'endorsements:retry-tiramis',
-        'cancellations:submit-tiramis',
-      ],
-    ),
   );
 
   if (line.line === 'MOTOR') {
@@ -149,27 +122,6 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
         CarFront,
         UnderwriteAction.VIEW,
         'motor:read',
-      ),
-    );
-  }
-
-  if (line.line === 'NON_MOTOR') {
-    children.push(
-      leaf(
-        line,
-        'Risks',
-        underwritePaths.nonMotorRisks,
-        Layers,
-        UnderwriteAction.VIEW,
-        'non-motor:read',
-      ),
-      leaf(
-        line,
-        'Risk Schemas',
-        underwritePaths.riskSchemas,
-        SlidersHorizontal,
-        UnderwriteAction.EDIT,
-        'insurance-products:update',
       ),
     );
   }
