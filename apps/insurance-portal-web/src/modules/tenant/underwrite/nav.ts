@@ -145,7 +145,7 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
     children.push(
       leaf(
         line,
-        'Short-Term Quotations',
+        'Transit Quotations',
         underwritePaths.shortTermMotorQuotationCreate,
         CalendarDays,
         UnderwriteAction.CREATE,

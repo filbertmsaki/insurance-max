@@ -30,7 +30,7 @@ const MOTOR = getUnderwriteLineMeta(UnderwriteLine.MOTOR);
 const SHORT_TERM_PRODUCT_CODE = 'SP014001000000';
 const SHORT_TERM_RISK_CODE = 'SP014001000007';
 const SHORT_TERM_SUM_INSURED = '20000';
-const SHORT_TERM_OPERATIVE_CLAUSE = 'Short Term Policy';
+const SHORT_TERM_OPERATIVE_CLAUSE = 'Motor Transit Policy';
 
 const COVER_PERIODS = [
   { days: 30, label: '30 Days' },
@@ -171,7 +171,7 @@ function ShortTermSummaryStep({
           />
           <SummaryItem
             label="Cover"
-            value={risk?.risk_name ?? 'Short-term private motor transit'}
+            value={risk?.risk_name ?? 'Private motor transit'}
           />
           <SummaryItem
             label="Cover period"
@@ -261,7 +261,7 @@ function useShortTermDefaults(wizard: UnderwriteQuotationWizard) {
     form.setValue('payment_mode_tira', '1');
     form.setValue('channel_type', 'DIRECT');
     form.setValue('intermediary_company_id', '');
-    form.setValue('cover_note_desc', 'Cover Note for Short-Term Motor');
+    form.setValue('cover_note_desc', 'Cover Note for Motor Transit');
     form.setValue('operative_clause', SHORT_TERM_OPERATIVE_CLAUSE);
     if (userName && !form.getValues('officer_name')) {
       form.setValue('officer_name', userName);
@@ -327,16 +327,16 @@ export function ShortTermMotorQuotationWizardPage() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">Short-term</Badge>
+        <Badge variant="secondary">Transit</Badge>
         <span className="text-sm text-slate-500">
           {product
             ? `${product.product_name} mapped to TIRAMIS ${SHORT_TERM_PRODUCT_CODE}`
-            : 'Waiting for short-term product configuration'}
+            : 'Waiting for transit product configuration'}
         </span>
       </div>
       <UnderwriteWizardShell
         wizard={wizard}
-        title={id ? 'Edit short-term motor quotation' : 'New short-term motor quotation'}
+        title={id ? 'Edit motor transit quotation' : 'New motor transit quotation'}
         renderStep={(stepId) => {
           switch (stepId) {
             case 'details':

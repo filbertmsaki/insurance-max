@@ -21573,14 +21573,14 @@
     },
     {
       "risk_code": "SP014001000007",
-      "rule_name": "Short Term Base Rate From TIRA",
+      "rule_name": "Motor Transit Base Rate From TIRA",
       "rate_type": "FIXED",
       "rate_value": null,
       "fixed_amount": 20000,
       "formula": null,
       "minimum_amount": 20000,
       "priority": 1,
-      "source_rate_text": "20,000 flat short-term premium",
+      "source_rate_text": "20,000 flat transit premium",
       "source_minimum_amount_text": "20,000.00"
     },
     {
