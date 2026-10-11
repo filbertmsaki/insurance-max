@@ -17,6 +17,7 @@ import {
   WorkflowPaymentStatus,
 } from '@insurance-max/contracts';
 
+import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { Policy } from '../../policies/entities/policy.entity';
@@ -182,11 +183,12 @@ export class CancellationService {
         );
       }
 
+      const refundablePremiumBase = this.resolveRefundablePremiumBase(policy);
       const pricing = this.pricingService.calculate({
         policyStartDate: policy.start_date,
         policyEndDate: policy.end_date,
         cancellationEffectiveDate: dto.effective_date,
-        grossWrittenPremium: policy.total_premium,
+        grossWrittenPremium: refundablePremiumBase,
         cancellationMethod: rule.cancellationMethod,
         cancellationCharge: rule.cancellationCharge,
         minimumRetainedPremium: rule.minimumRetainedPremium,
@@ -214,7 +216,11 @@ export class CancellationService {
         policyDays: pricing.policyDays,
         daysOnRisk: pricing.daysOnRisk,
         remainingDays: pricing.remainingDays,
-        grossWrittenPremium: policy.total_premium,
+        grossWrittenPremium: refundablePremiumBase,
+        originalGrossWrittenPremium: policy.total_premium,
+        nonRefundableTax: policy.total_tax,
+        nonRefundableDiscount: policy.total_discount,
+        nonRefundableCharges: policy.total_charges,
         earnedPremium: pricing.earnedPremium,
         unearnedPremium: pricing.unearnedPremium,
         cancellationCharge: pricing.cancellationCharge,
@@ -294,7 +300,7 @@ export class CancellationService {
         policy_days: pricing.policyDays,
         days_on_risk: pricing.daysOnRisk,
         remaining_days: pricing.remainingDays,
-        gross_written_premium: policy.total_premium,
+        gross_written_premium: refundablePremiumBase,
         earned_premium: pricing.earnedPremium,
         unearned_premium: pricing.unearnedPremium,
         cancellation_charge: pricing.cancellationCharge,
@@ -586,6 +592,32 @@ export class CancellationService {
 
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private resolveRefundablePremiumBase(
+    policy: Pick<
+      Policy,
+      | 'basic_premium'
+      | 'total_premium'
+      | 'total_tax'
+      | 'total_charges'
+      | 'total_discount'
+    >,
+  ): string {
+    const premiumExcludingTax = DecimalUtil.value(policy.basic_premium ?? 0);
+    if (premiumExcludingTax.greaterThan(0)) {
+      return premiumExcludingTax.toFixed(4);
+    }
+
+    // Older policy records may not have `basic_premium` populated. Use the
+    // amount actually paid for premium, excluding non-refundable taxes/charges.
+    const fallback = DecimalUtil.value(policy.total_premium ?? 0)
+      .minus(DecimalUtil.value(policy.total_tax ?? 0))
+      .minus(DecimalUtil.value(policy.total_charges ?? 0));
+
+    return (fallback.greaterThan(0) ? fallback : DecimalUtil.value(0)).toFixed(
+      4,
+    );
   }
 
   async requestPayment(user: AuthenticatedUser, transactionId: string) {

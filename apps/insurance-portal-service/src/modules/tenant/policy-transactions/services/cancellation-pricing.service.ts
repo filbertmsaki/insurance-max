@@ -8,6 +8,7 @@ export interface CancellationPricingInput {
   policyStartDate: string;
   policyEndDate: string;
   cancellationEffectiveDate: string;
+  /** Refundable premium base: premium excluding non-refundable tax/charges. */
   grossWrittenPremium: string;
   cancellationMethod: CancellationMethod;
   /** Flat charge configured on the product/company cancellation rules. */

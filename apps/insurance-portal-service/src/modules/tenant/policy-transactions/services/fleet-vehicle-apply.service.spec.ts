@@ -16,7 +16,15 @@ const transaction = (entries: unknown[]) =>
         finalizationSnapshot: {
           fleet: {
             items: [
-              { fleetEntry: '2', risks: [{ premiumIncludingTax: 365000 }] },
+              {
+                fleetEntry: '2',
+                risks: [
+                  {
+                    premiumExcludingTaxEquivalent: 300000,
+                    premiumIncludingTax: 354000,
+                  },
+                ],
+              },
             ],
           },
         },
@@ -126,16 +134,16 @@ describe('FleetRemovalRefundService', () => {
 
     expect(applied).toBe(true);
     expect(tx.premium_effect).toBe('CREDIT');
-    // 365000 over 365 days, on risk 1 Jan - 15 Oct (288 days) -> 77 unearned.
-    expect(tx.return_premium).toBe('77000.0000');
+    // 300000 excluding tax over 365 days, on risk 1 Jan - 15 Oct (288 days).
+    expect(tx.return_premium).toBe('63287.6712');
     expect(tx.pricing_snapshot.fleetRemovalRefund.lines[0]).toMatchObject({
       fleetEntry: 2,
-      grossWrittenPremium: '365000.0000',
+      grossWrittenPremium: '300000.0000',
     });
   });
 
   it('deducts the cancellation charge once', async () => {
     const { tx } = await refund(CancellationMethod.PRO_RATA, '5000');
-    expect(tx.return_premium).toBe('72000.0000');
+    expect(tx.return_premium).toBe('58287.6712');
   });
 });

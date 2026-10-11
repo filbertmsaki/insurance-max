@@ -119,7 +119,7 @@ export class FleetRemovalRefundService {
     return true;
   }
 
-  /** Premium (incl. tax) the vehicle was issued with. */
+  /** Premium the vehicle was issued with, excluding non-refundable tax. */
   private issuedPremium(
     transaction: PolicyTransaction,
     entry: SnapshotRecord,
@@ -138,14 +138,19 @@ export class FleetRemovalRefundService {
     return risks
       .reduce(
         (total, risk) =>
-          total.plus(
-            DecimalUtil.value(
-              (risk['premiumIncludingTax'] ?? 0) as string | number,
-            ),
-          ),
+          total.plus(DecimalUtil.value(this.refundableRiskPremium(risk))),
         DecimalUtil.value(0),
       )
       .toFixed(4);
+  }
+
+  private refundableRiskPremium(risk: SnapshotRecord): string | number {
+    return (risk['premiumExcludingTaxEquivalent'] ??
+      risk['premiumExcludingTax'] ??
+      risk['premium_excluding_tax_equivalent'] ??
+      risk['premium_excluding_tax'] ??
+      risk['premiumIncludingTax'] ??
+      0) as string | number;
   }
 
   private fleetEntryOf(entry: SnapshotRecord, index: number) {
