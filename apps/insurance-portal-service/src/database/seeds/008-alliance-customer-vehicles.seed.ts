@@ -30,7 +30,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014001000000',
         productName: 'MOTOR PRIVATE VEHICLE',
-        registrationNo: 'T 101 AAM',
+        registrationNo: 'T101AAM',
         chassisNo: 'AICLCHASSIS000001',
         engineNo: 'AICLENGINE000001',
         make: 'Toyota',
@@ -66,7 +66,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014002000000',
         productName: 'MOTOR MOTOR CYCLE',
-        registrationNo: 'MC 808 AIC',
+        registrationNo: 'MC808AIC',
         chassisNo: 'AICLCHASSIS000004',
         engineNo: 'AICLENGINE000004',
         make: 'Yamaha',
@@ -124,7 +124,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014001000000',
         productName: 'MOTOR PRIVATE VEHICLE',
-        registrationNo: 'T 202 ANK',
+        registrationNo: 'T202ANK',
         chassisNo: 'AICLCHASSIS000002',
         engineNo: 'AICLENGINE000002',
         make: 'Toyota',
@@ -160,7 +160,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014002000000',
         productName: 'MOTOR MOTOR CYCLE',
-        registrationNo: 'MC 909 ANK',
+        registrationNo: 'MC909ANK',
         chassisNo: 'AICLCHASSIS000006',
         engineNo: 'AICLENGINE000006',
         make: 'Honda',
@@ -218,7 +218,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014003000000',
         productName: 'MOTOR Commercial Vehicle',
-        registrationNo: 'T 303 CCL',
+        registrationNo: 'T303CCL',
         chassisNo: 'AICLCHASSIS000003',
         engineNo: 'AICLENGINE000003',
         make: 'Isuzu',
@@ -254,7 +254,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014004000000',
         productName: 'MOTOR PASSENGER CARRYING',
-        registrationNo: 'T 404 DPC',
+        registrationNo: 'T404DPC',
         chassisNo: 'AICLCHASSIS000005',
         engineNo: 'AICLENGINE000005',
         make: 'Toyota',
@@ -290,7 +290,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014005000000',
         productName: 'MOTOR SPECIAL TYPE VEHICLES',
-        registrationNo: 'T 505 SPT',
+        registrationNo: 'T505SPT',
         chassisNo: 'AICLCHASSIS000007',
         engineNo: 'AICLENGINE000007',
         make: 'Isuzu',
@@ -348,7 +348,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014003000000',
         productName: 'MOTOR Commercial Vehicle',
-        registrationNo: 'T 606 SLC',
+        registrationNo: 'T606SLC',
         chassisNo: 'AICLCHASSIS000008',
         engineNo: 'AICLENGINE000008',
         make: 'Mitsubishi',
@@ -384,7 +384,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014004000000',
         productName: 'MOTOR PASSENGER CARRYING',
-        registrationNo: 'T 707 SLC',
+        registrationNo: 'T707SLC',
         chassisNo: 'AICLCHASSIS000009',
         engineNo: 'AICLENGINE000009',
         make: 'Toyota',
@@ -420,7 +420,7 @@ const DEMO_CUSTOMERS = [
       {
         productCode: 'SP014005000000',
         productName: 'MOTOR SPECIAL TYPE VEHICLES',
-        registrationNo: 'T 808 SLC',
+        registrationNo: 'T808SLC',
         chassisNo: 'AICLCHASSIS000010',
         engineNo: 'AICLENGINE000010',
         make: 'Tadano',

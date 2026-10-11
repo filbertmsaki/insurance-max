@@ -1260,6 +1260,13 @@
       "description": null
     },
     {
+      "product_code": "SP014001000000",
+      "sub_class_code": null,
+      "risk_code": "SP014001000007",
+      "risk_name": "MOTOR Private Vehicles-Transit",
+      "description": "Short-term private motor transit cover"
+    },
+    {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000001",
@@ -21563,6 +21570,18 @@
       "priority": 1,
       "source_rate_text": null,
       "source_minimum_amount_text": "100,000.00"
+    },
+    {
+      "risk_code": "SP014001000007",
+      "rule_name": "Short Term Base Rate From TIRA",
+      "rate_type": "FIXED",
+      "rate_value": null,
+      "fixed_amount": 20000,
+      "formula": null,
+      "minimum_amount": 20000,
+      "priority": 1,
+      "source_rate_text": "20,000 flat short-term premium",
+      "source_minimum_amount_text": "20,000.00"
     },
     {
       "risk_code": "SP014002000001",

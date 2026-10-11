@@ -1,6 +1,7 @@
 import {
   CarFront,
   Ban,
+  CalendarDays,
   FileText,
   FileClock,
   Layers,
@@ -142,6 +143,14 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
 
   if (line.line === 'MOTOR') {
     children.push(
+      leaf(
+        line,
+        'Short-Term Quotations',
+        underwritePaths.shortTermMotorQuotationCreate,
+        CalendarDays,
+        UnderwriteAction.CREATE,
+        'quotations:create',
+      ),
       leaf(
         line,
         'Vehicles',

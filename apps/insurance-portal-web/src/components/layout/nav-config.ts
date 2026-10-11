@@ -23,6 +23,7 @@ import {
   BookOpen,
   BookMarked,
   Calculator,
+  CalendarDays,
   CarFront,
   Truck,
   Receipt,
@@ -353,6 +354,14 @@ export const NAV_NODES: NavNode[] = [
         to: '/underwriting/quotations',
         icon: FileText,
         permission: 'quotations:read',
+      },
+      {
+        kind: 'link',
+        label: 'Short-Term Motor Quotations',
+        to: '/underwrite/motor/short-term-quotations/new',
+        icon: CalendarDays,
+        permission: 'underwrite.motor.create',
+        anyPermission: ['quotations:create'],
       },
       {
         kind: 'link',
