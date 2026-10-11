@@ -53,8 +53,6 @@ interface QuotationLifecycleSnapshot {
   tira_status: TiraStatus;
 }
 
-const DIRECT_PAYMENT_MODE = 1;
-
 @Injectable()
 export class QuotationLifecycleService {
   constructor(
@@ -88,9 +86,7 @@ export class QuotationLifecycleService {
     | 'status'
   > {
     const requiresApproval = Boolean(params.existingApprovalRequired);
-    const requiresPayment =
-      params.paymentMode != null &&
-      Number(params.paymentMode) !== DIRECT_PAYMENT_MODE;
+    const requiresPayment = params.paymentMode != null;
 
     return {
       requires_approval: requiresApproval,

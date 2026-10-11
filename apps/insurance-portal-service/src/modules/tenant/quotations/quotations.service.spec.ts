@@ -190,10 +190,10 @@ describe('QuotationsService', () => {
       channel_type: authoritativePayload.internal_quotation.channel_type,
       status: QuotationStatus.READY_FOR_SUBMISSION,
       approval_status: ApprovalStatus.NOT_REQUIRED,
-      payment_status: PaymentStatus.NOT_REQUIRED,
+      payment_status: PaymentStatus.PAID,
       tira_status: TiraStatus.NOT_SUBMITTED,
       requires_approval: false,
-      requires_payment: false,
+      requires_payment: true,
       submitted_at: null,
       submitted_by: null,
       branch_id: null,
@@ -456,7 +456,21 @@ describe('QuotationsService', () => {
           update: jest.fn().mockResolvedValue(undefined),
         };
       }),
-      query: jest.fn().mockResolvedValue([]),
+      query: jest.fn().mockImplementation(async (sql: string) => {
+        if (String(sql).includes('FROM invoices')) {
+          return [
+            {
+              id: 'invoice-1',
+              status: 'PAID',
+              total_amount: '112100.00',
+              paid_amount: '112100.00',
+              balance_amount: '0.00',
+            },
+          ];
+        }
+
+        return [];
+      }),
       transaction: jest
         .fn()
         .mockImplementation(async (callback) =>
@@ -1973,6 +1987,7 @@ describe('QuotationsService', () => {
         ],
       },
     });
+    (fixture.dataSource.query as jest.Mock).mockResolvedValueOnce([]);
 
     await expect(
       fixture.service.submit(
@@ -1982,7 +1997,7 @@ describe('QuotationsService', () => {
         submitTiramisUser,
       ),
     ).rejects.toThrow(
-      'Quotation payment is not settled. Only direct payment mode can be submitted without a settled invoice.',
+      'Quotation payment is not settled. Generate and settle an invoice before submitting to TIRA.',
     );
   });
 

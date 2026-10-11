@@ -283,7 +283,7 @@ interface PostgreSqlDriverError {
   table?: string;
 }
 
-const DIRECT_PAYMENT_MODE = 1;
+const DEFAULT_PAYMENT_MODE = 1;
 const QUOTATION_COMPLETE_PERMISSION = 'quotations:complete';
 const QUOTATION_SUBMIT_APPROVAL_PERMISSION = 'quotations:submit-approval';
 const QUOTATION_APPROVE_PERMISSIONS = [
@@ -581,7 +581,7 @@ export class QuotationsService {
       );
     const lifecycleState = this.quotationLifecycleService.initializeForCreation(
       {
-        paymentMode: DIRECT_PAYMENT_MODE,
+        paymentMode: DEFAULT_PAYMENT_MODE,
         existingApprovalRequired: false,
       },
     );
@@ -1090,7 +1090,7 @@ export class QuotationsService {
           );
         const lifecycleState =
           this.quotationLifecycleService.initializeForCreation({
-            paymentMode: DIRECT_PAYMENT_MODE,
+            paymentMode: DEFAULT_PAYMENT_MODE,
             existingApprovalRequired: false,
           });
 
@@ -2843,7 +2843,7 @@ export class QuotationsService {
         payment_mode: this.draftInteger(
           payload,
           'payment_mode_tira',
-          DIRECT_PAYMENT_MODE,
+          DEFAULT_PAYMENT_MODE,
         ),
         currency_code: this.draftString(payload, 'currency', 'TZS')
           .trim()
@@ -7908,7 +7908,7 @@ export class QuotationsService {
     paymentMode: number,
     approvalRequired = quotation.requires_approval,
   ) {
-    const requiresPayment = paymentMode !== DIRECT_PAYMENT_MODE;
+    const requiresPayment = paymentMode != null;
     const requiresApproval = approvalRequired;
 
     return {
@@ -9707,12 +9707,6 @@ export class QuotationsService {
   }
 
   private async assertPaymentReady(quotation: Quotation): Promise<void> {
-    const paymentMode = quotation.cover_note?.payment_mode;
-
-    if (paymentMode === DIRECT_PAYMENT_MODE) {
-      return;
-    }
-
     const invoices: Array<{
       id: string;
       status: string;
@@ -9750,7 +9744,7 @@ export class QuotationsService {
 
     if (!settled) {
       throw new ConflictException(
-        'Quotation payment is not settled. Only direct payment mode can be submitted without a settled invoice.',
+        'Quotation payment is not settled. Generate and settle an invoice before submitting to TIRA.',
       );
     }
   }
