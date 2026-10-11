@@ -358,7 +358,7 @@ export const NAV_NODES: NavNode[] = [
       {
         kind: 'link',
         label: 'Motor Transit Quotations',
-        to: '/underwrite/motor/short-term-quotations/new',
+        to: '/underwrite/in-transit/quotations',
         icon: CalendarDays,
         permission: 'underwrite.motor.create',
         anyPermission: ['quotations:create'],

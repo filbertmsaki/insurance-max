@@ -17,10 +17,9 @@ export const underwritePaths = {
     `/underwrite/${line}/quotations/${id}`,
   quotationEdit: (line: LineSegment, id: string) =>
     `/underwrite/${line}/quotations/${id}/edit`,
-  shortTermMotorQuotationCreate:
-    '/underwrite/motor/short-term-quotations/new',
-  shortTermMotorQuotationEdit: (id: string) =>
-    `/underwrite/motor/short-term-quotations/${id}/edit`,
+  inTransitQuotationCreate: '/underwrite/in-transit/quotations',
+  inTransitQuotationEdit: (id: string) =>
+    `/underwrite/in-transit/quotations/${id}/edit`,
   policies: (line: LineSegment) => `/underwrite/${line}/policies`,
   policyDetail: (line: LineSegment, id: string) =>
     `/underwrite/${line}/policies/${id}`,

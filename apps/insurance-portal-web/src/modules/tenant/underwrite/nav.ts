@@ -145,14 +145,6 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
     children.push(
       leaf(
         line,
-        'Transit Quotations',
-        underwritePaths.shortTermMotorQuotationCreate,
-        CalendarDays,
-        UnderwriteAction.CREATE,
-        'quotations:create',
-      ),
-      leaf(
-        line,
         'Vehicles',
         underwritePaths.motorVehicles,
         CarFront,
@@ -217,5 +209,26 @@ export function buildUnderwriteNavNodes(): NavNode[] {
     children: lineChildren(line),
   }));
 
-  return [dashboard, ...lines];
+  const motorLine = UNDERWRITE_LINE_META.find((line) => line.line === 'MOTOR');
+  const inTransit: NavGroup[] = motorLine
+    ? [
+        {
+          kind: 'group',
+          label: 'In Transit',
+          icon: CalendarDays,
+          children: [
+            leaf(
+              motorLine,
+              'Quotations',
+              underwritePaths.inTransitQuotationCreate,
+              CalendarDays,
+              UnderwriteAction.CREATE,
+              'quotations:create',
+            ),
+          ],
+        },
+      ]
+    : [];
+
+  return [dashboard, ...inTransit, ...lines];
 }
