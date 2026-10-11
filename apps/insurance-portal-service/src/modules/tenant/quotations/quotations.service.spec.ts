@@ -183,6 +183,8 @@ describe('QuotationsService', () => {
       id: 'quotation-1',
       quotation_no: 'QTN-MTR-2026-000001',
       product_id: 'product-1',
+      insurer_company_id: 'company-1',
+      intermediary_company_id: null,
       product_version_id: productDefinitionSnapshot.productVersionId,
       product_definition_hash: productDefinitionSnapshot.definitionHash,
       product_definition_snapshot: productDefinitionSnapshot,
@@ -471,6 +473,7 @@ describe('QuotationsService', () => {
 
         return [];
       }),
+      manager: transactionManager,
       transaction: jest
         .fn()
         .mockImplementation(async (callback) =>
@@ -1912,18 +1915,13 @@ describe('QuotationsService', () => {
     );
   });
 
-  it('allows cash payment requests before approval is completed', async () => {
+  it('blocks cash payment requests because cash is settled on submit', async () => {
     const fixture = createServiceFixture({
       requires_approval: true,
-      approval_status: ApprovalStatus.PENDING,
+      approval_status: ApprovalStatus.APPROVED,
       requires_payment: true,
       payment_status: PaymentStatus.NOT_INITIATED,
       status: QuotationStatus.PENDING_REQUIREMENTS,
-    });
-    jest.spyOn(fixture.service as any, 'findLatestInvoice').mockResolvedValue({
-      id: 'invoice-1',
-      invoice_no: 'INV-2026-000001',
-      status: 'ISSUED',
     });
 
     await expect(
@@ -1931,18 +1929,13 @@ describe('QuotationsService', () => {
         id: 'user-1',
         permissions: ['quotations:request-payment'],
       } as any),
-    ).resolves.toBeDefined();
+    ).rejects.toThrow(
+      'Cash payment is settled directly when submitting the quotation.',
+    );
 
     expect(
       fixture.quotationLifecycleService.markPaymentRequested,
-    ).toHaveBeenCalledWith(
-      'company-1',
-      fixture.quotation.id,
-      expect.objectContaining({
-        requestId: 'invoice-1',
-        reason: 'Invoice INV-2026-000001 generated for quotation payment',
-      }),
-    );
+    ).not.toHaveBeenCalled();
   });
 
   it('still requires approval before requesting non-cash payment', async () => {
@@ -1967,6 +1960,82 @@ describe('QuotationsService', () => {
     expect(
       fixture.quotationLifecycleService.markPaymentRequested,
     ).not.toHaveBeenCalled();
+  });
+
+  it('creates and settles a cash invoice automatically before TIRAMIS submission', async () => {
+    const fixture = createServiceFixture({
+      requires_approval: true,
+      approval_status: ApprovalStatus.APPROVED,
+      requires_payment: true,
+      payment_status: PaymentStatus.NOT_INITIATED,
+      status: QuotationStatus.PENDING_REQUIREMENTS,
+      workflow_revision: 1,
+    });
+    jest
+      .spyOn(fixture.service as any, 'findLatestInvoice')
+      .mockResolvedValue(null);
+    const invoice = {
+      id: 'invoice-1',
+      invoice_no: 'INV-2026-000001',
+      status: 'DRAFT',
+      total_amount: '112100.00',
+      paid_amount: '0.00',
+      allocated_amount: '0.0000',
+      balance_amount: '112100.00',
+      balance_revision: 1,
+      state_version: 1,
+      issued_by: null,
+      issued_at: null,
+      posted_by: null,
+      posted_at: null,
+      updated_by: null,
+    };
+    fixture.quotationInvoiceService.createOrReuseQuotationInvoice.mockResolvedValue(
+      invoice,
+    );
+
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      submitTiramisUser,
+    );
+
+    expect(
+      fixture.quotationInvoiceService.createOrReuseQuotationInvoice,
+    ).toHaveBeenCalledWith(
+      fixture.dataSource.manager,
+      expect.objectContaining({
+        companyId: 'company-1',
+        quotationId: fixture.quotation.id,
+        instructions:
+          'Cash quotation invoice generated and settled during TIRAMIS submission',
+      }),
+    );
+    expect(invoice).toMatchObject({
+      status: 'PAID',
+      paid_amount: '112100.00',
+      allocated_amount: '112100.0000',
+      balance_amount: '0.00',
+      issued_by: 'user-1',
+      posted_by: 'user-1',
+    });
+    expect(
+      fixture.quotationLifecycleService.markPaymentPaid,
+    ).toHaveBeenCalledWith(
+      'company-1',
+      fixture.quotation.id,
+      expect.objectContaining({
+        requestId: 'invoice-1',
+        reason: 'Cash payment settled against invoice INV-2026-000001',
+      }),
+    );
+    expect(
+      fixture.quotationLifecycleService.markPaymentRequested,
+    ).not.toHaveBeenCalled();
+    expect(
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
+    ).toHaveBeenCalled();
   });
 
   it('logs pricing expiry, invalidation, and recalculation-required when a quote is expired', async () => {

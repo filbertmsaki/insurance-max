@@ -36,6 +36,7 @@ import {
   QuotationStage,
   QuotationSubmissionStatus,
   type QuotationBlockingReason,
+  InvoiceStatus,
   ServiceInsuredDataContext,
   ServiceFinanceContext,
   ServicePricingContext,
@@ -1249,52 +1250,12 @@ export class QuotationsService {
     );
     this.assertPaymentRequestAllowed(quotation);
 
-    const latestInvoice = await this.findLatestInvoice(companyId, id);
-    const invoice =
-      latestInvoice &&
-      !['VOID', 'VOIDED', 'CANCELLED'].includes(
-        String(latestInvoice.status).toUpperCase(),
-      )
-        ? latestInvoice
-        : await this.quotationInvoiceService.createOrReuseQuotationInvoice(
-            this.dataSource.manager,
-            {
-              companyId,
-              quotationId: quotation.id,
-              quotationNumber: quotation.quotation_no,
-              workflowRevision: Number(quotation.workflow_revision ?? 1),
-              insurerCompanyId: quotation.insurer_company_id,
-              intermediaryCompanyId: quotation.intermediary_company_id ?? null,
-              customerId: quotation.customer_id!,
-              branchId: quotation.branch_id ?? null,
-              currencyCode:
-                quotation.cover_note?.currency_code?.trim().toUpperCase() ??
-                'TZS',
-              amount: this.numeric(
-                quotation.cover_note?.total_premium_including_tax ?? 0,
-                4,
-              ),
-              pricingResultHash: (() => {
-                const snapshot = (quotation.cover_note?.entries ?? [])
-                  .flatMap((entry) => entry.risks ?? [])
-                  .find((risk) => !!risk.pricing_snapshot)?.pricing_snapshot as
-                  | { resultHash?: string | null }
-                  | undefined;
-
-                return snapshot?.resultHash ?? null;
-              })(),
-              finalizationHash:
-                quotation.finalization_hash ??
-                this.productDefinitionHashService.hashDefinition(
-                  quotation.finalization_snapshot ?? {},
-                ),
-              sourceSnapshot:
-                quotation.finalization_snapshot ??
-                (quotation as unknown as Record<string, unknown>),
-              createdBy: user.id,
-              instructions: 'Quotation payment invoice generated from workflow',
-            },
-          );
+    const invoice = await this.createOrReuseQuotationPaymentInvoice(
+      companyId,
+      quotation,
+      user.id,
+      'Quotation payment invoice generated from workflow',
+    );
 
     await this.quotationLifecycleService.markPaymentRequested(companyId, id, {
       changedBy: user.id,
@@ -3223,17 +3184,19 @@ export class QuotationsService {
       );
     }
 
+    if (this.isCashPaymentMode(quotation)) {
+      throw new ConflictException(
+        'Cash payment is settled directly when submitting the quotation.',
+      );
+    }
+
     if (!quotation.requires_payment) {
       throw new ConflictException('Payment is not required for this quotation');
     }
 
-    const isCashPayment =
-      Number(quotation.cover_note?.payment_mode) === DEFAULT_PAYMENT_MODE;
-
     if (
       quotation.requires_approval &&
-      quotation.approval_status !== ApprovalStatus.APPROVED &&
-      !isCashPayment
+      quotation.approval_status !== ApprovalStatus.APPROVED
     ) {
       throw new ConflictException(
         `Approval must be completed before requesting payment. Current approval status is ${quotation.approval_status}.`,
@@ -4545,6 +4508,13 @@ export class QuotationsService {
     tiramisPayload: Record<string, unknown>;
   }> {
     try {
+      await this.ensureCashInvoiceSettledForSubmission(
+        companyId,
+        quotation,
+        submitOptions,
+        userId,
+      );
+
       this.assertTiraSubmissionReadiness(quotation, submitOptions);
 
       if (quotation.requires_payment) {
@@ -9708,6 +9678,162 @@ export class QuotationsService {
         `Quotation in ${quotation.status} status cannot be replaced`,
       );
     }
+  }
+
+  private isCashPaymentMode(quotation: Quotation): boolean {
+    return Number(quotation.cover_note?.payment_mode) === DEFAULT_PAYMENT_MODE;
+  }
+
+  private async ensureCashInvoiceSettledForSubmission(
+    companyId: string,
+    quotation: Quotation,
+    submitOptions: SubmitQuotationDto,
+    userId: string,
+  ): Promise<void> {
+    if (
+      !quotation.requires_payment ||
+      !this.isCashPaymentMode(quotation) ||
+      quotation.payment_status === PaymentStatus.PAID ||
+      (!!submitOptions.return_existing &&
+        quotation.tira_status !== TiraStatus.NOT_SUBMITTED)
+    ) {
+      return;
+    }
+
+    const approvalSatisfied =
+      !quotation.requires_approval ||
+      quotation.approval_status === ApprovalStatus.APPROVED;
+    if (!approvalSatisfied) {
+      return;
+    }
+
+    const invoice = await this.createOrReuseQuotationPaymentInvoice(
+      companyId,
+      quotation,
+      userId,
+      'Cash quotation invoice generated and settled during TIRAMIS submission',
+    );
+
+    await this.settleCashQuotationInvoice(invoice, userId);
+
+    await this.quotationLifecycleService.markPaymentPaid(
+      companyId,
+      quotation.id,
+      {
+        changedBy: userId,
+        changedByType: 'USER',
+        source: 'USER',
+        reason: `Cash payment settled against invoice ${invoice.invoice_no}`,
+        requestId: invoice.id,
+      },
+    );
+
+    quotation.payment_status = PaymentStatus.PAID;
+    quotation.payment_completed_at = new Date();
+    quotation.payment_failure_reason = null;
+    quotation.status = QuotationStatus.READY_FOR_SUBMISSION;
+  }
+
+  private async createOrReuseQuotationPaymentInvoice(
+    companyId: string,
+    quotation: Quotation,
+    userId: string,
+    instructions: string,
+  ): Promise<Invoice> {
+    if (!quotation.customer_id) {
+      throw new ConflictException(
+        'A linked customer is required before generating a payment invoice',
+      );
+    }
+
+    const latestInvoice = await this.findLatestInvoice(companyId, quotation.id);
+    if (
+      latestInvoice &&
+      !['VOID', 'VOIDED', 'CANCELLED'].includes(
+        String(latestInvoice.status).toUpperCase(),
+      )
+    ) {
+      return latestInvoice;
+    }
+
+    return this.quotationInvoiceService.createOrReuseQuotationInvoice(
+      this.dataSource.manager,
+      {
+        companyId,
+        quotationId: quotation.id,
+        quotationNumber: quotation.quotation_no,
+        workflowRevision: Number(quotation.workflow_revision ?? 1),
+        insurerCompanyId: quotation.insurer_company_id,
+        intermediaryCompanyId: quotation.intermediary_company_id ?? null,
+        customerId: quotation.customer_id,
+        branchId: quotation.branch_id ?? null,
+        currencyCode:
+          quotation.cover_note?.currency_code?.trim().toUpperCase() ?? 'TZS',
+        amount: this.numeric(
+          quotation.cover_note?.total_premium_including_tax ?? 0,
+          4,
+        ),
+        pricingResultHash: this.resolveQuotationPricingResultHash(quotation),
+        finalizationHash:
+          quotation.finalization_hash ??
+          this.productDefinitionHashService.hashDefinition(
+            quotation.finalization_snapshot ?? {},
+          ),
+        sourceSnapshot:
+          quotation.finalization_snapshot ??
+          (quotation as unknown as Record<string, unknown>),
+        createdBy: userId,
+        instructions,
+      },
+    );
+  }
+
+  private resolveQuotationPricingResultHash(
+    quotation: Quotation,
+  ): string | null {
+    const snapshot = (quotation.cover_note?.entries ?? [])
+      .flatMap((entry) => entry.risks ?? [])
+      .find((risk) => !!risk.pricing_snapshot)?.pricing_snapshot as
+      | { resultHash?: string | null }
+      | undefined;
+
+    return snapshot?.resultHash ?? null;
+  }
+
+  private async settleCashQuotationInvoice(
+    invoice: Invoice,
+    userId: string,
+  ): Promise<void> {
+    if (
+      invoice.status === InvoiceStatus.PAID ||
+      invoice.status === InvoiceStatus.OVERPAID
+    ) {
+      return;
+    }
+
+    if (
+      invoice.status === InvoiceStatus.VOIDED ||
+      invoice.status === InvoiceStatus.CANCELLED
+    ) {
+      throw new ConflictException('Cash payment invoice is not active.');
+    }
+
+    const totalAmount = this.numeric(invoice.total_amount ?? 0, 2);
+    const now = new Date();
+
+    invoice.status = InvoiceStatus.PAID;
+    invoice.paid_amount = totalAmount;
+    invoice.allocated_amount = this.numeric(totalAmount, 4);
+    invoice.balance_amount = this.numeric(0, 2);
+    invoice.issued_by = invoice.issued_by ?? userId;
+    invoice.issued_at = invoice.issued_at ?? now;
+    invoice.posted_by = invoice.posted_by ?? userId;
+    invoice.posted_at = invoice.posted_at ?? now;
+    invoice.updated_by = userId;
+    invoice.balance_revision = Number(invoice.balance_revision ?? 0) + 1;
+    invoice.state_version = Number(invoice.state_version ?? 0) + 1;
+
+    await this.dataSource.manager.getRepository(Invoice).save(invoice);
   }
 
   private async assertPaymentReady(quotation: Quotation): Promise<void> {
