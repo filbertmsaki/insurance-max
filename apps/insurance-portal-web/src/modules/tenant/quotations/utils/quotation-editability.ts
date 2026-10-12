@@ -1,14 +1,4 @@
-import type { QuotationListItem, QuotationStatus, TiraStatus } from '../types';
-
-const EDITABLE_QUOTATION_STATUSES = new Set<QuotationStatus>([
-  'DRAFT',
-  'PENDING_REQUIREMENTS',
-  'READY_FOR_SUBMISSION',
-  'REJECTED',
-  'FAILED',
-]);
-
-const CORRECTION_TIRA_STATUSES = new Set<TiraStatus>(['REJECTED', 'FAILED']);
+import type { QuotationListItem } from '../types';
 
 export function canEditQuotation(
   quotation: Pick<
@@ -19,16 +9,13 @@ export function canEditQuotation(
     | 'source_policy_transaction_id'
   >,
 ): boolean {
-  if (quotation.source_policy_transaction_id) return false;
-  if (!EDITABLE_QUOTATION_STATUSES.has(quotation.quotation_status))
-    return false;
-
-  const isTiraCorrection = CORRECTION_TIRA_STATUSES.has(quotation.tira_status);
-  if (quotation.tira_status !== 'NOT_SUBMITTED' && !isTiraCorrection) {
-    return false;
-  }
-
-  // A failed or rejected TIRAMIS response can be corrected even when the
-  // quotation's legacy status has not yet been synchronized.
-  return !quotation.submitted_at || isTiraCorrection;
+  return (
+    !quotation.source_policy_transaction_id &&
+    quotation.quotation_status !== 'COMPLETED' &&
+    quotation.quotation_status !== 'CANCELLED' &&
+    quotation.quotation_status !== 'EXPIRED' &&
+    quotation.tira_status !== 'SUCCESS' &&
+    quotation.tira_status !== 'CANCELLED' &&
+    quotation.tira_status !== 'ENDORSED'
+  );
 }

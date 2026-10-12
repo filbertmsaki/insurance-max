@@ -64,11 +64,9 @@ const SELECT_INSURANCE_CHANNEL_PERMISSION =
   'quotations:select-insurance-channel';
 
 const EDITABLE_STATUSES = new Set([
-  'DRAFT',
-  'PENDING_REQUIREMENTS',
-  'READY_FOR_SUBMISSION',
-  'REJECTED',
-  'FAILED',
+  'COMPLETED',
+  'CANCELLED',
+  'EXPIRED',
 ]);
 
 export interface UnderwriteWizardStep {
@@ -334,7 +332,13 @@ export function useUnderwriteQuotationWizard({
   }, [defaultValues, editOptionsReady, existingQuotation, form, line]);
 
   useEffect(() => {
-    if (!existingQuotation || EDITABLE_STATUSES.has(existingQuotation.status)) {
+    if (
+      !existingQuotation ||
+      (!EDITABLE_STATUSES.has(existingQuotation.status) &&
+        !['SUCCESS', 'CANCELLED', 'ENDORSED'].includes(
+          existingQuotation.tira_status,
+        ))
+    ) {
       return;
     }
     toast.error(

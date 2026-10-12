@@ -153,7 +153,6 @@ import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-
 import { Tax } from '../taxes/entities/tax.entity';
 import { TaxesService } from '../taxes/taxes.service';
 import {
-  EDITABLE_QUOTATION_STATUSES,
   TERMINAL_QUOTATION_STATUSES,
 } from './utils/quotation-status-transition.util';
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
@@ -1035,14 +1034,16 @@ export class QuotationsService {
     dto: UpdateQuotationDraftDto,
     user: AuthenticatedUser,
   ) {
-    await this.assertUserCanWriteQuotation(user, id);
-
-    const userId = user.id;
     const existing = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
-    this.assertDraftWritable(existing);
+    this.assertQuotationEditable(existing);
+    await this.assertUserCanWriteQuotation(user, id, {
+      allowBranchFailedCorrection: this.isTiraFailureQuotation(existing),
+    });
+
+    const userId = user.id;
     const authorizedDto =
       await this.insuranceChannelPermissionService.authorizeDraftPayload(
         companyId,
@@ -1068,7 +1069,7 @@ export class QuotationsService {
           companyId,
           id,
         );
-        this.assertDraftWritable(quotation);
+        this.assertQuotationEditable(quotation);
 
         const draftContext = await this.resolveDraftBranchContext(
           companyId,
@@ -1095,6 +1096,18 @@ export class QuotationsService {
             existingApprovalRequired: false,
           });
 
+        const isResubmissionCorrection = !!quotation.submitted_at;
+        if (isResubmissionCorrection) {
+          quotation.tira_status = TiraStatus.NOT_SUBMITTED;
+          quotation.submitted_at = null;
+          quotation.submitted_by = null;
+          quotation.tira_request_id = null;
+          quotation.tira_response_id = null;
+          quotation.tira_response_code = null;
+          quotation.tira_response_description = null;
+          quotation.rejection_reason = null;
+        }
+
         Object.assign(quotation, {
           insurer_company_id:
             authorizedDto.insurer_company_id ?? quotation.company_id,
@@ -1110,6 +1123,7 @@ export class QuotationsService {
           is_fleet: authorizedDto.is_fleet,
           channel_type: authorizedDto.channel_type,
           updated_by: userId,
+          ...(isResubmissionCorrection ? { status: QuotationStatus.DRAFT } : {}),
           ...lifecycleState,
           current_wizard_step: authorizedDto.current_wizard_step ?? null,
           draft_payload: this.cloneDraftPayload(draftPayload),
@@ -2549,13 +2563,9 @@ export class QuotationsService {
   }
 
   private assertDraftWritable(quotation: Quotation): void {
-    if (quotation.status !== QuotationStatus.DRAFT) {
-      throw new ConflictException('Only draft quotations can be updated');
-    }
-
-    if (quotation.tira_status !== TiraStatus.NOT_SUBMITTED) {
+    if (!this.isQuotationEditable(quotation)) {
       throw new ConflictException(
-        'Only unsubmitted draft quotations can be updated',
+        `Quotation with status ${quotation.status} and TIRAMIS status ${quotation.tira_status} cannot be edited`,
       );
     }
   }
@@ -8167,6 +8177,7 @@ export class QuotationsService {
           paymentMode: header.payment_mode,
           existingApprovalRequired: approvalRequired,
         });
+    const isEditingSubmitted = !!current?.submitted_at;
 
     Object.assign(quotation, {
       company_id: companyId,
@@ -8186,9 +8197,15 @@ export class QuotationsService {
       is_fleet: internal.is_fleet,
       channel_type: internal.channel_type,
       ...lifecycleState,
+      ...(isEditingSubmitted
+        ? {
+            status: QuotationStatus.DRAFT,
+            tira_status: TiraStatus.NOT_SUBMITTED,
+          }
+        : {}),
       rejection_reason: null,
-      submitted_by: current?.submitted_by ?? null,
-      submitted_at: current?.submitted_at ?? null,
+      submitted_by: isEditingSubmitted ? null : (current?.submitted_by ?? null),
+      submitted_at: isEditingSubmitted ? null : (current?.submitted_at ?? null),
       approval_submitted_by: current?.approval_submitted_by ?? null,
       approval_submitted_at: current?.approval_submitted_at ?? null,
       approval_decided_by: current?.approval_decided_by ?? null,
@@ -8199,11 +8216,21 @@ export class QuotationsService {
       payment_requested_at: current?.payment_requested_at ?? null,
       payment_completed_at: current?.payment_completed_at ?? null,
       payment_failure_reason: current?.payment_failure_reason ?? null,
-      tira_request_id: current?.tira_request_id ?? null,
-      tira_response_id: current?.tira_response_id ?? null,
-      tira_response_code: current?.tira_response_code ?? null,
-      tira_response_description: current?.tira_response_description ?? null,
-      tira_error_details: current?.tira_error_details ?? null,
+      tira_request_id: isEditingSubmitted
+        ? null
+        : (current?.tira_request_id ?? null),
+      tira_response_id: isEditingSubmitted
+        ? null
+        : (current?.tira_response_id ?? null),
+      tira_response_code: isEditingSubmitted
+        ? null
+        : (current?.tira_response_code ?? null),
+      tira_response_description: isEditingSubmitted
+        ? null
+        : (current?.tira_response_description ?? null),
+      tira_error_details: isEditingSubmitted
+        ? null
+        : (current?.tira_error_details ?? null),
       ...(productDefinition
         ? {
             product_version_id: productDefinition.productVersionId,
@@ -9712,29 +9739,24 @@ export class QuotationsService {
       );
     }
 
-    const isTiraCorrection =
-      quotation.tira_status === TiraStatus.FAILED ||
-      quotation.tira_status === TiraStatus.REJECTED;
-    if (
-      quotation.tira_status !== TiraStatus.NOT_SUBMITTED &&
-      !isTiraCorrection
-    ) {
+    if (!this.isQuotationEditable(quotation)) {
       throw new ConflictException(
-        `Quotation with TIRAMIS status ${quotation.tira_status} cannot be edited`,
+        `Quotation with status ${quotation.status} and TIRAMIS status ${quotation.tira_status} cannot be edited`,
       );
     }
+  }
 
-    if (quotation.submitted_at && !this.isTiraFailureQuotation(quotation)) {
-      throw new ConflictException(
-        'A submitted quotation cannot be replaced. Create an endorsement or a new quotation.',
-      );
-    }
-
-    if (!EDITABLE_QUOTATION_STATUSES.includes(quotation.status)) {
-      throw new ConflictException(
-        `Quotation in ${quotation.status} status cannot be replaced`,
-      );
-    }
+  private isQuotationEditable(
+    quotation: Pick<Quotation, 'status' | 'tira_status'>,
+  ): boolean {
+    return (
+      quotation.status !== QuotationStatus.COMPLETED &&
+      quotation.status !== QuotationStatus.CANCELLED &&
+      quotation.status !== QuotationStatus.EXPIRED &&
+      quotation.tira_status !== TiraStatus.SUCCESS &&
+      quotation.tira_status !== TiraStatus.ENDORSED &&
+      quotation.tira_status !== TiraStatus.CANCELLED
+    );
   }
 
   private isCashPaymentMode(quotation: Quotation): boolean {

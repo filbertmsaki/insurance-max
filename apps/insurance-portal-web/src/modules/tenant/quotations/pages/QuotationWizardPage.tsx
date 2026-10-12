@@ -87,11 +87,9 @@ const SELECT_INSURANCE_CHANNEL_PERMISSION =
   'quotations:select-insurance-channel';
 
 const EDITABLE_STATUSES = new Set([
-  'DRAFT',
-  'PENDING_REQUIREMENTS',
-  'READY_FOR_SUBMISSION',
-  'REJECTED',
-  'FAILED',
+  'COMPLETED',
+  'CANCELLED',
+  'EXPIRED',
 ]);
 
 const COVER_FIELDS: FieldPath<QuotationFormSchemaValues>[] = [
@@ -704,7 +702,12 @@ export function QuotationWizardPage() {
       return;
     }
 
-    if (EDITABLE_STATUSES.has(quotationContext.status)) {
+    if (
+      !EDITABLE_STATUSES.has(quotationContext.status) &&
+      !['SUCCESS', 'CANCELLED', 'ENDORSED'].includes(
+        quotationContext.tira_status,
+      )
+    ) {
       return;
     }
 

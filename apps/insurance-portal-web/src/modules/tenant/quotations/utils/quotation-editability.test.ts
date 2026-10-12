@@ -21,8 +21,17 @@ function quotation(
 }
 
 describe('canEditQuotation', () => {
-  it.each(['DRAFT', 'PENDING_REQUIREMENTS', 'READY_FOR_SUBMISSION'] as const)(
-    'allows unsubmitted %s quotations',
+  it.each([
+    'DRAFT',
+    'PENDING_REQUIREMENTS',
+    'READY_FOR_SUBMISSION',
+    'SUBMITTING_TO_TIRA',
+    'SUBMITTED_TO_TIRA',
+    'TIRA_PROCESSING',
+    'REJECTED',
+    'FAILED',
+  ] as const)(
+    'allows %s quotations before an excluded final status',
     (status) => {
       expect(canEditQuotation(quotation({ quotation_status: status }))).toBe(
         true,
@@ -30,28 +39,14 @@ describe('canEditQuotation', () => {
     },
   );
 
-  it.each(['FAILED', 'REJECTED'] as const)(
-    'allows submitted TIRAMIS %s corrections',
-    (tira_status) => {
-      expect(
-        canEditQuotation(
-          quotation({
-            quotation_status: tira_status,
-            tira_status,
-            submitted_at: '2026-10-01T00:00:00.000Z',
-          }),
-        ),
-      ).toBe(true);
-    },
-  );
-
   it.each([
-    ['SUBMITTING_TO_TIRA', 'SUBMITTING'],
-    ['SUBMITTED_TO_TIRA', 'SUBMITTED'],
-    ['TIRA_PROCESSING', 'PROCESSING'],
     ['COMPLETED', 'SUCCESS'],
+    ['READY_FOR_SUBMISSION', 'SUCCESS'],
     ['COMPLETED', 'ENDORSED'],
+    ['FAILED', 'ENDORSED'],
     ['CANCELLED', 'CANCELLED'],
+    ['READY_FOR_SUBMISSION', 'CANCELLED'],
+    ['READY_FOR_SUBMISSION', 'ENDORSED'],
     ['EXPIRED', 'NOT_SUBMITTED'],
   ] as const)('blocks %s / %s', (quotation_status, tira_status) => {
     expect(
@@ -69,7 +64,15 @@ describe('canEditQuotation', () => {
     ).toBe(false);
   });
 
-  it('blocks an editable quotation status paired with a successful TIRAMIS result', () => {
-    expect(canEditQuotation(quotation({ tira_status: 'SUCCESS' }))).toBe(false);
+  it('allows a submitted quotation still processing at TIRAMIS', () => {
+    expect(
+      canEditQuotation(
+        quotation({
+          quotation_status: 'TIRA_PROCESSING',
+          tira_status: 'PROCESSING',
+          submitted_at: '2026-10-01T00:00:00.000Z',
+        }),
+      ),
+    ).toBe(true);
   });
 });
