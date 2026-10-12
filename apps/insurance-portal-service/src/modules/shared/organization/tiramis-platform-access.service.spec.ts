@@ -44,8 +44,8 @@ describe('TiramisPlatformAccessService', () => {
     ).resolves.toBe(code);
   });
 
-  it('defaults to the configured environment before settings exist', async () => {
+  it('falls back to UAT when the configured environment is unsupported', async () => {
     const service = createService(null);
-    await expect(service.getActiveEnvironment()).resolves.toBe('test');
+    await expect(service.getActiveEnvironment()).resolves.toBe('uat');
   });
 });

@@ -1,5 +1,6 @@
 import {
   buildTiramisConfigurationSeeds,
+  resolveSeedEnvironments,
   resolveTiramisSeedOptions,
 } from './seed-tiramis-config';
 
@@ -8,13 +9,13 @@ const baseEnvironment = {
 };
 
 describe('seed-tiramis-config', () => {
-  it('seeds company-only configuration rows for test and live', () => {
+  it('seeds only the active UAT environment by default', () => {
     const options = resolveTiramisSeedOptions(baseEnvironment, []);
     const seeds = buildTiramisConfigurationSeeds(baseEnvironment, options);
 
-    expect(options.includeLive).toBe(true);
-    expect(options.skippedLiveKeys).toEqual([]);
-    expect(seeds.map((seed) => seed.environment)).toEqual(['test', 'live']);
+    expect(options.environment).toBe('uat');
+    expect(resolveSeedEnvironments(options)).toEqual(['uat']);
+    expect(seeds.map((seed) => seed.environment)).toEqual(['uat']);
     for (const seed of seeds) {
       // System identity is platform-wide (env), never seeded per company.
       for (const field of [
@@ -28,24 +29,27 @@ describe('seed-tiramis-config', () => {
     }
   });
 
-  it('supports the explicit test-only CLI flag', () => {
-    const options = resolveTiramisSeedOptions(baseEnvironment, ['--test-only']);
-    const seeds = buildTiramisConfigurationSeeds(baseEnvironment, options);
+  it('maps the production TIRA environment to production seeds', () => {
+    const activeEnvironment = { TIRA_ENV: 'production' };
+    const options = resolveTiramisSeedOptions(activeEnvironment, []);
+    const seeds = buildTiramisConfigurationSeeds(activeEnvironment, options);
 
-    expect(options.includeLive).toBe(false);
-    expect(seeds.map((seed) => seed.environment)).toEqual(['test']);
+    expect(options.environment).toBe('production');
+    expect(seeds.map((seed) => seed.environment)).toEqual(['production']);
   });
 
-  it('keeps deprecated TIRAMIS_SEED_ENVIRONMENTS=test behavior compatible', () => {
+  it('maps legacy test TIRA_ENV values to UAT and records deprecated seed configuration', () => {
     const options = resolveTiramisSeedOptions(
       {
         ...baseEnvironment,
+        TIRA_ENV: 'test',
         TIRAMIS_SEED_ENVIRONMENTS: 'test',
       },
       [],
     );
 
-    expect(options.includeLive).toBe(false);
+    expect(options.environment).toBe('uat');
     expect(options.legacySeedEnvironment).toBe('test');
+    expect(resolveSeedEnvironments(options)).toEqual(['uat']);
   });
 });

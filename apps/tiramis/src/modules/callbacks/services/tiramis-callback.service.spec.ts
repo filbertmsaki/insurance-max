@@ -466,7 +466,7 @@ describe('TiramisCallbackService', () => {
     ]);
   });
 
-  it('processes authenticated internal live callback tests without verifying a TIRA signature', async () => {
+  it('processes authenticated internal production callback tests without verifying a TIRA signature', async () => {
     const { service, signatureService } = createService();
     const parsedCallback = {
       requestId: 'REQ-001',
@@ -490,7 +490,7 @@ describe('TiramisCallbackService', () => {
     expect(signatureService.verifyXmlContent).not.toHaveBeenCalled();
     expect(parsedCallback.signatureVerified).toBe(true);
     expect((service as any).handleCallbackReplayIfExists).toHaveBeenCalledWith(
-      expect.objectContaining({ environment: 'live', parsedCallback }),
+      expect.objectContaining({ environment: 'production', parsedCallback }),
     );
   });
 
