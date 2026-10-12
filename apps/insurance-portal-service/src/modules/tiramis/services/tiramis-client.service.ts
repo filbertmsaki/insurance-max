@@ -2016,6 +2016,13 @@ export class TiramisClientService {
     TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COMPANY_VERIFICATION,
   ]);
 
+  private static readonly VERIFICATION_PATTERNS = new Set<string>([
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COVER_NOTE_VERIFICATION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_VERIFICATION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NIN_VERIFICATION,
+    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COMPANY_VERIFICATION,
+  ]);
+
   private isSubmissionPattern(pattern: string): boolean {
     return TiramisClientService.SUBMISSION_PATTERNS.has(pattern);
   }
@@ -2049,6 +2056,13 @@ export class TiramisClientService {
     const resolvedPayload = this.isSubmissionPattern(pattern)
       ? this.stripSignedTenantBodyFields(payload)
       : payload;
+
+    if (TiramisClientService.VERIFICATION_PATTERNS.has(pattern)) {
+      return {
+        ...resolvedPayload,
+        portalWebhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+      };
+    }
 
     if (pattern === TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_FLEET) {
       return { ...resolvedPayload, isFleet: true };
