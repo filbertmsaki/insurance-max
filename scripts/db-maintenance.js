@@ -10,13 +10,17 @@ const APPS = {
     name: 'tiramis',
     envDir: path.join('apps', 'tiramis'),
     migrateScript: 'migration:run:tiramis',
+    migrateProductionScript: 'migration:run:tiramis:production',
     seedScript: 'seed:tiramis:config',
+    seedProductionScript: 'seed:tiramis:config:production',
   },
   'insurance-portal-service': {
     name: 'insurance-portal-service',
     envDir: path.join('apps', 'insurance-portal-service'),
     migrateScript: 'migration:run:insurance-portal-service',
+    migrateProductionScript: 'migration:run:insurance-portal-service:production',
     seedScript: 'seed:insurance-portal-service',
+    seedProductionScript: 'seed:insurance-portal-service:production',
   },
 };
 
@@ -29,6 +33,7 @@ function parseArgs(argv) {
     app: 'all',
     seed: false,
     confirmProduction: false,
+    expectedDatabase: undefined,
     skipBackup: false,
   };
 
@@ -39,6 +44,8 @@ function parseArgs(argv) {
       options.seed = true;
     } else if (arg === '--confirm-production') {
       options.confirmProduction = true;
+    } else if (arg.startsWith('--expect-database=')) {
+      options.expectedDatabase = arg.slice('--expect-database='.length);
     } else if (arg === '--skip-backup') {
       options.skipBackup = true;
     } else if (arg === '--help' || arg === '-h') {
@@ -54,7 +61,7 @@ function parseArgs(argv) {
 function usage() {
   console.log(`
 Usage:
-  node scripts/db-maintenance.js <action> [--app=all|tiramis|insurance-portal-service] [--seed] [--confirm-production] [--skip-backup]
+  node scripts/db-maintenance.js <action> [--app=all|tiramis|insurance-portal-service] [--seed] [--confirm-production] [--expect-database=NAME] [--skip-backup]
 
 Actions:
   backup        Create a PostgreSQL backup only.
@@ -66,6 +73,7 @@ Actions:
 
 Production wipes require:
   --confirm-production
+  --expect-database=NAME  Require an exact database name before the wipe.
 
 Local-only bypass:
   --skip-backup    Skip pg_dump when destructive actions run in non-production.
@@ -168,6 +176,21 @@ function assertDestructiveAllowed(config, options) {
     );
   }
 
+  if (isProduction(config) && !options.expectedDatabase) {
+    throw new Error(
+      'Production reset requires --expect-database=NAME to verify the target database.',
+    );
+  }
+
+  if (
+    options.expectedDatabase &&
+    config.database !== options.expectedDatabase
+  ) {
+    throw new Error(
+      `Database mismatch: configured "${config.database}" but expected "${options.expectedDatabase}". No reset was performed.`,
+    );
+  }
+
   if (isProduction(config) && options.skipBackup) {
     throw new Error(
       'Refusing to skip backups for a Production database wipe/reset.',
@@ -189,7 +212,15 @@ function timestampParts() {
 
 function backupPath(config) {
   const { date, time } = timestampParts();
-  const backupDir = path.join(process.cwd(), 'backups', 'database');
+  const releaseDir = fs.realpathSync(process.cwd());
+  const releasesDir = path.dirname(releaseDir);
+  const appDir = path.dirname(releasesDir);
+  const isReleaseCheckout = path.basename(releasesDir) === 'releases';
+  const backupDir =
+    process.env.DB_BACKUP_DIR ||
+    (isReleaseCheckout
+      ? path.join(appDir, 'shared', 'backups', 'database')
+      : path.join(process.cwd(), 'backups', 'database'));
   const filename = [
     safeName(config.database),
     safeName(config.environment),
@@ -350,6 +381,17 @@ function runNpmScript(script, extraEnv = {}) {
   }
 }
 
+function scriptsForEnvironment(app, config) {
+  if (isProduction(config)) {
+    return {
+      migrate: app.migrateProductionScript,
+      seed: app.seedProductionScript,
+    };
+  }
+
+  return { migrate: app.migrateScript, seed: app.seedScript };
+}
+
 async function withAppEnvironment(app, callback) {
   const previousEnv = { ...process.env };
 
@@ -364,6 +406,7 @@ async function withAppEnvironment(app, callback) {
 async function runForApp(app, options) {
   await withAppEnvironment(app, async () => {
     const config = readDbConfig();
+    const scripts = scriptsForEnvironment(app, config);
 
     console.log(`\nStart Database ${options.action} for ${app.name}`);
     console.log(
@@ -373,12 +416,12 @@ async function runForApp(app, options) {
     assertDestructiveAllowed(config, options);
 
     if (options.action === 'migrate') {
-      runNpmScript(app.migrateScript);
+      runNpmScript(scripts.migrate);
       return;
     }
 
     if (options.action === 'seed') {
-      runNpmScript(app.seedScript);
+      runNpmScript(scripts.seed);
       return;
     }
 
@@ -399,10 +442,10 @@ async function runForApp(app, options) {
     console.log(`Database schema reset completed: ${config.schema}`);
 
     if (options.action === 'reset' || options.action === 'backup-reset') {
-      runNpmScript(app.migrateScript);
+      runNpmScript(scripts.migrate);
 
       if (options.seed) {
-        runNpmScript(app.seedScript);
+        runNpmScript(scripts.seed);
       }
     }
   });
@@ -422,6 +465,16 @@ async function main() {
     )
   ) {
     throw new Error(`Unsupported action: ${options.action}`);
+  }
+
+  const serviceFile = path.join(process.cwd(), 'SERVICE_NAME');
+  if (fs.existsSync(serviceFile)) {
+    const serviceName = fs.readFileSync(serviceFile, 'utf8').trim();
+    if (options.app === 'all' || options.app !== serviceName) {
+      throw new Error(
+        `This release is for "${serviceName}". Specify --app=${serviceName} to continue.`,
+      );
+    }
   }
 
   for (const app of selectedApps(options.app)) {

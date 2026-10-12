@@ -41,6 +41,7 @@ on:
       - main
     paths:
       - 'apps/tiramis/**'
+      - 'scripts/db-maintenance.js'
       - 'libs/**'
       - 'package.json'
       - 'package-lock.json'
@@ -56,6 +57,7 @@ on:
       - main
     paths:
       - 'apps/tiramis/**'
+      - 'scripts/db-maintenance.js'
       - 'libs/**'
       - 'package.json'
       - 'package-lock.json'
@@ -221,6 +223,7 @@ jobs:
           rm -f "$ARCHIVE" "$CHECKSUM"
 
           mkdir -p "$RELEASE_DIR/deploy/tiramis" "$RELEASE_DIR/scripts"
+          printf '%s\n' 'tiramis' > "$RELEASE_DIR/SERVICE_NAME"
 
           echo "Copying build output"
 

@@ -895,6 +895,13 @@ jobs:
             package-lock.json \
             "${PACKAGE_DIR}/"
 
+          # Include the packaged database reset/migrate/seed utility.
+          mkdir -p "${PACKAGE_DIR}/scripts"
+          printf '%s\n' 'insurance-portal-service' \
+            > "${PACKAGE_DIR}/SERVICE_NAME"
+          cp scripts/db-maintenance.js \
+            "${PACKAGE_DIR}/scripts/db-maintenance.js"
+
 
           # --------------------------------------------------
           # Build metadata
