@@ -15,7 +15,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_dirty_periods" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
         "branch_id" uuid,
@@ -356,7 +356,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_daily_metrics" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
         "branch_id" uuid,
@@ -409,7 +409,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_kpi_definitions" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "code" varchar(100) NOT NULL,
         "name" varchar(180) NOT NULL,
@@ -459,7 +459,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_scorecard_templates" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid,
 
@@ -489,7 +489,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_scorecard_template_items" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "template_id" uuid NOT NULL,
         "kpi_definition_id" uuid NOT NULL,
@@ -536,7 +536,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_scorecard_snapshots" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
         "branch_id" uuid,
@@ -587,7 +587,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_scorecard_values" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "scorecard_snapshot_id" uuid NOT NULL,
         "kpi_definition_id" uuid NOT NULL,
@@ -637,7 +637,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_anomaly_rules" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid,
 
@@ -682,7 +682,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_anomaly_findings" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
         "branch_id" uuid,
@@ -746,7 +746,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_risk_alerts" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
         "branch_id" uuid,
@@ -795,7 +795,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_forecast_definitions" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid,
 
@@ -837,7 +837,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_forecast_runs" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
         "branch_id" uuid,
@@ -886,7 +886,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "analytics_forecast_points" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "forecast_run_id" uuid NOT NULL,
 
@@ -924,7 +924,7 @@ export class RestoreEnterpriseAnalyticsTables1792800000000 implements MigrationI
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "platform_benchmark_snapshots" (
-        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "metric_code"
           varchar(120) NOT NULL,
