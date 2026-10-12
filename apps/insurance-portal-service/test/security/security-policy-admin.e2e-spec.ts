@@ -26,6 +26,10 @@ describe('Security policy administration (real database)', () => {
     ({ id: randomUUID(), companyId, ...overrides }) as any;
   const drafter = user();
   const approver = user();
+  const baselineTwoFactorRoles = (process.env.SECURITY_REQUIRE_2FA_ROLES ?? '')
+    .split(',')
+    .map((role) => role.trim())
+    .filter(Boolean);
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -58,7 +62,9 @@ describe('Security policy administration (real database)', () => {
     expect(overview.active_version_id).toBeNull();
     expect(overview.versions).toEqual([]);
     expect(overview.effective).toEqual(overview.baseline);
-    expect(overview.baseline.requireTwoFactorForRoles).toEqual([]);
+    expect(overview.baseline.requireTwoFactorForRoles).toEqual(
+      baselineTwoFactorRoles,
+    );
     expect(overview.effective).not.toHaveProperty('stepUpMaxAgeMinutes');
   });
 
@@ -84,7 +90,9 @@ describe('Security policy administration (real database)', () => {
     });
     const effective = await policies.getEffectivePolicy(companyId);
     expect(effective.requireTwoFactorForRoles).toContain('CLAIMS_MANAGER');
-    expect(effective.requireTwoFactorForRoles).not.toContain('ADMINISTRATOR');
+    expect(effective.requireTwoFactorForRoles).toEqual(
+      expect.arrayContaining([...baselineTwoFactorRoles, 'CLAIMS_MANAGER']),
+    );
   });
 
   it('supersedes the previous active version on the next activation', async () => {

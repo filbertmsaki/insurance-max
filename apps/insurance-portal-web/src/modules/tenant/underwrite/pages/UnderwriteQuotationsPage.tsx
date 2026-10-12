@@ -25,6 +25,7 @@ import { formatCoverPeriod } from '@/modules/tenant/quotations/utils/coverPeriod
 import { useUnderwriteLineParam, useUnderwriteQuotations } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
 import { underwritePaths } from '../paths';
+import { canEditQuotation } from '@/modules/tenant/quotations/utils/quotation-editability';
 
 const STATUS_OPTIONS = [
   'DRAFT',
@@ -38,14 +39,6 @@ const STATUS_OPTIONS = [
   'CANCELLED',
   'EXPIRED',
 ] as const;
-
-const EDITABLE_STATUSES = new Set<string>([
-  'DRAFT',
-  'PENDING_REQUIREMENTS',
-  'READY_FOR_SUBMISSION',
-  'REJECTED',
-  'FAILED',
-]);
 
 function lineColumns(line: UnderwriteLineMeta): Column<QuotationListItem>[] {
   if (line.line === 'MOTOR') {
@@ -164,7 +157,7 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
         <div className="flex justify-end gap-1">
           {canEdit &&
             !row.source_policy_transaction_id &&
-            EDITABLE_STATUSES.has(row.quotation_status) && (
+            canEditQuotation(row) && (
               <Button
                 variant="ghost"
                 size="icon"

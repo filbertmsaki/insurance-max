@@ -23,8 +23,6 @@ import {
   BookOpen,
   BookMarked,
   Calculator,
-  CarFront,
-  Truck,
   Receipt,
   Radar,
   HeartPulse,

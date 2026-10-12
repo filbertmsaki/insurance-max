@@ -1408,12 +1408,22 @@ export class QuotationsService {
     id: string,
     user?: Pick<AuthenticatedUser, 'permissions'> | null,
   ) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    this.assertQuotationEditable(quotation);
     return this.findOne(companyId, id, user);
   }
 
   async findOneForEditForUser(user: AuthenticatedUser, id: string) {
     await this.assertUserCanWriteQuotation(user, id);
-
+    const scope = this.resolveUserScope(user);
+    const quotation = await this.quotationsRepository.findOneAggregateForScope(
+      scope,
+      id,
+    );
+    this.assertQuotationEditable(quotation);
     return this.findOneForUser(user, id);
   }
 
@@ -9696,6 +9706,24 @@ export class QuotationsService {
   }
 
   private assertQuotationEditable(quotation: Quotation): void {
+    if (quotation.source_policy_transaction_id) {
+      throw new ConflictException(
+        'Policy transaction quotations cannot be edited here. Update the linked policy transaction instead.',
+      );
+    }
+
+    const isTiraCorrection =
+      quotation.tira_status === TiraStatus.FAILED ||
+      quotation.tira_status === TiraStatus.REJECTED;
+    if (
+      quotation.tira_status !== TiraStatus.NOT_SUBMITTED &&
+      !isTiraCorrection
+    ) {
+      throw new ConflictException(
+        `Quotation with TIRAMIS status ${quotation.tira_status} cannot be edited`,
+      );
+    }
+
     if (quotation.submitted_at && !this.isTiraFailureQuotation(quotation)) {
       throw new ConflictException(
         'A submitted quotation cannot be replaced. Create an endorsement or a new quotation.',

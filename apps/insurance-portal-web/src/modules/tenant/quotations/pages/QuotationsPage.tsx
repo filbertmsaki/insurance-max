@@ -23,6 +23,7 @@ import { TiraStatusBadge } from '../components/TiraStatusBadge';
 import { useDeleteQuotation, useQuotationsList } from '../hooks';
 import type { QuotationListItem } from '../types';
 import { formatCoverPeriod } from '../utils/coverPeriod';
+import { canEditQuotation } from '../utils/quotation-editability';
 
 function formatPremiumAmount(amount: number, currencyCode: string) {
   return formatMoney(Number.isFinite(amount) ? amount : 0, currencyCode);
@@ -163,13 +164,19 @@ export function QuotationsPage() {
                   void navigate(sharedUnderwritePaths.quotationDetail(row.id));
                 },
               },
-              {
-                label: 'Edit quotation',
-                icon: <Pencil className="h-4 w-4" />,
-                onClick: () => {
-                  void navigate(sharedUnderwritePaths.quotationWizardEdit(row.id));
-                },
-              },
+              ...(canEditQuotation(row)
+                ? [
+                    {
+                      label: 'Edit quotation',
+                      icon: <Pencil className="h-4 w-4" />,
+                      onClick: () => {
+                        void navigate(
+                          sharedUnderwritePaths.quotationWizardEdit(row.id),
+                        );
+                      },
+                    },
+                  ]
+                : []),
               ...(row.tira_status === 'NOT_SUBMITTED'
                 ? [
                     {
