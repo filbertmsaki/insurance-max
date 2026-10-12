@@ -241,7 +241,11 @@ async function calculatePricing(token, fx, start, end, sumInsured) {
 function numberFrom(source, keys) {
   for (const key of keys) {
     const value = source[key];
-    if (value !== null && value !== undefined && Number.isFinite(Number(value))) {
+    if (
+      value !== null &&
+      value !== undefined &&
+      Number.isFinite(Number(value))
+    ) {
       return Number(value);
     }
   }
@@ -322,18 +326,19 @@ async function body(token, fx) {
           premium_excluding_tax_equivalent: premiumExcludingTax,
           premium_including_tax: premiumIncludingTax,
           discounts_offered: [],
-          taxes_charged: tax > 0
-            ? [
-                {
-                  tax_code: 'VAT-MAINLAND',
-                  is_tax_exempted: 'N',
-                  tax_exemption_type: null,
-                  tax_exemption_reference: null,
-                  tax_rate: Number(pricing.tax_rate ?? 0),
-                  tax_amount: tax,
-                },
-              ]
-            : [],
+          taxes_charged:
+            tax > 0
+              ? [
+                  {
+                    tax_code: 'VAT-MAINLAND',
+                    is_tax_exempted: 'N',
+                    tax_exemption_type: null,
+                    tax_exemption_reference: null,
+                    tax_rate: Number(pricing.tax_rate ?? 0),
+                    tax_amount: tax,
+                  },
+                ]
+              : [],
         },
       ],
       subject_matters_covered: [
@@ -389,42 +394,60 @@ async function main() {
     `/quotations/${draft.id}/finalize`,
     await body(token, fx),
   );
-  if (finalized.status !== 'READY_FOR_SUBMISSION') {
+  if (
+    !(
+      finalized.status === 'READY_FOR_SUBMISSION' ||
+      // Cash quotations wait for payment; submit generates and settles the
+      // invoice (Require invoice settlement for cash quotations).
+      (finalized.status === 'PENDING_REQUIREMENTS' &&
+        finalized.payment_status === 'NOT_INITIATED')
+    )
+  ) {
     throw new Error(`Finalize left status ${finalized.status}`);
   }
   log('ok: finalized');
 
   await api(token, 'POST', `/tenant/quotations/${draft.id}/submit`, {});
-  const accepted = await waitFor('non-motor quotation accepted by TIRA', async () => {
-    const quotation = await db.query(
-      `SELECT quotation_status, tira_status, tira_response_code, tira_response_description,
+  const accepted = await waitFor(
+    'non-motor quotation accepted by TIRA',
+    async () => {
+      const quotation = await db.query(
+        `SELECT quotation_status, tira_status, tira_response_code, tira_response_description,
               tira_request_id, tira_response_id
          FROM quotations WHERE id = $1`,
-      [draft.id],
-    );
-    const row = quotation.rows[0];
-    if (['FAILED', 'REJECTED'].includes(row?.tira_status)) {
-      throw new Error(
-        `TIRA refused non-motor quotation: ${row.tira_response_code} ${row.tira_response_description}`,
+        [draft.id],
       );
-    }
-    return { done: row?.tira_status === 'SUCCESS', state: row, quotation: row };
-  });
+      const row = quotation.rows[0];
+      if (['FAILED', 'REJECTED'].includes(row?.tira_status)) {
+        throw new Error(
+          `TIRA refused non-motor quotation: ${row.tira_response_code} ${row.tira_response_description}`,
+        );
+      }
+      return {
+        done: row?.tira_status === 'SUCCESS',
+        state: row,
+        quotation: row,
+      };
+    },
+  );
 
-  const issued = await waitFor('non-motor policy issued from callback', async () => {
-    const policy = await db.query(
-      `SELECT id, policy_no, cover_note_no, sticker_no, policy_status
+  const issued = await waitFor(
+    'non-motor policy issued from callback',
+    async () => {
+      const policy = await db.query(
+        `SELECT id, policy_no, cover_note_no, sticker_no, policy_status
          FROM policies
         WHERE quotation_id = $1 AND policy_status = 'ACTIVE'
         ORDER BY created_at DESC LIMIT 1`,
-      [draft.id],
-    );
-    return {
-      done: Boolean(policy.rows[0]?.cover_note_no),
-      state: policy.rows[0],
-      policy: policy.rows[0],
-    };
-  });
+        [draft.id],
+      );
+      return {
+        done: Boolean(policy.rows[0]?.cover_note_no),
+        state: policy.rows[0],
+        policy: policy.rows[0],
+      };
+    },
+  );
 
   await waitFor('portal notification receipt completed', async () => {
     const receipt = await db.query(

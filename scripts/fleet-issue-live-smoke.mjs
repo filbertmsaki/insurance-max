@@ -296,7 +296,8 @@ function fleetBody(fx) {
         subject_matters_covered: [
           {
             subject_matter_reference: `FLT-${SUFFIX}-${entry}`,
-            subject_matter_desc: entry === 1 ? 'Toyota Hiace' : 'Toyota Coaster',
+            subject_matter_desc:
+              entry === 1 ? 'Toyota Hiace' : 'Toyota Coaster',
           },
         ],
         cover_note_addons: [],
@@ -329,7 +330,15 @@ async function main() {
     `/quotations/${draft.id}/finalize`,
     fleetBody(fx),
   );
-  if (finalized.status !== 'READY_FOR_SUBMISSION') {
+  if (
+    !(
+      finalized.status === 'READY_FOR_SUBMISSION' ||
+      // Cash quotations wait for payment; submit generates and settles the
+      // invoice (Require invoice settlement for cash quotations).
+      (finalized.status === 'PENDING_REQUIREMENTS' &&
+        finalized.payment_status === 'NOT_INITIATED')
+    )
+  ) {
     throw new Error(`Finalize left status ${finalized.status}`);
   }
   log('ok: finalized');
@@ -350,19 +359,22 @@ async function main() {
     return { done: row?.tira_status === 'SUCCESS', state: row };
   });
 
-  const issued = await waitFor('fleet policy issued from callback', async () => {
-    const policy = await db.query(
-      `SELECT id, policy_no, cover_note_no FROM policies
+  const issued = await waitFor(
+    'fleet policy issued from callback',
+    async () => {
+      const policy = await db.query(
+        `SELECT id, policy_no, cover_note_no FROM policies
         WHERE quotation_id = $1 AND policy_status = 'ACTIVE'
         ORDER BY created_at DESC LIMIT 1`,
-      [draft.id],
-    );
-    return {
-      done: Boolean(policy.rows[0]),
-      state: policy.rows[0],
-      policy: policy.rows[0],
-    };
-  });
+        [draft.id],
+      );
+      return {
+        done: Boolean(policy.rows[0]),
+        state: policy.rows[0],
+        policy: policy.rows[0],
+      };
+    },
+  );
   const notes = await db.query(
     `SELECT fleet_entry, cover_note_reference_number, sticker_number
        FROM cover_notes WHERE policy_id = $1 AND deleted_at IS NULL

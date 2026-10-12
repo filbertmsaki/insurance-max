@@ -342,7 +342,15 @@ async function main() {
     `/quotations/${draft.id}/finalize`,
     quotationBody(fx),
   );
-  if (finalized.status !== 'READY_FOR_SUBMISSION') {
+  if (
+    !(
+      finalized.status === 'READY_FOR_SUBMISSION' ||
+      // Cash quotations wait for payment; submit generates and settles the
+      // invoice (Require invoice settlement for cash quotations).
+      (finalized.status === 'PENDING_REQUIREMENTS' &&
+        finalized.payment_status === 'NOT_INITIATED')
+    )
+  ) {
     throw new Error(
       `Finalize left status ${finalized.status} (approval ${finalized.approval_status}, payment ${finalized.payment_status})`,
     );
