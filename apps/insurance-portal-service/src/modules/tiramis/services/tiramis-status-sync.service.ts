@@ -168,7 +168,11 @@ export class TiramisStatusSyncService {
       callbackOverdueMinutes: Number(
         environment.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
       ),
-      authContext,
+      // Status checks must use the environment the original submission was
+      // sent to, not the operator's current/default environment. The manual
+      // controller context does not carry a TIRAMIS environment, so passing
+      // it through can silently select UAT for a production tracking record.
+      authContext: this.resolveTrackingAuthContext(record),
     });
 
     return {
