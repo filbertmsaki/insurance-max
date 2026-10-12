@@ -152,9 +152,7 @@ import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-boo
 import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-book-status.enum';
 import { Tax } from '../taxes/entities/tax.entity';
 import { TaxesService } from '../taxes/taxes.service';
-import {
-  TERMINAL_QUOTATION_STATUSES,
-} from './utils/quotation-status-transition.util';
+import { TERMINAL_QUOTATION_STATUSES } from './utils/quotation-status-transition.util';
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
 import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
 import { canSelfApprove } from '../../shared/authorization/maker-checker';
@@ -1123,7 +1121,9 @@ export class QuotationsService {
           is_fleet: authorizedDto.is_fleet,
           channel_type: authorizedDto.channel_type,
           updated_by: userId,
-          ...(isResubmissionCorrection ? { status: QuotationStatus.DRAFT } : {}),
+          ...(isResubmissionCorrection
+            ? { status: QuotationStatus.DRAFT }
+            : {}),
           ...lifecycleState,
           current_wizard_step: authorizedDto.current_wizard_step ?? null,
           draft_payload: this.cloneDraftPayload(draftPayload),
