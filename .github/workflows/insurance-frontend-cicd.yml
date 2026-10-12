@@ -71,6 +71,9 @@ jobs:
 
     name: Deploy frontend
 
+    # Manual production deploys are allowed from main only.
+    if: github.ref == 'refs/heads/main'
+
     runs-on: ubuntu-latest
 
     timeout-minutes: 40

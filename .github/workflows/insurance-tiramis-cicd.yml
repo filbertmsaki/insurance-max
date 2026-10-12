@@ -25,9 +25,8 @@ name: Insurance Max - Tiramis CI/CD
 #   - pull_request           -> build, test, package only
 #                               (never deploys)
 #   - workflow_dispatch,
-#     run_id left blank      -> build, test, package only
-#                               (mirrors the old TIRAMIS CI
-#                               manual run - no deploy)
+#     run_id left blank      -> build, test, package, then deploy
+#                               that artifact to production
 #   - workflow_dispatch,
 #     run_id filled in       -> deploy only, redeploying the
 #                               exact artifact from that earlier
@@ -73,7 +72,7 @@ on:
         description: >-
           Optional: run ID of a previous successful "Insurance Max - Tiramis CI/CD"
           run to redeploy without rebuilding. Leave blank to build, test,
-          package (no deploy).
+          package, and deploy this run to production.
         required: false
         type: string
         default: ''
@@ -82,11 +81,10 @@ permissions:
   contents: read
   actions: read
 
-# Hold the production lock across the entire production rollout, including
-# migrations. Build-only runs retain their separate, cancellable CI group.
+# Hold the production lock across production rollouts, including migrations.
 concurrency:
-  group: ${{ (github.event_name == 'push' || inputs.run_id != '') && 'tiramis-production' || format('tiramis-ci-{0}', github.ref) }}
-  cancel-in-progress: ${{ github.event_name != 'push' && inputs.run_id == '' }}
+  group: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && 'tiramis-production' || format('tiramis-ci-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ==========================================================
@@ -302,11 +300,13 @@ jobs:
   # Runs for:
   #   - push to main, after validate-and-package succeeds in
   #     this same run
+  #   - workflow_dispatch with run_id blank, deploying this run's
+  #     artifact after validate-and-package succeeds
   #   - workflow_dispatch with run_id set, deploying that other
   #     run's artifact instead (validate-and-package is skipped)
   #
-  # Never runs for pull_request, and never runs for a plain
-  # workflow_dispatch with no run_id (that path is build-only).
+  # Never runs for pull_request. Manual dispatch without run_id
+  # deploys its newly built artifact.
   # ==========================================================
   deploy:
     name: Deploy TIRAMIS to server ${{ matrix.server }}
@@ -315,6 +315,7 @@ jobs:
       always() &&
       (
         (github.event_name == 'push' && needs.validate-and-package.result == 'success') ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.run_id == '' && needs.validate-and-package.result == 'success') ||
         (github.event_name == 'workflow_dispatch' && inputs.run_id != '')
       )
 
@@ -372,6 +373,11 @@ jobs:
             # cross-run lookup needed.
             RUN_ID="$CURRENT_RUN_ID"
             SHA="$CURRENT_SHA"
+          elif [[ "$EVENT_NAME" == 'workflow_dispatch' && "$GITHUB_REF" == 'refs/heads/main' && -z "$INPUT_RUN_ID" ]]; then
+            # Manual production deployment using this run's build.
+            # The deploy job only runs after validate-and-package succeeds.
+            RUN_ID="$CURRENT_RUN_ID"
+            SHA="$CURRENT_SHA"
           elif [[ "$EVENT_NAME" == 'workflow_dispatch' && -n "$INPUT_RUN_ID" ]]; then
             RUN_ID="$INPUT_RUN_ID"
 
@@ -425,7 +431,7 @@ jobs:
               exit 1
             }
           else
-            echo "Refusing deployment: unsupported trigger '$EVENT_NAME' without an explicit run_id."
+            echo "Refusing deployment: unsupported trigger '$EVENT_NAME'."
             exit 1
           fi
 
