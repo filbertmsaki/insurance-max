@@ -18,7 +18,11 @@ import { PolicyCessionParticipant } from '../entities/policy-cession-participant
 import { PolicyCession } from '../entities/policy-cession.entity';
 import { ReinsuranceClaimRecovery } from '../entities/reinsurance-claim-recovery.entity';
 import { ReinsuranceRecoveryReceipt } from '../entities/reinsurance-recovery-receipt.entity';
-import { RecordRecoveryReceiptDto } from '../dto/reinsurance.dto';
+import {
+  RecordRecoveryReceiptDto,
+  type ReinsuranceListQueryDto,
+} from '../dto/reinsurance.dto';
+import { listOrPage } from '../utils/list-query.util';
 import { ReinsuranceTreatySection } from '../entities/reinsurance-treaty-section.entity';
 import { ReinsuranceTreaty } from '../entities/reinsurance-treaty.entity';
 import {
@@ -185,14 +189,34 @@ export class ReinsuranceRecoveryService {
     return recoveries;
   }
 
-  async findRecoveries(user: AuthenticatedUser) {
-    return this.recoveryRepository.find({
-      where: [
-        { company_id: user.companyId! },
-        { participant_company_id: user.companyId! },
-      ],
-      order: { created_at: 'DESC' },
-    });
+  async findRecoveries(
+    user: AuthenticatedUser,
+    listQuery?: ReinsuranceListQueryDto,
+  ) {
+    const qb = this.recoveryRepository
+      .createQueryBuilder('recovery')
+      .where(
+        '(recovery.company_id = :companyId OR recovery.participant_company_id = :companyId)',
+        { companyId: user.companyId! },
+      )
+      .orderBy('recovery.created_at', 'DESC');
+
+    return listOrPage(
+      qb,
+      listQuery,
+      {
+        sortable: {
+          created_at: 'recovery.created_at',
+          reference: 'recovery.recovery_no',
+          status: 'recovery.status',
+        },
+        defaultSort: 'created_at',
+        searchable: ['recovery.recovery_no', 'recovery.status'],
+        tieBreaker: 'recovery.id',
+        statusColumn: 'recovery.status',
+      },
+      (row) => row,
+    );
   }
 
   async admitRecovery(

@@ -8,9 +8,9 @@ import type {
 } from '@/types/product-engine';
 
 export const ratingRulesApi = {
-  getList: (params?: RuleQueryParams) =>
+  getList: (params?: RuleQueryParams, signal?: AbortSignal) =>
     apiClient
-      .get<PEPage<RiskRatingRule>>('/risk-rating-rules', { params })
+      .get<PEPage<RiskRatingRule>>('/risk-rating-rules', { params, signal })
       .then((r) => r.data),
 
   getById: (id: string) =>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -46,16 +45,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
-  useFactorList,
   useCreateFactor,
   useUpdateFactor,
   useDeleteFactor,
 } from '@/modules/tenant/product-engine/hooks';
+import { peKeys } from '@/modules/tenant/product-engine/hooks/query-keys';
+import { ratingFactorsApi } from '@/modules/tenant/product-engine/api/rating-factors';
 import type {
   RatingFactor,
   FactorDataType,
@@ -188,30 +193,28 @@ function DataTypeBadge({ type }: { type: FactorDataType }) {
   );
 }
 
+const FILTER_KEYS = ['data_type', 'is_active'] as const;
+const ACTIVE_OPTIONS = [
+  { value: 'true', label: 'Active' },
+  { value: 'false', label: 'Inactive' },
+];
+
 export function RatingFactorsPage() {
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('rating-factors:create');
   const canUpdate = hasPermission('rating-factors:update');
   const canDelete = hasPermission('rating-factors:delete');
 
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('search') ?? '';
-  const dataTypeFilter = params.get('data_type') as FactorDataType | null;
-  const isActiveFilter = params.get('is_active');
-
-  const { data, isLoading } = useFactorList({
-    page,
-    limit,
-    search: search || undefined,
-    data_type: dataTypeFilter || undefined,
-    is_active:
-      isActiveFilter === 'true'
-        ? true
-        : isActiveFilter === 'false'
-          ? false
-          : undefined,
+  const { tableProps, state } = useServerTable<
+    RatingFactor,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: peKeys.factors.lists(),
+    fetcher: (params, signal) =>
+      ratingFactorsApi.getList(params as never, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
   });
   const createMutation = useCreateFactor();
   const updateMutation = useUpdateFactor();
@@ -293,33 +296,26 @@ export function RatingFactorsPage() {
     }
   }
 
-  function setParam(key: string, value: string | null) {
-    setParams((p) => {
-      const n = new URLSearchParams(p);
-      if (value === null) n.delete(key);
-      else n.set(key, value);
-      n.set('page', '1');
-      return n;
-    });
-  }
-
   const columns: Column<RatingFactor>[] = [
     {
       key: 'code',
       header: 'Code',
+      sortable: true,
       cell: (row) => (
         <span className="font-mono text-xs font-medium">{row.code}</span>
       ),
     },
-    { key: 'name', header: 'Name', cell: (row) => row.name },
+    { key: 'name', header: 'Name', sortable: true, cell: (row) => row.name },
     {
       key: 'data_type',
       header: 'Data Type',
+      sortable: true,
       cell: (row) => <DataTypeBadge type={row.data_type} />,
     },
     {
       key: 'is_required',
       header: 'Required',
+      sortable: true,
       cell: (row) =>
         row.is_required ? (
           <Badge className="bg-red-50 text-red-600 border-red-200 hover:bg-red-50">
@@ -332,6 +328,7 @@ export function RatingFactorsPage() {
     {
       key: 'is_active',
       header: 'Status',
+      sortable: true,
       cell: (row) =>
         row.is_active ? (
           <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
@@ -413,67 +410,24 @@ export function RatingFactorsPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-3">
-        <Input
-          placeholder="Search factors…"
-          value={search}
-          onChange={(e) => setParam('search', e.target.value)}
-          className="w-64 h-9"
-        />
-        <Select
-          value={dataTypeFilter ?? 'all'}
-          onValueChange={(v) => setParam('data_type', v === 'all' ? null : v)}
-        >
-          <SelectTrigger className="w-44 h-9">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {DATA_TYPES.map((t) => (
-              <SelectItem key={t} value={t}>
-                {t}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={isActiveFilter ?? 'all'}
-          onValueChange={(v) => setParam('is_active', v === 'all' ? null : v)}
-        >
-          <SelectTrigger className="w-36 h-9">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">Active</SelectItem>
-            <SelectItem value="false">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data?.data ?? []}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={data?.pagination.total ?? 0}
-        totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={(p) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('page', String(p));
-            return n;
-          })
-        }
-        onLimitChange={(l) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('limit', String(l));
-            n.set('page', '1');
-            return n;
-          })
-        }
+        searchPlaceholder="Search factors…"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'data_type',
+            label: 'Type',
+            placeholder: 'All Types',
+            options: DATA_TYPES.map((t) => ({ value: t, label: t })),
+          },
+          {
+            key: 'is_active',
+            label: 'Status',
+            placeholder: 'All',
+            options: ACTIVE_OPTIONS,
+          },
+        ])}
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -52,12 +52,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
-  useRiskList,
   useCreateRisk,
   useUpdateRisk,
   useDeleteRisk,
@@ -71,6 +75,8 @@ import {
   useUpdateRequiredFactor,
   useRateBookList,
 } from '@/modules/tenant/product-engine/hooks';
+import { peKeys } from '@/modules/tenant/product-engine/hooks/query-keys';
+import { risksApi } from '@/modules/tenant/product-engine/api/risks';
 import type { InsuranceRisk, RiskRequiredFactor } from '@/types/product-engine';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
@@ -366,35 +372,50 @@ function ManageFactorsDrawer({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const FILTER_KEYS = [
+  'category_id',
+  'product_id',
+  'sub_class_id',
+  'is_active',
+] as const;
+const ACTIVE_OPTIONS = [
+  { value: 'true', label: 'Active' },
+  { value: 'false', label: 'Inactive' },
+];
+
 export function RisksPage() {
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('insurance-risks:create');
   const canUpdate = hasPermission('insurance-risks:update');
   const canDelete = hasPermission('insurance-risks:delete');
 
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('search') ?? '';
-  const categoryFilter = params.get('category_id') ?? '';
-  const productFilter = params.get('product_id') ?? '';
-  const subClassFilter = params.get('sub_class_id') ?? '';
-  const isActiveFilter = params.get('is_active');
-
-  const { data, isLoading } = useRiskList({
-    page,
-    limit,
-    search: search || undefined,
-    category_id: categoryFilter || undefined,
-    product_id: productFilter || undefined,
-    sub_class_id: subClassFilter || undefined,
-    is_active:
-      isActiveFilter === 'true'
-        ? true
-        : isActiveFilter === 'false'
-          ? false
-          : undefined,
+  const [, setParams] = useSearchParams();
+  const { tableProps, state } = useServerTable<
+    InsuranceRisk,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: peKeys.risks.lists(),
+    fetcher: (params, signal) => risksApi.getList(params as never, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
   });
+  const categoryFilter = state.filters.category_id ?? '';
+  const productFilter = state.filters.product_id ?? '';
+  const subClassFilter = state.filters.sub_class_id ?? '';
+
+  /** Category → product → sub-class cascade: clearing a parent clears its children in one URL update. */
+  function setCascade(changes: Record<string, string | null>) {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      for (const [key, value] of Object.entries(changes)) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      next.delete('page');
+      return next;
+    });
+  }
   const { data: categories = [] } = useAllActiveCategories();
   const { data: products = [] } = useAllActiveProducts(
     categoryFilter || undefined,
@@ -473,25 +494,21 @@ export function RisksPage() {
     }
   }
 
-  function setParam(key: string, value: string | null) {
-    setParams((p) => {
-      const n = new URLSearchParams(p);
-      if (value === null) n.delete(key);
-      else n.set(key, value);
-      n.set('page', '1');
-      return n;
-    });
-  }
-
   const columns: Column<InsuranceRisk>[] = [
     {
       key: 'risk_code',
       header: 'Risk Code',
+      sortable: true,
       cell: (row) => (
         <span className="font-mono text-xs font-medium">{row.risk_code}</span>
       ),
     },
-    { key: 'risk_name', header: 'Risk Name', cell: (row) => row.risk_name },
+    {
+      key: 'risk_name',
+      header: 'Risk Name',
+      sortable: true,
+      cell: (row) => row.risk_name,
+    },
     {
       key: 'product',
       header: 'Product',
@@ -513,6 +530,7 @@ export function RisksPage() {
     {
       key: 'is_active',
       header: 'Status',
+      sortable: true,
       cell: (row) => <ActiveBadge active={row.is_active} />,
     },
     {
@@ -595,122 +613,78 @@ export function RisksPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-3">
-        <Input
-          placeholder="Search risks…"
-          value={search}
-          onChange={(e) => setParam('search', e.target.value)}
-          className="w-64 h-9"
-        />
-        <Select
-          value={categoryFilter || 'all'}
-          onValueChange={(v) => {
-            setParams((prev) => {
-              const next = new URLSearchParams(prev);
-              if (v === 'all') next.delete('category_id');
-              else next.set('category_id', v);
-              next.delete('product_id');
-              next.delete('sub_class_id');
-              next.set('page', '1');
-              return next;
-            });
-          }}
-        >
-          <SelectTrigger className="w-44 h-9">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={productFilter || 'all'}
-          onValueChange={(v) => {
-            setParams((prev) => {
-              const next = new URLSearchParams(prev);
-              if (v === 'all') next.delete('product_id');
-              else next.set('product_id', v);
-              next.delete('sub_class_id');
-              next.set('page', '1');
-              return next;
-            });
-          }}
-          disabled={!categoryFilter}
-        >
-          <SelectTrigger className="w-44 h-9">
-            <SelectValue placeholder="All Products" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Products</SelectItem>
-            {products.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.product_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {productFilter && (
-          <Select
-            value={subClassFilter || 'all'}
-            onValueChange={(v) =>
-              setParam('sub_class_id', v === 'all' ? null : v)
-            }
-          >
-            <SelectTrigger className="w-44 h-9">
-              <SelectValue placeholder="All Sub-Classes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sub-Classes</SelectItem>
-              {subClasses.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-        <Select
-          value={isActiveFilter ?? 'all'}
-          onValueChange={(v) => setParam('is_active', v === 'all' ? null : v)}
-        >
-          <SelectTrigger className="w-36 h-9">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">Active</SelectItem>
-            <SelectItem value="false">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data?.data ?? []}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={data?.pagination.total ?? 0}
-        totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={(p) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('page', String(p));
-            return n;
-          })
+        searchPlaceholder="Search risks…"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'category_id',
+            label: 'Category',
+            placeholder: 'All Categories',
+            options: categories.map((c) => ({ value: c.id, label: c.name })),
+          },
+          {
+            key: 'is_active',
+            label: 'Status',
+            placeholder: 'All',
+            options: ACTIVE_OPTIONS,
+          },
+        ])}
+        onFilterChange={(key, value) =>
+          key === 'category_id'
+            ? setCascade({
+                category_id: value || null,
+                product_id: null,
+                sub_class_id: null,
+              })
+            : tableProps.onFilterChange(key, value)
         }
-        onLimitChange={(l) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('limit', String(l));
-            n.set('page', '1');
-            return n;
-          })
+        toolbarActions={
+          <>
+            <Select
+              value={productFilter || 'all'}
+              onValueChange={(v) =>
+                setCascade({
+                  product_id: v === 'all' ? null : v,
+                  sub_class_id: null,
+                })
+              }
+              disabled={!categoryFilter}
+            >
+              <SelectTrigger className="w-44 h-9">
+                <SelectValue placeholder="All Products" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Products</SelectItem>
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.product_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {productFilter && (
+              <Select
+                value={subClassFilter || 'all'}
+                onValueChange={(v) =>
+                  state.setFilter('sub_class_id', v === 'all' ? '' : v)
+                }
+              >
+                <SelectTrigger className="w-44 h-9">
+                  <SelectValue placeholder="All Sub-Classes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sub-Classes</SelectItem>
+                  {subClasses.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </>
         }
       />
 

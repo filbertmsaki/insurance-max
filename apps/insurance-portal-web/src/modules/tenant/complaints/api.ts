@@ -1,9 +1,28 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import type { ComplaintComment, ComplaintRecord } from './types';
+
+export interface ComplaintListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  status?: string;
+  priority?: string;
+}
 
 export const complaintsApi = {
   list: () =>
     apiClient.get<ComplaintRecord[]>('/tenant/complaints').then((r) => r.data),
+  /** GET /tenant/complaints?page=… — server-side paged list */
+  listPage: (params: ComplaintListParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<ComplaintRecord>>('/tenant/complaints', {
+        params,
+        signal,
+      })
+      .then((r) => r.data),
   get: (id: string) =>
     apiClient
       .get<ComplaintRecord>(`/tenant/complaints/${id}`)

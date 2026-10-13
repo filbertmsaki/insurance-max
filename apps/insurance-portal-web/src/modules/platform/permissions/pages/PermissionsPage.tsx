@@ -6,7 +6,6 @@ import {
   Pencil,
   Trash2,
   Lock,
-  Search,
   ShieldAlert,
   Info,
 } from 'lucide-react';
@@ -16,7 +15,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Tooltip,
   TooltipContent,
@@ -39,7 +38,11 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { permissionsApi } from '@/modules/platform/permissions/api/permissions';
@@ -71,36 +74,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   companies: 'Companies',
   general: 'General',
 };
-
-function getCategory(name: string): string {
-  if (name.includes(':')) return name.split(':')[0];
-  // Map common snake_case permission names to a category
-  if (
-    name.startsWith('create_company') ||
-    name.startsWith('view_compan') ||
-    name.startsWith('update_company') ||
-    name.startsWith('delete_company')
-  )
-    return 'companies';
-  if (
-    name.startsWith('manage_company_user') ||
-    name.startsWith('create_company_user') ||
-    name.startsWith('update_company_user') ||
-    name.startsWith('delete_company_user')
-  )
-    return 'users';
-  return 'general';
-}
-
-function groupPermissions(
-  permissions: Permission[],
-): Record<string, Permission[]> {
-  return permissions.reduce<Record<string, Permission[]>>((acc, p) => {
-    const cat = getCategory(p.name);
-    (acc[cat] ??= []).push(p);
-    return acc;
-  }, {});
-}
 
 function getCategoryLabel(cat: string): string {
   return CATEGORY_LABELS[cat] ?? cat.charAt(0).toUpperCase() + cat.slice(1);
@@ -223,50 +196,45 @@ function PermissionFormDialog({
   );
 }
 
+const PERMISSION_FILTER_KEYS = ['category'] as const;
+type PermissionFilterKey = (typeof PERMISSION_FILTER_KEYS)[number];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function PermissionsPage() {
   const queryClient = useQueryClient();
   const { canManagePermissions } = useRbacGuard();
 
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
   const [formOpen, setFormOpen] = useState(false);
   const [editPerm, setEditPerm] = useState<Permission | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data: allPermissions = [], isLoading } = useQuery({
+  const { tableProps, state } = useServerTable<Permission, PermissionFilterKey>({
     queryKey: ['permissions'],
-    queryFn: permissionsApi.getPermissions,
+    fetcher: (params, signal) => permissionsApi.listPermissions(params, signal),
+    filterKeys: PERMISSION_FILTER_KEYS,
+    defaultSortBy: 'name',
+    defaultSortOrder: 'ASC',
+    defaultLimit: 10,
   });
 
-  const groups = useMemo(
-    () => groupPermissions(allPermissions),
-    [allPermissions],
+  const { data: categoryCounts = [] } = useQuery({
+    queryKey: ['permissions', 'categories'],
+    queryFn: ({ signal }) => permissionsApi.getCategoryCounts(signal),
+  });
+
+  const totalVisible = useMemo(
+    () => categoryCounts.reduce((sum, c) => sum + c.count, 0),
+    [categoryCounts],
   );
-  const tabs = useMemo(() => ['all', ...Object.keys(groups).sort()], [groups]);
-
-  // Filter by search + active tab
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    const base =
-      activeTab === 'all' ? allPermissions : (groups[activeTab] ?? []);
-
-    return q
-      ? base.filter(
-          (p) =>
-            p.name.toLowerCase().includes(q) ||
-            p.display_name.toLowerCase().includes(q) ||
-            (p.description ?? '').toLowerCase().includes(q),
-        )
-      : base;
-  }, [allPermissions, groups, activeTab, search]);
-
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / limit) || 1;
-  const pageData = filtered.slice((page - 1) * limit, page * limit);
+  const activeTab = state.filters.category ?? 'all';
+  const tabs = useMemo(() => {
+    const cats = categoryCounts.map((c) => c.category);
+    if (activeTab !== 'all' && !cats.includes(activeTab)) cats.push(activeTab);
+    return ['all', ...cats.sort()];
+  }, [categoryCounts, activeTab]);
+  const countFor = (cat: string) =>
+    categoryCounts.find((c) => c.category === cat)?.count ?? 0;
 
   const openCreate = () => {
     setEditPerm(null);
@@ -338,6 +306,7 @@ export function PermissionsPage() {
   const columns: Column<Permission>[] = [
     {
       key: 'name',
+      sortable: true,
       header: 'Identifier',
       cell: (r) => (
         <div className="flex items-center gap-2">
@@ -354,6 +323,7 @@ export function PermissionsPage() {
     },
     {
       key: 'display_name',
+      sortable: true,
       header: 'Display Name',
       cell: (r) => (
         <span className="font-medium text-slate-900">{r.display_name}</span>
@@ -472,58 +442,29 @@ export function PermissionsPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="mb-4 relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search permissions…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="pl-9"
-        />
-      </div>
-
-      {/* Category tabs */}
+      {/* Category tabs (server-side filter) */}
       <Tabs
         value={activeTab}
-        onValueChange={(v) => {
-          setActiveTab(v);
-          setPage(1);
-        }}
-        className="space-y-4"
+        onValueChange={(v) => state.setFilter('category', v === 'all' ? '' : v)}
+        className="mb-4"
       >
         <TabsList className="flex-wrap h-auto gap-1">
           {tabs.map((tab) => (
             <TabsTrigger key={tab} value={tab} className="capitalize">
               {tab === 'all'
-                ? `All (${allPermissions.length})`
-                : `${getCategoryLabel(tab)} (${(groups[tab] ?? []).length})`}
+                ? `All (${totalVisible})`
+                : `${getCategoryLabel(tab)} (${countFor(tab)})`}
             </TabsTrigger>
           ))}
         </TabsList>
-
-        {tabs.map((tab) => (
-          <TabsContent key={tab} value={tab}>
-            <DataTable
-              columns={columns}
-              data={pageData}
-              loading={isLoading}
-              page={page}
-              limit={limit}
-              total={total}
-              totalPages={totalPages}
-              onPageChange={setPage}
-              onLimitChange={(l) => {
-                setLimit(l);
-                setPage(1);
-              }}
-            />
-          </TabsContent>
-        ))}
       </Tabs>
+
+      <DataTable
+        {...tableProps}
+        columns={columns}
+        searchPlaceholder="Search permissions…"
+        emptyMessage="No permissions found"
+      />
 
       {canManagePermissions && (
         <PermissionFormDialog

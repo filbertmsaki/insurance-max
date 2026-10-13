@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
@@ -13,6 +14,8 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 
 import { TenantScoped } from '@insurance-max/portal-shared';
 import { UpdateNotificationPreferencesDto } from './dto/work-item-actions.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { FindNotificationsQueryDto } from './dto/work-item-list-query.dto';
 import { NotificationsService } from './notifications.service';
 
 @Controller('tenant/notifications')
@@ -22,8 +25,13 @@ export class NotificationsController {
 
   @Get()
   @Permissions('notifications:read')
-  list(@CurrentUser() user: AuthenticatedUser) {
-    return this.notificationsService.listForUser(user);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindNotificationsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.notificationsService.findPage(user, query)
+      : this.notificationsService.listForUser(user);
   }
 
   @Get('unread-count')

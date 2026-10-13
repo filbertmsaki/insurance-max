@@ -1,5 +1,6 @@
 import { apiClient } from '@/modules/shared/api/client';
 import type { CompanyFeature } from '@/types';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,18 @@ export const companyFeaturesApi = {
   /** GET /company-features — list all company-level features (requires branches:read) */
   getCompanyFeatures: () =>
     apiClient.get<CompanyFeature[]>('/company-features').then((r) => r.data),
+
+  /** GET /company-features?page=… — server-side table page (search/is_enabled/sort) */
+  listCompanyFeatures: (
+    params: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<CompanyFeature>>('/company-features', {
+        params,
+        signal,
+      })
+      .then((r) => r.data),
 
   /** POST /company-features — create or update a company feature (requires branches:manage-access) */
   upsertCompanyFeature: (data: UpsertCompanyFeatureDto) =>

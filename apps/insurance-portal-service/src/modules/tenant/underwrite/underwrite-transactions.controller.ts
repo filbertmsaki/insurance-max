@@ -25,6 +25,7 @@ import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { CreateCancellationDto } from '../policy-transactions/dto/create-cancellation.dto';
 import { CreateEndorsementDto } from '../policy-transactions/dto/create-endorsement.dto';
 import { EndorsementEligibilityQueryDto } from '../policy-transactions/dto/endorsement-eligibility-query.dto';
@@ -78,8 +79,9 @@ export class UnderwriteTransactionsController {
   listRenewals(
     @CurrentUser() user: AuthenticatedUser,
     @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Query() table: TableQueryDto,
   ) {
-    return this.transactions.listRenewals(user, line);
+    return this.transactions.listRenewals(user, line, table);
   }
 
   @Get('endorsements')
@@ -90,8 +92,9 @@ export class UnderwriteTransactionsController {
   listEndorsements(
     @CurrentUser() user: AuthenticatedUser,
     @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Query() table: TableQueryDto,
   ) {
-    return this.transactions.listTransactions(user, line, 'endorsement');
+    return this.transactions.listTransactions(user, line, 'endorsement', table);
   }
 
   @Get('cancellations')
@@ -102,8 +105,14 @@ export class UnderwriteTransactionsController {
   listCancellations(
     @CurrentUser() user: AuthenticatedUser,
     @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Query() table: TableQueryDto,
   ) {
-    return this.transactions.listTransactions(user, line, 'cancellation');
+    return this.transactions.listTransactions(
+      user,
+      line,
+      'cancellation',
+      table,
+    );
   }
 
   @Get('tira-failed')
@@ -118,8 +127,9 @@ export class UnderwriteTransactionsController {
   listTiraFailed(
     @CurrentUser() user: AuthenticatedUser,
     @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Query() table: TableQueryDto,
   ) {
-    return this.transactions.listTiraQueue(user, line, 'failed');
+    return this.transactions.listTiraQueue(user, line, 'failed', table);
   }
 
   @Get('tira-pending')
@@ -134,8 +144,9 @@ export class UnderwriteTransactionsController {
   listTiraPending(
     @CurrentUser() user: AuthenticatedUser,
     @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Query() table: TableQueryDto,
   ) {
-    return this.transactions.listTiraQueue(user, line, 'pending');
+    return this.transactions.listTiraQueue(user, line, 'pending', table);
   }
 
   @Get('policies/:policyId/endorsement-eligibility')

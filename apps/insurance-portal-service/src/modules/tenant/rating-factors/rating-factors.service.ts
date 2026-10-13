@@ -114,7 +114,8 @@ export class RatingFactorsService {
     const qb = this.factorRepository
       .createQueryBuilder('factor')
       .where('factor.company_id = :companyId', { companyId })
-      .orderBy(`factor.${safeSortBy}`, direction);
+      .orderBy(`factor.${safeSortBy}`, direction)
+      .addOrderBy('factor.id', direction);
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;

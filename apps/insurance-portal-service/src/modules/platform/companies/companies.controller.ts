@@ -27,6 +27,8 @@ import { UpdateNumberFormatSettingsDto } from './dtos/update-number-format-setti
 import { UpdateCompanyVerificationDto } from './dtos/update-company-verification.dto';
 import { GrantCompanyUserPermissionDto } from './dtos/grant-company-user-permission.dto';
 import { UpdateMemberBranchReadAccessDto } from './dtos/update-member-branch-read-access.dto';
+import { FindCompaniesQueryDto } from './dtos/find-companies-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { CompaniesService } from './companies.service';
 
 @ApiTags('Companies')
@@ -40,8 +42,10 @@ export class CompaniesController {
   @Roles('OWNER')
   @Permissions('companies:read')
   @ApiOperation({ summary: 'List all companies (Owner only)' })
-  async listCompanies() {
-    return this.companiesService.findAllCompanies();
+  async listCompanies(@Query() query: FindCompaniesQueryDto) {
+    return isPagedRequest(query)
+      ? this.companiesService.findCompaniesPage(query)
+      : this.companiesService.findAllCompanies();
   }
 
   @Post()

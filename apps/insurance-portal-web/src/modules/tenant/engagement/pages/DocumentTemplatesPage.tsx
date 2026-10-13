@@ -1,25 +1,71 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
-import { engagementApi } from '../api';
+import { engagementApi, type DocumentTemplateRecord } from '../api';
 import { formatDateTime, statusTone } from '../utils';
 import { Badge } from '@/components/ui/badge';
+
+const TEMPLATE_FILTER_KEYS = ['status'] as const;
+type TemplateFilterKey = (typeof TEMPLATE_FILTER_KEYS)[number];
+
+const TEMPLATE_STATUS_OPTIONS = ['DRAFT', 'ACTIVE', 'RETIRED'].map(
+  (value) => ({ label: value, value }),
+);
+
+const columns: Column<DocumentTemplateRecord>[] = [
+  {
+    key: 'template_code',
+    header: 'Template',
+    sortable: true,
+    cell: (template) => (
+      <>
+        <Link
+          to={`/document-templates/${template.id}`}
+          className="font-medium text-slate-900 hover:text-blue-700"
+        >
+          {template.template_code}
+        </Link>
+        <div className="text-sm text-slate-500">{template.template_name}</div>
+      </>
+    ),
+  },
+  {
+    key: 'document_type',
+    header: 'Document type',
+    sortable: true,
+    cell: (template) => template.document_type,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortable: true,
+    cell: (template) => (
+      <Badge variant="outline" className={statusTone(template.status)}>
+        {template.status}
+      </Badge>
+    ),
+  },
+  {
+    key: 'created_at',
+    header: 'Created',
+    sortable: true,
+    cell: (template) => formatDateTime(template.created_at),
+  },
+];
 
 export function DocumentTemplatesPage() {
   const queryClient = useQueryClient();
@@ -27,9 +73,16 @@ export function DocumentTemplatesPage() {
   const [name, setName] = useState('');
   const [documentType, setDocumentType] = useState('POLICY_DOCUMENT');
 
-  const templatesQuery = useQuery({
+  const { tableProps, state } = useServerTable<
+    DocumentTemplateRecord,
+    TemplateFilterKey
+  >({
     queryKey: ['engagement', 'document-templates'],
-    queryFn: engagementApi.listDocumentTemplates,
+    fetcher: (params, signal) =>
+      engagementApi.pageDocumentTemplates(params, signal),
+    filterKeys: TEMPLATE_FILTER_KEYS,
+    defaultSortBy: 'template_name',
+    defaultSortOrder: 'ASC',
   });
 
   const createMutation = useMutation({
@@ -99,43 +152,19 @@ export function DocumentTemplatesPage() {
 
       <Card className="rounded-xl border-slate-200 shadow-sm">
         <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Template</TableHead>
-                <TableHead>Document type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(templatesQuery.data ?? []).map((template) => (
-                <TableRow key={template.id}>
-                  <TableCell>
-                    <Link
-                      to={`/document-templates/${template.id}`}
-                      className="font-medium text-slate-900 hover:text-blue-700"
-                    >
-                      {template.template_code}
-                    </Link>
-                    <div className="text-sm text-slate-500">
-                      {template.template_name}
-                    </div>
-                  </TableCell>
-                  <TableCell>{template.document_type}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={statusTone(template.status)}
-                    >
-                      {template.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDateTime(template.created_at)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search templates…"
+            filters={tableFilters(state.filters, [
+              {
+                key: 'status',
+                label: 'Status',
+                options: TEMPLATE_STATUS_OPTIONS,
+              },
+            ])}
+            emptyMessage="No templates yet"
+          />
         </CardContent>
       </Card>
     </div>

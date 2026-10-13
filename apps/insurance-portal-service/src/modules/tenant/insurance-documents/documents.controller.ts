@@ -9,6 +9,7 @@ import {
   Res,
   UploadedFile,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -31,6 +32,8 @@ import {
   RevokeDocumentDto,
   ShareDocumentDto,
 } from './dto/register-document.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { FindDocumentsQueryDto } from './dto/engagement-list-query.dto';
 import { GenerateDocumentDto } from './dto/document-templates.dto';
 import type { UploadedDocumentFile } from './document-storage.service';
 import { DocumentGenerationService } from './document-generation.service';
@@ -50,8 +53,13 @@ export class DocumentsController {
   @Get()
   @AnyPermissions(DocumentsPermissions.READ, DocumentsPermissions.REGISTER)
   @ApiOperation({ summary: 'List documents in the engagement document centre' })
-  list(@CurrentUser() user: AuthenticatedUser) {
-    return this.documentsService.listForCompany(user.companyId!);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindDocumentsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.documentsService.findPage(user.companyId!, query)
+      : this.documentsService.listForCompany(user.companyId!);
   }
 
   @Post()

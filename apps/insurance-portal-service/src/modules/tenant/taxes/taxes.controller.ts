@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TenantScoped } from '@insurance-max/portal-shared';
@@ -15,6 +16,8 @@ import { Permissions } from '@insurance-max/portal-shared/decorators/permissions
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { TaxesService } from './taxes.service';
 import { CreateTaxDto, UpdateTaxDto } from './dto/tax.dto';
+import { FindTaxesQueryDto } from './dto/find-taxes-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 
 @ApiTags('Taxes')
 @ApiBearerAuth()
@@ -37,8 +40,13 @@ export class TaxesController {
 
   @Get()
   @Permissions('product-distribution:read')
-  list(@CurrentUser() user: AuthenticatedUser) {
-    return this.service.list(user.companyId!);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindTaxesQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.service.findPage(user.companyId!, query)
+      : this.service.list(user.companyId!);
   }
 
   @Get(':id')

@@ -25,6 +25,8 @@ import { CompanyUserRole } from './entities/company-user-role.entity';
 import { CompanyUserPermission } from './entities/company-user-permission.entity';
 import { CreateCompanyDto } from './dtos/create-company.dto';
 import { UpdateCompanyDto } from './dtos/update-company.dto';
+import { FindCompaniesQueryDto } from './dtos/find-companies-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import {
   CompanyMembershipContext,
   CompanySummary,
@@ -773,6 +775,92 @@ export class CompaniesService {
       created_at: company.created_at,
       active_users_count: Number(company.active_users_count ?? 0),
     }));
+  }
+
+  /**
+   * Server-side companies table (platform owners only — enforced by the
+   * controller). Search/filters/sort/paging run in SQL; active user counts are
+   * loaded for the current page only.
+   */
+  async findCompaniesPage(query: FindCompaniesQueryDto) {
+    const qb = this.companyRepository.createQueryBuilder('company');
+    if (query.status) {
+      qb.andWhere('company.status = :status', { status: query.status });
+    }
+    if (query.verification_status) {
+      qb.andWhere('company.verification_status = :verificationStatus', {
+        verificationStatus: query.verification_status,
+      });
+    }
+    if (query.company_type) {
+      qb.andWhere('company.company_type = :companyType', {
+        companyType: query.company_type,
+      });
+    }
+
+    const result = await paginateQueryBuilder(qb, query, {
+      sortable: {
+        name: 'company.name',
+        slug: 'company.slug',
+        status: 'company.status',
+        contact_email: 'company.contact_email',
+        contact_phone: 'company.contact_phone',
+        website: 'company.website',
+        active_users_count: `(SELECT COUNT(*) FROM company_users cu WHERE cu.company_id = company.id AND cu.status = 'active')`,
+        created_at: 'company.created_at',
+      },
+      defaultSort: 'created_at',
+      defaultOrder: 'DESC',
+      searchable: [
+        'company.name',
+        'company.slug',
+        'company.contact_email',
+        'company.contact_phone',
+        'company.website',
+        'company.tira_license_number',
+      ],
+      tieBreaker: 'company.id',
+    });
+
+    const ids = result.data.map((c) => c.id);
+    const counts = new Map<string, number>();
+    if (ids.length) {
+      const rows = await this.companyUserRepository
+        .createQueryBuilder('membership')
+        .select('membership.company_id', 'company_id')
+        .addSelect('COUNT(membership.id)', 'count')
+        .where('membership.company_id IN (:...ids)', { ids })
+        .andWhere("membership.status = 'active'")
+        .groupBy('membership.company_id')
+        .getRawMany<{ company_id: string; count: string }>();
+      rows.forEach((r) => counts.set(r.company_id, Number(r.count)));
+    }
+
+    return {
+      data: result.data.map((company) => ({
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        status: company.status,
+        verification_status: company.verification_status,
+        verified_by: company.verified_by,
+        verified_at: company.verified_at,
+        verification_note: company.verification_note,
+        company_type: company.company_type ?? null,
+        tira_license_number: company.tira_license_number ?? null,
+        tira_license_status: company.tira_license_status ?? null,
+        license_expires_at: company.license_expires_at ?? null,
+        contact_email: company.contact_email ?? null,
+        contact_phone: company.contact_phone ?? null,
+        website: company.website ?? null,
+        logo_url: company.logo_url ?? null,
+        address: company.address ?? null,
+        settings: company.settings ?? null,
+        created_at: company.created_at,
+        active_users_count: counts.get(company.id) ?? 0,
+      })),
+      pagination: result.pagination,
+    };
   }
 
   async listUserCompanies(

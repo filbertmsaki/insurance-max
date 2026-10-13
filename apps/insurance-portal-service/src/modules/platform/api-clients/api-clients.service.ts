@@ -19,6 +19,8 @@ import {
 import { SubscriptionLimitService } from '../saas-billing/services/subscription-limit.service';
 import { ApiClientUsageEvent } from './entities/api-client-usage-event.entity';
 import { ApiClient } from './entities/api-client.entity';
+import { FindApiClientsQueryDto } from './dto/find-api-clients-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import {
   comparePasswords,
   hashPassword,
@@ -299,6 +301,40 @@ export class ApiClientsService {
       qb.andWhere('ac.company_id = :companyId', { companyId });
     }
     return qb.orderBy('ac.created_at', 'DESC').getMany();
+  }
+
+  /** Server-side table: company scope applied before search/filters/paging. */
+  async findPage(query: FindApiClientsQueryDto, companyId?: string) {
+    const qb = this.apiClientRepo.createQueryBuilder('ac');
+    if (companyId) {
+      qb.andWhere('ac.company_id = :companyId', { companyId });
+    }
+    if (query.status) {
+      qb.andWhere('ac.status = :status', { status: query.status });
+    }
+    if (query.client_type) {
+      qb.andWhere('ac.client_type = :clientType', {
+        clientType: query.client_type,
+      });
+    }
+    if (query.environment) {
+      qb.andWhere('ac.environment = :environment', {
+        environment: query.environment,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        name: 'ac.name',
+        client_id: 'ac.client_id',
+        status: 'ac.status',
+        last_used_at: 'ac.last_used_at',
+        created_at: 'ac.created_at',
+      },
+      defaultSort: 'created_at',
+      defaultOrder: 'DESC',
+      searchable: ['ac.name', 'ac.client_id', 'ac.description'],
+      tieBreaker: 'ac.id',
+    });
   }
 
   async findById(id: string, companyId?: string): Promise<ApiClient> {

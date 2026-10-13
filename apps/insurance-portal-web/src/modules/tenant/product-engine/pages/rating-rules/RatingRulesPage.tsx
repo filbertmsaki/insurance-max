@@ -524,14 +524,14 @@ export function RatingRulesPage({
   const { data: risks = [] } = useRisksByProduct({
     product_id: selectedProductId,
   });
+  // Rate-book scoping is applied by the API so the 100-row window holds only
+  // this rate book's rules (previously filtered client-side after paging).
   const { data: rulesPage, isLoading: rulesLoading } = useRuleList({
     risk_id: selectedRiskId || undefined,
+    rate_book_id: rateBookId || undefined,
     limit: 100,
   });
-  const rules = useMemo(() => {
-    const all = rulesPage?.data ?? [];
-    return isScoped ? all.filter((r) => r.rate_book_id === rateBookId) : all;
-  }, [rulesPage, isScoped, rateBookId]);
+  const rules = useMemo(() => rulesPage?.data ?? [], [rulesPage]);
 
   const { data: allFactors = [] } = useAllFactors();
   const createMutation = useCreateRule();

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { escapeLike } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
@@ -211,7 +212,7 @@ export class PortalBusinessAccessService {
     }
 
     if (query.search?.trim()) {
-      const searchTerm = `%${query.search.trim()}%`;
+      const searchTerm = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((search) => {
@@ -229,6 +230,7 @@ export class PortalBusinessAccessService {
     }
 
     qb.orderBy('quotation.created_at', 'DESC')
+      .addOrderBy('quotation.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -405,7 +407,7 @@ export class PortalBusinessAccessService {
     }
 
     if (query.search?.trim()) {
-      const searchTerm = `%${query.search.trim()}%`;
+      const searchTerm = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((search) => {
@@ -419,6 +421,7 @@ export class PortalBusinessAccessService {
     }
 
     qb.orderBy('policy.created_at', 'DESC')
+      .addOrderBy('policy.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -486,7 +489,7 @@ export class PortalBusinessAccessService {
     }
 
     if (query.search?.trim()) {
-      const searchTerm = `%${query.search.trim()}%`;
+      const searchTerm = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((search) => {
@@ -499,6 +502,7 @@ export class PortalBusinessAccessService {
     }
 
     qb.orderBy('invoice.created_at', 'DESC')
+      .addOrderBy('invoice.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -565,7 +569,7 @@ export class PortalBusinessAccessService {
     }
 
     if (query.search?.trim()) {
-      const searchTerm = `%${query.search.trim()}%`;
+      const searchTerm = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((search) => {
@@ -578,6 +582,7 @@ export class PortalBusinessAccessService {
     }
 
     qb.orderBy('receipt.created_at', 'DESC')
+      .addOrderBy('receipt.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -629,7 +634,7 @@ export class PortalBusinessAccessService {
     }
 
     if (query.search?.trim()) {
-      const searchTerm = `%${query.search.trim()}%`;
+      const searchTerm = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((search) => {
@@ -646,6 +651,7 @@ export class PortalBusinessAccessService {
     }
 
     qb.orderBy('claim.created_at', 'DESC')
+      .addOrderBy('claim.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -694,7 +700,7 @@ export class PortalBusinessAccessService {
     }
 
     if (query.search?.trim()) {
-      const searchTerm = `%${query.search.trim()}%`;
+      const searchTerm = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((search) => {
@@ -713,6 +719,7 @@ export class PortalBusinessAccessService {
     qb.addSelect(['policy.id', 'policy.policy_no'])
       .addSelect(['customer.id', 'customer.customer_no'])
       .orderBy('complaint.created_at', 'DESC')
+      .addOrderBy('complaint.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -797,7 +804,7 @@ export class PortalBusinessAccessService {
     }
 
     if (query.search?.trim()) {
-      const searchTerm = `%${query.search.trim()}%`;
+      const searchTerm = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((search) => {
@@ -809,6 +816,7 @@ export class PortalBusinessAccessService {
     }
 
     qb.orderBy('commission.created_at', 'DESC')
+      .addOrderBy('commission.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -881,7 +889,7 @@ export class PortalBusinessAccessService {
     }
 
     if (query.search?.trim()) {
-      const searchTerm = `%${query.search.trim()}%`;
+      const searchTerm = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((search) => {
@@ -899,6 +907,7 @@ export class PortalBusinessAccessService {
     }
 
     qb.orderBy('customer.created_at', 'DESC')
+      .addOrderBy('customer.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

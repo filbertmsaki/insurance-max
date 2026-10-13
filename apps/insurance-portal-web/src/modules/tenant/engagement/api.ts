@@ -1,4 +1,15 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
+
+/** Flattened server-table params: page, limit, search, sortBy, sortOrder, filters. */
+export type EngagementTableParams = Record<string, string | number | undefined>;
+
+function fetchPage<T>(url: string) {
+  return (params: EngagementTableParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<T>>(url, { params, signal })
+      .then((response) => response.data);
+}
 
 export interface DocumentVersionRecord {
   id: string;
@@ -203,6 +214,20 @@ export interface WorkItemEventRecord {
 }
 
 export const engagementApi = {
+  /** Server-side paged lists (`?page=` switches the endpoint to `{ data, pagination }`). */
+  pageDocuments: fetchPage<DocumentRecord>('/tenant/documents'),
+  pageDocumentTemplates: fetchPage<DocumentTemplateRecord>(
+    '/tenant/document-templates',
+  ),
+  pageSignatureRequests: fetchPage<SignatureRequestRecord>(
+    '/tenant/signature-requests',
+  ),
+  pageNotifications: fetchPage<NotificationRecord>('/tenant/notifications'),
+  pageCommunicationThreads: fetchPage<CommunicationThreadRecord>(
+    '/tenant/communications/threads',
+  ),
+  pageWorkItems: fetchPage<WorkItemRecord>('/tenant/work-items'),
+
   listDocuments: () =>
     apiClient
       .get<DocumentRecord[]>('/tenant/documents')

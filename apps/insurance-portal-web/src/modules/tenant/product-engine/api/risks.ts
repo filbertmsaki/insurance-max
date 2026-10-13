@@ -8,9 +8,9 @@ import type {
 } from '@/types/product-engine';
 
 export const risksApi = {
-  getList: (params?: RiskQueryParams) =>
+  getList: (params?: RiskQueryParams, signal?: AbortSignal) =>
     apiClient
-      .get<PEPage<InsuranceRisk>>('/insurance-risks', { params })
+      .get<PEPage<InsuranceRisk>>('/insurance-risks', { params, signal })
       .then((r) => r.data),
 
   create: (data: CreateRiskDto) =>

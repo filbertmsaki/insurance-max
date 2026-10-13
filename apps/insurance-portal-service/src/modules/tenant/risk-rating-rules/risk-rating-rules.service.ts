@@ -411,6 +411,7 @@ export class RiskRatingRulesService {
       sortOrder = SortDirection.ASC,
       search,
       risk_id,
+      rate_book_id,
       rate_type,
       is_active,
     } = query;
@@ -429,7 +430,8 @@ export class RiskRatingRulesService {
       .createQueryBuilder('rule')
       .leftJoinAndSelect('rule.risk', 'risk')
       .where('rule.company_id = :companyId', { companyId })
-      .orderBy(`rule.${safeSortBy}`, direction);
+      .orderBy(`rule.${safeSortBy}`, direction)
+      .addOrderBy('rule.id', direction);
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;
@@ -437,6 +439,8 @@ export class RiskRatingRulesService {
     }
 
     if (risk_id) qb.andWhere('rule.risk_id = :risk_id', { risk_id });
+    if (rate_book_id)
+      qb.andWhere('rule.rate_book_id = :rate_book_id', { rate_book_id });
     if (rate_type) qb.andWhere('rule.rate_type = :rate_type', { rate_type });
     if (is_active !== undefined)
       qb.andWhere('rule.is_active = :is_active', { is_active });

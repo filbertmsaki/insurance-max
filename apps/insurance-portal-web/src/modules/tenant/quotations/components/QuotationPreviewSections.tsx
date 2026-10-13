@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import { DataTable, type Column } from '@/components/data-table';
 import {
   SectionCard,
   KeyValueGrid,

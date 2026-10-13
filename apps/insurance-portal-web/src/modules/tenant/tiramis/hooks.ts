@@ -11,12 +11,15 @@ import {
   buildQuotationTiramisPayload,
 } from './utils';
 import { tiramisApi } from './api';
+import { useServerTable } from '@/components/data-table';
 import type {
   PortalTiramisSubmitPayload,
   TenantTiramisSubmissionListParams,
+  TiramisSubmissionRecord,
+  TiramisTrackingRecord,
 } from './types';
 
-const tiramisKeys = {
+export const tiramisKeys = {
   all: ['tiramis'] as const,
   tenantSubmissions: () => [...tiramisKeys.all, 'tenant-submissions'] as const,
   tenantSubmission: (id: string) =>
@@ -48,6 +51,14 @@ const tiramisKeys = {
   salePoints: (branchId?: string) =>
     [...tiramisKeys.all, 'sale-points', branchId ?? 'all'] as const,
 };
+
+/** Every list a retry / sync can move a record into or out of. */
+function invalidateTrackingLists(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: tiramisKeys.adminDashboard() });
+  qc.invalidateQueries({ queryKey: tiramisKeys.localTracking() });
+  qc.invalidateQueries({ queryKey: tiramisKeys.adminFailed() });
+  qc.invalidateQueries({ queryKey: tiramisKeys.adminRetryable() });
+}
 
 function useTiramisSearchParams() {
   const [params, setParams] = useSearchParams();
@@ -81,22 +92,24 @@ function useTiramisSearchParams() {
   };
 }
 
-export function useTenantSubmissionsList(
+export const TENANT_SUBMISSION_FILTER_KEYS = [
+  'status',
+  'request_id',
+  'business_reference',
+] as const;
+export type TenantSubmissionFilterKey =
+  (typeof TENANT_SUBMISSION_FILTER_KEYS)[number];
+
+/**
+ * Server-side table for tenant TIRAMIS submissions: URL-backed paging,
+ * search and filters; waits for auth hydration before the first request.
+ */
+export function useTenantSubmissionsTable(
   defaults?: Pick<TenantTiramisSubmissionListParams, 'sourceModule'>,
 ) {
   const accessToken = useAuthStore((state) => state.accessToken);
   const company = useAuthStore((state) => state.company);
   const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated());
-  const {
-    page,
-    limit,
-    search,
-    status,
-    requestId,
-    businessReference,
-    setParam,
-    setParams,
-  } = useTiramisSearchParams();
 
   useEffect(() => {
     const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
@@ -106,61 +119,16 @@ export function useTenantSubmissionsList(
     return unsubscribe;
   }, []);
 
-  const queryParams = useMemo(
-    () => ({
-      page,
-      limit,
-      search: search || undefined,
-      status: status || undefined,
-      sourceModule: defaults?.sourceModule || undefined,
-      request_id: requestId || undefined,
-      business_reference: businessReference || undefined,
-    }),
-    [
-      page,
-      limit,
-      search,
-      status,
-      requestId,
-      businessReference,
-      defaults?.sourceModule,
-    ],
-  );
-
-  const query = useQuery({
-    queryKey: [...tiramisKeys.tenantSubmissions(), queryParams],
-    queryFn: () => tiramisApi.getSubmissions(queryParams),
+  return useServerTable<TiramisSubmissionRecord, TenantSubmissionFilterKey>({
+    queryKey: tiramisKeys.tenantSubmissions(),
+    fetcher: (params, signal) => tiramisApi.getSubmissions(params, signal),
+    filterKeys: TENANT_SUBMISSION_FILTER_KEYS,
+    defaultLimit: 10,
+    extraParams: defaults?.sourceModule
+      ? { sourceModule: defaults.sourceModule }
+      : undefined,
     enabled: hydrated && !!accessToken && !!company?.id,
-    staleTime: 30_000,
   });
-
-  return {
-    ...query,
-    page,
-    limit,
-    search,
-    status,
-    requestId,
-    businessReference,
-    setSearch: (value: string) => setParam('search', value),
-    setStatus: (value: string) => setParam('status', value),
-    setRequestId: (value: string) => setParam('requestId', value),
-    setBusinessReference: (value: string) =>
-      setParam('businessReference', value),
-    setPage: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', String(value));
-        return next;
-      }),
-    setLimit: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('limit', String(value));
-        next.set('page', '1');
-        return next;
-      }),
-  };
 }
 
 export function useTenantSubmissionDetail(id?: string) {
@@ -277,62 +245,21 @@ export function useTiramisServiceHealth() {
   });
 }
 
-export function useLocalTrackingList() {
-  const {
-    page,
-    limit,
-    search,
-    status,
-    requestId,
-    businessReference,
-    setParam,
-    setParams,
-  } = useTiramisSearchParams();
-  const queryParams = useMemo(
-    () => ({
-      page,
-      limit,
-      search: search || undefined,
-      status: status || undefined,
-      tiramisRequestId: requestId || undefined,
-      businessReference: businessReference || undefined,
-    }),
-    [page, limit, search, status, requestId, businessReference],
-  );
+export const TRACKING_FILTER_KEYS = [
+  'status',
+  'tiramisRequestId',
+  'businessReference',
+] as const;
+export type TrackingFilterKey = (typeof TRACKING_FILTER_KEYS)[number];
 
-  const query = useQuery({
-    queryKey: [...tiramisKeys.localTracking(), queryParams],
-    queryFn: () => tiramisApi.getAdminSubmissions(queryParams),
-    staleTime: 30_000,
+/** Server-side table over local TIRAMIS tracking records (company-scoped by the API). */
+export function useLocalTrackingTable() {
+  return useServerTable<TiramisTrackingRecord, TrackingFilterKey>({
+    queryKey: tiramisKeys.localTracking(),
+    fetcher: (params, signal) => tiramisApi.getAdminSubmissions(params, signal),
+    filterKeys: TRACKING_FILTER_KEYS,
+    defaultLimit: 10,
   });
-
-  return {
-    ...query,
-    page,
-    limit,
-    search,
-    status,
-    requestId,
-    businessReference,
-    setSearch: (value: string) => setParam('search', value),
-    setStatus: (value: string) => setParam('status', value),
-    setRequestId: (value: string) => setParam('requestId', value),
-    setBusinessReference: (value: string) =>
-      setParam('businessReference', value),
-    setPage: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', String(value));
-        return next;
-      }),
-    setLimit: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('limit', String(value));
-        next.set('page', '1');
-        return next;
-      }),
-  };
 }
 
 export function useLocalTrackingDetail(id?: string) {
@@ -363,8 +290,7 @@ export function useRetryOneLocalTracking() {
   return useMutation({
     mutationFn: (id: string) => tiramisApi.retryOneLocalTracking(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: tiramisKeys.localTracking() });
-      qc.invalidateQueries({ queryKey: tiramisKeys.adminDashboard() });
+      invalidateTrackingLists(qc);
       toast.success('Retry triggered');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -376,8 +302,7 @@ export function useSyncOneLocalTracking() {
   return useMutation({
     mutationFn: (id: string) => tiramisApi.syncOneLocalTracking(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: tiramisKeys.localTracking() });
-      qc.invalidateQueries({ queryKey: tiramisKeys.adminDashboard() });
+      invalidateTrackingLists(qc);
       toast.success('Sync triggered');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -456,19 +381,23 @@ export function useTiramisStatistics() {
   });
 }
 
-export function useFailedSubmissions(limit = 50) {
-  return useQuery({
-    queryKey: [...tiramisKeys.adminFailed(), limit],
-    queryFn: () => tiramisApi.getAdminFailed(limit),
-    staleTime: 30_000,
+/** Server-side table of failed submissions. */
+export function useFailedSubmissionsTable() {
+  return useServerTable<TiramisTrackingRecord>({
+    queryKey: tiramisKeys.adminFailed(),
+    fetcher: (params, signal) => tiramisApi.getAdminFailedPage(params, signal),
+    defaultSortBy: 'updated',
   });
 }
 
-export function useRetryableSubmissions(limit = 50) {
-  return useQuery({
-    queryKey: [...tiramisKeys.adminRetryable(), limit],
-    queryFn: () => tiramisApi.getAdminRetryable(limit),
-    staleTime: 30_000,
+/** Server-side table of retry-pending submissions. */
+export function useRetryableSubmissionsTable() {
+  return useServerTable<TiramisTrackingRecord>({
+    queryKey: tiramisKeys.adminRetryable(),
+    fetcher: (params, signal) =>
+      tiramisApi.getAdminRetryablePage(params, signal),
+    defaultSortBy: 'nextRetry',
+    defaultSortOrder: 'ASC',
   });
 }
 
@@ -497,7 +426,7 @@ export function useRetryAdminSubmission() {
   return useMutation({
     mutationFn: (id: string) => tiramisApi.retryAdminSubmission(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: tiramisKeys.adminDashboard() });
+      invalidateTrackingLists(qc);
       qc.invalidateQueries({ queryKey: tiramisKeys.adminSubmission('') });
       toast.success('Retry triggered');
     },
@@ -510,7 +439,7 @@ export function useSyncAdminSubmission() {
   return useMutation({
     mutationFn: (id: string) => tiramisApi.syncAdminSubmission(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: tiramisKeys.adminDashboard() });
+      invalidateTrackingLists(qc);
       qc.invalidateQueries({ queryKey: tiramisKeys.adminSubmission('') });
       toast.success('Sync triggered');
     },

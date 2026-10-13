@@ -8,7 +8,7 @@ import {
 } from '@insurance-max/contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import { DataTable, type Column } from '@/components/data-table';
 import { SectionCard } from '@/components/shared/DetailSections';
 import { ErrorState } from '@/components/shared/ContentStates';
 import { getApiErrorMessage } from '@/lib/api-error';

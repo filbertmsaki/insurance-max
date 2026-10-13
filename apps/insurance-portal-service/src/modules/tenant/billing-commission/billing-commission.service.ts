@@ -5,8 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, ObjectLiteral, Repository } from 'typeorm';
-import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import {
+  DataSource,
+  ObjectLiteral,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
+import {
+  paginateQueryBuilder,
+  type ListQueryOptions,
+} from '@insurance-max/portal-shared/utils/paginate-query.util';
 import {
   normalizeMoneyForStorage,
   normalizeRateForStorage,
@@ -22,7 +30,7 @@ import { CreateCommissionTransactionDto } from './dto/create-commission-transact
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreatePaymentTransactionDto } from './dto/create-payment-transaction.dto';
 import { CreateReceiptDto } from './dto/create-receipt.dto';
-import { FilterBillingDto } from './dto/filter-billing.dto';
+import type { FinanceListQuery } from './dto/find-finance-records-query.dto';
 import { UpdateCommissionPaymentDto } from './dto/update-commission-payment.dto';
 import { UpdateCommissionTransactionDto } from './dto/update-commission-transaction.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
@@ -135,17 +143,42 @@ export class BillingCommissionService {
     return entity;
   }
 
-  private paginate<T>(items: T[], total: number, page: number, limit: number) {
+  /** Status filter applied before paging so records and count share it. */
+  private applyStatusFilter<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+    query: FinanceListQuery,
+  ) {
+    const status = query.status?.trim();
+    if (status) {
+      qb.andWhere(`UPPER(${alias}.status) = :status`, {
+        status: status.toUpperCase(),
+      });
+    }
+  }
+
+  /**
+   * Company scope must already be on qb. Returns the table contract
+   * (pagination) plus the legacy meta block for older consumers.
+   */
+  private async paginateFinanceList<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    query: FinanceListQuery,
+    options: ListQueryOptions,
+  ) {
+    const result = await paginateQueryBuilder(qb, query, options);
+    const { page, limit, total, totalPages, hasNextPage, hasPreviousPage } =
+      result.pagination;
     return {
-      data: items,
+      ...result,
       meta: {
         totalItems: total,
-        itemCount: items.length,
+        itemCount: result.data.length,
         itemsPerPage: limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages,
         currentPage: page,
-        hasNextPage: page * limit < total,
-        hasPreviousPage: page > 1,
+        hasNextPage,
+        hasPreviousPage,
       },
     };
   }
@@ -544,42 +577,41 @@ export class BillingCommissionService {
       });
   }
 
-  async findInvoices(companyId: string, query: FilterBillingDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-    const allowedSortFields = [
-      'invoice_no',
-      'status',
-      'due_date',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+  async findInvoices(companyId: string, query: FinanceListQuery) {
     const qb = this.invoiceRepository
       .createQueryBuilder('invoice')
       .leftJoinAndSelect('invoice.customer', 'customer')
       .leftJoinAndSelect('invoice.policy', 'policy')
       .leftJoinAndSelect('invoice.quotation', 'quotation')
-      .where('invoice.company_id = :companyId', { companyId })
-      .orderBy(`invoice.${safeSortBy}`, direction);
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(invoice.invoice_no ILIKE :term OR invoice.status ILIKE :term OR customer.first_name ILIKE :term OR customer.last_name ILIKE :term OR customer.company_name ILIKE :term)',
-        { term },
-      );
+      .where('invoice.company_id = :companyId', { companyId });
+    if (query.quotation_id) {
+      qb.andWhere('invoice.quotation_id = :quotationId', {
+        quotationId: query.quotation_id,
+      });
     }
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.paginate(items, total, page, limit);
+    this.applyStatusFilter(qb, 'invoice', query);
+    return this.paginateFinanceList(qb, query, {
+      sortable: {
+        invoice_no: 'invoice.invoice_no',
+        status: 'invoice.status',
+        due_date: 'invoice.due_date',
+        total_amount: 'invoice.total_amount',
+        paid_amount: 'invoice.paid_amount',
+        balance_amount: 'invoice.balance_amount',
+        created_at: 'invoice.created_at',
+        updated_at: 'invoice.updated_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'invoice.invoice_no',
+        'invoice.status',
+        'customer.first_name',
+        'customer.last_name',
+        'customer.company_name',
+        'quotation.quotation_no',
+      ],
+      tieBreaker: 'invoice.id',
+    });
   }
 
   async findInvoice(companyId: string, id: string): Promise<Invoice> {
@@ -728,41 +760,36 @@ export class BillingCommissionService {
     });
   }
 
-  async findReceipts(companyId: string, query: FilterBillingDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-    const allowedSortFields = [
-      'receipt_no',
-      'status',
-      'received_at',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+  async findReceipts(companyId: string, query: FinanceListQuery) {
     const qb = this.receiptRepository
       .createQueryBuilder('receipt')
       .leftJoinAndSelect('receipt.customer', 'customer')
       .leftJoinAndSelect('receipt.invoice', 'invoice')
-      .where('receipt.company_id = :companyId', { companyId })
-      .orderBy(`receipt.${safeSortBy}`, direction);
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(receipt.receipt_no ILIKE :term OR receipt.status ILIKE :term OR customer.first_name ILIKE :term OR customer.last_name ILIKE :term OR customer.company_name ILIKE :term)',
-        { term },
-      );
-    }
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.paginate(items, total, page, limit);
+      .where('receipt.company_id = :companyId', { companyId });
+    this.applyStatusFilter(qb, 'receipt', query);
+    return this.paginateFinanceList(qb, query, {
+      sortable: {
+        receipt_no: 'receipt.receipt_no',
+        status: 'receipt.status',
+        amount: 'receipt.amount',
+        allocated_amount: 'receipt.allocated_amount',
+        received_at: 'receipt.received_at',
+        created_at: 'receipt.created_at',
+        updated_at: 'receipt.updated_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'receipt.receipt_no',
+        'receipt.status',
+        'receipt.payer_name',
+        'receipt.payment_reference',
+        'receipt.provider_reference',
+        'customer.first_name',
+        'customer.last_name',
+        'customer.company_name',
+      ],
+      tieBreaker: 'receipt.id',
+    });
   }
 
   async findReceipt(companyId: string, id: string): Promise<Receipt> {
@@ -893,41 +920,37 @@ export class BillingCommissionService {
     return this.paymentTransactionRepository.save(payment);
   }
 
-  async findPaymentTransactions(companyId: string, query: FilterBillingDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-    const allowedSortFields = [
-      'provider',
-      'status',
-      'amount',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+  async findPaymentTransactions(companyId: string, query: FinanceListQuery) {
     const qb = this.paymentTransactionRepository
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.invoice', 'invoice')
       .leftJoinAndSelect('payment.receipt', 'receipt')
-      .where('payment.company_id = :companyId', { companyId })
-      .orderBy(`payment.${safeSortBy}`, direction);
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(payment.provider ILIKE :term OR payment.provider_reference ILIKE :term OR payment.internal_reference ILIKE :term OR payment.status ILIKE :term)',
-        { term },
-      );
-    }
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.paginate(items, total, page, limit);
+      .where('payment.company_id = :companyId', { companyId });
+    this.applyStatusFilter(qb, 'payment', query);
+    return this.paginateFinanceList(qb, query, {
+      sortable: {
+        transaction_no: 'payment.transaction_no',
+        provider: 'payment.provider_code',
+        provider_code: 'payment.provider_code',
+        payer_name: 'payment.payer_name',
+        status: 'payment.status',
+        amount: 'payment.amount',
+        created_at: 'payment.created_at',
+        updated_at: 'payment.updated_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'payment.transaction_no',
+        'payment.provider',
+        'payment.provider_code',
+        'payment.provider_reference',
+        'payment.provider_transaction_id',
+        'payment.internal_reference',
+        'payment.payer_name',
+        'payment.status',
+      ],
+      tieBreaker: 'payment.id',
+    });
   }
 
   async findPaymentTransaction(
@@ -974,84 +997,56 @@ export class BillingCommissionService {
     await this.paymentTransactionRepository.softDelete(payment.id);
   }
 
-  async findRefunds(companyId: string, query: FilterBillingDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-    const allowedSortFields = [
-      'refund_no',
-      'status',
-      'requested_at',
-      'paid_at',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+  async findRefunds(companyId: string, query: FinanceListQuery) {
     const qb = this.financeRefundRepository
       .createQueryBuilder('refund')
-      .where('refund.company_id = :companyId', { companyId })
-      .orderBy(`refund.${safeSortBy}`, direction);
-
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(refund.refund_no ILIKE :term OR refund.status ILIKE :term OR refund.reason ILIKE :term)',
-        { term },
-      );
-    }
-
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.paginate(items, total, page, limit);
+      .where('refund.company_id = :companyId', { companyId });
+    this.applyStatusFilter(qb, 'refund', query);
+    return this.paginateFinanceList(qb, query, {
+      sortable: {
+        refund_no: 'refund.refund_no',
+        status: 'refund.status',
+        amount: 'refund.amount',
+        reason: 'refund.reason',
+        requested_at: 'refund.requested_at',
+        paid_at: 'refund.paid_at',
+        created_at: 'refund.created_at',
+        updated_at: 'refund.updated_at',
+      },
+      defaultSort: 'created_at',
+      searchable: ['refund.refund_no', 'refund.status', 'refund.reason'],
+      tieBreaker: 'refund.id',
+    });
   }
 
   async findRefund(companyId: string, id: string): Promise<FinanceRefund> {
     return this.ensureRefund(companyId, id);
   }
 
-  async findFinanceJournals(companyId: string, query: FilterBillingDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-    const allowedSortFields = [
-      'journal_no',
-      'journal_date',
-      'source_type',
-      'status',
-      'created_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+  async findFinanceJournals(companyId: string, query: FinanceListQuery) {
     const qb = this.financeJournalEntryRepository
       .createQueryBuilder('journal')
       .leftJoinAndSelect('journal.lines', 'lines')
-      .where('journal.company_id = :companyId', { companyId })
-      .orderBy(`journal.${safeSortBy}`, direction);
-
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(journal.journal_no ILIKE :term OR journal.description ILIKE :term OR journal.source_type ILIKE :term OR journal.source_event_id ILIKE :term)',
-        { term },
-      );
-    }
-
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.paginate(items, total, page, limit);
+      .where('journal.company_id = :companyId', { companyId });
+    this.applyStatusFilter(qb, 'journal', query);
+    return this.paginateFinanceList(qb, query, {
+      sortable: {
+        journal_no: 'journal.journal_no',
+        journal_date: 'journal.journal_date',
+        source_type: 'journal.source_type',
+        status: 'journal.status',
+        description: 'journal.description',
+        created_at: 'journal.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'journal.journal_no',
+        'journal.description',
+        'journal.source_type',
+        'journal.source_event_id',
+      ],
+      tieBreaker: 'journal.id',
+    });
   }
 
   async findFinanceJournal(
@@ -1118,44 +1113,36 @@ export class BillingCommissionService {
     );
   }
 
-  async findCommissionTransactions(companyId: string, query: FilterBillingDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-    const allowedSortFields = [
-      'commission_type',
-      'status',
-      'earned_at',
-      'paid_at',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+  async findCommissionTransactions(companyId: string, query: FinanceListQuery) {
     const qb = this.commissionTransactionRepository
       .createQueryBuilder('commission')
       .leftJoinAndSelect('commission.policy', 'policy')
       .leftJoinAndSelect('commission.invoice', 'invoice')
       .leftJoinAndSelect('commission.receipt', 'receipt')
       .leftJoinAndSelect('commission.commission_rule', 'commissionRule')
-      .where('commission.company_id = :companyId', { companyId })
-      .orderBy(`commission.${safeSortBy}`, direction);
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(commission.commission_type ILIKE :term OR commission.status ILIKE :term)',
-        { term },
-      );
-    }
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.paginate(items, total, page, limit);
+      .where('commission.company_id = :companyId', { companyId });
+    this.applyStatusFilter(qb, 'commission', query);
+    return this.paginateFinanceList(qb, query, {
+      sortable: {
+        accrual_no: 'commission.accrual_no',
+        commission_type: 'commission.commission_type',
+        status: 'commission.status',
+        commission_amount: 'commission.commission_amount',
+        paid_amount: 'commission.paid_amount',
+        earned_at: 'commission.earned_at',
+        paid_at: 'commission.paid_at',
+        created_at: 'commission.created_at',
+        updated_at: 'commission.updated_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'commission.accrual_no',
+        'commission.commission_type',
+        'commission.status',
+        'policy.policy_no',
+      ],
+      tieBreaker: 'commission.id',
+    });
   }
 
   async findCommissionTransaction(
@@ -1314,41 +1301,32 @@ export class BillingCommissionService {
     });
   }
 
-  async findCommissionPayments(companyId: string, query: FilterBillingDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-    const allowedSortFields = [
-      'payment_no',
-      'status',
-      'paid_at',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+  async findCommissionPayments(companyId: string, query: FinanceListQuery) {
     const qb = this.commissionPaymentRepository
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.intermediary_company', 'intermediaryCompany')
       .leftJoinAndSelect('payment.items', 'items')
-      .where('payment.company_id = :companyId', { companyId })
-      .orderBy(`payment.${safeSortBy}`, direction);
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(payment.payment_no ILIKE :term OR payment.status ILIKE :term OR payment.payment_method ILIKE :term)',
-        { term },
-      );
-    }
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-    return this.paginate(items, total, page, limit);
+      .where('payment.company_id = :companyId', { companyId });
+    this.applyStatusFilter(qb, 'payment', query);
+    return this.paginateFinanceList(qb, query, {
+      sortable: {
+        payment_no: 'payment.payment_no',
+        status: 'payment.status',
+        total_amount: 'payment.total_amount',
+        allocated_amount: 'payment.allocated_amount',
+        paid_at: 'payment.paid_at',
+        created_at: 'payment.created_at',
+        updated_at: 'payment.updated_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'payment.payment_no',
+        'payment.status',
+        'payment.payment_method',
+        'payment.payment_reference',
+      ],
+      tieBreaker: 'payment.id',
+    });
   }
 
   async findCommissionPayment(

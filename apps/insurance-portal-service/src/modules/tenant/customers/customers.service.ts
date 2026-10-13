@@ -1497,6 +1497,8 @@ export class CustomersService {
       'last_name',
       'company_name',
       'status',
+      'customer_type',
+      'kyc_status',
       'created_at',
       'updated_at',
     ].includes(sortBy)
@@ -1507,7 +1509,8 @@ export class CustomersService {
     const queryBuilder = this.customerRepository
       .createQueryBuilder('customer')
       .where('customer.deleted_at IS NULL')
-      .orderBy(`customer.${safeSortBy}`, direction);
+      .orderBy(`customer.${safeSortBy}`, direction)
+      .addOrderBy('customer.id', direction);
 
     this.dataAccessScopeService.applyCustomerReadScope(
       queryBuilder,

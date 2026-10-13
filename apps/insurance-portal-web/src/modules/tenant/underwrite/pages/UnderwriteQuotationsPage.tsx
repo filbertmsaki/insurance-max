@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, Plus, Search } from 'lucide-react';
+import { Eye, Pencil, Plus } from 'lucide-react';
 import {
   UnderwriteAction,
   underwritePermission,
@@ -7,22 +7,20 @@ import {
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { QuotationStatusBadge } from '@/modules/tenant/quotations/components/QuotationStatusBadge';
 import { TiraStatusBadge } from '@/modules/tenant/quotations/components/TiraStatusBadge';
 import type { QuotationListItem } from '@/modules/tenant/quotations/types';
 import { formatCoverPeriod } from '@/modules/tenant/quotations/utils/coverPeriod';
-import { useUnderwriteLineParam, useUnderwriteQuotations } from '../hooks';
+import { underwriteApi } from '../api';
+import { underwriteKeys, useUnderwriteLineParam } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
 import { underwritePaths } from '../paths';
 import { canEditQuotation } from '@/modules/tenant/quotations/utils/quotation-editability';
@@ -40,12 +38,19 @@ const STATUS_OPTIONS = [
   'EXPIRED',
 ] as const;
 
+const STATUS_FILTER_OPTIONS = STATUS_OPTIONS.map((value) => ({
+  value,
+  label: value.replace(/_/g, ' '),
+}));
+const FILTER_KEYS = ['status'] as const;
+
 function lineColumns(line: UnderwriteLineMeta): Column<QuotationListItem>[] {
   if (line.line === 'MOTOR') {
     return [
       {
         key: 'vehicle_registration_number',
         header: 'Reg No.',
+        sortable: true,
         hideOnMobile: true,
         cell: (row) => row.vehicle_registration_number || 'N/A',
       },
@@ -66,17 +71,21 @@ function lineColumns(line: UnderwriteLineMeta): Column<QuotationListItem>[] {
 
 function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
   const navigate = useNavigate();
-  const {
-    query,
-    page,
-    limit,
-    search,
-    status,
-    setSearch,
-    setFilter,
-    setPage,
-    setLimit,
-  } = useUnderwriteQuotations(line.slug);
+  const { tableProps, state } = useServerTable<
+    QuotationListItem,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: underwriteKeys.quotations(line.slug),
+    fetcher: (params, signal) =>
+      underwriteApi.getQuotations(
+        line.slug,
+        params as Parameters<typeof underwriteApi.getQuotations>[1],
+        signal,
+      ),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const canCreate =
     line.hasWizard &&
@@ -91,6 +100,7 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
     {
       key: 'quotation_no',
       header: 'Quotation No.',
+      sortable: true,
       cell: (row) => (
         <div className="space-y-1">
           <span className="block font-medium text-slate-900">
@@ -107,18 +117,21 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
     {
       key: 'customer_name',
       header: 'Customer',
+      sortable: true,
       cell: (row) => row.customer_name || 'N/A',
     },
     ...lineColumns(line),
     {
       key: 'product_name',
       header: 'Product',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) => row.product_name || row.product_code,
     },
     {
-      key: 'cover_period',
+      key: 'cover_note_start_date',
       header: 'Cover Period',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) =>
         formatCoverPeriod(row.cover_note_start_date, row.cover_note_end_date),
@@ -126,6 +139,7 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
     {
       key: 'total_premium_including_tax',
       header: 'Premium',
+      sortable: true,
       className: 'text-right',
       cell: (row) => (
         <span className="tabular-nums">
@@ -141,11 +155,13 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
     {
       key: 'quotation_status',
       header: 'Status',
+      sortable: true,
       cell: (row) => <QuotationStatusBadge status={row.display_status} />,
     },
     {
       key: 'tira_status',
       header: 'TIRA',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) => <TiraStatusBadge status={row.tira_status} />,
     },
@@ -204,46 +220,19 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="relative min-w-64 max-w-sm flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search quotations..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select
-          value={status}
-          onValueChange={(value) => setFilter('status', value)}
-        >
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {STATUS_OPTIONS.map((option) => (
-              <SelectItem key={option} value={option}>
-                {option.replace(/_/g, ' ')}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
+        error={tableProps.error ? 'Unable to load quotations' : undefined}
         columns={columns}
-        data={query.data?.data ?? []}
-        loading={query.isLoading}
-        error={query.error ? 'Unable to load quotations' : undefined}
-        onRetry={() => void query.refetch()}
-        page={page}
-        limit={limit}
-        total={query.data?.pagination.total ?? 0}
-        totalPages={query.data?.pagination.totalPages ?? 1}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
+        searchPlaceholder="Search quotations..."
+        filters={tableFilters(state.filters, [
+          {
+            key: 'status',
+            label: 'Status',
+            placeholder: 'All statuses',
+            options: STATUS_FILTER_OPTIONS,
+          },
+        ])}
         emptyMessage={`No ${line.label.toLowerCase()} quotations found`}
       />
     </div>

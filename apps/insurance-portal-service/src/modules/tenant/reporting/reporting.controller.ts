@@ -7,11 +7,13 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
+import { ReportListQueryDto } from './dto/report-list-query.dto';
 import { ReportFormat, ReportScheduleStatus } from './enums/reporting.enums';
 import { ReportingPermissions } from './reporting.permissions';
 import { ReportMailHealthService } from './services/report-mail-health.service';
@@ -40,8 +42,11 @@ export class ReportingController {
 
   @Get('schedules')
   @Permissions(ReportingPermissions.SCHEDULE_READ)
-  listSchedules(@CurrentUser() user: AuthenticatedUser) {
-    return this.scheduleService.listSchedules(user.companyId!);
+  listSchedules(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReportListQueryDto,
+  ) {
+    return this.scheduleService.listSchedules(user.companyId!, query);
   }
 
   @Post('schedules')
@@ -101,8 +106,11 @@ export class ReportingController {
 
   @Get('jobs')
   @Permissions(ReportingPermissions.JOB_READ)
-  listJobs(@CurrentUser() user: AuthenticatedUser) {
-    return this.scheduleService.listJobs(user.companyId!);
+  listJobs(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReportListQueryDto,
+  ) {
+    return this.scheduleService.listJobs(user.companyId!, query);
   }
 
   @Get('jobs/:id')

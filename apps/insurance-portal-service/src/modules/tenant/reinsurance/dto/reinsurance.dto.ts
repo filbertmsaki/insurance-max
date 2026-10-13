@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import { ReinsuranceTerritory } from '@insurance-max/contracts';
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 import {
   ArrayMinSize,
   IsArray,
@@ -13,6 +14,7 @@ import {
   IsUrl,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -479,4 +481,12 @@ export class GenerateReinsurancePremiumAccountDto {
 
   @IsOptional()
   other_adjustments?: string | number;
+}
+
+/** Server-side workbench table query (treaties, offers, cessions, settlements, recoveries). */
+export class ReinsuranceListQueryDto extends TableQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  status?: string;
 }

@@ -34,9 +34,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import {
   reportingApi,
   type ReportDefinitionSummary,
+  type ReportJobRecord,
   type ReportParameterDefinition,
+  type ReportScheduleRecord,
 } from '../api';
 
 type ParameterState = Record<string, unknown>;
@@ -271,14 +278,19 @@ export function ReportsWorkbenchPage() {
     queryKey: ['reporting', 'reports', 'definitions'],
     queryFn: reportingApi.getReportDefinitions,
   });
-  const jobsQuery = useQuery({
+  const jobsTable = useServerTable<ReportJobRecord>({
     queryKey: ['reporting', 'reports', 'jobs'],
-    queryFn: reportingApi.getReportJobs,
+    fetcher: (params, signal) => reportingApi.listJobsPage(params, signal),
+    defaultSortBy: 'created_at',
+    prefix: 'jobs',
   });
-  const schedulesQuery = useQuery({
+  const schedulesTable = useServerTable<ReportScheduleRecord>({
     queryKey: ['reporting', 'reports', 'schedules'],
-    queryFn: reportingApi.getSchedules,
+    fetcher: (params, signal) => reportingApi.listSchedulesPage(params, signal),
+    defaultSortBy: 'created_at',
+    prefix: 'sched',
   });
+  const jobRows = jobsTable.rows;
 
   const [selectedDefinitionId, setSelectedDefinitionId] = useState('');
   const [runParameters, setRunParameters] = useState<ParameterState>({});
@@ -340,11 +352,11 @@ export function ReportsWorkbenchPage() {
   }, [selectedDefinition]);
 
   useEffect(() => {
-    if (!selectedJobId && jobsQuery.data?.length) {
+    if (!selectedJobId && jobRows.length) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedJobId(jobsQuery.data[0].id);
+      setSelectedJobId(jobRows[0].id);
     }
-  }, [jobsQuery.data, selectedJobId]);
+  }, [jobRows, selectedJobId]);
 
   const runReportMutation = useMutation({
     mutationFn: () => {
@@ -434,6 +446,89 @@ export function ReportsWorkbenchPage() {
     }
   }
 
+  const jobColumns: Column<ReportJobRecord>[] = [
+    {
+      key: 'job',
+      header: 'Job',
+      cell: (job) => (
+        <div className="space-y-1">
+          <p
+            className={
+              job.id === selectedJobId
+                ? 'font-semibold text-blue-700'
+                : 'font-medium text-slate-900'
+            }
+            aria-current={job.id === selectedJobId ? 'true' : undefined}
+          >
+            {job.job_no ?? job.id.slice(0, 8)}
+          </p>
+          <p className="text-xs text-slate-500">
+            {job.report_code ?? 'Registered report'}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (job) => job.status,
+    },
+    {
+      key: 'progress',
+      header: 'Progress',
+      cell: (job) => `${job.progress_percent ?? 0}%`,
+    },
+    { key: 'rows', header: 'Rows', cell: (job) => job.row_count ?? '—' },
+    {
+      key: 'format',
+      header: 'Format',
+      sortable: true,
+      cell: (job) => job.format,
+    },
+    {
+      key: 'artifact',
+      header: 'Artifact',
+      cell: (job) => (job.artifact_id ? 'Available' : 'Pending'),
+    },
+  ];
+
+  const scheduleColumns: Column<ReportScheduleRecord>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      sortable: true,
+      cell: (schedule) => schedule.name,
+    },
+    {
+      key: 'report',
+      header: 'Report',
+      cell: (schedule) => schedule.report_code ?? schedule.definition_id,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (schedule) => schedule.status,
+    },
+    {
+      key: 'next_run_at',
+      header: 'Next run',
+      sortable: true,
+      cell: (schedule) => schedule.next_run_at ?? 'Pending',
+    },
+    {
+      key: 'failures',
+      header: 'Failures',
+      cell: (schedule) => schedule.failure_count ?? 0,
+    },
+    {
+      key: 'smtp',
+      header: 'SMTP',
+      cell: (schedule) =>
+        schedule.verified_smtp_at ? 'Verified' : 'Not recorded',
+    },
+  ];
   return (
     <div className="space-y-6">
       <PageHeader
@@ -583,47 +678,13 @@ export function ReportsWorkbenchPage() {
                 <CardTitle className="text-base">Recent Jobs</CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Job</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Progress</TableHead>
-                      <TableHead>Rows</TableHead>
-                      <TableHead>Format</TableHead>
-                      <TableHead>Artifact</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(jobsQuery.data ?? []).map((job) => (
-                      <TableRow
-                        key={job.id}
-                        className={
-                          job.id === selectedJobId ? 'bg-slate-50' : undefined
-                        }
-                        onClick={() => setSelectedJobId(job.id)}
-                      >
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-medium text-slate-900">
-                              {job.job_no ?? job.id.slice(0, 8)}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {job.report_code ?? 'Registered report'}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{job.status}</TableCell>
-                        <TableCell>{job.progress_percent ?? 0}%</TableCell>
-                        <TableCell>{job.row_count ?? '—'}</TableCell>
-                        <TableCell>{job.format}</TableCell>
-                        <TableCell>
-                          {job.artifact_id ? 'Available' : 'Pending'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <DataTable
+                  {...jobsTable.tableProps}
+                  columns={jobColumns}
+                  searchPlaceholder="Search status or format"
+                  onRowClick={(job) => setSelectedJobId(job.id)}
+                  showColumnVisibility={false}
+                />
               </CardContent>
             </Card>
 
@@ -948,36 +1009,12 @@ export function ReportsWorkbenchPage() {
               <CardTitle className="text-base">Existing Schedules</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Report</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Next run</TableHead>
-                    <TableHead>Failures</TableHead>
-                    <TableHead>SMTP</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(schedulesQuery.data ?? []).map((schedule) => (
-                    <TableRow key={schedule.id}>
-                      <TableCell>{schedule.name}</TableCell>
-                      <TableCell>
-                        {schedule.report_code ?? schedule.definition_id}
-                      </TableCell>
-                      <TableCell>{schedule.status}</TableCell>
-                      <TableCell>{schedule.next_run_at ?? 'Pending'}</TableCell>
-                      <TableCell>{schedule.failure_count ?? 0}</TableCell>
-                      <TableCell>
-                        {schedule.verified_smtp_at
-                          ? 'Verified'
-                          : 'Not recorded'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                {...schedulesTable.tableProps}
+                columns={scheduleColumns}
+                searchPlaceholder="Search schedule name or status"
+                showColumnVisibility={false}
+              />
             </CardContent>
           </Card>
         </TabsContent>

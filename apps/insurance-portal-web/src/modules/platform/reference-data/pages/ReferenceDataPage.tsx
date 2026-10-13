@@ -3,7 +3,7 @@ import { MoreHorizontal, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -19,16 +19,21 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Combobox } from '@/components/ui/combobox';
 import {
+  referenceDataKeys,
   useReferenceCountries,
-  useReferenceCurrencies,
-  useReferenceDistricts,
   useReferenceMutation,
   useReferenceRegions,
 } from '../hooks';
+import { referenceDataApi } from '../api';
 import type {
   ReferenceCountry,
   ReferenceCurrency,
@@ -51,23 +56,35 @@ function StatusBadge({ active }: { active: boolean }) {
   );
 }
 
+const REFERENCE_FILTER_KEYS = ['is_active', 'country_id'] as const;
+type ReferenceFilterKey = (typeof REFERENCE_FILTER_KEYS)[number];
+const ACTIVE_OPTIONS = [
+  { label: 'Active', value: 'true' },
+  { label: 'Inactive', value: 'false' },
+];
+
 export function ReferenceDataPage() {
   const [tab, setTab] = useState<ReferenceKind>('countries');
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AnyRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AnyRecord | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  // Full lists only feed the parent pickers (form + country filter).
   const countries = useReferenceCountries();
   const regions = useReferenceRegions();
-  const districts = useReferenceDistricts();
-  const currencies = useReferenceCurrencies();
   const mutation = useReferenceMutation();
+
+  const { tableProps, state } = useServerTable<AnyRecord, ReferenceFilterKey>({
+    queryKey: [...referenceDataKeys.all, 'table', tab],
+    fetcher: (params, signal) =>
+      referenceDataApi.listPage<AnyRecord>(tab, params, signal),
+    filterKeys: REFERENCE_FILTER_KEYS,
+    prefix: tab,
+  });
 
   const data = {
     countries: countries.data ?? [],
     regions: regions.data ?? [],
-    districts: districts.data ?? [],
-    currencies: currencies.data ?? [],
   };
 
   const countryOptions = useMemo(
@@ -107,50 +124,58 @@ export function ReferenceDataPage() {
 
   const columns: Record<ReferenceKind, Column<AnyRecord>[]> = {
     countries: [
-      { key: 'name', header: 'Country', cell: (r) => r.name },
+      { key: 'name', header: 'Country', sortable: true, cell: (r) => r.name },
       {
         key: 'iso3_code',
+        sortable: true,
         header: 'ISO3',
         cell: (r) => (r as ReferenceCountry).iso3_code,
       },
       {
         key: 'iso2_code',
+        sortable: true,
         header: 'ISO2',
         cell: (r) => (r as ReferenceCountry).iso2_code ?? '-',
       },
       {
         key: 'is_active',
+        sortable: true,
         header: 'Status',
         cell: (r) => <StatusBadge active={r.is_active} />,
       },
     ],
     regions: [
-      { key: 'name', header: 'Region', cell: (r) => r.name },
+      { key: 'name', header: 'Region', sortable: true, cell: (r) => r.name },
       {
         key: 'country',
+        sortable: true,
         header: 'Country',
         cell: (r) => (r as ReferenceRegion).country?.name ?? '-',
       },
       {
         key: 'is_active',
+        sortable: true,
         header: 'Status',
         cell: (r) => <StatusBadge active={r.is_active} />,
       },
     ],
     districts: [
-      { key: 'name', header: 'District', cell: (r) => r.name },
+      { key: 'name', header: 'District', sortable: true, cell: (r) => r.name },
       {
         key: 'region',
+        sortable: true,
         header: 'Region',
         cell: (r) => (r as ReferenceDistrict).region?.name ?? '-',
       },
       {
         key: 'country',
+        sortable: true,
         header: 'Country',
         cell: (r) => (r as ReferenceDistrict).region?.country?.name ?? '-',
       },
       {
         key: 'is_active',
+        sortable: true,
         header: 'Status',
         cell: (r) => <StatusBadge active={r.is_active} />,
       },
@@ -158,17 +183,20 @@ export function ReferenceDataPage() {
     currencies: [
       {
         key: 'code',
+        sortable: true,
         header: 'Code',
         cell: (r) => (r as ReferenceCurrency).code,
       },
-      { key: 'name', header: 'Currency', cell: (r) => r.name },
+      { key: 'name', header: 'Currency', sortable: true, cell: (r) => r.name },
       {
         key: 'symbol',
+        sortable: true,
         header: 'Symbol',
         cell: (r) => (r as ReferenceCurrency).symbol ?? '-',
       },
       {
         key: 'is_active',
+        sortable: true,
         header: 'Status',
         cell: (r) => <StatusBadge active={r.is_active} />,
       },
@@ -371,29 +399,25 @@ export function ReferenceDataPage() {
           <TabsTrigger value="districts">Districts</TabsTrigger>
           <TabsTrigger value="currencies">Currencies</TabsTrigger>
         </TabsList>
-        {(
-          ['countries', 'regions', 'districts', 'currencies'] as ReferenceKind[]
-        ).map((kind) => (
-          <TabsContent key={kind} value={kind}>
-            <DataTable
-              columns={tableColumns}
-              data={data[kind] as AnyRecord[]}
-              loading={
-                countries.isLoading ||
-                regions.isLoading ||
-                districts.isLoading ||
-                currencies.isLoading
-              }
-              page={1}
-              limit={data[kind].length || 10}
-              total={data[kind].length}
-              totalPages={1}
-              onPageChange={() => undefined}
-              onLimitChange={() => undefined}
-            />
-          </TabsContent>
-        ))}
       </Tabs>
+      <DataTable
+        {...tableProps}
+        columns={tableColumns}
+        searchPlaceholder="Search…"
+        filters={tableFilters(state.filters, [
+          { key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS },
+          ...(tab === 'regions' || tab === 'districts'
+            ? [
+                {
+                  key: 'country_id' as const,
+                  label: 'Country',
+                  options: countryOptions,
+                },
+              ]
+            : []),
+        ])}
+        emptyMessage="No reference data yet"
+      />
 
       <Dialog
         open={formOpen}

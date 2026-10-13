@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { sessionsApi } from '@/modules/shared/sessions/api/sessions';
@@ -18,9 +22,15 @@ export function SessionsPage() {
   const [revokeOthersOpen, setRevokeOthersOpen] = useState(false);
   const [revokeAllOpen, setRevokeAllOpen] = useState(false);
 
-  const { data: sessions, isLoading } = useQuery({
+  const {
+    tableProps,
+    rows: sessions,
+    total,
+  } = useServerTable<UserSession>({
     queryKey: ['sessions'],
-    queryFn: sessionsApi.getSessions,
+    fetcher: (params, signal) => sessionsApi.listSessions(params, signal),
+    defaultSortBy: 'last_used_at',
+    defaultLimit: 10,
   });
 
   const revokeMutation = useMutation({
@@ -30,7 +40,7 @@ export function SessionsPage() {
       setRevokeId(null);
       toast.success('Session revoked');
 
-      const revokedCurrent = sessions?.find((s) => s.id === id)?.is_current;
+      const revokedCurrent = sessions.find((s) => s.id === id)?.is_current;
       if (revokedCurrent) {
         useAuthStore.getState().logout();
         window.location.assign('/login');
@@ -56,13 +66,11 @@ export function SessionsPage() {
     },
   });
 
-  const paginatedData = sessions ?? [];
-  const total = paginatedData.length;
-
   const columns: Column<UserSession>[] = [
     {
-      key: 'ip',
+      key: 'ip_address',
       header: 'IP Address',
+      sortable: true,
       cell: (r) => (
         <span className="font-mono text-sm">{r.ip_address ?? '—'}</span>
       ),
@@ -83,8 +91,9 @@ export function SessionsPage() {
         r.is_current ? <Badge variant="success">Current</Badge> : null,
     },
     {
-      key: 'last_used',
+      key: 'last_used_at',
       header: 'Last Used',
+      sortable: true,
       cell: (r) => (
         <span className="text-sm text-slate-500">
           {format(new Date(r.last_used_at), 'MMM d, yyyy HH:mm')}
@@ -92,8 +101,9 @@ export function SessionsPage() {
       ),
     },
     {
-      key: 'expires',
+      key: 'expires_at',
       header: 'Expires',
+      sortable: true,
       cell: (r) => (
         <span className="text-sm text-slate-500">
           {format(new Date(r.expires_at), 'MMM d, yyyy HH:mm')}
@@ -127,14 +137,14 @@ export function SessionsPage() {
             <Button
               variant="outline"
               onClick={() => setRevokeOthersOpen(true)}
-              disabled={!sessions || sessions.length <= 1}
+              disabled={total <= 1}
             >
               Revoke Other Sessions
             </Button>
             <Button
               variant="destructive"
               onClick={() => setRevokeAllOpen(true)}
-              disabled={!sessions?.length}
+              disabled={total === 0}
             >
               Revoke All Sessions
             </Button>
@@ -143,15 +153,10 @@ export function SessionsPage() {
       />
 
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={paginatedData}
-        loading={isLoading}
-        page={1}
-        limit={paginatedData.length || 10}
-        total={total}
-        totalPages={1}
-        onPageChange={() => {}}
-        onLimitChange={() => {}}
+        searchPlaceholder="Search IP address or user agent…"
+        emptyMessage="No active sessions"
       />
 
       <ConfirmDialog

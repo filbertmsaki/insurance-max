@@ -52,12 +52,13 @@ const BASE = '/tenant/claims';
 export const claimsApi = {
   list: async (
     params?: ClaimListParams,
+    signal?: AbortSignal,
   ): Promise<PaginatedResponse<ClaimListItem>> => {
     const response = await apiClient.get<{
       data: ClaimListItem[];
       meta?: unknown;
       pagination?: unknown;
-    }>(BASE, { params });
+    }>(BASE, { params, signal });
     return normalizePaginatedResponse({
       ...response.data,
       data: response.data.data ?? [],
@@ -373,15 +374,21 @@ export const claimsApi = {
       .then((r) => r.data),
 
   /** Company-wide register behind the Claims → Documents menu. */
-  documentRegister: async (params: {
-    status?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<PaginatedResponse<ClaimDocumentRecord>> => {
+  documentRegister: async (
+    params: {
+      status?: string;
+      page?: number;
+      limit?: number;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
+    },
+    signal?: AbortSignal,
+  ): Promise<PaginatedResponse<ClaimDocumentRecord>> => {
     const response = await apiClient.get<{
       data: ClaimDocumentRecord[];
       meta?: unknown;
-    }>(`${BASE}/documents`, { params });
+    }>(`${BASE}/documents`, { params, signal });
     return normalizePaginatedResponse({
       ...response.data,
       data: response.data.data ?? [],
@@ -407,18 +414,31 @@ export const claimsApi = {
 
   createRecovery: (
     claimId: string,
-    data: { recovery_type: ClaimRecoveryType; expected_amount: string; notes?: string },
+    data: {
+      recovery_type: ClaimRecoveryType;
+      expected_amount: string;
+      notes?: string;
+    },
   ) =>
     apiClient
       .post<ClaimRecovery>(`${BASE}/${claimId}/recoveries`, data)
       .then((r) => r.data),
 
   requestRecovery: (id: string) =>
-    apiClient.post<ClaimRecovery>(`${BASE}/recoveries/${id}/request`).then((r) => r.data),
-
-  recordRecoveryReceipt: (id: string, received_amount: string, notes?: string) =>
     apiClient
-      .post<ClaimRecovery>(`${BASE}/recoveries/${id}/record-receipt`, { received_amount, notes })
+      .post<ClaimRecovery>(`${BASE}/recoveries/${id}/request`)
+      .then((r) => r.data),
+
+  recordRecoveryReceipt: (
+    id: string,
+    received_amount: string,
+    notes?: string,
+  ) =>
+    apiClient
+      .post<ClaimRecovery>(`${BASE}/recoveries/${id}/record-receipt`, {
+        received_amount,
+        notes,
+      })
       .then((r) => r.data),
 
   writeOffRecovery: (id: string, reason: string) =>
@@ -427,7 +447,9 @@ export const claimsApi = {
       .then((r) => r.data),
 
   cancelRecovery: (id: string) =>
-    apiClient.post<ClaimRecovery>(`${BASE}/recoveries/${id}/cancel`).then((r) => r.data),
+    apiClient
+      .post<ClaimRecovery>(`${BASE}/recoveries/${id}/cancel`)
+      .then((r) => r.data),
 
   reopenClaim: (id: string, reason: string) =>
     apiClient

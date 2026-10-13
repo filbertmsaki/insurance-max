@@ -1,28 +1,83 @@
-import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
-import { EmptyState, ErrorState } from '@/components/shared/ContentStates';
 import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import type { CommunicationThreadRecord } from '@/modules/tenant/engagement/api';
 import { formatDateTime, statusTone } from '@/modules/tenant/engagement/utils';
 
 import { portalApi, type PortalAudience } from '../api';
 
+const THREAD_FILTER_KEYS = ['status'] as const;
+type ThreadFilterKey = (typeof THREAD_FILTER_KEYS)[number];
+
+const STATUS_OPTIONS = [
+  { label: 'Open', value: 'OPEN' },
+  { label: 'Closed', value: 'CLOSED' },
+];
+
 export function PortalMessagesPage({ audience }: { audience: PortalAudience }) {
   const basePath = `/${audience}/messages`;
-  const messagesQuery = useQuery({
+
+  const { tableProps, state } = useServerTable<
+    CommunicationThreadRecord,
+    ThreadFilterKey
+  >({
     queryKey: ['portal', audience, 'messages'],
-    queryFn: () => portalApi.listMessages(audience),
+    fetcher: (params, signal) =>
+      portalApi.pageMessages(audience, params, signal),
+    filterKeys: THREAD_FILTER_KEYS,
+    defaultSortBy: 'updated_at',
   });
+
+  const columns: Column<CommunicationThreadRecord>[] = [
+    {
+      key: 'subject',
+      header: 'Thread',
+      sortable: true,
+      cell: (thread) => (
+        <div className="space-y-1">
+          <Link
+            to={`${basePath}/${thread.id}`}
+            className="font-medium text-slate-900 hover:text-blue-700"
+          >
+            {thread.subject}
+          </Link>
+          <div className="text-xs text-slate-500">{thread.thread_no}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'thread_type',
+      header: 'Type',
+      sortable: true,
+      cell: (thread) => thread.thread_type,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (thread) => {
+        const status = thread.closed_at ? 'CLOSED' : 'OPEN';
+        return (
+          <Badge variant="outline" className={statusTone(status)}>
+            {status}
+          </Badge>
+        );
+      },
+    },
+    {
+      key: 'updated_at',
+      header: 'Updated',
+      sortable: true,
+      cell: (thread) => formatDateTime(thread.updated_at),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -37,59 +92,15 @@ export function PortalMessagesPage({ audience }: { audience: PortalAudience }) {
           <CardTitle className="text-base">Conversation list</CardTitle>
         </CardHeader>
         <CardContent>
-          {messagesQuery.isError ? (
-            <ErrorState
-              description="Portal messages could not be loaded."
-              onRetry={() => messagesQuery.refetch()}
-            />
-          ) : (messagesQuery.data?.length ?? 0) === 0 ? (
-            <EmptyState
-              title="No conversations"
-              description="Threads will appear here when the insurer opens communication with this portal account."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Thread</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Updated</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(messagesQuery.data ?? []).map((thread) => (
-                  <TableRow key={thread.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Link
-                          to={`${basePath}/${thread.id}`}
-                          className="font-medium text-slate-900 hover:text-blue-700"
-                        >
-                          {thread.subject}
-                        </Link>
-                        <div className="text-xs text-slate-500">
-                          {thread.thread_no}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{thread.thread_type}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusTone(
-                          thread.closed_at ? 'CLOSED' : 'OPEN',
-                        )}
-                      >
-                        {thread.closed_at ? 'CLOSED' : 'OPEN'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDateTime(thread.updated_at)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search conversations…"
+            filters={tableFilters(state.filters, [
+              { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+            ])}
+            emptyMessage="No conversations. Threads will appear here when the insurer opens communication with this portal account."
+          />
         </CardContent>
       </Card>
     </div>

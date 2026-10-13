@@ -13,7 +13,11 @@ import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { AuditService } from '../../../shared/audit/audit.service';
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
-import { CreateReinsuranceSettlementDto } from '../dto/reinsurance.dto';
+import {
+  CreateReinsuranceSettlementDto,
+  type ReinsuranceListQueryDto,
+} from '../dto/reinsurance.dto';
+import { listOrPage } from '../utils/list-query.util';
 import { ReinsuranceSettlement } from '../entities/reinsurance-settlement.entity';
 import { ReinsuranceSettlementStatus } from '../enums/reinsurance.enums';
 
@@ -31,9 +35,9 @@ export class ReinsuranceSettlementService {
     private readonly auditService: AuditService,
   ) {}
 
-  async findAll(user: AuthenticatedUser) {
+  async findAll(user: AuthenticatedUser, listQuery?: ReinsuranceListQueryDto) {
     const scope = this.scopeService.resolve(user);
-    return this.settlementRepository
+    const qb = this.settlementRepository
       .createQueryBuilder('settlement')
       .where(
         new Brackets((party) =>
@@ -47,8 +51,24 @@ export class ReinsuranceSettlementService {
         ),
       )
       .andWhere('settlement.deleted_at IS NULL')
-      .orderBy('settlement.created_at', 'DESC')
-      .getMany();
+      .orderBy('settlement.created_at', 'DESC');
+
+    return listOrPage(
+      qb,
+      listQuery,
+      {
+        sortable: {
+          created_at: 'settlement.created_at',
+          reference: 'settlement.settlement_no',
+          status: 'settlement.status',
+        },
+        defaultSort: 'created_at',
+        searchable: ['settlement.settlement_no', 'settlement.status'],
+        tieBreaker: 'settlement.id',
+        statusColumn: 'settlement.status',
+      },
+      (row) => row,
+    );
   }
 
   async create(user: AuthenticatedUser, dto: CreateReinsuranceSettlementDto) {

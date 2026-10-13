@@ -4,18 +4,9 @@ import { subClassesApi } from '@/modules/tenant/product-engine/api/sub-classes';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { peKeys } from './query-keys';
 import type {
-  SubClassQueryParams,
   CreateSubClassDto,
   UpdateSubClassDto,
 } from '@/types/product-engine';
-
-export function useSubClassList(params: SubClassQueryParams) {
-  return useQuery({
-    queryKey: peKeys.subClasses.lists(params),
-    queryFn: () => subClassesApi.getList(params),
-    staleTime: 30_000,
-  });
-}
 
 export function useSubClassesByProduct(productId: string) {
   return useQuery({

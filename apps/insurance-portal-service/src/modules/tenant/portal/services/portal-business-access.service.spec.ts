@@ -34,6 +34,7 @@ function mockQueryBuilder(overrides: Record<string, any> = {}) {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
     setLock: jest.fn().mockReturnThis(),

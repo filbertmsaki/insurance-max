@@ -1,5 +1,4 @@
 export { companiesKeys } from './query-keys';
-export { useCompaniesList } from './useCompaniesList';
 export { useCompany } from './useCompany';
 export { useMyCompany } from './useMyCompany';
 export { useCreateCompany } from './useCreateCompany';
@@ -9,4 +8,3 @@ export { useDeleteCompany } from './useDeleteCompany';
 export { useUpdateMyCompany } from './useUpdateMyCompany';
 export { useNumberFormatSettings } from './useNumberFormatSettings';
 export { useUpdateNumberFormatSettings } from './useUpdateNumberFormatSettings';
-export type { CompanySortKey } from './useCompaniesList';

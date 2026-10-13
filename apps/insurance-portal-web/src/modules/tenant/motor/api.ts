@@ -28,8 +28,12 @@ type PageResponse<T> = PaginatedResponse<T>;
 export const motorApi = {
   getVehicles: async (
     params?: MotorListParams,
+    signal?: AbortSignal,
   ): Promise<PageResponse<MotorVehicleRecord>> => {
-    const response = await apiClient.get('/tenant/motor/vehicles', { params });
+    const response = await apiClient.get('/tenant/motor/vehicles', {
+      params,
+      signal,
+    });
     return normalizePaginatedResponse(response.data);
   },
   getVehicle: (id: string) =>
@@ -69,8 +73,12 @@ export const motorApi = {
 
   getFleets: async (
     params?: MotorListParams,
+    signal?: AbortSignal,
   ): Promise<PageResponse<MotorFleetRecord>> => {
-    const response = await apiClient.get('/tenant/motor/fleets', { params });
+    const response = await apiClient.get('/tenant/motor/fleets', {
+      params,
+      signal,
+    });
     return normalizePaginatedResponse(response.data);
   },
   getFleet: (id: string) =>

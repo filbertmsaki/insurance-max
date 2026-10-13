@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Eye,
-  Search,
   Building2,
   MoreHorizontal,
   Power,
@@ -50,17 +49,22 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
-  useCompaniesList,
+  companiesKeys,
   useCreateCompany,
   useUpdateCompanyStatus,
   useDeleteCompany,
 } from '@/modules/platform/companies/hooks';
+import { companiesApi } from '@/modules/platform/companies/api/companies';
 import type { Company } from '@/types';
-import type { CompanySortKey } from '@/modules/platform/companies/hooks';
 import type {
   CreateCompanyExtendedDto,
   CompanyType,
@@ -598,26 +602,31 @@ function CreateCompanyDialog({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const COMPANY_FILTER_KEYS = ['status', 'verification_status'] as const;
+type CompanyFilterKey = (typeof COMPANY_FILTER_KEYS)[number];
+const COMPANY_STATUS_OPTIONS = [
+  { label: 'Active', value: 'active' },
+  { label: 'Inactive', value: 'inactive' },
+];
+const VERIFICATION_STATUS_OPTIONS = [
+  { label: 'Pending review', value: 'PENDING_REVIEW' },
+  { label: 'Verified', value: 'VERIFIED' },
+  { label: 'Rejected', value: 'REJECTED' },
+];
+
 export function CompaniesListPage() {
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const {
-    companies,
-    total,
-    totalPages,
-    isLoading,
-    search,
-    page,
-    limit,
-    sortBy,
-    sortOrder,
-    setSearch,
-    setPage,
-    setLimit,
-    setSort,
-  } = useCompaniesList();
+  const { tableProps, state } = useServerTable<Company, CompanyFilterKey>({
+    queryKey: companiesKeys.lists(),
+    fetcher: (params, signal) => companiesApi.listCompanies(params, signal),
+    filterKeys: COMPANY_FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultSortOrder: 'DESC',
+    defaultLimit: 10,
+  });
 
   const createMutation = useCreateCompany();
   const statusMutation = useUpdateCompanyStatus();
@@ -815,29 +824,19 @@ export function CompaniesListPage() {
         }
       />
 
-      <div className="mb-4 relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search companies…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={companies}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={total}
-        totalPages={totalPages}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
-        onSortChange={(key, order) => setSort(key as CompanySortKey, order)}
+        searchPlaceholder="Search companies…"
+        filters={tableFilters(state.filters, [
+          { key: 'status', label: 'Status', options: COMPANY_STATUS_OPTIONS },
+          {
+            key: 'verification_status',
+            label: 'Verification',
+            options: VERIFICATION_STATUS_OPTIONS,
+          },
+        ])}
+        emptyMessage="No companies yet"
       />
 
       <CreateCompanyDialog

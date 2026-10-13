@@ -1,37 +1,87 @@
-import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { ClipboardCheck, Eye, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ClipboardCheck, Eye } from 'lucide-react';
 
-import { EmptyState, ErrorState } from '@/components/shared/ContentStates';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDateTime, statusTone } from '@/modules/tenant/engagement/utils';
 
 import { portalApi, type PortalBusinessRecord } from '../api';
 
+const REQUEST_FILTER_KEYS = ['status', 'request_type'] as const;
+type RequestFilterKey = (typeof REQUEST_FILTER_KEYS)[number];
+
+const toOptions = (values: string[]) =>
+  values.map((value) => ({ label: value.replaceAll('_', ' '), value }));
+const STATUS_OPTIONS = toOptions([
+  'DRAFT',
+  'SUBMITTED',
+  'IN_REVIEW',
+  'ADDITIONAL_INFO_REQUIRED',
+  'APPROVED',
+  'REJECTED',
+  'COMPLETED',
+  'CANCELLED',
+]);
+const TYPE_OPTIONS = toOptions([
+  'QUOTATION_ASSISTANCE',
+  'ENDORSEMENT',
+  'CANCELLATION',
+  'RENEWAL',
+  'CLAIM_NOTIFICATION',
+  'PAYMENT_PROOF',
+]);
+
+const columns: Column<PortalBusinessRecord>[] = [
+  {
+    key: 'request_no',
+    header: 'Request',
+    cell: (request) => text(request.request_no),
+  },
+  { key: 'actor', header: 'Actor', cell: (request) => actorLabel(request) },
+  {
+    key: 'request_type',
+    header: 'Type',
+    cell: (request) => text(request.request_type),
+  },
+  {
+    key: 'subject',
+    header: 'Subject',
+    hideOnMobile: true,
+    cell: (request) => text(request.subject),
+  },
+  {
+    key: 'submitted_at',
+    header: 'Submitted',
+    cell: (request) => date(request.submitted_at ?? request.created_at),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (request) => (
+      <Badge variant="outline" className={statusTone(status(request))}>
+        {status(request)}
+      </Badge>
+    ),
+  },
+];
+
 export function PortalRequestsReviewPage() {
-  const [search, setSearch] = useState('');
-  const params = useMemo(
-    () => ({ search: search.trim() || undefined, limit: 50 }),
-    [search],
-  );
-  const query = useQuery({
-    queryKey: ['tenant', 'portal', 'requests', params],
-    queryFn: () => portalApi.listAdminRequests(params),
+  const navigate = useNavigate();
+  const { tableProps, state } = useServerTable<
+    PortalBusinessRecord,
+    RequestFilterKey
+  >({
+    queryKey: ['tenant', 'portal', 'requests'],
+    fetcher: (params, signal) => portalApi.pageAdminRequests(params, signal),
+    filterKeys: REQUEST_FILTER_KEYS,
   });
-  const requests = query.data?.items ?? [];
 
   return (
     <div className="space-y-6">
@@ -42,78 +92,31 @@ export function PortalRequestsReviewPage() {
       />
 
       <Card className="rounded-xl border-slate-200 shadow-sm">
-        <CardHeader className="gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <ClipboardCheck className="h-4 w-4 text-slate-500" />
             Requests
           </CardTitle>
-          <div className="relative w-full sm:w-80">
-            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search request or subject"
-              className="pl-9"
-            />
-          </div>
         </CardHeader>
         <CardContent>
-          {query.isError ? (
-            <ErrorState
-              description="Portal requests could not be loaded."
-              onRetry={() => {
-                void query.refetch();
-              }}
-            />
-          ) : requests.length === 0 ? (
-            <EmptyState
-              title="No portal requests"
-              description="Customer and intermediary submissions will appear here."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Request</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[1%] text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell>{text(request.request_no)}</TableCell>
-                    <TableCell>{actorLabel(request)}</TableCell>
-                    <TableCell>{text(request.request_type)}</TableCell>
-                    <TableCell>{text(request.subject)}</TableCell>
-                    <TableCell>
-                      {date(request.submitted_at ?? request.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusTone(status(request))}
-                      >
-                        {status(request)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={`/portal-requests/${request.id}`}>
-                          <Eye className="h-3.5 w-3.5" />
-                          Review
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search request or subject"
+            filters={tableFilters(state.filters, [
+              { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+              { key: 'request_type', label: 'Type', options: TYPE_OPTIONS },
+            ])}
+            rowActions={[
+              {
+                label: 'Review',
+                icon: Eye,
+                onClick: (request) =>
+                  navigate(`/portal-requests/${request.id}`),
+              },
+            ]}
+            emptyMessage="No portal requests. Customer and intermediary submissions will appear here."
+          />
         </CardContent>
       </Card>
     </div>

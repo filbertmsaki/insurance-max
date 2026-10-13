@@ -1,5 +1,4 @@
-import { useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useCallback } from 'react';
 import {
   keepPreviousData,
   useMutation,
@@ -11,7 +10,6 @@ import { claimsApi } from './api';
 import type {
   ClaimDetail,
   ClaimListParams,
-  ClaimQueue,
   ClaimsDashboardParams,
 } from './types';
 
@@ -30,79 +28,6 @@ export const claimsKeys = {
   policyLookup: (q: string) => [...claimsKeys.all, 'policy-lookup', q] as const,
   policyDetail: (id: string) => [...claimsKeys.all, 'policy', id] as const,
 };
-
-const LIST_FILTERS = ['status', 'from', 'to'] as const;
-
-/**
- * Server-paginated claim list with page, limit, search and filters kept in
- * the URL. `queue` narrows it to one stage menu (§3).
- */
-export function useClaimsList(queue?: ClaimQueue) {
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '20');
-  const search = params.get('search') ?? '';
-  const filters = Object.fromEntries(
-    LIST_FILTERS.map((key) => [key, params.get(key) ?? '']),
-  ) as Record<(typeof LIST_FILTERS)[number], string>;
-
-  const update = useCallback(
-    (mutate: (next: URLSearchParams) => void) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        mutate(next);
-        return next;
-      }),
-    [setParams],
-  );
-
-  const setFilter = useCallback(
-    (key: string, value: string) =>
-      update((next) => {
-        if (!value || value === 'all') next.delete(key);
-        else next.set(key, value);
-        next.set('page', '1');
-      }),
-    [update],
-  );
-
-  const queryParams = useMemo<ClaimListParams>(
-    () => ({
-      page,
-      limit,
-      queue,
-      search: search.trim() || undefined,
-      status: filters.status || undefined,
-      from: filters.from || undefined,
-      to: filters.to || undefined,
-    }),
-    [page, limit, queue, search, filters.status, filters.from, filters.to],
-  );
-
-  const query = useQuery({
-    queryKey: claimsKeys.list(queryParams),
-    queryFn: () => claimsApi.list(queryParams),
-    placeholderData: keepPreviousData,
-    staleTime: 15_000,
-  });
-
-  return {
-    query,
-    page,
-    limit,
-    search,
-    filters,
-    setFilter,
-    setSearch: (value: string) => setFilter('search', value),
-    setPage: (value: number) =>
-      update((next) => next.set('page', String(value))),
-    setLimit: (value: number) =>
-      update((next) => {
-        next.set('limit', String(value));
-        next.set('page', '1');
-      }),
-  };
-}
 
 /** A claim waiting on TIRA is polled so its status updates without a reload. */
 const AWAITING_TIRA = new Set([
@@ -243,18 +168,6 @@ export function useClaimDocuments(id: string | undefined) {
     queryKey: claimsKeys.documents(id ?? ''),
     queryFn: () => claimsApi.documents(id!),
     enabled: !!id,
-  });
-}
-
-export function useClaimDocumentRegister(params: {
-  status?: string;
-  page: number;
-  limit: number;
-}) {
-  return useQuery({
-    queryKey: claimsKeys.documentRegister(params),
-    queryFn: () => claimsApi.documentRegister(params),
-    placeholderData: keepPreviousData,
   });
 }
 

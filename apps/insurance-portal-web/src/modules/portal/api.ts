@@ -1,4 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import type {
   CommunicationMessageRecord,
   CommunicationThreadRecord,
@@ -20,6 +21,9 @@ import type {
 } from '@/modules/tenant/customers/types';
 
 export type PortalAudience = 'customer' | 'intermediary';
+
+/** Flattened server-table params: page, limit, search, sortBy, sortOrder, filters. */
+export type PortalTableParams = Record<string, string | number | undefined>;
 
 export interface PortalNotificationRecord {
   id: string;
@@ -93,6 +97,24 @@ export interface PortalPageMeta {
 export interface PortalPagedResponse<T> {
   items: T[];
   meta: PortalPageMeta;
+}
+
+/** Maps the portal `{ items, meta }` page shape onto the shared table contract. */
+function toPaginated<T>(response: PortalPagedResponse<T>): PaginatedResponse<T> {
+  const { page, limit, total } = response.meta;
+  const totalPages =
+    response.meta.total_pages ?? (total > 0 ? Math.ceil(total / limit) : 0);
+  return {
+    data: response.items,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    },
+  };
 }
 
 export type PortalBusinessRecord = Record<string, unknown> & { id: string };
@@ -409,6 +431,22 @@ export const portalApi = {
       >(resource === 'requests' ? '/portal/requests' : `${basePath(audience)}/${resource}`, { params })
       .then((response) => response.data),
 
+  /** Server-table page of a portal business list, normalised from `{ items, meta }`. */
+  pageBusinessRecords: (
+    audience: PortalAudience,
+    resource: string,
+    params: PortalTableParams,
+    signal?: AbortSignal,
+  ): Promise<PaginatedResponse<PortalBusinessRecord>> =>
+    apiClient
+      .get<PortalPagedResponse<PortalBusinessRecord>>(
+        resource === 'requests'
+          ? '/portal/requests'
+          : `${basePath(audience)}/${resource}`,
+        { params, signal },
+      )
+      .then(({ data }) => toPaginated(data)),
+
   getBusinessRecord: (audience: PortalAudience, resource: string, id: string) =>
     apiClient
       .get<PortalBusinessRecord>(
@@ -436,6 +474,58 @@ export const portalApi = {
   deleteIntermediaryCustomer: (id: string) =>
     apiClient
       .delete(`/intermediary/customers/${id}`)
+      .then((response) => response.data),
+
+  /**
+   * Server-side paged portal lists. Sending `page` switches these endpoints
+   * to `{ data, pagination }`; scope (own records only) is applied server-side.
+   */
+  pageDocuments: (
+    audience: PortalAudience,
+    params: PortalTableParams,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<DocumentRecord>>(
+        `${basePath(audience)}/documents`,
+        { params, signal },
+      )
+      .then((response) => response.data),
+
+  pageNotifications: (
+    audience: PortalAudience,
+    params: PortalTableParams,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<PortalNotificationRecord>>(
+        `${basePath(audience)}/notifications`,
+        { params, signal },
+      )
+      .then((response) => response.data),
+
+  pageMessages: (
+    audience: PortalAudience,
+    params: PortalTableParams,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<CommunicationThreadRecord>>(
+        `${basePath(audience)}/messages`,
+        { params, signal },
+      )
+      .then((response) => response.data),
+
+  pageSignatures: (
+    audience: PortalAudience,
+    params: PortalTableParams,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<SignatureRequestRecord>>(
+        `${basePath(audience)}/signatures`,
+        { params, signal },
+      )
       .then((response) => response.data),
 
   listDocuments: (audience: PortalAudience) =>
@@ -699,6 +789,18 @@ export const portalApi = {
         },
       )
       .then((response) => response.data),
+
+  /** Server-table page of company portal requests, normalised from `{ items, meta }`. */
+  pageAdminRequests: (
+    params: PortalTableParams,
+    signal?: AbortSignal,
+  ): Promise<PaginatedResponse<PortalBusinessRecord>> =>
+    apiClient
+      .get<PortalPagedResponse<PortalBusinessRecord>>(
+        '/tenant/portal/requests',
+        { params, signal },
+      )
+      .then(({ data }) => toPaginated(data)),
 
   getAdminRequest: (id: string) =>
     apiClient

@@ -8,6 +8,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Repository } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { FindCommunicationThreadsQueryDto } from './dto/find-communication-threads-query.dto';
 import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
 import { BranchUser } from '../branches/entities/branch-user.entity';
 
@@ -29,10 +31,46 @@ export class CommunicationsService {
   ) {}
 
   listThreads(user: AuthenticatedUser) {
+    return this.scopedThreads(user)
+      .orderBy('thread.updated_at', 'DESC')
+      .getMany();
+  }
+
+  /** Server-side table: company + visibility scope applied before paging and counting. */
+  findThreadsPage(
+    user: AuthenticatedUser,
+    query: FindCommunicationThreadsQueryDto,
+  ) {
+    const qb = this.scopedThreads(user);
+    if (query.thread_type) {
+      qb.andWhere('thread.thread_type = :threadType', {
+        threadType: query.thread_type,
+      });
+    }
+    if (query.state === 'open') qb.andWhere('thread.closed_at IS NULL');
+    if (query.state === 'closed') qb.andWhere('thread.closed_at IS NOT NULL');
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        thread_no: 'thread.thread_no',
+        thread_type: 'thread.thread_type',
+        resource_type: 'thread.resource_type',
+        updated_at: 'thread.updated_at',
+        created_at: 'thread.created_at',
+      },
+      defaultSort: 'updated_at',
+      searchable: [
+        'thread.thread_no',
+        'thread.subject',
+        'thread.resource_type',
+      ],
+      tieBreaker: 'thread.id',
+    });
+  }
+
+  private scopedThreads(user: AuthenticatedUser) {
     const qb = this.threadRepository
       .createQueryBuilder('thread')
-      .where('thread.company_id = :companyId', { companyId: user.companyId })
-      .orderBy('thread.updated_at', 'DESC');
+      .where('thread.company_id = :companyId', { companyId: user.companyId });
     if (!this.hasPermission(user, 'communications:read-internal')) {
       qb.andWhere(
         user.scope === 'platform' || user.companyType === 'INSURANCE_COMPANY'
@@ -42,7 +80,7 @@ export class CommunicationsService {
             : 'thread.intermediary_visible = true',
       );
     }
-    return qb.getMany();
+    return qb;
   }
 
   async createThread(

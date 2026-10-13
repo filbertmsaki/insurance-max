@@ -1,10 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiClient } from '@/modules/shared/api/client';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import type { SortOrder } from '@/types';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import {
   useNotificationStream,
@@ -31,7 +29,6 @@ import type {
   DecideQuotationPremiumOverridePayload,
   QuotationDraftRecordPayload,
   QuotationDetailRecord,
-  QuotationListParams,
   QuotationPreviewRecord,
   RequestQuotationPremiumOverridePayload,
   QuotationSubmitResponse,
@@ -45,142 +42,13 @@ import type {
 
 const quotationKeys = {
   all: ['quotations'] as const,
-  list: (params: QuotationListParams) =>
-    ['quotations', 'list', params] as const,
+  list: ['quotations', 'list'] as const,
   detail: (id: string) => ['quotations', 'detail', id] as const,
   editDetail: (id: string) => ['quotations', 'edit-detail', id] as const,
   preview: (id: string) => ['quotations', 'preview', id] as const,
   workflow: (id: string) => ['quotations', 'workflow', id] as const,
   payload: (id: string) => ['quotations', 'payload', id] as const,
 };
-
-export function useQuotationsList() {
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const committedSearch = params.get('search') ?? '';
-  const status = params.get('status') ?? 'all';
-  const quotationType = params.get('quotation_type') ?? 'all';
-  const quotationFlow = params.get('quotation_flow') ?? 'all';
-  const productId = params.get('product_id') ?? 'all';
-  const [searchInput, setSearchInput] = useState(committedSearch);
-  const [sortBy, setSortBy] = useState('created_at');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('DESC');
-
-  const setParam = useCallback(
-    (key: string, value: string | null) => {
-      setParams((previous) => {
-        const next = new URLSearchParams(previous);
-        if (value === null) next.delete(key);
-        else next.set(key, value);
-        next.set('page', '1');
-        return next;
-      });
-    },
-    [setParams],
-  );
-
-  useEffect(() => {
-    const normalizedSearch = searchInput.trim();
-    if (normalizedSearch === committedSearch) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      setParam('search', normalizedSearch || null);
-    }, 350);
-
-    return () => clearTimeout(timeoutId);
-  }, [committedSearch, searchInput, setParam]);
-
-  const queryParams = useMemo<QuotationListParams>(
-    () => ({
-      page,
-      limit,
-      search: committedSearch || undefined,
-      status:
-        status === 'all'
-          ? undefined
-          : (status as QuotationListParams['status']),
-      quotation_type:
-        quotationType === 'all'
-          ? undefined
-          : (quotationType as QuotationListParams['quotation_type']),
-      quotation_flow:
-        quotationFlow === 'all'
-          ? undefined
-          : (quotationFlow as QuotationListParams['quotation_flow']),
-      product_id: productId === 'all' ? undefined : productId,
-      sortBy,
-      sortOrder,
-    }),
-    [
-      committedSearch,
-      limit,
-      page,
-      productId,
-      quotationFlow,
-      quotationType,
-      sortBy,
-      sortOrder,
-      status,
-    ],
-  );
-
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: quotationKeys.list(queryParams),
-    queryFn: () => quotationsApi.getList(queryParams),
-    placeholderData: (previousData) => previousData,
-    staleTime: 30_000,
-  });
-
-  return {
-    data,
-    isLoading,
-    error,
-    refetch,
-    page,
-    limit,
-    search: searchInput,
-    status,
-    quotationType,
-    quotationFlow,
-    productId,
-    sortBy,
-    sortOrder,
-    setSearch: setSearchInput,
-    setStatus: (value: string) =>
-      setParam('status', value === 'all' ? null : value),
-    setQuotationType: (value: string) =>
-      setParam('quotation_type', value === 'all' ? null : value),
-    setQuotationFlow: (value: string) =>
-      setParam('quotation_flow', value === 'all' ? null : value),
-    setProductId: (value: string) =>
-      setParam('product_id', value === 'all' ? null : value),
-    setPage: (value: number) =>
-      setParams((previous) => {
-        const next = new URLSearchParams(previous);
-        next.set('page', String(value));
-        return next;
-      }),
-    setLimit: (value: number) =>
-      setParams((previous) => {
-        const next = new URLSearchParams(previous);
-        next.set('limit', String(value));
-        next.set('page', '1');
-        return next;
-      }),
-    setSort: (key: string, order: SortOrder) => {
-      setSortBy(key);
-      setSortOrder(order);
-      setParams((previous) => {
-        const next = new URLSearchParams(previous);
-        next.set('page', '1');
-        return next;
-      });
-    },
-  };
-}
 
 export function useQuotationDetail(id?: string) {
   return useQuery({
@@ -774,10 +642,12 @@ export function useQuotationSalePoints(branchId?: string) {
 export function useQuotationVehicles(customerId?: string) {
   return useQuery({
     queryKey: ['quotations', 'vehicles', customerId ?? 'none'],
-    queryFn: async () => {
-      const page = await motorApi.getVehicles({ limit: API_MAX_LIST_LIMIT });
-      if (!customerId) return page.data;
-      return page.data.filter((vehicle) => vehicle.customer_id === customerId);
+    queryFn: async ({ signal }) => {
+      const page = await motorApi.getVehicles(
+        { limit: API_MAX_LIST_LIMIT, customer_id: customerId },
+        signal,
+      );
+      return page.data;
     },
     enabled: !!customerId,
     staleTime: 30_000,

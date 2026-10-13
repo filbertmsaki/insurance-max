@@ -109,7 +109,8 @@ export class InsuranceCategoriesService {
     const qb = this.categoryRepository
       .createQueryBuilder('cat')
       .where('cat.company_id = :companyId', { companyId })
-      .orderBy(`cat.${safeSortBy}`, direction);
+      .orderBy(`cat.${safeSortBy}`, direction)
+      .addOrderBy('cat.id', direction);
 
     if (accessibleCategoryIds) {
       if (!accessibleCategoryIds.length) {

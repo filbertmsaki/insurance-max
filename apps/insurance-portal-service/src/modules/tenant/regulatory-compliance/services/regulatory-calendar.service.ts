@@ -14,8 +14,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { createHash } from 'crypto';
 import { DateTime } from 'luxon';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 
+import type { RegulatoryListQueryDto } from '../dto/regulatory-list-query.dto';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { CompanyRegulatoryProfile } from '../entities/company-regulatory-profile.entity';
 import { RegulatoryAuthorityProfile } from '../entities/regulatory-authority-profile.entity';
@@ -107,27 +110,68 @@ export class RegulatoryCalendarService {
     });
   }
 
-  async listCalendar(companyId: string) {
+  async listCalendar(companyId: string, query?: RegulatoryListQueryDto) {
     await this.ensureCanonicalSetup(companyId);
     await this.refreshObligationStatuses(companyId);
-    const [instances, definitions, authorities, returns, assessments] =
-      await Promise.all([
-        this.instanceRepository.find({
-          where: { company_id: companyId },
-          order: { due_at: 'ASC', created_at: 'DESC' },
-          take: 500,
-        }),
-        this.definitionRepository.find({ where: { company_id: companyId } }),
-        this.authorityRepository.find({ where: { company_id: companyId } }),
-        this.returnRepository.find({
-          where: { company_id: companyId },
-          take: 1000,
-        }),
-        this.assessmentRepository.find({
-          where: { company_id: companyId },
-          take: 1000,
-        }),
-      ]);
+
+    if (query && isPagedRequest(query)) {
+      const qb = this.instanceRepository
+        .createQueryBuilder('instance')
+        .where('instance.company_id = :companyId', { companyId });
+      if (query.status) {
+        qb.andWhere('instance.status = :status', { status: query.status });
+      }
+      const page = await paginateQueryBuilder(qb, query, {
+        sortable: {
+          due_at: 'instance.due_at',
+          period: 'instance.period_start',
+          status: 'instance.status',
+          obligation: 'instance.obligation_reference',
+          created_at: 'instance.created_at',
+        },
+        defaultSort: 'due_at',
+        defaultOrder: 'ASC',
+        searchable: ['instance.obligation_reference', 'instance.status'],
+        tieBreaker: 'instance.id',
+      });
+      return {
+        ...page,
+        data: await this.enrichInstances(companyId, page.data),
+      };
+    }
+
+    const instances = await this.instanceRepository.find({
+      where: { company_id: companyId },
+      order: { due_at: 'ASC', created_at: 'DESC' },
+      take: 500,
+    });
+    return this.enrichInstances(companyId, instances);
+  }
+
+  private async enrichInstances(
+    companyId: string,
+    instances: RegulatoryObligationInstance[],
+  ) {
+    const returnIds = instances
+      .map((instance) => instance.active_return_id)
+      .filter((id): id is string => Boolean(id));
+    const assessmentIds = instances
+      .map((instance) => instance.active_levy_assessment_id)
+      .filter((id): id is string => Boolean(id));
+    const [definitions, authorities, returns, assessments] = await Promise.all([
+      this.definitionRepository.find({ where: { company_id: companyId } }),
+      this.authorityRepository.find({ where: { company_id: companyId } }),
+      returnIds.length
+        ? this.returnRepository.find({
+            where: { company_id: companyId, id: In(returnIds) },
+          })
+        : Promise.resolve([] as RegulatoryReturn[]),
+      assessmentIds.length
+        ? this.assessmentRepository.find({
+            where: { company_id: companyId, id: In(assessmentIds) },
+          })
+        : Promise.resolve([] as RegulatoryLevyAssessment[]),
+    ]);
 
     const definitionsById = new Map(definitions.map((item) => [item.id, item]));
     const authoritiesById = new Map(authorities.map((item) => [item.id, item]));
@@ -164,8 +208,35 @@ export class RegulatoryCalendarService {
     });
   }
 
-  async listReturns(companyId: string) {
+  async listReturns(companyId: string, query?: RegulatoryListQueryDto) {
     await this.ensureCanonicalSetup(companyId);
+
+    if (query && isPagedRequest(query)) {
+      const qb = this.returnRepository
+        .createQueryBuilder('return')
+        .where('return.company_id = :companyId', { companyId });
+      if (query.status) {
+        qb.andWhere('return.status = :status', { status: query.status });
+      }
+      const page = await paginateQueryBuilder(qb, query, {
+        sortable: {
+          created_at: 'return.created_at',
+          return_no: 'return.return_no',
+          status: 'return.status',
+          period: 'return.period_end',
+        },
+        defaultSort: 'created_at',
+        searchable: ['return.return_no', 'return.status'],
+        tieBreaker: 'return.id',
+      });
+      return {
+        ...page,
+        data: await Promise.all(
+          page.data.map((record) => this.enrichReturn(companyId, record)),
+        ),
+      };
+    }
+
     const returns = await this.returnRepository.find({
       where: { company_id: companyId },
       order: { created_at: 'DESC' },
@@ -194,13 +265,15 @@ export class RegulatoryCalendarService {
     await this.ensureCanonicalSetup(companyId);
     await this.refreshObligationStatuses(companyId);
 
-    const items = await this.listCalendar(companyId);
-    const record = items.find((item) => item.id === obligationId);
+    const instance = await this.instanceRepository.findOne({
+      where: { id: obligationId, company_id: companyId },
+    });
 
-    if (!record) {
+    if (!instance) {
       throw new NotFoundException('Regulatory obligation was not found');
     }
 
+    const [record] = await this.enrichInstances(companyId, [instance]);
     return record;
   }
 

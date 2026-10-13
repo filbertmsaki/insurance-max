@@ -168,6 +168,14 @@ type QuotationListResponse =
 
 const base = (line: UnderwriteLineSlug) => `/tenant/underwrite/${line}`;
 
+export interface UnderwriteTableParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+}
+
 export const underwriteApi = {
   getOverview: () =>
     apiClient
@@ -182,10 +190,11 @@ export const underwriteApi = {
   getQuotations: async (
     line: UnderwriteLineSlug,
     params: Omit<QuotationListParams, 'quotation_type' | 'quotation_flow'>,
+    signal?: AbortSignal,
   ): Promise<PaginatedResponse<QuotationListItem>> => {
     const response = await apiClient.get<QuotationListResponse>(
       `${base(line)}/quotations`,
-      { params },
+      { params, signal },
     );
     const body = response.data;
     return normalizePaginatedResponse<QuotationListItem>(
@@ -205,9 +214,11 @@ export const underwriteApi = {
   getPolicies: async (
     line: UnderwriteLineSlug,
     params: PolicyListParams,
+    signal?: AbortSignal,
   ): Promise<PaginatedResponse<PolicyRecord>> => {
     const response = await apiClient.get(`${base(line)}/policies`, {
       params,
+      signal,
     });
     return normalizePaginatedResponse<PolicyRecord>(response.data);
   },
@@ -222,34 +233,53 @@ export const underwriteApi = {
   getCustomers: async (
     line: UnderwriteLineSlug,
     params: CustomerListParams,
+    signal?: AbortSignal,
   ): Promise<PaginatedResponse<CustomerRecord>> => {
     const response = await apiClient.get(`${base(line)}/customers`, {
       params,
+      signal,
     });
     return normalizePaginatedResponse<CustomerRecord>(response.data);
   },
 
-  getRenewals: (line: UnderwriteLineSlug) =>
-    apiClient
-      .get<UnderwriteRenewalRow[]>(`${base(line)}/renewals`)
-      .then((response) => response.data),
-
-  getEndorsements: (line: UnderwriteLineSlug) =>
-    apiClient
-      .get<UnderwritePolicyTransactionRow[]>(`${base(line)}/endorsements`)
-      .then((response) => response.data),
-
-  getCancellations: (line: UnderwriteLineSlug) =>
-    apiClient
-      .get<UnderwritePolicyTransactionRow[]>(`${base(line)}/cancellations`)
-      .then((response) => response.data),
-
-  getTiraQueue: (line: UnderwriteLineSlug, kind: 'failed' | 'pending') =>
+  /** GET …/renewals?page=… — server-side paged, searchable, sortable list. */
+  listRenewals: (
+    line: UnderwriteLineSlug,
+    params: UnderwriteTableParams,
+    signal?: AbortSignal,
+  ) =>
     apiClient
       .get<
-        UnderwriteTiraQueueRow[]
-      >(`${base(line)}/${kind === 'failed' ? 'tira-failed' : 'tira-pending'}`)
+        PaginatedResponse<UnderwriteRenewalRow>
+      >(`${base(line)}/renewals`, { params, signal })
       .then((response) => response.data),
+
+  /** GET …/endorsements|cancellations?page=… — server-side paged list. */
+  listTransactions: (
+    line: UnderwriteLineSlug,
+    kind: 'endorsements' | 'cancellations',
+    params: UnderwriteTableParams,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<
+        PaginatedResponse<UnderwritePolicyTransactionRow>
+      >(`${base(line)}/${kind}`, { params, signal })
+      .then((response) => response.data),
+
+  /** GET …/tira-failed|tira-pending?page=… — server-side paged worklist. */
+  getTiraQueue: async (
+    line: UnderwriteLineSlug,
+    kind: 'failed' | 'pending',
+    params: UnderwriteTableParams,
+    signal?: AbortSignal,
+  ): Promise<PaginatedResponse<UnderwriteTiraQueueRow>> => {
+    const response = await apiClient.get(
+      `${base(line)}/${kind === 'failed' ? 'tira-failed' : 'tira-pending'}`,
+      { params, signal },
+    );
+    return normalizePaginatedResponse<UnderwriteTiraQueueRow>(response.data);
+  },
 
   getEndorsementEligibility: (
     line: UnderwriteLineSlug,

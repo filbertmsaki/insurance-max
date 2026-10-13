@@ -8,13 +8,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
 
-import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import {
   comparePasswords,
   hashPassword,
 } from '@insurance-max/portal-shared/utils/hash.util';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CompaniesService } from '../../platform/companies/companies.service';
+import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
 import { CompanyUserRole } from '../../platform/companies/entities/company-user-role.entity';
 import { Branch } from '../branches/entities/branch.entity';
 import { BranchUser } from '../branches/entities/branch-user.entity';
@@ -25,6 +26,7 @@ import { UpdateUserDto } from './dtos/update-user.dto';
 import { UpdateUserDataScopeDto } from './dtos/update-user-data-scope.dto';
 import { UserProfileDto } from './dtos/user-profile-dto';
 import { UserAdminDetailDto } from './dtos/user-admin-detail.dto';
+import { FindUsersQueryDto } from './dtos/find-users-query.dto';
 import { User } from './entities/user.entity';
 import { Permission } from '../../platform/permissions/entities/permission.entity';
 import { SELECT_INSURANCE_CHANNEL_PERMISSION } from '../quotations/authorization/insurance-channel-permission';
@@ -366,8 +368,98 @@ export class UsersService {
     });
   }
 
-  async findAllPaginatedInCompany(companyId: string, query: PaginationDto) {
-    return this.companiesService.findCompanyUsersPaginated(companyId, query);
+  /**
+   * Server-side table for the tenant Users page. Company + active-membership
+   * scope is applied before search/filters/sort/paging so records and count
+   * share the same WHERE clause.
+   */
+  async findAllPaginatedInCompany(companyId: string, query: FindUsersQueryDto) {
+    const qb = this.dataSource
+      .getRepository(CompanyUser)
+      .createQueryBuilder('membership')
+      .innerJoinAndSelect('membership.user', 'user')
+      .leftJoinAndSelect('membership.role_assignments', 'roleAssignments')
+      .leftJoinAndSelect('roleAssignments.role', 'roles')
+      .leftJoinAndSelect('roles.permissions', 'rolePermissions')
+      .leftJoinAndSelect(
+        'membership.permission_assignments',
+        'permissionAssignments',
+      )
+      .leftJoinAndSelect('permissionAssignments.permission', 'permissions')
+      .where('membership.company_id = :companyId', { companyId })
+      .andWhere('membership.status = :membershipStatus', {
+        membershipStatus: 'active',
+      });
+
+    if (query.status) {
+      qb.andWhere('user.status = :userStatus', { userStatus: query.status });
+    }
+    if (query.user_type) {
+      qb.andWhere('user.user_type = :userType', { userType: query.user_type });
+    }
+
+    const result = await paginateQueryBuilder(qb, query, {
+      sortable: {
+        user: 'user.first_name',
+        first_name: 'user.first_name',
+        last_name: 'user.last_name',
+        email: 'user.email',
+        user_no: 'user.user_no',
+        status: 'user.status',
+        created_at: 'user.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'user.first_name',
+        'user.last_name',
+        'user.email',
+        'user.phone',
+        'user.user_no',
+      ],
+      tieBreaker: 'membership.id',
+    });
+
+    return {
+      data: result.data.map((membership) => this.mapMembershipUser(membership)),
+      pagination: result.pagination,
+    };
+  }
+
+  private mapMembershipUser(membership: CompanyUser) {
+    const { user } = membership;
+    const permissions = new Set<string>();
+    membership.permission_assignments?.forEach((assignment) => {
+      if (assignment.permission?.name)
+        permissions.add(assignment.permission.name);
+    });
+    membership.role_assignments?.forEach((assignment) => {
+      assignment.role?.permissions?.forEach((permission) => {
+        if (permission?.name) permissions.add(permission.name);
+      });
+    });
+    return {
+      id: user.id,
+      user_no: user.user_no,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      email: user.email,
+      status: user.status,
+      user_type: user.user_type,
+      officer_title: user.officer_title,
+      is_email_verified: user.is_email_verified,
+      is_two_factor_enabled: user.is_two_factor_enabled,
+      last_login_at: user.last_login_at,
+      last_login_ip: user.last_login_ip,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      roles:
+        membership.role_assignments?.map(
+          (assignment) => assignment.role?.name,
+        ) ?? [],
+      permissions: Array.from(permissions),
+      quotation_policy_data_scope: membership.quotation_policy_data_scope,
+    };
   }
 
   async findByIdWithRelations(id: string): Promise<User | null> {

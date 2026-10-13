@@ -632,6 +632,7 @@ export interface RuleQueryParams {
   limit?: number;
   search?: string;
   risk_id?: string;
+  rate_book_id?: string;
   is_active?: boolean;
 }
 

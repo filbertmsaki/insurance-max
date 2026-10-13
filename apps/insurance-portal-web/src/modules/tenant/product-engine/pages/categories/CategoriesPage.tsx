@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -45,16 +44,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
-  useCategoryList,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
 } from '@/modules/tenant/product-engine/hooks';
+import { peKeys } from '@/modules/tenant/product-engine/hooks/query-keys';
+import { categoriesApi } from '@/modules/tenant/product-engine/api/categories';
 import type { InsuranceCategory } from '@/types/product-engine';
 import { format } from 'date-fns';
 
@@ -85,31 +90,28 @@ function ActiveBadge({ active }: { active: boolean }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const FILTER_KEYS = ['is_active'] as const;
+const ACTIVE_OPTIONS = [
+  { value: 'true', label: 'Active' },
+  { value: 'false', label: 'Inactive' },
+];
+
 export function CategoriesPage() {
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('insurance-categories:create');
   const canUpdate = hasPermission('insurance-categories:update');
   const canDelete = hasPermission('insurance-categories:delete');
 
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('search') ?? '';
-  const isActiveFilter = params.get('is_active');
-
-  const queryParams = {
-    page,
-    limit,
-    search: search || undefined,
-    is_active:
-      isActiveFilter === 'true'
-        ? true
-        : isActiveFilter === 'false'
-          ? false
-          : undefined,
-  };
-
-  const { data, isLoading } = useCategoryList(queryParams);
+  const { tableProps, state } = useServerTable<
+    InsuranceCategory,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: peKeys.categories.lists(),
+    fetcher: (params, signal) => categoriesApi.getList(params as never, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();
@@ -175,11 +177,12 @@ export function CategoriesPage() {
     {
       key: 'code',
       header: 'Code',
+      sortable: true,
       cell: (row) => (
         <span className="font-mono text-xs font-medium">{row.code}</span>
       ),
     },
-    { key: 'name', header: 'Name', cell: (row) => row.name },
+    { key: 'name', header: 'Name', sortable: true, cell: (row) => row.name },
     {
       key: 'business_line',
       header: 'Business Line',
@@ -192,11 +195,13 @@ export function CategoriesPage() {
     {
       key: 'is_active',
       header: 'Status',
+      sortable: true,
       cell: (row) => <ActiveBadge active={row.is_active} />,
     },
     {
       key: 'created_at',
       header: 'Created',
+      sortable: true,
       cell: (row) => (
         <span className="text-slate-500 text-xs">
           {format(new Date(row.created_at), 'dd MMM yyyy')}
@@ -267,66 +272,18 @@ export function CategoriesPage() {
       />
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <Input
-          placeholder="Search categories…"
-          value={search}
-          onChange={(e) => {
-            setParams((p) => {
-              const n = new URLSearchParams(p);
-              n.set('search', e.target.value);
-              n.set('page', '1');
-              return n;
-            });
-          }}
-          className="w-64 h-9"
-        />
-        <Select
-          value={isActiveFilter ?? 'all'}
-          onValueChange={(v) => {
-            setParams((p) => {
-              const n = new URLSearchParams(p);
-              if (v === 'all') n.delete('is_active');
-              else n.set('is_active', v);
-              n.set('page', '1');
-              return n;
-            });
-          }}
-        >
-          <SelectTrigger className="w-36 h-9">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">Active</SelectItem>
-            <SelectItem value="false">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data?.data ?? []}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={data?.pagination.total ?? 0}
-        totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={(p) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('page', String(p));
-            return n;
-          })
-        }
-        onLimitChange={(l) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('limit', String(l));
-            n.set('page', '1');
-            return n;
-          })
-        }
+        searchPlaceholder="Search categories…"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'is_active',
+            label: 'Status',
+            placeholder: 'All',
+            options: ACTIVE_OPTIONS,
+          },
+        ])}
       />
 
       {/* Create / Edit Dialog */}

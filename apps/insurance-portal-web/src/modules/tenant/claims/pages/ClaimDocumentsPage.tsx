@@ -1,41 +1,50 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { humanizeCode } from '@/components/shared/detailFormat';
 import { DOCUMENT_STATUS_META } from '../constants';
-import { useClaimDocumentRegister } from '../hooks';
+import { claimsApi } from '../api';
+import { claimsKeys } from '../hooks';
 import { claimsPaths } from '../paths';
 import type { ClaimDocumentRecord } from '../types';
 import { formatClaimDateTime } from '../utils';
 
-const ALL = 'all';
+const FILTER_KEYS = ['status'] as const;
+/** Sentinel for "every status"; an absent filter means the default queue. */
+const ALL = 'ALL';
+const DEFAULT_STATUS = 'UPLOADED';
 
 /**
  * Every claim document the user may see, newest first. Awaiting
  * verification is the default view: it is the verifier's work queue.
  */
 export function ClaimDocumentsPage() {
-  const [status, setStatus] = useState('UPLOADED');
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
-  const register = useClaimDocumentRegister({
-    status: status === ALL ? undefined : status,
-    page,
-    limit,
+  const { tableProps, state } = useServerTable<
+    ClaimDocumentRecord,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: [...claimsKeys.all, 'document-register'],
+    fetcher: ({ status, ...params }, signal) => {
+      const effective = status ?? DEFAULT_STATUS;
+      return claimsApi.documentRegister(
+        { ...params, status: effective === ALL ? undefined : effective },
+        signal,
+      );
+    },
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'uploaded_at',
   });
 
   const columns: Column<ClaimDocumentRecord>[] = [
     {
       key: 'title',
+      sortable: true,
       header: 'Document',
       cell: (row) => (
         <div className="space-y-0.5">
@@ -50,6 +59,7 @@ export function ClaimDocumentsPage() {
     },
     {
       key: 'claim',
+      sortable: true,
       header: 'Claim',
       cell: (row) =>
         row.claim ? (
@@ -65,18 +75,21 @@ export function ClaimDocumentsPage() {
     },
     {
       key: 'type',
+      sortable: true,
       header: 'Type',
       hideOnMobile: true,
       cell: (row) => humanizeCode(row.document_type),
     },
     {
       key: 'uploaded_at',
+      sortable: true,
       header: 'Uploaded',
       hideOnMobile: true,
       cell: (row) => formatClaimDateTime(row.uploaded_at),
     },
     {
       key: 'status',
+      sortable: true,
       header: 'Status',
       cell: (row) => {
         const meta = DOCUMENT_STATUS_META[row.status];
@@ -96,42 +109,29 @@ export function ClaimDocumentsPage() {
         title="Claim documents"
         description="Documents uploaded on claims. Open a claim to verify or reject its documents."
       />
-      <div className="flex flex-wrap gap-3">
-        <Select
-          value={status}
-          onValueChange={(value) => {
-            setStatus(value);
-            setPage(1);
-          }}
-        >
-          <SelectTrigger className="w-56" aria-label="Document status">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All documents</SelectItem>
-            {Object.entries(DOCUMENT_STATUS_META).map(([value, meta]) => (
-              <SelectItem key={value} value={value}>
-                {meta.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={register.data?.data ?? []}
-        loading={register.isLoading}
-        error={register.error ? 'Unable to load claim documents' : undefined}
-        onRetry={() => void register.refetch()}
-        page={page}
-        limit={limit}
-        total={register.data?.pagination.total ?? 0}
-        totalPages={register.data?.pagination.totalPages ?? 1}
-        onPageChange={setPage}
-        onLimitChange={(value) => {
-          setLimit(value);
-          setPage(1);
-        }}
+        searchPlaceholder="Search document, file, claim..."
+        filters={tableFilters(
+          { status: state.filters.status ?? DEFAULT_STATUS },
+          [
+            {
+              key: 'status',
+              label: 'Document status',
+              placeholder: 'Default view',
+              options: [
+                { value: ALL, label: 'All documents' },
+                ...Object.entries(DOCUMENT_STATUS_META).map(
+                  ([value, meta]) => ({
+                    value,
+                    label: meta.label,
+                  }),
+                ),
+              ],
+            },
+          ],
+        )}
         emptyMessage="No claim documents found"
       />
     </div>

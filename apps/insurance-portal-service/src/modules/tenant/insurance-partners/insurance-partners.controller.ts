@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -21,6 +22,8 @@ import { CreateInsurancePartnerDto } from './dto/create-insurance-partner.dto';
 import { ReplacePartnerProductScopesDto } from './dto/replace-partner-product-scopes.dto';
 import { PartnerStatusReasonDto } from './dto/partner-status-reason.dto';
 import { InsurancePartnersService } from './insurance-partners.service';
+import { FindInsurancePartnersQueryDto } from './dto/find-insurance-partners-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import {
   ProposePartnerAmendmentDto,
   RespondPartnerAmendmentDto,
@@ -126,8 +129,13 @@ export class InsurancePartnersController {
   @ApiOperation({
     summary: 'List partner relationships for the active insurer',
   })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.service.findAll(user.companyId);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindInsurancePartnersQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.service.findPage(user.companyId, query)
+      : this.service.findAll(user.companyId);
   }
 
   @Get(':id')

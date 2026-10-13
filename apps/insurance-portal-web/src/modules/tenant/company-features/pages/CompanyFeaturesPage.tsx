@@ -1,15 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Plus,
-  Search,
-  Zap,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  CheckCircle2,
-  XCircle,
-} from 'lucide-react';
+import { Plus, Zap, Pencil, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,13 +27,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Form,
   FormControl,
   FormDescription,
@@ -51,17 +35,21 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
-  useCompanyFeaturesList,
+  companyFeaturesKeys,
   useUpsertCompanyFeature,
   useDeleteCompanyFeature,
 } from '@/modules/tenant/company-features/hooks';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import type { CompanyFeature } from '@/types';
-import type { CompanyFeatureSortKey } from '@/modules/tenant/company-features/hooks';
 import {
   companyFeaturesApi,
   type CompanyUserBranchAssignment,
@@ -367,6 +355,13 @@ function UpsertFeatureDialog({
   );
 }
 
+const FEATURE_FILTER_KEYS = ['is_enabled'] as const;
+type FeatureFilterKey = (typeof FEATURE_FILTER_KEYS)[number];
+const FEATURE_STATUS_OPTIONS = [
+  { value: 'true', label: 'Enabled' },
+  { value: 'false', label: 'Disabled' },
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function CompanyFeaturesPage() {
@@ -378,21 +373,18 @@ export function CompanyFeaturesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteName, setDeleteName] = useState('');
 
-  const {
-    features,
-    total,
-    totalPages,
-    isLoading,
-    search,
-    page,
-    limit,
-    sortBy,
-    sortOrder,
-    setSearch,
-    setPage,
-    setLimit,
-    setSort,
-  } = useCompanyFeaturesList();
+  const { tableProps, state } = useServerTable<
+    CompanyFeature,
+    FeatureFilterKey
+  >({
+    queryKey: companyFeaturesKeys.lists(),
+    fetcher: (params, signal) =>
+      companyFeaturesApi.listCompanyFeatures(params, signal),
+    filterKeys: FEATURE_FILTER_KEYS,
+    defaultSortBy: 'feature_key',
+    defaultSortOrder: 'ASC',
+    defaultLimit: 10,
+  });
 
   const upsertMutation = useUpsertCompanyFeature();
   const deleteMutation = useDeleteCompanyFeature();
@@ -478,38 +470,23 @@ export function CompanyFeaturesPage() {
         </span>
       ),
     },
-    ...(canManage
-      ? [
-          {
-            key: 'actions' as keyof CompanyFeature,
-            header: '',
-            className: 'w-12',
-            cell: (r: CompanyFeature) => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-40">
-                  <DropdownMenuItem onClick={() => openEdit(r)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => openDelete(r)}
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ),
-          },
-        ]
-      : []),
+  ];
+
+  const rowActions = [
+    {
+      label: 'Edit',
+      icon: Pencil,
+      hidden: !canManage,
+      onClick: openEdit,
+    },
+    {
+      label: 'Delete',
+      icon: Trash2,
+      destructive: true,
+      separator: true,
+      hidden: !canManage,
+      onClick: openDelete,
+    },
   ];
 
   return (
@@ -527,31 +504,19 @@ export function CompanyFeaturesPage() {
         }
       />
 
-      <div className="mb-4 relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search features…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={features}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={total}
-        totalPages={totalPages}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
-        onSortChange={(key, order) =>
-          setSort(key as CompanyFeatureSortKey, order)
-        }
+        searchPlaceholder="Search features…"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'is_enabled',
+            label: 'Status',
+            options: FEATURE_STATUS_OPTIONS,
+          },
+        ])}
+        rowActions={canManage ? rowActions : undefined}
+        emptyMessage="No features yet"
       />
 
       <UpsertFeatureDialog

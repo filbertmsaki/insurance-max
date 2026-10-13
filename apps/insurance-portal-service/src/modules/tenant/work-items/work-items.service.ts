@@ -9,6 +9,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Brackets, DataSource, Repository } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { FindWorkItemsQueryDto } from './dto/work-item-list-query.dto';
 
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import {
@@ -147,6 +149,41 @@ export class WorkItemsService {
     user: AuthenticatedUser,
     view = 'all',
   ): Promise<WorkItem[]> {
+    return this.scopedListQuery(user, view)
+      .orderBy('item.due_at', 'ASC', 'NULLS LAST')
+      .addOrderBy('item.created_at', 'DESC')
+      .getMany();
+  }
+
+  /** Server-side table: view + branch/assignment scope applied before paging and counting. */
+  findPage(user: AuthenticatedUser, query: FindWorkItemsQueryDto) {
+    const qb = this.scopedListQuery(user, query.view || 'all');
+    if (query.status) {
+      qb.andWhere('item.status = :statusFilter', {
+        statusFilter: query.status,
+      });
+    }
+    if (query.priority) {
+      qb.andWhere('item.priority = :priorityFilter', {
+        priorityFilter: query.priority,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        work_item_no: 'item.work_item_no',
+        priority: 'item.priority',
+        status: 'item.status',
+        due_at: 'item.due_at',
+        created_at: 'item.created_at',
+      },
+      defaultSort: 'due_at',
+      defaultOrder: 'ASC',
+      searchable: ['item.work_item_no', 'item.title', 'item.queue_code'],
+      tieBreaker: 'item.id',
+    });
+  }
+
+  private scopedListQuery(user: AuthenticatedUser, view: string) {
     const scope = this.scopeService.resolve(user);
     const supportedViews = new Set([
       'my',
@@ -167,9 +204,7 @@ export class WorkItemsService {
       .createQueryBuilder('item')
       .where('item.company_id = :companyId', {
         companyId: scope.companyId,
-      })
-      .orderBy('item.due_at', 'ASC', 'NULLS LAST')
-      .addOrderBy('item.created_at', 'DESC');
+      });
 
     if (!scope.canViewAllBranches) {
       queryBuilder.andWhere(
@@ -262,7 +297,7 @@ export class WorkItemsService {
       );
     }
 
-    return queryBuilder.getMany();
+    return queryBuilder;
   }
 
   async listQueues(user: AuthenticatedUser) {

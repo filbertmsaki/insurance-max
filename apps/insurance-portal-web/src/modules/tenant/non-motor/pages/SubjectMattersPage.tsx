@@ -1,33 +1,38 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Pencil, Trash2, Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { useDeleteSubjectMatter, useSubjectMattersList } from '../hooks';
+import { nonMotorKeys, useDeleteSubjectMatter } from '../hooks';
+import { nonMotorApi } from '../api';
 import { SubjectMatterStatusBadge } from '../components/SubjectMatterStatusBadge';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import type { SubjectMatterRecord } from '../types';
 
 export function SubjectMattersPage() {
   const navigate = useNavigate();
-  const { data, isLoading, page, limit, search, setSearch, setPage, setLimit } =
-    useSubjectMattersList();
+  const { tableProps } = useServerTable<SubjectMatterRecord>({
+    queryKey: nonMotorKeys.subjectMatters(),
+    fetcher: (params, signal) => nonMotorApi.getSubjectMatters(params, signal),
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
   const deleteMutation = useDeleteSubjectMatter();
   const [deleteItem, setDeleteItem] = useState<SubjectMatterRecord | null>(
     null,
   );
 
-  const subjectMatters = data?.data ?? [];
-  const total = data?.pagination.total ?? 0;
-  const totalPages = data?.pagination.totalPages ?? 0;
-
   const columns: Column<SubjectMatterRecord>[] = [
     {
       key: 'subject_code',
       header: 'Subject Matter',
+      sortable: true,
       cell: (row) => (
         <div>
           <p className="font-medium text-slate-900">
@@ -53,6 +58,7 @@ export function SubjectMattersPage() {
     {
       key: 'value',
       header: 'Value',
+      sortable: true,
       cell: (row) => (
         <span className="text-sm text-slate-600">
           {row.currency} {row.value}
@@ -62,11 +68,13 @@ export function SubjectMattersPage() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       cell: (row) => <SubjectMatterStatusBadge status={row.status} />,
     },
     {
       key: 'created_at',
       header: 'Created',
+      sortable: true,
       cell: (row) => (
         <span className="text-sm text-slate-500">
           {new Date(row.created_at).toLocaleDateString()}
@@ -82,9 +90,7 @@ export function SubjectMattersPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() =>
-              navigate(`/underwrite/non-motor/risks/${row.id}`)
-            }
+            onClick={() => navigate(`/underwrite/non-motor/risks/${row.id}`)}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -115,39 +121,17 @@ export function SubjectMattersPage() {
         title="Subject Matters"
         description="Reference data for non-motor risks (Fire, Marine, Engineering, Liability, etc.)"
         action={
-          <Button
-            onClick={() =>
-              navigate('/underwrite/non-motor/risks/new')
-            }
-          >
+          <Button onClick={() => navigate('/underwrite/non-motor/risks/new')}>
             <Plus className="mr-2 h-4 w-4" />
             Create Subject Matter
           </Button>
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="relative max-w-sm flex-1 min-w-64">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search subject matters..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={subjectMatters}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={total}
-        totalPages={totalPages}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
+        searchPlaceholder="Search subject matters..."
       />
 
       <ConfirmDialog

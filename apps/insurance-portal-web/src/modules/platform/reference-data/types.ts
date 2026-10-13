@@ -40,6 +40,16 @@ export interface ReferenceListParams {
   region_id?: string;
 }
 
+export interface ReferenceTableParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  is_active?: string;
+  country_id?: string;
+}
+
 export type ReferenceKind =
   | 'countries'
   | 'regions'

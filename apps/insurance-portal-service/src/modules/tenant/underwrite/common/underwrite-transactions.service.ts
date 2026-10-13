@@ -7,6 +7,16 @@ import {
   type UnderwriteLine,
 } from '@insurance-max/contracts';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import {
+  isPagedRequest,
+  type TableQueryDto,
+} from '@insurance-max/portal-shared/dto/table-query.dto';
+import {
+  buildPaginationMeta,
+  escapeLike,
+  normalizePage,
+  type PaginatedResult,
+} from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { Policy } from '../../policies/entities/policy.entity';
@@ -50,6 +60,83 @@ function customerName(snapshot: unknown): string | null {
   return names.length ? names.join(' ') : null;
 }
 
+const RENEWAL_TABLE = {
+  sortable: {
+    renewal_no: 'renewal.renewal_no',
+    renewal_status: 'renewal.renewal_status',
+    renewal_start_date: 'renewal.renewal_start_date',
+    created_at: 'renewal.created_at',
+  } as Record<string, string>,
+  searchable: ['renewal.renewal_no', 'policy.policy_no'],
+  tieBreaker: 'renewal.id',
+};
+
+const TRANSACTION_TABLE = {
+  sortable: {
+    transaction_no: 'transaction.transaction_no',
+    effective_date: 'transaction.effective_date',
+    net_premium_difference: 'transaction.net_premium_difference',
+    stage: 'transaction.stage',
+    submission_status: 'transaction.submission_status',
+    created_at: 'transaction.created_at',
+  } as Record<string, string>,
+  searchable: [
+    'transaction.transaction_no',
+    'policy.policy_no',
+    'policy.cover_note_no',
+  ],
+  tieBreaker: 'transaction.id',
+};
+
+/**
+ * Applies allowlisted search + sort to a scoped query and returns the page
+ * window. Scope/filters must already be on the query so count and rows match.
+ * Uses offset/limit because the joins are all many-to-one (one row per root).
+ */
+async function applyTableWindow<T extends ObjectLiteral>(
+  query: SelectQueryBuilder<T>,
+  input: TableQueryDto,
+  table: {
+    sortable: Record<string, string>;
+    searchable: string[];
+    tieBreaker: string;
+  },
+) {
+  const term = input.search?.trim();
+  if (term) {
+    query.andWhere(
+      `(${table.searchable
+        .map(
+          (column) => `CAST(${column} AS TEXT) ILIKE :tableSearch ESCAPE '\\'`,
+        )
+        .join(' OR ')})`,
+      { tableSearch: `%${escapeLike(term)}%` },
+    );
+  }
+  const sortKey =
+    input.sortBy &&
+    Object.prototype.hasOwnProperty.call(table.sortable, input.sortBy)
+      ? input.sortBy
+      : 'created_at';
+  const direction = input.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+  query
+    .orderBy(table.sortable[sortKey], direction, 'NULLS LAST')
+    .addOrderBy(table.tieBreaker, direction);
+
+  const { page, limit, skip } = normalizePage(input);
+  const total = await query.getCount();
+  query.offset(skip).limit(limit);
+  return { page, limit, total };
+}
+
+type UnderwriteRenewalRow = ReturnType<
+  UnderwriteTransactionsService['mapRenewals']
+>[number];
+
+type UnderwriteTransactionRow = ReturnType<
+  UnderwriteTransactionsService['mapTransactionRows']
+>[number];
+
 function transactionTypeForKind(kind: Exclude<TransactionKind, 'renewal'>) {
   return kind === 'endorsement'
     ? PolicyTransactionType.ENDORSEMENT
@@ -77,7 +164,20 @@ export class UnderwriteTransactionsService {
     private readonly dataAccessScopeService: DataAccessScopeService,
   ) {}
 
-  listRenewals(user: AuthenticatedUser, line: UnderwriteLine) {
+  listRenewals(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+  ): Promise<UnderwriteRenewalRow[]>;
+  listRenewals(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    table?: TableQueryDto,
+  ): Promise<UnderwriteRenewalRow[] | PaginatedResult<UnderwriteRenewalRow>>;
+  async listRenewals(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    table?: TableQueryDto,
+  ) {
     const query = this.renewalRepository
       .createQueryBuilder('renewal')
       .innerJoinAndSelect('renewal.policy_transaction', 'transaction')
@@ -89,92 +189,167 @@ export class UnderwriteTransactionsService {
 
     this.applyPolicyScope(query, user, 'renewals:read');
 
-    return query
-      .getRawAndEntities<{ renewal_id: string; source_policy_no: string }>()
-      .then(({ entities, raw }) => {
-        // PolicyTransaction has no policy number of its own.
-        const policyNos = new Map(
-          raw.map((row) => [row.renewal_id, row.source_policy_no ?? null]),
-        );
-        return entities.map((renewal) => {
-          const policyNo = policyNos.get(renewal.id) ?? null;
-          return {
-            kind: 'renewal' as const,
-            id: renewal.id,
-            renewal_no: renewal.renewal_no,
-            renewal_status: renewal.renewal_status,
-            renewal_start_date: renewal.renewal_start_date,
-            renewal_end_date: renewal.renewal_end_date,
-            offer_expires_at: renewal.offer_expires_at,
-            created_at: renewal.created_at,
-            policy_no: policyNo,
-            policy_transaction: {
-              ...renewal.policy_transaction,
-              policy_no: policyNo,
-            },
-          };
-        });
-      });
+    if (table && isPagedRequest(table)) {
+      const { page, limit, total } = await applyTableWindow(
+        query,
+        table,
+        RENEWAL_TABLE,
+      );
+      const data = this.mapRenewals(
+        await query.getRawAndEntities<{
+          renewal_id: string;
+          source_policy_no: string;
+        }>(),
+      );
+      return { data, pagination: buildPaginationMeta(page, limit, total) };
+    }
+
+    return this.mapRenewals(
+      await query.getRawAndEntities<{
+        renewal_id: string;
+        source_policy_no: string;
+      }>(),
+    );
+  }
+
+  /** @internal */
+  mapRenewals({
+    entities,
+    raw,
+  }: {
+    entities: PolicyRenewal[];
+    raw: Array<{ renewal_id: string; source_policy_no: string }>;
+  }) {
+    // PolicyTransaction has no policy number of its own.
+    const policyNos = new Map(
+      raw.map((row) => [row.renewal_id, row.source_policy_no ?? null]),
+    );
+    return entities.map((renewal) => {
+      const policyNo = policyNos.get(renewal.id) ?? null;
+      return {
+        kind: 'renewal' as const,
+        id: renewal.id,
+        renewal_no: renewal.renewal_no,
+        renewal_status: renewal.renewal_status,
+        renewal_start_date: renewal.renewal_start_date,
+        renewal_end_date: renewal.renewal_end_date,
+        offer_expires_at: renewal.offer_expires_at,
+        created_at: renewal.created_at,
+        policy_no: policyNo,
+        policy_transaction: {
+          ...renewal.policy_transaction,
+          policy_no: policyNo,
+        },
+      };
+    });
   }
 
   listTransactions(
     user: AuthenticatedUser,
     line: UnderwriteLine,
     kind: Exclude<TransactionKind, 'renewal'>,
+  ): Promise<UnderwriteTransactionRow[]>;
+  listTransactions(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    kind: Exclude<TransactionKind, 'renewal'>,
+    table?: TableQueryDto,
+  ): Promise<
+    UnderwriteTransactionRow[] | PaginatedResult<UnderwriteTransactionRow>
+  >;
+  async listTransactions(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    kind: Exclude<TransactionKind, 'renewal'>,
+    table?: TableQueryDto,
   ) {
-    return this.scopedTransactionQuery(user, line)
+    const query = this.scopedTransactionQuery(user, line)
       .andWhere('transaction.transaction_type = :transactionType', {
         transactionType: transactionTypeForKind(kind),
       })
-      .orderBy('transaction.created_at', 'DESC')
-      .getRawMany<{
-        id: string;
-        transaction_no: string;
-        transaction_type: string;
-        stage: string;
-        approval_status: string;
-        payment_status: string;
-        submission_status: string;
-        source_policy_id: string;
-        effective_date: string;
-        reason: string;
-        premium_effect: string;
-        additional_premium: string;
-        return_premium: string;
-        net_premium_difference: string;
-        currency_code: string;
-        tiramis_request_id: string | null;
-        tiramis_transaction_id: string | null;
-        created_at: Date;
-        updated_at: Date;
-        policy_no: string;
-        cover_note_no: string | null;
-        customer_snapshot: unknown;
-        endorsement_type_code: string | null;
-        endorsement_type_name: string | null;
-        regulatory_status_code: string | null;
-        regulatory_status_description: string | null;
-      }>()
-      .then((rows) =>
-        rows.map(
-          ({
-            regulatory_status_code: _statusCode,
-            regulatory_status_description: _statusDescription,
-            ...row
-          }) => ({
-            kind,
-            ...row,
-            customer_name: customerName(row.customer_snapshot),
-          }),
-        ),
+      .orderBy('transaction.created_at', 'DESC');
+
+    if (table && isPagedRequest(table)) {
+      const { page, limit, total } = await applyTableWindow(
+        query,
+        table,
+        TRANSACTION_TABLE,
       );
+      const data = this.mapTransactionRows(
+        kind,
+        await this.fetchTransactionRows(query),
+      );
+      return { data, pagination: buildPaginationMeta(page, limit, total) };
+    }
+
+    return this.mapTransactionRows(
+      kind,
+      await this.fetchTransactionRows(query),
+    );
+  }
+
+  /** @internal */
+  fetchTransactionRows(query: SelectQueryBuilder<PolicyTransaction>) {
+    return query.getRawMany<{
+      id: string;
+      transaction_no: string;
+      transaction_type: string;
+      stage: string;
+      approval_status: string;
+      payment_status: string;
+      submission_status: string;
+      source_policy_id: string;
+      effective_date: string;
+      reason: string;
+      premium_effect: string;
+      additional_premium: string;
+      return_premium: string;
+      net_premium_difference: string;
+      currency_code: string;
+      tiramis_request_id: string | null;
+      tiramis_transaction_id: string | null;
+      created_at: Date;
+      updated_at: Date;
+      policy_no: string;
+      cover_note_no: string | null;
+      customer_snapshot: unknown;
+      endorsement_type_code: string | null;
+      endorsement_type_name: string | null;
+      regulatory_status_code: string | null;
+      regulatory_status_description: string | null;
+    }>();
+  }
+
+  /** @internal */
+  mapTransactionRows(
+    kind: Exclude<TransactionKind, 'renewal'>,
+    rows: Awaited<
+      ReturnType<UnderwriteTransactionsService['fetchTransactionRows']>
+    >,
+  ) {
+    return rows.map(
+      ({
+        regulatory_status_code: _statusCode,
+        regulatory_status_description: _statusDescription,
+        ...row
+      }) => ({
+        kind,
+        ...row,
+        customer_name: customerName(row.customer_snapshot),
+      }),
+    );
   }
 
   async listTiraQueue(
     user: AuthenticatedUser,
     line: UnderwriteLine,
     kind: TiraQueueKind,
+    table?: TableQueryDto,
   ) {
+    if (table && isPagedRequest(table)) {
+      return this.listTiraQueuePage(user, line, kind, table);
+    }
+
     const [quotations, transactions] = await Promise.all([
       this.listQuotationTiraQueue(user, line, kind),
       this.listTransactionTiraQueue(user, line, kind),
@@ -185,6 +360,54 @@ export class UnderwriteTransactionsService {
         new Date(right.updated_at).getTime() -
         new Date(left.updated_at).getTime(),
     );
+  }
+
+  /**
+   * Paged TIRA worklist. The queue merges two tables, so each source applies
+   * scope, status rules and the search term in SQL, is counted, and returns
+   * only its first (skip + limit) rows ordered by updated_at + id. Merging
+   * those windows and slicing gives the exact requested page without loading
+   * the whole queue.
+   */
+  private async listTiraQueuePage(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    kind: TiraQueueKind,
+    table: TableQueryDto,
+  ) {
+    const { page, limit, skip } = normalizePage(table);
+    const direction: 'ASC' | 'DESC' =
+      table.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    const window = {
+      term: table.search?.trim() || undefined,
+      direction,
+      take: skip + limit,
+    };
+
+    const [quotations, transactions] = await Promise.all([
+      this.listQuotationTiraQueue(user, line, kind, window),
+      this.listTransactionTiraQueue(user, line, kind, window),
+    ]);
+
+    const sign = direction === 'ASC' ? 1 : -1;
+    const data = [...quotations.rows, ...transactions.rows]
+      .sort((left, right) => {
+        const diff =
+          new Date(left.updated_at).getTime() -
+          new Date(right.updated_at).getTime();
+        if (diff !== 0) return diff * sign;
+        return left.id < right.id ? -sign : left.id > right.id ? sign : 0;
+      })
+      .slice(skip, skip + limit);
+
+    return {
+      data,
+      pagination: buildPaginationMeta(
+        page,
+        limit,
+        quotations.total + transactions.total,
+      ),
+    };
   }
 
   async assertPolicyInLine(
@@ -310,6 +533,18 @@ export class UnderwriteTransactionsService {
     user: AuthenticatedUser,
     line: UnderwriteLine,
     kind: TiraQueueKind,
+  ): Promise<ReturnType<typeof mapQuotationTiraRows>>;
+  private async listQuotationTiraQueue(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    kind: TiraQueueKind,
+    window: TiraQueueWindow,
+  ): Promise<{ rows: ReturnType<typeof mapQuotationTiraRows>; total: number }>;
+  private async listQuotationTiraQueue(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    kind: TiraQueueKind,
+    window?: TiraQueueWindow,
   ) {
     const query = this.quotationRepository
       .createQueryBuilder('quotation')
@@ -370,30 +605,42 @@ export class UnderwriteTransactionsService {
       this.dataAccessScopeService.resolve(user, 'quotations:read'),
     );
 
-    const rows = await query.getRawMany<{
-      id: string;
-      reference_no: string;
-      workflow_status: string;
-      tira_status: string | null;
-      tira_request_id: string | null;
-      tira_response_id: string | null;
-      status_code: string | null;
-      status_description: string | null;
-      customer_snapshot: unknown;
-      updated_at: Date;
-      source_kind: 'quotation';
-    }>();
+    if (!window) {
+      return mapQuotationTiraRows(await query.getRawMany());
+    }
 
-    return rows.map((row) => ({
-      ...row,
-      customer_name: customerName(row.customer_snapshot),
-    }));
+    applyTiraSearch(query, window.term, [
+      'quotation.quotation_no',
+      'quotation.tira_request_id',
+      'quotation.customer_snapshot',
+    ]);
+    const total = await query.getCount();
+    query
+      .orderBy('quotation.updated_at', window.direction)
+      .addOrderBy('quotation.id', window.direction)
+      .limit(window.take);
+    return { rows: mapQuotationTiraRows(await query.getRawMany()), total };
   }
 
   private listTransactionTiraQueue(
     user: AuthenticatedUser,
     line: UnderwriteLine,
     kind: TiraQueueKind,
+  ): Promise<ReturnType<typeof mapTransactionTiraRows>>;
+  private listTransactionTiraQueue(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    kind: TiraQueueKind,
+    window: TiraQueueWindow,
+  ): Promise<{
+    rows: ReturnType<typeof mapTransactionTiraRows>;
+    total: number;
+  }>;
+  private async listTransactionTiraQueue(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    kind: TiraQueueKind,
+    window?: TiraQueueWindow,
   ) {
     const statuses =
       kind === 'failed'
@@ -405,7 +652,7 @@ export class UnderwriteTransactionsService {
             WorkflowSubmissionStatus.ACKNOWLEDGED,
           ];
 
-    return this.scopedTransactionQuery(user, line)
+    const query = this.scopedTransactionQuery(user, line)
       .andWhere('transaction.submission_status IN (:...statuses)', {
         statuses,
       })
@@ -415,58 +662,28 @@ export class UnderwriteTransactionsService {
           PolicyTransactionType.CANCELLATION,
         ],
       })
-      .orderBy('transaction.updated_at', 'DESC')
-      .getRawMany<{
-        id: string;
-        transaction_no: string;
-        transaction_type: string;
-        stage: string;
-        approval_status: string;
-        payment_status: string;
-        submission_status: string;
-        source_policy_id: string;
-        effective_date: string;
-        reason: string;
-        premium_effect: string;
-        additional_premium: string;
-        return_premium: string;
-        net_premium_difference: string;
-        currency_code: string;
-        tiramis_request_id: string | null;
-        tiramis_transaction_id: string | null;
-        created_at: Date;
-        updated_at: Date;
-        policy_no: string;
-        cover_note_no: string | null;
-        customer_snapshot: unknown;
-        endorsement_type_code: string | null;
-        endorsement_type_name: string | null;
-        regulatory_status_code: string | null;
-        regulatory_status_description: string | null;
-      }>()
-      .then((rows) =>
-        rows.map((row) => ({
-          source_kind: 'policy_transaction' as const,
-          id: row.id,
-          reference_no: row.transaction_no,
-          workflow_status: row.submission_status,
-          tira_status: row.submission_status,
-          tira_request_id: row.tiramis_request_id,
-          tira_response_id: row.tiramis_transaction_id,
-          // TIRA's own outcome when one was captured, else the business reason.
-          status_code: row.regulatory_status_code ?? null,
-          status_description: row.regulatory_status_description ?? row.reason,
-          customer_snapshot: row.customer_snapshot,
-          customer_name: customerName(row.customer_snapshot),
-          updated_at: row.updated_at,
-          transaction_type: row.transaction_type,
-          source_policy_id: row.source_policy_id,
-          policy_no: row.policy_no,
-          cover_note_no: row.cover_note_no,
-          endorsement_type_code: row.endorsement_type_code,
-          endorsement_type_name: row.endorsement_type_name,
-        })),
-      );
+      .orderBy('transaction.updated_at', 'DESC');
+
+    if (!window) {
+      return mapTransactionTiraRows(await this.fetchTransactionRows(query));
+    }
+
+    applyTiraSearch(query, window.term, [
+      'transaction.transaction_no',
+      'transaction.tiramis_request_id',
+      'policy.policy_no',
+      'policy.cover_note_no',
+      'policy.customer_snapshot',
+    ]);
+    const total = await query.getCount();
+    query
+      .orderBy('transaction.updated_at', window.direction)
+      .addOrderBy('transaction.id', window.direction)
+      .limit(window.take);
+    return {
+      rows: mapTransactionTiraRows(await this.fetchTransactionRows(query)),
+      total,
+    };
   }
 
   private scopedTransactionQuery(
@@ -535,4 +752,74 @@ export class UnderwriteTransactionsService {
       this.dataAccessScopeService.resolve(user, permission),
     );
   }
+}
+
+interface TiraQueueWindow {
+  term?: string;
+  direction: 'ASC' | 'DESC';
+  /** Rows to read from each source: skip + limit of the requested page. */
+  take: number;
+}
+
+function applyTiraSearch<T extends ObjectLiteral>(
+  query: SelectQueryBuilder<T>,
+  term: string | undefined,
+  columns: string[],
+) {
+  if (!term) return;
+  query.andWhere(
+    `(${columns
+      .map((column) => `CAST(${column} AS TEXT) ILIKE :tiraSearch ESCAPE '\\'`)
+      .join(' OR ')})`,
+    { tiraSearch: `%${escapeLike(term)}%` },
+  );
+}
+
+function mapQuotationTiraRows(
+  rows: Array<{
+    id: string;
+    reference_no: string;
+    workflow_status: string;
+    tira_status: string | null;
+    tira_request_id: string | null;
+    tira_response_id: string | null;
+    status_code: string | null;
+    status_description: string | null;
+    customer_snapshot: unknown;
+    updated_at: Date;
+    source_kind: 'quotation';
+  }>,
+) {
+  return rows.map((row) => ({
+    ...row,
+    customer_name: customerName(row.customer_snapshot),
+  }));
+}
+
+function mapTransactionTiraRows(
+  rows: Awaited<
+    ReturnType<UnderwriteTransactionsService['fetchTransactionRows']>
+  >,
+) {
+  return rows.map((row) => ({
+    source_kind: 'policy_transaction' as const,
+    id: row.id,
+    reference_no: row.transaction_no,
+    workflow_status: row.submission_status,
+    tira_status: row.submission_status,
+    tira_request_id: row.tiramis_request_id,
+    tira_response_id: row.tiramis_transaction_id,
+    // TIRA's own outcome when one was captured, else the business reason.
+    status_code: row.regulatory_status_code ?? null,
+    status_description: row.regulatory_status_description ?? row.reason,
+    customer_snapshot: row.customer_snapshot,
+    customer_name: customerName(row.customer_snapshot),
+    updated_at: row.updated_at,
+    transaction_type: row.transaction_type,
+    source_policy_id: row.source_policy_id,
+    policy_no: row.policy_no,
+    cover_note_no: row.cover_note_no,
+    endorsement_type_code: row.endorsement_type_code,
+    endorsement_type_name: row.endorsement_type_name,
+  }));
 }

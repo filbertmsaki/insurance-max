@@ -52,10 +52,31 @@ export interface UpdateDepartmentStatusDto {
   status: 'active' | 'inactive';
 }
 
+/** Backend page-size cap for server-side tables. */
+const MAX_TABLE_LIMIT = 100;
+
 export const departmentsApi = {
-  getDepartments: (params?: DepartmentQueryParams) =>
+  /**
+   * GET /departments. A request for more than one table page (legacy
+   * "fetch all" callers pass limit > 100) is sent without page/limit so the
+   * backend returns every department of the company.
+   */
+  getDepartments: (params?: DepartmentQueryParams) => {
+    const wantsAll = (params?.limit ?? 0) > MAX_TABLE_LIMIT;
+    return apiClient
+      .get<PaginatedResponse<DepartmentRecord>>('/departments', {
+        params: wantsAll ? undefined : params,
+      })
+      .then((r) => r.data);
+  },
+
+  /** GET /departments?page=… — server-side table page (search/status/branch/sort). */
+  listDepartments: (params: Record<string, unknown>, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<DepartmentRecord>>('/departments', { params })
+      .get<PaginatedResponse<DepartmentRecord>>('/departments', {
+        params,
+        signal,
+      })
       .then((r) => r.data),
 
   getDepartment: (departmentId: string) =>

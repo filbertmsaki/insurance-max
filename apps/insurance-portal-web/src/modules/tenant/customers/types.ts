@@ -128,6 +128,8 @@ export interface CustomerListParams {
     | 'last_name'
     | 'company_name'
     | 'status'
+    | 'customer_type'
+    | 'kyc_status'
     | 'created_at'
     | 'updated_at';
   sortOrder?: SortOrder;

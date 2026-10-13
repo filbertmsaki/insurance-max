@@ -95,12 +95,29 @@ export interface CompanyDataAccessMember {
   scope_is_mixed: boolean;
 }
 
+export interface CompaniesListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  status?: string;
+  verification_status?: string;
+  company_type?: string;
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 export const companiesApi = {
   /** GET /companies — Owner only: list all companies */
   getCompanies: () =>
     apiClient.get<Company[]>('/companies').then((r) => r.data),
+
+  /** GET /companies?page=… — Owner only: server-side paginated list */
+  listCompanies: (params: CompaniesListParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<Company>>('/companies', { params, signal })
+      .then((r) => r.data),
 
   /** POST /companies — Owner only: create company + admin */
   createCompany: (data: CreateCompanyDto) =>

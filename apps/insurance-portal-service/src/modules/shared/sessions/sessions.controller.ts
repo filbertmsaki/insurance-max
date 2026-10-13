@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -14,6 +15,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 
 import { SessionsService } from './sessions.service';
+import { FindSessionsQueryDto } from './dto/find-sessions-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
@@ -29,8 +32,17 @@ export class SessionsController {
 
   @Get()
   @ApiOperation({ summary: 'List my active sessions' })
-  findMySessions(@CurrentUser() user: AuthenticatedUser) {
-    return this.sessionsService.findUserSessions(user.id, user.sessionId);
+  findMySessions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindSessionsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.sessionsService.findUserSessionsPage(
+          user.id,
+          query,
+          user.sessionId,
+        )
+      : this.sessionsService.findUserSessions(user.id, user.sessionId);
   }
 
   @Delete('others')

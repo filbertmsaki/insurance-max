@@ -1,46 +1,45 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Pencil, Trash2, Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import {
-  useDeleteMotorVehicle,
-  useMotorCustomers,
-  useMotorVehiclesList,
-} from '../hooks';
+import { useDeleteMotorVehicle, useMotorCustomers, motorKeys } from '../hooks';
 import { MotorStatusBadge } from '../components/MotorStatusBadge';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import { motorApi } from '../api';
 import type { MotorVehicleRecord } from '../types';
+
+const FILTER_KEYS = ['status', 'customer_id'] as const;
+type MotorFilterKey = (typeof FILTER_KEYS)[number];
+const STATUS_OPTIONS = [
+  { label: 'Active', value: 'ACTIVE' },
+  { label: 'Inactive', value: 'INACTIVE' },
+];
 
 export function MotorVehiclesPage() {
   const navigate = useNavigate();
   const { data: customerOptions = [] } = useMotorCustomers();
-  const {
-    vehicles,
-    total,
-    totalPages,
-    page,
-    limit,
-    search,
-    status,
-    customerId,
-    isLoading,
-    setSearch,
-    setStatus,
-    setCustomerId,
-    setPage,
-    setLimit,
-  } = useMotorVehiclesList();
+  const { tableProps, state } = useServerTable<
+    MotorVehicleRecord,
+    MotorFilterKey
+  >({
+    queryKey: motorKeys.vehicles(),
+    fetcher: (params, signal) => motorApi.getVehicles(params, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
+  const customerFilterOptions = customerOptions.map((customer) => ({
+    value: customer.id,
+    label: `${getCustomerDisplayName(customer)} (${customer.customer_no})`,
+  }));
   const deleteMutation = useDeleteMotorVehicle();
   const [deleteItem, setDeleteItem] = useState<MotorVehicleRecord | null>(null);
 
@@ -48,6 +47,7 @@ export function MotorVehiclesPage() {
     {
       key: 'registration_no',
       header: 'Vehicle',
+      sortable: true,
       cell: (row) => (
         <div>
           <p className="font-medium text-slate-900">
@@ -73,6 +73,7 @@ export function MotorVehiclesPage() {
     {
       key: 'vehicle_value',
       header: 'Value',
+      sortable: true,
       cell: (row) => (
         <span className="text-sm text-slate-600">
           {row.currency} {row.vehicle_value}
@@ -82,11 +83,13 @@ export function MotorVehiclesPage() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       cell: (row) => <MotorStatusBadge status={row.status} />,
     },
     {
       key: 'created_at',
       header: 'Created',
+      sortable: true,
       cell: (row) => (
         <span className="text-sm text-slate-500">
           {new Date(row.created_at).toLocaleDateString()}
@@ -140,51 +143,18 @@ export function MotorVehiclesPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="relative max-w-sm flex-1 min-w-64">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search vehicles..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="ACTIVE">Active</SelectItem>
-            <SelectItem value="INACTIVE">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={customerId} onValueChange={setCustomerId}>
-          <SelectTrigger className="w-72">
-            <SelectValue placeholder="Customer" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Customers</SelectItem>
-            {customerOptions.map((customer) => (
-              <SelectItem key={customer.id} value={customer.id}>
-                {getCustomerDisplayName(customer)} ({customer.customer_no})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={vehicles}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={total}
-        totalPages={totalPages}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
+        searchPlaceholder="Search vehicles..."
+        filters={tableFilters(state.filters, [
+          { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+          {
+            key: 'customer_id',
+            label: 'Customer',
+            options: customerFilterOptions,
+          },
+        ])}
       />
 
       <ConfirmDialog

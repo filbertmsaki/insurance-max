@@ -121,7 +121,8 @@ export class InsuranceSubClassesService {
       .createQueryBuilder('sc')
       .leftJoinAndSelect('sc.product', 'product')
       .where('sc.company_id = :companyId', { companyId })
-      .orderBy(`sc.${safeSortBy}`, direction);
+      .orderBy(`sc.${safeSortBy}`, direction)
+      .addOrderBy('sc.id', direction);
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;

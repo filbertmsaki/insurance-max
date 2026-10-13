@@ -13,6 +13,8 @@ import { DateTime } from 'luxon';
 import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 
 import { Company } from '../../companies/entities/company.entity';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import { FindSaasSubscriptionsQueryDto } from '../dto/saas-billing-table-query.dto';
 import { CompanySubscription } from '../entities/company-subscription.entity';
 import { SaasPlanFeature } from '../entities/saas-plan-feature.entity';
 import { SaasPlanMeterRate } from '../entities/saas-plan-meter-rate.entity';
@@ -281,6 +283,41 @@ export class SubscriptionService {
     }
 
     return this.publishPlanVersion(user, id, latestApproved.id);
+  }
+
+  /** Server-side subscriptions table (soft-deleted rows excluded before paging). */
+  findSubscriptionsPage(query: FindSaasSubscriptionsQueryDto) {
+    const qb = this.subscriptionRepository
+      .createQueryBuilder('subscription')
+      .where('subscription.deleted_at IS NULL');
+    if (query.status) {
+      qb.andWhere('subscription.status = :status', { status: query.status });
+    }
+    if (query.billing_interval) {
+      qb.andWhere('subscription.billing_interval = :interval', {
+        interval: query.billing_interval,
+      });
+    }
+    if (query.company_id) {
+      qb.andWhere('subscription.company_id = :companyId', {
+        companyId: query.company_id,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        subscription_no: 'subscription.subscription_no',
+        status: 'subscription.status',
+        billing_interval: 'subscription.billing_interval',
+        base_price: 'subscription.base_price',
+        current_period_start: 'subscription.current_period_start',
+        next_billing_at: 'subscription.next_billing_at',
+        created_at: 'subscription.created_at',
+      },
+      defaultSort: 'created_at',
+      defaultOrder: 'DESC',
+      searchable: ['subscription.subscription_no', 'subscription.status'],
+      tieBreaker: 'subscription.id',
+    });
   }
 
   listSubscriptions() {

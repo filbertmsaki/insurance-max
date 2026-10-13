@@ -1,29 +1,60 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { ActionMenu } from '@/components/shared/ActionMenu';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
-import { getApiErrorMessage } from '@/lib/api-error';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import { TiraStatusBadge } from '../components/TiraStatusBadge';
-import { useDeleteQuotation, useQuotationsList } from '../hooks';
-import type { QuotationListItem } from '../types';
+import { quotationsApi } from '../api';
+import { useDeleteQuotation } from '../hooks';
+import type { QuotationListItem, QuotationListParams } from '../types';
 import { formatCoverPeriod } from '../utils/coverPeriod';
 import { canEditQuotation } from '../utils/quotation-editability';
+
+const FILTER_KEYS = [
+  'status',
+  'quotation_type',
+  'quotation_flow',
+  'product_id',
+] as const;
+type QuotationFilterKey = (typeof FILTER_KEYS)[number];
+
+const STATUS_OPTIONS = [
+  'DRAFT',
+  'PENDING_REQUIREMENTS',
+  'READY_FOR_SUBMISSION',
+  'SUBMITTING_TO_TIRA',
+  'SUBMITTED_TO_TIRA',
+  'TIRA_PROCESSING',
+  'COMPLETED',
+  'REJECTED',
+  'FAILED',
+  'EXPIRED',
+  'CANCELLED',
+].map((value) => ({ value, label: value }));
+
+const TYPE_OPTIONS = [
+  { value: 'MOTOR', label: 'Motor' },
+  { value: 'NON_MOTOR', label: 'Non-Motor' },
+];
+
+const FLOW_OPTIONS = [
+  { value: 'MOTOR_SINGLE', label: 'Motor Single' },
+  { value: 'MOTOR_FLEET', label: 'Motor Fleet' },
+  { value: 'NON_MOTOR', label: 'Non-Motor' },
+];
 
 function formatPremiumAmount(amount: number, currencyCode: string) {
   return formatMoney(Number.isFinite(amount) ? amount : 0, currencyCode);
@@ -39,29 +70,17 @@ function TruncatedText({ value }: { value: string }) {
 
 export function QuotationsPage() {
   const navigate = useNavigate();
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-    page,
-    limit,
-    search,
-    status,
-    quotationType,
-    quotationFlow,
-    productId,
-    sortBy,
-    sortOrder,
-    setSearch,
-    setStatus,
-    setQuotationType,
-    setQuotationFlow,
-    setProductId,
-    setPage,
-    setLimit,
-    setSort,
-  } = useQuotationsList();
+  const { tableProps, state } = useServerTable<
+    QuotationListItem,
+    QuotationFilterKey
+  >({
+    queryKey: ['quotations', 'list'],
+    fetcher: (params, signal) =>
+      quotationsApi.getList(params as QuotationListParams, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
   const deleteMutation = useDeleteQuotation();
   const [deleteItem, setDeleteItem] = useState<QuotationListItem | null>(null);
 
@@ -212,90 +231,41 @@ export function QuotationsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="relative min-w-64 max-w-sm flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search quotations..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            {[
-              'DRAFT',
-              'PENDING_REQUIREMENTS',
-              'READY_FOR_SUBMISSION',
-              'SUBMITTING_TO_TIRA',
-              'SUBMITTED_TO_TIRA',
-              'TIRA_PROCESSING',
-              'COMPLETED',
-              'REJECTED',
-              'FAILED',
-              'EXPIRED',
-              'CANCELLED',
-            ].map((value) => (
-              <SelectItem key={value} value={value}>
-                {value}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={quotationType} onValueChange={setQuotationType}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="MOTOR">Motor</SelectItem>
-            <SelectItem value="NON_MOTOR">Non-Motor</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={quotationFlow} onValueChange={setQuotationFlow}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Flow" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Flows</SelectItem>
-            <SelectItem value="MOTOR_SINGLE">Motor Single</SelectItem>
-            <SelectItem value="MOTOR_FLEET">Motor Fleet</SelectItem>
-            <SelectItem value="NON_MOTOR">Non-Motor</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Input
-          placeholder="Product ID"
-          value={productId === 'all' ? '' : productId}
-          onChange={(event) => setProductId(event.target.value || 'all')}
-          className="w-56"
-        />
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data?.data ?? []}
-        loading={isLoading}
-        error={error ? getApiErrorMessage(error) : undefined}
-        onRetry={() => void refetch()}
-        page={page}
-        limit={limit}
-        total={data?.pagination.total ?? 0}
-        totalPages={data?.pagination.totalPages ?? 1}
         rowKey={(row) => row.id}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSortChange={(key, order) => setSort(key, order)}
+        searchPlaceholder="Search quotations..."
+        filters={tableFilters(state.filters, [
+          {
+            key: 'status',
+            label: 'Status',
+            placeholder: 'All Statuses',
+            options: STATUS_OPTIONS,
+          },
+          {
+            key: 'quotation_type',
+            label: 'Type',
+            placeholder: 'All Types',
+            options: TYPE_OPTIONS,
+          },
+          {
+            key: 'quotation_flow',
+            label: 'Flow',
+            placeholder: 'All Flows',
+            options: FLOW_OPTIONS,
+          },
+        ])}
+        toolbarActions={
+          <Input
+            placeholder="Product ID"
+            value={state.filters.product_id ?? ''}
+            onChange={(event) =>
+              state.setFilter('product_id', event.target.value)
+            }
+            className="h-9 w-56"
+          />
+        }
         tableClassName="whitespace-nowrap"
       />
 

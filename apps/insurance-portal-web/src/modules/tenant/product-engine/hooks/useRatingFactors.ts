@@ -4,18 +4,9 @@ import { ratingFactorsApi } from '@/modules/tenant/product-engine/api/rating-fac
 import { getApiErrorMessage } from '@/lib/api-error';
 import { peKeys } from './query-keys';
 import type {
-  FactorQueryParams,
   CreateFactorDto,
   UpdateFactorDto,
 } from '@/types/product-engine';
-
-export function useFactorList(params: FactorQueryParams) {
-  return useQuery({
-    queryKey: peKeys.factors.lists(params),
-    queryFn: () => ratingFactorsApi.getList(params),
-    staleTime: 30_000,
-  });
-}
 
 export function useAllFactors() {
   return useQuery({

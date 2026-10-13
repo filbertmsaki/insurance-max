@@ -1,10 +1,8 @@
 import {
   Body,
   Controller,
-  DefaultValuePipe,
   Get,
   Param,
-  ParseBoolPipe,
   ParseUUIDPipe,
   Post,
   Req,
@@ -33,7 +31,12 @@ import { CreateCommunicationMessageDto } from '../../communications/dto/communic
 import { CurrentPortalAccount } from '../decorators/current-portal-account.decorator';
 import { PortalActors } from '../decorators/portal-actors.decorator';
 import { SubmitCustomerQuotationDto } from '../dto/customer-quotation-submit.dto';
-import { PortalListQueryDto } from '../dto/portal-query.dto';
+import {
+  PortalListQueryDto,
+  PortalNotificationsQueryDto,
+  PortalTableQueryDto,
+} from '../dto/portal-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalActorType } from '../enums/portal.enums';
 import { PortalGuard } from '../guards/portal.guard';
@@ -236,9 +239,11 @@ export class CustomerPortalController {
   @ApiOperation({ summary: 'List customer portal documents' })
   documents(
     @CurrentPortalAccount() account: PortalAccount,
-    @Query() query: PortalListQueryDto,
+    @Query() query: PortalTableQueryDto,
   ) {
-    return this.engagementService.listDocuments(account, query);
+    return isPagedRequest(query)
+      ? this.engagementService.findDocumentsPage(account, query)
+      : this.engagementService.listDocuments(account, query);
   }
 
   @Get('documents/:id')
@@ -281,14 +286,19 @@ export class CustomerPortalController {
   notifications(
     @CurrentPortalAccount() account: PortalAccount,
     @CurrentUser() user: AuthenticatedUser,
-    @Query('unread_only', new DefaultValuePipe(false), ParseBoolPipe)
-    unreadOnly: boolean,
+    @Query() query: PortalNotificationsQueryDto,
   ) {
-    return this.notificationService.findMine(
-      account.company_id,
-      user.id,
-      unreadOnly,
-    );
+    return isPagedRequest(query)
+      ? this.notificationService.findMinePage(
+          account.company_id,
+          user.id,
+          query,
+        )
+      : this.notificationService.findMine(
+          account.company_id,
+          user.id,
+          query.unread_only ?? false,
+        );
   }
 
   @Post('notifications/:id/read')
@@ -305,9 +315,11 @@ export class CustomerPortalController {
   @ApiOperation({ summary: 'List customer communication threads' })
   messages(
     @CurrentPortalAccount() account: PortalAccount,
-    @Query() query: PortalListQueryDto,
+    @Query() query: PortalTableQueryDto,
   ) {
-    return this.engagementService.listThreads(account, query);
+    return isPagedRequest(query)
+      ? this.engagementService.findThreadsPage(account, query)
+      : this.engagementService.listThreads(account, query);
   }
 
   @Get('messages/:id')
@@ -342,9 +354,11 @@ export class CustomerPortalController {
   @ApiOperation({ summary: 'List customer signature requests' })
   signatures(
     @CurrentPortalAccount() account: PortalAccount,
-    @Query() query: PortalListQueryDto,
+    @Query() query: PortalTableQueryDto,
   ) {
-    return this.engagementService.listSignatureRequests(account, query);
+    return isPagedRequest(query)
+      ? this.engagementService.findSignatureRequestsPage(account, query)
+      : this.engagementService.listSignatureRequests(account, query);
   }
 
   @Get('signatures/:id')

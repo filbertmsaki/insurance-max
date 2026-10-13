@@ -1,33 +1,90 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { MessagesSquare } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
-import { engagementApi } from '../api';
+import { engagementApi, type CommunicationThreadRecord } from '../api';
 import { formatDateTime } from '../utils';
+
+const THREAD_FILTER_KEYS = ['state'] as const;
+type ThreadFilterKey = (typeof THREAD_FILTER_KEYS)[number];
+
+const THREAD_STATE_OPTIONS = [
+  { label: 'Open', value: 'open' },
+  { label: 'Closed', value: 'closed' },
+];
+
+const columns: Column<CommunicationThreadRecord>[] = [
+  {
+    key: 'thread_no',
+    header: 'Thread',
+    sortable: true,
+    cell: (thread) => (
+      <>
+        <Link
+          to={`/communications/${thread.id}`}
+          className="font-medium text-slate-900 hover:text-blue-700"
+        >
+          {thread.thread_no}
+        </Link>
+        <div className="text-sm text-slate-500">{thread.subject}</div>
+      </>
+    ),
+  },
+  {
+    key: 'thread_type',
+    header: 'Type',
+    sortable: true,
+    cell: (thread) => thread.thread_type,
+  },
+  {
+    key: 'resource_type',
+    header: 'Resource',
+    sortable: true,
+    hideOnMobile: true,
+    cell: (thread) => (
+      <>
+        {thread.resource_type ?? '-'}
+        {thread.resource_id ? (
+          <div className="text-xs text-slate-500">{thread.resource_id}</div>
+        ) : null}
+      </>
+    ),
+  },
+  {
+    key: 'updated_at',
+    header: 'Last activity',
+    sortable: true,
+    cell: (thread) => formatDateTime(thread.updated_at),
+  },
+];
 
 export function CommunicationsPage() {
   const queryClient = useQueryClient();
   const [subject, setSubject] = useState('');
 
-  const threadsQuery = useQuery({
+  const { tableProps, state } = useServerTable<
+    CommunicationThreadRecord,
+    ThreadFilterKey
+  >({
     queryKey: ['engagement', 'communications', 'threads'],
-    queryFn: engagementApi.listCommunicationThreads,
+    fetcher: (params, signal) =>
+      engagementApi.pageCommunicationThreads(params, signal),
+    filterKeys: THREAD_FILTER_KEYS,
+    defaultSortBy: 'updated_at',
   });
 
   const createMutation = useMutation({
@@ -79,43 +136,15 @@ export function CommunicationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Thread</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Resource</TableHead>
-                <TableHead>Last activity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(threadsQuery.data ?? []).map((thread) => (
-                <TableRow key={thread.id}>
-                  <TableCell>
-                    <Link
-                      to={`/communications/${thread.id}`}
-                      className="font-medium text-slate-900 hover:text-blue-700"
-                    >
-                      {thread.thread_no}
-                    </Link>
-                    <div className="text-sm text-slate-500">
-                      {thread.subject}
-                    </div>
-                  </TableCell>
-                  <TableCell>{thread.thread_type}</TableCell>
-                  <TableCell>
-                    {thread.resource_type ?? '-'}
-                    {thread.resource_id ? (
-                      <div className="text-xs text-slate-500">
-                        {thread.resource_id}
-                      </div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell>{formatDateTime(thread.updated_at)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search threads…"
+            filters={tableFilters(state.filters, [
+              { key: 'state', label: 'State', options: THREAD_STATE_OPTIONS },
+            ])}
+            emptyMessage="No communication threads yet"
+          />
         </CardContent>
       </Card>
     </div>

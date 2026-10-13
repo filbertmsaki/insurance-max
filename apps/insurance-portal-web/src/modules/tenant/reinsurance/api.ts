@@ -1,10 +1,43 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import type { CapacityEvaluation, ReinsuranceRecord } from './types';
 
+export type ReinsuranceListView =
+  | 'treaties'
+  | 'cessions'
+  | 'settlements'
+  | 'offers'
+  | 'recoveries';
+
+export interface ReinsuranceListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  status?: string;
+}
+
+const LIST_PATHS: Record<ReinsuranceListView, string> = {
+  treaties: '/tenant/reinsurance/treaties',
+  cessions: '/tenant/reinsurance/cessions',
+  settlements: '/tenant/reinsurance/settlements',
+  offers: '/tenant/reinsurance/facultative-offers',
+  recoveries: '/tenant/reinsurance/recoveries',
+};
+
 export const reinsuranceApi = {
-  treaties: () =>
+  /** Server-side paged workbench list for one record type. */
+  listPage: (
+    view: ReinsuranceListView,
+    params: ReinsuranceListParams,
+    signal?: AbortSignal,
+  ) =>
     apiClient
-      .get<ReinsuranceRecord[]>('/tenant/reinsurance/treaties')
+      .get<PaginatedResponse<ReinsuranceRecord>>(LIST_PATHS[view], {
+        params,
+        signal,
+      })
       .then((r) => r.data),
   respondToTreatyInvitation: (
     treatyId: string,
@@ -17,10 +50,6 @@ export const reinsuranceApi = {
         { decision },
       )
       .then((r) => r.data),
-  facultativeOffers: () =>
-    apiClient
-      .get<ReinsuranceRecord[]>('/tenant/reinsurance/facultative-offers')
-      .then((r) => r.data),
   respondToOffer: (id: string, quotedShare: number) =>
     apiClient
       .post(`/tenant/reinsurance/facultative-offers/${id}/respond`, {
@@ -32,18 +61,6 @@ export const reinsuranceApi = {
       .post(`/tenant/reinsurance/facultative-offers/${id}/accept`, {
         accepted_share_percent: acceptedShare,
       })
-      .then((r) => r.data),
-  cessions: () =>
-    apiClient
-      .get<ReinsuranceRecord[]>('/tenant/reinsurance/cessions')
-      .then((r) => r.data),
-  settlements: () =>
-    apiClient
-      .get<ReinsuranceRecord[]>('/tenant/reinsurance/settlements')
-      .then((r) => r.data),
-  recoveries: () =>
-    apiClient
-      .get<ReinsuranceRecord[]>('/tenant/reinsurance/recoveries')
       .then((r) => r.data),
   admitRecovery: (id: string, amount: number) =>
     apiClient

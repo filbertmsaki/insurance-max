@@ -18,6 +18,8 @@ import type {
   TiramisTrackingRecord,
 } from './types';
 
+type TiramisRecordPageParams = Record<string, string | number | undefined>;
+
 type LegacyPageResponse<T> = {
   items: T[];
   meta: {
@@ -74,12 +76,13 @@ export const tiramisApi = {
       .then((r) => r.data),
   getSubmissions: async (
     params?: TenantTiramisSubmissionListParams,
+    signal?: AbortSignal,
   ): Promise<TiramisSubmissionPage> => {
     const response = await apiClient.get<
       | LegacyPageResponse<TiramisSubmissionRecord>
       | BackendPaginatedResponse<TiramisSubmissionRecord>
       | PaginatedResponse<TiramisSubmissionRecord>
-    >('/tenant/tiramis-submissions', { params });
+    >('/tenant/tiramis-submissions', { params, signal });
     if ('pagination' in response.data) {
       return response.data;
     }
@@ -161,10 +164,11 @@ export const tiramisApi = {
       .then((r) => r.data),
   getAdminSubmissions: async (
     params?: TiramisTrackingListParams,
+    signal?: AbortSignal,
   ): Promise<TiramisTrackingPage> => {
     const response = await apiClient.get<
       LegacyPageResponse<TiramisTrackingRecord>
-    >('/tiramis/admin/submissions', { params });
+    >('/tiramis/admin/submissions', { params, signal });
     return normalizeLegacyPage<TiramisTrackingRecord>(response.data);
   },
   getAdminStatistics: (params?: TiramisTrackingListParams) =>
@@ -174,6 +178,24 @@ export const tiramisApi = {
       .get<
         TiramisTrackingRecord[]
       >('/tiramis/admin/failed', { params: { limit } })
+      .then((r) => r.data),
+  /** Paged failed list (`?page=` switches the endpoint to { data, pagination }). */
+  getAdminFailedPage: (params: TiramisRecordPageParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<TiramisTrackingRecord>>('/tiramis/admin/failed', {
+        params,
+        signal,
+      })
+      .then((r) => r.data),
+  getAdminRetryablePage: (
+    params: TiramisRecordPageParams,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<TiramisTrackingRecord>>(
+        '/tiramis/admin/retryable',
+        { params, signal },
+      )
       .then((r) => r.data),
   getAdminRetryable: (limit = 50) =>
     apiClient

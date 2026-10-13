@@ -8,6 +8,7 @@ import { TiramisDashboardService } from './tiramis-dashboard.service';
 import { TiramisRetryService } from './tiramis-retry.service';
 import { TiramisStatusSyncService } from './tiramis-status-sync.service';
 import { TiramisAuditService } from './tiramis-audit.service';
+import type { ListQueryInput } from '@insurance-max/portal-shared/utils/paginate-query.util';
 
 @Injectable()
 export class TiramisMonitoringService {
@@ -115,6 +116,47 @@ export class TiramisMonitoringService {
     });
 
     return this.trackingRepository.findFailedSubmissionsScoped(limit, scope);
+  }
+
+  /** Paged variants used by the server-side tables (`?page=` present). */
+  getFailedPage(
+    query: ListQueryInput,
+    authContext?: any,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    void this.auditService.log({
+      action: TiramisAuditAction.ADMIN_VIEW_SUBMISSIONS,
+      sourceCompanyId:
+        authContext?.companyId || authContext?.activeCompanyId || null,
+      sourceUserId: authContext?.userId || null,
+      authContext,
+      metadata: { view: 'failed', query },
+    });
+
+    return this.trackingRepository.findFailedSubmissionsPage(query, scope);
+  }
+
+  getRetryablePage(
+    query: ListQueryInput,
+    authContext?: any,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    void this.auditService.log({
+      action: TiramisAuditAction.ADMIN_VIEW_SUBMISSIONS,
+      sourceCompanyId:
+        authContext?.companyId || authContext?.activeCompanyId || null,
+      sourceUserId: authContext?.userId || null,
+      authContext,
+      metadata: { view: 'retryable', query },
+    });
+
+    return this.trackingRepository.findRetryableSubmissionsPage(query, scope);
   }
 
   getRetryable(

@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Plus,
-  Search,
-  MoreHorizontal,
+  Pencil,
   Power,
   PowerOff,
   Trash2,
@@ -12,23 +11,13 @@ import {
   MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -38,13 +27,23 @@ import {
   type DepartmentFormValues,
 } from '@/modules/tenant/departments/components/DepartmentForm';
 import {
-  useDepartmentsList,
+  departmentsKeys,
   useCreateDepartment,
   useUpdateDepartment,
   useUpdateDepartmentStatus,
   useDeleteDepartment,
 } from '@/modules/tenant/departments/hooks';
-import type { DepartmentRecord } from '@/modules/tenant/departments/api/departments';
+import {
+  departmentsApi,
+  type DepartmentRecord,
+} from '@/modules/tenant/departments/api/departments';
+
+const DEPARTMENT_FILTER_KEYS = ['status', 'branch_id'] as const;
+type DepartmentFilterKey = (typeof DEPARTMENT_FILTER_KEYS)[number];
+const DEPARTMENT_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
 
 function StatusBadge({ status }: { status: string }) {
   return status === 'active' ? (
@@ -71,22 +70,16 @@ export function DepartmentsPage() {
     staleTime: 60_000,
   });
 
-  const {
-    departments,
-    total,
-    totalPages,
-    page,
-    limit,
-    search,
-    status,
-    branchId,
-    isLoading,
-    setSearch,
-    setStatus,
-    setBranchId,
-    setPage,
-    setLimit,
-  } = useDepartmentsList();
+  const { tableProps, state } = useServerTable<
+    DepartmentRecord,
+    DepartmentFilterKey
+  >({
+    queryKey: departmentsKeys.lists(),
+    fetcher: (params, signal) => departmentsApi.listDepartments(params, signal),
+    filterKeys: DEPARTMENT_FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<DepartmentRecord | null>(null);
@@ -123,6 +116,7 @@ export function DepartmentsPage() {
     {
       key: 'branch',
       header: 'Branch',
+      sortable: true,
       cell: (row) =>
         row.branch ? (
           <div className="flex items-center gap-1.5 text-sm text-slate-600">
@@ -152,80 +146,46 @@ export function DepartmentsPage() {
         </span>
       ),
     },
+  ];
+
+  const rowActions = [
     {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      cell: (row) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem
-              onClick={() => navigate(`/departments/${row.id}`)}
-            >
-              <Building2 className="mr-2 h-4 w-4" />
-              View Details
-            </DropdownMenuItem>
-            {canUpdate && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setEditing(row);
-                  setDialogOpen(true);
-                }}
-              >
-                <Building2 className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-            )}
-            {canUpdate && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() =>
-                    statusMutation.mutate({
-                      departmentId: row.id,
-                      status: row.status === 'active' ? 'inactive' : 'active',
-                    })
-                  }
-                  className={
-                    row.status === 'active'
-                      ? 'text-amber-600 focus:text-amber-600'
-                      : 'text-green-600 focus:text-green-600'
-                  }
-                >
-                  {row.status === 'active' ? (
-                    <>
-                      <PowerOff className="mr-2 h-4 w-4" />
-                      Deactivate
-                    </>
-                  ) : (
-                    <>
-                      <Power className="mr-2 h-4 w-4" />
-                      Activate
-                    </>
-                  )}
-                </DropdownMenuItem>
-              </>
-            )}
-            {canDelete && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setDeleteItem(row)}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      label: 'View Details',
+      icon: Building2,
+      onClick: (row: DepartmentRecord) => navigate(`/departments/${row.id}`),
+    },
+    {
+      label: 'Edit',
+      icon: Pencil,
+      hidden: !canUpdate,
+      onClick: (row: DepartmentRecord) => {
+        setEditing(row);
+        setDialogOpen(true);
+      },
+    },
+    {
+      label: 'Deactivate',
+      icon: PowerOff,
+      separator: true,
+      hidden: (row: DepartmentRecord) => !canUpdate || row.status !== 'active',
+      onClick: (row: DepartmentRecord) =>
+        statusMutation.mutate({ departmentId: row.id, status: 'inactive' }),
+    },
+    {
+      label: 'Activate',
+      icon: Power,
+      separator: true,
+      hidden: (row: DepartmentRecord) => !canUpdate || row.status === 'active',
+      onClick: (row: DepartmentRecord) =>
+        statusMutation.mutate({ departmentId: row.id, status: 'active' }),
+    },
+    {
+      label: 'Delete',
+      icon: Trash2,
+      destructive: true,
+      separator: true,
+      hidden: !canDelete,
+      onClick: (row: DepartmentRecord) => setDeleteItem(row),
     },
   ];
 
@@ -278,51 +238,27 @@ export function DepartmentsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="relative max-w-sm flex-1 min-w-56">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search departments…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={branchId} onValueChange={setBranchId}>
-          <SelectTrigger className="w-52">
-            <SelectValue placeholder="Branch" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Branches</SelectItem>
-            {branchOptions.map((branch) => (
-              <SelectItem key={branch.id} value={branch.id}>
-                {branch.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={departments}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={total}
-        totalPages={totalPages}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
+        searchPlaceholder="Search departments…"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'status',
+            label: 'Status',
+            options: DEPARTMENT_STATUS_OPTIONS,
+          },
+          {
+            key: 'branch_id',
+            label: 'Branch',
+            options: branchOptions.map((branch) => ({
+              value: branch.id,
+              label: branch.name,
+            })),
+          },
+        ])}
+        rowActions={rowActions}
+        emptyMessage="No departments yet"
       />
 
       <DepartmentForm

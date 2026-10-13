@@ -17,6 +17,8 @@ import {
   CancelWorkItemDto,
   WorkItemCommentDto,
 } from './dto/work-item-actions.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { FindWorkItemsQueryDto } from './dto/work-item-list-query.dto';
 import { WorkItemsService } from './work-items.service';
 
 @Controller('tenant/work-items')
@@ -26,8 +28,13 @@ export class WorkItemsController {
 
   @Get()
   @Permissions('work-items:read')
-  list(@CurrentUser() user: AuthenticatedUser, @Query('view') view?: string) {
-    return this.workItemsService.listForUser(user, view);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindWorkItemsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.workItemsService.findPage(user, query)
+      : this.workItemsService.listForUser(user, query.view);
   }
 
   @Get('my')

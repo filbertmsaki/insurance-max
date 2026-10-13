@@ -7,10 +7,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { Repository } from 'typeorm';
 
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { BusinessReferenceService } from '../../shared/identifiers/business-reference.service';
+import type { FindComplaintsQueryDto } from './dto/complaint.dto';
 import { ComplaintPriority, ComplaintStatus } from './enums/claim.enums';
 import { ComplaintAppeal } from './entities/complaint-appeal.entity';
 import { ComplaintComment } from './entities/complaint-comment.entity';
@@ -124,6 +126,43 @@ export class ComplaintsService {
     return this.complaintRepository.find({
       where: { company_id: user.companyId! },
       order: { created_at: 'DESC' },
+    });
+  }
+
+  findPage(user: AuthenticatedUser, query: FindComplaintsQueryDto) {
+    this.scopeService.resolve(user);
+
+    const qb = this.complaintRepository
+      .createQueryBuilder('complaint')
+      .where('complaint.company_id = :companyId', {
+        companyId: user.companyId!,
+      });
+    if (query.status) {
+      qb.andWhere('complaint.status = :status', { status: query.status });
+    }
+    if (query.priority) {
+      qb.andWhere('complaint.priority = :priority', {
+        priority: query.priority,
+      });
+    }
+
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        complaint: 'complaint.complaint_no',
+        category: 'complaint.category',
+        status: 'complaint.status',
+        priority: 'complaint.priority',
+        due: 'complaint.resolution_due_at',
+        created_at: 'complaint.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'complaint.complaint_no',
+        'complaint.subject',
+        'complaint.category',
+        'complaint.status',
+      ],
+      tieBreaker: 'complaint.id',
     });
   }
 

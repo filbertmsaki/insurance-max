@@ -1,4 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 
 export interface RegulatoryAuthorityRecord {
   id: string;
@@ -115,6 +116,15 @@ export interface RegulatoryLevyAssessmentRecord {
   created_at: string;
 }
 
+export interface RegulatoryListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  status?: string;
+}
+
 /** Regulatory authorities, calendar, returns and levies (`/tenant/regulatory`). */
 export const regulatoryApi = {
   getAuthorities() {
@@ -123,9 +133,11 @@ export const regulatoryApi = {
       .then((response) => response.data);
   },
 
-  getRegulatoryCalendar() {
+  listCalendarPage(params: RegulatoryListParams, signal?: AbortSignal) {
     return apiClient
-      .get<RegulatoryObligationRecord[]>('/tenant/regulatory/calendar')
+      .get<
+        PaginatedResponse<RegulatoryObligationRecord>
+      >('/tenant/regulatory/calendar', { params, signal })
       .then((response) => response.data);
   },
 
@@ -135,9 +147,11 @@ export const regulatoryApi = {
       .then((response) => response.data);
   },
 
-  getRegulatoryReturns() {
+  listReturnsPage(params: RegulatoryListParams, signal?: AbortSignal) {
     return apiClient
-      .get<RegulatoryReturnRecord[]>('/tenant/regulatory/returns')
+      .get<
+        PaginatedResponse<RegulatoryReturnRecord>
+      >('/tenant/regulatory/returns', { params, signal })
       .then((response) => response.data);
   },
 
@@ -195,11 +209,11 @@ export const regulatoryApi = {
       .then((response) => response.data);
   },
 
-  getLevyAssessments() {
+  listLevyAssessmentsPage(params: RegulatoryListParams, signal?: AbortSignal) {
     return apiClient
       .get<
-        RegulatoryLevyAssessmentRecord[]
-      >('/tenant/regulatory/levy-assessments')
+        PaginatedResponse<RegulatoryLevyAssessmentRecord>
+      >('/tenant/regulatory/levy-assessments', { params, signal })
       .then((response) => response.data);
   },
 };

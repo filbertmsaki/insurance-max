@@ -58,10 +58,11 @@ function normalizeQuotationListResponse(
 export const quotationsApi = {
   getList: async (
     params?: QuotationListParams,
+    signal?: AbortSignal,
   ): Promise<PaginatedResponse<QuotationListItem>> => {
     const response = await apiClient.get<
       QuotationListApiResponse | PaginatedResponse<QuotationListItem>
-    >('/tenant/quotations', { params });
+    >('/tenant/quotations', { params, signal });
     return normalizeQuotationListResponse(response.data);
   },
   getById: (id: string) =>

@@ -344,13 +344,15 @@ export function CustomerDetailPage() {
                 No vehicles are linked to this customer.
               </p>
             ) : (
-              (customerVehicles?.data ?? []).slice(0, 5).map((vehicle) => (
+              (customerVehicles?.data ?? []).map((vehicle) => (
                 <button
                   key={vehicle.id}
                   type="button"
                   className="block w-full rounded-md border border-slate-200 p-3 text-left transition hover:border-blue-300 hover:bg-blue-50/40"
                   onClick={() =>
-                    navigate(sharedUnderwritePaths.motorVehicleDetail(vehicle.id))
+                    navigate(
+                      sharedUnderwritePaths.motorVehicleDetail(vehicle.id),
+                    )
                   }
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -373,7 +375,7 @@ export function CustomerDetailPage() {
                 </button>
               ))
             )}
-            {(customerVehicles?.data ?? []).length > 5 ? (
+            {(customerVehicles?.pagination.total ?? 0) > 5 ? (
               <Button
                 variant="outline"
                 size="sm"

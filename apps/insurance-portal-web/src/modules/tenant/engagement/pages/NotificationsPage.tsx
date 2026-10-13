@@ -1,44 +1,117 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { BellRing } from 'lucide-react';
+import { BellRing, CheckCheck, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
-import { engagementApi } from '../api';
+import { engagementApi, type NotificationRecord } from '../api';
 import { formatDateTime, safeInternalLink, statusTone } from '../utils';
+
+const NOTIFICATION_FILTER_KEYS = ['state', 'priority'] as const;
+type NotificationFilterKey = (typeof NOTIFICATION_FILTER_KEYS)[number];
+
+const STATE_OPTIONS = [
+  { label: 'Unread', value: 'unread' },
+  { label: 'Read', value: 'read' },
+  { label: 'Dismissed', value: 'dismissed' },
+];
+const PRIORITY_OPTIONS = ['LOW', 'NORMAL', 'HIGH', 'CRITICAL'].map(
+  (value) => ({ label: value, value }),
+);
+
+function derivedState(notification: NotificationRecord) {
+  return notification.dismissed_at
+    ? 'DISMISSED'
+    : notification.read_at
+      ? 'READ'
+      : 'UNREAD';
+}
+
+const columns: Column<NotificationRecord>[] = [
+  {
+    key: 'title',
+    header: 'Notification',
+    sortable: true,
+    cell: (notification) => (
+      <div className="space-y-1">
+        <div className="font-medium text-slate-900">{notification.title}</div>
+        <div className="text-sm text-slate-500">{notification.message}</div>
+      </div>
+    ),
+  },
+  {
+    key: 'priority',
+    header: 'Priority',
+    sortable: true,
+    cell: (notification) => (
+      <Badge variant="outline" className={statusTone(notification.priority)}>
+        {notification.priority}
+      </Badge>
+    ),
+  },
+  {
+    key: 'state',
+    header: 'Status',
+    cell: (notification) => {
+      const state = derivedState(notification);
+      return (
+        <Badge variant="outline" className={statusTone(state)}>
+          {state}
+        </Badge>
+      );
+    },
+  },
+  {
+    key: 'created_at',
+    header: 'Created',
+    sortable: true,
+    cell: (notification) => formatDateTime(notification.created_at),
+  },
+];
 
 export function NotificationsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const notificationsQuery = useQuery({
+  const { tableProps, state } = useServerTable<
+    NotificationRecord,
+    NotificationFilterKey
+  >({
     queryKey: ['engagement', 'notifications'],
-    queryFn: engagementApi.listNotifications,
+    fetcher: (params, signal) =>
+      engagementApi.pageNotifications(params, signal),
+    filterKeys: NOTIFICATION_FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
+
+  // ['engagement', 'notifications'] is the base key of both the table and
+  // the unread summary, so one invalidation refreshes both.
+  const invalidate = () =>
+    queryClient.invalidateQueries({
+      queryKey: ['engagement', 'notifications'],
+    });
 
   const unreadMutation = useMutation({
     mutationFn: () => engagementApi.markAllNotificationsRead(),
     onSuccess: () => {
       toast.success('Notifications marked as read');
-      queryClient.invalidateQueries({
-        queryKey: ['engagement', 'notifications'],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ['engagement', 'notifications', 'summary'],
-      });
+      invalidate();
     },
+  });
+
+  const readMutation = useMutation({
+    mutationFn: (id: string) => engagementApi.markNotificationRead(id),
+    onSuccess: invalidate,
   });
 
   return (
@@ -66,94 +139,33 @@ export function NotificationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Notification</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(notificationsQuery.data ?? []).map((notification) => {
-                const openLink = safeInternalLink(notification.deep_link);
-                const derivedState = notification.dismissed_at
-                  ? 'DISMISSED'
-                  : notification.read_at
-                    ? 'READ'
-                    : 'UNREAD';
-
-                return (
-                  <TableRow key={notification.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium text-slate-900">
-                          {notification.title}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          {notification.message}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusTone(notification.priority)}
-                      >
-                        {notification.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusTone(derivedState)}
-                      >
-                        {derivedState}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {formatDateTime(notification.created_at)}
-                    </TableCell>
-                    <TableCell className="space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          engagementApi
-                            .markNotificationRead(notification.id)
-                            .then(() => {
-                              queryClient.invalidateQueries({
-                                queryKey: ['engagement', 'notifications'],
-                              });
-                              queryClient.invalidateQueries({
-                                queryKey: [
-                                  'engagement',
-                                  'notifications',
-                                  'summary',
-                                ],
-                              });
-                            })
-                        }
-                      >
-                        Read
-                      </Button>
-                      {openLink ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(openLink)}
-                        >
-                          Open
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search notifications…"
+            filters={tableFilters(state.filters, [
+              { key: 'state', label: 'State', options: STATE_OPTIONS },
+              { key: 'priority', label: 'Priority', options: PRIORITY_OPTIONS },
+            ])}
+            rowActions={[
+              {
+                label: 'Mark as read',
+                icon: CheckCheck,
+                onClick: (notification) => readMutation.mutate(notification.id),
+              },
+              {
+                label: 'Open',
+                icon: ExternalLink,
+                hidden: (notification) =>
+                  !safeInternalLink(notification.deep_link),
+                onClick: (notification) => {
+                  const link = safeInternalLink(notification.deep_link);
+                  if (link) navigate(link);
+                },
+              },
+            ]}
+            emptyMessage="No notifications"
+          />
         </CardContent>
       </Card>
     </div>

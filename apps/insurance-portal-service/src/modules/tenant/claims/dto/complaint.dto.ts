@@ -7,7 +7,9 @@ import {
   MaxLength,
 } from 'class-validator';
 
-import { ComplaintPriority } from '../enums/claim.enums';
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
+
+import { ComplaintPriority, ComplaintStatus } from '../enums/claim.enums';
 
 export class CreateComplaintDto {
   @IsOptional()
@@ -59,4 +61,14 @@ export class AddComplaintCommentDto {
   @IsOptional()
   @IsBoolean()
   is_customer_visible?: boolean;
+}
+
+export class FindComplaintsQueryDto extends TableQueryDto {
+  @IsOptional()
+  @IsEnum(ComplaintStatus)
+  status?: ComplaintStatus;
+
+  @IsOptional()
+  @IsEnum(ComplaintPriority)
+  priority?: ComplaintPriority;
 }

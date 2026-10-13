@@ -9,14 +9,6 @@ import type {
   UpdateProductDto,
 } from '@/types/product-engine';
 
-export function useProductList(params: ProductQueryParams) {
-  return useQuery({
-    queryKey: peKeys.products.lists(params),
-    queryFn: () => productsApi.getList(params),
-    staleTime: 30_000,
-  });
-}
-
 export function useProduct(id: string | undefined) {
   return useQuery({
     queryKey: peKeys.products.detail(id ?? ''),

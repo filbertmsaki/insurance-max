@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,13 +24,11 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -53,6 +51,34 @@ const schema = z.object({
   is_default: z.boolean(),
 });
 type Values = z.infer<typeof schema>;
+
+const TAX_FILTER_KEYS = ['is_active'] as const;
+type TaxFilterKey = (typeof TAX_FILTER_KEYS)[number];
+const TAX_STATUS_OPTIONS = [
+  { value: 'true', label: 'Active' },
+  { value: 'false', label: 'Inactive' },
+];
+
+const formatRate = (tax: TaxRecord) =>
+  `${Number((Number(tax.tax_rate) * 100).toFixed(8))}%`;
+
+const columns: Column<TaxRecord>[] = [
+  { key: 'tax_code', header: 'Code', sortable: true, cell: (t) => t.tax_code },
+  { key: 'tax_name', header: 'Name', sortable: true, cell: (t) => t.tax_name },
+  { key: 'tax_rate', header: 'Rate', sortable: true, cell: formatRate },
+  {
+    key: 'is_default',
+    header: 'Default',
+    sortable: true,
+    cell: (t) => (t.is_default ? 'Default' : '-'),
+  },
+  {
+    key: 'is_active',
+    header: 'Status',
+    sortable: true,
+    cell: (t) => (t.is_active ? 'Active' : 'Inactive'),
+  },
+];
 const defaults: Values = {
   tax_code: '',
   tax_name: '',
@@ -64,9 +90,12 @@ const defaults: Values = {
 export function TaxesPage() {
   const { hasPermission, company } = useAuthStore();
   const qc = useQueryClient();
-  const query = useQuery({
+  const { tableProps, state } = useServerTable<TaxRecord, TaxFilterKey>({
     queryKey: ['taxes', company?.id, 'list'],
-    queryFn: taxesApi.list,
+    fetcher: (params, signal) => taxesApi.page(params, signal),
+    filterKeys: TAX_FILTER_KEYS,
+    defaultSortBy: 'tax_code',
+    defaultSortOrder: 'ASC',
   });
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TaxRecord | null>(null);
@@ -134,71 +163,30 @@ export function TaxesPage() {
           ) : undefined
         }
       />
-      {query.isLoading ? (
-        <p>Loading taxes…</p>
-      ) : query.isError ? (
-        <div role="alert">
-          {getApiErrorMessage(query.error)}{' '}
-          <Button variant="outline" onClick={() => void query.refetch()}>
-            Retry
-          </Button>
-        </div>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Rate</TableHead>
-              <TableHead>Default</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {!query.data?.length && (
-              <TableRow>
-                <TableCell colSpan={6}>
-                  No taxes yet. Add a tax to make it available on quotations.
-                </TableCell>
-              </TableRow>
-            )}
-            {query.data?.map((tax) => (
-              <TableRow key={tax.id}>
-                <TableCell>{tax.tax_code}</TableCell>
-                <TableCell>{tax.tax_name}</TableCell>
-                <TableCell>
-                  {Number((Number(tax.tax_rate) * 100).toFixed(8))}%
-                </TableCell>
-                <TableCell>{tax.is_default ? 'Default' : '-'}</TableCell>
-                <TableCell>{tax.is_active ? 'Active' : 'Inactive'}</TableCell>
-                <TableCell>
-                  {hasPermission('product-distribution:update') && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Edit ${tax.tax_code}`}
-                      onClick={() => edit(tax)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  )}
-                  {hasPermission('product-distribution:delete') && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`Delete ${tax.tax_code}`}
-                      onClick={() => setDeleting(tax)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+      <DataTable
+        {...tableProps}
+        columns={columns}
+        searchPlaceholder="Search code or name…"
+        filters={tableFilters(state.filters, [
+          { key: 'is_active', label: 'Status', options: TAX_STATUS_OPTIONS },
+        ])}
+        rowActions={[
+          {
+            label: 'Edit',
+            icon: Pencil,
+            hidden: !hasPermission('product-distribution:update'),
+            onClick: (tax) => edit(tax),
+          },
+          {
+            label: 'Delete',
+            icon: Trash2,
+            destructive: true,
+            hidden: !hasPermission('product-distribution:delete'),
+            onClick: (tax) => setDeleting(tax),
+          },
+        ]}
+        emptyMessage="No taxes yet. Add a tax to make it available on quotations."
+      />
       <Dialog
         open={open}
         onOpenChange={(value) => {

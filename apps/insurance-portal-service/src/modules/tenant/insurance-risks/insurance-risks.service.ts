@@ -183,7 +183,8 @@ export class InsuranceRisksService {
       .leftJoinAndSelect('risk.product', 'product')
       .leftJoinAndSelect('risk.sub_class', 'sub_class')
       .where('risk.company_id = :companyId', { companyId })
-      .orderBy(`risk.${safeSortBy}`, direction);
+      .orderBy(`risk.${safeSortBy}`, direction)
+      .addOrderBy('risk.id', direction);
 
     if (accessibleProductIds) {
       if (!accessibleProductIds.length) {

@@ -11,27 +11,11 @@ import {
   Min,
 } from 'class-validator';
 
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
+
 import { ClaimQueue, ClaimStatus } from '../enums/claim.enums';
 
-export class FindClaimsQueryDto {
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  search?: string;
-
+export class FindClaimsQueryDto extends TableQueryDto {
   @IsOptional()
   @IsEnum(ClaimStatus)
   status?: ClaimStatus;

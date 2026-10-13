@@ -9,9 +9,9 @@ import type {
 } from '@/types/product-engine';
 
 export const categoriesApi = {
-  getList: (params?: CategoryQueryParams) =>
+  getList: (params?: CategoryQueryParams, signal?: AbortSignal) =>
     apiClient
-      .get<PEPage<InsuranceCategory>>('/insurance-categories', { params })
+      .get<PEPage<InsuranceCategory>>('/insurance-categories', { params, signal })
       .then((r) => r.data),
 
   getById: (id: string) =>

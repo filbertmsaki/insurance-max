@@ -1,15 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Plus,
-  Eye,
-  Search,
-  GitBranch,
-  MoreHorizontal,
-  Power,
-  PowerOff,
-  Trash2,
-} from 'lucide-react';
+import { Plus, Eye, GitBranch, Power, PowerOff, Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,13 +18,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Form,
   FormControl,
   FormField,
@@ -41,18 +25,32 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
-  useBranchesList,
+  branchesKeys,
   useCreateBranch,
   useUpdateBranchStatus,
   useDeleteBranch,
 } from '@/modules/tenant/branches/hooks';
 import type { Branch } from '@/types';
-import type { BranchSortKey } from '@/modules/tenant/branches/hooks';
-import type { CreateBranchDto } from '@/modules/tenant/branches/api/branches';
+import {
+  branchesApi,
+  type CreateBranchDto,
+} from '@/modules/tenant/branches/api/branches';
+
+const BRANCH_FILTER_KEYS = ['status'] as const;
+type BranchFilterKey = (typeof BRANCH_FILTER_KEYS)[number];
+const BRANCH_STATUS_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -370,21 +368,13 @@ export function BranchesListPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const {
-    branches,
-    total,
-    totalPages,
-    isLoading,
-    search,
-    page,
-    limit,
-    sortBy,
-    sortOrder,
-    setSearch,
-    setPage,
-    setLimit,
-    setSort,
-  } = useBranchesList();
+  const { tableProps, state } = useServerTable<Branch, BranchFilterKey>({
+    queryKey: branchesKeys.lists(),
+    fetcher: (params, signal) => branchesApi.listBranches(params, signal),
+    filterKeys: BRANCH_FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
 
   const createMutation = useCreateBranch();
   const statusMutation = useUpdateBranchStatus();
@@ -455,57 +445,38 @@ export function BranchesListPage() {
         </span>
       ),
     },
+  ];
+
+  const rowActions = [
     {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      cell: (r) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={() => navigate(`/branches/${r.id}`)}>
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {r.status === 'active' ? (
-              <DropdownMenuItem
-                onClick={() =>
-                  statusMutation.mutate({ id: r.id, status: 'inactive' })
-                }
-                className="text-amber-600 focus:text-amber-600"
-                disabled={statusMutation.isPending}
-              >
-                <PowerOff className="mr-2 h-4 w-4" />
-                Deactivate
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem
-                onClick={() =>
-                  statusMutation.mutate({ id: r.id, status: 'active' })
-                }
-                className="text-green-600 focus:text-green-600"
-                disabled={statusMutation.isPending}
-              >
-                <Power className="mr-2 h-4 w-4" />
-                Activate
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => setDeleteId(r.id)}
-              className="text-red-600 focus:text-red-600"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
+      label: 'View Details',
+      icon: Eye,
+      onClick: (r: Branch) => navigate(`/branches/${r.id}`),
+    },
+    {
+      label: 'Deactivate',
+      icon: PowerOff,
+      separator: true,
+      hidden: (r: Branch) => r.status !== 'active',
+      disabled: statusMutation.isPending,
+      onClick: (r: Branch) =>
+        statusMutation.mutate({ id: r.id, status: 'inactive' }),
+    },
+    {
+      label: 'Activate',
+      icon: Power,
+      separator: true,
+      hidden: (r: Branch) => r.status === 'active',
+      disabled: statusMutation.isPending,
+      onClick: (r: Branch) =>
+        statusMutation.mutate({ id: r.id, status: 'active' }),
+    },
+    {
+      label: 'Delete',
+      icon: Trash2,
+      destructive: true,
+      separator: true,
+      onClick: (r: Branch) => setDeleteId(r.id),
     },
   ];
 
@@ -540,29 +511,15 @@ export function BranchesListPage() {
         }
       />
 
-      <div className="mb-4 relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search branches…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={branches}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={total}
-        totalPages={totalPages}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
-        onSortChange={(key, order) => setSort(key as BranchSortKey, order)}
+        searchPlaceholder="Search branches…"
+        filters={tableFilters(state.filters, [
+          { key: 'status', label: 'Status', options: BRANCH_STATUS_OPTIONS },
+        ])}
+        rowActions={rowActions}
+        emptyMessage="No branches yet"
       />
 
       <CreateBranchDialog

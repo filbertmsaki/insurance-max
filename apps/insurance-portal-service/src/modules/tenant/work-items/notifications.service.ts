@@ -4,6 +4,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Brackets, Repository } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { FindNotificationsQueryDto } from './dto/work-item-list-query.dto';
 
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { UpdateNotificationPreferencesDto } from './dto/work-item-actions.dto';
@@ -82,6 +84,37 @@ export class NotificationsService {
     return this.visibleTo(user)
       .orderBy('notification.created_at', 'DESC')
       .getMany();
+  }
+
+  /** Server-side table: the visibility rule is applied before paging and counting. */
+  findPage(user: AuthenticatedUser, query: FindNotificationsQueryDto) {
+    const qb = this.visibleTo(user);
+    if (query.state === 'dismissed') {
+      qb.andWhere('notification.dismissed_at IS NOT NULL');
+    } else if (query.state === 'read') {
+      qb.andWhere('notification.dismissed_at IS NULL').andWhere(
+        'notification.read_at IS NOT NULL',
+      );
+    } else if (query.state === 'unread') {
+      qb.andWhere('notification.dismissed_at IS NULL').andWhere(
+        'notification.read_at IS NULL',
+      );
+    }
+    if (query.priority) {
+      qb.andWhere('notification.priority = :priority', {
+        priority: query.priority,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        title: 'notification.title',
+        priority: 'notification.priority',
+        created_at: 'notification.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: ['notification.title', 'notification.message'],
+      tieBreaker: 'notification.id',
+    });
   }
 
   /**

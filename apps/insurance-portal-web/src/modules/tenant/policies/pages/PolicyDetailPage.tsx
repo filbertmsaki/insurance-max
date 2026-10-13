@@ -57,7 +57,7 @@ import {
   useRenewalEligibility,
   useSubmitPolicyEndorsementToTiramis,
 } from '../hooks';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import { DataTable, type Column } from '@/components/data-table';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   useCreateNonMotorPolicyDetail,

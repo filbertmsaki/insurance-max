@@ -7,6 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { Tax } from './entities/tax.entity';
 import { CreateTaxDto, UpdateTaxDto } from './dto/tax.dto';
+import { FindTaxesQueryDto } from './dto/find-taxes-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 
 @Injectable()
 export class TaxesService {
@@ -21,6 +23,32 @@ export class TaxesService {
         ...(activeOnly ? { is_active: true } : {}),
       },
       order: { is_default: 'DESC', tax_code: 'ASC' },
+    });
+  }
+
+  /** Server-side table page; company scope applied before filters/paging. */
+  findPage(companyId: string, query: FindTaxesQueryDto) {
+    const qb = this.repository
+      .createQueryBuilder('tax')
+      .where('tax.company_id = :companyId', { companyId });
+    if (query.is_active) {
+      qb.andWhere('tax.is_active = :isActive', {
+        isActive: query.is_active === 'true',
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        tax_code: 'tax.tax_code',
+        tax_name: 'tax.tax_name',
+        tax_rate: 'tax.tax_rate',
+        is_default: 'tax.is_default',
+        is_active: 'tax.is_active',
+        created_at: 'tax.created_at',
+      },
+      defaultSort: 'tax_code',
+      defaultOrder: 'ASC',
+      searchable: ['tax.tax_code', 'tax.tax_name'],
+      tieBreaker: 'tax.id',
     });
   }
 

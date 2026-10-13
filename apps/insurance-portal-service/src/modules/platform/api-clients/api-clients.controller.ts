@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Post,
   Patch,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -19,6 +20,8 @@ import { Roles } from '@insurance-max/portal-shared/decorators/roles.decorator';
 import { RolesGuard } from '@insurance-max/portal-shared/guards/roles.guard';
 
 import { CreateApiClientDto } from './dto/create-api-client.dto';
+import { FindApiClientsQueryDto } from './dto/find-api-clients-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { ApiClientsService } from './api-clients.service';
 
 @ApiTags('api-clients')
@@ -53,8 +56,13 @@ export class ApiClientsController {
   @Get()
   @Roles('SUPER_ADMIN', 'OWNER')
   @ApiOperation({ summary: 'List API clients' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.apiClientsService.findAll(user.companyId);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindApiClientsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.apiClientsService.findPage(query, user.companyId)
+      : this.apiClientsService.findAll(user.companyId);
   }
 
   @Get(':id')

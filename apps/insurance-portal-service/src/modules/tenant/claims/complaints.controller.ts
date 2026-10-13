@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -14,11 +15,13 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import { ClaimsPermissions } from './claims.permissions';
 import { ComplaintsService } from './complaints.service';
 import { TenantScoped } from '@insurance-max/portal-shared';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import {
   AddComplaintCommentDto,
   AssignComplaintDto,
   ComplaintDecisionDto,
   CreateComplaintDto,
+  FindComplaintsQueryDto,
 } from './dto/complaint.dto';
 
 @Controller('tenant/complaints')
@@ -37,8 +40,13 @@ export class ComplaintsController {
 
   @Get()
   @Permissions(ClaimsPermissions.COMPLAINT_READ)
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.complaintsService.findAll(user);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindComplaintsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.complaintsService.findPage(user, query)
+      : this.complaintsService.findAll(user);
   }
 
   @Get(':id')

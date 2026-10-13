@@ -1,4 +1,5 @@
 import { Transform, Type } from 'class-transformer';
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 import {
   IsBoolean,
   IsEmail,
@@ -87,7 +88,8 @@ export class SuspendPortalAccountDto {
   reason: string;
 }
 
-export class PortalInvitationFilterDto {
+/** Server-table query (page/limit/search/sortBy/sortOrder) plus invitation filters. */
+export class PortalInvitationFilterDto extends TableQueryDto {
   @IsOptional()
   @IsEnum(PortalInvitationStatus)
   status?: PortalInvitationStatus;
@@ -99,19 +101,6 @@ export class PortalInvitationFilterDto {
   @IsOptional()
   @IsEnum(PortalActorType)
   actor_type?: PortalActorType;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number;
 }
 
 export class RevokePortalInvitationDto {

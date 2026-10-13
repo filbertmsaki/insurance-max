@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { CustomersTable } from '@/modules/tenant/customers/components/CustomersTable';
 import { underwritePaths } from '@/modules/tenant/underwrite/paths';
-import { useUnderwriteCustomers, useUnderwriteLineParam } from '../hooks';
+import { underwriteApi } from '../api';
+import { underwriteKeys, useUnderwriteLineParam } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
 
 /**
@@ -19,18 +19,6 @@ function CustomersList({ line }: { line: UnderwriteLineMeta }) {
   const canCreate = useAuthStore((state) =>
     state.hasPermission('customers:create'),
   );
-  const {
-    query,
-    page,
-    limit,
-    search,
-    sortBy,
-    sortOrder,
-    setSearch,
-    setSort,
-    setPage,
-    setLimit,
-  } = useUnderwriteCustomers(line.slug);
 
   return (
     <div>
@@ -41,7 +29,9 @@ function CustomersList({ line }: { line: UnderwriteLineMeta }) {
         action={
           canCreate ? (
             <Button
-              onClick={() => navigate(underwritePaths.customerCreate(line.slug))}
+              onClick={() =>
+                navigate(underwritePaths.customerCreate(line.slug))
+              }
             >
               <Plus className="mr-2 h-4 w-4" />
               New customer
@@ -50,30 +40,11 @@ function CustomersList({ line }: { line: UnderwriteLineMeta }) {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="relative min-w-64 max-w-sm flex-1">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search customers..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </div>
-
       <CustomersTable
-        customers={query.data?.data ?? []}
-        loading={query.isLoading}
-        page={page}
-        limit={limit}
-        total={query.data?.pagination.total ?? 0}
-        totalPages={query.data?.pagination.totalPages ?? 1}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
-        onSortChange={setSort}
+        queryKey={[...underwriteKeys.all, line.slug, 'customers']}
+        fetcher={(params, signal) =>
+          underwriteApi.getCustomers(line.slug, params, signal)
+        }
       />
     </div>
   );

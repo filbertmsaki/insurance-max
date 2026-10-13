@@ -1,49 +1,45 @@
 import { UploadCloud } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import { DataTable, type Column } from '@/components/data-table';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
-import { useRetryableSubmissions, useSyncAdminSubmission } from '../hooks';
+import {
+  useRetryableSubmissionsTable,
+  useSyncAdminSubmission,
+} from '../hooks';
 import type { TiramisTrackingRecord } from '../types';
 import { formatDateTime } from '../utils';
 
-export function TiramisRetryablePage() {
-  const { data = [], isLoading } = useRetryableSubmissions();
-  const sync = useSyncAdminSubmission();
+const columns: Column<TiramisTrackingRecord>[] = [
+  {
+    key: 'status',
+    header: 'Status',
+    sortable: true,
+    cell: (row) => <TiramisStatusBadge status={row.status} />,
+  },
+  {
+    key: 'requestType',
+    header: 'Request Type',
+    sortable: true,
+    cell: (row) => row.requestType,
+  },
+  {
+    key: 'businessReference',
+    header: 'Business Ref',
+    sortable: true,
+    cell: (row) => row.businessReference ?? ' - ',
+  },
+  {
+    key: 'nextRetry',
+    header: 'Next Retry',
+    sortable: true,
+    cell: (row) => formatDateTime(row.nextRetryAt),
+  },
+];
 
-  const columns: Column<TiramisTrackingRecord>[] = [
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (row) => <TiramisStatusBadge status={row.status} />,
-    },
-    {
-      key: 'requestType',
-      header: 'Request Type',
-      cell: (row) => row.requestType,
-    },
-    {
-      key: 'businessReference',
-      header: 'Business Ref',
-      cell: (row) => row.businessReference ?? ' - ',
-    },
-    {
-      key: 'nextRetryAt',
-      header: 'Next Retry',
-      cell: (row) => formatDateTime(row.nextRetryAt),
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      cell: (row) => (
-        <Button variant="ghost" size="sm" onClick={() => sync.mutate(row.id)}>
-          <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
-          Sync
-        </Button>
-      ),
-    },
-  ];
+export function TiramisRetryablePage() {
+  const { tableProps } = useRetryableSubmissionsTable();
+  const sync = useSyncAdminSubmission();
 
   return (
     <div className="space-y-6">
@@ -54,15 +50,17 @@ export function TiramisRetryablePage() {
       <Card>
         <CardContent className="pt-6">
           <DataTable
+            {...tableProps}
             columns={columns}
-            data={data}
-            loading={isLoading}
-            page={1}
-            limit={data.length || 1}
-            total={data.length}
-            totalPages={1}
-            onPageChange={() => {}}
-            onLimitChange={() => {}}
+            searchPlaceholder="Search reference, request ID or error"
+            rowActions={[
+              {
+                label: 'Sync',
+                icon: UploadCloud,
+                onClick: (row) => sync.mutate(row.id),
+              },
+            ]}
+            emptyMessage="No submissions are waiting for retry"
           />
         </CardContent>
       </Card>

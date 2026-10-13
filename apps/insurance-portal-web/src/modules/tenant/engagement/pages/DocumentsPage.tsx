@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Files, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,15 +19,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 
-import { engagementApi } from '../api';
+import { engagementApi, type DocumentRecord } from '../api';
 import { formatDate, statusTone } from '../utils';
 
 type UploadFormState = {
@@ -52,13 +50,116 @@ const initialForm: UploadFormState = {
   file: null,
 };
 
+const DOCUMENT_FILTER_KEYS = ['status', 'classification'] as const;
+type DocumentFilterKey = (typeof DOCUMENT_FILTER_KEYS)[number];
+
+const toOptions = (values: string[]) =>
+  values.map((value) => ({ label: value, value }));
+
+const DOCUMENT_STATUS_OPTIONS = toOptions([
+  'UPLOAD_PENDING',
+  'UPLOADED',
+  'SCAN_PENDING',
+  'SCANNING',
+  'AVAILABLE',
+  'QUARANTINED',
+  'REJECTED',
+  'SUPERSEDED',
+  'REVOKED',
+  'ARCHIVED',
+]);
+const CLASSIFICATION_OPTIONS = toOptions([
+  'INTERNAL',
+  'CONFIDENTIAL',
+  'RESTRICTED',
+  'PUBLIC',
+]);
+
+const columns: Column<DocumentRecord>[] = [
+  {
+    key: 'document_no',
+    header: 'Document',
+    sortable: true,
+    cell: (document) => (
+      <div className="space-y-1">
+        <Link
+          to={`/documents/${document.id}`}
+          className="font-medium text-slate-900 hover:text-blue-700"
+        >
+          {document.document_no ?? document.title ?? 'Document'}
+        </Link>
+        <div className="text-xs text-slate-500">{document.title}</div>
+      </div>
+    ),
+  },
+  {
+    key: 'document_type',
+    header: 'Type',
+    sortable: true,
+    cell: (document) => document.document_type ?? 'GENERAL',
+  },
+  {
+    key: 'owner_type',
+    header: 'Linked record',
+    hideOnMobile: true,
+    cell: (document) => (
+      <>
+        {document.owner_type}
+        {document.owner_id ? (
+          <div className="text-xs text-slate-500">{document.owner_id}</div>
+        ) : null}
+      </>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortable: true,
+    cell: (document) => (
+      <Badge variant="outline" className={statusTone(document.status)}>
+        {document.status}
+      </Badge>
+    ),
+  },
+  {
+    key: 'version',
+    header: 'Version',
+    cell: (document) => document.current_version?.version_number ?? '-',
+  },
+  {
+    key: 'visibility',
+    header: 'Visibility',
+    hideOnMobile: true,
+    cell: (document) => (
+      <span className="text-xs text-slate-600">
+        {document.customer_visible ? 'Customer ' : ''}
+        {document.intermediary_visible ? 'Intermediary' : ''}
+        {!document.customer_visible && !document.intermediary_visible
+          ? 'Internal only'
+          : null}
+      </span>
+    ),
+  },
+  {
+    key: 'retention_until',
+    header: 'Retention',
+    sortable: true,
+    cell: (document) => formatDate(document.retention_until),
+  },
+];
+
 export function DocumentsPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<UploadFormState>(initialForm);
 
-  const documentsQuery = useQuery({
+  const { tableProps, state } = useServerTable<
+    DocumentRecord,
+    DocumentFilterKey
+  >({
     queryKey: ['engagement', 'documents'],
-    queryFn: engagementApi.listDocuments,
+    fetcher: (params, signal) => engagementApi.pageDocuments(params, signal),
+    filterKeys: DOCUMENT_FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
 
   const uploadMutation = useMutation({
@@ -243,71 +344,20 @@ export function DocumentsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Document</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Linked record</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Visibility</TableHead>
-                  <TableHead>Retention</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(documentsQuery.data ?? []).map((document) => (
-                  <TableRow key={document.id}>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Link
-                          to={`/documents/${document.id}`}
-                          className="font-medium text-slate-900 hover:text-blue-700"
-                        >
-                          {document.document_no ?? document.title ?? 'Document'}
-                        </Link>
-                        <div className="text-xs text-slate-500">
-                          {document.title}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{document.document_type ?? 'GENERAL'}</TableCell>
-                    <TableCell>
-                      {document.owner_type}
-                      {document.owner_id ? (
-                        <div className="text-xs text-slate-500">
-                          {document.owner_id}
-                        </div>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusTone(document.status)}
-                      >
-                        {document.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {document.current_version?.version_number ?? '-'}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-600">
-                      {document.customer_visible ? 'Customer ' : ''}
-                      {document.intermediary_visible ? 'Intermediary' : ''}
-                      {!document.customer_visible &&
-                      !document.intermediary_visible
-                        ? 'Internal only'
-                        : null}
-                    </TableCell>
-                    <TableCell>
-                      {formatDate(document.retention_until)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search documents…"
+            filters={tableFilters(state.filters, [
+              { key: 'status', label: 'Status', options: DOCUMENT_STATUS_OPTIONS },
+              {
+                key: 'classification',
+                label: 'Classification',
+                options: CLASSIFICATION_OPTIONS,
+              },
+            ])}
+            emptyMessage="No documents yet"
+          />
         </CardContent>
       </Card>
     </div>

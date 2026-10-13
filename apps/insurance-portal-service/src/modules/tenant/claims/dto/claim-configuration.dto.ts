@@ -13,6 +13,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 
 import { ClaimApprovalType } from '../enums/claim.enums';
 import { CLAIM_DOCUMENT_STAGES } from '../services/claim-document.service';
@@ -136,24 +137,11 @@ export class ClaimsDashboardQueryDto {
   product_id?: string;
 }
 
-export class ClaimDocumentsQueryDto {
+export class ClaimDocumentsQueryDto extends TableQueryDto {
   @IsOptional()
   @IsString()
   @MaxLength(30)
   status?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  page?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(100)
-  limit?: number;
 }
 
 export class SaveClaimNumberFormatDto {

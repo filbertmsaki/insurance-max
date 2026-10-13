@@ -15,6 +15,8 @@ import {
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+
 import { AuditService } from '../../shared/audit/audit.service';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { BusinessReferenceService } from '../../shared/identifiers/business-reference.service';
@@ -635,8 +637,6 @@ export class ClaimsService {
 
   async findAll(user: AuthenticatedUser, query: FindClaimsQueryDto) {
     const scope = this.scopeService.resolve(user);
-    const page = Math.max(Number(query.page ?? 1), 1);
-    const limit = Math.min(Math.max(Number(query.limit ?? 20), 1), 100);
 
     const queryBuilder = this.claimRepository
       .createQueryBuilder('claim')
@@ -705,39 +705,28 @@ export class ClaimsService {
       );
     }
 
-    if (query.search?.trim()) {
-      queryBuilder.andWhere(
-        `(
-          claim.claim_no ILIKE :search
-          OR claim.claim_notification_number ILIKE :search
-          OR claim.claim_reference_number ILIKE :search
-          OR claim.cover_note_reference_number ILIKE :search
-          OR policy.policy_no ILIKE :search
-          OR customer.customer_no ILIKE :search
-          OR customer.first_name ILIKE :search
-          OR customer.last_name ILIKE :search
-          OR customer.company_name ILIKE :search
-        )`,
-        { search: `%${query.search.trim()}%` },
-      );
-    }
-
-    const [items, total] = await queryBuilder
-      .orderBy('claim.created_at', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
-
-    return {
-      data: items,
-      meta: {
-        totalItems: total,
-        itemCount: items.length,
-        itemsPerPage: limit,
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
+    return paginateQueryBuilder(queryBuilder, query, {
+      sortable: {
+        created_at: 'claim.created_at',
+        claim_no: 'claim.claim_no',
+        loss: 'claim.loss_date',
+        estimated_amount: 'claim.estimated_amount',
+        status: 'claim.status',
       },
-    };
+      defaultSort: 'created_at',
+      searchable: [
+        'claim.claim_no',
+        'claim.claim_notification_number',
+        'claim.claim_reference_number',
+        'claim.cover_note_reference_number',
+        'policy.policy_no',
+        'customer.customer_no',
+        'customer.first_name',
+        'customer.last_name',
+        'customer.company_name',
+      ],
+      tieBreaker: 'claim.id',
+    });
   }
 
   async findOne(user: AuthenticatedUser, id: string) {

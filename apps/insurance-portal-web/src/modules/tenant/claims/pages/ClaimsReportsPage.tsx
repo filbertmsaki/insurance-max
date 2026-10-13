@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, FileBarChart, Play } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,19 +14,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { EmptyState, SectionCard } from '@/components/shared/DetailSections';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { humanizeCode } from '@/components/shared/detailFormat';
 import {
   reportingApi,
   type ReportDefinitionSummary,
+  type ReportJobRecord,
 } from '@/modules/tenant/reporting/api';
 import { ClaimErrorAlert } from '../components/ClaimErrorAlert';
 import { CLAIM_STATUSES, CLAIM_STATUS_META } from '../constants';
@@ -48,6 +46,8 @@ const JOB_TONE: Record<string, 'muted' | 'info' | 'success' | 'danger'> = {
   FAILED: 'danger',
 };
 
+const ACTIVE_JOB_STATUSES = ['PENDING', 'QUEUED', 'RUNNING', 'PROCESSING'];
+
 const isClaimsReport = (definition: ReportDefinitionSummary) =>
   definition.category === 'CLAIMS' || definition.code.startsWith('CLAIMS_');
 
@@ -61,16 +61,23 @@ export function ClaimsReportsPage() {
     queryKey: reportKeys.definitions,
     queryFn: reportingApi.getReportDefinitions,
   });
-  const jobs = useQuery({
+  // Claims runs only: the server filters by report category (CLAIMS or a
+  // CLAIMS_ code prefix), so paging and totals cover claim jobs alone.
+  const jobs = useServerTable<ReportJobRecord>({
     queryKey: reportKeys.jobs,
-    queryFn: reportingApi.getReportJobs,
-    refetchInterval: (query) =>
-      query.state.data?.some((job) =>
-        ['PENDING', 'QUEUED', 'RUNNING', 'PROCESSING'].includes(job.status),
-      )
-        ? 5_000
-        : false,
+    fetcher: (params, signal) => reportingApi.listJobsPage(params, signal),
+    defaultSortBy: 'created_at',
+    extraParams: { category: 'CLAIMS' },
   });
+  const hasActiveJobs = jobs.rows.some((job) =>
+    ACTIVE_JOB_STATUSES.includes(job.status),
+  );
+  const refetchJobs = jobs.query.refetch;
+  useEffect(() => {
+    if (!hasActiveJobs) return;
+    const timer = window.setInterval(() => void refetchJobs(), 5_000);
+    return () => window.clearInterval(timer);
+  }, [hasActiveJobs, refetchJobs]);
 
   const reports = (definitions.data ?? []).filter(isClaimsReport);
   const [selectedId, setSelectedId] = useState('');
@@ -112,13 +119,67 @@ export function ClaimsReportsPage() {
     onError: () => toast.error('The report could not be downloaded'),
   });
 
-  const claimReportIds = new Set(reports.map((report) => report.id));
   const nameOf = new Map(reports.map((report) => [report.id, report.name]));
-  const claimJobs = (jobs.data ?? []).filter(
-    (job) =>
-      (job.definition_id && claimReportIds.has(job.definition_id)) ||
-      job.report_code?.startsWith('CLAIMS_'),
-  );
+
+  const jobColumns: Column<ReportJobRecord>[] = [
+    {
+      key: 'report',
+      header: 'Report',
+      cell: (job) => (
+        <>
+          {(job.definition_id && nameOf.get(job.definition_id)) ??
+            humanizeCode(job.report_code ?? 'Report')}
+          <div className="text-xs text-slate-500">{job.format}</div>
+        </>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: 'Requested',
+      sortable: true,
+      cell: (job) => formatClaimDateTime(job.created_at),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (job) => (
+        <>
+          <Badge variant={JOB_TONE[job.status] ?? 'muted'}>
+            {humanizeCode(job.status)}
+          </Badge>
+          {job.safe_error_message ? (
+            <div className="mt-1 text-xs text-red-600">
+              {job.safe_error_message}
+            </div>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      key: 'rows',
+      header: 'Rows',
+      className: 'text-right tabular-nums',
+      cell: (job) => job.row_count ?? '-',
+    },
+    {
+      key: 'download',
+      header: '',
+      className: 'text-right',
+      cell: (job) =>
+        job.artifact_id ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={download.isPending}
+            onClick={() => download.mutate(job.artifact_id!)}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Download
+          </Button>
+        ) : null,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -253,59 +314,13 @@ export function ClaimsReportsPage() {
       </div>
 
       <SectionCard title="Recent runs">
-        {claimJobs.length === 0 ? (
-          <EmptyState text="No claims reports have been run yet." />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Report</TableHead>
-                <TableHead>Requested</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Rows</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {claimJobs.map((job) => (
-                <TableRow key={job.id}>
-                  <TableCell>
-                    {(job.definition_id && nameOf.get(job.definition_id)) ??
-                      humanizeCode(job.report_code ?? 'Report')}
-                    <div className="text-xs text-slate-500">{job.format}</div>
-                  </TableCell>
-                  <TableCell>{formatClaimDateTime(job.created_at)}</TableCell>
-                  <TableCell>
-                    <Badge variant={JOB_TONE[job.status] ?? 'muted'}>
-                      {humanizeCode(job.status)}
-                    </Badge>
-                    {job.safe_error_message ? (
-                      <div className="mt-1 text-xs text-red-600">
-                        {job.safe_error_message}
-                      </div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {job.row_count ?? '-'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {job.artifact_id ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={download.isPending}
-                        onClick={() => download.mutate(job.artifact_id!)}
-                      >
-                        <Download className="mr-1.5 h-4 w-4" />
-                        Download
-                      </Button>
-                    ) : null}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <DataTable
+          {...jobs.tableProps}
+          columns={jobColumns}
+          searchPlaceholder="Search status or format"
+          emptyMessage="No claims reports have been run yet."
+          showColumnVisibility={false}
+        />
       </SectionCard>
     </div>
   );

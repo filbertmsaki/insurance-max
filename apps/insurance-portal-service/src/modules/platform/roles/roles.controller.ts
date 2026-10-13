@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Req,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -18,6 +19,8 @@ import {
 import type { Request as ExpressRequest } from 'express';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { FindRolesQueryDto } from './dtos/find-roles-query.dto';
 import { CreateRoleDto } from './dtos/create-role.dto';
 import { UpdateRoleDto } from './dtos/update-role.dto';
 import { RolesService } from './roles.service';
@@ -46,8 +49,13 @@ export class RolesController {
   @Get()
   @Permissions('roles:read')
   @ApiOperation({ summary: 'Get roles visible to the current actor' })
-  findAll(@Req() req: ExpressRequest & { user: AuthenticatedUser }) {
-    return this.rolesService.findAll(req.user);
+  findAll(
+    @Req() req: ExpressRequest & { user: AuthenticatedUser },
+    @Query() query: FindRolesQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.rolesService.findPage(req.user, query)
+      : this.rolesService.findAll(req.user);
   }
 
   @Get(':id')

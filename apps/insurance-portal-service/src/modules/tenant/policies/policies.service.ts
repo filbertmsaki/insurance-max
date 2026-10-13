@@ -675,7 +675,8 @@ export class PoliciesService {
       .leftJoinAndSelect('policy.product', 'product')
       .leftJoinAndSelect('policy.category', 'category')
       .where('policy.company_id = :companyId', { companyId })
-      .orderBy(`policy.${safeSortBy}`, direction);
+      .orderBy(`policy.${safeSortBy}`, direction)
+      .addOrderBy('policy.id', direction);
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;
@@ -738,7 +739,8 @@ export class PoliciesService {
       .leftJoinAndSelect('policy.product', 'product')
       .leftJoinAndSelect('policy.category', 'category')
       .where('policy.deleted_at IS NULL')
-      .orderBy(`policy.${safeSortBy}`, direction);
+      .orderBy(`policy.${safeSortBy}`, direction)
+      .addOrderBy('policy.id', direction);
 
     this.dataAccessScopeService.applyPolicyReadScope(
       queryBuilder,

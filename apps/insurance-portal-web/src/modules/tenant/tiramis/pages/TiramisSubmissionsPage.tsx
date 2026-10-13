@@ -1,77 +1,57 @@
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Eye } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  type Column,
+} from '@/components/data-table';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
-import { useTenantSubmissionsList } from '../hooks';
+import { TiramisTextFilter } from '../components/TiramisTextFilter';
+import { useTenantSubmissionsTable } from '../hooks';
 import type { TiramisSubmissionRecord } from '../types';
+import { TIRAMIS_TRACKING_STATUS_OPTIONS } from '../utils';
+
+const columns: Column<TiramisSubmissionRecord>[] = [
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (row) => <TiramisStatusBadge status={row.status} />,
+  },
+  {
+    key: 'quotation',
+    header: 'Quotation',
+    cell: (row) =>
+      row.quotation?.quotation_no ??
+      row.quotation_id ??
+      row.business_reference ??
+      ' - ',
+  },
+  {
+    key: 'requestId',
+    header: 'Request ID',
+    cell: (row) => row.tiramis_request_id ?? ' - ',
+  },
+  {
+    key: 'businessReference',
+    header: 'Business Ref',
+    hideOnMobile: true,
+    cell: (row) => row.business_reference ?? ' - ',
+  },
+  { key: 'type', header: 'Type', cell: (row) => row.request_type ?? ' - ' },
+  {
+    key: 'source',
+    header: 'Source',
+    hideOnMobile: true,
+    cell: (row) => row.source_module ?? ' - ',
+  },
+];
 
 export function TiramisSubmissionsPage() {
   const navigate = useNavigate();
-  const {
-    data,
-    isLoading,
-    page,
-    limit,
-    search,
-    status,
-    requestId,
-    businessReference,
-    setSearch,
-    setStatus,
-    setRequestId,
-    setBusinessReference,
-    setPage,
-    setLimit,
-  } = useTenantSubmissionsList({ sourceModule: 'quotations' });
-
-  const columns: Column<TiramisSubmissionRecord>[] = [
-    {
-      key: 'status',
-      header: 'Status',
-      cell: (row) => <TiramisStatusBadge status={row.status} />,
-    },
-    {
-      key: 'quotation',
-      header: 'Quotation',
-      cell: (row) =>
-        row.quotation?.quotation_no ??
-        row.quotation_id ??
-        row.business_reference ??
-        ' - ',
-    },
-    {
-      key: 'requestId',
-      header: 'Request ID',
-      cell: (row) => row.tiramis_request_id ?? ' - ',
-    },
-    {
-      key: 'businessReference',
-      header: 'Business Ref',
-      cell: (row) => row.business_reference ?? ' - ',
-    },
-    { key: 'type', header: 'Type', cell: (row) => row.request_type ?? ' - ' },
-    {
-      key: 'source',
-      header: 'Source',
-      cell: (row) => row.source_module ?? ' - ',
-    },
-    {
-      key: 'actions',
-      header: 'Actions',
-      cell: (row) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/tiramis/submissions/${row.id}`)}
-        >
-          View
-        </Button>
-      ),
-    },
-  ];
+  const { tableProps, state } = useTenantSubmissionsTable({
+    sourceModule: 'quotations',
+  });
 
   return (
     <div className="space-y-6">
@@ -80,53 +60,39 @@ export function TiramisSubmissionsPage() {
         description="Monitor quotation submissions sent to TIRAMIS"
       />
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search submissions"
-        />
-        <Input
-          value={requestId}
-          onChange={(e) => setRequestId(e.target.value)}
-          placeholder="Request ID"
-        />
-        <Input
-          value={businessReference}
-          onChange={(e) => setBusinessReference(e.target.value)}
-          placeholder="Business reference"
-        />
-        <Input
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          placeholder="Status"
-        />
-      </div>
-
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          onClick={() =>
-            navigate(
-              `/tiramis/submissions?search=${encodeURIComponent(search)}`,
-            )
-          }
-        >
-          <Search className="mr-2 h-4 w-4" />
-          Apply Filters
-        </Button>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data?.data ?? []}
-        loading={isLoading}
-        page={data?.pagination.page ?? page}
-        limit={data?.pagination.limit ?? limit}
-        total={data?.pagination.total ?? 0}
-        totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
+        searchPlaceholder="Search submissions"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'status',
+            label: 'Status',
+            options: TIRAMIS_TRACKING_STATUS_OPTIONS,
+          },
+        ])}
+        toolbarActions={
+          <>
+            <TiramisTextFilter
+              value={state.filters.request_id ?? ''}
+              onChange={(value) => state.setFilter('request_id', value)}
+              placeholder="Request ID"
+            />
+            <TiramisTextFilter
+              value={state.filters.business_reference ?? ''}
+              onChange={(value) => state.setFilter('business_reference', value)}
+              placeholder="Business reference"
+            />
+          </>
+        }
+        rowActions={[
+          {
+            label: 'View',
+            icon: Eye,
+            onClick: (row) => navigate(`/tiramis/submissions/${row.id}`),
+          },
+        ]}
+        emptyMessage="No TIRAMIS submissions yet"
       />
     </div>
   );

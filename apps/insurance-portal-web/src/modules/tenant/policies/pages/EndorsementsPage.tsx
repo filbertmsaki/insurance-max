@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import { DataTable, type Column } from '@/components/data-table';
 import { formatMoney } from '@/components/shared/detailFormat';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';

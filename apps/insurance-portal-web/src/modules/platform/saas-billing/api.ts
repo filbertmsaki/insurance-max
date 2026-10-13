@@ -1,4 +1,24 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
+
+export interface SaasTableParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  status?: string;
+  billing_interval?: string;
+  company_id?: string;
+}
+
+export interface SaasBillingSummary {
+  activeSubscriptions: number;
+  openCycles: number;
+  invoiceBalance: string;
+  overdueInvoices: number;
+  currency: string | null;
+}
 
 export interface SaasPlan {
   id: string;
@@ -109,6 +129,39 @@ export const saasBillingApi = {
 
   listInvoices: () =>
     apiClient.get<SaasInvoice[]>('/platform/saas/invoices').then((r) => r.data),
+
+  /** GET /platform/saas/invoices?page=… — server-side paginated */
+  listInvoicesPage: (params: SaasTableParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<SaasInvoice>>('/platform/saas/invoices', {
+        params,
+        signal,
+      })
+      .then((r) => r.data),
+
+  /** GET /platform/saas/cycles?page=… — server-side paginated */
+  listCyclesPage: (params: SaasTableParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<SaasBillingCycle>>('/platform/saas/cycles', {
+        params,
+        signal,
+      })
+      .then((r) => r.data),
+
+  /** GET /platform/saas/subscriptions?page=… — server-side paginated */
+  listSubscriptionsPage: (params: SaasTableParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<CompanySubscription>>(
+        '/platform/saas/subscriptions',
+        { params, signal },
+      )
+      .then((r) => r.data),
+
+  /** GET /platform/saas/summary — aggregate billing metrics */
+  getSummary: (signal?: AbortSignal) =>
+    apiClient
+      .get<SaasBillingSummary>('/platform/saas/summary', { signal })
+      .then((r) => r.data),
 
   listInvoiceAdjustments: (invoiceId: string) =>
     apiClient

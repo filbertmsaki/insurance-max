@@ -86,11 +86,14 @@ describe('UnderwriteTransactionsService line assertions', () => {
 
 function makeListQueryBuilder(result: {
   rawMany?: unknown[];
+  count?: number;
   rawAndEntities?: { entities: unknown[]; raw: unknown[] };
 }) {
   const queryBuilder: Record<string, jest.Mock> = {};
   [
+    'addOrderBy',
     'addSelect',
+    'limit',
     'andWhere',
     'innerJoin',
     'innerJoinAndSelect',
@@ -102,6 +105,9 @@ function makeListQueryBuilder(result: {
     queryBuilder[method] = jest.fn(() => queryBuilder);
   });
   queryBuilder.getRawMany = jest.fn().mockResolvedValue(result.rawMany ?? []);
+  queryBuilder.getCount = jest
+    .fn()
+    .mockResolvedValue(result.count ?? (result.rawMany ?? []).length);
   queryBuilder.getRawAndEntities = jest
     .fn()
     .mockResolvedValue(result.rawAndEntities ?? { entities: [], raw: [] });
@@ -258,5 +264,61 @@ describe('UnderwriteTransactionsService lists', () => {
       status_code: null,
       status_description: 'Add a truck',
     });
+  });
+
+  it('pages the merged TIRA queue in SQL windows', async () => {
+    const older = {
+      ...transactionRow,
+      id: 't-1',
+      updated_at: new Date('2026-01-01'),
+    };
+    const newer = {
+      ...transactionRow,
+      id: 't-2',
+      updated_at: new Date('2026-03-01'),
+    };
+    const transactionQuery = makeListQueryBuilder({
+      rawMany: [newer, older],
+      count: 7,
+    });
+    const quotationQuery = makeListQueryBuilder({
+      rawMany: [
+        {
+          id: 'q-1',
+          reference_no: 'Q-1',
+          updated_at: new Date('2026-02-01'),
+          customer_snapshot: null,
+          source_kind: 'quotation',
+        },
+      ],
+      count: 3,
+    });
+    const service = new UnderwriteTransactionsService(
+      { createQueryBuilder: jest.fn(() => transactionQuery) } as never,
+      {} as never,
+      {} as never,
+      { createQueryBuilder: jest.fn(() => quotationQuery) } as never,
+      scope as never,
+    );
+
+    const result = (await service.listTiraQueue(
+      user,
+      UnderwriteLine.FLEET,
+      'failed',
+      {
+        page: 1,
+        limit: 2,
+        search: 'abc',
+      },
+    )) as { data: Array<{ id: string }>; pagination: { total: number } };
+
+    expect(result.data.map((row) => row.id)).toEqual(['t-2', 'q-1']);
+    expect(result.pagination.total).toBe(10);
+    expect(transactionQuery.limit).toHaveBeenCalledWith(2);
+    expect(quotationQuery.limit).toHaveBeenCalledWith(2);
+    expect(quotationQuery.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('ILIKE :tiraSearch'),
+      { tiraSearch: '%abc%' },
+    );
   });
 });

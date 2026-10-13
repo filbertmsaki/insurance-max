@@ -1,10 +1,15 @@
-import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { Hand, Play, Zap } from 'lucide-react';
 
 import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -13,16 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
-import { engagementApi } from '../api';
+import { engagementApi, type WorkItemRecord } from '../api';
 import { formatDateTime, statusTone } from '../utils';
 
 const VIEWS = [
@@ -37,44 +34,110 @@ const VIEWS = [
   { value: 'delegated', label: 'Delegated' },
 ];
 
+const WORK_ITEM_FILTER_KEYS = ['view', 'status', 'priority'] as const;
+type WorkItemFilterKey = (typeof WORK_ITEM_FILTER_KEYS)[number];
+
+const toOptions = (values: string[]) =>
+  values.map((value) => ({ label: value, value }));
+const STATUS_OPTIONS = toOptions([
+  'OPEN',
+  'IN_PROGRESS',
+  'BLOCKED',
+  'COMPLETED',
+  'CANCELLED',
+]);
+const PRIORITY_OPTIONS = toOptions(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
+
+const columns: Column<WorkItemRecord>[] = [
+  {
+    key: 'work_item_no',
+    header: 'Work item',
+    sortable: true,
+    cell: (item) => (
+      <>
+        <Link
+          to={`/work-items/${item.id}`}
+          className="font-medium text-slate-900 hover:text-blue-700"
+        >
+          {item.work_item_no ?? item.title}
+        </Link>
+        <div className="text-sm text-slate-500">{item.title}</div>
+      </>
+    ),
+  },
+  {
+    key: 'priority',
+    header: 'Priority',
+    sortable: true,
+    cell: (item) => (
+      <Badge variant="outline" className={statusTone(item.priority)}>
+        {item.priority}
+      </Badge>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortable: true,
+    cell: (item) => (
+      <Badge variant="outline" className={statusTone(item.status)}>
+        {item.status}
+      </Badge>
+    ),
+  },
+  {
+    key: 'due_at',
+    header: 'Due',
+    sortable: true,
+    cell: (item) => formatDateTime(item.due_at),
+  },
+];
+
 export function WorkItemsPage() {
   const queryClient = useQueryClient();
-  const [view, setView] = useState('all');
 
-  const workItemsQuery = useQuery({
-    queryKey: ['engagement', 'work-items', view],
-    queryFn: () => engagementApi.listWorkItems(view),
+  const { tableProps, state } = useServerTable<
+    WorkItemRecord,
+    WorkItemFilterKey
+  >({
+    queryKey: ['engagement', 'work-items'],
+    fetcher: (params, signal) => engagementApi.pageWorkItems(params, signal),
+    filterKeys: WORK_ITEM_FILTER_KEYS,
+    defaultSortBy: 'due_at',
+    defaultSortOrder: 'ASC',
   });
+  const view = state.filters.view || 'all';
 
   const queuesQuery = useQuery({
     queryKey: ['engagement', 'work-item-queues'],
     queryFn: engagementApi.listWorkItemQueues,
   });
 
+  const invalidateList = () =>
+    queryClient.invalidateQueries({ queryKey: ['engagement', 'work-items'] });
+  const invalidateQueues = () =>
+    queryClient.invalidateQueries({
+      queryKey: ['engagement', 'work-item-queues'],
+    });
+
   const claimMutation = useMutation({
     mutationFn: (id: string) => engagementApi.claimWorkItem(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'work-items'] });
-      queryClient.invalidateQueries({
-        queryKey: ['engagement', 'work-item-queues'],
-      });
+      invalidateList();
+      invalidateQueues();
     },
   });
 
   const startMutation = useMutation({
     mutationFn: (id: string) => engagementApi.startWorkItem(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'work-items'] });
-    },
+    onSuccess: invalidateList,
   });
 
   const executeMutation = useMutation({
     mutationFn: (id: string) => engagementApi.executeWorkItem(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'work-items'] });
-      queryClient.invalidateQueries({
-        queryKey: ['engagement', 'work-item-queues'],
-      });
+      invalidateList();
+      invalidateQueues();
     },
   });
 
@@ -86,7 +149,12 @@ export function WorkItemsPage() {
         description="Operational task projections with queue views, timelines, and direct execution actions."
         action={
           <div className="w-[220px]">
-            <Select value={view} onValueChange={setView}>
+            <Select
+              value={view}
+              onValueChange={(value) =>
+                state.setFilter('view', value === 'all' ? '' : value)
+              }
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -128,72 +196,33 @@ export function WorkItemsPage() {
           <CardTitle className="text-base">Inbox</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Work item</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(workItemsQuery.data ?? []).map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <Link
-                      to={`/work-items/${item.id}`}
-                      className="font-medium text-slate-900 hover:text-blue-700"
-                    >
-                      {item.work_item_no ?? item.title}
-                    </Link>
-                    <div className="text-sm text-slate-500">{item.title}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={statusTone(item.priority)}
-                    >
-                      {item.priority}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={statusTone(item.status)}
-                    >
-                      {item.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDateTime(item.due_at)}</TableCell>
-                  <TableCell className="space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => claimMutation.mutate(item.id)}
-                    >
-                      Claim
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => startMutation.mutate(item.id)}
-                    >
-                      Start
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => executeMutation.mutate(item.id)}
-                    >
-                      Execute
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search work items…"
+            filters={tableFilters(state.filters, [
+              { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+              { key: 'priority', label: 'Priority', options: PRIORITY_OPTIONS },
+            ])}
+            rowActions={[
+              {
+                label: 'Claim',
+                icon: Hand,
+                onClick: (item) => claimMutation.mutate(item.id),
+              },
+              {
+                label: 'Start',
+                icon: Play,
+                onClick: (item) => startMutation.mutate(item.id),
+              },
+              {
+                label: 'Execute',
+                icon: Zap,
+                onClick: (item) => executeMutation.mutate(item.id),
+              },
+            ]}
+            emptyMessage="No work items in this view"
+          />
         </CardContent>
       </Card>
     </div>

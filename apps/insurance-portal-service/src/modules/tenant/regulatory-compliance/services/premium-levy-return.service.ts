@@ -13,8 +13,11 @@ import {
 import { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { createHash } from 'crypto';
 import { DateTime } from 'luxon';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { Repository } from 'typeorm';
 
+import type { RegulatoryListQueryDto } from '../dto/regulatory-list-query.dto';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { PremiumLevyReturnLine } from '../entities/premium-levy-return-line.entity';
 import { PremiumLevyReturn } from '../entities/premium-levy-return.entity';
@@ -204,7 +207,32 @@ export class PremiumLevyReturnService {
     );
   }
 
-  async listAssessments(companyId: string) {
+  async listAssessments(companyId: string, query?: RegulatoryListQueryDto) {
+    if (query && isPagedRequest(query)) {
+      const qb = this.assessmentRepository
+        .createQueryBuilder('assessment')
+        .where('assessment.company_id = :companyId', { companyId });
+      if (query.status) {
+        qb.andWhere('assessment.status = :status', { status: query.status });
+      }
+      return paginateQueryBuilder(qb, query, {
+        sortable: {
+          created_at: 'assessment.created_at',
+          assessment_no: 'assessment.assessment_no',
+          status: 'assessment.status',
+          assessed_amount: 'assessment.assessed_amount',
+          paid_amount: 'assessment.paid_amount',
+          outstanding_amount: 'assessment.outstanding_amount',
+        },
+        defaultSort: 'created_at',
+        searchable: [
+          'assessment.assessment_no',
+          'assessment.status',
+          'assessment.reconciliation_status',
+        ],
+        tieBreaker: 'assessment.id',
+      });
+    }
     return this.assessmentRepository.find({
       where: { company_id: companyId },
       order: { created_at: 'DESC' },

@@ -33,10 +33,11 @@ import type {
 export const policiesApi = {
   getList: async (
     params?: PolicyListParams,
+    signal?: AbortSignal,
   ): Promise<PaginatedResponse<PolicyRecord>> => {
     const response = await apiClient.get<
       BackendPaginatedResponse<PolicyRecord> | PaginatedResponse<PolicyRecord>
-    >('/tenant/policies', { params });
+    >('/tenant/policies', { params, signal });
     return normalizePaginatedResponse<PolicyRecord>(response.data);
   },
   getById: (id: string) =>

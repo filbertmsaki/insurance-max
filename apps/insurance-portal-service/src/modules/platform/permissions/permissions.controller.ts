@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import {
@@ -20,6 +21,8 @@ import { Permissions } from '@insurance-max/portal-shared/decorators/permissions
 import { Roles } from '@insurance-max/portal-shared/decorators/roles.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreatePermissionDto } from './dtos/create-permission.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { FindPermissionsQueryDto } from './dtos/find-permissions-query.dto';
 import { UpdatePermissionDto } from './dtos/update-permission.dto';
 import { PermissionsService } from './permissions.service';
 
@@ -47,8 +50,20 @@ export class PermissionsController {
   @Get()
   @Permissions('permissions:read')
   @ApiOperation({ summary: 'Get permissions visible to the current actor' })
-  findAll(@Req() req: ExpressRequest & { user: AuthenticatedUser }) {
-    return this.permissionsService.findAll(req.user);
+  findAll(
+    @Req() req: ExpressRequest & { user: AuthenticatedUser },
+    @Query() query: FindPermissionsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.permissionsService.findPage(req.user, query)
+      : this.permissionsService.findAll(req.user);
+  }
+
+  @Get('categories')
+  @Permissions('permissions:read')
+  @ApiOperation({ summary: 'Count visible permissions per category' })
+  categories(@Req() req: ExpressRequest & { user: AuthenticatedUser }) {
+    return this.permissionsService.countByCategory(req.user);
   }
 
   @Get(':id')

@@ -6,7 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { insurancePartnersApi } from './insurance-partners-api';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import {
+  insurancePartnersApi,
+  type PartnerRelationship,
+} from './insurance-partners-api';
 import { PartnerAmendmentsPanel } from '@/modules/shared/partners/PartnerAmendmentsPanel';
 
 const OPERATIONS = [
@@ -31,15 +40,45 @@ type ScopeDraft = {
 };
 type ScopeDrafts = Record<string, ScopeDraft>;
 
+const PARTNER_FILTER_KEYS = ['status', 'partner_type'] as const;
+type PartnerFilterKey = (typeof PARTNER_FILTER_KEYS)[number];
+const toOptions = (values: string[]) =>
+  values.map((value) => ({ value, label: value.replaceAll('_', ' ') }));
+const PARTNER_STATUS_OPTIONS = toOptions([
+  'PENDING',
+  'ACTIVE',
+  'SUSPENDED',
+  'REJECTED',
+  'WITHDRAWN',
+  'TERMINATED',
+  'EXPIRED',
+]);
+const PARTNER_TYPE_OPTIONS = toOptions([
+  'BROKER',
+  'AGENCY',
+  'BANCASSURANCE',
+  'REINSURANCE_COMPANY',
+  'REINSURANCE_BROKER',
+  'SERVICE_PROVIDER',
+]);
+
 export function InsurancePartnersPage() {
   const client = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedSnapshot, setSelectedSnapshot] =
+    useState<PartnerRelationship | null>(null);
+  const selectedId = selectedSnapshot?.id ?? null;
   const [draftOverrides, setDraftOverrides] = useState<
     Record<string, ScopeDrafts>
   >({});
-  const relationshipsQuery = useQuery({
+  const {
+    tableProps,
+    state,
+    rows: relationships,
+  } = useServerTable<PartnerRelationship, PartnerFilterKey>({
     queryKey: ['insurance-partners'],
-    queryFn: insurancePartnersApi.list,
+    fetcher: (params, signal) => insurancePartnersApi.page(params, signal),
+    filterKeys: PARTNER_FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
   const productsQuery = useQuery({
     queryKey: ['insurance-partners', 'products'],
@@ -49,8 +88,10 @@ export function InsurancePartnersPage() {
     queryKey: ['insurance-partners', 'branches'],
     queryFn: insurancePartnersApi.branches,
   });
+  // Prefer the freshest row from the current page; keep the snapshot when the
+  // selected relationship is on another page/filter.
   const selected =
-    relationshipsQuery.data?.find((item) => item.id === selectedId) ?? null;
+    relationships.find((item) => item.id === selectedId) ?? selectedSnapshot;
   const scopesQuery = useQuery({
     queryKey: ['insurance-partners', selectedId, 'scopes'],
     queryFn: () => insurancePartnersApi.scopes(selectedId!),
@@ -158,6 +199,101 @@ export function InsurancePartnersPage() {
     return null;
   };
 
+  const transition = (
+    relationship: PartnerRelationship,
+    action: 'approve' | 'reject' | 'suspend' | 'reactivate' | 'terminate',
+  ) => {
+    if (action === 'approve' || action === 'reactivate') {
+      transitionMutation.mutate({ id: relationship.id, action });
+      return;
+    }
+    const reason = requestReason(action);
+    if (reason)
+      transitionMutation.mutate({ id: relationship.id, action, reason });
+  };
+
+  const relationshipColumns: Column<PartnerRelationship>[] = [
+    {
+      key: 'partner',
+      header: 'Partner',
+      sortable: true,
+      cell: (relationship) => (
+        <Button
+          variant="link"
+          className={`p-0 ${selectedId === relationship.id ? 'font-semibold' : ''}`}
+          onClick={() => setSelectedSnapshot(relationship)}
+        >
+          {relationship.intermediary_company?.name ??
+            relationship.intermediary_company_id}
+        </Button>
+      ),
+    },
+    {
+      key: 'partner_type',
+      header: 'Type',
+      sortable: true,
+      cell: (relationship) => relationship.partner_type.replaceAll('_', ' '),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (relationship) => (
+        <Badge variant="outline">{relationship.status}</Badge>
+      ),
+    },
+    {
+      key: 'end_date',
+      header: 'Agreement end',
+      sortable: true,
+      cell: (relationship) =>
+        relationship.end_date
+          ? new Date(relationship.end_date).toLocaleDateString()
+          : 'No end date',
+    },
+  ];
+
+  const relationshipActions = [
+    {
+      label: 'Configure grants',
+      onClick: (r: PartnerRelationship) => setSelectedSnapshot(r),
+    },
+    {
+      label: 'Approve',
+      separator: true,
+      hidden: (r: PartnerRelationship) => r.status !== 'PENDING',
+      disabled: transitionMutation.isPending,
+      onClick: (r: PartnerRelationship) => transition(r, 'approve'),
+    },
+    {
+      label: 'Reject',
+      hidden: (r: PartnerRelationship) => r.status !== 'PENDING',
+      disabled: transitionMutation.isPending,
+      onClick: (r: PartnerRelationship) => transition(r, 'reject'),
+    },
+    {
+      label: 'Suspend',
+      hidden: (r: PartnerRelationship) => r.status !== 'ACTIVE',
+      disabled: transitionMutation.isPending,
+      onClick: (r: PartnerRelationship) => transition(r, 'suspend'),
+    },
+    {
+      label: 'Reactivate',
+      hidden: (r: PartnerRelationship) => r.status !== 'SUSPENDED',
+      disabled: transitionMutation.isPending,
+      onClick: (r: PartnerRelationship) => transition(r, 'reactivate'),
+    },
+    {
+      label: 'Terminate',
+      destructive: true,
+      separator: true,
+      hidden: (r: PartnerRelationship) =>
+        !['ACTIVE', 'SUSPENDED'].includes(r.status),
+      disabled: transitionMutation.isPending,
+      onClick: (r: PartnerRelationship) => transition(r, 'terminate'),
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -169,145 +305,31 @@ export function InsurancePartnersPage() {
         <CardHeader>
           <CardTitle className="text-base">Appointments</CardTitle>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          {relationshipsQuery.isLoading ? (
-            <p className="text-sm text-slate-500">Loading relationships…</p>
-          ) : (
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b text-slate-500">
-                  <th className="p-2">Partner</th>
-                  <th className="p-2">Type</th>
-                  <th className="p-2">Status</th>
-                  <th className="p-2">Agreement end</th>
-                  <th className="p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(relationshipsQuery.data ?? []).map((relationship) => (
-                  <tr
-                    key={relationship.id}
-                    className={`border-b ${selectedId === relationship.id ? 'bg-slate-50' : ''}`}
-                  >
-                    <td className="p-2">
-                      <Button
-                        variant="link"
-                        className="p-0"
-                        onClick={() => setSelectedId(relationship.id)}
-                      >
-                        {relationship.intermediary_company?.name ??
-                          relationship.intermediary_company_id}
-                      </Button>
-                    </td>
-                    <td className="p-2">
-                      {relationship.partner_type.replaceAll('_', ' ')}
-                    </td>
-                    <td className="p-2">
-                      <Badge variant="outline">{relationship.status}</Badge>
-                    </td>
-                    <td className="p-2">
-                      {relationship.end_date
-                        ? new Date(relationship.end_date).toLocaleDateString()
-                        : 'No end date'}
-                    </td>
-                    <td className="p-2">
-                      <div className="flex flex-wrap gap-1">
-                        {relationship.status === 'PENDING' ? (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                transitionMutation.mutate({
-                                  id: relationship.id,
-                                  action: 'approve',
-                                })
-                              }
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                const reason = requestReason('reject');
-                                if (reason)
-                                  transitionMutation.mutate({
-                                    id: relationship.id,
-                                    action: 'reject',
-                                    reason,
-                                  });
-                              }}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        ) : null}
-                        {relationship.status === 'ACTIVE' ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const reason = requestReason('suspend');
-                              if (reason)
-                                transitionMutation.mutate({
-                                  id: relationship.id,
-                                  action: 'suspend',
-                                  reason,
-                                });
-                            }}
-                          >
-                            Suspend
-                          </Button>
-                        ) : null}
-                        {relationship.status === 'SUSPENDED' ? (
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              transitionMutation.mutate({
-                                id: relationship.id,
-                                action: 'reactivate',
-                              })
-                            }
-                          >
-                            Reactivate
-                          </Button>
-                        ) : null}
-                        {['ACTIVE', 'SUSPENDED'].includes(
-                          relationship.status,
-                        ) ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const reason = requestReason('terminate');
-                              if (reason)
-                                transitionMutation.mutate({
-                                  id: relationship.id,
-                                  action: 'terminate',
-                                  reason,
-                                });
-                            }}
-                          >
-                            Terminate
-                          </Button>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {relationshipsQuery.isError ? (
-            <p className="mt-3 text-sm text-red-600">
-              Could not load partner appointments.
-            </p>
-          ) : null}
-          {!relationshipsQuery.isLoading && !relationshipsQuery.data?.length ? (
-            <p className="py-5 text-sm text-slate-500">
-              No partner appointments have been requested yet.
-            </p>
-          ) : null}
+        <CardContent>
+          <DataTable
+            {...tableProps}
+            columns={relationshipColumns}
+            searchPlaceholder="Search partner or agreement reference…"
+            filters={tableFilters(state.filters, [
+              {
+                key: 'status',
+                label: 'Status',
+                options: PARTNER_STATUS_OPTIONS,
+              },
+              {
+                key: 'partner_type',
+                label: 'Type',
+                options: PARTNER_TYPE_OPTIONS,
+              },
+            ])}
+            error={
+              tableProps.error
+                ? 'Could not load partner appointments.'
+                : undefined
+            }
+            rowActions={relationshipActions}
+            emptyMessage="No partner appointments have been requested yet."
+          />
         </CardContent>
       </Card>
 

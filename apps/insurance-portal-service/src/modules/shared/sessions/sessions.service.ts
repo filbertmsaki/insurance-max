@@ -19,6 +19,8 @@ import {
 
 import { UserSession } from './entities/user-session.entity';
 import { SessionResponseDto } from './dto/session-response.dto';
+import { FindSessionsQueryDto } from './dto/find-sessions-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 
 import { RedisService } from '../redis/redis.service';
 
@@ -498,6 +500,41 @@ export class SessionsService {
     return sessions.map(
       (session) => new SessionResponseDto(session, currentSessionId),
     );
+  }
+
+  /**
+   * Paged list of the caller's own active sessions. Ownership + active
+   * (not revoked, not expired) scope is applied before search/sort/paging.
+   */
+  async findUserSessionsPage(
+    userId: string,
+    query: FindSessionsQueryDto,
+    currentSessionId?: string,
+  ) {
+    const qb = this.sessionRepo
+      .createQueryBuilder('session')
+      .where('session.user_id = :userId', { userId })
+      .andWhere('session.revoked = false')
+      .andWhere('session.expires_at > :now', { now: new Date() });
+
+    const result = await paginateQueryBuilder(qb, query, {
+      sortable: {
+        last_used_at: 'session.last_used_at',
+        created_at: 'session.created_at',
+        expires_at: 'session.expires_at',
+        ip_address: 'session.ip_address',
+      },
+      defaultSort: 'last_used_at',
+      searchable: ['session.ip_address', 'session.user_agent'],
+      tieBreaker: 'session.id',
+    });
+
+    return {
+      data: result.data.map(
+        (session) => new SessionResponseDto(session, currentSessionId),
+      ),
+      pagination: result.pagination,
+    };
   }
 
   async cleanExpiredSessions(): Promise<void> {

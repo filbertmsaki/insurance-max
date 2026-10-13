@@ -8,9 +8,9 @@ import type {
 } from '@/types/product-engine';
 
 export const subClassesApi = {
-  getList: (params?: SubClassQueryParams) =>
+  getList: (params?: SubClassQueryParams, signal?: AbortSignal) =>
     apiClient
-      .get<PEPage<InsuranceSubClass>>('/insurance-sub-classes', { params })
+      .get<PEPage<InsuranceSubClass>>('/insurance-sub-classes', { params, signal })
       .then((r) => r.data),
 
   create: (data: CreateSubClassDto) =>

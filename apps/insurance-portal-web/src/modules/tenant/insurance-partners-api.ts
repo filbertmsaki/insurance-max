@@ -1,9 +1,18 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 
 export const insurancePartnersApi = {
   list: () =>
     apiClient
       .get<PartnerRelationship[]>('/insurance-partners')
+      .then((r) => r.data),
+  /** GET /insurance-partners?page=… — server-side table page (search/status/partner_type/sort). */
+  page: (params: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<PartnerRelationship>>('/insurance-partners', {
+        params,
+        signal,
+      })
       .then((r) => r.data),
   products: () =>
     apiClient

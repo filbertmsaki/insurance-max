@@ -9,6 +9,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Repository } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { FindDocumentsQueryDto } from './dto/engagement-list-query.dto';
 import {
   DocumentClassification,
   DocumentLinkType,
@@ -109,6 +111,40 @@ export class DocumentsService {
       order: {
         created_at: 'DESC',
       },
+    });
+  }
+
+  /** Server-side table: company scope is applied before paging and counting. */
+  findPage(companyId: string, query: FindDocumentsQueryDto) {
+    const qb = this.documentRepository
+      .createQueryBuilder('document')
+      .leftJoinAndSelect('document.current_version', 'current_version')
+      .where('document.company_id = :companyId', { companyId });
+    if (query.status) {
+      qb.andWhere('document.status = :status', { status: query.status });
+    }
+    if (query.classification) {
+      qb.andWhere('document.classification = :classification', {
+        classification: query.classification,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        document_no: 'document.document_no',
+        document_type: 'document.document_type',
+        status: 'document.status',
+        retention_until: 'document.retention_until',
+        created_at: 'document.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'document.document_no',
+        'document.title',
+        'document.document_type',
+        'document.owner_type',
+        'document.file_name',
+      ],
+      tieBreaker: 'document.id',
     });
   }
 

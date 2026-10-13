@@ -17,6 +17,8 @@ import {
   UpdateDistrictDto,
   UpdateRegionDto,
 } from './dto/reference-data.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { ReferenceCountry } from './entities/reference-country.entity';
 import { ReferenceCurrency } from './entities/reference-currency.entity';
 import { ReferenceDistrict } from './entities/reference-district.entity';
@@ -47,6 +49,21 @@ export class ReferenceDataService {
       .where('country.deleted_at IS NULL')
       .orderBy('country.name', 'ASC');
     this.applyActiveFilter(qb, 'country', query);
+    if (isPagedRequest(query)) {
+      return paginateQueryBuilder(qb, query, {
+        sortable: {
+          name: 'country.name',
+          iso2_code: 'country.iso2_code',
+          iso3_code: 'country.iso3_code',
+          phone_code: 'country.phone_code',
+          is_active: 'country.is_active',
+        },
+        defaultSort: 'name',
+        defaultOrder: 'ASC',
+        searchable: ['country.name', 'country.iso2_code', 'country.iso3_code'],
+        tieBreaker: 'country.id',
+      });
+    }
     this.applySearch(qb, 'country', ['name', 'iso2_code', 'iso3_code'], query);
     return qb.getMany();
   }
@@ -112,6 +129,20 @@ export class ReferenceDataService {
       });
     }
     this.applyActiveFilter(qb, 'region', query);
+    if (isPagedRequest(query)) {
+      return paginateQueryBuilder(qb, query, {
+        sortable: {
+          name: 'region.name',
+          code: 'region.code',
+          country: 'country.name',
+          is_active: 'region.is_active',
+        },
+        defaultSort: 'name',
+        defaultOrder: 'ASC',
+        searchable: ['region.name', 'region.code', 'country.name'],
+        tieBreaker: 'region.id',
+      });
+    }
     this.applySearch(qb, 'region', ['name', 'code'], query);
     return qb.getMany();
   }
@@ -175,6 +206,21 @@ export class ReferenceDataService {
       });
     }
     this.applyActiveFilter(qb, 'district', query);
+    if (isPagedRequest(query)) {
+      return paginateQueryBuilder(qb, query, {
+        sortable: {
+          name: 'district.name',
+          code: 'district.code',
+          region: 'region.name',
+          country: 'country.name',
+          is_active: 'district.is_active',
+        },
+        defaultSort: 'name',
+        defaultOrder: 'ASC',
+        searchable: ['district.name', 'district.code', 'region.name'],
+        tieBreaker: 'district.id',
+      });
+    }
     this.applySearch(qb, 'district', ['name', 'code'], query);
     return qb.getMany();
   }
@@ -223,6 +269,20 @@ export class ReferenceDataService {
       .where('currency.deleted_at IS NULL')
       .orderBy('currency.code', 'ASC');
     this.applyActiveFilter(qb, 'currency', query);
+    if (isPagedRequest(query)) {
+      return paginateQueryBuilder(qb, query, {
+        sortable: {
+          code: 'currency.code',
+          name: 'currency.name',
+          symbol: 'currency.symbol',
+          is_active: 'currency.is_active',
+        },
+        defaultSort: 'code',
+        defaultOrder: 'ASC',
+        searchable: ['currency.name', 'currency.code', 'currency.symbol'],
+        tieBreaker: 'currency.id',
+      });
+    }
     this.applySearch(qb, 'currency', ['name', 'code', 'symbol'], query);
     return qb.getMany();
   }

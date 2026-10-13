@@ -1,5 +1,15 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import type { Role } from '@/types';
+
+export interface RolesListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  scope?: string;
+}
 
 export interface CreateRoleDto {
   name: string;
@@ -19,6 +29,12 @@ export type UpdateRoleDto = Partial<CreateRoleDto>;
 export const rolesApi = {
   /** GET /roles — returns Role[] (not paginated) */
   getRoles: () => apiClient.get<Role[]>('/roles').then((r) => r.data),
+
+  /** GET /roles?page=… — server-side paginated/searchable/sortable list */
+  listRoles: (params: RolesListParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<Role>>('/roles', { params, signal })
+      .then((r) => r.data),
 
   /** GET /roles/:id */
   getRoleById: (id: string) =>

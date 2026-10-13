@@ -1,6 +1,8 @@
-export { DataTable } from '@/components/data-table';
+export { DataTable } from '@/components/data-table/DataTable';
 export type {
   Column,
+  DataTableExport,
   DataTableFilter,
   DataTableProps,
-} from '@/components/data-table';
+  DataTableRowAction,
+} from '@/components/data-table/types';

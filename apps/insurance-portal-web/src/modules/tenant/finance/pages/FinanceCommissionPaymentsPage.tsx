@@ -1,36 +1,47 @@
-import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { financeApi } from '../api';
+import { financeTableApi } from '../api';
 import type { FinanceCommissionPayment } from '../types';
 import { FinanceStatusBadge, formatMoney } from '../components';
 
 export function FinanceCommissionPaymentsPage() {
   const navigate = useNavigate();
-  const query = useQuery({
-    queryKey: ['finance', 'commission-payments', 'list'],
-    queryFn: () => financeApi.getCommissionPayments({ limit: 100 }),
+  const { tableProps } = useServerTable<FinanceCommissionPayment>({
+    queryKey: ['finance', 'commission-payments'],
+    fetcher: (params, signal) =>
+      financeTableApi.commissionPayments(params, signal),
+    defaultSortBy: 'created_at',
   });
 
-  const rows = query.data?.data ?? [];
   const columns: Column<FinanceCommissionPayment>[] = [
-    { key: 'payment_no', header: 'Payment', cell: (row) => row.payment_no },
+    {
+      key: 'payment_no',
+      header: 'Payment',
+      sortable: true,
+      cell: (row) => row.payment_no,
+    },
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       cell: (row) => <FinanceStatusBadge status={row.status} />,
     },
     {
-      key: 'amount',
+      key: 'total_amount',
       header: 'Amount',
+      sortable: true,
       cell: (row) => formatMoney(row.total_amount, row.currency),
     },
     {
-      key: 'allocated',
+      key: 'allocated_amount',
       header: 'Allocated',
+      sortable: true,
       cell: (row) => formatMoney(row.allocated_amount, row.currency),
     },
     {
@@ -48,8 +59,6 @@ export function FinanceCommissionPaymentsPage() {
     },
   ];
 
-  if (query.isLoading) return <Skeleton className="h-[520px] w-full" />;
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -57,14 +66,9 @@ export function FinanceCommissionPaymentsPage() {
         description="Commission payouts stay linked to accrual balances and journal history."
       />
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={rows}
-        page={1}
-        limit={rows.length || 1}
-        total={rows.length}
-        totalPages={1}
-        onPageChange={() => undefined}
-        onLimitChange={() => undefined}
+        searchPlaceholder="Search commission payments"
         showColumnVisibility={false}
       />
     </div>

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -45,17 +44,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
-  useSubClassList,
   useCreateSubClass,
   useUpdateSubClass,
   useDeleteSubClass,
   useAllActiveProducts,
 } from '@/modules/tenant/product-engine/hooks';
+import { peKeys } from '@/modules/tenant/product-engine/hooks/query-keys';
+import { subClassesApi } from '@/modules/tenant/product-engine/api/sub-classes';
 import type { InsuranceSubClass } from '@/types/product-engine';
 import { format } from 'date-fns';
 
@@ -80,30 +85,27 @@ function ActiveBadge({ active }: { active: boolean }) {
   );
 }
 
+const FILTER_KEYS = ['product_id', 'is_active'] as const;
+const ACTIVE_OPTIONS = [
+  { value: 'true', label: 'Active' },
+  { value: 'false', label: 'Inactive' },
+];
+
 export function SubClassesPage() {
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('insurance-sub-classes:create');
   const canUpdate = hasPermission('insurance-sub-classes:update');
   const canDelete = hasPermission('insurance-sub-classes:delete');
 
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('search') ?? '';
-  const productFilter = params.get('product_id') ?? '';
-  const isActiveFilter = params.get('is_active');
-
-  const { data, isLoading } = useSubClassList({
-    page,
-    limit,
-    search: search || undefined,
-    product_id: productFilter || undefined,
-    is_active:
-      isActiveFilter === 'true'
-        ? true
-        : isActiveFilter === 'false'
-          ? false
-          : undefined,
+  const { tableProps, state } = useServerTable<
+    InsuranceSubClass,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: peKeys.subClasses.lists(),
+    fetcher: (params, signal) => subClassesApi.getList(params as never, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
   });
   const { data: products = [] } = useAllActiveProducts();
   const createMutation = useCreateSubClass();
@@ -160,25 +162,16 @@ export function SubClassesPage() {
     }
   }
 
-  function setParam(key: string, value: string | null) {
-    setParams((p) => {
-      const n = new URLSearchParams(p);
-      if (value === null) n.delete(key);
-      else n.set(key, value);
-      n.set('page', '1');
-      return n;
-    });
-  }
-
   const columns: Column<InsuranceSubClass>[] = [
     {
       key: 'code',
       header: 'Code',
+      sortable: true,
       cell: (row) => (
         <span className="font-mono text-xs font-medium">{row.code}</span>
       ),
     },
-    { key: 'name', header: 'Name', cell: (row) => row.name },
+    { key: 'name', header: 'Name', sortable: true, cell: (row) => row.name },
     {
       key: 'product',
       header: 'Product',
@@ -191,11 +184,13 @@ export function SubClassesPage() {
     {
       key: 'is_active',
       header: 'Status',
+      sortable: true,
       cell: (row) => <ActiveBadge active={row.is_active} />,
     },
     {
       key: 'created_at',
       header: 'Created',
+      sortable: true,
       cell: (row) => (
         <span className="text-slate-500 text-xs">
           {format(new Date(row.created_at), 'dd MMM yyyy')}
@@ -272,67 +267,27 @@ export function SubClassesPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-3">
-        <Input
-          placeholder="Search sub-classes…"
-          value={search}
-          onChange={(e) => setParam('search', e.target.value)}
-          className="w-64 h-9"
-        />
-        <Select
-          value={productFilter || 'all'}
-          onValueChange={(v) => setParam('product_id', v === 'all' ? null : v)}
-        >
-          <SelectTrigger className="w-48 h-9">
-            <SelectValue placeholder="All Products" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Products</SelectItem>
-            {products.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.product_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={isActiveFilter ?? 'all'}
-          onValueChange={(v) => setParam('is_active', v === 'all' ? null : v)}
-        >
-          <SelectTrigger className="w-36 h-9">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">Active</SelectItem>
-            <SelectItem value="false">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data?.data ?? []}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={data?.pagination.total ?? 0}
-        totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={(p) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('page', String(p));
-            return n;
-          })
-        }
-        onLimitChange={(l) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('limit', String(l));
-            n.set('page', '1');
-            return n;
-          })
-        }
+        searchPlaceholder="Search sub-classes…"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'product_id',
+            label: 'Product',
+            placeholder: 'All Products',
+            options: products.map((p) => ({
+              value: p.id,
+              label: p.product_name,
+            })),
+          },
+          {
+            key: 'is_active',
+            label: 'Status',
+            placeholder: 'All',
+            options: ACTIVE_OPTIONS,
+          },
+        ])}
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

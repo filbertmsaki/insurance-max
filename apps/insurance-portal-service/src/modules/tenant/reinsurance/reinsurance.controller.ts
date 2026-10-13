@@ -32,6 +32,7 @@ import {
   RespondFacultativeOfferDto,
   RespondReinsurancePremiumAccountDto,
   RespondTreatyInvitationDto,
+  ReinsuranceListQueryDto,
 } from './dto/reinsurance.dto';
 import { ReinsurancePermissions } from './reinsurance.permissions';
 import { ReinsuranceService } from './reinsurance.service';
@@ -54,8 +55,11 @@ export class ReinsuranceController {
 
   @Get('treaties')
   @Permissions(ReinsurancePermissions.READ)
-  findTreaties(@CurrentUser() user: AuthenticatedUser) {
-    return this.reinsuranceService.findTreaties(user);
+  findTreaties(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReinsuranceListQueryDto,
+  ) {
+    return this.reinsuranceService.findTreaties(user, query);
   }
 
   @Post('treaties/:id/participants/:participantId/respond')
@@ -76,8 +80,11 @@ export class ReinsuranceController {
 
   @Get('facultative-offers')
   @Permissions(ReinsurancePermissions.OFFER_READ)
-  findFacultativeOffers(@CurrentUser() user: AuthenticatedUser) {
-    return this.reinsuranceService.findFacultativeOffers(user);
+  findFacultativeOffers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReinsuranceListQueryDto,
+  ) {
+    return this.reinsuranceService.findFacultativeOffers(user, query);
   }
 
   @Post('treaties')
@@ -196,8 +203,11 @@ export class ReinsuranceController {
 
   @Get('cessions')
   @Permissions(ReinsurancePermissions.READ)
-  findCessions(@CurrentUser() user: AuthenticatedUser) {
-    return this.reinsuranceService.findCessions(user);
+  findCessions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReinsuranceListQueryDto,
+  ) {
+    return this.reinsuranceService.findCessions(user, query);
   }
 
   @Post('cessions')
@@ -265,8 +275,11 @@ export class ReinsuranceController {
 
   @Get('recoveries')
   @Permissions(ReinsurancePermissions.READ)
-  findRecoveries(@CurrentUser() user: AuthenticatedUser) {
-    return this.recoveryService.findRecoveries(user);
+  findRecoveries(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReinsuranceListQueryDto,
+  ) {
+    return this.recoveryService.findRecoveries(user, query);
   }
 
   @Post('recoveries/:id/admit')
@@ -407,8 +420,11 @@ export class ReinsuranceController {
 
   @Get('settlements')
   @Permissions(ReinsurancePermissions.READ)
-  findSettlements(@CurrentUser() user: AuthenticatedUser) {
-    return this.settlementService.findAll(user);
+  findSettlements(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ReinsuranceListQueryDto,
+  ) {
+    return this.settlementService.findAll(user, query);
   }
 
   @Post('settlements')

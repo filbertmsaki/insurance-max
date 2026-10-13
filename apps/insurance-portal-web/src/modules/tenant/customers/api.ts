@@ -12,8 +12,12 @@ import type {
 export const customersApi = {
   getCustomers: async (
     params?: CustomerListParams,
+    signal?: AbortSignal,
   ): Promise<PaginatedResponse<CustomerRecord>> => {
-    const response = await apiClient.get('/tenant/customers', { params });
+    const response = await apiClient.get('/tenant/customers', {
+      params,
+      signal,
+    });
     return normalizePaginatedResponse(response.data);
   },
 

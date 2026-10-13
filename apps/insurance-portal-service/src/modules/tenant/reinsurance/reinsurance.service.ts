@@ -42,7 +42,9 @@ import {
   RespondFacultativeOfferDto,
   RespondTreatyInvitationDto,
   TreatyInvitationDecision,
+  type ReinsuranceListQueryDto,
 } from './dto/reinsurance.dto';
+import { listOrPage } from './utils/list-query.util';
 import {
   FacultativeOfferStatus,
   FacultativePlacementStatus,
@@ -128,7 +130,10 @@ export class ReinsuranceService {
     private readonly insurancePartnersService: InsurancePartnersService,
   ) {}
 
-  async findTreaties(user: AuthenticatedUser) {
+  async findTreaties(
+    user: AuthenticatedUser,
+    listQuery?: ReinsuranceListQueryDto,
+  ) {
     const scope = this.scopeService.resolve(user);
     const query = this.treatyRepository
       .createQueryBuilder('treaty')
@@ -138,8 +143,7 @@ export class ReinsuranceService {
 
     this.scopeService.applyTreatyReadScope(query, 'treaty', scope);
 
-    const treaties = await query.getMany();
-    return treaties.map((treaty) => {
+    const scopeTreaty = (treaty: ReinsuranceTreaty) => {
       if (treaty.company_id === scope.companyId) return treaty;
       const participants = (treaty.participants ?? []).filter(
         (participant) =>
@@ -164,7 +168,25 @@ export class ReinsuranceService {
               sectionIds.has(section.id),
             ),
       };
-    });
+    };
+
+    return listOrPage(
+      query,
+      listQuery,
+      {
+        sortable: {
+          created_at: 'treaty.created_at',
+          reference: 'treaty.treaty_no',
+          status: 'treaty.status',
+          effective: 'treaty.effective_from',
+        },
+        defaultSort: 'created_at',
+        searchable: ['treaty.treaty_no', 'treaty.treaty_name', 'treaty.status'],
+        tieBreaker: 'treaty.id',
+        statusColumn: 'treaty.status',
+      },
+      scopeTreaty,
+    );
   }
 
   async respondToTreatyInvitation(
@@ -238,11 +260,14 @@ export class ReinsuranceService {
     return participant;
   }
 
-  async findFacultativeOffers(user: AuthenticatedUser) {
+  async findFacultativeOffers(
+    user: AuthenticatedUser,
+    listQuery?: ReinsuranceListQueryDto,
+  ) {
     const companyId = user.companyId;
     if (!companyId)
       throw new ForbiddenException('An active company is required');
-    const offers = await this.offerRepository
+    const offersQuery = this.offerRepository
       .createQueryBuilder('offer')
       .leftJoinAndSelect('offer.placement', 'placement')
       .where(
@@ -256,10 +281,9 @@ export class ReinsuranceService {
         ),
       )
       .andWhere('offer.deleted_at IS NULL')
-      .orderBy('offer.created_at', 'DESC')
-      .getMany();
+      .orderBy('offer.created_at', 'DESC');
 
-    return offers.map((offer) => ({
+    const toRow = (offer: FacultativePlacementOffer) => ({
       id: offer.id,
       offer_no: offer.offer_no,
       placement_id: offer.placement_id,
@@ -287,7 +311,30 @@ export class ReinsuranceService {
           }
         : null,
       created_at: offer.created_at,
-    }));
+    });
+
+    return listOrPage(
+      offersQuery,
+      listQuery,
+      {
+        sortable: {
+          created_at: 'offer.created_at',
+          reference: 'offer.offer_no',
+          status: 'offer.status',
+          effective: 'placement.submission_deadline',
+        },
+        defaultSort: 'created_at',
+        searchable: [
+          'offer.offer_no',
+          'offer.status',
+          'placement.placement_no',
+          'placement.risk_description',
+        ],
+        tieBreaker: 'offer.id',
+        statusColumn: 'offer.status',
+      },
+      toRow,
+    );
   }
 
   async createTreaty(user: AuthenticatedUser, dto: CreateTreatyDto) {
@@ -1053,7 +1100,10 @@ export class ReinsuranceService {
     return savedCession;
   }
 
-  async findCessions(user: AuthenticatedUser) {
+  async findCessions(
+    user: AuthenticatedUser,
+    listQuery?: ReinsuranceListQueryDto,
+  ) {
     const scope = this.scopeService.resolve(user);
     const query = this.cessionRepository
       .createQueryBuilder('cession')
@@ -1063,15 +1113,34 @@ export class ReinsuranceService {
 
     this.scopeService.applyReinsuranceCessionReadScope(query, 'cession', scope);
 
-    const cessions = await query.getMany();
-    return cessions.map((cession) => ({
-      ...cession,
-      participants: (cession.participants ?? []).filter(
-        (participant) =>
-          participant.participant_company_id === scope.companyId ||
-          participant.reinsurance_broker_company_id === scope.companyId,
-      ),
-    }));
+    return listOrPage(
+      query,
+      listQuery,
+      {
+        sortable: {
+          created_at: 'cession.created_at',
+          reference: 'cession.cession_no',
+          status: 'cession.status',
+          effective: 'cession.effective_from',
+        },
+        defaultSort: 'created_at',
+        searchable: [
+          'cession.cession_no',
+          'cession.status',
+          'policy.policy_no',
+        ],
+        tieBreaker: 'cession.id',
+        statusColumn: 'cession.status',
+      },
+      (cession) => ({
+        ...cession,
+        participants: (cession.participants ?? []).filter(
+          (participant) =>
+            participant.participant_company_id === scope.companyId ||
+            participant.reinsurance_broker_company_id === scope.companyId,
+        ),
+      }),
+    );
   }
 
   async createPolicyCession(

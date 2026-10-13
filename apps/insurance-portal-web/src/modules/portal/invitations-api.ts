@@ -1,4 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 
 export type PortalInvitationStatus =
   | 'PENDING'
@@ -56,6 +57,15 @@ export const portalInvitationsApi = {
   list: (filters: PortalInvitationFilters) =>
     apiClient
       .get<PortalInvitationPage>(BASE, { params: filters })
+      .then((response) => response.data),
+
+  /** Server-table page: `{ data, pagination }` (plus legacy flat fields). */
+  page: (
+    params: Record<string, string | number | undefined>,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<PortalInvitationRecord>>(BASE, { params, signal })
       .then((response) => response.data),
 
   resend: (id: string) =>

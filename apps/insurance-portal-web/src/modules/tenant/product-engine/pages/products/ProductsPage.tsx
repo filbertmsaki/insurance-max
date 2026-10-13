@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -38,17 +38,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
-  useProductList,
   useCreateProduct,
   useUpdateProduct,
   useDeleteProduct,
   useAllActiveCategories,
 } from '@/modules/tenant/product-engine/hooks';
+import { peKeys } from '@/modules/tenant/product-engine/hooks/query-keys';
+import { productsApi } from '@/modules/tenant/product-engine/api/products';
 import type {
   InsuranceProduct,
   ProductLifecycleStatus,
@@ -99,6 +105,8 @@ function ReviewBadge({ status }: { status: ProductReviewStatus | undefined }) {
   );
 }
 
+const FILTER_KEYS = ['category_id'] as const;
+
 export function ProductsPage() {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
@@ -106,17 +114,15 @@ export function ProductsPage() {
   const canUpdate = hasPermission('insurance-products:update');
   const canDelete = hasPermission('insurance-products:delete');
 
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('search') ?? '';
-  const categoryFilter = params.get('category_id') ?? '';
-
-  const { data, isLoading } = useProductList({
-    page,
-    limit,
-    search: search || undefined,
-    category_id: categoryFilter || undefined,
+  const { tableProps, state } = useServerTable<
+    InsuranceProduct,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: peKeys.products.lists(),
+    fetcher: (params, signal) => productsApi.getList(params as never, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
   });
   const { data: categories = [] } = useAllActiveCategories();
   const createMutation = useCreateProduct();
@@ -194,20 +200,11 @@ export function ProductsPage() {
     );
   }
 
-  function setParam(key: string, value: string | null) {
-    setParams((p) => {
-      const n = new URLSearchParams(p);
-      if (value === null) n.delete(key);
-      else n.set(key, value);
-      n.set('page', '1');
-      return n;
-    });
-  }
-
   const columns: Column<InsuranceProduct>[] = [
     {
       key: 'product_code',
       header: 'Code',
+      sortable: true,
       cell: (row) => (
         <button
           className="font-mono text-xs font-medium text-primary hover:underline"
@@ -217,7 +214,12 @@ export function ProductsPage() {
         </button>
       ),
     },
-    { key: 'product_name', header: 'Name', cell: (row) => row.product_name },
+    {
+      key: 'product_name',
+      header: 'Name',
+      sortable: true,
+      cell: (row) => row.product_name,
+    },
     {
       key: 'category',
       header: 'Category',
@@ -277,6 +279,7 @@ export function ProductsPage() {
     {
       key: 'created_at',
       header: 'Created',
+      sortable: true,
       cell: (row) => (
         <span className="text-slate-500 text-xs">
           {format(new Date(row.created_at), 'dd MMM yyyy')}
@@ -336,55 +339,18 @@ export function ProductsPage() {
         }
       />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <Input
-          placeholder="Search products…"
-          value={search}
-          onChange={(e) => setParam('search', e.target.value)}
-          className="w-64 h-9"
-        />
-        <Select
-          value={categoryFilter || 'all'}
-          onValueChange={(v) => setParam('category_id', v === 'all' ? null : v)}
-        >
-          <SelectTrigger className="w-44 h-9">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data?.data ?? []}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={data?.pagination.total ?? 0}
-        totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={(p) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('page', String(p));
-            return n;
-          })
-        }
-        onLimitChange={(l) =>
-          setParams((prev) => {
-            const n = new URLSearchParams(prev);
-            n.set('limit', String(l));
-            n.set('page', '1');
-            return n;
-          })
-        }
+        searchPlaceholder="Search products…"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'category_id',
+            label: 'Category',
+            placeholder: 'All Categories',
+            options: categories.map((c) => ({ value: c.id, label: c.name })),
+          },
+        ])}
       />
 
       {/* Create Dialog */}

@@ -6,7 +6,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  IsNull,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { RoleScope } from '@insurance-max/contracts';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
@@ -25,6 +32,7 @@ import { Permission } from '../permissions/entities/permission.entity';
 import { AuditService } from '../../shared/audit/audit.service';
 import { AuthorizationVersionService } from '../../shared/authorization/authorization-version.service';
 import { CreateRoleDto } from './dtos/create-role.dto';
+import { FindRolesQueryDto } from './dtos/find-roles-query.dto';
 import { UpdateRoleDto } from './dtos/update-role.dto';
 import { Role } from './entities/role.entity';
 import { RolePermissionScope } from './entities/role-permission-scope.entity';
@@ -290,15 +298,43 @@ export class RolesService {
    */
   async findAll(actor?: AuthenticatedUser): Promise<Role[]> {
     const query = this.createBaseQuery().orderBy('role.display_name', 'ASC');
+    this.applyVisibilityScope(query, actor);
+    return query.getMany();
+  }
 
+  /** Server-side table listing; same visibility rules as findAll. */
+  async findPage(actor: AuthenticatedUser, query: FindRolesQueryDto) {
+    const qb = this.createBaseQuery();
+    this.applyVisibilityScope(qb, actor);
+    if (query.scope) {
+      qb.andWhere('role.scope = :filterScope', { filterScope: query.scope });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        display_name: 'role.display_name',
+        name: 'role.name',
+        scope: 'role.scope',
+        created_at: 'role.created_at',
+      },
+      defaultSort: 'display_name',
+      defaultOrder: 'ASC',
+      searchable: ['role.name', 'role.display_name', 'role.description'],
+      tieBreaker: 'role.id',
+    });
+  }
+
+  private applyVisibilityScope(
+    query: SelectQueryBuilder<Role>,
+    actor?: AuthenticatedUser,
+  ): void {
     if (hasOwnerRole(actor) && actor?.scope === 'platform') {
-      return query.getMany();
+      return;
     }
 
     const companyActor = ensureCompanyScopedActor(actor);
 
-    query.where(
-      `
+    query.andWhere(
+      `(
         (
           role.scope = :templateScope
           AND role.company_id IS NULL
@@ -308,15 +344,13 @@ export class RolesService {
           role.scope = :tenantScope
           AND role.company_id = :companyId
         )
-      `,
+      )`,
       {
         templateScope: RoleScope.TENANT_TEMPLATE,
         tenantScope: RoleScope.TENANT,
         companyId: companyActor.companyId,
       },
     );
-
-    return query.getMany();
   }
 
   async findOne(id: string, actor?: AuthenticatedUser): Promise<Role> {

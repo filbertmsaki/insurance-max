@@ -12,10 +12,9 @@ import {
   QueryFailedError,
   Repository,
 } from 'typeorm';
-import {
-  PaginationDto,
-  SortDirection,
-} from '@insurance-max/portal-shared/dto/pagination.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import { FindDepartmentsQueryDto } from './dto/find-departments-query.dto';
 import { Branch } from '../branches/entities/branch.entity';
 import { BranchUser } from '../branches/entities/branch-user.entity';
 import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
@@ -111,56 +110,62 @@ export class DepartmentsService {
     }
   }
 
-  async findAll(companyId: string, query: PaginationDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-
-    const allowedSortFields = [
-      'name',
-      'code',
-      'status',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
-
+  /**
+   * GET /departments. With `page` → server-side table page; without it →
+   * every department of the company in the legacy `{ data, meta }` shape
+   * (selectors). Company scope + filters apply before paging/count.
+   */
+  async findAll(companyId: string, query: FindDepartmentsQueryDto) {
     const qb = this.departmentRepository
       .createQueryBuilder('dept')
       .leftJoinAndSelect('dept.branch', 'branch')
-      .where('dept.company_id = :companyId', { companyId })
-      .orderBy(`dept.${safeSortBy}`, direction);
+      .where('dept.company_id = :companyId', { companyId });
 
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(dept.name ILIKE :term OR dept.code ILIKE :term OR dept.description ILIKE :term)',
-        { term },
-      );
+    if (query.status) {
+      qb.andWhere('dept.status = :status', { status: query.status });
+    }
+    if (query.branch_id) {
+      qb.andWhere('dept.branch_id = :branchId', { branchId: query.branch_id });
     }
 
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    if (!isPagedRequest(query)) {
+      const items = await qb
+        .orderBy('dept.created_at', 'DESC')
+        .addOrderBy('dept.id', 'DESC')
+        .getMany();
+      return {
+        data: items,
+        meta: {
+          totalItems: items.length,
+          itemCount: items.length,
+          itemsPerPage: items.length,
+          totalPages: items.length > 0 ? 1 : 0,
+          currentPage: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      };
+    }
 
-    return {
-      data: items,
-      meta: {
-        totalItems: total,
-        itemCount: items.length,
-        itemsPerPage: limit,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        hasNextPage: page * limit < total,
-        hasPreviousPage: page > 1,
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        name: 'dept.name',
+        code: 'dept.code',
+        status: 'dept.status',
+        branch: 'branch.name',
+        created_at: 'dept.created_at',
+        updated_at: 'dept.updated_at',
       },
-    };
+      defaultSort: 'created_at',
+      searchable: [
+        'dept.name',
+        'dept.code',
+        'dept.description',
+        'branch.name',
+        'branch.code',
+      ],
+      tieBreaker: 'dept.id',
+    });
   }
 
   async findOne(companyId: string, id: string): Promise<Department> {

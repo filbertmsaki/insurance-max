@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ColumnVisibilityMenu } from '@/components/shared/ColumnVisibilityMenu';
+import { DataTableExport } from './DataTableExport';
 import { DataTableFilters } from './DataTableFilters';
 import { DataTableRefresh } from './DataTableRefresh';
 import { DataTableSearch } from './DataTableSearch';
 import { useDebouncedValue } from './hooks/useDebouncedValue';
-import type { Column, DataTableFilter } from './types';
+import type { Column, DataTableExport as ExportOptions, DataTableFilter } from './types';
 
 export function DataTableToolbar<T>({
   columns,
@@ -21,6 +22,7 @@ export function DataTableToolbar<T>({
   toolbarActions,
   onRefresh,
   isRefreshing,
+  exportOptions,
 }: {
   columns: Column<T>[];
   visible: Record<string, boolean>;
@@ -36,21 +38,31 @@ export function DataTableToolbar<T>({
   toolbarActions?: ReactNode;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  exportOptions?: ExportOptions;
 }) {
   const [draftSearch, setDraftSearch] = useState(search ?? '');
   const debouncedSearch = useDebouncedValue(draftSearch, searchDebounceMs);
+  const [syncedSearch, setSyncedSearch] = useState(search ?? '');
+
+  // Adopt external changes (clear filters, back navigation) into the input.
+  if ((search ?? '') !== syncedSearch) {
+    setSyncedSearch(search ?? '');
+    if (debouncedSearch === syncedSearch) setDraftSearch(search ?? '');
+  }
 
   useEffect(() => {
-    if (onSearchChange && debouncedSearch !== (search ?? '')) {
+    // Only commit once the debounce has settled on the latest draft.
+    if (onSearchChange && debouncedSearch === draftSearch && debouncedSearch !== (search ?? '')) {
       onSearchChange(debouncedSearch);
     }
-  }, [debouncedSearch, onSearchChange, search]);
+  }, [debouncedSearch, draftSearch, onSearchChange, search]);
 
   const hasToolbar =
     Boolean(onSearchChange) ||
     Boolean(filters?.length) ||
     Boolean(toolbarActions) ||
     Boolean(onRefresh) ||
+    Boolean(exportOptions) ||
     showColumnVisibility;
 
   if (!hasToolbar) return null;
@@ -73,6 +85,7 @@ export function DataTableToolbar<T>({
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         {toolbarActions}
+        <DataTableExport options={exportOptions} />
         <DataTableRefresh onRefresh={onRefresh} isRefreshing={isRefreshing} />
         {showColumnVisibility && (
           <ColumnVisibilityMenu

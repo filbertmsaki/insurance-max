@@ -39,7 +39,8 @@ import {
   ReverseReceiptDto,
   VoidInvoiceDto,
 } from './dto/finance-operations.dto';
-import { FilterBillingDto } from './dto/filter-billing.dto';
+import { FindFinanceRecordsQueryDto } from './dto/find-finance-records-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { CreatePaymentReferenceDto } from './dto/payment-reference.dto';
 import { FinanceCommandService } from './services/finance-command.service';
 import { PaymentReferenceService } from './services/payment-reference.service';
@@ -59,7 +60,7 @@ export class FinanceController {
   @Permissions(FinancePermissions.INVOICES_READ)
   listInvoices(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: FilterBillingDto,
+    @Query() query: FindFinanceRecordsQueryDto,
   ) {
     return this.billingCommissionService.findInvoices(user.companyId!, query);
   }
@@ -116,7 +117,7 @@ export class FinanceController {
   @Permissions(FinancePermissions.PAYMENTS_READ)
   listPayments(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: FilterBillingDto,
+    @Query() query: FindFinanceRecordsQueryDto,
   ) {
     return this.billingCommissionService.findPaymentTransactions(
       user.companyId!,
@@ -149,7 +150,7 @@ export class FinanceController {
   @Permissions(FinancePermissions.RECEIPTS_READ)
   listReceipts(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: FilterBillingDto,
+    @Query() query: FindFinanceRecordsQueryDto,
   ) {
     return this.billingCommissionService.findReceipts(user.companyId!, query);
   }
@@ -215,7 +216,7 @@ export class FinanceController {
   @Permissions(FinancePermissions.REFUNDS_READ)
   listRefunds(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: FilterBillingDto,
+    @Query() query: FindFinanceRecordsQueryDto,
   ) {
     return this.billingCommissionService.findRefunds(user.companyId!, query);
   }
@@ -261,8 +262,14 @@ export class FinanceController {
 
   @Get('reconciliation-batches')
   @Permissions(FinancePermissions.RECONCILIATION_READ)
-  listReconciliationBatches(@CurrentUser() user: AuthenticatedUser) {
-    return this.reconciliationService.listBatches(user.companyId!);
+  listReconciliationBatches(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindFinanceRecordsQueryDto,
+  ) {
+    // Legacy consumers get the plain array; `?page=` opts into the table contract.
+    return isPagedRequest(query)
+      ? this.reconciliationService.findBatchPage(user.companyId!, query)
+      : this.reconciliationService.listBatches(user.companyId!);
   }
 
   @Post('reconciliation-batches')
@@ -346,7 +353,7 @@ export class FinanceController {
   @Permissions(FinancePermissions.COMMISSIONS_READ)
   listCommissionAccruals(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: FilterBillingDto,
+    @Query() query: FindFinanceRecordsQueryDto,
   ) {
     return this.billingCommissionService.findCommissionTransactions(
       user.companyId!,
@@ -390,7 +397,7 @@ export class FinanceController {
   @Permissions(FinancePermissions.COMMISSIONS_READ)
   listCommissionPayments(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: FilterBillingDto,
+    @Query() query: FindFinanceRecordsQueryDto,
   ) {
     return this.billingCommissionService.findCommissionPayments(
       user.companyId!,
@@ -402,7 +409,7 @@ export class FinanceController {
   @Permissions(FinancePermissions.FINANCE_JOURNALS_READ)
   listJournals(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: FilterBillingDto,
+    @Query() query: FindFinanceRecordsQueryDto,
   ) {
     return this.billingCommissionService.findFinanceJournals(
       user.companyId!,

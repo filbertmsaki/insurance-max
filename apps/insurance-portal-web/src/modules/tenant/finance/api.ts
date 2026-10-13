@@ -20,10 +20,51 @@ import type {
 async function getPage<T>(
   path: string,
   params?: FinanceListParams,
+  signal?: AbortSignal,
 ): Promise<PaginatedResponse<T>> {
-  const response = await apiClient.get<FinancePage<T>>(path, { params });
+  const response = await apiClient.get<FinancePage<T>>(path, {
+    params,
+    signal,
+  });
   return normalizePaginatedResponse(response.data);
 }
+
+/** Server-side table fetchers (page/limit/search/sortBy/sortOrder/status). */
+export const financeTableApi = {
+  invoices: (params: FinanceListParams, signal?: AbortSignal) =>
+    getPage<FinanceInvoice>('/tenant/finance/invoices', params, signal),
+  payments: (params: FinanceListParams, signal?: AbortSignal) =>
+    getPage<FinancePaymentTransaction>(
+      '/tenant/finance/payment-transactions',
+      params,
+      signal,
+    ),
+  receipts: (params: FinanceListParams, signal?: AbortSignal) =>
+    getPage<FinanceReceipt>('/tenant/finance/receipts', params, signal),
+  refunds: (params: FinanceListParams, signal?: AbortSignal) =>
+    getPage<FinanceRefund>('/tenant/finance/refunds', params, signal),
+  journals: (params: FinanceListParams, signal?: AbortSignal) =>
+    getPage<FinanceJournalEntry>('/tenant/finance/journals', params, signal),
+  commissionAccruals: (params: FinanceListParams, signal?: AbortSignal) =>
+    getPage<FinanceCommissionAccrual>(
+      '/tenant/finance/commission-accruals',
+      params,
+      signal,
+    ),
+  commissionPayments: (params: FinanceListParams, signal?: AbortSignal) =>
+    getPage<FinanceCommissionPayment>(
+      '/tenant/finance/commission-payments',
+      params,
+      signal,
+    ),
+  /** Paged only when page is sent; the endpoint returns an array otherwise. */
+  reconciliationBatches: (params: FinanceListParams, signal?: AbortSignal) =>
+    getPage<FinanceReconciliationBatch>(
+      '/tenant/finance/reconciliation-batches',
+      params,
+      signal,
+    ),
+};
 
 export const financeApi = {
   getInvoices: (params?: FinanceListParams) =>

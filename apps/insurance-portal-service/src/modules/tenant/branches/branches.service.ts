@@ -13,10 +13,10 @@ import {
   QueryFailedError,
   Repository,
 } from 'typeorm';
-import {
-  PaginationDto,
-  SortDirection,
-} from '@insurance-max/portal-shared/dto/pagination.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import { FindBranchesQueryDto } from './dto/find-branches-query.dto';
+import { FindCompanyFeaturesQueryDto } from './dto/find-company-features-query.dto';
 import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
 import { User } from '../users/entities/user.entity';
 import { AssignBranchUserDto } from './dto/assign-branch-user.dto';
@@ -143,55 +143,66 @@ export class BranchesService {
     }
   }
 
-  async findAllBranches(companyId: string, query: PaginationDto) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = 'created_at',
-      sortOrder = SortDirection.DESC,
-      search,
-    } = query;
-
-    const allowedSortFields = [
-      'name',
-      'code',
-      'status',
-      'created_at',
-      'updated_at',
-    ];
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : 'created_at';
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
-
+  /**
+   * GET /branches. With `page` → server-side table page (search, status
+   * filter, allowlisted sort, max 100 rows). Without `page` → every branch
+   * of the company in the legacy `{ data, meta }` shape used by selectors.
+   * Company scope is applied before filters/paging in both cases.
+   */
+  async findAllBranches(companyId: string, query: FindBranchesQueryDto) {
     const qb = this.branchRepository
       .createQueryBuilder('branch')
       .leftJoinAndSelect('branch.manager', 'manager')
-      .where('branch.company_id = :companyId', { companyId })
-      .orderBy(`branch.${safeSortBy}`, direction);
+      .where('branch.company_id = :companyId', { companyId });
 
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-      qb.andWhere(
-        '(branch.name ILIKE :term OR branch.code ILIKE :term OR branch.email ILIKE :term OR branch.phone ILIKE :term)',
-        { term },
-      );
+    if (query.status) {
+      qb.andWhere('branch.status = :status', { status: query.status });
     }
 
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    if (!isPagedRequest(query)) {
+      const items = await qb
+        .orderBy('branch.created_at', 'DESC')
+        .addOrderBy('branch.id', 'DESC')
+        .getMany();
+      return {
+        data: items.map((b) => this.mapBranchSummary(b)),
+        meta: {
+          totalItems: items.length,
+          itemCount: items.length,
+          itemsPerPage: items.length,
+          totalPages: items.length > 0 ? 1 : 0,
+          currentPage: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      };
+    }
+
+    const result = await paginateQueryBuilder(qb, query, {
+      sortable: {
+        name: 'branch.name',
+        code: 'branch.code',
+        status: 'branch.status',
+        email: 'branch.email',
+        phone: 'branch.phone',
+        sale_point_name: 'branch.sale_point_name',
+        created_at: 'branch.created_at',
+        updated_at: 'branch.updated_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'branch.name',
+        'branch.code',
+        'branch.email',
+        'branch.phone',
+        'branch.sale_point_name',
+      ],
+      tieBreaker: 'branch.id',
+    });
 
     return {
-      data: items.map((b) => this.mapBranchSummary(b)),
-      meta: {
-        totalItems: total,
-        itemCount: items.length,
-        itemsPerPage: limit,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        hasNextPage: page * limit < total,
-        hasPreviousPage: page > 1,
-      },
+      data: result.data.map((b) => this.mapBranchSummary(b)),
+      pagination: result.pagination,
     };
   }
 
@@ -637,6 +648,37 @@ export class BranchesService {
     return this.companyFeatureRepository.find({
       where: { company_id: companyId },
       order: { feature_key: 'ASC' },
+    });
+  }
+
+  /** Server-side table page of company features (company scope first). */
+  findCompanyFeaturesPage(
+    companyId: string,
+    query: FindCompanyFeaturesQueryDto,
+  ) {
+    const qb = this.companyFeatureRepository
+      .createQueryBuilder('feature')
+      .where('feature.company_id = :companyId', { companyId });
+    if (query.is_enabled) {
+      qb.andWhere('feature.is_enabled = :isEnabled', {
+        isEnabled: query.is_enabled === 'true',
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        feature_key: 'feature.feature_key',
+        display_name: 'feature.display_name',
+        is_enabled: 'feature.is_enabled',
+        created_at: 'feature.created_at',
+      },
+      defaultSort: 'feature_key',
+      defaultOrder: 'ASC',
+      searchable: [
+        'feature.feature_key',
+        'feature.display_name',
+        'feature.description',
+      ],
+      tieBreaker: 'feature.id',
     });
   }
 

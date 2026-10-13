@@ -19,7 +19,19 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import { regulatoryApi } from '../api';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import {
+  regulatoryApi,
+  type RegulatoryLevyAssessmentRecord,
+  type RegulatoryObligationRecord,
+  type RegulatoryReturnRecord,
+} from '../api';
+
+const FILTER_KEYS = ['status'] as const;
 
 const currentYear = 2026;
 
@@ -29,18 +41,39 @@ function formatJson(value: unknown) {
 
 export function RegulatoryWorkbenchPage() {
   const queryClient = useQueryClient();
-  const calendarQuery = useQuery({
+  const calendarTable = useServerTable<
+    RegulatoryObligationRecord,
+    (typeof FILTER_KEYS)[number]
+  >({
     queryKey: ['regulatory', 'calendar'],
-    queryFn: regulatoryApi.getRegulatoryCalendar,
+    fetcher: (params, signal) => regulatoryApi.listCalendarPage(params, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'due_at',
+    defaultSortOrder: 'ASC',
+    prefix: 'cal',
   });
-  const returnsQuery = useQuery({
+  const returnsTable = useServerTable<
+    RegulatoryReturnRecord,
+    (typeof FILTER_KEYS)[number]
+  >({
     queryKey: ['regulatory', 'returns'],
-    queryFn: regulatoryApi.getRegulatoryReturns,
+    fetcher: (params, signal) => regulatoryApi.listReturnsPage(params, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    prefix: 'ret',
   });
-  const leviesQuery = useQuery({
+  const leviesTable = useServerTable<
+    RegulatoryLevyAssessmentRecord,
+    (typeof FILTER_KEYS)[number]
+  >({
     queryKey: ['regulatory', 'levies'],
-    queryFn: regulatoryApi.getLevyAssessments,
+    fetcher: (params, signal) =>
+      regulatoryApi.listLevyAssessmentsPage(params, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    prefix: 'levy',
   });
+  const returnRows = returnsTable.rows;
   const authoritiesQuery = useQuery({
     queryKey: ['regulatory', 'authorities'],
     queryFn: regulatoryApi.getAuthorities,
@@ -55,11 +88,8 @@ export function RegulatoryWorkbenchPage() {
   const [ackMessage, setAckMessage] = useState('');
 
   const selectedReturn = useMemo(() => {
-    return (
-      returnsQuery.data?.find((record) => record.id === selectedReturnId) ??
-      null
-    );
-  }, [returnsQuery.data, selectedReturnId]);
+    return returnRows.find((record) => record.id === selectedReturnId) ?? null;
+  }, [returnRows, selectedReturnId]);
 
   const returnDetailQuery = useQuery({
     queryKey: ['regulatory', 'return', selectedReturnId],
@@ -68,11 +98,11 @@ export function RegulatoryWorkbenchPage() {
   });
 
   useEffect(() => {
-    if (!selectedReturnId && returnsQuery.data?.length) {
+    if (!selectedReturnId && returnRows.length) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedReturnId(returnsQuery.data[0].id);
+      setSelectedReturnId(returnRows[0].id);
     }
-  }, [returnsQuery.data, selectedReturnId]);
+  }, [returnRows, selectedReturnId]);
 
   const refreshRegulatoryViews = () => {
     queryClient.invalidateQueries({
@@ -150,6 +180,146 @@ export function RegulatoryWorkbenchPage() {
 
   const activeReturn = returnDetailQuery.data ?? selectedReturn;
 
+  const calendarColumns: Column<RegulatoryObligationRecord>[] = [
+    {
+      key: 'obligation',
+      header: 'Obligation',
+      sortable: true,
+      cell: (record) => (
+        <div className="space-y-1">
+          <p className="font-medium text-slate-900">
+            {record.definition?.obligation_name ?? record.obligation_reference}
+          </p>
+          <p className="text-xs text-slate-500">
+            {record.definition?.obligation_code}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'authority',
+      header: 'Authority',
+      cell: (record) => record.authority?.authority_name ?? '—',
+    },
+    {
+      key: 'period',
+      header: 'Period',
+      sortable: true,
+      cell: (record) => `${record.period_start} to ${record.period_end}`,
+    },
+    {
+      key: 'due_at',
+      header: 'Due',
+      sortable: true,
+      cell: (record) => record.due_at,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (record) => <Badge variant="outline">{record.status}</Badge>,
+    },
+    {
+      key: 'days_remaining',
+      header: 'Days remaining',
+      cell: (record) => record.days_remaining ?? '—',
+    },
+    {
+      key: 'return',
+      header: 'Return',
+      cell: (record) => record.active_return?.return_no ?? 'Not created',
+    },
+  ];
+
+  const returnColumns: Column<RegulatoryReturnRecord>[] = [
+    {
+      key: 'return_no',
+      header: 'Return',
+      sortable: true,
+      cell: (record) => (
+        <div className="space-y-1">
+          <p
+            className={
+              record.id === selectedReturnId
+                ? 'font-semibold text-blue-700'
+                : 'font-medium text-slate-900'
+            }
+            aria-current={record.id === selectedReturnId ? 'true' : undefined}
+          >
+            {record.return_no}
+          </p>
+          <p className="text-xs text-slate-500">
+            {record.report_definition_code ??
+              record.return_code ??
+              'Registered report'}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (record) => record.status,
+    },
+    {
+      key: 'reconciliation',
+      header: 'Reconciliation',
+      cell: (record) => record.reconciliation_status,
+    },
+    {
+      key: 'due_at',
+      header: 'Due date',
+      cell: (record) => record.due_at ?? '—',
+    },
+    {
+      key: 'version',
+      header: 'Version',
+      cell: (record) => record.version_number,
+    },
+  ];
+
+  const levyColumns: Column<RegulatoryLevyAssessmentRecord>[] = [
+    {
+      key: 'assessment_no',
+      header: 'Assessment',
+      sortable: true,
+      cell: (assessment) => assessment.assessment_no,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (assessment) => assessment.status,
+    },
+    {
+      key: 'assessed_amount',
+      header: 'Assessed',
+      sortable: true,
+      cell: (assessment) =>
+        `${assessment.currency_code} ${assessment.assessed_amount}`,
+    },
+    {
+      key: 'paid_amount',
+      header: 'Paid',
+      sortable: true,
+      cell: (assessment) =>
+        `${assessment.currency_code} ${assessment.paid_amount}`,
+    },
+    {
+      key: 'outstanding_amount',
+      header: 'Outstanding',
+      sortable: true,
+      cell: (assessment) =>
+        `${assessment.currency_code} ${assessment.outstanding_amount}`,
+    },
+    {
+      key: 'reconciliation',
+      header: 'Reconciliation',
+      cell: (assessment) => assessment.reconciliation_status,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -187,50 +357,12 @@ export function RegulatoryWorkbenchPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Obligation</TableHead>
-                    <TableHead>Authority</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Days remaining</TableHead>
-                    <TableHead>Return</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(calendarQuery.data ?? []).map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <p className="font-medium text-slate-900">
-                            {record.definition?.obligation_name ??
-                              record.obligation_reference}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {record.definition?.obligation_code}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {record.authority?.authority_name ?? '—'}
-                      </TableCell>
-                      <TableCell>
-                        {record.period_start} to {record.period_end}
-                      </TableCell>
-                      <TableCell>{record.due_at}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{record.status}</Badge>
-                      </TableCell>
-                      <TableCell>{record.days_remaining ?? '—'}</TableCell>
-                      <TableCell>
-                        {record.active_return?.return_no ?? 'Not created'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                {...calendarTable.tableProps}
+                columns={calendarColumns}
+                searchPlaceholder="Search obligation reference or status"
+                showColumnVisibility={false}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -245,47 +377,13 @@ export function RegulatoryWorkbenchPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Return</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Reconciliation</TableHead>
-                      <TableHead>Due date</TableHead>
-                      <TableHead>Version</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(returnsQuery.data ?? []).map((record) => (
-                      <TableRow
-                        key={record.id}
-                        className={
-                          record.id === selectedReturnId
-                            ? 'bg-slate-50'
-                            : undefined
-                        }
-                        onClick={() => setSelectedReturnId(record.id)}
-                      >
-                        <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-medium text-slate-900">
-                              {record.return_no}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {record.report_definition_code ??
-                                record.return_code ??
-                                'Registered report'}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{record.status}</TableCell>
-                        <TableCell>{record.reconciliation_status}</TableCell>
-                        <TableCell>{record.due_at ?? '—'}</TableCell>
-                        <TableCell>{record.version_number}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <DataTable
+                  {...returnsTable.tableProps}
+                  columns={returnColumns}
+                  searchPlaceholder="Search return number or status"
+                  onRowClick={(record) => setSelectedReturnId(record.id)}
+                  showColumnVisibility={false}
+                />
               </CardContent>
             </Card>
 
@@ -572,37 +670,12 @@ export function RegulatoryWorkbenchPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Assessment</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Assessed</TableHead>
-                    <TableHead>Paid</TableHead>
-                    <TableHead>Outstanding</TableHead>
-                    <TableHead>Reconciliation</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(leviesQuery.data ?? []).map((assessment) => (
-                    <TableRow key={assessment.id}>
-                      <TableCell>{assessment.assessment_no}</TableCell>
-                      <TableCell>{assessment.status}</TableCell>
-                      <TableCell>
-                        {assessment.currency_code} {assessment.assessed_amount}
-                      </TableCell>
-                      <TableCell>
-                        {assessment.currency_code} {assessment.paid_amount}
-                      </TableCell>
-                      <TableCell>
-                        {assessment.currency_code}{' '}
-                        {assessment.outstanding_amount}
-                      </TableCell>
-                      <TableCell>{assessment.reconciliation_status}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                {...leviesTable.tableProps}
+                columns={levyColumns}
+                searchPlaceholder="Search assessment number or status"
+                showColumnVisibility={false}
+              />
             </CardContent>
           </Card>
         </TabsContent>

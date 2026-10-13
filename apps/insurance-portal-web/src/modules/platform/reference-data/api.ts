@@ -1,4 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import type {
   ReferenceCountry,
   ReferenceCurrency,
@@ -6,6 +7,7 @@ import type {
   ReferenceKind,
   ReferenceListParams,
   ReferenceRegion,
+  ReferenceTableParams,
 } from './types';
 
 export const referenceDataApi = {
@@ -24,6 +26,15 @@ export const referenceDataApi = {
   currencies: (params?: ReferenceListParams) =>
     apiClient
       .get<ReferenceCurrency[]>('/reference-data/currencies', { params })
+      .then((r) => r.data),
+  /** GET /reference-data/:kind?page=… — server-side paginated table */
+  listPage: <T>(
+    kind: ReferenceKind,
+    params: ReferenceTableParams,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<T>>('/reference-data/' + kind, { params, signal })
       .then((r) => r.data),
   create: <T>(kind: ReferenceKind, data: Record<string, unknown>) =>
     apiClient.post<T>(`/reference-data/${kind}`, data).then((r) => r.data),

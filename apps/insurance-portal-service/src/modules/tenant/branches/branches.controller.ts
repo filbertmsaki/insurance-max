@@ -14,7 +14,9 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { FindBranchesQueryDto } from './dto/find-branches-query.dto';
+import { FindCompanyFeaturesQueryDto } from './dto/find-company-features-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { BranchesService } from './branches.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import {
@@ -43,7 +45,7 @@ export class BranchesController {
   @ApiOperation({ summary: 'List all branches for the current company' })
   async listBranches(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: PaginationDto,
+    @Query() query: FindBranchesQueryDto,
   ) {
     return this.branchesService.findAllBranches(user.companyId!, query);
   }
@@ -282,8 +284,13 @@ export class CompanyFeaturesController {
   @Get()
   @Permissions('branches:read')
   @ApiOperation({ summary: 'List all features enabled at the company level' })
-  async listFeatures(@CurrentUser() user: AuthenticatedUser) {
-    return this.branchesService.getCompanyFeatures(user.companyId!);
+  async listFeatures(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindCompanyFeaturesQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.branchesService.findCompanyFeaturesPage(user.companyId!, query)
+      : this.branchesService.getCompanyFeatures(user.companyId!);
   }
 
   @Post()

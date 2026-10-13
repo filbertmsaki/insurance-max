@@ -1,3 +1,5 @@
+import { Transform } from 'class-transformer';
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 import {
   IsBoolean,
   IsOptional,
@@ -6,12 +8,17 @@ import {
   MaxLength,
 } from 'class-validator';
 
-export class ReferenceListQueryDto {
+/**
+ * Shared list query: legacy callers get a plain array; adding `page`
+ * switches to the paged `{ data, pagination }` table response.
+ */
+export class ReferenceListQueryDto extends TableQueryDto {
   @IsOptional()
-  @IsString()
-  search?: string;
-
-  @IsOptional()
+  @Transform(({ obj, key }: { obj: Record<string, unknown>; key: string }) => {
+    const raw = obj[key];
+    if (raw === undefined || raw === null || raw === '') return undefined;
+    return raw === true || raw === 'true';
+  })
   @IsBoolean()
   is_active?: boolean;
 

@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { QueryKey } from '@tanstack/react-query';
 import { MoreHorizontal, Pencil, Trash2, RotateCcw, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,23 +11,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CustomerStatusBadge } from './CustomerStatusBadge';
-import { getCustomerDisplayName, type CustomerRecord } from '../types';
+import {
+  CUSTOMER_KYC_STATUS_OPTIONS,
+  CUSTOMER_STATUS_OPTIONS,
+  CUSTOMER_TYPE_OPTIONS,
+  getCustomerDisplayName,
+  type CustomerListParams,
+  type CustomerRecord,
+} from '../types';
+
+const FILTER_KEYS = ['customer_type', 'status', 'kyc_status'] as const;
+type CustomerFilterKey = (typeof FILTER_KEYS)[number];
 
 interface CustomersTableProps {
-  customers: CustomerRecord[];
-  loading?: boolean;
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  sortBy?: string;
-  sortOrder?: 'ASC' | 'DESC';
-  onPageChange: (page: number) => void;
-  onLimitChange: (limit: number) => void;
-  onSortChange: (key: string, order: 'ASC' | 'DESC') => void;
+  /** Base cache key; mutations invalidate it to refresh the list. */
+  queryKey: QueryKey;
+  /** Fetches one server-side page (search/sort/filters/paging in SQL). */
+  fetcher: (
+    params: CustomerListParams,
+    signal: AbortSignal,
+  ) => Promise<PaginatedResponse<CustomerRecord>>;
+  toolbarActions?: ReactNode;
   onEdit?: (customer: CustomerRecord) => void;
   onDelete?: (customer: CustomerRecord) => void;
   onRestore?: (customer: CustomerRecord) => void;
@@ -35,17 +50,9 @@ interface CustomersTableProps {
 }
 
 export function CustomersTable({
-  customers,
-  loading,
-  page,
-  limit,
-  total,
-  totalPages,
-  sortBy,
-  sortOrder,
-  onPageChange,
-  onLimitChange,
-  onSortChange,
+  queryKey,
+  fetcher,
+  toolbarActions,
   onEdit,
   onDelete,
   onRestore,
@@ -53,6 +60,16 @@ export function CustomersTable({
   canDelete,
   canRestore,
 }: CustomersTableProps) {
+  const { tableProps, state } = useServerTable<
+    CustomerRecord,
+    CustomerFilterKey
+  >({
+    queryKey,
+    fetcher: (params, signal) => fetcher(params as CustomerListParams, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
   const navigate = useNavigate();
 
   const columns: Column<CustomerRecord>[] = [
@@ -75,6 +92,7 @@ export function CustomersTable({
     {
       key: 'customer_type',
       header: 'Type',
+      sortable: true,
       cell: (row) => (
         <Badge variant="outline" className="text-xs">
           {row.customer_type.replace(/_/g, ' ')}
@@ -92,6 +110,7 @@ export function CustomersTable({
     {
       key: 'kyc_status',
       header: 'KYC',
+      sortable: true,
       cell: (row) => (
         <Badge
           className={
@@ -137,7 +156,9 @@ export function CustomersTable({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem
-              onClick={() => navigate(sharedUnderwritePaths.customerDetail(row.id))}
+              onClick={() =>
+                navigate(sharedUnderwritePaths.customerDetail(row.id))
+              }
             >
               <Eye className="mr-2 h-4 w-4" />
               View Details
@@ -174,18 +195,19 @@ export function CustomersTable({
 
   return (
     <DataTable
+      {...tableProps}
       columns={columns}
-      data={customers}
-      loading={loading}
-      page={page}
-      limit={limit}
-      total={total}
-      totalPages={totalPages}
-      sortBy={sortBy}
-      sortOrder={sortOrder}
-      onPageChange={onPageChange}
-      onLimitChange={onLimitChange}
-      onSortChange={onSortChange}
+      searchPlaceholder="Search customers..."
+      filters={tableFilters(state.filters, [
+        { key: 'customer_type', label: 'Type', options: CUSTOMER_TYPE_OPTIONS },
+        { key: 'status', label: 'Status', options: CUSTOMER_STATUS_OPTIONS },
+        {
+          key: 'kyc_status',
+          label: 'KYC',
+          options: CUSTOMER_KYC_STATUS_OPTIONS,
+        },
+      ])}
+      toolbarActions={toolbarActions}
     />
   );
 }

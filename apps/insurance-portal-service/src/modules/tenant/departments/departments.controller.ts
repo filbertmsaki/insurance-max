@@ -13,7 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { FindDepartmentsQueryDto } from './dto/find-departments-query.dto';
 import { DepartmentsService } from './departments.service';
 import { AssignDepartmentUsersDto } from './dto/assign-department-users.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
@@ -36,7 +36,7 @@ export class DepartmentsController {
   @ApiOperation({ summary: 'List all departments for the current company' })
   async listDepartments(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() query: PaginationDto,
+    @Query() query: FindDepartmentsQueryDto,
   ) {
     return this.departmentsService.findAll(user.companyId!, query);
   }

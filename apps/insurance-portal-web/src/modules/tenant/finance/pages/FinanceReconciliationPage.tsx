@@ -1,13 +1,18 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { financeApi } from '../api';
+import { financeApi, financeTableApi } from '../api';
+import type { FinanceReconciliationBatch } from '../types';
 import { FinanceStatusBadge, formatMoney } from '../components';
 
 export function FinanceReconciliationPage() {
@@ -16,10 +21,60 @@ export function FinanceReconciliationPage() {
   const [providerCode, setProviderCode] = useState('BANK');
   const [statementDate, setStatementDate] = useState('');
   const [currencyCode, setCurrencyCode] = useState('TZS');
-  const batchesQuery = useQuery({
+  const { tableProps } = useServerTable<FinanceReconciliationBatch>({
     queryKey: ['finance', 'reconciliation', 'batches'],
-    queryFn: () => financeApi.getReconciliationBatches(),
+    fetcher: (params, signal) =>
+      financeTableApi.reconciliationBatches(params, signal),
+    defaultSortBy: 'created_at',
   });
+
+  const columns: Column<FinanceReconciliationBatch>[] = [
+    {
+      key: 'batch_no',
+      header: 'Batch',
+      sortable: true,
+      cell: (row) => (
+        <span className="font-medium text-slate-900">{row.batch_no}</span>
+      ),
+    },
+    {
+      key: 'provider_code',
+      header: 'Provider',
+      sortable: true,
+      cell: (row) => row.provider_code,
+    },
+    {
+      key: 'statement_date',
+      header: 'Statement date',
+      sortable: true,
+      cell: (row) => row.statement_date,
+    },
+    {
+      key: 'statement_total',
+      header: 'Statement total',
+      sortable: true,
+      cell: (row) => formatMoney(row.statement_total, row.currency_code),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (row) => <FinanceStatusBadge status={row.status} />,
+    },
+    {
+      key: 'actions',
+      header: 'Action',
+      cell: (row) => (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/finance/reconciliation/${row.id}`)}
+        >
+          Open
+        </Button>
+      ),
+    },
+  ];
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -35,8 +90,6 @@ export function FinanceReconciliationPage() {
       navigate(`/finance/reconciliation/${batch.id}`);
     },
   });
-
-  if (batchesQuery.isLoading) return <Skeleton className="h-[520px] w-full" />;
 
   return (
     <div className="space-y-6">
@@ -90,33 +143,12 @@ export function FinanceReconciliationPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4">
-        {(batchesQuery.data ?? []).map((batch) => (
-          <Card key={batch.id}>
-            <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
-              <div className="space-y-1">
-                <p className="font-medium text-slate-900">{batch.batch_no}</p>
-                <p className="text-sm text-slate-500">
-                  {batch.provider_code} · {batch.statement_date} ·{' '}
-                  {formatMoney(batch.statement_total, batch.currency_code)}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <FinanceStatusBadge status={batch.status} />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() =>
-                    navigate(`/finance/reconciliation/${batch.id}`)
-                  }
-                >
-                  Open
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <DataTable
+        {...tableProps}
+        columns={columns}
+        searchPlaceholder="Search batches"
+        showColumnVisibility={false}
+      />
     </div>
   );
 }

@@ -1,41 +1,46 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type Column } from '@/components/shared/DataTable';
-import { Input } from '@/components/ui/input';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { financeApi } from '../api';
+import { financeTableApi } from '../api';
 import type { FinanceInvoice } from '../types';
 import { FinanceStatusBadge, formatMoney, partyName } from '../components';
 
+const FILTER_KEYS = ['status'] as const;
+
+const STATUS_OPTIONS = [
+  'DRAFT',
+  'ISSUED',
+  'PARTIALLY_PAID',
+  'PAID',
+  'VOID',
+  'REVERSED',
+].map((value) => ({ label: value.replace(/_/g, ' '), value }));
+
 export function FinanceInvoicesPage() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const query = useQuery({
-    queryKey: ['finance', 'invoices', 'list'],
-    queryFn: () => financeApi.getInvoices({ limit: 100 }),
+  const { tableProps, state } = useServerTable<
+    FinanceInvoice,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: ['finance', 'invoices'],
+    fetcher: (params, signal) => financeTableApi.invoices(params, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
 
-  const rows = useMemo(() => {
-    const items = query.data?.data ?? [];
-    if (!search.trim()) return items;
-    const term = search.trim().toLowerCase();
-    return items.filter((item) =>
-      [
-        item.invoice_no,
-        item.status,
-        partyName(item.customer),
-        item.quotation?.quotation_no,
-      ]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(term)),
-    );
-  }, [query.data, search]);
-
   const columns: Column<FinanceInvoice>[] = [
-    { key: 'invoice_no', header: 'Invoice', cell: (row) => row.invoice_no },
+    {
+      key: 'invoice_no',
+      header: 'Invoice',
+      sortable: true,
+      cell: (row) => row.invoice_no,
+    },
     {
       key: 'customer',
       header: 'Customer',
@@ -44,23 +49,27 @@ export function FinanceInvoicesPage() {
     {
       key: 'status',
       header: 'Status',
+      sortable: true,
       cell: (row) => <FinanceStatusBadge status={row.status} />,
     },
     {
-      key: 'total',
+      key: 'total_amount',
       header: 'Total',
+      sortable: true,
       cell: (row) =>
         formatMoney(row.total_amount, row.currency ?? row.currency_code),
     },
     {
-      key: 'paid',
+      key: 'paid_amount',
       header: 'Paid',
+      sortable: true,
       cell: (row) =>
         formatMoney(row.paid_amount, row.currency ?? row.currency_code),
     },
     {
-      key: 'balance',
+      key: 'balance_amount',
       header: 'Balance',
+      sortable: true,
       cell: (row) =>
         formatMoney(row.balance_amount, row.currency ?? row.currency_code),
     },
@@ -79,30 +88,19 @@ export function FinanceInvoicesPage() {
     },
   ];
 
-  if (query.isLoading) {
-    return <Skeleton className="h-[520px] w-full" />;
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Invoices"
         description="Authoritative invoice balances come from posted receipts, allocations, refunds, and write-offs."
       />
-      <Input
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search invoices"
-      />
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={rows}
-        page={1}
-        limit={rows.length || 1}
-        total={rows.length}
-        totalPages={1}
-        onPageChange={() => undefined}
-        onLimitChange={() => undefined}
+        searchPlaceholder="Search invoices"
+        filters={tableFilters(state.filters, [
+          { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+        ])}
         showColumnVisibility={false}
       />
     </div>

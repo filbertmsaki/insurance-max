@@ -47,7 +47,8 @@ export function QuotationPaymentPage() {
 
   const invoicesQuery = useQuery({
     queryKey: ['finance', 'quotation-payment', 'invoices', id],
-    queryFn: () => financeApi.getInvoices({ limit: 100 }),
+    queryFn: () =>
+      financeApi.getInvoices({ limit: 100, quotation_id: id ?? undefined }),
     enabled: !!id,
   });
 

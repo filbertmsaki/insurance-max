@@ -8,6 +8,8 @@ import {
   Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import { FindInsurancePartnersQueryDto } from './dto/find-insurance-partners-query.dto';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { normalizeRateForStorage } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { DataSource, In, Repository } from 'typeorm';
@@ -366,6 +368,43 @@ export class InsurancePartnersService {
         product_scopes: { product: true },
       },
       order: { created_at: 'DESC' },
+    });
+  }
+
+  /**
+   * Server-side table page of partner relationships. Insurer scope is applied
+   * before filters/search/paging so records and count agree.
+   */
+  async findPage(
+    activeCompanyId: string | undefined,
+    query: FindInsurancePartnersQueryDto,
+  ) {
+    const insurerCompanyId = this.requireActiveInsurer(activeCompanyId);
+    const qb = this.partnerRepository
+      .createQueryBuilder('partner')
+      .leftJoinAndSelect('partner.intermediary_company', 'intermediary')
+      .where('partner.insurer_company_id = :insurerCompanyId', {
+        insurerCompanyId,
+      });
+    if (query.status) {
+      qb.andWhere('partner.status = :status', { status: query.status });
+    }
+    if (query.partner_type) {
+      qb.andWhere('partner.partner_type = :partnerType', {
+        partnerType: query.partner_type,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        partner: 'intermediary.name',
+        partner_type: 'partner.partner_type',
+        status: 'partner.status',
+        end_date: 'partner.end_date',
+        created_at: 'partner.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: ['intermediary.name', 'partner.agreement_reference'],
+      tieBreaker: 'partner.id',
     });
   }
 

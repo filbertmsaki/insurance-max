@@ -1,4 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 
 export interface ReportParameterDefinition {
   key: string;
@@ -75,6 +76,18 @@ export interface ReportJobRecord {
   delivery_status?: string | null;
 }
 
+export interface ReportListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  status?: string;
+  definition_id?: string;
+  /** Report category, e.g. CLAIMS (matches category or CLAIMS_ code prefix). */
+  category?: string;
+}
+
 /** Report definitions, runs, jobs, schedules and artifacts (`/tenant/reports`). */
 export const reportingApi = {
   getReportDefinitions() {
@@ -94,9 +107,12 @@ export const reportingApi = {
       .then((response) => response.data);
   },
 
-  getReportJobs() {
+  listJobsPage(params: ReportListParams, signal?: AbortSignal) {
     return apiClient
-      .get<ReportJobRecord[]>('/tenant/reports/jobs')
+      .get<PaginatedResponse<ReportJobRecord>>('/tenant/reports/jobs', {
+        params,
+        signal,
+      })
       .then((response) => response.data);
   },
 
@@ -106,9 +122,11 @@ export const reportingApi = {
       .then((response) => response.data);
   },
 
-  getSchedules() {
+  listSchedulesPage(params: ReportListParams, signal?: AbortSignal) {
     return apiClient
-      .get<ReportScheduleRecord[]>('/tenant/reports/schedules')
+      .get<
+        PaginatedResponse<ReportScheduleRecord>
+      >('/tenant/reports/schedules', { params, signal })
       .then((response) => response.data);
   },
 

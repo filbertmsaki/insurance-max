@@ -13,6 +13,7 @@ import { createHash, randomBytes } from 'crypto';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 
 import { AuditService } from '../../../shared/audit/audit.service';
 
@@ -1072,31 +1073,61 @@ export class PortalAccountsService {
       actor_type?: PortalActorType;
       page?: number;
       limit?: number;
+      search?: string;
+      sortBy?: string;
+      sortOrder?: 'ASC' | 'DESC';
     } = {},
   ) {
-    const page = Math.max(1, Math.trunc(filters.page ?? 1));
-    const limit = Math.min(100, Math.max(1, Math.trunc(filters.limit ?? 25)));
+    const qb = this.invitationRepository
+      .createQueryBuilder('invitation')
+      .where('invitation.company_id = :companyId', { companyId });
+    if (filters.status) {
+      qb.andWhere('invitation.status = :status', { status: filters.status });
+    }
+    if (filters.delivery_status) {
+      qb.andWhere('invitation.delivery_status = :deliveryStatus', {
+        deliveryStatus: filters.delivery_status,
+      });
+    }
+    if (filters.actor_type) {
+      qb.andWhere('invitation.actor_type = :actorType', {
+        actorType: filters.actor_type,
+      });
+    }
 
-    const [rows, total] = await this.invitationRepository.findAndCount({
-      where: {
-        company_id: companyId,
-        ...(filters.status ? { status: filters.status } : {}),
-        ...(filters.delivery_status
-          ? { delivery_status: filters.delivery_status }
-          : {}),
-        ...(filters.actor_type ? { actor_type: filters.actor_type } : {}),
+    const result = await paginateQueryBuilder(
+      qb,
+      { ...filters, limit: filters.limit ?? 25 },
+      {
+        sortable: {
+          email: 'invitation.email',
+          actor_type: 'invitation.actor_type',
+          status: 'invitation.status',
+          delivery_status: 'invitation.delivery_status',
+          expires_at: 'invitation.expires_at',
+          created_at: 'invitation.created_at',
+        },
+        defaultSort: 'created_at',
+        searchable: [
+          'invitation.email',
+          'invitation.first_name',
+          'invitation.last_name',
+          'invitation.phone',
+        ],
+        tieBreaker: 'invitation.id',
       },
-      order: { created_at: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    );
+    const { page, limit, total, totalPages } = result.pagination;
 
+    // `pagination` is the shared table contract; the flat fields keep the
+    // previous response shape for existing consumers.
     return {
-      data: rows.map((invitation) => this.mapInvitation(invitation)),
+      data: result.data.map((invitation) => this.mapInvitation(invitation)),
+      pagination: result.pagination,
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages,
     };
   }
 

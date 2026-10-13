@@ -45,6 +45,12 @@ export const usersApi = {
       .get<PaginatedResponse<UserProfile>>('/users', { params })
       .then((r) => r.data),
 
+  /** GET /users?page=… — server-side table page (search/status/user_type/sort) */
+  listUsers: (params: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<UserProfile>>('/users', { params, signal })
+      .then((r) => r.data),
+
   /** GET /users/:id */
   getUserById: (id: string) =>
     apiClient.get<UserDetail>(`/users/${id}`).then((r) => r.data),

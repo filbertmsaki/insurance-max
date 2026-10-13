@@ -5,7 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { PermissionAssignmentScope } from '@insurance-max/contracts';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
@@ -18,7 +19,20 @@ import { AuditService } from '../../shared/audit/audit.service';
 import { AuthorizationVersionService } from '../../shared/authorization/authorization-version.service';
 import { CreatePermissionDto } from './dtos/create-permission.dto';
 import { UpdatePermissionDto } from './dtos/update-permission.dto';
+import { FindPermissionsQueryDto } from './dtos/find-permissions-query.dto';
 import { Permission } from './entities/permission.entity';
+
+/**
+ * SQL mirror of the UI grouping: "resource:action" → resource; legacy
+ * snake_case company/user permissions map to companies/users; else general.
+ */
+const PERMISSION_CATEGORY_SQL = `(CASE
+  WHEN POSITION(':' IN permission.name) > 0 THEN SPLIT_PART(permission.name, ':', 1)
+  WHEN permission.name LIKE 'create\\_company%' OR permission.name LIKE 'view\\_compan%'
+    OR permission.name LIKE 'update\\_company%' OR permission.name LIKE 'delete\\_company%' THEN 'companies'
+  WHEN permission.name LIKE 'manage\\_company\\_user%' THEN 'users'
+  ELSE 'general'
+END)`;
 
 @Injectable()
 export class PermissionsService {
@@ -131,12 +145,59 @@ export class PermissionsService {
    * assignable, non-deprecated tenant/shared permissions.
    */
   async findAll(actor?: AuthenticatedUser): Promise<Permission[]> {
-    const query = this.createBaseQuery()
-      .where('permission.is_deprecated = false')
-      .orderBy('permission.name', 'ASC');
+    const query = this.createBaseQuery().orderBy('permission.name', 'ASC');
+    this.applyVisibilityScope(query, actor);
+    return query.getMany();
+  }
 
+  /** Server-side table: search/category/sort/paging applied in SQL after visibility scope. */
+  async findPage(actor: AuthenticatedUser, query: FindPermissionsQueryDto) {
+    const qb = this.createBaseQuery();
+    this.applyVisibilityScope(qb, actor);
+    if (query.category) {
+      qb.andWhere(`${PERMISSION_CATEGORY_SQL} = :category`, {
+        category: query.category,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        name: 'permission.name',
+        display_name: 'permission.display_name',
+        created_at: 'permission.created_at',
+      },
+      defaultSort: 'name',
+      defaultOrder: 'ASC',
+      searchable: [
+        'permission.name',
+        'permission.display_name',
+        'permission.description',
+      ],
+      tieBreaker: 'permission.id',
+    });
+  }
+
+  /** Visible permission counts per category (drives the category tabs). */
+  async countByCategory(
+    actor?: AuthenticatedUser,
+  ): Promise<Array<{ category: string; count: number }>> {
+    const qb = this.createBaseQuery();
+    this.applyVisibilityScope(qb, actor);
+    const rows = await qb
+      .select(PERMISSION_CATEGORY_SQL, 'category')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('category')
+      .orderBy('category', 'ASC')
+      .getRawMany<{ category: string; count: string }>();
+    return rows.map((r) => ({ category: r.category, count: Number(r.count) }));
+  }
+
+  private applyVisibilityScope(
+    query: SelectQueryBuilder<Permission>,
+    actor?: AuthenticatedUser,
+  ): void {
+    query.andWhere('permission.is_deprecated = false');
     if (hasOwnerRole(actor) && actor?.scope === 'platform') {
-      return query.getMany();
+      return;
     }
 
     ensureCompanyScopedActor(actor);
@@ -151,8 +212,6 @@ export class PermissionsService {
         sharedScope: PermissionAssignmentScope.SHARED,
       },
     );
-
-    return query.getMany();
   }
 
   async findOne(id: string, actor?: AuthenticatedUser): Promise<Permission> {

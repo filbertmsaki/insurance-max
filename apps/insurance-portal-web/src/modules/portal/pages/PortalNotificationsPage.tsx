@@ -1,26 +1,74 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { CheckCheck, ExternalLink } from 'lucide-react';
 
-import { EmptyState, ErrorState } from '@/components/shared/ContentStates';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   formatDateTime,
   safeInternalLink,
   statusTone,
 } from '@/modules/tenant/engagement/utils';
 
-import { portalApi, type PortalAudience } from '../api';
+import {
+  portalApi,
+  type PortalAudience,
+  type PortalNotificationRecord,
+} from '../api';
+
+const NOTIFICATION_FILTER_KEYS = ['unread_only'] as const;
+type NotificationFilterKey = (typeof NOTIFICATION_FILTER_KEYS)[number];
+
+const READ_OPTIONS = [{ label: 'Unread only', value: 'true' }];
+
+const columns: Column<PortalNotificationRecord>[] = [
+  {
+    key: 'title',
+    header: 'Notification',
+    sortable: true,
+    cell: (notification) => (
+      <div className="space-y-1">
+        <div className="font-medium text-slate-900">{notification.title}</div>
+        <div className="text-sm text-slate-600">{notification.message}</div>
+      </div>
+    ),
+  },
+  {
+    key: 'severity',
+    header: 'Severity',
+    sortable: true,
+    cell: (notification) => (
+      <Badge variant="outline" className={statusTone(notification.severity)}>
+        {notification.severity}
+      </Badge>
+    ),
+  },
+  {
+    key: 'read_at',
+    header: 'Status',
+    cell: (notification) => {
+      const state = notification.read_at ? 'READ' : 'UNREAD';
+      return (
+        <Badge variant="outline" className={statusTone(state)}>
+          {state}
+        </Badge>
+      );
+    },
+  },
+  {
+    key: 'created_at',
+    header: 'Created',
+    sortable: true,
+    cell: (notification) => formatDateTime(notification.created_at),
+  },
+];
 
 export function PortalNotificationsPage({
   audience,
@@ -29,9 +77,16 @@ export function PortalNotificationsPage({
 }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const notificationsQuery = useQuery({
+
+  const { tableProps, state } = useServerTable<
+    PortalNotificationRecord,
+    NotificationFilterKey
+  >({
     queryKey: ['portal', audience, 'notifications'],
-    queryFn: () => portalApi.listNotifications(audience),
+    fetcher: (params, signal) =>
+      portalApi.pageNotifications(audience, params, signal),
+    filterKeys: NOTIFICATION_FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
 
   const readMutation = useMutation({
@@ -56,90 +111,33 @@ export function PortalNotificationsPage({
           <CardTitle className="text-base">Notification inbox</CardTitle>
         </CardHeader>
         <CardContent>
-          {notificationsQuery.isError ? (
-            <ErrorState
-              description="Portal notifications could not be loaded."
-              onRetry={() => notificationsQuery.refetch()}
-            />
-          ) : (notificationsQuery.data?.length ?? 0) === 0 ? (
-            <EmptyState
-              title="No notifications"
-              description="New alerts will appear here when portal activity requires attention."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Notification</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(notificationsQuery.data ?? []).map((notification) => {
-                  const deepLink = safeInternalLink(notification.action_url);
-
-                  return (
-                    <TableRow key={notification.id}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="font-medium text-slate-900">
-                            {notification.title}
-                          </div>
-                          <div className="text-sm text-slate-600">
-                            {notification.message}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={statusTone(notification.severity)}
-                        >
-                          {notification.severity}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={statusTone(
-                            notification.read_at ? 'READ' : 'UNREAD',
-                          )}
-                        >
-                          {notification.read_at ? 'READ' : 'UNREAD'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {formatDateTime(notification.created_at)}
-                      </TableCell>
-                      <TableCell className="space-x-2">
-                        {!notification.read_at ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => readMutation.mutate(notification.id)}
-                          >
-                            Mark read
-                          </Button>
-                        ) : null}
-                        {deepLink ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(deepLink)}
-                          >
-                            Open
-                          </Button>
-                        ) : null}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search notifications…"
+            filters={tableFilters(state.filters, [
+              { key: 'unread_only', label: 'Read state', options: READ_OPTIONS },
+            ])}
+            rowActions={[
+              {
+                label: 'Mark read',
+                icon: CheckCheck,
+                hidden: (notification) => Boolean(notification.read_at),
+                onClick: (notification) => readMutation.mutate(notification.id),
+              },
+              {
+                label: 'Open',
+                icon: ExternalLink,
+                hidden: (notification) =>
+                  !safeInternalLink(notification.action_url),
+                onClick: (notification) => {
+                  const link = safeInternalLink(notification.action_url);
+                  if (link) navigate(link);
+                },
+              },
+            ]}
+            emptyMessage="No notifications. New alerts will appear here when portal activity requires attention."
+          />
         </CardContent>
       </Card>
     </div>

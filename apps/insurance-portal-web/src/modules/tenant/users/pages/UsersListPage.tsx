@@ -3,15 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Plus,
-  MoreHorizontal,
   Eye,
   Pencil,
   Trash2,
   UserCheck,
   UserX,
-  Search,
-  SlidersHorizontal,
-  X,
   ShieldCheck,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -22,13 +18,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -52,17 +41,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { usersApi } from '@/modules/tenant/users/api/users';
 import { rolesApi } from '@/modules/platform/roles/api/roles';
 import { branchesApi } from '@/modules/tenant/branches/api/branches';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard';
 import { mapApiErrorsToForm } from '@/lib/api-error';
 import {
-  useUsersList,
+  usersKeys,
   useCreateUser,
   useUpdateUser,
   useDeleteUser,
@@ -73,7 +68,6 @@ import type {
   UserProfile,
   UserStatus,
   UserType,
-  SortOrder,
 } from '@/types';
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
@@ -127,13 +121,13 @@ const USER_STATUSES: UserStatus[] = [
   'locked',
 ];
 
-const SORT_FIELDS = [
-  { value: 'created_at', label: 'Created date' },
-  { value: 'first_name', label: 'First name' },
-  { value: 'last_name', label: 'Last name' },
-  { value: 'email', label: 'Email' },
-  { value: 'status', label: 'Status' },
-];
+const USER_FILTER_KEYS = ['status', 'user_type'] as const;
+type UserFilterKey = (typeof USER_FILTER_KEYS)[number];
+
+const STATUS_OPTIONS = USER_STATUSES.map((s) => ({
+  value: s,
+  label: s.charAt(0).toUpperCase() + s.slice(1),
+}));
 
 const STATUS_NEXT: Record<
   UserStatus,
@@ -200,26 +194,13 @@ export function UsersListPage() {
   const canDelete = hasPermission('users:delete');
   const canAssignRole = hasPermission('users:assign-role');
 
-  // ── Data & state from hook ────────────────────────────────────────────────
-  const {
-    users,
-    pagination,
-    isLoading,
-    isFetching,
-    liveSearch,
-    filterStatus,
-    sortBy,
-    sortOrder,
-    page,
-    limit,
-    hasActiveFilters,
-    setSearch,
-    setFilterStatus,
-    setPage,
-    setLimit,
-    setSort,
-    clearFilters,
-  } = useUsersList();
+  // ── Server-side table (search / filters / sort / paging in the DB) ──────
+  const { tableProps, state } = useServerTable<UserProfile, UserFilterKey>({
+    queryKey: usersKeys.lists(),
+    fetcher: (params, signal) => usersApi.listUsers(params, signal),
+    filterKeys: USER_FILTER_KEYS,
+    defaultSortBy: 'created_at',
+  });
 
   // ── Dialog state ─────────────────────────────────────────────────────────
   const [createOpen, setCreateOpen] = useState(false);
@@ -419,72 +400,55 @@ export function UsersListPage() {
         </span>
       ),
     },
+  ];
+
+  const rowActions = [
     {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      cell: (row) => {
-        const toggle = STATUS_NEXT[row.status];
-        const hasAnyAction = canUpdate || canDelete || canAssignRole;
-        if (!hasAnyAction) {
-          return (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => navigate(`/users/${row.id}`)}
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-          );
-        }
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={() => navigate(`/users/${row.id}`)}>
-                <Eye className="mr-2 h-4 w-4" /> View profile
-              </DropdownMenuItem>
-              {canUpdate && (
-                <>
-                  <DropdownMenuItem onClick={() => openEdit(row)}>
-                    <Pencil className="mr-2 h-4 w-4" /> Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleToggleStatus(row)}>
-                    <toggle.icon className="mr-2 h-4 w-4" />
-                    {toggle.label}
-                  </DropdownMenuItem>
-                </>
-              )}
-              {canAssignRole && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setAssignRoleUser(row);
-                    setSelectedRoleId('');
-                  }}
-                >
-                  <ShieldCheck className="mr-2 h-4 w-4" /> Assign role
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setDeleteId(row.id)}
-                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
+      label: 'View profile',
+      icon: Eye,
+      onClick: (row: UserProfile) => navigate(`/users/${row.id}`),
+    },
+    {
+      label: 'Edit',
+      icon: Pencil,
+      hidden: !canUpdate,
+      onClick: openEdit,
+    },
+    {
+      label: 'Deactivate',
+      icon: UserX,
+      hidden: (row: UserProfile) => !canUpdate || row.status !== 'active',
+      onClick: handleToggleStatus,
+    },
+    {
+      label: 'Activate',
+      icon: UserCheck,
+      hidden: (row: UserProfile) =>
+        !canUpdate || (row.status !== 'inactive' && row.status !== 'suspended'),
+      onClick: handleToggleStatus,
+    },
+    {
+      label: 'Unlock',
+      icon: UserCheck,
+      hidden: (row: UserProfile) => !canUpdate || row.status !== 'locked',
+      onClick: handleToggleStatus,
+    },
+    {
+      label: 'Assign role',
+      icon: ShieldCheck,
+      hidden: !canAssignRole,
+      onClick: (row: UserProfile) => {
+        setAssignRoleUser(row);
+        setSelectedRoleId('');
       },
+    },
+    {
+      label: 'Delete',
+      icon: Trash2,
+      destructive: true,
+      separator: true,
+      hidden: !canDelete,
+      onClick: (row: UserProfile) => setDeleteId(row.id),
     },
   ];
 
@@ -503,97 +467,23 @@ export function UsersListPage() {
         }
       />
 
-      {/* ── Filters bar ── */}
-      <div className="flex flex-wrap items-center gap-3 mb-5">
-        <div className="relative flex-1 min-w-48 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search name, email, phone…"
-            value={liveSearch}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <Select
-          value={filterStatus}
-          onValueChange={(v) => setFilterStatus(v as UserStatus | 'all')}
-        >
-          <SelectTrigger className="w-36">
-            <SlidersHorizontal className="mr-2 h-3.5 w-3.5 text-slate-400" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {USER_STATUSES.map((s) => (
-              <SelectItem key={s} value={s} className="capitalize">
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={sortBy}
-          onValueChange={(v) => setSort(v as typeof sortBy, sortOrder)}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            {SORT_FIELDS.map((f) => (
-              <SelectItem key={f.value} value={f.value}>
-                {f.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={sortOrder}
-          onValueChange={(v) => setSort(sortBy, v as SortOrder)}
-        >
-          <SelectTrigger className="w-28">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="DESC">Newest</SelectItem>
-            <SelectItem value="ASC">Oldest</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="text-slate-500"
-          >
-            <X className="mr-1 h-3.5 w-3.5" /> Clear
-          </Button>
-        )}
-
-        {isFetching && !isLoading && (
-          <span className="text-xs text-slate-400 animate-pulse">
-            Refreshing…
-          </span>
-        )}
-      </div>
-
-      {/* ── Table ── */}
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={users}
-        loading={isLoading}
-        page={pagination?.page ?? page}
-        limit={pagination?.limit ?? limit}
-        total={pagination?.total ?? 0}
-        totalPages={pagination?.totalPages ?? 1}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
-        sortBy={sortBy}
-        sortOrder={sortOrder}
-        onSortChange={(key, order) => setSort(key as typeof sortBy, order)}
+        searchPlaceholder="Search name, email, phone…"
+        filters={tableFilters(state.filters, [
+          { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+          {
+            key: 'user_type',
+            label: 'Type',
+            options: ALL_USER_TYPES.map((t) => ({
+              value: t.value,
+              label: t.label,
+            })),
+          },
+        ])}
+        rowActions={rowActions}
+        emptyMessage="No users yet"
       />
 
       {/* ── Create Dialog ── */}

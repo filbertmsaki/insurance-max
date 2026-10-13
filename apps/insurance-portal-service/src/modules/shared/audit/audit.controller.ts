@@ -43,17 +43,15 @@ export class AuditController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    const result = await this.auditService.search(
+    const record = await this.auditService.findOneForActor(
       {
         id: user.id,
         scope: user.scope,
         companyId: user.companyId ?? null,
         permissions: user.permissions,
       },
-      { page: 1, limit: 200 },
+      id,
     );
-
-    const record = result.data.find((item) => item.id === id);
 
     if (!record) {
       throw new NotFoundException('Audit log not found.');

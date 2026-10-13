@@ -1,5 +1,17 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import type { ApiClient } from '@/types';
+
+export interface ApiClientsListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  status?: string;
+  client_type?: string;
+  environment?: string;
+}
 
 export interface CreateApiClientDto {
   name: string;
@@ -14,9 +26,19 @@ export interface CreateApiClientResponse extends ApiClient {
 }
 
 export const apiClientsApi = {
-  getApiClients: (params?: { page?: number; limit?: number }) =>
+  /**
+   * GET /api-clients — full ApiClient[] (unpaginated). Paging params are
+   * deliberately not sent: a `page` param switches the endpoint to the paged
+   * shape. Use `listApiClients` for tables.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getApiClients: (_params?: { page?: number; limit?: number }) =>
+    apiClient.get<ApiClient[]>('/api-clients').then((r) => r.data),
+
+  /** GET /api-clients?page=… — server-side paginated/searchable/sortable list */
+  listApiClients: (params: ApiClientsListParams, signal?: AbortSignal) =>
     apiClient
-      .get<ApiClient[]>('/api-clients', { params })
+      .get<PaginatedResponse<ApiClient>>('/api-clients', { params, signal })
       .then((r) => r.data),
 
   createApiClient: (data: CreateApiClientDto) =>

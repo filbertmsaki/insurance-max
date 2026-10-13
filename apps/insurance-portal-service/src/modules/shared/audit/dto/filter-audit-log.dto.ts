@@ -1,40 +1,37 @@
-import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsIn,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
-  Max,
-  Min,
+  MaxLength,
 } from 'class-validator';
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 
-export class FilterAuditLogDto {
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @IsOptional()
-  page = 1;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(200)
-  @IsOptional()
-  limit = 50;
-
+/**
+ * GET /audit-logs — server-side table query. Always paged (page defaults to
+ * 1, limit to 20, capped at 100 by TableQueryDto/paginateQueryBuilder).
+ */
+export class FilterAuditLogDto extends TableQueryDto {
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   action?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   event_category?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   resource?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  resource_id?: string;
 
   @IsOptional()
   @IsUUID()
@@ -46,10 +43,12 @@ export class FilterAuditLogDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   request_id?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   correlation_id?: string;
 
   @IsOptional()

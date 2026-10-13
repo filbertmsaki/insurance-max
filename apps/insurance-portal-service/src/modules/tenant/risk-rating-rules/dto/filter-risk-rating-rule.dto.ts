@@ -10,6 +10,11 @@ export class FilterRiskRatingRuleDto extends PaginationDto {
   @IsUUID()
   risk_id?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by pricing rate book UUID' })
+  @IsOptional()
+  @IsUUID()
+  rate_book_id?: string;
+
   @ApiPropertyOptional({ enum: RateType })
   @IsOptional()
   @IsEnum(RateType)

@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
+import type { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 
 import { CreateCommunicationMessageDto } from '../../communications/dto/communications.dto';
 import { CommunicationMessage } from '../../communications/entities/communication-message.entity';
@@ -21,9 +23,16 @@ import { Receipt } from '../../billing-commission/entities/receipt.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 
-import { PortalListQueryDto } from '../dto/portal-query.dto';
+import { PortalTableQueryDto } from '../dto/portal-query.dto';
 import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalAccountStatus, PortalActorType } from '../enums/portal.enums';
+
+type LegacyListQuery = {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+};
 
 type ScopeResourceKey =
   | 'CUSTOMER'
@@ -72,7 +81,7 @@ export class PortalEngagementService {
     private readonly documentsService: DocumentsService,
   ) {}
 
-  async listDocuments(account: PortalAccount, query: PortalListQueryDto) {
+  async listDocuments(account: PortalAccount, query: LegacyListQuery) {
     const scope = await this.buildScope(account);
     const documents = await this.documentRepository.find({
       where: this.companyWhere(scope),
@@ -98,6 +107,43 @@ export class PortalEngagementService {
         ].join(' '),
       (document) => document.status,
     );
+  }
+
+  /**
+   * Server-side table. The portal access scope (company, visibility flag and
+   * owned resource ids) is translated to SQL and applied before paging, so
+   * the count and every page only contain the caller's own documents.
+   */
+  async findDocumentsPage(account: PortalAccount, query: PortalTableQueryDto) {
+    const scope = await this.buildScope(account);
+    const qb = this.documentRepository
+      .createQueryBuilder('document')
+      .leftJoinAndSelect('document.current_version', 'current_version');
+    this.applyCompanyScope(qb, 'document', scope);
+    this.applyDocumentScope(qb, 'document', scope);
+    if (query.status) {
+      qb.andWhere('LOWER(document.status) = LOWER(:status)', {
+        status: query.status,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        document_no: 'document.document_no',
+        title: 'document.title',
+        document_type: 'document.document_type',
+        status: 'document.status',
+        created_at: 'document.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'document.document_no',
+        'document.title',
+        'document.file_name',
+        'document.document_type',
+        'document.owner_type',
+      ],
+      tieBreaker: 'document.id',
+    });
   }
 
   async findDocument(account: PortalAccount, id: string) {
@@ -143,7 +189,7 @@ export class PortalEngagementService {
     });
   }
 
-  async listThreads(account: PortalAccount, query: PortalListQueryDto) {
+  async listThreads(account: PortalAccount, query: LegacyListQuery) {
     const scope = await this.buildScope(account);
     const threads = await this.threadRepository.find({
       where: this.companyWhere(scope),
@@ -162,6 +208,41 @@ export class PortalEngagementService {
         ].join(' '),
       (thread) => (thread.closed_at ? 'CLOSED' : 'OPEN'),
     );
+  }
+
+  /** Server-side table; see findDocumentsPage for how scope is applied. */
+  async findThreadsPage(account: PortalAccount, query: PortalTableQueryDto) {
+    const scope = await this.buildScope(account);
+    const qb = this.threadRepository.createQueryBuilder('thread');
+    this.applyCompanyScope(qb, 'thread', scope);
+    qb.andWhere(`thread.${scope.visibleFlag} = true`).andWhere(
+      this.resourceMatchSql(
+        'thread.resource_type',
+        'thread.resource_id',
+        scope,
+      ),
+    );
+    const status = query.status?.trim().toUpperCase();
+    if (status === 'OPEN') qb.andWhere('thread.closed_at IS NULL');
+    else if (status === 'CLOSED') qb.andWhere('thread.closed_at IS NOT NULL');
+    else if (status) qb.andWhere('1 = 0');
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        thread_no: 'thread.thread_no',
+        subject: 'thread.subject',
+        thread_type: 'thread.thread_type',
+        updated_at: 'thread.updated_at',
+        created_at: 'thread.created_at',
+      },
+      defaultSort: 'updated_at',
+      searchable: [
+        'thread.thread_no',
+        'thread.subject',
+        'thread.thread_type',
+        'thread.resource_type',
+      ],
+      tieBreaker: 'thread.id',
+    });
   }
 
   async findThread(account: PortalAccount, id: string) {
@@ -234,10 +315,7 @@ export class PortalEngagementService {
     return message;
   }
 
-  async listSignatureRequests(
-    account: PortalAccount,
-    query: PortalListQueryDto,
-  ) {
+  async listSignatureRequests(account: PortalAccount, query: LegacyListQuery) {
     const scope = await this.buildScope(account);
     const documents = await this.documentRepository.find({
       where: this.companyWhere(scope),
@@ -265,6 +343,44 @@ export class PortalEngagementService {
         ),
       (request) => request.status,
     );
+  }
+
+  /** Server-side table: only requests for documents the caller can access. */
+  async findSignatureRequestsPage(
+    account: PortalAccount,
+    query: PortalTableQueryDto,
+  ) {
+    const scope = await this.buildScope(account);
+    const qb = this.signatureRequestRepository.createQueryBuilder('request');
+    this.applyCompanyScope(qb, 'request', scope);
+    const documents = this.documentRepository
+      .createQueryBuilder('scoped_document')
+      .select('1')
+      .where('scoped_document.id = request.document_id');
+    this.applyCompanyScope(documents, 'scoped_document', scope);
+    this.applyDocumentScope(documents, 'scoped_document', scope);
+    qb.andWhere(`EXISTS (${documents.getQuery()})`, documents.getParameters());
+    if (query.status) {
+      qb.andWhere('LOWER(request.status) = LOWER(:status)', {
+        status: query.status,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        request_no: 'request.request_no',
+        signature_provider: 'request.signature_provider',
+        status: 'request.status',
+        expires_at: 'request.expires_at',
+        created_at: 'request.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'request.request_no',
+        'request.signature_provider',
+        'request.status',
+      ],
+      tieBreaker: 'request.id',
+    });
   }
 
   async findSignatureRequest(account: PortalAccount, id: string) {
@@ -546,9 +662,99 @@ export class PortalEngagementService {
     return false;
   }
 
+  private applyCompanyScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+    scope: AccessScope,
+  ) {
+    if (scope.companyIds) {
+      qb.andWhere(`${alias}.company_id IN (:...scopeCompanyIds)`, {
+        scopeCompanyIds: [...scope.companyIds],
+      });
+    }
+  }
+
+  /** SQL twin of documentMatchesScope: visible owner match or visible link match. */
+  private applyDocumentScope<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
+    alias: string,
+    scope: AccessScope,
+  ) {
+    const flag = scope.visibleFlag;
+    const link = `${alias}_link`;
+    const links = this.documentLinkRepository
+      .createQueryBuilder(link)
+      .select('1')
+      .where(`${link}.document_id = ${alias}.id`)
+      .andWhere(`${link}.${flag} = true`)
+      .andWhere(
+        this.resourceMatchSql(
+          `${link}.linked_record_type`,
+          `${link}.linked_record_id`,
+          scope,
+        ),
+      );
+    qb.andWhere(
+      new Brackets((visible) => {
+        visible
+          .where(
+            new Brackets((owner) => {
+              owner
+                .where(`${alias}.${flag} = true`)
+                .andWhere(
+                  this.resourceMatchSql(
+                    `${alias}.owner_type`,
+                    `${alias}.owner_id`,
+                    scope,
+                  ),
+                );
+            }),
+          )
+          .orWhere(`EXISTS (${links.getQuery()})`, links.getParameters());
+      }),
+    );
+  }
+
+  /** SQL twin of resourceMatchesScope; ids are always bound as parameters. */
+  private resourceMatchSql(
+    typeColumn: string,
+    idColumn: string,
+    scope: AccessScope,
+  ) {
+    const groups: Array<[ScopeResourceKey, string[]]> = [
+      ['CUSTOMER', ['CUSTOMER', 'POLICY_HOLDER', 'POLICYHOLDER']],
+      ['POLICY', ['POLICY']],
+      ['QUOTATION', ['QUOTATION']],
+      ['INVOICE', ['INVOICE']],
+      ['RECEIPT', ['RECEIPT']],
+    ];
+    if (scope.actorType === PortalActorType.INTERMEDIARY) {
+      groups.push([
+        'INTERMEDIARY_COMPANY',
+        ['INTERMEDIARY_COMPANY', 'INTERMEDIARY', 'BROKER', 'AGENT', 'COMPANY'],
+      ]);
+    }
+    return new Brackets((match) => {
+      let any = false;
+      for (const [key, types] of groups) {
+        const ids = [...scope.resourceIds[key]];
+        if (!ids.length) continue;
+        const clause = `(UPPER(TRIM(${typeColumn})) IN (:...scopeTypes_${key}) AND ${idColumn} IN (:...scopeIds_${key}))`;
+        const params = {
+          [`scopeTypes_${key}`]: types,
+          [`scopeIds_${key}`]: ids,
+        };
+        if (any) match.orWhere(clause, params);
+        else match.where(clause, params);
+        any = true;
+      }
+      if (!any) match.where('1 = 0');
+    });
+  }
+
   private filterList<T>(
     items: T[],
-    query: PortalListQueryDto,
+    query: LegacyListQuery,
     toSearchText: (item: T) => string,
     toStatus: (item: T) => string | null | undefined,
   ) {

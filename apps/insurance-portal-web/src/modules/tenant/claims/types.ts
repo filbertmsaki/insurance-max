@@ -652,6 +652,8 @@ export interface ClaimListParams {
   page?: number;
   limit?: number;
   search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
   status?: string;
   queue?: ClaimQueue;
   branch_id?: string;

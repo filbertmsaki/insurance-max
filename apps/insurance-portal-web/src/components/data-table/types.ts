@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import type { SortOrder } from '@/types';
 
 export interface Column<T> {
@@ -17,6 +17,26 @@ export interface DataTableFilter {
   value?: string;
   options: Array<{ label: string; value: string }>;
   placeholder?: string;
+}
+
+export interface DataTableRowAction<T> {
+  label: string;
+  icon?: ComponentType<{ className?: string }>;
+  onClick: (row: T) => void;
+  /** Hide the action (e.g. missing permission or invalid state for this row). */
+  hidden?: boolean | ((row: T) => boolean);
+  disabled?: boolean | ((row: T) => boolean);
+  destructive?: boolean;
+  /** Render a separator above this action. */
+  separator?: boolean;
+}
+
+export interface DataTableExport {
+  /** Export only the rows currently shown. */
+  onExportPage?: () => void;
+  /** Export every record matching current search/filters (server-side). */
+  onExportAll?: () => void | Promise<void>;
+  label?: string;
 }
 
 export interface DataTableProps<T> {
@@ -51,4 +71,20 @@ export interface DataTableProps<T> {
   onRefresh?: () => void;
   isFetching?: boolean;
   isRefreshing?: boolean;
+  /** Per-row actions rendered in a trailing menu; filter by permission via `hidden`. */
+  rowActions?: DataTableRowAction<T>[];
+  /**
+   * Row selection. Selection is keyed by `rowKey` and is kept across pages,
+   * search and sort changes until cleared, so bulk actions can span pages.
+   * The header checkbox selects/deselects the current page only.
+   */
+  enableRowSelection?: boolean | ((row: T) => boolean);
+  selectedRowKeys?: Array<string | number>;
+  onSelectionChange?: (keys: Array<string | number>) => void;
+  /** Rendered in a bar above the table while rows are selected. */
+  bulkActions?: (keys: Array<string | number>, clear: () => void) => ReactNode;
+  exportOptions?: DataTableExport;
+  onRowClick?: (row: T) => void;
+  /** Extra row classes, e.g. to highlight the selected row in master–detail views. */
+  rowClassName?: (row: T) => string | undefined;
 }

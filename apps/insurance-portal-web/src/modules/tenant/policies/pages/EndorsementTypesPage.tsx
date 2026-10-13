@@ -25,7 +25,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import { DataTable, type Column } from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {

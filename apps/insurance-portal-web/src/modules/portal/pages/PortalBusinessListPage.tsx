@@ -15,13 +15,16 @@ import {
   Plus,
   RotateCcw,
   ReceiptText,
-  Search,
   Upload,
   Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { EmptyState, ErrorState } from '@/components/shared/ContentStates';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -248,7 +251,6 @@ export function PortalBusinessListPage({
   audience: PortalAudience;
   resource: PortalResource;
 }) {
-  const [search, setSearch] = useState('');
   const [selectedQuotationIds, setSelectedQuotationIds] = useState<string[]>(
     [],
   );
@@ -297,18 +299,16 @@ export function PortalBusinessListPage({
   const config = resourceConfig[resource];
   const Icon = config.icon;
   const queryClient = useQueryClient();
-  const queryParams = useMemo(
-    () => ({ search: search.trim() || undefined, limit: 25 }),
-    [search],
-  );
+  // Base key: every mutation below invalidates all pages of this list.
   const recordsKey = useMemo(
-    () => ['portal', audience, resource, queryParams] as const,
-    [audience, queryParams, resource],
+    () => ['portal', audience, resource] as const,
+    [audience, resource],
   );
-  const recordsQuery = useQuery({
+  const { tableProps } = useServerTable<PortalBusinessRecord>({
     queryKey: recordsKey,
-    queryFn: () =>
-      portalApi.listBusinessRecords(audience, resource, queryParams),
+    fetcher: (params, signal) =>
+      portalApi.pageBusinessRecords(audience, resource, params, signal),
+    defaultLimit: 25,
   });
   const policiesQuery = useQuery({
     queryKey: ['portal', audience, 'policies', 'selector'],
@@ -316,11 +316,11 @@ export function PortalBusinessListPage({
     queryFn: () =>
       portalApi.listBusinessRecords(audience, 'policies', { limit: 100 }),
   });
-  const records = recordsQuery.data?.items ?? [];
   const policies = policiesQuery.data?.items ?? [];
   const canOpenDetail = supportsDetail(resource);
   const hasActions =
     canOpenDetail || resource === 'invoices' || resource === 'requests';
+  const canCompare = audience === 'intermediary' && resource === 'quotations';
 
   const compareMutation = useMutation({
     mutationFn: () =>
@@ -553,6 +553,144 @@ export function PortalBusinessListPage({
     policyRequestMutation.mutate();
   };
 
+  const columns: Column<PortalBusinessRecord>[] = [
+    ...config.columns.map((column) => ({
+      key: column.label,
+      header: column.label,
+      cell: (record: PortalBusinessRecord) => column.render(record) ?? '-',
+    })),
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (record: PortalBusinessRecord) => (
+        <Badge variant="outline" className={statusTone(status(record))}>
+          {status(record)}
+        </Badge>
+      ),
+    },
+    ...(hasActions
+      ? [
+          {
+            key: 'actions',
+            header: 'Actions',
+            className: 'w-[1%] text-right',
+            cell: (record: PortalBusinessRecord) => (
+              <div className="flex justify-end gap-2">
+                {canOpenDetail ? (
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      to={`/${audience}/${resource}/${record.id}`}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </Link>
+                  </Button>
+                ) : null}
+                {resource === 'invoices' ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openPaymentProof(record)}
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    Proof
+                  </Button>
+                ) : null}
+                {resource === 'requests' ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAttachmentRecord(record)}
+                    >
+                      <Paperclip className="h-3.5 w-3.5" />
+                      File
+                    </Button>
+                    {canResubmit(record) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={requestActionMutation.isPending}
+                        onClick={() =>
+                          requestActionMutation.mutate({
+                            id: record.id,
+                            action: 'resubmit',
+                          })
+                        }
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Resubmit
+                      </Button>
+                    ) : null}
+                    {canCancel(record) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={requestActionMutation.isPending}
+                        onClick={() =>
+                          requestActionMutation.mutate({
+                            id: record.id,
+                            action: 'cancel',
+                          })
+                        }
+                      >
+                        Cancel
+                      </Button>
+                    ) : null}
+                  </>
+                ) : null}
+                {audience === 'intermediary' &&
+                resource === 'customers' ? (
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      to={`/intermediary/customers/${record.id}/edit`}
+                    >
+                      <FilePenLine className="h-3.5 w-3.5" />
+                      Edit
+                    </Link>
+                  </Button>
+                ) : null}
+                {audience === 'intermediary' &&
+                resource === 'quotations' &&
+                canEditQuotation(record) ? (
+                  <Button asChild size="sm" variant="outline">
+                    <Link
+                      to={`/intermediary/quotations/${record.id}/edit`}
+                    >
+                      <FilePenLine className="h-3.5 w-3.5" />
+                      Edit
+                    </Link>
+                  </Button>
+                ) : null}
+                {resource === 'policies' ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setPolicyRequestRecord(record);
+                      setPolicyRequestForm({
+                        request_type: 'ENDORSEMENT',
+                        subject: `Service request for ${policyLabel(record)}`,
+                        description: '',
+                      });
+                    }}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Request
+                  </Button>
+                ) : null}
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -613,200 +751,24 @@ export function PortalBusinessListPage({
                 New complaint
               </Button>
             ) : null}
-            <div className="relative w-full sm:w-72">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search"
-                className="pl-9"
-              />
-            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {recordsQuery.isError ? (
-            <ErrorState
-              description={`${config.title} could not be loaded.`}
-              onRetry={() => {
-                void recordsQuery.refetch();
-              }}
-            />
-          ) : records.length === 0 ? (
-            <EmptyState
-              title={`No ${config.title.toLowerCase()}`}
-              description="Records will appear here when they are available to this portal account."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {audience === 'intermediary' && resource === 'quotations' ? (
-                    <TableHead>Select</TableHead>
-                  ) : null}
-                  {config.columns.map((column) => (
-                    <TableHead key={column.label}>{column.label}</TableHead>
-                  ))}
-                  <TableHead>Status</TableHead>
-                  {hasActions ? (
-                    <TableHead className="w-[1%] text-right">Actions</TableHead>
-                  ) : null}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((record) => (
-                  <TableRow key={record.id}>
-                    {audience === 'intermediary' &&
-                    resource === 'quotations' ? (
-                      <TableCell>
-                        <input
-                          type="checkbox"
-                          aria-label={`Select quotation ${text(record.quotation_no) ?? ''} for comparison`}
-                          checked={selectedQuotationIds.includes(record.id)}
-                          onChange={(event) =>
-                            setSelectedQuotationIds((current) =>
-                              event.target.checked
-                                ? current.length < 10
-                                  ? [...current, record.id]
-                                  : current
-                                : current.filter((id) => id !== record.id),
-                            )
-                          }
-                        />
-                      </TableCell>
-                    ) : null}
-                    {config.columns.map((column) => (
-                      <TableCell key={column.label}>
-                        {column.render(record) ?? '-'}
-                      </TableCell>
-                    ))}
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusTone(status(record))}
-                      >
-                        {status(record)}
-                      </Badge>
-                    </TableCell>
-                    {hasActions ? (
-                      <TableCell>
-                        <div className="flex justify-end gap-2">
-                          {canOpenDetail ? (
-                            <Button asChild size="sm" variant="outline">
-                              <Link
-                                to={`/${audience}/${resource}/${record.id}`}
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                                View
-                              </Link>
-                            </Button>
-                          ) : null}
-                          {resource === 'invoices' ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openPaymentProof(record)}
-                            >
-                              <Upload className="h-3.5 w-3.5" />
-                              Proof
-                            </Button>
-                          ) : null}
-                          {resource === 'requests' ? (
-                            <>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setAttachmentRecord(record)}
-                              >
-                                <Paperclip className="h-3.5 w-3.5" />
-                                File
-                              </Button>
-                              {canResubmit(record) ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={requestActionMutation.isPending}
-                                  onClick={() =>
-                                    requestActionMutation.mutate({
-                                      id: record.id,
-                                      action: 'resubmit',
-                                    })
-                                  }
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5" />
-                                  Resubmit
-                                </Button>
-                              ) : null}
-                              {canCancel(record) ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={requestActionMutation.isPending}
-                                  onClick={() =>
-                                    requestActionMutation.mutate({
-                                      id: record.id,
-                                      action: 'cancel',
-                                    })
-                                  }
-                                >
-                                  Cancel
-                                </Button>
-                              ) : null}
-                            </>
-                          ) : null}
-                          {audience === 'intermediary' &&
-                          resource === 'customers' ? (
-                            <Button asChild size="sm" variant="outline">
-                              <Link
-                                to={`/intermediary/customers/${record.id}/edit`}
-                              >
-                                <FilePenLine className="h-3.5 w-3.5" />
-                                Edit
-                              </Link>
-                            </Button>
-                          ) : null}
-                          {audience === 'intermediary' &&
-                          resource === 'quotations' &&
-                          canEditQuotation(record) ? (
-                            <Button asChild size="sm" variant="outline">
-                              <Link
-                                to={`/intermediary/quotations/${record.id}/edit`}
-                              >
-                                <FilePenLine className="h-3.5 w-3.5" />
-                                Edit
-                              </Link>
-                            </Button>
-                          ) : null}
-                          {resource === 'policies' ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setPolicyRequestRecord(record);
-                                setPolicyRequestForm({
-                                  request_type: 'ENDORSEMENT',
-                                  subject: `Service request for ${policyLabel(record)}`,
-                                  description: '',
-                                });
-                              }}
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              Request
-                            </Button>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    ) : null}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search"
+            emptyMessage={`No ${config.title.toLowerCase()}. Records will appear here when they are available to this portal account.`}
+            enableRowSelection={canCompare}
+            selectedRowKeys={canCompare ? selectedQuotationIds : undefined}
+            onSelectionChange={
+              canCompare
+                ? (keys) =>
+                    // The comparison endpoint accepts at most 10 quotations.
+                    setSelectedQuotationIds(keys.slice(0, 10).map(String))
+                : undefined
+            }
+          />
         </CardContent>
       </Card>
 

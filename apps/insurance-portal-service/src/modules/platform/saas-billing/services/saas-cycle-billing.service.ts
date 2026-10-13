@@ -32,6 +32,11 @@ import {
   SubscriptionStatus,
 } from '../enums/saas-billing.enums';
 import { UsageMeteringService } from './usage-metering.service';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import {
+  FindSaasCyclesQueryDto,
+  FindSaasInvoicesQueryDto,
+} from '../dto/saas-billing-table-query.dto';
 
 @Injectable()
 export class SaasCycleBillingService {
@@ -64,6 +69,103 @@ export class SaasCycleBillingService {
       },
       take: 200,
     });
+  }
+
+  /** Server-side invoices table (platform OWNER only — enforced by controller). */
+  findInvoicesPage(query: FindSaasInvoicesQueryDto) {
+    const qb = this.invoiceRepository.createQueryBuilder('invoice');
+    if (query.status) {
+      qb.andWhere('invoice.status = :status', { status: query.status });
+    }
+    if (query.company_id) {
+      qb.andWhere('invoice.company_id = :companyId', {
+        companyId: query.company_id,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        invoice_no: 'invoice.invoice_no',
+        status: 'invoice.status',
+        due_at: 'invoice.due_at',
+        total_amount: 'invoice.total_amount',
+        paid_amount: 'invoice.paid_amount',
+        balance_amount: 'invoice.balance_amount',
+        created_at: 'invoice.created_at',
+      },
+      defaultSort: 'created_at',
+      defaultOrder: 'DESC',
+      searchable: ['invoice.invoice_no', 'invoice.status'],
+      tieBreaker: 'invoice.id',
+    });
+  }
+
+  /** Server-side billing cycles table. */
+  findCyclesPage(query: FindSaasCyclesQueryDto) {
+    const qb = this.cycleRepository.createQueryBuilder('cycle');
+    if (query.status) {
+      qb.andWhere('cycle.status = :status', { status: query.status });
+    }
+    if (query.company_id) {
+      qb.andWhere('cycle.company_id = :companyId', {
+        companyId: query.company_id,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        period_end: 'cycle.period_end',
+        period_start: 'cycle.period_start',
+        status: 'cycle.status',
+        base_amount: 'cycle.base_amount',
+        usage_amount: 'cycle.usage_amount',
+        tax_amount: 'cycle.tax_amount',
+        total_amount: 'cycle.total_amount',
+        created_at: 'cycle.created_at',
+      },
+      defaultSort: 'period_end',
+      defaultOrder: 'DESC',
+      searchable: ['cycle.status'],
+      tieBreaker: 'cycle.id',
+    });
+  }
+
+  /** Billing dashboard metrics, aggregated in SQL over all rows. */
+  async getSummary() {
+    const [subscriptions, cycles, invoices, latest] = await Promise.all([
+      this.subscriptionRepository
+        .createQueryBuilder('subscription')
+        .where('subscription.deleted_at IS NULL')
+        .andWhere('subscription.status IN (:...statuses)', {
+          statuses: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING],
+        })
+        .getCount(),
+      this.cycleRepository
+        .createQueryBuilder('cycle')
+        .where('cycle.status = :status', {
+          status: SaasBillingCycleStatus.OPEN,
+        })
+        .getCount(),
+      this.invoiceRepository
+        .createQueryBuilder('invoice')
+        .select('COALESCE(SUM(invoice.balance_amount), 0)', 'balance')
+        .addSelect(
+          'COUNT(*) FILTER (WHERE invoice.status = :overdue)',
+          'overdue',
+        )
+        .setParameter('overdue', SaasInvoiceStatus.OVERDUE)
+        .getRawOne<{ balance: string; overdue: string }>(),
+      this.invoiceRepository.findOne({
+        where: {},
+        order: { created_at: 'DESC' },
+        select: { id: true, currency: true },
+      }),
+    ]);
+    return {
+      activeSubscriptions: subscriptions,
+      openCycles: cycles,
+      invoiceBalance: invoices?.balance ?? '0',
+      overdueInvoices: Number(invoices?.overdue ?? 0),
+      currency: latest?.currency ?? null,
+    };
   }
 
   listInvoiceAdjustments(invoiceId: string) {

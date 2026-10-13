@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { escapeLike } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import {
   Brackets,
   DataSource,
@@ -474,6 +475,7 @@ export class PortalRequestsService {
     this.applyRequestFilters(qb, query);
 
     qb.orderBy('request.created_at', 'DESC')
+      .addOrderBy('request.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -564,6 +566,7 @@ export class PortalRequestsService {
     this.applyRequestFilters(qb, query);
 
     qb.orderBy('request.created_at', 'DESC')
+      .addOrderBy('request.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -1636,13 +1639,13 @@ export class PortalRequestsService {
     }
 
     if (query.search?.trim()) {
-      const search = `%${query.search.trim()}%`;
+      const search = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((builder) => {
           builder
-            .where('request.request_no ILIKE :search', { search })
-            .orWhere('request.subject ILIKE :search');
+            .where(`request.request_no ILIKE :search ESCAPE '\\'`, { search })
+            .orWhere(`request.subject ILIKE :search ESCAPE '\\'`);
         }),
       );
     }

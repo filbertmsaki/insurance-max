@@ -18,6 +18,8 @@ import { TiramisPermissions } from '../auth/tiramis-permissions.constant';
 import { FilterTiramisAuditLogDto } from '../dto/filter-tiramis-audit-log.dto';
 import { FilterTiramisNotificationDto } from '../dto/filter-tiramis-notification.dto';
 import { TiramisDashboardQueryDto } from '../dto/tiramis-dashboard-query.dto';
+import { TiramisRecordListQueryDto } from '../dto/tiramis-record-list-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { TiramisAccessScopeService } from '../services/tiramis-access-scope.service';
 import { TiramisAuditService } from '../services/tiramis-audit.service';
 import { TiramisMonitoringService } from '../services/tiramis-monitoring.service';
@@ -87,7 +89,15 @@ export class TiramisAdminController {
   @ApiQuery({ name: 'limit', required: false, example: 50 })
   @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
   @Get('failed')
-  getFailed(@Query('limit') limit?: string, @Req() req?: any) {
+  getFailed(@Query() query: TiramisRecordListQueryDto, @Req() req?: any) {
+    if (isPagedRequest(query)) {
+      return this.tiramisMonitoringService.getFailedPage(
+        query,
+        this.getAuthContext(req),
+        this.getScope(req),
+      );
+    }
+    const limit = query.limit;
     return this.tiramisMonitoringService.getFailed(
       Number(limit || 50),
       this.getAuthContext(req),
@@ -101,7 +111,15 @@ export class TiramisAdminController {
   @ApiQuery({ name: 'limit', required: false, example: 50 })
   @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
   @Get('retryable')
-  getRetryable(@Query('limit') limit?: string, @Req() req?: any) {
+  getRetryable(@Query() query: TiramisRecordListQueryDto, @Req() req?: any) {
+    if (isPagedRequest(query)) {
+      return this.tiramisMonitoringService.getRetryablePage(
+        query,
+        this.getAuthContext(req),
+        this.getScope(req),
+      );
+    }
+    const limit = query.limit;
     return this.tiramisMonitoringService.getRetryable(
       Number(limit || 50),
       this.getAuthContext(req),

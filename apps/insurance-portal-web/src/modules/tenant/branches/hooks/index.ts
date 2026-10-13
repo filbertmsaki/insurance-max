@@ -1,5 +1,4 @@
 export { branchesKeys } from './query-keys';
-export { useBranchesList } from './useBranchesList';
 export { useBranch } from './useBranch';
 export { useCreateBranch } from './useCreateBranch';
 export { useUpdateBranch } from './useUpdateBranch';
@@ -8,4 +7,3 @@ export { useDeleteBranch } from './useDeleteBranch';
 export { useBranchFeatures } from './useBranchFeatures';
 export { useSetBranchFeature } from './useSetBranchFeature';
 export { useRemoveBranchFeatureOverride } from './useRemoveBranchFeatureOverride';
-export type { BranchSortKey } from './useBranchesList';

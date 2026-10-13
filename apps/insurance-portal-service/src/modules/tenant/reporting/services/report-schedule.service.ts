@@ -11,13 +11,16 @@ import { ReportCategory, ReportSensitivity } from '@insurance-max/contracts';
 import { CronExpressionParser } from 'cron-parser';
 import { createHash } from 'crypto';
 import { DateTime } from 'luxon';
-import { IsNull, Repository } from 'typeorm';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import { IsNull, Repository, type SelectQueryBuilder } from 'typeorm';
 
 import { UsageMeteringService } from '../../../platform/saas-billing/services/usage-metering.service';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import type { TenantDataScope } from '../../../shared/authorization/interfaces/tenant-data-scope.interface';
 import { QuotationPolicyDataScope } from '../../../shared/authorization/quotation-policy-data-scope.enum';
 import { MailService } from '../../../shared/mail/mail.service';
+import type { ReportListQueryDto } from '../dto/report-list-query.dto';
 import { ReportAccessAuditEvent } from '../entities/report-access-audit-event.entity';
 import { ReportArtifact } from '../entities/report-artifact.entity';
 import { ReportDeliveryAttempt } from '../entities/report-delivery-attempt.entity';
@@ -82,19 +85,84 @@ export class ReportScheduleService {
     );
   }
 
-  listSchedules(companyId: string) {
+  listSchedules(companyId: string, query?: ReportListQueryDto) {
+    if (query && isPagedRequest(query)) {
+      const qb = this.scheduleRepository
+        .createQueryBuilder('schedule')
+        .where('schedule.company_id = :companyId', { companyId })
+        .andWhere('schedule.deleted_at IS NULL');
+      this.applyReportListFilters(qb, 'schedule', query);
+      return paginateQueryBuilder(qb, query, {
+        sortable: {
+          created_at: 'schedule.created_at',
+          name: 'schedule.name',
+          status: 'schedule.status',
+          next_run_at: 'schedule.next_run_at',
+        },
+        defaultSort: 'created_at',
+        searchable: ['schedule.name', 'schedule.status'],
+        tieBreaker: 'schedule.id',
+      });
+    }
     return this.scheduleRepository.find({
       where: { company_id: companyId, deleted_at: IsNull() },
       order: { created_at: 'DESC' },
     });
   }
 
-  listJobs(companyId: string) {
+  listJobs(companyId: string, query?: ReportListQueryDto) {
+    if (query && isPagedRequest(query)) {
+      const qb = this.jobRepository
+        .createQueryBuilder('job')
+        .where('job.company_id = :companyId', { companyId });
+      this.applyReportListFilters(qb, 'job', query);
+      return paginateQueryBuilder(qb, query, {
+        sortable: {
+          created_at: 'job.created_at',
+          status: 'job.status',
+          format: 'job.format',
+        },
+        defaultSort: 'created_at',
+        searchable: ['job.status', 'job.format'],
+        tieBreaker: 'job.id',
+      });
+    }
     return this.jobRepository.find({
       where: { company_id: companyId },
       order: { created_at: 'DESC' },
       take: 200,
     });
+  }
+
+  /** Status / definition / category filters shared by the job and schedule tables. */
+  private applyReportListFilters<T extends ReportJob | ReportSchedule>(
+    qb: SelectQueryBuilder<T>,
+    alias: 'job' | 'schedule',
+    query: ReportListQueryDto,
+  ) {
+    if (query.status) {
+      qb.andWhere(`${alias}.status = :listStatus`, {
+        listStatus: query.status,
+      });
+    }
+    if (query.definition_id) {
+      qb.andWhere(`${alias}.definition_id = :listDefinitionId`, {
+        listDefinitionId: query.definition_id,
+      });
+    }
+    if (query.category) {
+      qb.andWhere(
+        `${alias}.definition_id IN (
+          SELECT definition.id FROM report_definitions definition
+          WHERE definition.category = :listCategory
+             OR definition.code LIKE :listCodePrefix
+        )`,
+        {
+          listCategory: query.category,
+          listCodePrefix: `${query.category.replace(/_/g, '\\_')}\\_%`,
+        },
+      );
+    }
   }
 
   async getJob(companyId: string, id: string) {

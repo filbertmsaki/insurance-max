@@ -1,5 +1,20 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import type { Permission } from '@/types';
+
+export interface PermissionsListParams {
+  page: number;
+  limit: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  category?: string;
+}
+
+export interface PermissionCategoryCount {
+  category: string;
+  count: number;
+}
 
 export interface CreatePermissionDto {
   name: string;
@@ -13,6 +28,18 @@ export const permissionsApi = {
   /** GET /permissions — returns Permission[] (not paginated) */
   getPermissions: () =>
     apiClient.get<Permission[]>('/permissions').then((r) => r.data),
+
+  /** GET /permissions?page=… — server-side paginated/searchable/sortable list */
+  listPermissions: (params: PermissionsListParams, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<Permission>>('/permissions', { params, signal })
+      .then((r) => r.data),
+
+  /** GET /permissions/categories — visible permission counts per category */
+  getCategoryCounts: (signal?: AbortSignal) =>
+    apiClient
+      .get<PermissionCategoryCount[]>('/permissions/categories', { signal })
+      .then((r) => r.data),
 
   /** GET /permissions/:id */
   getPermissionById: (id: string) =>

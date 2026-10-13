@@ -11,10 +11,12 @@ import {
   DataSource,
   EntityManager,
   IsNull,
+  ObjectLiteral,
   QueryFailedError,
   Repository,
+  SelectQueryBuilder,
 } from 'typeorm';
-import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
@@ -499,40 +501,24 @@ export class MotorService {
     return fleet;
   }
 
-  private async listWithPagination<T>(
-    qb: any,
+  /**
+   * Pages a company-scoped list. Search, allowlisted sort (with a unique id
+   * tie-breaker) and paging all run in SQL after the company/filters are
+   * applied, so records and count share one WHERE clause. maxLimit stays at
+   * 500 for legacy picker callers that request large pages.
+   */
+  private listWithPagination<T extends ObjectLiteral>(
+    qb: SelectQueryBuilder<T>,
     query: FilterMotorDto,
-    allowedSortFields: string[],
-    defaultSortBy: string,
+    options: { sortable: Record<string, string>; searchable: string[] },
   ) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = defaultSortBy,
-      sortOrder = SortDirection.DESC,
-    } = query;
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : defaultSortBy;
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
-
-    qb.orderBy(qb.alias + '.' + safeSortBy, direction);
-
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-
-    return {
-      data: items,
-      meta: {
-        totalItems: total,
-        itemCount: items.length,
-        itemsPerPage: limit,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        hasNextPage: page * limit < total,
-        hasPreviousPage: page > 1,
-      },
-    };
+    return paginateQueryBuilder(qb, query, {
+      sortable: options.sortable,
+      defaultSort: 'created_at',
+      searchable: options.searchable,
+      tieBreaker: `${qb.alias}.id`,
+      maxLimit: 500,
+    });
   }
 
   async createVehicle(
@@ -696,24 +682,6 @@ export class MotorService {
       .where('vehicle.company_id = :companyId', { companyId })
       .andWhere('vehicle.deleted_at IS NULL');
 
-    if (query.search?.trim()) {
-      const term = `%${query.search.trim()}%`;
-      qb.andWhere(
-        `(
-          vehicle.registration_no ILIKE :term
-          OR vehicle.chassis_no ILIKE :term
-          OR vehicle.engine_no ILIKE :term
-          OR vehicle.make ILIKE :term
-          OR vehicle.model ILIKE :term
-          OR customer.customer_no ILIKE :term
-          OR customer.display_name ILIKE :term
-          OR customer.phone ILIKE :term
-          OR customer.company_name ILIKE :term
-        )`,
-        { term },
-      );
-    }
-
     if (query.customer_id) {
       qb.andWhere('vehicle.customer_id = :customerId', {
         customerId: query.customer_id,
@@ -740,12 +708,30 @@ export class MotorService {
       });
     }
 
-    return this.listWithPagination(
-      qb,
-      query,
-      ['registration_no', 'make', 'model', 'created_at', 'updated_at'],
-      'created_at',
-    );
+    return this.listWithPagination(qb, query, {
+      sortable: {
+        registration_no: 'vehicle.registration_no',
+        make: 'vehicle.make',
+        model: 'vehicle.model',
+        vehicle_value: 'vehicle.vehicle_value',
+        status: 'vehicle.status',
+        created_at: 'vehicle.created_at',
+        updated_at: 'vehicle.updated_at',
+      },
+      searchable: [
+        'vehicle.registration_no',
+        'vehicle.chassis_no',
+        'vehicle.engine_no',
+        'vehicle.make',
+        'vehicle.model',
+        'customer.customer_no',
+        'customer.display_name',
+        'customer.phone',
+        'customer.company_name',
+        'customer.first_name',
+        'customer.last_name',
+      ],
+    });
   }
 
   async findVehicle(companyId: string, id: string) {
@@ -1136,20 +1122,37 @@ export class MotorService {
       .leftJoinAndSelect('fleet.quotation', 'quotation')
       .where('fleet.company_id = :companyId', { companyId });
 
-    if (query.search?.trim()) {
-      const term = `%${query.search.trim()}%`;
-      qb.andWhere(
-        '(fleet.fleet_no ILIKE :term OR fleet.fleet_name ILIKE :term)',
-        { term },
-      );
+    if (query.customer_id) {
+      qb.andWhere('fleet.customer_id = :customerId', {
+        customerId: query.customer_id,
+      });
+    }
+    if (query.status) {
+      qb.andWhere('fleet.status = :status', {
+        status: query.status.trim().toUpperCase(),
+      });
     }
 
-    return this.listWithPagination(
-      qb,
-      query,
-      ['fleet_no', 'fleet_name', 'created_at', 'updated_at'],
-      'created_at',
-    );
+    return this.listWithPagination(qb, query, {
+      sortable: {
+        fleet_no: 'fleet.fleet_no',
+        fleet_name: 'fleet.fleet_name',
+        total_vehicles: 'fleet.total_vehicles',
+        total_premium: 'fleet.total_premium',
+        status: 'fleet.status',
+        created_at: 'fleet.created_at',
+        updated_at: 'fleet.updated_at',
+      },
+      searchable: [
+        'fleet.fleet_no',
+        'fleet.fleet_name',
+        'customer.customer_no',
+        'customer.company_name',
+        'customer.first_name',
+        'customer.last_name',
+        'customer.display_name',
+      ],
+    });
   }
 
   async findFleet(companyId: string, id: string) {

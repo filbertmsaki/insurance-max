@@ -14,6 +14,8 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Repository } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { FindSignatureRequestsQueryDto } from './dto/engagement-list-query.dto';
 import { DocumentStatus } from '@insurance-max/contracts';
 
 import { DocumentStorageService } from './document-storage.service';
@@ -47,6 +49,26 @@ export class SignatureRequestsService {
     return this.requestRepository.find({
       where: { company_id: companyId },
       order: { created_at: 'DESC' },
+    });
+  }
+
+  findPage(companyId: string, query: FindSignatureRequestsQueryDto) {
+    const qb = this.requestRepository
+      .createQueryBuilder('request')
+      .where('request.company_id = :companyId', { companyId });
+    if (query.status) {
+      qb.andWhere('request.status = :status', { status: query.status });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        request_no: 'request.request_no',
+        signature_provider: 'request.signature_provider',
+        status: 'request.status',
+        created_at: 'request.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: ['request.request_no', 'request.signature_provider'],
+      tieBreaker: 'request.id',
     });
   }
 

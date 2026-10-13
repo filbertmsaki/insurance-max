@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardCard } from '@/components/shared/DashboardCard';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import { DataTable, type Column } from '@/components/data-table';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
 import { useTiramisDashboard } from '../hooks';
 import type { TiramisTrackingRecord } from '../types';

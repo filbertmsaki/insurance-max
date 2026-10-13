@@ -1,4 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 export interface TaxRecord {
   id: string;
   tax_code: string;
@@ -16,6 +17,11 @@ export interface TaxInput {
 }
 export const taxesApi = {
   list: () => apiClient.get<TaxRecord[]>('/taxes').then((r) => r.data),
+  /** GET /taxes?page=… — server-side table page (search/is_active/sort). */
+  page: (params: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient
+      .get<PaginatedResponse<TaxRecord>>('/taxes', { params, signal })
+      .then((r) => r.data),
   active: () => apiClient.get<TaxRecord[]>('/taxes/active').then((r) => r.data),
   default: () =>
     apiClient.get<TaxRecord | null>('/taxes/default').then((r) => r.data),

@@ -7,7 +7,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { IsNull, Repository } from 'typeorm';
+import { Brackets, IsNull, Repository } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { FindDocumentTemplatesQueryDto } from './dto/engagement-list-query.dto';
 
 import { DocumentRenderService } from './document-render.service';
 import { DocumentTemplateVersion } from './entities/document-template-version.entity';
@@ -29,6 +31,36 @@ export class DocumentTemplatesService {
       order: {
         template_name: 'ASC',
       },
+    });
+  }
+
+  findPage(companyId: string, query: FindDocumentTemplatesQueryDto) {
+    const qb = this.templateRepository.createQueryBuilder('template').where(
+      new Brackets((scope) => {
+        scope
+          .where('template.company_id = :companyId', { companyId })
+          .orWhere('template.company_id IS NULL');
+      }),
+    );
+    if (query.status) {
+      qb.andWhere('template.status = :status', { status: query.status });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        template_code: 'template.template_code',
+        template_name: 'template.template_name',
+        document_type: 'template.document_type',
+        status: 'template.status',
+        created_at: 'template.created_at',
+      },
+      defaultSort: 'template_name',
+      defaultOrder: 'ASC',
+      searchable: [
+        'template.template_code',
+        'template.template_name',
+        'template.document_type',
+      ],
+      tieBreaker: 'template.id',
     });
   }
 

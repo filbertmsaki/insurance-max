@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Activity, RefreshCcw } from 'lucide-react';
 
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -15,14 +15,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { reinsuranceApi } from '../api';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import { reinsuranceApi, type ReinsuranceListView } from '../api';
 import { tiramisApi } from '@/modules/tenant/tiramis/api';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import type { ReinsuranceRecord } from '../types';
@@ -39,6 +37,100 @@ type View =
   | 'offers'
   | 'recoveries'
   | 'capacity';
+
+const FILTER_KEYS = ['status'] as const;
+
+const toOptions = (values: string[]) =>
+  values.map((value) => ({ value, label: value.replace(/_/g, ' ') }));
+
+const STATUS_OPTIONS: Record<
+  ReinsuranceListView,
+  Array<{ value: string; label: string }>
+> = {
+  treaties: toOptions([
+    'DRAFT',
+    'SUBMITTED',
+    'APPROVED',
+    'ACTIVE',
+    'SUSPENDED',
+    'EXPIRED',
+    'REJECTED',
+    'CANCELLED',
+  ]),
+  offers: toOptions([
+    'INVITED',
+    'QUOTED',
+    'ACCEPTED',
+    'DECLINED',
+    'WITHDRAWN',
+    'EXPIRED',
+  ]),
+  cessions: toOptions([
+    'DRAFT',
+    'CALCULATED',
+    'SUBMITTED',
+    'APPROVED',
+    'ACTIVE',
+    'DECLARED',
+    'REJECTED',
+    'CANCELLED',
+  ]),
+  recoveries: toOptions([
+    'EXPECTED',
+    'CALCULATED',
+    'SUBMITTED',
+    'ADMITTED',
+    'PARTIALLY_RECEIVED',
+    'RECEIVED',
+    'DISPUTED',
+    'WRITTEN_OFF',
+    'CANCELLED',
+  ]),
+  settlements: toOptions([
+    'DRAFT',
+    'SUBMITTED',
+    'APPROVED',
+    'PROCESSING',
+    'PARTIALLY_PAID',
+    'PAID',
+    'RECONCILED',
+    'REJECTED',
+    'REVERSED',
+    'CANCELLED',
+  ]),
+};
+
+/** One server-side table per record type; keyed by view so paging state resets. */
+function ReinsuranceRecordsTable({
+  view,
+  columns,
+}: {
+  view: ReinsuranceListView;
+  columns: Column<ReinsuranceRecord>[];
+}) {
+  const { tableProps, state } = useServerTable<
+    ReinsuranceRecord,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: ['reinsurance', view],
+    fetcher: (params, signal) => reinsuranceApi.listPage(view, params, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    prefix: view,
+  });
+
+  return (
+    <DataTable
+      {...tableProps}
+      columns={columns}
+      searchPlaceholder="Search reference or status"
+      filters={tableFilters(state.filters, [
+        { key: 'status', label: 'Status', options: STATUS_OPTIONS[view] },
+      ])}
+      showColumnVisibility={false}
+    />
+  );
+}
 
 function recordLabel(record: ReinsuranceRecord) {
   return (
@@ -78,27 +170,6 @@ export function ReinsuranceWorkbenchPage() {
     exposure_amount: '',
     class_of_business: '',
     territory: '',
-  });
-
-  const treatiesQuery = useQuery({
-    queryKey: ['reinsurance', 'treaties'],
-    queryFn: reinsuranceApi.treaties,
-  });
-  const offersQuery = useQuery({
-    queryKey: ['reinsurance', 'offers'],
-    queryFn: reinsuranceApi.facultativeOffers,
-  });
-  const cessionsQuery = useQuery({
-    queryKey: ['reinsurance', 'cessions'],
-    queryFn: reinsuranceApi.cessions,
-  });
-  const settlementsQuery = useQuery({
-    queryKey: ['reinsurance', 'settlements'],
-    queryFn: reinsuranceApi.settlements,
-  });
-  const recoveriesQuery = useQuery({
-    queryKey: ['reinsurance', 'recoveries'],
-    queryFn: reinsuranceApi.recoveries,
   });
 
   const recoveryMutation = useMutation({
@@ -202,20 +273,405 @@ export function ReinsuranceWorkbenchPage() {
       }),
   });
 
-  const rows = useMemo(() => {
-    if (view === 'cessions') return cessionsQuery.data ?? [];
-    if (view === 'settlements') return settlementsQuery.data ?? [];
-    if (view === 'offers') return offersQuery.data ?? [];
-    if (view === 'recoveries') return recoveriesQuery.data ?? [];
-    return treatiesQuery.data ?? [];
-  }, [
-    cessionsQuery.data,
-    offersQuery.data,
-    recoveriesQuery.data,
-    settlementsQuery.data,
-    treatiesQuery.data,
-    view,
-  ]);
+  const columns: Column<ReinsuranceRecord>[] = [
+    {
+      key: 'reference',
+      header: 'Reference',
+      sortable: true,
+      cell: (record) => (
+        <>
+          <div className="font-medium text-slate-900">
+            {recordLabel(record)}
+          </div>
+          <div className="text-sm text-slate-500">{record.id}</div>
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (record) => (
+        <Badge variant="outline" className={reinsuranceTone(record.status)}>
+          {record.status ?? 'UNKNOWN'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'effective',
+      header:
+        view === 'offers'
+          ? 'Risk / deadline'
+          : view === 'recoveries'
+            ? 'Claim / cession'
+            : 'Effective',
+      sortable: view !== 'settlements' && view !== 'recoveries',
+      cell: (record) => (
+        <>
+          {view === 'offers'
+            ? `${record.placement?.risk_description ?? record.placement?.placement_no ?? ''} · ${formatReinsuranceDate(record.placement?.submission_deadline)}`
+            : view === 'recoveries'
+              ? `${record.claim_id ?? 'Claim'} · ${record.cession_id ?? 'Cession'}`
+              : `${formatReinsuranceDate(record.effective_from)} - ${formatReinsuranceDate(record.effective_to)}`}
+        </>
+      ),
+    },
+    {
+      key: 'amount',
+      header:
+        view === 'offers'
+          ? 'Offered / quoted share'
+          : view === 'recoveries'
+            ? 'Expected / admitted / received'
+            : 'Amount',
+      cell: (record) => (
+        <>
+          {view === 'offers' ? (
+            <div className="space-y-1">
+              <div>
+                {record.offered_share_percent ?? 0}% offered ·{' '}
+                {record.quoted_share_percent ?? 0}% quoted
+              </div>
+              <div className="text-xs text-slate-500">
+                {formatReinsuranceMoney(
+                  record.placement?.amount_to_place,
+                  record.placement?.currency ?? 'TZS',
+                )}
+              </div>
+            </div>
+          ) : view === 'recoveries' ? (
+            <div className="space-y-1 text-xs">
+              <div>
+                Expected:{' '}
+                {formatReinsuranceMoney(
+                  record.expected_recovery,
+                  record.currency ?? record.currency_code ?? 'TZS',
+                )}
+              </div>
+              <div>
+                Admitted:{' '}
+                {formatReinsuranceMoney(
+                  record.admitted_recovery,
+                  record.currency ?? record.currency_code ?? 'TZS',
+                )}
+              </div>
+              <div>
+                Received:{' '}
+                {formatReinsuranceMoney(
+                  record.received_recovery,
+                  record.currency ?? record.currency_code ?? 'TZS',
+                )}
+              </div>
+            </div>
+          ) : (
+            formatReinsuranceMoney(
+              record.ceded_premium ??
+                record.settlement_amount ??
+                record.ceded_sum_insured,
+              record.currency_code ?? 'TZS',
+            )
+          )}
+        </>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'space-x-1',
+      cell: (record) => (
+        <>
+          {view === 'treaties' && (
+            <>
+              {(record.participants ?? [])
+                .filter((participant) => participant.status === 'INVITED')
+                .map((participant) => (
+                  <div
+                    key={participant.id}
+                    className="inline-flex items-center gap-1"
+                  >
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={treatyInvitationMutation.isPending}
+                      onClick={() =>
+                        treatyInvitationMutation.mutate({
+                          treatyId: record.id,
+                          participantId: participant.id,
+                          decision: 'ACCEPT',
+                        })
+                      }
+                    >
+                      Accept invite
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={treatyInvitationMutation.isPending}
+                      onClick={() =>
+                        treatyInvitationMutation.mutate({
+                          treatyId: record.id,
+                          participantId: participant.id,
+                          decision: 'DECLINE',
+                        })
+                      }
+                    >
+                      Decline
+                    </Button>
+                  </div>
+                ))}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'submitTreaty',
+                    id: record.id,
+                  })
+                }
+              >
+                Submit
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'approveTreaty',
+                    id: record.id,
+                  })
+                }
+              >
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'activateTreaty',
+                    id: record.id,
+                  })
+                }
+              >
+                Activate
+              </Button>
+            </>
+          )}
+          {view === 'cessions' && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'submitCession',
+                    id: record.id,
+                  })
+                }
+              >
+                Submit
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'approveCession',
+                    id: record.id,
+                  })
+                }
+              >
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'applyCession',
+                    id: record.id,
+                  })
+                }
+              >
+                Apply
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'createDeclaration',
+                    id: record.id,
+                  })
+                }
+              >
+                Declare
+              </Button>
+              {getDeclarationId(record) ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={actionMutation.isPending}
+                  onClick={() =>
+                    actionMutation.mutate({
+                      action: 'submitDeclaration',
+                      id: getDeclarationId(record)!,
+                    })
+                  }
+                >
+                  TIRAMIS
+                </Button>
+              ) : null}
+            </>
+          )}
+          {view === 'settlements' && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'submitSettlement',
+                    id: record.id,
+                  })
+                }
+              >
+                Submit
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'approveSettlement',
+                    id: record.id,
+                  })
+                }
+              >
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  actionMutation.mutate({
+                    action: 'paySettlement',
+                    id: record.id,
+                  })
+                }
+              >
+                Pay
+              </Button>
+            </>
+          )}
+          {view === 'recoveries' && (
+            <div className="flex min-w-[300px] flex-wrap items-center gap-2">
+              <Input
+                aria-label={`Recovery amount for ${record.recovery_no ?? record.id}`}
+                className="w-28"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={recoveryAmounts[record.id] ?? ''}
+                onChange={(event) =>
+                  setRecoveryAmounts((current) => ({
+                    ...current,
+                    [record.id]: event.target.value,
+                  }))
+                }
+                placeholder="Amount"
+              />
+              {hasPermission('reinsurance:recovery-approve') &&
+              Number(record.admitted_recovery ?? 0) === 0 ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    recoveryMutation.isPending || !recoveryAmounts[record.id]
+                  }
+                  onClick={() =>
+                    recoveryMutation.mutate({
+                      id: record.id,
+                      amount: Number(recoveryAmounts[record.id]),
+                      action: 'admit',
+                    })
+                  }
+                >
+                  Admit share
+                </Button>
+              ) : null}
+              {hasPermission('reinsurance:recovery-create') &&
+              Number(record.admitted_recovery ?? 0) >
+                Number(record.received_recovery ?? 0) ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    recoveryMutation.isPending || !recoveryAmounts[record.id]
+                  }
+                  onClick={() =>
+                    recoveryMutation.mutate({
+                      id: record.id,
+                      amount: Number(recoveryAmounts[record.id]),
+                      action: 'receipt',
+                    })
+                  }
+                >
+                  Record receipt
+                </Button>
+              ) : null}
+            </div>
+          )}
+          {view === 'offers' &&
+          ['INVITED', 'QUOTED'].includes(String(record.status)) ? (
+            <div className="flex items-center gap-2">
+              <Input
+                aria-label={`Share percent for ${record.offer_no ?? 'offer'}`}
+                className="w-24"
+                type="number"
+                min="0"
+                max="100"
+                value={
+                  offerShares[record.id] ??
+                  String(
+                    record.status === 'INVITED'
+                      ? (record.offered_share_percent ?? 0)
+                      : (record.quoted_share_percent ?? 0),
+                  )
+                }
+                onChange={(event) =>
+                  setOfferShares((current) => ({
+                    ...current,
+                    [record.id]: event.target.value,
+                  }))
+                }
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={offerMutation.isPending}
+                onClick={() =>
+                  offerMutation.mutate({
+                    id: record.id,
+                    action: record.status === 'INVITED' ? 'respond' : 'accept',
+                    share: Number(
+                      offerShares[record.id] ??
+                        (record.status === 'INVITED'
+                          ? record.offered_share_percent
+                          : record.quoted_share_percent) ??
+                        0,
+                    ),
+                  })
+                }
+              >
+                {record.status === 'INVITED' ? 'Respond' : 'Accept'}
+              </Button>
+            </div>
+          ) : null}
+        </>
+      ),
+    },
+  ];
 
   const reload = () => {
     void queryClient.invalidateQueries({ queryKey: ['reinsurance'] });
@@ -312,400 +768,7 @@ export function ReinsuranceWorkbenchPage() {
             <CardTitle className="text-base capitalize">{view}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>
-                    {view === 'offers'
-                      ? 'Risk / deadline'
-                      : view === 'recoveries'
-                        ? 'Claim / cession'
-                        : 'Effective'}
-                  </TableHead>
-                  <TableHead>
-                    {view === 'offers'
-                      ? 'Offered / quoted share'
-                      : view === 'recoveries'
-                        ? 'Expected / admitted / received'
-                        : 'Amount'}
-                  </TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>
-                      <div className="font-medium text-slate-900">
-                        {recordLabel(record)}
-                      </div>
-                      <div className="text-sm text-slate-500">{record.id}</div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={reinsuranceTone(record.status)}
-                      >
-                        {record.status ?? 'UNKNOWN'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {view === 'offers'
-                        ? `${record.placement?.risk_description ?? record.placement?.placement_no ?? ''} · ${formatReinsuranceDate(record.placement?.submission_deadline)}`
-                        : view === 'recoveries'
-                          ? `${record.claim_id ?? 'Claim'} · ${record.cession_id ?? 'Cession'}`
-                          : `${formatReinsuranceDate(record.effective_from)} - ${formatReinsuranceDate(record.effective_to)}`}
-                    </TableCell>
-                    <TableCell>
-                      {view === 'offers' ? (
-                        <div className="space-y-1">
-                          <div>
-                            {record.offered_share_percent ?? 0}% offered ·{' '}
-                            {record.quoted_share_percent ?? 0}% quoted
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {formatReinsuranceMoney(
-                              record.placement?.amount_to_place,
-                              record.placement?.currency ?? 'TZS',
-                            )}
-                          </div>
-                        </div>
-                      ) : view === 'recoveries' ? (
-                        <div className="space-y-1 text-xs">
-                          <div>
-                            Expected:{' '}
-                            {formatReinsuranceMoney(
-                              record.expected_recovery,
-                              record.currency ?? record.currency_code ?? 'TZS',
-                            )}
-                          </div>
-                          <div>
-                            Admitted:{' '}
-                            {formatReinsuranceMoney(
-                              record.admitted_recovery,
-                              record.currency ?? record.currency_code ?? 'TZS',
-                            )}
-                          </div>
-                          <div>
-                            Received:{' '}
-                            {formatReinsuranceMoney(
-                              record.received_recovery,
-                              record.currency ?? record.currency_code ?? 'TZS',
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        formatReinsuranceMoney(
-                          record.ceded_premium ??
-                            record.settlement_amount ??
-                            record.ceded_sum_insured,
-                          record.currency_code ?? 'TZS',
-                        )
-                      )}
-                    </TableCell>
-                    <TableCell className="space-x-1">
-                      {view === 'treaties' && (
-                        <>
-                          {(record.participants ?? [])
-                            .filter(
-                              (participant) => participant.status === 'INVITED',
-                            )
-                            .map((participant) => (
-                              <div
-                                key={participant.id}
-                                className="inline-flex items-center gap-1"
-                              >
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={treatyInvitationMutation.isPending}
-                                  onClick={() =>
-                                    treatyInvitationMutation.mutate({
-                                      treatyId: record.id,
-                                      participantId: participant.id,
-                                      decision: 'ACCEPT',
-                                    })
-                                  }
-                                >
-                                  Accept invite
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={treatyInvitationMutation.isPending}
-                                  onClick={() =>
-                                    treatyInvitationMutation.mutate({
-                                      treatyId: record.id,
-                                      participantId: participant.id,
-                                      decision: 'DECLINE',
-                                    })
-                                  }
-                                >
-                                  Decline
-                                </Button>
-                              </div>
-                            ))}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'submitTreaty',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Submit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'approveTreaty',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'activateTreaty',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Activate
-                          </Button>
-                        </>
-                      )}
-                      {view === 'cessions' && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'submitCession',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Submit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'approveCession',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'applyCession',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Apply
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'createDeclaration',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Declare
-                          </Button>
-                          {getDeclarationId(record) ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={actionMutation.isPending}
-                              onClick={() =>
-                                actionMutation.mutate({
-                                  action: 'submitDeclaration',
-                                  id: getDeclarationId(record)!,
-                                })
-                              }
-                            >
-                              TIRAMIS
-                            </Button>
-                          ) : null}
-                        </>
-                      )}
-                      {view === 'settlements' && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'submitSettlement',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Submit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'approveSettlement',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              actionMutation.mutate({
-                                action: 'paySettlement',
-                                id: record.id,
-                              })
-                            }
-                          >
-                            Pay
-                          </Button>
-                        </>
-                      )}
-                      {view === 'recoveries' && (
-                        <div className="flex min-w-[300px] flex-wrap items-center gap-2">
-                          <Input
-                            aria-label={`Recovery amount for ${record.recovery_no ?? record.id}`}
-                            className="w-28"
-                            type="number"
-                            min="0.01"
-                            step="0.01"
-                            value={recoveryAmounts[record.id] ?? ''}
-                            onChange={(event) =>
-                              setRecoveryAmounts((current) => ({
-                                ...current,
-                                [record.id]: event.target.value,
-                              }))
-                            }
-                            placeholder="Amount"
-                          />
-                          {hasPermission('reinsurance:recovery-approve') &&
-                          Number(record.admitted_recovery ?? 0) === 0 ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={
-                                recoveryMutation.isPending ||
-                                !recoveryAmounts[record.id]
-                              }
-                              onClick={() =>
-                                recoveryMutation.mutate({
-                                  id: record.id,
-                                  amount: Number(recoveryAmounts[record.id]),
-                                  action: 'admit',
-                                })
-                              }
-                            >
-                              Admit share
-                            </Button>
-                          ) : null}
-                          {hasPermission('reinsurance:recovery-create') &&
-                          Number(record.admitted_recovery ?? 0) >
-                            Number(record.received_recovery ?? 0) ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={
-                                recoveryMutation.isPending ||
-                                !recoveryAmounts[record.id]
-                              }
-                              onClick={() =>
-                                recoveryMutation.mutate({
-                                  id: record.id,
-                                  amount: Number(recoveryAmounts[record.id]),
-                                  action: 'receipt',
-                                })
-                              }
-                            >
-                              Record receipt
-                            </Button>
-                          ) : null}
-                        </div>
-                      )}
-                      {view === 'offers' &&
-                      ['INVITED', 'QUOTED'].includes(String(record.status)) ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            aria-label={`Share percent for ${record.offer_no ?? 'offer'}`}
-                            className="w-24"
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={
-                              offerShares[record.id] ??
-                              String(
-                                record.status === 'INVITED'
-                                  ? (record.offered_share_percent ?? 0)
-                                  : (record.quoted_share_percent ?? 0),
-                              )
-                            }
-                            onChange={(event) =>
-                              setOfferShares((current) => ({
-                                ...current,
-                                [record.id]: event.target.value,
-                              }))
-                            }
-                          />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={offerMutation.isPending}
-                            onClick={() =>
-                              offerMutation.mutate({
-                                id: record.id,
-                                action:
-                                  record.status === 'INVITED'
-                                    ? 'respond'
-                                    : 'accept',
-                                share: Number(
-                                  offerShares[record.id] ??
-                                    (record.status === 'INVITED'
-                                      ? record.offered_share_percent
-                                      : record.quoted_share_percent) ??
-                                    0,
-                                ),
-                              })
-                            }
-                          >
-                            {record.status === 'INVITED' ? 'Respond' : 'Accept'}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ReinsuranceRecordsTable key={view} view={view} columns={columns} />
           </CardContent>
         </Card>
       )}

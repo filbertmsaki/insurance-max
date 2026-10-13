@@ -30,7 +30,7 @@ import { Permissions } from '@insurance-max/portal-shared/decorators/permissions
 import { TwoFaService } from '../../shared/auth/2fa/2fa.service';
 import { Verify2FaDto } from '../../shared/auth/2fa/dto/verify-2fa.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
-import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { FindUsersQueryDto } from './dtos/find-users-query.dto';
 import { TenantScoped } from '@insurance-max/portal-shared';
 import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
 
@@ -102,7 +102,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get all users' })
   async findAll(
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
-    @Query() query: PaginationDto,
+    @Query() query: FindUsersQueryDto,
   ) {
     return this.usersService.findAllPaginatedInCompany(
       req.user.companyId!,

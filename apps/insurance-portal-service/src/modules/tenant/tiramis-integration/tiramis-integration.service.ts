@@ -7,6 +7,10 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, Repository } from 'typeorm';
+import {
+  escapeLike,
+  normalizePage,
+} from '@insurance-max/portal-shared/utils/paginate-query.util';
 
 import { Branch } from '../branches/entities/branch.entity';
 import { IssuanceService } from '../issuance/issuance.service';
@@ -613,14 +617,13 @@ export class TiramisIntegrationService {
       return this.findQuotationTrackingSubmissions(companyId, query);
     }
 
-    const page = Number(query.page || 1);
-    const limit = Number(query.limit || 20);
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePage(query);
 
     const qb = this.submissionRepository
       .createQueryBuilder('submission')
       .where('submission.company_id = :companyId', { companyId })
       .orderBy('submission.created_at', 'DESC')
+      .addOrderBy('submission.id', 'DESC')
       .skip(skip)
       .take(limit);
 
@@ -659,22 +662,35 @@ export class TiramisIntegrationService {
     }
 
     if (query.search) {
-      const search = `%${query.search}%`;
+      const search = `%${escapeLike(query.search.trim())}%`;
 
       qb.andWhere(
         new Brackets((builder) => {
           builder
-            .where('submission.business_reference ILIKE :search', { search })
-            .orWhere('submission.tiramis_request_id ILIKE :search', {
+            .where(`submission.business_reference ILIKE :search ESCAPE '\\'`, {
               search,
             })
-            .orWhere('submission.tiramis_response_id ILIKE :search', {
+            .orWhere(
+              `submission.tiramis_request_id ILIKE :search ESCAPE '\\'`,
+              {
+                search,
+              },
+            )
+            .orWhere(
+              `submission.tiramis_response_id ILIKE :search ESCAPE '\\'`,
+              {
+                search,
+              },
+            )
+            .orWhere(
+              `submission.cover_note_reference_number ILIKE :search ESCAPE '\\'`,
+              {
+                search,
+              },
+            )
+            .orWhere(`submission.sticker_number ILIKE :search ESCAPE '\\'`, {
               search,
-            })
-            .orWhere('submission.cover_note_reference_number ILIKE :search', {
-              search,
-            })
-            .orWhere('submission.sticker_number ILIKE :search', { search });
+            });
         }),
       );
     }

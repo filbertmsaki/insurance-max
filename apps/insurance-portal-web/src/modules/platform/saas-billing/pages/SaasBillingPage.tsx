@@ -35,12 +35,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import {
   formatMoney,
   formatNumber,
 } from '@/modules/shared/formatting/number-format';
 
 import {
   saasBillingApi,
+  type CompanySubscription,
   type SaasBillingCycle,
   type SaasInvoice,
   type SaasInvoiceAdjustment,
@@ -82,12 +89,34 @@ function money(value: string | number | null | undefined, currency?: string | nu
   return formatMoney(value ?? 0, currency ?? undefined);
 }
 
-function metricTotal(values: Array<string | number | null | undefined>) {
-  return values.reduce<number>((sum, value) => {
-    const numeric = Number(value ?? 0);
-    return Number.isFinite(numeric) ? sum + numeric : sum;
-  }, 0);
-}
+const STATUS_FILTER_KEYS = ['status'] as const;
+type StatusFilterKey = (typeof STATUS_FILTER_KEYS)[number];
+const toOptions = (values: string[]) =>
+  values.map((value) => ({ label: value.replace(/_/g, ' '), value }));
+const INVOICE_STATUS_OPTIONS = toOptions([
+  'DRAFT',
+  'ISSUED',
+  'PARTIALLY_PAID',
+  'PAID',
+  'OVERDUE',
+  'VOID',
+]);
+const CYCLE_STATUS_OPTIONS = toOptions([
+  'OPEN',
+  'CALCULATED',
+  'INVOICED',
+  'CLOSED',
+  'CANCELLED',
+]);
+const SUBSCRIPTION_STATUS_OPTIONS = toOptions([
+  'TRIALING',
+  'ACTIVE',
+  'PAST_DUE',
+  'SUSPENDED',
+  'CANCELLED',
+  'EXPIRED',
+]);
+type BillingTab = 'invoices' | 'cycles' | 'subscriptions' | 'plans';
 
 export function SaasBillingPage() {
   const queryClient = useQueryClient();
@@ -109,17 +138,38 @@ export function SaasBillingPage() {
     queryKey: ['platform', 'saas', 'plans'],
     queryFn: saasBillingApi.listPlans,
   });
-  const subscriptionsQuery = useQuery({
-    queryKey: ['platform', 'saas', 'subscriptions'],
-    queryFn: saasBillingApi.listSubscriptions,
+  const [tab, setTab] = useState<BillingTab>('invoices');
+  const summaryQuery = useQuery({
+    queryKey: ['platform', 'saas', 'summary'],
+    queryFn: ({ signal }) => saasBillingApi.getSummary(signal),
   });
-  const cyclesQuery = useQuery({
-    queryKey: ['platform', 'saas', 'cycles'],
-    queryFn: saasBillingApi.listCycles,
-  });
-  const invoicesQuery = useQuery({
+  const invoicesTable = useServerTable<SaasInvoice, StatusFilterKey>({
     queryKey: ['platform', 'saas', 'invoices'],
-    queryFn: saasBillingApi.listInvoices,
+    fetcher: (params, signal) => saasBillingApi.listInvoicesPage(params, signal),
+    filterKeys: STATUS_FILTER_KEYS,
+    prefix: 'inv',
+    defaultSortBy: 'created_at',
+    enabled: tab === 'invoices',
+  });
+  const cyclesTable = useServerTable<SaasBillingCycle, StatusFilterKey>({
+    queryKey: ['platform', 'saas', 'cycles'],
+    fetcher: (params, signal) => saasBillingApi.listCyclesPage(params, signal),
+    filterKeys: STATUS_FILTER_KEYS,
+    prefix: 'cyc',
+    defaultSortBy: 'period_end',
+    enabled: tab === 'cycles',
+  });
+  const subscriptionsTable = useServerTable<
+    CompanySubscription,
+    StatusFilterKey
+  >({
+    queryKey: ['platform', 'saas', 'subscriptions'],
+    fetcher: (params, signal) =>
+      saasBillingApi.listSubscriptionsPage(params, signal),
+    filterKeys: STATUS_FILTER_KEYS,
+    prefix: 'sub',
+    defaultSortBy: 'created_at',
+    enabled: tab === 'subscriptions',
   });
   const adjustmentsQuery = useQuery({
     queryKey: ['platform', 'saas', 'adjustments', dialog.invoice?.id],
@@ -231,26 +281,195 @@ export function SaasBillingPage() {
     onError: () => toast.error('Adjustment approval failed'),
   });
 
-  const invoices = useMemo(() => invoicesQuery.data ?? [], [invoicesQuery.data]);
-  const cycles = useMemo(() => cyclesQuery.data ?? [], [cyclesQuery.data]);
-  const subscriptions = useMemo(
-    () => subscriptionsQuery.data ?? [],
-    [subscriptionsQuery.data],
-  );
   const plans = useMemo(() => plansQuery.data ?? [], [plansQuery.data]);
+  const summary = summaryQuery.data;
 
-  const summary = useMemo(
-    () => ({
-      activeSubscriptions: subscriptions.filter((row) =>
-        ['ACTIVE', 'TRIALING'].includes(row.status),
-      ).length,
-      openCycles: cycles.filter((row) => row.status === 'OPEN').length,
-      invoiceBalance: metricTotal(invoices.map((invoice) => invoice.balance_amount)),
-      overdueInvoices: invoices.filter((invoice) => invoice.status === 'OVERDUE')
-        .length,
-    }),
-    [cycles, invoices, subscriptions],
-  );
+  const invoiceColumns: Column<SaasInvoice>[] = [
+    {
+      key: 'invoice_no',
+      header: 'Invoice',
+      sortable: true,
+      cell: (invoice) => <span className="font-medium">{invoice.invoice_no}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (invoice) => (
+        <Badge variant={statusVariant(invoice.status)}>{invoice.status}</Badge>
+      ),
+    },
+    {
+      key: 'due_at',
+      header: 'Due',
+      sortable: true,
+      cell: (invoice) => formatDate(invoice.due_at),
+    },
+    {
+      key: 'total_amount',
+      header: 'Total',
+      sortable: true,
+      cell: (invoice) => money(invoice.total_amount, invoice.currency),
+    },
+    {
+      key: 'paid_amount',
+      header: 'Paid',
+      sortable: true,
+      cell: (invoice) => money(invoice.paid_amount, invoice.currency),
+    },
+    {
+      key: 'balance_amount',
+      header: 'Balance',
+      sortable: true,
+      cell: (invoice) => money(invoice.balance_amount, invoice.currency),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'text-right',
+      cell: (invoice) => (
+        <div className="flex justify-end gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openInvoiceDialog('payment', invoice)}
+          >
+            Pay
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => openInvoiceDialog('adjustment', invoice)}
+          >
+            Adjust
+          </Button>
+          <Button
+            size="sm"
+            variant="soft-danger"
+            onClick={() => openInvoiceDialog('void', invoice)}
+          >
+            Void
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const cycleColumns: Column<SaasBillingCycle>[] = [
+    {
+      key: 'period_end',
+      header: 'Period',
+      sortable: true,
+      cell: (cycle) => (
+        <>
+          {formatDate(cycle.period_start)} - {formatDate(cycle.period_end)}
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (cycle) => (
+        <Badge variant={statusVariant(cycle.status)}>{cycle.status}</Badge>
+      ),
+    },
+    {
+      key: 'base_amount',
+      header: 'Base',
+      sortable: true,
+      cell: (cycle) => money(cycle.base_amount, cycle.currency),
+    },
+    {
+      key: 'usage_amount',
+      header: 'Usage',
+      sortable: true,
+      cell: (cycle) => money(cycle.usage_amount, cycle.currency),
+    },
+    {
+      key: 'tax_amount',
+      header: 'Tax',
+      sortable: true,
+      cell: (cycle) => money(cycle.tax_amount, cycle.currency),
+    },
+    {
+      key: 'total_amount',
+      header: 'Total',
+      sortable: true,
+      cell: (cycle) => money(cycle.total_amount, cycle.currency),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      className: 'text-right',
+      cell: (cycle) => (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => issueInvoiceMutation.mutate(cycle.id)}
+            disabled={
+              issueInvoiceMutation.isPending || cycle.status === 'INVOICED'
+            }
+          >
+            <FilePlus2 className="h-4 w-4" />
+            Issue
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
+  const subscriptionColumns: Column<CompanySubscription>[] = [
+    {
+      key: 'subscription_no',
+      header: 'Subscription',
+      sortable: true,
+      cell: (subscription) => (
+        <span className="font-medium">{subscription.subscription_no}</span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (subscription) => (
+        <Badge variant={statusVariant(subscription.status)}>
+          {subscription.status}
+        </Badge>
+      ),
+    },
+    {
+      key: 'billing_interval',
+      header: 'Interval',
+      sortable: true,
+      cell: (subscription) => subscription.billing_interval,
+    },
+    {
+      key: 'base_price',
+      header: 'Base Price',
+      sortable: true,
+      cell: (subscription) =>
+        money(subscription.base_price, subscription.currency),
+    },
+    {
+      key: 'current_period_start',
+      header: 'Current Period',
+      sortable: true,
+      cell: (subscription) => (
+        <>
+          {formatDate(subscription.current_period_start)} -{' '}
+          {formatDate(subscription.current_period_end)}
+        </>
+      ),
+    },
+    {
+      key: 'next_billing_at',
+      header: 'Next Billing',
+      sortable: true,
+      cell: (subscription) => formatDate(subscription.next_billing_at),
+    },
+  ];
 
   function openInvoiceDialog(mode: DialogMode, invoice: SaasInvoice) {
     setDialog({ mode, invoice });
@@ -313,16 +532,29 @@ export function SaasBillingPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Active subscriptions" value={summary.activeSubscriptions} />
-        <MetricCard label="Open cycles" value={summary.openCycles} />
+        <MetricCard
+          label="Active subscriptions"
+          value={summary?.activeSubscriptions ?? 0}
+        />
+        <MetricCard label="Open cycles" value={summary?.openCycles ?? 0} />
         <MetricCard
           label="Invoice balance"
-          value={formatMoney(summary.invoiceBalance, invoices[0]?.currency)}
+          value={formatMoney(
+            summary?.invoiceBalance ?? 0,
+            summary?.currency ?? undefined,
+          )}
         />
-        <MetricCard label="Overdue invoices" value={summary.overdueInvoices} />
+        <MetricCard
+          label="Overdue invoices"
+          value={summary?.overdueInvoices ?? 0}
+        />
       </div>
 
-      <Tabs defaultValue="invoices" className="space-y-4">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as BillingTab)}
+        className="space-y-4"
+      >
         <TabsList className="flex h-auto flex-wrap gap-1">
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
           <TabsTrigger value="cycles">Cycles</TabsTrigger>
@@ -336,69 +568,19 @@ export function SaasBillingPage() {
               <CardTitle className="text-base">Invoices</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Paid</TableHead>
-                    <TableHead>Balance</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-medium">
-                        {invoice.invoice_no}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant(invoice.status)}>
-                          {invoice.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatDate(invoice.due_at)}</TableCell>
-                      <TableCell>
-                        {money(invoice.total_amount, invoice.currency)}
-                      </TableCell>
-                      <TableCell>
-                        {money(invoice.paid_amount, invoice.currency)}
-                      </TableCell>
-                      <TableCell>
-                        {money(invoice.balance_amount, invoice.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openInvoiceDialog('payment', invoice)}
-                          >
-                            Pay
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openInvoiceDialog('adjustment', invoice)}
-                          >
-                            Adjust
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="soft-danger"
-                            onClick={() => openInvoiceDialog('void', invoice)}
-                          >
-                            Void
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {invoices.length === 0 && <EmptyRow colSpan={7} />}
-                </TableBody>
-              </Table>
+              <DataTable
+                {...invoicesTable.tableProps}
+                columns={invoiceColumns}
+                searchPlaceholder="Search invoices…"
+                filters={tableFilters(invoicesTable.state.filters, [
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    options: INVOICE_STATUS_OPTIONS,
+                  },
+                ])}
+                emptyMessage="No records found"
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -409,30 +591,19 @@ export function SaasBillingPage() {
               <CardTitle className="text-base">Billing Cycles</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Base</TableHead>
-                    <TableHead>Usage</TableHead>
-                    <TableHead>Tax</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cycles.map((cycle) => (
-                    <CycleRow
-                      key={cycle.id}
-                      cycle={cycle}
-                      onIssue={() => issueInvoiceMutation.mutate(cycle.id)}
-                      disabled={issueInvoiceMutation.isPending}
-                    />
-                  ))}
-                  {cycles.length === 0 && <EmptyRow colSpan={7} />}
-                </TableBody>
-              </Table>
+              <DataTable
+                {...cyclesTable.tableProps}
+                columns={cycleColumns}
+                searchPlaceholder="Search cycles…"
+                filters={tableFilters(cyclesTable.state.filters, [
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    options: CYCLE_STATUS_OPTIONS,
+                  },
+                ])}
+                emptyMessage="No records found"
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -443,42 +614,19 @@ export function SaasBillingPage() {
               <CardTitle className="text-base">Subscriptions</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Subscription</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Interval</TableHead>
-                    <TableHead>Base Price</TableHead>
-                    <TableHead>Current Period</TableHead>
-                    <TableHead>Next Billing</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {subscriptions.map((subscription) => (
-                    <TableRow key={subscription.id}>
-                      <TableCell className="font-medium">
-                        {subscription.subscription_no}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={statusVariant(subscription.status)}>
-                          {subscription.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{subscription.billing_interval}</TableCell>
-                      <TableCell>
-                        {money(subscription.base_price, subscription.currency)}
-                      </TableCell>
-                      <TableCell>
-                        {formatDate(subscription.current_period_start)} -{' '}
-                        {formatDate(subscription.current_period_end)}
-                      </TableCell>
-                      <TableCell>{formatDate(subscription.next_billing_at)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {subscriptions.length === 0 && <EmptyRow colSpan={6} />}
-                </TableBody>
-              </Table>
+              <DataTable
+                {...subscriptionsTable.tableProps}
+                columns={subscriptionColumns}
+                searchPlaceholder="Search subscriptions…"
+                filters={tableFilters(subscriptionsTable.state.filters, [
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    options: SUBSCRIPTION_STATUS_OPTIONS,
+                  },
+                ])}
+                emptyMessage="No records found"
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -703,44 +851,6 @@ function MetricCard({
         <div className="mt-2 text-2xl font-semibold text-slate-800">{value}</div>
       </CardContent>
     </Card>
-  );
-}
-
-function CycleRow({
-  cycle,
-  onIssue,
-  disabled,
-}: {
-  cycle: SaasBillingCycle;
-  onIssue: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <TableRow>
-      <TableCell>
-        {formatDate(cycle.period_start)} - {formatDate(cycle.period_end)}
-      </TableCell>
-      <TableCell>
-        <Badge variant={statusVariant(cycle.status)}>{cycle.status}</Badge>
-      </TableCell>
-      <TableCell>{money(cycle.base_amount, cycle.currency)}</TableCell>
-      <TableCell>{money(cycle.usage_amount, cycle.currency)}</TableCell>
-      <TableCell>{money(cycle.tax_amount, cycle.currency)}</TableCell>
-      <TableCell>{money(cycle.total_amount, cycle.currency)}</TableCell>
-      <TableCell>
-        <div className="flex justify-end">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onIssue}
-            disabled={disabled || cycle.status === 'INVOICED'}
-          >
-            <FilePlus2 className="h-4 w-4" />
-            Issue
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
   );
 }
 

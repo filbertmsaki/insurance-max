@@ -7,6 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { DocumentClassification } from '@insurance-max/contracts';
+import {
+  paginateQueryBuilder,
+  type ListQueryInput,
+} from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { DataSource, Repository } from 'typeorm';
 
 import { AuditService } from '../../../shared/audit/audit.service';
@@ -298,10 +302,8 @@ export class ClaimDocumentService {
   /** Company-wide register used by the Claim Documents menu. */
   async listForCompany(
     user: AuthenticatedUser,
-    query: { status?: string; page?: number; limit?: number },
+    query: { status?: string } & ListQueryInput,
   ) {
-    const page = Math.max(Number(query.page ?? 1), 1);
-    const limit = Math.min(Math.max(Number(query.limit ?? 20), 1), 100);
     const queryBuilder = this.documentRepository
       .createQueryBuilder('document')
       .innerJoinAndSelect('document.claim', 'claim')
@@ -315,14 +317,27 @@ export class ClaimDocumentService {
       });
     }
 
-    const [items, total] = await queryBuilder
-      .orderBy('document.uploaded_at', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
+    const result = await paginateQueryBuilder(queryBuilder, query, {
+      sortable: {
+        uploaded_at: 'document.uploaded_at',
+        title: 'document.title',
+        type: 'document.document_type',
+        status: 'document.status',
+        claim: 'claim.claim_no',
+      },
+      defaultSort: 'uploaded_at',
+      searchable: [
+        'document.title',
+        'document.file_name',
+        'document.document_type',
+        'claim.claim_no',
+      ],
+      tieBreaker: 'document.id',
+    });
 
     return {
-      data: items.map((item) => ({
+      ...result,
+      data: result.data.map((item) => ({
         ...item,
         claim: {
           id: item.claim.id,
@@ -330,13 +345,6 @@ export class ClaimDocumentService {
           status: item.claim.status,
         },
       })),
-      meta: {
-        totalItems: total,
-        itemCount: items.length,
-        itemsPerPage: limit,
-        currentPage: page,
-        totalPages: Math.ceil(total / limit),
-      },
     };
   }
 

@@ -1,25 +1,74 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
-import { engagementApi } from '../api';
+import { engagementApi, type SignatureRequestRecord } from '../api';
 import { formatDateTime, statusTone } from '../utils';
+
+const SIGNATURE_FILTER_KEYS = ['status'] as const;
+type SignatureFilterKey = (typeof SIGNATURE_FILTER_KEYS)[number];
+
+const SIGNATURE_STATUS_OPTIONS = [
+  'DRAFT',
+  'SENT',
+  'PARTIALLY_SIGNED',
+  'COMPLETED',
+  'DECLINED',
+  'CANCELLED',
+  'EXPIRED',
+].map((value) => ({ label: value, value }));
+
+const columns: Column<SignatureRequestRecord>[] = [
+  {
+    key: 'request_no',
+    header: 'Request',
+    sortable: true,
+    cell: (request) => (
+      <Link
+        to={`/signatures/${request.id}`}
+        className="font-medium text-slate-900 hover:text-blue-700"
+      >
+        {request.request_no}
+      </Link>
+    ),
+  },
+  {
+    key: 'signature_provider',
+    header: 'Provider',
+    sortable: true,
+    cell: (request) => request.signature_provider,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortable: true,
+    cell: (request) => (
+      <Badge variant="outline" className={statusTone(request.status)}>
+        {request.status}
+      </Badge>
+    ),
+  },
+  {
+    key: 'created_at',
+    header: 'Created',
+    sortable: true,
+    cell: (request) => formatDateTime(request.created_at),
+  },
+];
 
 export function SignatureRequestsPage() {
   const queryClient = useQueryClient();
@@ -27,9 +76,15 @@ export function SignatureRequestsPage() {
   const [participantName, setParticipantName] = useState('');
   const [participantEmail, setParticipantEmail] = useState('');
 
-  const requestsQuery = useQuery({
+  const { tableProps, state } = useServerTable<
+    SignatureRequestRecord,
+    SignatureFilterKey
+  >({
     queryKey: ['engagement', 'signature-requests'],
-    queryFn: engagementApi.listSignatureRequests,
+    fetcher: (params, signal) =>
+      engagementApi.pageSignatureRequests(params, signal),
+    filterKeys: SIGNATURE_FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
 
   const createMutation = useMutation({
@@ -106,40 +161,19 @@ export function SignatureRequestsPage() {
 
       <Card className="rounded-xl border-slate-200 shadow-sm">
         <CardContent className="pt-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Request</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(requestsQuery.data ?? []).map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell>
-                    <Link
-                      to={`/signatures/${request.id}`}
-                      className="font-medium text-slate-900 hover:text-blue-700"
-                    >
-                      {request.request_no}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{request.signature_provider}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={statusTone(request.status)}
-                    >
-                      {request.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDateTime(request.created_at)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            {...tableProps}
+            columns={columns}
+            searchPlaceholder="Search signature requests…"
+            filters={tableFilters(state.filters, [
+              {
+                key: 'status',
+                label: 'Status',
+                options: SIGNATURE_STATUS_OPTIONS,
+              },
+            ])}
+            emptyMessage="No signature requests yet"
+          />
         </CardContent>
       </Card>
     </div>

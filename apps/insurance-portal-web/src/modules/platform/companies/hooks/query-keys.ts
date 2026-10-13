@@ -3,7 +3,7 @@
  *
  * Key hierarchy:
  *   ['companies']                          — root (invalidate all company queries)
- *   ['companies', 'list']                  — the full list (GET /companies)
+ *   ['companies', 'list']                  — company lists (GET /companies, paged table)
  *   ['companies', 'detail', id]            — a single company (GET /companies/:id)
  *   ['companies', 'my']                    — the authenticated user's company (GET /companies/my)
  *   ['companies', 'number-format']         — active company number format settings

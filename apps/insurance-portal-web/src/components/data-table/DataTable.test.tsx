@@ -113,4 +113,37 @@ describe('DataTable', () => {
     expect(onSearchChange).toHaveBeenCalledWith('alpha');
     vi.useRealTimers();
   });
+
+  it("keeps selection across pages and exposes bulk actions", () => {
+    const onSelectionChange = vi.fn();
+    const bulk = vi.fn(() => <button type="button">Approve</button>);
+    renderTable({
+      enableRowSelection: true,
+      selectedRowKeys: ["9"],
+      onSelectionChange,
+      bulkActions: bulk,
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: /select all rows on this page/i }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith(["9", "1", "2"]);
+    expect(screen.getByText(/including other pages/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeInTheDocument();
+  });
+
+  it("shows retry on error and empty/no-results states", () => {
+    const onRetry = vi.fn();
+    renderTable({ data: [], error: "Boom", onRetry });
+    fireEvent.click(screen.getByRole("button", { name: /retry|try again/i }));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("hides row actions the user is not permitted to use", () => {
+    renderTable({
+      rowActions: [
+        { label: "Edit", onClick: vi.fn() },
+        { label: "Delete", onClick: vi.fn(), hidden: true },
+      ],
+    });
+    fireEvent.pointerDown(screen.getAllByRole("button", { name: /row actions/i })[0], { button: 0, ctrlKey: false });
+    expect(screen.queryByText("Delete")).not.toBeInTheDocument();
+  });
 });

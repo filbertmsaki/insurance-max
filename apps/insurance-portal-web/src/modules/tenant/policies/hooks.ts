@@ -1,6 +1,4 @@
-import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { customersApi } from '@/modules/tenant/customers/api';
@@ -19,7 +17,6 @@ import type {
   CreateCancellationPayload,
   CreateEndorsementPayload,
   CreateEndorsementTypePayload,
-  PolicyListParams,
   PolicyRecord,
   RecordEndorsementChangePayload,
   UpdateEndorsementTypePayload,
@@ -27,7 +24,7 @@ import type {
 
 const policyKeys = {
   all: ['policies'] as const,
-  list: (params: PolicyListParams) => ['policies', 'list', params] as const,
+  list: ['policies', 'list'] as const,
   detail: (id: string) => ['policies', 'detail', id] as const,
   currentVersion: (id: string) =>
     ['policies', 'detail', id, 'current-version'] as const,
@@ -72,75 +69,6 @@ const policyKeys = {
   breakdowns: (id: string) => ['policies', 'breakdowns', id] as const,
   history: (id: string) => ['policies', 'history', id] as const,
 };
-
-export function usePoliciesList() {
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('search') ?? '';
-  const policyStatus = params.get('policy_status') ?? 'all';
-  const customerId = params.get('customer_id') ?? 'all';
-
-  const queryParams = useMemo<PolicyListParams>(
-    () => ({
-      page,
-      limit,
-      search: search || undefined,
-      policy_status: policyStatus === 'all' ? undefined : policyStatus,
-      customer_id: customerId === 'all' ? undefined : customerId,
-    }),
-    [page, limit, search, policyStatus, customerId],
-  );
-
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: policyKeys.list(queryParams),
-    queryFn: () => policiesApi.getList(queryParams),
-    staleTime: 30_000,
-  });
-
-  const setParam = useCallback(
-    (key: string, value: string | null) => {
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        if (value === null) next.delete(key);
-        else next.set(key, value);
-        next.set('page', '1');
-        return next;
-      });
-    },
-    [setParams],
-  );
-
-  return {
-    data,
-    isLoading,
-    error,
-    refetch,
-    page,
-    limit,
-    search,
-    policyStatus,
-    customerId,
-    setSearch: (value: string) => setParam('search', value),
-    setPolicyStatus: (value: string) =>
-      setParam('policy_status', value === 'all' ? null : value),
-    setCustomerId: (value: string) =>
-      setParam('customer_id', value === 'all' ? null : value),
-    setPage: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', String(value));
-        return next;
-      }),
-    setLimit: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('limit', String(value));
-        next.set('page', '1');
-        return next;
-      }),
-  };
-}
 
 export function usePolicyDetail(id?: string) {
   return useQuery({

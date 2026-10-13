@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -19,6 +20,8 @@ import {
   CreateSignatureRequestDto,
   PublicSignatureDecisionDto,
 } from './dto/document-templates.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { FindSignatureRequestsQueryDto } from './dto/engagement-list-query.dto';
 import { DocumentsService } from './documents.service';
 import { SignatureRequestsService } from './signature-requests.service';
 
@@ -32,8 +35,13 @@ export class SignatureRequestsController {
   @Get()
   @Permissions('signatures:read')
   @ApiOperation({ summary: 'List signature requests' })
-  list(@CurrentUser() user: AuthenticatedUser) {
-    return this.signatureService.listForCompany(user.companyId!);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindSignatureRequestsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.signatureService.findPage(user.companyId!, query)
+      : this.signatureService.listForCompany(user.companyId!);
   }
 
   @Post()

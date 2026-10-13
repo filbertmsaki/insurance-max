@@ -26,6 +26,8 @@ import {
   MatchReconciliationItemDto,
   PostReconciliationBatchDto,
 } from '../dto/finance-operations.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { FinanceListQuery } from '../dto/find-finance-records-query.dto';
 import { FinanceReconciliationBatch } from '../entities/finance-reconciliation-batch.entity';
 import { FinanceReconciliationItem } from '../entities/finance-reconciliation-item.entity';
 import { PaymentTransaction } from '../entities/payment-transaction.entity';
@@ -52,6 +54,37 @@ export class ReconciliationService {
     return this.dataSource.getRepository(FinanceReconciliationBatch).find({
       where: { company_id: companyId },
       order: { created_at: 'DESC' },
+    });
+  }
+
+  async findBatchPage(companyId: string, query: FinanceListQuery) {
+    const qb = this.dataSource
+      .getRepository(FinanceReconciliationBatch)
+      .createQueryBuilder('batch')
+      .where('batch.company_id = :companyId', { companyId });
+    if (query.status) {
+      qb.andWhere('UPPER(batch.status) = :status', {
+        status: query.status.toUpperCase(),
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        batch_no: 'batch.batch_no',
+        provider_code: 'batch.provider_code',
+        statement_date: 'batch.statement_date',
+        statement_total: 'batch.statement_total',
+        status: 'batch.status',
+        created_at: 'batch.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'batch.batch_no',
+        'batch.provider_code',
+        'batch.statement_reference',
+        'batch.account_reference',
+        'batch.status',
+      ],
+      tieBreaker: 'batch.id',
     });
   }
 

@@ -451,3 +451,24 @@ function snapshotField(
 ): unknown {
   return snapshot ? snapshot[key] : undefined;
 }
+
+/** Local tracking statuses (backend TiramisSubmissionStatus) for table filters. */
+export const TIRAMIS_TRACKING_STATUS_OPTIONS = [
+  'DRAFT',
+  'PENDING',
+  'SUBMITTING',
+  'SENT_TO_TIRAMIS_SERVICE',
+  'ACK_ACCEPTED',
+  'ACK_FAILED',
+  'ACKNOWLEDGED',
+  'PENDING_FINAL',
+  'FINAL_SUCCESS',
+  'FINAL_FAILED',
+  'RETRY_PENDING',
+  'RETRYING',
+  'RETRY_EXHAUSTED',
+  'DUPLICATE_PREVENTED',
+  'CALLBACK_OVERDUE',
+  'FAILED',
+  'UNKNOWN',
+].map((value) => ({ label: value.replace(/_/g, ' '), value }));

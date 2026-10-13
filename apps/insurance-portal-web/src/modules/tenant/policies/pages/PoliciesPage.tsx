@@ -1,54 +1,59 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Eye, Pencil, RotateCcw } from 'lucide-react';
+import { Eye, Pencil, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { formatMoney } from '@/components/shared/detailFormat';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
-import {
-  usePoliciesList,
-  usePolicyCustomers,
-  useRestorePolicy,
-} from '../hooks';
+import { usePolicyCustomers, useRestorePolicy } from '../hooks';
+import { policiesApi } from '../api';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import type { PolicyRecord } from '../types';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
-import { getApiErrorMessage } from '@/lib/api-error';
+
+const FILTER_KEYS = ['policy_status', 'customer_id'] as const;
+const STATUS_OPTIONS = [
+  'COVER_NOTE_ISSUED',
+  'ACTIVE',
+  'CANCELLED',
+  'EXPIRED',
+  'LAPSED',
+].map((value) => ({ value, label: value }));
 
 export function PoliciesPage() {
   const navigate = useNavigate();
   const { data: customerOptions = [] } = usePolicyCustomers();
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-    page,
-    limit,
-    search,
-    policyStatus,
-    customerId,
-    setSearch,
-    setPolicyStatus,
-    setCustomerId,
-    setPage,
-    setLimit,
-  } = usePoliciesList();
+  const { tableProps, state } = useServerTable<
+    PolicyRecord,
+    (typeof FILTER_KEYS)[number]
+  >({
+    queryKey: ['policies', 'list'],
+    fetcher: (params, signal) => policiesApi.getList(params, signal),
+    filterKeys: FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
+  const customerFilterOptions = customerOptions.map((customer) => ({
+    value: customer.id,
+    label: `${getCustomerDisplayName(customer)} (${customer.customer_no})`,
+  }));
   const restoreMutation = useRestorePolicy();
   const [restoreItem, setRestoreItem] = useState<PolicyRecord | null>(null);
 
   const columns: Column<PolicyRecord>[] = [
-    { key: 'policy_no', header: 'Policy No.', cell: (row) => row.policy_no },
+    {
+      key: 'policy_no',
+      header: 'Policy No.',
+      sortable: true,
+      cell: (row) => row.policy_no,
+    },
     {
       key: 'customer',
       header: 'Customer',
@@ -62,8 +67,9 @@ export function PoliciesPage() {
       cell: (row) => row.product?.product_name ?? row.product_id,
     },
     {
-      key: 'status',
+      key: 'policy_status',
       header: 'Status',
+      sortable: true,
       cell: (row) => <PolicyStatusBadge status={row.policy_status} />,
     },
     {
@@ -74,6 +80,7 @@ export function PoliciesPage() {
     {
       key: 'created_at',
       header: 'Created',
+      sortable: true,
       defaultVisible: false,
       cell: (row) => new Date(row.created_at).toLocaleDateString(),
     },
@@ -95,7 +102,9 @@ export function PoliciesPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate(sharedUnderwritePaths.policyEdit(row.id))}
+                onClick={() =>
+                  navigate(sharedUnderwritePaths.policyEdit(row.id))
+                }
               >
                 <Pencil className="h-4 w-4" />
               </Button>
@@ -120,62 +129,24 @@ export function PoliciesPage() {
         description="Policies issued automatically after successful TIRAMIS new-business transactions"
       />
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <div className="relative max-w-sm flex-1 min-w-64">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search policies..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={policyStatus} onValueChange={setPolicyStatus}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            {[
-              'COVER_NOTE_ISSUED',
-              'ACTIVE',
-              'CANCELLED',
-              'EXPIRED',
-              'LAPSED',
-            ].map((item) => (
-              <SelectItem key={item} value={item}>
-                {item}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={customerId} onValueChange={setCustomerId}>
-          <SelectTrigger className="w-72">
-            <SelectValue placeholder="Customer" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Customers</SelectItem>
-            {customerOptions.map((customer) => (
-              <SelectItem key={customer.id} value={customer.id}>
-                {getCustomerDisplayName(customer)} ({customer.customer_no})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data?.data ?? []}
-        loading={isLoading}
-        error={error ? getApiErrorMessage(error) : undefined}
-        onRetry={() => void refetch()}
-        page={page}
-        limit={limit}
-        total={data?.pagination.total ?? 0}
-        totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={setPage}
-        onLimitChange={setLimit}
+        searchPlaceholder="Search policies..."
+        filters={tableFilters(state.filters, [
+          {
+            key: 'policy_status',
+            label: 'Status',
+            placeholder: 'All Statuses',
+            options: STATUS_OPTIONS,
+          },
+          {
+            key: 'customer_id',
+            label: 'Customer',
+            placeholder: 'All Customers',
+            options: customerFilterOptions,
+          },
+        ])}
       />
 
       <ConfirmDialog

@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { PortalNotificationsQueryDto } from '../dto/portal-query.dto';
 
 import { PortalNotification } from '../entities/portal-notification.entity';
 import { PortalNotificationSeverity } from '../enums/portal.enums';
@@ -52,6 +54,33 @@ export class PortalNotificationService {
     }
 
     return query.getMany();
+  }
+
+  /** Server-side table: always restricted to the caller's own notifications before paging. */
+  findMinePage(
+    companyId: string,
+    userId: string,
+    query: PortalNotificationsQueryDto,
+  ) {
+    const qb = this.notificationRepository
+      .createQueryBuilder('notification')
+      .where('notification.company_id = :companyId', { companyId })
+      .andWhere('notification.user_id = :userId', { userId });
+    if (query.unread_only) qb.andWhere('notification.read_at IS NULL');
+    if (query.type) {
+      qb.andWhere('notification.type = :type', { type: query.type });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        title: 'notification.title',
+        type: 'notification.type',
+        severity: 'notification.severity',
+        created_at: 'notification.created_at',
+      },
+      defaultSort: 'created_at',
+      searchable: ['notification.title', 'notification.message'],
+      tieBreaker: 'notification.id',
+    });
   }
 
   async markRead(companyId: string, userId: string, id: string) {

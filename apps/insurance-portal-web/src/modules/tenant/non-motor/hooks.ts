@@ -1,6 +1,4 @@
-import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { customersApi } from '@/modules/tenant/customers/api';
 import { motorApi } from '@/modules/tenant/motor/api';
@@ -19,7 +17,6 @@ import {
 import type {
   NonMotorPolicyDetailRecord,
   SubjectMatterFactorValueRecord,
-  SubjectMatterListParams,
   SubjectMatterRecord,
 } from './types';
 
@@ -39,64 +36,6 @@ const nonMotorKeys = {
     [...nonMotorKeys.all, 'policy-risks', policyId] as const,
   factors: () => [...nonMotorKeys.all, 'factors'] as const,
 };
-
-export function useSubjectMattersList() {
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('q') ?? '';
-
-  const queryParams = useMemo<SubjectMatterListParams>(
-    () => ({
-      page,
-      limit,
-      search: search || undefined,
-    }),
-    [page, limit, search],
-  );
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: [...nonMotorKeys.subjectMatters(), queryParams],
-    queryFn: () => nonMotorApi.getSubjectMatters(queryParams),
-    staleTime: 30_000,
-  });
-
-  const setParam = useCallback(
-    (key: string, value: string | null) => {
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        if (value === null) next.delete(key);
-        else next.set(key, value);
-        next.set('page', '1');
-        return next;
-      });
-    },
-    [setParams],
-  );
-
-  return {
-    data,
-    isLoading,
-    error,
-    page,
-    limit,
-    search,
-    setSearch: (value: string) => setParam('q', value),
-    setPage: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', String(value));
-        return next;
-      }),
-    setLimit: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('limit', String(value));
-        next.set('page', '1');
-        return next;
-      }),
-  };
-}
 
 export function useSubjectMatter(id?: string) {
   return useQuery({

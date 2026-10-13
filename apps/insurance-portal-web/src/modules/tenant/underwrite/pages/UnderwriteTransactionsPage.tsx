@@ -1,23 +1,20 @@
-import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Eye, RefreshCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { formatDate, formatMoney } from '@/components/shared/detailFormat';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { underwriteApi } from '../api';
-import {
-  useUnderwriteCancellations,
-  useUnderwriteEndorsements,
-  useUnderwriteLineParam,
-  useUnderwriteRenewals,
-  useUnderwriteTiraQueue,
-} from '../hooks';
+import { underwriteKeys, useUnderwriteLineParam } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
 import { underwritePaths } from '../paths';
 import type {
@@ -51,40 +48,21 @@ function StatusBadge({ value }: { value: string | null | undefined }) {
   return <Badge variant={statusVariant(value)}>{pretty(value)}</Badge>;
 }
 
-function useLocalPage<T>(rows: T[] | undefined) {
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const data = useMemo(() => rows ?? [], [rows]);
-  const totalPages = Math.max(1, Math.ceil(data.length / limit));
-  const currentPage = Math.min(page, totalPages);
-  const paged = useMemo(
-    () => data.slice((currentPage - 1) * limit, currentPage * limit),
-    [data, currentPage, limit],
-  );
-
-  return {
-    page: currentPage,
-    limit,
-    total: data.length,
-    totalPages,
-    data: paged,
-    setPage,
-    setLimit: (value: number) => {
-      setLimit(value);
-      setPage(1);
-    },
-  };
-}
-
 function RenewalRows({ line }: { line: UnderwriteLineMeta }) {
   const navigate = useNavigate();
-  const query = useUnderwriteRenewals(line.slug);
-  const page = useLocalPage(query.data);
+  const { tableProps } = useServerTable<UnderwriteRenewalRow>({
+    queryKey: underwriteKeys.transactions(line.slug, 'renewals'),
+    fetcher: (params, signal) =>
+      underwriteApi.listRenewals(line.slug, params, signal),
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
 
   const columns: Column<UnderwriteRenewalRow>[] = [
     {
       key: 'renewal_no',
       header: 'Renewal No.',
+      sortable: true,
       cell: (row) => (
         <span className="font-medium text-slate-900">{row.renewal_no}</span>
       ),
@@ -95,20 +73,23 @@ function RenewalRows({ line }: { line: UnderwriteLineMeta }) {
       cell: (row) => row.policy_transaction?.policy_no ?? 'N/A',
     },
     {
-      key: 'period',
+      key: 'renewal_start_date',
       header: 'Renewal Period',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) =>
         `${formatDate(row.renewal_start_date)} - ${formatDate(row.renewal_end_date)}`,
     },
     {
-      key: 'status',
+      key: 'renewal_status',
       header: 'Status',
+      sortable: true,
       cell: (row) => <StatusBadge value={row.renewal_status} />,
     },
     {
-      key: 'created',
+      key: 'created_at',
       header: 'Created',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) => formatDate(row.created_at),
     },
@@ -139,12 +120,11 @@ function RenewalRows({ line }: { line: UnderwriteLineMeta }) {
   ];
 
   return (
-    <WorklistTable
+    <DataTable
+      {...tableProps}
+      error={tableProps.error ? 'Unable to load renewals' : undefined}
       columns={columns}
-      page={page}
-      loading={query.isLoading}
-      error={query.error ? 'Unable to load renewals' : undefined}
-      onRetry={() => void query.refetch()}
+      searchPlaceholder="Search renewal or policy no…"
       emptyMessage={`No ${line.label.toLowerCase()} renewals found`}
     />
   );
@@ -153,25 +133,24 @@ function RenewalRows({ line }: { line: UnderwriteLineMeta }) {
 function TransactionRows({
   line,
   kind,
-  rows,
-  loading,
-  error,
-  onRetry,
 }: {
   line: UnderwriteLineMeta;
   kind: Exclude<TransactionListKind, 'renewals'>;
-  rows: UnderwritePolicyTransactionRow[] | undefined;
-  loading: boolean;
-  error?: unknown;
-  onRetry: () => void;
 }) {
   const navigate = useNavigate();
-  const page = useLocalPage(rows);
+  const { tableProps } = useServerTable<UnderwritePolicyTransactionRow>({
+    queryKey: underwriteKeys.transactions(line.slug, kind),
+    fetcher: (params, signal) =>
+      underwriteApi.listTransactions(line.slug, kind, params, signal),
+    defaultSortBy: 'created_at',
+    defaultLimit: 10,
+  });
 
   const columns: Column<UnderwritePolicyTransactionRow>[] = [
     {
       key: 'transaction_no',
       header: 'Transaction No.',
+      sortable: true,
       cell: (row) => (
         <span className="font-medium text-slate-900">{row.transaction_no}</span>
       ),
@@ -184,12 +163,14 @@ function TransactionRows({
     {
       key: 'effective_date',
       header: 'Effective',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) => formatDate(row.effective_date),
     },
     {
-      key: 'premium',
+      key: 'net_premium_difference',
       header: 'Net Premium',
+      sortable: true,
       className: 'text-right',
       cell: (row) => (
         <span className="tabular-nums">
@@ -203,11 +184,13 @@ function TransactionRows({
     {
       key: 'stage',
       header: 'Stage',
+      sortable: true,
       cell: (row) => <StatusBadge value={row.stage} />,
     },
     {
-      key: 'submission',
+      key: 'submission_status',
       header: 'Submission',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) => <StatusBadge value={row.submission_status} />,
     },
@@ -243,45 +226,12 @@ function TransactionRows({
   ];
 
   return (
-    <WorklistTable
+    <DataTable
+      {...tableProps}
+      error={tableProps.error ? `Unable to load ${kind}` : undefined}
       columns={columns}
-      page={page}
-      loading={loading}
-      error={
-        error
-          ? `Unable to load ${kind === 'endorsements' ? 'endorsements' : 'cancellations'}`
-          : undefined
-      }
-      onRetry={onRetry}
+      searchPlaceholder="Search transaction or policy no…"
       emptyMessage={`No ${line.label.toLowerCase()} ${kind} found`}
-    />
-  );
-}
-
-function EndorsementRows({ line }: { line: UnderwriteLineMeta }) {
-  const query = useUnderwriteEndorsements(line.slug);
-  return (
-    <TransactionRows
-      line={line}
-      kind="endorsements"
-      rows={query.data}
-      loading={query.isLoading}
-      error={query.error}
-      onRetry={() => void query.refetch()}
-    />
-  );
-}
-
-function CancellationRows({ line }: { line: UnderwriteLineMeta }) {
-  const query = useUnderwriteCancellations(line.slug);
-  return (
-    <TransactionRows
-      line={line}
-      kind="cancellations"
-      rows={query.data}
-      loading={query.isLoading}
-      error={query.error}
-      onRetry={() => void query.refetch()}
     />
   );
 }
@@ -295,7 +245,13 @@ function TiraRows({
 }) {
   const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
-  const query = useUnderwriteTiraQueue(line.slug, kind);
+  const { tableProps, query } = useServerTable<UnderwriteTiraQueueRow>({
+    queryKey: underwriteKeys.tiraQueue(line.slug, kind),
+    fetcher: (params, signal) =>
+      underwriteApi.getTiraQueue(line.slug, kind, params, signal),
+    defaultSortBy: 'updated',
+    defaultLimit: 10,
+  });
   const retry = useMutation({
     mutationFn: (row: UnderwriteTiraQueueRow) => {
       if (row.source_kind === 'quotation') {
@@ -312,7 +268,6 @@ function TiraRows({
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
-  const page = useLocalPage(query.data);
   const canRetry = (row: UnderwriteTiraQueueRow) => {
     if (kind !== 'failed') {
       return false;
@@ -365,6 +320,7 @@ function TiraRows({
     {
       key: 'updated',
       header: 'Updated',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) => formatDate(row.updated_at),
     },
@@ -409,46 +365,12 @@ function TiraRows({
   ];
 
   return (
-    <WorklistTable
-      columns={columns}
-      page={page}
-      loading={query.isLoading}
-      error={query.error ? `Unable to load TIRA ${kind}` : undefined}
-      onRetry={() => void query.refetch()}
-      emptyMessage={`No ${line.label.toLowerCase()} TIRA ${kind} items found`}
-    />
-  );
-}
-
-function WorklistTable<T>({
-  columns,
-  page,
-  loading,
-  error,
-  onRetry,
-  emptyMessage,
-}: {
-  columns: Column<T>[];
-  page: ReturnType<typeof useLocalPage<T>>;
-  loading: boolean;
-  error?: string;
-  onRetry: () => void;
-  emptyMessage: string;
-}) {
-  return (
     <DataTable
+      {...tableProps}
+      error={tableProps.error ? `Unable to load TIRA ${kind}` : undefined}
       columns={columns}
-      data={page.data}
-      loading={loading}
-      error={error}
-      onRetry={onRetry}
-      page={page.page}
-      limit={page.limit}
-      total={page.total}
-      totalPages={page.totalPages}
-      onPageChange={page.setPage}
-      onLimitChange={page.setLimit}
-      emptyMessage={emptyMessage}
+      searchPlaceholder="Search reference, request or customer…"
+      emptyMessage={`No ${line.label.toLowerCase()} TIRA ${kind} items found`}
     />
   );
 }
@@ -478,10 +400,8 @@ export function UnderwriteTransactionsPage({
       />
       {kind === 'renewals' ? (
         <RenewalRows line={line} />
-      ) : kind === 'endorsements' ? (
-        <EndorsementRows line={line} />
       ) : (
-        <CancellationRows line={line} />
+        <TransactionRows key={kind} line={line} kind={kind} />
       )}
     </div>
   );

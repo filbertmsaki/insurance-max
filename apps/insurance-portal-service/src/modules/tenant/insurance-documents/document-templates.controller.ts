@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -17,6 +18,8 @@ import {
   CreateDocumentTemplateVersionDto,
   PreviewDocumentTemplateVersionDto,
 } from './dto/document-templates.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { FindDocumentTemplatesQueryDto } from './dto/engagement-list-query.dto';
 import { DocumentTemplatesService } from './document-templates.service';
 
 @ApiTags('document-templates')
@@ -29,8 +32,13 @@ export class DocumentTemplatesController {
   @Get()
   @Permissions('document-templates:read')
   @ApiOperation({ summary: 'List document templates' })
-  list(@CurrentUser() user: AuthenticatedUser) {
-    return this.templatesService.listForCompany(user.companyId!);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindDocumentTemplatesQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.templatesService.findPage(user.companyId!, query)
+      : this.templatesService.listForCompany(user.companyId!);
   }
 
   @Post()

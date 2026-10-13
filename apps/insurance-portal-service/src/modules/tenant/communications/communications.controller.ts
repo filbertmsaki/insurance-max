@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
@@ -16,6 +17,8 @@ import {
   CreateCommunicationMessageDto,
   CreateCommunicationThreadDto,
 } from './dto/communications.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { FindCommunicationThreadsQueryDto } from './dto/find-communication-threads-query.dto';
 import { CommunicationsService } from './communications.service';
 
 @Controller('tenant/communications/threads')
@@ -25,8 +28,13 @@ export class CommunicationsController {
 
   @Get()
   @Permissions('communications:read')
-  list(@CurrentUser() user: AuthenticatedUser) {
-    return this.communicationsService.listThreads(user);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FindCommunicationThreadsQueryDto,
+  ) {
+    return isPagedRequest(query)
+      ? this.communicationsService.findThreadsPage(user, query)
+      : this.communicationsService.listThreads(user);
   }
 
   @Post()

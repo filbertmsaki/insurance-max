@@ -4,18 +4,9 @@ import { risksApi } from '@/modules/tenant/product-engine/api/risks';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { peKeys } from './query-keys';
 import type {
-  RiskQueryParams,
   CreateRiskDto,
   UpdateRiskDto,
 } from '@/types/product-engine';
-
-export function useRiskList(params: RiskQueryParams) {
-  return useQuery({
-    queryKey: peKeys.risks.lists(params),
-    queryFn: () => risksApi.getList(params),
-    staleTime: 30_000,
-  });
-}
 
 export function useRisksByProduct(filters: {
   product_id?: string;

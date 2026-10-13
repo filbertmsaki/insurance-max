@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -27,6 +28,12 @@ import {
   SuspendSubscriptionDto,
   VoidSaasInvoiceDto,
 } from './dto/saas-billing.dto';
+import {
+  FindSaasCyclesQueryDto,
+  FindSaasInvoicesQueryDto,
+  FindSaasSubscriptionsQueryDto,
+} from './dto/saas-billing-table-query.dto';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { SaasCycleBillingService } from './services/saas-cycle-billing.service';
 import { SubscriptionService } from './services/subscription.service';
 import { UsageMeteringService } from './services/usage-metering.service';
@@ -112,8 +119,10 @@ export class SaasBillingController {
 
   @Get('subscriptions')
   @Permissions(SaasBillingPermissions.SUBSCRIPTION_READ)
-  listSubscriptions() {
-    return this.subscriptionService.listSubscriptions();
+  listSubscriptions(@Query() query: FindSaasSubscriptionsQueryDto) {
+    return isPagedRequest(query)
+      ? this.subscriptionService.findSubscriptionsPage(query)
+      : this.subscriptionService.listSubscriptions();
   }
 
   @Post('subscriptions')
@@ -184,14 +193,24 @@ export class SaasBillingController {
 
   @Get('invoices')
   @Permissions(SaasBillingPermissions.INVOICE_READ)
-  listInvoices() {
-    return this.cycleService.listInvoices();
+  listInvoices(@Query() query: FindSaasInvoicesQueryDto) {
+    return isPagedRequest(query)
+      ? this.cycleService.findInvoicesPage(query)
+      : this.cycleService.listInvoices();
+  }
+
+  @Get('summary')
+  @Permissions(SaasBillingPermissions.INVOICE_READ)
+  getSummary() {
+    return this.cycleService.getSummary();
   }
 
   @Get('cycles')
   @Permissions(SaasBillingPermissions.INVOICE_READ)
-  listCycles() {
-    return this.cycleService.listCycles();
+  listCycles(@Query() query: FindSaasCyclesQueryDto) {
+    return isPagedRequest(query)
+      ? this.cycleService.findCyclesPage(query)
+      : this.cycleService.listCycles();
   }
 
   @Post('cycles/:id/issue-invoice')

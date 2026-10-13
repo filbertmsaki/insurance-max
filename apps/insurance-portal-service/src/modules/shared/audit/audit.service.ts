@@ -5,7 +5,16 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
-import { EntityManager, IsNull, MoreThan, Not, Repository } from 'typeorm';
+import {
+  EntityManager,
+  IsNull,
+  MoreThan,
+  Not,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { FilterAuditLogDto } from './dto/filter-audit-log.dto';
 import { RequestContextService } from '@insurance-max/shared-kernel';
 
 import { AuditLog, AuditAction } from './entities/audit-log.entity';
@@ -44,6 +53,13 @@ type LogOptions = AuditOptions;
 /** pg advisory lock key that serializes appends to the audit hash chain. */
 const AUDIT_CHAIN_LOCK_KEY = 4_820_310_771;
 const VERIFY_CHAIN_BATCH_SIZE = 1000;
+
+export interface AuditActor {
+  id: string;
+  scope: string;
+  companyId?: string | null;
+  permissions: string[];
+}
 
 @Injectable()
 export class AuditService {
@@ -324,44 +340,14 @@ export class AuditService {
     return { data, total };
   }
 
-  async search(
-    actor: {
-      id: string;
-      scope: string;
-      companyId?: string | null;
-      permissions: string[];
-    },
-    filters: {
-      page?: number;
-      limit?: number;
-      action?: string;
-      event_category?: string;
-      resource?: string;
-      user_id?: string;
-      status?: 'success' | 'failure';
-      request_id?: string;
-      correlation_id?: string;
-      start_date?: string;
-      end_date?: string;
-    },
-  ) {
-    const query = this.auditRepo
-      .createQueryBuilder('audit')
-      .orderBy('audit.created_at', 'DESC');
-
-    const canReadAll =
-      actor.scope === 'platform' &&
-      actor.permissions.includes('audit:read-all');
-
-    if (!canReadAll) {
-      if (actor.scope !== 'company' || !actor.companyId) {
-        query.andWhere('audit.user_id = :userId', { userId: actor.id });
-      } else {
-        query.andWhere('audit.company_id = :companyId', {
-          companyId: actor.companyId,
-        });
-      }
-    }
+  /**
+   * Paged audit search. Actor visibility (own events / company / platform
+   * read-all) is applied before filters, search, sort and paging, so the
+   * records and the count share the same scope.
+   */
+  async search(actor: AuditActor, filters: FilterAuditLogDto) {
+    const query = this.auditRepo.createQueryBuilder('audit');
+    this.applyActorScope(query, actor);
 
     if (filters.action) {
       query.andWhere('audit.action = :action', { action: filters.action });
@@ -376,8 +362,15 @@ export class AuditService {
         resource: filters.resource,
       });
     }
+    if (filters.resource_id) {
+      query.andWhere('audit.resource_id = :resourceId', {
+        resourceId: filters.resource_id,
+      });
+    }
     if (filters.user_id) {
-      query.andWhere('audit.user_id = :userId', { userId: filters.user_id });
+      query.andWhere('audit.user_id = :filterUserId', {
+        filterUserId: filters.user_id,
+      });
     }
     if (filters.status) {
       query.andWhere('audit.status = :status', { status: filters.status });
@@ -403,26 +396,50 @@ export class AuditService {
       });
     }
 
-    const page = filters.page ?? 1;
-    const limit = filters.limit ?? 50;
-
-    const [data, total] = await query
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
-
-    return {
-      data,
-      meta: {
-        currentPage: page,
-        itemsPerPage: limit,
-        itemCount: data.length,
-        totalItems: total,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page * limit < total,
-        hasPreviousPage: page > 1,
+    return paginateQueryBuilder(query, filters, {
+      sortable: {
+        created_at: 'audit.created_at',
+        action: 'audit.action',
+        resource: 'audit.resource',
+        status: 'audit.status',
+        actor_type: 'audit.actor_type',
       },
-    };
+      defaultSort: 'created_at',
+      searchable: [
+        'audit.action',
+        'audit.resource',
+        'audit.resource_id',
+        'audit.request_id',
+      ],
+      tieBreaker: 'audit.id',
+    });
+  }
+
+  /** Single event, visible only within the same actor scope as search(). */
+  async findOneForActor(actor: AuditActor, id: string) {
+    const query = this.auditRepo
+      .createQueryBuilder('audit')
+      .where('audit.id = :id', { id });
+    this.applyActorScope(query, actor);
+    return query.getOne();
+  }
+
+  private applyActorScope(
+    query: SelectQueryBuilder<AuditLog>,
+    actor: AuditActor,
+  ): void {
+    const canReadAll =
+      actor.scope === 'platform' &&
+      actor.permissions.includes('audit:read-all');
+    if (canReadAll) return;
+
+    if (actor.scope !== 'company' || !actor.companyId) {
+      query.andWhere('audit.user_id = :actorUserId', { actorUserId: actor.id });
+    } else {
+      query.andWhere('audit.company_id = :actorCompanyId', {
+        actorCompanyId: actor.companyId,
+      });
+    }
   }
 
   private computeEventHash(

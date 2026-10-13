@@ -43,7 +43,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { rolesApi } from '@/modules/platform/roles/api/roles';
@@ -563,6 +568,14 @@ function RoleFormDialog({
   );
 }
 
+const ROLE_FILTER_KEYS = ['scope'] as const;
+type RoleFilterKey = (typeof ROLE_FILTER_KEYS)[number];
+const ROLE_SCOPE_OPTIONS = [
+  { label: 'Platform', value: 'platform' },
+  { label: 'Tenant template', value: 'tenant_template' },
+  { label: 'Company', value: 'tenant' },
+];
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function RolesPage() {
@@ -570,17 +583,18 @@ export function RolesPage() {
   const { isOwner, userCompanyId, canManageRole, canDeleteRole } =
     useRbacGuard();
 
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editRole, setEditRole] = useState<Role | null>(null);
   const [viewRole, setViewRole] = useState<Role | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data: allRoles = [], isLoading } = useQuery({
+  const { tableProps, state } = useServerTable<Role, RoleFilterKey>({
     queryKey: ['roles'],
-    queryFn: rolesApi.getRoles,
+    fetcher: (params, signal) => rolesApi.listRoles(params, signal),
+    filterKeys: ROLE_FILTER_KEYS,
+    defaultSortBy: 'display_name',
+    defaultSortOrder: 'ASC',
+    defaultLimit: 10,
   });
 
   const { data: allPermissions = [] } = useQuery({
@@ -588,23 +602,6 @@ export function RolesPage() {
     queryFn: permissionsApi.getPermissions,
     enabled: formOpen,
   });
-
-  // Client-side search filter
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return q
-      ? allRoles.filter(
-          (r) =>
-            r.name.toLowerCase().includes(q) ||
-            r.display_name.toLowerCase().includes(q) ||
-            (r.description ?? '').toLowerCase().includes(q),
-        )
-      : allRoles;
-  }, [allRoles, search]);
-
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / limit) || 1;
-  const pageData = filtered.slice((page - 1) * limit, page * limit);
 
   const openCreate = () => {
     setEditRole(null);
@@ -710,6 +707,7 @@ export function RolesPage() {
     {
       key: 'name',
       header: 'Identifier',
+      sortable: true,
       cell: (r) => (
         <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">
           {r.name}
@@ -719,6 +717,7 @@ export function RolesPage() {
     {
       key: 'display_name',
       header: 'Display Name',
+      sortable: true,
       cell: (r) => (
         <span className="font-medium text-slate-900">{r.display_name}</span>
       ),
@@ -733,8 +732,9 @@ export function RolesPage() {
       ),
     },
     {
-      key: 'type',
+      key: 'scope',
       header: 'Type',
+      sortable: true,
       cell: (r) => <RoleTypeBadge role={r} />,
     },
     {
@@ -857,33 +857,14 @@ export function RolesPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div className="mb-4 relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search roles…"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          className="pl-9"
-        />
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={pageData}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={total}
-        totalPages={totalPages}
-        onPageChange={setPage}
-        onLimitChange={(l) => {
-          setLimit(l);
-          setPage(1);
-        }}
+        searchPlaceholder="Search roles…"
+        filters={tableFilters(state.filters, [
+          { key: 'scope', label: 'Types', options: ROLE_SCOPE_OPTIONS },
+        ])}
+        emptyMessage="No roles yet"
       />
 
       <RoleFormDialog

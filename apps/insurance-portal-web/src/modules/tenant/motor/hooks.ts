@@ -1,6 +1,4 @@
-import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { customersApi } from '@/modules/tenant/customers/api';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
@@ -45,101 +43,6 @@ const motorKeys = {
     [...motorKeys.all, 'policy-risks', policyId] as const,
 };
 
-export function useMotorVehiclesList() {
-  const [params, setParams] = useSearchParams();
-  const search = params.get('q') ?? '';
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const status = params.get('status') ?? 'all';
-  const customerId = params.get('customer_id') ?? 'all';
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: motorKeys.vehicles(),
-    queryFn: () =>
-      motorApi.getVehicles({
-        page: 1,
-        limit: API_MAX_LIST_LIMIT,
-        customer_id: customerId !== 'all' ? customerId : undefined,
-        status: status !== 'all' ? status : undefined,
-      }),
-    staleTime: 30_000,
-  });
-
-  const filtered = useMemo(() => {
-    const all = data?.data ?? [];
-    const term = search.toLowerCase();
-    return all.filter((item) => {
-      const matchesSearch =
-        !term ||
-        [
-          item.registration_no,
-          item.chassis_no,
-          item.engine_no,
-          item.make,
-          item.model,
-          item.customer?.first_name,
-          item.customer?.last_name,
-          item.customer?.company_name,
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(term));
-      const matchesStatus = status === 'all' ? true : item.status === status;
-      const matchesCustomer =
-        customerId === 'all' ? true : item.customer_id === customerId;
-      return matchesSearch && matchesStatus && matchesCustomer;
-    });
-  }, [customerId, data?.data, search, status]);
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / limit));
-  const safePage = Math.min(page, totalPages);
-  const items = filtered.slice((safePage - 1) * limit, safePage * limit);
-
-  const setParam = useCallback(
-    (key: string, value: string | null) => {
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        if (value === null) next.delete(key);
-        else next.set(key, value);
-        next.set('page', '1');
-        return next;
-      });
-    },
-    [setParams],
-  );
-
-  return {
-    vehicles: items,
-    total,
-    totalPages,
-    page: safePage,
-    limit,
-    search,
-    status,
-    customerId,
-    isLoading,
-    error,
-    setSearch: (value: string) => setParam('q', value),
-    setStatus: (value: string) =>
-      setParam('status', value === 'all' ? null : value),
-    setCustomerId: (value: string) =>
-      setParam('customer_id', value === 'all' ? null : value),
-    setPage: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', String(value));
-        return next;
-      }),
-    setLimit: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('limit', String(value));
-        next.set('page', '1');
-        return next;
-      }),
-  };
-}
-
 export function useMotorVehicle(id?: string) {
   return useQuery({
     queryKey: id ? motorKeys.vehicle(id) : motorKeys.vehicle(''),
@@ -149,15 +52,21 @@ export function useMotorVehicle(id?: string) {
   });
 }
 
-export function useMotorVehiclesByCustomer(customerId?: string) {
+/** Latest vehicles for a customer (preview); total comes from the server. */
+export function useMotorVehiclesByCustomer(customerId?: string, limit = 5) {
   return useQuery({
-    queryKey: [...motorKeys.vehicles(), 'customer', customerId ?? ''],
-    queryFn: () =>
-      motorApi.getVehicles({
-        page: 1,
-        limit: API_MAX_LIST_LIMIT,
-        customer_id: customerId,
-      }),
+    queryKey: [...motorKeys.vehicles(), 'customer', customerId ?? '', limit],
+    queryFn: ({ signal }) =>
+      motorApi.getVehicles(
+        {
+          page: 1,
+          limit,
+          customer_id: customerId,
+          sortBy: 'created_at',
+          sortOrder: 'DESC',
+        },
+        signal,
+      ),
     enabled: !!customerId,
     staleTime: 30_000,
   });
@@ -246,92 +155,6 @@ export function useRestoreMotorVehicle() {
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
-}
-
-export function useMotorFleetsList() {
-  const [params, setParams] = useSearchParams();
-  const search = params.get('q') ?? '';
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const status = params.get('status') ?? 'all';
-  const customerId = params.get('customer_id') ?? 'all';
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: motorKeys.fleets(),
-    queryFn: () => motorApi.getFleets({ page: 1, limit: API_MAX_LIST_LIMIT }),
-    staleTime: 30_000,
-  });
-
-  const filtered = useMemo(() => {
-    const all = data?.data ?? [];
-    const term = search.toLowerCase();
-    return all.filter((item) => {
-      const matchesSearch =
-        !term ||
-        [
-          item.fleet_no,
-          item.fleet_name,
-          item.customer?.company_name,
-          item.customer?.first_name,
-          item.customer?.last_name,
-        ]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(term));
-      const matchesStatus = status === 'all' ? true : item.status === status;
-      const matchesCustomer =
-        customerId === 'all' ? true : item.customer_id === customerId;
-      return matchesSearch && matchesStatus && matchesCustomer;
-    });
-  }, [customerId, data?.data, search, status]);
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / limit));
-  const safePage = Math.min(page, totalPages);
-  const items = filtered.slice((safePage - 1) * limit, safePage * limit);
-
-  const setParam = useCallback(
-    (key: string, value: string | null) => {
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        if (value === null) next.delete(key);
-        else next.set(key, value);
-        next.set('page', '1');
-        return next;
-      });
-    },
-    [setParams],
-  );
-
-  return {
-    fleets: items,
-    total,
-    totalPages,
-    page: safePage,
-    limit,
-    search,
-    status,
-    customerId,
-    isLoading,
-    error,
-    setSearch: (value: string) => setParam('q', value),
-    setStatus: (value: string) =>
-      setParam('status', value === 'all' ? null : value),
-    setCustomerId: (value: string) =>
-      setParam('customer_id', value === 'all' ? null : value),
-    setPage: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', String(value));
-        return next;
-      }),
-    setLimit: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('limit', String(value));
-        next.set('page', '1');
-        return next;
-      }),
-  };
 }
 
 export function useMotorFleet(id?: string) {

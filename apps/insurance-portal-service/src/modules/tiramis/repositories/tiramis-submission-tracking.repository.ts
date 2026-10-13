@@ -17,6 +17,18 @@ import {
   resolveSubmissionStatusFromNormalized,
 } from '../utils/tiramis-response-normalizer.util';
 import { calculateNextRetryAt } from '../utils/tiramis-retry.util';
+import {
+  escapeLike,
+  paginateQueryBuilder,
+  type ListQueryInput,
+} from '@insurance-max/portal-shared/utils/paginate-query.util';
+
+const TRACKING_SEARCH_COLUMNS = [
+  'tracking.business_reference',
+  'tracking.tiramis_request_id',
+  'tracking.source_record_id',
+  'tracking.last_error_message',
+];
 
 @Injectable()
 export class TiramisSubmissionTrackingRepository {
@@ -95,7 +107,11 @@ export class TiramisSubmissionTrackingRepository {
 
     this.applyDashboardFilters(qb, query, scope);
 
-    qb.orderBy('tracking.created_at', 'DESC').skip(skip).take(limit);
+    // Unique tie-breaker keeps paging deterministic when created_at collides.
+    qb.orderBy('tracking.created_at', 'DESC')
+      .addOrderBy('tracking.id', 'DESC')
+      .skip(skip)
+      .take(limit);
 
     const [items, total] = await qb.getManyAndCount();
 
@@ -259,6 +275,79 @@ export class TiramisSubmissionTrackingRepository {
       order: { updatedAt: 'DESC' },
       take: limit,
     });
+  }
+
+  /** Server-side table of failed submissions; company scope applied before paging. */
+  findFailedSubmissionsPage(
+    query: ListQueryInput,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    const qb = this.repository
+      .createQueryBuilder('tracking')
+      .where('tracking.status IN (:...failedStatuses)', {
+        failedStatuses: FAILED_TIRAMIS_STATUSES,
+      });
+    this.applyCompanyScope(qb, scope);
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        status: 'tracking.status',
+        requestType: 'tracking.request_type',
+        businessReference: 'tracking.business_reference',
+        created: 'tracking.created_at',
+        updated: 'tracking.updated_at',
+      },
+      defaultSort: 'updated',
+      searchable: TRACKING_SEARCH_COLUMNS,
+      tieBreaker: 'tracking.id',
+    });
+  }
+
+  /** Server-side table of retry-pending submissions; company scope applied before paging. */
+  findRetryableSubmissionsPage(
+    query: ListQueryInput,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    const qb = this.repository
+      .createQueryBuilder('tracking')
+      .where('tracking.is_retryable = true')
+      .andWhere('tracking.status = :retryStatus', {
+        retryStatus: TiramisSubmissionStatus.RETRY_PENDING,
+      });
+    this.applyCompanyScope(qb, scope);
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        status: 'tracking.status',
+        requestType: 'tracking.request_type',
+        businessReference: 'tracking.business_reference',
+        retryCount: 'tracking.retry_count',
+        nextRetry: 'tracking.next_retry_at',
+        created: 'tracking.created_at',
+      },
+      defaultSort: 'nextRetry',
+      defaultOrder: 'ASC',
+      searchable: TRACKING_SEARCH_COLUMNS,
+      tieBreaker: 'tracking.id',
+    });
+  }
+
+  private applyCompanyScope(
+    qb: SelectQueryBuilder<TiramisSubmissionTrackingEntity>,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    if (scope?.companyId && !scope.canAccessAllCompanies) {
+      qb.andWhere('tracking.source_company_id = :scopeCompanyId', {
+        scopeCompanyId: scope.companyId,
+      });
+    }
   }
 
   async findRetryableSubmissions(limit = 50) {
@@ -1196,13 +1285,13 @@ export class TiramisSubmissionTrackingRepository {
     if (query.search) {
       qb.andWhere(
         `(
-          tracking.business_reference ILIKE :search OR
-          tracking.source_record_id ILIKE :search OR
-          tracking.tiramis_request_id ILIKE :search OR
-          tracking.last_error_message ILIKE :search
+          tracking.business_reference ILIKE :search ESCAPE '\\' OR
+          CAST(tracking.source_record_id AS TEXT) ILIKE :search ESCAPE '\\' OR
+          tracking.tiramis_request_id ILIKE :search ESCAPE '\\' OR
+          tracking.last_error_message ILIKE :search ESCAPE '\\'
         )`,
         {
-          search: `%${query.search}%`,
+          search: `%${escapeLike(query.search.trim())}%`,
         },
       );
     }

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -39,7 +39,12 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { StatusBadge } from '@/components/shared/StatusBadge';
@@ -118,10 +123,24 @@ function SecretModal({
   );
 }
 
+const API_CLIENT_FILTER_KEYS = ['status', 'client_type'] as const;
+type ApiClientFilterKey = (typeof API_CLIENT_FILTER_KEYS)[number];
+const API_CLIENT_STATUS_OPTIONS = [
+  { label: 'Active', value: 'ACTIVE' },
+  { label: 'Suspended', value: 'SUSPENDED' },
+  { label: 'Rotating', value: 'ROTATING' },
+  { label: 'Revoked', value: 'REVOKED' },
+  { label: 'Expired', value: 'EXPIRED' },
+  { label: 'Compromised', value: 'COMPROMISED' },
+];
+const API_CLIENT_TYPE_OPTIONS = [
+  { label: 'Internal service', value: 'INTERNAL_SERVICE' },
+  { label: 'External partner', value: 'EXTERNAL_PARTNER' },
+  { label: 'Tenant integration', value: 'TENANT_INTEGRATION' },
+];
+
 export function ApiClientsPage() {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
   const [createOpen, setCreateOpen] = useState(false);
   const [revokeId, setRevokeId] = useState<string | null>(null);
   const [rotateId, setRotateId] = useState<string | null>(null);
@@ -133,16 +152,14 @@ export function ApiClientsPage() {
     secret: '',
   });
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['api-clients', { page, limit }],
-    queryFn: () => apiClientsApi.getApiClients({ page, limit }),
+  const { tableProps, state } = useServerTable<ApiClient, ApiClientFilterKey>({
+    queryKey: ['api-clients'],
+    fetcher: (params, signal) => apiClientsApi.listApiClients(params, signal),
+    filterKeys: API_CLIENT_FILTER_KEYS,
+    defaultSortBy: 'created_at',
+    defaultSortOrder: 'DESC',
+    defaultLimit: 10,
   });
-
-  const clients = useMemo(() => {
-    if (!Array.isArray(data)) return [];
-    const start = (page - 1) * limit;
-    return data.slice(start, start + limit);
-  }, [data, page, limit]);
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -172,6 +189,7 @@ export function ApiClientsPage() {
   const rotateMutation = useMutation({
     mutationFn: apiClientsApi.rotateSecret,
     onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['api-clients'] });
       setRotateId(null);
       setSecretModal({ open: true, secret: result.plainSecret });
       toast.success('Secret rotated');
@@ -190,11 +208,13 @@ export function ApiClientsPage() {
   const columns: Column<ApiClient>[] = [
     {
       key: 'name',
+      sortable: true,
       header: 'Name',
       cell: (r) => <span className="font-medium">{r.name}</span>,
     },
     {
       key: 'client_id',
+      sortable: true,
       header: 'Client ID',
       cell: (r) => (
         <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">
@@ -204,6 +224,7 @@ export function ApiClientsPage() {
     },
     {
       key: 'status',
+      sortable: true,
       header: 'Status',
       cell: (r) => <StatusBadge status={r.status} />,
     },
@@ -221,7 +242,8 @@ export function ApiClientsPage() {
       ),
     },
     {
-      key: 'last_used',
+      key: 'last_used_at',
+      sortable: true,
       header: 'Last Used',
       cell: (r) => (
         <span className="text-sm text-slate-500">
@@ -249,7 +271,7 @@ export function ApiClientsPage() {
             <DropdownMenuItem
               onClick={() => setRevokeId(r.id)}
               className="text-red-600"
-              disabled={r.status === 'revoked'}
+              disabled={r.status?.toUpperCase() === 'REVOKED'}
             >
               <Ban className="mr-2 h-4 w-4" /> Revoke
             </DropdownMenuItem>
@@ -272,20 +294,14 @@ export function ApiClientsPage() {
       />
 
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={clients}
-        loading={isLoading}
-        page={page}
-        limit={limit}
-        total={data?.length ?? 0}
-        totalPages={Math.max(1, Math.ceil((data?.length ?? 0) / limit))}
-        onPageChange={setPage}
-        onLimitChange={(l) => {
-          setLimit(l);
-          setPage(1);
-        }}
-        error={isError ? (error as Error).message : undefined}
-        onRetry={() => void refetch()}
+        searchPlaceholder="Search API clients…"
+        filters={tableFilters(state.filters, [
+          { key: 'status', label: 'Status', options: API_CLIENT_STATUS_OPTIONS },
+          { key: 'client_type', label: 'Type', options: API_CLIENT_TYPE_OPTIONS },
+        ])}
+        emptyMessage="No API clients yet"
       />
 
       {/* Create Dialog */}

@@ -8,9 +8,9 @@ import type {
 } from '@/types/product-engine';
 
 export const ratingFactorsApi = {
-  getList: (params?: FactorQueryParams) =>
+  getList: (params?: FactorQueryParams, signal?: AbortSignal) =>
     apiClient
-      .get<PEPage<RatingFactor>>('/rating-factors', { params })
+      .get<PEPage<RatingFactor>>('/rating-factors', { params, signal })
       .then((r) => r.data),
 
   create: (data: CreateFactorDto) =>

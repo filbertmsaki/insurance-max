@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import { RefreshCcw, RotateCcw, UploadCloud } from 'lucide-react';
+import { Eye, RefreshCcw, RotateCcw, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  DataTable,
+  tableFilters,
+  type Column,
+} from '@/components/data-table';
+import { TiramisTextFilter } from '../components/TiramisTextFilter';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
-import { formatDateTime } from '../utils';
+import { formatDateTime, TIRAMIS_TRACKING_STATUS_OPTIONS } from '../utils';
 import {
   useLocalTrackingDetail,
-  useLocalTrackingList,
+  useLocalTrackingTable,
   useRetryLocalTracking,
   useRetryOneLocalTracking,
   useSyncOneLocalTracking,
@@ -18,7 +22,7 @@ import type { TiramisTrackingRecord } from '../types';
 
 export function TiramisTrackingPage() {
   const [selectedId, setSelectedId] = useState<string | undefined>();
-  const list = useLocalTrackingList();
+  const { tableProps, state } = useLocalTrackingTable();
   const detail = useLocalTrackingDetail(selectedId);
   const retryAll = useRetryLocalTracking();
   const retryOne = useRetryOneLocalTracking();
@@ -55,37 +59,6 @@ export function TiramisTrackingPage() {
       header: 'Created',
       cell: (row) => formatDateTime(row.createdAt),
     },
-    {
-      key: 'actions',
-      header: 'Actions',
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSelectedId(row.id)}
-          >
-            Open
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => retryOne.mutate(row.id)}
-          >
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-            Retry
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => syncOne.mutate(row.id)}
-          >
-            <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
-            Sync
-          </Button>
-        </div>
-      ),
-    },
   ];
 
   return (
@@ -101,39 +74,45 @@ export function TiramisTrackingPage() {
         }
       />
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <Input
-          value={list.search}
-          onChange={(e) => list.setSearch(e.target.value)}
-          placeholder="Search"
-        />
-        <Input
-          value={list.requestId}
-          onChange={(e) => list.setRequestId(e.target.value)}
-          placeholder="Request ID"
-        />
-        <Input
-          value={list.businessReference}
-          onChange={(e) => list.setBusinessReference(e.target.value)}
-          placeholder="Business reference"
-        />
-        <Input
-          value={list.status}
-          onChange={(e) => list.setStatus(e.target.value)}
-          placeholder="Status"
-        />
-      </div>
-
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={list.data?.data ?? []}
-        loading={list.isLoading}
-        page={list.data?.pagination.page ?? list.page}
-        limit={list.data?.pagination.limit ?? list.limit}
-        total={list.data?.pagination.total ?? 0}
-        totalPages={list.data?.pagination.totalPages ?? 1}
-        onPageChange={list.setPage}
-        onLimitChange={list.setLimit}
+        searchPlaceholder="Search"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'status',
+            label: 'Status',
+            options: TIRAMIS_TRACKING_STATUS_OPTIONS,
+          },
+        ])}
+        toolbarActions={
+          <>
+            <TiramisTextFilter
+              value={state.filters.tiramisRequestId ?? ''}
+              onChange={(value) => state.setFilter('tiramisRequestId', value)}
+              placeholder="Request ID"
+            />
+            <TiramisTextFilter
+              value={state.filters.businessReference ?? ''}
+              onChange={(value) => state.setFilter('businessReference', value)}
+              placeholder="Business reference"
+            />
+          </>
+        }
+        rowActions={[
+          { label: 'Open', icon: Eye, onClick: (row) => setSelectedId(row.id) },
+          {
+            label: 'Retry',
+            icon: RotateCcw,
+            onClick: (row) => retryOne.mutate(row.id),
+          },
+          {
+            label: 'Sync',
+            icon: UploadCloud,
+            onClick: (row) => syncOne.mutate(row.id),
+          },
+        ]}
+        emptyMessage="No tracking records"
       />
 
       <Card>

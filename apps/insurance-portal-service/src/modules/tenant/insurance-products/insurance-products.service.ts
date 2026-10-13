@@ -206,7 +206,8 @@ export class InsuranceProductsService {
       .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('product.current_version', 'current_version')
       .where('product.company_id = :companyId', { companyId })
-      .orderBy(`product.${safeSortBy}`, direction);
+      .orderBy(`product.${safeSortBy}`, direction)
+      .addOrderBy('product.id', direction);
 
     if (accessibleProductIds) {
       if (!accessibleProductIds.length) {

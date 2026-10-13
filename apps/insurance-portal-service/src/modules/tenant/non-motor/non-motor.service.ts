@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { AssetOwnershipType } from '@insurance-max/contracts';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
-import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { FactorDataType } from '@insurance-max/portal-shared/enums/factor-data-type.enum';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
@@ -243,42 +243,6 @@ export class NonMotorService {
     return factor;
   }
 
-  private async listWithPagination<T>(
-    qb: any,
-    query: FilterNonMotorDto,
-    allowedSortFields: string[],
-    defaultSortBy: string,
-  ) {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = defaultSortBy,
-      sortOrder = SortDirection.DESC,
-    } = query;
-    const safeSortBy = allowedSortFields.includes(sortBy)
-      ? sortBy
-      : defaultSortBy;
-    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
-
-    qb.orderBy(`${qb.alias}.${safeSortBy}`, direction);
-
-    const skip = (page - 1) * limit;
-    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
-
-    return {
-      data: items,
-      meta: {
-        totalItems: total,
-        itemCount: items.length,
-        itemsPerPage: limit,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        hasNextPage: page * limit < total,
-        hasPreviousPage: page > 1,
-      },
-    };
-  }
-
   async createSubjectMatter(
     companyId: string,
     dto: CreateSubjectMatterDto,
@@ -372,20 +336,32 @@ export class NonMotorService {
       .leftJoinAndSelect('subjectMatter.customer', 'customer')
       .where('subjectMatter.company_id = :companyId', { companyId });
 
-    if (query.search?.trim()) {
-      const term = `%${query.search.trim()}%`;
-      qb.andWhere(
-        '(subjectMatter.subject_code ILIKE :term OR subjectMatter.description ILIKE :term OR subjectMatter.location ILIKE :term)',
-        { term },
-      );
-    }
-
-    return this.listWithPagination(
-      qb,
-      query,
-      ['subject_code', 'subject_type', 'created_at', 'updated_at'],
-      'created_at',
-    );
+    // Search, allowlisted sort (+ unique id tie-breaker) and paging run in
+    // SQL after the company scope. maxLimit 500 keeps the picker caller working.
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        subject_code: 'subjectMatter.subject_code',
+        subject_type: 'subjectMatter.subject_type',
+        value: 'subjectMatter.value',
+        status: 'subjectMatter.status',
+        created_at: 'subjectMatter.created_at',
+        updated_at: 'subjectMatter.updated_at',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'subjectMatter.subject_code',
+        'subjectMatter.subject_type',
+        'subjectMatter.description',
+        'subjectMatter.location',
+        'customer.customer_no',
+        'customer.display_name',
+        'customer.company_name',
+        'customer.first_name',
+        'customer.last_name',
+      ],
+      tieBreaker: 'subjectMatter.id',
+      maxLimit: 500,
+    });
   }
 
   async findSubjectMatter(companyId: string, id: string) {

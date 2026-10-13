@@ -7,12 +7,14 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
+import { RegulatoryListQueryDto } from './dto/regulatory-list-query.dto';
 import { RegulatoryPermissions } from './regulatory.permissions';
 import { PremiumLevyReturnService } from './services/premium-levy-return.service';
 import { RegulatoryCalendarService } from './services/regulatory-calendar.service';
@@ -42,8 +44,11 @@ export class RegulatoryController {
 
   @Get('calendar')
   @Permissions(RegulatoryPermissions.CALENDAR_READ)
-  listCalendar(@CurrentUser() user: AuthenticatedUser) {
-    return this.calendarService.listCalendar(user.companyId!);
+  listCalendar(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: RegulatoryListQueryDto,
+  ) {
+    return this.calendarService.listCalendar(user.companyId!, query);
   }
 
   @Get('authorities')
@@ -84,8 +89,11 @@ export class RegulatoryController {
 
   @Get('returns')
   @Permissions(RegulatoryPermissions.RETURN_READ)
-  listReturns(@CurrentUser() user: AuthenticatedUser) {
-    return this.calendarService.listReturns(user.companyId!);
+  listReturns(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: RegulatoryListQueryDto,
+  ) {
+    return this.calendarService.listReturns(user.companyId!, query);
   }
 
   @Get('returns/:id')
@@ -269,8 +277,11 @@ export class RegulatoryController {
 
   @Get('levy-assessments')
   @Permissions(RegulatoryPermissions.LEVY_READ)
-  listLevyAssessments(@CurrentUser() user: AuthenticatedUser) {
-    return this.levyService.listAssessments(user.companyId!);
+  listLevyAssessments(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: RegulatoryListQueryDto,
+  ) {
+    return this.levyService.listAssessments(user.companyId!, query);
   }
 
   @Get('levy-assessments/:id')

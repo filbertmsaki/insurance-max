@@ -1,6 +1,6 @@
 import { apiClient } from '@/modules/shared/api/client';
 
-import type { BackendPaginatedResponse } from '@/modules/shared/api/pagination';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 
 export interface AuditLog {
   id: string;
@@ -37,9 +37,13 @@ export interface AuditLog {
 export interface AuditFilters {
   page?: number;
   limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
   action?: string;
   event_category?: string;
   resource?: string;
+  resource_id?: string;
   user_id?: string;
   status?: string;
   request_id?: string;
@@ -49,10 +53,12 @@ export interface AuditFilters {
 }
 
 export const auditApi = {
-  search: (filters: AuditFilters) =>
+  /** GET /audit-logs — always paged server-side (limit max 100). */
+  search: (filters: AuditFilters, signal?: AbortSignal) =>
     apiClient
-      .get<BackendPaginatedResponse<AuditLog>>('/audit-logs', {
+      .get<PaginatedResponse<AuditLog>>('/audit-logs', {
         params: filters,
+        signal,
       })
       .then((response) => response.data),
 

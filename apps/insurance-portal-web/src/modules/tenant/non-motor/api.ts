@@ -19,9 +19,11 @@ type PageResponse<T> = PaginatedResponse<T>;
 export const nonMotorApi = {
   getSubjectMatters: async (
     params?: SubjectMatterListParams,
+    signal?: AbortSignal,
   ): Promise<PageResponse<SubjectMatterRecord>> => {
     const response = await apiClient.get('/tenant/non-motor/subject-matters', {
       params,
+      signal,
     });
     return normalizePaginatedResponse(response.data);
   },

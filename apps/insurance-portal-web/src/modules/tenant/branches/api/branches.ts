@@ -1,5 +1,4 @@
 import { apiClient } from '@/modules/shared/api/client';
-import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import type {
   Branch,
   BranchAddress,
@@ -81,19 +80,21 @@ export interface UserBranchAssignment {
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 export const branchesApi = {
-  /** GET /branches — list all branches (requires branches:read) */
-  getBranches: (params?: { page?: number; limit?: number }) =>
+  /**
+   * GET /branches?page=… — server-side table page
+   * (search / status / sort / paging run in the DB, max 100 rows).
+   */
+  listBranches: (params: Record<string, unknown>, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<Branch>>('/branches', { params })
+      .get<PaginatedResponse<Branch>>('/branches', { params, signal })
       .then((r) => r.data),
 
-  /** Convenience: fetch all branches for selectors and client-side filtering */
+  /**
+   * GET /branches without `page` — every branch of the company, for
+   * selectors/dropdowns (legacy unpaged response).
+   */
   getAllBranches: () =>
-    apiClient
-      .get<
-        PaginatedResponse<Branch>
-      >('/branches', { params: { limit: API_MAX_LIST_LIMIT } })
-      .then((r) => r.data.data),
+    apiClient.get<{ data: Branch[] }>('/branches').then((r) => r.data.data),
 
   /** POST /branches — create a new branch (requires branches:create) */
   createBranch: (data: CreateBranchDto) =>
