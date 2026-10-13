@@ -43,7 +43,10 @@ export interface ListQueryOptions {
   maxLimit?: number;
 }
 
-export function normalizePage(input: ListQueryInput, maxLimit = TABLE_MAX_PAGE_SIZE) {
+export function normalizePage(
+  input: ListQueryInput,
+  maxLimit = TABLE_MAX_PAGE_SIZE,
+) {
   const page = Math.max(1, Math.floor(Number(input.page) || 1));
   const limit = Math.min(
     Math.max(1, Math.floor(Number(input.limit) || TABLE_DEFAULT_PAGE_SIZE)),
@@ -89,13 +92,16 @@ export async function paginateQueryBuilder<T extends ObjectLiteral>(
   const term = input.search?.trim();
   if (term && options.searchable?.length) {
     const clause = options.searchable
-      .map((column) => `CAST(${column} AS TEXT) ILIKE :__tableSearch ESCAPE '\\'`)
+      .map(
+        (column) => `CAST(${column} AS TEXT) ILIKE :__tableSearch ESCAPE '\\'`,
+      )
       .join(' OR ');
     qb.andWhere(`(${clause})`, { __tableSearch: `%${escapeLike(term)}%` });
   }
 
   const sortKey =
-    input.sortBy && Object.prototype.hasOwnProperty.call(options.sortable, input.sortBy)
+    input.sortBy &&
+    Object.prototype.hasOwnProperty.call(options.sortable, input.sortBy)
       ? input.sortBy
       : options.defaultSort;
   const requested = String(input.sortOrder ?? '').toUpperCase();
@@ -132,7 +138,9 @@ export function paginateArray<T>(
     );
   }
   const key =
-    input.sortBy && options.sortable?.[input.sortBy] ? input.sortBy : options.defaultSort;
+    input.sortBy && options.sortable?.[input.sortBy]
+      ? input.sortBy
+      : options.defaultSort;
   const getter = key ? options.sortable?.[key] : undefined;
   if (getter) {
     const dir = String(input.sortOrder).toUpperCase() === 'DESC' ? -1 : 1;

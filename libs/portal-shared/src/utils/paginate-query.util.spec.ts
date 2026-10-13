@@ -35,8 +35,16 @@ const options = {
 
 describe('paginate-query.util', () => {
   it('normalizes page and caps limit at 100', () => {
-    expect(normalizePage({ page: 0, limit: 5000 })).toEqual({ page: 1, limit: 100, skip: 0 });
-    expect(normalizePage({ page: 3, limit: 20 })).toEqual({ page: 3, limit: 20, skip: 40 });
+    expect(normalizePage({ page: 0, limit: 5000 })).toEqual({
+      page: 1,
+      limit: 100,
+      skip: 0,
+    });
+    expect(normalizePage({ page: 3, limit: 20 })).toEqual({
+      page: 3,
+      limit: 20,
+      skip: 40,
+    });
     expect(normalizePage({})).toEqual({ page: 1, limit: 20, skip: 0 });
   });
 
@@ -60,11 +68,20 @@ describe('paginate-query.util', () => {
     const { qb, calls } = fakeQueryBuilder([{ id: 'a' }], 41);
     const result = await paginateQueryBuilder(
       qb,
-      { page: 3, limit: 20, search: ' adm%n ', sortBy: 'name', sortOrder: 'asc' },
+      {
+        page: 3,
+        limit: 20,
+        search: ' adm%n ',
+        sortBy: 'name',
+        sortOrder: 'asc',
+      },
       options,
     );
 
-    const [clause, params] = calls.andWhere[0] as [string, Record<string, string>];
+    const [clause, params] = calls.andWhere[0] as [
+      string,
+      Record<string, string>,
+    ];
     expect(clause).toContain('role.name');
     expect(clause).not.toContain('adm');
     expect(params.__tableSearch).toBe('%adm\\%n%');
@@ -72,12 +89,20 @@ describe('paginate-query.util', () => {
     expect(calls.addOrderBy[0]).toEqual(['role.id', 'ASC']);
     expect(calls.skip[0]).toEqual([40]);
     expect(calls.take[0]).toEqual([20]);
-    expect(result.pagination).toMatchObject({ page: 3, total: 41, totalPages: 3 });
+    expect(result.pagination).toMatchObject({
+      page: 3,
+      total: 41,
+      totalPages: 3,
+    });
   });
 
   it('rejects unknown sort keys (no SQL injection via sortBy)', async () => {
     const { qb, calls } = fakeQueryBuilder();
-    await paginateQueryBuilder(qb, { sortBy: 'name; DROP TABLE x', sortOrder: 'bogus' }, options);
+    await paginateQueryBuilder(
+      qb,
+      { sortBy: 'name; DROP TABLE x', sortOrder: 'bogus' },
+      options,
+    );
     expect(calls.orderBy[0]).toEqual(['role.created_at', 'DESC', 'NULLS LAST']);
     expect(calls.andWhere).toBeUndefined();
   });

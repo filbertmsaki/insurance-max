@@ -1,6 +1,15 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 /**
  * Query contract for server-side tables:
@@ -43,11 +52,15 @@ export class TableQueryDto {
 
   @ApiPropertyOptional({ enum: ['ASC', 'DESC'] })
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
   @IsIn(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC';
 }
 
 export function isPagedRequest(query: { page?: unknown } | undefined): boolean {
-  return query?.page !== undefined && query?.page !== null && query?.page !== '';
+  return (
+    query?.page !== undefined && query?.page !== null && query?.page !== ''
+  );
 }
