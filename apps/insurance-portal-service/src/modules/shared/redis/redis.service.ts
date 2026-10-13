@@ -127,6 +127,21 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     this.fallbackSets.delete(key);
   }
 
+  async getAndDelete(key: string): Promise<string | null> {
+    if (this.client) {
+      const value = await this.client.eval(
+        "local value = redis.call('GET', KEYS[1]); if value then redis.call('DEL', KEYS[1]); end; return value",
+        1,
+        key,
+      );
+      return typeof value === 'string' ? value : null;
+    }
+
+    const value = this.purgeIfExpired(key)?.value ?? null;
+    this.fallbackStore.delete(key);
+    return value;
+  }
+
   async exists(key: string): Promise<boolean> {
     if (this.client) {
       const count = await this.client.exists(key);

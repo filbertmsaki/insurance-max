@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -69,6 +70,7 @@ class GenerateServiceKeyDto {
   @ArrayMinSize(1)
   @IsIP(undefined, { each: true })
   allowedIps!: string[];
+  @IsOptional() @IsIn(['uat', 'production']) environment?: 'uat' | 'production';
 }
 
 class IntegrationSettingsDto {
@@ -76,6 +78,13 @@ class IntegrationSettingsDto {
   @IsArray()
   @IsIn(['submit', 'read_status', 'receive_notifications'], { each: true })
   integrationPermissions?: string[];
+}
+
+class UpdateConnectionDto {
+  @IsOptional() @IsString() @MaxLength(500) baseUrl?: string;
+  /** @deprecated Accepted for older clients; the Portal generates its callback URL. */
+  @IsOptional() @IsString() @MaxLength(500) portalWebhookUrl?: string;
+  @IsOptional() @IsString() @MaxLength(100) webhookSourceIp?: string;
 }
 
 class LinkCompanyDto {
@@ -162,7 +171,11 @@ export class PlatformTiramisIntegrationController {
     @Body() dto: GenerateServiceKeyDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.service.generateServiceApiKey(dto.allowedIps, user.id);
+    return this.service.generateServiceApiKey(
+      dto.allowedIps,
+      user.id,
+      dto.environment,
+    );
   }
 
   @Post('profile/webhook-api-key')
@@ -171,6 +184,68 @@ export class PlatformTiramisIntegrationController {
   @ApiOperation({ summary: 'Rotate the platform webhook key TIRAMIS uses' })
   syncWebhookApiKey(@CurrentUser() user: AuthenticatedUser) {
     return this.service.syncWebhookApiKey(user.id);
+  }
+
+  @Put('connection/:environment')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  updateConnection(
+    @Param('environment') environment: string,
+    @Body() dto: UpdateConnectionDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!['uat', 'production'].includes(environment))
+      throw new BadRequestException('Unsupported TIRAMIS environment.');
+    return this.service.updateConnection(
+      environment as 'uat' | 'production',
+      dto,
+      user.id,
+    );
+  }
+
+  @Post('connection/:environment/test')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  testConnection(
+    @Param('environment') environment: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!['uat', 'production'].includes(environment))
+      throw new BadRequestException('Unsupported TIRAMIS environment.');
+    return this.service.testConnection(
+      environment as 'uat' | 'production',
+      user.id,
+    );
+  }
+
+  @Post('connection/:environment/detect-ips')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  detectConnectionIps(
+    @Param('environment') environment: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!['uat', 'production'].includes(environment))
+      throw new BadRequestException('Unsupported TIRAMIS environment.');
+    return this.service.detectConnectionIps(
+      environment as 'uat' | 'production',
+      user.id,
+    );
+  }
+
+  @Post('connection/:environment/activate')
+  @Roles('OWNER')
+  @Permissions(MANAGE)
+  activateConnection(
+    @Param('environment') environment: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!['uat', 'production'].includes(environment))
+      throw new BadRequestException('Unsupported TIRAMIS environment.');
+    return this.service.activateConnection(
+      environment as 'uat' | 'production',
+      user.id,
+    );
   }
 
   @Put('settings')

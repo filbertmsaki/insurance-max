@@ -46,6 +46,7 @@ export const TIRAMIS_NOTIFICATION_EVENT_TYPES = [
  */
 const DELIVERY_LEASE_MS = 60_000;
 const PORTAL_WEBHOOK_PATH = '/webhooks/tiramis/notifications';
+const PORTAL_SOURCE_IP_PROBE_PATH = '/webhooks/tiramis/source-ip-detection';
 
 @Injectable()
 export class TiramisPortalNotificationService {
@@ -135,6 +136,102 @@ export class TiramisPortalNotificationService {
         message: error?.message || 'Unable to connect to the portal webhook.',
       };
     }
+  }
+
+  async testPlatformWebhook(
+    environment: 'uat' | 'production',
+    webhookUrl: string,
+  ) {
+    const requestId = `portal-webhook-test-${randomUUID()}`;
+    try {
+      await this.assertWebhookUrlAllowed(webhookUrl);
+      const profile = this.systemProfiles.getEffective(environment);
+      const apiKey = profile.portalWebhookApiKey;
+      if (!apiKey)
+        return {
+          success: false,
+          message: 'Platform portal webhook key is not configured.',
+        };
+      const headers = this.buildWebhookHeaders({
+        apiKey,
+        event: {
+          eventType: 'TIRAMIS_CONNECTION_TEST',
+          sourceService: 'tiramis-service',
+          requestId,
+          occurredAt: new Date().toISOString(),
+        } as unknown as TiramisPortalNotificationEventDto,
+        requestId,
+        correlationId: requestId,
+      });
+      const response = await firstValueFrom(
+        this.httpService.post(webhookUrl, headers.payload, {
+          timeout: 10000,
+          validateStatus: () => true,
+          headers: headers.headers,
+        }),
+      );
+      return {
+        success: response.status >= 200 && response.status < 300,
+        httpStatus: response.status,
+        requestId,
+        message:
+          response.status >= 200 && response.status < 300
+            ? 'Portal accepted the authenticated connection test.'
+            : `Portal returned HTTP ${response.status}.`,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        requestId,
+        message: error?.message || 'Portal callback test failed.',
+      };
+    }
+  }
+
+  async detectPlatformPortalSourceIp(
+    environment: 'uat' | 'production',
+    webhookUrl: string,
+    challengeToken: string,
+  ) {
+    const requestId = `portal-source-ip-probe-${randomUUID()}`;
+    const url = await this.assertWebhookUrlAllowed(
+      webhookUrl,
+      PORTAL_SOURCE_IP_PROBE_PATH,
+    );
+    const response = await firstValueFrom(
+      this.httpService.post(
+        url.toString(),
+        { challengeToken },
+        {
+          timeout: 10_000,
+          validateStatus: () => true,
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            [HTTP_HEADERS.REQUEST_ID]: requestId,
+          },
+        },
+      ),
+    );
+    const payload = (response.data?.data ?? response.data) as
+      | Record<string, unknown>
+      | undefined;
+    if (
+      response.status < 200 ||
+      response.status >= 300 ||
+      payload?.success !== true ||
+      payload.environment !== environment ||
+      typeof payload.observedIp !== 'string'
+    ) {
+      throw new BadRequestException(
+        `Portal source-IP probe failed (HTTP ${response.status}).`,
+      );
+    }
+    return {
+      environment,
+      observedIp: payload.observedIp,
+      checkedAt: new Date().toISOString(),
+    };
   }
 
   async publish(
@@ -612,7 +709,10 @@ export class TiramisPortalNotificationService {
       .join(',')}}`;
   }
 
-  private async assertWebhookUrlAllowed(webhookUrl: string): Promise<URL> {
+  private async assertWebhookUrlAllowed(
+    webhookUrl: string,
+    expectedPath = PORTAL_WEBHOOK_PATH,
+  ): Promise<URL> {
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(webhookUrl);
@@ -635,15 +735,17 @@ export class TiramisPortalNotificationService {
       throw new BadRequestException('Webhook URL must use HTTP or HTTPS.');
     }
 
-    if (!parsedUrl.pathname.replace(/\/$/, '').endsWith(PORTAL_WEBHOOK_PATH)) {
+    if (!parsedUrl.pathname.replace(/\/$/, '').endsWith(expectedPath)) {
       throw new BadRequestException(
         'Only the portal TIRAMIS notification endpoint can be used.',
       );
     }
 
-    const allowedHosts = this.csvConfig(
-      'tiramisService.portalWebhookAllowedHosts',
-    );
+    const managedHosts =
+      this.systemProfiles.getEffective().portalWebhookAllowedHosts ?? [];
+    const allowedHosts = managedHosts.length
+      ? managedHosts
+      : this.csvConfig('tiramisService.portalWebhookAllowedHosts');
     if (allowedHosts.length && !allowedHosts.includes(parsedUrl.hostname)) {
       throw new BadRequestException(
         'Portal webhook host is not in the allowed host list.',

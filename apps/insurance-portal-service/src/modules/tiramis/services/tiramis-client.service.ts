@@ -804,7 +804,7 @@ export class TiramisClientService {
     // TIRAMIS keeps one active key per system name and rejects tenant-scoped
     // calls from unbound keys, so each company/environment gets its own key.
     const systemName = `${this.configService.getOrThrow<string>('tiramisClient.sourceService')}-${params.companyCode}-${params.environment}`;
-    const baseUrl = this.configService.get<string>('tiramisClient.baseUrl');
+    const baseUrl = await this.platformAccess.getBaseUrl(params.environment);
     const headers = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
@@ -1106,6 +1106,7 @@ export class TiramisClientService {
     data?: unknown;
     failureMessage: string;
     environment?: 'uat' | 'production';
+    baseUrl?: string;
   }): Promise<T> {
     return this.configurationAdminRequest<T>(
       { companyId: null, environment: request.environment ?? 'uat' },
@@ -1121,12 +1122,14 @@ export class TiramisClientService {
   async issuePlatformServiceKey(params: {
     environment: 'uat' | 'production';
     allowedIps: string[];
+    baseUrl?: string;
   }): Promise<string> {
     const serviceName = `${this.configService.getOrThrow<string>('tiramisClient.sourceService')}-platform-${params.environment}`;
     const keys = await this.platformAdminRequest<
       Array<{
         id?: string;
         serviceName?: string;
+        allowedIps?: string[];
         isActive?: boolean;
         revokedAt?: string | null;
       }>
@@ -1134,6 +1137,8 @@ export class TiramisClientService {
       method: 'GET',
       url: '/api/tiramis/api-keys',
       failureMessage: 'Unable to read TIRAMIS API keys.',
+      environment: params.environment,
+      baseUrl: params.baseUrl,
     });
     const existing = keys.find(
       (key) =>
@@ -1148,8 +1153,10 @@ export class TiramisClientService {
         ? {
             method: 'POST',
             url: `/api/tiramis/api-keys/systems/${encodeURIComponent(serviceName)}/rotate`,
-            data: { scopes },
+            data: { scopes, allowedIps: params.allowedIps },
             failureMessage: 'Unable to rotate the platform TIRAMIS key.',
+            environment: params.environment,
+            baseUrl: params.baseUrl,
           }
         : {
             method: 'POST',
@@ -1164,12 +1171,42 @@ export class TiramisClientService {
               isActive: true,
             },
             failureMessage: 'Unable to issue the platform TIRAMIS key.',
+            environment: params.environment,
+            baseUrl: params.baseUrl,
           },
     );
     if (!result?.apiKey) {
       throw new ConflictException('TIRAMIS did not return the generated key.');
     }
     return result.apiKey;
+  }
+
+  async getPlatformServiceKeyAllowedIps(params: {
+    environment: 'uat' | 'production';
+    baseUrl?: string;
+  }): Promise<string[] | null> {
+    const serviceName = `${this.configService.getOrThrow<string>('tiramisClient.sourceService')}-platform-${params.environment}`;
+    const keys = await this.platformAdminRequest<
+      Array<{
+        serviceName?: string;
+        allowedIps?: string[];
+        isActive?: boolean;
+        revokedAt?: string | null;
+      }>
+    >({
+      method: 'GET',
+      url: '/api/tiramis/api-keys',
+      failureMessage: 'Unable to read TIRAMIS service key IP restrictions.',
+      environment: params.environment,
+      baseUrl: params.baseUrl,
+    });
+    const activeKey = keys.find(
+      (key) =>
+        key.serviceName === serviceName &&
+        key.isActive !== false &&
+        !key.revokedAt,
+    );
+    return activeKey ? (activeKey.allowedIps ?? []) : null;
   }
 
   private async configurationAdminRequest<T>(
@@ -1179,6 +1216,7 @@ export class TiramisClientService {
       url: string;
       data?: unknown;
       failureMessage: string;
+      baseUrl?: string;
     },
   ): Promise<T> {
     const requestId = this.requestContextService.getRequestId();
@@ -1203,7 +1241,8 @@ export class TiramisClientService {
       this.httpService.request({
         method: request.method,
         baseURL:
-          this.configService.get<string>('tiramisClient.baseUrl') ?? undefined,
+          request.baseUrl ??
+          (await this.platformAccess.getBaseUrl(params.environment)),
         url: request.url,
         data: request.data,
         timeout: 15_000,
@@ -1284,6 +1323,89 @@ export class TiramisClientService {
           : this.extractTiramisErrorMessage(response.data) ||
             `TIRAMIS webhook test failed with HTTP ${response.status}.`),
     };
+  }
+
+  async checkPlatformConnection(
+    environment: 'uat' | 'production',
+    baseUrl?: string,
+  ) {
+    const apiKey = await this.platformAccess.getServiceApiKey(environment);
+    if (!apiKey)
+      throw new ConflictException(
+        'Platform service API key is not configured.',
+      );
+    const response = await firstValueFrom(
+      this.httpService.get('/api/tiramis/platform/connection-test', {
+        baseURL: baseUrl ?? (await this.platformAccess.getBaseUrl(environment)),
+        timeout: 10000,
+        validateStatus: () => true,
+        headers: { 'X-API-Key': apiKey, Accept: 'application/json' },
+      }),
+    );
+    if (response.status < 200 || response.status >= 300)
+      throw new ConflictException(
+        this.extractTiramisErrorMessage(response.data) ||
+          `TIRAMIS rejected the service key (HTTP ${response.status}).`,
+      );
+    const result = unwrapApiResponse(response.data) as {
+      environment?: string;
+      success?: boolean;
+    };
+    if (result.environment && result.environment !== environment)
+      throw new ConflictException(
+        `TIRAMIS key is authorized for ${result.environment}, not ${environment}.`,
+      );
+    return result;
+  }
+
+  async testPlatformWebhook(
+    environment: 'uat' | 'production',
+    webhookUrl: string,
+    baseUrl?: string,
+  ) {
+    return this.platformAdminRequest<Record<string, unknown>>({
+      method: 'POST',
+      url: `/api/tiramis/platform/profiles/${environment}/portal-webhook-test`,
+      data: { webhookUrl },
+      environment,
+      baseUrl,
+      failureMessage: 'TIRAMIS could not send the portal webhook test.',
+    });
+  }
+
+  detectPortalOutboundIp(environment: 'uat' | 'production', baseUrl?: string) {
+    return this.platformAdminRequest<{
+      environment: string;
+      observedIp: string;
+    }>({
+      method: 'GET',
+      url: `/api/tiramis/platform/profiles/${environment}/connection-source-ip`,
+      environment,
+      baseUrl,
+      failureMessage: 'TIRAMIS could not observe the Portal source IP.',
+    });
+  }
+
+  detectTiramisOutboundIp(params: {
+    environment: 'uat' | 'production';
+    webhookUrl: string;
+    challengeToken: string;
+    baseUrl?: string;
+  }) {
+    return this.platformAdminRequest<{
+      environment: string;
+      observedIp: string;
+    }>({
+      method: 'POST',
+      url: `/api/tiramis/platform/profiles/${params.environment}/portal-source-ip-test`,
+      data: {
+        webhookUrl: params.webhookUrl,
+        challengeToken: params.challengeToken,
+      },
+      environment: params.environment,
+      baseUrl: params.baseUrl,
+      failureMessage: 'TIRAMIS could not test its outbound source IP.',
+    });
   }
 
   async getTiramisDeliveryDiagnostics(params: {
@@ -1600,7 +1722,9 @@ export class TiramisClientService {
         quotationId: params.quotationId,
         policyId: params.policyId,
         businessReference: params.businessReference,
-        portalWebhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+        portalWebhookUrl: await this.getPortalWebhookUrl(
+          tenantContext.environment,
+        ),
       },
       context,
       payload: params.dto.payload,
@@ -1793,7 +1917,7 @@ export class TiramisClientService {
 
     return {
       apiKey,
-      baseUrl: this.configService.get<string>('tiramisClient.baseUrl') ?? null,
+      baseUrl: await this.platformAccess.getBaseUrl(targetEnvironment),
       sourceService: this.configService.getOrThrow<string>(
         'tiramisClient.sourceService',
       ),
@@ -1862,6 +1986,9 @@ export class TiramisClientService {
               }
             : await this.buildTiramisReadyTenantContext(authContext)
           : undefined;
+      const connectionEnvironment =
+        (tenantContext as { environment?: 'uat' | 'production' } | undefined)
+          ?.environment ?? (await this.platformAccess.getActiveEnvironment());
 
       const serviceContext = this.encodeServiceContext(
         tenantContext
@@ -1888,8 +2015,7 @@ export class TiramisClientService {
       );
       const connection = await this.resolveConnectionConfig(
         authContext?.companyId ?? null,
-        (tenantContext as { environment?: string } | undefined)?.environment ??
-          null,
+        connectionEnvironment,
       );
 
       const response = await firstValueFrom(
@@ -1901,7 +2027,9 @@ export class TiramisClientService {
 
           params: isQuery ? payload : undefined,
 
-          data: isQuery ? undefined : this.httpPayload(pattern, payload),
+          data: isQuery
+            ? undefined
+            : await this.httpPayload(pattern, payload, connectionEnvironment),
 
           validateStatus: () => true,
 
@@ -1917,8 +2045,10 @@ export class TiramisClientService {
 
             ...(this.isSubmissionPattern(pattern)
               ? {
-                  'X-Tiramis-Source-Metadata':
-                    this.encodeSourceMetadata(payload),
+                  'X-Tiramis-Source-Metadata': await this.encodeSourceMetadata(
+                    payload,
+                    connectionEnvironment,
+                  ),
                 }
               : {}),
 
@@ -2032,7 +2162,10 @@ export class TiramisClientService {
    * transaction and, critically, knows where to push the final TIRA outcome.
    * portalWebhookUrl is mandatory; TIRAMIS rejects submissions without it.
    */
-  private encodeSourceMetadata(command: Record<string, any>): string {
+  private async encodeSourceMetadata(
+    command: Record<string, any>,
+    environment: 'uat' | 'production',
+  ): Promise<string> {
     return Buffer.from(
       JSON.stringify({
         sourceService: command.sourceService ?? null,
@@ -2045,13 +2178,17 @@ export class TiramisClientService {
         businessReference: command.businessReference ?? null,
         requestType: command.requestType ?? null,
         requestId: command.requestId ?? null,
-        portalWebhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+        portalWebhookUrl: await this.getPortalWebhookUrl(environment),
       }),
       'utf8',
     ).toString('base64url');
   }
 
-  private httpPayload(pattern: string, command: Record<string, any>) {
+  private async httpPayload(
+    pattern: string,
+    command: Record<string, any>,
+    environment: 'uat' | 'production',
+  ) {
     const payload = command.payload || command;
     const resolvedPayload = this.isSubmissionPattern(pattern)
       ? this.stripSignedTenantBodyFields(payload)
@@ -2060,7 +2197,7 @@ export class TiramisClientService {
     if (TiramisClientService.VERIFICATION_PATTERNS.has(pattern)) {
       return {
         ...resolvedPayload,
-        portalWebhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+        portalWebhookUrl: await this.getPortalWebhookUrl(environment),
       };
     }
 
@@ -2078,6 +2215,13 @@ export class TiramisClientService {
     }
 
     return resolvedPayload;
+  }
+
+  getPortalWebhookUrl(environment: 'uat' | 'production') {
+    // The callback belongs to this Portal instance. Do not allow a stored
+    // per-environment or per-company URL to override its fixed route.
+    void environment;
+    return resolveTiramisPortalWebhookUrl(this.configService);
   }
 
   private stripSignedTenantBodyFields(payload: Record<string, any>) {

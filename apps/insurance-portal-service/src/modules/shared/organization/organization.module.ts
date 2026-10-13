@@ -8,6 +8,7 @@ import { TiramisCompanyConfigurationEntity } from '../../tiramis/entities/tirami
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { TiramisCompanyLinkEntity } from '../../tiramis/entities/tiramis-company-link.entity';
 import { TiramisPlatformSettingsEntity } from '../../tiramis/entities/tiramis-platform-settings.entity';
+import { TiramisConnectionProfileEntity } from '../../tiramis/entities/tiramis-connection-profile.entity';
 import { TiramisServiceApiKeyVaultService } from '../../tiramis/services/tiramis-service-api-key-vault.service';
 import { TiramisPlatformAccessService } from './tiramis-platform-access.service';
 
@@ -25,6 +26,7 @@ import { OrganizationContextService } from './organization-context.service';
       TiramisSalePointEntity,
       TiramisCompanyLinkEntity,
       TiramisPlatformSettingsEntity,
+      TiramisConnectionProfileEntity,
     ]),
   ],
   controllers: [OrganizationController],

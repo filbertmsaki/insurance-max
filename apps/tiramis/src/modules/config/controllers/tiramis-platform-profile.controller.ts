@@ -15,13 +15,17 @@ import {
   IsIn,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
 } from 'class-validator';
 import type { Request } from 'express';
 
 import { PublicServiceEndpoint } from '@insurance-max/shared-kernel';
 import { TiramisAdministratorGuard } from '../../api-keys/guards/tiramis-administrator.guard';
-import { TIRAMIS_NOTIFICATION_EVENT_TYPES } from '../../portal-notifications/services/tiramis-portal-notification.service';
+import {
+  TIRAMIS_NOTIFICATION_EVENT_TYPES,
+  TiramisPortalNotificationService,
+} from '../../portal-notifications/services/tiramis-portal-notification.service';
 import { TiramisCertificateInspectorService } from '../../security/services/tiramis-certificate-inspector.service';
 import { TiramisConfigService } from '../services/tiramis-config.service';
 import {
@@ -70,6 +74,22 @@ class PortalWebhookKeyDto {
   apiKey!: string;
 }
 
+class PortalWebhookSettingsDto {
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(253, { each: true })
+  allowedHosts!: string[];
+}
+
+class PortalWebhookTestDto {
+  @IsString() @MaxLength(500) webhookUrl!: string;
+}
+
+class PortalSourceIpTestDto {
+  @IsString() @MaxLength(500) webhookUrl!: string;
+  @IsString() @Matches(/^[a-f0-9]{64}$/) challengeToken!: string;
+}
+
 /**
  * Platform → TIRAMIS Integration: the TIRA identity, credentials, certificates
  * and notification policy for this server's active TIRA_ENV, shared by every company.
@@ -83,6 +103,7 @@ export class TiramisPlatformProfileController {
     private readonly profiles: TiramisSystemProfileService,
     private readonly configService: TiramisConfigService,
     private readonly certificateInspector: TiramisCertificateInspectorService,
+    private readonly portalNotifications: TiramisPortalNotificationService,
   ) {}
 
   @Get()
@@ -137,6 +158,58 @@ export class TiramisPlatformProfileController {
       environment: activeEnvironment,
       portalWebhookApiKeyConfigured: true,
     };
+  }
+
+  @Put(':environment/portal-webhook-settings')
+  async updatePortalWebhookSettings(
+    @Param('environment') environment: string,
+    @Body() dto: PortalWebhookSettingsDto,
+    @Req() request: Request,
+  ) {
+    const normalized = this.profiles.normalizeEnvironment(environment);
+    await this.profiles.setPortalWebhookAllowedHosts(
+      normalized,
+      dto.allowedHosts,
+      this.actor(request),
+    );
+    return { environment: normalized, allowedHosts: dto.allowedHosts };
+  }
+
+  @Post(':environment/portal-webhook-test')
+  async testPlatformPortalWebhook(
+    @Param('environment') environment: string,
+    @Body() dto: PortalWebhookTestDto,
+  ) {
+    return this.portalNotifications.testPlatformWebhook(
+      this.profiles.normalizeEnvironment(environment),
+      dto.webhookUrl,
+    );
+  }
+
+  @Get(':environment/connection-source-ip')
+  getConnectionSourceIp(
+    @Param('environment') environment: string,
+    @Req() request: Request,
+  ) {
+    const normalized = this.profiles.normalizeEnvironment(environment);
+    this.profiles.describe(normalized);
+    if (!request.ip)
+      throw new BadRequestException('Could not determine request source IP.');
+    return { environment: normalized, observedIp: request.ip };
+  }
+
+  @Post(':environment/portal-source-ip-test')
+  async testPortalSourceIp(
+    @Param('environment') environment: string,
+    @Body() dto: PortalSourceIpTestDto,
+  ) {
+    const normalized = this.profiles.normalizeEnvironment(environment);
+    this.profiles.describe(normalized);
+    return this.portalNotifications.detectPlatformPortalSourceIp(
+      normalized,
+      dto.webhookUrl,
+      dto.challengeToken,
+    );
   }
 
   @Get(':environment')

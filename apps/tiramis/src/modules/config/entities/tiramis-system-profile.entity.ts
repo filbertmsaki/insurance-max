@@ -78,6 +78,13 @@ export class TiramisSystemProfileEntity extends BaseEntity {
   portalNotificationEvents?: string[] | null;
 
   @Column({
+    name: 'portal_webhook_allowed_hosts',
+    type: 'jsonb',
+    nullable: true,
+  })
+  portalWebhookAllowedHosts?: string[] | null;
+
+  @Column({
     name: 'validation_status',
     type: 'varchar',
     length: 20,

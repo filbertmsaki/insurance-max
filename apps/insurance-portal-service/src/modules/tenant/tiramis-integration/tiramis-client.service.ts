@@ -170,9 +170,7 @@ export class TiramisClientService {
                     businessReference: command.businessReference,
                     requestType: command.requestType,
                     requestId: command.requestId,
-                    portalWebhookUrl: resolveTiramisPortalWebhookUrl(
-                      this.configService,
-                    ),
+                    portalWebhookUrl: await this.resolvePortalWebhookUrl(),
                   }),
                   'utf8',
                 ).toString('base64url'),
@@ -211,6 +209,12 @@ export class TiramisClientService {
 
   private encodeServiceContext(context: Record<string, unknown>): string {
     return Buffer.from(JSON.stringify(context), 'utf8').toString('base64url');
+  }
+
+  private resolvePortalWebhookUrl() {
+    // The callback is derived from this Portal's public API configuration;
+    // connection profiles only select the remote TIRAMIS server and key.
+    return resolveTiramisPortalWebhookUrl(this.configService);
   }
 
   private async resolveApiKey(companyId: string | null): Promise<string> {

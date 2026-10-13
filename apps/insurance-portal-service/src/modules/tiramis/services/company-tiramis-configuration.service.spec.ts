@@ -18,6 +18,11 @@ describe('CompanyTiramisConfigurationService', () => {
       {} as any,
       {} as any,
       { get: jest.fn() } as any,
+      {} as any,
+      {
+        getConnectionProfile: jest.fn(),
+        getActiveEnvironment: jest.fn(),
+      } as any,
     );
 
     return {

@@ -13,6 +13,7 @@ import { PlatformTiramisIntegrationController } from './controllers/platform-tir
 import { PlatformTiramisIntegrationService } from './services/platform-tiramis-integration.service';
 import { TiramisCompanyLinkEntity } from './entities/tiramis-company-link.entity';
 import { TiramisPlatformSettingsEntity } from './entities/tiramis-platform-settings.entity';
+import { TiramisConnectionProfileEntity } from './entities/tiramis-connection-profile.entity';
 import { CompanyTiramisConfigurationService } from './services/company-tiramis-configuration.service';
 import { Company } from '../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from './entities/tiramis-company-configuration.entity';
@@ -69,6 +70,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
       TiramisBusinessRecordEntity,
       TiramisCompanyConfigurationEntity,
       TiramisPlatformSettingsEntity,
+      TiramisConnectionProfileEntity,
       TiramisCompanyLinkEntity,
       TiramisLookupEntity,
       TiramisSalePointEntity,

@@ -41,7 +41,7 @@ export class TiramisWebhookCredentialService {
     tiramisConfigurationId: string;
   }): Promise<{ apiClientId: string }> {
     const name = `TIRAMIS webhook ${params.tiramisConfigurationId}`;
-    const ipWhitelist = [this.resolveTiramisSourceIp()];
+    const ipWhitelist = [await this.resolveTiramisSourceIp(params.environment)];
     const existing = (await this.apiClientsService.findAll()).find(
       (client) => client.name === name,
     );
@@ -105,9 +105,10 @@ export class TiramisWebhookCredentialService {
    */
   async syncPlatformWebhookApiKey(
     environment: 'uat' | 'production',
+    baseUrl?: string,
   ): Promise<{ apiClientId: string }> {
     const name = `TIRAMIS webhook (${environment})`;
-    const ipWhitelist = [this.resolveTiramisSourceIp()];
+    const ipWhitelist = [await this.resolveTiramisSourceIp(environment)];
     const notificationsEnabled = (
       await this.platformAccess.getIntegrationPermissions()
     ).includes('receive_notifications');
@@ -148,6 +149,7 @@ export class TiramisWebhookCredentialService {
       url: `/api/tiramis/platform/profiles/${environment}/portal-webhook-api-key`,
       data: { apiKey: plainKey },
       environment,
+      baseUrl,
       failureMessage: 'Unable to store the platform webhook key in TIRAMIS.',
     });
 
@@ -162,7 +164,12 @@ export class TiramisWebhookCredentialService {
    * host, so allowlist TIRAMIS_WEBHOOK_SOURCE_IP, or the host of
    * TIRAMIS_SERVICE_BASE_URL when that is an IP or localhost.
    */
-  private resolveTiramisSourceIp(): string {
+  private async resolveTiramisSourceIp(
+    environment: 'uat' | 'production',
+  ): Promise<string> {
+    const managedProfile =
+      await this.platformAccess.getConnectionProfile(environment);
+    if (managedProfile?.webhookSourceIp) return managedProfile.webhookSourceIp;
     const configured = this.configService.get<string | null>(
       'tiramisClient.webhookSourceIp',
     );
@@ -170,7 +177,9 @@ export class TiramisWebhookCredentialService {
       return configured;
     }
 
-    const baseUrl = this.configService.get<string>('tiramisClient.baseUrl');
+    const baseUrl =
+      managedProfile?.baseUrl ||
+      (await this.platformAccess.getBaseUrl(environment));
     const host = baseUrl
       ? new URL(baseUrl).hostname.replace(/^\[|\]$/g, '')
       : '';

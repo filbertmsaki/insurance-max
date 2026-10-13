@@ -1,4 +1,4 @@
-﻿import { useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { KeyRound, RefreshCcw, ShieldCheck, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -43,6 +43,7 @@ import {
   useGenerateTiramisServiceKey,
   useRotateTiramisWebhookKey,
   useTiramisIntegrationOverview,
+  useTiramisConnectionMutations,
   useUpdateTiramisProfile,
   useUpdateTiramisSettings,
   useUploadTiramisCertificate,
@@ -71,6 +72,306 @@ function sourceVariant(source?: TiramisFieldSource) {
   if (source === 'environment') return 'info' as const;
   if (source === 'missing') return 'danger' as const;
   return 'muted' as const;
+}
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function ConnectionTestSummary({
+  result,
+}: {
+  result: Record<string, unknown>;
+}) {
+  const portal = recordValue(result.portalToTiramis);
+  const portalDetails = recordValue(portal?.details);
+  const webhook = recordValue(result.tiramisToPortal);
+  const passed = result.success === true;
+  const direction = (title: string, success: boolean, detail?: string) => (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
+      <div>
+        <p className="font-medium">{title}</p>
+        {detail && <p className="text-sm text-muted-foreground">{detail}</p>}
+      </div>
+      <Badge variant={success ? 'success' : 'danger'}>
+        {success ? 'Passed' : 'Failed'}
+      </Badge>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-semibold">Connection test</p>
+        <Badge variant={passed ? 'success' : 'danger'}>
+          {passed ? 'All checks passed' : 'Needs attention'}
+        </Badge>
+      </div>
+      {direction(
+        'Portal → TIRAMIS',
+        portal?.success === true && portal?.authenticated === true,
+        portalDetails?.serviceName
+          ? `Authenticated as ${String(portalDetails.serviceName)}${portalDetails.environment ? ` (${String(portalDetails.environment)})` : ''}`
+          : String(portal?.message ?? portalDetails?.message ?? ''),
+      )}
+      {direction(
+        'TIRAMIS → Portal',
+        webhook?.success === true,
+        [
+          webhook?.httpStatus ? `HTTP ${String(webhook.httpStatus)}` : null,
+          webhook?.message ? String(webhook.message) : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      )}
+      {typeof result.message === 'string' && result.message && (
+        <p className="text-sm text-destructive">{String(result.message)}</p>
+      )}
+      {typeof result.testedAt === 'string' && (
+        <p className="text-xs text-muted-foreground">
+          Tested {formatDate(String(result.testedAt))}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ConnectionProfiles({
+  overview,
+  canManage,
+}: {
+  overview: TiramisIntegrationOverview;
+  canManage: boolean;
+}) {
+  const connections = useTiramisConnectionMutations();
+  const serviceKey = useGenerateTiramisServiceKey();
+  const [env, setEnv] = useState<TiramisEnvironment>(
+    overview.activeEnvironment,
+  );
+  const profile = overview.connections?.find(
+    (item) => item.environment === env,
+  );
+  const [baseUrl, setBaseUrl] = useState(
+    profile?.candidateBaseUrl ?? profile?.baseUrl ?? '',
+  );
+  const [sourceIp, setSourceIp] = useState(profile?.webhookSourceIp ?? '');
+  const [portalIps, setPortalIps] = useState(
+    profile?.portalOutboundIps?.join(', ') ?? '',
+  );
+  const [detectedIps, setDetectedIps] = useState<{
+    portalOutboundIp: string;
+    tiramisOutboundIp: string;
+    detectedAt: string;
+  } | null>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const save = () =>
+    connections.update.mutate(
+      {
+        environment: env,
+        data: {
+          baseUrl,
+          webhookSourceIp: sourceIp,
+        },
+      },
+      { onSuccess: () => toast.success('Connection profile saved') },
+    );
+  const test = () =>
+    connections.test.mutate(env, {
+      onSuccess: (value) => {
+        setResult(value);
+        if (value.success === true)
+          toast.success('Both connection directions passed');
+        else toast.error('Connection test needs attention');
+      },
+    });
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        {(['uat', 'production'] as const).map((value) => (
+          <Button
+            key={value}
+            variant={env === value ? 'default' : 'outline'}
+            onClick={() => {
+              setEnv(value);
+              const next = overview.connections?.find(
+                (item) => item.environment === value,
+              );
+              setBaseUrl(next?.candidateBaseUrl ?? next?.baseUrl ?? '');
+              setSourceIp(next?.webhookSourceIp ?? '');
+              setPortalIps(next?.portalOutboundIps?.join(', ') ?? '');
+              setDetectedIps(null);
+              setResult(next?.lastTestResult ?? null);
+            }}
+          >
+            {envLabel(value)}
+          </Button>
+        ))}
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{envLabel(env)} service connection</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Field label="TIRAMIS API base URL">
+            <Input
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="https://tiramis.example.com/tiramis-api"
+              disabled={!canManage}
+            />
+          </Field>
+          <Field label="TIRAMIS callback source IP/CIDR">
+            <Input
+              value={sourceIp}
+              onChange={(e) => setSourceIp(e.target.value)}
+              placeholder="203.0.113.10 or CIDR"
+              disabled={!canManage}
+            />
+          </Field>
+          <Field label="Portal outbound IPs (for TIRAMIS service key)">
+            <Input
+              value={portalIps}
+              onChange={(e) => setPortalIps(e.target.value)}
+              placeholder="203.0.113.10, 203.0.113.11"
+              disabled={!canManage}
+            />
+          </Field>
+          {detectedIps && (
+            <p className="text-xs text-muted-foreground">
+              Receiver-observed suggestions from{' '}
+              {formatDate(detectedIps.detectedAt)}. Verify these values for your
+              proxy/NAT setup, then save the callback source IP and generate the
+              service key to apply the Portal IP.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {canManage && (
+              <Button
+                variant="outline"
+                onClick={() =>
+                  connections.detectIps.mutate(env, {
+                    onSuccess: (value) => {
+                      setSourceIp(value.tiramisOutboundIp);
+                      setPortalIps(value.portalOutboundIp);
+                      setDetectedIps(value);
+                      toast.success(
+                        'Receiver-observed IP suggestions loaded; verify and save them',
+                      );
+                    },
+                    onError: (error) => toast.error(getApiErrorMessage(error)),
+                  })
+                }
+                disabled={
+                  connections.detectIps.isPending ||
+                  !baseUrl.trim() ||
+                  baseUrl.trim() !==
+                    (profile?.candidateBaseUrl ?? profile?.baseUrl ?? '')
+                }
+              >
+                {connections.detectIps.isPending
+                  ? 'Detecting IPs...'
+                  : 'Detect source IPs'}
+              </Button>
+            )}
+            {canManage && (
+              <Button onClick={save} disabled={connections.update.isPending}>
+                Save candidate
+              </Button>
+            )}
+            {canManage && profile?.previousBaseUrl && (
+              <Button
+                variant="outline"
+                onClick={() => setBaseUrl(profile.previousBaseUrl ?? '')}
+              >
+                Use previous server
+              </Button>
+            )}
+            {canManage && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const ips = parseIpList(portalIps);
+                  if (!ips.length)
+                    return toast.error('Enter at least one Portal outbound IP');
+                  serviceKey.mutate(
+                    { allowedIps: ips, environment: env },
+                    {
+                      onSuccess: () => {
+                        setPortalIps(ips.join(', '));
+                        toast.success(
+                          `${envLabel(env)} service and webhook keys updated`,
+                        );
+                      },
+                      onError: (error) =>
+                        toast.error(getApiErrorMessage(error)),
+                    },
+                  );
+                }}
+                disabled={serviceKey.isPending}
+              >
+                Generate / rotate service key
+              </Button>
+            )}
+            {canManage && (
+              <Button
+                variant="outline"
+                onClick={test}
+                disabled={connections.test.isPending}
+              >
+                Test both directions
+              </Button>
+            )}
+            {canManage &&
+              (env !== overview.activeEnvironment ||
+                Boolean(profile?.candidateBaseUrl)) && (
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    connections.activate.mutate(env, {
+                      onSuccess: () => toast.success('Environment activated'),
+                    })
+                  }
+                  disabled={
+                    connections.activate.isPending ||
+                    (result?.success !== true &&
+                      profile?.lastTestResult?.success !== true)
+                  }
+                >
+                  Activate tested profile
+                </Button>
+              )}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Service key:{' '}
+            {profile?.serviceApiKeyConfigured
+              ? 'configured (encrypted)'
+              : 'not configured'}
+            . Validation: {profile?.validationStatus ?? 'NOT_VALIDATED'}.{' '}
+            {profile?.candidateBaseUrl
+              ? 'Candidate endpoint saved; production traffic stays on the active endpoint until activation.'
+              : ''}
+            {profile?.previousBaseUrl
+              ? `Previous URL retained: ${profile.previousBaseUrl}`
+              : ''}{' '}
+            Configuration source: {profile?.configurationSource ?? 'database'}.
+          </div>
+          {(result || profile?.lastTestResult) && (
+            <ConnectionTestSummary
+              result={result ?? profile?.lastTestResult ?? {}}
+            />
+          )}
+          {env === overview.activeEnvironment && (
+            <p className="text-xs text-muted-foreground">
+              This profile is active. Existing submissions continue using their
+              recorded environment.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function envLabel(env: TiramisEnvironment) {
@@ -106,7 +407,7 @@ function Field({
   );
 }
 
-// ─── Overview ────────────────────────────────────────────────────────────────
+// --- Overview ----------------------------------------------------------------
 
 function OverviewSection({
   overview,
@@ -125,7 +426,9 @@ function OverviewSection({
         <CardContent className="grid gap-3 text-sm md:grid-cols-4">
           <div>
             <div className="text-muted-foreground">Validation</div>
-            <Badge variant={validationVariant(overview.environment.validationStatus)}>
+            <Badge
+              variant={validationVariant(overview.environment.validationStatus)}
+            >
               {overview.environment.validationStatus}
             </Badge>
           </div>
@@ -174,15 +477,13 @@ function OverviewSection({
   );
 }
 
-// ─── Environment profile panel ───────────────────────────────────────────────
+// --- Environment profile panel -----------------------------------------------
 
 interface ProfileFormState {
   clientCode: string;
   systemCode: string;
   systemName: string;
   baseUrl: string;
-  callbackUrl: string;
-  signatureAlgorithm: string;
   allowExpiredCertificates: boolean;
   clientKey: string;
   clientCertificatePassword: string;
@@ -195,8 +496,6 @@ function toFormState(profile: TiramisProfile): ProfileFormState {
     systemCode: profile.systemCode ?? '',
     systemName: profile.systemName ?? '',
     baseUrl: profile.baseUrl ?? '',
-    callbackUrl: profile.callbackUrl ?? '',
-    signatureAlgorithm: profile.signatureAlgorithm ?? '',
     allowExpiredCertificates: profile.allowExpiredCertificates,
     clientKey: '',
     clientCertificatePassword: '',
@@ -211,8 +510,6 @@ function buildProfileUpdate(form: ProfileFormState): TiramisProfileUpdate {
     systemCode: form.systemCode.trim(),
     systemName: form.systemName.trim(),
     baseUrl: form.baseUrl.trim(),
-    callbackUrl: form.callbackUrl.trim(),
-    signatureAlgorithm: form.signatureAlgorithm.trim(),
     allowExpiredCertificates: form.allowExpiredCertificates,
   };
   if (form.clientKey) body.clientKey = form.clientKey;
@@ -317,7 +614,7 @@ function EnvironmentPanel({
     toFormState(profile),
   );
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
-  const [allowedIps, setAllowedIps] = useState('127.0.0.1');
+  const [allowedIps, setAllowedIps] = useState('');
   const [lastValidation, setLastValidation] = useState<{
     errors?: string[];
     warnings?: string[];
@@ -355,13 +652,16 @@ function EnvironmentPanel({
       toast.error('Enter at least one allowed IP address');
       return;
     }
-    serviceKey.mutate(ips, {
-      onSuccess: () => {
-        toast.success('Service key generated and webhook key rotated');
-        setKeyDialogOpen(false);
+    serviceKey.mutate(
+      { allowedIps: ips, environment: env },
+      {
+        onSuccess: () => {
+          toast.success('Service key generated and webhook key rotated');
+          setKeyDialogOpen(false);
+        },
+        onError: (error) => toast.error(getApiErrorMessage(error)),
       },
-      onError: (error) => toast.error(getApiErrorMessage(error)),
-    });
+    );
   };
 
   const rotateWebhook = () =>
@@ -372,13 +672,7 @@ function EnvironmentPanel({
 
   const s = profile.sources ?? {};
   const textField = (
-    key:
-      | 'clientCode'
-      | 'systemCode'
-      | 'systemName'
-      | 'baseUrl'
-      | 'callbackUrl'
-      | 'signatureAlgorithm',
+    key: 'clientCode' | 'systemCode' | 'systemName' | 'baseUrl',
     label: string,
   ) => (
     <Field label={label} source={s[key]}>
@@ -407,7 +701,7 @@ function EnvironmentPanel({
         disabled={!canManage}
         placeholder={
           configured
-            ? `Configured${masked ? ` (${masked})` : ''} — leave blank to keep`
+            ? `Configured${masked ? ` (${masked})` : ''} � leave blank to keep`
             : 'Not configured'
         }
         onChange={(e) => set(key, e.target.value)}
@@ -469,8 +763,6 @@ function EnvironmentPanel({
           {textField('systemCode', 'System code')}
           {textField('systemName', 'System name')}
           {textField('baseUrl', 'Base URL')}
-          {textField('callbackUrl', 'Callback URL')}
-          {textField('signatureAlgorithm', 'Signature algorithm')}
           <Field
             label="Allow expired certificates"
             source={s.allowExpiredCertificates}
@@ -579,7 +871,7 @@ function EnvironmentPanel({
   );
 }
 
-// ─── Integration settings ────────────────────────────────────────────────────
+// --- Integration settings ----------------------------------------------------
 
 function NotificationEventsCard({
   env,
@@ -768,12 +1060,17 @@ export function PlatformTiramisIntegrationPage() {
         <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="connection">Connection</TabsTrigger>
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="settings">Integration settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-4">
             <OverviewSection overview={overview} />
+          </TabsContent>
+
+          <TabsContent value="connection" className="mt-4">
+            <ConnectionProfiles overview={overview} canManage={canManage} />
           </TabsContent>
 
           <TabsContent value="profile" className="mt-4 space-y-4">
@@ -791,9 +1088,6 @@ export function PlatformTiramisIntegrationPage() {
             )}
           </TabsContent>
 
-
-
-
           <TabsContent value="settings" className="mt-4">
             <SettingsSection
               key={overview.integrationPermissions.join(',')}
@@ -801,7 +1095,6 @@ export function PlatformTiramisIntegrationPage() {
               canManage={canManage}
             />
           </TabsContent>
-
         </Tabs>
       )}
     </div>

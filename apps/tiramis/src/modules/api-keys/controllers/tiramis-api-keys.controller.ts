@@ -77,7 +77,11 @@ export class TiramisApiKeysController {
     @Param('serviceName') serviceName: string,
     @Body() dto?: UpdateTiramisApiKeyDto,
   ) {
-    return this.apiKeyService.rotateSystem(serviceName, dto?.scopes);
+    return this.apiKeyService.rotateSystem(
+      serviceName,
+      dto?.scopes,
+      dto?.allowedIps,
+    );
   }
 
   @Post(':id/rotate')
@@ -85,7 +89,7 @@ export class TiramisApiKeysController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto?: UpdateTiramisApiKeyDto,
   ) {
-    return this.apiKeyService.rotate(id, dto?.scopes);
+    return this.apiKeyService.rotate(id, dto?.scopes, dto?.allowedIps);
   }
 
   @Delete(':id')

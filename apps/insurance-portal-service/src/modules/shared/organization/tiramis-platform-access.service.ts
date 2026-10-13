@@ -11,6 +11,7 @@ import {
   TiramisEnvironmentName,
   TiramisPlatformSettingsEntity,
 } from '../../tiramis/entities/tiramis-platform-settings.entity';
+import { TiramisConnectionProfileEntity } from '../../tiramis/entities/tiramis-connection-profile.entity';
 import { TiramisServiceApiKeyVaultService } from '../../tiramis/services/tiramis-service-api-key-vault.service';
 
 export const TIRAMIS_PLATFORM_SETTINGS_ID = 'platform';
@@ -31,6 +32,8 @@ export class TiramisPlatformAccessService {
   constructor(
     @InjectRepository(TiramisPlatformSettingsEntity)
     private readonly settingsRepository: Repository<TiramisPlatformSettingsEntity>,
+    @InjectRepository(TiramisConnectionProfileEntity)
+    private readonly connectionProfiles: Repository<TiramisConnectionProfileEntity>,
     @InjectRepository(TiramisCompanyLinkEntity)
     private readonly linkRepository: Repository<TiramisCompanyLinkEntity>,
     private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
@@ -53,7 +56,10 @@ export class TiramisPlatformAccessService {
 
   /** The environment every new submission uses, platform-wide from TIRA_ENV. */
   async getActiveEnvironment(): Promise<TiramisEnvironmentName> {
-    return this.defaultEnvironment();
+    const settings = await this.settingsRepository.findOne({
+      where: { id: TIRAMIS_PLATFORM_SETTINGS_ID },
+    });
+    return settings?.activeEnvironment ?? this.defaultEnvironment();
   }
 
   async isEnvironmentValidated(_environment: TiramisEnvironmentName) {
@@ -65,13 +71,55 @@ export class TiramisPlatformAccessService {
   async getServiceApiKey(
     environment: TiramisEnvironmentName,
   ): Promise<string | null> {
+    const profile = await this.connectionProfiles.findOne({
+      where: { environment },
+    });
+    if (profile?.serviceApiKeyEncrypted)
+      return this.apiKeyVault.decrypt(profile.serviceApiKeyEncrypted);
     const settings = await this.settingsRepository
       .createQueryBuilder('settings')
       .addSelect(['settings.serviceApiKeyEncrypted'])
       .where('settings.id = :id', { id: TIRAMIS_PLATFORM_SETTINGS_ID })
       .getOne();
-    void environment;
     return this.apiKeyVault.decrypt(settings?.serviceApiKeyEncrypted);
+  }
+
+  async getBaseUrl(environment: TiramisEnvironmentName): Promise<string> {
+    const profile = await this.connectionProfiles.findOne({
+      where: { environment },
+    });
+    return (
+      profile?.baseUrl?.trim() ||
+      this.configService.get<string>('tiramisClient.baseUrl') ||
+      'http://127.0.0.1:9091'
+    );
+  }
+
+  async getConnectionProfile(environment: TiramisEnvironmentName) {
+    return this.connectionProfiles.findOne({ where: { environment } });
+  }
+
+  async saveConnectionProfile(
+    environment: TiramisEnvironmentName,
+    patch: Partial<TiramisConnectionProfileEntity>,
+  ) {
+    const current = await this.connectionProfiles.findOne({
+      where: { environment },
+    });
+    return this.connectionProfiles.save(
+      this.connectionProfiles.create({ ...current, ...patch, environment }),
+    );
+  }
+
+  async activateEnvironment(
+    environment: TiramisEnvironmentName,
+    actorId: string,
+  ) {
+    const settings = await this.getSettings();
+    settings.activeEnvironment = environment;
+    settings.updatedBy = actorId;
+    await this.settingsRepository.save(settings);
+    return environment;
   }
 
   async getIntegrationPermissions(): Promise<string[]> {

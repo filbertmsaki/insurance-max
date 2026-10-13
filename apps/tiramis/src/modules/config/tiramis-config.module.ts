@@ -12,6 +12,7 @@ import { TiramisPortalNotificationsModule } from '../portal-notifications/tirami
 import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
 import { TiramisSystemProfileModule } from './tiramis-system-profile.module';
 import { TiramisPlatformProfileController } from './controllers/tiramis-platform-profile.controller';
+import { TiramisPlatformConnectionController } from './controllers/tiramis-platform-connection.controller';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { TiramisPlatformProfileController } from './controllers/tiramis-platform
   controllers: [
     TiramisConfigurationValidationController,
     TiramisPlatformProfileController,
+    TiramisPlatformConnectionController,
   ],
   providers: [TiramisConfigService],
   exports: [TiramisConfigService, TypeOrmModule, TiramisSystemProfileModule],

@@ -34,6 +34,7 @@ export interface EffectiveTiramisSystemProfile {
   portalWebhookApiKey: string | null;
   /** null = default event set. */
   portalNotificationEvents: string[] | null;
+  portalWebhookAllowedHosts: string[] | null;
   /** Where each value came from, for the admin screen. */
   sources: Record<string, 'profile' | 'environment' | 'default' | 'missing'>;
 }
@@ -50,6 +51,7 @@ export interface UpdateTiramisSystemProfileParams {
   signatureAlgorithm?: string | null;
   allowExpiredCertificates?: boolean | null;
   portalNotificationEvents?: string[] | null;
+  portalWebhookAllowedHosts?: string[] | null;
 }
 
 const ENV_NAMES = {
@@ -177,6 +179,7 @@ export class TiramisSystemProfileService
         row?.allowExpiredCertificates ?? allowExpiredFromEnv,
       portalWebhookApiKey: secret(row?.portalWebhookApiKeyEncrypted),
       portalNotificationEvents: row?.portalNotificationEvents ?? null,
+      portalWebhookAllowedHosts: row?.portalWebhookAllowedHosts ?? null,
       sources,
     };
   }
@@ -232,6 +235,8 @@ export class TiramisSystemProfileService
     if (params.portalNotificationEvents !== undefined) {
       row.portalNotificationEvents = params.portalNotificationEvents;
     }
+    if (params.portalWebhookAllowedHosts !== undefined)
+      row.portalWebhookAllowedHosts = params.portalWebhookAllowedHosts;
 
     // Any change to the identity invalidates the previous validation.
     row.validationStatus = 'NOT_VALIDATED';
@@ -251,6 +256,24 @@ export class TiramisSystemProfileService
     );
     row.portalWebhookApiKeyEncrypted = this.secretCrypto.encrypt(apiKey);
     row.updatedBy = actor;
+    return this.save(row);
+  }
+
+  async setPortalWebhookAllowedHosts(
+    environment: TiramisEnvironmentName,
+    hosts: string[],
+    actor: string,
+  ) {
+    const row = await this.loadOrCreate(
+      this.assertActiveEnvironment(environment),
+    );
+    row.portalWebhookAllowedHosts = [
+      ...new Set(
+        hosts.map((host) => host.trim().toLowerCase()).filter(Boolean),
+      ),
+    ];
+    row.updatedBy = actor;
+    row.validationStatus = 'NOT_VALIDATED';
     return this.save(row);
   }
 
@@ -334,6 +357,7 @@ export class TiramisSystemProfileService
       allowExpiredCertificates: effective.allowExpiredCertificates,
       portalWebhookApiKeyConfigured: Boolean(effective.portalWebhookApiKey),
       portalNotificationEvents: effective.portalNotificationEvents,
+      portalWebhookAllowedHosts: effective.portalWebhookAllowedHosts,
       sources: effective.sources,
       validationStatus: stored?.validationStatus ?? 'NOT_VALIDATED',
       validatedAt: stored?.validatedAt ?? null,

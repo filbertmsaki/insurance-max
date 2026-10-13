@@ -715,7 +715,9 @@ TIRAMIS (A2) and the Portal API (A3) must both be running and must pass B2 and B
 | TIRAMIS → portal webhook key, notification events | per environment | portal api client `TIRAMIS webhook (<env>)`; TIRAMIS profile |
 | Integration permissions (submit, read_status, receive_notifications), **active environment** | platform | portal `tiramis_platform_settings` |
 | Company name, insurer company code, insurer company name, access status | per company | portal `tiramis_company_links`; TIRAMIS `tiramis_client_configurations` (both environments, provisioned on link) |
-| `TIRAMIS_SERVICE_BASE_URL`, `TIRAMIS_SOURCE_SERVICE` | infrastructure | portal `.env` (shown read-only) |
+| TIRAMIS API base URL, TIRAMIS webhook source IP | per environment | Platform Admin `tiramis_connection_profiles` (encrypted key; URL/IP plain operational settings) |
+| Portal notification callback URL | Portal instance | Generated from Portal `APP_URL`, API prefix/version, and the fixed `/webhooks/tiramis/notifications` route; displayed read-only in Platform Admin |
+| `TIRAMIS_SOURCE_SERVICE` | infrastructure identity | portal `.env` (stable service identity; not an endpoint or credential) |
 
 ### A4.2 Set up the platform (once per environment)
 
@@ -1501,3 +1503,13 @@ Still read, so kept, but worth knowing:
   - `deploy/tiramis/PRODUCTION_ENV.md` says `X-Service-Context` can override the key's tenant, which the code forbids.
   - `insurance-frontend-cicd.yml` filters on a non-existent workflow filename.
 - **Fix:** update these to match the code.
+
+## Platform Admin managed connection profiles
+
+The Platform → TIRAMIS Integration page now contains a **Connection** tab for UAT and Production. Portal connection profiles are stored in `tiramis_connection_profiles`; service keys remain encrypted with the existing Portal key vault. The Portal notification callback URL is generated from its configured `APP_URL`, API prefix/version, and fixed `/webhooks/tiramis/notifications` path; the UI displays it read-only. TIRAMIS stores approved Portal callback hosts in its system profile. The `TIRA_*`, database, TLS/proxy, firewall and encryption-root secrets remain deployment/secret-store configuration.
+
+For rollout, deploy the Portal and TIRAMIS releases together and apply both services' normal production migrations. The Portal migration copies any existing service API keys into the environment profiles. Existing `TIRAMIS_SERVICE_BASE_URL` and `APP_URL` values remain fallbacks during adoption; on the Connection tab, save the TIRAMIS server URL and set the TIRAMIS egress address. Confirm the generated read-only callback URL matches the Portal's public `APP_URL` and API routing configuration. Generate the environment service key from the tab if one is missing or if its allowlist must change.
+
+Test the candidate profile before activation. The Portal → TIRAMIS check authenticates the service key and reports its bound environment. The reverse check asks TIRAMIS to deliver a signed challenge to the generated Portal callback. Activate only after both checks succeed. Pending submissions retain their recorded environment and callback URL; keep the previous callback host allowed until its pending submissions and notification retries are drained. The prior TIRAMIS base URL is retained in the connection profile for rollback reference.
+
+If either migration or deployment is rolled back, leave the existing environment variables and encryption keys in place. They provide compatibility for deployments that have not yet adopted database profiles. Do not change encryption-root keys during this migration: existing encrypted credentials depend on them.

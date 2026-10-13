@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
 import { AuditService } from '../../shared/audit/audit.service';
+import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from '../entities/tiramis-company-configuration.entity';
 import {
@@ -34,6 +35,7 @@ export class CompanyTiramisConfigurationService {
     private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
     private readonly configService: ConfigService,
     private readonly webhookCredentialService: TiramisWebhookCredentialService,
+    private readonly platformAccess: TiramisPlatformAccessService,
   ) {}
 
   /**
@@ -472,7 +474,7 @@ export class CompanyTiramisConfigurationService {
 
     return {
       environment,
-      webhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+      webhookUrl: await this.resolvePortalWebhookUrl(environment),
       configured: Boolean(configuration),
       validationStatus: configuration?.validationStatus ?? 'NOT_CONFIGURED',
       validatedAt: configuration?.validatedAt ?? null,
@@ -507,7 +509,7 @@ export class CompanyTiramisConfigurationService {
       companyId,
       environment,
       tiramisConfigurationId: validation.configurationId,
-      webhookUrl: resolveTiramisPortalWebhookUrl(this.configService),
+      webhookUrl: await this.resolvePortalWebhookUrl(environment),
     });
   }
 
@@ -539,6 +541,12 @@ export class CompanyTiramisConfigurationService {
       configurationId: tiramisConfigurationId,
       ...(result as object),
     };
+  }
+
+  private resolvePortalWebhookUrl(environment: 'uat' | 'production') {
+    // Notifications must always target the fixed endpoint on this Portal.
+    void environment;
+    return resolveTiramisPortalWebhookUrl(this.configService);
   }
 
   async syncPortalWebhookCredential(

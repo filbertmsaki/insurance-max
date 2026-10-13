@@ -5,6 +5,7 @@ import {
   type TiramisCertificateKind,
   type TiramisIntegrationPermission,
   type TiramisProfileUpdate,
+  type TiramisEnvironment,
 } from './api';
 
 export const tiramisIntegrationKeys = {
@@ -66,8 +67,14 @@ export function useValidateTiramisProfile() {
 export function useGenerateTiramisServiceKey() {
   const invalidate = useInvalidateTiramisIntegration();
   return useMutation({
-    mutationFn: (allowedIps: string[]) =>
-      tiramisIntegrationApi.generateServiceApiKey(allowedIps),
+    mutationFn: (params: {
+      allowedIps: string[];
+      environment?: TiramisEnvironment;
+    }) =>
+      tiramisIntegrationApi.generateServiceApiKey(
+        params.allowedIps,
+        params.environment,
+      ),
     onSuccess: () => void invalidate(),
   });
 }
@@ -78,6 +85,36 @@ export function useRotateTiramisWebhookKey() {
     mutationFn: () => tiramisIntegrationApi.rotateWebhookApiKey(),
     onSuccess: () => void invalidate(),
   });
+}
+
+export function useTiramisConnectionMutations() {
+  const invalidate = useInvalidateTiramisIntegration();
+  return {
+    update: useMutation({
+      mutationFn: (vars: {
+        environment: TiramisEnvironment;
+        data: {
+          baseUrl?: string;
+          webhookSourceIp?: string;
+        };
+      }) => tiramisIntegrationApi.updateConnection(vars.environment, vars.data),
+      onSuccess: () => void invalidate(),
+    }),
+    test: useMutation({
+      mutationFn: (environment: TiramisEnvironment) =>
+        tiramisIntegrationApi.testConnection(environment),
+      onSettled: () => void invalidate(),
+    }),
+    detectIps: useMutation({
+      mutationFn: (environment: TiramisEnvironment) =>
+        tiramisIntegrationApi.detectConnectionIps(environment),
+    }),
+    activate: useMutation({
+      mutationFn: (environment: TiramisEnvironment) =>
+        tiramisIntegrationApi.activateConnection(environment),
+      onSuccess: () => void invalidate(),
+    }),
+  };
 }
 
 export function useUpdateTiramisSettings() {

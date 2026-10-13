@@ -178,6 +178,7 @@ export class TiramisApiKeyService {
   async rotate(
     id: string,
     scopes?: string[],
+    allowedIps?: string[],
   ): Promise<TiramisApiKeyEntity & { apiKey: string }> {
     const existing = await this.getExisting(id);
     if (existing.revokedAt) {
@@ -199,6 +200,9 @@ export class TiramisApiKeyService {
         systemKey: true,
         isActive: true,
         ...(scopes ? { scopes } : {}),
+        ...(allowedIps
+          ? { allowedIps: this.normalizeAllowedIps(allowedIps) }
+          : {}),
       });
     });
     await this.audit(existing, 'ROTATED', 'SUCCESS', {
@@ -210,6 +214,7 @@ export class TiramisApiKeyService {
   async rotateSystem(
     serviceName: string,
     scopes?: string[],
+    allowedIps?: string[],
   ): Promise<TiramisApiKeyEntity & { apiKey: string }> {
     const existing = await this.apiKeyRepository.findOne({
       where: {
@@ -224,7 +229,7 @@ export class TiramisApiKeyService {
       throw new NotFoundException(
         'Active API key for this system was not found.',
       );
-    return this.rotate(existing.id, scopes);
+    return this.rotate(existing.id, scopes, allowedIps);
   }
 
   async validate(

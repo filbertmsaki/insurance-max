@@ -23,6 +23,7 @@ import { TiramisNotificationReceipt } from './entities/tiramis-notification-rece
 import { TiramisWebhookSignatureService } from './services/tiramis-webhook-signature.service';
 import { TiramisIntegrationController } from './tiramis-integration.controller';
 import { TiramisIntegrationWebhookController } from './tiramis-integration-webhook.controller';
+import { TiramisSourceIpDetectionController } from './tiramis-source-ip-detection.controller';
 import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @Module({
@@ -50,6 +51,7 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
   controllers: [
     TiramisIntegrationController,
     TiramisIntegrationWebhookController,
+    TiramisSourceIpDetectionController,
   ],
   providers: [
     TiramisIntegrationService,

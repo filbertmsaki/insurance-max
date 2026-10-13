@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isIP } from 'node:net';
+import { createHash, randomBytes } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
@@ -26,6 +28,7 @@ import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum
 import { TiramisClientService } from './tiramis-client.service';
 import { TiramisServiceApiKeyVaultService } from './tiramis-service-api-key-vault.service';
 import { TiramisWebhookCredentialService } from './tiramis-webhook-credential.service';
+import { RedisService } from '../../shared/redis/redis.service';
 
 /** Submissions still waiting on TIRA (they finish in their own environment). */
 const PENDING_STATUSES = [
@@ -61,6 +64,7 @@ export class PlatformTiramisIntegrationService {
     private readonly webhookCredentialService: TiramisWebhookCredentialService,
     private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
     private readonly auditService: AuditService,
+    private readonly redis: RedisService,
   ) {}
 
   // ---------------------------------------------------------------- overview
@@ -72,13 +76,14 @@ export class PlatformTiramisIntegrationService {
       this.tiramisClientService
         .platformAdminRequest<Record<string, unknown>>({
           method: 'GET',
-          url: '/api/tiramis/platform/profiles/active',
+          url: `/api/tiramis/platform/profiles/${activeEnvironment}`,
+          environment: activeEnvironment,
           failureMessage: 'Unable to read the TIRA profile from TIRAMIS.',
         })
         .catch((error: Error) => ({ error: error.message })),
       this.pendingByEnvironment(),
       this.linkCounts(),
-      this.serviceKeyConfigured(),
+      this.serviceKeyConfigured(activeEnvironment),
     ]);
 
     return {
@@ -94,6 +99,43 @@ export class PlatformTiramisIntegrationService {
         serviceApiKeyConfigured: keys,
         pendingSubmissions: pending[activeEnvironment] ?? 0,
       },
+      connections: await Promise.all(
+        (['uat', 'production'] as const).map(async (environment) => {
+          const profile =
+            await this.platformAccess.getConnectionProfile(environment);
+          const baseUrl =
+            profile?.baseUrl ??
+            (await this.platformAccess.getBaseUrl(environment));
+          const portalOutboundIps = await this.tiramisClientService
+            .getPlatformServiceKeyAllowedIps({
+              environment,
+              baseUrl: profile?.candidateBaseUrl ?? baseUrl,
+            })
+            .catch(() => null);
+          return {
+            environment,
+            baseUrl,
+            candidateBaseUrl: profile?.candidateBaseUrl ?? null,
+            portalWebhookUrl:
+              await this.tiramisClientService.getPortalWebhookUrl(environment),
+            // Retain the response field for older clients; editable callback
+            // candidates are no longer used.
+            candidatePortalWebhookUrl: null,
+            webhookSourceIp: profile?.webhookSourceIp ?? null,
+            portalOutboundIps,
+            serviceApiKeyConfigured: Boolean(
+              await this.platformAccess.getServiceApiKey(environment),
+            ),
+            validationStatus: profile?.validationStatus ?? 'NOT_VALIDATED',
+            validatedAt: profile?.validatedAt ?? null,
+            lastTestResult: profile?.lastTestResult ?? null,
+            previousBaseUrl: profile?.previousBaseUrl ?? null,
+            configurationSource: profile?.baseUrl
+              ? 'database'
+              : 'environment-fallback',
+          };
+        }),
+      ),
       profile,
       companies: links,
     };
@@ -147,25 +189,318 @@ export class PlatformTiramisIntegrationService {
 
   // ---------------------------------------------------------------- credentials
 
-  async generateServiceApiKey(allowedIps: string[], actorId: string) {
-    const environment = await this.platformAccess.getActiveEnvironment();
+  async generateServiceApiKey(
+    allowedIps: string[],
+    actorId: string,
+    requestedEnvironment?: 'uat' | 'production',
+  ) {
+    const environment =
+      requestedEnvironment ??
+      (await this.platformAccess.getActiveEnvironment());
+    const candidateUrl = (
+      await this.platformAccess.getConnectionProfile(environment)
+    )?.candidateBaseUrl;
     const apiKey = await this.tiramisClientService.issuePlatformServiceKey({
       environment,
       allowedIps,
+      baseUrl: candidateUrl ?? undefined,
     });
-    const settings = await this.loadSettings();
     const encrypted = this.apiKeyVault.encrypt(apiKey);
-    settings.serviceApiKeyEncrypted = encrypted;
-    settings.updatedBy = actorId;
-    await this.settingsRepository.save(settings);
+    await this.platformAccess.saveConnectionProfile(environment, {
+      serviceApiKeyEncrypted: encrypted,
+      updatedBy: actorId,
+      validationStatus: 'NOT_VALIDATED',
+      validatedAt: null,
+      lastTestResult: null,
+    });
 
     // TIRAMIS needs the matching webhook key to report results back.
-    await this.webhookCredentialService.syncPlatformWebhookApiKey(environment);
+    await this.webhookCredentialService.syncPlatformWebhookApiKey(
+      environment,
+      candidateUrl ?? undefined,
+    );
 
     await this.audit(actorId, 'tiramis.platform.service_api_key.rotated', {
       environment,
     });
     return { environment, serviceApiKeyConfigured: true };
+  }
+
+  async updateConnection(
+    environment: 'uat' | 'production',
+    params: {
+      baseUrl?: string;
+      /** @deprecated Accepted for old clients but ignored; the callback is Portal-owned. */
+      portalWebhookUrl?: string;
+      webhookSourceIp?: string;
+    },
+    actorId: string,
+  ) {
+    const profile = await this.platformAccess.getConnectionProfile(environment);
+    const baseUrl = params.baseUrl?.trim();
+    if (baseUrl) {
+      const parsed = new URL(baseUrl);
+      if (
+        !['https:', 'http:'].includes(parsed.protocol) ||
+        parsed.username ||
+        parsed.password ||
+        parsed.search ||
+        parsed.hash ||
+        parsed.pathname.endsWith('/api')
+      ) {
+        throw new BadRequestException(
+          'Enter a base URL without credentials, query, fragment, or trailing /api. Production requires HTTPS.',
+        );
+      }
+      if (environment === 'production' && parsed.protocol !== 'https:')
+        throw new BadRequestException('Production TIRAMIS URL must use HTTPS.');
+    }
+    if (params.webhookSourceIp?.trim()) {
+      const [address, prefix] = params.webhookSourceIp.trim().split('/');
+      const version = isIP(address);
+      const maxPrefix = version === 4 ? 32 : 128;
+      if (
+        !version ||
+        (prefix !== undefined &&
+          (!/^\d+$/.test(prefix) || Number(prefix) > maxPrefix))
+      )
+        throw new BadRequestException(
+          'Callback source must be a valid IP address or CIDR.',
+        );
+    }
+    const saved = await this.platformAccess.saveConnectionProfile(environment, {
+      ...(baseUrl ? { candidateBaseUrl: baseUrl } : {}),
+      ...(params.webhookSourceIp !== undefined
+        ? { webhookSourceIp: params.webhookSourceIp.trim() || null }
+        : {}),
+      updatedBy: actorId,
+      validationStatus: 'NOT_VALIDATED',
+      validatedAt: null,
+      lastTestResult: null,
+    });
+    if (params.baseUrl !== undefined) {
+      const configuredWebhookUrl =
+        await this.tiramisClientService.getPortalWebhookUrl(environment);
+      const host = configuredWebhookUrl
+        ? new URL(configuredWebhookUrl).hostname
+        : '';
+      const previousHosts = [
+        profile?.portalWebhookUrl,
+        profile?.candidatePortalWebhookUrl,
+      ]
+        .filter((value): value is string => Boolean(value))
+        .map((value) => new URL(value).hostname);
+      const allowedHosts = [
+        ...new Set([...previousHosts, host].filter(Boolean)),
+      ];
+      await this.tiramisClientService.platformAdminRequest({
+        method: 'PUT',
+        url: `/api/tiramis/platform/profiles/${environment}/portal-webhook-settings`,
+        data: { allowedHosts },
+        environment,
+        baseUrl: saved.candidateBaseUrl ?? saved.baseUrl ?? undefined,
+        failureMessage:
+          'Unable to synchronize the callback host policy to TIRAMIS.',
+      });
+    }
+    if (params.webhookSourceIp !== undefined)
+      await this.webhookCredentialService.syncPlatformWebhookApiKey(
+        environment,
+        saved.candidateBaseUrl ?? undefined,
+      );
+    await this.audit(actorId, 'tiramis.platform.connection.updated', {
+      environment,
+      baseUrl: saved.candidateBaseUrl ?? saved.baseUrl,
+      portalWebhookUrl:
+        await this.tiramisClientService.getPortalWebhookUrl(environment),
+      webhookSourceIp: saved.webhookSourceIp,
+    });
+    return {
+      environment,
+      baseUrl: saved.baseUrl,
+      candidateBaseUrl: saved.candidateBaseUrl,
+      candidatePortalWebhookUrl: null,
+      portalWebhookUrl:
+        await this.tiramisClientService.getPortalWebhookUrl(environment),
+      webhookSourceIp: saved.webhookSourceIp,
+      validationStatus: saved.validationStatus,
+    };
+  }
+
+  async activateConnection(environment: 'uat' | 'production', actorId: string) {
+    const profile = await this.platformAccess.getConnectionProfile(environment);
+    const hasUrl = Boolean(
+      profile?.candidateBaseUrl ||
+      profile?.baseUrl ||
+      (await this.platformAccess.getBaseUrl(environment)),
+    );
+    if (
+      !hasUrl ||
+      !profile?.lastTestResult ||
+      profile.lastTestResult.success !== true
+    )
+      throw new ConflictException(
+        'Run and pass the full connection test before activating this environment.',
+      );
+    const pending = (await this.pendingByEnvironment())[environment] ?? 0;
+    const currentBaseUrl =
+      profile?.baseUrl ?? (await this.platformAccess.getBaseUrl(environment));
+    if (
+      profile?.candidateBaseUrl &&
+      profile.candidateBaseUrl !== currentBaseUrl &&
+      pending > 0
+    )
+      throw new ConflictException(
+        `Drain ${pending} pending submissions before switching this environment to another TIRAMIS server.`,
+      );
+    if (profile?.candidateBaseUrl)
+      await this.platformAccess.saveConnectionProfile(environment, {
+        ...(profile.candidateBaseUrl
+          ? { baseUrl: profile.candidateBaseUrl }
+          : {}),
+        candidateBaseUrl: null,
+        ...(profile.candidateBaseUrl
+          ? { previousBaseUrl: currentBaseUrl }
+          : {}),
+        validationStatus: 'VALID',
+        validatedAt: new Date(),
+        updatedBy: actorId,
+      });
+    await this.platformAccess.activateEnvironment(environment, actorId);
+    await this.audit(actorId, 'tiramis.platform.environment.activated', {
+      environment,
+    });
+    return this.getOverview();
+  }
+
+  async testConnection(environment: 'uat' | 'production', actorId: string) {
+    const profile = await this.platformAccess.getConnectionProfile(environment);
+    if (!profile?.candidateBaseUrl && !profile?.baseUrl)
+      throw new BadRequestException(
+        'Save the candidate TIRAMIS base URL before testing.',
+      );
+    let result: Record<string, unknown>;
+    try {
+      const apiKey = await this.platformAccess.getServiceApiKey(environment);
+      let authenticated = false;
+      let serviceTest: unknown = null;
+      if (apiKey) {
+        serviceTest = await this.tiramisClientService.checkPlatformConnection(
+          environment,
+          profile?.candidateBaseUrl ?? undefined,
+        );
+        authenticated = true;
+      }
+      const callback =
+        await this.tiramisClientService.getPortalWebhookUrl(environment);
+      const webhook = callback
+        ? await this.tiramisClientService.testPlatformWebhook(
+            environment,
+            callback,
+            profile?.candidateBaseUrl ?? undefined,
+          )
+        : {
+            success: false,
+            message:
+              'Portal callback URL could not be generated from APP_URL and API routing configuration.',
+          };
+      result = {
+        success: authenticated && webhook.success === true,
+        portalToTiramis: {
+          success: authenticated,
+          authenticated,
+          details: serviceTest,
+        },
+        tiramisToPortal: webhook,
+        testedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      result = {
+        success: false,
+        message:
+          error instanceof Error ? error.message : 'Connection test failed.',
+        testedAt: new Date().toISOString(),
+      };
+    }
+    await this.platformAccess.saveConnectionProfile(environment, {
+      lastTestResult: result,
+      validationStatus: result.success === true ? 'VALID' : 'INVALID',
+      validatedAt: new Date(),
+      updatedBy: actorId,
+    });
+    await this.audit(actorId, 'tiramis.platform.connection.tested', {
+      environment,
+      success: result.success === true,
+      result,
+    });
+    return result;
+  }
+
+  async detectConnectionIps(
+    environment: 'uat' | 'production',
+    actorId: string,
+  ) {
+    const profile = await this.platformAccess.getConnectionProfile(environment);
+    const baseUrl = profile?.candidateBaseUrl ?? profile?.baseUrl ?? undefined;
+    if (!baseUrl && !(await this.platformAccess.getBaseUrl(environment))) {
+      throw new BadRequestException(
+        'Save a TIRAMIS base URL before detecting source IPs.',
+      );
+    }
+
+    const webhookUrl =
+      await this.tiramisClientService.getPortalWebhookUrl(environment);
+    if (!webhookUrl) {
+      throw new BadRequestException(
+        'The Portal callback URL could not be generated.',
+      );
+    }
+    const probeUrl = new URL(webhookUrl);
+    probeUrl.pathname = probeUrl.pathname.replace(
+      /\/notifications\/?$/,
+      '/source-ip-detection',
+    );
+    const challengeToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256')
+      .update(challengeToken, 'utf8')
+      .digest('hex');
+    const challengeKey = `tiramis:connection-ip-probe:${tokenHash}`;
+
+    try {
+      await this.redis.set(challengeKey, environment, 120);
+      const [portalOutbound, tiramisOutbound] = await Promise.all([
+        this.tiramisClientService.detectPortalOutboundIp(environment, baseUrl),
+        this.tiramisClientService.detectTiramisOutboundIp({
+          environment,
+          webhookUrl: probeUrl.toString(),
+          challengeToken,
+          baseUrl,
+        }),
+      ]);
+      if (
+        portalOutbound.environment !== environment ||
+        tiramisOutbound.environment !== environment
+      ) {
+        throw new BadRequestException(
+          'The detected source IP response came from a different TIRAMIS environment.',
+        );
+      }
+      const result = {
+        environment,
+        // Each value comes from the receiving server's observed request.ip.
+        portalOutboundIp: portalOutbound.observedIp,
+        tiramisOutboundIp: tiramisOutbound.observedIp,
+        detectedAt: new Date().toISOString(),
+      };
+      await this.audit(
+        actorId,
+        'tiramis.platform.connection.ips_detected',
+        result,
+      );
+      return result;
+    } finally {
+      await this.redis.del(challengeKey);
+    }
   }
 
   async syncWebhookApiKey(actorId: string) {
@@ -353,9 +688,8 @@ export class PlatformTiramisIntegrationService {
     return settings ?? (await this.platformAccess.getSettings());
   }
 
-  private async serviceKeyConfigured() {
-    const settings = await this.loadSettings();
-    return Boolean(settings.serviceApiKeyEncrypted);
+  private async serviceKeyConfigured(environment: 'uat' | 'production') {
+    return Boolean(await this.platformAccess.getServiceApiKey(environment));
   }
 
   private async pendingByEnvironment(): Promise<Record<string, number>> {

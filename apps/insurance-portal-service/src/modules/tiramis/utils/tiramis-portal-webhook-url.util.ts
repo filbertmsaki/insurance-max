@@ -4,9 +4,9 @@ import { buildUrl } from '@insurance-max/shared-config';
 
 /**
  * The portal endpoint TIRAMIS pushes final TIRA outcomes to. It is derived
- * from the portal's own public API base URL (APP_URL + global prefix) so it
+ * from the portal's own public API base URL (APP_URL + global prefix/version) so it
  * always points back at the instance that made the submission — there is no
- * separate env var for it. TIRAMIS rejects any submission without it.
+ * separate env var for it. The endpoint path is fixed in code; TIRAMIS rejects any submission without it.
  */
 export function resolveTiramisPortalWebhookUrl(
   configService: ConfigService,
