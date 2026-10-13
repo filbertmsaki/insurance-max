@@ -1,5 +1,6 @@
 import {
   Ban,
+  BarChart3,
   FileBarChart,
   Files,
   LayoutDashboard,
@@ -13,7 +14,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { ClaimsPermissions } from '@insurance-max/contracts';
-import type { NavGroup, NavLeaf } from '@/components/layout/nav-config';
+import type { NavLeaf, NavNode } from '@/components/layout/nav-config';
 import { CLAIM_QUEUES } from './constants';
 import { claimsPaths } from './paths';
 import type { ClaimQueue } from './types';
@@ -28,76 +29,75 @@ const QUEUE_ICONS: Record<ClaimQueue, NavLeaf['icon']> = {
 };
 
 /**
- * Sidebar section: Claims → Dashboard | All Claims | New Claim | one entry
- * per stage | Documents | Reports | Configuration.
- * The stage entries are filtered views of the same claims list (§3).
- * Dashboard, Documents and Reports sit around the stage entries.
+ * Sidebar section: direct dashboard, claims analytics, claims queues, and
+ * supporting links, with no Claims dropdown.
  */
-export function buildClaimsNavNodes(): NavGroup[] {
+export function buildClaimsNavNodes(): NavNode[] {
   return [
     {
-      kind: 'group',
+      kind: 'link',
       section: 'Claims',
-      label: 'Claims',
+      label: 'Dashboard',
+      to: claimsPaths.dashboard,
+      icon: LayoutDashboard,
+      anyPermission: [ClaimsPermissions.DASHBOARD, ClaimsPermissions.READ],
+      allowedScopes: ['company'],
+    },
+    {
+      kind: 'link',
+      label: 'All Claims',
+      to: claimsPaths.list,
       icon: ClipboardCheck,
-      children: [
-        {
-          kind: 'link',
-          label: 'Dashboard',
-          to: claimsPaths.dashboard,
-          icon: LayoutDashboard,
-          permission: ClaimsPermissions.DASHBOARD,
-          allowedScopes: ['company'],
-        },
-        {
-          kind: 'link',
-          label: 'All Claims',
-          to: claimsPaths.list,
-          icon: ClipboardCheck,
-          permission: ClaimsPermissions.READ,
-          allowedScopes: ['company'],
-        },
-        {
-          kind: 'link',
-          label: 'New Claim',
-          to: claimsPaths.create,
-          icon: FilePlus2,
-          permission: ClaimsPermissions.CREATE,
-          allowedScopes: ['company'],
-        },
-        ...CLAIM_QUEUES.map<NavLeaf>((queue) => ({
-          kind: 'link',
-          label: queue.label,
-          to: claimsPaths.queue(queue.queue),
-          icon: QUEUE_ICONS[queue.queue],
-          permission: ClaimsPermissions.READ,
-          allowedScopes: ['company'],
-        })),
-        {
-          kind: 'link',
-          label: 'Documents',
-          to: claimsPaths.documents,
-          icon: Files,
-          permission: ClaimsPermissions.DOCUMENT_VERIFY,
-          allowedScopes: ['company'],
-        },
-        {
-          kind: 'link',
-          label: 'Reports',
-          to: claimsPaths.reports,
-          icon: FileBarChart,
-          permission: ClaimsPermissions.REPORT_READ,
-          allowedScopes: ['company'],
-        },
-        {
-          kind: 'link',
-          label: 'Configuration',
-          to: claimsPaths.configuration,
-          icon: SlidersHorizontal,
-          permission: ClaimsPermissions.CONFIGURATION_MANAGE,
-          allowedScopes: ['company'],
-        },
-      ],
+      permission: ClaimsPermissions.READ,
+      allowedScopes: ['company'],
+    },
+    {
+      kind: 'link',
+      label: 'Analytics',
+      to: '/analytics/metrics',
+      icon: BarChart3,
+      anyPermission: ['analytics:metrics:read', 'analytics:read'],
+      allowedScopes: ['company'],
+    },
+    {
+      kind: 'link',
+      label: 'New Claim',
+      to: claimsPaths.create,
+      icon: FilePlus2,
+      permission: ClaimsPermissions.CREATE,
+      allowedScopes: ['company'],
+    },
+    ...CLAIM_QUEUES.map<NavLeaf>((queue) => ({
+      kind: 'link',
+      label: queue.label,
+      to: claimsPaths.queue(queue.queue),
+      icon: QUEUE_ICONS[queue.queue],
+      permission: ClaimsPermissions.READ,
+      allowedScopes: ['company'],
+    })),
+    {
+      kind: 'link',
+      label: 'Documents',
+      to: claimsPaths.documents,
+      icon: Files,
+      permission: ClaimsPermissions.DOCUMENT_VERIFY,
+      allowedScopes: ['company'],
+    },
+    {
+      kind: 'link',
+      label: 'Reports',
+      to: claimsPaths.reports,
+      icon: FileBarChart,
+      permission: ClaimsPermissions.REPORT_READ,
+      allowedScopes: ['company'],
+    },
+    {
+      kind: 'link',
+      label: 'Configuration',
+      to: claimsPaths.configuration,
+      icon: SlidersHorizontal,
+      permission: ClaimsPermissions.CONFIGURATION_MANAGE,
+      allowedScopes: ['company'],
     },
   ];
 }

@@ -1203,13 +1203,15 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'tiramis.retry',
     displayName: 'Retry TIRAMIS Submissions',
-    description: 'Allows user to retry failed or retryable TIRAMIS submissions',
+    description:
+      'Allows user to retry an individual company-owned TIRAMIS submission',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
     name: 'tiramis.sync',
     displayName: 'Sync TIRAMIS Status',
-    description: 'Allows user to sync final responses and business records',
+    description:
+      'Allows user to sync an individual company-owned TIRAMIS submission and its business record',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -4180,6 +4182,8 @@ const roleSeeds: RoleSeed[] = [
       'quotations:delete-draft',
       'tiramis.submit',
       'tiramis.tracking.view',
+      'tiramis.retry',
+      'tiramis.sync',
       'tiramis.monitoring.view',
       'tiramis.audit.view',
       'tiramis.notification.view',

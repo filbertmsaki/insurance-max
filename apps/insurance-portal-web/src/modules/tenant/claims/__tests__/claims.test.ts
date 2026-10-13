@@ -18,17 +18,19 @@ import {
 import { lossDateProblem } from '../wizard/useClaimWizard';
 
 describe('claims navigation', () => {
-  const [group] = buildClaimsNavNodes();
+  const nodes = buildClaimsNavNodes();
 
-  it('adds a Claims section with the list, wizard and one entry per stage', () => {
-    expect(group).toMatchObject({
-      kind: 'group',
+  it('adds direct Claims links without a Claims dropdown', () => {
+    expect(nodes[0]).toMatchObject({
+      kind: 'link',
       section: 'Claims',
-      label: 'Claims',
+      label: 'Dashboard',
+      to: claimsPaths.dashboard,
     });
-    expect(group.children.map((item) => item.to)).toEqual([
+    expect(nodes.map((item) => ('to' in item ? item.to : undefined))).toEqual([
       '/claims/dashboard',
       '/claims',
+      '/analytics/metrics',
       '/claims/new',
       '/claims/queue/notification',
       '/claims/queue/intimation',
@@ -44,10 +46,15 @@ describe('claims navigation', () => {
 
   it('gates reading by claims:read and the wizard by claims:create', () => {
     const permissions = Object.fromEntries(
-      group.children.map((item) => [item.to, item.permission]),
+      nodes
+        .filter((item) => item.kind === 'link')
+        .map((item) => [item.to, item.permission]),
     );
+    const dashboard = nodes[0];
+    expect(dashboard).toMatchObject({
+      anyPermission: ['claims:dashboard', 'claims:read'],
+    });
     expect(permissions[claimsPaths.create]).toBe('claims:create');
-    expect(permissions[claimsPaths.dashboard]).toBe('claims:dashboard');
     expect(permissions[claimsPaths.documents]).toBe('claims:document-verify');
     expect(permissions[claimsPaths.reports]).toBe('claims:report-read');
     expect(permissions[claimsPaths.configuration]).toBe(
@@ -58,18 +65,18 @@ describe('claims navigation', () => {
     }
   });
 
-  it('does not render the legacy Underwriting menu', () => {
+  it('does not render Claims as a dropdown menu', () => {
     const underwriting = NAV_NODES.find(
       (node): node is NavGroup =>
         node.kind === 'group' && node.label === 'Underwriting',
     );
     expect(underwriting).toBeUndefined();
     expect(
-      NAV_NODES.filter(
+      NAV_NODES.some(
         (node): node is NavGroup =>
           node.kind === 'group' && node.label === 'Claims',
       ),
-    ).toHaveLength(1);
+    ).toBe(false);
   });
 });
 
