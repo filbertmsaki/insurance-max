@@ -186,7 +186,6 @@ export function ClaimsReportsPage() {
       <PageHeader
         eyebrow="Claims"
         title="Claims reports"
-        description="Registers, outstanding and paid claims, reserves, payments, assessments and TIRA submissions."
       />
 
       {definitions.isError ? (

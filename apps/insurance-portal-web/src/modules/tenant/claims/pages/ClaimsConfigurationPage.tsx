@@ -408,7 +408,6 @@ export function ClaimsConfigurationPage() {
       <PageHeader
         eyebrow="Claims"
         title="Claims configuration"
-        description="Who may approve reserves, assessments, vouchers, payments and rejections, up to what amount, which documents each stage needs, and how claim documents are numbered."
         action={
           <Button onClick={() => setEditing('new')}>
             <Plus className="mr-2 h-4 w-4" />

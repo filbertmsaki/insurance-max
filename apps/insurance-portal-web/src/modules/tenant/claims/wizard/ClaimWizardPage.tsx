@@ -147,11 +147,6 @@ function ClaimWizardView({ existing }: { existing: ClaimDetail | null }) {
         <PageHeader
           eyebrow="Claims"
           title={existing ? `Edit claim ${existing.claim_no}` : 'New claim'}
-          description={
-            existing
-              ? 'Update the claim before it is reported to TIRA. The policy cannot be changed.'
-              : 'Register a loss against a policy. It is saved as a draft until the notification is submitted to TIRA.'
-          }
         />
 
         {existing && wizard.policy.data ? (

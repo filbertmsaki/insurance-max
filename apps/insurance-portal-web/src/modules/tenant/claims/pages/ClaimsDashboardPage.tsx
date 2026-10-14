@@ -150,7 +150,6 @@ export function ClaimsDashboardPage() {
       <PageHeader
         eyebrow="Claims"
         title="Claims dashboard"
-        description="Workload by stage, reserves and payments, and TIRA submission health."
         action={
           <div className="flex flex-wrap items-end gap-2 text-xs text-slate-500">
             <label className="space-y-1">

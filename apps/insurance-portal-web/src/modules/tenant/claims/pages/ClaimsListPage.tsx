@@ -155,10 +155,6 @@ function ClaimsList({ queue }: { queue: ClaimQueueMeta | null }) {
       <PageHeader
         eyebrow="Claims"
         title={queue?.title ?? 'All claims'}
-        description={
-          queue?.description ??
-          'Every claim case, from notification to settlement or rejection.'
-        }
         action={
           canCreate ? (
             <Button onClick={() => navigate(claimsPaths.create)}>

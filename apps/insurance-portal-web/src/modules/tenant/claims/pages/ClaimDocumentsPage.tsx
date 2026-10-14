@@ -107,7 +107,6 @@ export function ClaimDocumentsPage() {
       <PageHeader
         eyebrow="Claims"
         title="Claim documents"
-        description="Documents uploaded on claims. Open a claim to verify or reject its documents."
       />
       <DataTable
         {...tableProps}

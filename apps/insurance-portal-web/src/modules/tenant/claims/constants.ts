@@ -74,7 +74,6 @@ export interface ClaimQueueMeta {
   queue: ClaimQueue;
   label: string;
   title: string;
-  description: string;
   /** Statuses listed under this menu (CLAIM_QUEUE_STATUSES in the backend). */
   statuses: ClaimStatus[];
 }
@@ -84,16 +83,12 @@ export const CLAIM_QUEUES: ClaimQueueMeta[] = [
     queue: 'notification',
     label: 'Claim Notification',
     title: 'Claim notification',
-    description:
-      'Draft claims and notifications waiting for TIRA to issue a claim reference number (§9).',
     statuses: ['DRAFT', 'NOTIFICATION_SUBMITTED', 'NOTIFICATION_FAILED'],
   },
   {
     queue: 'intimation',
     label: 'Claim Intimation',
     title: 'Claim intimation',
-    description:
-      'Notified claims that need their reserve, assessor and claimants reported to TIRA (§10).',
     statuses: [
       'NOTIFICATION_ACCEPTED',
       'INTIMATION_PENDING',
@@ -105,7 +100,6 @@ export const CLAIM_QUEUES: ClaimQueueMeta[] = [
     queue: 'assessment',
     label: 'Claim Assessment',
     title: 'Claim assessment',
-    description: 'Intimated claims being assessed or awaiting approval (§11).',
     statuses: [
       'INTIMATED',
       'ASSESSMENT_PENDING',
@@ -120,8 +114,6 @@ export const CLAIM_QUEUES: ClaimQueueMeta[] = [
     queue: 'discharge',
     label: 'Discharge Voucher',
     title: 'Discharge vouchers',
-    description:
-      'Approved claims waiting for a discharge voucher or the claimant’s response (§12).',
     statuses: [
       'APPROVED',
       'DISCHARGE_PENDING',
@@ -133,8 +125,6 @@ export const CLAIM_QUEUES: ClaimQueueMeta[] = [
     queue: 'payment',
     label: 'Claim Payment',
     title: 'Claim payments',
-    description:
-      'Claims with an accepted discharge voucher and payments in progress (§13).',
     statuses: [
       'DISCHARGE_ACCEPTED',
       'PAYMENT_PENDING',
@@ -146,7 +136,6 @@ export const CLAIM_QUEUES: ClaimQueueMeta[] = [
     queue: 'rejection',
     label: 'Claim Rejection',
     title: 'Claim rejections',
-    description: 'Claims recommended for rejection or already rejected (§14).',
     statuses: ['REJECTION_PENDING', 'REJECTED'],
   },
 ];
