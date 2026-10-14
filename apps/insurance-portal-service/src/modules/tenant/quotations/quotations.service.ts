@@ -2026,7 +2026,9 @@ export class QuotationsService {
 
     const isRetryableTiraFailure =
       !!submitOptions.force_resubmit &&
-      quotation.status === QuotationStatus.FAILED &&
+      [QuotationStatus.FAILED, QuotationStatus.COMPLETED].includes(
+        quotation.status,
+      ) &&
       quotation.tira_status === TiraStatus.FAILED;
 
     if (
@@ -4188,7 +4190,9 @@ export class QuotationsService {
     if (
       quotation.status === QuotationStatus.READY_FOR_SUBMISSION ||
       (submitOptions.force_resubmit === true &&
-        quotation.status === QuotationStatus.FAILED &&
+        [QuotationStatus.FAILED, QuotationStatus.COMPLETED].includes(
+          quotation.status,
+        ) &&
         quotation.tira_status === TiraStatus.FAILED)
     ) {
       return QuotationStage.COMPLETED;
@@ -4660,7 +4664,9 @@ export class QuotationsService {
       quotation.tira_status === TiraStatus.NOT_SUBMITTED;
     const readyForRetry =
       !!submitOptions.force_resubmit &&
-      quotation.status === QuotationStatus.FAILED &&
+      [QuotationStatus.FAILED, QuotationStatus.COMPLETED].includes(
+        quotation.status,
+      ) &&
       quotation.tira_status === TiraStatus.FAILED;
 
     if (!readyForInitialSubmission && !readyForRetry) {
@@ -9648,7 +9654,8 @@ export class QuotationsService {
     quotation: Pick<Quotation, 'status' | 'tira_status'>,
   ): boolean {
     return (
-      quotation.status !== QuotationStatus.COMPLETED &&
+      (quotation.status !== QuotationStatus.COMPLETED ||
+        quotation.tira_status === TiraStatus.FAILED) &&
       quotation.status !== QuotationStatus.CANCELLED &&
       quotation.status !== QuotationStatus.EXPIRED &&
       quotation.tira_status !== TiraStatus.SUCCESS &&

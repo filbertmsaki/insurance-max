@@ -802,7 +802,6 @@ export class QuotationLifecycleService {
         if (
           quotation.status === QuotationStatus.CANCELLED ||
           quotation.status === QuotationStatus.EXPIRED ||
-          quotation.status === QuotationStatus.COMPLETED ||
           quotation.status === QuotationStatus.REJECTED ||
           this.isAcceptedTiraStatus(quotation.tira_status) ||
           quotation.tira_status === TiraStatus.REJECTED
@@ -811,7 +810,9 @@ export class QuotationLifecycleService {
         }
 
         const previous = this.snapshot(quotation);
-        quotation.status = QuotationStatus.FAILED;
+        quotation.status = this.hasSatisfiedRequirements(quotation)
+          ? QuotationStatus.COMPLETED
+          : QuotationStatus.FAILED;
         quotation.tira_status = TiraStatus.FAILED;
         this.applyTiraMetadata(quotation, context);
 
@@ -967,7 +968,9 @@ export class QuotationLifecycleService {
     >,
   ) {
     return (
-      quotation.status === QuotationStatus.FAILED &&
+      [QuotationStatus.FAILED, QuotationStatus.COMPLETED].includes(
+        quotation.status,
+      ) &&
       quotation.tira_status === TiraStatus.FAILED &&
       (!quotation.requires_approval ||
         quotation.approval_status === ApprovalStatus.APPROVED) &&
@@ -1048,7 +1051,9 @@ export class QuotationLifecycleService {
     }
 
     if (quotation.tira_status === TiraStatus.FAILED) {
-      quotation.status = QuotationStatus.FAILED;
+      quotation.status = this.hasSatisfiedRequirements(quotation)
+        ? QuotationStatus.COMPLETED
+        : QuotationStatus.FAILED;
       return;
     }
 
@@ -1063,6 +1068,15 @@ export class QuotationLifecycleService {
       approvalSatisfied && paymentSatisfied
         ? QuotationStatus.READY_FOR_SUBMISSION
         : QuotationStatus.PENDING_REQUIREMENTS;
+  }
+
+  private hasSatisfiedRequirements(quotation: Quotation): boolean {
+    return (
+      (!quotation.requires_approval ||
+        quotation.approval_status === ApprovalStatus.APPROVED) &&
+      (!quotation.requires_payment ||
+        quotation.payment_status === PaymentStatus.PAID)
+    );
   }
 
   private applyTiraMetadata(

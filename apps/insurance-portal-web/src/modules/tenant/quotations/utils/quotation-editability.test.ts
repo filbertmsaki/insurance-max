@@ -75,4 +75,16 @@ describe('canEditQuotation', () => {
       ),
     ).toBe(true);
   });
+
+  it('allows correction of a completed quotation after TIRAMIS failure', () => {
+    expect(
+      canEditQuotation(
+        quotation({
+          quotation_status: 'COMPLETED',
+          tira_status: 'FAILED',
+          submitted_at: '2026-10-01T00:00:00.000Z',
+        }),
+      ),
+    ).toBe(true);
+  });
 });

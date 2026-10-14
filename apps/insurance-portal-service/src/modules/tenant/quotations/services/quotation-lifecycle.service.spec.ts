@@ -73,6 +73,79 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
     };
   }
 
+  it('keeps a paid quotation completed when TIRAMIS submission fails', async () => {
+    const fixture = createFixture({
+      requires_payment: true,
+      payment_status: PaymentStatus.PAID,
+    });
+
+    await fixture.service.markTiraFailed('company-1', 'quotation-1', {
+      reason: 'TIRAMIS unavailable',
+      requestId: 'REQ-FAILED',
+    });
+
+    expect(fixture.quotation.status).toBe(QuotationStatus.COMPLETED);
+    expect(fixture.quotation.payment_status).toBe(PaymentStatus.PAID);
+    expect(fixture.quotation.tira_status).toBe(TiraStatus.FAILED);
+    expect(fixture.historyRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        previous_quotation_status: QuotationStatus.TIRA_PROCESSING,
+        new_quotation_status: QuotationStatus.COMPLETED,
+        new_tira_status: TiraStatus.FAILED,
+        transition_type: 'MARK_TIRA_FAILED',
+        request_id: 'REQ-FAILED',
+      }),
+    );
+
+    await fixture.service.markTiraFailed('company-1', 'quotation-1');
+    expect(fixture.historyRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not complete an unpaid quotation after a submission failure', async () => {
+    const fixture = createFixture({
+      requires_payment: true,
+      payment_status: PaymentStatus.REQUESTED,
+    });
+
+    await fixture.service.markTiraFailed('company-1', 'quotation-1');
+
+    expect(fixture.quotation.status).toBe(QuotationStatus.FAILED);
+    expect(fixture.quotation.tira_status).toBe(TiraStatus.FAILED);
+  });
+
+  it('keeps a previously acknowledged quotation completed on final failure', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.COMPLETED,
+      tira_status: TiraStatus.SUBMITTED,
+      requires_payment: true,
+      payment_status: PaymentStatus.PAID,
+    });
+
+    await fixture.service.markTiraFailed('company-1', 'quotation-1');
+
+    expect(fixture.quotation.status).toBe(QuotationStatus.COMPLETED);
+    expect(fixture.quotation.tira_status).toBe(TiraStatus.FAILED);
+  });
+
+  it('allows retry after a completed quotation has a failed TIRAMIS status', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.COMPLETED,
+      tira_status: TiraStatus.FAILED,
+      requires_payment: true,
+      payment_status: PaymentStatus.PAID,
+    });
+
+    await fixture.service.startTiraSubmission(
+      'company-1',
+      'quotation-1',
+      {},
+      { allowRetryFromFailure: true },
+    );
+
+    expect(fixture.quotation.status).toBe(QuotationStatus.SUBMITTING_TO_TIRA);
+    expect(fixture.quotation.tira_status).toBe(TiraStatus.SUBMITTING);
+  });
+
   it('keeps a successful cancellation callback quotation completed and stores callback audit metadata', async () => {
     const fixture = createFixture();
 

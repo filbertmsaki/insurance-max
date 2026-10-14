@@ -893,6 +893,34 @@ describe('QuotationsService', () => {
     );
   });
 
+  it('retries a completed paid quotation whose TIRAMIS submission failed', async () => {
+    const fixture = createServiceFixture({
+      status: QuotationStatus.COMPLETED,
+      tira_status: TiraStatus.FAILED,
+      payment_status: PaymentStatus.PAID,
+      submitted_at: new Date('2026-07-01T08:00:00.000Z'),
+      created_by: 'user-1',
+    });
+
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      retryTiramisUser,
+    );
+
+    expect(
+      fixture.quotationLifecycleService.startTiraSubmission,
+    ).toHaveBeenCalledWith(
+      'company-1',
+      fixture.quotation.id,
+      expect.objectContaining({
+        reason: 'Quotation resubmitted to TIRAMIS',
+      }),
+      { allowRetryFromFailure: true },
+    );
+  });
+
   it('blocks deletion of a quotation that has left draft or has approval/payment history', async () => {
     const fixture = createServiceFixture({
       status: QuotationStatus.READY_FOR_SUBMISSION,
