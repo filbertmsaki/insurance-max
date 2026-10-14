@@ -48,9 +48,12 @@ export function CustomerForm({
 }: CustomerFormProps) {
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema) as Resolver<CustomerFormValues>,
-    values: customer ? getCustomerDefaultValues(customer) : undefined,
-    defaultValues: getCustomerDefaultValues(),
+    defaultValues: getCustomerDefaultValues(customer),
   });
+
+  useEffect(() => {
+    if (customer) form.reset(getCustomerDefaultValues(customer));
+  }, [customer, form]);
 
   const customerType = useWatch({
     control: form.control,
