@@ -42,6 +42,15 @@ export function normalizeQuotationCoverPeriod(
   };
 }
 
+export function pricingCoverEndDate(value: string): string {
+  const parsed = parseDateTime(value, 'Cover Note End Date/Time');
+  if (!value.includes('T') || value.endsWith('T23:59:59')) {
+    return parsed.toISODate()!;
+  }
+
+  return parsed.minus({ days: 1 }).toISODate()!;
+}
+
 function parseDateTime(value: Date | string, fieldName: string): DateTime {
   const parsed =
     value instanceof Date

@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 import { TIRAMIS_DEFAULTS } from '../../../config/tiramis-defaults';
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
@@ -24,6 +26,7 @@ import { TiramisSubmissionAttemptRepository } from '../repositories/tiramis-subm
 import { TiramisSubmissionEventRepository } from '../repositories/tiramis-submission-event.repository';
 import { TiramisTransactionRepository } from '../repositories/tiramis-transaction.repository';
 import { TiramisResubmissionService } from './tiramis-resubmission.service';
+import { TiramisCoverNoteEntity } from '../../cover-notes/entities/tiramis-cover-note.entity';
 
 @Injectable()
 export class TiramisRetrySchedulerService {
@@ -42,6 +45,8 @@ export class TiramisRetrySchedulerService {
     private readonly coverPeriodService: TiramisCoverPeriodService,
     private readonly portalNotificationService: TiramisPortalNotificationService,
     private readonly resubmissionService: TiramisResubmissionService,
+    @InjectRepository(TiramisCoverNoteEntity)
+    private readonly coverNoteRepository: Repository<TiramisCoverNoteEntity>,
     private readonly configService?: ConfigService,
   ) {}
 
@@ -168,6 +173,22 @@ export class TiramisRetrySchedulerService {
   }
 
   private async sendRetryAttempt(attempt: any, transaction: any) {
+    if (
+      transaction.status === TIRAMIS_TRANSACTION_STATUS.SUCCESS ||
+      [
+        TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS,
+        TIRAMIS_ATTEMPT_STATUS.FINAL_SUCCESS,
+        TIRAMIS_ATTEMPT_STATUS.SENT,
+        TIRAMIS_ATTEMPT_STATUS.UNKNOWN,
+        TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE,
+        TIRAMIS_ATTEMPT_STATUS.SUPERSEDED,
+      ].includes(attempt.status)
+    ) {
+      throw new BadRequestException(
+        'Cannot resend an accepted or unresolved TIRA submission; synchronize its status first',
+      );
+    }
+
     const configuration =
       await this.tiramisConfigService.getRuntimeConfigurationById(
         transaction.clientConfigurationId,
@@ -181,6 +202,11 @@ export class TiramisRetrySchedulerService {
 
     const headers =
       await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        configuration,
+      );
+
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
         configuration,
       );
 
@@ -201,26 +227,24 @@ export class TiramisRetrySchedulerService {
       retryAttempt.requestId,
     );
 
+    let coverPeriod: ReturnType<
+      TiramisCoverPeriodService['normalizeRequestXml']
+    > | null = null;
     if (this.isCoverNoteService(transaction.serviceType)) {
-      const normalizedRequest =
-        this.coverPeriodService.normalizeRequestXml(requestXml);
+      coverPeriod = this.coverPeriodService.normalizeRequestXml(requestXml);
       const callbackUrl =
         this.tiramisConfigService.getTiraCallbackUrlForServiceType(
           configuration,
           transaction.serviceType,
         );
       const requestWithCallback = this.replaceXmlElement(
-        normalizedRequest.xml,
+        coverPeriod.xml,
         'CallBackUrl',
         callbackUrl,
       );
       requestXml = requestWithCallback;
     }
 
-    const pfxPaths =
-      await this.tiramisConfigService.getPfxPathsForConfiguration(
-        configuration,
-      );
     const parsedRequest = this.xmlParser.parseTiraMessage(requestXml);
 
     if (!parsedRequest.contentXml) {
@@ -247,6 +271,39 @@ export class TiramisRetrySchedulerService {
     retryAttempt.requestSignature = requestSignature;
 
     await this.attemptRepository.save(retryAttempt);
+
+    if (coverPeriod) {
+      await this.coverNoteRepository.update(
+        { transactionId: transaction.id },
+        {
+          coverNoteStartDate: this.coverPeriodService.toDate(
+            coverPeriod.startDateTime,
+          ),
+          coverNoteEndDate: this.coverPeriodService.toDate(
+            coverPeriod.endDateTime,
+          ),
+          currentAttemptId: retryAttempt.id,
+        },
+      );
+      const { xml: _xml, ...periodAudit } = coverPeriod;
+      await this.recordEvent({
+        transactionId: transaction.id,
+        attemptId: retryAttempt.id,
+        requestId: retryAttempt.requestId,
+        eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.COVER_PERIOD_VALIDATED,
+        statusDesc: coverPeriod.adjusted
+          ? 'Cover period adjusted'
+          : 'Cover period retained',
+        rawPayload: JSON.stringify({
+          originalStartDateTime: periodAudit.originalStartDateTime,
+          originalEndDateTime: periodAudit.originalEndDateTime,
+          submittedStartDateTime: periodAudit.startDateTime,
+          submittedEndDateTime: periodAudit.endDateTime,
+          durationMilliseconds: periodAudit.durationMilliseconds,
+          adjusted: periodAudit.adjusted,
+        }),
+      });
+    }
 
     await this.recordEvent({
       transactionId: transaction.id,

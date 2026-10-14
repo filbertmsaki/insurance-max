@@ -18,6 +18,7 @@ import { TiramisResubmissionService } from './services/tiramis-resubmission.serv
 import { TiramisSubmissionService } from './services/tiramis-submission.service';
 import { TiramisCoverPeriodService } from '../shared/services/tiramis-cover-period.service';
 import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
+import { TiramisCoverNoteEntity } from '../cover-notes/entities/tiramis-cover-note.entity';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { TiramisApiKeysModule } from '../api-keys/tiramis-api-keys.module';
       TiramisTransactionEntity,
       TiramisSubmissionAttemptEntity,
       TiramisSubmissionEventEntity,
+      TiramisCoverNoteEntity,
     ]),
   ],
   controllers: [TiramisSubmissionsController],

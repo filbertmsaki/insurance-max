@@ -59,6 +59,13 @@ export class TiramisCoverNoteRepository {
     await this.repository.update(id, { currentAttemptId });
   }
 
+  async setSubmittedCoverPeriod(id: string, start: Date, end: Date) {
+    await this.repository.update(id, {
+      coverNoteStartDate: start,
+      coverNoteEndDate: end,
+    });
+  }
+
   findById(id: string) {
     return this.repository.findOne({
       where: { id },

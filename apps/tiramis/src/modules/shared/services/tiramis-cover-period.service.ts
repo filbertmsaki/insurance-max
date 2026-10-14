@@ -3,9 +3,11 @@ import { DateTime } from 'luxon';
 
 const TIRA_DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss";
 const TIRA_TIMEZONE = 'Africa/Dar_es_Salaam';
-const MINIMUM_START_GAP_SECONDS = 10;
+const MINIMUM_START_GAP_SECONDS = 5;
 
 export interface TiramisCoverPeriod {
+  originalStartDateTime: string;
+  originalEndDateTime: string;
   startDateTime: string;
   endDateTime: string;
   durationMilliseconds: number;
@@ -29,24 +31,31 @@ export class TiramisCoverPeriodService {
         'Cover Note End Date/Time must be later than Start Date/Time',
       );
     }
+    if (durationMilliseconds % 1000 !== 0) {
+      throw new BadRequestException(
+        'Cover period duration must use whole seconds for TIRA XML',
+      );
+    }
 
-    // Round upward to a whole second before adding the safety gap. This keeps
-    // the second-precision value sent to TIRA at least ten full seconds ahead.
+    // XML has second precision, so round the threshold upward after adding
+    // five seconds. Equality must also be adjusted.
     const serverNow = DateTime.fromJSDate(now, { zone: TIRA_TIMEZONE });
+    const threshold = serverNow.plus({ seconds: MINIMUM_START_GAP_SECONDS });
     const roundedServerNow =
-      serverNow.millisecond === 0
-        ? serverNow
-        : serverNow.startOf('second').plus({ seconds: 1 });
-    const minimumStart = roundedServerNow.plus({
-      seconds: MINIMUM_START_GAP_SECONDS,
-    });
-    const adjusted = originalStart.toMillis() < minimumStart.toMillis();
+      threshold.millisecond === 0
+        ? threshold.plus({ seconds: 1 })
+        : threshold.startOf('second').plus({ seconds: 1 });
+    const minimumStart = roundedServerNow;
+    const adjusted =
+      originalStart.startOf('second').toMillis() <= threshold.toMillis();
     const start = adjusted ? minimumStart : originalStart;
     const end = adjusted
       ? start.plus({ milliseconds: durationMilliseconds })
       : originalEnd;
 
     return {
+      originalStartDateTime: originalStart.toFormat(TIRA_DATETIME_FORMAT),
+      originalEndDateTime: originalEnd.toFormat(TIRA_DATETIME_FORMAT),
       startDateTime: start.toFormat(TIRA_DATETIME_FORMAT),
       endDateTime: end.toFormat(TIRA_DATETIME_FORMAT),
       durationMilliseconds,
@@ -67,6 +76,10 @@ export class TiramisCoverPeriodService {
         period.endDateTime,
       ),
     };
+  }
+
+  toDate(value: Date | string): Date {
+    return this.parse(value, 'Cover Note Date/Time').toJSDate();
   }
 
   private parse(value: Date | string, fieldName: string): DateTime {

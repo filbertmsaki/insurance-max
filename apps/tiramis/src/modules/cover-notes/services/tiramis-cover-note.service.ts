@@ -73,7 +73,6 @@ export class TiramisCoverNoteService {
         );
     }
 
-    this.normalizeCoverPeriod(resolvedDto);
     this.validateNonMotorPayload(resolvedDto);
 
     const requestId =
@@ -113,8 +112,12 @@ export class TiramisCoverNoteService {
       prevCoverNoteReferenceNumber:
         resolvedDto.prevCoverNoteReferenceNumber || null,
       salePointCode: resolvedDto.salePointCode,
-      coverNoteStartDate: new Date(resolvedDto.coverNoteStartDate),
-      coverNoteEndDate: new Date(resolvedDto.coverNoteEndDate),
+      coverNoteStartDate: this.coverPeriodService.toDate(
+        resolvedDto.coverNoteStartDate,
+      ),
+      coverNoteEndDate: this.coverPeriodService.toDate(
+        resolvedDto.coverNoteEndDate,
+      ),
       coverNoteDesc: resolvedDto.coverNoteDesc,
       operativeClause: resolvedDto.operativeClause,
       paymentMode: resolvedDto.paymentMode,
@@ -353,11 +356,34 @@ export class TiramisCoverNoteService {
       payloadHash,
     });
 
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        configuration,
+      );
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+        configuration,
+        serviceType: this.serviceType,
+      });
+    const headers =
+      await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        configuration,
+      );
+
     // Re-check against a fresh server timestamp immediately before building
     // and signing the outbound XML.
-    this.normalizeCoverPeriod(resolvedDto);
-    coverNote.coverNoteStartDate = new Date(resolvedDto.coverNoteStartDate);
-    coverNote.coverNoteEndDate = new Date(resolvedDto.coverNoteEndDate);
+    const coverPeriod = this.normalizeCoverPeriod(resolvedDto);
+    coverNote.coverNoteStartDate = this.coverPeriodService.toDate(
+      resolvedDto.coverNoteStartDate,
+    );
+    coverNote.coverNoteEndDate = this.coverPeriodService.toDate(
+      resolvedDto.coverNoteEndDate,
+    );
+    await this.coverNoteRepository.setSubmittedCoverPeriod(
+      coverNote.id,
+      coverNote.coverNoteStartDate,
+      coverNote.coverNoteEndDate,
+    );
 
     const payload = this.payloadService.buildFromDto({
       dto: resolvedDto,
@@ -368,11 +394,6 @@ export class TiramisCoverNoteService {
       this.rootElement,
       payload,
     );
-
-    const pfxPaths =
-      await this.tiramisConfigService.getPfxPathsForConfiguration(
-        configuration,
-      );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
@@ -393,19 +414,15 @@ export class TiramisCoverNoteService {
       requestSignature: signature,
     });
 
+    await this.tiramisSubmissionService.recordCoverPeriodValidation({
+      transactionId: transaction.id,
+      attemptId: attempt.id,
+      requestId: coverNote.requestId,
+      ...coverPeriod,
+    });
+
     coverNote.currentAttemptId = attempt.id;
     await this.coverNoteRepository.setCurrentAttempt(coverNote.id, attempt.id);
-
-    const endpoint =
-      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
-        configuration,
-        serviceType: this.serviceType,
-      });
-
-    const headers =
-      await this.tiramisConfigService.getRequestHeadersForConfiguration(
-        configuration,
-      );
 
     await this.tiramisSubmissionService.markSent(coverNote.requestId);
 
@@ -580,6 +597,7 @@ export class TiramisCoverNoteService {
 
     dto.coverNoteStartDate = period.startDateTime;
     dto.coverNoteEndDate = period.endDateTime;
+    return period;
   }
 
   private maskTiraHeaders(

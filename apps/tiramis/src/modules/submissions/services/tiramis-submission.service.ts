@@ -286,6 +286,36 @@ export class TiramisSubmissionService {
     return savedAttempt;
   }
 
+  async recordCoverPeriodValidation(params: {
+    transactionId: string;
+    attemptId: string;
+    requestId: string;
+    originalStartDateTime: string;
+    originalEndDateTime: string;
+    startDateTime: string;
+    endDateTime: string;
+    durationMilliseconds: number;
+    adjusted: boolean;
+  }) {
+    return this.createEvent({
+      transactionId: params.transactionId,
+      attemptId: params.attemptId,
+      requestId: params.requestId,
+      eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.COVER_PERIOD_VALIDATED,
+      statusDesc: params.adjusted
+        ? 'Cover period adjusted'
+        : 'Cover period retained',
+      rawPayload: JSON.stringify({
+        originalStartDateTime: params.originalStartDateTime,
+        originalEndDateTime: params.originalEndDateTime,
+        submittedStartDateTime: params.startDateTime,
+        submittedEndDateTime: params.endDateTime,
+        durationMilliseconds: params.durationMilliseconds,
+        adjusted: params.adjusted,
+      }),
+    });
+  }
+
   async markAcknowledgementReceived(params: {
     requestId: string;
     acknowledgementId?: string;

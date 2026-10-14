@@ -3,6 +3,7 @@ import {
   TIRAMIS_TRANSACTION_STATUS,
 } from '../constants/tiramis-submission.constants';
 import { TiramisRetrySchedulerService } from './tiramis-retry-scheduler.service';
+import { TiramisCoverPeriodService } from '../../shared/services/tiramis-cover-period.service';
 
 function createService() {
   const attemptRepository = {
@@ -64,6 +65,9 @@ function createService() {
   const resubmissionService = {
     prepareResubmission: jest.fn(),
   };
+  const coverNoteRepository = {
+    update: jest.fn().mockResolvedValue(undefined),
+  };
 
   const service = new TiramisRetrySchedulerService(
     attemptRepository as any,
@@ -74,19 +78,23 @@ function createService() {
     xmlParser as any,
     xmlBuilder as any,
     signatureService as any,
-    {} as any,
+    new TiramisCoverPeriodService(),
     portalNotificationService as any,
     resubmissionService as any,
+    coverNoteRepository as any,
   );
 
   return {
     service,
     attemptRepository,
     eventRepository,
+    coverNoteRepository,
     transactionRepository,
     portalNotificationService,
     resubmissionService,
     httpClient,
+    xmlParser,
+    eventRepository,
   };
 }
 
@@ -141,6 +149,94 @@ describe('TiramisRetrySchedulerService recovery states', () => {
       previousRequestId: 'REQ-1',
     });
     expect(priorAttempt.requestId).toBe('REQ-1');
+  });
+
+  it('moves a stale motor cover period on manual retry and audits the outbound dates', async () => {
+    const {
+      service,
+      attemptRepository,
+      transactionRepository,
+      resubmissionService,
+      xmlParser,
+      eventRepository,
+      httpClient,
+      coverNoteRepository,
+    } = createService();
+    const priorAttempt = {
+      id: 'attempt-1',
+      transactionId: 'txn-1',
+      requestId: 'REQ-1',
+      rootElement: 'MotorCoverNoteRefReq',
+      status: TIRAMIS_ATTEMPT_STATUS.FAILED,
+      requestXml:
+        '<TiraMsg><MotorCoverNoteRefReq><RequestId>REQ-1</RequestId><CoverNoteStartDate>2020-01-01T10:00:00</CoverNoteStartDate><CoverNoteEndDate>2020-01-31T10:00:00</CoverNoteEndDate><CallBackUrl>https://old.example</CallBackUrl></MotorCoverNoteRefReq></TiraMsg>',
+      retryCount: 0,
+      maxRetries: 5,
+    };
+    const transaction = {
+      id: 'txn-1',
+      clientConfigurationId: 'config-1',
+      serviceType: 'MOTOR_COVER_NOTE_NON_FLEET',
+      status: TIRAMIS_TRANSACTION_STATUS.FAILED,
+    };
+    attemptRepository.findById.mockResolvedValue(priorAttempt);
+    transactionRepository.findById.mockResolvedValue(transaction);
+    resubmissionService.prepareResubmission.mockResolvedValue({
+      id: 'attempt-2',
+      transactionId: 'txn-1',
+      requestId: 'REQ-2',
+      previousRequestId: 'REQ-1',
+    });
+    (service as any).tiramisConfigService.getTiraCallbackUrlForServiceType =
+      jest.fn().mockReturnValue('https://new.example');
+
+    await service.retryAttemptManually('attempt-1');
+
+    const preparedXml = xmlParser.parseTiraMessage.mock.calls[0][0] as string;
+    expect(preparedXml).toContain('<RequestId>REQ-2</RequestId>');
+    expect(preparedXml).toContain(
+      '<CallBackUrl>https://new.example</CallBackUrl>',
+    );
+    const start = /<CoverNoteStartDate>([^<]+)</.exec(preparedXml)![1];
+    const end = /<CoverNoteEndDate>([^<]+)</.exec(preparedXml)![1];
+    expect(start).not.toBe('2020-01-01T10:00:00');
+    expect(new Date(end).getTime() - new Date(start).getTime()).toBe(
+      30 * 24 * 60 * 60 * 1000,
+    );
+    expect(eventRepository.createEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'COVER_PERIOD_VALIDATED',
+        rawPayload: expect.stringContaining(
+          '"originalStartDateTime":"2020-01-01T10:00:00"',
+        ),
+      }),
+    );
+    expect(httpClient.postXml).toHaveBeenCalledTimes(1);
+    expect(coverNoteRepository.update).toHaveBeenCalledWith(
+      { transactionId: 'txn-1' },
+      expect.objectContaining({ currentAttemptId: 'attempt-2' }),
+    );
+  });
+
+  it('refuses to retry an acknowledged cover note', async () => {
+    const { service, attemptRepository, transactionRepository, httpClient } =
+      createService();
+    attemptRepository.findById.mockResolvedValue({
+      id: 'attempt-1',
+      transactionId: 'txn-1',
+      requestId: 'REQ-1',
+      status: TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS,
+      requestXml: '<TiraMsg/>',
+    });
+    transactionRepository.findById.mockResolvedValue({
+      id: 'txn-1',
+      status: TIRAMIS_TRANSACTION_STATUS.PROCESSING,
+    });
+
+    await expect(service.retryAttemptManually('attempt-1')).rejects.toThrow(
+      'Cannot resend an accepted or unresolved TIRA submission',
+    );
+    expect(httpClient.postXml).not.toHaveBeenCalled();
   });
 
   it('notifies the portal when retry attempts are exhausted', async () => {
