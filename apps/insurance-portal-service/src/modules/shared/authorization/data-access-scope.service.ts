@@ -336,16 +336,7 @@ export class DataAccessScopeService {
     alias: string,
     scope: TenantDataScope,
   ): void {
-    queryBuilder
-      .andWhere(`${alias}.company_id = :scopeCompanyId`)
-      .setParameters({
-        scopeCompanyId: scope.companyId,
-        scopeUserId: scope.userId,
-      });
-
-    if (!scope.canViewAllBranches || scope.ownRecordsOnly) {
-      queryBuilder.andWhere(`${alias}.created_by = :scopeUserId`);
-    }
+    this.applyCustomerReadScope(queryBuilder, alias, scope);
   }
 
   applyClaimReadScope<T extends ObjectLiteral>(

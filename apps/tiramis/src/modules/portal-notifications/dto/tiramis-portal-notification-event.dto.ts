@@ -32,6 +32,7 @@ export interface TiramisPortalNotificationEventDto {
   stickerNumber?: string | null;
   claimReferenceNumber?: string | null;
   regulatoryResponse?: RegulatoryFinalResponse | null;
+  submittedRequestXml?: string | null;
   errorMessage?: string | null;
   occurredAt: string;
 }

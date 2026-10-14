@@ -57,6 +57,13 @@ describe('TiramisPortalNotificationService', () => {
       outboxRepository as any,
       {} as any,
       {} as any,
+      {
+        getEffective: jest.fn().mockReturnValue({
+          portalWebhookAllowedHosts: ['portal.example.test'],
+          portalWebhookApiKey: null,
+        }),
+        normalizeEnvironment: jest.fn().mockReturnValue('uat'),
+      } as any,
     );
 
     return {

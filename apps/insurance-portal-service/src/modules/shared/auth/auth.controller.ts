@@ -20,6 +20,7 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Public } from '@insurance-max/portal-shared/decorators/public.decorator';
 import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
 import { DataAccessScopeService } from '../authorization/data-access-scope.service';
+import { AuthorizationContextRateLimitGuard } from './guards/authorization-context-rate-limit.guard';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { RefreshTokenDto } from './dtos/refresh-token.dto';
@@ -47,8 +48,10 @@ export class AuthController {
   // ── Authorization context ────────────────────────────────────────────────────
 
   @Get('authorization-context')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), AuthorizationContextRateLimitGuard)
   @ApiBearerAuth('access-token')
+  // Global throttling is per IP and runs before auth; this endpoint is
+  // limited per user by AuthorizationContextRateLimitGuard instead.
   @SkipThrottle()
   @ApiOperation({
     summary: "Return the caller's current authorization context",

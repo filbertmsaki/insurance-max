@@ -18,7 +18,6 @@ import {
 } from 'class-validator';
 import { CustomerDocumentType } from '../enums/customer-document-type.enum';
 import { CustomerGender } from '../enums/customer-gender.enum';
-import { CustomerKycStatus } from '../enums/customer-kyc-status.enum';
 import { CustomerStatus } from '../enums/customer-status.enum';
 import { CustomerType } from '../enums/customer-type.enum';
 
@@ -366,10 +365,6 @@ export class CreateCustomerDto {
   @IsEmail()
   @MaxLength(100)
   contact_email?: string | null;
-
-  @IsOptional()
-  @IsEnum(CustomerKycStatus)
-  kyc_status?: CustomerKycStatus;
 
   @IsOptional()
   @IsEnum(CustomerDocumentType)

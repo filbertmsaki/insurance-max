@@ -560,6 +560,22 @@ export class TiramisIntegrationService {
       return savedSubmission;
     }
 
+    if (
+      this.isQuotationSource(savedSubmission.source_module) &&
+      payload.submittedRequestXml
+    ) {
+      const quotationId =
+        savedSubmission.quotation_id || savedSubmission.source_record_id;
+      if (quotationId && savedSubmission.company_id) {
+        await this.tiramisBusinessRecordSyncService.syncSubmittedQuotation({
+          companyId: savedSubmission.company_id,
+          quotationId,
+          requestId: payload.requestId,
+          requestXml: payload.submittedRequestXml,
+        });
+      }
+    }
+
     // IMPORTANT:
     // Update the quotation lifecycle first.
     //

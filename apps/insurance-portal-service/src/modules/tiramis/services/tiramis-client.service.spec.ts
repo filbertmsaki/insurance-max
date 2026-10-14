@@ -1,4 +1,5 @@
 import { of } from 'rxjs';
+import { ConflictException } from '@nestjs/common';
 
 import { TiramisClientService } from './tiramis-client.service';
 import { TIRAMIS_MESSAGE_PATTERNS } from '../constants/tiramis-message-patterns.constant';
@@ -19,21 +20,68 @@ describe('TiramisClientService', () => {
       {} as any,
     ) as any;
 
-  it('keeps request callbackUrl overrides on motor submit payloads', () => {
+  it('blocks resubmission after final success even when the payload changed', async () => {
+    const service = createService();
+    const send = jest.spyOn(service, 'send');
+    jest
+      .spyOn(service, 'assertConfiguredIntegrationPermission')
+      .mockResolvedValue(undefined);
+    service.auditService = { log: jest.fn().mockResolvedValue(undefined) };
+    service.trackingRepository = {
+      findLatestSubmissionForSameBusiness: jest.fn().mockResolvedValue({
+        id: 'tracking-1',
+        status: 'FINAL_SUCCESS',
+        requestPayload: { coverNoteNumber: 'OLD' },
+      }),
+    };
+
+    await expect(
+      service.submit({
+        requestType: 'MOTOR',
+        sourceCompanyId: 'company-1',
+        sourceModule: 'quotations',
+        sourceRecordId: 'quote-1',
+        businessReference: 'CN-1',
+        payload: { coverNoteNumber: 'NEW' },
+        forceResubmit: true,
+      }),
+    ).rejects.toThrow('Sync its status and data');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('blocks a direct resend after final success', async () => {
+    const service = createService();
+    service.trackingRepository = {
+      findById: jest.fn().mockResolvedValue({
+        id: 'tracking-1',
+        status: 'FINAL_SUCCESS',
+        requestPayload: { coverNoteNumber: 'CN-1' },
+      }),
+    };
+    await expect(
+      service.resendTrackingRecord('tracking-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('keeps request callbackUrl overrides on motor submit payloads', async () => {
     const service = createService();
 
-    const payload = service.httpPayload(TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR, {
-      payload: {
-        companyCode: 'COMPANY',
-        systemCode: 'SYSTEM',
-        insurerCompanyCode: 'INSURER',
-        tranCompanyCode: 'TRANS',
-        salePointCode: 'SP500',
-        callbackUrl: 'https://portal.example.test/callback',
-        callback_url: 'https://portal.example.test/callback-legacy',
-        coverNoteNumber: 'CN-001',
+    const payload = await service.httpPayload(
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR,
+      {
+        payload: {
+          companyCode: 'COMPANY',
+          systemCode: 'SYSTEM',
+          insurerCompanyCode: 'INSURER',
+          tranCompanyCode: 'TRANS',
+          salePointCode: 'SP500',
+          callbackUrl: 'https://portal.example.test/callback',
+          callback_url: 'https://portal.example.test/callback-legacy',
+          coverNoteNumber: 'CN-001',
+        },
       },
-    });
+      'uat',
+    );
 
     expect(payload).toEqual({
       salePointCode: 'SP500',
@@ -54,19 +102,23 @@ describe('TiramisClientService', () => {
     ).toEqual(['salePointCode is required']);
   });
 
-  it('keeps non-submission payloads unchanged', () => {
+  it('keeps non-submission payloads unchanged', async () => {
     const service = createService();
     const command = {
       callbackUrl: 'https://portal.example.test/callback',
       requestId: 'REQ-001',
     };
 
-    expect(service.httpPayload(TIRAMIS_MESSAGE_PATTERNS.STATUS, command)).toBe(
-      command,
-    );
+    expect(
+      await service.httpPayload(
+        TIRAMIS_MESSAGE_PATTERNS.STATUS,
+        command,
+        'uat',
+      ),
+    ).toBe(command);
   });
 
-  it('always sends the portal webhook URL in submission source metadata', () => {
+  it('always sends the portal webhook URL in submission source metadata', async () => {
     const config: Record<string, string> = {
       'app.apiBaseUrl': 'https://portal.example.test/api',
       'app.version': 'v1',
@@ -85,13 +137,16 @@ describe('TiramisClientService', () => {
       {} as any,
     ) as any;
 
-    const header = service.encodeSourceMetadata({
-      sourceService: 'insurance-portal-service',
-      sourceCompanyId: 'company-1',
-      sourceModule: 'quotations',
-      businessReference: 'AICL260929004',
-      requestType: 'MOTOR',
-    });
+    const header = await service.encodeSourceMetadata(
+      {
+        sourceService: 'insurance-portal-service',
+        sourceCompanyId: 'company-1',
+        sourceModule: 'quotations',
+        businessReference: 'AICL260929004',
+        requestType: 'MOTOR',
+      },
+      'uat',
+    );
 
     expect(
       JSON.parse(Buffer.from(header, 'base64url').toString('utf8')),
@@ -154,6 +209,7 @@ describe('TiramisClientService', () => {
       {
         getServiceApiKey: jest.fn().mockResolvedValue(null),
         getActiveEnvironment: jest.fn().mockResolvedValue('production'),
+        getBaseUrl: jest.fn().mockResolvedValue('https://tiramis.example.test'),
         getIntegrationPermissions: jest
           .fn()
           .mockResolvedValue(['submit', 'read_status']),
@@ -219,6 +275,9 @@ describe('TiramisClientService', () => {
       {} as any,
       {
         findOne: jest.fn().mockResolvedValue({ isActive: true }),
+      } as any,
+      {
+        getBaseUrl: jest.fn().mockResolvedValue('https://tiramis.example.test'),
       } as any,
     );
 
@@ -338,7 +397,11 @@ describe('TiramisClientService', () => {
       {} as any,
       {} as any,
       { createQueryBuilder: jest.fn() } as any,
-      { getServiceApiKey, getActiveEnvironment: jest.fn() } as any,
+      {
+        getServiceApiKey,
+        getActiveEnvironment: jest.fn(),
+        getBaseUrl: jest.fn().mockResolvedValue('https://tiramis.example.test'),
+      } as any,
     );
 
     const connection = await (service as any).resolveConnectionConfig(

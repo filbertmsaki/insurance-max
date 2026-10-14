@@ -58,10 +58,7 @@ import { quotationTotals } from '../wizard/utils/quotationTotals';
 import { WizardInput } from '../wizard/components/WizardInput';
 import { quotationPricingIssues } from '../wizard/utils/quotationReadiness';
 import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
-import {
-  computeCoverNoteDateRange,
-  dateOnlyPart,
-} from '../wizard/utils/coverNoteDateRange';
+import { computeCoverNoteDateRange } from '../wizard/utils/coverNoteDateRange';
 import {
   getWizardStepsForFlow,
   type QuotationWizardStepId,
@@ -623,8 +620,8 @@ export function QuotationWizardPage() {
     const dates = computeCoverNoteDateRange(365);
     form.reset({
       ...DEFAULT_VALUES,
-      valid_from: dateOnlyPart(dates.validFrom),
-      valid_until: dateOnlyPart(dates.validUntil),
+      valid_from: dates.validFrom,
+      valid_until: dates.validUntil,
       ...loadDraft(),
       insurer_company_id: companyId,
     });

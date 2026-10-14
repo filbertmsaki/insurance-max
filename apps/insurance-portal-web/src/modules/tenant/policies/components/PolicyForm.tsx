@@ -20,6 +20,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import {
+  computeCoverNoteDateRange,
+  dateOnlyPart,
+} from '@/modules/tenant/quotations/wizard/utils/coverNoteDateRange';
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
 import type {
   InsuranceCategory,
@@ -65,9 +69,7 @@ export function PolicyForm({
     channel_type: 'DIRECT',
     policy_status: 'DRAFT',
     start_date: new Date().toISOString().slice(0, 10),
-    end_date: new Date(new Date().getTime() + 365 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10),
+    end_date: dateOnlyPart(computeCoverNoteDateRange(365).validUntil),
     issue_date: new Date().toISOString().slice(0, 10),
     currency: 'TZS',
     sum_insured: '',

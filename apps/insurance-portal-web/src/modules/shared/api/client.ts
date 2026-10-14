@@ -248,6 +248,12 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Aborted on purpose (React Query unmount / superseded table query) — not
+    // a failure, so never toast it.
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
     if (isConnectivityError(error)) {
       reportNetworkFailure();
       return Promise.reject(error);

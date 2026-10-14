@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Play } from 'lucide-react';
+import { ArrowLeft, Play, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -7,11 +7,17 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
 import {
   useLocalTrackingDetail,
+  useLocalTrackingByBusinessReference,
+  useSyncOneLocalTracking,
   useSubmitTenantTiramisSubmission,
   useTenantSubmissionByRequestId,
   useTenantSubmissionDetail,
 } from '../hooks';
-import { formatDateTime, getSubmissionDetailId } from '../utils';
+import {
+  formatDateTime,
+  getSubmissionDetailId,
+  isTiramisFinalSuccess,
+} from '../utils';
 import type { TiramisRequestType } from '../types';
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -38,9 +44,21 @@ export function TiramisSubmissionDetailPage() {
   const tenantDetailByRequestId =
     useTenantSubmissionByRequestId(requestIdLookup);
   const submitMutation = useSubmitTenantTiramisSubmission();
+  const syncMutation = useSyncOneLocalTracking();
 
   const tenantSubmission = tenantDetail.data ?? tenantDetailByRequestId.data;
   const trackingSubmission = trackingDetail.data;
+  const trackingByReference = useLocalTrackingByBusinessReference(
+    tenantSubmission && !trackingSubmission
+      ? (tenantSubmission.business_reference ?? undefined)
+      : undefined,
+  );
+  const matchingTracking =
+    trackingSubmission ??
+    trackingByReference.data?.find(
+      (record) =>
+        record.tiramisRequestId === tenantSubmission?.tiramis_request_id,
+    );
   const isLoading =
     !tenantSubmission &&
     !trackingSubmission &&
@@ -84,46 +102,60 @@ export function TiramisSubmissionDetailPage() {
               }
             />
           </div>
-          {tenantSubmission.status !== 'COMPLETED' && (
+          {(matchingTracking ||
+            !isTiramisFinalSuccess(tenantSubmission.status)) && (
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() =>
-                  submitMutation.mutate(
-                    {
-                      requestType:
-                        (tenantSubmission.request_type as TiramisRequestType | null) ||
-                        'NON_MOTOR',
-                      policy_id: tenantSubmission.policy_id ?? undefined,
-                      quotation_id: tenantSubmission.quotation_id ?? undefined,
-                      source_module:
-                        tenantSubmission.source_module ?? undefined,
-                      source_record_id:
-                        tenantSubmission.source_record_id ?? undefined,
-                      business_reference:
-                        tenantSubmission.business_reference ??
-                        tenantSubmission.id,
-                      payload: tenantSubmission.last_payload ?? {},
-                    },
-                    {
-                      onSuccess: (result) => {
-                        const submissionDetailId = getSubmissionDetailId(
-                          result?.submission,
-                        );
-                        if (submissionDetailId) {
-                          navigate(
-                            `/tiramis/submissions/${submissionDetailId}`,
-                          );
-                        }
+              {matchingTracking && (
+                <Button
+                  variant="outline"
+                  onClick={() => syncMutation.mutate(matchingTracking.id)}
+                  disabled={syncMutation.isPending}
+                >
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Sync
+                </Button>
+              )}
+              {!isTiramisFinalSuccess(tenantSubmission.status) && (
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    submitMutation.mutate(
+                      {
+                        requestType:
+                          (tenantSubmission.request_type as TiramisRequestType | null) ||
+                          'NON_MOTOR',
+                        policy_id: tenantSubmission.policy_id ?? undefined,
+                        quotation_id:
+                          tenantSubmission.quotation_id ?? undefined,
+                        source_module:
+                          tenantSubmission.source_module ?? undefined,
+                        source_record_id:
+                          tenantSubmission.source_record_id ?? undefined,
+                        business_reference:
+                          tenantSubmission.business_reference ??
+                          tenantSubmission.id,
+                        payload: tenantSubmission.last_payload ?? {},
                       },
-                    },
-                  )
-                }
-                disabled={submitMutation.isPending}
-              >
-                <Play className="mr-2 h-4 w-4" />
-                Resubmit
-              </Button>
+                      {
+                        onSuccess: (result) => {
+                          const submissionDetailId = getSubmissionDetailId(
+                            result?.submission,
+                          );
+                          if (submissionDetailId) {
+                            navigate(
+                              `/tiramis/submissions/${submissionDetailId}`,
+                            );
+                          }
+                        },
+                      },
+                    )
+                  }
+                  disabled={submitMutation.isPending}
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  Resubmit
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -237,6 +269,14 @@ export function TiramisSubmissionDetailPage() {
           }
           description={trackingSubmission!.requestType || 'TIRAMIS tracking'}
         />
+        <Button
+          variant="outline"
+          onClick={() => syncMutation.mutate(trackingSubmission!.id)}
+          disabled={syncMutation.isPending}
+        >
+          <RefreshCcw className="mr-2 h-4 w-4" />
+          Sync
+        </Button>
       </div>
 
       <Card>

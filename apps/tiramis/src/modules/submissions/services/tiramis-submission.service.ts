@@ -131,8 +131,6 @@ export class TiramisSubmissionService {
       sourceCalculationVersion: pricing?.calculationVersion ?? null,
       sourceCustomerId: insuredData?.customerId ?? null,
       sourceCustomerNumber: insuredData?.customerNumber ?? null,
-      sourceCustomerKycStatus: insuredData?.customerKycStatus ?? null,
-      sourceCustomerKycVersion: insuredData?.customerKycVersion ?? null,
       sourceCustomerSnapshotHash: insuredData?.customerSnapshotHash ?? null,
       sourceTiramisPolicyHolderHash:
         insuredData?.tiramisPolicyHolderHash ?? null,
@@ -502,6 +500,11 @@ export class TiramisSubmissionService {
     return savedAttempt;
   }
 
+  async getSubmittedRequestXml(requestId: string): Promise<string | null> {
+    const attempt = await this.attemptRepository.findByRequestId(requestId);
+    return attempt?.requestXml ?? null;
+  }
+
   async getSubmissionStatus(params: {
     transactionId?: string;
     requestId?: string;
@@ -757,8 +760,6 @@ export class TiramisSubmissionService {
       insuredData: {
         customerId: transaction.sourceCustomerId,
         customerNumber: transaction.sourceCustomerNumber,
-        customerKycStatus: transaction.sourceCustomerKycStatus,
-        customerKycVersion: transaction.sourceCustomerKycVersion,
         customerSnapshotHash: transaction.sourceCustomerSnapshotHash,
         tiramisPolicyHolderHash: transaction.sourceTiramisPolicyHolderHash,
         assetManifestHash: transaction.sourceAssetManifestHash,

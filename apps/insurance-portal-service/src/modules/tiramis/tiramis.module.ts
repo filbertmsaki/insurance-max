@@ -44,6 +44,7 @@ import { TiramisNotificationService } from './services/tiramis-notification.serv
 import { TiramisRetryService } from './services/tiramis-retry.service';
 import { TiramisServiceApiKeyVaultService } from './services/tiramis-service-api-key-vault.service';
 import { TiramisStatusSyncService } from './services/tiramis-status-sync.service';
+import { TiramisSubmittedQuotationSyncService } from './services/tiramis-submitted-quotation-sync.service';
 import { TiramisWebhookCredentialService } from './services/tiramis-webhook-credential.service';
 import { ApiClientsModule } from '../platform/api-clients/api-clients.module';
 import { Customer } from '../tenant/customers/entities/customer.entity';
@@ -115,6 +116,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisStatusSyncService,
     TiramisWebhookCredentialService,
     TiramisBusinessRecordSyncService,
+    TiramisSubmittedQuotationSyncService,
     {
       provide: TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE,
       useExisting: TiramisBusinessRecordSyncService,
@@ -143,6 +145,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisStatusSyncService,
     TiramisWebhookCredentialService,
     TiramisBusinessRecordSyncService,
+    TiramisSubmittedQuotationSyncService,
     TIRAMIS_BUSINESS_RECORD_SYNC_SERVICE,
     TiramisBusinessSchemaService,
     TiramisDashboardService,

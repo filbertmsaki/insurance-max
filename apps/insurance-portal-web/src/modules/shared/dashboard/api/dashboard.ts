@@ -124,7 +124,6 @@ export interface PoliciesKpis {
 export interface CustomersKpis {
   total_customers: number;
   active_customers: number;
-  pending_kyc: number;
 }
 
 export interface CommissionsKpis {

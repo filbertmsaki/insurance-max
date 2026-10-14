@@ -330,7 +330,12 @@ export class IdentifierGeneratorService {
     timePart?: string;
   }): Promise<string> {
     const manager = params.manager;
-    const sequenceDate = params.datePart;
+    // Quotation counters span all dates; the formatted reference still uses
+    // the actual creation date supplied in datePart.
+    const sequenceDate =
+      params.identifierType === IdentifierType.QUOTATION
+        ? 'LIFETIME'
+        : params.datePart;
     // Use a non-null sentinel for "no time bucket" so Postgres uniqueness
     // and conflict detection work for quotation/request sequences too.
     const sequenceTimeBucket = params.timePart ?? '';
@@ -350,7 +355,7 @@ export class IdentifierGeneratorService {
         identifierType: params.identifierType,
         prefix: params.prefix,
         readableConstant: params.readableConstant,
-        sequenceDate,
+        sequenceDate: params.datePart,
         sequenceTimeBucket,
         suffix,
       });

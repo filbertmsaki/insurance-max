@@ -250,9 +250,9 @@ export class RenewalEligibilityService {
 
       renewalProductVersionId = definition.productVersionId;
       renewalProductDefinitionHash = definition.definitionHash;
-      renewalEndDate = this.addDays(
+      renewalEndDate = this.addCoverDuration(
         renewalStartDate,
-        definition.defaultCoverDurationDays - 1,
+        definition.defaultCoverDurationDays,
       );
 
       const duplicateForPeriod = await this.findExistingRenewalForPeriod(
@@ -423,5 +423,16 @@ export class RenewalEligibilityService {
     const value = new Date(`${date}T00:00:00.000Z`);
     value.setUTCDate(value.getUTCDate() + days);
     return value.toISOString().slice(0, 10);
+  }
+
+  private addCoverDuration(date: string, durationDays: number): string {
+    if (durationDays === 365) {
+      const value = new Date(`${date}T00:00:00.000Z`);
+      value.setUTCFullYear(value.getUTCFullYear() + 1);
+      value.setUTCDate(value.getUTCDate() - 1);
+      return value.toISOString().slice(0, 10);
+    }
+
+    return this.addDays(date, durationDays - 1);
   }
 }

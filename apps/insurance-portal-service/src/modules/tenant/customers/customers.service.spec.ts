@@ -111,7 +111,6 @@ function makeHarness(
   };
   const addressRepo = childRepo();
   const documentRepo = childRepo();
-  const reviewRepo = childRepo();
   const assetRepo = childRepo();
 
   const customerRepo = {
@@ -168,7 +167,6 @@ function makeHarness(
     addressRepo as any,
     contactRepo as any,
     documentRepo as any,
-    reviewRepo as any,
     versionRepo as any,
     auditRepo as any,
     assetRepo as any,
@@ -196,7 +194,6 @@ describe('CustomersService customer validation', () => {
     expect(customer).toMatchObject({
       company_id: 'company-1',
       display_name: 'Asha Juma',
-      kyc_status: 'PENDING',
       id_type: 1,
       nida_no: '19900101-12345-00001-12',
       phone: '+255700000000',

@@ -1095,15 +1095,6 @@ export class IssuanceService {
       quotationCustomerSnapshot: quotation.customer_snapshot ?? null,
       quotationCustomerSnapshotHash: quotation.customer_snapshot_hash ?? null,
       quotationCustomerSnapshotAt: quotation.customer_snapshot_at ?? null,
-      kyc: {
-        status:
-          quotation.customer_snapshot &&
-          typeof quotation.customer_snapshot === 'object'
-            ? (quotation.customer_snapshot['kycStatus'] ?? null)
-            : (customer?.kyc_status ?? null),
-        version:
-          quotation.customer_kyc_version ?? Number(customer?.kyc_version ?? 0),
-      },
       policyHolder: primaryHolder
         ? this.buildPolicyHolderSnapshot(primaryHolder)
         : null,
@@ -1150,8 +1141,6 @@ export class IssuanceService {
             contactRole: customer.contact_role,
             contactPhone: customer.contact_phone,
             contactEmail: customer.contact_email,
-            kycStatus: customer.kyc_status,
-            kycVersion: customer.kyc_version,
             status: customer.status,
           }
         : null,

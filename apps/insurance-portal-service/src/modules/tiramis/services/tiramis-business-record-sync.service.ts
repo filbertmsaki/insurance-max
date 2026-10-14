@@ -22,6 +22,7 @@ import { PolicyTransactionRegulatoryOutcomeService } from '../../tenant/policy-t
 import { PortalTiraSubmission } from '../../tenant/tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionStatus } from '../../tenant/tiramis-integration/enums/portal-tira-submission-status.enum';
 import type { TiramisNotificationEventDto } from '../../tenant/tiramis-integration/dto/tiramis-notification-event.dto';
+import { TiramisSubmittedQuotationSyncService } from './tiramis-submitted-quotation-sync.service';
 
 @Injectable()
 export class TiramisBusinessRecordSyncService {
@@ -39,9 +40,19 @@ export class TiramisBusinessRecordSyncService {
     private readonly issuanceService: IssuanceService,
     @InjectRepository(PortalTiraSubmission)
     private readonly portalSubmissionRepository: Repository<PortalTiraSubmission>,
+    private readonly submittedQuotationSync: TiramisSubmittedQuotationSyncService,
     @Optional()
     private readonly moduleRef?: ModuleRef,
   ) {}
+
+  async syncSubmittedQuotation(params: {
+    companyId: string;
+    quotationId: string;
+    requestId: string;
+    requestXml: string;
+  }) {
+    await this.submittedQuotationSync.reconcile(params);
+  }
 
   async syncFromTracking(
     tracking: TiramisSubmissionTrackingEntity | null | undefined,
@@ -585,6 +596,29 @@ export class TiramisBusinessRecordSyncService {
 
     if (!terminalOutcome) {
       return;
+    }
+
+    if (terminalOutcome.tiraStatus === 'SUCCESS') {
+      const payload = tracking.tiramisResponsePayload as any;
+      const attempt = [
+        payload?.currentAttempt,
+        ...(payload?.attempts || []),
+      ].find(
+        (item) =>
+          item?.requestId === tracking.tiramisRequestId &&
+          item?.payloads?.requestXml,
+      );
+      const requestXml =
+        attempt?.payloads?.requestXml ||
+        (tracking.finalResponsePayload as any)?.submittedRequestXml;
+      if (requestXml && tracking.sourceCompanyId && tracking.tiramisRequestId) {
+        await this.syncSubmittedQuotation({
+          companyId: tracking.sourceCompanyId,
+          quotationId: tracking.sourceRecordId,
+          requestId: tracking.tiramisRequestId,
+          requestXml,
+        });
+      }
     }
 
     const rows = await this.dataSource.query(

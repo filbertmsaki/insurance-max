@@ -124,7 +124,6 @@ export const customerFormObjectSchema = z.object({
   contact_role: optionalText,
   contact_phone: optionalText,
   contact_email: optionalEmail,
-  kyc_status: z.enum(['PENDING', 'VERIFIED', 'REJECTED']),
   document_type: optionalDocumentType,
   document_no: optionalText,
   document_file_name: optionalText,
@@ -334,7 +333,6 @@ export function getCustomerDefaultValues(
     contact_role: customer?.contact_role ?? '',
     contact_phone: customer?.contact_phone ?? '',
     contact_email: customer?.contact_email ?? '',
-    kyc_status: customer?.kyc_status ?? 'PENDING',
     document_type: customer?.document_type ?? '',
     document_no: customer?.document_no ?? '',
     document_file_name: customer?.document_file_name ?? '',
@@ -374,7 +372,6 @@ export function buildCustomerPayload(
     country_code: (normalizeText(values.country_code) ?? 'TZA').toUpperCase(),
     region: normalizeText(values.region) ?? values.region,
     district: normalizeText(values.district) ?? values.district,
-    document_verified: values.document_verified,
     status: values.status,
   } as CustomerPayload &
     Record<string, string | number | boolean | null | undefined>;
@@ -432,17 +429,6 @@ export function buildCustomerPayload(
     payload.contact_phone = normalizeText(values.contact_phone);
   if (normalizeText(values.contact_email))
     payload.contact_email = normalizeText(values.contact_email);
-  if (values.kyc_status) payload.kyc_status = values.kyc_status;
-  if (values.document_type) payload.document_type = values.document_type;
-  if (normalizeText(values.document_no))
-    payload.document_no = normalizeText(values.document_no);
-  if (normalizeText(values.document_file_name))
-    payload.document_file_name = normalizeText(values.document_file_name);
-  if (normalizeText(values.document_file_url))
-    payload.document_file_url = normalizeText(values.document_file_url);
-  if (normalizeText(values.document_mime_type))
-    payload.document_mime_type = normalizeText(values.document_mime_type);
-
   payload.policy_holder_type = values.customer_type === 'INDIVIDUAL' ? 1 : 2;
 
   return payload;

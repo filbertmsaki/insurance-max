@@ -4,7 +4,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -25,10 +24,8 @@ import {
 import { customerFormSchema, getCustomerDefaultValues } from '../schemas';
 import { LocationReferenceSelects } from '@/modules/platform/reference-data/components/LocationReferenceSelects';
 import {
-  CUSTOMER_DOCUMENT_TYPE_OPTIONS,
   CUSTOMER_GENDER_OPTIONS,
   CUSTOMER_ID_TYPE_OPTIONS,
-  CUSTOMER_KYC_STATUS_OPTIONS,
   CUSTOMER_STATUS_OPTIONS,
   CUSTOMER_TYPE_OPTIONS,
   getCustomerIdFieldName,
@@ -126,30 +123,6 @@ export function CustomerForm({
                     </FormControl>
                     <SelectContent>
                       {CUSTOMER_STATUS_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="kyc_status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>KYC Status</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {CUSTOMER_KYC_STATUS_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -542,9 +515,7 @@ export function CustomerForm({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              Documents and Contact Person
-            </CardTitle>
+            <CardTitle className="text-base">Contact Person</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <FormField
@@ -599,112 +570,6 @@ export function CustomerForm({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="document_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Document Type</FormLabel>
-                  <Select
-                    value={field.value || 'none'}
-                    onValueChange={(value) =>
-                      field.onChange(value === 'none' ? '' : value)
-                    }
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select document type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {CUSTOMER_DOCUMENT_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="document_no"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Document No.</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Optional" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="document_file_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Document File Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Optional" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="document_file_url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Document File URL</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Optional" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="document_mime_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Document Mime Type</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Optional" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="md:col-span-2">
-              <FormField
-                control={form.control}
-                name="document_verified"
-                render={({ field }) => (
-                  <FormItem className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={(checked) =>
-                          field.onChange(Boolean(checked))
-                        }
-                      />
-                    </FormControl>
-                    <div>
-                      <FormLabel className="mb-0">Document verified</FormLabel>
-                      <p className="text-xs text-slate-500">
-                        Mark the attached document as verified.
-                      </p>
-                    </div>
-                  </FormItem>
-                )}
-              />
-            </div>
           </CardContent>
         </Card>
 

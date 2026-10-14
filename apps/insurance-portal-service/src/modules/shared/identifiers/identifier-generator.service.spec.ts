@@ -118,26 +118,41 @@ describe('IdentifierGeneratorService', () => {
     expect(quotationNo).toBe('AICL2607291000');
   });
 
-  it('scopes the sequence to the current date (yyMMdd), resetting on a new day', async () => {
+  it('keeps one company sequence while the displayed date changes', async () => {
     const { service, manager, managerQuery } = createFixture({
-      sequenceValues: [5],
+      sequenceValues: [3, 4, 5],
     });
 
-    await service.generateQuotationNumber('company-1', manager);
+    const first = await service.generateQuotationNumber('company-1', manager);
 
     const [sequenceSql, sequenceParams] = managerQuery.mock.calls[0];
     expect(sequenceSql).toContain('FROM identifier_sequences');
     // company_id, identifier_type, sequence_date, sequence_time_bucket
-    expect(sequenceParams).toEqual(['company-1', 'QUOTATION', '260729', '']);
+    expect(sequenceParams).toEqual(['company-1', 'QUOTATION', 'LIFETIME', '']);
 
-    // A day later, the WHERE clause scopes on sequence_date — the DB-level
-    // per-date partitioning (not app state) is what guarantees a fresh
-    // counter starting at 1 for the new date; this asserts the date param
-    // actually changes so that scoping takes effect.
+    // The counter scope stays fixed even though the date in the number moves.
     jest.setSystemTime(new Date('2026-07-30T10:00:00.000Z'));
-    await service.generateQuotationNumber('company-1', manager);
+    const nextDay = await service.generateQuotationNumber('company-1', manager);
     const [, nextDayParams] = managerQuery.mock.calls[2];
-    expect(nextDayParams).toEqual(['company-1', 'QUOTATION', '260730', '']);
+    expect(nextDayParams).toEqual(['company-1', 'QUOTATION', 'LIFETIME', '']);
+
+    jest.setSystemTime(new Date('2027-01-01T10:00:00.000Z'));
+    const nextYear = await service.generateQuotationNumber(
+      'company-1',
+      manager,
+    );
+    expect(managerQuery.mock.calls[4][1]).toEqual([
+      'company-1',
+      'QUOTATION',
+      'LIFETIME',
+      '',
+    ]);
+    expect(first).toBe('AICL260729003');
+    expect(nextDay).toBe('AICL260730004');
+    expect(nextYear).toBe('AICL270101005');
+    expect(sequenceSql).toContain(
+      'ON CONFLICT (company_id, identifier_type, sequence_date, sequence_time_bucket)',
+    );
   });
 
   it('scopes the sequence independently per company', async () => {

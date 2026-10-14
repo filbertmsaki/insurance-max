@@ -122,7 +122,6 @@ export class PortalBusinessAccessService {
       ward: customer.ward,
       street: customer.street,
       postal_address: customer.postal_address,
-      kyc_status: customer.kyc_status,
       status: customer.status,
     };
   }
@@ -921,7 +920,6 @@ export class PortalBusinessAccessService {
         name: this.customerName(customer),
         phone: customer.phone,
         email: customer.email,
-        kyc_status: customer.kyc_status,
         status: customer.status,
       })),
       meta: this.paginationMeta(page, limit, total),

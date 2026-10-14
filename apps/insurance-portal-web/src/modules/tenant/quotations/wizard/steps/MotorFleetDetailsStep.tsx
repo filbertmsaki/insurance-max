@@ -33,6 +33,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  dateOnlyPart,
+  pricingCoverEndDate,
+} from '../utils/coverNoteDateRange';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import {
   PricingStatusAlert,
@@ -1504,7 +1508,7 @@ export function MotorFleetDetailsStep({
         return;
       }
       const request = {
-        effective_date: form.getValues('valid_from'),
+        effective_date: dateOnlyPart(form.getValues('valid_from')),
         quotation_type: 'MOTOR',
         currency_code:
           form.getValues('currency')?.trim().toUpperCase() || 'TZS',
@@ -1523,8 +1527,8 @@ export function MotorFleetDetailsStep({
             sum_insured: row.sum_insured.trim()
               ? Number(row.sum_insured)
               : undefined,
-            cover_start_date: form.getValues('valid_from'),
-            cover_end_date: form.getValues('valid_until'),
+            cover_start_date: dateOnlyPart(form.getValues('valid_from')),
+            cover_end_date: pricingCoverEndDate(form.getValues('valid_until')),
             factors: resolveFleetFactorValues(
               requiredFactors,
               item,

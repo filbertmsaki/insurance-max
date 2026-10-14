@@ -1,5 +1,5 @@
 import { environment } from '@insurance-max/shared-config';
-import { Injectable, Logger } from '@nestjs/common';
+import { ConflictException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
@@ -11,6 +11,7 @@ import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
 import { TiramisClientService } from './tiramis-client.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
+import { TiramisStatusSyncService } from './tiramis-status-sync.service';
 import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class TiramisRetryService {
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
     private readonly notificationService: TiramisNotificationService,
+    private readonly statusSyncService: TiramisStatusSyncService,
     private readonly platformAccess: TiramisPlatformAccessService,
   ) {}
 
@@ -113,6 +115,8 @@ export class TiramisRetryService {
       };
     }
 
+    this.assertNotCompleted(record);
+
     return {
       found: true,
       ...(await this.retryTrackingRecord(record, {
@@ -131,6 +135,8 @@ export class TiramisRetryService {
         message: 'TIRAMIS tracking record not found',
       };
     }
+
+    this.assertNotCompleted(record);
 
     const updated = await this.trackingRepository.markRetryScheduled(
       record.id,
@@ -167,6 +173,15 @@ export class TiramisRetryService {
       force?: boolean;
     },
   ) {
+    if (record.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      return {
+        trackingId: record.id,
+        skipped: true,
+        reason: 'previous_request_already_accepted',
+        status: record.status,
+      };
+    }
+
     if (!options.force && !record.isRetryable) {
       return {
         trackingId: record.id,
@@ -236,6 +251,15 @@ export class TiramisRetryService {
     });
 
     try {
+      const reconciliation = await this.reconcileBeforeRetry(locked, {
+        automatic: options.automatic,
+        lockId,
+      });
+
+      if (reconciliation) {
+        return reconciliation;
+      }
+
       const response = await this.tiramisClientService.resendTrackingRecord(
         locked.id,
       );
@@ -337,5 +361,90 @@ export class TiramisRetryService {
       TiramisSubmissionStatus.FAILED,
       TiramisSubmissionStatus.RETRY_EXHAUSTED,
     ].includes(status as TiramisSubmissionStatus);
+  }
+
+  private assertNotCompleted(record: TiramisSubmissionTrackingEntity): void {
+    if (record.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      throw new ConflictException(
+        'TIRAMIS has already completed this submission successfully. Use status sync instead of retrying.',
+      );
+    }
+  }
+
+  private async reconcileBeforeRetry(
+    record: TiramisSubmissionTrackingEntity,
+    metadata: {
+      automatic: boolean;
+      lockId: string;
+    },
+  ) {
+    if (!record.tiramisTransactionId && !record.tiramisRequestId) {
+      return null;
+    }
+
+    if (this.isFailureLocalStatus(record.status)) {
+      return null;
+    }
+
+    const syncResult: any = await this.statusSyncService.syncOne(record.id);
+    const updated = await this.trackingRepository.findById(record.id);
+    const status = updated?.status || syncResult.status || record.status;
+
+    if (status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.DUPLICATE_PREVENTED,
+        tracking: updated || record,
+        statusBefore: record.status,
+        success: true,
+        metadata: {
+          ...metadata,
+          reason: 'retry_reconciled_as_final_success',
+        },
+      });
+
+      return {
+        trackingId: record.id,
+        skipped: true,
+        success: true,
+        status,
+        tracking: updated,
+        reason: 'previous_request_already_accepted',
+        tiramis: syncResult.tiramis,
+      };
+    }
+
+    if (
+      [
+        TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE,
+        TiramisSubmissionStatus.ACK_ACCEPTED,
+        TiramisSubmissionStatus.ACKNOWLEDGED,
+        TiramisSubmissionStatus.PENDING_FINAL,
+        TiramisSubmissionStatus.CALLBACK_OVERDUE,
+        TiramisSubmissionStatus.UNKNOWN,
+      ].includes(status as TiramisSubmissionStatus)
+    ) {
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.DUPLICATE_PREVENTED,
+        tracking: updated || record,
+        statusBefore: record.status,
+        success: true,
+        metadata: {
+          ...metadata,
+          reason: 'retry_blocked_previous_request_still_active',
+        },
+      });
+
+      return {
+        trackingId: record.id,
+        skipped: true,
+        success: false,
+        status,
+        tracking: updated,
+        reason: 'previous_request_still_active',
+        tiramis: syncResult.tiramis,
+      };
+    }
+
+    return null;
   }
 }

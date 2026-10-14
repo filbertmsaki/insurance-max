@@ -34,13 +34,6 @@ export class TiramisInsuredDataContextGuard implements CanActivate {
       });
     }
 
-    if (insuredData.customerKycStatus !== 'VERIFIED') {
-      throw new ForbiddenException({
-        code: 'TIRAMIS_CUSTOMER_KYC_NOT_VERIFIED',
-        message: 'The signed customer KYC status is not verified.',
-      });
-    }
-
     if (insuredData.assetCount < 1) {
       throw new ForbiddenException({
         code: 'TIRAMIS_INSURED_ASSET_REQUIRED',

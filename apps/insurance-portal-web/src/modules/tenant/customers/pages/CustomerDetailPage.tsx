@@ -190,10 +190,6 @@ export function CustomerDetailPage() {
               value={customer.status.replace(/_/g, ' ')}
             />
             <DetailRow
-              label="KYC Status"
-              value={customer.kyc_status.replace(/_/g, ' ')}
-            />
-            <DetailRow
               label="Current Version"
               value={
                 versions.find((version) => version.is_current_version)
@@ -303,32 +299,6 @@ export function CustomerDetailPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Document Details</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          <DetailRow label="Document Type" value={customer.document_type} />
-          <DetailRow label="Document No." value={customer.document_no} />
-          <DetailRow
-            label="Document File Name"
-            value={customer.document_file_name}
-          />
-          <DetailRow
-            label="Document Mime Type"
-            value={customer.document_mime_type}
-          />
-          <DetailRow
-            label="Document Verified"
-            value={customer.document_verified ? 'Yes' : 'No'}
-          />
-          <DetailRow
-            label="Document Verified At"
-            value={customer.document_verified_at}
-          />
-        </CardContent>
-      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>

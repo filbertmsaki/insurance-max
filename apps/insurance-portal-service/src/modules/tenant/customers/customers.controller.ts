@@ -15,10 +15,6 @@ import { Permissions } from '@insurance-max/portal-shared/decorators/permissions
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
-import { ApproveCustomerKycReviewDto } from './dto/approve-customer-kyc-review.dto';
-import { RejectCustomerKycReviewDto } from './dto/reject-customer-kyc-review.dto';
-import { RequestCustomerKycUpdateDto } from './dto/request-customer-kyc-update.dto';
-import { SubmitCustomerKycReviewDto } from './dto/submit-customer-kyc-review.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomersService } from './customers.service';
 import { TenantScoped } from '@insurance-max/portal-shared';
@@ -60,26 +56,6 @@ export class CustomersController {
     return this.customersService.findOneForUser(user, id);
   }
 
-  @Get(':id/kyc')
-  @Permissions('customer-kyc:read')
-  @ApiOperation({ summary: 'Get the current KYC state for a customer' })
-  getKyc(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.customersService.getKycForUser(user, id);
-  }
-
-  @Get(':id/kyc/history')
-  @Permissions('customer-kyc:read')
-  @ApiOperation({ summary: 'List immutable KYC review history for a customer' })
-  getKycHistory(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.customersService.listKycHistoryForUser(user, id);
-  }
-
   @Get(':id/versions')
   @Permissions('customers:read')
   @ApiOperation({ summary: 'List immutable customer versions' })
@@ -98,63 +74,6 @@ export class CustomersController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.customersService.listAuditHistoryForUser(user, id);
-  }
-
-  @Post(':id/kyc/submit-review')
-  @Permissions('customer-kyc:submit')
-  @ApiOperation({ summary: 'Submit a customer for KYC review' })
-  submitKycReview(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: SubmitCustomerKycReviewDto,
-  ) {
-    return this.customersService.submitKycReviewForUser(user, id, dto);
-  }
-
-  @Post(':id/kyc/approve')
-  @Permissions('customer-kyc:approve')
-  @ApiOperation({ summary: 'Approve a customer KYC review' })
-  approveKycReview(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ApproveCustomerKycReviewDto,
-  ) {
-    return this.customersService.approveKycReviewForUser(user, id, dto);
-  }
-
-  @Post(':id/kyc/reject')
-  @Permissions('customer-kyc:review')
-  @ApiOperation({ summary: 'Reject a customer KYC review' })
-  rejectKycReview(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: RejectCustomerKycReviewDto,
-  ) {
-    return this.customersService.rejectKycReviewForUser(user, id, dto);
-  }
-
-  @Post(':id/kyc/request-update')
-  @Permissions('customer-kyc:review')
-  @ApiOperation({
-    summary: 'Mark a verified customer as requiring a KYC update',
-  })
-  requestKycUpdate(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: RequestCustomerKycUpdateDto,
-  ) {
-    return this.customersService.requestKycUpdateForUser(user, id, dto);
-  }
-
-  @Post(':id/kyc/expire')
-  @Permissions('customer-kyc:review')
-  @ApiOperation({ summary: 'Expire an active customer KYC approval' })
-  expireKyc(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: RequestCustomerKycUpdateDto,
-  ) {
-    return this.customersService.expireKycForUser(user, id, dto);
   }
 
   @Patch(':id')

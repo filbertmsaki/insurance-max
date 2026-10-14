@@ -27,12 +27,24 @@ export function addLocalDays(date: Date, days: number): Date {
   return result;
 }
 
+function computeCoverEndDate(from: Date, days: number): Date {
+  const boundary = new Date(from);
+  if (days === 365) {
+    boundary.setFullYear(boundary.getFullYear() + 1);
+  } else {
+    boundary.setDate(boundary.getDate() + days);
+  }
+  boundary.setDate(boundary.getDate() - 1);
+  boundary.setHours(23, 59, 59, 0);
+  return boundary;
+}
+
 export function computeCoverNoteDateRange(
   days: number,
   from: Date = new Date(),
 ) {
   const validFrom = formatLocalDateTime(from);
-  const validUntil = formatLocalDateTime(addLocalDays(from, days - 1));
+  const validUntil = formatLocalDateTime(computeCoverEndDate(from, days));
   return { validFrom, validUntil };
 }
 
@@ -60,10 +72,10 @@ export function computeCoverNoteEndFromStart(
   if (!validFrom) return '';
   const start = parseLocal(validFrom);
   if (Number.isNaN(start.getTime())) return '';
-  return formatLocalDateTime(addLocalDays(start, days - 1));
+  return formatLocalDateTime(computeCoverEndDate(start, days));
 }
 
-/** Inclusive day count between two date/datetime strings (30 days = valid_until is 29 days after valid_from). */
+/** Covered calendar dates for either an inclusive or legacy exclusive end. */
 export function inclusiveDayCount(
   validFrom?: string | null,
   validUntil?: string | null,
@@ -73,7 +85,9 @@ export function inclusiveDayCount(
   const end = new Date(`${dateOnlyPart(validUntil)}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
   const diffDays = Math.round((end.getTime() - start.getTime()) / 86_400_000);
-  return diffDays + 1;
+  const hasInclusiveEnd =
+    !validUntil.includes('T') || validUntil.endsWith('T23:59:59');
+  return diffDays + (hasInclusiveEnd ? 1 : 0);
 }
 
 /** Date-only check (ignores time of day) — a start date picker only lets the user pick a day. */
@@ -89,10 +103,42 @@ export function matchPresetDays(
 ): CoverNoteDateRangeValue | '' {
   const totalDays = inclusiveDayCount(validFrom, validUntil);
   if (totalDays === null) return '';
+  if (
+    validFrom &&
+    validUntil &&
+    (!validUntil.includes('T') || validUntil.endsWith('T23:59:59')) &&
+    dateOnlyPart(computeCoverNoteEndFromStart(validFrom, 365)) ===
+      dateOnlyPart(validUntil)
+  ) {
+    return '365';
+  }
   const match = COVER_NOTE_DATE_RANGE_OPTIONS.find(
     (option) => option.days === totalDays,
   );
   return match?.value ?? '';
+}
+
+export function resolveCoverDurationDays(
+  validFrom?: string | null,
+  validUntil?: string | null,
+): number | null {
+  const matchedPreset = matchPresetDays(validFrom, validUntil);
+  if (matchedPreset) {
+    return Number(matchedPreset);
+  }
+
+  return inclusiveDayCount(validFrom, validUntil);
+}
+
+/** Date-only end expected by the inclusive pricing engine. */
+export function pricingCoverEndDate(validUntil: string): string {
+  if (!validUntil.includes('T') || validUntil.endsWith('T23:59:59')) {
+    return dateOnlyPart(validUntil);
+  }
+  const end = parseLocal(validUntil);
+  return Number.isNaN(end.getTime())
+    ? ''
+    : dateOnlyPart(formatLocalDateTime(addLocalDays(end, -1)));
 }
 
 export function formatCoverDateLabel(value?: string): string {

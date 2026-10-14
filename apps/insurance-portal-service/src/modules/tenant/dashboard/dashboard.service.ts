@@ -19,7 +19,6 @@ import { CommissionTransaction } from '../billing-commission/entities/commission
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { Customer } from '../customers/entities/customer.entity';
-import { CustomerKycStatus } from '../customers/enums/customer-kyc-status.enum';
 import { CustomerStatus } from '../customers/enums/customer-status.enum';
 import { Policy } from '../policies/entities/policy.entity';
 import { ApprovalStatus } from '../quotations/enums/approval-status.enum';
@@ -616,20 +615,12 @@ export class DashboardService {
         )`,
         'active',
       )
-      .addSelect(
-        `COUNT(DISTINCT customer.id) FILTER (
-          WHERE customer.kyc_status = :pendingKyc
-        )`,
-        'pending_kyc',
-      )
       .setParameters({
         activeStatus: CustomerStatus.ACTIVE,
-        pendingKyc: CustomerKycStatus.PENDING,
       })
       .getRawOne<{
         total: string;
         active: string;
-        pending_kyc: string;
       }>();
 
     const typeBreakdown = await this.createCustomerQuery(scope, query, period)
@@ -643,7 +634,6 @@ export class DashboardService {
       kpis: {
         total_customers: this.toNumber(metrics?.total),
         active_customers: this.toNumber(metrics?.active),
-        pending_kyc: this.toNumber(metrics?.pending_kyc),
       },
       charts: {
         customer_types: this.normalizeCountBreakdown(typeBreakdown),

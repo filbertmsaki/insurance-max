@@ -21,7 +21,6 @@ import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CustomerStatusBadge } from './CustomerStatusBadge';
 import {
-  CUSTOMER_KYC_STATUS_OPTIONS,
   CUSTOMER_STATUS_OPTIONS,
   CUSTOMER_TYPE_OPTIONS,
   getCustomerDisplayName,
@@ -29,7 +28,7 @@ import {
   type CustomerRecord,
 } from '../types';
 
-const FILTER_KEYS = ['customer_type', 'status', 'kyc_status'] as const;
+const FILTER_KEYS = ['customer_type', 'status'] as const;
 type CustomerFilterKey = (typeof FILTER_KEYS)[number];
 
 interface CustomersTableProps {
@@ -108,24 +107,6 @@ export function CustomersTable({
       ),
     },
     {
-      key: 'kyc_status',
-      header: 'KYC',
-      sortable: true,
-      cell: (row) => (
-        <Badge
-          className={
-            row.kyc_status === 'VERIFIED'
-              ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-100'
-              : row.kyc_status === 'REJECTED'
-                ? 'bg-red-100 text-red-700 border-red-200 hover:bg-red-100'
-                : 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100'
-          }
-        >
-          {row.kyc_status.replace(/_/g, ' ')}
-        </Badge>
-      ),
-    },
-    {
       key: 'email',
       defaultVisible: false,
       header: 'Email',
@@ -201,11 +182,6 @@ export function CustomersTable({
       filters={tableFilters(state.filters, [
         { key: 'customer_type', label: 'Type', options: CUSTOMER_TYPE_OPTIONS },
         { key: 'status', label: 'Status', options: CUSTOMER_STATUS_OPTIONS },
-        {
-          key: 'kyc_status',
-          label: 'KYC',
-          options: CUSTOMER_KYC_STATUS_OPTIONS,
-        },
       ])}
       toolbarActions={toolbarActions}
     />

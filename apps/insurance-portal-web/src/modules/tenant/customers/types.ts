@@ -3,7 +3,6 @@ import type { SortOrder } from '@/types';
 export type CustomerType = 'INDIVIDUAL' | 'CORPORATE';
 export type CustomerGender = 'M' | 'F';
 export type CustomerStatus = 'ACTIVE' | 'INACTIVE' | 'BLACKLISTED' | 'MERGED';
-export type CustomerKycStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
 export type CustomerDocumentType =
   | 'NIDA'
   | 'VOTER_ID'
@@ -67,7 +66,6 @@ export interface CustomerRecord {
   contact_role: string | null;
   contact_phone: string | null;
   contact_email: string | null;
-  kyc_status: CustomerKycStatus;
   document_type: CustomerDocumentType | null;
   document_no: string | null;
   document_file_name: string | null;
@@ -121,7 +119,6 @@ export interface CustomerListParams {
   search?: string;
   customer_type?: CustomerType;
   status?: CustomerStatus;
-  kyc_status?: CustomerKycStatus;
   sortBy?:
     | 'customer_no'
     | 'first_name'
@@ -129,7 +126,6 @@ export interface CustomerListParams {
     | 'company_name'
     | 'status'
     | 'customer_type'
-    | 'kyc_status'
     | 'created_at'
     | 'updated_at';
   sortOrder?: SortOrder;
@@ -172,7 +168,6 @@ export interface CustomerFormValues {
   contact_role: string;
   contact_phone: string;
   contact_email: string;
-  kyc_status: CustomerKycStatus;
   document_type: CustomerDocumentType | '';
   document_no: string;
   document_file_name: string;
@@ -218,7 +213,6 @@ export type CustomerPayload = {
   contact_role?: string | null;
   contact_phone?: string | null;
   contact_email?: string | null;
-  kyc_status?: CustomerKycStatus;
   document_type?: CustomerDocumentType | null;
   document_no?: string | null;
   document_file_name?: string | null;
@@ -250,15 +244,6 @@ export const CUSTOMER_STATUS_OPTIONS: {
   { value: 'INACTIVE', label: 'Inactive' },
   { value: 'BLACKLISTED', label: 'Blacklisted' },
   { value: 'MERGED', label: 'Merged' },
-];
-
-export const CUSTOMER_KYC_STATUS_OPTIONS: {
-  value: CustomerKycStatus;
-  label: string;
-}[] = [
-  { value: 'PENDING', label: 'Pending' },
-  { value: 'VERIFIED', label: 'Verified' },
-  { value: 'REJECTED', label: 'Rejected' },
 ];
 
 export const CUSTOMER_DOCUMENT_TYPE_OPTIONS: {

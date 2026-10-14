@@ -23,7 +23,6 @@ import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { CommissionTransaction } from '../../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../../billing-commission/entities/invoice.entity';
 import { Receipt } from '../../billing-commission/entities/receipt.entity';
-import { CustomerKycStatus } from '../../customers/enums/customer-kyc-status.enum';
 import { PricingQuote } from '../../pricing/entities/pricing-quote.entity';
 import { PricingRateBook } from '../../pricing-rate-books/entities/pricing-rate-book.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
@@ -278,12 +277,6 @@ export class PolicyTransactionTiramisServiceContextService {
       );
     }
 
-    if (customer.kyc_status !== CustomerKycStatus.VERIFIED) {
-      throw new ConflictException(
-        'Customer KYC must be verified before submitting this transaction to TIRAMIS.',
-      );
-    }
-
     const policyHolderManifest =
       this.buildPolicyHolderManifest(outboundPayload);
 
@@ -322,8 +315,6 @@ export class PolicyTransactionTiramisServiceContextService {
     return {
       customerId: customer.id,
       customerNumber: customer.customer_no,
-      customerKycStatus: customer.kyc_status,
-      customerKycVersion: Number(customer.kyc_version ?? 0),
       customerSnapshotHash: tiramisPolicyHolderHash,
       tiramisPolicyHolderHash,
       assetManifestHash,

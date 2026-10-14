@@ -289,7 +289,7 @@ export class PublicMotorPurchaseService {
     dto: PublicMotorQuoteDto,
   ): Promise<PricingResult> {
     const start = dto.cover_start_date ?? this.today();
-    const end = dto.cover_end_date ?? this.addDays(start, 364);
+    const end = dto.cover_end_date ?? this.addDays(start, 365);
     const sumInsured = Number(dto.sum_insured ?? dto.vehicle.gross_weight ?? 0);
     const factors: Record<string, string | number | boolean> = {
       ...(dto.factors ?? {}),
@@ -317,7 +317,7 @@ export class PublicMotorPurchaseService {
           factors,
           effective_date: start,
           cover_start_date: start,
-          cover_end_date: end,
+          cover_end_date: this.addDays(end, -1),
           quotation_type: QuotationType.MOTOR,
           currency_code: 'TZS',
           exchange_rate: 1,
@@ -373,7 +373,7 @@ export class PublicMotorPurchaseService {
         start_date: dto.cover_start_date ?? this.today(),
         end_date:
           dto.cover_end_date ??
-          this.addDays(dto.cover_start_date ?? this.today(), 364),
+          this.addDays(dto.cover_start_date ?? this.today(), 365),
       },
       premium: {
         pricing_quote_id: pricing.pricing_quote_id,
@@ -397,7 +397,7 @@ export class PublicMotorPurchaseService {
     pricing: PricingResult,
   ) {
     const coverStart = dto.cover_start_date ?? this.today();
-    const coverEnd = dto.cover_end_date ?? this.addDays(coverStart, 364);
+    const coverEnd = dto.cover_end_date ?? this.addDays(coverStart, 365);
     const taxes = this.mapTaxes(pricing, context.vat);
     const riskCode = context.risk.tiramis_risk_code || context.risk.risk_code;
     const productCode =
@@ -465,7 +465,7 @@ export class PublicMotorPurchaseService {
         cover_note_dtl: {
           sale_point_code: context.defaultBranch.salePointCode,
           cover_note_start_date: `${coverStart}T00:00:00`,
-          cover_note_end_date: `${coverEnd}T23:59:59`,
+          cover_note_end_date: `${coverEnd}T00:00:00`,
           cover_note_desc: coverDescription,
           operative_clause: operativeClause,
           payment_mode: 1,

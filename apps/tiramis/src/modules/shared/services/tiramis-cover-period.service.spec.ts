@@ -20,6 +20,39 @@ describe('TiramisCoverPeriodService', () => {
     });
   });
 
+  it('keeps an inclusive end on the preceding calendar day after a same-day adjustment', () => {
+    const result = service.normalize(
+      '2026-08-20T10:03:28',
+      '2027-08-19T23:59:59',
+      now,
+    );
+
+    expect(result.startDateTime).toBe('2026-08-20T10:03:34');
+    expect(result.endDateTime).toBe('2027-08-19T23:59:59');
+  });
+
+  it('moves an inclusive end by calendar days when a stale start is retried', () => {
+    const result = service.normalize(
+      '2026-08-01T10:03:28',
+      '2027-07-31T23:59:59',
+      now,
+    );
+
+    expect(result.startDateTime).toBe('2026-08-20T10:03:34');
+    expect(result.endDateTime).toBe('2027-08-19T23:59:59');
+  });
+
+  it('keeps a retried annual period on the day before its anniversary across a leap year', () => {
+    const result = service.normalize(
+      '2027-10-14T10:03:28',
+      '2028-10-13T23:59:59',
+      new Date('2028-10-14T07:03:28.000Z'),
+    );
+
+    expect(result.startDateTime).toBe('2028-10-14T10:03:34');
+    expect(result.endDateTime).toBe('2029-10-13T23:59:59');
+  });
+
   it.each([30, 60, 90])(
     'preserves exactly %i days after adjustment',
     (days) => {

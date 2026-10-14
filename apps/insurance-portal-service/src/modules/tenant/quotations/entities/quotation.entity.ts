@@ -229,9 +229,6 @@ export class Quotation {
   @Column({ type: 'varchar', length: 64, nullable: true })
   customer_snapshot_hash: string | null;
 
-  @Column({ type: 'int', nullable: true })
-  customer_kyc_version: number | null;
-
   @Column({ type: 'timestamptz', nullable: true })
   customer_snapshot_at: Date | null;
 

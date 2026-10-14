@@ -46,10 +46,18 @@ function createService(
         ? (overrides.validation ?? { valid: true, message: 'Valid.' })
         : {},
     ),
+    getPlatformServiceKeyAllowedIps: jest.fn().mockResolvedValue([]),
+    getPortalWebhookUrl: jest
+      .fn()
+      .mockReturnValue(
+        'https://portal.example.test/api/v1/webhooks/tiramis/notifications',
+      ),
   };
   const platformAccess = {
     getSettings: jest.fn().mockResolvedValue(settings),
     getActiveEnvironment: jest.fn().mockResolvedValue('uat'),
+    getConnectionProfile: jest.fn().mockResolvedValue(null),
+    getBaseUrl: jest.fn().mockResolvedValue('https://tiramis.example.test'),
     getServiceApiKey: jest
       .fn()
       .mockResolvedValue(

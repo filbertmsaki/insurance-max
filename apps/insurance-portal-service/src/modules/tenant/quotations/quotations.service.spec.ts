@@ -203,8 +203,6 @@ describe('QuotationsService', () => {
       customer: {
         id: 'customer-1',
         customer_no: 'CUS-2026-000001',
-        kyc_status: 'VERIFIED',
-        kyc_version: 3,
       },
       branch: {
         id: 'branch-1',

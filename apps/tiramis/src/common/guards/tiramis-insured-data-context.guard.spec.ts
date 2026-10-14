@@ -61,8 +61,6 @@ describe('TiramisInsuredDataContextGuard', () => {
         insuredData: {
           customerId: 'customer-1',
           customerNumber: 'CUST-001',
-          customerKycStatus: 'VERIFIED',
-          customerKycVersion: 3,
           customerSnapshotHash: hashDefinition(policyHolderManifest),
           tiramisPolicyHolderHash: hashDefinition(policyHolderManifest),
           assetManifestHash: hashDefinition(assetManifest),
@@ -129,8 +127,6 @@ describe('TiramisInsuredDataContextGuard', () => {
         insuredData: {
           customerId: 'customer-1',
           customerNumber: 'CUST-001',
-          customerKycStatus: 'VERIFIED',
-          customerKycVersion: 3,
           customerSnapshotHash: hashDefinition(policyHolderManifest),
           tiramisPolicyHolderHash: hashDefinition(policyHolderManifest),
           assetManifestHash: hashDefinition(signedAssetManifest),

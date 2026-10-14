@@ -6,8 +6,65 @@ import { PolicyTransactionLifecycleService } from '../../tenant/policy-transacti
 import { PolicyTransactionRegulatoryOutcomeService } from '../../tenant/policy-transactions/services/policy-transaction-regulatory-outcome.service';
 
 describe('TiramisBusinessRecordSyncService', () => {
+  it('reconciles the matching submitted attempt before status-sync issuance', async () => {
+    const order: string[] = [];
+    const submittedQuotationSync = {
+      reconcile: jest.fn(async () => {
+        order.push('reconcile');
+      }),
+    };
+    const dataSource = {
+      query: jest.fn().mockResolvedValue([
+        {
+          id: 'quote-1',
+          quotation_status: 'COMPLETED',
+          tira_status: 'SUCCESS',
+        },
+      ]),
+    };
+    const service = new TiramisBusinessRecordSyncService(
+      dataSource as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      submittedQuotationSync as any,
+    );
+    jest
+      .spyOn(service as any, 'triggerPolicyIssuanceIfNeeded')
+      .mockImplementation(async () => {
+        order.push('issue');
+      });
+
+    await (service as any).syncQuotationOutcomeIfNeeded({
+      id: 'tracking-1',
+      sourceModule: 'quotations',
+      sourceRecordId: 'quote-1',
+      sourceCompanyId: 'company-1',
+      status: TiramisSubmissionStatus.FINAL_SUCCESS,
+      tiramisRequestId: 'REQ-2',
+      tiramisResponsePayload: {
+        currentAttempt: {
+          requestId: 'REQ-2',
+          payloads: { requestXml: '<latest/>' },
+        },
+        attempts: [{ requestId: 'REQ-1', payloads: { requestXml: '<old/>' } }],
+      },
+    });
+
+    expect(submittedQuotationSync.reconcile).toHaveBeenCalledWith({
+      companyId: 'company-1',
+      quotationId: 'quote-1',
+      requestId: 'REQ-2',
+      requestXml: '<latest/>',
+    });
+    expect(order).toEqual(['reconcile', 'issue']);
+  });
+
   it('extracts motor callback references from a completed attempt response XML', () => {
     const service = new TiramisBusinessRecordSyncService(
+      {} as any,
       {} as any,
       {} as any,
       {} as any,
@@ -104,6 +161,7 @@ describe('TiramisBusinessRecordSyncService', () => {
       notificationService as any,
       {} as any,
       portalSubmissionRepository as any,
+      {} as any,
       moduleRef as any,
     );
 

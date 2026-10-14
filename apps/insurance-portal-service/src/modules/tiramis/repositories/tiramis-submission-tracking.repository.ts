@@ -674,6 +674,9 @@ export class TiramisSubmissionTrackingRepository {
         lastRetryAt: new Date(),
       })
       .where('id = :id', { id })
+      .andWhere('status <> :finalSuccess', {
+        finalSuccess: TiramisSubmissionStatus.FINAL_SUCCESS,
+      })
       .andWhere(
         `(retry_lock_id IS NULL OR retry_locked_at < now() - interval '${lockMinutes} minutes')`,
       )

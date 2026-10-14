@@ -126,6 +126,10 @@ export const quotationsApi = {
     apiClient
       .post<QuotationSubmitResponse>(`/tenant/quotations/${id}/retry-tira`)
       .then((response) => response.data),
+  syncTira: (id: string) =>
+    apiClient
+      .post(`/tiramis/local-tracking/quotation/${id}/sync`)
+      .then((response) => response.data),
   cancel: (id: string, data: { cancellation_reason: string }) =>
     apiClient
       .post<QuotationDetailRecord>(`/tenant/quotations/${id}/cancel`, data)

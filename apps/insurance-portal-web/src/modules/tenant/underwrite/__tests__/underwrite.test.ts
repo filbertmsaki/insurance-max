@@ -79,23 +79,12 @@ describe('underwrite navigation', () => {
     }
   });
 
-  it('offers Non-Motor its risks and risk schema admin', () => {
-    const nonMotor = group('Non-Motor').children;
-    expect(nonMotor.map((item) => item.to)).toEqual(
-      expect.arrayContaining([
-        underwritePaths.nonMotorRisks,
-        underwritePaths.riskSchemas,
-      ]),
-    );
-    // Schema admin needs product-configuration rights, not just quoting.
-    expect(
-      nonMotor.find((item) => item.to === underwritePaths.riskSchemas),
-    ).toMatchObject({
-      permission: 'underwrite.non_motor.edit',
-      anyPermission: ['insurance-products:update'],
-    });
+  it('keeps Non-Motor quoting available without risk admin links', () => {
+    const paths = group('Non-Motor').children.map((item) => item.to);
+    expect(paths).toContain(underwritePaths.quotations('non-motor'));
+    expect(paths).not.toContain(underwritePaths.nonMotorRisks);
+    expect(paths).not.toContain(underwritePaths.riskSchemas);
   });
-
 });
 
 describe('wizard defaults', () => {

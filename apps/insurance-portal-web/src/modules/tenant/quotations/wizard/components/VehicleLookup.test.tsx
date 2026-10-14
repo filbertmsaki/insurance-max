@@ -6,6 +6,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Form } from '@/components/ui/form';
 import {
@@ -78,7 +79,14 @@ describe('VehicleLookup', () => {
         </Form>
       );
     }
-    render(<Harness />);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <Harness />
+      </QueryClientProvider>,
+    );
     search();
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Vehicle details populated',

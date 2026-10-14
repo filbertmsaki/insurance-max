@@ -9,6 +9,7 @@ function createService(link: Record<string, unknown> | null) {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn((v) => v),
     } as any,
+    { findOne: jest.fn().mockResolvedValue(null) } as any,
     { findOne: jest.fn().mockResolvedValue(link) } as any,
     { decrypt: jest.fn() } as any,
     { get: jest.fn().mockReturnValue('test') } as any,

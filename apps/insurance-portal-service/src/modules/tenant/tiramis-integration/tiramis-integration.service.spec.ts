@@ -76,6 +76,13 @@ describe('TiramisIntegrationService callback handling', () => {
       publishQuotationTiramisUpdated: jest.fn(),
       publishPolicyTransactionTiramisUpdated: jest.fn(),
     };
+    const businessRecordSync = {
+      syncFromTracking: jest.fn().mockResolvedValue(undefined),
+      syncSubmittedQuotation: jest.fn().mockResolvedValue(undefined),
+    };
+    const issuanceService = {
+      applyNotification: jest.fn().mockResolvedValue(null),
+    };
 
     const service = new TiramisIntegrationService(
       submissionRepository,
@@ -95,12 +102,10 @@ describe('TiramisIntegrationService callback handling', () => {
         findByBusinessReference: jest.fn().mockResolvedValue([]),
         save: jest.fn(async (value) => value),
       } as any,
-      {
-        syncFromTracking: jest.fn().mockResolvedValue(undefined),
-      } as any,
+      businessRecordSync as any,
       {} as any,
       quotationLifecycleService,
-      { applyNotification: jest.fn().mockResolvedValue(null) } as any,
+      issuanceService as any,
       { applyIssuedPolicyIfRenewal: jest.fn().mockResolvedValue(null) } as any,
       {} as any, // policyTransactionLifecycleService
       {} as any, // policyTransactionApplyService
@@ -115,8 +120,37 @@ describe('TiramisIntegrationService callback handling', () => {
       submission,
       submissionRepository,
       notificationPublisher,
+      businessRecordSync,
+      issuanceService,
     };
   }
+
+  it('synchronizes the submitted snapshot before issuing a quotation', async () => {
+    const fixture = createFixture();
+    await fixture.service.handleTiramisNotification({
+      eventType: 'TIRAMIS_FINAL_SUCCESS',
+      sourceModule: 'quotations',
+      requestId: 'REQ-1',
+      submittedRequestXml: '<submitted/>',
+      statusCode: 'TIRA001',
+      statusDescription: 'Successful',
+    });
+
+    expect(
+      fixture.businessRecordSync.syncSubmittedQuotation,
+    ).toHaveBeenCalledWith({
+      companyId: 'company-1',
+      quotationId: 'quotation-1',
+      requestId: 'REQ-1',
+      requestXml: '<submitted/>',
+    });
+    expect(
+      fixture.businessRecordSync.syncSubmittedQuotation.mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
+      fixture.issuanceService.applyNotification.mock.invocationCallOrder[0],
+    );
+  });
 
   it('routes cancellation callbacks to quotation cancellation instead of normal completion', async () => {
     const fixture = createFixture();

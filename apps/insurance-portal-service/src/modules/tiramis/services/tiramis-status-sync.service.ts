@@ -228,6 +228,9 @@ export class TiramisStatusSyncService {
         requestId: record.tiramisRequestId || undefined,
         businessReference: record.businessReference || undefined,
         includePayload:
+          String(record.sourceModule || '')
+            .toLowerCase()
+            .includes('quotation') ||
           environment.TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD !== 'false',
       },
       authContext,

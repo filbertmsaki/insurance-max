@@ -49,7 +49,6 @@ import { TiramisRequestType } from '../../tiramis/enums/tiramis-request-type.enu
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
 import { Branch } from '../branches/entities/branch.entity';
 import { BranchUser } from '../branches/entities/branch-user.entity';
-import { CustomerKycStatus } from '../customers/enums/customer-kyc-status.enum';
 import { CustomerGender } from '../customers/enums/customer-gender.enum';
 import { CustomerPolicyHolderType } from '../customers/enums/customer-policy-holder-type.enum';
 import { CustomerType } from '../customers/enums/customer-type.enum';
@@ -3993,8 +3992,6 @@ export class QuotationsService {
     return {
       customerId: customer.id,
       customerNumber: customer.customer_no,
-      customerKycStatus: customer.kyc_status,
-      customerKycVersion: Number(customer.kyc_version ?? 0),
       customerSnapshotHash: tiramisPolicyHolderHash,
       tiramisPolicyHolderHash,
       assetManifestHash,
@@ -7784,11 +7781,6 @@ export class QuotationsService {
       where: { company_id: companyId, id_number: normalizedIdNumber },
     });
     if (existingByIdNumber) {
-      await this.ensureQuotationCreatedCustomerKycActive(
-        manager,
-        existingByIdNumber,
-        userId,
-      );
       return existingByIdNumber.id;
     }
 
@@ -7796,11 +7788,6 @@ export class QuotationsService {
       where: { company_id: companyId, phone: normalizedPhone },
     });
     if (existingByPhone) {
-      await this.ensureQuotationCreatedCustomerKycActive(
-        manager,
-        existingByPhone,
-        userId,
-      );
       return existingByPhone.id;
     }
 
@@ -7873,11 +7860,6 @@ export class QuotationsService {
       contact_role: null,
       contact_phone: null,
       contact_email: null,
-      kyc_status: CustomerKycStatus.VERIFIED,
-      kyc_version: 1,
-      kyc_verified_by: userId,
-      kyc_verified_at: new Date(),
-      kyc_rejection_reason: null,
       document_type: null,
       document_no: null,
       document_file_name: null,
@@ -7897,31 +7879,6 @@ export class QuotationsService {
 
     const savedCustomer = await customerRepository.save(customer);
     return savedCustomer.id;
-  }
-
-  private async ensureQuotationCreatedCustomerKycActive(
-    manager: EntityManager,
-    customer: Customer,
-    userId: string,
-  ): Promise<void> {
-    if (
-      customer.kyc_status === CustomerKycStatus.VERIFIED ||
-      customer.metadata?.source !== 'quotation'
-    ) {
-      return;
-    }
-
-    customer.kyc_status = CustomerKycStatus.VERIFIED;
-    customer.kyc_version = Math.max(Number(customer.kyc_version ?? 0), 1);
-    customer.kyc_verified_by = userId;
-    customer.kyc_verified_at = new Date();
-    customer.kyc_rejection_reason = null;
-    customer.document_verified = true;
-    customer.document_verified_by = userId;
-    customer.document_verified_at = new Date();
-    customer.updated_by = userId;
-
-    await manager.getRepository(Customer).save(customer);
   }
 
   private mergeLifecycleState(
@@ -8445,8 +8402,6 @@ export class QuotationsService {
       quotationId: quotation.id,
       customerId,
       customerNumber: customer?.customer_no ?? null,
-      kycStatus: customer?.kyc_status ?? null,
-      kycVersion: Number(customer?.kyc_version ?? 0),
       policyHolder: primaryHolder
         ? {
             name: primaryHolder.policy_holder_name.trim(),
@@ -8465,7 +8420,6 @@ export class QuotationsService {
     quotation.customer_snapshot = snapshot;
     quotation.customer_snapshot_hash =
       this.productDefinitionHashService.hashDefinition(snapshot);
-    quotation.customer_kyc_version = Number(customer?.kyc_version ?? 0);
     quotation.customer_snapshot_at = new Date();
 
     await manager.getRepository(Quotation).update(
@@ -8473,7 +8427,6 @@ export class QuotationsService {
       {
         customer_snapshot: quotation.customer_snapshot as any,
         customer_snapshot_hash: quotation.customer_snapshot_hash,
-        customer_kyc_version: quotation.customer_kyc_version,
         customer_snapshot_at: quotation.customer_snapshot_at,
       },
     );

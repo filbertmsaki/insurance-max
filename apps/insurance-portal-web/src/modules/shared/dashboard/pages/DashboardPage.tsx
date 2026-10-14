@@ -876,10 +876,7 @@ function OverviewContent({
             description={`${formatCount(
               customerKpis?.active_customers,
               numberFormatSettings,
-            )} active | ${formatCount(
-              customerKpis?.pending_kyc,
-              numberFormatSettings,
-            )} KYC pending`}
+            )} active`}
           />
           <DashboardCard
             icon={Wallet}

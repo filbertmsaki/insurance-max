@@ -31,10 +31,7 @@ import {
   type QuotationFormSchemaValues,
 } from '@/modules/tenant/quotations/schemas';
 import type { QuotationDetailRecord } from '@/modules/tenant/quotations/types';
-import {
-  computeCoverNoteDateRange,
-  dateOnlyPart,
-} from '@/modules/tenant/quotations/wizard/utils/coverNoteDateRange';
+import { computeCoverNoteDateRange } from '@/modules/tenant/quotations/wizard/utils/coverNoteDateRange';
 import {
   aggregateFleetRiskTotals,
   aggregateRiskTotals,
@@ -287,8 +284,8 @@ export function useUnderwriteQuotationWizard({
     const dates = computeCoverNoteDateRange(365);
     form.reset({
       ...defaultValues,
-      valid_from: dateOnlyPart(dates.validFrom),
-      valid_until: dateOnlyPart(dates.validUntil),
+      valid_from: dates.validFrom,
+      valid_until: dates.validUntil,
       insurer_company_id: companyId,
     });
   }, [companyId, defaultValues, form, isEditMode]);

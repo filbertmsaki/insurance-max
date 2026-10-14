@@ -21,6 +21,10 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  computeCoverNoteDateRange,
+  dateOnlyPart,
+} from '@/modules/tenant/quotations/wizard/utils/coverNoteDateRange';
 import type { InsuranceBusinessLine } from '@/types/product-engine';
 
 import {
@@ -51,9 +55,7 @@ interface DraftFormState {
 const today = new Date().toISOString().slice(0, 10);
 
 function defaultValidUntil() {
-  const date = new Date();
-  date.setFullYear(date.getFullYear() + 1);
-  return date.toISOString().slice(0, 10);
+  return dateOnlyPart(computeCoverNoteDateRange(365).validUntil);
 }
 
 const emptyState: DraftFormState = {

@@ -19,6 +19,10 @@ import {
 } from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
+import {
+  dateOnlyPart,
+  pricingCoverEndDate,
+} from '../utils/coverNoteDateRange';
 import { setPricingFormValue as setValueIfChanged } from '../utils/pricingFormUpdates';
 
 const CALCULATION_DEBOUNCE_MS = 400;
@@ -490,9 +494,9 @@ export function useRiskPremiumCalculation(
               ? requestedSumInsured
               : undefined,
           factors: calculationFactors,
-          effective_date: form.getValues('valid_from'),
-          cover_start_date: form.getValues('valid_from'),
-          cover_end_date: form.getValues('valid_until'),
+          effective_date: dateOnlyPart(form.getValues('valid_from')),
+          cover_start_date: dateOnlyPart(form.getValues('valid_from')),
+          cover_end_date: pricingCoverEndDate(form.getValues('valid_until')),
           currency_code: (form.getValues('currency') || 'TZS')
             .trim()
             .toUpperCase(),

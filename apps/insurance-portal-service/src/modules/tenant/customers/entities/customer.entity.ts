@@ -16,13 +16,11 @@ import { CustomerAddress } from './customer-address.entity';
 import { CustomerContact } from './customer-contact.entity';
 import { CustomerDocument } from './customer-document.entity';
 import { CustomerIdentifier } from './customer-identifier.entity';
-import { CustomerKycReview } from './customer-kyc-review.entity';
 import { CustomerAuditLog } from './customer-audit-log.entity';
 import { CustomerVersion } from './customer-version.entity';
 import { InsuredAsset } from './insured-asset.entity';
 import { CustomerDocumentType } from '../enums/customer-document-type.enum';
 import { CustomerGender } from '../enums/customer-gender.enum';
-import { CustomerKycStatus } from '../enums/customer-kyc-status.enum';
 import { CustomerPolicyHolderType } from '../enums/customer-policy-holder-type.enum';
 import { CustomerStatus } from '../enums/customer-status.enum';
 import { CustomerType } from '../enums/customer-type.enum';
@@ -179,29 +177,6 @@ export class Customer {
 
   @Column({
     type: 'enum',
-    enum: CustomerKycStatus,
-    enumName: 'customer_kyc_status_enum',
-    default: CustomerKycStatus.PENDING,
-  })
-  kyc_status: CustomerKycStatus;
-
-  @Column({ type: 'int', default: 0 })
-  kyc_version: number;
-
-  @Column({ type: 'uuid', nullable: true })
-  kyc_verified_by: string | null;
-
-  @Column({ type: 'timestamptz', nullable: true })
-  kyc_verified_at: Date | null;
-
-  @Column({ type: 'timestamptz', nullable: true })
-  kyc_expires_at: Date | null;
-
-  @Column({ type: 'text', nullable: true })
-  kyc_rejection_reason: string | null;
-
-  @Column({
-    type: 'enum',
     enum: CustomerDocumentType,
     enumName: 'customer_document_type_enum',
     nullable: true,
@@ -273,10 +248,6 @@ export class Customer {
   @JoinColumn({ name: 'document_verified_by' })
   document_verified_by_user: User | null;
 
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'kyc_verified_by' })
-  kyc_verified_by_user: User | null;
-
   @ManyToOne(() => Customer, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'merged_into_customer_id' })
   merged_into_customer: Customer | null;
@@ -292,9 +263,6 @@ export class Customer {
 
   @OneToMany(() => CustomerDocument, (document) => document.customer)
   documents: CustomerDocument[];
-
-  @OneToMany(() => CustomerKycReview, (review) => review.customer)
-  kyc_reviews: CustomerKycReview[];
 
   @OneToMany(() => CustomerVersion, (version) => version.customer)
   versions: CustomerVersion[];

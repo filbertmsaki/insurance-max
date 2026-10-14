@@ -138,7 +138,6 @@ function createOverview(
       customers: {
         total_customers: 12,
         active_customers: 10,
-        pending_kyc: 2,
       },
       finance: {
         total_invoices: 8,

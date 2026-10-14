@@ -25,7 +25,6 @@ import { Role } from '../../../platform/roles/entities/role.entity';
 import { BranchUser } from '../../branches/entities/branch-user.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
-import { CustomerKycStatus } from '../../customers/enums/customer-kyc-status.enum';
 import { CustomerStatus } from '../../customers/enums/customer-status.enum';
 import { CustomerType } from '../../customers/enums/customer-type.enum';
 import { User, UserStatus, UserType } from '../../users/entities/user.entity';
@@ -743,7 +742,6 @@ export class PortalAccountsService {
             country_code: 'TZA',
             region: 'Unspecified',
             district: 'Unspecified',
-            kyc_status: CustomerKycStatus.PENDING,
             status: CustomerStatus.ACTIVE,
             data_source: 'SELF_SERVICE',
             metadata: {

@@ -71,7 +71,6 @@ export interface PortalProfileRecord {
   ward?: string | null;
   street?: string | null;
   postal_address?: string | null;
-  kyc_status?: string | null;
   status?: string | null;
   name?: string;
   slug?: string;

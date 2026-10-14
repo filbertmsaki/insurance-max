@@ -73,6 +73,21 @@ describe('RenewalEligibilityService', () => {
     expect(result.renewalSequence).toBe(1);
   });
 
+  it('sets one-year renewal end date to next calendar year minus one day', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2027-02-24T10:00:00Z'));
+
+    const result = await service.validate(
+      managerWith({
+        coverNoteEndDate: '2027-03-01',
+      }),
+      policy({ end_date: '2027-03-01' }),
+    );
+
+    expect(result.eligible).toBe(true);
+    expect(result.renewalStartDate).toBe('2027-03-02');
+    expect(result.renewalEndDate).toBe('2028-03-01');
+  });
+
   it('references the current cover note after an applied endorsement', async () => {
     const result = await service.validate(
       managerWith({

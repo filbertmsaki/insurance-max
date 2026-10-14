@@ -25,6 +25,7 @@ function createService(overrides: Record<string, any> = {}) {
     getTransactionForNotification: jest.fn().mockResolvedValue({
       clientConfigurationId: 'config-from-transaction',
     }),
+    getSubmittedRequestXml: jest.fn().mockResolvedValue('<SubmittedRequest/>'),
     ...overrides.tiramisSubmissionService,
   };
 
@@ -451,6 +452,7 @@ describe('TiramisCallbackService', () => {
       expect.objectContaining({
         eventType: 'TIRAMIS_FINAL_SUCCESS',
         requestId: 'REQ-001',
+        submittedRequestXml: '<SubmittedRequest/>',
       }),
       expect.objectContaining({
         webhookUrl:

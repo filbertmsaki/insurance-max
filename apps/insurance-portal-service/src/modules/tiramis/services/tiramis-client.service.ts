@@ -1,4 +1,5 @@
 import { HttpService } from '@nestjs/axios';
+import { environment } from '@insurance-max/shared-config';
 import {
   BadRequestException,
   ConflictException,
@@ -178,6 +179,23 @@ export class TiramisClientService {
       businessReference: command.businessReference,
     });
 
+    const latestPreviousSubmission =
+      await this.trackingRepository.findLatestSubmissionForSameBusiness({
+        sourceCompanyId: command.sourceCompanyId,
+        requestType: dto.requestType,
+        sourceModule: command.sourceModule,
+        sourceRecordId: command.sourceRecordId,
+        businessReference: command.businessReference,
+      });
+
+    if (
+      latestPreviousSubmission?.status === TiramisSubmissionStatus.FINAL_SUCCESS
+    ) {
+      throw new ConflictException(
+        'TIRAMIS has already completed this submission successfully. Sync its status and data instead of resubmitting to TIRA.',
+      );
+    }
+
     const idempotencyKey = buildTiramisIdempotencyKey({
       sourceCompanyId: command.sourceCompanyId,
       requestType: dto.requestType,
@@ -189,6 +207,18 @@ export class TiramisClientService {
       // not an idempotent replay of an earlier force-resubmit request.
       resubmissionId: dto.forceResubmit ? randomUUID() : null,
     });
+
+    if (dto.forceResubmit && latestPreviousSubmission) {
+      const reconciliation = await this.reconcileBeforeForceResubmit({
+        previous: latestPreviousSubmission,
+        payload: dto.payload,
+        authContext,
+      });
+
+      if (reconciliation.returnExisting) {
+        return reconciliation.returnExisting;
+      }
+    }
 
     if (!dto.forceResubmit) {
       const existingDuplicate =
@@ -261,15 +291,6 @@ export class TiramisClientService {
         });
       }
     }
-
-    const latestPreviousSubmission =
-      await this.trackingRepository.findLatestSubmissionForSameBusiness({
-        sourceCompanyId: command.sourceCompanyId,
-        requestType: dto.requestType,
-        sourceModule: command.sourceModule,
-        sourceRecordId: command.sourceRecordId,
-        businessReference: command.businessReference,
-      });
 
     const canonicalRequestType = mapLegacyRequestTypeToCanonical(
       dto.requestType,
@@ -1468,6 +1489,12 @@ export class TiramisClientService {
       throw new BadRequestException('TIRAMIS local tracking record not found');
     }
 
+    if (tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      throw new ConflictException(
+        'TIRAMIS has already completed this submission successfully. Sync its status and data instead of retrying.',
+      );
+    }
+
     if (
       !tracking.requestPayload ||
       Object.keys(tracking.requestPayload).length === 0
@@ -2374,6 +2401,208 @@ export class TiramisClientService {
       TiramisSubmissionStatus.FAILED,
       TiramisSubmissionStatus.RETRY_EXHAUSTED,
     ].includes(status as TiramisSubmissionStatus);
+  }
+
+  private async reconcileBeforeForceResubmit(params: {
+    previous: any;
+    payload: any;
+    authContext?: any;
+  }): Promise<{ returnExisting?: any }> {
+    const previous = params.previous;
+
+    if (previous.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      return this.returnExistingDuplicateAfterReconcile({
+        tracking: previous,
+        statusBefore: previous.status,
+        authContext: params.authContext,
+      });
+    }
+
+    if (this.canCreateNewRequestAfterPreviousStatus(previous.status)) {
+      return {};
+    }
+
+    if (!previous.tiramisTransactionId && !previous.tiramisRequestId) {
+      return {};
+    }
+
+    let updated = previous;
+
+    try {
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.STATUS_SYNC_REQUESTED,
+        tracking: previous,
+        statusBefore: previous.status,
+        success: true,
+        authContext: params.authContext,
+        metadata: {
+          reason: 'force_resubmit_reconciliation',
+        },
+      });
+
+      const response = await this.getStatus(
+        {
+          transactionId: previous.tiramisTransactionId || undefined,
+          requestId: previous.tiramisRequestId || undefined,
+          businessReference: previous.businessReference || undefined,
+          includePayload:
+            environment.TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD !== 'false',
+        },
+        this.resolveTrackingFollowUpAuthContext(previous, params.authContext),
+      );
+
+      updated =
+        (await this.trackingRepository.markFinalFromTiramisStatus(
+          previous.id,
+          response,
+        )) || previous;
+
+      await this.businessRecordSyncService.syncFromTracking(updated);
+
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.STATUS_SYNC_SUCCESS,
+        tracking: updated,
+        statusBefore: previous.status,
+        success: true,
+        authContext: params.authContext,
+        metadata: {
+          reason: 'force_resubmit_reconciliation',
+          resolvedStatus: updated.status,
+        },
+      });
+    } catch (error: any) {
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.STATUS_SYNC_FAILED,
+        tracking: previous,
+        statusBefore: previous.status,
+        success: false,
+        authContext: params.authContext,
+        error,
+        metadata: {
+          reason: 'force_resubmit_reconciliation',
+        },
+      });
+
+      throw new ConflictException({
+        message:
+          'TIRAMIS status could not be confirmed for the previous request. Retry is blocked to prevent a duplicate submission.',
+        duplicatePrevented: true,
+        existingTrackingId: previous.id,
+        existingStatus: previous.status,
+        tiramisRequestId: previous.tiramisRequestId,
+        tiramisTransactionId: previous.tiramisTransactionId,
+        hint: 'Run TIRAMIS status sync or reconcile the previous request before resubmitting.',
+      });
+    }
+
+    if (updated.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      return this.returnExistingDuplicateAfterReconcile({
+        tracking: updated,
+        statusBefore: previous.status,
+        authContext: params.authContext,
+      });
+    }
+
+    if (this.canCreateNewRequestAfterPreviousStatus(updated.status)) {
+      return {};
+    }
+
+    throw new ConflictException({
+      message:
+        'TIRAMIS is still processing the previous request. Retry is blocked to prevent a duplicate submission.',
+      duplicatePrevented: true,
+      existingTrackingId: updated.id,
+      existingStatus: updated.status,
+      tiramisRequestId: updated.tiramisRequestId,
+      tiramisTransactionId: updated.tiramisTransactionId,
+      hint: 'Wait for the callback or run status sync again before resubmitting.',
+    });
+  }
+
+  private canCreateNewRequestAfterPreviousStatus(
+    status?: string | null,
+  ): boolean {
+    return [
+      TiramisSubmissionStatus.FINAL_FAILED,
+      TiramisSubmissionStatus.ACK_FAILED,
+      TiramisSubmissionStatus.FAILED,
+      TiramisSubmissionStatus.RETRY_EXHAUSTED,
+      TiramisSubmissionStatus.DUPLICATE_PREVENTED,
+    ].includes(status as TiramisSubmissionStatus);
+  }
+
+  private resolveTrackingFollowUpAuthContext(
+    tracking: any,
+    authContext?: any,
+  ): any {
+    if (!tracking.sourceCompanyId) {
+      return authContext;
+    }
+
+    return {
+      ...(authContext || {}),
+      id: tracking.sourceUserId || authContext?.id || 'system',
+      userId: tracking.sourceUserId || authContext?.userId || authContext?.id,
+      email: authContext?.email || 'system@internal',
+      scope: 'company',
+      userType: authContext?.userType || 'COMPANY_USER',
+      sessionId: authContext?.sessionId || 'system-force-resubmit-sync',
+      accessTokenId: authContext?.accessTokenId || 'system-force-resubmit-sync',
+      authorizationVersion: authContext?.authorizationVersion || 0,
+      companyId: tracking.sourceCompanyId,
+      activeCompanyId: tracking.sourceCompanyId,
+      roles: authContext?.roles || [],
+      permissions: authContext?.permissions || [],
+      ...(tracking.tiramisEnvironment
+        ? { tiramisEnvironment: tracking.tiramisEnvironment }
+        : {}),
+      tiramisFollowUp: true,
+    };
+  }
+
+  private async returnExistingDuplicateAfterReconcile(params: {
+    tracking: any;
+    statusBefore?: string | null;
+    authContext?: any;
+  }) {
+    const message =
+      'TIRAMIS already accepted the previous request. A duplicate resubmission was prevented.';
+
+    await this.auditService.logFromTracking({
+      action: TiramisAuditAction.DUPLICATE_PREVENTED,
+      tracking: params.tracking,
+      statusBefore: params.statusBefore || params.tracking.status,
+      success: false,
+      authContext: params.authContext,
+      metadata: {
+        reason: message,
+        duplicateOfTrackingId: params.tracking.id,
+        tiramisRequestId: params.tracking.tiramisRequestId,
+        tiramisTransactionId: params.tracking.tiramisTransactionId,
+      },
+    });
+
+    await this.notificationService.notifyDuplicatePrevented({
+      tracking: params.tracking,
+      existingTracking: params.tracking,
+      reason: message,
+      metadata: {
+        source: 'force_resubmit_reconciliation',
+      },
+    });
+
+    return {
+      returnExisting: {
+        success: true,
+        duplicatePrevented: true,
+        returnedExisting: true,
+        message,
+        localTrackingId: params.tracking.id,
+        localStatus: params.tracking.status,
+        tracking: params.tracking,
+        tiramis: params.tracking.tiramisResponsePayload || null,
+      },
+    };
   }
 
   private extractTiramisErrorResponse(error: unknown): unknown {

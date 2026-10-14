@@ -128,8 +128,6 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
       customer: {
         id: 'customer-1',
         customer_no: 'CUST-1',
-        kyc_status: 'VERIFIED',
-        kyc_version: 3,
       },
       ...overrides,
     } as any;
@@ -188,21 +186,6 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
     expect(contextReordered.insuredData.tiramisPolicyHolderHash).toBe(
       context.insuredData.tiramisPolicyHolderHash,
     );
-  });
-
-  it('rejects when the customer KYC is not verified', async () => {
-    const service = makeService();
-    const quotation = makeQuotation({
-      customer: {
-        id: 'customer-1',
-        customer_no: 'CUST-1',
-        kyc_status: 'PENDING',
-      },
-    });
-
-    await expect(
-      service.build(companyId, quotation, outboundPayload),
-    ).rejects.toThrow('Customer KYC must be verified');
   });
 
   it("falls back to the quotation's own motor detail when the outbound payload (e.g. a cancellation) carries no asset data of its own", async () => {

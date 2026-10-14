@@ -49,8 +49,21 @@ export class TiramisCoverPeriodService {
     const adjusted =
       originalStart.startOf('second').toMillis() <= threshold.toMillis();
     const start = adjusted ? minimumStart : originalStart;
+    const inclusiveEnd = originalEnd.toFormat('HH:mm:ss') === '23:59:59';
+    const annualEnd =
+      inclusiveEnd &&
+      originalEnd.toISODate() === this.calendarYearEndDate(originalStart);
+    const shiftedCalendarDays = Math.round(
+      start.startOf('day').diff(originalStart.startOf('day'), 'days').days,
+    );
     const end = adjusted
-      ? start.plus({ milliseconds: durationMilliseconds })
+      ? annualEnd
+        ? DateTime.fromISO(`${this.calendarYearEndDate(start)}T23:59:59`, {
+            zone: TIRA_TIMEZONE,
+          })
+        : inclusiveEnd
+          ? originalEnd.plus({ days: shiftedCalendarDays })
+          : start.plus({ milliseconds: durationMilliseconds })
       : originalEnd;
 
     return {
@@ -80,6 +93,14 @@ export class TiramisCoverPeriodService {
 
   toDate(value: Date | string): Date {
     return this.parse(value, 'Cover Note Date/Time').toJSDate();
+  }
+
+  private calendarYearEndDate(start: DateTime): string {
+    const anniversary = new Date(
+      Date.UTC(start.year + 1, start.month - 1, start.day),
+    );
+    anniversary.setUTCDate(anniversary.getUTCDate() - 1);
+    return anniversary.toISOString().slice(0, 10);
   }
 
   private parse(value: Date | string, fieldName: string): DateTime {

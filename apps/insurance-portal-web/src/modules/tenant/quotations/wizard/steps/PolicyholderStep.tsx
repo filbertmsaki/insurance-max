@@ -8,8 +8,6 @@ import {
   Pencil,
   Phone,
   RefreshCw,
-  ShieldAlert,
-  ShieldCheck,
   UserCircle2,
   type LucideIcon,
 } from 'lucide-react';
@@ -167,8 +165,6 @@ function ExistingCustomerCard({
   const location = [customer.district, customer.region]
     .filter(Boolean)
     .join(', ');
-  const kycVerified = customer.kyc_status === 'VERIFIED';
-
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-start gap-3 p-4">
@@ -221,20 +217,7 @@ function ExistingCustomerCard({
         {location && <QuickFact icon={MapPin}>{location}</QuickFact>}
       </div>
 
-      <div className="flex items-center justify-between gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/70 px-4 py-2">
-        <span
-          className={[
-            'inline-flex items-center gap-1.5 text-xs font-medium',
-            kycVerified ? 'text-emerald-700' : 'text-amber-700',
-          ].join(' ')}
-        >
-          {kycVerified ? (
-            <ShieldCheck className="h-3.5 w-3.5" />
-          ) : (
-            <ShieldAlert className="h-3.5 w-3.5" />
-          )}
-          KYC {customer.kyc_status.replace(/_/g, ' ').toLowerCase()}
-        </span>
+      <div className="flex items-center justify-end gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/70 px-4 py-2">
         <button
           type="button"
           onClick={() => setShowDetails((open) => !open)}
@@ -288,14 +271,6 @@ function ExistingCustomerCard({
               ['Contact role', customer.contact_role],
               ['Contact phone', customer.contact_phone],
               ['Contact email', customer.contact_email],
-            ]}
-          />
-          <DetailGroup
-            title="Verification"
-            items={[
-              ['Document type', customer.document_type],
-              ['Document no.', customer.document_no],
-              ['Document verified', customer.document_verified ? 'Yes' : 'No'],
             ]}
           />
           <DetailGroup

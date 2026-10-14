@@ -273,6 +273,22 @@ export function useLocalTrackingDetail(id?: string) {
   });
 }
 
+export function useLocalTrackingByBusinessReference(
+  businessReference?: string,
+) {
+  return useQuery({
+    queryKey: [
+      ...tiramisKeys.localTracking(),
+      'business-reference',
+      businessReference ?? '',
+    ],
+    queryFn: () =>
+      tiramisApi.getLocalTrackingByBusinessReference(businessReference!),
+    enabled: !!businessReference,
+    staleTime: 30_000,
+  });
+}
+
 export function useRetryLocalTracking() {
   const qc = useQueryClient();
   return useMutation({
@@ -301,8 +317,15 @@ export function useSyncOneLocalTracking() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => tiramisApi.syncOneLocalTracking(id),
-    onSuccess: () => {
+    onSuccess: (_result, id) => {
       invalidateTrackingLists(qc);
+      qc.invalidateQueries({ queryKey: tiramisKeys.localTrackingDetail(id) });
+      qc.invalidateQueries({ queryKey: tiramisKeys.tenantSubmissions() });
+      qc.invalidateQueries({ queryKey: tiramisKeys.tenantSubmission(id) });
+      qc.invalidateQueries({
+        queryKey: [...tiramisKeys.all, 'tenant-submission-request'],
+      });
+      qc.invalidateQueries({ queryKey: ['quotations'] });
       toast.success('Sync triggered');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),

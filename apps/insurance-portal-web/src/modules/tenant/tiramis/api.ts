@@ -135,6 +135,12 @@ export const tiramisApi = {
     apiClient
       .get<TiramisTrackingRecord>(`/tiramis/local-tracking/${id}`)
       .then((r) => r.data),
+  getLocalTrackingByBusinessReference: (businessReference: string) =>
+    apiClient
+      .get<
+        TiramisTrackingRecord[]
+      >(`/tiramis/local-tracking/business-reference/${encodeURIComponent(businessReference)}`)
+      .then((r) => r.data),
   retryLocalTracking: () =>
     apiClient.post('/tiramis/local-tracking/retry').then((r) => r.data),
   retryOneLocalTracking: (id: string) =>
@@ -192,10 +198,9 @@ export const tiramisApi = {
     signal?: AbortSignal,
   ) =>
     apiClient
-      .get<PaginatedResponse<TiramisTrackingRecord>>(
-        '/tiramis/admin/retryable',
-        { params, signal },
-      )
+      .get<
+        PaginatedResponse<TiramisTrackingRecord>
+      >('/tiramis/admin/retryable', { params, signal })
       .then((r) => r.data),
   getAdminRetryable: (limit = 50) =>
     apiClient

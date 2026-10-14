@@ -5,7 +5,7 @@ import { DataTable, type Column } from '@/components/data-table';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
 import { useFailedSubmissionsTable, useRetryAdminSubmission } from '../hooks';
 import type { TiramisTrackingRecord } from '../types';
-import { formatDateTime } from '../utils';
+import { formatDateTime, isTiramisFinalSuccess } from '../utils';
 
 const columns: Column<TiramisTrackingRecord>[] = [
   {
@@ -60,6 +60,7 @@ export function TiramisFailedSubmissionsPage() {
               {
                 label: 'Retry',
                 icon: RefreshCcw,
+                hidden: (row) => isTiramisFinalSuccess(row.status),
                 onClick: (row) => retry.mutate(row.id),
               },
             ]}

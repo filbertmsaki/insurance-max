@@ -26,7 +26,6 @@ export function PortalProfilePage({ audience }: { audience: PortalAudience }) {
           ['District', profileQuery.data?.district ?? 'Not set'],
           ['Street', profileQuery.data?.street ?? 'Not set'],
           ['Postal address', profileQuery.data?.postal_address ?? 'Not set'],
-          ['KYC status', profileQuery.data?.kyc_status ?? 'Not set'],
           ['Status', profileQuery.data?.status ?? 'Not set'],
         ]
       : [

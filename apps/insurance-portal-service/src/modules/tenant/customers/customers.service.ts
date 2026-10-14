@@ -8,7 +8,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import {
   Brackets,
@@ -19,7 +18,6 @@ import {
   Repository,
 } from 'typeorm';
 
-import { ApproveCustomerKycReviewDto } from './dto/approve-customer-kyc-review.dto';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import {
   CreateCustomerDto,
@@ -29,20 +27,15 @@ import {
   CustomerIdentifierDto,
 } from './dto/create-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
-import { RejectCustomerKycReviewDto } from './dto/reject-customer-kyc-review.dto';
-import { RequestCustomerKycUpdateDto } from './dto/request-customer-kyc-update.dto';
-import { SubmitCustomerKycReviewDto } from './dto/submit-customer-kyc-review.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomerAddress } from './entities/customer-address.entity';
 import { CustomerContact } from './entities/customer-contact.entity';
 import { CustomerDocument } from './entities/customer-document.entity';
 import { CustomerIdentifier } from './entities/customer-identifier.entity';
-import { CustomerKycReview } from './entities/customer-kyc-review.entity';
 import { CustomerAuditLog } from './entities/customer-audit-log.entity';
 import { CustomerVersion } from './entities/customer-version.entity';
 import { Customer } from './entities/customer.entity';
 import { InsuredAsset } from './entities/insured-asset.entity';
-import { CustomerKycStatus } from './enums/customer-kyc-status.enum';
 import { CustomerPolicyHolderType } from './enums/customer-policy-holder-type.enum';
 import { CustomerStatus } from './enums/customer-status.enum';
 import { CustomerType } from './enums/customer-type.enum';
@@ -89,8 +82,6 @@ export class CustomersService {
     private readonly customerContactRepository: Repository<CustomerContact>,
     @InjectRepository(CustomerDocument)
     private readonly customerDocumentRepository: Repository<CustomerDocument>,
-    @InjectRepository(CustomerKycReview)
-    private readonly customerKycReviewRepository: Repository<CustomerKycReview>,
     @InjectRepository(CustomerVersion)
     private readonly customerVersionRepository: Repository<CustomerVersion>,
     @InjectRepository(CustomerAuditLog)
@@ -1010,10 +1001,6 @@ export class CustomersService {
         name: contact.contact_name,
         role: contact.contact_role,
       })),
-      kycStatus: customer.kyc_status,
-      kycVersion: customer.kyc_version,
-      kycVerifiedAt: customer.kyc_verified_at?.toISOString() ?? null,
-      kycExpiresAt: customer.kyc_expires_at?.toISOString() ?? null,
       primaryIdentifierType: primaryIdentifier?.identifier_type ?? null,
     };
   }
@@ -1143,61 +1130,6 @@ export class CustomersService {
         source: input.source ?? 'ADMIN_PORTAL',
       }),
     );
-  }
-
-  private assertCustomerReadyForKycReview(relations: {
-    identifiers: CustomerIdentifier[];
-    addresses: CustomerAddress[];
-    contacts: CustomerContact[];
-    documents: CustomerDocument[];
-  }): void {
-    if (relations.identifiers.length < 1) {
-      throw new ConflictException(
-        'Customer identifiers are required before KYC review.',
-      );
-    }
-
-    if (relations.addresses.length < 1) {
-      throw new ConflictException(
-        'Customer addresses are required before KYC review.',
-      );
-    }
-
-    if (
-      !relations.contacts.some(
-        (contact) => contact.contact_type.trim().toUpperCase() === 'PHONE',
-      )
-    ) {
-      throw new ConflictException(
-        'At least one customer phone contact is required before KYC review.',
-      );
-    }
-
-    if (relations.documents.length < 1) {
-      throw new ConflictException(
-        'At least one KYC document is required before KYC review.',
-      );
-    }
-  }
-
-  private async findOpenKycReview(
-    manager: EntityManager,
-    customer: Customer,
-  ): Promise<CustomerKycReview> {
-    const review = await manager.getRepository(CustomerKycReview).findOne({
-      where: {
-        customer_id: customer.id,
-        kyc_version: customer.kyc_version,
-        status: CustomerKycStatus.IN_REVIEW,
-      },
-      order: { created_at: 'DESC' },
-    });
-
-    if (!review) {
-      throw new NotFoundException('Open KYC review was not found.');
-    }
-
-    return review;
   }
 
   private async replaceChildRecords(
@@ -1332,52 +1264,33 @@ export class CustomersService {
     };
   }
 
-  private markKycUpdateRequired(customer: Customer) {
-    if (customer.kyc_status === CustomerKycStatus.VERIFIED) {
-      customer.kyc_status = CustomerKycStatus.REQUIRES_UPDATE;
-      customer.kyc_verified_by = null;
-      customer.kyc_verified_at = null;
-      customer.kyc_expires_at = null;
-    }
-  }
-
   private async attachCustomerRelations(customer: Customer) {
-    const [
-      identifiers,
-      addresses,
-      contacts,
-      documents,
-      kycReviews,
-      insuredAssets,
-    ] = await Promise.all([
-      this.customerIdentifierRepository.find({
-        where: { customer_id: customer.id, deleted_at: IsNull() },
-        order: { is_primary: 'DESC', created_at: 'ASC' },
-      }),
-      this.customerAddressRepository.find({
-        where: { customer_id: customer.id, deleted_at: IsNull() },
-        order: { is_primary: 'DESC', created_at: 'ASC' },
-      }),
-      this.customerContactRepository.find({
-        where: { customer_id: customer.id, deleted_at: IsNull() },
-        order: { contact_type: 'ASC', is_primary: 'DESC', created_at: 'ASC' },
-      }),
-      this.customerDocumentRepository.find({
-        where: { customer_id: customer.id, deleted_at: IsNull() },
-        order: { created_at: 'DESC' },
-      }),
-      this.customerKycReviewRepository.find({
-        where: { customer_id: customer.id },
-        order: { kyc_version: 'DESC', created_at: 'DESC' },
-      }),
-      this.insuredAssetRepository.find({
-        where: [
-          { customer_id: customer.id, deleted_at: IsNull() },
-          { owner_customer_id: customer.id, deleted_at: IsNull() },
-        ],
-        order: { updated_at: 'DESC' },
-      }),
-    ]);
+    const [identifiers, addresses, contacts, documents, insuredAssets] =
+      await Promise.all([
+        this.customerIdentifierRepository.find({
+          where: { customer_id: customer.id, deleted_at: IsNull() },
+          order: { is_primary: 'DESC', created_at: 'ASC' },
+        }),
+        this.customerAddressRepository.find({
+          where: { customer_id: customer.id, deleted_at: IsNull() },
+          order: { is_primary: 'DESC', created_at: 'ASC' },
+        }),
+        this.customerContactRepository.find({
+          where: { customer_id: customer.id, deleted_at: IsNull() },
+          order: { contact_type: 'ASC', is_primary: 'DESC', created_at: 'ASC' },
+        }),
+        this.customerDocumentRepository.find({
+          where: { customer_id: customer.id, deleted_at: IsNull() },
+          order: { created_at: 'DESC' },
+        }),
+        this.insuredAssetRepository.find({
+          where: [
+            { customer_id: customer.id, deleted_at: IsNull() },
+            { owner_customer_id: customer.id, deleted_at: IsNull() },
+          ],
+          order: { updated_at: 'DESC' },
+        }),
+      ]);
 
     return {
       ...customer,
@@ -1385,7 +1298,6 @@ export class CustomersService {
       addresses,
       contacts,
       documents,
-      kyc_reviews: kycReviews,
       insured_assets: insuredAssets,
     };
   }
@@ -1416,8 +1328,6 @@ export class CustomersService {
         customer_no: customerNo,
         created_by: user.id,
         updated_by: user.id,
-        kyc_status: CustomerKycStatus.PENDING,
-        kyc_version: 0,
         data_source: 'MANUAL',
         ...this.projectCompatibilityFields(
           customerRepository.create({
@@ -1488,7 +1398,6 @@ export class CustomersService {
       search,
       customer_type,
       status,
-      kyc_status,
     } = query;
 
     const safeSortBy = [
@@ -1498,7 +1407,6 @@ export class CustomersService {
       'company_name',
       'status',
       'customer_type',
-      'kyc_status',
       'created_at',
       'updated_at',
     ].includes(sortBy)
@@ -1543,12 +1451,6 @@ export class CustomersService {
 
     if (status) {
       queryBuilder.andWhere('customer.status = :status', { status });
-    }
-
-    if (kyc_status) {
-      queryBuilder.andWhere('customer.kyc_status = :kycStatus', {
-        kycStatus: kyc_status,
-      });
     }
 
     if (query.business_line) {
@@ -1608,270 +1510,6 @@ export class CustomersService {
   async findOneForUser(user: AuthenticatedUser, id: string) {
     const customer = await this.findScopedCustomer(user, id, false);
     return this.attachCustomerRelations(customer);
-  }
-
-  async getKycForUser(user: AuthenticatedUser, id: string) {
-    const customer = await this.findScopedCustomer(user, id, false);
-    const currentReview = await this.customerKycReviewRepository.findOne({
-      where: { customer_id: customer.id, kyc_version: customer.kyc_version },
-      order: { created_at: 'DESC' },
-    });
-
-    return {
-      customerId: customer.id,
-      kycStatus: customer.kyc_status,
-      kycVersion: customer.kyc_version,
-      kycVerifiedBy: customer.kyc_verified_by,
-      kycVerifiedAt: customer.kyc_verified_at,
-      kycExpiresAt: customer.kyc_expires_at,
-      kycRejectionReason: customer.kyc_rejection_reason,
-      currentReview,
-    };
-  }
-
-  async listKycHistoryForUser(user: AuthenticatedUser, id: string) {
-    const customer = await this.findScopedCustomer(user, id, false);
-    return this.customerKycReviewRepository.find({
-      where: { customer_id: customer.id },
-      order: { kyc_version: 'DESC', created_at: 'DESC' },
-    });
-  }
-
-  async submitKycReviewForUser(
-    user: AuthenticatedUser,
-    id: string,
-    dto: SubmitCustomerKycReviewDto,
-  ) {
-    await this.findScopedCustomer(user, id, true);
-
-    return this.dataSource.transaction(async (manager) => {
-      const customer = await manager.getRepository(Customer).findOneOrFail({
-        where: { id, company_id: user.companyId! },
-      });
-
-      if (
-        ![
-          CustomerKycStatus.PENDING,
-          CustomerKycStatus.REJECTED,
-          CustomerKycStatus.REQUIRES_UPDATE,
-          CustomerKycStatus.EXPIRED,
-        ].includes(customer.kyc_status)
-      ) {
-        throw new ConflictException(
-          'The customer cannot be submitted for KYC review from the current status.',
-        );
-      }
-
-      const relations = await this.getCustomerRelations(manager, customer.id);
-      this.assertCustomerReadyForKycReview(relations);
-
-      const snapshot = this.buildFinalizedCustomerSnapshot(customer, relations);
-      const nextVersion = Number(customer.kyc_version ?? 0) + 1;
-
-      const review = await manager.getRepository(CustomerKycReview).save(
-        manager.getRepository(CustomerKycReview).create({
-          company_id: user.companyId!,
-          customer_id: customer.id,
-          kyc_version: nextVersion,
-          status: CustomerKycStatus.IN_REVIEW,
-          customer_snapshot: snapshot,
-          customer_snapshot_hash: snapshot.snapshotHash,
-          submission_notes: this.normalizeText(dto.submission_notes) ?? null,
-          submitted_by: user.id,
-          submitted_at: new Date(),
-        }),
-      );
-
-      customer.kyc_status = CustomerKycStatus.IN_REVIEW;
-      customer.kyc_version = nextVersion;
-      customer.kyc_rejection_reason = null;
-      customer.updated_by = user.id;
-      await manager.getRepository(Customer).save(customer);
-
-      return review;
-    });
-  }
-
-  async approveKycReviewForUser(
-    user: AuthenticatedUser,
-    id: string,
-    dto: ApproveCustomerKycReviewDto,
-  ) {
-    await this.findScopedCustomer(user, id, true);
-
-    return this.dataSource.transaction(async (manager) => {
-      const customer = await manager.getRepository(Customer).findOneOrFail({
-        where: { id, company_id: user.companyId! },
-      });
-
-      if (customer.kyc_status !== CustomerKycStatus.IN_REVIEW) {
-        throw new ConflictException(
-          'Only a customer in KYC review can be approved.',
-        );
-      }
-
-      const review = await this.findOpenKycReview(manager, customer);
-      if (review.submitted_by === user.id && !hasCompanyAdminRole(user)) {
-        throw new ConflictException(
-          'The user who submitted the KYC review cannot approve it.',
-        );
-      }
-
-      review.status = CustomerKycStatus.VERIFIED;
-      review.reviewed_by = user.id;
-      review.reviewed_at = new Date();
-      review.expires_at = this.normalizeTimestamp(dto.expires_at);
-      await manager.getRepository(CustomerKycReview).save(review);
-
-      customer.kyc_status = CustomerKycStatus.VERIFIED;
-      customer.kyc_verified_by = user.id;
-      customer.kyc_verified_at = new Date();
-      customer.kyc_expires_at = review.expires_at;
-      customer.kyc_rejection_reason = null;
-      customer.updated_by = user.id;
-      await manager.getRepository(Customer).save(customer);
-
-      return {
-        ...review,
-        approval_comments: this.normalizeText(dto.comments) ?? null,
-      };
-    });
-  }
-
-  async rejectKycReviewForUser(
-    user: AuthenticatedUser,
-    id: string,
-    dto: RejectCustomerKycReviewDto,
-  ) {
-    await this.findScopedCustomer(user, id, true);
-
-    return this.dataSource.transaction(async (manager) => {
-      const customer = await manager.getRepository(Customer).findOneOrFail({
-        where: { id, company_id: user.companyId! },
-      });
-
-      if (customer.kyc_status !== CustomerKycStatus.IN_REVIEW) {
-        throw new ConflictException(
-          'Only a customer in KYC review can be rejected.',
-        );
-      }
-
-      const review = await this.findOpenKycReview(manager, customer);
-      if (review.submitted_by === user.id) {
-        throw new ConflictException(
-          'The user who submitted the KYC review cannot reject it.',
-        );
-      }
-
-      const rejectionReason = this.normalizeText(dto.rejection_reason);
-      if (!rejectionReason) {
-        throw new BadRequestException('rejection_reason is required');
-      }
-
-      review.status = CustomerKycStatus.REJECTED;
-      review.rejection_reason = rejectionReason;
-      review.reviewed_by = user.id;
-      review.reviewed_at = new Date();
-      await manager.getRepository(CustomerKycReview).save(review);
-
-      customer.kyc_status = CustomerKycStatus.REJECTED;
-      customer.kyc_verified_by = null;
-      customer.kyc_verified_at = null;
-      customer.kyc_expires_at = null;
-      customer.kyc_rejection_reason = rejectionReason;
-      customer.updated_by = user.id;
-      await manager.getRepository(Customer).save(customer);
-
-      return {
-        ...review,
-        rejection_comments: this.normalizeText(dto.comments) ?? null,
-      };
-    });
-  }
-
-  async requestKycUpdateForUser(
-    user: AuthenticatedUser,
-    id: string,
-    dto: RequestCustomerKycUpdateDto,
-  ) {
-    const customer = await this.findScopedCustomer(user, id, true);
-
-    if (
-      ![CustomerKycStatus.VERIFIED, CustomerKycStatus.IN_REVIEW].includes(
-        customer.kyc_status,
-      )
-    ) {
-      throw new ConflictException(
-        'Only a verified or in-review customer can be marked for KYC update.',
-      );
-    }
-
-    customer.kyc_status = CustomerKycStatus.REQUIRES_UPDATE;
-    customer.kyc_verified_by = null;
-    customer.kyc_verified_at = null;
-    customer.kyc_expires_at = null;
-    customer.kyc_rejection_reason = this.normalizeText(dto.reason) ?? null;
-    customer.updated_by = user.id;
-
-    await this.customerRepository.save(customer);
-    return this.getKycForUser(user, id);
-  }
-
-  async expireKycForUser(
-    user: AuthenticatedUser,
-    id: string,
-    dto: RequestCustomerKycUpdateDto,
-  ) {
-    await this.findScopedCustomer(user, id, true);
-
-    return this.dataSource.transaction(async (manager) => {
-      const customer = await manager.getRepository(Customer).findOneOrFail({
-        where: { id, company_id: user.companyId! },
-      });
-
-      if (
-        ![CustomerKycStatus.VERIFIED, CustomerKycStatus.IN_REVIEW].includes(
-          customer.kyc_status,
-        )
-      ) {
-        throw new ConflictException(
-          'Only a verified or in-review customer can be expired.',
-        );
-      }
-
-      const latestReview = await manager
-        .getRepository(CustomerKycReview)
-        .findOne({
-          where: {
-            customer_id: customer.id,
-            kyc_version: customer.kyc_version,
-          },
-          order: { created_at: 'DESC' },
-        });
-
-      if (latestReview) {
-        latestReview.status = CustomerKycStatus.EXPIRED;
-        latestReview.rejection_reason =
-          this.normalizeText(dto.reason) ?? latestReview.rejection_reason;
-        latestReview.reviewed_by = user.id;
-        latestReview.reviewed_at = new Date();
-        await manager.getRepository(CustomerKycReview).save(latestReview);
-      }
-
-      customer.kyc_status = CustomerKycStatus.EXPIRED;
-      customer.kyc_verified_by = null;
-      customer.kyc_verified_at = null;
-      customer.kyc_expires_at = null;
-      customer.kyc_rejection_reason = this.normalizeText(dto.reason) ?? null;
-      customer.updated_by = user.id;
-      await manager.getRepository(Customer).save(customer);
-
-      return {
-        customerId: customer.id,
-        kycStatus: customer.kyc_status,
-        kycVersion: customer.kyc_version,
-      };
-    });
   }
 
   async updateForUser(
@@ -1952,7 +1590,6 @@ export class CustomersService {
       documents: dto.documents,
       duplicate_override_reason: dto.duplicate_override_reason,
       policy_holder_type: current.policy_holder_type ?? undefined,
-      kyc_status: current.kyc_status,
       document_verified_by: current.document_verified_by ?? undefined,
       document_verified_at:
         current.document_verified_at?.toISOString() ?? undefined,
@@ -1996,7 +1633,6 @@ export class CustomersService {
           this.projectCompatibilityFields(customer, payload),
         );
         customer.updated_by = user.id;
-        this.markKycUpdateRequired(customer);
 
         const savedCustomer = await repository.save(customer);
         const childRecords = await this.replaceChildRecords(

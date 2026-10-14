@@ -15,8 +15,7 @@ import { StepSection } from '../components/StepSection';
 import { useCoverNoteAutoText } from '../hooks/useCoverNoteAutoText';
 import {
   computeCoverNoteEndFromStart,
-  inclusiveDayCount,
-  dateOnlyPart,
+  resolveCoverDurationDays,
   todayLocalDatePart,
 } from '../utils/coverNoteDateRange';
 interface OptionLike {
@@ -96,7 +95,8 @@ export function CoverNoteSetupStep({
     label: string,
     extra: Partial<Parameters<typeof WizardInput>[0]> = {},
   ) => <WizardInput form={form} name={name} label={label} {...extra} />;
-  const days = inclusiveDayCount(values.valid_from, values.valid_until) ?? 365;
+  const days =
+    resolveCoverDurationDays(values.valid_from, values.valid_until) ?? 365;
   const hasCoverOptions =
     (canSelectInsuranceChannel && values.channel_type !== 'DIRECT') ||
     values.currency !== 'TZS' ||
@@ -128,12 +128,7 @@ export function CoverNoteSetupStep({
             onValueChange={(value) =>
               form.setValue(
                 'valid_until',
-                dateOnlyPart(
-                  computeCoverNoteEndFromStart(
-                    values.valid_from,
-                    Number(value),
-                  ),
-                ),
+                computeCoverNoteEndFromStart(values.valid_from, Number(value)),
                 { shouldDirty: true, shouldValidate: true },
               )
             }
@@ -160,7 +155,7 @@ export function CoverNoteSetupStep({
           onChange: (start) =>
             form.setValue(
               'valid_until',
-              dateOnlyPart(computeCoverNoteEndFromStart(start, days)),
+              computeCoverNoteEndFromStart(start, days),
             ),
         })}
         {field('valid_until', 'Cover ends', {

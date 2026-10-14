@@ -472,3 +472,6 @@ export const TIRAMIS_TRACKING_STATUS_OPTIONS = [
   'FAILED',
   'UNKNOWN',
 ].map((value) => ({ label: value.replace(/_/g, ' '), value }));
+export function isTiramisFinalSuccess(status?: string | null): boolean {
+  return status === 'FINAL_SUCCESS' || status === 'COMPLETED';
+}

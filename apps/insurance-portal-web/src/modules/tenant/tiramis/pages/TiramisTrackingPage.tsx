@@ -3,14 +3,14 @@ import { Eye, RefreshCcw, RotateCcw, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/PageHeader';
-import {
-  DataTable,
-  tableFilters,
-  type Column,
-} from '@/components/data-table';
+import { DataTable, tableFilters, type Column } from '@/components/data-table';
 import { TiramisTextFilter } from '../components/TiramisTextFilter';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
-import { formatDateTime, TIRAMIS_TRACKING_STATUS_OPTIONS } from '../utils';
+import {
+  formatDateTime,
+  isTiramisFinalSuccess,
+  TIRAMIS_TRACKING_STATUS_OPTIONS,
+} from '../utils';
 import {
   useLocalTrackingDetail,
   useLocalTrackingTable,
@@ -104,6 +104,7 @@ export function TiramisTrackingPage() {
           {
             label: 'Retry',
             icon: RotateCcw,
+            hidden: (row) => isTiramisFinalSuccess(row.status),
             onClick: (row) => retryOne.mutate(row.id),
           },
           {

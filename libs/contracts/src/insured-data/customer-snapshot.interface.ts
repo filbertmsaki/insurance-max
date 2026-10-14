@@ -1,5 +1,3 @@
-import type { CustomerKycLifecycleStatus } from './insured-data.enums';
-
 export interface CustomerIdentifierSnapshot {
   type: string;
   value: string;
@@ -45,10 +43,6 @@ export interface CustomerSnapshot {
   identifiers: CustomerIdentifierSnapshot[];
   addresses: CustomerAddressSnapshot[];
   contacts: CustomerContactSnapshot[];
-  kycStatus: CustomerKycLifecycleStatus;
-  kycVersion: number;
-  kycVerifiedAt: string | null;
-  kycExpiresAt: string | null;
   snapshotHash: string;
   snapshottedAt: string;
 }

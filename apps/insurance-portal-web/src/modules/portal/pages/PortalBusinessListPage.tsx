@@ -226,7 +226,6 @@ const resourceConfig: Record<
       { label: 'Name', render: (record) => text(record.name) },
       { label: 'Phone', render: (record) => text(record.phone) },
       { label: 'Email', render: (record) => text(record.email) },
-      { label: 'KYC', render: (record) => text(record.kyc_status) },
     ],
   },
   commissions: {

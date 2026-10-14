@@ -1,15 +1,3 @@
-export const CustomerKycLifecycleStatus = {
-  PENDING: 'PENDING',
-  IN_REVIEW: 'IN_REVIEW',
-  VERIFIED: 'VERIFIED',
-  REJECTED: 'REJECTED',
-  REQUIRES_UPDATE: 'REQUIRES_UPDATE',
-  EXPIRED: 'EXPIRED',
-} as const;
-
-export type CustomerKycLifecycleStatus =
-  (typeof CustomerKycLifecycleStatus)[keyof typeof CustomerKycLifecycleStatus];
-
 export const CustomerIdentifierType = {
   NIN: 'NIN',
   VOTER_NUMBER: 'VOTER_NUMBER',

@@ -414,6 +414,19 @@ export function useRetryQuotationTira(id?: string) {
   });
 }
 
+export function useSyncQuotationTira(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => quotationsApi.syncTira(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      toast.success('TIRAMIS data synchronized');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
 export function useCancelQuotation(id?: string) {
   const queryClient = useQueryClient();
 

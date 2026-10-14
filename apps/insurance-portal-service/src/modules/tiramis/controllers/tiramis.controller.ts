@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
+  NotFoundException,
   Param,
   Post,
   Query,
@@ -199,6 +201,37 @@ export class TiramisController {
   @Post('local-tracking/:id/sync')
   syncOneLocalTracking(@Param('id') id: string, @Req() req: any) {
     return this.tiramisStatusSyncService.syncOne(id, this.getAuthContext(req));
+  }
+
+  @ApiOperation({
+    summary: 'Sync a quotation from its latest TIRAMIS submission',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.SYNC)
+  @Post('local-tracking/quotation/:quotationId/sync')
+  async syncQuotation(
+    @Param('quotationId') quotationId: string,
+    @Req() req: any,
+  ) {
+    const authContext = this.getAuthContext(req);
+    if (!authContext.companyId) {
+      throw new ForbiddenException(
+        'An active company is required to sync a quotation',
+      );
+    }
+    const result = await this.tiramisStatusSyncService.syncLatestBusinessRecord(
+      {
+        sourceModule: 'quotations',
+        sourceRecordId: quotationId,
+        sourceCompanyId: authContext.companyId,
+        authContext,
+      },
+    );
+    if (!result.found) {
+      throw new NotFoundException(
+        'No TIRAMIS submission found for this quotation',
+      );
+    }
+    return result;
   }
 
   @ApiOperation({

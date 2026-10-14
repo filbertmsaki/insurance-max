@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -46,6 +47,7 @@ import {
   useRequestQuotationPayment,
   useRequestQuotationPremiumOverride,
   useRetryQuotationTira,
+  useSyncQuotationTira,
   useSubmitQuotationForApproval,
   useSubmitQuotation,
   useRejectQuotationPremiumOverride,
@@ -129,6 +131,7 @@ export function QuotationDetailPage() {
   const submitForApprovalMutation = useSubmitQuotationForApproval(id);
   const requestPaymentMutation = useRequestQuotationPayment(id);
   const retryTiraMutation = useRetryQuotationTira(id);
+  const syncTiraMutation = useSyncQuotationTira(id);
   const cancelQuotationMutation = useCancelQuotation(id);
   const transitionStatusMutation = useTransitionQuotationStatus(id);
   const requestPremiumOverrideMutation = useRequestQuotationPremiumOverride(id);
@@ -159,7 +162,9 @@ export function QuotationDetailPage() {
     workflow?.availableCommands.SUBMIT_APPROVAL ?? false;
   const canRequestPayment =
     workflow?.availableCommands.REQUEST_PAYMENT ?? false;
-  const canRetrySubmission = workflow?.availableCommands.RETRY_TIRAMIS ?? false;
+  const canRetrySubmission =
+    (workflow?.availableCommands.RETRY_TIRAMIS ?? false) &&
+    preview?.overview.tira_status !== 'SUCCESS';
   const canCancel = workflow?.availableCommands.CANCEL ?? false;
   const canApproveQuotation = workflow?.availableCommands.APPROVE ?? false;
   const canRequestQuotationChanges =
@@ -552,6 +557,19 @@ export function QuotationDetailPage() {
 
   const actionButtons = (
     <div className="flex flex-wrap items-center gap-2">
+      {preview?.overview.tira_status === 'SUCCESS' &&
+      hasPermission('tiramis.sync') ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={syncTiraMutation.isPending}
+          onClick={() => syncTiraMutation.mutate()}
+        >
+          <RefreshCcw className="mr-2 h-4 w-4" />
+          Sync
+        </Button>
+      ) : null}
       {primaryWorkflowAction ? (
         <Button
           type="button"

@@ -1037,6 +1037,10 @@ export class TiramisCallbackService {
             params.finalResponse?.claimReferenceNumber ||
             null,
           regulatoryResponse,
+          submittedRequestXml:
+            await this.tiramisSubmissionService.getSubmittedRequestXml(
+              params.parsedCallback.requestId,
+            ),
           errorMessage: params.errorMessage || null,
           occurredAt: new Date().toISOString(),
         },
