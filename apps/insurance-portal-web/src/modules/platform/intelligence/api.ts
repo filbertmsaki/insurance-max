@@ -1,4 +1,11 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { BackendPaginatedResponse } from '@/modules/shared/api/pagination';
+
+export type IntelligenceListKind =
+  | 'company-health'
+  | 'benchmarks'
+  | 'anomalies'
+  | 'forecasts';
 
 interface PageParams {
   limit?: number;
@@ -80,6 +87,19 @@ function params(input: object) {
 }
 
 export const platformIntelligenceApi = {
+  /** Server-side table page (`page` opts into the paged contract). */
+  page: <T>(
+    kind: IntelligenceListKind,
+    query: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<BackendPaginatedResponse<T>>(`/platform/intelligence/${kind}`, {
+        params: params(query),
+        signal,
+      })
+      .then((r) => r.data),
+
   companyHealth: (query: PageParams = {}) =>
     apiClient
       .get<CompanyHealthRow[]>('/platform/intelligence/company-health', {

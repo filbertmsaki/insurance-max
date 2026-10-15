@@ -219,6 +219,21 @@ export const policiesApi = {
         params: { policy_id: policyId },
       })
       .then((response) => response.data),
+  /** Company-wide renewals table (server-side paging, search, sort, filters). */
+  pageRenewals: (params: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient
+      .get<BackendPaginatedResponse<PolicyRenewalRecord>>('/tenant/renewals', {
+        params,
+        signal,
+      })
+      .then((response) => response.data),
+  /** Company-wide endorsements table (server-side paging, search, sort, filters). */
+  pageEndorsements: (params: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient
+      .get<
+        BackendPaginatedResponse<PolicyEndorsementRecord>
+      >('/tenant/endorsements', { params, signal })
+      .then((response) => response.data),
   listRenewals: (policyId?: string) =>
     apiClient
       .get<PolicyRenewalRecord[]>('/tenant/renewals', {

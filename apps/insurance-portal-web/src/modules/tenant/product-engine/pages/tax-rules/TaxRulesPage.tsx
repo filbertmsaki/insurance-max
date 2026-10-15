@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -34,22 +33,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { DataTable, type Column } from '@/components/data-table';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   useAllActiveCategories,
   useAllActiveProducts,
   useRisksByProduct,
-  useTaxRuleList,
+  useTaxRulesTable,
   useCreateTaxRule,
   useDeleteTaxRule,
 } from '@/modules/tenant/product-engine/hooks';
@@ -186,7 +178,7 @@ export function TaxRulesPage() {
   const canCreate = hasPermission('product-distribution:create');
   const canDelete = hasPermission('product-distribution:delete');
 
-  const { data: rules = [], isLoading } = useTaxRuleList();
+  const { tableProps } = useTaxRulesTable();
   const { data: categories = [] } = useAllActiveCategories();
   const createMutation = useCreateTaxRule();
   const deleteMutation = useDeleteTaxRule();
@@ -218,15 +210,77 @@ export function TaxRulesPage() {
     category_id: watchedCategoryId || undefined,
   });
 
-  const sortedRules = useMemo(
-    () =>
-      [...rules].sort(
-        (a, b) =>
-          new Date(b.effective_from).getTime() -
-          new Date(a.effective_from).getTime(),
+  const columns: Column<ProductTaxRule>[] = [
+    {
+      key: 'tax_code',
+      header: 'Tax Code',
+      sortable: true,
+      className: 'font-mono text-xs font-medium',
+      cell: (rule) => rule.tax_code,
+    },
+    {
+      key: 'tax_name',
+      header: 'Tax Name',
+      sortable: true,
+      className: 'text-sm',
+      cell: (rule) => rule.tax_name,
+    },
+    {
+      key: 'charge_category',
+      header: 'Category',
+      sortable: true,
+      cell: (rule) => (
+        <Badge variant="outline" className="text-[10px]">
+          {rule.charge_category.replace('_', ' ')}
+        </Badge>
       ),
-    [rules],
-  );
+    },
+    {
+      key: 'tax_type',
+      header: 'Type',
+      sortable: true,
+      className: 'text-sm',
+      cell: (rule) => rule.tax_type,
+    },
+    {
+      key: 'rate',
+      header: 'Rate / Amount',
+      className: 'text-sm font-mono',
+      cell: (rule) => rateValueSummary(rule),
+    },
+    {
+      key: 'scope',
+      header: 'Scope',
+      className: 'text-xs text-slate-500',
+      cell: (rule) => scopeSummary(rule),
+    },
+    {
+      key: 'calculation_base',
+      header: 'Calc. Base',
+      className: 'text-xs text-slate-500',
+      cell: (rule) => rule.calculation_base.replace('_', ' '),
+    },
+    {
+      key: 'effective_from',
+      header: 'Effective Period',
+      sortable: true,
+      className: 'text-xs text-slate-500',
+      cell: (rule) => `${rule.effective_from} → ${rule.effective_to}`,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (rule) => (
+        <Badge
+          variant="outline"
+          className={`text-[10px] ${STATUS_STYLES[rule.status]}`}
+        >
+          {rule.status}
+        </Badge>
+      ),
+    },
+  ];
 
   function openCreate() {
     form.reset(DEFAULT_VALUES);
@@ -277,91 +331,22 @@ export function TaxRulesPage() {
         }
       />
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-lg border border-slate-200 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50">
-                <TableHead>Tax Code</TableHead>
-                <TableHead>Tax Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Rate / Amount</TableHead>
-                <TableHead>Scope</TableHead>
-                <TableHead>Calc. Base</TableHead>
-                <TableHead>Effective Period</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-16" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedRules.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    className="text-center py-12 text-slate-400 text-sm"
-                  >
-                    No tax rules yet. Click "New Tax Rule" to add one.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortedRules.map((rule) => (
-                  <TableRow key={rule.id} className="hover:bg-slate-50/70">
-                    <TableCell className="font-mono text-xs font-medium">
-                      {rule.tax_code}
-                    </TableCell>
-                    <TableCell className="text-sm">{rule.tax_name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-[10px]">
-                        {rule.charge_category.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm">{rule.tax_type}</TableCell>
-                    <TableCell className="text-sm font-mono">
-                      {rateValueSummary(rule)}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500">
-                      {scopeSummary(rule)}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500">
-                      {rule.calculation_base.replace('_', ' ')}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500">
-                      {rule.effective_from} → {rule.effective_to}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${STATUS_STYLES[rule.status]}`}
-                      >
-                        {rule.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {canDelete && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setDeleteRule(rule)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <DataTable
+        {...tableProps}
+        columns={columns}
+        rowKey={(rule) => rule.id}
+        searchPlaceholder="Search tax code or name"
+        emptyMessage='No tax rules yet. Click "New Tax Rule" to add one.'
+        rowActions={[
+          {
+            label: 'Delete',
+            icon: Trash2,
+            destructive: true,
+            hidden: !canDelete,
+            onClick: setDeleteRule,
+          },
+        ]}
+      />
 
       {/* Create Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

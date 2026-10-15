@@ -1,18 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { EmptyState, SectionCard } from '@/components/shared/DetailSections';
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import { SectionCard } from '@/components/shared/DetailSections';
 import {
   displayValue,
   formatDate,
@@ -53,12 +49,11 @@ export function CoverNotesSection({
   const filters: CoverNoteFilters = policyId
     ? { policy_id: policyId }
     : { quotation_id: quotationId };
-  const queryKey = ['cover-notes', filters];
-
-  const query = useQuery({
-    queryKey,
-    queryFn: () => coverNotesApi.list(filters),
+  const { tableProps } = useServerTable<CoverNoteRecord>({
+    queryKey: ['cover-notes', filters],
+    fetcher: (params, signal) => coverNotesApi.page(filters, params, signal),
     enabled: canRead && !!(policyId || quotationId),
+    defaultSortBy: 'created_at',
   });
 
   const resync = useMutation({
@@ -78,8 +73,6 @@ export function CoverNotesSection({
   });
 
   if (!canRead) return null;
-
-  const rows = query.data ?? [];
 
   return (
     <SectionCard
@@ -101,62 +94,66 @@ export function CoverNotesSection({
         ) : undefined
       }
     >
-      {query.isLoading ? (
-        <Skeleton className="h-24 w-full" />
-      ) : query.isError ? (
-        <p role="alert" className="text-sm text-red-600">
-          Could not load cover notes.
-        </p>
-      ) : rows.length === 0 ? (
-        <EmptyState text="No cover notes have been issued yet." />
-      ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cover note</TableHead>
-                <TableHead>TIRA reference</TableHead>
-                <TableHead>Sticker</TableHead>
-                <TableHead>Entry</TableHead>
-                <TableHead>Period</TableHead>
-                <TableHead className="text-right">Premium</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((note: CoverNoteRecord) => (
-                <TableRow key={note.id}>
-                  <TableCell className="font-medium">
-                    {note.cover_note_number}
-                  </TableCell>
-                  <TableCell>
-                    {displayValue(note.cover_note_reference_number)}
-                  </TableCell>
-                  <TableCell>{displayValue(note.sticker_number)}</TableCell>
-                  <TableCell>
-                    {humanizeCode(note.entry_type)}
-                    {note.fleet_entry != null ? ` #${note.fleet_entry}` : ''}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {formatDate(note.start_date)} – {formatDate(note.end_date)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatMoney(
-                      Number(note.premium_including_tax),
-                      note.currency_code,
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant(note.status)}>
-                      {humanizeCode(note.status)}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <DataTable
+        {...tableProps}
+        columns={COLUMNS}
+        rowKey={(note) => note.id}
+        searchPlaceholder="Search cover note, TIRA reference or sticker"
+        emptyMessage="No cover notes have been issued yet."
+        showColumnVisibility={false}
+      />
     </SectionCard>
   );
 }
+
+const COLUMNS: Column<CoverNoteRecord>[] = [
+  {
+    key: 'cover_note_number',
+    header: 'Cover note',
+    sortable: true,
+    className: 'font-medium',
+    cell: (note) => note.cover_note_number,
+  },
+  {
+    key: 'reference',
+    header: 'TIRA reference',
+    cell: (note) => displayValue(note.cover_note_reference_number),
+  },
+  {
+    key: 'sticker',
+    header: 'Sticker',
+    cell: (note) => displayValue(note.sticker_number),
+  },
+  {
+    key: 'fleet_entry',
+    header: 'Entry',
+    sortable: true,
+    cell: (note) =>
+      `${humanizeCode(note.entry_type)}${note.fleet_entry != null ? ` #${note.fleet_entry}` : ''}`,
+  },
+  {
+    key: 'start_date',
+    header: 'Period',
+    sortable: true,
+    className: 'whitespace-nowrap',
+    cell: (note) =>
+      `${formatDate(note.start_date)} – ${formatDate(note.end_date)}`,
+  },
+  {
+    key: 'premium',
+    header: 'Premium',
+    className: 'text-right',
+    cell: (note) =>
+      formatMoney(Number(note.premium_including_tax), note.currency_code),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortable: true,
+    cell: (note) => (
+      <Badge variant={statusVariant(note.status)}>
+        {humanizeCode(note.status)}
+      </Badge>
+    ),
+  },
+];

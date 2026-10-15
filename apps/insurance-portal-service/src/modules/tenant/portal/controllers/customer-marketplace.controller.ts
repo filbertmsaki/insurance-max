@@ -13,6 +13,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import {
+  TableQueryDto,
+  isPagedRequest,
+} from '@insurance-max/portal-shared/dto/table-query.dto';
 
 import {
   CustomerCompanyProductQueryDto,
@@ -83,8 +87,14 @@ export class CustomerMarketplaceController {
     summary:
       'List vehicles belonging to the logged-in customer across insurers',
   })
-  vehicles(@CurrentUser() user: AuthenticatedUser) {
-    return this.marketplaceService.listMyVehicles(user);
+  vehicles(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: TableQueryDto,
+  ) {
+    // `page` opts into the paged table contract; otherwise the full list.
+    return isPagedRequest(query)
+      ? this.marketplaceService.pageMyVehicles(user, query)
+      : this.marketplaceService.listMyVehicles(user);
   }
 
   @Post('cover/check')

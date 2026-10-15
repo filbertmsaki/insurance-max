@@ -49,7 +49,7 @@ import {
   usePolicyCancellations,
   usePolicyCurrentVersion,
   usePolicyDetail,
-  usePolicyEndorsements,
+  usePolicyEndorsementsTable,
   usePolicyRenewals,
   useCreateRenewal,
   usePolicyVersions,
@@ -354,8 +354,10 @@ export function PolicyDetailPage() {
   const canSubmitEndorsement = hasPermission('endorsements:submit-tiramis');
   const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
   const { data: policy, isLoading } = usePolicyDetail(id);
-  const { data: endorsements = [], isLoading: endorsementsLoading } =
-    usePolicyEndorsements(policy?.id, canViewEndorsements);
+  const { tableProps: endorsementsTableProps } = usePolicyEndorsementsTable(
+    policy?.id,
+    canViewEndorsements,
+  );
   const { data: eligibility } = useEndorsementEligibility(
     policy?.id,
     undefined,
@@ -1284,15 +1286,10 @@ export function PolicyDetailPage() {
             </Card>
           )}
           <DataTable
+            {...endorsementsTableProps}
             columns={endorsementColumns}
-            data={endorsements}
-            loading={endorsementsLoading}
-            page={1}
-            limit={endorsements.length || 1}
-            total={endorsements.length}
-            totalPages={1}
-            onPageChange={() => undefined}
-            onLimitChange={() => undefined}
+            rowKey={(row) => row.id}
+            searchPlaceholder="Search endorsement number or reason"
           />
         </TabsContent>
         <TabsContent value="renewals" className="space-y-4">

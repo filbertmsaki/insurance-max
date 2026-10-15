@@ -1,23 +1,17 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import type { SortOrder } from '@/types';
 
 export const TABLE_PAGE_SIZES = [10, 20, 50, 100] as const;
 const MAX_PAGE_SIZE = 100;
 
 export interface TableStateOptions<F extends string = string> {
-  /** Module-specific filter keys persisted alongside page/search/sort. */
+  /** Module-specific filter keys tracked alongside page/search/sort. */
   filterKeys?: readonly F[];
   defaultSortBy?: string;
   defaultSortOrder?: SortOrder;
   defaultLimit?: number;
-  /**
-   * Prefix for URL params when a page renders more than one table
-   * (e.g. `inv` → `inv_page`, `inv_q`). Omit for a page's main table.
-   */
-  prefix?: string;
-  /** Keep state in component memory instead of the URL (dialogs, tabs inside drawers). */
-  persist?: 'url' | 'memory';
+  /** Filter values applied on first render (e.g. a tab's preset status). */
+  initialFilters?: Partial<Record<F, string>>;
 }
 
 export interface TableQueryParams<F extends string = string> {
@@ -29,22 +23,25 @@ export interface TableQueryParams<F extends string = string> {
   filters: Partial<Record<F, string>>;
 }
 
-function useParamStore(persist: 'url' | 'memory') {
-  const [urlParams, setUrlParams] = useSearchParams();
-  const [memParams, setMemParams] = useState(() => new URLSearchParams());
-  return persist === 'url'
-    ? ([urlParams, setUrlParams] as const)
-    : ([
-        memParams,
-        (fn: (prev: URLSearchParams) => URLSearchParams) =>
-          setMemParams((prev) => fn(new URLSearchParams(prev))),
-      ] as const);
+interface InternalState {
+  page: number;
+  limit: number;
+  search: string;
+  sortBy?: string;
+  sortOrder: SortOrder;
+  filters: Record<string, string>;
+}
+
+function clampLimit(value: number) {
+  return Math.min(Math.max(Math.floor(value) || 1, 1), MAX_PAGE_SIZE);
 }
 
 /**
- * Controlled table state (page, page size, search, sort, filters), persisted
- * in the URL by default so refresh/share/back-navigation keep the view.
- * Search, filter and page-size changes reset to page 1.
+ * Controlled table state (page, page size, search, sort, filters) held in
+ * component memory. It is deliberately never written to the browser URL:
+ * table interactions must not change the pathname, query string or hash.
+ * Each hook instance is independent, so several tables on one page don't
+ * collide. Search, filter, sort and page-size changes reset to page 1.
  */
 export function useTableState<F extends string = string>(
   options: TableStateOptions<F> = {},
@@ -53,76 +50,84 @@ export function useTableState<F extends string = string>(
     filterKeys = [] as readonly F[],
     defaultSortBy,
     defaultSortOrder = 'DESC',
-    defaultLimit = 20,
-    prefix,
-    persist = 'url',
+    defaultLimit = 10,
+    initialFilters,
   } = options;
-  const [params, setParams] = useParamStore(persist);
-  const k = useCallback((name: string) => (prefix ? `${prefix}_${name}` : name), [prefix]);
 
-  const page = Math.max(1, Math.floor(Number(params.get(k('page'))) || 1));
-  const rawLimit = Math.floor(Number(params.get(k('limit'))) || defaultLimit);
-  const limit = Math.min(Math.max(rawLimit, 1), MAX_PAGE_SIZE);
-  const search = params.get(k('q')) ?? '';
-  const sortBy = params.get(k('sortBy')) ?? defaultSortBy;
-  const sortOrderParam = params.get(k('sortOrder'));
-  const sortOrder: SortOrder =
-    sortOrderParam === 'ASC' || sortOrderParam === 'DESC' ? sortOrderParam : defaultSortOrder;
+  const createInitial = useCallback(
+    (): InternalState => ({
+      page: 1,
+      limit: clampLimit(defaultLimit),
+      search: '',
+      sortBy: defaultSortBy,
+      sortOrder: defaultSortOrder,
+      filters: Object.fromEntries(
+        Object.entries(initialFilters ?? {}).filter(([, v]) => Boolean(v)),
+      ) as Record<string, string>,
+    }),
+    // Defaults are module constants; re-reading them on every render is unnecessary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const [state, setState] = useState<InternalState>(createInitial);
 
-  const filterSignature = filterKeys.map((key) => params.get(k(key)) ?? '').join('\u0000');
+  const setPage = useCallback(
+    (p: number) => setState((s) => ({ ...s, page: Math.max(1, Math.floor(p) || 1) })),
+    [],
+  );
+  const setLimit = useCallback(
+    (l: number) => setState((s) => ({ ...s, limit: clampLimit(l), page: 1 })),
+    [],
+  );
+  const setSearch = useCallback(
+    (value: string) =>
+      setState((s) => {
+        const search = value.trim();
+        return search === s.search ? s : { ...s, search, page: 1 };
+      }),
+    [],
+  );
+  const setSort = useCallback(
+    (key: string, order: SortOrder) =>
+      setState((s) => ({ ...s, sortBy: key, sortOrder: order, page: 1 })),
+    [],
+  );
+  /** Applies several filter changes in one update (e.g. cascading parent/child filters). */
+  const setFilters = useCallback(
+    (changes: Partial<Record<F, string | null | undefined>>) =>
+      setState((s) => {
+        const filters = { ...s.filters };
+        for (const [key, value] of Object.entries(changes)) {
+          if (value) filters[key] = value as string;
+          else delete filters[key];
+        }
+        return { ...s, filters, page: 1 };
+      }),
+    [],
+  );
+  const setFilter = useCallback(
+    (key: F, value: string) => setFilters({ [key]: value } as Partial<Record<F, string>>),
+    [setFilters],
+  );
+  const clearFilters = useCallback(
+    () => setState((s) => ({ ...s, search: '', filters: {}, page: 1 })),
+    [],
+  );
+  /** Restores defaults, e.g. when the active user or company changes. */
+  const reset = useCallback(() => setState(createInitial()), [createInitial]);
+
+  const filterSignature = filterKeys.map((key) => state.filters[key] ?? '').join('\u0000');
   const filters = useMemo(() => {
-    const values = filterSignature.split('\u0000');
     const result: Partial<Record<F, string>> = {};
-    filterKeys.forEach((key, i) => {
-      if (values[i]) result[key] = values[i];
+    filterKeys.forEach((key) => {
+      if (state.filters[key]) result[key] = state.filters[key];
     });
     return result;
     // filterKeys is expected to be a stable module constant
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterSignature]);
 
-  const update = useCallback(
-    (changes: Record<string, string | number | undefined | null>, resetPage: boolean) => {
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        for (const [name, value] of Object.entries(changes)) {
-          if (value === undefined || value === null || value === '') next.delete(k(name));
-          else next.set(k(name), String(value));
-        }
-        if (resetPage) next.delete(k('page'));
-        return next;
-      });
-    },
-    [k, setParams],
-  );
-
-  const setPage = useCallback(
-    (p: number) => update({ page: p > 1 ? p : undefined }, false),
-    [update],
-  );
-  const setLimit = useCallback(
-    (l: number) => update({ limit: l === defaultLimit ? undefined : l }, true),
-    [defaultLimit, update],
-  );
-  const setSearch = useCallback((value: string) => update({ q: value.trim() }, true), [update]);
-  const setSort = useCallback(
-    (key: string, order: SortOrder) => update({ sortBy: key, sortOrder: order }, true),
-    [update],
-  );
-  const setFilter = useCallback(
-    (key: F, value: string) => update({ [key]: value }, true),
-    [update],
-  );
-  const clearFilters = useCallback(
-    () =>
-      update(
-        Object.fromEntries([...filterKeys.map((key) => [key, undefined]), ['q', undefined]]),
-        true,
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [update],
-  );
-
+  const { page, limit, search, sortBy, sortOrder } = state;
   const query: TableQueryParams<F> = useMemo(
     () => ({
       page,
@@ -144,7 +149,9 @@ export function useTableState<F extends string = string>(
     setSearch,
     setSort,
     setFilter,
+    setFilters,
     clearFilters,
+    reset,
   };
 }
 

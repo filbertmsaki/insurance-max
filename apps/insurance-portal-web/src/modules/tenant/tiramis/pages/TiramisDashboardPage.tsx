@@ -5,14 +5,14 @@ import { DashboardCard } from '@/components/shared/DashboardCard';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type Column } from '@/components/data-table';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
-import { useTiramisDashboard } from '../hooks';
+import { useTiramisDashboard, useTiramisDashboardTable } from '../hooks';
 import type { TiramisTrackingRecord } from '../types';
 import { formatDateTime } from '../utils';
 
 export function TiramisDashboardPage() {
   const navigate = useNavigate();
-  const { data, isLoading, page, limit, setPage, setLimit } =
-    useTiramisDashboard();
+  const { data } = useTiramisDashboard();
+  const { tableProps } = useTiramisDashboardTable();
 
   const columns: Column<TiramisTrackingRecord>[] = [
     {
@@ -152,15 +152,10 @@ export function TiramisDashboardPage() {
         </CardHeader>
         <CardContent>
           <DataTable
+            {...tableProps}
             columns={columns}
-            data={data?.data ?? []}
-            loading={isLoading}
-            page={data?.pagination?.page ?? page}
-            limit={data?.pagination?.limit ?? limit}
-            total={data?.pagination?.total ?? 0}
-            totalPages={data?.pagination?.totalPages ?? 1}
-            onPageChange={setPage}
-            onLimitChange={setLimit}
+            searchPlaceholder="Search business reference or request ID"
+            emptyMessage="No submissions yet"
           />
         </CardContent>
       </Card>

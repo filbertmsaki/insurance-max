@@ -16,6 +16,8 @@ import {
 } from 'typeorm';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { RenewalListQueryDto } from '../dto/transaction-list-query.dto';
 import {
   PolicyTransactionEventType,
   PolicyTransactionStage,
@@ -725,6 +727,45 @@ export class RenewalService {
   }
 
   findAll(companyId: string, policyId?: string, user?: AuthenticatedUser) {
+    return this.createRenewalListQuery(companyId, policyId, user)
+      .orderBy('renewal.created_at', 'DESC')
+      .getMany();
+  }
+
+  /**
+   * Server-side table over the same company/data-scoped query as `findAll`;
+   * search, filters and allowlisted sorting run in SQL before paging.
+   */
+  findPage(user: AuthenticatedUser, query: RenewalListQueryDto) {
+    const qb = this.createRenewalListQuery(
+      user.companyId!,
+      query.policy_id,
+      user,
+    );
+    if (query.renewal_status) {
+      qb.andWhere('renewal.renewal_status = :renewalStatus', {
+        renewalStatus: query.renewal_status,
+      });
+    }
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        created_at: 'renewal.created_at',
+        renewal_no: 'renewal.renewal_no',
+        renewal_status: 'renewal.renewal_status',
+        period: 'renewal.renewal_start_date',
+        offer_expires_at: 'renewal.offer_expires_at',
+      },
+      defaultSort: 'created_at',
+      searchable: ['renewal.renewal_no', 'renewal.source_cover_note_reference'],
+      tieBreaker: 'renewal.id',
+    });
+  }
+
+  private createRenewalListQuery(
+    companyId: string,
+    policyId?: string,
+    user?: AuthenticatedUser,
+  ) {
     const query = this.renewalRepository
       .createQueryBuilder('renewal')
       .innerJoin(
@@ -733,8 +774,7 @@ export class RenewalService {
         'transaction.id = renewal.policy_transaction_id',
       )
       .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
-      .where('renewal.company_id = :companyId', { companyId })
-      .orderBy('renewal.created_at', 'DESC');
+      .where('renewal.company_id = :companyId', { companyId });
 
     if (user)
       this.dataAccessScopeService.applyPolicyReadScope(
@@ -747,7 +787,7 @@ export class RenewalService {
       query.andWhere('transaction.source_policy_id = :policyId', { policyId });
     }
 
-    return query.getMany();
+    return query;
   }
 
   async findContext(

@@ -16,6 +16,8 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { CoverNoteListQueryDto } from './dto/cover-note-list-query.dto';
 
 import { CoverNotesService } from './cover-notes.service';
 
@@ -33,12 +35,16 @@ export class CoverNotesController {
   @ApiQuery({ name: 'quotation_id', required: false })
   findAll(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('policy_id', new ParseUUIDPipe({ optional: true }))
-    policyId?: string,
-    @Query('quotation_id', new ParseUUIDPipe({ optional: true }))
-    quotationId?: string,
+    @Query() query: CoverNoteListQueryDto,
   ) {
-    return this.coverNotesService.findAll(user, { policyId, quotationId });
+    const filters = {
+      policyId: query.policy_id,
+      quotationId: query.quotation_id,
+    };
+    // `page` opts into the paged table contract; otherwise the full list.
+    return isPagedRequest(query)
+      ? this.coverNotesService.findPage(user, filters, query)
+      : this.coverNotesService.findAll(user, filters);
   }
 
   @Get(':id')

@@ -3,7 +3,7 @@ import { SortDirection } from '../dto/pagination.dto';
 
 /** Hard cap applied to every server-side table, regardless of the DTO max. */
 export const TABLE_MAX_PAGE_SIZE = 100;
-export const TABLE_DEFAULT_PAGE_SIZE = 20;
+export const TABLE_DEFAULT_PAGE_SIZE = 10;
 
 export interface PaginationMeta {
   page: number;

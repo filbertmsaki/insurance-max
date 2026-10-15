@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useServerTable } from '@/components/data-table';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { customersApi } from '@/modules/tenant/customers/api';
@@ -17,7 +18,9 @@ import type {
   CreateCancellationPayload,
   CreateEndorsementPayload,
   CreateEndorsementTypePayload,
+  PolicyEndorsementRecord,
   PolicyRecord,
+  PolicyRenewalRecord,
   RecordEndorsementChangePayload,
   UpdateEndorsementTypePayload,
 } from './types';
@@ -130,30 +133,44 @@ export function useReconcileEndorsement(endorsementId?: string) {
   });
 }
 
-export function useAllEndorsements() {
-  return useQuery({
+export const ENDORSEMENT_FILTER_KEYS = ['stage'] as const;
+
+/** Company-wide endorsements, paged/searched/sorted on the server. */
+export function useEndorsementsTable() {
+  return useServerTable<
+    PolicyEndorsementRecord,
+    (typeof ENDORSEMENT_FILTER_KEYS)[number]
+  >({
     queryKey: policyKeys.allEndorsements,
-    queryFn: () => policiesApi.listEndorsements(),
-    staleTime: 30_000,
+    fetcher: (params, signal) => policiesApi.pageEndorsements(params, signal),
+    filterKeys: ENDORSEMENT_FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
 }
 
-export function useAllRenewals() {
-  return useQuery({
+export const RENEWAL_FILTER_KEYS = ['renewal_status'] as const;
+
+/** Company-wide renewals, paged/searched/sorted on the server. */
+export function useRenewalsTable() {
+  return useServerTable<
+    PolicyRenewalRecord,
+    (typeof RENEWAL_FILTER_KEYS)[number]
+  >({
     queryKey: policyKeys.allRenewals,
-    queryFn: () => policiesApi.listRenewals(),
-    staleTime: 30_000,
+    fetcher: (params, signal) => policiesApi.pageRenewals(params, signal),
+    filterKeys: RENEWAL_FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
 }
 
-export function usePolicyEndorsements(policyId?: string, enabled = true) {
-  return useQuery({
-    queryKey: policyId
-      ? policyKeys.endorsements(policyId)
-      : policyKeys.endorsements(''),
-    queryFn: () => policiesApi.getEndorsements(policyId!),
+/** One policy's endorsements, paged/searched/sorted on the server. */
+export function usePolicyEndorsementsTable(policyId?: string, enabled = true) {
+  return useServerTable<PolicyEndorsementRecord>({
+    queryKey: policyKeys.endorsements(policyId ?? ''),
+    fetcher: (params, signal) =>
+      policiesApi.pageEndorsements({ ...params, policy_id: policyId }, signal),
     enabled: !!policyId && enabled,
-    staleTime: 30_000,
+    defaultSortBy: 'created_at',
   });
 }
 

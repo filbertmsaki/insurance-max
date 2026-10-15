@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   keepPreviousData,
   useQuery,
   type QueryKey,
 } from '@tanstack/react-query';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { normalizePaginatedResponse, type PaginatedResponse } from '@/modules/shared/api/pagination';
 import {
   toListParams,
@@ -32,10 +33,12 @@ export interface ServerTableOptions<T, F extends string> extends TableStateOptio
 }
 
 /**
- * Server-side table: URL-backed state + React Query fetch. Every request
- * includes page/limit/search/sort/filters in the cache key, so a response can
- * only populate the key it was requested for — stale searches can't overwrite
- * newer results. Previous data stays on screen while the next page loads.
+ * Server-side table: in-memory state (never the browser URL) + React Query
+ * fetch. Every request includes page/limit/search/sort/filters and the active
+ * user/company in the cache key, so a response can only populate the key it
+ * was requested for — stale searches can't overwrite newer results and one
+ * user's or company's rows are never served to another. Previous data stays
+ * on screen while the next page loads.
  */
 export function useServerTable<T, F extends string = string>(
   options: ServerTableOptions<T, F>,
@@ -44,8 +47,22 @@ export function useServerTable<T, F extends string = string>(
   const state = useTableState<F>(stateOptions);
   const params = { ...toListParams(state.query), ...extraParams };
 
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const companyId = useAuthStore((s) => s.company?.id ?? null);
+  // A different user, company or table scope (tab, parent record) must start
+  // from a clean view, not inherit the previous search terms, filters or page.
+  const scopeKey = JSON.stringify([userId, companyId, queryKey]);
+  const lastScopeKey = useRef(scopeKey);
+  const { reset } = state;
+  useEffect(() => {
+    if (lastScopeKey.current !== scopeKey) {
+      lastScopeKey.current = scopeKey;
+      reset();
+    }
+  }, [scopeKey, reset]);
+
   const query = useQuery({
-    queryKey: [...queryKey, 'table', params],
+    queryKey: [...queryKey, 'table', { userId, companyId }, params],
     queryFn: async ({ signal }) =>
       normalizePaginatedResponse<T>(await fetcher(params as never, signal)),
     placeholderData: keepPreviousData,

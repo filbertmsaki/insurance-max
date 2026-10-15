@@ -25,6 +25,18 @@ export class IntelligencePageQueryDto {
   @IsInt()
   @Min(0)
   offset?: number;
+
+  /** 1-based page; when sent, responses use the paged table contract. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  search?: string;
 }
 
 export class BenchmarkQueryDto extends IntelligencePageQueryDto {

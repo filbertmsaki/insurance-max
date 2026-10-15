@@ -1,3 +1,5 @@
+import type { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import {
   ConflictException,
   Injectable,
@@ -101,10 +103,40 @@ export class CoverNotesService {
     user: AuthenticatedUser,
     filters: { policyId?: string; quotationId?: string } = {},
   ) {
-    const queryBuilder = this.scopedQuery(user).orderBy(
-      'cover_note.created_at',
-      'DESC',
-    );
+    return this.filteredQuery(user, filters)
+      .orderBy('cover_note.created_at', 'DESC')
+      .getMany();
+  }
+
+  /** Paged cover notes over the same scoped query (fleet policies can hold hundreds). */
+  findPage(
+    user: AuthenticatedUser,
+    filters: { policyId?: string; quotationId?: string },
+    table: TableQueryDto,
+  ) {
+    return paginateQueryBuilder(this.filteredQuery(user, filters), table, {
+      sortable: {
+        created_at: 'cover_note.created_at',
+        cover_note_number: 'cover_note.cover_note_number',
+        fleet_entry: 'cover_note.fleet_entry',
+        start_date: 'cover_note.start_date',
+        status: 'cover_note.status',
+      },
+      defaultSort: 'created_at',
+      searchable: [
+        'cover_note.cover_note_number',
+        'cover_note.cover_note_reference_number',
+        'cover_note.sticker_number',
+      ],
+      tieBreaker: 'cover_note.id',
+    });
+  }
+
+  private filteredQuery(
+    user: AuthenticatedUser,
+    filters: { policyId?: string; quotationId?: string },
+  ) {
+    const queryBuilder = this.scopedQuery(user);
 
     if (filters.policyId) {
       queryBuilder.andWhere('cover_note.policy_id = :policyId', {
@@ -116,8 +148,7 @@ export class CoverNotesService {
         quotationId: filters.quotationId,
       });
     }
-
-    return queryBuilder.getMany();
+    return queryBuilder;
   }
 
   async findOne(user: AuthenticatedUser, id: string) {

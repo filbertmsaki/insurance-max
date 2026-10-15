@@ -16,7 +16,12 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import { engagementApi } from '../api';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
+import { engagementApi, type DocumentAccessEventRecord } from '../api';
 import { formatDate, formatDateTime, statusTone } from '../utils';
 
 export function DocumentDetailPage() {
@@ -41,10 +46,13 @@ export function DocumentDetailPage() {
     enabled: Boolean(id),
   });
 
-  const accessHistoryQuery = useQuery({
+  const accessHistoryTable = useServerTable<DocumentAccessEventRecord>({
     queryKey: ['engagement', 'documents', id, 'access-history'],
-    queryFn: () => engagementApi.getDocumentAccessHistory(id),
+    fetcher: (params, signal) =>
+      engagementApi.pageDocumentAccessHistory(id, params, signal),
     enabled: Boolean(id),
+    defaultSortBy: 'occurred_at',
+    defaultLimit: 10,
   });
 
   const rescanMutation = useMutation({
@@ -285,35 +293,14 @@ export function DocumentDetailPage() {
             <TabsContent value="access">
               <Card className="rounded-xl border-slate-200 shadow-sm">
                 <CardContent className="pt-6">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>When</TableHead>
-                        <TableHead>Actor</TableHead>
-                        <TableHead>Channel</TableHead>
-                        <TableHead>Result</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(accessHistoryQuery.data ?? []).map((event) => (
-                        <TableRow key={event.id}>
-                          <TableCell>
-                            {formatDateTime(event.occurred_at)}
-                          </TableCell>
-                          <TableCell>{event.actor_type}</TableCell>
-                          <TableCell>{event.access_channel}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={statusTone(event.result)}
-                            >
-                              {event.result}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    {...accessHistoryTable.tableProps}
+                    onSearchChange={undefined}
+                    columns={ACCESS_HISTORY_COLUMNS}
+                    rowKey={(event) => event.id}
+                    showColumnVisibility={false}
+                    emptyMessage="No access recorded yet"
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -323,3 +310,23 @@ export function DocumentDetailPage() {
     </div>
   );
 }
+
+const ACCESS_HISTORY_COLUMNS: Column<DocumentAccessEventRecord>[] = [
+  {
+    key: 'occurred_at',
+    header: 'When',
+    sortable: true,
+    cell: (event) => formatDateTime(event.occurred_at),
+  },
+  { key: 'actor', header: 'Actor', cell: (event) => event.actor_type },
+  { key: 'channel', header: 'Channel', cell: (event) => event.access_channel },
+  {
+    key: 'result',
+    header: 'Result',
+    cell: (event) => (
+      <Badge variant="outline" className={statusTone(event.result)}>
+        {event.result}
+      </Badge>
+    ),
+  },
+];

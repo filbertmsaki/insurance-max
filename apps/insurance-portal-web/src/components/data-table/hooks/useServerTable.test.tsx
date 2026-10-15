@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { useServerTable } from './useServerTable';
 import { useTableState } from './useTableState';
 
@@ -23,25 +24,48 @@ function page(total: number, pageNo: number, limit = 10) {
 }
 
 describe('useTableState', () => {
-  it('reads state from the URL and caps the limit', () => {
+  it('ignores URL query params and caps the limit', () => {
     const { result } = renderHook(
-      () => useTableState({ filterKeys: ['status'] as const }),
-      { wrapper: wrapper('/?page=3&limit=999&q=abc&status=active&sortBy=name&sortOrder=ASC') },
+      () => useTableState({ filterKeys: ['status'] as const, defaultLimit: 999 }),
+      { wrapper: wrapper('/?page=3&q=abc&status=active&sortBy=name') },
     );
     expect(result.current.query).toEqual({
-      page: 3,
+      page: 1,
       limit: 100,
-      search: 'abc',
+      search: undefined,
+      sortBy: undefined,
+      sortOrder: undefined,
+      filters: {},
+    });
+  });
+
+  it('never changes the browser location during table interactions', () => {
+    const { result } = renderHook(
+      () => ({ table: useTableState({ filterKeys: ['status'] as const }), location: useLocation() }),
+      { wrapper: wrapper('/customers/list#top') },
+    );
+    act(() => result.current.table.setSearch('acme'));
+    act(() => result.current.table.setFilter('status', 'active'));
+    act(() => result.current.table.setSort('name', 'ASC'));
+    act(() => result.current.table.setLimit(50));
+    act(() => result.current.table.setPage(3));
+    expect(result.current.table.query).toMatchObject({
+      page: 3,
+      limit: 50,
+      search: 'acme',
       sortBy: 'name',
-      sortOrder: 'ASC',
       filters: { status: 'active' },
     });
+    expect(result.current.location.pathname).toBe('/customers/list');
+    expect(result.current.location.search).toBe('');
+    expect(result.current.location.hash).toBe('#top');
   });
 
   it('resets to page 1 on search, filter, sort and page-size changes', () => {
     const { result } = renderHook(() => useTableState({ filterKeys: ['status'] as const }), {
-      wrapper: wrapper('/?page=4'),
+      wrapper: wrapper('/'),
     });
+    act(() => result.current.setPage(4));
     act(() => result.current.setSearch('x'));
     expect(result.current.page).toBe(1);
     act(() => result.current.setPage(4));
@@ -55,40 +79,57 @@ describe('useTableState', () => {
     expect(result.current.page).toBe(1);
   });
 
-  it('namespaces params with a prefix', () => {
-    const { result } = renderHook(() => useTableState({ prefix: 'inv' }), {
-      wrapper: wrapper('/?page=5&inv_page=2'),
+  it('applies cascading filter changes in one update and clears them', () => {
+    const { result } = renderHook(
+      () => useTableState({ filterKeys: ['category_id', 'product_id'] as const }),
+      { wrapper: wrapper('/') },
+    );
+    act(() => result.current.setFilters({ category_id: 'c1', product_id: 'p1' }));
+    act(() => result.current.setFilters({ category_id: 'c2', product_id: null }));
+    expect(result.current.filters).toEqual({ category_id: 'c2' });
+    act(() => result.current.setSearch('q'));
+    act(() => result.current.clearFilters());
+    expect(result.current.hasActiveFilters).toBe(false);
+  });
+
+  it('keeps separate state for each table instance', () => {
+    const { result } = renderHook(() => ({ a: useTableState(), b: useTableState() }), {
+      wrapper: wrapper('/'),
     });
-    expect(result.current.page).toBe(2);
+    act(() => result.current.a.setPage(3));
+    expect(result.current.a.page).toBe(3);
+    expect(result.current.b.page).toBe(1);
   });
 });
 
 describe('useServerTable', () => {
-  it('sends page/search/sort/filters to the server', async () => {
+  it('defaults to 10 rows and sends page/search/sort/filters to the server', async () => {
     const fetcher = vi.fn().mockResolvedValue(page(1, 1));
-    renderHook(
+    const { result } = renderHook(
       () => useServerTable({ queryKey: ['t'], fetcher, filterKeys: ['status'] as const }),
-      { wrapper: wrapper('/?q=abc&status=active&sortBy=name&sortOrder=ASC') },
+      { wrapper: wrapper('/') },
     );
-    await waitFor(() => expect(fetcher).toHaveBeenCalled());
-    expect(fetcher.mock.calls[0][0]).toEqual({
-      page: 1,
-      limit: 20,
-      search: 'abc',
-      sortBy: 'name',
-      sortOrder: 'ASC',
-      status: 'active',
-    });
-    expect(fetcher.mock.calls[0][1]).toBeInstanceOf(AbortSignal);
+    act(() => result.current.state.setSearch('abc'));
+    act(() => result.current.state.setFilter('status', 'active'));
+    act(() => result.current.state.setSort('name', 'ASC'));
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenLastCalledWith(
+        { page: 1, limit: 10, search: 'abc', sortBy: 'name', sortOrder: 'ASC', status: 'active' },
+        expect.any(AbortSignal),
+      ),
+    );
   });
 
   it('moves back to the last valid page when the current page is out of range', async () => {
     const fetcher = vi.fn(async (params: { page: number }) =>
       params.page > 2 ? { data: [], pagination: { page: params.page, limit: 10, total: 15, totalPages: 2 } } : page(15, params.page),
     );
-    const { result } = renderHook(() => useServerTable({ queryKey: ['t2'], fetcher }), {
-      wrapper: wrapper('/?page=5&limit=10'),
-    });
+    const { result } = renderHook(
+      () => useServerTable({ queryKey: ['t2'], fetcher, defaultLimit: 10 }),
+      { wrapper: wrapper('/') },
+    );
+    await waitFor(() => expect(result.current.total).toBe(15));
+    act(() => result.current.state.setPage(5));
     await waitFor(() => expect(result.current.state.page).toBe(2));
   });
 
@@ -109,5 +150,18 @@ describe('useServerTable', () => {
       resolveSlow({ data: [{ id: 'a' }], pagination: { page: 1, limit: 20, total: 1, totalPages: 1 } });
     });
     expect(result.current.rows).toEqual([{ id: 'ab' }]);
+  });
+
+  it('resets state and refetches when the active company changes', async () => {
+    const fetcher = vi.fn().mockResolvedValue(page(1, 1));
+    const { result } = renderHook(() => useServerTable({ queryKey: ['t4'], fetcher }), {
+      wrapper: wrapper('/'),
+    });
+    act(() => result.current.state.setSearch('secret'));
+    await waitFor(() => expect(fetcher).toHaveBeenLastCalledWith(expect.objectContaining({ search: 'secret' }), expect.any(AbortSignal)));
+    act(() => useAuthStore.setState({ company: { id: 'other-company' } as never }));
+    await waitFor(() => expect(result.current.state.search).toBeUndefined());
+    expect(fetcher).toHaveBeenLastCalledWith({ page: 1, limit: 10 }, expect.any(AbortSignal));
+    act(() => useAuthStore.setState({ company: null }));
   });
 });

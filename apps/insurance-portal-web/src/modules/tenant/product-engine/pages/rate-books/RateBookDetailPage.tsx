@@ -1197,16 +1197,15 @@ function AuditHistoryTab({ rateBookId }: { rateBookId: string }) {
     queryFn: () =>
       auditApi.search({
         resource: 'pricing_rate_books',
+        resource_id: rateBookId,
         limit: 50,
       }),
     staleTime: 30_000,
   });
 
-  // The generic audit-logs search endpoint only filters by resource type, not
-  // a specific record — narrow to this rate book's entries client-side.
-  const entries = (data?.data ?? []).filter(
-    (entry) => entry.resource_id === rateBookId,
-  );
+  // Filtered to this rate book on the server, so the 50 latest entries are
+  // this record's own — not 50 company-wide entries narrowed afterwards.
+  const entries = data?.data ?? [];
 
   if (isLoading) {
     return <Skeleton className="h-48 w-full" />;

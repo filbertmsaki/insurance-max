@@ -1095,7 +1095,7 @@ export class PortalAccountsService {
 
     const result = await paginateQueryBuilder(
       qb,
-      { ...filters, limit: filters.limit ?? 25 },
+      { ...filters, limit: filters.limit ?? 10 },
       {
         sortable: {
           email: 'invitation.email',

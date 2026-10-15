@@ -13,6 +13,8 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { EndorsementListQueryDto } from '../dto/transaction-list-query.dto';
 
 import { CreateEndorsementDto } from '../dto/create-endorsement.dto';
 import { EndorsementEligibilityQueryDto } from '../dto/endorsement-eligibility-query.dto';
@@ -71,9 +73,13 @@ export class EndorsementsController {
   @ApiOperation({ summary: 'List endorsements for the current company' })
   findAll(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('policy_id') policyId?: string,
+    @Query() query: EndorsementListQueryDto,
   ) {
-    return this.endorsementService.findAll(user, policyId);
+    // `page` opts into the paged table contract; without it the full array
+    // is returned for existing per-policy consumers.
+    return isPagedRequest(query)
+      ? this.endorsementService.findPage(user, query)
+      : this.endorsementService.findAll(user, query.policy_id);
   }
 
   @Get('tenant/endorsements/:id/context')

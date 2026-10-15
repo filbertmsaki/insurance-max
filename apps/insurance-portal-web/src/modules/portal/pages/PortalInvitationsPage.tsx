@@ -172,7 +172,6 @@ export function PortalInvitationsPage() {
     fetcher: (params, signal) => portalInvitationsApi.page(params, signal),
     filterKeys: INVITATION_FILTER_KEYS,
     defaultSortBy: 'created_at',
-    defaultLimit: 20,
   });
 
   const action = useMutation({

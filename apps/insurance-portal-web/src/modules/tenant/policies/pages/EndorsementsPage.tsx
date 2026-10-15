@@ -1,21 +1,23 @@
 import { useNavigate } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DataTable, type Column } from '@/components/data-table';
+import { DataTable, tableFilters, type Column } from '@/components/data-table';
+import { PolicyTransactionStage } from '@insurance-max/contracts';
 import { formatMoney } from '@/components/shared/detailFormat';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
-import { useAllEndorsements } from '../hooks';
+import { useEndorsementsTable } from '../hooks';
 import type { PolicyEndorsementRecord } from '../types';
 
 export function EndorsementsPage() {
   const navigate = useNavigate();
-  const { data = [], isLoading } = useAllEndorsements();
+  const { tableProps, state } = useEndorsementsTable();
 
   const columns: Column<PolicyEndorsementRecord>[] = [
     {
       key: 'transaction_no',
+      sortable: true,
       header: 'Endorsement',
       cell: (row) => (
         <div>
@@ -28,11 +30,13 @@ export function EndorsementsPage() {
     },
     {
       key: 'stage',
+      sortable: true,
       header: 'Stage',
       cell: (row) => <StatusBadge status={row.stage} />,
     },
     {
       key: 'approval_status',
+      sortable: true,
       header: 'Approval',
       cell: (row) => (
         <span className="text-sm text-slate-600">{row.approval_status}</span>
@@ -40,6 +44,7 @@ export function EndorsementsPage() {
     },
     {
       key: 'payment_status',
+      sortable: true,
       header: 'Payment',
       cell: (row) => (
         <span className="text-sm text-slate-600">{row.payment_status}</span>
@@ -62,6 +67,7 @@ export function EndorsementsPage() {
     },
     {
       key: 'effective_date',
+      sortable: true,
       header: 'Effective Date',
       cell: (row) => (
         <span className="text-sm text-slate-500">
@@ -102,15 +108,21 @@ export function EndorsementsPage() {
       />
 
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data}
-        loading={isLoading}
-        page={1}
-        limit={data.length || 1}
-        total={data.length}
-        totalPages={1}
-        onPageChange={() => undefined}
-        onLimitChange={() => undefined}
+        rowKey={(row) => row.id}
+        searchPlaceholder="Search endorsement number or reason"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'stage',
+            label: 'Stage',
+            placeholder: 'All',
+            options: Object.values(PolicyTransactionStage).map((value) => ({
+              value,
+              label: value.replace(/_/g, ' '),
+            })),
+          },
+        ])}
       />
     </div>
   );

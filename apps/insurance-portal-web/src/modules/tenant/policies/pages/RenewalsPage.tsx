@@ -2,19 +2,20 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DataTable, type Column } from '@/components/data-table';
+import { DataTable, tableFilters, type Column } from '@/components/data-table';
+import { RenewalLifecycleStatus } from '@insurance-max/contracts';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { policiesApi } from '../api';
-import { useAllRenewals } from '../hooks';
+import { useRenewalsTable } from '../hooks';
 import type { PolicyRenewalRecord } from '../types';
 import { toast } from 'sonner';
 
 export function RenewalsPage() {
   const navigate = useNavigate();
-  const { data = [], isLoading } = useAllRenewals();
+  const { tableProps, state } = useRenewalsTable();
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   async function openRenewal(renewal: PolicyRenewalRecord) {
@@ -41,6 +42,7 @@ export function RenewalsPage() {
   const columns: Column<PolicyRenewalRecord>[] = [
     {
       key: 'renewal_no',
+      sortable: true,
       header: 'Renewal',
       cell: (row) => (
         <div>
@@ -53,11 +55,13 @@ export function RenewalsPage() {
     },
     {
       key: 'renewal_status',
+      sortable: true,
       header: 'Status',
       cell: (row) => <StatusBadge status={row.renewal_status} />,
     },
     {
       key: 'period',
+      sortable: true,
       header: 'Renewal Period',
       cell: (row) => (
         <span className="text-sm text-slate-600">
@@ -68,6 +72,7 @@ export function RenewalsPage() {
     },
     {
       key: 'offer_expires_at',
+      sortable: true,
       header: 'Offer Expires',
       cell: (row) => (
         <span className="text-sm text-slate-500">
@@ -79,6 +84,7 @@ export function RenewalsPage() {
     },
     {
       key: 'created_at',
+      sortable: true,
       header: 'Created',
       cell: (row) => (
         <span className="text-sm text-slate-500">
@@ -113,15 +119,21 @@ export function RenewalsPage() {
       />
 
       <DataTable
+        {...tableProps}
         columns={columns}
-        data={data}
-        loading={isLoading}
-        page={1}
-        limit={data.length || 1}
-        total={data.length}
-        totalPages={1}
-        onPageChange={() => undefined}
-        onLimitChange={() => undefined}
+        rowKey={(row) => row.id}
+        searchPlaceholder="Search renewal number or cover note"
+        filters={tableFilters(state.filters, [
+          {
+            key: 'renewal_status',
+            label: 'Status',
+            placeholder: 'All',
+            options: Object.values(RenewalLifecycleStatus).map((value) => ({
+              value,
+              label: value.replace(/_/g, ' '),
+            })),
+          },
+        ])}
       />
     </div>
   );

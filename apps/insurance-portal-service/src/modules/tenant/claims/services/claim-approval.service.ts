@@ -7,11 +7,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 
 import { AuditService } from '../../../shared/audit/audit.service';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import { Policy } from '../../policies/entities/policy.entity';
+import { User } from '../../users/entities/user.entity';
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimApproval } from '../entities/claim-approval.entity';
 import { ClaimApprovalLimit } from '../entities/claim-approval-limit.entity';
@@ -289,11 +290,35 @@ export class ClaimApprovalService {
     });
   }
 
-  listLimits(companyId: string) {
-    return this.limitRepository.find({
+  /**
+   * Approval limits plus each named approver's display name, resolved in one
+   * extra query, so the UI can label approvers without loading every user.
+   */
+  async listLimits(companyId: string) {
+    const limits = await this.limitRepository.find({
       where: { company_id: companyId },
       order: { approval_type: 'ASC', level: 'ASC', min_amount: 'ASC' },
     });
+    const userIds = [
+      ...new Set(limits.map((limit) => limit.user_id).filter(Boolean)),
+    ] as string[];
+    const users = userIds.length
+      ? await this.limitRepository.manager.getRepository(User).find({
+          where: { id: In(userIds) },
+          select: { id: true, first_name: true, last_name: true, email: true },
+        })
+      : [];
+    const names = new Map(
+      users.map((user) => [
+        user.id,
+        [user.first_name, user.last_name].filter(Boolean).join(' ') ||
+          user.email,
+      ]),
+    );
+    return limits.map((limit) => ({
+      ...limit,
+      user_name: limit.user_id ? (names.get(limit.user_id) ?? null) : null,
+    }));
   }
 
   async saveLimit(

@@ -1,7 +1,15 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { BackendPaginatedResponse } from '@/modules/shared/api/pagination';
 import type { ProductTaxRule, CreateTaxRuleDto } from '@/types/product-engine';
 
 export const taxRulesApi = {
+  /** Tax rules table: server-side paging, search and sort. */
+  page: (params: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient
+      .get<
+        BackendPaginatedResponse<ProductTaxRule>
+      >('/product-distribution/tax-rules', { params, signal })
+      .then((r) => r.data),
   getList: () =>
     apiClient
       .get<ProductTaxRule[]>('/product-distribution/tax-rules')

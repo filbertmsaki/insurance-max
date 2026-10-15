@@ -1,5 +1,10 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import {
+  buildPaginationMeta,
+  escapeLike,
+  normalizePage,
+} from '@insurance-max/portal-shared/utils/paginate-query.util';
 
 export const DEFAULT_LIST_LIMIT = 100;
 export const MAX_LIST_LIMIT = 500;
@@ -7,6 +12,9 @@ export const MAX_LIST_LIMIT = 500;
 export interface ListPage {
   limit?: number;
   offset?: number;
+  /** 1-based; when present the response uses the paged table contract. */
+  page?: number;
+  search?: string;
 }
 
 @Injectable()
@@ -14,11 +22,13 @@ export class PlatformIntelligenceService {
   constructor(private readonly dataSource: DataSource) {}
 
   async listCompanyHealth(page: ListPage = {}) {
-    const { limit, offset } = this.page(page);
-
     // Each count is a separate subquery: joining three child tables and
     // counting DISTINCT would multiply rows per company first.
-    return this.dataSource.query(
+    const search = page.search?.trim()
+      ? `%${escapeLike(page.search.trim())}%`
+      : null;
+    return this.list(
+      page,
       `
       SELECT
         company.id,
@@ -37,12 +47,13 @@ export class PlatformIntelligenceService {
         (
           SELECT COUNT(*) FROM analytics_forecast_runs forecast_run
           WHERE forecast_run.company_id = company.id
-        ) AS "forecastRuns"
-      FROM companies company
-      ORDER BY company.name ASC
-      LIMIT $1 OFFSET $2
-      `,
-      [limit, offset],
+        ) AS "forecastRuns"`,
+      `FROM companies company
+      WHERE ($1::text IS NULL
+        OR company.name ILIKE $1 ESCAPE '\\'
+        OR company.tira_company_code ILIKE $1 ESCAPE '\\')`,
+      'ORDER BY company.name ASC, company.id ASC',
+      [search],
     );
   }
 
@@ -54,26 +65,20 @@ export class PlatformIntelligenceService {
       to?: string;
     } & ListPage,
   ) {
-    const { limit, offset } = this.page(query);
-
-    return this.dataSource.query(
-      `
-      SELECT *
-      FROM platform_benchmark_snapshots
+    return this.list(
+      query,
+      'SELECT *',
+      `FROM platform_benchmark_snapshots
       WHERE ($1::varchar IS NULL OR metric_code = $1)
         AND ($2::varchar IS NULL OR cohort_key = $2)
         AND ($3::date IS NULL OR period_start >= $3)
-        AND ($4::date IS NULL OR period_end <= $4)
-      ORDER BY period_start DESC, metric_code ASC
-      LIMIT $5 OFFSET $6
-      `,
+        AND ($4::date IS NULL OR period_end <= $4)`,
+      'ORDER BY period_start DESC, metric_code ASC, id ASC',
       [
         query.metricCode ?? null,
         query.cohortKey ?? null,
         query.from ?? null,
         query.to ?? null,
-        limit,
-        offset,
       ],
     );
   }
@@ -86,29 +91,23 @@ export class PlatformIntelligenceService {
       to?: string;
     } & ListPage,
   ) {
-    const { limit, offset } = this.page(query);
-
-    return this.dataSource.query(
-      `
-      SELECT
+    return this.list(
+      query,
+      `SELECT
         finding.*,
-        company.name AS "companyName"
-      FROM analytics_anomaly_findings finding
+        company.name AS "companyName"`,
+      `FROM analytics_anomaly_findings finding
       LEFT JOIN companies company ON company.id = finding.company_id
       WHERE ($1::uuid IS NULL OR finding.company_id = $1)
         AND ($2::uuid IS NULL OR finding.branch_id = $2)
         AND ($3::date IS NULL OR finding.metric_date >= $3)
-        AND ($4::date IS NULL OR finding.metric_date <= $4)
-      ORDER BY finding.metric_date DESC, finding.severity DESC
-      LIMIT $5 OFFSET $6
-      `,
+        AND ($4::date IS NULL OR finding.metric_date <= $4)`,
+      'ORDER BY finding.metric_date DESC, finding.severity DESC, finding.id ASC',
       [
         query.companyId ?? null,
         query.branchId ?? null,
         query.from ?? null,
         query.to ?? null,
-        limit,
-        offset,
       ],
     );
   }
@@ -120,30 +119,61 @@ export class PlatformIntelligenceService {
       status?: string;
     } & ListPage,
   ) {
-    const { limit, offset } = this.page(query);
-
-    return this.dataSource.query(
-      `
-      SELECT
+    return this.list(
+      query,
+      `SELECT
         run.*,
-        defs.name AS "definitionName"
-      FROM analytics_forecast_runs run
+        defs.name AS "definitionName"`,
+      `FROM analytics_forecast_runs run
       LEFT JOIN analytics_forecast_definitions defs
         ON defs.id = run.definition_id
       WHERE ($1::uuid IS NULL OR run.company_id = $1)
         AND ($2::uuid IS NULL OR run.branch_id = $2)
-        AND ($3::varchar IS NULL OR run.status = $3)
-      ORDER BY run.created_at DESC
-      LIMIT $4 OFFSET $5
-      `,
-      [
-        query.companyId ?? null,
-        query.branchId ?? null,
-        query.status ?? null,
-        limit,
-        offset,
-      ],
+        AND ($3::varchar IS NULL OR run.status = $3)`,
+      'ORDER BY run.created_at DESC, run.id ASC',
+      [query.companyId ?? null, query.branchId ?? null, query.status ?? null],
     );
+  }
+
+  /**
+   * Runs a list query. Without `page` it keeps the legacy limit/offset array
+   * response; with `page` it returns the shared table contract, counting
+   * with the identical FROM/WHERE so totals match the filtered rows.
+   */
+  private async list(
+    page: ListPage,
+    select: string,
+    fromWhere: string,
+    orderBy: string,
+    params: unknown[],
+  ): Promise<any> {
+    const paged = page.page !== undefined && page.page !== null;
+    const tablePage = paged ? normalizePage(page) : null;
+    const { limit, offset } = tablePage
+      ? { limit: tablePage.limit, offset: tablePage.skip }
+      : this.page(page);
+    const n = params.length;
+    const rows = await this.dataSource.query(
+      `${select}
+      ${fromWhere}
+      ${orderBy}
+      LIMIT $${n + 1} OFFSET $${n + 2}`,
+      [...params, limit, offset],
+    );
+    if (!tablePage) return rows;
+
+    const [{ total }] = await this.dataSource.query<{ total: number }[]>(
+      `SELECT COUNT(*)::int AS total ${fromWhere}`,
+      params,
+    );
+    return {
+      data: rows,
+      pagination: buildPaginationMeta(
+        tablePage.page,
+        tablePage.limit,
+        Number(total),
+      ),
+    };
   }
 
   /**

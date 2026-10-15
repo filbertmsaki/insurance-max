@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import type { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { Repository } from 'typeorm';
 import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import type { FindDocumentsQueryDto } from './dto/engagement-list-query.dto';
@@ -233,6 +234,20 @@ export class DocumentsService {
     return this.accessEventRepository.find({
       where: { company_id: companyId, document_id: id },
       order: { occurred_at: 'DESC' },
+    });
+  }
+
+  /** Paged access history; ownership is checked before any rows are read. */
+  async pageAccessHistory(companyId: string, id: string, query: TableQueryDto) {
+    await this.requireForCompany(companyId, id);
+    const qb = this.accessEventRepository
+      .createQueryBuilder('event')
+      .where('event.company_id = :companyId', { companyId })
+      .andWhere('event.document_id = :id', { id });
+    return paginateQueryBuilder(qb, query, {
+      sortable: { occurred_at: 'event.occurred_at' },
+      defaultSort: 'occurred_at',
+      tieBreaker: 'event.id',
     });
   }
 

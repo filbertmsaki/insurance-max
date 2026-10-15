@@ -79,7 +79,6 @@ export function ReferenceDataPage() {
     fetcher: (params, signal) =>
       referenceDataApi.listPage<AnyRecord>(tab, params, signal),
     filterKeys: REFERENCE_FILTER_KEYS,
-    prefix: tab,
   });
 
   const data = {

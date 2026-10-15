@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -389,7 +388,6 @@ export function RisksPage() {
   const canUpdate = hasPermission('insurance-risks:update');
   const canDelete = hasPermission('insurance-risks:delete');
 
-  const [, setParams] = useSearchParams();
   const { tableProps, state } = useServerTable<
     InsuranceRisk,
     (typeof FILTER_KEYS)[number]
@@ -404,17 +402,11 @@ export function RisksPage() {
   const productFilter = state.filters.product_id ?? '';
   const subClassFilter = state.filters.sub_class_id ?? '';
 
-  /** Category → product → sub-class cascade: clearing a parent clears its children in one URL update. */
-  function setCascade(changes: Record<string, string | null>) {
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      for (const [key, value] of Object.entries(changes)) {
-        if (value) next.set(key, value);
-        else next.delete(key);
-      }
-      next.delete('page');
-      return next;
-    });
+  /** Category → product → sub-class cascade: clearing a parent clears its children in one state update. */
+  function setCascade(
+    changes: Partial<Record<(typeof FILTER_KEYS)[number], string | null>>,
+  ) {
+    state.setFilters(changes);
   }
   const { data: categories = [] } = useAllActiveCategories();
   const { data: products = [] } = useAllActiveProducts(

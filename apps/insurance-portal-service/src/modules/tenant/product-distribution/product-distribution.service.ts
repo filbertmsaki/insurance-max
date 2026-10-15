@@ -1,3 +1,5 @@
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 import {
   BadRequestException,
   ForbiddenException,
@@ -335,6 +337,30 @@ export class ProductDistributionService {
       where: { company_id: companyId },
       relations: { company: true, category: true, product: true, risk: true },
       order: { created_at: 'DESC' },
+    });
+  }
+
+  /** Company-scoped tax rules table: search, allowlisted sort and paging in SQL. */
+  pageTaxRules(companyId: string, query: TableQueryDto) {
+    const qb = this.taxRepository
+      .createQueryBuilder('tax')
+      .leftJoinAndSelect('tax.category', 'category')
+      .leftJoinAndSelect('tax.product', 'product')
+      .leftJoinAndSelect('tax.risk', 'risk')
+      .where('tax.company_id = :companyId', { companyId });
+    return paginateQueryBuilder(qb, query, {
+      sortable: {
+        created_at: 'tax.created_at',
+        tax_code: 'tax.tax_code',
+        tax_name: 'tax.tax_name',
+        charge_category: 'tax.charge_category',
+        tax_type: 'tax.tax_type',
+        effective_from: 'tax.effective_from',
+        status: 'tax.status',
+      },
+      defaultSort: 'created_at',
+      searchable: ['tax.tax_code', 'tax.tax_name'],
+      tieBreaker: 'tax.id',
     });
   }
 

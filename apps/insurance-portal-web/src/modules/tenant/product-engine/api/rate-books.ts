@@ -1,4 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
+import type { BackendPaginatedResponse } from '@/modules/shared/api/pagination';
 import type {
   PricingRateBook,
   CreatePricingRateBookDto,
@@ -8,6 +9,15 @@ import type {
 } from '@/types/product-engine';
 
 export const rateBooksApi = {
+  /** Rate books table: server-side paging, search, sort and filters. */
+  page: (params: Record<string, unknown>, signal?: AbortSignal) =>
+    apiClient
+      .get<BackendPaginatedResponse<PricingRateBook>>('/pricing-rate-books', {
+        params,
+        signal,
+      })
+      .then((r) => r.data),
+
   list: (params?: RateBookQueryParams) =>
     apiClient
       .get<PricingRateBook[]>('/pricing-rate-books', { params })

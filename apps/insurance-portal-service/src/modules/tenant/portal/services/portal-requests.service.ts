@@ -1828,7 +1828,7 @@ export class PortalRequestsService {
   private pagination(query: PortalRequestFilterDto) {
     return {
       page: Math.max(1, Number(query.page ?? 1)),
-      limit: Math.min(100, Math.max(1, Number(query.limit ?? 20))),
+      limit: Math.min(100, Math.max(1, Number(query.limit ?? 10))),
     };
   }
 

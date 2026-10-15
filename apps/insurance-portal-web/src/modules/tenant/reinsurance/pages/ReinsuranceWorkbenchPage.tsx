@@ -116,7 +116,6 @@ function ReinsuranceRecordsTable({
     fetcher: (params, signal) => reinsuranceApi.listPage(view, params, signal),
     filterKeys: FILTER_KEYS,
     defaultSortBy: 'created_at',
-    prefix: view,
   });
 
   return (

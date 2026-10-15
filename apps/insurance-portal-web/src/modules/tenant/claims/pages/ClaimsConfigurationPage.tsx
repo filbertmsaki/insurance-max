@@ -15,7 +15,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Form } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { AsyncCombobox } from '@/components/ui/async-combobox';
 import {
   Table,
   TableBody,
@@ -161,15 +169,37 @@ function toPayload(
 }
 
 /** Option lists for approvers and scopes; each tolerates a missing permission. */
+/** Server-side user search for the approver picker (no 100-user cap). */
+async function searchUserOptions(
+  search: string,
+  limit: number,
+  signal: AbortSignal,
+) {
+  const page = await usersApi.listUsers(
+    {
+      page: 1,
+      limit,
+      search: search || undefined,
+      sortBy: 'first_name',
+      sortOrder: 'ASC',
+    },
+    signal,
+  );
+  return {
+    options: page.data.map((user) => ({
+      value: user.id,
+      label:
+        [user.first_name, user.last_name].filter(Boolean).join(' ') ||
+        user.email,
+    })),
+    total: page.pagination?.total,
+  };
+}
+
 function useLimitOptions() {
   const roles = useQuery({
     queryKey: ['claims', 'config', 'roles'],
     queryFn: rolesApi.getRoles,
-    retry: false,
-  });
-  const users = useQuery({
-    queryKey: ['claims', 'config', 'users'],
-    queryFn: () => usersApi.getUsers({ limit: 100 }),
     retry: false,
   });
   const branches = useQuery({
@@ -192,12 +222,6 @@ function useLimitOptions() {
     roles: (roles.data ?? []).map((role) => ({
       value: role.id,
       label: role.display_name || role.name,
-    })),
-    users: (users.data?.data ?? []).map((user) => ({
-      value: user.id,
-      label:
-        [user.first_name, user.last_name].filter(Boolean).join(' ') ||
-        user.email,
     })),
     branches: (branches.data ?? []).map((branch) => ({
       value: branch.id,
@@ -305,12 +329,28 @@ function LimitDialog({
                 required
               />
             ) : (
-              <ClaimField
-                form={form}
+              <FormField
+                control={form.control}
                 name="user_id"
-                label="User"
-                options={options.users}
-                required
+                render={({ field, fieldState }) => (
+                  <FormItem>
+                    <FormLabel required>User</FormLabel>
+                    <FormControl>
+                      <AsyncCombobox
+                        ref={field.ref}
+                        queryKey={['claims', 'config', 'users']}
+                        fetchOptions={searchUserOptions}
+                        value={field.value ?? ''}
+                        selectedLabel={limit?.user_name ?? undefined}
+                        onValueChange={field.onChange}
+                        placeholder="Select user…"
+                        searchPlaceholder="Search name or email…"
+                        aria-invalid={Boolean(fieldState.error)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             )}
             <ClaimField
@@ -473,7 +513,7 @@ export function ClaimsConfigurationPage() {
                     <TableCell>{limit.level}</TableCell>
                     <TableCell>
                       {limit.user_id
-                        ? labelOf(options.users, limit.user_id)
+                        ? (limit.user_name ?? limit.user_id)
                         : `Role: ${labelOf(options.roles, limit.role_id)}`}
                     </TableCell>
                     <TableCell>

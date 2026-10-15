@@ -35,7 +35,11 @@ describe('PlatformIntelligenceService', () => {
     dataSource.query.mockResolvedValue(expected);
 
     await expect(service.listCompanyHealth()).resolves.toEqual(expected);
-    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [100, 0]);
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      null,
+      100,
+      0,
+    ]);
   });
 
   it('returns benchmark snapshots with filters', async () => {

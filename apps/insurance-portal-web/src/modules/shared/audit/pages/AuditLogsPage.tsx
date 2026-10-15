@@ -98,7 +98,6 @@ export function AuditLogsPage() {
     fetcher: (params, signal) => auditApi.search(params, signal),
     filterKeys: AUDIT_FILTER_KEYS,
     defaultSortBy: 'created_at',
-    defaultLimit: 50,
   });
   const chain = useQuery({
     queryKey: ['audit-chain-status'],

@@ -50,7 +50,6 @@ export function RegulatoryWorkbenchPage() {
     filterKeys: FILTER_KEYS,
     defaultSortBy: 'due_at',
     defaultSortOrder: 'ASC',
-    prefix: 'cal',
   });
   const returnsTable = useServerTable<
     RegulatoryReturnRecord,
@@ -60,7 +59,6 @@ export function RegulatoryWorkbenchPage() {
     fetcher: (params, signal) => regulatoryApi.listReturnsPage(params, signal),
     filterKeys: FILTER_KEYS,
     defaultSortBy: 'created_at',
-    prefix: 'ret',
   });
   const leviesTable = useServerTable<
     RegulatoryLevyAssessmentRecord,
@@ -71,7 +69,6 @@ export function RegulatoryWorkbenchPage() {
       regulatoryApi.listLevyAssessmentsPage(params, signal),
     filterKeys: FILTER_KEYS,
     defaultSortBy: 'created_at',
-    prefix: 'levy',
   });
   const returnRows = returnsTable.rows;
   const authoritiesQuery = useQuery({

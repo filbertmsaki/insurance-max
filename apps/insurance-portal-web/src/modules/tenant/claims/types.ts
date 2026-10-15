@@ -886,6 +886,8 @@ export interface ApprovalLimit {
   level: number;
   role_id: string | null;
   user_id: string | null;
+  /** Display name of the named approver (resolved by the API). */
+  user_name?: string | null;
   insurance_category_id: string | null;
   product_id: string | null;
   branch_id: string | null;

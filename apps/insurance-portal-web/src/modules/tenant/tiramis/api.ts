@@ -150,11 +150,12 @@ export const tiramisApi = {
 
   getAdminDashboard: async (
     params?: TiramisTrackingListParams,
+    signal?: AbortSignal,
   ): Promise<TiramisDashboardResponse> => {
     const response = await apiClient.get<
       LegacyPageResponse<TiramisTrackingRecord> &
         Omit<TiramisDashboardResponse, 'data' | 'pagination'>
-    >('/tiramis/admin/dashboard', { params });
+    >('/tiramis/admin/dashboard', { params, signal });
     const normalized = normalizeLegacyPage<TiramisTrackingRecord>(
       response.data,
     );

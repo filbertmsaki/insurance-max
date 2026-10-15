@@ -147,7 +147,6 @@ export function SaasBillingPage() {
     queryKey: ['platform', 'saas', 'invoices'],
     fetcher: (params, signal) => saasBillingApi.listInvoicesPage(params, signal),
     filterKeys: STATUS_FILTER_KEYS,
-    prefix: 'inv',
     defaultSortBy: 'created_at',
     enabled: tab === 'invoices',
   });
@@ -155,7 +154,6 @@ export function SaasBillingPage() {
     queryKey: ['platform', 'saas', 'cycles'],
     fetcher: (params, signal) => saasBillingApi.listCyclesPage(params, signal),
     filterKeys: STATUS_FILTER_KEYS,
-    prefix: 'cyc',
     defaultSortBy: 'period_end',
     enabled: tab === 'cycles',
   });
@@ -167,7 +165,6 @@ export function SaasBillingPage() {
     fetcher: (params, signal) =>
       saasBillingApi.listSubscriptionsPage(params, signal),
     filterKeys: STATUS_FILTER_KEYS,
-    prefix: 'sub',
     defaultSortBy: 'created_at',
     enabled: tab === 'subscriptions',
   });

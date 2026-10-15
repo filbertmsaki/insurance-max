@@ -1,28 +1,67 @@
-import { useQuery } from '@tanstack/react-query';
 import { CarFront } from 'lucide-react';
 
-import { EmptyState, ErrorState } from '@/components/shared/ContentStates';
+import {
+  DataTable,
+  useServerTable,
+  type Column,
+} from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { statusTone } from '@/modules/tenant/engagement/utils';
 
-import { portalApi } from '../api';
+import { portalApi, type CustomerPortalVehicle } from '../api';
+
+const COLUMNS: Column<CustomerPortalVehicle>[] = [
+  {
+    key: 'vehicle',
+    header: 'Vehicle',
+    cell: (vehicle) => (
+      <div>
+        <div className="font-medium text-slate-950">
+          {vehicle.registration_no ?? 'Not registered'}
+        </div>
+        <div className="text-sm text-slate-500">
+          {[vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle'}
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: 'insurer',
+    header: 'Insurer',
+    cell: (vehicle) => vehicle.company_name,
+  },
+  {
+    key: 'chassis',
+    header: 'Chassis',
+    hideOnMobile: true,
+    cell: (vehicle) => vehicle.chassis_no ?? '-',
+  },
+  {
+    key: 'expiry',
+    header: 'Expiry',
+    cell: (vehicle) => vehicle.latest_policy_expiry ?? '-',
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (vehicle) => (
+      <Badge
+        variant="outline"
+        className={statusTone(vehicle.latest_policy_status ?? vehicle.status)}
+      >
+        {vehicle.latest_policy_status ?? vehicle.status}
+      </Badge>
+    ),
+  },
+];
 
 export function PortalVehiclesPage() {
-  const vehiclesQuery = useQuery({
+  const { tableProps } = useServerTable<CustomerPortalVehicle>({
     queryKey: ['customer-marketplace', 'vehicles'],
-    queryFn: () => portalApi.listCustomerVehicles(),
+    fetcher: (params, signal) => portalApi.pageCustomerVehicles(params, signal),
   });
-  const vehicles = vehiclesQuery.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -40,60 +79,14 @@ export function PortalVehiclesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {vehiclesQuery.isError ? (
-            <ErrorState
-              description="Vehicles could not be loaded."
-              onRetry={() => {
-                void vehiclesQuery.refetch();
-              }}
-            />
-          ) : vehicles.length === 0 ? (
-            <EmptyState
-              title="No vehicles"
-              description="Vehicles will appear here after they are linked to your covers."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Vehicle</TableHead>
-                  <TableHead>Insurer</TableHead>
-                  <TableHead>Chassis</TableHead>
-                  <TableHead>Expiry</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vehicles.map((vehicle) => (
-                  <TableRow key={vehicle.id}>
-                    <TableCell>
-                      <div className="font-medium text-slate-950">
-                        {vehicle.registration_no ?? 'Not registered'}
-                      </div>
-                      <div className="text-sm text-slate-500">
-                        {[vehicle.make, vehicle.model]
-                          .filter(Boolean)
-                          .join(' ') || 'Vehicle'}
-                      </div>
-                    </TableCell>
-                    <TableCell>{vehicle.company_name}</TableCell>
-                    <TableCell>{vehicle.chassis_no ?? '-'}</TableCell>
-                    <TableCell>{vehicle.latest_policy_expiry ?? '-'}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={statusTone(
-                          vehicle.latest_policy_status ?? vehicle.status,
-                        )}
-                      >
-                        {vehicle.latest_policy_status ?? vehicle.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DataTable
+            {...tableProps}
+            columns={COLUMNS}
+            rowKey={(vehicle) => vehicle.id}
+            searchPlaceholder="Search registration, chassis, make or model"
+            emptyMessage="Vehicles will appear here after they are linked to your covers."
+            showColumnVisibility={false}
+          />
         </CardContent>
       </Card>
     </div>

@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { rateBooksApi } from '@/modules/tenant/product-engine/api/rate-books';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useServerTable } from '@/components/data-table';
 import { peKeys } from './query-keys';
 import type {
+  PricingRateBook,
   RateBookQueryParams,
   CreatePricingRateBookDto,
   UpdatePricingRateBookDto,
@@ -15,6 +17,21 @@ export function useRateBookList(params?: RateBookQueryParams) {
     queryKey: peKeys.rateBooks.lists(params),
     queryFn: () => rateBooksApi.list(params),
     staleTime: 30_000,
+  });
+}
+
+export const RATE_BOOK_FILTER_KEYS = ['product_id', 'status'] as const;
+
+/** Rate books, paged/searched/sorted on the server (company-scoped by the API). */
+export function useRateBooksTable() {
+  return useServerTable<
+    PricingRateBook,
+    (typeof RATE_BOOK_FILTER_KEYS)[number]
+  >({
+    queryKey: [...peKeys.rateBooks.all(), 'table'],
+    fetcher: (params, signal) => rateBooksApi.page(params, signal),
+    filterKeys: RATE_BOOK_FILTER_KEYS,
+    defaultSortBy: 'created_at',
   });
 }
 

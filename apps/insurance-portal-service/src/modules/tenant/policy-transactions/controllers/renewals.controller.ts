@@ -12,6 +12,8 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { RenewalListQueryDto } from '../dto/transaction-list-query.dto';
 
 import { LinkRenewalQuotationDto } from '../dto/link-renewal-quotation.dto';
 import { ReasonDto } from '../dto/reason.dto';
@@ -39,9 +41,13 @@ export class RenewalsController {
   @ApiOperation({ summary: 'List renewal offers for the current company' })
   findAll(
     @CurrentUser() user: AuthenticatedUser,
-    @Query('policy_id') policyId?: string,
+    @Query() query: RenewalListQueryDto,
   ) {
-    return this.renewalService.findAll(user.companyId!, policyId, user);
+    // `page` opts into the paged table contract; without it the full array
+    // is returned for existing per-policy consumers.
+    return isPagedRequest(query)
+      ? this.renewalService.findPage(user, query)
+      : this.renewalService.findAll(user.companyId!, query.policy_id, user);
   }
 
   @Get('tenant/renewals/:id/context')

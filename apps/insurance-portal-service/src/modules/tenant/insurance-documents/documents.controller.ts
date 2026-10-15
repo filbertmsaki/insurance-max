@@ -24,6 +24,7 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 
 import {
   CreateUploadSessionDto,
@@ -120,8 +121,12 @@ export class DocumentsController {
   accessHistory(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: TableQueryDto,
   ) {
-    return this.documentsService.listAccessHistory(user.companyId!, id);
+    // `page` opts into the paged table contract; otherwise the full list.
+    return isPagedRequest(query)
+      ? this.documentsService.pageAccessHistory(user.companyId!, id, query)
+      : this.documentsService.listAccessHistory(user.companyId!, id);
   }
 
   @Post('upload-sessions')

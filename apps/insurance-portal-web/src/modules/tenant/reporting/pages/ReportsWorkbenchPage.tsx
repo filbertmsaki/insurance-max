@@ -282,13 +282,11 @@ export function ReportsWorkbenchPage() {
     queryKey: ['reporting', 'reports', 'jobs'],
     fetcher: (params, signal) => reportingApi.listJobsPage(params, signal),
     defaultSortBy: 'created_at',
-    prefix: 'jobs',
   });
   const schedulesTable = useServerTable<ReportScheduleRecord>({
     queryKey: ['reporting', 'reports', 'schedules'],
     fetcher: (params, signal) => reportingApi.listSchedulesPage(params, signal),
     defaultSortBy: 'created_at',
-    prefix: 'sched',
   });
   const jobRows = jobsTable.rows;
 

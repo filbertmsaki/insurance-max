@@ -20,8 +20,8 @@ export class PaginationDto {
   page?: number = 1;
 
   @ApiPropertyOptional({
-    example: 20,
-    default: 20,
+    example: 10,
+    default: 10,
     description: 'Items per page (max 500)',
   })
   @IsOptional()
@@ -29,7 +29,7 @@ export class PaginationDto {
   @IsInt()
   @Min(1)
   @Max(500)
-  limit?: number = 20;
+  limit?: number = 10;
 
   @ApiPropertyOptional({
     example: 'created_at',

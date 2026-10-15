@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import type { EndorsementListQueryDto } from '../dto/transaction-list-query.dto';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import {
   InvoiceSourceType,
@@ -939,25 +941,66 @@ export class EndorsementService {
     };
   }
 
-  async findAll(user: AuthenticatedUser, policyId?: string) {
+  private createEndorsementListQuery(
+    user: AuthenticatedUser,
+    policyId?: string,
+  ) {
     const query = this.createScopedTransactionQuery(
       this.dataSource.manager,
       user,
       'transaction',
       'policy',
       'policy-transactions:read',
-    )
-      .andWhere('transaction.transaction_type = :transactionType', {
-        transactionType: PolicyTransactionType.ENDORSEMENT,
-      })
-      .orderBy('transaction.created_at', 'DESC');
+    ).andWhere('transaction.transaction_type = :transactionType', {
+      transactionType: PolicyTransactionType.ENDORSEMENT,
+    });
 
     if (policyId) {
       query.andWhere('transaction.source_policy_id = :policyId', { policyId });
     }
+    return query;
+  }
 
-    const transactions = await query.getMany();
+  async findAll(user: AuthenticatedUser, policyId?: string) {
+    const transactions = await this.createEndorsementListQuery(user, policyId)
+      .orderBy('transaction.created_at', 'DESC')
+      .getMany();
+    return this.withEndorsementDetails(user, transactions);
+  }
 
+  /**
+   * Server-side table over the same data-scoped query as `findAll`: search,
+   * filters and allowlisted sorting run in SQL before paging, and the count
+   * uses the identical WHERE clause.
+   */
+  async findPage(user: AuthenticatedUser, query: EndorsementListQueryDto) {
+    const qb = this.createEndorsementListQuery(user, query.policy_id);
+    if (query.stage) {
+      qb.andWhere('transaction.stage = :stage', { stage: query.stage });
+    }
+    const page = await paginateQueryBuilder(qb, query, {
+      sortable: {
+        created_at: 'transaction.created_at',
+        transaction_no: 'transaction.transaction_no',
+        stage: 'transaction.stage',
+        approval_status: 'transaction.approval_status',
+        payment_status: 'transaction.payment_status',
+        effective_date: 'transaction.effective_date',
+      },
+      defaultSort: 'created_at',
+      searchable: ['transaction.transaction_no', 'transaction.reason'],
+      tieBreaker: 'transaction.id',
+    });
+    return {
+      data: await this.withEndorsementDetails(user, page.data),
+      pagination: page.pagination,
+    };
+  }
+
+  private async withEndorsementDetails(
+    user: AuthenticatedUser,
+    transactions: PolicyTransaction[],
+  ) {
     if (!transactions.length) {
       return [];
     }

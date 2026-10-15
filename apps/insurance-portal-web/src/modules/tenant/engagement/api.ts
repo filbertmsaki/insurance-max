@@ -248,11 +248,16 @@ export const engagementApi = {
       .get<DocumentLinkRecord[]>(`/tenant/documents/${id}/links`)
       .then((response) => response.data),
 
-  getDocumentAccessHistory: (id: string) =>
+  /** Access history table for one document (server-side paging). */
+  pageDocumentAccessHistory: (
+    id: string,
+    params: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) =>
     apiClient
       .get<
-        DocumentAccessEventRecord[]
-      >(`/tenant/documents/${id}/access-history`)
+        PaginatedResponse<DocumentAccessEventRecord>
+      >(`/tenant/documents/${id}/access-history`, { params, signal })
       .then((response) => response.data),
 
   createUploadSession: (payload: {

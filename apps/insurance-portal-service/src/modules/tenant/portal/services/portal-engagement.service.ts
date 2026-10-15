@@ -777,7 +777,7 @@ export class PortalEngagementService {
     });
 
     const page = Math.max(1, query.page ?? 1);
-    const limit = Math.max(1, Math.min(100, query.limit ?? 20));
+    const limit = Math.max(1, Math.min(100, query.limit ?? 10));
     const offset = (page - 1) * limit;
 
     return filtered.slice(offset, offset + limit);

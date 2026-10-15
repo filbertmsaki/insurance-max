@@ -11,14 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { DataTable, useServerTable, type Column } from '@/components/data-table';
 import { formatNumber } from '@/modules/shared/formatting/number-format';
 
 import {
@@ -79,7 +72,8 @@ export function PlatformIntelligencePage() {
 
   const healthQuery = useQuery({
     queryKey: ['platform', 'intelligence', 'company-health'],
-    queryFn: () => platformIntelligenceApi.companyHealth({ limit: 100 }),
+    // Summary cards only; the table below pages through every company.
+    queryFn: () => platformIntelligenceApi.companyHealth({ limit: 500 }),
   });
   const benchmarksQuery = useQuery({
     queryKey: [
@@ -93,48 +87,50 @@ export function PlatformIntelligencePage() {
     ],
     queryFn: () =>
       platformIntelligenceApi.benchmarks({
-        limit: 100,
+        // The trend chart only plots the latest 12 snapshots.
+        limit: 12,
         metricCode: filters.metricCode,
         cohortKey: filters.cohortKey,
         from: filters.from,
         to: filters.to,
       }),
   });
-  const anomaliesQuery = useQuery({
-    queryKey: [
-      'platform',
-      'intelligence',
-      'anomalies',
-      filters.companyId,
-      filters.branchId,
-      filters.from,
-      filters.to,
-    ],
-    queryFn: () =>
-      platformIntelligenceApi.anomalies({
-        limit: 100,
-        companyId: filters.companyId,
-        branchId: filters.branchId,
-        from: filters.from,
-        to: filters.to,
-      }),
+  const healthTable = useServerTable<CompanyHealthRow>({
+    queryKey: ['platform', 'intelligence', 'company-health'],
+    fetcher: (params, signal) =>
+      platformIntelligenceApi.page<CompanyHealthRow>('company-health', params, signal),
   });
-  const forecastsQuery = useQuery({
-    queryKey: [
-      'platform',
-      'intelligence',
-      'forecasts',
-      filters.companyId,
-      filters.branchId,
-      filters.forecastStatus,
-    ],
-    queryFn: () =>
-      platformIntelligenceApi.forecasts({
-        limit: 100,
-        companyId: filters.companyId,
-        branchId: filters.branchId,
-        status: filters.forecastStatus,
-      }),
+  const benchmarksTable = useServerTable<BenchmarkSnapshot>({
+    queryKey: ['platform', 'intelligence', 'benchmarks'],
+    fetcher: (params, signal) =>
+      platformIntelligenceApi.page<BenchmarkSnapshot>('benchmarks', params, signal),
+    extraParams: {
+      metricCode: filters.metricCode,
+      cohortKey: filters.cohortKey,
+      from: filters.from,
+      to: filters.to,
+    },
+  });
+  const anomaliesTable = useServerTable<AnomalyFinding>({
+    queryKey: ['platform', 'intelligence', 'anomalies'],
+    fetcher: (params, signal) =>
+      platformIntelligenceApi.page<AnomalyFinding>('anomalies', params, signal),
+    extraParams: {
+      companyId: filters.companyId,
+      branchId: filters.branchId,
+      from: filters.from,
+      to: filters.to,
+    },
+  });
+  const forecastsTable = useServerTable<ForecastRun>({
+    queryKey: ['platform', 'intelligence', 'forecasts'],
+    fetcher: (params, signal) =>
+      platformIntelligenceApi.page<ForecastRun>('forecasts', params, signal),
+    extraParams: {
+      companyId: filters.companyId,
+      branchId: filters.branchId,
+      status: filters.forecastStatus,
+    },
   });
 
   const rebuildMutation = useMutation({
@@ -153,18 +149,10 @@ export function PlatformIntelligencePage() {
     () => benchmarksQuery.data ?? [],
     [benchmarksQuery.data],
   );
-  const anomalyRows = useMemo(
-    () => anomaliesQuery.data ?? [],
-    [anomaliesQuery.data],
-  );
-  const forecastRows = useMemo(
-    () => forecastsQuery.data ?? [],
-    [forecastsQuery.data],
-  );
 
   const summary = useMemo(
     () => ({
-      companies: healthRows.length,
+      companies: Math.max(healthTable.total, healthRows.length),
       openAnomalies: healthRows.reduce(
         (sum, row) => sum + asNumber(row.openAnomalies),
         0,
@@ -178,7 +166,7 @@ export function PlatformIntelligencePage() {
         0,
       ),
     }),
-    [healthRows],
+    [healthRows, healthTable.total],
   );
 
   const benchmarkChart = useMemo(
@@ -291,23 +279,13 @@ export function PlatformIntelligencePage() {
 
         <TabsContent value="health">
           <TableCard title="Company Health">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Scorecards</TableHead>
-                  <TableHead>Open Anomalies</TableHead>
-                  <TableHead>Forecasts</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {healthRows.map((row) => (
-                  <HealthRow key={row.id} row={row} />
-                ))}
-                {healthRows.length === 0 && <EmptyRow colSpan={5} />}
-              </TableBody>
-            </Table>
+            <DataTable
+              {...healthTable.tableProps}
+              searchPlaceholder="Search company name or code"
+              columns={HEALTH_COLUMNS}
+              rowKey={(row) => row.id}
+              showColumnVisibility={false}
+            />
           </TableCard>
         </TabsContent>
 
@@ -335,73 +313,38 @@ export function PlatformIntelligencePage() {
               </CardContent>
             </Card>
             <TableCard title="Benchmarks">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Metric</TableHead>
-                    <TableHead>Cohort</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Average</TableHead>
-                    <TableHead>Median</TableHead>
-                    <TableHead>P90</TableHead>
-                    <TableHead>Sample</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {benchmarkRows.map((row) => (
-                    <BenchmarkRow key={row.id} row={row} />
-                  ))}
-                  {benchmarkRows.length === 0 && <EmptyRow colSpan={7} />}
-                </TableBody>
-              </Table>
+              <DataTable
+                {...benchmarksTable.tableProps}
+                onSearchChange={undefined}
+                columns={BENCHMARK_COLUMNS}
+                rowKey={(row) => row.id}
+                showColumnVisibility={false}
+              />
             </TableCard>
           </div>
         </TabsContent>
 
         <TabsContent value="anomalies">
           <TableCard title="Anomalies">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Metric</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Observed</TableHead>
-                  <TableHead>Expected</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {anomalyRows.map((row) => (
-                  <AnomalyRow key={row.id} row={row} />
-                ))}
-                {anomalyRows.length === 0 && <EmptyRow colSpan={7} />}
-              </TableBody>
-            </Table>
+            <DataTable
+              {...anomaliesTable.tableProps}
+              onSearchChange={undefined}
+              columns={ANOMALY_COLUMNS}
+              rowKey={(row) => row.id}
+              showColumnVisibility={false}
+            />
           </TableCard>
         </TabsContent>
 
         <TabsContent value="forecasts">
           <TableCard title="Forecast Runs">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Definition</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Horizon</TableHead>
-                  <TableHead>Company</TableHead>
-                  <TableHead>Branch</TableHead>
-                  <TableHead>Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {forecastRows.map((row) => (
-                  <ForecastRow key={row.id} row={row} />
-                ))}
-                {forecastRows.length === 0 && <EmptyRow colSpan={6} />}
-              </TableBody>
-            </Table>
+            <DataTable
+              {...forecastsTable.tableProps}
+              onSearchChange={undefined}
+              columns={FORECAST_COLUMNS}
+              rowKey={(row) => row.id}
+              showColumnVisibility={false}
+            />
           </TableCard>
         </TabsContent>
       </Tabs>
@@ -466,77 +409,64 @@ function TableCard({
   );
 }
 
-function HealthRow({ row }: { row: CompanyHealthRow }) {
-  return (
-    <TableRow>
-      <TableCell className="font-medium">{row.name}</TableCell>
-      <TableCell>{row.companyCode ?? 'N/A'}</TableCell>
-      <TableCell>{formatNumber(row.publishedScorecards, 0)}</TableCell>
-      <TableCell>{formatNumber(row.openAnomalies, 0)}</TableCell>
-      <TableCell>{formatNumber(row.forecastRuns, 0)}</TableCell>
-    </TableRow>
-  );
-}
+const HEALTH_COLUMNS: Column<CompanyHealthRow>[] = [
+  { key: 'name', header: 'Company', className: 'font-medium', cell: (row) => row.name },
+  { key: 'code', header: 'Code', cell: (row) => row.companyCode ?? 'N/A' },
+  { key: 'scorecards', header: 'Scorecards', cell: (row) => formatNumber(row.publishedScorecards, 0) },
+  { key: 'anomalies', header: 'Open Anomalies', cell: (row) => formatNumber(row.openAnomalies, 0) },
+  { key: 'forecasts', header: 'Forecasts', cell: (row) => formatNumber(row.forecastRuns, 0) },
+];
 
-function BenchmarkRow({ row }: { row: BenchmarkSnapshot }) {
-  return (
-    <TableRow>
-      <TableCell className="font-medium">{row.metric_code}</TableCell>
-      <TableCell>{row.cohort_key}</TableCell>
-      <TableCell>
-        {formatDate(row.period_start)} - {formatDate(row.period_end)}
-      </TableCell>
-      <TableCell>{formatNumber(row.average_value, 2)}</TableCell>
-      <TableCell>{formatNumber(row.median_value, 2)}</TableCell>
-      <TableCell>{formatNumber(row.percentile_90, 2)}</TableCell>
-      <TableCell>{formatNumber(row.sample_size, 0)}</TableCell>
-    </TableRow>
-  );
-}
+const BENCHMARK_COLUMNS: Column<BenchmarkSnapshot>[] = [
+  { key: 'metric', header: 'Metric', className: 'font-medium', cell: (row) => row.metric_code },
+  { key: 'cohort', header: 'Cohort', cell: (row) => row.cohort_key },
+  {
+    key: 'period',
+    header: 'Period',
+    cell: (row) => `${formatDate(row.period_start)} - ${formatDate(row.period_end)}`,
+  },
+  { key: 'average', header: 'Average', cell: (row) => formatNumber(row.average_value, 2) },
+  { key: 'median', header: 'Median', cell: (row) => formatNumber(row.median_value, 2) },
+  { key: 'p90', header: 'P90', cell: (row) => formatNumber(row.percentile_90, 2) },
+  { key: 'sample', header: 'Sample', cell: (row) => formatNumber(row.sample_size, 0) },
+];
 
-function AnomalyRow({ row }: { row: AnomalyFinding }) {
-  return (
-    <TableRow>
-      <TableCell className="font-medium">{row.metric_code}</TableCell>
-      <TableCell>{row.companyName ?? row.company_id}</TableCell>
-      <TableCell>{formatDate(row.metric_date)}</TableCell>
-      <TableCell>
-        <Badge variant={severityVariant(row.severity)}>{row.severity}</Badge>
-      </TableCell>
-      <TableCell>
-        <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
-      </TableCell>
-      <TableCell>{formatNumber(row.observed_value, 2)}</TableCell>
-      <TableCell>{formatNumber(row.expected_value, 2)}</TableCell>
-    </TableRow>
-  );
-}
+const ANOMALY_COLUMNS: Column<AnomalyFinding>[] = [
+  { key: 'metric', header: 'Metric', className: 'font-medium', cell: (row) => row.metric_code },
+  { key: 'company', header: 'Company', cell: (row) => row.companyName ?? row.company_id },
+  { key: 'date', header: 'Date', cell: (row) => formatDate(row.metric_date) },
+  {
+    key: 'severity',
+    header: 'Severity',
+    cell: (row) => <Badge variant={severityVariant(row.severity)}>{row.severity}</Badge>,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (row) => <Badge variant={statusVariant(row.status)}>{row.status}</Badge>,
+  },
+  { key: 'observed', header: 'Observed', cell: (row) => formatNumber(row.observed_value, 2) },
+  { key: 'expected', header: 'Expected', cell: (row) => formatNumber(row.expected_value, 2) },
+];
 
-function ForecastRow({ row }: { row: ForecastRun }) {
-  return (
-    <TableRow>
-      <TableCell className="font-medium">
-        {row.definitionName ?? row.id}
-      </TableCell>
-      <TableCell>
-        <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
-      </TableCell>
-      <TableCell>
-        {formatDate(row.horizon_start)} - {formatDate(row.horizon_end)}
-      </TableCell>
-      <TableCell>{row.company_id ?? 'N/A'}</TableCell>
-      <TableCell>{row.branch_id ?? 'N/A'}</TableCell>
-      <TableCell>{formatDate(row.created_at)}</TableCell>
-    </TableRow>
-  );
-}
-
-function EmptyRow({ colSpan }: { colSpan: number }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="py-8 text-center text-sm text-slate-500">
-        No records found
-      </TableCell>
-    </TableRow>
-  );
-}
+const FORECAST_COLUMNS: Column<ForecastRun>[] = [
+  {
+    key: 'definition',
+    header: 'Definition',
+    className: 'font-medium',
+    cell: (row) => row.definitionName ?? row.id,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (row) => <Badge variant={statusVariant(row.status)}>{row.status}</Badge>,
+  },
+  {
+    key: 'horizon',
+    header: 'Horizon',
+    cell: (row) => `${formatDate(row.horizon_start)} - ${formatDate(row.horizon_end)}`,
+  },
+  { key: 'company', header: 'Company', cell: (row) => row.company_id ?? 'N/A' },
+  { key: 'branch', header: 'Branch', cell: (row) => row.branch_id ?? 'N/A' },
+  { key: 'created', header: 'Created', cell: (row) => formatDate(row.created_at) },
+];

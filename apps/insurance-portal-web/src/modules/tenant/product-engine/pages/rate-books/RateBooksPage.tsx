@@ -7,7 +7,6 @@ import { Copy, Eye, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -30,20 +29,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { DataTable, tableFilters, type Column } from '@/components/data-table';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   useAllActiveProducts,
   useProductVersions,
-  useRateBookList,
+  useRateBooksTable,
   useCreateRateBook,
   useCloneRateBook,
 } from '@/modules/tenant/product-engine/hooks';
@@ -99,16 +91,8 @@ export function RateBooksPage() {
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission('pricing.manage_rate_books');
 
-  const [productFilter, setProductFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState<PricingRateBookStatus | ''>(
-    '',
-  );
-
   const { data: products = [] } = useAllActiveProducts();
-  const { data: rateBooks = [], isLoading } = useRateBookList({
-    product_id: productFilter || undefined,
-    status: statusFilter || undefined,
-  });
+  const { tableProps, state } = useRateBooksTable();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const createMutation = useCreateRateBook();
@@ -182,6 +166,70 @@ export function RateBooksPage() {
     );
   }
 
+  const columns: Column<PricingRateBook>[] = [
+    {
+      key: 'code',
+      header: 'Code',
+      sortable: true,
+      className: 'font-mono text-xs font-medium',
+      cell: (rb) => rb.code,
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      sortable: true,
+      className: 'text-sm',
+      cell: (rb) => rb.name ?? '—',
+    },
+    {
+      key: 'version',
+      header: 'Version',
+      sortable: true,
+      className: 'text-sm',
+      cell: (rb) => rb.version,
+    },
+    {
+      key: 'product',
+      header: 'Product',
+      sortable: true,
+      className: 'text-sm',
+      cell: (rb) => rb.product?.product_name ?? '—',
+    },
+    {
+      key: 'product_version',
+      header: 'Product Version',
+      className: 'text-xs text-slate-500',
+      defaultVisible: false,
+      cell: (rb) =>
+        rb.product_version_id ? rb.product_version_id.slice(0, 8) : '—',
+    },
+    {
+      key: 'currency',
+      header: 'Currency',
+      className: 'text-sm',
+      cell: (rb) => rb.currency_code ?? '—',
+    },
+    {
+      key: 'effective_from',
+      header: 'Effective Period',
+      sortable: true,
+      className: 'text-xs text-slate-500',
+      cell: (rb) => `${rb.effective_from} → ${rb.effective_to ?? 'open'}`,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (rb) => <StatusBadge status={rb.status} />,
+    },
+    {
+      key: 'calculation_version',
+      header: 'Calc. Version',
+      className: 'text-xs text-slate-500',
+      cell: (rb) => rb.calculation_version,
+    },
+  ];
+
   function handleClone(rateBook: PricingRateBook) {
     const nextVersion = window.prompt(
       `Enter a new version label for the clone of ${rateBook.code}`,
@@ -208,150 +256,47 @@ export function RateBooksPage() {
         }
       />
 
-      <div className="flex flex-wrap gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-slate-500">Product</p>
-          <Select
-            value={productFilter || 'none'}
-            onValueChange={(v) => setProductFilter(v === 'none' ? '' : v)}
-          >
-            <SelectTrigger className="w-56 h-9">
-              <SelectValue placeholder="All products" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">All products</SelectItem>
-              {products.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.product_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-slate-500">Status</p>
-          <Select
-            value={statusFilter || 'none'}
-            onValueChange={(v) =>
-              setStatusFilter(v === 'none' ? '' : (v as PricingRateBookStatus))
-            }
-          >
-            <SelectTrigger className="w-48 h-9">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">All statuses</SelectItem>
-              {(Object.keys(STATUS_STYLES) as PricingRateBookStatus[]).map(
-                (s) => (
-                  <SelectItem key={s} value={s}>
-                    {s.replace('_', ' ')}
-                  </SelectItem>
-                ),
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-lg border border-slate-200 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50">
-                <TableHead>Code</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Version</TableHead>
-                <TableHead>Product</TableHead>
-                <TableHead>Product Version</TableHead>
-                <TableHead>Currency</TableHead>
-                <TableHead>Effective Period</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Calc. Version</TableHead>
-                <TableHead className="w-24" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rateBooks.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    className="text-center py-12 text-slate-400 text-sm"
-                  >
-                    No rate books yet. Click "New Rate Book" to create one.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rateBooks.map((rb) => (
-                  <TableRow
-                    key={rb.id}
-                    className="cursor-pointer hover:bg-slate-50/70"
-                    onClick={() =>
-                      navigate(`/product-engine/rate-books/${rb.id}`)
-                    }
-                  >
-                    <TableCell className="font-mono text-xs font-medium">
-                      {rb.code}
-                    </TableCell>
-                    <TableCell className="text-sm">{rb.name ?? '—'}</TableCell>
-                    <TableCell className="text-sm">{rb.version}</TableCell>
-                    <TableCell className="text-sm">
-                      {rb.product?.product_name ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500">
-                      {rb.product_version_id
-                        ? rb.product_version_id.slice(0, 8)
-                        : '—'}
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {rb.currency_code ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500">
-                      {rb.effective_from} → {rb.effective_to ?? 'open'}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={rb.status} />
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500">
-                      {rb.calculation_version}
-                    </TableCell>
-                    <TableCell onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() =>
-                            navigate(`/product-engine/rate-books/${rb.id}`)
-                          }
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                        </Button>
-                        {canManage && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => handleClone(rb)}
-                            disabled={cloneMutation.isPending}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <DataTable
+        {...tableProps}
+        columns={columns}
+        rowKey={(rb) => rb.id}
+        searchPlaceholder="Search code, name, version or product"
+        emptyMessage='No rate books yet. Click "New Rate Book" to create one.'
+        onRowClick={(rb) => navigate(`/product-engine/rate-books/${rb.id}`)}
+        filters={tableFilters(state.filters, [
+          {
+            key: 'product_id',
+            label: 'Product',
+            placeholder: 'All products',
+            options: products.map((p) => ({
+              value: p.id,
+              label: p.product_name,
+            })),
+          },
+          {
+            key: 'status',
+            label: 'Status',
+            placeholder: 'All statuses',
+            options: (
+              Object.keys(STATUS_STYLES) as PricingRateBookStatus[]
+            ).map((s) => ({ value: s, label: s.replace('_', ' ') })),
+          },
+        ])}
+        rowActions={[
+          {
+            label: 'View',
+            icon: Eye,
+            onClick: (rb) => navigate(`/product-engine/rate-books/${rb.id}`),
+          },
+          {
+            label: 'Clone',
+            icon: Copy,
+            hidden: !canManage,
+            disabled: cloneMutation.isPending,
+            onClick: handleClone,
+          },
+        ]}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">

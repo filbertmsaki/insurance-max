@@ -1,4 +1,8 @@
 import {
+  TableQueryDto,
+  isPagedRequest,
+} from '@insurance-max/portal-shared/dto/table-query.dto';
+import {
   Body,
   Controller,
   Delete,
@@ -7,6 +11,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -158,8 +163,14 @@ export class ProductDistributionController {
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:read')
   @ApiOperation({ summary: 'List tax rules for the insurer company' })
-  listTaxRules(@CurrentUser() user: AuthenticatedUser) {
-    return this.service.listTaxRules(user.companyId!);
+  listTaxRules(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: TableQueryDto,
+  ) {
+    // `page` opts into the paged table contract; otherwise the full list.
+    return isPagedRequest(query)
+      ? this.service.pageTaxRules(user.companyId!, query)
+      : this.service.listTaxRules(user.companyId!);
   }
 
   @Delete('tax-rules/:id')

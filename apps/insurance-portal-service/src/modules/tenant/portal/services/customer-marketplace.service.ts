@@ -1,3 +1,9 @@
+import type { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
+import {
+  buildPaginationMeta,
+  escapeLike,
+  normalizePage,
+} from '@insurance-max/portal-shared/utils/paginate-query.util';
 import {
   BadRequestException,
   ForbiddenException,
@@ -26,6 +32,9 @@ import {
 import { PortalActorType } from '../enums/portal.enums';
 import { PortalAccountsService } from './portal-accounts.service';
 import { PublicMotorPurchaseService } from './public-motor-purchase.service';
+
+const MY_VEHICLES_ORDER =
+  ' ORDER BY COALESCE(MAX(policy.end_date), vehicle.updated_at::date) DESC, vehicle.id ASC';
 
 @Injectable()
 export class CustomerMarketplaceService {
@@ -286,11 +295,49 @@ export class CustomerMarketplaceService {
     };
   }
 
+  /** The customer's vehicles across insurers (legacy full list). */
   async listMyVehicles(user: AuthenticatedUser) {
     this.assertAuthenticatedSession(user);
+    return this.dataSource.query(
+      `${this.myVehiclesSql()}${MY_VEHICLES_ORDER}`,
+      [user.id, PortalActorType.CUSTOMER, null],
+    );
+  }
 
-    const rows = await this.dataSource.query(
-      `
+  /**
+   * Paged vehicles table. Search, ordering and paging run in SQL; the count
+   * wraps the identical grouped query so totals match the visible rows.
+   */
+  async pageMyVehicles(user: AuthenticatedUser, query: TableQueryDto) {
+    this.assertAuthenticatedSession(user);
+    const { page, limit, skip } = normalizePage(query);
+    const term = query.search?.trim();
+    const params = [
+      user.id,
+      PortalActorType.CUSTOMER,
+      term ? `%${escapeLike(term)}%` : null,
+    ];
+    const base = this.myVehiclesSql();
+    const [rows, [{ total }]] = await Promise.all([
+      this.dataSource.query(`${base}${MY_VEHICLES_ORDER} LIMIT $4 OFFSET $5`, [
+        ...params,
+        limit,
+        skip,
+      ]),
+      this.dataSource.query(
+        `SELECT COUNT(*)::int AS total FROM (${base}) vehicles`,
+        params,
+      ),
+    ]);
+    return {
+      data: rows,
+      pagination: buildPaginationMeta(page, limit, Number(total)),
+    };
+  }
+
+  /** $1 user id, $2 actor type, $3 optional ILIKE search pattern. */
+  private myVehiclesSql() {
+    return `
       SELECT
         vehicle.id,
         vehicle.company_id,
@@ -322,6 +369,11 @@ export class CustomerMarketplaceService {
         AND account.status = 'ACTIVE'
         AND account.customer_id IS NOT NULL
         AND account.deleted_at IS NULL
+        AND ($3::text IS NULL
+          OR vehicle.registration_no ILIKE $3 ESCAPE '\\'
+          OR vehicle.chassis_no ILIKE $3 ESCAPE '\\'
+          OR vehicle.make ILIKE $3 ESCAPE '\\'
+          OR vehicle.model ILIKE $3 ESCAPE '\\')
       GROUP BY
         vehicle.id,
         vehicle.company_id,
@@ -333,12 +385,7 @@ export class CustomerMarketplaceService {
         vehicle.color,
         vehicle.manufacture_year,
         vehicle.status
-      ORDER BY COALESCE(MAX(policy.end_date), vehicle.updated_at::date) DESC
-      `,
-      [user.id, PortalActorType.CUSTOMER],
-    );
-
-    return rows;
+    `;
   }
 
   async checkVehicleCover(user: AuthenticatedUser, dto: CustomerCoverCheckDto) {

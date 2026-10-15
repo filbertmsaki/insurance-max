@@ -1,7 +1,8 @@
 import type { FormEvent } from 'react';
+import { AsyncCombobox } from '@/components/ui/async-combobox';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BadgeDollarSign,
   BriefcaseBusiness,
@@ -307,15 +308,27 @@ export function PortalBusinessListPage({
     queryKey: recordsKey,
     fetcher: (params, signal) =>
       portalApi.pageBusinessRecords(audience, resource, params, signal),
-    defaultLimit: 25,
   });
-  const policiesQuery = useQuery({
-    queryKey: ['portal', audience, 'policies', 'selector'],
-    enabled: resource === 'claims' || resource === 'complaints',
-    queryFn: () =>
-      portalApi.listBusinessRecords(audience, 'policies', { limit: 100 }),
-  });
-  const policies = policiesQuery.data?.items ?? [];
+  // Policy pickers search the server, so every portal-visible policy is reachable.
+  const searchPolicyOptions = async (
+    search: string,
+    limit: number,
+    signal: AbortSignal,
+  ) => {
+    const page = await portalApi.pageBusinessRecords(
+      audience,
+      'policies',
+      { page: 1, limit, search: search || undefined },
+      signal,
+    );
+    return {
+      options: page.data.map((policy) => ({
+        value: policy.id,
+        label: policyLabel(policy),
+      })),
+      total: page.pagination?.total,
+    };
+  };
   const canOpenDetail = supportsDetail(resource);
   const hasActions =
     canOpenDetail || resource === 'invoices' || resource === 'requests';
@@ -1003,7 +1016,9 @@ export function PortalBusinessListPage({
           <form className="space-y-4" onSubmit={submitClaim}>
             <div className="space-y-2">
               <Label>Policy</Label>
-              <Select
+              <AsyncCombobox
+                queryKey={['portal', audience, 'policies', 'selector']}
+                fetchOptions={searchPolicyOptions}
                 value={claimForm.policy_id}
                 onValueChange={(value) =>
                   setClaimForm((current) => ({
@@ -1011,18 +1026,9 @@ export function PortalBusinessListPage({
                     policy_id: value,
                   }))
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select policy" />
-                </SelectTrigger>
-                <SelectContent>
-                  {policies.map((policy) => (
-                    <SelectItem key={policy.id} value={policy.id}>
-                      {policyLabel(policy)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select policy"
+                searchPlaceholder="Search policy number…"
+              />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
@@ -1129,27 +1135,35 @@ export function PortalBusinessListPage({
           <form className="space-y-4" onSubmit={submitComplaint}>
             <div className="space-y-2">
               <Label>Related policy</Label>
-              <Select
-                value={complaintForm.policy_id || 'none'}
-                onValueChange={(value) =>
-                  setComplaintForm((current) => ({
-                    ...current,
-                    policy_id: value === 'none' ? '' : value,
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Optional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No policy</SelectItem>
-                  {policies.map((policy) => (
-                    <SelectItem key={policy.id} value={policy.id}>
-                      {policyLabel(policy)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <AsyncCombobox
+                  queryKey={['portal', audience, 'policies', 'selector']}
+                  fetchOptions={searchPolicyOptions}
+                  value={complaintForm.policy_id}
+                  onValueChange={(value) =>
+                    setComplaintForm((current) => ({
+                      ...current,
+                      policy_id: value,
+                    }))
+                  }
+                  placeholder="Optional"
+                  searchPlaceholder="Search policy number…"
+                />
+                {complaintForm.policy_id && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() =>
+                      setComplaintForm((current) => ({
+                        ...current,
+                        policy_id: '',
+                      }))
+                    }
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

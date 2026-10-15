@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -58,38 +57,6 @@ function invalidateTrackingLists(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: tiramisKeys.localTracking() });
   qc.invalidateQueries({ queryKey: tiramisKeys.adminFailed() });
   qc.invalidateQueries({ queryKey: tiramisKeys.adminRetryable() });
-}
-
-function useTiramisSearchParams() {
-  const [params, setParams] = useSearchParams();
-  const page = Math.max(1, Number(params.get('page') ?? '1'));
-  const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('search') ?? '';
-  const status = params.get('status') ?? '';
-  const requestId = params.get('requestId') ?? '';
-  const businessReference = params.get('businessReference') ?? '';
-
-  const setParam = (key: string, value: string | null) => {
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value === null || value === '') next.delete(key);
-      else next.set(key, value);
-      next.set('page', '1');
-      return next;
-    });
-  };
-
-  return {
-    params,
-    setParams,
-    page,
-    limit,
-    search,
-    status,
-    requestId,
-    businessReference,
-    setParam,
-  };
 }
 
 export const TENANT_SUBMISSION_FILTER_KEYS = [
@@ -332,60 +299,24 @@ export function useSyncOneLocalTracking() {
   });
 }
 
+/** Dashboard summary cards (totals and breakdowns); independent of the table below. */
 export function useTiramisDashboard() {
-  const {
-    page,
-    limit,
-    search,
-    status,
-    requestId,
-    businessReference,
-    setParam,
-    setParams,
-  } = useTiramisSearchParams();
-  const queryParams = useMemo(
-    () => ({
-      page,
-      limit,
-      search: search || undefined,
-      status: status || undefined,
-      tiramisRequestId: requestId || undefined,
-      businessReference: businessReference || undefined,
-    }),
-    [page, limit, search, status, requestId, businessReference],
-  );
-  const query = useQuery({
-    queryKey: [...tiramisKeys.adminDashboard(), queryParams],
-    queryFn: () => tiramisApi.getAdminDashboard(queryParams),
+  return useQuery({
+    queryKey: [...tiramisKeys.adminDashboard(), 'summary'],
+    queryFn: ({ signal }) =>
+      tiramisApi.getAdminDashboard({ page: 1, limit: 1 }, signal),
     staleTime: 30_000,
   });
-  return {
-    ...query,
-    page,
-    limit,
-    search,
-    status,
-    requestId,
-    businessReference,
-    setSearch: (value: string) => setParam('search', value),
-    setStatus: (value: string) => setParam('status', value),
-    setRequestId: (value: string) => setParam('requestId', value),
-    setBusinessReference: (value: string) =>
-      setParam('businessReference', value),
-    setPage: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('page', String(value));
-        return next;
-      }),
-    setLimit: (value: number) =>
-      setParams((prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('limit', String(value));
-        next.set('page', '1');
-        return next;
-      }),
-  };
+}
+
+/** Server-side "recent submissions" table on the dashboard endpoint (same company scope). */
+export function useTiramisDashboardTable() {
+  return useServerTable<TiramisTrackingRecord, TrackingFilterKey>({
+    queryKey: tiramisKeys.adminDashboard(),
+    fetcher: (params, signal) => tiramisApi.getAdminDashboard(params, signal),
+    filterKeys: TRACKING_FILTER_KEYS,
+    defaultLimit: 10,
+  });
 }
 
 export function useTiramisAdminHealth() {

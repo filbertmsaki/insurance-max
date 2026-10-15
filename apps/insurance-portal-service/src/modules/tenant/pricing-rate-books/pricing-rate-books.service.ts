@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { ProductVersionStatus } from '@insurance-max/contracts';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
+import { isPagedRequest } from '@insurance-max/portal-shared/dto/table-query.dto';
+import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { InsuranceProductVersion } from '../insurance-products/entities/insurance-product-version.entity';
 import { ProductAddonDefinition } from '../insurance-products/entities/product-addon-definition.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
@@ -107,8 +109,7 @@ export class PricingRateBooksService {
     const qb = this.rateBookRepository
       .createQueryBuilder('rate_book')
       .leftJoinAndSelect('rate_book.product', 'product')
-      .where('rate_book.company_id = :companyId', { companyId })
-      .orderBy('rate_book.created_at', 'DESC');
+      .where('rate_book.company_id = :companyId', { companyId });
 
     if (query.product_id) {
       qb.andWhere('rate_book.product_id = :productId', {
@@ -119,7 +120,29 @@ export class PricingRateBooksService {
       qb.andWhere('rate_book.status = :status', { status: query.status });
     }
 
-    return qb.getMany();
+    if (isPagedRequest(query)) {
+      return paginateQueryBuilder(qb, query, {
+        sortable: {
+          created_at: 'rate_book.created_at',
+          code: 'rate_book.code',
+          name: 'rate_book.name',
+          version: 'rate_book.version',
+          product: 'product.product_name',
+          effective_from: 'rate_book.effective_from',
+          status: 'rate_book.status',
+        },
+        defaultSort: 'created_at',
+        searchable: [
+          'rate_book.code',
+          'rate_book.name',
+          'rate_book.version',
+          'product.product_name',
+        ],
+        tieBreaker: 'rate_book.id',
+      });
+    }
+
+    return qb.orderBy('rate_book.created_at', 'DESC').getMany();
   }
 
   async findOne(companyId: string, id: string): Promise<PricingRateBook> {

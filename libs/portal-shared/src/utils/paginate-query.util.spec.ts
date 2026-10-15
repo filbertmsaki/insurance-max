@@ -45,7 +45,7 @@ describe('paginate-query.util', () => {
       limit: 20,
       skip: 40,
     });
-    expect(normalizePage({})).toEqual({ page: 1, limit: 20, skip: 0 });
+    expect(normalizePage({})).toEqual({ page: 1, limit: 10, skip: 0 });
   });
 
   it('builds pagination meta', () => {

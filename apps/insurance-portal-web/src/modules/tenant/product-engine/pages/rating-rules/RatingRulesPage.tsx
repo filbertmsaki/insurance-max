@@ -936,6 +936,15 @@ export function RatingRulesPage({
               )}
             </TableBody>
           </Table>
+          {(rulesPage?.pagination?.total ?? 0) > rules.length && (
+            <p
+              role="status"
+              className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800"
+            >
+              Showing the first {rules.length} of {rulesPage?.pagination?.total}{' '}
+              rules for this risk, in priority order.
+            </p>
+          )}
         </div>
       )}
 

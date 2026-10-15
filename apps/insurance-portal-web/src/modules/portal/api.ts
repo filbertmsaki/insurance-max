@@ -633,6 +633,18 @@ export const portalApi = {
       .post<CustomerCompanyContext>(`/customer/companies/${companyId}/context`)
       .then((response) => response.data),
 
+  /** My Vehicles table (server-side paging and search). */
+  pageCustomerVehicles: (
+    params: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<CustomerPortalVehicle>>('/customer/vehicles', {
+        params,
+        signal,
+      })
+      .then((response) => response.data),
+
   listCustomerVehicles: () =>
     apiClient
       .get<CustomerPortalVehicle[]>('/customer/vehicles')
