@@ -32,7 +32,15 @@ import { InsuranceProductVersion } from './insurance-product-version.entity';
   'company_id',
   'supports_fleet',
 ])
+@Index(
+  'uq_insurance_products_policy_numbering_code',
+  ['company_id', 'policy_numbering_code'],
+  { unique: true },
+)
 export class InsuranceProduct {
+  @Column({ type: 'varchar', length: 12 })
+  policy_numbering_code: string;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

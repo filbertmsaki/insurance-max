@@ -1,3 +1,4 @@
+import { PolicyNumberingCard } from '../components/PolicyNumberingCard';
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -897,6 +898,7 @@ export function CompanyDetailPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="mt-4">
+          <PolicyNumberingCard companyId={company.id} />
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Company Settings</CardTitle>

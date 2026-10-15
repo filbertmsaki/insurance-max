@@ -23,7 +23,15 @@ import { InsuranceBusinessLine } from '../enums/insurance-business-line.enum';
   'company_id',
   'business_line',
 ])
+@Index(
+  'uq_insurance_categories_policy_numbering_code',
+  ['company_id', 'policy_numbering_code'],
+  { unique: true },
+)
 export class InsuranceCategory {
+  @Column({ type: 'varchar', length: 12 })
+  policy_numbering_code: string;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

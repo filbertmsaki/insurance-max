@@ -46,6 +46,30 @@ const transaction = (entries: unknown[]) =>
 describe('FleetVehicleApplyService', () => {
   const service = new FleetVehicleApplyService();
 
+  it('keeps fleet asset references unique with long policy numbers', async () => {
+    const query = jest.fn().mockResolvedValue([{ id: 'asset-1' }]);
+    const policy = {
+      id: 'b7235aa5-0196-4c88-a108-f8bd055e1621',
+      company_id: 'company-1',
+      customer_id: 'customer-1',
+      policy_no: `P11/2026/${'9'.repeat(12)}/${'8'.repeat(12)}/${'7'.repeat(12)}/9007199254740993`,
+    };
+    for (const entry of [1, 2]) {
+      await (service as any).upsertInsuredAsset(
+        { query },
+        policy,
+        {},
+        entry,
+        null,
+      );
+    }
+    const references = query.mock.calls.map((call) => String(call[1][1]));
+    expect(new Set(references).size).toBe(2);
+    expect(references.every((reference) => reference.length <= 50)).toBe(true);
+    expect(references[0]).toMatch(/-V001$/);
+    expect(references[1]).toMatch(/-V002$/);
+  });
+
   it('turns pending changes into applied fleet state', () => {
     const snapshot: any = {
       entries: [

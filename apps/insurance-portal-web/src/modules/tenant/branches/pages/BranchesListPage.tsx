@@ -382,6 +382,12 @@ export function BranchesListPage() {
 
   const columns: Column<Branch>[] = [
     {
+      key: 'policy_numbering_code',
+      header: 'Policy numbering code',
+      cell: (row) => row.policy_numbering_code ?? 'Assigned automatically',
+      defaultVisible: false,
+    },
+    {
       key: 'name',
       header: 'Branch',
       sortable: true,

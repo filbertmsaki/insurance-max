@@ -1,4 +1,5 @@
 import { IssuanceService } from './issuance.service';
+import * as numbering from '../policies/utils/policy-number';
 
 describe('IssuanceService - final TIRAMIS success gate', () => {
   function createService() {
@@ -78,4 +79,69 @@ describe('IssuanceService - final TIRAMIS success gate', () => {
     expect(result).toBe(expected);
     expect(issueSpy).toHaveBeenCalledTimes(1);
   });
+
+  it.each(['TIRAMIS_FINAL_SUCCESS', 'TIRAMIS_RESPONSE_ACK_SENT'])(
+    'routes transaction callbacks away from new issuance: %s',
+    async (eventType) => {
+      const service = createService();
+      const issue = jest.spyOn(service as any, 'applyCoverNoteIssuance');
+      expect(
+        await service.applyNotification(
+          { source_module: 'policy-transactions', status: 'COMPLETED' } as any,
+          { eventType, regulatoryResponse } as any,
+        ),
+      ).toBeNull();
+      expect(issue).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([null, new Date('2026-10-15Z')])(
+    'reuses an existing historical or deleted policy on callbacks without allocating',
+    async (deleted_at) => {
+      const service = createService();
+      const next = jest.spyOn(numbering, 'nextPolicyNo');
+      const policy = {
+        id: 'policy-1',
+        policy_no: 'HISTORICAL-123',
+        policy_sequence: null,
+        deleted_at,
+        active_version_id: 'version-1',
+      };
+      const repository = {
+        findOne: jest.fn().mockResolvedValue(policy),
+        save: jest.fn(async (value) => value),
+      };
+      const manager = { getRepository: () => repository, query: jest.fn() };
+      jest
+        .spyOn(service as any, 'createPolicyVersion')
+        .mockResolvedValue({ id: 'version-1', version_number: 1 });
+      jest
+        .spyOn(service as any, 'linkPolicyToCoverNotes')
+        .mockResolvedValue(undefined);
+      try {
+        for (let i = 0; i < 2; i += 1) {
+          const result = await (service as any).createOrReuseIssuedPolicy(
+            manager,
+            {},
+            { id: 'tracking-1' },
+            {
+              id: 'quotation-1',
+              company_id: 'company-1',
+              workflow_revision: 1,
+            },
+            regulatoryResponse,
+            [],
+          );
+          expect(result.policy_no).toBe('HISTORICAL-123');
+        }
+        expect(repository.findOne).toHaveBeenCalledWith(
+          expect.objectContaining({ withDeleted: true }),
+        );
+        expect(next).not.toHaveBeenCalled();
+        expect(manager.query).not.toHaveBeenCalled();
+      } finally {
+        next.mockRestore();
+      }
+    },
+  );
 });

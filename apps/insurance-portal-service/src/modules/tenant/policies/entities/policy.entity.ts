@@ -26,12 +26,19 @@ import { PolicyStatusHistory } from './policy-status-history.entity';
 import { PolicyVersion } from './policy-version.entity';
 
 @Entity('policies')
+@Index('uq_policies_insurer_number_all', ['insurer_company_id', 'policy_no'], {
+  unique: true,
+})
+@Index(
+  'uq_policies_insurer_sequence',
+  ['insurer_company_id', 'policy_sequence'],
+  { unique: true },
+)
 @Index('IDX_policies_company_id', ['company_id'])
 @Index('IDX_policies_company_status', ['company_id', 'policy_status'])
 @Index('IDX_policies_company_customer_id', ['company_id', 'customer_id'])
 @Index('IDX_policies_company_product_id', ['company_id', 'product_id'])
 @Index('IDX_policies_company_policy_no', ['company_id', 'policy_no'], {
-  unique: true,
   where: 'deleted_at IS NULL',
 })
 @Index(
@@ -97,8 +104,11 @@ export class Policy {
   @Column({ type: 'uuid', nullable: true })
   sub_class_id: string | null;
 
-  @Column({ type: 'varchar', length: 50 })
+  @Column({ type: 'varchar', length: 150 })
   policy_no: string;
+
+  @Column({ type: 'bigint', nullable: true })
+  policy_sequence: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   cover_note_no: string | null;

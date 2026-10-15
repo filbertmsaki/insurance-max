@@ -10,6 +10,10 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { Roles } from '@insurance-max/portal-shared/decorators/roles.decorator';
+import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { PlatformScoped } from '@insurance-max/portal-shared';
+import { UpdatePolicyNumberingCodeDto } from './dtos/update-policy-numbering-code.dto';
 
 import { CompanyConfigsService } from './company-configs.service';
 import { UpsertCompanyConfigDto } from './dtos/upsert-company-config.dto';
@@ -24,8 +28,33 @@ import { UpsertCompanyConfigDto } from './dtos/upsert-company-config.dto';
 @ApiTags('Company Configs')
 @ApiBearerAuth('access-token')
 @Controller('platform/companies/:companyId/configs')
+@PlatformScoped()
 export class CompanyConfigsController {
   constructor(private readonly service: CompanyConfigsService) {}
+
+  @Get('policy-numbering/status')
+  @Permissions('company-configs:read')
+  numberingStatus(@Param('companyId', ParseUUIDPipe) companyId: string) {
+    return this.service.numberingStatus(companyId);
+  }
+
+  @Put('policy-numbering/codes/:kind/:id')
+  @Roles('OWNER')
+  updateNumberingCode(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @Param('kind') kind: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdatePolicyNumberingCodeDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.service.updateNumberingCode(
+      companyId,
+      kind,
+      id,
+      dto.code,
+      user.id,
+    );
+  }
 
   @Get()
   @Permissions('company-configs:read')
@@ -51,8 +80,9 @@ export class CompanyConfigsController {
     @Param('companyId', ParseUUIDPipe) companyId: string,
     @Param('key') key: string,
     @Body() dto: UpsertCompanyConfigDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.service.upsert(companyId, key, dto);
+    return this.service.upsert(companyId, key, dto, user.id);
   }
 
   @Delete(':key')

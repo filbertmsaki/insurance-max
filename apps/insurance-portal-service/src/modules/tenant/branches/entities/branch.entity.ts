@@ -28,7 +28,15 @@ export interface BranchAddress {
 @Unique('UQ_branches_company_code', ['company_id', 'code'])
 @Index('IDX_branches_company_id', ['company_id'])
 @Index('IDX_branches_status', ['status'])
+@Index(
+  'uq_branches_policy_numbering_code',
+  ['company_id', 'policy_numbering_code'],
+  { unique: true },
+)
 export class Branch {
+  @Column({ type: 'varchar', length: 12 })
+  policy_numbering_code: string;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

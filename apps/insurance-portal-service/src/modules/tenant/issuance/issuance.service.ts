@@ -36,7 +36,6 @@ import { PolicyPremiumBreakdown } from '../policies/entities/policy-premium-brea
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
 import { PolicyVersion } from '../policies/entities/policy-version.entity';
-import { ProductChannelType } from '../product-distribution/enums/product-channel-type.enum';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { nextPolicyNo } from '../policies/utils/policy-number';
 import { linkIssuedPolicyToUnderwrite } from '../underwrite/common/issued-policy-links';
@@ -446,6 +445,7 @@ export class IssuanceService {
   ): Promise<Policy | null> {
     const policyRepository = manager.getRepository(Policy);
     let policy = await policyRepository.findOne({
+      withDeleted: true,
       where: {
         company_id: quotation.company_id,
         quotation_id: quotation.id,
@@ -454,10 +454,20 @@ export class IssuanceService {
     });
 
     if (!policy) {
-      const policyNo = await this.generatePolicyNo(
-        quotation.company_id,
-        quotation.channel_type,
+      const issuedAt = new Date();
+      const numbering = await nextPolicyNo(
         manager,
+        {
+          companyId: quotation.company_id,
+          insurerId: quotation.insurer_company_id,
+          branchId: quotation.branch_id,
+          productId: quotation.product_id,
+          categoryId: quotation.category_id,
+          riskIds: quotation.cover_note.entries.flatMap((entry) =>
+            entry.risks.map((risk) => risk.insurance_risk_id!),
+          ),
+        },
+        issuedAt,
       );
       const customerSnapshot = this.buildCustomerSnapshot(quotation);
       const distributionSnapshot = this.buildDistributionSnapshot(quotation);
@@ -481,7 +491,8 @@ export class IssuanceService {
           product_version_id: quotation.product_version_id,
           product_definition_hash: quotation.product_definition_hash,
           sub_class_id: quotation.sub_class_id,
-          policy_no: policyNo,
+          policy_no: numbering.policyNo,
+          policy_sequence: numbering.sequence,
           cover_note_no: coverNotes[0]?.cover_note_reference_number ?? null,
           external_policy_no: null,
           channel_type: quotation.channel_type,
@@ -499,8 +510,8 @@ export class IssuanceService {
           end_date: quotation.cover_note.cover_note_end_date
             .toISOString()
             .slice(0, 10),
-          issue_date: new Date().toISOString().slice(0, 10),
-          activated_at: new Date(),
+          issue_date: numbering.issueDate,
+          activated_at: issuedAt,
           rejected_at: null,
           currency: quotation.cover_note.currency_code,
           customer_snapshot: customerSnapshot,
@@ -553,6 +564,7 @@ export class IssuanceService {
           current_version_no: 1,
           metadata: {
             issuanceSource: 'TIRAMIS_FINAL_RESPONSE',
+            policyNumbering: numbering.snapshot,
             quotationId: quotation.id,
             workflowRevision: quotation.workflow_revision,
           },
@@ -1449,6 +1461,7 @@ export class IssuanceService {
       schemaVersion: 2,
       policyId: policy.id,
       policyNo: policy.policy_no,
+      policyNumbering: policy.metadata?.policyNumbering ?? null,
       policyStatus: policy.policy_status,
       policyReferenceNumber: policy.policy_reference_number,
       coverNoteNo: policy.cover_note_no,
@@ -1544,14 +1557,6 @@ export class IssuanceService {
       reason: 'Created from TIRA cover-note final response',
       changed_by: null,
     });
-  }
-
-  private generatePolicyNo(
-    companyId: string,
-    channelType: ProductChannelType,
-    manager: EntityManager,
-  ) {
-    return nextPolicyNo(manager, companyId, channelType);
   }
 
   private sumEntryRiskValue(

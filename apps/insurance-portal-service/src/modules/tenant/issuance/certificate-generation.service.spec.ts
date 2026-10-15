@@ -116,6 +116,16 @@ function makeHarness(params: {
 }
 
 describe('CertificateGenerationService', () => {
+  it('retains the full policy reference in a safe filename', async () => {
+    const policy = makePolicy({ policy_no: 'P11/2026/100/1001/10/00000001' });
+    const { service, manager, storageService } = makeHarness({ policy });
+    expect(await service.generateForPolicy(manager, policy)).not.toBeNull();
+    expect(storageService.store).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileName: 'certificate-P11-2026-100-1001-10-00000001.pdf',
+      }),
+    );
+  });
   it('renders a real PDF, stores it, and links it to the policy (motor)', async () => {
     const policy = makePolicy();
     const risks = [

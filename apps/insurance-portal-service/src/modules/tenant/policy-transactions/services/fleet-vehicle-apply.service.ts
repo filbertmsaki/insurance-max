@@ -349,10 +349,9 @@ export class FleetVehicleApplyService {
        RETURNING id`,
       [
         policy.company_id,
-        `${policy.policy_no}-V${String(fleetEntry).padStart(3, '0')}`.slice(
-          0,
-          50,
-        ),
+        // Policy numbers can be long and repeat across insurers. Keep the
+        // vehicle suffix intact and use the immutable policy identity.
+        `P-${policy.id.replace(/-/g, '')}-V${String(fleetEntry).padStart(3, '0')}`,
         policy.customer_id,
         displayName.slice(0, 255),
       ],

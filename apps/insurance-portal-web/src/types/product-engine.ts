@@ -73,6 +73,7 @@ export type {
 // ─── Insurance Categories ─────────────────────────────────────────────────────
 
 export interface InsuranceCategory {
+  policy_numbering_code?: string;
   id: string;
   code: string;
   name: string;
@@ -116,6 +117,7 @@ export interface CategoryQueryParams {
 // ─── Insurance Products ───────────────────────────────────────────────────────
 
 export interface InsuranceProduct {
+  policy_numbering_code?: string;
   id: string;
   category_id: string;
   product_code: string;

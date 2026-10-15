@@ -12,12 +12,37 @@ function makeHarness() {
     remove: jest.fn().mockResolvedValue(undefined),
   } as any;
 
-  const service = new CompanyConfigsService(repository);
+  const service = new CompanyConfigsService(repository, {
+    log: jest.fn(),
+    logCritical: jest.fn(),
+  } as any);
 
   return { service, repository };
 }
 
 describe('CompanyConfigsService', () => {
+  it.each([
+    { prefix: 'bad/prefix' },
+    { scope: 'BRANCH' },
+    { sequence: 1 },
+    { branch_start: -1 },
+  ])('rejects invalid numbering configuration %j', async (config_value) => {
+    const { service, repository } = makeHarness();
+    await expect(
+      service.upsert('company-1', 'policy_numbering', {
+        config_value,
+        value_type: ConfigValueType.JSON,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+  it('cannot delete lifetime numbering configuration', async () => {
+    const { service, repository } = makeHarness();
+    await expect(
+      service.remove('company-1', 'policy_numbering'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.remove).not.toHaveBeenCalled();
+  });
   describe('upsert', () => {
     it('rejects a NUMBER value_type when config_value is not a number', async () => {
       const { service } = makeHarness();

@@ -1513,3 +1513,81 @@ For rollout, deploy the Portal and TIRAMIS releases together and apply both serv
 Test the candidate profile before activation. The Portal → TIRAMIS check authenticates the service key and reports its bound environment. The reverse check asks TIRAMIS to deliver a signed challenge to the generated Portal callback. Activate only after both checks succeed. Pending submissions retain their recorded environment and callback URL; keep the previous callback host allowed until its pending submissions and notification retries are drained. The prior TIRAMIS base URL is retained in the connection profile for rollback reference.
 
 If either migration or deployment is rolled back, leave the existing environment variables and encryption keys in place. They provide compatibility for deployments that have not yet adopted database profiles. Do not change encryption-root keys during this migration: existing encrypted credentials depend on them.
+
+## Lifetime policy numbering cutover
+
+Migration `1794500000000-LifetimePolicyNumbering` changes future internal policy numbers to
+`P11/2026/100/1001/10/00000001`. Each insurer has one PostgreSQL bigint sequence across
+years, channels, issuing companies, branches, products, categories and risks. Products
+own the product segment because fleet and other policies can contain multiple risks.
+TIRA cover-note numbers, external policy references and existing policy numbers retain
+their current values. Renewals create a new policy number and retain lineage;
+endorsements and cancellations retain the issued number.
+
+Before production deployment:
+
+1. Take and verify a restorable database backup using the deployment's backup procedure.
+2. Pause Portal issuance and callback consumers, retaining queued callbacks for replay.
+   Deploy all Portal instances together; do not mix old and new allocators.
+3. Run this read-only preflight against the target database. Any result needs explicit
+   reconciliation before cutover; the migration also stops on these conflicts.
+
+   ```sql
+   SELECT insurer_company_id, policy_no, count(*)
+   FROM policies
+   GROUP BY insurer_company_id, policy_no
+   HAVING count(*) > 1;
+
+   SELECT id, company_id, insurer_company_id FROM policies WHERE branch_id IS NULL;
+   ```
+
+4. Build the candidate and run `npm run migration:run:insurance-portal-service:production`
+   in the configured production deployment. Do not seed or reset the production database.
+   The migration takes table locks, preserves historical numbers, and provisions
+   sequences above recognized historical suffixes, existing policy counters, and new
+   policy sequence values. Re-running it never lowers a sequence. Old formats that cannot
+   be parsed remain unchanged; their full strings remain reserved by insurer uniqueness.
+5. In Platform company details → Settings → Policy numbering, review the prefix,
+   branch/product/category codes, allocation starts, and business timezone before resuming.
+   Numeric existing identity codes are reused where possible. Other identities receive
+   unique numeric codes, including inactive/deleted records. Automatic allocation starts
+   default to branch 100, product 1001, category 10 and advance by one. Changing starts
+   affects future allocations and never resets counters. Branch codes belong to the
+   issuing company; product/category codes and the lifetime sequence belong to the insurer.
+6. Resolve missing/inactive branches or invalid product/risk configurations on pending
+   quotations. Allocation validates configuration again after final TIRA confirmation;
+   failures can be repaired and callbacks replayed without altering TIRA identifiers.
+7. Resume consumers and verify one controlled issuance and a repeated callback return the
+   same number. Monitor read-only sequence status and errors. Sequence gaps after failed
+   transactions are expected. Never decrement a sequence or run `RESTART`/`setval` to reuse gaps.
+
+Numbers are allocated only after final successful TIRAMIS cover-note issuance, under
+the quotation lock. One captured issuance timestamp determines the stored issue date
+and year in the insurer's `operating_timezone`. Duplicate callbacks reuse historical and
+soft-deleted policies. Allocations rolled back before persistence are burned by PostgreSQL;
+retrying that failed issuance can allocate a later value. Committed policies store the
+sequence and immutable numbering snapshot. Code edits and configuration changes require
+platform administration and succeed atomically with their audit records. Code and number
+constraints include soft-deleted data; normal configuration APIs cannot edit sequences.
+Number uniqueness belongs to the insurer: an intermediary can hold equal number strings
+from different insurers. The company search index is retained without uniqueness, and
+analytics storage accepts the full number length. New fleet asset references use policy
+UUIDs so long numbers cannot truncate away a vehicle suffix; certificate filenames
+replace separators with hyphens and verification references use policy UUIDs. Existing
+assets, certificates and public verification references are unchanged.
+
+Recovery: keep issuance paused if application rollback is necessary. The migration's
+`down` deliberately preserves sequences, code assignments, uniqueness and immutable
+numbers. Do not restore old counter-based issuance code into service. Apply a forward
+fix or a compatible allocator before replaying callbacks. A full database restore must
+also recover/advance every sequence past allocations made after the backup; restoring
+only a pre-cutover snapshot and resuming issuance would violate non-reuse.
+
+Verification uses disposable PostgreSQL databases (`test/policy-numbering.e2e-spec.ts`),
+not live smoke scripts. Run `npm run test:e2e -- policy-numbering.e2e-spec.ts`,
+`npm run test:policy-endorsement`, the company-config unit tests, web tests, lint and both
+Portal builds. Database tests cover concurrent allocation over separate connections,
+first-allocation rollback, insurer isolation, branch/product/category changes,
+historical-data preservation, migration reruns, cancellation/deletion, configuration
+auditing and values above eight digits. Sequence order is allocation order; concurrent
+transactions may commit in a different order.

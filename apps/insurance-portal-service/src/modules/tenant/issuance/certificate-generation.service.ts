@@ -76,7 +76,7 @@ export class CertificateGenerationService {
     });
 
     const documentType = await this.resolveDocumentType(manager, policy);
-    const verificationCode = `CERT-${policy.policy_no.replace(/[^A-Z0-9]/gi, '')}-${Date.now().toString(36).toUpperCase()}`;
+    const verificationCode = `CERT-${policy.id.replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}`;
 
     const pdf = await this.renderCertificatePdf({
       policy,
@@ -89,7 +89,7 @@ export class CertificateGenerationService {
     const stored = await this.storageService.store({
       buffer: pdf,
       companyId: policy.company_id,
-      fileName: `certificate-${policy.policy_no}.pdf`,
+      fileName: `certificate-${policy.policy_no.replace(/[^A-Z0-9_-]/gi, '-')}.pdf`,
       maximumBytes: this.storageService.maximumBytes(),
       prefix: 'documents/certificates',
     });
@@ -245,7 +245,15 @@ export class CertificateGenerationService {
 
     for (const [label, value] of fields) {
       page.drawText(`${label}:`, { x: MARGIN, y, size: 11, font: boldFont });
-      page.drawText(value, { x: MARGIN + 180, y, size: 11, font });
+      const size =
+        label === 'Policy Number'
+          ? Math.min(
+              11,
+              (PAGE_WIDTH - MARGIN * 2 - 180) /
+                font.widthOfTextAtSize(value, 1),
+            )
+          : 11;
+      page.drawText(value, { x: MARGIN + 180, y, size, font });
       y -= 20;
     }
 

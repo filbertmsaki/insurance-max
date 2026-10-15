@@ -202,6 +202,12 @@ export function ProductsPage() {
 
   const columns: Column<InsuranceProduct>[] = [
     {
+      key: 'policy_numbering_code',
+      header: 'Policy numbering code',
+      cell: (row) => row.policy_numbering_code ?? 'Assigned automatically',
+      defaultVisible: false,
+    },
+    {
       key: 'product_code',
       header: 'Code',
       sortable: true,

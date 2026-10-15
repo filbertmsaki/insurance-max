@@ -337,6 +337,7 @@ export interface BranchAddress {
 }
 
 export interface Branch {
+  policy_numbering_code?: string;
   id: string;
   company_id: string;
   name: string;

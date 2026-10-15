@@ -47,7 +47,6 @@ import { PolicyVersion } from './entities/policy-version.entity';
 import { Policy } from './entities/policy.entity';
 import { PolicyVersionDiffService } from './services/policy-version-diff.service';
 import { policyBusinessLineSql } from './utils/policy-business-line.sql';
-import { nextPolicyNo } from './utils/policy-number';
 
 type NumericLike = number | string | null | undefined;
 
@@ -467,150 +466,9 @@ export class PoliciesService {
     userId: string,
     user?: AuthenticatedUser,
   ): Promise<Policy> {
-    if (
-      user &&
-      (dto.channel_type !== undefined ||
-        dto.intermediary_company_id !== undefined)
-    ) {
-      await this.insuranceChannelPermissionService.authorizePolicyChannel(
-        companyId,
-        dto,
-        user,
-        'policy.create',
-      );
-    }
-    await this.validateScope(companyId, dto);
-    const created = await this.dataSource
-      .transaction(async (manager) => {
-        const policyRepo = manager.getRepository(Policy);
-        const historyRepo = manager.getRepository(PolicyStatusHistory);
-
-        const policyNo = await nextPolicyNo(
-          manager,
-          companyId,
-          dto.channel_type,
-        );
-        const policy = policyRepo.create({
-          company_id: companyId,
-          insurer_company_id: dto.insurer_company_id,
-          intermediary_company_id: dto.intermediary_company_id ?? null,
-          branch_id: dto.branch_id ?? null,
-          department_id: dto.department_id ?? null,
-          created_by: userId,
-          customer_id: dto.customer_id,
-          quotation_id: dto.quotation_id ?? null,
-          proposal_id: dto.proposal_id ?? null,
-          category_id: dto.category_id,
-          product_id: dto.product_id,
-          sub_class_id: dto.sub_class_id ?? null,
-          policy_no: policyNo,
-          cover_note_no: null,
-          external_policy_no: null,
-          channel_type: dto.channel_type,
-          policy_status: dto.policy_status?.trim().toUpperCase() ?? 'DRAFT',
-          start_date: this.normalizeDate(dto.start_date)!,
-          end_date: this.normalizeDate(dto.end_date)!,
-          issue_date: this.normalizeDate(dto.issue_date)!,
-          currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
-          sum_insured: this.normalizeMoney(dto.sum_insured),
-          basic_premium: this.normalizeMoney(dto.basic_premium),
-          total_discount: this.normalizeMoney(dto.total_discount),
-          total_tax: this.normalizeMoney(dto.total_tax),
-          total_charges: this.normalizeMoney(dto.total_charges),
-          total_commission: this.normalizeMoney(dto.total_commission),
-          total_premium: this.normalizeMoney(dto.total_premium),
-          net_premium: this.normalizeMoney(dto.net_premium),
-          reinsurance_required: dto.reinsurance_required ?? false,
-          reinsurance_status:
-            dto.reinsurance_status?.trim().toUpperCase() ?? 'NOT_REQUIRED',
-          retention_amount: this.normalizeMoney(dto.retention_amount),
-          ceded_sum_insured: this.normalizeMoney(dto.ceded_sum_insured),
-          ceded_premium: this.normalizeMoney(dto.ceded_premium),
-          tira_status: dto.tira_status?.trim().toUpperCase() ?? 'PENDING',
-          tira_portal_transaction_id: this.normalizeText(
-            dto.tira_portal_transaction_id,
-          ),
-          tiramis_transaction_id: this.normalizeText(
-            dto.tiramis_transaction_id,
-          ),
-          metadata: dto.metadata ?? null,
-        });
-
-        const saved = await policyRepo.save(policy);
-        await this.replacePolicyChildren(manager, saved, dto);
-        await historyRepo.save(
-          historyRepo.create({
-            policy_id: saved.id,
-            old_status: 'NONE',
-            new_status: saved.policy_status,
-            reason: null,
-            changed_by: userId,
-          }),
-        );
-
-        if (dto.quotation_id) {
-          const quotationRepo = manager.getRepository(Quotation);
-          const quotation = await quotationRepo.findOne({
-            where: { id: dto.quotation_id, company_id: companyId },
-          });
-          if (!quotation) {
-            throw new BadRequestException(
-              'Quotation not found for this company',
-            );
-          }
-          if (
-            quotation.status === QuotationStatus.COMPLETED ||
-            quotation.status === QuotationStatus.CANCELLED ||
-            quotation.status === QuotationStatus.EXPIRED
-          ) {
-            throw new ConflictException(
-              `Quotation in ${quotation.status} status cannot be converted to a policy`,
-            );
-          }
-        }
-
-        return saved;
-      })
-      .catch((error) => {
-        if (this.isDuplicateEntryError(error)) {
-          throw new ConflictException(
-            'A policy with this number already exists in this company',
-          );
-        }
-        throw error;
-      });
-
-    if (dto.quotation_id) {
-      await this.quotationLifecycleService.convertQuotation(
-        companyId,
-        dto.quotation_id,
-        {
-          changedBy: userId,
-          changedByType: 'USER',
-          source: 'SYSTEM',
-          reason: `Converted to policy ${created.policy_no}`,
-        },
-      );
-    }
-
-    return this.policyRepository.findOneOrFail({
-      where: { id: created.id, company_id: companyId },
-      relations: {
-        company: true,
-        insurer_company: true,
-        intermediary_company: true,
-        branch: true,
-        department: true,
-        creator: true,
-        customer: true,
-        category: true,
-        product: true,
-        sub_class: true,
-        risks: true,
-        premium_breakdowns: true,
-        status_history: true,
-      },
-    });
+    throw new ConflictException(
+      'Manual policy creation is disabled. Issue a quotation through TIRAMIS.',
+    );
   }
 
   async createForUser(

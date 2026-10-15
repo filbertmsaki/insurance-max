@@ -241,17 +241,12 @@ describe('PoliciesService - quotation lifecycle conversion', () => {
     ceded_premium: 0,
   };
 
-  it('marks the source quotation as completed through the lifecycle service', async () => {
-    await service.create(companyId, baseDto, 'user-1');
-
-    expect(quotationLifecycleService.convertQuotation).toHaveBeenCalledWith(
-      companyId,
-      quotationId,
-      expect.objectContaining({
-        changedBy: 'user-1',
-        reason: 'Converted to policy POL-DIR-2026-00001',
-      }),
-    );
+  it('refuses the legacy internal creation path without allocating a number', async () => {
+    await expect(
+      service.create(companyId, baseDto, 'user-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(quotationLifecycleService.convertQuotation).not.toHaveBeenCalled();
+    expect(policyRepo.save).not.toHaveBeenCalled();
   });
 
   it('refuses to create a policy from a completed quotation', async () => {
