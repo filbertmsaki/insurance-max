@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 import { Download, Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import {
   DataTable,
   tableFilters,
@@ -8,6 +7,7 @@ import {
   type Column,
 } from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ActionMenu } from '@/components/shared/ActionMenu';
 import { formatDate, formatMoney } from '@/components/shared/detailFormat';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import { PolicyStatusBadge } from '@/modules/tenant/policies/components/PolicyStatusBadge';
@@ -104,33 +104,29 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
     {
       key: 'actions',
       header: '',
-      className: 'w-40',
+      className: 'w-12',
       cell: (row) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label={`Download policy schedule for ${row.policy_no}`}
-            onClick={() =>
-              void downloadPdf(
-                `/tenant/policies/${row.id}/schedule/download`,
-                documentFilename(row.policy_no, '-schedule'),
-              )
-            }
-          >
-            <Download className="mr-1 h-4 w-4" />
-            Download
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`View ${row.policy_no}`}
-            onClick={() =>
-              navigate(underwritePaths.policyDetail(line.slug, row.id))
-            }
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+        <div className="flex justify-end">
+          <ActionMenu
+            ariaLabel={`Actions for policy ${row.policy_no}`}
+            items={[
+              {
+                label: 'Download policy schedule PDF',
+                icon: <Download className="h-4 w-4" />,
+                onClick: () =>
+                  void downloadPdf(
+                    `/tenant/policies/${row.id}/schedule/download`,
+                    documentFilename(row.policy_no, '-schedule'),
+                  ),
+              },
+              {
+                label: 'View policy',
+                icon: <Eye className="h-4 w-4" />,
+                onClick: () =>
+                  navigate(underwritePaths.policyDetail(line.slug, row.id)),
+              },
+            ]}
+          />
         </div>
       ),
     },

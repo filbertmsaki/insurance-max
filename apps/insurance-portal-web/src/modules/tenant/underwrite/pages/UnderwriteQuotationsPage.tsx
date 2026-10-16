@@ -14,6 +14,7 @@ import {
   type Column,
 } from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { ActionMenu } from '@/components/shared/ActionMenu';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { QuotationStatusBadge } from '@/modules/tenant/quotations/components/QuotationStatusBadge';
 import { TiraStatusBadge } from '@/modules/tenant/quotations/components/TiraStatusBadge';
@@ -172,47 +173,43 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
     {
       key: 'actions',
       header: '',
-      className: 'w-40',
+      className: 'w-12',
       cell: (row) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label={`Download quotation PDF for ${row.quotation_no}`}
-            onClick={() =>
-              void downloadPdf(
-                `/tenant/quotations/${row.id}/document/download`,
-                documentFilename(row.quotation_no),
-              )
-            }
-          >
-            <Download className="mr-1 h-4 w-4" />
-            Download
-          </Button>
-          {canEdit &&
-            !row.source_policy_transaction_id &&
-            canEditQuotation(row) && (
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Edit ${row.quotation_no}`}
-                onClick={() =>
-                  navigate(underwritePaths.quotationEdit(line.slug, row.id))
-                }
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-            )}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`View ${row.quotation_no}`}
-            onClick={() =>
-              navigate(underwritePaths.quotationDetail(line.slug, row.id))
-            }
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+        <div className="flex justify-end">
+          <ActionMenu
+            ariaLabel={`Actions for quotation ${row.quotation_no}`}
+            items={[
+              {
+                label: 'Download quotation PDF',
+                icon: <Download className="h-4 w-4" />,
+                onClick: () =>
+                  void downloadPdf(
+                    `/tenant/quotations/${row.id}/document/download`,
+                    documentFilename(row.quotation_no),
+                  ),
+              },
+              {
+                label: 'View quotation',
+                icon: <Eye className="h-4 w-4" />,
+                onClick: () =>
+                  navigate(underwritePaths.quotationDetail(line.slug, row.id)),
+              },
+              ...(canEdit &&
+              !row.source_policy_transaction_id &&
+              canEditQuotation(row)
+                ? [
+                    {
+                      label: 'Edit quotation',
+                      icon: <Pencil className="h-4 w-4" />,
+                      onClick: () =>
+                        navigate(
+                          underwritePaths.quotationEdit(line.slug, row.id),
+                        ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </div>
       ),
     },
