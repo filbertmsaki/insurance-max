@@ -15,6 +15,7 @@ import {
 } from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ActionMenu } from '@/components/shared/ActionMenu';
+import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { QuotationStatusBadge } from '@/modules/tenant/quotations/components/QuotationStatusBadge';
 import { TiraStatusBadge } from '@/modules/tenant/quotations/components/TiraStatusBadge';
@@ -222,16 +223,19 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
         title={`${line.label} quotations`}
         description={line.description}
         action={
-          canCreate ? (
-            <Button
-              onClick={() =>
-                navigate(underwritePaths.quotationCreate(line.slug))
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New quotation
-            </Button>
-          ) : undefined
+          <>
+            <CompanySwitcher menuLabel="Filter by owner company" />
+            {canCreate ? (
+              <Button
+                onClick={() =>
+                  navigate(underwritePaths.quotationCreate(line.slug))
+                }
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New quotation
+              </Button>
+            ) : null}
+          </>
         }
       />
 

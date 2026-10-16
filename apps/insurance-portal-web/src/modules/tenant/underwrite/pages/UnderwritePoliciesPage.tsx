@@ -8,6 +8,7 @@ import {
 } from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ActionMenu } from '@/components/shared/ActionMenu';
+import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { formatDate, formatMoney } from '@/components/shared/detailFormat';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import { PolicyStatusBadge } from '@/modules/tenant/policies/components/PolicyStatusBadge';
@@ -138,6 +139,7 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
         eyebrow={`Underwrite · ${line.label}`}
         title={`${line.label} policies`}
         description={line.description}
+        action={<CompanySwitcher menuLabel="Filter by owner company" />}
       />
 
       <DataTable

@@ -13,7 +13,11 @@ import {
 import { authApi } from '@/modules/shared/auth/api/auth';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
-export function CompanySwitcher() {
+export function CompanySwitcher({
+  menuLabel = 'Switch Company',
+}: {
+  menuLabel?: string;
+}) {
   const { user, company, companies, setSession } = useAuthStore();
   const queryClient = useQueryClient();
 
@@ -41,7 +45,7 @@ export function CompanySwitcher() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        <DropdownMenuLabel>Switch Company</DropdownMenuLabel>
+        <DropdownMenuLabel>{menuLabel}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {companies.map((c) => (
           <DropdownMenuItem
