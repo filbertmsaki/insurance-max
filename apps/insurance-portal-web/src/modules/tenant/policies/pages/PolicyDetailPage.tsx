@@ -348,8 +348,13 @@ export function PolicyDetailPage() {
   const canCreateCancellation = hasPermission('cancellations:create');
   const canCreateRenewal = hasPermission('renewals:create');
   const canViewRenewals = hasPermission('renewals:read');
-  const canViewCancellations = hasPermission('cancellations:read');
-  const canViewEndorsements = hasPermission('endorsements:create');
+  const canViewCancellations =
+    hasPermission('cancellations:read') ||
+    hasPermission('cancellations:approve');
+  const canViewEndorsements =
+    hasPermission('endorsements:create') ||
+    hasPermission('policy-transactions:read') ||
+    hasPermission('endorsements:approve');
   const canViewPendingTransaction = hasPermission('policy-transactions:read');
   const canSubmitEndorsement = hasPermission('endorsements:submit-tiramis');
   const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
@@ -731,7 +736,8 @@ export function PolicyDetailPage() {
           {
             label: 'Edit',
             separatorBefore: true,
-            onClick: () => navigate(sharedUnderwritePaths.policyEdit(policy.id)),
+            onClick: () =>
+              navigate(sharedUnderwritePaths.policyEdit(policy.id)),
           },
         ]
       : []),
@@ -1469,7 +1475,6 @@ export function PolicyDetailPage() {
           )}
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
