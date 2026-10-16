@@ -42,6 +42,27 @@ export function underwritePermission(
   return `underwrite.${getUnderwriteLineDefinition(line).permissionKey}.${action}`;
 }
 
+/**
+ * Line actions that also satisfy another action's gate. Approvers must be
+ * able to open the endorsement and cancellation lists they approve from.
+ */
+const IMPLYING_ACTIONS: Partial<
+  Record<UnderwriteActionValue, UnderwriteActionValue[]>
+> = {
+  [UnderwriteAction.ENDORSEMENTS_VIEW]: [UnderwriteAction.APPROVE],
+  [UnderwriteAction.CANCELLATIONS_VIEW]: [UnderwriteAction.APPROVE],
+};
+
+/** Every line permission that grants `action` (the action's own first). */
+export function underwritePermissionsGranting(
+  line: UnderwriteLine,
+  action: UnderwriteActionValue,
+): string[] {
+  return [action, ...(IMPLYING_ACTIONS[action] ?? [])].map((item) =>
+    underwritePermission(line, item),
+  );
+}
+
 interface UnderwriteActionDefinition {
   action: UnderwriteActionValue;
   displayName: string;

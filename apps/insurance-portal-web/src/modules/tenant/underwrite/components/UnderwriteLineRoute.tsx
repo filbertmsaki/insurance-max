@@ -1,8 +1,10 @@
 import { Navigate } from 'react-router-dom';
-import type { UnderwriteActionValue } from '@insurance-max/contracts';
+import {
+  type UnderwriteActionValue,
+  underwritePermissionsGranting,
+} from '@insurance-max/contracts';
 import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute';
 import { useUnderwriteLineParam } from '../hooks';
-import { underwriteRoutePermissions } from '../lines';
 import { underwritePaths } from '../paths';
 
 interface UnderwriteLineRouteProps {
@@ -15,7 +17,7 @@ interface UnderwriteLineRouteProps {
 
 /**
  * Route guard for `/underwrite/:line/...`: resolves the line from the URL and
- * requires the line gate plus the existing action permission.
+ * requires a line gate granting `action` plus the existing action permission.
  */
 export function UnderwriteLineRoute({
   action,
@@ -30,8 +32,9 @@ export function UnderwriteLineRoute({
 
   return (
     <ProtectedRoute
-      allPermissions={underwriteRoutePermissions(line.line, action, permission)}
+      allPermissions={permission ? [permission] : []}
       anyPermissions={anyPermissions}
+      anyPermissionGroups={[underwritePermissionsGranting(line.line, action)]}
     />
   );
 }

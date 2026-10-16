@@ -12,13 +12,19 @@ import {
   UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
   UnderwriteAction,
   underwritePermission,
+  underwritePermissionsGranting,
 } from '@insurance-max/contracts';
 import type {
   NavGroup,
   NavLeaf,
   NavNode,
 } from '@/components/layout/nav-config';
-import { UNDERWRITE_LINE_META, type UnderwriteLineMeta } from './lines';
+import {
+  CANCELLATION_VIEW_PERMISSIONS,
+  ENDORSEMENT_VIEW_PERMISSIONS,
+  UNDERWRITE_LINE_META,
+  type UnderwriteLineMeta,
+} from './lines';
 import { underwritePaths } from './paths';
 
 /**
@@ -41,7 +47,7 @@ function leaf(
     label,
     to,
     icon,
-    permission: underwritePermission(line.line, action),
+    anyPermissionGroups: [underwritePermissionsGranting(line.line, action)],
     anyPermission: Array.isArray(legacyPermission)
       ? legacyPermission
       : legacyPermission
@@ -101,7 +107,7 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
       underwritePaths.endorsements(line.slug),
       FileText,
       UnderwriteAction.ENDORSEMENTS_VIEW,
-      'endorsements:create',
+      ENDORSEMENT_VIEW_PERMISSIONS,
     ),
     leaf(
       line,
@@ -109,7 +115,7 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
       underwritePaths.cancellations(line.slug),
       Ban,
       UnderwriteAction.CANCELLATIONS_VIEW,
-      'cancellations:read',
+      CANCELLATION_VIEW_PERMISSIONS,
     ),
   );
 

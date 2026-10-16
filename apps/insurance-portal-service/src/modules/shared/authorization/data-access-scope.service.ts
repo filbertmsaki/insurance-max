@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { WorkflowApprovalStatus } from '@insurance-max/contracts';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Brackets, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
@@ -636,46 +637,88 @@ export class DataAccessScopeService {
     return `(${conditions.join(' AND ')})`;
   }
 
+  /**
+   * Policy read scope for policy transactions (endorsements, cancellations).
+   *
+   * When `includePendingApproval` is set (the user holds the approve
+   * permission), transactions awaiting approval anywhere in the company are
+   * also visible, so approvers can review work raised outside their own
+   * records or branches.
+   */
+  applyPolicyTransactionReadScope<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    policyAlias: string,
+    transactionAlias: string,
+    scope: TenantDataScope,
+    includePendingApproval: boolean,
+  ): void {
+    if (!includePendingApproval) {
+      this.applyQuotationPolicyDataScope(queryBuilder, policyAlias, scope);
+      return;
+    }
+
+    queryBuilder.andWhere(`${policyAlias}.company_id = :scopeCompanyId`);
+    const condition = this.quotationPolicyDataScopeCondition(
+      queryBuilder,
+      policyAlias,
+      scope,
+    );
+    if (condition) {
+      queryBuilder
+        .setParameter('scopePendingApproval', WorkflowApprovalStatus.PENDING)
+        .andWhere(
+          `(${condition} OR ${transactionAlias}.approval_status = :scopePendingApproval)`,
+        );
+    }
+  }
+
   private applyQuotationPolicyDataScope<T extends ObjectLiteral>(
     queryBuilder: SelectQueryBuilder<T>,
     alias: string,
     scope: TenantDataScope,
   ): void {
-    queryBuilder
-      .setParameters({
-        scopeCompanyId: scope.companyId,
-        scopeUserId: scope.userId,
-        scopeBranchIds: scope.allowedBranchIds,
-        scopeDepartmentIds: scope.allowedDepartmentIds ?? [],
-      })
-      .andWhere(`${alias}.company_id = :scopeCompanyId`);
+    queryBuilder.andWhere(`${alias}.company_id = :scopeCompanyId`);
+    const condition = this.quotationPolicyDataScopeCondition(
+      queryBuilder,
+      alias,
+      scope,
+    );
+    if (condition) {
+      queryBuilder.andWhere(condition);
+    }
+  }
+
+  /** Sets the scope parameters and returns the row filter (null = no filter). */
+  private quotationPolicyDataScopeCondition<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+    scope: TenantDataScope,
+  ): string | null {
+    queryBuilder.setParameters({
+      scopeCompanyId: scope.companyId,
+      scopeUserId: scope.userId,
+      scopeBranchIds: scope.allowedBranchIds,
+      scopeDepartmentIds: scope.allowedDepartmentIds ?? [],
+    });
 
     switch (scope.quotationPolicyDataScope ?? QuotationPolicyDataScope.USER) {
       case QuotationPolicyDataScope.COMPANY:
-        return;
+        return null;
       case QuotationPolicyDataScope.BRANCH:
         if (!scope.allowedBranchIds.length) {
-          queryBuilder.andWhere('1 = 0');
-          return;
+          return '1 = 0';
         }
         // A user always keeps their own records, including legacy rows
         // without a branch.
-        queryBuilder.andWhere(
-          `(${alias}.branch_id IN (:...scopeBranchIds) OR ${alias}.created_by = :scopeUserId)`,
-        );
-        return;
+        return `(${alias}.branch_id IN (:...scopeBranchIds) OR ${alias}.created_by = :scopeUserId)`;
       case QuotationPolicyDataScope.DEPARTMENT:
         if (!(scope.allowedDepartmentIds ?? []).length) {
-          queryBuilder.andWhere('1 = 0');
-          return;
+          return '1 = 0';
         }
-        queryBuilder.andWhere(
-          `${alias}.department_id IN (:...scopeDepartmentIds)`,
-        );
-        return;
+        return `${alias}.department_id IN (:...scopeDepartmentIds)`;
       case QuotationPolicyDataScope.USER:
       default:
-        queryBuilder.andWhere(`${alias}.created_by = :scopeUserId`);
+        return `${alias}.created_by = :scopeUserId`;
     }
   }
 

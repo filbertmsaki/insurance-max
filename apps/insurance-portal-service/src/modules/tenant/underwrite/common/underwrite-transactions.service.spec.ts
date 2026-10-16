@@ -31,6 +31,7 @@ describe('UnderwriteTransactionsService line assertions', () => {
     const dataAccessScopeService = {
       resolve: jest.fn().mockReturnValue({ allowedBranchIds: ['branch-1'] }),
       applyPolicyReadScope: jest.fn(),
+      applyPolicyTransactionReadScope: jest.fn(),
     };
     const service = new UnderwriteTransactionsService(
       {} as never,
@@ -59,6 +60,7 @@ describe('UnderwriteTransactionsService line assertions', () => {
     const dataAccessScopeService = {
       resolve: jest.fn().mockReturnValue({ allowedBranchIds: ['branch-1'] }),
       applyPolicyReadScope: jest.fn(),
+      applyPolicyTransactionReadScope: jest.fn(),
     };
     const service = new UnderwriteTransactionsService(
       { createQueryBuilder: jest.fn(() => transactionQuery) } as never,
@@ -76,10 +78,14 @@ describe('UnderwriteTransactionsService line assertions', () => {
         'endorsement',
       ),
     ).resolves.toBeUndefined();
-    expect(dataAccessScopeService.applyPolicyReadScope).toHaveBeenCalledWith(
+    expect(
+      dataAccessScopeService.applyPolicyTransactionReadScope,
+    ).toHaveBeenCalledWith(
       transactionQuery,
       'policy',
+      'transaction',
       { allowedBranchIds: ['branch-1'] },
+      false,
     );
   });
 });
@@ -117,6 +123,7 @@ function makeListQueryBuilder(result: {
 const scope = {
   resolve: jest.fn().mockReturnValue({}),
   applyPolicyReadScope: jest.fn(),
+  applyPolicyTransactionReadScope: jest.fn(),
   applyQuotationReadScope: jest.fn(),
 };
 

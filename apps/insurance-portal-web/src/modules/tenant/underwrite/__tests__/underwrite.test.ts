@@ -57,7 +57,24 @@ describe('underwrite navigation', () => {
 
   it('gates every entry by a line permission', () => {
     for (const item of lineGroups().flatMap((entry) => entry.children)) {
-      expect(item.permission).toMatch(/^underwrite\.(motor|fleet|non_motor)\./);
+      const [gates] = item.anyPermissionGroups ?? [];
+      expect(gates?.length).toBeGreaterThan(0);
+      for (const gate of gates ?? []) {
+        expect(gate).toMatch(/^underwrite\.(motor|fleet|non_motor)\./);
+      }
+    }
+  });
+
+  it('lets line approvers open endorsements and cancellations', () => {
+    const children = group('Motor').children;
+    for (const to of [
+      underwritePaths.endorsements('motor'),
+      underwritePaths.cancellations('motor'),
+    ]) {
+      const item = children.find((child) => child.to === to);
+      expect(item?.anyPermissionGroups?.[0]).toContain(
+        'underwrite.motor.approve',
+      );
     }
   });
 

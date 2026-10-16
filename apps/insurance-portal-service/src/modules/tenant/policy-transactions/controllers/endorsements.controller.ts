@@ -69,7 +69,7 @@ export class EndorsementsController {
   }
 
   @Get('tenant/endorsements')
-  @Permissions('policy-transactions:read')
+  @AnyPermissions('policy-transactions:read', 'endorsements:approve')
   @ApiOperation({ summary: 'List endorsements for the current company' })
   findAll(
     @CurrentUser() user: AuthenticatedUser,
@@ -83,7 +83,7 @@ export class EndorsementsController {
   }
 
   @Get('tenant/endorsements/:id/context')
-  @Permissions('endorsements:update-draft')
+  @AnyPermissions('endorsements:update-draft', 'endorsements:approve')
   @ApiOperation({
     summary:
       'Load the endorsement draft, current source snapshot and recorded changes',
@@ -96,7 +96,7 @@ export class EndorsementsController {
   }
 
   @Get('tenant/endorsements/:id')
-  @Permissions('policy-transactions:read')
+  @AnyPermissions('policy-transactions:read', 'endorsements:approve')
   @ApiOperation({ summary: 'Get an endorsement by ID' })
   findOne(
     @CurrentUser() user: AuthenticatedUser,

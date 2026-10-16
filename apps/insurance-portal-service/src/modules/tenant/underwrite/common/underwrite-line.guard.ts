@@ -10,7 +10,7 @@ import { Reflector } from '@nestjs/core';
 import {
   type UnderwriteActionValue,
   underwriteLineFromSlug,
-  underwritePermission,
+  underwritePermissionsGranting,
 } from '@insurance-max/contracts';
 import {
   UNDERWRITE_LINE_ACTION_KEY,
@@ -53,8 +53,9 @@ export class UnderwriteLineGuard implements CanActivate {
       throw new ForbiddenException('Underwrite line access is not declared');
     }
 
-    const permission = underwritePermission(line, action);
-    if (!userHasPermission(user, permission)) {
+    const granting = underwritePermissionsGranting(line, action);
+    const permission = granting[0];
+    if (!granting.some((item) => userHasPermission(user, item))) {
       throw new ForbiddenException({
         code: 'MISSING_REQUIRED_PERMISSION',
         message: 'You do not have the required permission.',

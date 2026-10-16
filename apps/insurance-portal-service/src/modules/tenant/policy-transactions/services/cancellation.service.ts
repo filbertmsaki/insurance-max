@@ -768,10 +768,18 @@ export class CancellationService {
         transactionType: PolicyTransactionType.CANCELLATION,
       });
 
-    this.dataAccessScopeService.applyPolicyReadScope(
+    // Approvers also see cancellations awaiting approval outside their own
+    // data scope; command permissions keep the normal scope.
+    const includePendingApproval =
+      (permission === 'cancellations:read' ||
+        permission === 'cancellations:approve') &&
+      (user.permissions ?? []).includes('cancellations:approve');
+    this.dataAccessScopeService.applyPolicyTransactionReadScope(
       query,
       'policy',
+      'transaction',
       this.dataAccessScopeService.resolve(user, permission),
+      includePendingApproval,
     );
 
     return query;

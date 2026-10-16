@@ -33,6 +33,7 @@ function useNavFilter() {
     return canAccessRoute(user, {
       requiredPermission: leaf.permission,
       anyPermission: leaf.anyPermission,
+      anyPermissionGroups: leaf.anyPermissionGroups,
       anyRole: leaf.anyRole,
       allowedScopes: leaf.allowedScopes,
       hideForStandardUser: leaf.hideForStandardUser,

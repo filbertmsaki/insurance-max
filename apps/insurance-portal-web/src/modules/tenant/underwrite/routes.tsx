@@ -48,6 +48,10 @@ import {
   UnderwriteTiraQueuePage,
   UnderwriteTransactionsPage,
 } from './lazy-pages';
+import {
+  CANCELLATION_VIEW_PERMISSIONS,
+  ENDORSEMENT_VIEW_PERMISSIONS,
+} from './lines';
 import { underwritePaths } from './paths';
 
 const LINE = ':line';
@@ -266,7 +270,7 @@ export function renderUnderwriteRoutes() {
         element={
           <UnderwriteLineRoute
             action={UnderwriteAction.ENDORSEMENTS_VIEW}
-            permission="endorsements:create"
+            anyPermissions={ENDORSEMENT_VIEW_PERMISSIONS}
           />
         }
       >
@@ -284,7 +288,7 @@ export function renderUnderwriteRoutes() {
         element={
           <UnderwriteLineRoute
             action={UnderwriteAction.CANCELLATIONS_VIEW}
-            permission="cancellations:read"
+            anyPermissions={CANCELLATION_VIEW_PERMISSIONS}
           />
         }
       >
@@ -346,7 +350,7 @@ export function renderUnderwriteRoutes() {
         element={
           <UnderwriteLineRoute
             action={UnderwriteAction.ENDORSEMENTS_VIEW}
-            permission="endorsements:create"
+            anyPermissions={ENDORSEMENT_VIEW_PERMISSIONS}
           />
         }
       >
@@ -376,7 +380,7 @@ export function renderUnderwriteRoutes() {
         element={
           <UnderwriteLineRoute
             action={UnderwriteAction.CANCELLATIONS_VIEW}
-            permission="cancellations:read"
+            anyPermissions={CANCELLATION_VIEW_PERMISSIONS}
           />
         }
       >

@@ -263,7 +263,7 @@ export class UnderwriteTransactionsService {
     kind: Exclude<TransactionKind, 'renewal'>,
     table?: TableQueryDto,
   ) {
-    const query = this.scopedTransactionQuery(user, line)
+    const query = this.scopedTransactionQuery(user, line, kind)
       .andWhere('transaction.transaction_type = :transactionType', {
         transactionType: transactionTypeForKind(kind),
       })
@@ -461,7 +461,7 @@ export class UnderwriteTransactionsService {
         : kind === 'cancellation'
           ? 'cancellations:read'
           : 'policy-transactions:read';
-    this.applyPolicyScope(query, user, permission);
+    this.applyTransactionScope(query, user, permission, kind);
 
     const row = await query.getRawOne<{ id: string }>();
     if (!row) {
@@ -689,6 +689,7 @@ export class UnderwriteTransactionsService {
   private scopedTransactionQuery(
     user: AuthenticatedUser,
     line: UnderwriteLine,
+    kind?: Exclude<TransactionKind, 'renewal'>,
   ) {
     const query = this.transactionRepository
       .createQueryBuilder('transaction')
@@ -736,7 +737,7 @@ export class UnderwriteTransactionsService {
       })
       .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
 
-    this.applyPolicyScope(query, user, 'policies:read');
+    this.applyTransactionScope(query, user, 'policies:read', kind);
 
     return query;
   }
@@ -750,6 +751,32 @@ export class UnderwriteTransactionsService {
       query,
       'policy',
       this.dataAccessScopeService.resolve(user, permission),
+    );
+  }
+
+  /**
+   * Policy scope for a transaction query. Holders of the kind's approve
+   * permission also see transactions awaiting approval outside their scope.
+   */
+  private applyTransactionScope<T extends ObjectLiteral>(
+    query: SelectQueryBuilder<T>,
+    user: AuthenticatedUser,
+    permission: string,
+    kind?: Exclude<TransactionKind, 'renewal'>,
+  ) {
+    const approvePermission =
+      kind === 'endorsement'
+        ? 'endorsements:approve'
+        : kind === 'cancellation'
+          ? 'cancellations:approve'
+          : null;
+    this.dataAccessScopeService.applyPolicyTransactionReadScope(
+      query,
+      'policy',
+      'transaction',
+      this.dataAccessScopeService.resolve(user, permission),
+      !!approvePermission &&
+        (user.permissions ?? []).includes(approvePermission),
     );
   }
 }

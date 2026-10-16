@@ -85,7 +85,11 @@ export class UnderwriteTransactionsController {
   }
 
   @Get('endorsements')
-  @Permissions('endorsements:create')
+  @AnyPermissions(
+    'endorsements:create',
+    'policy-transactions:read',
+    'endorsements:approve',
+  )
   @UnderwriteLineAccess(UnderwriteAction.ENDORSEMENTS_VIEW)
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'List endorsements in the line' })
@@ -98,7 +102,7 @@ export class UnderwriteTransactionsController {
   }
 
   @Get('cancellations')
-  @Permissions('cancellations:read')
+  @AnyPermissions('cancellations:read', 'cancellations:approve')
   @UnderwriteLineAccess(UnderwriteAction.CANCELLATIONS_VIEW)
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'List cancellations in the line' })
@@ -184,8 +188,8 @@ export class UnderwriteTransactionsController {
   }
 
   @Get('endorsements/:id/context')
-  @Permissions('endorsements:update-draft')
-  @UnderwriteLineAccess(UnderwriteAction.ENDORSEMENTS_MANAGE)
+  @AnyPermissions('endorsements:update-draft', 'endorsements:approve')
+  @UnderwriteLineAccess(UnderwriteAction.ENDORSEMENTS_VIEW)
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'Load an endorsement context in the line' })
   async endorsementContext(
@@ -495,7 +499,7 @@ export class UnderwriteTransactionsController {
   }
 
   @Get('cancellations/:id/context')
-  @Permissions('cancellations:read')
+  @AnyPermissions('cancellations:read', 'cancellations:approve')
   @UnderwriteLineAccess(UnderwriteAction.CANCELLATIONS_VIEW)
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'Load a cancellation context in the line' })

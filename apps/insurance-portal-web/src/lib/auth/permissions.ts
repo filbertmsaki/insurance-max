@@ -83,6 +83,7 @@ export function canAccessRoute(
   options?: {
     requiredPermission?: string;
     anyPermission?: string[];
+    anyPermissionGroups?: string[][];
     requiredRole?: string;
     anyRole?: string[];
     allowedScopes?: Array<'platform' | 'company' | 'customer'>;
@@ -113,6 +114,15 @@ export function canAccessRoute(
     options?.anyPermission?.length &&
     !options.anyPermission.some((permission) =>
       hasCompatiblePermission(user, permission),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    options?.anyPermissionGroups?.some(
+      (group) =>
+        !group.some((permission) => hasCompatiblePermission(user, permission)),
     )
   ) {
     return false;

@@ -97,6 +97,7 @@ function makeHarness() {
   const dataAccessScopeService = {
     resolve: jest.fn().mockReturnValue({}),
     applyPolicyReadScope: jest.fn(),
+    applyPolicyTransactionReadScope: jest.fn(),
   };
 
   const service = new EndorsementService(

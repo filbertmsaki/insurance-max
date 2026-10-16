@@ -11,7 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { TenantScoped } from '@insurance-max/portal-shared';
+import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   WorkflowApprovalStatus,
@@ -87,7 +87,7 @@ export class CancellationsController {
   }
 
   @Get('tenant/cancellations')
-  @Permissions('cancellations:read')
+  @AnyPermissions('cancellations:read', 'cancellations:approve')
   @ApiOperation({ summary: 'List cancellations for the current company' })
   findAll(
     @CurrentUser() user: AuthenticatedUser,
@@ -97,7 +97,7 @@ export class CancellationsController {
   }
 
   @Get('tenant/cancellations/:id')
-  @Permissions('cancellations:read')
+  @AnyPermissions('cancellations:read', 'cancellations:approve')
   @ApiOperation({ summary: 'Get a cancellation by ID' })
   findOne(
     @CurrentUser() user: AuthenticatedUser,
@@ -107,7 +107,7 @@ export class CancellationsController {
   }
 
   @Get('tenant/cancellations/:id/context')
-  @Permissions('cancellations:read')
+  @AnyPermissions('cancellations:read', 'cancellations:approve')
   @ApiOperation({ summary: 'Get a cancellation transaction with detail row' })
   context(
     @CurrentUser() user: AuthenticatedUser,

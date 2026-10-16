@@ -68,3 +68,16 @@ export function underwriteRoutePermissions(
   const gate = underwritePermission(line, action);
   return legacyPermission ? [gate, legacyPermission] : [gate];
 }
+
+/** Existing permissions that open the endorsement list and detail pages. */
+export const ENDORSEMENT_VIEW_PERMISSIONS = [
+  'endorsements:create',
+  'policy-transactions:read',
+  'endorsements:approve',
+];
+
+/** Existing permissions that open the cancellation list and detail pages. */
+export const CANCELLATION_VIEW_PERMISSIONS = [
+  'cancellations:read',
+  'cancellations:approve',
+];

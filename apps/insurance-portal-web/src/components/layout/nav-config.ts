@@ -54,6 +54,8 @@ export interface NavLeaf {
   icon: ComponentType<{ className?: string }>;
   permission?: string;
   anyPermission?: string[];
+  /** Each group must have at least one permission the user holds. */
+  anyPermissionGroups?: string[][];
   anyRole?: string[];
   allowedScopes?: Array<'platform' | 'company' | 'customer'>;
   hideForStandardUser?: boolean;

@@ -32,6 +32,8 @@ interface ProtectedRouteProps {
 
   allPermissions?: string[];
   anyPermissions?: string[];
+  /** Each group must have at least one permission the user holds. */
+  anyPermissionGroups?: string[][];
 
   allRoles?: string[];
   anyRoles?: string[];
@@ -47,6 +49,7 @@ export function ProtectedRoute({
   anyRole,
   allPermissions = [],
   anyPermissions = [],
+  anyPermissionGroups = [],
   allRoles = [],
   anyRoles = [],
   allowedScopes = [],
@@ -109,6 +112,7 @@ export function ProtectedRoute({
   const usesLegacyOnly =
     mergedAllPermissions.length === 0 &&
     mergedAnyPermissions.length === 0 &&
+    anyPermissionGroups.length === 0 &&
     mergedAllRoles.length === 0 &&
     mergedAnyRoles.length === 0 &&
     allowedScopes.length === 0 &&
@@ -128,6 +132,9 @@ export function ProtectedRoute({
         mergedAnyPermissions.some((permission) =>
           permissions.has(permission),
         )) &&
+      anyPermissionGroups.every((group) =>
+        group.some((permission) => permissions.has(permission)),
+      ) &&
       mergedAllRoles.every((role) => roles.has(role)) &&
       (mergedAnyRoles.length === 0 ||
         mergedAnyRoles.some((role) => roles.has(role)));

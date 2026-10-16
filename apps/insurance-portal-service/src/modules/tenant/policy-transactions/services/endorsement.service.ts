@@ -893,6 +893,7 @@ export class EndorsementService {
       user,
       'transaction',
       'policy',
+      'policy-transactions:read',
     )
       .andWhere('transaction.id = :transactionId', { transactionId })
       .andWhere('transaction.transaction_type = :transactionType', {
@@ -1202,10 +1203,18 @@ export class EndorsementService {
         transactionCompanyId: user.companyId!,
       });
 
-    this.dataAccessScopeService.applyPolicyReadScope(
+    // Approvers also see endorsements awaiting approval outside their own
+    // data scope; command permissions keep the normal scope.
+    const includePendingApproval =
+      (permission === 'policy-transactions:read' ||
+        permission === 'endorsements:approve') &&
+      (user.permissions ?? []).includes('endorsements:approve');
+    this.dataAccessScopeService.applyPolicyTransactionReadScope(
       query,
       policyAlias,
+      transactionAlias,
       this.dataAccessScopeService.resolve(user, permission),
+      includePendingApproval,
     );
 
     return query;

@@ -29,12 +29,16 @@ const ENDPOINT_MATRIX: EndpointExpectation[] = [
   {
     method: 'listEndorsements',
     action: UnderwriteAction.ENDORSEMENTS_VIEW,
-    permissions: ['endorsements:create'],
+    anyPermissions: [
+      'endorsements:create',
+      'policy-transactions:read',
+      'endorsements:approve',
+    ],
   },
   {
     method: 'listCancellations',
     action: UnderwriteAction.CANCELLATIONS_VIEW,
-    permissions: ['cancellations:read'],
+    anyPermissions: ['cancellations:read', 'cancellations:approve'],
   },
   {
     method: 'listTiraFailed',
@@ -66,8 +70,8 @@ const ENDPOINT_MATRIX: EndpointExpectation[] = [
   },
   {
     method: 'endorsementContext',
-    action: UnderwriteAction.ENDORSEMENTS_MANAGE,
-    permissions: ['endorsements:update-draft'],
+    action: UnderwriteAction.ENDORSEMENTS_VIEW,
+    anyPermissions: ['endorsements:update-draft', 'endorsements:approve'],
   },
   {
     method: 'recordEndorsementChange',
@@ -137,7 +141,7 @@ const ENDPOINT_MATRIX: EndpointExpectation[] = [
   {
     method: 'cancellationContext',
     action: UnderwriteAction.CANCELLATIONS_VIEW,
-    permissions: ['cancellations:read'],
+    anyPermissions: ['cancellations:read', 'cancellations:approve'],
   },
   {
     method: 'completeCancellation',
