@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Eye } from 'lucide-react';
+import { Download, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DataTable,
@@ -16,6 +16,10 @@ import { underwriteApi } from '../api';
 import { underwriteKeys, useUnderwriteLineParam } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
 import { underwritePaths } from '../paths';
+import {
+  downloadPdf,
+  documentFilename,
+} from '@/modules/shared/documents/download-pdf';
 
 const POLICY_STATUS_OPTIONS = [
   'COVER_NOTE_ISSUED',
@@ -100,18 +104,34 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
     {
       key: 'actions',
       header: '',
-      className: 'w-12',
+      className: 'w-40',
       cell: (row) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`View ${row.policy_no}`}
-          onClick={() =>
-            navigate(underwritePaths.policyDetail(line.slug, row.id))
-          }
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={`Download policy schedule for ${row.policy_no}`}
+            onClick={() =>
+              void downloadPdf(
+                `/tenant/policies/${row.id}/schedule/download`,
+                documentFilename(row.policy_no, '-schedule'),
+              )
+            }
+          >
+            <Download className="mr-1 h-4 w-4" />
+            Download
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={`View ${row.policy_no}`}
+            onClick={() =>
+              navigate(underwritePaths.policyDetail(line.slug, row.id))
+            }
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
