@@ -91,9 +91,9 @@ export function PoliciesPage() {
     {
       key: 'actions',
       header: '',
-      className: 'w-12',
+      className: 'w-44',
       cell: (row) => (
-        <div className="flex justify-end gap-1">
+        <div className="flex items-center justify-end gap-1">
           <Button
             variant="ghost"
             size="icon"
@@ -105,8 +105,8 @@ export function PoliciesPage() {
             row.policy_status.toUpperCase(),
           ) && (
             <Button
-              variant="ghost"
-              size="icon"
+              variant="outline"
+              size="sm"
               aria-label="Download policy schedule PDF"
               title="Download policy schedule PDF"
               onClick={() =>
@@ -116,7 +116,8 @@ export function PoliciesPage() {
                 )
               }
             >
-              <Download className="h-4 w-4" />
+              <Download className="mr-1 h-4 w-4" />
+              Download
             </Button>
           )}
           {!row.issued_by_system && (

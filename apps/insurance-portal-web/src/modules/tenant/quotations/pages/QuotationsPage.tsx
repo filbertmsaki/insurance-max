@@ -174,9 +174,22 @@ export function QuotationsPage() {
       key: 'actions',
       header: 'Actions',
       className:
-        'w-12 sticky right-0 bg-white shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.15)]',
+        'w-44 sticky right-0 bg-white shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.15)]',
       cell: (row) => (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              void downloadPdf(
+                `/tenant/quotations/${row.id}/document/download`,
+                documentFilename(row.quotation_no),
+              )
+            }
+          >
+            <Download className="mr-1 h-4 w-4" />
+            Download
+          </Button>
           <ActionMenu
             contentClassName="w-44"
             items={[
