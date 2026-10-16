@@ -167,6 +167,25 @@ describe('DataAccessScopeService', () => {
       expect(scope.ownRecordsOnly).toBe(false);
     });
 
+    it('wins over an own-records permission held alongside it', () => {
+      const scope = service.resolve(
+        {
+          ...baseUser,
+          permissions: [
+            DataScopePermissions.COMPANY_ALL,
+            DataScopePermissions.OWN_RECORDS,
+          ],
+        },
+        'quotations:read',
+      );
+
+      expect(scope.quotationPolicyDataScope).toBe(
+        QuotationPolicyDataScope.COMPANY,
+      );
+      expect(scope.canViewAllBranches).toBe(true);
+      expect(scope.ownRecordsOnly).toBe(false);
+    });
+
     it('is narrowed by a direct per-member branch scope', () => {
       const scope = service.resolve(
         {

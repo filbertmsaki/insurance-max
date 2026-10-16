@@ -67,13 +67,13 @@ export class DataAccessScopeService {
     );
     // Company-wide access granted by a role (data-scope:company-all) wins
     // over narrower role-level scopes. Only a direct per-member grant (the
-    // Company Data Access setting) may deliberately narrow it. External
-    // users and an own-records grant always stay creator-only.
+    // Company Data Access setting) may deliberately narrow it. Permissions
+    // are additive, so it also wins over an own-records grant held
+    // alongside it. External users always stay creator-only.
     const hasCompanyWideGrant =
       permissions.has(DataScopePermissions.COMPANY_ALL) &&
       !hasDirectPermissionScope &&
-      !isExternalUser &&
-      !permissions.has(DataScopePermissions.OWN_RECORDS);
+      !isExternalUser;
     // Branch team access: internal staff on the default USER scope share
     // records with colleagues in every branch they are assigned to, so they
     // can follow up on work started by someone else. External users and an
@@ -117,6 +117,7 @@ export class DataAccessScopeService {
     const ownRecordsOnly =
       quotationPolicyDataScope === QuotationPolicyDataScope.USER ||
       (!hasExplicitPermissionScope &&
+        !hasCompanyWideGrant &&
         permissions.has(DataScopePermissions.OWN_RECORDS)) ||
       isExternalUser;
 
