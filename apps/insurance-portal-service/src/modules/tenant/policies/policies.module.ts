@@ -26,6 +26,8 @@ import { Policy } from './entities/policy.entity';
 import { PoliciesController } from './policies.controller';
 import { PoliciesService } from './policies.service';
 import { PolicyVersionDiffService } from './services/policy-version-diff.service';
+import { InsurancePdfService } from '../documents/insurance-pdf.service';
+import { InsuranceDocumentsController } from '../documents/insurance-documents.controller';
 
 @Module({
   imports: [
@@ -55,8 +57,8 @@ import { PolicyVersionDiffService } from './services/policy-version-diff.service
       User,
     ]),
   ],
-  controllers: [PoliciesController],
-  providers: [PoliciesService, PolicyVersionDiffService],
+  controllers: [PoliciesController, InsuranceDocumentsController],
+  providers: [PoliciesService, PolicyVersionDiffService, InsurancePdfService],
   exports: [PoliciesService],
 })
 export class PoliciesModule {}
