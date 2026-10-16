@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, RotateCcw } from 'lucide-react';
+import { Download, Eye, Pencil, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DataTable,
@@ -17,6 +17,10 @@ import { policiesApi } from '../api';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import type { PolicyRecord } from '../types';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
+import {
+  downloadPdf,
+  documentFilename,
+} from '@/modules/shared/documents/download-pdf';
 
 const FILTER_KEYS = ['policy_status', 'customer_id'] as const;
 const STATUS_OPTIONS = [
@@ -97,6 +101,24 @@ export function PoliciesPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
+          {!['DRAFT', 'PENDING', 'INCOMPLETE'].includes(
+            row.policy_status.toUpperCase(),
+          ) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Download policy schedule PDF"
+              title="Download policy schedule PDF"
+              onClick={() =>
+                void downloadPdf(
+                  `/tenant/policies/${row.id}/schedule/download`,
+                  documentFilename(row.policy_no, '-schedule'),
+                )
+              }
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          )}
           {!row.issued_by_system && (
             <>
               <Button

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Eye, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Download, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,10 @@ import { useDeleteQuotation } from '../hooks';
 import type { QuotationListItem, QuotationListParams } from '../types';
 import { formatCoverPeriod } from '../utils/coverPeriod';
 import { canEditQuotation } from '../utils/quotation-editability';
+import {
+  downloadPdf,
+  documentFilename,
+} from '@/modules/shared/documents/download-pdf';
 
 const FILTER_KEYS = [
   'status',
@@ -182,6 +186,15 @@ export function QuotationsPage() {
                 onClick: () => {
                   void navigate(sharedUnderwritePaths.quotationDetail(row.id));
                 },
+              },
+              {
+                label: 'Download quotation PDF',
+                icon: <Download className="h-4 w-4" />,
+                onClick: () =>
+                  void downloadPdf(
+                    `/tenant/quotations/${row.id}/document/download`,
+                    documentFilename(row.quotation_no),
+                  ),
               },
               ...(canEditQuotation(row)
                 ? [
