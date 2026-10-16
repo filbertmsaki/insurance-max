@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Eye, Pencil, Plus } from 'lucide-react';
+import { Download, Eye, Pencil, Plus } from 'lucide-react';
 import {
   UnderwriteAction,
   underwritePermission,
@@ -24,6 +24,10 @@ import { underwriteKeys, useUnderwriteLineParam } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
 import { underwritePaths } from '../paths';
 import { canEditQuotation } from '@/modules/tenant/quotations/utils/quotation-editability';
+import {
+  downloadPdf,
+  documentFilename,
+} from '@/modules/shared/documents/download-pdf';
 
 const STATUS_OPTIONS = [
   'DRAFT',
@@ -168,9 +172,23 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
     {
       key: 'actions',
       header: '',
-      className: 'w-24',
+      className: 'w-40',
       cell: (row) => (
-        <div className="flex justify-end gap-1">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={`Download quotation PDF for ${row.quotation_no}`}
+            onClick={() =>
+              void downloadPdf(
+                `/tenant/quotations/${row.id}/document/download`,
+                documentFilename(row.quotation_no),
+              )
+            }
+          >
+            <Download className="mr-1 h-4 w-4" />
+            Download
+          </Button>
           {canEdit &&
             !row.source_policy_transaction_id &&
             canEditQuotation(row) && (
