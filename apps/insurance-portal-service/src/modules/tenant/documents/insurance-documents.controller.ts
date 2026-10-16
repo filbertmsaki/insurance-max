@@ -17,30 +17,50 @@ export class InsuranceDocumentsController {
   @Get('quotations/:id/document/preview')
   @Permissions('quotations:read')
   @ApiOperation({ summary: 'Preview a quotation PDF' })
-  async quotationPreview(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+  async quotationPreview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
     return this.send(await this.documents.quotation(user, id), res, false);
   }
 
   @Get('quotations/:id/document/download')
   @Permissions('quotations:read')
-  async quotationDownload(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+  async quotationDownload(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
     return this.send(await this.documents.quotation(user, id), res, true);
   }
 
   @Get('policies/:id/schedule/preview')
   @Permissions('policies:read')
   @ApiOperation({ summary: 'Preview the current policy schedule PDF' })
-  async schedulePreview(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+  async schedulePreview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
     return this.send(await this.documents.schedule(user, id), res, false);
   }
 
   @Get('policies/:id/schedule/download')
   @Permissions('policies:read')
-  async scheduleDownload(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+  async scheduleDownload(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
     return this.send(await this.documents.schedule(user, id), res, true);
   }
 
-  private send(doc: { bytes: Uint8Array; filename: string }, res: Response, attachment: boolean) {
+  private send(
+    doc: { bytes: Uint8Array; filename: string },
+    res: Response,
+    attachment: boolean,
+  ) {
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `${attachment ? 'attachment' : 'inline'}; filename="${doc.filename}"`,
