@@ -3,11 +3,13 @@ import {
   PDFFont,
   PDFImage,
   PDFPage,
+  Color,
   StandardFonts,
   degrees,
   grayscale,
   rgb,
 } from 'pdf-lib';
+import * as QRCode from 'qrcode';
 import * as W from './motor-schedule.wording';
 
 export interface MotorScheduleVehicle {
@@ -35,11 +37,24 @@ export interface MotorScheduleData {
   from: string;
   to: string;
   renewalDate: string;
+  /** Address, phone, email, TIN and licence lines printed under the logo. */
+  insurerContact: string[];
+  productName: string;
+  policyStatus: string;
+  branch: string;
+  insuredTin: string;
+  insuredPhone: string;
+  insuredEmail: string;
+  sumInsured: string;
   currency: string;
-  premium: string;
-  vatLabel: string;
-  vat: string;
+  /** Itemised premium lines (basic, discount, levies, VAT...) above Total. */
+  premiumLines: [string, string][];
   total: string;
+  /** Text encoded in the verification QR code. */
+  verification: string;
+  generatedAt: string;
+  /** Diagonal stamp such as DRAFT or CANCELLED; empty for a live policy. */
+  watermark: string;
   vehicles: MotorScheduleVehicle[];
   place: string;
   issueDate: string;
@@ -48,15 +63,16 @@ export interface MotorScheduleData {
   approvedBy: string;
   printedBy: string;
   printedOn: string;
-  draft: boolean;
 }
 
 type Align = 'left' | 'center' | 'right';
+/** Grey level (0-1) or the brand colour with white text. */
+type Fill = number | 'brand';
 interface Cell {
   t: string;
   w: number;
   b?: boolean;
-  fill?: number;
+  fill?: Fill;
   align?: Align;
 }
 
@@ -64,8 +80,8 @@ const PAGE_W = 595.28;
 const PAGE_H = 841.89;
 const M = 30;
 const CONTENT_W = PAGE_W - M * 2;
-const FOOTER_H = 92;
-const HEADER_H = 78;
+const FOOTER_H = 104;
+const HEADER_H = 84;
 const PAD = 3;
 const GRID = grayscale(0.25);
 const BRAND_RED = rgb(0.88, 0.11, 0.18);
@@ -78,11 +94,15 @@ export async function renderMotorSchedule(
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Motor Policy Schedule ${data.policyNo}`);
   pdf.setAuthor(data.insurerName);
+  pdf.setSubject(`Policy schedule for ${data.insuredName}`);
+  pdf.setCreator(data.insurerName);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
   const r = new Renderer(
     pdf,
-    await pdf.embedFont(StandardFonts.Helvetica),
+    font,
     await pdf.embedFont(StandardFonts.HelveticaBold),
     await embedLogo(pdf, data.insurerLogo),
+    await embedQr(pdf, data.verification),
     data,
   );
   r.newPage(false);
@@ -93,7 +113,37 @@ export async function renderMotorSchedule(
   r.newPage(true);
   r.limitsOfLiability();
   r.deductibles();
+
+  // Page numbers need the final page count, so they go on last.
+  const pages = pdf.getPages();
+  pages.forEach((page, i) => {
+    const text = clean(
+      `Page ${i + 1} of ${pages.length}   |   ${data.policyNo}   |   Generated ${data.generatedAt}`,
+    );
+    const size = 6.5;
+    page.drawText(text, {
+      x: (PAGE_W - font.widthOfTextAtSize(text, size)) / 2,
+      y: M - 12,
+      size,
+      font,
+      color: grayscale(0.45),
+    });
+  });
   return pdf.save();
+}
+
+async function embedQr(pdf: PDFDocument, text: string) {
+  if (!text) return null;
+  try {
+    const png = await QRCode.toBuffer(text, {
+      errorCorrectionLevel: 'M',
+      margin: 0,
+      width: 240,
+    });
+    return await pdf.embedPng(png);
+  } catch {
+    return null;
+  }
 }
 
 async function embedLogo(pdf: PDFDocument, bytes: Uint8Array | null) {
@@ -130,24 +180,34 @@ class Renderer {
     private readonly font: PDFFont,
     private readonly bold: PDFFont,
     private readonly logo: PDFImage | null,
+    private readonly qr: PDFImage | null,
     private readonly d: MotorScheduleData,
   ) {}
 
   newPage(attached: boolean) {
     this.page = this.pdf.addPage([PAGE_W, PAGE_H]);
+    this.watermark();
     this.header(attached);
     this.footer();
-    if (this.d.draft) {
-      this.page.drawText('DRAFT', {
-        x: 150,
-        y: 300,
-        size: 110,
-        font: this.bold,
-        color: grayscale(0.88),
-        rotate: degrees(40),
-      });
-    }
     this.y = HEADER_H + (attached ? 14 : 0);
+  }
+
+  private watermark() {
+    const text = clean(this.d.watermark.toUpperCase());
+    if (!text) return;
+    // Fit the stamp along the page diagonal whatever its length.
+    const size = Math.min(110, 620 / Math.max(1, text.length * 0.62));
+    const w = this.bold.widthOfTextAtSize(text, size);
+    const a = (38 * Math.PI) / 180;
+    this.page.drawText(text, {
+      x: PAGE_W / 2 - (w / 2) * Math.cos(a) + (size / 3) * Math.sin(a),
+      y: PAGE_H / 2 - (w / 2) * Math.sin(a) - (size / 3) * Math.cos(a),
+      size,
+      font: this.bold,
+      color: rgb(0.85, 0.2, 0.2),
+      opacity: 0.12,
+      rotate: degrees(38),
+    });
   }
 
   // ---------- page furniture ----------
@@ -183,6 +243,34 @@ class Renderer {
       size: 13,
       font: this.bold,
       color: BRAND_BLUE,
+    });
+    this.d.insurerContact.slice(0, 5).forEach((line, i) => {
+      this.text(
+        line,
+        M + 250,
+        top + 2 + i * 9,
+        CONTENT_W - 250,
+        7,
+        false,
+        'right',
+        grayscale(0.3),
+      );
+    });
+    // Two-tone brand rule under the letterhead.
+    const ruleY = PAGE_H - HEADER_H + 10;
+    this.page.drawRectangle({
+      x: M,
+      y: ruleY,
+      width: CONTENT_W * 0.7,
+      height: 2,
+      color: BRAND_BLUE,
+    });
+    this.page.drawRectangle({
+      x: M + CONTENT_W * 0.7,
+      y: ruleY,
+      width: CONTENT_W * 0.3,
+      height: 2,
+      color: BRAND_RED,
     });
     if (attached) {
       this.text(
@@ -242,15 +330,15 @@ class Renderer {
         {
           t: 'MOTOR POLICY SCHEDULE',
           w: CONTENT_W,
-          fill: 0.75,
+          b: true,
+          fill: 'brand',
           align: 'center',
         },
       ],
-      8,
-      16,
+      10,
+      20,
     );
     this.y += 4;
-    this.row([{ t: '', w: CONTENT_W, fill: 0.75 }], 8, 5);
     const L = 115;
     this.row([
       { t: 'Policy Number :', w: L, b: true },
@@ -263,8 +351,23 @@ class Renderer {
         { t: label, w: L, b: true },
         { t: value, w: CONTENT_W - L },
       ]);
+    const pair = (l1: string, v1: string, l2: string, v2: string) =>
+      this.row([
+        { t: l1, w: L, b: true },
+        { t: v1, w: 200 },
+        { t: l2, w: 90, b: true },
+        { t: v2, w: CONTENT_W - L - 290 },
+      ]);
+    pair('Product / Class :', d.productName, 'Policy Status :', d.policyStatus);
     full('Insured Name:', d.insuredName);
-    full('Broker Invoice No:', d.brokerInvoiceNo);
+    pair('Insured TIN :', d.insuredTin, 'Phone :', d.insuredPhone);
+    pair('Email :', d.insuredEmail, 'Branch :', d.branch);
+    pair(
+      'Broker Invoice No:',
+      d.brokerInvoiceNo,
+      'Sum Insured :',
+      d.sumInsured,
+    );
     full('Address Details :', d.addressDetails);
     full('Postal Address :', d.postalAddress);
     this.row([
@@ -280,43 +383,75 @@ class Renderer {
       { t: '', w: CONTENT_W - L - 165 },
     ]);
 
-    // Premium block: a merged label cell on the left, four amount rows right.
+    // Premium block: a merged cell on the left (title + verification QR) and
+    // the itemised amounts on the right.
     const leftW = L + 165;
-    const startY = this.y;
-    const amounts: [string, string, number?][] = [
-      ['Currency', d.currency],
-      ['Premium', d.premium],
-      [d.vatLabel, d.vat],
-      ['Total', d.total, 0.75],
+    const amounts: [string, string, Fill][] = [
+      ['Currency', d.currency, 0.93],
+      ...d.premiumLines.map(([l, v]): [string, string, Fill] => [l, v, 0.93]),
+      ['Total Payable', d.total, 'brand'],
     ];
+    const rowH = Math.max(14, 76 / amounts.length);
+    this.ensure(rowH * amounts.length);
+    const startY = this.y;
     for (const [label, value, fill] of amounts) {
       this.row(
         [
-          { t: '', w: 90, fill: 0.75 },
-          { t: label, w: 80, b: true, fill: fill ?? 0.75 },
+          { t: label, w: 125, b: true, fill },
           {
             t: value,
-            w: CONTENT_W - leftW - 170,
+            w: CONTENT_W - leftW - 125,
             b: true,
             align: 'right',
-            fill: fill ?? 0.75,
+            fill,
           },
         ],
         8,
-        14,
+        rowH,
         leftW,
       );
     }
-    this.cell(
-      M,
-      startY,
-      leftW,
-      this.y - startY,
+    const h = this.y - startY;
+    this.cell(M, startY, leftW, h, '', false, 0.93);
+    this.text(
       'PREMIUM DETAILS',
+      M + 8,
+      startY + 8,
+      150,
+      10,
       true,
-      0.75,
       'left',
+      BRAND_BLUE,
     );
+    this.text(
+      'Amounts are inclusive of applicable statutory taxes and levies.',
+      M + 8,
+      startY + 24,
+      leftW - h - 20,
+      6.5,
+      false,
+      'left',
+      grayscale(0.35),
+    );
+    if (this.qr) {
+      const size = h - 14;
+      this.page.drawImage(this.qr, {
+        x: M + leftW - size - 8,
+        y: PAGE_H - startY - size - 4,
+        width: size,
+        height: size,
+      });
+      this.text(
+        'Scan to verify',
+        M + leftW - size - 8,
+        startY + size + 5,
+        size,
+        5.5,
+        false,
+        'center',
+        grayscale(0.35),
+      );
+    }
     this.y += 14;
   }
 
@@ -486,7 +621,7 @@ class Renderer {
       8,
       true,
     );
-    this.y += 10;
+    this.y += 6;
     this.para(
       'SCHEDULE II(a) : Applicable to Motor Private Car & Motor Cycles',
       8,
@@ -506,7 +641,7 @@ class Renderer {
       this.row(r.map((t, i) => ({ t, w: a[i] })));
     this.row([{ t: W.SCHEDULE_IIA_NOTE, w: CONTENT_W }]);
 
-    this.y += 10;
+    this.y += 6;
     this.para(
       'SCHEDULE 11(b) : Applicable to Motor Commercial Vehicle',
       8,
@@ -585,8 +720,8 @@ class Renderer {
 
   private row(
     cells: Cell[],
-    size = this.dense ? 7 : 8,
-    minH = this.dense ? 12 : 14,
+    size = this.dense ? 6.8 : 8,
+    minH = this.dense ? 11 : 14,
     xOffset = 0,
   ) {
     const lineH = size + 2;
@@ -614,7 +749,7 @@ class Renderer {
     h: number,
     text: string,
     isBold = false,
-    fill?: number,
+    fill?: Fill,
     align: Align = 'left',
     size = 8,
   ) {
@@ -625,14 +760,20 @@ class Renderer {
       height: h,
       borderColor: GRID,
       borderWidth: 0.6,
-      color: fill === undefined ? undefined : grayscale(fill),
+      color:
+        fill === undefined
+          ? undefined
+          : fill === 'brand'
+            ? BRAND_BLUE
+            : grayscale(fill),
     });
     const font = isBold ? this.bold : this.font;
     const lines = this.wrap(text, font, size, w - PAD * 2);
     const lineH = size + 2;
     let ty = top + (h - lines.length * lineH) / 2 + 1;
     for (const line of lines) {
-      this.text(line, x + PAD, ty, w - PAD * 2, size, isBold, align);
+      const ink = fill === 'brand' ? rgb(1, 1, 1) : undefined;
+      this.text(line, x + PAD, ty, w - PAD * 2, size, isBold, align, ink);
       ty += lineH;
     }
   }
@@ -646,6 +787,7 @@ class Renderer {
     size: number,
     isBold = false,
     align: Align = 'left',
+    color: Color = grayscale(0),
   ) {
     const font = isBold ? this.bold : this.font;
     const t = clean(value);
@@ -661,6 +803,7 @@ class Renderer {
       y: PAGE_H - top - size * 0.8,
       size,
       font,
+      color,
     });
   }
 
