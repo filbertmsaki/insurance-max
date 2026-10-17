@@ -3422,9 +3422,14 @@ const permissionSeeds: PermissionSeed[] = [
   ...COMPANY_OPERATIONS_PERMISSION_SEEDS,
 ];
 
+// Narrows a role to creator-only records, so it never belongs on a
+// full-access or administrative role.
+const OWN_RECORDS_PERMISSION_NAME = 'data-scope:own-records';
+
 const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
   .filter((permission) => permission.scopes.includes('default_company'))
-  .map((permission) => permission.name);
+  .map((permission) => permission.name)
+  .filter((name) => name !== OWN_RECORDS_PERMISSION_NAME);
 
 // Granted to individual company memberships only, never through a role.
 const PER_USER_ONLY_PERMISSION_NAMES = new Set([

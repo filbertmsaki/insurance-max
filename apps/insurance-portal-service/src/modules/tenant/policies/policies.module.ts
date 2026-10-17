@@ -9,6 +9,7 @@ import { InsuranceCategory } from '../insurance-categories/entities/insurance-ca
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
+import { MotorPolicyDetail } from '../motor/entities/motor-policy-detail.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { NonMotorPolicyDetail } from '../non-motor/entities/non-motor-policy-detail.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
@@ -51,6 +52,7 @@ import { InsuranceDocumentsController } from '../documents/insurance-documents.c
       InsuranceRisk,
       SubjectMatter,
       MotorVehicle,
+      MotorPolicyDetail,
       NonMotorPolicyDetail,
       Quotation,
       QuotationEntryRisk,
