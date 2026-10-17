@@ -249,11 +249,9 @@ export class PlatformTiramisIntegrationService {
         parsed.pathname.endsWith('/api')
       ) {
         throw new BadRequestException(
-          'Enter a base URL without credentials, query, fragment, or trailing /api. Production requires HTTPS.',
+          'Enter an HTTP or HTTPS base URL without credentials, query, fragment, or trailing /api.',
         );
       }
-      if (environment === 'production' && parsed.protocol !== 'https:')
-        throw new BadRequestException('Production TIRAMIS URL must use HTTPS.');
     }
     if (params.webhookSourceIp?.trim()) {
       const [address, prefix] = params.webhookSourceIp.trim().split('/');
