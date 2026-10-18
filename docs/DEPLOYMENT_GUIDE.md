@@ -175,6 +175,33 @@ openssl rand -base64 48                       # 32+ char secrets (JWT_*, peppers
   CREATE DATABASE insurance_portal_db OWNER portal_app;
   ```
 
+- **Provision the Portal search extension before running application migrations.**
+  Run once on the database server as its PostgreSQL administrator:
+
+  ```bash
+  sudo -u postgres psql --dbname=insurance_portal_db --set=ON_ERROR_STOP=1 \
+    --command='CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;'
+  ```
+
+  Replace `insurance_portal_db` with the production Portal `DB_DATABASE` value.
+  For a remote or managed database, use its administrator connection instead of
+  local `sudo`. From a repository checkout the equivalent command is
+  `psql --dbname=insurance_portal_db --set=ON_ERROR_STOP=1 --file=deploy/backend/database-extensions.sql`.
+  This runs in the Portal database, not the default `postgres` database or the
+  TIRAMIS database. Do not grant the application role superuser privileges.
+  If PostgreSQL cannot find the extension control file, install the matching
+  PostgreSQL contrib package on the database server first.
+
+  A deployment reporting `permission denied to create extension "pg_trgm"`
+  failed before the wizard search migration applied: its transaction rolled
+  back. Provision the extension, verify it with
+  `SELECT extname, extversion FROM pg_extension WHERE extname = 'pg_trgm';`,
+  then rerun the Backend CI/CD deployment. No migration-history edits or database
+  reset are needed. `WizardRecordSearch1794600000000` checks this prerequisite
+  before backfilling identifiers and creating all three search indexes. CI
+  provisions the extension as its administrator; disposable e2e databases
+  provision it during setup before application migrations.
+
 - **`DB_SSL=true`** passes `ssl: true` to `pg`, which verifies the server certificate against the system CA store. If your database uses a self-signed or internal-CA certificate, either install that CA on the app host (`NODE_EXTRA_CA_CERTS=/path/ca.pem` in the PM2 env) or use `DB_SSL=false` on a private network.
 - **`DB_DATABASE` is the variable that matters.** `DB_NAME` is a duplicate; set both to the same value.
 

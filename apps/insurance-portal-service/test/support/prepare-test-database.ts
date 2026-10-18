@@ -20,6 +20,11 @@ async function prepare() {
   });
   await dataSource.initialize();
   try {
+    // Disposable database provisioning is separate from application migrations,
+    // just as production extensions are installed once by the DBA.
+    await dataSource.query(
+      'CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public',
+    );
     await dataSource.runMigrations();
     await runAllSeeders(dataSource);
   } finally {

@@ -366,7 +366,7 @@ All tests use isolated fixtures. The e2e suite runs only against `insurance_port
   - It does not run a `COUNT`.
 - **Vehicle search.** `GET /tenant/motor/vehicles/search`: `motor.controller.ts`, `MotorService.searchVehicles`. It is company-scoped like the rest of the register, and returns a masked chassis number and the owner's name.
 - **Migration `1794600000000-WizardRecordSearch`.**
-  - Adds `pg_trgm` and the customer search-document GIN index.
+  - Requires administrator-provisioned `pg_trgm` and creates the customer search-document GIN index. Provision with `deploy/backend/database-extensions.sql` before application migrations; the application database role does not install extensions. See the PostgreSQL setup section in `docs/DEPLOYMENT_GUIDE.md`.
   - Backfills `registration_no_normalized` / `chassis_no_normalized`.
   - Adds trigram indexes on those two columns.
   - The entities declare the indexes with `synchronize: false`, so migration generation will not drop them.

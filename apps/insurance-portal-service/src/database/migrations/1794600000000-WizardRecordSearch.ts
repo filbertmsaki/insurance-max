@@ -32,7 +32,20 @@ export class WizardRecordSearch1794600000000 implements MigrationInterface {
   name = 'WizardRecordSearch1794600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
+    // Extension installation belongs to database provisioning. Production
+    // migrations run as the application role, which may not install extensions.
+    const [extension] = await queryRunner.query(
+      `SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') AS installed`,
+    );
+    if (!extension?.installed) {
+      throw new Error(
+        'WizardRecordSearch requires pg_trgm in the target database. ' +
+          'Ask the database administrator to run: ' +
+          'CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public; ' +
+          'Then retry deployment. See deploy/backend/database-extensions.sql. ' +
+          'The application role does not need superuser privileges.',
+      );
+    }
 
     await queryRunner.query(`
       UPDATE "motor_vehicles"

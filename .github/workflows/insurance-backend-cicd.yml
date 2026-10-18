@@ -394,6 +394,14 @@ jobs:
 
           echo "Testing CI database..."
 
+          # Provision extensions with the database administrator. Migration
+          # roles must not need extension-installation privileges in production.
+          sudo -u postgres \
+            psql \
+            --dbname="${CI_DB_DATABASE}" \
+            --set ON_ERROR_STOP=1 \
+            --file=deploy/backend/database-extensions.sql
+
           PGPASSWORD="${CI_DB_PASSWORD}" \
           psql \
             -h "${CI_DB_HOST}" \
