@@ -97,7 +97,7 @@ export function useSubjectMatterFactorValues(subjectMatterId?: string) {
   });
 }
 
-export function useSubjectMatterOptions() {
+export function useSubjectMatterOptions(enabled = true) {
   return useQuery({
     queryKey: [...nonMotorKeys.subjectMatters(), 'options'] as const,
     queryFn: async () =>
@@ -107,6 +107,7 @@ export function useSubjectMatterOptions() {
           limit: API_MAX_LIST_LIMIT,
         })
       ).data,
+    enabled,
     staleTime: 60_000,
   });
 }

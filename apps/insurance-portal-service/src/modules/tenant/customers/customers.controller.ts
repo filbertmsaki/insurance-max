@@ -15,6 +15,7 @@ import { Permissions } from '@insurance-max/portal-shared/decorators/permissions
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
+import { SearchCustomersDto } from './dto/search-customers.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomersService } from './customers.service';
 import { TenantScoped } from '@insurance-max/portal-shared';
@@ -44,6 +45,19 @@ export class CustomersController {
     @Query() query: FilterCustomerDto,
   ) {
     return this.customersService.findAllForUser(user, query);
+  }
+
+  // Declared before `:id` so "search" is not parsed as a customer ID.
+  @Get('search')
+  @Permissions('customers:read')
+  @ApiOperation({
+    summary: 'Find customers by name, phone or ID number (summary fields)',
+  })
+  search(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: SearchCustomersDto,
+  ) {
+    return this.customersService.searchForUser(user, query);
   }
 
   @Get(':id')

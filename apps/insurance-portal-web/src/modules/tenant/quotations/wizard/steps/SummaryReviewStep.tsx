@@ -26,13 +26,48 @@ interface Props {
   riskOptions: InsuranceRisk[];
   riskCount: number;
   onEditStep: (step: QuotationWizardStepId) => void;
+  /** Payment method is captured here unless an earlier step already asks. */
+  showPaymentMode?: boolean;
+  /** Adds an Edit link to each summary block (single-screen wizards). */
+  onEditSection?: (section: SummarySection) => void;
 }
+
+export type SummarySection = 'customer' | 'vehicle' | 'cover' | 'premium';
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const PAYMENT_MODE_OPTIONS = [
+  { value: '1', label: 'Cash' },
+  { value: '2', label: 'Cheque' },
+  { value: '3', label: 'EFT' },
+] as const;
+
+function EditLink({
+  section,
+  onEditSection,
+}: {
+  section: SummarySection;
+  onEditSection?: (section: SummarySection) => void;
+}) {
+  if (!onEditSection) return null;
+  return (
+    <button
+      type="button"
+      className="ml-2 text-xs font-medium text-primary hover:underline"
+      onClick={() => onEditSection(section)}
+    >
+      Edit
+    </button>
+  );
+}
+
 export function SummaryReviewStep({
   form,
   customerOptions,
   productOptions,
   riskOptions,
   onEditStep,
+  showPaymentMode = true,
+  onEditSection,
 }: Props) {
   const values = form.watch();
   const totals = quotationTotals(values);
@@ -42,6 +77,16 @@ export function SummaryReviewStep({
     (item) => item.id === values.customer_id,
   );
   const money = (value: number) => formatMoney(value, values.currency || 'TZS');
+  const totalDiscount = (
+    values.quotation_flow === 'MOTOR_FLEET'
+      ? values.fleet.items.flatMap((item) => item.risks_covered)
+      : values.risks
+  )
+    .flatMap((risk) => risk.discounts_offered ?? [])
+    .reduce(
+      (sum, discount) => sum + (Number(discount.discount_amount) || 0),
+      0,
+    );
   const risks =
     values.quotation_flow === 'MOTOR_FLEET'
       ? values.fleet.items.flatMap((item) => item.risks_covered)
@@ -52,27 +97,46 @@ export function SummaryReviewStep({
     <StepSection title="Review quotation" first>
       <div className="grid gap-4 rounded-lg border p-4 text-sm sm:grid-cols-2">
         <div>
-          <p className="text-slate-500">Product</p>
+          <p className="text-slate-500">
+            Policyholder
+            <EditLink section="customer" onEditSection={onEditSection} />
+          </p>
           <p className="font-medium">
-            {product?.product_name ?? product?.name ?? 'Choose a product'}
-          </p>
-        </div>
-        <div>
-          <p className="text-slate-500">Cover period</p>
-          <p>
-            {formatCoverDateLabel(values.valid_from)} –{' '}
-            {formatCoverDateLabel(values.valid_until)}
-          </p>
-        </div>
-        <div>
-          <p className="text-slate-500">Policyholder</p>
-          <p>
             {values.policyholder_mode === 'existing'
               ? customer
                 ? getCustomerDisplayName(customer)
                 : 'Select policyholder'
               : values.policyholder.full_name ||
                 values.policyholder.company_name}
+          </p>
+          {values.policyholder_mode === 'existing' && customer && (
+            <p className="text-xs text-slate-500">
+              {[customer.customer_no, customer.phone]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
+        </div>
+        {values.quotation_flow === 'MOTOR_SINGLE' && (
+          <div>
+            <p className="text-slate-500">
+              Vehicle
+              <EditLink section="vehicle" onEditSection={onEditSection} />
+            </p>
+            <p className="font-medium">
+              {values.motor.registration_no || values.motor.chassis_no} ·{' '}
+              {values.motor.make} {values.motor.model} ·{' '}
+              {values.motor.manufacture_year}
+            </p>
+          </div>
+        )}
+        <div>
+          <p className="text-slate-500">
+            Product
+            <EditLink section="cover" onEditSection={onEditSection} />
+          </p>
+          <p className="font-medium">
+            {product?.product_name ?? product?.name ?? 'Choose a product'}
           </p>
         </div>
         <div>
@@ -83,13 +147,20 @@ export function SummaryReviewStep({
             )}
           </p>
         </div>
-        {values.quotation_flow === 'MOTOR_SINGLE' && (
+        <div>
+          <p className="text-slate-500">Cover period</p>
+          <p>
+            {formatCoverDateLabel(values.valid_from)} –{' '}
+            {formatCoverDateLabel(values.valid_until)}
+          </p>
+        </div>
+        {!showPaymentMode && (
           <div>
-            <p className="text-slate-500">Vehicle</p>
+            <p className="text-slate-500">Payment method</p>
             <p>
-              {values.motor.registration_no || values.motor.chassis_no} ·{' '}
-              {values.motor.make} {values.motor.model} ·{' '}
-              {values.motor.manufacture_year}
+              {{ '1': 'Cash', '2': 'Cheque', '3': 'EFT' }[
+                values.payment_mode_tira
+              ] ?? '—'}
             </p>
           </div>
         )}
@@ -150,6 +221,21 @@ export function SummaryReviewStep({
           </p>
         )}
       <div className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
+        {onEditSection && (
+          <div className="flex justify-between text-xs font-medium uppercase tracking-wide text-slate-500">
+            <span>
+              Premium
+              <EditLink section="premium" onEditSection={onEditSection} />
+            </span>
+            <span>{values.currency || 'TZS'}</span>
+          </div>
+        )}
+        {totalDiscount > 0 && (
+          <div className="flex justify-between text-slate-600">
+            <span>Discount applied</span>
+            <span>−{money(totalDiscount)}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span>Premium (including optional covers)</span>
           <span>{money(totals.premium)}</span>
@@ -163,19 +249,17 @@ export function SummaryReviewStep({
           <span>{money(totals.total)}</span>
         </div>
       </div>
-      <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
-        <WizardInput
-          form={form}
-          name="payment_mode_tira"
-          label="Payment method"
-          required
-          options={[
-            { value: '1', label: 'Cash' },
-            { value: '2', label: 'Cheque' },
-            { value: '3', label: 'EFT' },
-          ]}
-        />
-      </div>
+      {showPaymentMode && (
+        <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+          <WizardInput
+            form={form}
+            name="payment_mode_tira"
+            label="Payment method"
+            required
+            options={PAYMENT_MODE_OPTIONS}
+          />
+        </div>
+      )}
       {issues.length > 0 && (
         <div
           role="status"
@@ -187,7 +271,7 @@ export function SummaryReviewStep({
           ))}
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
+      <div className={onEditSection ? 'hidden' : 'flex flex-wrap gap-2'}>
         <Button
           type="button"
           variant="outline"

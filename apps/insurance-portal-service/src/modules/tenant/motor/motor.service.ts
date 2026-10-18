@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AssetOwnershipType } from '@insurance-max/contracts';
 import {
+  Brackets,
   DataSource,
   EntityManager,
   IsNull,
@@ -16,7 +17,10 @@ import {
   Repository,
   SelectQueryBuilder,
 } from 'typeorm';
-import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import {
+  escapeLike,
+  paginateQueryBuilder,
+} from '@insurance-max/portal-shared/utils/paginate-query.util';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
@@ -31,6 +35,10 @@ import { CreateMotorFleetItemDto } from './dto/create-motor-fleet-item.dto';
 import { CreateMotorPolicyDetailDto } from './dto/create-motor-policy-detail.dto';
 import { CreateMotorVehicleDto } from './dto/create-motor-vehicle.dto';
 import { FilterMotorDto } from './dto/filter-motor.dto';
+import {
+  MOTOR_VEHICLE_SEARCH_MAX_LIMIT,
+  SearchMotorVehiclesDto,
+} from './dto/search-motor-vehicles.dto';
 import { UpdateMotorFleetDto } from './dto/update-motor-fleet.dto';
 import { UpdateMotorFleetItemDto } from './dto/update-motor-fleet-item.dto';
 import { UpdateMotorPolicyDetailDto } from './dto/update-motor-policy-detail.dto';
@@ -44,6 +52,10 @@ import { MotorVehicle } from './entities/motor-vehicle.entity';
 import { MotorVehicleOwnership } from './entities/motor-vehicle-ownership.entity';
 import { MotorVehicleVersion } from './entities/motor-vehicle-version.entity';
 import { TiraVehicleMapperService } from './services/tira-vehicle-mapper.service';
+import {
+  maskChassisNumber,
+  normalizeMotorIdentifier,
+} from './utils/motor-identifier.util';
 
 type NumericLike = number | string | null | undefined;
 
@@ -121,9 +133,7 @@ export class MotorService {
   }
 
   private normalizeMotorIdentifier(value?: string | null): string | null {
-    const normalized = this.normalizeText(value);
-    if (!normalized) return null;
-    return normalized.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || null;
+    return normalizeMotorIdentifier(value);
   }
 
   private normalizeUpperText(value?: string | null): string | null {
@@ -732,6 +742,112 @@ export class MotorService {
         'customer.last_name',
       ],
     });
+  }
+
+  /**
+   * Registration / chassis lookup for the quotation wizards. Matches the
+   * normalised identifiers, so spaces, hyphens and case are ignored, and
+   * returns summary fields; callers load the full record with `findVehicle`.
+   * The whole company register is searched (a vehicle may change hands);
+   * `customer_id` only ranks that customer's vehicles first.
+   */
+  async searchVehicles(companyId: string, query: SearchMotorVehiclesDto) {
+    const limit = Math.min(query.limit ?? 20, MOTOR_VEHICLE_SEARCH_MAX_LIMIT);
+    const page = query.page ?? 1;
+    const key = normalizeMotorIdentifier(query.q);
+    if (!key || key.length < 2) {
+      return {
+        data: [],
+        meta: { page, limit, hasNextPage: false, hasPreviousPage: page > 1 },
+      };
+    }
+
+    const ownCustomerRank = query.customer_id
+      ? 'WHEN vehicle.customer_id = :searchCustomerId THEN 1'
+      : '';
+    const rows = await this.motorVehicleRepository
+      .createQueryBuilder('vehicle')
+      .leftJoin('vehicle.customer', 'customer')
+      .select([
+        'vehicle.id',
+        'vehicle.customer_id',
+        'vehicle.registration_no',
+        'vehicle.chassis_no',
+        'vehicle.make',
+        'vehicle.model',
+        'vehicle.manufacture_year',
+        'vehicle.motor_category',
+        'vehicle.motor_type',
+        'vehicle.updated_at',
+        'customer.id',
+        'customer.customer_no',
+        'customer.display_name',
+        'customer.company_name',
+        'customer.first_name',
+        'customer.last_name',
+      ])
+      .where('vehicle.company_id = :companyId', { companyId })
+      .andWhere('vehicle.deleted_at IS NULL')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where(
+            `vehicle.registration_no_normalized LIKE :searchPrefix ESCAPE '\\'`,
+          ).orWhere(
+            `vehicle.chassis_no_normalized LIKE :searchContains ESCAPE '\\'`,
+          );
+        }),
+      )
+      .orderBy(
+        `CASE
+          WHEN vehicle.registration_no_normalized = :searchKey
+            OR vehicle.chassis_no_normalized = :searchKey THEN 0
+          ${ownCustomerRank}
+          ELSE 2
+        END`,
+        'ASC',
+      )
+      .addOrderBy('vehicle.updated_at', 'DESC')
+      .addOrderBy('vehicle.id', 'ASC')
+      .setParameters({
+        searchKey: key,
+        searchPrefix: `${escapeLike(key)}%`,
+        searchContains: `%${escapeLike(key)}%`,
+        searchCustomerId: query.customer_id ?? null,
+      })
+      .offset((page - 1) * limit)
+      .limit(limit + 1)
+      .getMany();
+
+    return {
+      data: rows.slice(0, limit).map((vehicle) => ({
+        id: vehicle.id,
+        registration_no: vehicle.registration_no,
+        chassis_no_masked: maskChassisNumber(vehicle.chassis_no),
+        make: vehicle.make,
+        model: vehicle.model,
+        manufacture_year: vehicle.manufacture_year,
+        motor_category: vehicle.motor_category,
+        motor_type: vehicle.motor_type,
+        customer: vehicle.customer
+          ? {
+              id: vehicle.customer.id,
+              customer_no: vehicle.customer.customer_no,
+              name:
+                vehicle.customer.display_name ||
+                vehicle.customer.company_name ||
+                [vehicle.customer.first_name, vehicle.customer.last_name]
+                  .filter(Boolean)
+                  .join(' '),
+            }
+          : null,
+      })),
+      meta: {
+        page,
+        limit,
+        hasNextPage: rows.length > limit,
+        hasPreviousPage: page > 1,
+      },
+    };
   }
 
   async findVehicle(companyId: string, id: string) {

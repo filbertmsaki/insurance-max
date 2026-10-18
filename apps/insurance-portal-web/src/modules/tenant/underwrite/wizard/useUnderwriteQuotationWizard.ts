@@ -13,11 +13,11 @@ import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { hasPermission } from '@/lib/auth/permissions';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { useCustomer } from '@/modules/tenant/customers/hooks';
 import {
   quotationKeys,
   useQuotationCategories,
   useQuotationCurrentCompanyId,
-  useQuotationCustomers,
   useQuotationProducts,
   useQuotationRisks,
   useQuotationVehicles,
@@ -60,11 +60,7 @@ import { defaultValuesForLine } from './defaults';
 const SELECT_INSURANCE_CHANNEL_PERMISSION =
   'quotations:select-insurance-channel';
 
-const EDITABLE_STATUSES = new Set([
-  'COMPLETED',
-  'CANCELLED',
-  'EXPIRED',
-]);
+const EDITABLE_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'EXPIRED']);
 
 export interface UnderwriteWizardStep {
   id: string;
@@ -210,7 +206,18 @@ export function useUnderwriteQuotationWizard({
 
   // ─── Reference data ─────────────────────────────────────────────────────
   const businessLine = line.line === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
-  const { data: customerOptions = [] } = useQuotationCustomers();
+  // Customers are searched on the server; only the chosen one is loaded.
+  const selectedCustomerQuery = useCustomer(
+    policyholderMode === 'existing' && customerId ? customerId : undefined,
+  );
+  const selectedCustomer =
+    selectedCustomerQuery.data?.id === customerId
+      ? selectedCustomerQuery.data
+      : undefined;
+  const customerOptions = useMemo(
+    () => (selectedCustomer ? [selectedCustomer] : []),
+    [selectedCustomer],
+  );
   const { data: categoryOptions = [] } = useQuotationCategories(businessLine);
   const { data: productOptions = [] } = useQuotationProducts({
     business_line: businessLine,
@@ -222,10 +229,15 @@ export function useUnderwriteQuotationWizard({
   const { data: riskOptions = [] } = useQuotationRisks(
     productId || savedProductId || undefined,
   );
+  // Fleet lists the customer's saved vehicles; Motor searches the register.
   const { data: vehicleOptions = [] } = useQuotationVehicles(
-    policyholderMode === 'existing' ? customerId : undefined,
+    line.line === 'FLEET' && policyholderMode === 'existing'
+      ? customerId
+      : undefined,
   );
-  const { data: allSubjectMatters = [] } = useSubjectMatterOptions();
+  const { data: allSubjectMatters = [] } = useSubjectMatterOptions(
+    line.line === 'NON_MOTOR',
+  );
   const subjectMatterOptions = useMemo(
     () =>
       line.line === 'NON_MOTOR' && policyholderMode === 'existing' && customerId
@@ -234,9 +246,6 @@ export function useUnderwriteQuotationWizard({
     [allSubjectMatters, customerId, line.line, policyholderMode],
   );
 
-  const selectedCustomer = customerOptions.find(
-    (item) => item.id === customerId,
-  );
   const selectedPolicyHolderType =
     policyholderMode === 'existing' && selectedCustomer
       ? (selectedCustomer.policy_holder_type ??
@@ -737,6 +746,17 @@ export function useUnderwriteQuotationWizard({
       return;
     }
 
+    // The policyholder payload is built from the loaded customer record.
+    if (
+      form.getValues('policyholder_mode') === 'existing' &&
+      !selectedCustomer
+    ) {
+      toast.error(
+        'The selected customer is still loading. Try again in a moment.',
+      );
+      return;
+    }
+
     const pricingIssues = quotationPricingIssues(form.getValues());
     if (pricingIssues.length) {
       toast.error(pricingIssues[0]);
@@ -798,6 +818,7 @@ export function useUnderwriteQuotationWizard({
     productOptions,
     salePointCode,
     saveDraft,
+    selectedCustomer,
     steps,
   ]);
 

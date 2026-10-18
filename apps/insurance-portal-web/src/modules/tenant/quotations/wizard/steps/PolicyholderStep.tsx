@@ -1,17 +1,26 @@
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import {
+  AlertTriangle,
   Building2,
   ChevronDown,
   CreditCard,
+  Loader2,
   Mail,
   MapPin,
   Pencil,
   Phone,
   RefreshCw,
   UserCircle2,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { hasPermission } from '@/lib/auth/permissions';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import {
+  useCreateCustomer,
+  useCustomer,
+} from '@/modules/tenant/customers/hooks';
+import { useRef, useState, type ReactNode } from 'react';
 import type { FieldPath, UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,8 +40,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CustomerStatusBadge } from '@/modules/tenant/customers/components/CustomerStatusBadge';
-import { Combobox } from '@/components/ui/combobox';
 import { LocationReferenceSelects } from '@/modules/platform/reference-data/components/LocationReferenceSelects';
+import { CustomerSearchField } from '../components/CustomerSearchField';
 import {
   CUSTOMER_GENDER_OPTIONS,
   CUSTOMER_ID_TYPE_OPTIONS,
@@ -41,11 +50,7 @@ import {
 } from '@/modules/tenant/customers/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { StepSection } from '../components/StepSection';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 import {
   fromSelectValue,
@@ -55,13 +60,49 @@ import {
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
+  /** Customers already loaded by the caller; others are fetched by ID. */
   customerOptions: CustomerRecord[];
   newCustomerInDialog?: boolean;
+}
+
+const CREATE_CUSTOMER_PERMISSION = 'customers:create';
+
+/** Carries what was typed in the search into the new-customer form. */
+function prefillPolicyholderFromSearch(
+  values: QuotationFormSchemaValues['policyholder'],
+  search: string,
+): QuotationFormSchemaValues['policyholder'] {
+  const term = search.trim();
+  if (!term) return values;
+  const digits = term.replace(/[\s()+.-]/g, '');
+  if (/^\d{9,12}$/.test(digits)) return { ...values, phone: term };
+  if (/^\d{13,}$/.test(digits)) return { ...values, id_number: term };
+  if (/[a-z]/i.test(term) && !/\d/.test(term)) {
+    return { ...values, full_name: term };
+  }
+  return values;
+}
+
+/** Policyholder facts TIRA needs that an older customer record may lack. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function missingPolicyholderDetails(customer: CustomerRecord): string[] {
+  const missing: Array<[boolean, string]> = [
+    [!getCustomerDisplayName(customer), 'name'],
+    [!customer.date_of_birth, 'date of birth'],
+    [!customer.id_type || !customer.id_number, 'ID number'],
+    [!customer.phone, 'phone number'],
+    [!customer.region, 'region'],
+    [!customer.district, 'district'],
+    [customer.customer_type !== 'CORPORATE' && !customer.gender, 'gender'],
+  ];
+  return missing.filter(([isMissing]) => isMissing).map(([, label]) => label);
 }
 
 function PolicyholderDetailsContainer({
   enabled,
   open,
+  confirmLabel,
+  confirming,
   onOpenChange,
   onConfirm,
   onCancel,
@@ -69,6 +110,8 @@ function PolicyholderDetailsContainer({
 }: {
   enabled: boolean;
   open: boolean;
+  confirmLabel: string;
+  confirming: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   onCancel: () => void;
@@ -84,8 +127,9 @@ function PolicyholderDetailsContainer({
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="button" onClick={onConfirm}>
-            Use these details
+          <Button type="button" onClick={onConfirm} disabled={confirming}>
+            {confirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -165,6 +209,7 @@ function ExistingCustomerCard({
   const location = [customer.district, customer.region]
     .filter(Boolean)
     .join(', ');
+  const missing = missingPolicyholderDetails(customer);
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-start gap-3 p-4">
@@ -189,7 +234,12 @@ function ExistingCustomerCard({
         </div>
 
         <div className="flex gap-1">
-          <Button type="button" variant="ghost" size="sm" onClick={onEditDetails}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onEditDetails}
+          >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
@@ -216,6 +266,26 @@ function ExistingCustomerCard({
         )}
         {location && <QuickFact icon={MapPin}>{location}</QuickFact>}
       </div>
+
+      {missing.length > 0 && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-2 border-t border-amber-100 bg-amber-50 px-4 py-2 text-sm text-amber-800"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Missing for TIRA: {missing.join(', ')}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onEditDetails}
+          >
+            Complete details
+          </Button>
+        </div>
+      )}
 
       <div className="flex items-center justify-end gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/70 px-4 py-2">
         <button
@@ -301,9 +371,35 @@ export function PolicyholderStep({
   newCustomerInDialog = false,
 }: Props) {
   const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false);
+  // 'create' adds a customer; 'edit' adjusts a selected customer's details
+  // for this quotation only (the customer record itself is not changed).
+  const [dialogPurpose, setDialogPurpose] = useState<'create' | 'edit'>(
+    'create',
+  );
+  const previousCustomerIdRef = useRef('');
+  const currentUser = useAuthStore((state) => state.user);
+  const canCreateCustomer = hasPermission(
+    currentUser,
+    CREATE_CUSTOMER_PERMISSION,
+  );
+  const createCustomer = useCreateCustomer();
   const mode = form.watch('policyholder_mode');
   const customerId = form.watch('customer_id');
-  const selectedCustomer = customerOptions.find((c) => c.id === customerId);
+  const listedCustomer = customerOptions.find((c) => c.id === customerId);
+  const customerQuery = useCustomer(
+    mode === 'existing' && customerId && !listedCustomer
+      ? customerId
+      : undefined,
+  );
+  const selectedCustomer =
+    listedCustomer ??
+    (customerQuery.data?.id === customerId ? customerQuery.data : undefined);
+  // With customers:create a new customer is saved and selected straight
+  // away; otherwise its details stay on the quotation and the customer is
+  // created when the quotation is completed (the previous behaviour).
+  const savesCustomerImmediately =
+    dialogPurpose === 'create' && canCreateCustomer;
+  const detailsInDialog = newCustomerInDialog || savesCustomerImmediately;
   const today = new Date().toISOString().slice(0, 10);
 
   const customerType = form.watch('policyholder.customer_type');
@@ -316,40 +412,51 @@ export function PolicyholderStep({
     (option) =>
       option.appliesTo === 'BOTH' || option.appliesTo === customerType,
   );
-  const customerSearchOptions = customerOptions.map((customer) => {
-    const searchText = [
-      getCustomerDisplayName(customer),
-      customer.customer_no,
-      customer.phone,
-      customer.email,
-      customer.id_number,
-      customer.registration_no,
-      customer.tin,
-    ]
-      .filter(Boolean)
-      .join(' | ');
-
-    return {
-      value: customer.id,
-      label: `${getCustomerDisplayName(customer)} · ${customer.phone || customer.id_number || customer.customer_no}`,
-      keywords: [searchText],
-    };
-  });
-
-  function openNewCustomerDialog() {
-    if (mode !== 'new') form.setValue('customer_id', '');
+  function openNewCustomerDialog(search = '') {
+    if (mode !== 'new' || dialogPurpose === 'edit') {
+      form.setValue(
+        'policyholder',
+        prefillPolicyholderFromSearch(getCustomerDefaultValues(), search),
+      );
+    }
+    previousCustomerIdRef.current =
+      mode === 'existing' ? form.getValues('customer_id') : '';
+    setDialogPurpose('create');
+    form.setValue('customer_id', '');
     form.setValue('policyholder_mode', 'new');
     setIsNewCustomerDialogOpen(true);
   }
 
-  function closeNewCustomerDialog() {
+  function switchToExistingCustomer() {
     setIsNewCustomerDialogOpen(false);
     form.setValue('policyholder_mode', 'existing');
+    if (dialogPurpose === 'create' && previousCustomerIdRef.current) {
+      form.setValue('customer_id', previousCustomerIdRef.current);
+    }
   }
 
   async function confirmNewCustomerDetails() {
     const valid = await form.trigger('policyholder', { shouldFocus: true });
-    if (valid) setIsNewCustomerDialogOpen(false);
+    if (!valid) return;
+    if (!savesCustomerImmediately) {
+      setIsNewCustomerDialogOpen(false);
+      return;
+    }
+    try {
+      const created = await createCustomer.mutateAsync(
+        form.getValues('policyholder'),
+      );
+      form.setValue('customer_id', created.id, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue('policyholder_mode', 'existing', { shouldDirty: true });
+      form.setValue('policyholder', getCustomerDefaultValues());
+      setIsNewCustomerDialogOpen(false);
+    } catch {
+      // The mutation already reported the error (e.g. a possible duplicate);
+      // keep the details open so they can be corrected.
+    }
   }
 
   function handleCustomerTypeChange(nextType: 'INDIVIDUAL' | 'CORPORATE') {
@@ -373,88 +480,109 @@ export function PolicyholderStep({
   return (
     <>
       <StepSection title="Policyholder" first>
-        <div className="flex gap-2">
-          {[
-            { value: 'existing' as const, label: 'Existing Customer' },
-            { value: 'new' as const, label: 'New Customer' },
-          ].map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                if (option.value === 'new' && newCustomerInDialog) {
-                  openNewCustomerDialog();
-                  return;
-                }
-                form.setValue('policyholder_mode', option.value);
-                setIsNewCustomerDialogOpen(false);
-              }}
-              className={[
-                'cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
-                mode === option.value
-                  ? 'border-slate-900 bg-slate-900 text-white'
-                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-              ].join(' ')}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
         {mode === 'existing' ? (
           <FormField
             control={form.control}
             name="customer_id"
-            render={({ field }) => (
+            render={({ field, fieldState }) => (
               <WizardFormItem>
-                <FormLabel required>Existing Customer</FormLabel>
-                <FormControl>
-                  <Combobox
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    options={customerSearchOptions}
-                    placeholder="Search or select a customer"
-                    searchPlaceholder="Name, phone, email, customer no, ID, registration, TIN"
-                    emptyText="No matching customer found."
-                  />
-                </FormControl>
+                <FormLabel required>Customer</FormLabel>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="min-w-0 flex-1">
+                    <FormControl>
+                      <CustomerSearchField
+                        value={field.value}
+                        selectedLabel={
+                          selectedCustomer
+                            ? getCustomerDisplayName(selectedCustomer)
+                            : undefined
+                        }
+                        onSelect={field.onChange}
+                        onCreateNew={openNewCustomerDialog}
+                        invalid={Boolean(fieldState.error)}
+                        triggerRef={field.ref}
+                      />
+                    </FormControl>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => openNewCustomerDialog()}
+                  >
+                    <UserPlus className="mr-1.5 h-4 w-4" />
+                    New customer
+                  </Button>
+                </div>
                 <FormMessage />
               </WizardFormItem>
             )}
           />
-        ) : newCustomerInDialog ? (
+        ) : (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div>
               <p className="text-sm font-medium text-slate-800">
                 {form.watch('policyholder.full_name') || 'New policyholder'}
               </p>
               <p className="text-xs text-slate-500">
-                {form.watch('policyholder.phone') ||
-                  'Add the policyholder details to continue.'}
+                {detailsInDialog
+                  ? form.watch('policyholder.phone') ||
+                    'Add the policyholder details to continue.'
+                  : 'Fill in the policyholder details below. A new customer record will be created when you save this quotation.'}
               </p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsNewCustomerDialogOpen(true)}
-            >
-              {form.watch('policyholder.full_name')
-                ? 'Edit details'
-                : 'Enter details'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={switchToExistingCustomer}
+              >
+                Use an existing customer
+              </Button>
+              {detailsInDialog && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsNewCustomerDialogOpen(true)}
+                >
+                  {form.watch('policyholder.full_name')
+                    ? 'Edit details'
+                    : 'Enter details'}
+                </Button>
+              )}
+            </div>
           </div>
-        ) : (
-          <p className="text-sm text-slate-500">
-            Fill in the policyholder details below. A new customer record will
-            be created when you save this quotation.
-          </p>
         )}
+
+        {mode === 'existing' &&
+          customerId &&
+          !selectedCustomer &&
+          (customerQuery.isError ? (
+            <p role="alert" className="text-sm text-red-600">
+              This customer could not be loaded.{' '}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => void customerQuery.refetch()}
+              >
+                Retry
+              </button>
+            </p>
+          ) : (
+            <p
+              role="status"
+              className="flex items-center gap-2 text-sm text-slate-500"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading customer…
+            </p>
+          ))}
 
         {mode === 'existing' && selectedCustomer && (
           <ExistingCustomerCard
             customer={selectedCustomer}
             onChangeCustomer={() => form.setValue('customer_id', '')}
             onEditDetails={() => {
+              setDialogPurpose('edit');
               form.setValue(
                 'policyholder',
                 getCustomerDefaultValues(selectedCustomer),
@@ -468,17 +596,25 @@ export function PolicyholderStep({
 
       {mode === 'new' && (
         <PolicyholderDetailsContainer
-          enabled={newCustomerInDialog}
+          enabled={detailsInDialog}
           open={isNewCustomerDialogOpen}
+          confirmLabel={
+            savesCustomerImmediately ? 'Save customer' : 'Use these details'
+          }
+          confirming={createCustomer.isPending}
           onOpenChange={(open) => {
-            setIsNewCustomerDialogOpen(open);
-            if (!open) form.setValue('policyholder_mode', 'existing');
+            if (open) setIsNewCustomerDialogOpen(true);
+            else switchToExistingCustomer();
           }}
           onConfirm={() => void confirmNewCustomerDetails()}
-          onCancel={closeNewCustomerDialog}
+          onCancel={switchToExistingCustomer}
         >
           <StepSection
-            title="New Policyholder Details"
+            title={
+              dialogPurpose === 'edit'
+                ? 'Policyholder details for this quotation'
+                : 'New customer'
+            }
             contentClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
           >
             <div className="sm:col-span-2 lg:col-span-3">

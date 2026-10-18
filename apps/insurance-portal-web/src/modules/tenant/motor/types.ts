@@ -192,6 +192,19 @@ export interface MotorPolicyDetailRecord {
   motor_vehicle?: MotorVehicleRecord | null;
 }
 
+/** Summary row from `GET /tenant/motor/vehicles/search` (chassis masked). */
+export interface MotorVehicleSearchResult {
+  id: string;
+  registration_no: string | null;
+  chassis_no_masked: string | null;
+  make: string | null;
+  model: string | null;
+  manufacture_year: number | null;
+  motor_category: number | null;
+  motor_type: number | null;
+  customer: { id: string; customer_no: string; name: string } | null;
+}
+
 export interface MotorListParams {
   page?: number;
   limit?: number;

@@ -10,7 +10,6 @@ import { useDebouncedValue } from '@/components/data-table/hooks/useDebouncedVal
 import { selectTriggerClassName } from '@/components/ui/select';
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -25,6 +24,20 @@ import type { ComboboxOption } from '@/components/ui/combobox';
 
 export const ASYNC_COMBOBOX_PAGE_SIZE = 20;
 
+export interface AsyncComboboxOption extends ComboboxOption {
+  /** Second line under the label, e.g. identifiers that tell records apart. */
+  description?: string;
+}
+
+export interface AsyncComboboxAction {
+  key: string;
+  label: (search: string) => React.ReactNode;
+  icon?: React.ReactNode;
+  /** Hide the action for the current search (e.g. too short to look up). */
+  hidden?: (search: string) => boolean;
+  onSelect: (search: string) => void;
+}
+
 interface AsyncComboboxProps {
   /** Base cache key; the search term is appended. */
   queryKey: QueryKey;
@@ -36,18 +49,30 @@ interface AsyncComboboxProps {
     search: string,
     limit: number,
     signal: AbortSignal,
-  ) => Promise<{ options: ComboboxOption[]; total?: number }>;
+  ) => Promise<{
+    options: AsyncComboboxOption[];
+    total?: number;
+    /** Set when more matches exist than were returned (no total known). */
+    hasMore?: boolean;
+  }>;
   value?: string;
   /** Label for the current value when it is not in the loaded options. */
   selectedLabel?: string;
-  onValueChange: (value: string, option?: ComboboxOption) => void;
+  onValueChange: (value: string, option?: AsyncComboboxOption) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
+  /** Characters needed before the server is queried (default: none). */
+  minSearchLength?: number;
+  /** Shown instead of results while the search is shorter than that. */
+  minSearchHint?: string;
+  /** Extra commands listed under the results (keyboard reachable). */
+  actions?: AsyncComboboxAction[];
   className?: string;
   disabled?: boolean;
   id?: string;
   'aria-invalid'?: boolean;
+  'aria-required'?: boolean;
   ref?: React.Ref<HTMLButtonElement>;
 }
 
@@ -64,32 +89,46 @@ export function AsyncCombobox({
   placeholder = 'Select…',
   searchPlaceholder = 'Type to search…',
   emptyText = 'No results found.',
+  minSearchLength = 0,
+  minSearchHint,
+  actions = [],
   className,
   disabled,
   id,
   'aria-invalid': ariaInvalid,
+  'aria-required': ariaRequired,
   ref,
 }: AsyncComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
   const debounced = useDebouncedValue(search.trim(), 300);
-  const [picked, setPicked] = React.useState<ComboboxOption | null>(null);
+  const [picked, setPicked] = React.useState<AsyncComboboxOption | null>(null);
+  const searchable = debounced.length >= minSearchLength;
 
   const query = useQuery({
     queryKey: [...queryKey, 'options', debounced],
     queryFn: ({ signal }) =>
       fetchOptions(debounced, ASYNC_COMBOBOX_PAGE_SIZE, signal),
-    enabled: open,
+    enabled: open && searchable,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
-  const options = query.data?.options ?? [];
-  const total = query.data?.total;
+  const options = searchable ? (query.data?.options ?? []) : [];
+  const total = searchable ? query.data?.total : undefined;
+  const hasMore = searchable && query.data?.hasMore === true;
+  const visibleActions = actions.filter(
+    (action) => !action.hidden?.(search.trim()),
+  );
 
   const label =
     (value && options.find((option) => option.value === value)?.label) ||
     (value && picked?.value === value ? picked.label : undefined) ||
     (value ? selectedLabel : undefined);
+
+  const close = () => {
+    setOpen(false);
+    setSearch('');
+  };
 
   return (
     <Popover
@@ -106,6 +145,7 @@ export function AsyncCombobox({
           role="combobox"
           id={id}
           aria-invalid={ariaInvalid}
+          aria-required={ariaRequired}
           aria-expanded={open}
           disabled={disabled}
           className={cn(
@@ -130,8 +170,8 @@ export function AsyncCombobox({
             value={search}
             onValueChange={setSearch}
           />
-          <CommandList className="max-h-[300px] min-h-0">
-            {query.isFetching && (
+          <CommandList className="max-h-[320px] min-h-0">
+            {searchable && query.isFetching && (
               <div
                 role="status"
                 className="flex items-center gap-2 px-3 py-2 text-xs text-slate-500"
@@ -139,7 +179,13 @@ export function AsyncCombobox({
                 <Loader2 className="h-3 w-3 animate-spin" /> Searching…
               </div>
             )}
-            {query.isError ? (
+            {!searchable ? (
+              minSearchHint && (
+                <p className="px-3 py-4 text-center text-sm text-slate-500">
+                  {minSearchHint}
+                </p>
+              )
+            ) : query.isError ? (
               <div className="px-3 py-6 text-center text-sm text-red-600">
                 Could not load options.{' '}
                 <button
@@ -151,34 +197,72 @@ export function AsyncCombobox({
                 </button>
               </div>
             ) : (
-              !query.isFetching && <CommandEmpty>{emptyText}</CommandEmpty>
+              !query.isFetching &&
+              options.length === 0 && (
+                <p className="px-3 py-4 text-center text-sm text-slate-500">
+                  {emptyText}
+                </p>
+              )
             )}
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value}
-                  onSelect={() => {
-                    setPicked(option);
-                    onValueChange(option.value, option);
-                    setOpen(false);
-                    setSearch('');
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4',
-                      option.value === value ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            {options.length > 0 && (
+              <CommandGroup>
+                {options.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.value}
+                    onSelect={() => {
+                      setPicked(option);
+                      onValueChange(option.value, option);
+                      close();
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'mr-2 h-4 w-4 shrink-0',
+                        option.value === value ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate">{option.label}</span>
+                      {option.description && (
+                        <span className="block truncate text-xs text-slate-500">
+                          {option.description}
+                        </span>
+                      )}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
             {total !== undefined && total > options.length && (
               <p className="border-t px-3 py-2 text-xs text-slate-500">
                 Showing {options.length} of {total}. Type to narrow the results.
               </p>
+            )}
+            {hasMore && (
+              <p className="border-t px-3 py-2 text-xs text-slate-500">
+                More matches exist. Keep typing to narrow the results.
+              </p>
+            )}
+            {visibleActions.length > 0 && (
+              <CommandGroup className="border-t">
+                {visibleActions.map((action) => (
+                  <CommandItem
+                    key={action.key}
+                    value={`__action__${action.key}`}
+                    onSelect={() => {
+                      const term = search.trim();
+                      close();
+                      action.onSelect(term);
+                    }}
+                  >
+                    <span className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center text-slate-500">
+                      {action.icon}
+                    </span>
+                    {action.label(search.trim())}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
             )}
           </CommandList>
         </Command>

@@ -1,7 +1,19 @@
 import { setPricingFormValue } from '../utils/pricingFormUpdates';
 import { Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import {
+  useFormState,
+  useWatch,
+  type FieldPath,
+  type UseFormReturn,
+} from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -26,6 +38,7 @@ import {
 import {
   DISCOUNT_TYPE_OPTIONS,
   formatDiscountOptionLabel,
+  formatRatePercent,
   getDiscountRateForType,
 } from '../utils/taxOptions';
 import {
@@ -56,6 +69,13 @@ interface Props {
   factorContext?: QuotationFactorContext;
   showRiskSelector?: boolean;
   showSumInsured?: boolean;
+  /** Replaces the default "Risk #n" heading. */
+  title?: ReactNode;
+  /**
+   * Shows discount and tax as one summary line with a "Change" toggle. The
+   * fields stay mounted so the default tax is still applied and priced.
+   */
+  collapseAdjustments?: boolean;
 }
 
 const EMPTY_TAX_ROWS: QuotationFormSchemaValues['risks'][number]['taxes_charged'] =
@@ -79,7 +99,17 @@ export function RiskRow({
   factorContext,
   showRiskSelector = true,
   showSumInsured = true,
+  title,
+  collapseAdjustments = false,
 }: Props) {
+  const [adjustmentsOpen, setAdjustmentsOpen] = useState(false);
+  const adjustmentFormState = useFormState({
+    control: form.control,
+    name: [
+      `risks.${index}.discounts_offered`,
+      `risks.${index}.taxes_charged`,
+    ] as const,
+  });
   const riskId = useWatch({
     control: form.control,
     name: `risks.${index}.risk_id` as const,
@@ -285,16 +315,40 @@ export function RiskRow({
       ?.trim()
       .toUpperCase() || undefined;
 
+  const riskErrors = adjustmentFormState.errors.risks?.[index];
+  const adjustmentHasError = Boolean(
+    riskErrors?.discounts_offered || riskErrors?.taxes_charged,
+  );
+  const showAdjustments =
+    !collapseAdjustments || adjustmentsOpen || adjustmentHasError;
+  const discountOption = DISCOUNT_TYPE_OPTIONS.find(
+    (option) => option.value === discounts[0]?.discount_type,
+  );
+  const adjustmentsSummary = [
+    discountOption ? formatDiscountOptionLabel(discountOption) : 'No discount',
+    taxes.some((row) => row.is_tax_exempted)
+      ? 'Tax exempted'
+      : taxes
+          .filter((row) => row.tax_code)
+          .map(
+            (row) =>
+              `${row.tax_code} ${formatRatePercent(row.tax_rate || '0')}%`,
+          )
+          .join(', ') || 'No tax',
+  ].join(' · ');
+
   return (
     <StepSection
       variant="item"
       title={
-        <>
-          Risk #{index + 1}{' '}
-          {selectedRisk ? (
-            <span className="text-slate-500">{selectedRisk.risk_name}</span>
-          ) : null}
-        </>
+        title ?? (
+          <>
+            Risk #{index + 1}{' '}
+            {selectedRisk ? (
+              <span className="text-slate-500">{selectedRisk.risk_name}</span>
+            ) : null}
+          </>
+        )
       }
       action={
         canRemove ? (
@@ -386,51 +440,72 @@ export function RiskRow({
             />
           )}
 
-        <FormField
-          control={form.control}
-          name={path(index, 'discounts_offered.0.discount_type')}
-          render={() => (
-            <WizardFormItem>
-              <FormLabel>Discount Type</FormLabel>
-              <Select
-                value={toSelectValue(discounts[0]?.discount_type)}
-                onValueChange={(value) => {
-                  const nextType = fromSelectValue(value);
-                  // One discount per risk: the rate is resolved from the type
-                  // and the amount is recomputed by recomputeRiskRow above.
-                  form.setValue(path(index, 'discounts_offered'), [
-                    {
-                      ...createEmptyRiskDiscountRow(),
-                      ...(discounts[0] ?? {}),
-                      discount_type: nextType,
-                      discount_rate: nextType
-                        ? getDiscountRateForType(nextType)
-                        : '',
-                      discount_amount: '',
-                    },
-                  ]);
-                }}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="No discount" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value={SELECT_NONE_VALUE}>No discount</SelectItem>
-                  {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {formatDiscountOptionLabel(option)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </WizardFormItem>
-          )}
-        />
+        {collapseAdjustments && (
+          <div className="col-span-full flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-sm">
+            <span className="text-slate-600">
+              <span className="font-medium text-slate-800">Adjustments:</span>{' '}
+              {adjustmentsSummary}
+            </span>
+            <button
+              type="button"
+              className="text-xs font-medium text-primary hover:underline"
+              aria-expanded={adjustmentsOpen}
+              onClick={() => setAdjustmentsOpen((open) => !open)}
+            >
+              {adjustmentsOpen ? 'Hide' : 'Change discount or tax'}
+            </button>
+          </div>
+        )}
 
-        <RiskTaxesFields form={form} riskPath={`risks.${index}`} inline />
+        <div className={showAdjustments ? 'contents' : 'hidden'}>
+          <FormField
+            control={form.control}
+            name={path(index, 'discounts_offered.0.discount_type')}
+            render={() => (
+              <WizardFormItem>
+                <FormLabel>Discount Type</FormLabel>
+                <Select
+                  value={toSelectValue(discounts[0]?.discount_type)}
+                  onValueChange={(value) => {
+                    const nextType = fromSelectValue(value);
+                    // One discount per risk: the rate is resolved from the type
+                    // and the amount is recomputed by recomputeRiskRow above.
+                    form.setValue(path(index, 'discounts_offered'), [
+                      {
+                        ...createEmptyRiskDiscountRow(),
+                        ...(discounts[0] ?? {}),
+                        discount_type: nextType,
+                        discount_rate: nextType
+                          ? getDiscountRateForType(nextType)
+                          : '',
+                        discount_amount: '',
+                      },
+                    ]);
+                  }}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="No discount" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>
+                      No discount
+                    </SelectItem>
+                    {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {formatDiscountOptionLabel(option)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
+
+          <RiskTaxesFields form={form} riskPath={`risks.${index}`} inline />
+        </div>
 
         {visibleRequiredFactors.length > 0 && (
           <div className="col-span-full">

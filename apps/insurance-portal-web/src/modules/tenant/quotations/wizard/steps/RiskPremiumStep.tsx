@@ -41,6 +41,14 @@ interface Props {
   allowMultipleRisks?: boolean;
   showRiskSelector?: boolean;
   showSumInsured?: boolean;
+  /** Section heading (default "Cover & premium"). */
+  title?: string;
+  /** Heading for each risk row instead of "Risk #n". */
+  riskTitle?: string;
+  /** Fold discount and tax into one summary line per risk. */
+  collapseAdjustments?: boolean;
+  /** Drop the divider when this is the step's first section (default). */
+  first?: boolean;
 }
 
 export function RiskPremiumStep({
@@ -56,6 +64,10 @@ export function RiskPremiumStep({
   allowMultipleRisks = true,
   showRiskSelector = true,
   showSumInsured = true,
+  title = 'Cover & premium',
+  riskTitle,
+  collapseAdjustments = false,
+  first = true,
 }: Props) {
   const { fields } = fieldArray;
   const showSubjectMatters = flow === 'NON_MOTOR' && subjectMatterFieldArray;
@@ -63,8 +75,8 @@ export function RiskPremiumStep({
   return (
     <>
       <StepSection
-        title="Cover & premium"
-        first
+        title={title}
+        first={first}
         action={
           allowMultipleRisks ? (
             <Button
@@ -90,6 +102,8 @@ export function RiskPremiumStep({
             factorContext={factorContext}
             showRiskSelector={showRiskSelector}
             showSumInsured={showSumInsured}
+            title={riskTitle}
+            collapseAdjustments={collapseAdjustments}
           />
         ))}
       </StepSection>

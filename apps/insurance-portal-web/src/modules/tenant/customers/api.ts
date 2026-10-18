@@ -6,6 +6,7 @@ import type {
   CustomerAuditLogRecord,
   CustomerPayload,
   CustomerRecord,
+  CustomerSearchResult,
   CustomerVersionRecord,
 } from './types';
 
@@ -20,6 +21,21 @@ export const customersApi = {
     });
     return normalizePaginatedResponse(response.data);
   },
+
+  /** Server-side lookup by name, phone, ID or customer number (summary rows). */
+  searchCustomers: (
+    params: { q: string; limit?: number; page?: number },
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<PaginatedResponse<CustomerSearchResult>>(
+        '/tenant/customers/search',
+        {
+          params,
+          signal,
+        },
+      )
+      .then((r) => r.data),
 
   getCustomer: (id: string) =>
     apiClient
