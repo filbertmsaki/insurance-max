@@ -123,6 +123,8 @@ import { motorUsageTypeLabel } from './utils/motor-usage-type.util';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { MotorVehicleVersion } from '../motor/entities/motor-vehicle-version.entity';
+import { normalizeMotorIdentifier } from '../motor/utils/motor-identifier.util';
+import { recordVehicleOwnershipTransfer } from '../motor/utils/record-vehicle-ownership-transfer';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
@@ -8449,8 +8451,9 @@ export class QuotationsService {
     currencyCode: string,
     productDefinition?: ProductDefinitionSnapshot | null,
   ): Promise<void> {
+    let motorVehicle: MotorVehicle | null = null;
     if (input.motor_dtl && customerId) {
-      await this.persistMotorVehicle(
+      motorVehicle = await this.persistMotorVehicle(
         manager,
         quotation,
         customerId,
@@ -8490,12 +8493,10 @@ export class QuotationsService {
 
     if (input.motor_dtl) {
       const motorRepository = manager.getRepository(QuotationMotorDetail);
-      const motorVehicleVersionId = customerId
+      const motorVehicleVersionId = motorVehicle
         ? await this.resolveCurrentMotorVehicleVersionId(
             manager,
-            quotation.company_id,
-            customerId,
-            input.motor_dtl,
+            motorVehicle.id,
           )
         : null;
 
@@ -8511,44 +8512,87 @@ export class QuotationsService {
 
   private async resolveCurrentMotorVehicleVersionId(
     manager: EntityManager,
-    companyId: string,
-    customerId: string,
-    motor: MotorDetailDto,
+    motorVehicleId: string,
   ): Promise<string | null> {
-    const registrationNumber =
-      normalizeMotorTextValue(motor.registration_number) ?? '';
-    const chassisNumber = normalizeMotorTextValue(motor.chassis_number) ?? '';
-    const engineNumber = normalizeMotorTextValue(motor.engine_number) ?? '';
-    const vehicle = await manager
-      .getRepository(MotorVehicle)
-      .createQueryBuilder('vehicle')
-      .where('vehicle.company_id = :companyId', { companyId })
-      .andWhere('vehicle.customer_id = :customerId', { customerId })
-      .andWhere('vehicle.deleted_at IS NULL')
-      .andWhere(
-        new Brackets((qb) => {
-          qb.where(
-            'UPPER(TRIM(vehicle.registration_no)) = :registrationNumber',
-            { registrationNumber },
-          );
-          qb.orWhere('UPPER(TRIM(vehicle.chassis_no)) = :chassisNumber', {
-            chassisNumber,
-          });
-          qb.orWhere('UPPER(TRIM(vehicle.engine_no)) = :engineNumber', {
-            engineNumber,
-          });
-        }),
-      )
-      .getOne();
-
-    if (!vehicle) return null;
-
     const version = await manager.getRepository(MotorVehicleVersion).findOne({
-      where: { motor_vehicle_id: vehicle.id, is_current_version: true },
+      where: { motor_vehicle_id: motorVehicleId, is_current_version: true },
       order: { version_number: 'DESC' },
     });
 
     return version?.id ?? null;
+  }
+
+  /**
+   * The register entry a quotation's vehicle refers to. Registration and
+   * chassis are matched on their normalised keys across the company (so
+   * "T 123 ABC" and "T123ABC" are one vehicle, and a vehicle that changed
+   * hands is found); the engine number only within the policyholder's own
+   * vehicles, as before. The policyholder's own vehicle wins a tie.
+   */
+  private async findQuotationMotorVehicle(
+    manager: EntityManager,
+    companyId: string,
+    customerId: string,
+    motor: MotorDetailDto,
+  ): Promise<MotorVehicle | null> {
+    const registrationKey = normalizeMotorIdentifier(motor.registration_number);
+    const chassisKey = normalizeMotorIdentifier(motor.chassis_number);
+    const registrationNumber = normalizeMotorTextValue(
+      motor.registration_number,
+    );
+    const chassisNumber = normalizeMotorTextValue(motor.chassis_number);
+    const engineNumber = normalizeMotorTextValue(motor.engine_number);
+    if (!registrationKey && !chassisKey && !engineNumber) return null;
+
+    return manager
+      .getRepository(MotorVehicle)
+      .createQueryBuilder('vehicle')
+      .where('vehicle.company_id = :companyId', { companyId })
+      .andWhere('vehicle.deleted_at IS NULL')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('1 = 0');
+          if (registrationKey) {
+            qb.orWhere(
+              'vehicle.registration_no_normalized = :registrationKey',
+              {
+                registrationKey,
+              },
+            );
+          }
+          if (registrationNumber) {
+            qb.orWhere(
+              'UPPER(TRIM(vehicle.registration_no)) = :registrationNumber',
+              { registrationNumber },
+            );
+          }
+          if (chassisKey) {
+            qb.orWhere('vehicle.chassis_no_normalized = :chassisKey', {
+              chassisKey,
+            });
+          }
+          if (chassisNumber) {
+            qb.orWhere('UPPER(TRIM(vehicle.chassis_no)) = :chassisNumber', {
+              chassisNumber,
+            });
+          }
+          if (engineNumber) {
+            qb.orWhere(
+              new Brackets((engine) => {
+                engine
+                  .where('vehicle.customer_id = :customerId')
+                  .andWhere('UPPER(TRIM(vehicle.engine_no)) = :engineNumber', {
+                    engineNumber,
+                  });
+              }),
+            );
+          }
+        }),
+      )
+      .orderBy('CASE WHEN vehicle.customer_id = :customerId THEN 0 ELSE 1 END')
+      .addOrderBy('vehicle.updated_at', 'DESC')
+      .setParameter('customerId', customerId)
+      .getOne();
   }
 
   private async persistMotorVehicle(
@@ -8558,7 +8602,7 @@ export class QuotationsService {
     motor: MotorDetailDto,
     userId: string,
     currencyCode: string,
-  ): Promise<void> {
+  ): Promise<MotorVehicle> {
     const repository = manager.getRepository(MotorVehicle);
     const registrationNumber =
       normalizeMotorTextValue(motor.registration_number) ?? null;
@@ -8568,29 +8612,35 @@ export class QuotationsService {
     const model = normalizeMotorTextValue(motor.model) ?? '';
     const modelNumber = normalizeMotorTextValue(motor.model_number);
 
-    const existingVehicle = await repository
-      .createQueryBuilder('vehicle')
-      .where('vehicle.company_id = :companyId', {
-        companyId: quotation.company_id,
-      })
-      .andWhere('vehicle.customer_id = :customerId', { customerId })
-      .andWhere(
-        new Brackets((qb) => {
-          qb.where(
-            'UPPER(TRIM(vehicle.registration_no)) = :registrationNumber',
-            {
-              registrationNumber,
-            },
-          );
-          qb.orWhere('UPPER(TRIM(vehicle.chassis_no)) = :chassisNumber', {
-            chassisNumber,
-          });
-          qb.orWhere('UPPER(TRIM(vehicle.engine_no)) = :engineNumber', {
-            engineNumber,
-          });
-        }),
-      )
-      .getOne();
+    const existingVehicle = await this.findQuotationMotorVehicle(
+      manager,
+      quotation.company_id,
+      customerId,
+      motor,
+    );
+
+    // A vehicle registered under another customer is handed over to this
+    // policyholder, but only when it is the same physical vehicle: a
+    // registration match with a different chassis number is a data conflict.
+    const previousCustomerId =
+      existingVehicle && existingVehicle.customer_id !== customerId
+        ? existingVehicle.customer_id
+        : null;
+    if (previousCustomerId) {
+      const incomingChassis = normalizeMotorIdentifier(motor.chassis_number);
+      const storedChassis =
+        existingVehicle!.chassis_no_normalized ??
+        normalizeMotorIdentifier(existingVehicle!.chassis_no);
+      if (
+        incomingChassis &&
+        storedChassis &&
+        incomingChassis !== storedChassis
+      ) {
+        throw new ConflictException(
+          `Registration ${registrationNumber ?? ''} is recorded for a different vehicle under another customer. Check the registration and chassis numbers.`,
+        );
+      }
+    }
 
     const vehicle = existingVehicle ?? repository.create();
     const insuredAsset = await this.resolveOrCreateVerifiedMotorInsuredAsset(
@@ -8608,7 +8658,9 @@ export class QuotationsService {
       customer_id: customerId,
       insured_asset_id: insuredAsset.id,
       registration_no: registrationNumber,
+      registration_no_normalized: normalizeMotorIdentifier(registrationNumber),
       chassis_no: chassisNumber,
+      chassis_no_normalized: normalizeMotorIdentifier(chassisNumber),
       engine_no: engineNumber,
       make,
       model,
@@ -8645,7 +8697,18 @@ export class QuotationsService {
       updated_by: userId,
     });
 
-    await repository.save(vehicle);
+    const saved = await repository.save(vehicle);
+    if (previousCustomerId) {
+      await recordVehicleOwnershipTransfer(manager, {
+        vehicle: saved,
+        previousCustomerId,
+        userId,
+        reason: `Insured by ${quotation.quotation_no}`,
+        source: 'QUOTATION',
+        relatedRecord: { type: 'QUOTATION', id: quotation.id },
+      });
+    }
+    return saved;
   }
 
   private async resolveOrCreateVerifiedMotorInsuredAsset(

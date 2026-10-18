@@ -37,6 +37,8 @@ import { CustomerType } from '../enums/customer-type.enum';
   unique: true,
   where: 'user_id IS NOT NULL AND deleted_at IS NULL',
 })
+// Trigram expression index for the wizard search (migration 1794600000000).
+@Index('IDX_customers_search_trgm', { synchronize: false })
 export class Customer {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -18,6 +18,7 @@ import { CreateMotorFleetItemDto } from './dto/create-motor-fleet-item.dto';
 import { CreateMotorPolicyDetailDto } from './dto/create-motor-policy-detail.dto';
 import { CreateMotorVehicleDto } from './dto/create-motor-vehicle.dto';
 import { FilterMotorDto } from './dto/filter-motor.dto';
+import { SearchMotorVehiclesDto } from './dto/search-motor-vehicles.dto';
 import { UpdateMotorFleetDto } from './dto/update-motor-fleet.dto';
 import { UpdateMotorFleetItemDto } from './dto/update-motor-fleet-item.dto';
 import { UpdateMotorPolicyDetailDto } from './dto/update-motor-policy-detail.dto';
@@ -50,6 +51,19 @@ export class MotorController {
     @Body() dto: CreateMotorVehicleDto,
   ) {
     return this.motorService.createVehicle(user.companyId!, dto, user.id);
+  }
+
+  // Declared before `vehicles/:id` so "search" is not parsed as a vehicle ID.
+  @Get('vehicles/search')
+  @Permissions('motor:read')
+  @ApiOperation({
+    summary: 'Find motor vehicles by registration or chassis number',
+  })
+  searchVehicles(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: SearchMotorVehiclesDto,
+  ) {
+    return this.motorService.searchVehicles(user.companyId!, query);
   }
 
   @Get('vehicles/:id')

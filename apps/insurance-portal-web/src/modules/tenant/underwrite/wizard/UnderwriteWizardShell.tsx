@@ -84,7 +84,7 @@ export function UnderwriteWizardShell({
                 !hasProduct
                   ? 'Select a product first'
                   : !canSaveDraft
-                    ? 'Complete the premium step before saving a draft'
+                    ? 'Continue to the next step to save a draft'
                     : undefined
               }
               onClick={() => void wizard.saveDraft()}

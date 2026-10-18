@@ -113,6 +113,19 @@ export interface CustomerAuditLogRecord {
   created_at: string;
 }
 
+/** Summary row from `GET /tenant/customers/search` (ID number masked). */
+export interface CustomerSearchResult {
+  id: string;
+  customer_no: string;
+  customer_type: CustomerType;
+  policy_holder_type: number | null;
+  name: string;
+  phone: string | null;
+  id_type: CustomerIdType | null;
+  id_number_masked: string | null;
+  status: CustomerStatus;
+}
+
 export interface CustomerListParams {
   page?: number;
   limit?: number;

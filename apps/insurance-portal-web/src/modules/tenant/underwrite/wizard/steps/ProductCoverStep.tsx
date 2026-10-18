@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useReferenceCurrencies } from '@/modules/platform/reference-data/hooks';
 import { CURRENCY_OPTIONS } from '@/modules/tenant/quotations/wizard/QuotationStartModal';
 import { CoverNoteSetupStep } from '@/modules/tenant/quotations/wizard/steps/CoverNoteSetupStep';
@@ -18,10 +18,21 @@ import type { UnderwriteQuotationWizard } from '../useUnderwriteQuotationWizard'
 export function ProductCoverStep({
   wizard,
   currencyEditable = false,
+  compact = false,
+  extraFields,
+  first = true,
 }: {
   wizard: UnderwriteQuotationWizard;
   /** Enable when the exchange rate module supports user-selected currencies. */
   currencyEditable?: boolean;
+  /**
+   * One wide grid that drops the fixed currency input (it is shown in the
+   * review instead); used by the single-screen Motor wizard.
+   */
+  compact?: boolean;
+  /** Extra inputs placed in the product grid (e.g. payment method). */
+  extraFields?: ReactNode;
+  first?: boolean;
 }) {
   const { form, categoryOptions, productOptions, isHydrating, line } = wizard;
   const isMotor = line.line === 'MOTOR';
@@ -43,6 +54,16 @@ export function ProductCoverStep({
     : categoryId
       ? productOptions.filter((product) => product.category_id === categoryId)
       : productOptions;
+
+  // The only valid product needs no decision.
+  const onlyProduct = products.length === 1 ? products[0] : undefined;
+  useEffect(() => {
+    if (isHydrating || productId || !onlyProduct) return;
+    form.setValue('product_id', onlyProduct.id, { shouldValidate: true });
+    if (onlyProduct.category_id) {
+      form.setValue('category_id', onlyProduct.category_id);
+    }
+  }, [form, isHydrating, onlyProduct, productId]);
 
   useEffect(() => {
     if (isMotor && selectedProduct?.category_id) {
@@ -87,14 +108,22 @@ export function ProductCoverStep({
     form.setValue('risks.0.minimum_amount', '');
   };
 
+  const showCurrency = !compact || currencyEditable || currency !== 'TZS';
+
   return (
     <div className="space-y-6">
       <StepSection
-        title="Product"
+        title={compact ? 'Cover' : 'Product'}
         description="The product decides the available covers, rates and add-ons."
-        first
+        first={first}
       >
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div
+          className={
+            compact
+              ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-4'
+              : 'grid gap-4 lg:grid-cols-3'
+          }
+        >
           <WizardInput
             form={form}
             name="product_id"
@@ -136,17 +165,20 @@ export function ProductCoverStep({
               }}
             />
           )}
-          <WizardInput
-            form={form}
-            name="currency"
-            label="Currency"
-            required
-            options={currencies.map((code) => ({ value: code, label: code }))}
-            readOnly={!currencyEditable}
-            onChange={(value) => {
-              if (value === 'TZS') form.setValue('exchange_rate', '1');
-            }}
-          />
+          {showCurrency && (
+            <WizardInput
+              form={form}
+              name="currency"
+              label="Currency"
+              required
+              options={currencies.map((code) => ({ value: code, label: code }))}
+              readOnly={!currencyEditable}
+              onChange={(value) => {
+                if (value === 'TZS') form.setValue('exchange_rate', '1');
+              }}
+            />
+          )}
+          {extraFields}
         </div>
         {currency !== 'TZS' && (
           <p className="mt-2 text-xs text-slate-500">

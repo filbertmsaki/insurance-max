@@ -15,6 +15,7 @@ import type {
   MotorPolicyDetailRecord,
   MotorVehiclePayload,
   MotorVehicleRecord,
+  MotorVehicleSearchResult,
   MotorVehicleAuditLogRecord,
   MotorVehicleInsuranceHistory,
   MotorVehicleVersionRecord,
@@ -36,6 +37,16 @@ export const motorApi = {
     });
     return normalizePaginatedResponse(response.data);
   },
+  /** Registration / chassis lookup; spaces, hyphens and case are ignored. */
+  searchVehicles: (
+    params: { q: string; customer_id?: string; limit?: number; page?: number },
+    signal?: AbortSignal,
+  ) =>
+    apiClient
+      .get<
+        PageResponse<MotorVehicleSearchResult>
+      >('/tenant/motor/vehicles/search', { params, signal })
+      .then((r) => r.data),
   getVehicle: (id: string) =>
     apiClient
       .get<MotorVehicleRecord>(`/tenant/motor/vehicles/${id}`)

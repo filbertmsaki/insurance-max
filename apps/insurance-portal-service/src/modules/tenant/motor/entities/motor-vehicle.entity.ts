@@ -37,6 +37,11 @@ import { MotorVehicleVersion } from './motor-vehicle-version.entity';
   unique: true,
   where: 'deleted_at IS NULL AND engine_no IS NOT NULL',
 })
+// Trigram indexes for the wizard search (migration 1794600000000).
+@Index('IDX_motor_vehicles_registration_no_normalized_trgm', {
+  synchronize: false,
+})
+@Index('IDX_motor_vehicles_chassis_no_normalized_trgm', { synchronize: false })
 export class MotorVehicle {
   @PrimaryGeneratedColumn('uuid')
   id: string;

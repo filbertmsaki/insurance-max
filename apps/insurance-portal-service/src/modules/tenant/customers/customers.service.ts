@@ -27,6 +27,10 @@ import {
   CustomerIdentifierDto,
 } from './dto/create-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
+import {
+  CUSTOMER_SEARCH_MAX_LIMIT,
+  SearchCustomersDto,
+} from './dto/search-customers.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomerAddress } from './entities/customer-address.entity';
 import { CustomerContact } from './entities/customer-contact.entity';
@@ -40,6 +44,13 @@ import { CustomerPolicyHolderType } from './enums/customer-policy-holder-type.en
 import { CustomerStatus } from './enums/customer-status.enum';
 import { CustomerType } from './enums/customer-type.enum';
 import { TiraPolicyholderMapperService } from './services/tira-policyholder-mapper.service';
+import {
+  containsPattern,
+  customerSearchDocumentSql,
+  maskIdentifier,
+  parseCustomerSearchTerm,
+  prefixPattern,
+} from './utils/customer-search.util';
 import { quotationFlowForUnderwriteLine } from '@insurance-max/contracts';
 import { policyBusinessLineSql } from '../policies/utils/policy-business-line.sql';
 
@@ -1502,6 +1513,118 @@ export class CustomersService {
         totalPages: Math.ceil(total / limit),
         currentPage: page,
         hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  /**
+   * Single-box lookup for the quotation wizards: one term matches names,
+   * phone numbers, ID numbers and customer numbers, under the same read
+   * scope as the customer list. Returns summary fields only; the caller loads
+   * the full record with `findOneForUser` once a customer is chosen.
+   */
+  async searchForUser(user: AuthenticatedUser, query: SearchCustomersDto) {
+    const limit = Math.min(query.limit ?? 20, CUSTOMER_SEARCH_MAX_LIMIT);
+    const page = query.page ?? 1;
+    const terms = parseCustomerSearchTerm(query.q);
+    if (!terms) {
+      return {
+        data: [],
+        meta: { page, limit, hasNextPage: false, hasPreviousPage: page > 1 },
+      };
+    }
+
+    const scope = this.dataAccessScopeService.resolve(user);
+    const document = customerSearchDocumentSql('customer');
+    const queryBuilder = this.customerRepository
+      .createQueryBuilder('customer')
+      .select([
+        'customer.id',
+        'customer.customer_no',
+        'customer.customer_type',
+        'customer.policy_holder_type',
+        'customer.display_name',
+        'customer.first_name',
+        'customer.middle_name',
+        'customer.last_name',
+        'customer.company_name',
+        'customer.phone',
+        'customer.id_type',
+        'customer.id_number',
+        'customer.status',
+        'customer.updated_at',
+      ])
+      .where('customer.deleted_at IS NULL');
+
+    this.dataAccessScopeService.applyCustomerReadScope(
+      queryBuilder,
+      'customer',
+      scope,
+    );
+
+    terms.tokens.forEach((variants, tokenIndex) => {
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          variants.forEach((variant, variantIndex) => {
+            const parameter = `searchToken${tokenIndex}_${variantIndex}`;
+            qb.orWhere(`${document} LIKE :${parameter} ESCAPE '\\'`, {
+              [parameter]: containsPattern(variant),
+            });
+          });
+        }),
+      );
+    });
+
+    const exactPhone = terms.phone
+      ? `OR right(regexp_replace(coalesce(customer.phone, ''), '[^0-9]', '', 'g'), 9) = :searchPhone`
+      : '';
+    const rows = await queryBuilder
+      .orderBy(
+        `CASE
+          WHEN lower(customer.customer_no) = :searchExact
+            OR upper(regexp_replace(coalesce(customer.id_number, ''), '[^A-Za-z0-9]', '', 'g')) = :searchCompact
+            ${exactPhone}
+            THEN 0
+          WHEN lower(coalesce(customer.display_name, customer.company_name, customer.first_name, '')) LIKE :searchPrefix ESCAPE '\\'
+            THEN 1
+          ELSE 2
+        END`,
+        'ASC',
+      )
+      .addOrderBy('customer.updated_at', 'DESC')
+      .addOrderBy('customer.id', 'ASC')
+      .setParameters({
+        searchExact: terms.exact,
+        searchCompact: terms.compact,
+        searchPhone: terms.phone,
+        searchPrefix: prefixPattern(terms.prefix),
+      })
+      .offset((page - 1) * limit)
+      .limit(limit + 1)
+      .getMany();
+
+    return {
+      data: rows.slice(0, limit).map((customer) => ({
+        id: customer.id,
+        customer_no: customer.customer_no,
+        customer_type: customer.customer_type,
+        policy_holder_type: customer.policy_holder_type,
+        name:
+          customer.display_name ||
+          customer.company_name ||
+          [customer.first_name, customer.middle_name, customer.last_name]
+            .filter(Boolean)
+            .join(' '),
+        phone: customer.phone,
+        id_type: customer.id_type,
+        id_number_masked: maskIdentifier(customer.id_number),
+        status: customer.status,
+      })),
+      meta: {
+        page,
+        limit,
+        hasNextPage: rows.length > limit,
         hasPreviousPage: page > 1,
       },
     };
