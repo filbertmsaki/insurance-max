@@ -22,6 +22,7 @@ import { IdentifierGeneratorService } from '../../../shared/identifiers/identifi
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
+import { PolicyRisk } from '../../policies/entities/policy-risk.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionEvent } from '../entities/policy-transaction-event.entity';
@@ -513,17 +514,26 @@ export class CancellationService {
         );
       }
 
+      const isThirdPartyOnly = await this.isThirdPartyOnlyPolicy(
+        manager,
+        transaction.source_policy_id,
+      );
       const approvalDecision = this.evaluateCancellationApprovalRequirement(
         transaction,
         cancellation,
       );
-      transaction.approval_required = approvalDecision.required;
+      // TPO cancellations bypass maker-checker approval and proceed to the
+      // existing automatic TIRAMIS submission once other required gates
+      // (claims review and any payment) have been satisfied.
+      transaction.approval_required = isThirdPartyOnly
+        ? false
+        : approvalDecision.required;
       transaction.payment_required = isPositiveAmount(
         transaction.additional_premium,
       );
       // Re-evaluate the approval gate on every completion so a cancellation
       // sent back with CHANGES_REQUESTED can leave DRAFT again.
-      transaction.approval_status = approvalDecision.required
+      transaction.approval_status = transaction.approval_required
         ? WorkflowApprovalStatus.NOT_EVALUATED
         : WorkflowApprovalStatus.NOT_REQUIRED;
       if (!transaction.payment_required) {
@@ -543,7 +553,37 @@ export class CancellationService {
     return this.lifecycleService.evaluateRequirements(
       user.companyId!,
       transaction.id,
-      { changedBy: user.id },
+      {
+        changedBy: user.id,
+        metadata: isThirdPartyOnly
+          ? {
+              approvalExempt: true,
+              approvalExemptionReason: 'THIRD_PARTY_ONLY_CANCELLATION',
+              configuredApprovalRequirement: approvalDecision.required,
+            }
+          : undefined,
+      },
+    );
+  }
+
+  private async isThirdPartyOnlyPolicy(
+    manager: EntityManager,
+    policyId: string,
+  ): Promise<boolean> {
+    const risks = await manager
+      .getRepository(PolicyRisk)
+      .createQueryBuilder('policyRisk')
+      .innerJoin('policyRisk.risk', 'risk')
+      .select('risk.risk_name', 'risk_name')
+      .where('policyRisk.policy_id = :policyId', { policyId })
+      .andWhere('policyRisk.status = :status', { status: 'ACTIVE' })
+      .getRawMany<{ risk_name: string }>();
+
+    return (
+      risks.length > 0 &&
+      risks.every(({ risk_name }) =>
+        /(?:\bTPO\b|third[\s-]+party[\s-]+only)/i.test(risk_name ?? ''),
+      )
     );
   }
 
