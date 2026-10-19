@@ -10,7 +10,7 @@ jobs:
   frontend-server-preflight:
     name: Frontend Server Preflight
 
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     environment:
       name: insurance-frontend-production

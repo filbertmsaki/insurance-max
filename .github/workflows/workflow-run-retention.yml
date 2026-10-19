@@ -25,7 +25,7 @@ concurrency:
 jobs:
   retain-latest-runs:
     name: Keep the latest 20 repository runs
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       actions: write
       contents: read

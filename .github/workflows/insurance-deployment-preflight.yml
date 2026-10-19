@@ -10,7 +10,7 @@ jobs:
   backend-server-preflight:
     name: Backend Server Preflight
 
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     environment:
       name: insurance-backend-production
