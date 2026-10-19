@@ -194,7 +194,7 @@ export function CustomerForm({
                   name="gender"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Gender</FormLabel>
+                      <FormLabel required>Gender</FormLabel>
                       <Select
                         value={field.value}
                         onValueChange={field.onChange}

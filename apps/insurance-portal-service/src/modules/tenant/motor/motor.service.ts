@@ -330,6 +330,22 @@ export class MotorService {
     return value;
   }
 
+  private validateMotorTypeAndRegistration(
+    motorType: number | null | undefined,
+    registration: string | null,
+  ): void {
+    if (motorType !== 1 && motorType !== 2) {
+      throw new BadRequestException(
+        'motor_type must be 1 (Registered) or 2 (In transit)',
+      );
+    }
+    if (motorType !== 2 && !registration) {
+      throw new BadRequestException(
+        'registration_no is required for registered vehicles',
+      );
+    }
+  }
+
   private async assertUniqueMotorIdentifiers(
     manager: EntityManager,
     companyId: string,
@@ -339,12 +355,6 @@ export class MotorService {
     },
     excludeVehicleId?: string,
   ): Promise<void> {
-    if (!identifiers.registration && !identifiers.chassis) {
-      throw new BadRequestException(
-        'Either registration_no or chassis_no is required',
-      );
-    }
-
     const query = manager
       .getRepository(MotorVehicle)
       .createQueryBuilder('vehicle')
@@ -540,6 +550,8 @@ export class MotorService {
 
     const registration = this.normalizeMotorIdentifier(dto.registration_no);
     const chassis = this.normalizeMotorIdentifier(dto.chassis_no);
+    const motorType = dto.motor_type ?? (registration ? 1 : 2);
+    this.validateMotorTypeAndRegistration(motorType, registration);
 
     const vehicle = await this.dataSource.transaction(async (manager) => {
       const customer = await this.ensureCustomer(companyId, dto.customer_id);
@@ -626,7 +638,7 @@ export class MotorService {
               ? this.normalizeMoney(dto.gross_weight)
               : null,
           motor_category: dto.motor_category ?? null,
-          motor_type: dto.motor_type ?? null,
+          motor_type: motorType,
           motor_usage: dto.motor_usage ?? null,
           owner_name: ownerName,
           owner_category: dto.owner_category ?? null,
@@ -916,6 +928,8 @@ export class MotorService {
         dto.registration_no !== undefined
           ? this.normalizeMotorIdentifier(dto.registration_no)
           : vehicle.registration_no_normalized;
+      const resultingMotorType = dto.motor_type ?? vehicle.motor_type;
+      this.validateMotorTypeAndRegistration(resultingMotorType, registration);
       const chassis =
         dto.chassis_no !== undefined
           ? this.normalizeMotorIdentifier(dto.chassis_no)
@@ -1014,14 +1028,14 @@ export class MotorService {
             : this.normalizeMoney(dto.gross_weight);
       if (dto.motor_category !== undefined)
         vehicle.motor_category = dto.motor_category ?? null;
-      if (dto.motor_type !== undefined)
-        vehicle.motor_type = dto.motor_type ?? null;
+      vehicle.motor_type = resultingMotorType;
       if (dto.motor_usage !== undefined)
         vehicle.motor_usage = dto.motor_usage ?? null;
       if (dto.owner_name !== undefined || ownerChanged) {
         vehicle.owner_name =
-          this.normalizeText(dto.owner_name) ??
-          this.normalizeText(ownerCustomer.display_name);
+          dto.owner_name !== undefined
+            ? this.normalizeText(dto.owner_name)
+            : this.normalizeText(ownerCustomer.display_name);
       }
       if (dto.owner_category !== undefined)
         vehicle.owner_category = dto.owner_category ?? null;

@@ -510,7 +510,7 @@ export class CustomersService {
         );
       }
 
-      if (!dto.gender) {
+      if (!this.normalizeText(dto.gender)) {
         throw new BadRequestException('Individual customers require gender');
       }
 
@@ -1647,7 +1647,13 @@ export class CustomersService {
       first_name: dto.first_name ?? current.first_name ?? undefined,
       middle_name: dto.middle_name ?? current.middle_name ?? undefined,
       last_name: dto.last_name ?? current.last_name ?? undefined,
-      gender: dto.gender ?? current.gender ?? undefined,
+      gender:
+        dto.gender !== undefined
+          ? dto.gender
+          : (dto.customer_type ?? current.customer_type) ===
+              CustomerType.CORPORATE
+            ? null
+            : (current.gender ?? undefined),
       date_of_birth: dto.date_of_birth ?? current.date_of_birth ?? undefined,
       nationality: dto.nationality ?? current.nationality ?? undefined,
       company_name: dto.company_name ?? current.company_name ?? undefined,
@@ -1712,7 +1718,12 @@ export class CustomersService {
       contacts: dto.contacts,
       documents: dto.documents,
       duplicate_override_reason: dto.duplicate_override_reason,
-      policy_holder_type: current.policy_holder_type ?? undefined,
+      policy_holder_type:
+        dto.policy_holder_type ??
+        ((dto.customer_type ?? current.customer_type) ===
+        CustomerType.INDIVIDUAL
+          ? CustomerPolicyHolderType.INDIVIDUAL
+          : CustomerPolicyHolderType.CORPORATE),
       document_verified_by: current.document_verified_by ?? undefined,
       document_verified_at:
         current.document_verified_at?.toISOString() ?? undefined,

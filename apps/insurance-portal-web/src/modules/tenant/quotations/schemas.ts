@@ -9,7 +9,6 @@ import {
 } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import {
   customerFormSchema,
-  customerFormObjectSchema,
   getCustomerDefaultValues,
 } from '../customers/schemas';
 import {
@@ -505,7 +504,7 @@ const quotationFormObjectSchema = z.object({
   sale_point_id: optionalText,
   policyholder_mode: z.enum(['existing', 'new']),
   customer_id: optionalText,
-  policyholder: customerFormObjectSchema,
+  policyholder: customerFormSchema,
   category_id: z.string().min(1, 'Category is required'),
   product_id: z.string().min(1, 'Product is required'),
   sub_class_id: optionalText,
@@ -683,6 +682,18 @@ function validateFleet(
         'Comprehensively insured vehicles must be between zero and the fleet size.',
     });
   values.fleet.items.forEach((item, index) => {
+    if (
+      item.motor_dtl.motor_type !== '2' &&
+      item.motor_type_code !== '2' &&
+      !normalizeText(item.motor_dtl.registration_number)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['fleet', 'items', index, 'motor_dtl', 'registration_number'],
+        message:
+          'Registration number is required unless the vehicle is in transit',
+      });
+    }
     const motor = Object.fromEntries(
       motorFields.map((field) => [
         field.key,

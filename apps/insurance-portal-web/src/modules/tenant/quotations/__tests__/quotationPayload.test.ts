@@ -427,4 +427,35 @@ describe('quotation payload builders', () => {
       ).toBe(true);
     }
   });
+
+  it('allows multiple transit fleet vehicles without registration numbers', () => {
+    const values = createBaseValues();
+    values.quotation_flow = 'MOTOR_FLEET';
+    values.quotation_type = 'MOTOR';
+    values.is_fleet = true;
+    values.fleet.items = [
+      createEmptyFleetDetails().items[0],
+      createEmptyFleetDetails().items[0],
+    ];
+    values.fleet.items.forEach((item, index) => {
+      item.motor_dtl.motor_type = '2';
+      item.motor_type_code = '2';
+      item.motor_dtl.registration_number = '';
+      item.motor_dtl.chassis_number = `CHS-00${index + 1}`;
+      item.motor_dtl.engine_number = `ENG-00${index + 1}`;
+      item.cover_note_number = `CN-00${index + 1}`;
+      item.cover_note_desc = `Vehicle ${index + 1}`;
+      item.operative_clause = 'Motor Comprehensive Cover';
+      item.subject_matters_covered[0].subject_matter_reference = `REF-${index + 1}`;
+      item.subject_matters_covered[0].subject_matter_desc = `Vehicle ${index + 1}`;
+      item.risks_covered[0].risk_code = 'OD';
+    });
+    const result = quotationFormSchema.safeParse(values);
+    expect(
+      result.success ||
+        !result.error.issues.some((issue) =>
+          issue.message.toLowerCase().includes('duplicate registration number'),
+        ),
+    ).toBe(true);
+  });
 });

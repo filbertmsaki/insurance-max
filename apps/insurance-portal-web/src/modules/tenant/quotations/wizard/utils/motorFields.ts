@@ -100,7 +100,7 @@ export const motorFields: ReadonlyArray<{
   },
   { key: 'tare_weight', fleetKey: 'tare_weight', label: 'Tare weight (kg)' },
   { key: 'gross_weight', fleetKey: 'gross_weight', label: 'Gross weight (kg)' },
-  { key: 'owner_name', fleetKey: 'owner_name', label: 'Owner name' },
+  { key: 'owner_name', fleetKey: 'owner_name', label: 'Owner name', optional: true },
   {
     key: 'owner_category',
     fleetKey: 'owner_category',

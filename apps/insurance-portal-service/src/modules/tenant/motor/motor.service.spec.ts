@@ -142,4 +142,17 @@ describe('MotorService â€” tenant isolation on policy details', () => {
 
     expect(motorPolicyDetailRepo.save).toHaveBeenCalled();
   });
+
+  it('validates registration against the resulting motor type', () => {
+    const validate = (service as any).validateMotorTypeAndRegistration.bind(
+      service,
+    );
+    expect(() => validate(2, null)).not.toThrow();
+    expect(() => validate(1, null)).toThrow('registration_no is required');
+    expect(() => validate(1, null)).toThrow('registration_no is required');
+    expect(() => validate(3, 'ABC123')).toThrow(
+      'motor_type must be 1 (Registered) or 2 (In transit)',
+    );
+    expect(() => validate(1, 'ABC123')).not.toThrow();
+  });
 });

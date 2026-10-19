@@ -19,6 +19,42 @@ describe('QuotationPayloadValidator', () => {
     expect(() => validator.assertValid(payload)).not.toThrow();
   });
 
+  it('allows transit quotations without registration and permits blank optional motor details', () => {
+    const payload = createMotorSingleQuotationPayload();
+    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+    const motor = payload.cover_note_dtl.motor_dtl!;
+    motor.motor_type = 2;
+    motor.registration_number = null;
+    motor.number_of_axles = null;
+    motor.axle_distance = null;
+    motor.sitting_capacity = null;
+    motor.motor_usage = null;
+    motor.owner_name = null;
+    motor.owner_address = null;
+    try {
+      validator.assertValid(payload);
+    } catch (error) {
+      throw new Error(JSON.stringify(error.response));
+    }
+  });
+
+  it('requires gender only for individual policyholders and validates optional email', () => {
+    const individual = createValidNonMotorPayload();
+    individual.cover_note_dtl.policy_holders![0].gender = null;
+    expect(() => validator.assertValid(individual)).toThrow(
+      BadRequestException,
+    );
+
+    const corporate = createValidNonMotorPayload();
+    corporate.cover_note_dtl.policy_holders![0].policy_holder_type = 2;
+    corporate.cover_note_dtl.policy_holders![0].gender = null;
+    corporate.cover_note_dtl.policy_holders![0].email_address = null;
+    expect(() => validator.assertValid(corporate)).not.toThrow();
+
+    corporate.cover_note_dtl.policy_holders![0].email_address = 'not-email';
+    expect(() => validator.assertValid(corporate)).toThrow(BadRequestException);
+  });
+
   it('accepts an empty cover_note_addons list and empty discounts', () => {
     const payload = createValidNonMotorPayload();
 

@@ -343,6 +343,36 @@ export class TiramisPayloadValidationService {
         errors,
       );
 
+      const holderType = Number(holder.policyHolderType);
+      if (holderType === 1 && this.isBlank(holder.gender)) {
+        errors.push(
+          `${path}.gender is required for an individual policyholder`,
+        );
+      }
+      if (
+        !this.isBlank(holder.gender) &&
+        !['M', 'F'].includes(String(holder.gender).trim())
+      ) {
+        errors.push(`${path}.gender must be M or F`);
+      }
+
+      for (const [field, value, max] of [
+        ['street', holder.street, 100],
+        ['fax', holder.fax, 30],
+        ['postalAddress', holder.postalAddress, 250],
+        ['emailAddress', holder.emailAddress, 150],
+      ] as const) {
+        if (this.isBlank(value)) continue;
+        if (String(value).length > max)
+          errors.push(`${path}.${field} must be at most ${max} characters`);
+      }
+      if (
+        !this.isBlank(holder.emailAddress) &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(holder.emailAddress).trim())
+      ) {
+        errors.push(`${path}.emailAddress must be a valid email address`);
+      }
+
       this.requireString(
         holder.policyHolderIdNumber,
         `${path}.policyHolderIdNumber`,

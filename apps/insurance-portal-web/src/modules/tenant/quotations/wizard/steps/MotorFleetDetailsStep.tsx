@@ -33,10 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getApiErrorMessage } from '@/lib/api-error';
-import {
-  dateOnlyPart,
-  pricingCoverEndDate,
-} from '../utils/coverNoteDateRange';
+import { dateOnlyPart, pricingCoverEndDate } from '../utils/coverNoteDateRange';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import {
   PricingStatusAlert,
@@ -159,9 +156,12 @@ function getVehicleIssues(
   }
   if (
     !item.motor_dtl.registration_number.trim() &&
-    !item.motor_dtl.chassis_number.trim()
+    item.motor_dtl.motor_type !== '2'
   ) {
-    issues.push('Vehicle registration or chassis number is required');
+    issues.push('Registration number is required for registered vehicles');
+  }
+  if (!item.motor_dtl.chassis_number.trim()) {
+    issues.push('Vehicle chassis number is required');
   }
   if (!item.motor_dtl.make.trim() || !item.motor_dtl.model.trim()) {
     issues.push('Vehicle make and model are required');

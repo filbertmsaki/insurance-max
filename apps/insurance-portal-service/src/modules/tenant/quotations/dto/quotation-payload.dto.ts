@@ -23,7 +23,7 @@ import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
 import { normalizeMotorTextValue } from '../utils/motor-text.util';
 
-const REGISTERED_MOTOR_TYPE = 1;
+const IN_TRANSIT_MOTOR_TYPE = 2;
 
 function emptyStringToNull(value: unknown) {
   if (typeof value !== 'string') return value;
@@ -318,11 +318,7 @@ export class PolicyHolderDto {
   policy_holder_id_type: number;
 
   @Transform(({ value }) => emptyStringToNull(value))
-  @ValidateIf(
-    (holder: PolicyHolderDto, value) =>
-      Number(holder.policy_holder_type) === 1 ||
-      (value !== null && value !== undefined),
-  )
+  @IsOptional()
   @IsIn(['M', 'F'])
   gender: 'M' | 'F' | null;
 
@@ -338,6 +334,7 @@ export class PolicyHolderDto {
   @MaxLength(100)
   district: string;
 
+  @Transform(({ value }) => emptyStringToNull(value))
   @IsOptional()
   @IsString()
   @MaxLength(100)
@@ -378,7 +375,7 @@ export class MotorDetailDto {
   @Transform(({ value }) => optionalNormalizedMotorText(value))
   @ValidateIf(
     (motor: MotorDetailDto, value) =>
-      Number(motor.motor_type) === REGISTERED_MOTOR_TYPE ||
+      Number(motor.motor_type) !== IN_TRANSIT_MOTOR_TYPE ||
       (value !== null && value !== undefined),
   )
   @IsString()
@@ -474,9 +471,11 @@ export class MotorDetailDto {
   @Min(1)
   motor_usage: number | null;
 
+  @Transform(({ value }) => emptyStringToNull(value))
+  @IsOptional()
   @IsString()
   @MaxLength(200)
-  owner_name: string;
+  owner_name: string | null;
 
   @IsInt()
   @Min(1)

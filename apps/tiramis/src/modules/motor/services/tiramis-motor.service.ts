@@ -960,11 +960,19 @@ export class TiramisMotorService {
       errors,
     );
 
-    this.payloadValidator.requirePositiveNumber(
-      motor.sittingCapacity,
-      `${path}.sittingCapacity`,
-      errors,
-    );
+    for (const field of [
+      'numberOfAxles',
+      'axleDistance',
+      'sittingCapacity',
+    ] as const) {
+      if (!this.payloadValidator.isBlank(motor[field])) {
+        this.payloadValidator.requirePositiveNumber(
+          motor[field],
+          `${path}.${field}`,
+          errors,
+        );
+      }
+    }
 
     this.payloadValidator.requirePositiveNumber(
       motor.yearOfManufacture,
@@ -979,27 +987,32 @@ export class TiramisMotorService {
       errors.push(`${path}.yearOfManufacture is not valid`);
     }
 
-    this.payloadValidator.requireNumberIn(
-      motor.motorUsage,
-      `${path}.motorUsage`,
-      [1, 2],
-      errors,
-    );
-    this.payloadValidator.requireString(
-      motor.ownerName,
-      `${path}.ownerName`,
-      errors,
-    );
-    this.payloadValidator.requireNumber(
-      motor.ownerCategory,
-      `${path}.ownerCategory`,
-      errors,
-    );
-    this.payloadValidator.requireString(
-      motor.ownerAddress,
-      `${path}.ownerAddress`,
-      errors,
-    );
+    if (!this.payloadValidator.isBlank(motor.motorUsage)) {
+      this.payloadValidator.requireNumberIn(
+        motor.motorUsage,
+        `${path}.motorUsage`,
+        [1, 2],
+        errors,
+      );
+    }
+    if (!this.payloadValidator.isBlank(motor.ownerName)) {
+      if (String(motor.ownerName).length > 150) {
+        errors.push(`${path}.ownerName must not exceed 150 characters`);
+      }
+    }
+    if (!this.payloadValidator.isBlank(motor.ownerCategory)) {
+      this.payloadValidator.requireNumberIn(
+        motor.ownerCategory,
+        `${path}.ownerCategory`,
+        [1, 2],
+        errors,
+      );
+    }
+    if (!this.payloadValidator.isBlank(motor.ownerAddress)) {
+      if (String(motor.ownerAddress).length > 250) {
+        errors.push(`${path}.ownerAddress must not exceed 250 characters`);
+      }
+    }
   }
 
   private mapMotorDetailForEntity(motor: any) {

@@ -134,8 +134,9 @@ export class QuotationMotorDetail {
   @Column({
     type: 'varchar',
     length: 200,
+    nullable: true,
   })
-  owner_name: string;
+  owner_name: string | null;
 
   @Column({ type: 'smallint' })
   owner_category: number;

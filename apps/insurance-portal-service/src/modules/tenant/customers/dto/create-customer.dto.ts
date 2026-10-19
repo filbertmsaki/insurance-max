@@ -200,9 +200,15 @@ export class CreateCustomerDto {
   @MaxLength(50)
   last_name?: string;
 
-  @ValidateIf((o) => o.customer_type === CustomerType.INDIVIDUAL)
+  @ValidateIf(
+    (o) =>
+      o.customer_type === CustomerType.INDIVIDUAL &&
+      o.gender !== undefined &&
+      o.gender !== null,
+  )
+  @IsOptional()
   @IsEnum(CustomerGender)
-  gender?: CustomerGender;
+  gender?: CustomerGender | null;
 
   @ValidateIf((o) => o.customer_type === CustomerType.INDIVIDUAL)
   @IsDateString()
@@ -245,6 +251,7 @@ export class CreateCustomerDto {
 
   @IsNumber()
   @Type(() => Number)
+  @IsOptional()
   policy_holder_type?: number;
 
   @IsNumber()
@@ -333,7 +340,7 @@ export class CreateCustomerDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
+  @MaxLength(150)
   postal_address?: string | null;
 
   @IsOptional()

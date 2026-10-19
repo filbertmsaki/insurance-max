@@ -1,4 +1,4 @@
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { motorVehicleSchema, type MotorVehicleFormValues } from '../schemas';
+import {
+  motorVehicleFormSchema,
+  type MotorVehicleFormValues,
+} from '../schemas';
 import type { MotorCustomerOption } from '../types';
 
 interface Props {
@@ -37,9 +40,10 @@ export function MotorVehicleForm({
   defaultValues,
 }: Props) {
   const form = useForm<MotorVehicleFormValues>({
-    resolver: zodResolver(motorVehicleSchema),
+    resolver: zodResolver(motorVehicleFormSchema),
     defaultValues: {
       customer_id: '',
+      motor_type: 1,
       registration_no: '',
       chassis_no: '',
       engine_no: '',
@@ -60,6 +64,7 @@ export function MotorVehicleForm({
       ...defaultValues,
     },
   });
+  const motorType = useWatch({ control: form.control, name: 'motor_type' });
 
   return (
     <Form {...form}>
@@ -98,8 +103,46 @@ export function MotorVehicleForm({
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="motor_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>Motor Type</FormLabel>
+                  <Select
+                    value={String(field.value ?? '')}
+                    onValueChange={(value) => field.onChange(Number(value))}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="1">Registered</SelectItem>
+                      <SelectItem value="2">In transit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="registration_no"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required={motorType !== 2}>
+                    Registration No.
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {[
-              ['registration_no', 'Registration No.'],
               ['chassis_no', 'Chassis No.'],
               ['engine_no', 'Engine No.'],
               ['make', 'Make'],

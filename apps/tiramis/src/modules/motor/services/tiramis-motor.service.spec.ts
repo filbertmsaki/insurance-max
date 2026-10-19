@@ -1,4 +1,6 @@
 import { TiramisMotorService } from './tiramis-motor.service';
+import { TiramisPayloadValidationService } from '../../shared/services/tiramis-payload-validation.service';
+import { RequestContextService } from '@insurance-max/shared-kernel';
 
 describe('TiramisMotorService submission snapshot persistence', () => {
   const service = new TiramisMotorService(
@@ -16,6 +18,9 @@ describe('TiramisMotorService submission snapshot persistence', () => {
     {} as any,
     {} as any,
   ) as any;
+  service.payloadValidator = new TiramisPayloadValidationService(
+    new RequestContextService(),
+  );
 
   it('maps all motor pricing collections into persisted cover-note relations', () => {
     const collections = service.mapCoverNoteCollections(
@@ -97,5 +102,30 @@ describe('TiramisMotorService submission snapshot persistence', () => {
         taxes: [expect.objectContaining({ taxAmount: '900.00' })],
       }),
     ]);
+  });
+
+  it('accepts in-transit motor details with optional fields omitted', () => {
+    const errors: string[] = [];
+    service.validateMotorDetail(
+      {
+        motorCategory: 1,
+        motorType: 2,
+        registrationNumber: '',
+        chassisNumber: 'CHASSIS123',
+        make: 'Toyota',
+        model: 'Hilux',
+        bodyType: 'Pickup',
+        color: 'White',
+        engineNumber: 'ENG123',
+        engineCapacity: '2500',
+        fuelUsed: 'Diesel',
+        yearOfManufacture: 2020,
+        tareWeight: 1000,
+        grossWeight: 2000,
+      },
+      'motorDetail',
+      errors,
+    );
+    expect(errors).toEqual([]);
   });
 });

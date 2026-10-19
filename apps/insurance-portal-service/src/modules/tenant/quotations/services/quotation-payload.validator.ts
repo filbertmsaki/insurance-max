@@ -750,7 +750,7 @@ export class QuotationPayloadValidator {
     path: string,
     errors: string[],
   ): void {
-    if (motor.motor_type === 1 || motor.registration_number) {
+    if (motor.motor_type !== 2 || motor.registration_number) {
       this.validateMotorRequiredString(
         motor.registration_number,
         `${path}.registration_number`,
@@ -786,10 +786,11 @@ export class QuotationPayloadValidator {
       `${path}.fuel_used`,
       errors,
     );
-    this.validateMotorRequiredString(
+    this.validateMotorOptionalString(
       motor.owner_name,
       `${path}.owner_name`,
       errors,
+      200,
     );
     const engineCapacity = Number(motor.engine_capacity);
     if (
@@ -807,9 +808,24 @@ export class QuotationPayloadValidator {
       );
     }
 
-    if (motor.axle_distance !== null && motor.axle_distance <= 0) {
+    if (motor.axle_distance != null && motor.axle_distance <= 0) {
       errors.push(`${path}.axle_distance must be greater than zero`);
     }
+    if (motor.number_of_axles != null && motor.number_of_axles <= 0) {
+      errors.push(`${path}.number_of_axles must be greater than zero`);
+    }
+    if (motor.sitting_capacity != null && motor.sitting_capacity <= 0) {
+      errors.push(`${path}.sitting_capacity must be greater than zero`);
+    }
+    if (motor.motor_usage != null && ![1, 2].includes(motor.motor_usage)) {
+      errors.push(`${path}.motor_usage must be 1 or 2`);
+    }
+    this.validateMotorOptionalString(
+      motor.owner_address,
+      `${path}.owner_address`,
+      errors,
+      300,
+    );
 
     if (motor.tare_weight <= 0) {
       errors.push(`${path}.tare_weight must be greater than zero`);
@@ -839,6 +855,18 @@ export class QuotationPayloadValidator {
 
     if (pattern && !pattern.test(normalized)) {
       errors.push(`${path} ${patternMessage ?? 'has an invalid format'}`);
+    }
+  }
+
+  private validateMotorOptionalString(
+    value: string | null | undefined,
+    path: string,
+    errors: string[],
+    maxLength: number,
+  ): void {
+    const normalized = normalizeMotorTextValue(value);
+    if (normalized && normalized.length > maxLength) {
+      errors.push(`${path} must be at most ${maxLength} characters`);
     }
   }
 
@@ -909,11 +937,12 @@ export class QuotationPayloadValidator {
       }
 
       if (
-        holder.policy_holder_type === 2 &&
-        holder.gender !== null &&
-        holder.gender !== undefined
+        holder.email_address &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(holder.email_address.trim())
       ) {
-        errors.push(`${holderPath}.gender must be null for an organisation`);
+        errors.push(
+          `${holderPath}.email_address must be a valid email address`,
+        );
       }
     });
   }

@@ -18,6 +18,7 @@ const optionalNumber = z
 
 export const motorVehicleSchema = z.object({
   customer_id: z.string().min(1, 'Customer is required'),
+  motor_type: z.union([z.literal(1), z.literal(2)]),
   registration_no: optionalText,
   chassis_no: optionalText,
   engine_no: optionalText,
@@ -45,6 +46,18 @@ export const motorVehicleSchema = z.object({
   currency: z.string().trim().max(10).optional().or(z.literal('')),
   status: z.string().trim().max(20).optional().or(z.literal('')),
 });
+
+export const motorVehicleFormSchema = motorVehicleSchema.superRefine(
+  (values, ctx) => {
+    if (values.motor_type !== 2 && !values.registration_no?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['registration_no'],
+        message: 'Registration number is required for registered vehicles',
+      });
+    }
+  },
+);
 
 export const motorFleetSchema = z.object({
   customer_id: z.string().min(1, 'Customer is required'),
@@ -184,6 +197,7 @@ export function buildMotorVehiclePayload(
 ): MotorVehiclePayload {
   return {
     customer_id: values.customer_id,
+    motor_type: normalizeNumber(values.motor_type),
     registration_no: normalizeText(values.registration_no),
     chassis_no: normalizeText(values.chassis_no),
     engine_no: normalizeText(values.engine_no),

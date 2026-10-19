@@ -4855,9 +4855,12 @@ export class QuotationsService {
       engine_number: motorDetail.engine_number.trim(),
       engine_capacity: motorDetail.engine_capacity,
       fuel_used: motorDetail.fuel_used.trim(),
-      owner_name: motorDetail.owner_name.trim(),
       owner_category: String(motorDetail.owner_category),
     };
+
+    if (motorDetail.owner_name?.trim()) {
+      factors.owner_name = motorDetail.owner_name.trim();
+    }
 
     if (motorDetail.sitting_capacity !== null) {
       factors.seat_capacity = motorDetail.sitting_capacity;
@@ -8681,7 +8684,7 @@ export class QuotationsService {
       motor_category: motor.motor_category,
       motor_type: motor.motor_type,
       motor_usage: motor.motor_usage,
-      owner_name: motor.owner_name.trim(),
+      owner_name: motor.owner_name?.trim() || null,
       owner_category: motor.owner_category,
       owner_address: motor.owner_address?.trim() || null,
       vehicle_value: '0',
@@ -8753,7 +8756,7 @@ export class QuotationsService {
       motorCategory: motor.motor_category,
       motorType: motor.motor_type,
       motorUsage: motor.motor_usage,
-      ownerName: motor.owner_name.trim(),
+      ownerName: motor.owner_name?.trim() || null,
       ownerCategory: motor.owner_category,
       ownerAddress: motor.owner_address?.trim() || null,
       sourceQuotationId: quotation.id,
@@ -9374,7 +9377,7 @@ export class QuotationsService {
       tare_weight: this.numeric(motor.tare_weight, 2),
       gross_weight: this.numeric(motor.gross_weight, 2),
       motor_usage: motor.motor_usage,
-      owner_name: motor.owner_name.trim(),
+      owner_name: motor.owner_name?.trim() || null,
       owner_category: motor.owner_category,
       owner_address: motor.owner_address?.trim() || null,
     };

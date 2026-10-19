@@ -153,10 +153,10 @@ export class Customer {
   @Column({ type: 'varchar', length: 50, nullable: true })
   ward: string | null;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 150, nullable: true })
   street: string | null;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 150, nullable: true })
   postal_address: string | null;
 
   @Column({ type: 'numeric', precision: 10, scale: 6, nullable: true })

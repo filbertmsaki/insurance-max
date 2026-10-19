@@ -121,6 +121,7 @@ export class CreateMotorVehicleDto {
 
   @IsOptional()
   @IsInt()
+  @Min(1)
   motor_type?: number | null;
 
   @IsOptional()
