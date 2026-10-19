@@ -808,8 +808,8 @@ export class QuotationPayloadValidator {
       );
     }
 
-    if (motor.axle_distance != null && motor.axle_distance <= 0) {
-      errors.push(`${path}.axle_distance must be greater than zero`);
+    if (motor.axle_distance != null && motor.axle_distance < 0) {
+      errors.push(`${path}.axle_distance cannot be negative`);
     }
     if (motor.number_of_axles != null && motor.number_of_axles <= 0) {
       errors.push(`${path}.number_of_axles must be greater than zero`);

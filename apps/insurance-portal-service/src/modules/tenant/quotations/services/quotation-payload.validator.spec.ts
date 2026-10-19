@@ -38,6 +38,18 @@ describe('QuotationPayloadValidator', () => {
     }
   });
 
+  it('allows zero axle distance and rejects negative axle distance', () => {
+    const payload = createMotorSingleQuotationPayload();
+    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+    const motor = payload.cover_note_dtl.motor_dtl!;
+
+    motor.axle_distance = 0;
+    expect(() => validator.assertValid(payload)).not.toThrow();
+
+    motor.axle_distance = -0.1;
+    expect(() => validator.assertValid(payload)).toThrow(BadRequestException);
+  });
+
   it('requires gender only for individual policyholders and validates optional email', () => {
     const individual = createValidNonMotorPayload();
     individual.cover_note_dtl.policy_holders![0].gender = null;
