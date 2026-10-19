@@ -9,6 +9,7 @@ export interface PremiumBreakdownRow {
 }
 
 interface PremiumBreakdownProps {
+  sectionComponent?: typeof SectionCard;
   currency?: string | null;
   sumInsured?: number | null;
   rows: PremiumBreakdownRow[];
@@ -23,10 +24,17 @@ export function PremiumBreakdown({
   rows,
   total,
   description,
+  sectionComponent: Section = SectionCard,
 }: PremiumBreakdownProps) {
   return (
-    <SectionCard title="Premium Summary" description={description}>
-      <div className="space-y-3">
+    <Section title="Premium Summary" description={description}>
+      <div
+        className={
+          Section === SectionCard
+            ? 'space-y-3'
+            : 'max-w-2xl space-y-3 [&_span:last-child]:text-right [&_span:last-child]:tabular-nums [&>div]:gap-4 [&>div>div]:gap-4 [&_span]:min-w-0 [&_span]:break-words'
+        }
+      >
         {sumInsured !== undefined && (
           <div className="flex items-center justify-between border-b border-slate-100 pb-3 text-sm">
             <span className="text-slate-500">Sum Insured</span>
@@ -58,6 +66,6 @@ export function PremiumBreakdown({
           <span>{formatMoney(total.value, currency)}</span>
         </div>
       </div>
-    </SectionCard>
+    </Section>
   );
 }

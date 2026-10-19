@@ -4,13 +4,15 @@ import { RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatMoney } from '@/components/shared/detailFormat';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ActionMenu,
   type ActionMenuItem,
 } from '@/components/shared/ActionMenu';
-import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
-import { formatDate, formatMoney } from '@/components/shared/detailFormat';
+import { QuotationDetailHeader } from '../components/QuotationDetailLayout';
+import { QuotationDetailsContent } from '../components/QuotationDetailsContent';
+import { QuotationPaymentTab } from '../components/QuotationPaymentTab';
 import {
   Dialog,
   DialogContent,
@@ -23,19 +25,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
-import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
-import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import {
-  AddonPreview,
-  FleetHeaderPreview,
-  FleetVehiclesTable,
-  MotorDetailsPreview,
-  PaymentPreview,
-  PolicyholderPreview,
   QuotationHistoryPreview,
-  QuotationOverviewPreview,
-  RiskPreview,
-  SubjectMatterPreview,
   TiramisSubmissionPreview,
 } from '../components/QuotationPreviewSections';
 import {
@@ -64,34 +55,12 @@ type PremiumOverrideRequestDialogState = {
   open: boolean;
 };
 
-const QUOTATION_DETAIL_TAB_LABELS: Record<string, string> = {
-  overview: 'Overview',
-  motor: 'Vehicle',
-  coverage: 'Coverage & Premium',
-  fleet: 'Fleet Vehicles',
-  payment: 'Payment',
-  tiramis: 'TIRAMIS',
-  history: 'History',
-};
-
-// Ordered tab set per quotation flow — single source of truth for both the
-// tab list and the tab id used to key TabsContent below. Policyholders lives
-// inside Overview and risks/subject-matters/add-ons are consolidated into one
-// Coverage & Premium tab — thin single-table tabs were merged rather than
-// kept as separate stops (see the View Page Blueprint's dedup pass).
-function getQuotationDetailTabs(flow: string | undefined): string[] {
-  const tabs = ['overview'];
-  if (flow === 'MOTOR_FLEET') {
-    tabs.push('fleet');
-  } else {
-    if (flow === 'MOTOR_SINGLE') {
-      tabs.push('motor');
-    }
-    tabs.push('coverage');
-  }
-  tabs.push('payment', 'tiramis', 'history');
-  return tabs;
-}
+const QUOTATION_DETAIL_TABS = [
+  { id: 'details', label: 'Quotation Details' },
+  { id: 'payment', label: 'Payment Details & History' },
+  { id: 'tiramis', label: 'TIRAMIS Information' },
+  { id: 'history', label: 'Quotation History' },
+] as const;
 
 type PremiumOverrideDecisionDialogState = {
   risk: QuotationPreviewRisk;
@@ -125,7 +94,12 @@ export function QuotationDetailPage() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   useQuotationRealtime(id);
-  const { data: preview, isLoading } = useQuotationPreview(id);
+  const {
+    data: preview,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuotationPreview(id);
   const { data: workflow } = useQuotationWorkflow(id);
   const submitMutation = useSubmitQuotation(id);
   const submitForApprovalMutation = useSubmitQuotationForApproval(id);
@@ -150,10 +124,10 @@ export function QuotationDetailPage() {
   const [overrideReason, setOverrideReason] = useState('');
   const [overrideNotes, setOverrideNotes] = useState('');
   const [overrideDecisionReason, setOverrideDecisionReason] = useState('');
+  const [activeTab, setActiveTab] = useState('details');
+  const [visitedTabs, setVisitedTabs] = useState(['details']);
 
   const quotationStatus = preview?.overview.quotation_status ?? null;
-  const paymentStatus = preview?.overview.payment_status ?? null;
-  const displayStatus = preview?.overview.display_status ?? null;
   const pricingIntegration = preview?.pricing_integration ?? null;
   const submittedAt = preview?.overview.submitted_at ?? null;
   const hasStalePricing = pricingIntegration?.is_stale ?? false;
@@ -177,9 +151,6 @@ export function QuotationDetailPage() {
   const canRequestPremiumOverride = hasPermission('pricing.request_override');
   const canApprovePremiumOverride = hasPermission('pricing.approve_override');
   const canRejectPremiumOverride = hasPermission('pricing.approve_override');
-  const showFleetTabs = preview?.overview.quotation_flow === 'MOTOR_FLEET';
-  const showMotorTab = preview?.overview.quotation_flow === 'MOTOR_SINGLE';
-  const tabs = getQuotationDetailTabs(preview?.overview.quotation_flow);
 
   const openPremiumOverrideRequestDialog = (risk: QuotationPreviewRisk) => {
     setOverrideProposedPremium('');
@@ -404,6 +375,17 @@ export function QuotationDetailPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div role="alert" className="space-y-3 py-16 text-center">
+        <p>Unable to load this quotation.</p>
+        <Button variant="outline" onClick={() => void refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (!preview) {
     return (
       <div className="py-24 text-center text-slate-500">
@@ -556,7 +538,7 @@ export function QuotationDetailPage() {
   ];
 
   const actionButtons = (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2 [&_button]:min-h-11 sm:[&_button]:min-h-8">
       {preview?.overview.tira_status === 'SUCCESS' &&
       hasPermission('tiramis.sync') ? (
         <Button
@@ -585,6 +567,7 @@ export function QuotationDetailPage() {
         </Button>
       ) : null}
       <ActionMenu
+        className="h-11 w-11 sm:h-8 sm:w-8"
         items={secondaryWorkflowActions}
         contentClassName="w-52"
         disabled={secondaryWorkflowActions.every((item) => item.disabled)}
@@ -593,98 +576,85 @@ export function QuotationDetailPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <DetailPageHeader
+    <div className="min-w-0 space-y-4">
+      <QuotationDetailHeader
+        preview={preview}
+        workflowLabel={friendlyWorkflowLabel}
         onBack={() => navigate(sharedUnderwritePaths.quotations)}
-        title={preview.overview.quotation_no}
-        badges={
-          <>
-            <QuotationStatusBadge status={displayStatus} />
-            <PaymentStatusBadge status={paymentStatus} />
-          </>
-        }
-        subtitle={friendlyWorkflowLabel}
-        kpis={[
-          {
-            label: 'Effective',
-            value: formatDate(preview.cover_note.cover_note_start_date),
-          },
-          {
-            label: 'Expires',
-            value: formatDate(preview.cover_note.cover_note_end_date),
-          },
-          {
-            label: 'Total Premium',
-            value: formatMoney(
-              preview.premium_summary.total_premium_including_tax,
-              preview.premium_summary.currency,
-            ),
-          },
-        ]}
         actions={actionButtons}
       />
 
-      <Tabs defaultValue={tabs[0]} className="space-y-4">
-        <TabsList className="h-auto flex-wrap gap-1">
-          {tabs.map((tabId) => (
-            <TabsTrigger key={tabId} value={tabId}>
-              {QUOTATION_DETAIL_TAB_LABELS[tabId] ?? tabId}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          <QuotationOverviewPreview preview={preview} />
-          <PolicyholderPreview policyholders={preview.policyholders} />
-        </TabsContent>
-
-        {showMotorTab ? (
-          <TabsContent value="motor" className="space-y-4">
-            <MotorDetailsPreview motor={preview.motor_details} />
-          </TabsContent>
-        ) : null}
-
-        {!showFleetTabs ? (
-          <TabsContent value="coverage" className="space-y-6">
-            <RiskPreview
-              risks={preview.risks}
-              renderRiskActions={renderRiskActions}
-            />
-            <SubjectMatterPreview subjectMatters={preview.subject_matters} />
-            <AddonPreview addons={preview.addons} />
-          </TabsContent>
-        ) : null}
-
-        {showFleetTabs ? (
-          <TabsContent value="fleet" className="space-y-4">
-            {preview.fleet ? (
-              <>
-                <FleetHeaderPreview
-                  header={preview.fleet.header}
-                  summary={preview.fleet.summary}
-                />
-                <FleetVehiclesTable
-                  vehicles={preview.fleet.vehicles}
-                  renderRiskActions={renderRiskActions}
-                />
-              </>
-            ) : null}
-          </TabsContent>
-        ) : null}
-
-        <TabsContent value="payment" className="space-y-4">
-          <PaymentPreview payment={preview.payment} />
-        </TabsContent>
-
-        <TabsContent value="tiramis" className="space-y-4">
-          <TiramisSubmissionPreview tiramis={preview.tiramis} />
-          <CoverNotesSection
-            quotationId={preview.overview.quotation_id}
-            tiraAccepted={preview.overview.tira_status === 'SUCCESS'}
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          setActiveTab(value);
+          setVisitedTabs((tabs) =>
+            tabs.includes(value) ? tabs : [...tabs, value],
+          );
+        }}
+        className="min-w-0 space-y-0 rounded-md border border-slate-200 bg-white"
+      >
+        <div className="max-w-full overflow-x-auto px-2 sm:px-4">
+          <TabsList
+            aria-label="Quotation information"
+            className="w-max min-w-full flex-nowrap gap-0"
+          >
+            {QUOTATION_DETAIL_TABS.map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className="min-h-11 px-3 sm:px-4"
+              >
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        <TabsContent value="details" className="mt-0 min-w-0">
+          <QuotationDetailsContent
+            preview={preview}
+            renderRiskActions={renderRiskActions}
           />
         </TabsContent>
+        <TabsContent
+          value="payment"
+          forceMount
+          hidden={activeTab !== 'payment'}
+          className="mt-0 min-w-0"
+        >
+          {visitedTabs.includes('payment') && (
+            <QuotationPaymentTab preview={preview} />
+          )}
+        </TabsContent>
 
-        <TabsContent value="history" className="space-y-4">
+        <TabsContent
+          value="tiramis"
+          forceMount
+          hidden={activeTab !== 'tiramis'}
+          className="mt-0 min-w-0"
+        >
+          {visitedTabs.includes('tiramis') && (
+            <>
+              <TiramisSubmissionPreview tiramis={preview.tiramis} />
+              <div className="min-w-0 p-4 sm:p-6">
+                <CoverNotesSection
+                  quotationId={preview.overview.quotation_id}
+                  tiraAccepted={preview.overview.tira_status === 'SUCCESS'}
+                />
+              </div>
+              <QuotationHistoryPreview
+                title="Submission and Synchronization History"
+                history={preview.history.filter((item) =>
+                  /tiramIS|tira |acknowledgement|callback|retry|sync/i.test(
+                    item.action,
+                  ),
+                )}
+              />
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-0 min-w-0">
           <QuotationHistoryPreview history={preview.history} />
         </TabsContent>
       </Tabs>

@@ -926,6 +926,11 @@ export class BillingCommissionService {
       .leftJoinAndSelect('payment.invoice', 'invoice')
       .leftJoinAndSelect('payment.receipt', 'receipt')
       .where('payment.company_id = :companyId', { companyId });
+    if (query.quotation_id) {
+      qb.andWhere('invoice.quotation_id = :quotationId', {
+        quotationId: query.quotation_id,
+      });
+    }
     this.applyStatusFilter(qb, 'payment', query);
     return this.paginateFinanceList(qb, query, {
       sortable: {

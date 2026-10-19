@@ -107,8 +107,10 @@ function VehicleDetailGroup({
       <dl className="space-y-1.5">
         {visible.map(([label, value]) => (
           <div key={label} className="flex justify-between gap-3 text-sm">
-            <dt className="text-slate-500">{label}</dt>
-            <dd className="text-right font-medium text-slate-900">{value}</dd>
+            <dt className="shrink-0 text-slate-500">{label}</dt>
+            <dd className="min-w-0 break-words text-right font-medium text-slate-900">
+              {value}
+            </dd>
           </div>
         ))}
       </dl>
@@ -333,7 +335,7 @@ export function MotorVehicleSection({
   return (
     <StepSection
       first
-      className="flex h-full flex-col"
+      className="flex h-full min-w-0 flex-col"
       contentClassName="flex flex-1 flex-col"
     >
       {showSearch ? (
@@ -390,39 +392,63 @@ export function MotorVehicleSection({
           )}
         </div>
       ) : (
-        <div className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-start gap-3 p-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+        <div
+          role="group"
+          aria-label="Selected vehicle"
+          className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white shadow-sm"
+        >
+          <div className="flex items-start gap-2 p-3 sm:flex-wrap sm:gap-3 sm:p-4">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-700 sm:h-11 sm:w-11">
               <Car className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold text-slate-900">{title}</p>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="break-words text-sm font-semibold text-slate-900 sm:text-base">
+                <span className="sm:hidden">
+                  {motor.registration_no || motor.chassis_no || 'New vehicle'}
+                </span>
+                <span className="hidden sm:inline">{title}</span>
+              </p>
+              <p className="mt-0.5 break-words text-xs text-slate-500 sm:hidden">
+                {[motor.make, motor.model].filter(Boolean).join(' ')}
+              </p>
+              <p className="mt-0.5 hidden text-xs text-slate-500 sm:block">
                 {[...facts, source ? SOURCE_LABELS[source] : null]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
             </div>
-            <div className="flex gap-1">
+            <div className="flex shrink-0 gap-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-label="Edit vehicle details"
+                title="Edit vehicle details"
+                className="h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3"
                 aria-haspopup="dialog"
                 aria-expanded={detailsDialogOpen}
                 onClick={() => setDetailsDialogOpen(true)}
               >
-                <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                Edit details
+                <Pencil
+                  aria-hidden="true"
+                  className="h-4 w-4 sm:h-3.5 sm:w-3.5"
+                />
+                <span className="sr-only sm:not-sr-only">Edit details</span>
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-label="Change vehicle"
+                title="Change vehicle"
+                className="h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3"
                 onClick={changeVehicle}
               >
-                <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                Change
+                <RefreshCw
+                  aria-hidden="true"
+                  className="h-4 w-4 sm:h-3.5 sm:w-3.5"
+                />
+                <span className="sr-only sm:not-sr-only">Change</span>
               </Button>
             </div>
           </div>
@@ -441,7 +467,7 @@ export function MotorVehicleSection({
             </div>
           )}
 
-          <div className="grid flex-1 content-start gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2">
+          <div className="flex flex-wrap content-start gap-x-3 gap-y-1 border-t border-slate-100 px-3 py-2 sm:grid sm:flex-1 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-2 sm:px-4 sm:py-3">
             {motor.manufacture_year && (
               <VehicleQuickFact icon={CalendarDays}>
                 {motor.manufacture_year}
@@ -499,6 +525,7 @@ export function MotorVehicleSection({
                 title="Vehicle"
                 items={[
                   ['Registration number', motor.registration_no],
+                  ['Source', source ? SOURCE_LABELS[source] : null],
                   ['Chassis number', motor.chassis_no],
                   ['Engine number', motor.engine_no],
                   ['Make', motor.make],

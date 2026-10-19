@@ -1,5 +1,6 @@
 ﻿import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
+import { Pencil } from 'lucide-react';
 import {
   getCustomerDisplayName,
   type CustomerRecord,
@@ -50,13 +51,18 @@ function EditLink({
 }) {
   if (!onEditSection) return null;
   return (
-    <button
+    <Button
       type="button"
-      className="ml-2 text-xs font-medium text-primary hover:underline"
+      variant="ghost"
+      size="sm"
+      className="ml-1 h-11 w-11 px-0 text-primary sm:ml-2 sm:h-auto sm:w-auto sm:px-1 sm:py-0"
+      aria-label={`Edit ${section} details`}
+      title={`Edit ${section} details`}
       onClick={() => onEditSection(section)}
     >
-      Edit
-    </button>
+      <Pencil aria-hidden="true" className="h-4 w-4 sm:hidden" />
+      <span className="sr-only sm:not-sr-only">Edit</span>
+    </Button>
   );
 }
 

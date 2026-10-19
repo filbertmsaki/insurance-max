@@ -52,6 +52,18 @@ const baseTiramis: QuotationPreviewTiramisSubmission = {
 };
 
 describe('quotationWorkflowLabels', () => {
+  it.each([
+    ['ACK_SUCCESS', 'Issuing'],
+    ['NOT_SUBMITTED', 'Not Issued'],
+    ['FINAL_SUCCESS', 'Issued'],
+  ])(
+    'labels %s without confusing acknowledgements with final success',
+    (status, expected) => {
+      expect(
+        getFriendlyTiramisStatus({ ...baseTiramis, submission_status: status }),
+      ).toBe(expected);
+    },
+  );
   it('maps approval, payment, and issuance workflow states to business labels', () => {
     expect(
       getFriendlyWorkflowLabel(

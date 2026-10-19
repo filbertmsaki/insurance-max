@@ -198,9 +198,13 @@ describe('MotorVehicleSection', () => {
     expect(screen.getByRole('textbox', { name: 'Make' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     // The vehicle belongs to someone else and will be handed over.
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Registered under Asha Juma',
-    );
+    expect(
+      screen
+        .getAllByRole('status')
+        .some((status) =>
+          status.textContent?.includes('Registered under Asha Juma'),
+        ),
+    ).toBe(true);
   });
 
   it('looks a vehicle up with TIRA without choosing what was typed', async () => {
@@ -245,9 +249,7 @@ describe('MotorVehicleSection', () => {
       motorCategory: 1,
       motorRegistrationNumber: 'T999XYZ',
     });
-    await waitFor(() =>
-      expect(screen.getByRole('dialog')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
     await waitFor(() =>
       expect(
         screen.getByRole('textbox', { name: 'Model' }),

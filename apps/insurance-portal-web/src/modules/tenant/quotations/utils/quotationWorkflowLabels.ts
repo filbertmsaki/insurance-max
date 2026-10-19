@@ -54,9 +54,14 @@ export function getFriendlyTiramisStatus(
     tiramis?.callback_received_status?.trim().toUpperCase() ?? '';
 
   if (!tiramis || !status) return 'Not Issued';
-  if (tiramis.cover_note_reference_number || status.includes('SUCCESS')) {
+  if (
+    tiramis.cover_note_reference_number ||
+    (status.includes('SUCCESS') && !status.includes('ACK'))
+  ) {
     return 'Issued';
   }
+  if (['DRAFT', 'NOT_SUBMITTED', 'VALIDATED'].includes(status))
+    return 'Not Issued';
   if (
     status.includes('REJECT') ||
     responseCode.includes('REJECT') ||

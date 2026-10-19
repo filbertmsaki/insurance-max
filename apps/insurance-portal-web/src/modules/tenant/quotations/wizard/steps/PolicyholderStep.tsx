@@ -1,4 +1,5 @@
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
+import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
   Building2,
@@ -65,6 +66,8 @@ interface Props {
   newCustomerInDialog?: boolean;
   hideSectionTitle?: boolean;
   hideNewCustomerButton?: boolean;
+  /** Compact selected-customer rows and actions in the Motor mobile wizard. */
+  compactOnMobile?: boolean;
 }
 
 const CREATE_CUSTOMER_PERMISSION = 'customers:create';
@@ -157,8 +160,10 @@ function DetailGroup({ title, items }: { title: string; items: DetailItem[] }) {
       <dl className="space-y-1.5">
         {visible.map(([label, value]) => (
           <div key={label} className="flex justify-between gap-3 text-sm">
-            <dt className="text-slate-500">{label}</dt>
-            <dd className="text-right font-medium text-slate-900">{value}</dd>
+            <dt className="shrink-0 text-slate-500">{label}</dt>
+            <dd className="min-w-0 break-words text-right font-medium text-slate-900">
+              {value}
+            </dd>
           </div>
         ))}
       </dl>
@@ -194,10 +199,12 @@ function ExistingCustomerCard({
   customer,
   onChangeCustomer,
   onEditDetails,
+  compactOnMobile = false,
 }: {
   customer: CustomerRecord;
   onChangeCustomer: () => void;
   onEditDetails: () => void;
+  compactOnMobile?: boolean;
 }) {
   const [showDetails, setShowDetails] = useState(false);
   const isCorporate = customer.customer_type === 'CORPORATE';
@@ -213,9 +220,24 @@ function ExistingCustomerCard({
     .join(', ');
   const missing = missingPolicyholderDetails(customer);
   return (
-    <div className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-wrap items-start gap-3 p-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
+    <div
+      role="group"
+      aria-label="Selected customer"
+      className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white shadow-sm"
+    >
+      <div
+        className={cn(
+          'flex flex-wrap items-start gap-3 p-4',
+          compactOnMobile &&
+            'flex-nowrap gap-2 p-3 sm:flex-wrap sm:gap-3 sm:p-4',
+        )}
+      >
+        <div
+          className={cn(
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700',
+            compactOnMobile && 'h-9 w-9 sm:h-11 sm:w-11',
+          )}
+        >
           {isCorporate ? (
             <Building2 className="h-5 w-5" />
           ) : (
@@ -225,7 +247,12 @@ function ExistingCustomerCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate font-semibold text-slate-900">
+            <p
+              className={cn(
+                'min-w-0 break-words font-semibold text-slate-900',
+                compactOnMobile && 'text-sm sm:text-base',
+              )}
+            >
               {displayName}
             </p>
             <CustomerStatusBadge status={customer.status} />
@@ -235,36 +262,84 @@ function ExistingCustomerCard({
           </p>
         </div>
 
-        <div className="flex gap-1">
+        <div className="flex shrink-0 gap-1">
           <Button
             type="button"
             variant="ghost"
             size="sm"
+            aria-label="Edit customer details"
+            title="Edit customer details"
+            className={
+              compactOnMobile
+                ? 'h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3'
+                : undefined
+            }
             onClick={onEditDetails}
           >
-            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-            Edit
+            <Pencil
+              aria-hidden="true"
+              className={
+                compactOnMobile ? 'h-4 w-4 sm:h-3.5 sm:w-3.5' : 'h-3.5 w-3.5'
+              }
+            />
+            <span
+              className={compactOnMobile ? 'sr-only sm:not-sr-only' : undefined}
+            >
+              Edit
+            </span>
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
+            aria-label="Change customer"
+            title="Change customer"
+            className={
+              compactOnMobile
+                ? 'h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3'
+                : undefined
+            }
             onClick={onChangeCustomer}
           >
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-            Change
+            <RefreshCw
+              aria-hidden="true"
+              className={
+                compactOnMobile ? 'h-4 w-4 sm:h-3.5 sm:w-3.5' : 'h-3.5 w-3.5'
+              }
+            />
+            <span
+              className={compactOnMobile ? 'sr-only sm:not-sr-only' : undefined}
+            >
+              Change
+            </span>
           </Button>
         </div>
       </div>
 
-      <div className="grid flex-1 content-start gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2">
+      <div
+        className={cn(
+          'grid flex-1 content-start gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2',
+          compactOnMobile &&
+            'gap-x-3 gap-y-1 px-3 py-2 sm:gap-x-6 sm:gap-y-2 sm:px-4 sm:py-3',
+        )}
+      >
         {customer.phone && <QuickFact icon={Phone}>{customer.phone}</QuickFact>}
-        {customer.email && <QuickFact icon={Mail}>{customer.email}</QuickFact>}
+        {customer.email && (
+          <span
+            className={compactOnMobile ? 'hidden min-w-0 sm:flex' : 'min-w-0'}
+          >
+            <QuickFact icon={Mail}>{customer.email}</QuickFact>
+          </span>
+        )}
         {customer.id_number && (
-          <QuickFact icon={CreditCard}>
-            {idTypeLabel ? `${idTypeLabel}: ` : ''}
-            {customer.id_number}
-          </QuickFact>
+          <span
+            className={compactOnMobile ? 'hidden min-w-0 sm:flex' : 'min-w-0'}
+          >
+            <QuickFact icon={CreditCard}>
+              {idTypeLabel ? `${idTypeLabel}: ` : ''}
+              {customer.id_number}
+            </QuickFact>
+          </span>
         )}
         {location && <QuickFact icon={MapPin}>{location}</QuickFact>}
       </div>
@@ -308,6 +383,18 @@ function ExistingCustomerCard({
 
       {showDetails && (
         <div className="grid gap-5 border-t border-slate-100 p-4 sm:grid-cols-2">
+          {compactOnMobile && (
+            <div className="sm:hidden">
+              <DetailGroup
+                title="Customer"
+                items={[
+                  ['Email', customer.email],
+                  ['ID type', idTypeLabel],
+                  ['ID number', customer.id_number],
+                ]}
+              />
+            </div>
+          )}
           {isCorporate ? (
             <DetailGroup
               title="Company"
@@ -373,6 +460,7 @@ export function PolicyholderStep({
   newCustomerInDialog = false,
   hideSectionTitle = false,
   hideNewCustomerButton = false,
+  compactOnMobile = false,
 }: Props) {
   const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false);
   // 'create' adds a customer; 'edit' adjusts a selected customer's details
@@ -496,7 +584,7 @@ export function PolicyholderStep({
       <StepSection
         title={hideSectionTitle ? undefined : 'Policyholder'}
         first
-        className="flex h-full flex-col"
+        className="flex h-full min-w-0 flex-col"
         contentClassName="flex flex-1 flex-col"
       >
         {mode === 'existing' ? (
@@ -504,7 +592,13 @@ export function PolicyholderStep({
             control={form.control}
             name="customer_id"
             render={({ field, fieldState }) => (
-              <WizardFormItem>
+              <WizardFormItem
+                className={
+                  compactOnMobile && selectedCustomer
+                    ? 'hidden sm:block'
+                    : undefined
+                }
+              >
                 <FormLabel required>Customer</FormLabel>
                 <div
                   className={
@@ -524,7 +618,8 @@ export function PolicyholderStep({
                         }
                         onSelect={(value) => {
                           field.onChange(value);
-                          if (fieldState.error) void form.trigger('customer_id');
+                          if (fieldState.error)
+                            void form.trigger('customer_id');
                         }}
                         onCreateNew={openNewCustomerDialog}
                         invalid={Boolean(fieldState.error)}
@@ -548,8 +643,13 @@ export function PolicyholderStep({
             )}
           />
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div>
+          <div
+            className={cn(
+              'flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3',
+              compactOnMobile && 'flex-nowrap gap-2 sm:flex-wrap sm:gap-3',
+            )}
+          >
+            <div className="min-w-0">
               <p className="text-sm font-medium text-slate-800">
                 {form.watch('policyholder.full_name') || 'New policyholder'}
               </p>
@@ -560,24 +660,64 @@ export function PolicyholderStep({
                   : 'Fill in the policyholder details below. A new customer record will be created when you save this quotation.'}
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex shrink-0 flex-wrap gap-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                aria-label="Use an existing customer"
+                title="Use an existing customer"
+                className={
+                  compactOnMobile
+                    ? 'h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3'
+                    : undefined
+                }
                 onClick={switchToExistingCustomer}
               >
-                Use an existing customer
+                {compactOnMobile && (
+                  <RefreshCw aria-hidden="true" className="h-4 w-4 sm:hidden" />
+                )}
+                <span
+                  className={
+                    compactOnMobile ? 'sr-only sm:not-sr-only' : undefined
+                  }
+                >
+                  Use an existing customer
+                </span>
               </Button>
               {detailsInDialog && (
                 <Button
                   type="button"
                   variant="outline"
+                  aria-label={
+                    form.watch('policyholder.full_name')
+                      ? 'Edit customer details'
+                      : 'Enter customer details'
+                  }
+                  title={
+                    form.watch('policyholder.full_name')
+                      ? 'Edit customer details'
+                      : 'Enter customer details'
+                  }
+                  className={
+                    compactOnMobile
+                      ? 'h-11 w-11 px-0 sm:h-[38px] sm:w-auto sm:px-4'
+                      : undefined
+                  }
                   onClick={() => setIsNewCustomerDialogOpen(true)}
                 >
-                  {form.watch('policyholder.full_name')
-                    ? 'Edit details'
-                    : 'Enter details'}
+                  {compactOnMobile && (
+                    <Pencil aria-hidden="true" className="h-4 w-4 sm:hidden" />
+                  )}
+                  <span
+                    className={
+                      compactOnMobile ? 'sr-only sm:not-sr-only' : undefined
+                    }
+                  >
+                    {form.watch('policyholder.full_name')
+                      ? 'Edit details'
+                      : 'Enter details'}
+                  </span>
                 </Button>
               )}
             </div>
@@ -610,6 +750,7 @@ export function PolicyholderStep({
         {mode === 'existing' && selectedCustomer && (
           <ExistingCustomerCard
             customer={selectedCustomer}
+            compactOnMobile={compactOnMobile}
             onChangeCustomer={() => form.setValue('customer_id', '')}
             onEditDetails={() => {
               setDialogPurpose('edit');

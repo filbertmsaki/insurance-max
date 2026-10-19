@@ -19,19 +19,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { DataTable, type Column } from '@/components/data-table';
-import {
-  SectionCard,
-  KeyValueGrid,
-  EmptyState,
-} from '@/components/shared/DetailSections';
+import { SectionCard, KeyValueGrid } from './QuotationDetailLayout';
+import { EmptyState } from '@/components/shared/DetailSections';
 import { PremiumBreakdown } from '@/components/shared/PremiumBreakdown';
-import { ActivityTimeline } from '@/components/shared/ActivityTimeline';
 import {
   displayValue,
   formatDate,
   formatDateTime,
   formatMoney,
   formatNumber,
+  humanizeCode,
 } from '@/components/shared/detailFormat';
 import { QuotationStatusBadge } from './QuotationStatusBadge';
 import type {
@@ -72,179 +69,215 @@ function premiumOverrideBadgeVariant(
   }
 }
 
+export function QuotationInformationPreview({
+  preview,
+}: {
+  preview: QuotationPreviewRecord;
+}) {
+  const { overview } = preview;
+  return (
+    <SectionCard title="Quotation Information">
+      <KeyValueGrid
+        items={[
+          { label: 'Quotation Number', value: overview.quotation_no },
+          { label: 'Quotation Type', value: overview.quotation_type },
+          { label: 'Quotation Flow', value: overview.quotation_flow },
+          {
+            label: 'Quotation Status',
+            value: <QuotationStatusBadge status={overview.display_status} />,
+          },
+          { label: 'Channel Type', value: overview.channel_type },
+          {
+            label: 'Company',
+            value: overview.company.name ?? overview.company.code,
+          },
+          {
+            label: 'Branch',
+            value: overview.branch.name ?? overview.branch.code,
+          },
+          {
+            label: 'Department',
+            value: overview.department.name ?? overview.department.code,
+          },
+          {
+            label: 'Product',
+            value: overview.product.name ?? overview.product.code,
+          },
+          {
+            label: 'Insurance Category',
+            value:
+              overview.insurance_category.name ??
+              overview.insurance_category.code,
+          },
+          {
+            label: 'Subclass',
+            value: overview.subclass.name ?? overview.subclass.code,
+          },
+          {
+            label: 'Sales Point',
+            value: overview.sales_point.name ?? overview.sales_point.code,
+          },
+          {
+            label: 'Created By',
+            value: overview.created_by.name ?? overview.created_by.code,
+          },
+          {
+            label: 'Created Date',
+            value: formatDateTime(overview.created_at),
+          },
+          {
+            label: 'Last Updated By',
+            value: overview.updated_by.name ?? overview.updated_by.code,
+          },
+          {
+            label: 'Last Updated Date',
+            value: formatDateTime(overview.updated_at),
+          },
+        ]}
+      />
+    </SectionCard>
+  );
+}
+
+export function QuotationCoverPreview({
+  preview,
+}: {
+  preview: QuotationPreviewRecord;
+}) {
+  const { cover_note } = preview;
+  return (
+    <SectionCard title="Cover and Insurance Details">
+      <KeyValueGrid
+        items={[
+          {
+            label: 'Cover Note Type',
+            value: displayValue(cover_note.cover_note_type),
+          },
+          {
+            label: 'Cover Note Number',
+            value: displayValue(cover_note.cover_note_number),
+          },
+          {
+            label: 'Previous Cover Note Reference',
+            value: displayValue(
+              cover_note.previous_cover_note_reference_number,
+            ),
+          },
+          {
+            label: 'Description',
+            value: displayValue(cover_note.cover_note_description),
+          },
+          {
+            label: 'Operative Clause',
+            value: displayValue(cover_note.operative_clause),
+          },
+          {
+            label: 'Payment Mode',
+            value: displayValue(cover_note.payment_mode),
+          },
+          {
+            label: 'Cover Start Date',
+            value: formatDateTime(cover_note.cover_note_start_date),
+          },
+          {
+            label: 'Cover End Date',
+            value: formatDateTime(cover_note.cover_note_end_date),
+          },
+          { label: 'Currency', value: displayValue(cover_note.currency) },
+          {
+            label: 'Exchange Rate',
+            value: formatNumber(cover_note.exchange_rate, 6),
+          },
+          {
+            label: 'Product Code',
+            value: displayValue(cover_note.product_code),
+          },
+          {
+            label: 'Authorizing Officer',
+            value: displayValue(cover_note.authorizing_officer_name),
+          },
+          {
+            label: 'Officer Title',
+            value: displayValue(cover_note.authorizing_officer_title),
+          },
+          {
+            label: 'Commission Rate',
+            value: formatNumber(cover_note.commission_rate, 6),
+          },
+          {
+            label: 'Commission Paid',
+            value: formatMoney(cover_note.commission_paid, cover_note.currency),
+          },
+          {
+            label: 'Endorsement Type',
+            value: displayValue(cover_note.endorsement_type),
+          },
+          {
+            label: 'Endorsement Reason',
+            value: displayValue(cover_note.endorsement_reason),
+          },
+          {
+            label: 'Endorsement Premium Earned',
+            value: formatMoney(
+              cover_note.endorsement_premium_earned,
+              cover_note.currency,
+            ),
+          },
+        ]}
+      />
+    </SectionCard>
+  );
+}
+
+export function QuotationPremiumPreview({
+  preview,
+}: {
+  preview: QuotationPreviewRecord;
+}) {
+  const { premium_summary } = preview;
+  return (
+    <PremiumBreakdown
+      sectionComponent={SectionCard}
+      currency={premium_summary.currency}
+      sumInsured={premium_summary.total_sum_insured}
+      rows={[
+        {
+          label: 'Base Premium',
+          value: premium_summary.total_premium_before_discount,
+        },
+        {
+          label: 'Discount',
+          value: premium_summary.total_discount_amount,
+          negative: true,
+        },
+        {
+          label: 'Premium Excluding Tax',
+          value: premium_summary.total_premium_excluding_tax,
+        },
+        {
+          label: 'Tax',
+          value: premium_summary.total_tax_amount,
+        },
+      ]}
+      total={{
+        label: 'Total Premium',
+        value: premium_summary.total_premium_including_tax,
+      }}
+    />
+  );
+}
+
 export function QuotationOverviewPreview({
   preview,
 }: {
   preview: QuotationPreviewRecord;
 }) {
-  const { overview, cover_note, premium_summary } = preview;
-
   return (
-    <div className="space-y-6">
-      <SectionCard
-        title="Quotation Information"
-        description="Core quotation, company and sales context."
-      >
-        <KeyValueGrid
-          items={[
-            { label: 'Quotation Number', value: overview.quotation_no },
-            { label: 'Quotation Type', value: overview.quotation_type },
-            { label: 'Quotation Flow', value: overview.quotation_flow },
-            { label: 'Channel Type', value: overview.channel_type },
-            {
-              label: 'Company',
-              value: overview.company.name ?? overview.company.code,
-            },
-            {
-              label: 'Branch',
-              value: overview.branch.name ?? overview.branch.code,
-            },
-            {
-              label: 'Department',
-              value: overview.department.name ?? overview.department.code,
-            },
-            {
-              label: 'Product',
-              value: overview.product.name ?? overview.product.code,
-            },
-            {
-              label: 'Insurance Category',
-              value:
-                overview.insurance_category.name ??
-                overview.insurance_category.code,
-            },
-            {
-              label: 'Subclass',
-              value: overview.subclass.name ?? overview.subclass.code,
-            },
-            {
-              label: 'Sales Point',
-              value: overview.sales_point.name ?? overview.sales_point.code,
-            },
-            {
-              label: 'Created By',
-              value: overview.created_by.name ?? overview.created_by.code,
-            },
-            {
-              label: 'Created Date',
-              value: formatDateTime(overview.created_at),
-            },
-            {
-              label: 'Last Updated By',
-              value: overview.updated_by.name ?? overview.updated_by.code,
-            },
-            {
-              label: 'Last Updated Date',
-              value: formatDateTime(overview.updated_at),
-            },
-          ]}
-        />
-      </SectionCard>
-
-      <SectionCard title="Cover Note Information">
-        <KeyValueGrid
-          items={[
-            {
-              label: 'Cover Note Type',
-              value: displayValue(cover_note.cover_note_type),
-            },
-            {
-              label: 'Cover Note Number',
-              value: displayValue(cover_note.cover_note_number),
-            },
-            {
-              label: 'Previous Cover Note Reference',
-              value: displayValue(
-                cover_note.previous_cover_note_reference_number,
-              ),
-            },
-            {
-              label: 'Description',
-              value: displayValue(cover_note.cover_note_description),
-            },
-            {
-              label: 'Operative Clause',
-              value: displayValue(cover_note.operative_clause),
-            },
-            {
-              label: 'Payment Mode',
-              value: displayValue(cover_note.payment_mode),
-            },
-            { label: 'Currency', value: displayValue(cover_note.currency) },
-            {
-              label: 'Exchange Rate',
-              value: formatNumber(cover_note.exchange_rate, 6),
-            },
-            {
-              label: 'Product Code',
-              value: displayValue(cover_note.product_code),
-            },
-            {
-              label: 'Authorizing Officer',
-              value: displayValue(cover_note.authorizing_officer_name),
-            },
-            {
-              label: 'Officer Title',
-              value: displayValue(cover_note.authorizing_officer_title),
-            },
-            {
-              label: 'Commission Rate',
-              value: formatNumber(cover_note.commission_rate, 6),
-            },
-            {
-              label: 'Commission Paid',
-              value: formatMoney(
-                cover_note.commission_paid,
-                cover_note.currency,
-              ),
-            },
-            {
-              label: 'Endorsement Type',
-              value: displayValue(cover_note.endorsement_type),
-            },
-            {
-              label: 'Endorsement Reason',
-              value: displayValue(cover_note.endorsement_reason),
-            },
-            {
-              label: 'Endorsement Premium Earned',
-              value: formatMoney(
-                cover_note.endorsement_premium_earned,
-                cover_note.currency,
-              ),
-            },
-          ]}
-        />
-      </SectionCard>
-
-      <PremiumBreakdown
-        currency={premium_summary.currency}
-        sumInsured={premium_summary.total_sum_insured}
-        rows={[
-          {
-            label: 'Base Premium',
-            value: premium_summary.total_premium_before_discount,
-          },
-          {
-            label: 'Discount',
-            value: premium_summary.total_discount_amount,
-            negative: true,
-          },
-          {
-            label: 'Premium Excluding Tax',
-            value: premium_summary.total_premium_excluding_tax,
-          },
-          {
-            label: 'Tax',
-            value: premium_summary.total_tax_amount,
-          },
-        ]}
-        total={{
-          label: 'Total Premium',
-          value: premium_summary.total_premium_including_tax,
-        }}
-      />
-    </div>
+    <>
+      <QuotationInformationPreview preview={preview} />
+      <QuotationCoverPreview preview={preview} />
+      <QuotationPremiumPreview preview={preview} />
+    </>
   );
 }
 
@@ -261,7 +294,11 @@ export function PolicyholderPreview({
       {policyholders.map((holder, index) => (
         <SectionCard
           key={`${holder.full_name ?? 'policyholder'}-${index}`}
-          title={`Policyholder ${index + 1}`}
+          title={
+            policyholders.length === 1
+              ? 'Policyholder / Customer Details'
+              : `Policyholder ${index + 1}`
+          }
         >
           <KeyValueGrid
             items={[
@@ -273,10 +310,16 @@ export function PolicyholderPreview({
                 label: 'Full Name / Company',
                 value: displayValue(holder.full_name),
               },
-              {
-                label: 'Date of Birth',
-                value: formatDate(holder.date_of_birth),
-              },
+              ...(['2', 'CORPORATE'].includes(
+                String(holder.policyholder_type).toUpperCase(),
+              ) && !holder.date_of_birth
+                ? []
+                : [
+                    {
+                      label: 'Date of Birth',
+                      value: formatDate(holder.date_of_birth),
+                    },
+                  ]),
               {
                 label: 'Identification Type',
                 value: displayValue(holder.identification_type),
@@ -285,7 +328,11 @@ export function PolicyholderPreview({
                 label: 'Identification Number',
                 value: displayValue(holder.identification_number),
               },
-              { label: 'Gender', value: displayValue(holder.gender) },
+              ...(['2', 'CORPORATE'].includes(
+                String(holder.policyholder_type).toUpperCase(),
+              ) && !holder.gender
+                ? []
+                : [{ label: 'Gender', value: displayValue(holder.gender) }]),
               { label: 'Country', value: displayValue(holder.country) },
               { label: 'Region', value: displayValue(holder.region) },
               { label: 'District', value: displayValue(holder.district) },
@@ -1247,13 +1294,22 @@ export function TiramisSubmissionPreview({
   const friendlyStatus = getFriendlyTiramisStatus(tiramis);
 
   return (
-    <SectionCard title="Issuance">
+    <SectionCard title="TIRAMIS Submission">
       <div className="space-y-4">
         <KeyValueGrid
           items={[
             {
               label: 'Status',
               value: friendlyStatus,
+            },
+            { label: 'Request ID', value: displayValue(tiramis.request_id) },
+            {
+              label: 'Callback Status',
+              value: displayValue(tiramis.callback_received_status),
+            },
+            {
+              label: 'Callback Received',
+              value: formatDateTime(tiramis.callback_received_date),
             },
             {
               label: 'TIRAMIS Cover Note Reference',
@@ -1290,10 +1346,6 @@ export function TiramisSubmissionPreview({
                   value: displayValue(tiramis.submission_status),
                 },
                 {
-                  label: 'Request ID',
-                  value: displayValue(tiramis.request_id),
-                },
-                {
                   label: 'Submission Attempt',
                   value: displayValue(tiramis.submission_attempt_number),
                 },
@@ -1328,10 +1380,6 @@ export function TiramisSubmissionPreview({
                   value: displayValue(tiramis.callback_received_status),
                 },
                 {
-                  label: 'Callback Received Date',
-                  value: formatDateTime(tiramis.callback_received_date),
-                },
-                {
                   label: 'Response ID',
                   value: displayValue(tiramis.response_id),
                 },
@@ -1354,22 +1402,85 @@ export function TiramisSubmissionPreview({
 
 export function QuotationHistoryPreview({
   history,
+  title = 'Quotation Activity',
 }: {
   history: QuotationPreviewHistoryItem[];
+  title?: string;
 }) {
+  const [page, setPage] = useState(1);
+  const ordered = [...history].sort(
+    (a, b) =>
+      (Date.parse(b.date_time ?? '') || 0) -
+      (Date.parse(a.date_time ?? '') || 0),
+  );
+  const pages = Math.max(1, Math.ceil(ordered.length / 20));
+  const currentPage = Math.min(page, pages);
   return (
-    <ActivityTimeline
-      emptyText="No history available."
-      renderStatus={(status) => <QuotationStatusBadge status={status} />}
-      entries={history.map((item, index) => ({
-        id: `${item.action}-${index}`,
-        dateTime: item.date_time,
-        action: item.action,
-        previousStatus: item.previous_status,
-        newStatus: item.new_status,
-        performedBy: item.performed_by,
-        remarks: item.remarks,
-      }))}
-    />
+    <SectionCard title={title} description="Most recent activity first.">
+      {!history.length ? (
+        <EmptyState text="No history available." />
+      ) : (
+        <ol className="divide-y divide-slate-100">
+          {ordered
+            .slice((currentPage - 1) * 20, currentPage * 20)
+            .map((item, index) => (
+              <li
+                key={`${item.action}-${index}`}
+                className="grid min-w-0 gap-2 py-4 first:pt-0 sm:grid-cols-[10rem_minmax(0,1fr)]"
+              >
+                <p className="text-xs text-slate-500">
+                  {formatDateTime(item.date_time)}
+                </p>
+                <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {humanizeCode(item.action)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {item.performed_by || 'Actor not recorded'}
+                  </p>
+                  {(item.previous_status || item.new_status) && (
+                    <p className="text-xs text-slate-600">
+                      {item.previous_status
+                        ? `${humanizeCode(item.previous_status)} → `
+                        : ''}
+                      {item.new_status ? humanizeCode(item.new_status) : '—'}
+                    </p>
+                  )}
+                  {item.remarks && (
+                    <p className="whitespace-pre-wrap text-sm text-slate-700">
+                      {item.remarks}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+        </ol>
+      )}
+      {pages > 1 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
+          <span>
+            Page {currentPage} of {pages} · {history.length} events
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="min-h-11"
+              disabled={currentPage === 1}
+              onClick={() => setPage(currentPage - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-11"
+              disabled={currentPage === pages}
+              onClick={() => setPage(currentPage + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </SectionCard>
   );
 }

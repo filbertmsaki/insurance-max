@@ -127,7 +127,7 @@ export function MotorQuotationWizardPage() {
           case 'details':
             return (
               <div className="space-y-3">
-                <div className="grid items-stretch gap-6 md:grid-cols-2">
+                <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 md:gap-6">
                   <div id={SECTION_ANCHORS.customer} className="min-w-0">
                     <PolicyholderStep
                       form={form}
@@ -135,6 +135,7 @@ export function MotorQuotationWizardPage() {
                       newCustomerInDialog
                       hideSectionTitle
                       hideNewCustomerButton
+                      compactOnMobile
                     />
                   </div>
                   <div id={SECTION_ANCHORS.vehicle} className="min-w-0">
@@ -145,11 +146,7 @@ export function MotorQuotationWizardPage() {
                   </div>
                 </div>
                 <div id={SECTION_ANCHORS.cover}>
-                  <ProductCoverStep
-                    wizard={wizard}
-                    compact
-                    first
-                  />
+                  <ProductCoverStep wizard={wizard} compact first />
                 </div>
                 <div id={SECTION_ANCHORS.premium}>
                   <RiskPremiumStep
