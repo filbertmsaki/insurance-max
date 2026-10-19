@@ -213,7 +213,7 @@ function ExistingCustomerCard({
     .join(', ');
   const missing = missingPolicyholderDetails(customer);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-start gap-3 p-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700">
           {isCorporate ? (
@@ -257,7 +257,7 @@ function ExistingCustomerCard({
         </div>
       </div>
 
-      <div className="grid gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2">
+      <div className="grid flex-1 content-start gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2">
         {customer.phone && <QuickFact icon={Phone}>{customer.phone}</QuickFact>}
         {customer.email && <QuickFact icon={Mail}>{customer.email}</QuickFact>}
         {customer.id_number && (
@@ -493,7 +493,12 @@ export function PolicyholderStep({
 
   return (
     <>
-      <StepSection title={hideSectionTitle ? undefined : 'Policyholder'} first>
+      <StepSection
+        title={hideSectionTitle ? undefined : 'Policyholder'}
+        first
+        className="flex h-full flex-col"
+        contentClassName="flex flex-1 flex-col"
+      >
         {mode === 'existing' ? (
           <FormField
             control={form.control}

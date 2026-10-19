@@ -288,7 +288,11 @@ export function MotorVehicleSection({
   ].filter(Boolean);
 
   return (
-    <StepSection first>
+    <StepSection
+      first
+      className="flex h-full flex-col"
+      contentClassName="flex flex-1 flex-col"
+    >
       {showSearch ? (
         <div className="space-y-2">
           <Label htmlFor={VEHICLE_SEARCH_ID} required>
@@ -343,7 +347,7 @@ export function MotorVehicleSection({
           )}
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-start gap-3 p-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-700">
               <Car className="h-5 w-5" />
@@ -394,7 +398,7 @@ export function MotorVehicleSection({
             </div>
           )}
 
-          <div className="border-t border-slate-100 p-4">
+          <div className="flex-1 border-t border-slate-100 p-4">
             {visibleKeys.length > 0 ? (
               <>
                 <p className="mb-3 text-sm font-medium text-amber-700">

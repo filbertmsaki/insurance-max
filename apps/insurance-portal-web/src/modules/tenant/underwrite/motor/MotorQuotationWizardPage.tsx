@@ -127,7 +127,7 @@ export function MotorQuotationWizardPage() {
           case 'details':
             return (
               <div className="space-y-3">
-                <div className="grid items-start gap-6 md:grid-cols-2">
+                <div className="grid items-stretch gap-6 md:grid-cols-2">
                   <div id={SECTION_ANCHORS.customer} className="min-w-0">
                     <PolicyholderStep
                       form={form}
