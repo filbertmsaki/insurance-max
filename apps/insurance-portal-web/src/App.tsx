@@ -132,6 +132,8 @@ import {
   InsurancePage,
   BuyCoverPage,
   MotorInsurancePurchasePage,
+  ClaimsPage,
+  FaqPage,
 } from '@/modules/public/PublicWebsite';
 
 export default function App() {
@@ -1148,6 +1150,8 @@ export default function App() {
 
         {/* Public website */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/claims" element={<ClaimsPage />} />
+        <Route path="/faq" element={<FaqPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/insurance" element={<InsurancePage />} />

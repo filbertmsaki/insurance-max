@@ -1,68 +1,68 @@
-import { Outlet } from 'react-router-dom';
-import { BadgeCheck, FileText, Lock, ShieldCheck } from 'lucide-react';
-import { APP_NAME } from '@/modules/shared/config';
-
-const HIGHLIGHTS = [
-  {
-    icon: FileText,
-    title: 'Policies & claims in one place',
-    description:
-      'Issue cover, track claims and manage customers from a single workspace.',
-  },
-  {
-    icon: BadgeCheck,
-    title: 'Compliance built in',
-    description: 'Regulatory reporting and verification handled as you work.',
-  },
-  {
-    icon: Lock,
-    title: 'Secure by default',
-    description:
-      'Two-factor sign-in and role-based access keep your data protected.',
-  },
-];
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { FileText, LockKeyhole, ArrowRight } from 'lucide-react';
+import { PublicLayout } from '@/modules/public/PublicShell';
+import './auth-public.css';
+import { usePageMeta } from '@/modules/public/usePageMeta';
 
 export function AuthLayout() {
+  const { pathname } = useLocation();
+  const pageName =
+    pathname === '/register'
+      ? 'Create an account'
+      : pathname.includes('password')
+        ? 'Account access'
+        : pathname === '/verify-email'
+          ? 'Verify your email'
+          : pathname === '/2fa'
+            ? 'Account verification'
+            : 'Sign in';
+  usePageMeta(
+    `${pageName} | Insurance Max`,
+    'Access your insurance account, policies and requests.',
+    true,
+  );
   return (
-    <div className="vz-auth-split">
-      <aside className="vz-auth-hero">
-        <div className="flex items-center gap-3">
-          <span className="vz-auth-logo">
-            <ShieldCheck className="h-6 w-6" />
-          </span>
-          <span className="text-xl font-bold text-white">{APP_NAME}</span>
+    <PublicLayout>
+      <main className="public-auth">
+        <div className="public-container public-auth-grid">
+          <aside className="public-auth-intro">
+            <span className="eyebrow">Your insurance account</span>
+            <h1>
+              Your cover.
+              <br /> Within reach.
+            </h1>
+            <p>
+              Access your insurance information and take the next step with your
+              policies, claims and requests.
+            </p>
+            <div className="auth-benefit">
+              <FileText size={21} aria-hidden="true" />
+              <div>
+                <h2>Keep the details together</h2>
+                <p>
+                  View the policies, documents and requests available in your
+                  account.
+                </p>
+              </div>
+            </div>
+            <div className="auth-benefit">
+              <LockKeyhole size={21} aria-hidden="true" />
+              <div>
+                <h2>Sign in securely</h2>
+                <p>
+                  Use your existing sign-in method. Additional verification may
+                  be required for your account.
+                </p>
+              </div>
+            </div>
+            <Link className="text-link" to="/insurance">
+              Explore insurance products{' '}
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </aside>
+          <Outlet />
         </div>
-
-        <div className="max-w-md">
-          <h1 className="text-4xl font-semibold leading-tight text-white">
-            Insurance operations, simplified.
-          </h1>
-          <p className="mt-4 text-base text-white/70">
-            Everything your team needs to sell, service and report on insurance
-            products, all in one place.
-          </p>
-
-          <ul className="mt-10 space-y-6">
-            {HIGHLIGHTS.map(({ icon: Icon, title, description }) => (
-              <li key={title} className="flex gap-4">
-                <span className="vz-auth-hero-icon">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="font-medium text-white">{title}</p>
-                  <p className="mt-0.5 text-sm text-white/60">{description}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p className="text-sm text-white/50">
-          © {new Date().getFullYear()} {APP_NAME}. All rights reserved.
-        </p>
-      </aside>
-
-      <Outlet />
-    </div>
+      </main>
+    </PublicLayout>
   );
 }

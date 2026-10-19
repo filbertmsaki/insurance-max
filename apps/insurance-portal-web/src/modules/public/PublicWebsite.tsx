@@ -1,5 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -10,24 +18,23 @@ import {
   Building2,
   CarFront,
   Check,
-  ChevronLeft,
-  ChevronRight,
   CircleHelp,
   HeartPulse,
   Home as HomeIcon,
   Mail,
   MapPin,
-  Menu,
   Phone,
   Plane,
   ShieldCheck,
   Ship,
   UserRound,
-  X,
 } from 'lucide-react';
 
 import { apiClient } from '@/modules/shared/api/client';
-import './public.css';
+import { PublicLayout } from './PublicShell';
+import { usePageMeta } from './usePageMeta';
+import { CUSTOMER_ID_TYPE_OPTIONS } from '@/modules/tenant/customers/types';
+import { motorFields } from '@/modules/tenant/quotations/wizard/utils/motorFields';
 
 type PublicCatalogueProduct = {
   id: string;
@@ -161,37 +168,6 @@ type CategoryDisplay = PublicCatalogueCategory & {
   icon: typeof CarFront;
 };
 
-type PublicPageKey =
-  | 'home'
-  | 'insurance'
-  | 'about'
-  | 'contact'
-  | 'claims'
-  | 'faq'
-  | 'privacy'
-  | 'terms';
-
-const publicPages: Record<
-  PublicPageKey,
-  { label: string; path: string; enabled: boolean }
-> = {
-  home: { label: 'Home', path: '/', enabled: true },
-  insurance: { label: 'Insurance Products', path: '/insurance', enabled: true },
-  about: { label: 'About Us', path: '/about', enabled: true },
-  contact: { label: 'Contact Us', path: '/contact', enabled: true },
-  claims: { label: 'Claims', path: '/claims', enabled: false },
-  faq: { label: 'FAQ', path: '/faq', enabled: false },
-  privacy: { label: 'Privacy Policy', path: '/privacy', enabled: false },
-  terms: { label: 'Terms & Conditions', path: '/terms', enabled: false },
-};
-
-const mainNav = [
-  publicPages.home,
-  publicPages.insurance,
-  publicPages.about,
-  publicPages.contact,
-].filter((page) => page.enabled);
-
 const categoryIconChoices = [
   {
     name: 'Motor Insurance',
@@ -227,33 +203,6 @@ const categoryIconChoices = [
   },
 ];
 
-const heroSlides = [
-  {
-    title: 'Insurance made simple.',
-    body: 'Discover and buy cover through a clear digital experience designed for people who want practical protection without the runaround.',
-    action: 'Explore Insurance',
-    image:
-      'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1400&q=80',
-    alt: 'Customer reviewing insurance documents at a desk',
-  },
-  {
-    title: 'Protect what matters most.',
-    body: 'Explore motor, health, travel, property and business insurance options from one straightforward place.',
-    action: 'View Products',
-    image:
-      'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1400&q=80',
-    alt: 'Advisor and customer having a professional insurance conversation',
-  },
-  {
-    title: 'Buy insurance with confidence.',
-    body: 'Move from discovery to your next step with secure account access, clear choices and digital self-service.',
-    action: 'Get Started',
-    image:
-      'https://images.unsplash.com/photo-1556745757-8d76bdb6984b?auto=format&fit=crop&w=1400&q=80',
-    alt: 'Person securely completing a digital service on a laptop',
-  },
-];
-
 const contactSchema = z.object({
   fullName: z.string().trim().min(2, 'Enter your full name.'),
   email: z.string().trim().email('Enter a valid email address.'),
@@ -286,41 +235,6 @@ const motorIntakeSchema = z.object({
 });
 
 type MotorIntakeValues = z.infer<typeof motorIntakeSchema>;
-
-function usePageMeta(title: string, description: string) {
-  useEffect(() => {
-    document.title = title;
-
-    const meta =
-      document.querySelector<HTMLMetaElement>('meta[name="description"]') ??
-      document.createElement('meta');
-    meta.setAttribute('name', 'description');
-    meta.setAttribute('content', description);
-    document.head.appendChild(meta);
-
-    const ogTitle =
-      document.querySelector<HTMLMetaElement>('meta[property="og:title"]') ??
-      document.createElement('meta');
-    ogTitle.setAttribute('property', 'og:title');
-    ogTitle.setAttribute('content', title);
-    document.head.appendChild(ogTitle);
-
-    const ogDescription =
-      document.querySelector<HTMLMetaElement>(
-        'meta[property="og:description"]',
-      ) ?? document.createElement('meta');
-    ogDescription.setAttribute('property', 'og:description');
-    ogDescription.setAttribute('content', description);
-    document.head.appendChild(ogDescription);
-
-    const canonical =
-      document.querySelector<HTMLLinkElement>('link[rel="canonical"]') ??
-      document.createElement('link');
-    canonical.setAttribute('rel', 'canonical');
-    canonical.setAttribute('href', window.location.href.split('?')[0]);
-    document.head.appendChild(canonical);
-  }, [description, title]);
-}
 
 function usePublicCatalogue() {
   return useQuery({
@@ -372,6 +286,10 @@ function isMotorCatalogueCategory(
     }>;
   } | null,
 ) {
+  if (
+    category?.business_line?.toUpperCase().replace(/[ -]/g, '_') === 'NON_MOTOR'
+  )
+    return false;
   const productValue =
     category?.products
       ?.map(
@@ -495,237 +413,8 @@ function EmptyCatalogueState({
           ? 'We are checking the active Insurance Max catalogue.'
           : isError
             ? 'Please try again shortly or contact support if this continues.'
-            : 'Active categories and products will appear here once they are published on the platform.'}
+            : 'Please contact the team to discuss your insurance needs.'}
       </p>
-    </div>
-  );
-}
-
-function PublicFooter() {
-  const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL as string | undefined;
-  const supportPhone = import.meta.env.VITE_SUPPORT_PHONE as string | undefined;
-  const contactAddress = import.meta.env.VITE_SUPPORT_ADDRESS as
-    | string
-    | undefined;
-  const { categories } = useDisplayedCatalogue(5);
-
-  const insuranceLinks = categories.length
-    ? categories.map((category) => ({
-        label: category.name,
-        path: '/insurance',
-        enabled: true,
-      }))
-    : [
-        {
-          label: 'Insurance Products',
-          path: '/insurance',
-          enabled: true,
-        },
-      ];
-
-  return (
-    <footer className="public-footer">
-      <div className="public-container footer-grid">
-        <div className="footer-intro">
-          <Link to="/" className="brand brand-footer">
-            <span className="brand-mark">IM</span>
-            <span>
-              Insurance <span className="brand-light">Max</span>
-            </span>
-          </Link>
-          <p>
-            A digital insurance experience for discovering, buying and managing
-            cover with less complexity.
-          </p>
-        </div>
-
-        <FooterColumn
-          title="Quick Links"
-          links={[
-            publicPages.home,
-            publicPages.about,
-            publicPages.contact,
-            { label: 'Login', path: '/login', enabled: true },
-          ]}
-        />
-        <FooterColumn title="Insurance" links={insuranceLinks} />
-        <FooterColumn
-          title="Support"
-          links={[
-            publicPages.faq,
-            publicPages.claims,
-            { label: 'Help', path: '/contact', enabled: true },
-            publicPages.contact,
-          ]}
-        />
-        <FooterColumn
-          title="Legal"
-          links={[publicPages.privacy, publicPages.terms]}
-        />
-
-        {(supportEmail || supportPhone || contactAddress) && (
-          <div className="footer-contact">
-            <h2>Contact</h2>
-            {supportEmail && (
-              <a href={`mailto:${supportEmail}`}>
-                <Mail size={15} /> {supportEmail}
-              </a>
-            )}
-            {supportPhone && (
-              <a href={`tel:${supportPhone}`}>
-                <Phone size={15} /> {supportPhone}
-              </a>
-            )}
-            {contactAddress && (
-              <span>
-                <MapPin size={15} /> {contactAddress}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="public-container footer-bottom">
-        <span>
-          (c) {new Date().getFullYear()} Insurance Max. All rights reserved.
-        </span>
-        <span>Simple digital insurance.</span>
-      </div>
-    </footer>
-  );
-}
-
-function PublicNavbar() {
-  const [open, setOpen] = useState(false);
-  const [isSticky, setIsSticky] = useState(false);
-
-  useEffect(() => {
-    const updateSticky = () => setIsSticky(window.scrollY > 8);
-    updateSticky();
-    window.addEventListener('scroll', updateSticky, { passive: true });
-    return () => window.removeEventListener('scroll', updateSticky);
-  }, []);
-
-  return (
-    <header className={`public-nav ${isSticky ? 'is-sticky' : ''}`}>
-      <div className="public-container nav-inner">
-        <Link
-          to="/"
-          className="brand"
-          onClick={() => setOpen(false)}
-          aria-label="Insurance Max home"
-        >
-          <span className="brand-mark">IM</span>
-          <span>
-            Insurance <span className="brand-light">Max</span>
-          </span>
-        </Link>
-
-        <nav className="desktop-links" aria-label="Main navigation">
-          {mainNav.map((page) => (
-            <NavLink key={page.path} to={page.path} end={page.path === '/'}>
-              {page.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="nav-actions">
-          <Link className="nav-login" to="/login">
-            <UserRound size={16} /> Login
-          </Link>
-          <Link className="button button-small" to="/buy-cover">
-            Get Insurance <ArrowRight size={16} />
-          </Link>
-        </div>
-
-        <button
-          className="menu-button"
-          type="button"
-          aria-expanded={open}
-          aria-controls="mobile-navigation"
-          aria-label={open ? 'Close navigation' : 'Open navigation'}
-          onClick={() => setOpen((value) => !value)}
-        >
-          {open ? <X /> : <Menu />}
-        </button>
-      </div>
-
-      <nav
-        id="mobile-navigation"
-        className={`mobile-links ${open ? 'is-open' : ''}`}
-        aria-label="Mobile navigation"
-      >
-        {mainNav.map((page) => (
-          <NavLink
-            key={page.path}
-            to={page.path}
-            end={page.path === '/'}
-            onClick={() => setOpen(false)}
-          >
-            {page.label}
-          </NavLink>
-        ))}
-        <div className="mobile-action-row">
-          <Link
-            className="nav-login mobile-login"
-            to="/login"
-            onClick={() => setOpen(false)}
-          >
-            <UserRound size={17} /> Login
-          </Link>
-          <Link
-            className="button"
-            to="/buy-cover"
-            onClick={() => setOpen(false)}
-          >
-            Get Insurance <ArrowRight size={16} />
-          </Link>
-        </div>
-      </nav>
-    </header>
-  );
-}
-
-function FooterColumn({
-  title,
-  links,
-}: {
-  title: string;
-  links: Array<{ label: string; path: string; enabled: boolean }>;
-}) {
-  return (
-    <div>
-      <h2>{title}</h2>
-      {links.map((link) =>
-        link.enabled ? (
-          <Link to={link.path} key={`${title}-${link.label}`}>
-            {link.label}
-          </Link>
-        ) : (
-          <span className="footer-muted" key={`${title}-${link.label}`}>
-            {link.label}
-          </span>
-        ),
-      )}
-    </div>
-  );
-}
-
-function PublicLayout({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    document.documentElement.classList.add('public-html');
-    document.body.classList.add('public-body');
-    return () => {
-      document.documentElement.classList.remove('public-html');
-      document.body.classList.remove('public-body');
-    };
-  }, []);
-
-  return (
-    <div className="public-site">
-      <PublicNavbar />
-      {children}
-      <PublicFooter />
     </div>
   );
 }
@@ -756,7 +445,7 @@ function CategoryCard({
   index: number;
 }) {
   const Icon = category.icon;
-  const path = isMotorCatalogueCategory(category) ? '/buy-cover' : '/insurance';
+  const path = `/insurance?category=${encodeURIComponent(category.id)}`;
 
   return (
     <article className="category-card">
@@ -764,7 +453,10 @@ function CategoryCard({
         <Icon size={22} aria-hidden="true" />
       </div>
       <h3>{category.name}</h3>
-      <p>Sample cover available for preview.</p>
+      <p>
+        {category.description ||
+          `Explore ${category.name.toLowerCase()} products and the insurers offering them.`}
+      </p>
       <Link to={path} aria-label={`Explore ${category.name}`}>
         Explore <ArrowRight size={16} aria-hidden="true" />
       </Link>
@@ -772,103 +464,125 @@ function CategoryCard({
   );
 }
 
-function HeroSlider() {
-  const [current, setCurrent] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const slide = heroSlides[current];
-
-  useEffect(() => {
-    if (paused) return undefined;
-
-    const timer = window.setInterval(
-      () => setCurrent((value) => (value + 1) % heroSlides.length),
-      7000,
-    );
-
-    return () => window.clearInterval(timer);
-  }, [paused]);
-
+function HomeHero() {
   return (
-    <section
-      className="hero-panel"
-      aria-roledescription="carousel"
-      aria-label="Insurance Max highlights"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
-    >
-      <div className="hero-media" aria-hidden="true">
-        {heroSlides.map((item, index) => (
-          <img
-            alt=""
-            className={index === current ? 'is-active' : ''}
-            decoding="async"
-            fetchPriority={index === 0 ? 'high' : 'auto'}
-            key={item.title}
-            src={item.image}
-          />
-        ))}
-      </div>
-      <div className="hero-overlay" />
-
-      <div className="public-container hero-inner">
-        <div className="hero-copy" key={slide.title}>
-          <span className="eyebrow">Insurance Max</span>
-          <h1>{slide.title}</h1>
-          <p>{slide.body}</p>
-          <Link className="button button-hero" to="/buy-cover">
-            {slide.action} <ArrowRight size={17} aria-hidden="true" />
-          </Link>
-        </div>
-
-        <div
-          className="hero-assurance"
-          aria-label="Insurance Max service highlights"
-        >
-          <span>
-            <ShieldCheck size={18} aria-hidden="true" /> Secure access
-          </span>
-          <span>
-            <Check size={18} aria-hidden="true" /> Digital purchase
-          </span>
-          <span>
-            <CircleHelp size={18} aria-hidden="true" /> Support ready
-          </span>
-        </div>
-
-        <div className="slider-controls">
-          <button
-            type="button"
-            aria-label="Previous slide"
-            onClick={() =>
-              setCurrent((current - 1 + heroSlides.length) % heroSlides.length)
-            }
-          >
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-          <div className="slider-dots" role="tablist" aria-label="Hero slides">
-            {heroSlides.map((item, index) => (
-              <button
-                className={index === current ? 'is-active' : ''}
-                key={item.title}
-                type="button"
-                aria-label={`Go to slide ${index + 1}: ${item.title}`}
-                aria-current={index === current}
-                onClick={() => setCurrent(index)}
-              />
-            ))}
+    <section className="home-hero">
+      <div className="public-container hero-grid">
+        <div className="hero-copy">
+          <span className="eyebrow">For the road ahead</span>
+          <h1>
+            Life moves forward.
+            <br />
+            <em>Go with cover.</em>
+          </h1>
+          <p>
+            From your daily drive to the business you are building, find
+            insurance that fits your next step.
+          </p>
+          <div className="hero-actions">
+            <Link className="button" to="/buy-cover">
+              Get a quote <ArrowRight size={17} aria-hidden="true" />
+            </Link>
+            <Link className="button button-outline" to="/buy-cover">
+              Buy insurance
+            </Link>
           </div>
-          <button
-            type="button"
-            aria-label="Next slide"
-            onClick={() => setCurrent((current + 1) % heroSlides.length)}
-          >
-            <ChevronRight size={18} aria-hidden="true" />
-          </button>
+          <div className="hero-footnote">
+            <span className="short-rule" />
+            Check your vehicle. Review your premium. Choose your cover.
+          </div>
         </div>
+        <figure className="hero-photo">
+          <img
+            src="/images/tanzania-road.webp"
+            alt="A car beside an open road in Morogoro, Tanzania"
+            width="1000"
+            height="1000"
+            fetchPriority="high"
+          />
+          <figcaption>Everyday journeys. Thoughtful protection.</figcaption>
+        </figure>
       </div>
     </section>
+  );
+}
+
+function PurchaseSteps() {
+  return (
+    <section className="steps-section">
+      <div className="public-container">
+        <SectionHeader
+          eyebrow="A clearer way to get covered"
+          title="Know what comes next."
+          body="Start with a motor quote online. We will guide you through the details you need."
+        />
+        <ol className="steps-grid">
+          {[
+            [
+              'Check your vehicle',
+              'Enter your registration and contact details. We check the vehicle and any active cover.',
+            ],
+            [
+              'Choose your cover',
+              'Select an available insurer and cover, then confirm your vehicle and personal details.',
+            ],
+            [
+              'Review your premium',
+              'See your premium, charges and taxes before submitting your request.',
+            ],
+            [
+              'Complete your purchase',
+              'Keep your reference. Confirm payment and cover issuance with your insurer.',
+            ],
+          ].map(([title, body], index) => (
+            <li className="step" key={title}>
+              <span>0{index + 1}</span>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+const questions = [
+  [
+    'What do I need for a motor quote?',
+    'Have your vehicle registration, registration card, contact number and policyholder identification ready. After the vehicle check, you can review the insurer, cover and required details before calculating a premium.',
+  ],
+  [
+    'What if my vehicle already has insurance?',
+    'The vehicle check shows active cover when a record is returned. The purchase cannot proceed for that vehicle while active cover is found. Check the displayed dates and contact your insurer if the record needs clarification.',
+  ],
+  [
+    'Does submitting a request mean I am insured?',
+    'Submission creates an insurance request. Keep your reference and confirm payment and policy issuance with your insurer before relying on the cover.',
+  ],
+  [
+    'Can I arrange business, fleet or other insurance?',
+    'Explore the published product catalogue for available cover. For fleet and other insurance enquiries, contact the support team. The public online purchase journey currently handles individual motor vehicles.',
+  ],
+  [
+    'How do I check my documents or get claims help?',
+    'Use the verification link on a document to view its record. For claims, sign in to your customer account or use the claims contact details on your policy.',
+  ],
+];
+
+function Questions({ all = false }: { all?: boolean }) {
+  return (
+    <div className="faq-list">
+      {questions.slice(0, all ? undefined : 3).map(([question, answer]) => (
+        <details key={question}>
+          <summary>
+            {question}
+            <span aria-hidden="true">+</span>
+          </summary>
+          <p>{answer}</p>
+        </details>
+      ))}
+    </div>
   );
 }
 
@@ -878,18 +592,36 @@ function HomePage() {
     'Discover and buy insurance through a clear, secure digital experience with Insurance Max.',
   );
 
-  const catalogue = useDisplayedCatalogue(3);
+  const catalogue = useDisplayedCatalogue(6);
 
   return (
     <PublicLayout>
       <main>
-        <HeroSlider />
+        <HomeHero />
+        <div className="service-strip">
+          <div className="public-container service-strip-inner">
+            <span>
+              <ShieldCheck size={21} aria-hidden="true" />
+              Vehicle & active cover checks
+            </span>
+            <span>
+              <Check size={21} aria-hidden="true" />
+              Premiums shown in TZS
+            </span>
+            <Link to="/contact">
+              <CircleHelp size={21} aria-hidden="true" />
+              Help with your next step{' '}
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
 
         <section className="public-section categories-section">
           <div className="public-container">
             <SectionHeader
-              eyebrow="Sample Covers"
-              title="A few insurance options."
+              eyebrow="Explore your options"
+              title="Protection for what matters to you."
+              body="Browse the current catalogue. Available products and insurers are shown before you choose."
             />
             {catalogue.categories.length ? (
               <div className="category-grid">
@@ -910,6 +642,51 @@ function HomePage() {
           </div>
         </section>
 
+        <PurchaseSteps />
+        <section className="public-section support-section">
+          <div className="public-container support-grid">
+            <div>
+              <SectionHeader
+                eyebrow="Already have cover?"
+                title="Support when you need it."
+                body="Find your policy information, follow up on a claim or ask a question about your cover."
+              />
+              <Link className="text-link" to="/claims">
+                Claims & support <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+            </div>
+            <div className="support-links">
+              <Link to="/login">
+                <span>
+                  <strong>Your insurance account</strong>
+                  <small>Sign in to access your policies and requests</small>
+                </span>
+                <ArrowRight aria-hidden="true" />
+              </Link>
+              <Link to="/contact">
+                <span>
+                  <strong>Talk to the team</strong>
+                  <small>Help choosing cover or following up</small>
+                </span>
+                <ArrowRight aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </section>
+        <section className="public-section faq-section">
+          <div className="public-container support-grid">
+            <div>
+              <SectionHeader
+                eyebrow="Useful to know"
+                title="A little clarity goes a long way."
+              />
+              <Link className="text-link" to="/faq">
+                All questions <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+            </div>
+            <Questions />
+          </div>
+        </section>
         <CTASection />
       </main>
     </PublicLayout>
@@ -930,7 +707,7 @@ function CTASection() {
         </div>
         <div className="cta-actions">
           <Link className="button button-light" to="/buy-cover">
-            Get Insurance <ArrowRight size={17} aria-hidden="true" />
+            Get a quote <ArrowRight size={17} aria-hidden="true" />
           </Link>
           <Link className="text-link light-link" to="/contact">
             Contact Us
@@ -973,20 +750,30 @@ function AboutPage() {
         <PageIntro
           eyebrow="About Insurance Max"
           title="Simple digital insurance."
-          body="A short preview page for customers to understand the service."
+          body="Insurance Max brings product discovery, motor quotations and customer account access into one place, with clear information at each step."
         />
 
         <section className="public-section values-section">
           <div className="public-container">
-            <SectionHeader eyebrow="Overview" title="What this portal shows." />
+            <SectionHeader
+              eyebrow="Our approach"
+              title="Make informed choices about your cover."
+              body="Insurance starts with understanding what you are buying. Compare available products, check your details and review costs before you continue."
+            />
             <div className="value-grid">
               {[
                 [
                   'Buy Cover',
-                  'Start a public insurance request from a simple form.',
+                  'Check your vehicle and existing cover, confirm your details and request a motor quotation.',
                 ],
-                ['View Products', 'Preview a few active product categories.'],
-                ['Get Support', 'Send a short enquiry to the support team.'],
+                [
+                  'View Products',
+                  'Browse published products and see which insurance company provides each cover.',
+                ],
+                [
+                  'Get Support',
+                  'Find contact options or sign in to follow up on your policies and requests.',
+                ],
               ].map(([title, body], index) => (
                 <article className="value-item" key={title}>
                   <span>0{index + 1}</span>
@@ -1024,9 +811,6 @@ function ContactPage() {
 
 function ContactContent() {
   const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [lastSubmitAt, setLastSubmitAt] = useState(0);
-  const timeoutRef = useRef<number | null>(null);
   const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL as string | undefined;
   const supportPhone = import.meta.env.VITE_SUPPORT_PHONE as string | undefined;
   const contactAddress = import.meta.env.VITE_SUPPORT_ADDRESS as
@@ -1045,34 +829,13 @@ function ContactContent() {
     },
   });
 
-  useEffect(
-    () => () => {
-      if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-    },
-    [],
-  );
-
   function handleContactSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     void form.handleSubmit((values) => {
-      const now = Date.now();
-      if (now - lastSubmitAt < 10_000) {
-        form.setError('root', {
-          message: 'Please wait a few seconds before sending another message.',
-        });
-        return;
-      }
-
-      setLastSubmitAt(now);
-      setSending(true);
-      form.clearErrors('root');
-
-      timeoutRef.current = window.setTimeout(() => {
-        setSending(false);
-        setSent(true);
-        form.reset(values);
-      }, 700);
+      if (!supportEmail) return;
+      const body = `${values.message}\n\nFrom: ${values.fullName}\nEmail: ${values.email}\nPhone: ${values.phone || 'Not provided'}`;
+      window.location.href = `mailto:${supportEmail}?subject=${encodeURIComponent(values.subject)}&body=${encodeURIComponent(body)}`;
+      setSent(true);
     })(event);
   }
 
@@ -1083,7 +846,7 @@ function ContactContent() {
           <SectionHeader
             eyebrow="Reach Out"
             title="Tell us what you need."
-            body="Use the form for product questions, account support or service enquiries. Configured company contact details appear here when available."
+            body="Ask about products, an existing request or your account. For a claim, use the insurer's contact details on your policy."
           />
 
           <ContactDetail
@@ -1093,7 +856,11 @@ function ContactContent() {
               supportEmail ? (
                 <a href={`mailto:${supportEmail}`}>{supportEmail}</a>
               ) : (
-                <span>Support email is not configured yet.</span>
+                <span>
+                  For an existing policy, use the contact details on your policy
+                  document. You can also sign in to your customer account for
+                  support.
+                </span>
               )
             }
           />
@@ -1125,17 +892,37 @@ function ContactContent() {
           onSubmit={handleContactSubmit}
           noValidate
         >
-          {sent ? (
+          {!supportEmail ? (
+            <div className="contact-account">
+              <h2>Need help with an existing policy?</h2>
+              <p>
+                Your customer account brings your insurance information and
+                requests together. Keep your policy or quotation reference
+                ready.
+              </p>
+              <Link className="button" to="/login">
+                Sign in to your account{' '}
+                <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+              <Link className="text-link" to="/faq">
+                Read common questions
+              </Link>
+            </div>
+          ) : sent ? (
             <div className="form-success" role="status">
               <Check size={24} aria-hidden="true" />
-              <h2>Message received</h2>
-              <p>Thank you for reaching out. We will be in touch soon.</p>
+              <h2>Your email draft is ready</h2>
+              <p>
+                Your email app has been opened. Send the message there to
+                contact the team. If no app opened, email the address shown on
+                this page.
+              </p>
               <button
                 className="button"
                 type="button"
                 onClick={() => setSent(false)}
               >
-                Send another message
+                Prepare another email
               </button>
             </div>
           ) : (
@@ -1178,7 +965,7 @@ function ContactContent() {
                     id="phone"
                     type="tel"
                     autoComplete="tel"
-                    placeholder="Optional"
+                    placeholder="+255 7XX XXX XXX (optional)"
                     {...form.register('phone')}
                   />
                 </PublicField>
@@ -1214,8 +1001,8 @@ function ContactContent() {
                 </p>
               )}
 
-              <button className="button" type="submit" disabled={sending}>
-                {sending ? 'Sending...' : 'Send Message'}
+              <button className="button" type="submit">
+                Open email draft
                 <ArrowRight size={17} aria-hidden="true" />
               </button>
               <p className="form-note">
@@ -1419,6 +1206,19 @@ function MotorInsurancePurchasePage() {
   const [busy, setBusy] = useState<'verify' | 'quote' | 'submit' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const purchasePanel = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const target = purchasePanel.current?.querySelector<HTMLElement>(
+      error
+        ? '[data-purchase-error]'
+        : '.motor-result-panel h2, .motor-panel h2',
+    );
+    if (target && (error || verified || quote || submitted || activeCover)) {
+      target.setAttribute('tabindex', '-1');
+      target.focus();
+    }
+  }, [error, verified, quote, submitted, activeCover]);
 
   const companies = optionsQuery.data?.companies ?? [];
   const selectedCompany =
@@ -1610,23 +1410,81 @@ function MotorInsurancePurchasePage() {
   return (
     <PublicLayout>
       <main>
+        <PageIntro
+          eyebrow="Motor insurance"
+          title="Your next journey starts here."
+          body="Check your vehicle, choose your cover and review a quotation in Tanzanian shillings. Have your registration card and identification ready."
+        />
         <section className="public-section motor-purchase-section">
-          <div className="public-container motor-purchase-layout">
-            <div className="motor-progress" aria-label="Purchase progress">
+          <div
+            ref={purchasePanel}
+            className="public-container motor-purchase-layout"
+            aria-busy={busy !== null}
+          >
+            <ol className="motor-progress" aria-label="Purchase progress">
               {[
-                ['1', 'Check Vehicle'],
-                ['2', 'Details & Cover'],
-                ['3', 'Quote & Submit'],
-              ].map(([number, label]) => (
-                <span key={label}>
-                  <strong>{number}</strong>
-                  {label}
-                </span>
-              ))}
-            </div>
+                'Check vehicle',
+                'Details & cover',
+                'Review premium',
+                'Request confirmation',
+              ].map((label, index) => {
+                const current = submitted ? 3 : quote ? 2 : verified ? 1 : 0;
+                return (
+                  <li
+                    key={label}
+                    className={
+                      index < current
+                        ? 'is-complete'
+                        : index === current
+                          ? 'is-current'
+                          : ''
+                    }
+                    aria-current={index === current ? 'step' : undefined}
+                  >
+                    <strong>
+                      {index < current ? (
+                        <Check size={16} aria-hidden="true" />
+                      ) : (
+                        index + 1
+                      )}
+                    </strong>
+                    <span>{label}</span>
+                  </li>
+                );
+              })}
+            </ol>
+            <p className="purchase-note">
+              Online quotation and submission. Payment and cover issuance are
+              confirmed separately by your insurer.
+            </p>
+            {optionsQuery.isError && (
+              <div className="motor-alert motor-alert-error" role="alert">
+                We could not load available insurers.{' '}
+                <button
+                  className="text-link"
+                  type="button"
+                  onClick={() => void optionsQuery.refetch()}
+                >
+                  Try again
+                </button>{' '}
+                or <Link to="/contact">contact support</Link>.
+              </div>
+            )}
+            {!optionsQuery.isLoading &&
+              !optionsQuery.isError &&
+              companies.length === 0 && (
+                <div className="motor-alert" role="status">
+                  Motor quotations are currently unavailable.{' '}
+                  <Link to="/contact">Contact the team for help.</Link>
+                </div>
+              )}
 
             {error && (
-              <div className="motor-alert motor-alert-error" role="alert">
+              <div
+                data-purchase-error
+                className="motor-alert motor-alert-error"
+                role="alert"
+              >
                 {error}
               </div>
             )}
@@ -1645,6 +1503,15 @@ function MotorInsurancePurchasePage() {
                     )}
                   </strong>
                 </p>
+                <p>
+                  Keep this reference for follow-up. Contact your insurer to
+                  confirm the payment instructions and cover issuance. This
+                  request confirmation is not proof of insurance.
+                </p>
+                <Link className="text-link" to="/contact">
+                  Get help with your request{' '}
+                  <ArrowRight size={16} aria-hidden="true" />
+                </Link>
                 <button
                   className="button"
                   type="button"
@@ -1752,7 +1619,8 @@ function MotorInsurancePurchasePage() {
                   <form className="motor-panel" onSubmit={verifyVehicle}>
                     <SectionHeader
                       eyebrow="Vehicle"
-                      title="Start with three details"
+                      title="First, let us check your vehicle."
+                      body="We check the registration and look for active insurance before you continue."
                     />
                     <div className="form-row">
                       <PublicField id="publicMotorFullName" label="Full Name">
@@ -1774,6 +1642,7 @@ function MotorInsurancePurchasePage() {
                       >
                         <input
                           id="publicMotorRegistration"
+                          placeholder="e.g. T123ABC"
                           autoCapitalize="characters"
                           value={intake.registrationNumber}
                           onChange={(event) =>
@@ -1788,6 +1657,8 @@ function MotorInsurancePurchasePage() {
                     <PublicField id="publicMotorPhone" label="Phone Number">
                       <input
                         id="publicMotorPhone"
+                        type="tel"
+                        placeholder="+255 7XX XXX XXX"
                         autoComplete="tel"
                         inputMode="tel"
                         value={intake.phone}
@@ -1802,13 +1673,17 @@ function MotorInsurancePurchasePage() {
                     <button
                       className="button"
                       type="submit"
-                      disabled={busy === 'verify' || optionsQuery.isLoading}
+                      disabled={
+                        busy === 'verify' ||
+                        optionsQuery.isLoading ||
+                        !selectedCompany
+                      }
                     >
                       {busy === 'verify' ? 'Checking...' : 'Check Vehicle'}
                       <ArrowRight size={17} aria-hidden="true" />
                     </button>
                   </form>
-                ) : (
+                ) : quote ? null : (
                   <form className="motor-panel" onSubmit={calculateQuote}>
                     <SectionHeader
                       eyebrow="Details"
@@ -1875,7 +1750,7 @@ function MotorInsurancePurchasePage() {
                       </PublicField>
                       <PublicField
                         id="publicMotorSumInsured"
-                        label="Vehicle Value"
+                        label="Vehicle Value (TZS)"
                       >
                         <input
                           id="publicMotorSumInsured"
@@ -2158,7 +2033,22 @@ function MotorInsurancePurchasePage() {
 
                 {quote && (
                   <div className="motor-panel">
-                    <SectionHeader eyebrow="Quote" title="Review and submit" />
+                    <button
+                      className="text-link"
+                      type="button"
+                      onClick={() => {
+                        setQuote(null);
+                        setConfirmed(false);
+                      }}
+                      disabled={busy !== null}
+                    >
+                      Edit details and cover
+                    </button>
+                    <SectionHeader
+                      eyebrow="Your quotation"
+                      title="Review before you continue."
+                      body="Check the vehicle, cover period and premium. Submitting a request does not confirm payment or activate cover."
+                    />
                     <div className="motor-summary-grid">
                       <SummaryItem
                         label="Customer"
@@ -2177,6 +2067,10 @@ function MotorInsurancePurchasePage() {
                       <SummaryItem
                         label="Cover Period"
                         value={`${quote.cover_period.start_date} to ${quote.cover_period.end_date}`}
+                      />
+                      <SummaryItem
+                        label="Quotation reference"
+                        value={quote.premium.pricing_quote_id}
                       />
                       <SummaryItem
                         label="Basic Premium"
@@ -2213,7 +2107,9 @@ function MotorInsurancePurchasePage() {
                       disabled={!confirmed || busy === 'submit'}
                       onClick={() => void submitPurchase()}
                     >
-                      {busy === 'submit' ? 'Submitting...' : 'Submit'}
+                      {busy === 'submit'
+                        ? 'Submitting...'
+                        : 'Submit insurance request'}
                       <ArrowRight size={17} aria-hidden="true" />
                     </button>
                   </div>
@@ -2240,7 +2136,7 @@ function MotorInput({
   type?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
 }) {
-  const id = `motor-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  const id = useId();
 
   return (
     <label htmlFor={id}>
@@ -2265,10 +2161,46 @@ function MotorNumberInput({
   value: number;
   onChange: (value: number) => void;
 }) {
+  const id = useId();
+  const codedField =
+    label === 'Motor Usage'
+      ? 'motor_usage'
+      : label === 'Owner Category' || label === 'Policy Holder Type'
+        ? 'owner_category'
+        : null;
+  const options =
+    label === 'ID Type'
+      ? CUSTOMER_ID_TYPE_OPTIONS.map((option) => ({
+          value: String(option.value),
+          label: option.label,
+        }))
+      : motorFields.find((field) => field.fleetKey === codedField)?.options;
+  if (options) {
+    return (
+      <label htmlFor={id}>
+        <span>{label}</span>
+        <select
+          id={id}
+          value={String(value)}
+          onChange={(event) => onChange(Number(event.target.value))}
+        >
+          {!options.some((option) => option.value === String(value)) && (
+            <option value={String(value)}>Code {value}</option>
+          )}
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
   return (
     <MotorInput
       label={label}
       value={String(value)}
+      inputMode="decimal"
       onChange={(next) => onChange(Number(next) || 0)}
     />
   );
@@ -2297,9 +2229,14 @@ function PublicField({
   return (
     <label htmlFor={id}>
       <span>{label}</span>
-      {children}
+      {isValidElement<React.HTMLAttributes<HTMLElement>>(children)
+        ? cloneElement(children, {
+            'aria-invalid': Boolean(error),
+            'aria-describedby': error ? `${id}-error` : undefined,
+          })
+        : children}
       {error && (
-        <span className="form-error" role="alert">
+        <span id={`${id}-error`} className="form-error" role="alert">
           {error}
         </span>
       )}
@@ -2317,8 +2254,10 @@ function InsurancePage() {
     'Explore insurance categories available through Insurance Max.',
   );
 
-  const catalogue = useDisplayedCatalogue(4);
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+  const catalogue = useDisplayedCatalogue();
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(() =>
+    new URLSearchParams(window.location.search).get('category'),
+  );
   const activeCategory =
     catalogue.categories.find((category) => category.id === activeCategoryId) ??
     catalogue.categories[0];
@@ -2328,14 +2267,17 @@ function InsurancePage() {
       <main>
         <PageIntro
           eyebrow="Insurance Products"
-          title="Sample products."
-          body="A small preview of covers available through Insurance Max."
+          title="Find cover for your next step."
+          body="Explore published products by category. Review the provider and cover details, then start a motor quote or ask about other insurance."
         />
         <section className="public-section">
           <div className="public-container">
             {catalogue.categories.length ? (
               <div className="catalogue-tabs-layout">
-                <div className="catalogue-tabs" role="tablist">
+                <div
+                  className="catalogue-tabs"
+                  aria-label="Insurance categories"
+                >
                   {catalogue.categories.map((category, index) => {
                     const Icon = category.icon;
                     const active = category.id === activeCategory?.id;
@@ -2343,12 +2285,11 @@ function InsurancePage() {
                     return (
                       <button
                         aria-controls={`catalogue-panel-${category.id}`}
-                        aria-selected={active}
+                        aria-pressed={active}
                         className={active ? 'is-active' : ''}
                         id={`catalogue-tab-${category.id}`}
                         key={`${category.business_line}-${category.name}`}
                         onClick={() => setActiveCategoryId(category.id)}
-                        role="tab"
                         type="button"
                       >
                         <span
@@ -2358,7 +2299,12 @@ function InsurancePage() {
                         </span>
                         <span>
                           <strong>{category.name}</strong>
-                          <small>Sample category</small>
+                          <small>
+                            {category.products.length} available{' '}
+                            {category.products.length === 1
+                              ? 'product'
+                              : 'products'}
+                          </small>
                         </span>
                       </button>
                     );
@@ -2370,28 +2316,38 @@ function InsurancePage() {
                     aria-labelledby={`catalogue-tab-${activeCategory.id}`}
                     className="catalogue-panel"
                     id={`catalogue-panel-${activeCategory.id}`}
-                    role="tabpanel"
                   >
                     <div className="catalogue-panel-header">
                       <h2>{activeCategory.name}</h2>
-                      <span>Sample products</span>
+                      <span>
+                        {activeCategory.products.length} available products
+                      </span>
                     </div>
 
                     <div className="product-grid">
-                      {activeCategory.products.slice(0, 3).map((product) => (
+                      {activeCategory.products.map((product) => (
                         <article className="product-card" key={product.id}>
                           <div>
                             <h3>{product.name}</h3>
                             <p>
                               {product.description ||
-                                'Short sample description for this cover.'}
+                                'Ask about the benefits, limits and exclusions before choosing this cover.'}
                             </p>
                           </div>
                           <div className="product-meta">
                             <span>{product.company.name}</span>
                           </div>
-                          <Link to="/buy-cover">
-                            Continue <ArrowRight size={16} aria-hidden="true" />
+                          <Link
+                            to={
+                              isMotorCatalogueCategory(product)
+                                ? '/buy-cover'
+                                : '/contact'
+                            }
+                          >
+                            {isMotorCatalogueCategory(product)
+                              ? 'Get a motor quote'
+                              : 'Enquire about cover'}{' '}
+                            <ArrowRight size={16} aria-hidden="true" />
                           </Link>
                         </article>
                       ))}
@@ -2420,4 +2376,93 @@ export {
   InsurancePage,
   BuyCoverPage,
   MotorInsurancePurchasePage,
+  ClaimsPage,
+  FaqPage,
 };
+
+function FaqPage() {
+  usePageMeta(
+    'Frequently asked questions | Insurance Max',
+    'Help with motor quotes, active cover checks and insurance requests.',
+  );
+  return (
+    <PublicLayout>
+      <main>
+        <PageIntro
+          eyebrow="Help & guidance"
+          title="Your questions, answered."
+          body="Practical information before you get a quote, submit a request or follow up on your insurance."
+        />
+        <section className="public-section">
+          <div className="public-container reading-width">
+            <Questions all />
+            <p className="purchase-note">
+              Need help with a particular policy? Keep your reference ready and
+              use the contact details on your policy document.
+            </p>
+            <Link className="button" to="/contact">
+              Contact options <ArrowRight size={17} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      </main>
+    </PublicLayout>
+  );
+}
+
+function ClaimsPage() {
+  usePageMeta(
+    'Claims & support | Insurance Max',
+    'Find your next step for claims, policy questions and customer account support.',
+  );
+  return (
+    <PublicLayout>
+      <main>
+        <PageIntro
+          eyebrow="Claims & support"
+          title="Let us take the next step together."
+          body="If something has happened, contact your insurer using the claims details on your policy. Your insurer will explain the documents and next steps for your cover."
+        />
+        <section className="public-section">
+          <div className="public-container support-grid">
+            <div>
+              <SectionHeader
+                eyebrow="Preparing a claim"
+                title="Keep the details together."
+                body="Your policy terms explain what is covered, the reporting requirements and any applicable excess."
+              />
+              <ol className="claims-list">
+                <li>
+                  Have your policy or cover note number and contact details
+                  ready.
+                </li>
+                <li>
+                  Record when and where the incident happened. Keep relevant
+                  photos, receipts and supporting documents.
+                </li>
+                <li>
+                  Notify your insurer using the claims contact on your policy
+                  and follow their instructions.
+                </li>
+              </ol>
+            </div>
+            <div className="contact-form contact-account">
+              <h2>Already have an account?</h2>
+              <p>
+                Sign in to access your policy information and available claims
+                services.
+              </p>
+              <Link className="button" to="/login">
+                Sign in <ArrowRight size={17} aria-hidden="true" />
+              </Link>
+              <Link className="text-link" to="/contact">
+                Get help finding your next step
+              </Link>
+            </div>
+          </div>
+        </section>
+        <CTASection />
+      </main>
+    </PublicLayout>
+  );
+}

@@ -1,15 +1,18 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { WifiOff, RotateCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { useConnectivityStore } from '../store/connectivity.store';
 import { retryConnectionNow } from '../lib/connectivity-monitor';
+import { isPublicWebsitePath } from '@/modules/public/public-routes';
 
 export function ConnectionLostOverlay() {
+  const { pathname } = useLocation();
   const status = useConnectivityStore((state) => state.status);
   const [retrying, setRetrying] = useState(false);
 
-  if (status !== 'offline') {
+  if (status !== 'offline' || isPublicWebsitePath(pathname)) {
     return null;
   }
 
