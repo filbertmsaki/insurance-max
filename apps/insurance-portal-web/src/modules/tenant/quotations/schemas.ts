@@ -8,6 +8,7 @@ import {
   sumDecimals,
 } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import {
+  customerFormObjectSchema,
   customerFormSchema,
   getCustomerDefaultValues,
 } from '../customers/schemas';
@@ -504,7 +505,11 @@ const quotationFormObjectSchema = z.object({
   sale_point_id: optionalText,
   policyholder_mode: z.enum(['existing', 'new']),
   customer_id: optionalText,
-  policyholder: customerFormSchema,
+  // The conditional customer validation below only requires customer details
+  // for new policyholders. Existing selections are validated via customer_id;
+  // applying customerFormSchema here would reject their intentionally empty
+  // inline form fields (for example, full_name).
+  policyholder: customerFormObjectSchema,
   category_id: z.string().min(1, 'Category is required'),
   product_id: z.string().min(1, 'Product is required'),
   sub_class_id: optionalText,
