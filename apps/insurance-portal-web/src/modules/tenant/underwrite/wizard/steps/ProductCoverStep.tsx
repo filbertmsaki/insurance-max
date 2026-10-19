@@ -25,10 +25,7 @@ export function ProductCoverStep({
   wizard: UnderwriteQuotationWizard;
   /** Enable when the exchange rate module supports user-selected currencies. */
   currencyEditable?: boolean;
-  /**
-   * One wide grid that drops the fixed currency input (it is shown in the
-   * review instead); used by the single-screen Motor wizard.
-   */
+  /** Uses a compact two-column product and risk layout in the Motor wizard. */
   compact?: boolean;
   /** Extra inputs placed in the product grid (e.g. payment method). */
   extraFields?: ReactNode;
@@ -111,16 +108,15 @@ export function ProductCoverStep({
   const showCurrency = !compact || currencyEditable || currency !== 'TZS';
 
   return (
-    <div className="space-y-6">
+    <div className={compact ? 'space-y-3' : 'space-y-6'}>
       <StepSection
-        title={compact ? 'Cover' : 'Product'}
-        description="The product decides the available covers, rates and add-ons."
+        title={compact ? undefined : 'Product'}
         first={first}
       >
         <div
           className={
             compact
-              ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-4'
+              ? 'grid gap-4 md:grid-cols-2'
               : 'grid gap-4 lg:grid-cols-3'
           }
         >

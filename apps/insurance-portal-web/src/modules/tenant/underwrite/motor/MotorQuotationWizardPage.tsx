@@ -6,11 +6,9 @@ import { AddOnsStep } from '@/modules/tenant/quotations/wizard/steps/AddOnsStep'
 import { PolicyholderStep } from '@/modules/tenant/quotations/wizard/steps/PolicyholderStep';
 import { RiskPremiumStep } from '@/modules/tenant/quotations/wizard/steps/RiskPremiumStep';
 import {
-  PAYMENT_MODE_OPTIONS,
   SummaryReviewStep,
   type SummarySection,
 } from '@/modules/tenant/quotations/wizard/steps/SummaryReviewStep';
-import { WizardInput } from '@/modules/tenant/quotations/wizard/components/WizardInput';
 import { useProductAddonDefinitions } from '@/modules/tenant/quotations/wizard/hooks/useProductAddonDefinitions';
 import { getUnderwriteLineMeta } from '../lines';
 import { BusinessSourceStep } from '../wizard/steps/BusinessSourceStep';
@@ -128,34 +126,29 @@ export function MotorQuotationWizardPage() {
         switch (stepId) {
           case 'details':
             return (
-              <div className="space-y-6">
-                <div id={SECTION_ANCHORS.customer}>
-                  <PolicyholderStep
-                    form={form}
-                    customerOptions={wizard.customerOptions}
-                    newCustomerInDialog
-                  />
-                </div>
-                <div id={SECTION_ANCHORS.vehicle}>
-                  <MotorVehicleSection
-                    form={form}
-                    customer={wizard.customerOptions[0] ?? null}
-                  />
+              <div className="space-y-3">
+                <div className="grid items-start gap-6 md:grid-cols-2">
+                  <div id={SECTION_ANCHORS.customer} className="min-w-0">
+                    <PolicyholderStep
+                      form={form}
+                      customerOptions={wizard.customerOptions}
+                      newCustomerInDialog
+                      hideSectionTitle
+                      hideNewCustomerButton
+                    />
+                  </div>
+                  <div id={SECTION_ANCHORS.vehicle} className="min-w-0">
+                    <MotorVehicleSection
+                      form={form}
+                      customer={wizard.customerOptions[0] ?? null}
+                    />
+                  </div>
                 </div>
                 <div id={SECTION_ANCHORS.cover}>
                   <ProductCoverStep
                     wizard={wizard}
                     compact
-                    first={false}
-                    extraFields={
-                      <WizardInput
-                        form={form}
-                        name="payment_mode_tira"
-                        label="Payment method"
-                        required
-                        options={PAYMENT_MODE_OPTIONS}
-                      />
-                    }
+                    first
                   />
                 </div>
                 <div id={SECTION_ANCHORS.premium}>
@@ -173,7 +166,7 @@ export function MotorQuotationWizardPage() {
                     factorContext={wizard.factorContext}
                     allowMultipleRisks={false}
                     showRiskSelector={false}
-                    title="Premium"
+                    title=""
                     riskTitle="Premium calculation"
                     collapseAdjustments
                     first={false}
@@ -196,7 +189,7 @@ export function MotorQuotationWizardPage() {
                 riskCount={wizard.riskFieldArray.fields.length}
                 onEditStep={() => editSection('cover')}
                 onEditSection={editSection}
-                showPaymentMode={false}
+                showPaymentMode
               />
             );
           default:

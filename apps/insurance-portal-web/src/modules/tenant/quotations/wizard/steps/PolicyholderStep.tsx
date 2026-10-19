@@ -20,8 +20,8 @@ import {
   useCreateCustomer,
   useCustomer,
 } from '@/modules/tenant/customers/hooks';
-import { useRef, useState, type ReactNode } from 'react';
-import type { FieldPath, UseFormReturn } from 'react-hook-form';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,6 +63,8 @@ interface Props {
   /** Customers already loaded by the caller; others are fetched by ID. */
   customerOptions: CustomerRecord[];
   newCustomerInDialog?: boolean;
+  hideSectionTitle?: boolean;
+  hideNewCustomerButton?: boolean;
 }
 
 const CREATE_CUSTOMER_PERMISSION = 'customers:create';
@@ -369,6 +371,8 @@ export function PolicyholderStep({
   form,
   customerOptions,
   newCustomerInDialog = false,
+  hideSectionTitle = false,
+  hideNewCustomerButton = false,
 }: Props) {
   const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false);
   // 'create' adds a customer; 'edit' adjusts a selected customer's details
@@ -385,6 +389,11 @@ export function PolicyholderStep({
   const createCustomer = useCreateCustomer();
   const mode = form.watch('policyholder_mode');
   const customerId = form.watch('customer_id');
+  const policyholderValues = useWatch({
+    control: form.control,
+    name: 'policyholder',
+  });
+  const hasPolicyholderErrors = Boolean(form.formState.errors.policyholder);
   const listedCustomer = customerOptions.find((c) => c.id === customerId);
   const customerQuery = useCustomer(
     mode === 'existing' && customerId && !listedCustomer
@@ -408,6 +417,11 @@ export function PolicyholderStep({
   const policyholderCountryCode = form.watch('policyholder.country_code');
   const policyholderRegion = form.watch('policyholder.region');
   const policyholderDistrict = form.watch('policyholder.district');
+  useEffect(() => {
+    if (mode === 'new' && hasPolicyholderErrors) {
+      void form.trigger('policyholder');
+    }
+  }, [form, hasPolicyholderErrors, mode, policyholderValues]);
   const idFieldOptions = CUSTOMER_ID_TYPE_OPTIONS.filter(
     (option) =>
       option.appliesTo === 'BOTH' || option.appliesTo === customerType,
@@ -479,7 +493,7 @@ export function PolicyholderStep({
 
   return (
     <>
-      <StepSection title="Policyholder" first>
+      <StepSection title={hideSectionTitle ? undefined : 'Policyholder'} first>
         {mode === 'existing' ? (
           <FormField
             control={form.control}
@@ -487,7 +501,13 @@ export function PolicyholderStep({
             render={({ field, fieldState }) => (
               <WizardFormItem>
                 <FormLabel required>Customer</FormLabel>
-                <div className="flex flex-col gap-2 sm:flex-row">
+                <div
+                  className={
+                    hideNewCustomerButton
+                      ? 'w-full'
+                      : 'flex flex-col gap-2 sm:flex-row'
+                  }
+                >
                   <div className="min-w-0 flex-1">
                     <FormControl>
                       <CustomerSearchField
@@ -497,21 +517,26 @@ export function PolicyholderStep({
                             ? getCustomerDisplayName(selectedCustomer)
                             : undefined
                         }
-                        onSelect={field.onChange}
+                        onSelect={(value) => {
+                          field.onChange(value);
+                          if (fieldState.error) void form.trigger('customer_id');
+                        }}
                         onCreateNew={openNewCustomerDialog}
                         invalid={Boolean(fieldState.error)}
                         triggerRef={field.ref}
                       />
                     </FormControl>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => openNewCustomerDialog()}
-                  >
-                    <UserPlus className="mr-1.5 h-4 w-4" />
-                    New customer
-                  </Button>
+                  {!hideNewCustomerButton && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => openNewCustomerDialog()}
+                    >
+                      <UserPlus className="mr-1.5 h-4 w-4" />
+                      New customer
+                    </Button>
+                  )}
                 </div>
                 <FormMessage />
               </WizardFormItem>

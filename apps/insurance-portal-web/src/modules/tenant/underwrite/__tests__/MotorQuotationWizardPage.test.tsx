@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -148,18 +148,19 @@ describe('MotorQuotationWizardPage', () => {
 
     expect(await screen.findByText('Quote details')).toBeInTheDocument();
     expect(screen.getByText('Review & submit')).toBeInTheDocument();
-    for (const heading of ['Policyholder', 'Vehicle', 'Cover', 'Premium']) {
-      expect(
-        screen.getByRole('heading', { name: heading }),
-      ).toBeInTheDocument();
-    }
+    expect(
+      screen.queryByRole('heading', { name: 'Policyholder' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Vehicle' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Cover' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Premium' })).toBeNull();
     // Search fields replace the customer list and the TIRA form selects.
     expect(screen.getByRole('combobox', { name: /customer/i })).toBeVisible();
     expect(screen.getByRole('combobox', { name: /vehicle/i })).toBeVisible();
     expect(screen.queryByText('Search by')).toBeNull();
     expect(
-      screen.getByRole('combobox', { name: /payment method/i }),
-    ).toHaveTextContent('Cash');
+      screen.queryByRole('combobox', { name: /payment method/i }),
+    ).toBeNull();
     // Direct-only users get no channel inputs; no add-ons are configured.
     expect(screen.queryByText('Insurance channel')).toBeNull();
     expect(screen.queryByText('Optional covers')).toBeNull();
@@ -180,9 +181,7 @@ describe('MotorQuotationWizardPage', () => {
     expect(
       screen.getByText('Find the vehicle or enter its details.'),
     ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Vehicle' })).toBeVisible(),
-    );
+    expect(screen.getByRole('combobox', { name: /vehicle/i })).toBeVisible();
     expect(customersApi.createCustomer).not.toHaveBeenCalled();
   });
 });

@@ -92,7 +92,7 @@ export function VehicleSearchField({
         {
           key: 'tira',
           icon: <ShieldCheck className="h-4 w-4" />,
-          label: (search) => `Look up "${search}" with TIRA`,
+          label: (search) => `Search TIRA for "${search}"`,
           hidden: (search) =>
             search.replace(/[^A-Za-z0-9]/g, '').length < MIN_TIRA_LOOKUP_LENGTH,
           onSelect: onTiraLookup,

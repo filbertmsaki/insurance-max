@@ -12,6 +12,14 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
@@ -86,12 +94,17 @@ export function MotorVehicleSection({
     name: 'policyholder',
   });
   const { errors } = useFormState({ control: form.control, name: 'motor' });
+  const hasMotorErrors = Boolean(errors.motor);
+
+  useEffect(() => {
+    if (hasMotorErrors) void form.trigger('motor');
+  }, [form, hasMotorErrors, motor]);
 
   const hasVehicle = Boolean(motor.registration_no || motor.chassis_no);
   const [source, setSource] = useState<VehicleSource | null>(
     hasVehicle ? (motor.vehicle_id ? 'register' : 'saved') : null,
   );
-  const [editingAll, setEditingAll] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [revealed, setRevealed] = useState<Array<keyof Motor>>(() =>
     hasVehicle ? missingMotorFieldKeys(motor) : [],
   );
@@ -146,9 +159,12 @@ export function MotorVehicleSection({
     });
     form.setValue('motor_mode', nextSource === 'register' ? 'existing' : 'new');
     setSource(nextSource);
-    setEditingAll(nextSource === 'manual');
+    const missingFields = missingMotorFieldKeys(withOwner);
+    setDetailsDialogOpen(
+      nextSource === 'manual' || missingFields.length > 0,
+    );
     setRevealed(
-      nextSource === 'manual' ? [] : missingMotorFieldKeys(withOwner),
+      nextSource === 'manual' ? [] : missingFields,
     );
     setLookupMessage(null);
     setRevision((value) => value + 1);
@@ -241,14 +257,15 @@ export function MotorVehicleSection({
     form.setValue('motor_mode', 'new');
     appliedOwnerDefaults.current = null;
     setSource(null);
-    setEditingAll(false);
+    setDetailsDialogOpen(false);
     setRevealed([]);
     setRegisterOwner(null);
     setLookupMessage(null);
     setRevision((value) => value + 1);
   }
 
-  const missingNow = hasVehicle ? missingMotorFieldKeys(motor) : [];
+  const missingNow =
+    hasVehicle || source === 'manual' ? missingMotorFieldKeys(motor) : [];
   const visibleKeys = [...new Set([...revealed, ...missingNow])];
   const transferFrom =
     registerOwner && registerOwner.customerId !== customerId
@@ -271,7 +288,7 @@ export function MotorVehicleSection({
   ].filter(Boolean);
 
   return (
-    <StepSection title="Vehicle">
+    <StepSection first>
       {showSearch ? (
         <div className="space-y-2">
           <Label htmlFor={VEHICLE_SEARCH_ID} required>
@@ -286,8 +303,8 @@ export function MotorVehicleSection({
             invalid={Boolean(errors.motor)}
           />
           <p className="text-xs text-slate-500">
-            Not in your register? Use “Look up with TIRA” or enter the details
-            manually from the same list.
+            Not in your register? Search TIRA by registration or chassis number,
+            or enter the details manually.
           </p>
           {busy && (
             <p
@@ -340,18 +357,17 @@ export function MotorVehicleSection({
               </p>
             </div>
             <div className="flex gap-1">
-              {source !== 'manual' && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  aria-expanded={editingAll}
-                  onClick={() => setEditingAll((open) => !open)}
-                >
-                  <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                  {editingAll ? 'Hide details' : 'Edit details'}
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-haspopup="dialog"
+                aria-expanded={detailsDialogOpen}
+                onClick={() => setDetailsDialogOpen(true)}
+              >
+                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                Edit details
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -379,19 +395,12 @@ export function MotorVehicleSection({
           )}
 
           <div className="border-t border-slate-100 p-4">
-            {editingAll ? (
-              <VehicleDetailsFields key={revision} form={form} title={null} />
-            ) : visibleKeys.length > 0 ? (
+            {visibleKeys.length > 0 ? (
               <>
                 <p className="mb-3 text-sm font-medium text-amber-700">
-                  Complete the missing details
+                  Some vehicle details are missing. Select Edit details to
+                  complete them.
                 </p>
-                <VehicleDetailsFields
-                  key={revision}
-                  form={form}
-                  onlyKeys={visibleKeys}
-                  title={null}
-                />
               </>
             ) : (
               <p className="flex items-center gap-1.5 text-sm text-emerald-700">
@@ -402,6 +411,28 @@ export function MotorVehicleSection({
           </div>
         </div>
       )}
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>
+              {source === 'manual' ? 'Enter vehicle details' : 'Edit vehicle details'}
+            </DialogTitle>
+            <DialogDescription>
+              Review and complete the vehicle information for this quotation.
+            </DialogDescription>
+          </DialogHeader>
+          <VehicleDetailsFields
+            key={revision}
+            form={form}
+            title={null}
+          />
+          <DialogFooter>
+            <Button type="button" onClick={() => setDetailsDialogOpen(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </StepSection>
   );
 }

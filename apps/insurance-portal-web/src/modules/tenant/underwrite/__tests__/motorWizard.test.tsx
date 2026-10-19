@@ -148,7 +148,7 @@ beforeEach(() => {
 });
 
 describe('MotorVehicleSection', () => {
-  it('searches the register on the server and asks only for missing details', async () => {
+  it('searches the register on the server and opens vehicle details for review', async () => {
     vi.mocked(motorApi.searchVehicles).mockResolvedValue({
       data: [
         {
@@ -190,11 +190,13 @@ describe('MotorVehicleSection', () => {
       await screen.findByText('T123ABC — TOYOTA HILUX'),
     ).toBeInTheDocument();
     expect(screen.getByText(/From the vehicle register/)).toBeInTheDocument();
-    // Only the field the register entry lacks is asked for.
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    // Details are edited in the modal, including any missing register values.
     expect(
       screen.getByRole('textbox', { name: 'Gross weight (kg)' }),
     ).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: 'Make' })).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Make' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     // The vehicle belongs to someone else and will be handed over.
     expect(screen.getByRole('status')).toHaveTextContent(
       'Registered under Asha Juma',
@@ -234,7 +236,7 @@ describe('MotorVehicleSection', () => {
     await search('T999XYZ');
     fireEvent.click(
       await screen.findByRole('option', {
-        name: /Look up "T999XYZ" with TIRA/,
+        name: /Search TIRA for "T999XYZ"/,
       }),
     );
 
@@ -243,6 +245,9 @@ describe('MotorVehicleSection', () => {
       motorCategory: 1,
       motorRegistrationNumber: 'T999XYZ',
     });
+    await waitFor(() =>
+      expect(screen.getByRole('dialog')).toBeInTheDocument(),
+    );
     await waitFor(() =>
       expect(
         screen.getByRole('textbox', { name: 'Model' }),
