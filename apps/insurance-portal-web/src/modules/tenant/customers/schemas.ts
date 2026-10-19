@@ -311,7 +311,8 @@ export function getCustomerDefaultValues(
     incorporation_certificate_no: customer?.incorporation_certificate_no ?? '',
     tin: customer?.tin ?? '',
     vrn: customer?.vrn ?? '',
-    id_type: customer?.id_type ?? '',
+    id_type:
+      customer?.id_type ?? (customer?.customer_type === 'CORPORATE' ? 7 : 1),
     id_number: customer?.id_number ?? '',
     nida_no: customer?.nida_no ?? '',
     voter_no: customer?.voter_no ?? '',

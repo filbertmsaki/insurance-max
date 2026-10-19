@@ -72,6 +72,22 @@ export function CustomerForm({
   const selectedIdFieldName = selectedIdField;
 
   useEffect(() => {
+    const idTypeIsAvailable = CUSTOMER_ID_TYPE_OPTIONS.some(
+      (option) =>
+        option.value === idType &&
+        (option.appliesTo === 'BOTH' || option.appliesTo === customerType),
+    );
+
+    if (!idTypeIsAvailable) {
+      const defaultIdType = customerType === 'CORPORATE' ? 7 : 1;
+      form.setValue('id_type', defaultIdType, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [customerType, form, idType]);
+
+  useEffect(() => {
     if (!idType) return;
     const current = form.getValues(selectedIdFieldName ?? 'id_number');
     if (!current) {

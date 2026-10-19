@@ -469,7 +469,7 @@ export function PolicyholderStep({
     );
 
     if (!idTypeStillValid) {
-      form.setValue('policyholder.id_type', '');
+      form.setValue('policyholder.id_type', nextType === 'CORPORATE' ? 7 : 1);
     }
 
     if (nextType === 'CORPORATE') {

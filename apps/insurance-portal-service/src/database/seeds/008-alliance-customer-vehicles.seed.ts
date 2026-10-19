@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { environment } from '@insurance-max/shared-config';
 import { DataSource } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
@@ -18,6 +19,7 @@ const DEMO_CUSTOMERS = [
     dateOfBirth: '1988-04-12',
     companyName: null,
     tin: null,
+    idType: 1,
     phone: '0711000001',
     email: 'amani.mashauri@example.test',
     idNumber: '19900412123456789001',
@@ -112,6 +114,7 @@ const DEMO_CUSTOMERS = [
     dateOfBirth: '1992-09-03',
     companyName: null,
     tin: null,
+    idType: 1,
     phone: '0711000003',
     email: 'neema.kileo@example.test',
     idNumber: '19920903123456789002',
@@ -491,7 +494,19 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
           'country_code',
           'region',
           'district',
+          'id_type',
           'status',
+        ]);
+        await requireColumns(queryRunner, 'customer_identifiers', [
+          'company_id',
+          'customer_id',
+          'identifier_type',
+          'identifier_value',
+          'normalized_value',
+          'fingerprint',
+          'country_code',
+          'is_primary',
+          'metadata',
         ]);
         await requireColumns(queryRunner, 'motor_vehicles', [
           'company_id',
@@ -570,14 +585,14 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
               INSERT INTO customers (
                 company_id, customer_no, customer_type, first_name,
                 middle_name, last_name, gender, date_of_birth,
-                company_name, tin, policy_holder_type, id_number, phone,
+                company_name, tin, policy_holder_type, id_type, id_number, phone,
                 email, country, country_code, region, district, status,
                 metadata, created_at, updated_at
               )
               VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-                $13, $14, 'Tanzania', 'TZA', 'Dar es Salaam', 'Ilala',
-                'ACTIVE', $15::jsonb, now(), now()
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                $14, $15, 'Tanzania', 'TZA', 'Dar es Salaam', 'Ilala',
+                'ACTIVE', $16::jsonb, now(), now()
               )
               ON CONFLICT (company_id, customer_no)
               WHERE deleted_at IS NULL
@@ -591,6 +606,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
                 company_name = EXCLUDED.company_name,
                 tin = EXCLUDED.tin,
                 policy_holder_type = EXCLUDED.policy_holder_type,
+                id_type = EXCLUDED.id_type,
                 id_number = EXCLUDED.id_number,
                 phone = EXCLUDED.phone,
                 email = EXCLUDED.email,
@@ -611,6 +627,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
               customer.companyName ?? null,
               customer.tin ?? null,
               customer.policyHolderType,
+              customer.idType ?? null,
               customer.idNumber ?? null,
               customer.phone,
               customer.email,
@@ -621,6 +638,48 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
           const customerId = customerRows[0]?.id as string | undefined;
           if (!customerId)
             throw new Error(`Could not seed ${customer.customerNo}`);
+
+          await queryRunner.query(
+            `
+              DELETE FROM customer_identifiers
+              WHERE company_id = $1
+                AND customer_id = $2
+                AND metadata->>'seedSource' = $3
+            `,
+            [companyId, customerId, SEED_SOURCE],
+          );
+
+          if (customer.idType && customer.idNumber) {
+            const normalizedId = customer.idNumber
+              .replace(/[^A-Za-z0-9]/g, '')
+              .toUpperCase();
+            const identifierType = customer.idType === 1 ? 'NIN' : 'OTHER';
+            const fingerprint = createHash('sha256')
+              .update(normalizedId, 'utf8')
+              .digest('hex');
+
+            await queryRunner.query(
+              `
+                INSERT INTO customer_identifiers (
+                  company_id, customer_id, identifier_type,
+                  identifier_value, normalized_value, fingerprint,
+                  country_code, is_primary, is_verified, source, metadata,
+                  created_at, updated_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, 'TZA', true, false,
+                  'SEED', $7::jsonb, now(), now())
+              `,
+              [
+                companyId,
+                customerId,
+                identifierType,
+                customer.idNumber,
+                normalizedId,
+                fingerprint,
+                JSON.stringify({ seedSource: SEED_SOURCE }),
+              ],
+            );
+          }
 
           for (const vehicle of customer.vehicles) {
             await queryRunner.query(
