@@ -1,0 +1,55 @@
+name: Repository workflow run retention
+
+on:
+  push:
+    branches:
+      - main
+  workflow_run:
+    workflows:
+      - Insurance Max - Frontend CI/CD
+      - Insurance Max - Backend CI/CD
+      - Insurance Max - Tiramis CI/CD
+    types:
+      - completed
+  schedule:
+    - cron: '23 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+
+concurrency:
+  group: repository-workflow-run-retention
+  cancel-in-progress: false
+
+jobs:
+  retain-latest-runs:
+    name: Keep the latest 20 repository runs
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete runs older than the latest 20
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          old_run_ids="$(gh api --paginate \
+            "repos/$REPO/actions/runs?per_page=100" \
+            --jq '.workflow_runs[] | [.created_at, .id] | @tsv' \
+            | sort -r | tail -n +21 | cut -f2)"
+
+          if [[ -z "$old_run_ids" ]]; then
+            echo 'The repository has 20 or fewer workflow runs.'
+            exit 0
+          fi
+
+          while IFS= read -r run_id; do
+            [[ -z "$run_id" ]] && continue
+            echo "Deleting old workflow run $run_id"
+            gh run delete "$run_id" --repo "$REPO" || \
+              echo "Could not delete run $run_id; continuing."
+          done <<< "$old_run_ids"
