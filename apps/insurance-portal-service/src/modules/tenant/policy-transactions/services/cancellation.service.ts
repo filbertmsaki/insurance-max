@@ -469,7 +469,7 @@ export class CancellationService {
   }
 
   async complete(user: AuthenticatedUser, transactionId: string) {
-    const transaction = await this.dataSource.transaction(async (manager) => {
+    const completion = await this.dataSource.transaction(async (manager) => {
       const transaction = await manager
         .getRepository(PolicyTransaction)
         .findOne({
@@ -547,19 +547,26 @@ export class CancellationService {
       transaction.completed_by = user.id;
       transaction.completed_at = new Date();
 
-      return manager.getRepository(PolicyTransaction).save(transaction);
+      return {
+        transaction: await manager
+          .getRepository(PolicyTransaction)
+          .save(transaction),
+        isThirdPartyOnly,
+        configuredApprovalRequirement: approvalDecision.required,
+      };
     });
 
     return this.lifecycleService.evaluateRequirements(
       user.companyId!,
-      transaction.id,
+      completion.transaction.id,
       {
         changedBy: user.id,
-        metadata: isThirdPartyOnly
+        metadata: completion.isThirdPartyOnly
           ? {
               approvalExempt: true,
               approvalExemptionReason: 'THIRD_PARTY_ONLY_CANCELLATION',
-              configuredApprovalRequirement: approvalDecision.required,
+              configuredApprovalRequirement:
+                completion.configuredApprovalRequirement,
             }
           : undefined,
       },
