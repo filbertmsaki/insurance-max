@@ -518,15 +518,22 @@ export class TiramisBusinessValidationService {
           cn.cover_note_reference_number,
           cn.start_date,
           cn.end_date,
-          cn.status
+          cn.status,
+          p.cancellation_effective_date
         FROM cover_notes cn
+        LEFT JOIN policies p ON p.id = cn.policy_id
         JOIN quotation_cover_note_entries qcne ON qcne.id = cn.quotation_entry_id
         JOIN quotation_motor_details qmd ON qmd.entry_id = qcne.id
         WHERE cn.company_id = $1
           AND cn.deleted_at IS NULL
           AND cn.status NOT IN ('REJECTED', 'CANCELLED', 'EXPIRED')
           AND cn.start_date <= $3::date
-          AND cn.end_date >= $2::date
+          AND CASE
+            WHEN p.policy_status = 'CANCELLED'
+              AND p.cancellation_effective_date IS NOT NULL
+            THEN LEAST(cn.end_date, p.cancellation_effective_date - 1)
+            ELSE cn.end_date
+          END >= $2::date
           AND (${vehicleConditions.join(' OR ')})
           ${excludeClause}
         ORDER BY cn.start_date ASC

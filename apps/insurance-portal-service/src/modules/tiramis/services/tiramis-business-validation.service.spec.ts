@@ -558,6 +558,44 @@ describe('TiramisBusinessValidationService', () => {
     ]);
   });
 
+  it('allows a new motor cover starting on the cancellation effective date', async () => {
+    const dataSource = {
+      query: jest.fn(async (sql: string) => {
+        if (sql.includes('FROM cover_notes cn')) {
+          expect(sql).toContain('LEFT JOIN policies p ON p.id = cn.policy_id');
+          expect(sql).toContain('p.cancellation_effective_date - 1');
+          return [];
+        }
+
+        return [];
+      }),
+    };
+    const serviceWithData = new TiramisBusinessValidationService(
+      dataSource as any,
+    );
+
+    const result = await serviceWithData.validateBeforeSubmit({
+      requestType: TiramisRequestType.MOTOR,
+      sourceCompanyId: 'company-1',
+      payload: {
+        coverNoteNumber: 'CN-NEW',
+        salePointCode: 'SP500',
+        coverNoteStartDate: '2026-10-19',
+        coverNoteEndDate: '2027-10-18',
+        coverNoteType: '1',
+        motorDetail: {
+          registrationNumber: 'T332ANN',
+          chassisNumber: 'CH-1',
+        },
+      },
+    });
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).not.toEqual([
+      expect.stringContaining('already has an active cover'),
+    ]);
+  });
+
   it('allows endorsement or cancellation payloads to overlap the active cover they reference', async () => {
     const dataSource = {
       query: jest.fn(async (sql: string) => {
@@ -618,7 +656,7 @@ describe('TiramisBusinessValidationService', () => {
     const serviceWith = (samePolicy: boolean) =>
       new TiramisBusinessValidationService({
         query: jest.fn(async (sql: string) => {
-          if (sql.includes('JOIN policies p ON p.id = cn.policy_id')) {
+          if (sql.includes('FROM policy_transactions pt')) {
             return samePolicy ? [{ '?column?': 1 }] : [];
           }
           if (sql.includes('FROM cover_notes cn')) {
