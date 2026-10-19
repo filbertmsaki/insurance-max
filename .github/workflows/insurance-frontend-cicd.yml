@@ -38,7 +38,7 @@ jobs:
   cleanup-old-runs:
     name: Cleanup old workflow runs
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     permissions:
       actions: write
@@ -74,7 +74,7 @@ jobs:
     # Manual production deploys are allowed from main only.
     if: github.ref == 'refs/heads/main'
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     timeout-minutes: 40
 
