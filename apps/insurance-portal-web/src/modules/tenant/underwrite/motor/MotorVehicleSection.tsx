@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFormState, useWatch, type UseFormReturn } from 'react-hook-form';
 import { toast } from 'sonner';
 import {
   AlertCircle,
   ArrowLeftRight,
+  CalendarDays,
   Car,
-  CheckCircle2,
+  ChevronDown,
   Loader2,
   Pencil,
   RefreshCw,
@@ -42,6 +43,8 @@ import { VehicleSearchField } from '@/modules/tenant/quotations/wizard/component
 import { mergeVerifiedMotor } from '@/modules/tenant/quotations/wizard/utils/motorFields';
 import {
   getMotorTypeLabelFromCode,
+  getMotorUsageLabelFromCode,
+  getOwnerCategoryLabelFromCode,
   getVehicleCategoryLabelFromCode,
 } from '@/modules/tenant/quotations/wizard/utils/motorOptions';
 import {
@@ -66,6 +69,52 @@ const SOURCE_LABELS: Record<VehicleSource, string> = {
 /** Registration plates are short; longer identifiers are chassis numbers. */
 const MAX_REGISTRATION_LENGTH = 10;
 const VEHICLE_SEARCH_ID = 'motor-vehicle-search';
+
+function VehicleQuickFact({
+  icon: Icon,
+  children,
+}: {
+  icon: typeof Car;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5 text-sm text-slate-600">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+type VehicleDetail = [label: string, value?: string | number | null];
+
+function VehicleDetailGroup({
+  title,
+  items,
+}: {
+  title: string;
+  items: VehicleDetail[];
+}) {
+  const visible = items.filter(
+    ([, value]) => value !== null && value !== undefined && value !== '',
+  );
+  if (visible.length === 0) return null;
+
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        {title}
+      </p>
+      <dl className="space-y-1.5">
+        {visible.map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-3 text-sm">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="text-right font-medium text-slate-900">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
 
 /**
  * Vehicle for a single-vehicle Motor quotation: one search over the company
@@ -105,6 +154,7 @@ export function MotorVehicleSection({
     hasVehicle ? (motor.vehicle_id ? 'register' : 'saved') : null,
   );
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [showVehicleDetails, setShowVehicleDetails] = useState(false);
   const [revealed, setRevealed] = useState<Array<keyof Motor>>(() =>
     hasVehicle ? missingMotorFieldKeys(motor) : [],
   );
@@ -160,12 +210,8 @@ export function MotorVehicleSection({
     form.setValue('motor_mode', nextSource === 'register' ? 'existing' : 'new');
     setSource(nextSource);
     const missingFields = missingMotorFieldKeys(withOwner);
-    setDetailsDialogOpen(
-      nextSource === 'manual' || missingFields.length > 0,
-    );
-    setRevealed(
-      nextSource === 'manual' ? [] : missingFields,
-    );
+    setDetailsDialogOpen(nextSource === 'manual' || missingFields.length > 0);
+    setRevealed(nextSource === 'manual' ? [] : missingFields);
     setLookupMessage(null);
     setRevision((value) => value + 1);
   }
@@ -279,13 +325,10 @@ export function MotorVehicleSection({
     .filter(Boolean)
     .join(' — ');
   const facts = [
-    motor.registration_no && motor.chassis_no
-      ? `Chassis ${motor.chassis_no}`
-      : null,
-    motor.manufacture_year,
-    getMotorTypeLabelFromCode(motor.motor_type_code) || null,
-    getVehicleCategoryLabelFromCode(motor.motor_category_code) || null,
-  ].filter(Boolean);
+    motor.registration_no ? `Registration ${motor.registration_no}` : null,
+    motor.chassis_no ? `Chassis ${motor.chassis_no}` : null,
+    [motor.make, motor.model].filter(Boolean).join(' '),
+  ].filter((value): value is string => Boolean(value));
 
   return (
     <StepSection
@@ -398,38 +441,124 @@ export function MotorVehicleSection({
             </div>
           )}
 
-          <div className="flex-1 border-t border-slate-100 p-4">
-            {visibleKeys.length > 0 ? (
-              <>
-                <p className="mb-3 text-sm font-medium text-amber-700">
-                  Some vehicle details are missing. Select Edit details to
-                  complete them.
-                </p>
-              </>
-            ) : (
-              <p className="flex items-center gap-1.5 text-sm text-emerald-700">
-                <CheckCircle2 className="h-4 w-4" />
-                All vehicle details are complete.
-              </p>
+          <div className="grid flex-1 content-start gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2">
+            {motor.manufacture_year && (
+              <VehicleQuickFact icon={CalendarDays}>
+                {motor.manufacture_year}
+              </VehicleQuickFact>
+            )}
+            {getMotorTypeLabelFromCode(motor.motor_type_code) && (
+              <VehicleQuickFact icon={Car}>
+                {getMotorTypeLabelFromCode(motor.motor_type_code)}
+              </VehicleQuickFact>
+            )}
+            {getVehicleCategoryLabelFromCode(motor.motor_category_code) && (
+              <VehicleQuickFact icon={Car}>
+                {getVehicleCategoryLabelFromCode(motor.motor_category_code)}
+              </VehicleQuickFact>
             )}
           </div>
+
+          {visibleKeys.length > 0 && (
+            <div
+              role="status"
+              className="flex flex-wrap items-center justify-between gap-2 border-t border-amber-100 bg-amber-50 px-4 py-2 text-sm text-amber-800"
+            >
+              <span>Some vehicle details are missing.</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setDetailsDialogOpen(true)}
+              >
+                Complete details
+              </Button>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 rounded-b-xl border-t border-slate-100 bg-slate-50/70 px-4 py-2">
+            <button
+              type="button"
+              onClick={() => setShowVehicleDetails((open) => !open)}
+              className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+              aria-expanded={showVehicleDetails}
+            >
+              {showVehicleDetails ? 'Hide details' : 'Show details'}
+              <ChevronDown
+                className={[
+                  'h-3.5 w-3.5 transition-transform',
+                  showVehicleDetails ? 'rotate-180' : '',
+                ].join(' ')}
+              />
+            </button>
+          </div>
+
+          {showVehicleDetails && (
+            <div className="grid gap-5 border-t border-slate-100 p-4 sm:grid-cols-2">
+              <VehicleDetailGroup
+                title="Vehicle"
+                items={[
+                  ['Registration number', motor.registration_no],
+                  ['Chassis number', motor.chassis_no],
+                  ['Engine number', motor.engine_no],
+                  ['Make', motor.make],
+                  ['Model', motor.model],
+                  ['Model number', motor.model_no],
+                  [
+                    'Category',
+                    getVehicleCategoryLabelFromCode(motor.motor_category_code),
+                  ],
+                  [
+                    'Motor type',
+                    getMotorTypeLabelFromCode(motor.motor_type_code),
+                  ],
+                  ['Body type', motor.body_type],
+                  ['Color', motor.color],
+                  ['Manufacture year', motor.manufacture_year],
+                  ['Fuel type', motor.fuel_type],
+                ]}
+              />
+              <VehicleDetailGroup
+                title="Specifications and owner"
+                items={[
+                  [
+                    'Usage',
+                    getMotorUsageLabelFromCode(motor.motor_usage_code) ||
+                      motor.usage_type,
+                  ],
+                  ['Sitting capacity', motor.seating_capacity],
+                  ['Number of axles', motor.number_of_axles],
+                  ['Axle distance', motor.axle_distance],
+                  ['Tonnage', motor.tonnage],
+                  ['Cubic capacity', motor.cubic_capacity],
+                  ['Tare weight', motor.tare_weight],
+                  ['Gross weight', motor.gross_weight],
+                  ['Owner name', motor.owner_name],
+                  [
+                    'Owner category',
+                    getOwnerCategoryLabelFromCode(motor.owner_category),
+                  ],
+                  ['Owner address', motor.owner_address],
+                  ['Vehicle value', motor.vehicle_value],
+                ]}
+              />
+            </div>
+          )}
         </div>
       )}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle>
-              {source === 'manual' ? 'Enter vehicle details' : 'Edit vehicle details'}
+              {source === 'manual'
+                ? 'Enter vehicle details'
+                : 'Edit vehicle details'}
             </DialogTitle>
             <DialogDescription>
               Review and complete the vehicle information for this quotation.
             </DialogDescription>
           </DialogHeader>
-          <VehicleDetailsFields
-            key={revision}
-            form={form}
-            title={null}
-          />
+          <VehicleDetailsFields key={revision} form={form} title={null} />
           <DialogFooter>
             <Button type="button" onClick={() => setDetailsDialogOpen(false)}>
               Done
