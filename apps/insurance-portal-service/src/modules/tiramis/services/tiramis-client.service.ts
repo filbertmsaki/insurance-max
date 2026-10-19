@@ -188,8 +188,14 @@ export class TiramisClientService {
         businessReference: command.businessReference,
       });
 
+    const isMotorVerificationResubmission =
+      dto.requestType === TiramisRequestType.MOTOR_VERIFICATION &&
+      dto.forceResubmit === true;
+
     if (
-      latestPreviousSubmission?.status === TiramisSubmissionStatus.FINAL_SUCCESS
+      latestPreviousSubmission?.status ===
+        TiramisSubmissionStatus.FINAL_SUCCESS &&
+      !isMotorVerificationResubmission
     ) {
       throw new ConflictException(
         'TIRAMIS has already completed this submission successfully. Sync its status and data instead of resubmitting to TIRA.',
@@ -208,7 +214,11 @@ export class TiramisClientService {
       resubmissionId: dto.forceResubmit ? randomUUID() : null,
     });
 
-    if (dto.forceResubmit && latestPreviousSubmission) {
+    if (
+      dto.forceResubmit &&
+      latestPreviousSubmission &&
+      !isMotorVerificationResubmission
+    ) {
       const reconciliation = await this.reconcileBeforeForceResubmit({
         previous: latestPreviousSubmission,
         payload: dto.payload,

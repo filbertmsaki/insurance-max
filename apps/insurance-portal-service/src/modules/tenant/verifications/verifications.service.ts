@@ -61,10 +61,12 @@ export class VerificationsService {
         sourceModule: 'verifications',
         businessReference,
       });
-    if (existing?.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
-      // A successful verification must never be submitted to TIRA a second
-      // time. Refresh its result by the original transaction/request ID and
-      // let status sync update the linked local record before returning it.
+    if (
+      existing?.status === TiramisSubmissionStatus.FINAL_SUCCESS &&
+      requestType !== TiramisRequestType.MOTOR_VERIFICATION
+    ) {
+      // A successful cover-note verification is refreshed from its original
+      // TIRA request; motor lookups can explicitly request fresh vehicle data.
       const sync = await this.tiramisStatusSync.syncOne(existing.id, user);
       const refreshed = await this.tiramisClient.getLocalTrackingById(
         existing.id,
@@ -75,6 +77,10 @@ export class VerificationsService {
       existing?.status === 'PENDING' &&
       !existing.tiramisRequestId &&
       !existing.submittedAt;
+    const refreshCompletedMotorLookup =
+      requestType === TiramisRequestType.MOTOR_VERIFICATION &&
+      existing?.status === TiramisSubmissionStatus.FINAL_SUCCESS;
+    const forceResubmit = stalePending || refreshCompletedMotorLookup;
     const result: any = await this.tiramisClient.submit(
       {
         requestType,
@@ -84,8 +90,8 @@ export class VerificationsService {
         sourceUserId: user.id,
         sourceModule: 'verifications',
         businessReference,
-        forceResubmit: stalePending,
-        returnExisting: !stalePending,
+        forceResubmit,
+        returnExisting: !forceResubmit,
       },
       user,
     );
