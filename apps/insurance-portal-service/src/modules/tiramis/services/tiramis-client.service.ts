@@ -1474,6 +1474,16 @@ export class TiramisClientService {
     return tracking;
   }
 
+  async findLatestSubmissionForSameBusiness(params: {
+    sourceCompanyId?: string | null;
+    requestType: TiramisRequestType;
+    sourceModule?: string | null;
+    sourceRecordId?: string | null;
+    businessReference?: string | null;
+  }) {
+    return this.trackingRepository.findLatestSubmissionForSameBusiness(params);
+  }
+
   async getLocalTrackingByBusinessReference(businessReference: string) {
     return this.trackingRepository.findByBusinessReference(businessReference);
   }

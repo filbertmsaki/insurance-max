@@ -153,6 +153,57 @@ export class TiramisStatusSyncService {
       };
     }
 
+    // Final callbacks can arrive before the verification response is fully
+    // materialized locally. A wizard fetch should still refresh final records
+    // so their response payload and linked business data stay current.
+    if (
+      record.status === TiramisSubmissionStatus.FINAL_SUCCESS ||
+      record.status === TiramisSubmissionStatus.FINAL_FAILED
+    ) {
+      const response = await this.tiramisClientService.getStatus(
+        {
+          transactionId: record.tiramisTransactionId || undefined,
+          requestId: record.tiramisRequestId || undefined,
+          businessReference: record.businessReference || undefined,
+          includePayload: true,
+        },
+        this.resolveTrackingAuthContext(record),
+      );
+      const updated = await this.trackingRepository.markFinalFromTiramisStatus(
+        record.id,
+        response,
+      );
+      if (!updated) {
+        return {
+          found: true,
+          trackingId: record.id,
+          statusBefore: record.status,
+          status: record.status,
+          changed: false,
+          reason: 'tracking_update_failed',
+          tiramis: response,
+        };
+      }
+      const businessRecordSync =
+        await this.businessRecordSyncService.syncFromTracking(updated);
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.STATUS_SYNC_SUCCESS,
+        tracking: updated,
+        statusBefore: record.status,
+        success: true,
+        metadata: { manual: true, onDemand: true, businessRecordSync },
+      });
+      return {
+        found: true,
+        trackingId: updated.id,
+        statusBefore: record.status,
+        status: updated.status,
+        changed: record.status !== updated.status,
+        businessRecordSync,
+        tiramis: response,
+      };
+    }
+
     await this.auditService.logFromTracking({
       action: TiramisAuditAction.STATUS_SYNC_REQUESTED,
       tracking: record,

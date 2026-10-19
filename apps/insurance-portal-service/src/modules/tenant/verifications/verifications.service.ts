@@ -2,6 +2,8 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { TiramisRequestType } from '../../tiramis/enums/tiramis-request-type.enum';
 import { TiramisClientService } from '../../tiramis/services/tiramis-client.service';
+import { TiramisSubmissionStatus } from '../../tiramis/enums/tiramis-submission-status.enum';
+import { TiramisStatusSyncService } from '../../tiramis/services/tiramis-status-sync.service';
 import {
   CoverNoteVerificationDto,
   MotorVerificationDto,
@@ -9,7 +11,10 @@ import {
 
 @Injectable()
 export class VerificationsService {
-  constructor(private readonly tiramisClient: TiramisClientService) {}
+  constructor(
+    private readonly tiramisClient: TiramisClientService,
+    private readonly tiramisStatusSync: TiramisStatusSyncService,
+  ) {}
   verifyMotor(user: AuthenticatedUser, dto: MotorVerificationDto) {
     const payload = this.clean(dto as unknown as Record<string, unknown>);
     if (!payload.motorRegistrationNumber && !payload.motorChassisNumber)
@@ -49,13 +54,23 @@ export class VerificationsService {
     payload: Record<string, any>,
     businessReference: string,
   ) {
-    const duplicate = await this.tiramisClient.checkDuplicate({
-      requestType,
-      sourceCompanyId: user.companyId,
-      sourceModule: 'verifications',
-      businessReference,
-    });
-    const existing = duplicate.existingTracking as any;
+    const existing =
+      await this.tiramisClient.findLatestSubmissionForSameBusiness({
+        requestType,
+        sourceCompanyId: user.companyId,
+        sourceModule: 'verifications',
+        businessReference,
+      });
+    if (existing?.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      // A successful verification must never be submitted to TIRA a second
+      // time. Refresh its result by the original transaction/request ID and
+      // let status sync update the linked local record before returning it.
+      const sync = await this.tiramisStatusSync.syncOne(existing.id, user);
+      const refreshed = await this.tiramisClient.getLocalTrackingById(
+        existing.id,
+      );
+      return this.toVerificationResult(requestType, payload, refreshed, sync);
+    }
     const stalePending =
       existing?.status === 'PENDING' &&
       !existing.tiramisRequestId &&
@@ -74,6 +89,15 @@ export class VerificationsService {
       },
       user,
     );
+    return this.toVerificationResult(requestType, payload, result);
+  }
+
+  private toVerificationResult(
+    requestType: TiramisRequestType,
+    payload: Record<string, any>,
+    result: any,
+    sync?: any,
+  ) {
     const liveResponse = result?.tiramis ?? {};
     const tira = liveResponse.tira ?? {};
     const tracking = result?.tracking ?? {};
@@ -140,7 +164,11 @@ export class VerificationsService {
       coverNoteReferenceNumber: payload.coverNoteReferenceNumber ?? null,
       verifiedRecordDetails,
       xml,
-      respondedAt: tira.receivedAt ?? new Date().toISOString(),
+      respondedAt:
+        tira.receivedAt ??
+        tracking.finalResponseReceivedAt ??
+        tracking.lastSyncedAt ??
+        new Date().toISOString(),
       fullResponse: {
         success: liveResponse.success === true,
         service: liveResponse.service ?? null,
@@ -163,6 +191,13 @@ export class VerificationsService {
         },
         verifiedRecordDetails,
         xml,
+        sync: sync
+          ? {
+              status: sync.status ?? tracking.status ?? null,
+              changed: sync.changed ?? false,
+              businessRecordSync: sync.businessRecordSync ?? null,
+            }
+          : undefined,
       },
     };
   }
