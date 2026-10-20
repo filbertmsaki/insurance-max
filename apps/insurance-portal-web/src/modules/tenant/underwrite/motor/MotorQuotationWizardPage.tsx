@@ -122,6 +122,7 @@ export function MotorQuotationWizardPage() {
     <UnderwriteWizardShell
       wizard={wizard}
       title={id ? 'Edit motor quotation' : 'New motor quotation'}
+      showHeader={Boolean(id)}
       renderStep={(stepId) => {
         switch (stepId) {
           case 'details':

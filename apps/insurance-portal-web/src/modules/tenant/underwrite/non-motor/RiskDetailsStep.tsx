@@ -86,6 +86,30 @@ export function RiskDetailsStep({
           </StepSection>
         ))
       )}
+
+      <StepSection title="Limit of liability">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="limit-of-liability">
+              Limit of liability / indemnity
+            </Label>
+            <Input
+              id="limit-of-liability"
+              type="number"
+              min={0}
+              step="any"
+              value={state.limit_of_liability}
+              onChange={(event) =>
+                onChange({ ...state, limit_of_liability: event.target.value })
+              }
+            />
+            <p className="text-xs text-slate-500">
+              Optional. This limit is recorded with the risk. Premiums are
+              calculated from the sums insured in the next step.
+            </p>
+          </div>
+        </div>
+      </StepSection>
     </div>
   );
 }

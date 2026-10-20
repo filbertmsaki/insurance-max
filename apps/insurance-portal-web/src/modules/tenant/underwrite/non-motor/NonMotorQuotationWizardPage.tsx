@@ -4,8 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useWatch } from 'react-hook-form';
 import { toast } from 'sonner';
 import { UnderwriteLine } from '@insurance-max/contracts';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { KeyValueGrid } from '@/components/shared/DetailSections';
 import { useQuotationSubClasses } from '@/modules/tenant/quotations/hooks';
 import { createEmptyRiskRow } from '@/modules/tenant/quotations/schemas';
@@ -52,36 +50,55 @@ function toPayload(state: RiskDetailsState) {
 function nonMotorStepFor(step: QuotationWizardStepId): string {
   switch (step) {
     case 'policyholder':
-      return 'customer';
+    case 'risk-premium':
+      return 'customer-cover';
     case 'addons':
       return 'addons';
     default:
-      return 'sum-insured';
+      return 'customer-cover';
   }
 }
+
+const NON_MOTOR_STEP_ALIASES: Record<string, string> = {
+  customer: 'customer-cover',
+  class: 'customer-cover',
+  risk: 'customer-cover',
+  'sum-insured': 'customer-cover',
+  addons: 'addons',
+  'risk-pricing': 'addons',
+  premium: 'customer-cover',
+  source: 'review',
+  documents: 'review',
+  'review-submit': 'review',
+  review: 'review',
+};
 
 export function NonMotorQuotationWizardPage() {
   const { id } = useParams<{ id?: string }>();
   const [riskState, setRiskState] =
     useState<RiskDetailsState>(EMPTY_RISK_DETAILS);
+  const [savedRiskState, setSavedRiskState] = useState<{
+    quotationId: string;
+    state: RiskDetailsState;
+  } | null>(null);
   const [showRiskErrors, setShowRiskErrors] = useState(false);
 
   // Steps close over the latest risk state through this ref.
-  const riskRef = useRef({ state: riskState, fields: [] as FieldsList });
   type FieldsList = NonNullable<ReturnType<typeof useRiskFields>['data']>;
+  const riskRef = useRef({
+    state: riskState,
+    fields: [] as FieldsList,
+    loading: false,
+  });
 
   const steps: UnderwriteWizardStep[] = [
     {
-      id: 'customer',
-      label: 'Customer',
-      description: 'Select or capture the policyholder',
-      fields: ['customer_id', 'policyholder'],
-    },
-    {
-      id: 'class',
-      label: 'Insurance Class',
-      description: 'Class, product, cover type and period',
+      id: 'customer-cover',
+      label: 'Customer, cover & premium',
+      description: 'Choose the product, capture its risk and price the cover',
       fields: [
+        'customer_id',
+        'policyholder',
         'category_id',
         'product_id',
         'sub_class_id',
@@ -92,70 +109,47 @@ export function NonMotorQuotationWizardPage() {
         'valid_until',
         'cover_note_desc',
         'operative_clause',
+        'risks',
+        'nonMotor',
       ],
-    },
-    {
-      id: 'risk',
-      label: 'Risk Details',
-      description: 'Class-specific risk information',
-      fields: [],
       validate: () => {
+        if (riskRef.current.loading) {
+          return 'Risk details are still loading. Please wait a moment.';
+        }
         const errors = riskDataErrors(
           riskRef.current.fields,
           riskRef.current.state.risk_data,
           true,
         );
         const first = Object.values(errors)[0];
-        if (first) setShowRiskErrors(true);
-        return first ?? null;
-      },
-    },
-    {
-      id: 'sum-insured',
-      label: 'Sum Insured & Limits',
-      description: 'Insured risks, sums insured and limits',
-      fields: ['risks', 'nonMotor'],
-      validate: () => {
+        if (first) {
+          setShowRiskErrors(true);
+          return first;
+        }
         const limit = riskRef.current.state.limit_of_liability.trim();
-        return limit !== '' && !(Number(limit) >= 0)
-          ? 'Limit of liability must be a positive amount'
-          : null;
+        if (limit !== '' && !(Number(limit) >= 0)) {
+          return 'Limit of liability must be a positive amount';
+        }
+        return null;
       },
     },
     {
       id: 'addons',
-      label: 'Add-ons',
-      description: 'Extensions and optional covers',
+      label: 'Add-ons & extensions',
+      description: 'Select any optional extensions for this quotation',
       fields: ['addons'],
     },
     {
-      id: 'premium',
-      label: 'Premium & Taxes',
-      description: 'Premium, taxes and payable total',
-      fields: [],
-    },
-    {
-      id: 'source',
-      label: 'Business Source',
-      description: 'Channel, intermediary and branch',
+      id: 'review',
+      label: 'Review & submit',
+      description: 'Documents, business source and final checks',
       fields: [
+        'payment_mode_tira',
         'channel_type',
         'intermediary_company_id',
         'commission_rate',
         'commission_paid',
       ],
-    },
-    {
-      id: 'documents',
-      label: 'Documents',
-      description: 'Product-required documents',
-      fields: [],
-    },
-    {
-      id: 'review',
-      label: 'Review & Submit',
-      description: 'Check everything before completing',
-      fields: ['payment_mode_tira'],
     },
   ];
 
@@ -163,6 +157,7 @@ export function NonMotorQuotationWizardPage() {
     line: NON_MOTOR,
     quotationId: id,
     steps,
+    stepAliases: NON_MOTOR_STEP_ALIASES,
     hooks: {
       afterDraftSaved: async (quotationId) => {
         await nonMotorApi.saveRiskDetails(
@@ -179,7 +174,7 @@ export function NonMotorQuotationWizardPage() {
           return true;
         } catch {
           // The API client already shows the validation error.
-          wizard.setStep('risk');
+          wizard.setStep('customer-cover');
           return false;
         }
       },
@@ -197,154 +192,179 @@ export function NonMotorQuotationWizardPage() {
     subClassId,
   );
 
-  useEffect(() => {
-    riskRef.current = { state: riskState, fields: riskFields.data ?? [] };
-  });
-
   // Edit: hydrate risk details once from the server.
-  const hydratedRef = useRef(false);
   const savedRisk = useQuery({
     queryKey: [...underwriteKeys.all, 'non-motor', 'risk-details', id ?? ''],
     queryFn: () => nonMotorApi.getRiskDetails(id!),
     enabled: Boolean(id),
     staleTime: 0,
   });
+  const hydratedRiskState = savedRisk.data
+    ? {
+        risk_data: savedRisk.data.risk_data ?? {},
+        risk_location: savedRisk.data.risk_location ?? '',
+        limit_of_liability:
+          savedRisk.data.limit_of_liability == null
+            ? ''
+            : String(savedRisk.data.limit_of_liability),
+      }
+    : null;
+  const currentRiskState =
+    id && hydratedRiskState
+      ? (savedRiskState?.quotationId === id
+          ? savedRiskState.state
+          : hydratedRiskState)
+      : riskState;
+  const hydratedRiskQuotationId =
+    id && savedRiskState?.quotationId === id ? id : null;
+  const updateRiskState = (
+    nextState: RiskDetailsState | ((current: RiskDetailsState) => RiskDetailsState),
+  ) => {
+    const resolvedState =
+      typeof nextState === 'function' ? nextState(currentRiskState) : nextState;
+    if (id && hydratedRiskState) {
+      setSavedRiskState({ quotationId: id, state: resolvedState });
+    } else {
+      setRiskState(resolvedState);
+    }
+  };
   useEffect(() => {
-    if (!savedRisk.data || hydratedRef.current) return;
-    hydratedRef.current = true;
-    setRiskState({
-      risk_data: savedRisk.data.risk_data ?? {},
-      risk_location: savedRisk.data.risk_location ?? '',
-      limit_of_liability:
-        savedRisk.data.limit_of_liability == null
-          ? ''
-          : String(savedRisk.data.limit_of_liability),
-    });
-  }, [savedRisk.data]);
+    riskRef.current = {
+      state: currentRiskState,
+      fields: riskFields.data ?? [],
+      loading: riskFields.isLoading,
+    };
+  });
 
   const riskErrors = showRiskErrors
-    ? riskDataErrors(riskFields.data ?? [], riskState.risk_data, true)
-    : riskDataErrors(riskFields.data ?? [], riskState.risk_data, false);
-
+    ? riskDataErrors(riskFields.data ?? [], currentRiskState.risk_data, true)
+    : riskDataErrors(riskFields.data ?? [], currentRiskState.risk_data, false);
   return (
     <UnderwriteWizardShell
       wizard={wizard}
       title={id ? 'Edit non-motor quotation' : 'New non-motor quotation'}
+      additionalHydrating={
+        Boolean(id) && hydratedRiskQuotationId !== id && !savedRisk.isError
+      }
+      additionalLoadError={savedRisk.error}
+      onRetryAdditionalLoad={
+        wizard.loadError ? undefined : () => void savedRisk.refetch()
+      }
       renderStep={(stepId) => {
         switch (stepId) {
-          case 'customer':
-            return (
-              <PolicyholderStep
-                form={form}
-                customerOptions={wizard.customerOptions}
-              />
-            );
-          case 'class':
+          case 'customer-cover':
             return (
               <div className="space-y-6">
-                <ProductCoverStep wizard={wizard} />
-                {subClasses.length > 0 && (
-                  <StepSection title="Cover type">
-                    <div className="grid gap-4 lg:grid-cols-3">
-                      <WizardInput
-                        form={form}
-                        name="sub_class_id"
-                        label="Sub-class / cover type"
-                        options={subClasses
-                          .filter((item) => item.is_active)
-                          .map((item) => ({
-                            value: item.id,
-                            label: item.name,
-                          }))}
-                      />
-                    </div>
-                  </StepSection>
-                )}
-              </div>
-            );
-          case 'risk':
-            return (
-              <RiskDetailsStep
-                fields={riskFields.data ?? []}
-                loading={riskFields.isLoading}
-                hasProduct={Boolean(productId)}
-                state={riskState}
-                errors={riskErrors}
-                onChange={setRiskState}
-              />
-            );
-          case 'sum-insured':
-            return (
-              <div className="space-y-6">
-                <RiskPremiumStep
-                  form={form}
-                  riskOptions={wizard.riskOptions}
-                  fieldArray={wizard.riskFieldArray}
-                  flow="NON_MOTOR"
-                  subjectMatterFieldArray={wizard.nonMotorFieldArray}
-                  subjectMatterOptions={wizard.subjectMatterOptions}
-                  onAddRisk={() =>
-                    wizard.riskFieldArray.append(createEmptyRiskRow())
+                <p className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                  Start with the customer and product. The selected product and
+                  cover type determine the risk questions and available cover
+                  options below.
+                </p>
+                <StepSection
+                  title="Customer"
+                  description="Choose an existing policyholder or capture a new one."
+                  first
+                >
+                  <PolicyholderStep
+                    form={form}
+                    customerOptions={wizard.customerOptions}
+                    hideSectionTitle
+                  />
+                </StepSection>
+                <StepSection
+                  title="Product & cover"
+                  description="The product and cover type determine the information and options shown below."
+                >
+                  <ProductCoverStep wizard={wizard} compact />
+                  {subClasses.length > 0 && (
+                    <StepSection title="Cover type">
+                      <div className="grid gap-4 lg:grid-cols-3">
+                        <WizardInput
+                          form={form}
+                          name="sub_class_id"
+                          label="Sub-class / cover type"
+                          options={subClasses
+                            .filter((item) => item.is_active)
+                            .map((item) => ({
+                              value: item.id,
+                              label: item.name,
+                            }))}
+                        />
+                      </div>
+                    </StepSection>
+                  )}
+                </StepSection>
+                <StepSection
+                  title="Risk details"
+                  description={
+                    riskFields.isLoading
+                      ? 'Loading questions for the selected product…'
+                      : productId
+                        ? 'Complete the product-specific risk details.'
+                        : 'Select a product to load its risk questions.'
                   }
-                  onRemoveRisk={(index) => {
-                    if (wizard.riskFieldArray.fields.length > 1) {
-                      wizard.riskFieldArray.remove(index);
-                    }
-                  }}
-                  factorContext={wizard.factorContext}
-                />
-                <StepSection title="Limits">
-                  <div className="grid gap-4 lg:grid-cols-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="limit-of-liability">
-                        Limit of liability / indemnity
-                      </Label>
-                      <Input
-                        id="limit-of-liability"
-                        type="number"
-                        min={0}
-                        step="any"
-                        value={riskState.limit_of_liability}
-                        onChange={(event) =>
-                          setRiskState({
-                            ...riskState,
-                            limit_of_liability: event.target.value,
-                          })
+                >
+                  <RiskDetailsStep
+                    fields={riskFields.data ?? []}
+                    loading={riskFields.isLoading}
+                    hasProduct={Boolean(productId)}
+                    state={currentRiskState}
+                    errors={riskErrors}
+                    onChange={updateRiskState}
+                  />
+                </StepSection>
+                <StepSection
+                  title="Cover & premium"
+                  description="Add insured risks and review the calculated premium."
+                >
+                  <div id="non-motor-cover-inputs">
+                    <RiskPremiumStep
+                      form={form}
+                      riskOptions={wizard.riskOptions}
+                      fieldArray={wizard.riskFieldArray}
+                      flow="NON_MOTOR"
+                      subjectMatterFieldArray={wizard.nonMotorFieldArray}
+                      subjectMatterOptions={wizard.subjectMatterOptions}
+                      onAddRisk={() =>
+                        wizard.riskFieldArray.append(createEmptyRiskRow())
+                      }
+                      onRemoveRisk={(index) => {
+                        if (wizard.riskFieldArray.fields.length > 1) {
+                          wizard.riskFieldArray.remove(index);
                         }
-                      />
-                      <p className="text-xs text-slate-500">
-                        Optional. Recorded with the risk; premiums are
-                        calculated from the sums insured above.
-                      </p>
-                    </div>
+                      }}
+                      factorContext={wizard.factorContext}
+                      title="Insured risks"
+                    />
                   </div>
+                  <NonMotorPremiumStep
+                    wizard={wizard}
+                    onEditRisks={() =>
+                      document
+                        .getElementById('non-motor-cover-inputs')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }
+                  />
                 </StepSection>
               </div>
             );
           case 'addons':
             return (
-              <AddOnsStep form={form} fieldArray={wizard.addonFieldArray} />
-            );
-          case 'premium':
-            return (
-              <NonMotorPremiumStep
-                wizard={wizard}
-                onEditRisks={() => wizard.setStep('sum-insured')}
-              />
-            );
-          case 'source':
-            return <BusinessSourceStep wizard={wizard} />;
-          case 'documents':
-            return (
-              <NonMotorDocumentsStep
-                quotationId={wizard.draftId}
-                productId={productId}
-                subClassId={subClassId}
-              />
+              <div className="space-y-6">
+                <AddOnsStep form={form} fieldArray={wizard.addonFieldArray} />
+              </div>
             );
           case 'review':
             return (
               <div className="space-y-6">
+                <div id="non-motor-documents">
+                  <NonMotorDocumentsStep
+                    quotationId={wizard.draftId}
+                    productId={productId}
+                    subClassId={subClassId}
+                  />
+                </div>
+                <BusinessSourceStep wizard={wizard} />
                 <SummaryReviewStep
                   form={form}
                   customerOptions={wizard.customerOptions}
@@ -360,7 +380,7 @@ export function NonMotorQuotationWizardPage() {
                     <button
                       type="button"
                       className="text-sm font-medium text-blue-600 hover:underline"
-                      onClick={() => wizard.setStep('risk')}
+                    onClick={() => wizard.setStep('customer-cover')}
                     >
                       Edit
                     </button>
@@ -370,17 +390,17 @@ export function NonMotorQuotationWizardPage() {
                     items={[
                       {
                         label: 'Location',
-                        value: riskState.risk_location || '—',
+                        value: currentRiskState.risk_location || '—',
                       },
                       {
                         label: 'Limit of liability',
-                        value: riskState.limit_of_liability || '—',
+                        value: currentRiskState.limit_of_liability || '—',
                       },
                       ...(riskFields.data ?? []).map((field) => ({
                         label: field.label,
                         value: formatRiskValue(
                           field,
-                          riskState.risk_data[field.field_key],
+                          currentRiskState.risk_data[field.field_key],
                         ),
                       })),
                     ]}
@@ -402,7 +422,12 @@ export function NonMotorQuotationWizardPage() {
                       type="button"
                       className="mt-1 font-medium underline"
                       onClick={() => {
-                        wizard.setStep('documents');
+                        document
+                          .getElementById('non-motor-documents')
+                          ?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                          });
                         toast.message('Attach the remaining documents');
                       }}
                     >

@@ -218,26 +218,42 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
 
   return (
     <div>
-      <PageHeader
-        eyebrow={`Underwrite · ${line.label}`}
-        title={`${line.label} quotations`}
-        description={line.description}
-        action={
-          <>
-            <CompanySwitcher menuLabel="Filter by owner company" />
-            {canCreate ? (
-              <Button
-                onClick={() =>
-                  navigate(underwritePaths.quotationCreate(line.slug))
-                }
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New quotation
-              </Button>
-            ) : null}
-          </>
-        }
-      />
+      {line.line === 'MOTOR' ? (
+        <div className="mb-6 flex justify-end gap-2">
+          <CompanySwitcher menuLabel="Filter by owner company" />
+          {canCreate ? (
+            <Button
+              onClick={() =>
+                navigate(underwritePaths.quotationCreate(line.slug))
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              New quotation
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <PageHeader
+          eyebrow={`Underwrite · ${line.label}`}
+          title={`${line.label} quotations`}
+          description={line.description}
+          action={
+            <>
+              <CompanySwitcher menuLabel="Filter by owner company" />
+              {canCreate ? (
+                <Button
+                  onClick={() =>
+                    navigate(underwritePaths.quotationCreate(line.slug))
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  New quotation
+                </Button>
+              ) : null}
+            </>
+          }
+        />
+      )}
 
       <DataTable
         {...tableProps}

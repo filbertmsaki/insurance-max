@@ -25,11 +25,20 @@ import type { UnderwriteQuotationWizard } from './useUnderwriteQuotationWizard';
 export function UnderwriteWizardShell({
   wizard,
   title,
+  showHeader = true,
   renderStep,
+  additionalHydrating = false,
+  additionalLoadError,
+  onRetryAdditionalLoad,
 }: {
   wizard: UnderwriteQuotationWizard;
   title: string;
+  showHeader?: boolean;
   renderStep: (stepId: string) => ReactNode;
+  /** Gates the form on line-specific edit data loaded outside the shared wizard. */
+  additionalHydrating?: boolean;
+  additionalLoadError?: unknown;
+  onRetryAdditionalLoad?: () => void;
 }) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,11 +65,15 @@ export function UnderwriteWizardShell({
     });
   }, [stepId]);
 
-  const ready = !wizard.isLoading && !(isEditMode && wizard.isHydrating);
+  const loadError = wizard.loadError ?? additionalLoadError;
+  const ready =
+    !wizard.isLoading &&
+    !(isEditMode && wizard.isHydrating) &&
+    !additionalHydrating;
 
   const footer = useMemo(
     () =>
-      ready && !wizard.loadError ? (
+      ready && !loadError ? (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
@@ -127,13 +140,14 @@ export function UnderwriteWizardShell({
       isFirstStep,
       isLastStep,
       isSaving,
+      loadError,
       ready,
       wizard,
     ],
   );
   usePageFooter(footer);
 
-  if (!ready && !wizard.loadError) {
+  if (!ready && !loadError) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
@@ -142,16 +156,23 @@ export function UnderwriteWizardShell({
     );
   }
 
-  if (wizard.loadError) {
+  if (loadError) {
     return (
       <div className="space-y-4 py-12 text-center text-sm text-red-600">
-        <p>This quotation could not be loaded for editing.</p>
-        <Button
-          variant="outline"
-          onClick={() => navigate(underwritePaths.quotations(line.slug))}
-        >
-          Back to {line.label} quotations
-        </Button>
+        <p>This quotation data could not be loaded for editing.</p>
+        <div className="flex justify-center gap-2">
+          {onRetryAdditionalLoad && (
+            <Button variant="outline" onClick={onRetryAdditionalLoad}>
+              Retry loading
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => navigate(underwritePaths.quotations(line.slug))}
+          >
+            Back to {line.label} quotations
+          </Button>
+        </div>
       </div>
     );
   }
@@ -159,7 +180,9 @@ export function UnderwriteWizardShell({
   return (
     <div ref={containerRef} className="pb-8">
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-5">
-        <PageHeader eyebrow={`Underwrite · ${line.label}`} title={title} />
+        {showHeader && (
+          <PageHeader eyebrow={`Underwrite · ${line.label}`} title={title} />
+        )}
         <ConfirmDialog
           open={isDeleteOpen}
           onOpenChange={setIsDeleteOpen}

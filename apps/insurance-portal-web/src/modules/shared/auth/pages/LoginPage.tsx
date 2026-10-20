@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -26,7 +26,6 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authApi } from '@/modules/shared/auth/api/auth';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { APP_NAME } from '@/modules/shared/config';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 const loginSchema = z.object({
@@ -90,21 +89,11 @@ export function LoginPage() {
   return (
     <div className="vz-auth">
       <div className="w-full max-w-md">
-        <div className="vz-auth-brand">
-          <span className="vz-auth-logo">
-            <ShieldCheck className="h-6 w-6" />
-          </span>
-          <span className="text-2xl font-bold text-white">{APP_NAME}</span>
-        </div>
-        <p className="vz-auth-tagline">Insurance operations, simplified</p>
-
         <Card>
-          <CardHeader className="items-center px-6 pb-2 pt-8 text-center sm:px-8">
-            <CardTitle className="text-lg text-blue-600">
-              Welcome Back!
-            </CardTitle>
+          <CardHeader className="px-6 pb-2 pt-8 sm:px-8">
+            <CardTitle className="text-xl">Sign in</CardTitle>
             <CardDescription>
-              Sign in to continue to {APP_NAME}.
+              Enter your email and password to continue.
             </CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-8 pt-4 sm:px-8">
@@ -171,13 +160,7 @@ export function LoginPage() {
                   )}
                 />
 
-                <div className="flex items-center justify-between text-sm">
-                  <Link
-                    to="/phone-login"
-                    className="text-blue-600 hover:underline"
-                  >
-                    Sign in with phone
-                  </Link>
+                <div className="flex justify-end text-sm">
                   <Link
                     to="/forgot-password"
                     className="text-blue-600 hover:underline"
@@ -205,12 +188,12 @@ export function LoginPage() {
                   </Link>
                 </div>
 
-                <div className="text-center">
+                <div className="border-t border-slate-200 pt-4 text-center">
                   <Link
-                    to="/passwordless"
-                    className="text-sm text-slate-400 hover:text-slate-600"
+                    to="/phone-login"
+                    className="text-sm text-blue-600 hover:underline"
                   >
-                    Sign in without password →
+                    Sign in with phone instead
                   </Link>
                 </div>
               </form>

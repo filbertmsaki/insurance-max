@@ -8,6 +8,13 @@
   align-items: start;
   padding-block: 65px;
 }
+.public-auth-grid-login {
+  grid-template-columns: minmax(0, 440px);
+  justify-content: center;
+  align-items: center;
+  min-height: min(70vh, 680px);
+  padding-block: 48px;
+}
 .public-auth-intro {
   padding-block: 30px;
 }
