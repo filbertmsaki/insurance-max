@@ -36,6 +36,93 @@ export class ReferenceDataController {
     return this.service.listCountries(query);
   }
 
+  @Get('vehicle/makes')
+  listVehicleMakes(@Query() query: ReferenceListQueryDto) {
+    return this.service.listVehicleMakes(query);
+  }
+
+  @Get('vehicle/models')
+  listVehicleModels(
+    @Query() query: ReferenceListQueryDto & { make_id?: string },
+  ) {
+    return this.service.listVehicleModels(query);
+  }
+
+  @Get('vehicle/attributes/:kind')
+  listVehicleAttributes(
+    @Param('kind') kind: string,
+    @Query() query: ReferenceListQueryDto,
+  ) {
+    return this.service.listVehicleAttributes(kind, query);
+  }
+
+  @Post('vehicle/makes')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  createVehicleMake(
+    @Body() dto: { name: string; is_active?: boolean; models?: string },
+  ) {
+    return this.service.createVehicleMake(dto);
+  }
+
+  @Patch('vehicle/makes/:id')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  updateVehicleMake(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { name?: string; is_active?: boolean; models?: string },
+  ) {
+    return this.service.updateVehicleMake(id, dto);
+  }
+
+  @Post('vehicle/models/bulk-preview')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  previewVehicleModels(@Body() dto: { make_id: string; models: string }) {
+    return this.service.previewVehicleModels(dto.make_id, dto.models);
+  }
+
+  @Post('vehicle/models/bulk-save')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  saveVehicleModels(@Body() dto: { make_id: string; models: string }) {
+    return this.service.saveVehicleModels(dto.make_id, dto.models);
+  }
+
+  @Post('vehicle/attributes/:kind')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  createVehicleAttribute(
+    @Param('kind') kind: string,
+    @Body() dto: { name: string; is_active?: boolean },
+  ) {
+    return this.service.createVehicleAttribute(kind, dto);
+  }
+
+  @Patch('vehicle/attributes/:kind/:id')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  updateVehicleAttribute(
+    @Param('kind') kind: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { name?: string; is_active?: boolean },
+  ) {
+    return this.service.updateVehicleAttribute(kind, id, dto);
+  }
+
+  @Patch('vehicle/attributes/:kind/:id/status')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  setVehicleAttributeStatus(
+    @Param('kind') kind: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { is_active: boolean },
+  ) {
+    return this.service.setVehicleAttributeStatus(kind, id, dto.is_active);
+  }
+
+  @Patch('vehicle/makes/:id/status')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  setVehicleMakeStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { is_active: boolean },
+  ) {
+    return this.service.setVehicleMakeStatus(id, dto.is_active);
+  }
+
   @Get('countries/:id')
   getCountry(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.getCountry(id);

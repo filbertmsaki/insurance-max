@@ -23,6 +23,9 @@ import { ReferenceCountry } from './entities/reference-country.entity';
 import { ReferenceCurrency } from './entities/reference-currency.entity';
 import { ReferenceDistrict } from './entities/reference-district.entity';
 import { ReferenceRegion } from './entities/reference-region.entity';
+import { VehicleMake } from './entities/vehicle-make.entity';
+import { VehicleModel } from './entities/vehicle-model.entity';
+import { VehicleReferenceAttribute } from './entities/vehicle-attribute.entity';
 
 type ReferenceEntity =
   | ReferenceCountry
@@ -41,7 +44,309 @@ export class ReferenceDataService {
     private readonly districts: Repository<ReferenceDistrict>,
     @InjectRepository(ReferenceCurrency)
     private readonly currencies: Repository<ReferenceCurrency>,
+    @InjectRepository(VehicleMake)
+    private readonly vehicleMakes: Repository<VehicleMake>,
+    @InjectRepository(VehicleModel)
+    private readonly vehicleModels: Repository<VehicleModel>,
+    @InjectRepository(VehicleReferenceAttribute)
+    private readonly vehicleAttributes: Repository<VehicleReferenceAttribute>,
   ) {}
+
+  listVehicleMakes(query: ReferenceListQueryDto) {
+    const qb = this.vehicleMakes
+      .createQueryBuilder('make')
+      .where('make.deleted_at IS NULL')
+      .orderBy('make.name', 'ASC');
+    if (query.is_active !== undefined)
+      qb.andWhere('make.is_active = :active', { active: query.is_active });
+    if (query.search)
+      qb.andWhere('make.name ILIKE :search', {
+        search: `%${query.search.trim()}%`,
+      });
+    if (isPagedRequest(query))
+      return paginateQueryBuilder(qb, query, {
+        sortable: { name: 'make.name', is_active: 'make.is_active' },
+        defaultSort: 'name',
+        defaultOrder: 'ASC',
+        searchable: ['make.name'],
+        tieBreaker: 'make.id',
+      });
+    return qb.take(100).getMany();
+  }
+
+  listVehicleModels(query: ReferenceListQueryDto & { make_id?: string }) {
+    const qb = this.vehicleModels
+      .createQueryBuilder('model')
+      .leftJoinAndSelect('model.make', 'make')
+      .where('model.deleted_at IS NULL');
+    if (query.make_id)
+      qb.andWhere('model.make_id = :makeId', { makeId: query.make_id });
+    if (query.is_active !== undefined)
+      qb.andWhere('model.is_active = :active', { active: query.is_active });
+    if (query.search)
+      qb.andWhere('model.name ILIKE :search', {
+        search: `%${query.search.trim()}%`,
+      });
+    qb.orderBy('model.name', 'ASC');
+    if (isPagedRequest(query))
+      return paginateQueryBuilder(qb, query, {
+        sortable: { name: 'model.name', is_active: 'model.is_active' },
+        defaultSort: 'name',
+        defaultOrder: 'ASC',
+        searchable: ['model.name'],
+        tieBreaker: 'model.id',
+      });
+    return qb.take(100).getMany();
+  }
+
+  listVehicleAttributes(kind: string, query: ReferenceListQueryDto) {
+    this.assertVehicleAttributeKind(kind);
+    const qb = this.vehicleAttributes
+      .createQueryBuilder('item')
+      .where('item.deleted_at IS NULL')
+      .andWhere('item.kind = :kind', { kind })
+      .orderBy('item.name', 'ASC');
+    if (query.is_active !== undefined)
+      qb.andWhere('item.is_active = :active', { active: query.is_active });
+    if (query.search)
+      qb.andWhere('item.name ILIKE :search', {
+        search: `%${query.search.trim()}%`,
+      });
+    if (isPagedRequest(query))
+      return paginateQueryBuilder(qb, query, {
+        sortable: { name: 'item.name', is_active: 'item.is_active' },
+        defaultSort: 'name',
+        defaultOrder: 'ASC',
+        searchable: ['item.name'],
+        tieBreaker: 'item.id',
+      });
+    return qb.take(100).getMany();
+  }
+
+  async createVehicleMake(dto: {
+    name: string;
+    is_active?: boolean;
+    models?: string;
+  }) {
+    const name = this.cleanRequired(dto.name, 'name');
+    try {
+      const make = await this.vehicleMakes.save(
+        this.vehicleMakes.create({
+          name,
+          normalized_name: this.normalize(name),
+          is_active: dto.is_active ?? true,
+          source: 'administrator',
+          metadata: null,
+        }),
+      );
+      const models = dto.models
+        ? await this.saveVehicleModels(make.id, dto.models)
+        : { created: [], skipped: [] };
+      return { ...make, bulk_models: models };
+    } catch (error) {
+      if (this.isUniqueViolation(error))
+        throw new ConflictException('Make already exists');
+      throw error;
+    }
+  }
+
+  async updateVehicleMake(
+    id: string,
+    dto: { name?: string; is_active?: boolean; models?: string },
+  ) {
+    const make = await this.vehicleMakes.findOneBy({
+      id,
+      deleted_at: IsNull(),
+    });
+    if (!make) throw new NotFoundException('Vehicle make not found');
+    if (dto.name !== undefined) {
+      make.name = this.cleanRequired(dto.name, 'name');
+      make.normalized_name = this.normalize(make.name);
+    }
+    if (dto.is_active !== undefined) make.is_active = dto.is_active;
+    try {
+      await this.vehicleMakes.save(make);
+    } catch (error) {
+      if (this.isUniqueViolation(error))
+        throw new ConflictException('Make already exists');
+      throw error;
+    }
+    const models = dto.models
+      ? await this.saveVehicleModels(id, dto.models)
+      : { created: [], skipped: [] };
+    return { ...make, bulk_models: models };
+  }
+
+  async previewVehicleModels(makeId: string, input: string) {
+    const make = await this.vehicleMakes.findOneBy({
+      id: makeId,
+      deleted_at: IsNull(),
+    });
+    if (!make) throw new NotFoundException('Vehicle make not found');
+    const candidates = this.splitModels(input);
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    const duplicates: string[] = [];
+    const invalid: string[] = [];
+    for (const value of candidates) {
+      const normalized = this.normalize(value);
+      if (!value || value.length > 120) {
+        invalid.push(value || '(empty)');
+        continue;
+      }
+      if (seen.has(normalized)) {
+        duplicates.push(value);
+        continue;
+      }
+      seen.add(normalized);
+      unique.push(value);
+    }
+    const existingRows = unique.length
+      ? await this.vehicleModels
+          .createQueryBuilder('model')
+          .where(
+            'model.make_id = :makeId AND model.deleted_at IS NULL AND model.normalized_name IN (:...names)',
+            { makeId, names: unique.map((name) => this.normalize(name)) },
+          )
+          .getMany()
+      : [];
+    const existingSet = new Set(existingRows.map((row) => row.normalized_name));
+    return {
+      make_id: makeId,
+      new_models: unique.filter(
+        (name) => !existingSet.has(this.normalize(name)),
+      ),
+      duplicates,
+      existing_models: unique.filter((name) =>
+        existingSet.has(this.normalize(name)),
+      ),
+      invalid,
+    };
+  }
+
+  async saveVehicleModels(makeId: string, input: string) {
+    const preview = await this.previewVehicleModels(makeId, input);
+    const created: string[] = [];
+    for (const name of preview.new_models) {
+      try {
+        await this.vehicleModels.insert({
+          make_id: makeId,
+          name,
+          normalized_name: this.normalize(name),
+          is_active: true,
+          source: 'administrator',
+          metadata: null,
+        });
+        created.push(name);
+      } catch (error) {
+        if (!this.isUniqueViolation(error)) throw error;
+      }
+    }
+    return {
+      created,
+      skipped: [
+        ...preview.duplicates,
+        ...preview.existing_models,
+        ...preview.invalid,
+      ],
+      preview,
+    };
+  }
+
+  async createVehicleAttribute(
+    kind: string,
+    dto: { name: string; is_active?: boolean },
+  ) {
+    this.assertVehicleAttributeKind(kind);
+    const name = this.cleanRequired(dto.name, 'name');
+    try {
+      return await this.vehicleAttributes.save(
+        this.vehicleAttributes.create({
+          kind,
+          name,
+          normalized_name: this.normalize(name),
+          is_active: dto.is_active ?? true,
+          source: 'administrator',
+          metadata: null,
+        }),
+      );
+    } catch (error) {
+      if (this.isUniqueViolation(error))
+        throw new ConflictException('Vehicle reference value already exists');
+      throw error;
+    }
+  }
+
+  async updateVehicleAttribute(
+    kind: string,
+    id: string,
+    dto: { name?: string; is_active?: boolean },
+  ) {
+    this.assertVehicleAttributeKind(kind);
+    const item = await this.vehicleAttributes.findOneBy({
+      id,
+      kind,
+      deleted_at: IsNull(),
+    });
+    if (!item) throw new NotFoundException('Vehicle reference value not found');
+    if (dto.name !== undefined) {
+      item.name = this.cleanRequired(dto.name, 'name');
+      item.normalized_name = this.normalize(item.name);
+    }
+    if (dto.is_active !== undefined) item.is_active = dto.is_active;
+    try {
+      return await this.vehicleAttributes.save(item);
+    } catch (error) {
+      if (this.isUniqueViolation(error))
+        throw new ConflictException('Vehicle reference value already exists');
+      throw error;
+    }
+  }
+
+  async setVehicleAttributeStatus(kind: string, id: string, isActive: boolean) {
+    this.assertVehicleAttributeKind(kind);
+    const item = await this.vehicleAttributes.findOneBy({
+      id,
+      kind,
+      deleted_at: IsNull(),
+    });
+    if (!item) throw new NotFoundException('Vehicle reference value not found');
+    item.is_active = isActive;
+    return this.vehicleAttributes.save(item);
+  }
+
+  async setVehicleMakeStatus(id: string, isActive: boolean) {
+    const make = await this.vehicleMakes.findOneBy({
+      id,
+      deleted_at: IsNull(),
+    });
+    if (!make) throw new NotFoundException('Vehicle make not found');
+    make.is_active = isActive;
+    return this.vehicleMakes.save(make);
+  }
+
+  private normalize(value: string) {
+    return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase('en');
+  }
+  private splitModels(input: string) {
+    return String(input ?? '')
+      .split(',')
+      .map((entry) => entry.trim().replace(/\s+/g, ' '));
+  }
+  private assertVehicleAttributeKind(
+    kind: string,
+  ): asserts kind is 'body_type' | 'colour' | 'fuel_type' {
+    if (!['body_type', 'colour', 'fuel_type'].includes(kind))
+      throw new BadRequestException('Unknown vehicle reference kind');
+  }
+  private isUniqueViolation(error: unknown) {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code: string }).code === '23505'
+    );
+  }
 
   listCountries(query: ReferenceListQueryDto) {
     const qb = this.countries

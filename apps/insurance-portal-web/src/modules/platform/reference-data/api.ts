@@ -11,6 +11,43 @@ import type {
 } from './types';
 
 export const referenceDataApi = {
+  vehicleMakes: (params?: ReferenceListParams) =>
+    apiClient
+      .get<
+        Array<{ id: string; name: string; is_active: boolean }>
+      >('/reference-data/vehicle/makes', { params })
+      .then((r) => r.data),
+  vehicleModels: (params?: ReferenceListParams & { make_id?: string }) =>
+    apiClient
+      .get<
+        Array<{ id: string; make_id: string; name: string; is_active: boolean }>
+      >('/reference-data/vehicle/models', { params })
+      .then((r) => r.data),
+  vehicleAttributes: (
+    kind: 'body_type' | 'colour' | 'fuel_type',
+    params?: ReferenceListParams,
+  ) =>
+    apiClient
+      .get<
+        Array<{ id: string; kind: string; name: string; is_active: boolean }>
+      >(`/reference-data/vehicle/attributes/${kind}`, { params })
+      .then((r) => r.data),
+  previewModels: (make_id: string, models: string) =>
+    apiClient
+      .post<{
+        new_models: string[];
+        duplicates: string[];
+        existing_models: string[];
+        invalid: string[];
+      }>('/reference-data/vehicle/models/bulk-preview', { make_id, models })
+      .then((r) => r.data),
+  saveModels: (make_id: string, models: string) =>
+    apiClient
+      .post<{
+        created: string[];
+        skipped: string[];
+      }>('/reference-data/vehicle/models/bulk-save', { make_id, models })
+      .then((r) => r.data),
   countries: (params?: ReferenceListParams) =>
     apiClient
       .get<ReferenceCountry[]>('/reference-data/countries', { params })

@@ -28,6 +28,8 @@ interface ComboboxProps {
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
+  loading?: boolean;
+  onSearchChange?: (value: string) => void;
   className?: string;
   disabled?: boolean;
   id?: string;
@@ -45,6 +47,8 @@ export function Combobox({
   placeholder = 'Select…',
   searchPlaceholder = 'Search…',
   emptyText = 'No results found.',
+  loading = false,
+  onSearchChange,
   className,
   disabled,
   id,
@@ -87,10 +91,15 @@ export function Combobox({
         className="flex max-h-[var(--radix-popover-content-available-height)] w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] flex-col p-0"
         collisionPadding={8}
       >
-        <Command className="min-h-0">
-          <CommandInput placeholder={searchPlaceholder} />
+        <Command shouldFilter={!onSearchChange} className="min-h-0">
+          <CommandInput
+            placeholder={searchPlaceholder}
+            onValueChange={onSearchChange}
+          />
           <CommandList className="max-h-[300px] min-h-0">
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandEmpty>
+              {loading ? 'Loading options…' : emptyText}
+            </CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
                 <CommandItem

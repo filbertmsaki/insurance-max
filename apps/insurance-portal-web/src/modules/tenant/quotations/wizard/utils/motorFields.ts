@@ -23,21 +23,21 @@ export const motorFields: ReadonlyArray<{
   searchable?: boolean;
 }> = [
   {
-    key: 'motor_category_code',
-    fleetKey: 'motor_category',
-    label: 'Vehicle category',
-    options: [
-      { value: '1', label: 'Motor vehicle' },
-      { value: '2', label: 'Motorcycle' },
-    ],
-  },
-  {
     key: 'motor_type_code',
     fleetKey: 'motor_type',
     label: 'Vehicle type',
     options: [
       { value: '1', label: 'Registered' },
       { value: '2', label: 'In transit' },
+    ],
+  },
+  {
+    key: 'motor_category_code',
+    fleetKey: 'motor_category',
+    label: 'Vehicle category',
+    options: [
+      { value: '1', label: 'Motor vehicle' },
+      { value: '2', label: 'Motorcycle' },
     ],
   },
   {

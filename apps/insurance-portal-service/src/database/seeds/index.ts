@@ -18,6 +18,10 @@ import EndorsementTypesSeeder from './012-endorsement-types.seed';
 import TaxRulesSeeder from './013-tax-rules.seed';
 import ClaimDocumentTemplatesSeeder from './014-claim-document-templates.seed';
 import MotorAddonsSeeder from './015-motor-addons.seed';
+import VehicleMakesModelsSeeder from './016-vehicle-makes-models.seed';
+import VehicleFuelTypesSeeder from './017-vehicle-fuel-types.seed';
+import VehicleBodyTypesSeeder from './018-vehicle-body-types.seed';
+import VehicleColoursSeeder from './019-vehicle-colours.seed';
 
 const productionSeeders = [
   PlatformIdpSeeder,
@@ -36,6 +40,10 @@ const productionSeeders = [
   TaxRulesSeeder,
   ClaimDocumentTemplatesSeeder,
   MotorAddonsSeeder,
+  VehicleMakesModelsSeeder,
+  VehicleFuelTypesSeeder,
+  VehicleBodyTypesSeeder,
+  VehicleColoursSeeder,
 ];
 
 export async function runAllSeeders(dataSource: DataSource): Promise<void> {

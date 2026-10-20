@@ -158,7 +158,7 @@ describe('owner defaults', () => {
         owner_category: '1',
         owner_address: 'Ilala',
       }),
-    ).toEqual({ owner_category: '1', owner_address: 'Ilala' });
+    ).toEqual({ owner_address: 'Ilala' });
   });
 
   it('replaces defaults applied for a previous policyholder', () => {

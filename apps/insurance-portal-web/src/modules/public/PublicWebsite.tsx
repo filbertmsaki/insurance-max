@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 
 import { apiClient } from '@/modules/shared/api/client';
+import { VehicleDataAttribution } from '@/components/shared/VehicleDataAttribution';
 import { PublicLayout } from './PublicShell';
 import { usePageMeta } from './usePageMeta';
 import { CUSTOMER_ID_TYPE_OPTIONS } from '@/modules/tenant/customers/types';
@@ -782,6 +783,11 @@ function AboutPage() {
                 </article>
               ))}
             </div>
+          </div>
+        </section>
+        <section className="public-section">
+          <div className="public-container">
+            <VehicleDataAttribution />
           </div>
         </section>
       </main>

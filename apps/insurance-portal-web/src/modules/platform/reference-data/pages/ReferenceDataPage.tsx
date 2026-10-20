@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MoreHorizontal, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,20 +64,58 @@ const ACTIVE_OPTIONS = [
 ];
 
 export function ReferenceDataPage() {
-  const [tab, setTab] = useState<ReferenceKind>('countries');
+  const [tab, setTab] = useState<ReferenceKind | 'vehicle-reference'>(
+    'countries',
+  );
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AnyRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AnyRecord | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [bulkModels, setBulkModels] = useState('');
+  const [modelPreview, setModelPreview] = useState<{
+    new_models: string[];
+    duplicates: string[];
+    existing_models: string[];
+    invalid: string[];
+  } | null>(null);
+  const [vehicleKind, setVehicleKind] = useState<
+    'makes' | 'body_type' | 'colour' | 'fuel_type'
+  >('makes');
+  const [vehicleRecords, setVehicleRecords] = useState<
+    Array<{ id: string; name: string; is_active: boolean }>
+  >([]);
+  const [vehicleSearch, setVehicleSearch] = useState('');
+  const [vehicleMakeId, setVehicleMakeId] = useState('');
+  const [vehicleBusy, setVehicleBusy] = useState(false);
   // Full lists only feed the parent pickers (form + country filter).
   const countries = useReferenceCountries();
   const regions = useReferenceRegions();
   const mutation = useReferenceMutation();
 
+  async function reloadVehicleRecords(): Promise<
+    Array<{ id: string; name: string; is_active: boolean }>
+  > {
+    const { apiClient } = await import('@/modules/shared/api/client');
+    const params = { search: vehicleSearch, is_active: undefined };
+    const path =
+      vehicleKind === 'makes'
+        ? '/reference-data/vehicle/makes'
+        : `/reference-data/vehicle/attributes/${vehicleKind}`;
+    const response = await apiClient.get<
+      Array<{ id: string; name: string; is_active: boolean }>
+    >(path, { params });
+    setVehicleRecords(response.data);
+    return response.data;
+  }
+
   const { tableProps, state } = useServerTable<AnyRecord, ReferenceFilterKey>({
     queryKey: [...referenceDataKeys.all, 'table', tab],
     fetcher: (params, signal) =>
-      referenceDataApi.listPage<AnyRecord>(tab, params, signal),
+      referenceDataApi.listPage<AnyRecord>(
+        tab === 'vehicle-reference' ? 'countries' : tab,
+        params,
+        signal,
+      ),
     filterKeys: REFERENCE_FILTER_KEYS,
   });
 
@@ -118,7 +156,7 @@ export function ReferenceDataPage() {
     setFormOpen(true);
   };
 
-  const selectedKind = tab;
+  const selectedKind = tab as ReferenceKind | 'vehicle-reference';
   const title = editing ? 'Edit Reference Data' : 'Create Reference Data';
 
   const columns: Record<ReferenceKind, Column<AnyRecord>[]> = {
@@ -222,7 +260,7 @@ export function ReferenceDataPage() {
             onClick={() =>
               mutation.mutate({
                 action: record.is_active ? 'deactivate' : 'activate',
-                kind: tab,
+                kind: tab === 'vehicle-reference' ? 'countries' : tab,
                 id: record.id,
               })
             }
@@ -240,7 +278,28 @@ export function ReferenceDataPage() {
     ),
   };
 
-  const tableColumns = [...columns[tab], actionColumn];
+  const tableColumns =
+    tab === 'vehicle-reference' ? [] : [...columns[tab], actionColumn];
+
+  useEffect(() => {
+    if (tab !== 'vehicle-reference') return;
+    let cancelled = false;
+    async function loadVehicleRecords() {
+      const { apiClient } = await import('@/modules/shared/api/client');
+      const path =
+        vehicleKind === 'makes'
+          ? '/reference-data/vehicle/makes'
+          : `/reference-data/vehicle/attributes/${vehicleKind}`;
+      const response = await apiClient.get<
+        Array<{ id: string; name: string; is_active: boolean }>
+      >(path, { params: { search: vehicleSearch, is_active: undefined } });
+      if (!cancelled) setVehicleRecords(response.data);
+    }
+    void loadVehicleRecords();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, vehicleKind, vehicleSearch]);
 
   function submit() {
     const payload: Record<string, unknown> = { ...form };
@@ -264,7 +323,7 @@ export function ReferenceDataPage() {
 
     mutation.mutate({
       action: editing ? 'update' : 'create',
-      kind: selectedKind,
+      kind: selectedKind === 'vehicle-reference' ? 'countries' : selectedKind,
       id: editing?.id,
       data: payload,
     });
@@ -274,6 +333,7 @@ export function ReferenceDataPage() {
   }
 
   function renderFormFields() {
+    if (selectedKind === 'vehicle-reference') return null;
     if (selectedKind === 'countries') {
       return (
         <>
@@ -390,33 +450,212 @@ export function ReferenceDataPage() {
 
       <Tabs
         value={tab}
-        onValueChange={(value) => setTab(value as ReferenceKind)}
+        onValueChange={(value) =>
+          setTab(value as ReferenceKind | 'vehicle-reference')
+        }
       >
         <TabsList className="mb-4">
           <TabsTrigger value="countries">Countries</TabsTrigger>
           <TabsTrigger value="regions">Regions</TabsTrigger>
           <TabsTrigger value="districts">Districts</TabsTrigger>
           <TabsTrigger value="currencies">Currencies</TabsTrigger>
+          <TabsTrigger value="vehicle-reference">
+            Vehicle Reference Data
+          </TabsTrigger>
         </TabsList>
       </Tabs>
-      <DataTable
-        {...tableProps}
-        columns={tableColumns}
-        searchPlaceholder="Search…"
-        filters={tableFilters(state.filters, [
-          { key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS },
-          ...(tab === 'regions' || tab === 'districts'
-            ? [
-                {
-                  key: 'country_id' as const,
-                  label: 'Country',
-                  options: countryOptions,
-                },
-              ]
-            : []),
-        ])}
-        emptyMessage="No reference data yet"
-      />
+      {tab === 'vehicle-reference' ? (
+        <div className="space-y-4 rounded-lg border bg-white p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              aria-label="Vehicle reference type"
+              className="h-10 rounded-md border px-3"
+              value={vehicleKind}
+              onChange={(e) =>
+                setVehicleKind(e.target.value as typeof vehicleKind)
+              }
+            >
+              <option value="makes">Makes / manufacturers</option>
+              <option value="body_type">Body types</option>
+              <option value="colour">Colours</option>
+              <option value="fuel_type">Fuel types</option>
+            </select>
+            <Input
+              placeholder="Search records"
+              value={vehicleSearch}
+              onChange={(e) => setVehicleSearch(e.target.value)}
+              className="max-w-sm"
+            />
+            <Button
+              disabled={vehicleBusy}
+              onClick={async () => {
+                const name = window.prompt(
+                  `New ${vehicleKind.replace('_', ' ')} name`,
+                );
+                if (!name?.trim()) return;
+                setVehicleBusy(true);
+                try {
+                  const { apiClient } =
+                    await import('@/modules/shared/api/client');
+                  const path =
+                    vehicleKind === 'makes'
+                      ? '/reference-data/vehicle/makes'
+                      : `/reference-data/vehicle/attributes/${vehicleKind}`;
+                  await apiClient.post(path, { name });
+                  await reloadVehicleRecords();
+                } finally {
+                  setVehicleBusy(false);
+                }
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add
+            </Button>
+          </div>
+          {vehicleKind === 'makes' && (
+            <div className="grid gap-3 rounded-md bg-slate-50 p-3 md:grid-cols-[1fr_2fr_auto]">
+              <Combobox
+                options={vehicleRecords.map((r) => ({
+                  value: r.id,
+                  label: r.name,
+                }))}
+                value={vehicleMakeId}
+                onValueChange={(value) => {
+                  setVehicleMakeId(value);
+                  setModelPreview(null);
+                }}
+                placeholder="Select make for models"
+              />
+              <Input
+                placeholder="Bulk models: Corolla, Hilux, Land Cruiser"
+                value={bulkModels}
+                onChange={(e) => {
+                  setBulkModels(e.target.value);
+                  setModelPreview(null);
+                }}
+              />
+              <Button
+                variant="outline"
+                disabled={!vehicleMakeId || !bulkModels.trim()}
+                onClick={async () => {
+                  const { apiClient } =
+                    await import('@/modules/shared/api/client');
+                  const response = await apiClient.post(
+                    '/reference-data/vehicle/models/bulk-preview',
+                    { make_id: vehicleMakeId, models: bulkModels },
+                  );
+                  setModelPreview(response.data as typeof modelPreview);
+                }}
+              >
+                Preview models
+              </Button>
+              {modelPreview && (
+                <div className="md:col-span-3 space-y-2 text-sm">
+                  <p>New: {modelPreview.new_models.join(', ') || 'None'}</p>
+                  <p>
+                    Duplicates: {modelPreview.duplicates.join(', ') || 'None'} ·
+                    Already registered:{' '}
+                    {modelPreview.existing_models.join(', ') || 'None'} ·
+                    Invalid: {modelPreview.invalid.join(', ') || 'None'}
+                  </p>
+                  <Button
+                    disabled={!modelPreview.new_models.length || vehicleBusy}
+                    onClick={async () => {
+                      setVehicleBusy(true);
+                      try {
+                        const { apiClient } =
+                          await import('@/modules/shared/api/client');
+                        const result = await apiClient.post<{
+                          created: string[];
+                          skipped: string[];
+                        }>('/reference-data/vehicle/models/bulk-save', {
+                          make_id: vehicleMakeId,
+                          models: bulkModels,
+                        });
+                        setBulkModels('');
+                        setModelPreview(null);
+                        window.alert(
+                          `Added ${result.data.created.length} models. Skipped: ${result.data.skipped.join(', ') || 'none'}`,
+                        );
+                      } finally {
+                        setVehicleBusy(false);
+                      }
+                    }}
+                  >
+                    Save valid models
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="p-2">Name</th>
+                  <th className="p-2">Status</th>
+                  <th className="p-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vehicleRecords.map((record) => (
+                  <tr className="border-b" key={record.id}>
+                    <td className="p-2">{record.name}</td>
+                    <td className="p-2">
+                      <StatusBadge active={record.is_active} />
+                    </td>
+                    <td className="p-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const { apiClient } =
+                            await import('@/modules/shared/api/client');
+                          const path =
+                            vehicleKind === 'makes'
+                              ? `/reference-data/vehicle/makes/${record.id}/status`
+                              : `/reference-data/vehicle/attributes/${vehicleKind}/${record.id}/status`;
+                          await apiClient.patch(path, {
+                            is_active: !record.is_active,
+                          });
+                          await reloadVehicleRecords();
+                        }}
+                      >
+                        {record.is_active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-slate-500">
+            Reference data uses a pinned multi-market catalog and remains
+            incomplete outside its covered regions. See
+            docs/vehicle-reference-data.md for source, licensing, coverage, and
+            update process.
+          </p>
+        </div>
+      ) : (
+        <DataTable
+          {...tableProps}
+          columns={tableColumns}
+          searchPlaceholder="Search…"
+          filters={tableFilters(state.filters, [
+            { key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS },
+            ...(tab === 'regions' || tab === 'districts'
+              ? [
+                  {
+                    key: 'country_id' as const,
+                    label: 'Country',
+                    options: countryOptions,
+                  },
+                ]
+              : []),
+          ])}
+          emptyMessage="No reference data yet"
+        />
+      )}
 
       <Dialog
         open={formOpen}
@@ -462,7 +701,7 @@ export function ReferenceDataPage() {
           if (!deleteTarget) return;
           mutation.mutate({
             action: 'delete',
-            kind: tab,
+            kind: tab === 'vehicle-reference' ? 'countries' : tab,
             id: deleteTarget.id,
           });
           setDeleteTarget(null);

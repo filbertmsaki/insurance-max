@@ -54,6 +54,9 @@ export const MOTOR_WIZARD_STEPS: UnderwriteWizardStep[] = [
       'commission_rate',
       'commission_paid',
     ],
+    // Let the user reach review with an incomplete vehicle; final submission
+    // still validates the vehicle and returns to this step when needed.
+    skipValidationOnNext: ['motor'],
   },
   {
     id: 'review',

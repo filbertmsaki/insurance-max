@@ -156,6 +156,7 @@ export function MotorVehicleSection({
     hasVehicle ? (motor.vehicle_id ? 'register' : 'saved') : null,
   );
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [vehicleDetailsSubmitted, setVehicleDetailsSubmitted] = useState(false);
   const [showVehicleDetails, setShowVehicleDetails] = useState(false);
   const [revealed, setRevealed] = useState<Array<keyof Motor>>(() =>
     hasVehicle ? missingMotorFieldKeys(motor) : [],
@@ -195,20 +196,30 @@ export function MotorVehicleSection({
     (Object.keys(updates) as Array<keyof VehicleOwnerDefaults>).forEach((key) =>
       form.setValue(`motor.${key}`, updates[key] as Motor[typeof key], {
         shouldDirty: true,
-        shouldValidate: true,
+        shouldValidate: source !== 'manual',
       }),
     );
   }, [form, hasVehicle, ownerDefaultsKey, revision, source]);
 
   function fill(next: Motor, nextSource: VehicleSource) {
     const withOwner = ownerDefaults
-      ? { ...next, ...applyOwnerDefaults(next, ownerDefaults, null) }
+      ? {
+          ...next,
+          ...applyOwnerDefaults(next, ownerDefaults, null),
+          ...(nextSource === 'manual' ? ownerDefaults : {}),
+        }
       : next;
     appliedOwnerDefaults.current = ownerDefaults;
     form.setValue('motor', withOwner, {
       shouldDirty: true,
-      shouldValidate: true,
+      // Manual entry starts with intentionally blank fields. Validate after
+      // the user clicks Done, not while opening the editor.
+      shouldValidate: nextSource !== 'manual',
     });
+    if (nextSource === 'manual') {
+      form.clearErrors('motor');
+      setVehicleDetailsSubmitted(false);
+    }
     form.setValue('motor_mode', nextSource === 'register' ? 'existing' : 'new');
     setSource(nextSource);
     const missingFields = missingMotorFieldKeys(withOwner);
@@ -298,6 +309,12 @@ export function MotorVehicleSection({
       'manual',
     );
     setRegisterOwner(null);
+  }
+
+  async function finishVehicleDetails() {
+    setVehicleDetailsSubmitted(true);
+    const valid = await form.trigger('motor', { shouldFocus: true });
+    if (valid) setDetailsDialogOpen(false);
   }
 
   function changeVehicle() {
@@ -585,9 +602,16 @@ export function MotorVehicleSection({
               Review and complete the vehicle information for this quotation.
             </DialogDescription>
           </DialogHeader>
-          <VehicleDetailsFields key={revision} form={form} title={null} />
+          <VehicleDetailsFields
+            key={revision}
+            form={form}
+            title={null}
+            showErrorMessages={
+              source !== 'manual' || vehicleDetailsSubmitted
+            }
+          />
           <DialogFooter>
-            <Button type="button" onClick={() => setDetailsDialogOpen(false)}>
+            <Button type="button" onClick={() => void finishVehicleDetails()}>
               Done
             </Button>
           </DialogFooter>

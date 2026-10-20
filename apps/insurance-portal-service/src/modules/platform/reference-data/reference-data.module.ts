@@ -6,6 +6,9 @@ import { ReferenceCountry } from './entities/reference-country.entity';
 import { ReferenceCurrency } from './entities/reference-currency.entity';
 import { ReferenceDistrict } from './entities/reference-district.entity';
 import { ReferenceRegion } from './entities/reference-region.entity';
+import { VehicleMake } from './entities/vehicle-make.entity';
+import { VehicleModel } from './entities/vehicle-model.entity';
+import { VehicleReferenceAttribute } from './entities/vehicle-attribute.entity';
 
 @Module({
   imports: [
@@ -14,6 +17,9 @@ import { ReferenceRegion } from './entities/reference-region.entity';
       ReferenceRegion,
       ReferenceDistrict,
       ReferenceCurrency,
+      VehicleMake,
+      VehicleModel,
+      VehicleReferenceAttribute,
     ]),
   ],
   controllers: [ReferenceDataController],

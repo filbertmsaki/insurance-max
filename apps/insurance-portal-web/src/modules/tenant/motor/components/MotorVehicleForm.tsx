@@ -23,6 +23,11 @@ import {
   type MotorVehicleFormValues,
 } from '../schemas';
 import type { MotorCustomerOption } from '../types';
+import {
+  VehicleReferencePicker,
+  type VehicleReferenceKind,
+} from '@/components/shared/VehicleReferencePicker';
+import { useVehicleReference } from '@/modules/platform/reference-data/hooks';
 
 interface Props {
   customerOptions: MotorCustomerOption[];
@@ -65,6 +70,26 @@ export function MotorVehicleForm({
     },
   });
   const motorType = useWatch({ control: form.control, name: 'motor_type' });
+  const makeValue = useWatch({ control: form.control, name: 'make' });
+  const makeQuery = useVehicleReference(
+    'makes',
+    { search: String(makeValue ?? '') || undefined, is_active: true },
+    Boolean(makeValue),
+  );
+  const selectedMake = makeQuery.data?.find(
+    (item) =>
+      item.name.toLowerCase() ===
+      String(makeValue ?? '')
+        .trim()
+        .toLowerCase(),
+  );
+  const referenceKinds: Record<string, VehicleReferenceKind> = {
+    make: 'makes',
+    model: 'models',
+    body_type: 'body_type',
+    color: 'colour',
+    fuel_type: 'fuel_type',
+  };
 
   return (
     <Form {...form}>
@@ -161,7 +186,26 @@ export function MotorVehicleForm({
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} />
+                      {referenceKinds[name] ? (
+                        <VehicleReferencePicker
+                          kind={referenceKinds[name]}
+                          value={String(field.value ?? '')}
+                          makeId={selectedMake?.id}
+                          placeholder={`Select ${label.toLowerCase()}`}
+                          searchPlaceholder={`Search ${label.toLowerCase()}`}
+                          disabled={name === 'model' && !selectedMake}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            if (name === 'make')
+                              form.setValue('model', '', {
+                                shouldDirty: true,
+                                shouldValidate: true,
+                              });
+                          }}
+                        />
+                      ) : (
+                        <Input {...field} value={field.value ?? ''} />
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>

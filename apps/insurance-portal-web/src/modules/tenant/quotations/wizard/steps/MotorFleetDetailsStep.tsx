@@ -96,6 +96,7 @@ import { motorFields, motorFieldError } from '../utils/motorFields';
 import { verificationsApi } from '@/modules/tenant/verifications/api';
 import { readVerifiedMotorDetails } from '../utils/vehicleVerification';
 import { toFleetMotorDetails } from '../utils/vehicleVerification';
+import { ownerDefaultsFromPolicyholder } from '../utils/motorVehicleSelection';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -216,6 +217,7 @@ function FleetVehicleEditor({
   index,
   isCalculating,
   calculationErrorMessage,
+  showVehicleValidationErrors,
   onCalculateVehicle,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -224,6 +226,7 @@ function FleetVehicleEditor({
   index: number;
   isCalculating: boolean;
   calculationErrorMessage: string | null;
+  showVehicleValidationErrors: boolean;
   onCalculateVehicle: (index: number) => void;
 }) {
   const riskArray = useFieldArray({
@@ -393,6 +396,7 @@ function FleetVehicleEditor({
           key={vehicleRevision}
           form={form}
           fleetIndex={index}
+          showErrorMessages={showVehicleValidationErrors}
         />
       </div>
       <div className="rounded-lg border p-3">
@@ -1179,6 +1183,7 @@ function FleetVehicleTable({
 
 export function MotorFleetDetailsStep({
   form,
+  customerOptions,
   riskOptions,
   vehicleOptions,
   fieldArray,
@@ -1211,6 +1216,18 @@ export function MotorFleetDetailsStep({
     snapshot: FleetItemValues | null;
   } | null>(null);
   const [vehicleErrors, setVehicleErrors] = useState<string[]>([]);
+  const [showVehicleValidationErrors, setShowVehicleValidationErrors] =
+    useState(false);
+  const selectedCustomerId = form.watch('customer_id');
+  const policyholderMode = form.watch('policyholder_mode');
+  const policyholder = form.watch('policyholder');
+  const selectedCustomer = customerOptions.find(
+    (customer) => customer.id === selectedCustomerId,
+  );
+  const ownerDefaults = ownerDefaultsFromPolicyholder(
+    { policyholder_mode: policyholderMode, policyholder },
+    selectedCustomer,
+  );
   const fleetValues = form.watch('fleet');
   const commonDescription = form.watch('cover_note_desc');
   const commonClause = form.watch('operative_clause');
@@ -1681,19 +1698,45 @@ export function MotorFleetDetailsStep({
 
   function openNewVehicleDialog() {
     setVehicleErrors([]);
+    setShowVehicleValidationErrors(false);
     // Fill the untouched starter row rather than appending a second vehicle;
     // Cancel restores it from the snapshot.
     if (showEmptyState && fields.length === 1) {
+      applyNewVehicleOwnerDefaults(0);
       openEditVehicleDialog(0, true);
       return;
     }
     const index = fields.length;
     onAddVehicle();
+    applyNewVehicleOwnerDefaults(index);
+    form.clearErrors(`fleet.items.${index}`);
     setEditingVehicle({ index, isNew: true, snapshot: null });
+  }
+
+  function applyNewVehicleOwnerDefaults(index: number) {
+    const path = `fleet.items.${index}.motor_dtl` as const;
+    const defaults = ownerDefaults ?? {
+      owner_name: '',
+      owner_category: '1',
+      owner_address: '',
+    };
+    (['owner_name', 'owner_category', 'owner_address'] as const).forEach(
+      (key) => {
+        form.setValue(`${path}.${key}`, defaults[key], {
+          shouldDirty: false,
+          shouldValidate: false,
+        });
+      },
+    );
   }
 
   function openEditVehicleDialog(index: number, isFirstVehicle = false) {
     setVehicleErrors([]);
+    setShowVehicleValidationErrors(false);
+    // A previous wizard validation can leave errors on this vehicle while its
+    // editor is closed. Start each editing session clean and show them again
+    // only after the user tries to add/save the vehicle.
+    form.clearErrors(`fleet.items.${index}`);
     setEditingVehicle({
       index,
       isNew: false,
@@ -1721,6 +1764,7 @@ export function MotorFleetDetailsStep({
 
   async function confirmVehicleDialog() {
     if (!editingVehicle) return;
+    setShowVehicleValidationErrors(true);
     const path = `fleet.items.${editingVehicle.index}` as const;
     const fieldsValid = await form.trigger(path, { shouldFocus: true });
     // The schema checks fleet items in a root-level refinement, which Zod
@@ -1864,6 +1908,7 @@ export function MotorFleetDetailsStep({
                 index={editingVehicle.index}
                 isCalculating={calculateMultiMutation.isPending}
                 calculationErrorMessage={calculationErrorMessage}
+                showVehicleValidationErrors={showVehicleValidationErrors}
                 onCalculateVehicle={(vehicleIndex) =>
                   void calculateFleetPremiums(vehicleIndex)
                 }

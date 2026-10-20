@@ -179,8 +179,8 @@ describe('MotorQuotationWizardPage', () => {
       await screen.findByText('Select an existing policyholder'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Find the vehicle or enter its details.'),
-    ).toBeInTheDocument();
+      screen.queryByText('Find the vehicle or enter its details.'),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: /vehicle/i })).toBeVisible();
     expect(customersApi.createCustomer).not.toHaveBeenCalled();
   });

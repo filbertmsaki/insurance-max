@@ -16,6 +16,24 @@ export const referenceDataKeys = {
     [...referenceDataKeys.all, 'currencies', params ?? {}] as const,
 };
 
+export function useVehicleReference(
+  kind: 'makes' | 'models' | 'body_type' | 'colour' | 'fuel_type',
+  params?: ReferenceListParams & { make_id?: string },
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [...referenceDataKeys.all, 'vehicle', kind, params ?? {}],
+    queryFn: () =>
+      kind === 'makes'
+        ? referenceDataApi.vehicleMakes(params)
+        : kind === 'models'
+          ? referenceDataApi.vehicleModels(params)
+          : referenceDataApi.vehicleAttributes(kind, params),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useReferenceCountries(params?: ReferenceListParams) {
   return useQuery({
     queryKey: referenceDataKeys.countries(params),

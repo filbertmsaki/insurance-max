@@ -195,12 +195,12 @@ describe('MotorVehicleSection', () => {
     expect(
       screen.getByRole('textbox', { name: 'Gross weight (kg)' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Make' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Make' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     // The vehicle belongs to someone else and will be handed over.
     expect(
       screen
-        .getAllByRole('status')
+        .getAllByRole('status', { hidden: true })
         .some((status) =>
           status.textContent?.includes('Registered under Asha Juma'),
         ),
@@ -252,7 +252,7 @@ describe('MotorVehicleSection', () => {
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
     await waitFor(() =>
       expect(
-        screen.getByRole('textbox', { name: 'Model' }),
+        screen.getByRole('combobox', { name: 'Model' }),
       ).toBeInTheDocument(),
     );
   });

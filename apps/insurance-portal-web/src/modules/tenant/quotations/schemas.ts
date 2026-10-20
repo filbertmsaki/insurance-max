@@ -991,7 +991,7 @@ export function createEmptyAddonRow(): QuotationWizardAddonRow {
 export function createEmptyMotorDetails(): QuotationFormValues['motor'] {
   return {
     vehicle_id: '',
-    motor_category_code: '',
+    motor_category_code: '1',
     motor_type_code: '1',
     registration_no: '',
     chassis_no: '',
@@ -1003,7 +1003,7 @@ export function createEmptyMotorDetails(): QuotationFormValues['motor'] {
     color: '',
     manufacture_year: '',
     usage_type: '',
-    motor_usage_code: '',
+    motor_usage_code: '1',
     vehicle_category: '',
     seating_capacity: '',
     tonnage: '',
@@ -1014,7 +1014,7 @@ export function createEmptyMotorDetails(): QuotationFormValues['motor'] {
     tare_weight: '',
     gross_weight: '',
     owner_name: '',
-    owner_category: '',
+    owner_category: '1',
     owner_address: '',
     vehicle_value: '',
   };
@@ -1085,7 +1085,7 @@ export function createEmptyFleetItemRow(): QuotationWizardFleetItemRow {
     ],
     cover_note_addons: [],
     motor_dtl: {
-      motor_category: '',
+      motor_category: '1',
       motor_type: '',
       registration_number: '',
       chassis_number: '',
@@ -1103,9 +1103,9 @@ export function createEmptyFleetItemRow(): QuotationWizardFleetItemRow {
       year_of_manufacture: '',
       tare_weight: '',
       gross_weight: '',
-      motor_usage: '',
+      motor_usage: '1',
       owner_name: '',
-      owner_category: '',
+      owner_category: '1',
       owner_address: '',
     },
   };

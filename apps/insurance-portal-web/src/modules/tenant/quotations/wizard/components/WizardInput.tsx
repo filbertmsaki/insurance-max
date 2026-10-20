@@ -18,6 +18,10 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { WizardFormItem } from './WizardFormItem';
+import {
+  VehicleReferencePicker,
+  type VehicleReferenceKind,
+} from '@/components/shared/VehicleReferencePicker';
 
 type SelectOptions = ReadonlyArray<{ value: string; label: string }>;
 
@@ -93,7 +97,11 @@ export function WizardInput({
   readOnly,
   required,
   searchable,
+  loading,
+  referenceKind,
+  referenceMakeId,
   uppercase,
+  showErrorMessages = true,
   min,
   onChange,
 }: {
@@ -109,6 +117,11 @@ export function WizardInput({
   readOnly?: boolean;
   /** With `options`, renders the type-to-search Combobox instead of a plain select. */
   searchable?: boolean;
+  loading?: boolean;
+  referenceKind?: VehicleReferenceKind;
+  referenceMakeId?: string;
+  /** Hides resolver errors until the containing form section is submitted. */
+  showErrorMessages?: boolean;
   /** Stores typed text in upper case (ignored for selects). */
   uppercase?: boolean;
   /** Lower bound for number/date inputs (`YYYY-MM-DD` for dates). */
@@ -120,6 +133,38 @@ export function WizardInput({
       control={form.control}
       name={name}
       render={({ field }) => {
+        if (referenceKind) {
+          const value = String(field.value ?? '');
+          const handleValueChange = onChange
+            ? (next: string) => {
+                field.onChange(next);
+                onChange(next);
+              }
+            : field.onChange;
+          return (
+            <WizardFormItem>
+              <FormLabel
+                required={required}
+                className={showErrorMessages ? undefined : 'text-slate-900'}
+              >
+                {label}
+              </FormLabel>
+              <FormControl>
+                <VehicleReferencePicker
+                  kind={referenceKind}
+                  value={value}
+                  onValueChange={handleValueChange}
+                  makeId={referenceMakeId}
+                  placeholder={`Select ${label.toLowerCase()}`}
+                  searchPlaceholder={`Search ${label.toLowerCase()}`}
+                  disabled={disabled || readOnly}
+                  ariaRequired={required}
+                />
+              </FormControl>
+              {showErrorMessages && <FormMessage />}
+            </WizardFormItem>
+          );
+        }
         if (options) {
           const value = String(field.value ?? '');
           const placeholder = `Select ${label.toLowerCase()}`;
@@ -131,15 +176,27 @@ export function WizardInput({
             : field.onChange;
           return (
             <WizardFormItem>
-              <FormLabel required={required}>{label}</FormLabel>
+              <FormLabel
+                required={required}
+                className={showErrorMessages ? undefined : 'text-slate-900'}
+              >
+                {label}
+              </FormLabel>
               {searchable ? (
                 <FormControl>
                   <Combobox
                     ref={field.ref}
                     value={value}
                     options={options}
-                    placeholder={placeholder}
+                    placeholder={
+                      loading ? `Loading ${label.toLowerCase()}…` : placeholder
+                    }
                     searchPlaceholder={`Search ${label.toLowerCase()}`}
+                    emptyText={
+                      loading
+                        ? 'Loading options…'
+                        : `No ${label.toLowerCase()} options available`
+                    }
                     disabled={disabled || readOnly}
                     aria-required={required}
                     onValueChange={handleValueChange}
@@ -157,7 +214,7 @@ export function WizardInput({
                   onValueChange={handleValueChange}
                 />
               )}
-              <FormMessage />
+              {showErrorMessages && <FormMessage />}
             </WizardFormItem>
           );
         }
@@ -190,7 +247,12 @@ export function WizardInput({
         };
         return (
           <WizardFormItem>
-            <FormLabel required={required}>{label}</FormLabel>
+            <FormLabel
+              required={required}
+              className={showErrorMessages ? undefined : 'text-slate-900'}
+            >
+              {label}
+            </FormLabel>
             <FormControl>
               {multiline ? (
                 <Textarea {...props} rows={2} />
@@ -203,7 +265,7 @@ export function WizardInput({
                 />
               )}
             </FormControl>
-            <FormMessage />
+            {showErrorMessages && <FormMessage />}
           </WizardFormItem>
         );
       }}

@@ -68,6 +68,9 @@ export interface UnderwriteWizardStep {
   description: string;
   /** Fields validated before leaving the step. */
   fields: FieldPath<QuotationFormSchemaValues>[];
+  /** Fields a line can defer until final submission, while still listing them
+   * in `fields` so completion validation returns the user to the right step. */
+  skipValidationOnNext?: FieldPath<QuotationFormSchemaValues>[];
   /**
    * Extra validation for data held outside the quotation form (e.g. the
    * Non-Motor risk schema). Return a message to block, or null to continue.
@@ -622,7 +625,10 @@ export function useUnderwriteQuotationWizard({
       ) {
         return;
       }
-      const fields = steps[stepIndex]?.fields ?? [];
+      const currentStep = steps[stepIndex];
+      const fields = (currentStep?.fields ?? []).filter(
+        (field) => !currentStep?.skipValidationOnNext?.includes(field),
+      );
       if (nextIndex > stepIndex && fields.length) {
         const valid = await form.trigger(fields, { shouldFocus: true });
         if (!valid) {
@@ -651,7 +657,13 @@ export function useUnderwriteQuotationWizard({
       if (creatingDeferredDraft) {
         const fieldsToValidate = [
           ...new Set(
-            steps.slice(0, stepIndex + 1).flatMap((step) => step.fields),
+            steps
+              .slice(0, stepIndex + 1)
+              .flatMap((step) =>
+                step.fields.filter(
+                  (field) => !step.skipValidationOnNext?.includes(field),
+                ),
+              ),
           ),
         ];
         const allValid = await form.trigger(fieldsToValidate, {
