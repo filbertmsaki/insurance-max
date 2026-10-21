@@ -4,8 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Brackets, IsNull, Repository } from 'typeorm';
+import type { DataSource } from 'typeorm';
+import type { SeederFactoryManager } from 'typeorm-extension';
+import VehicleMakesModelsSeeder from '../../../database/seeds/016-vehicle-makes-models.seed';
+import VehicleFuelTypesSeeder from '../../../database/seeds/017-vehicle-fuel-types.seed';
+import VehicleBodyTypesSeeder from '../../../database/seeds/018-vehicle-body-types.seed';
+import VehicleColoursSeeder from '../../../database/seeds/019-vehicle-colours.seed';
 import {
   CreateCountryDto,
   CreateCurrencyDto,
@@ -33,6 +39,12 @@ type ReferenceEntity =
   | ReferenceDistrict
   | ReferenceCurrency;
 
+export type VehicleDefaultSeedKind =
+  | 'makes_models'
+  | 'fuel_type'
+  | 'body_type'
+  | 'colour';
+
 @Injectable()
 export class ReferenceDataService {
   constructor(
@@ -50,7 +62,38 @@ export class ReferenceDataService {
     private readonly vehicleModels: Repository<VehicleModel>,
     @InjectRepository(VehicleReferenceAttribute)
     private readonly vehicleAttributes: Repository<VehicleReferenceAttribute>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
+
+  async seedVehicleDefaults(kind: string) {
+    const seeders = {
+      makes_models: VehicleMakesModelsSeeder,
+      fuel_type: VehicleFuelTypesSeeder,
+      body_type: VehicleBodyTypesSeeder,
+      colour: VehicleColoursSeeder,
+    } as const;
+    if (!Object.prototype.hasOwnProperty.call(seeders, kind)) {
+      throw new BadRequestException('Unknown vehicle default data type');
+    }
+
+    const seedKind = kind as VehicleDefaultSeedKind;
+    const SeederClass = seeders[seedKind];
+    await new SeederClass().run(
+      this.dataSource,
+      undefined as unknown as SeederFactoryManager,
+    );
+
+    const names: Record<VehicleDefaultSeedKind, string> = {
+      makes_models: 'vehicle makes and models',
+      fuel_type: 'fuel types',
+      body_type: 'body types',
+      colour: 'colours',
+    };
+    return {
+      kind: seedKind,
+      message: `Default ${names[seedKind]} loaded. Existing records were preserved.`,
+    };
+  }
 
   listVehicleMakes(query: ReferenceListQueryDto) {
     const qb = this.vehicleMakes

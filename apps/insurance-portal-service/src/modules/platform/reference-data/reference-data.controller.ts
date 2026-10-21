@@ -41,6 +41,12 @@ export class ReferenceDataController {
     return this.service.listVehicleMakes(query);
   }
 
+  @Post('vehicle/seed/:kind')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  seedVehicleDefaults(@Param('kind') kind: string) {
+    return this.service.seedVehicleDefaults(kind);
+  }
+
   @Get('vehicle/models')
   listVehicleModels(
     @Query() query: ReferenceListQueryDto & { make_id?: string },

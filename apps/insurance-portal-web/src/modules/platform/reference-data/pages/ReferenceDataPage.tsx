@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Pencil, Plus, Power, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +29,8 @@ import {
 } from '@/components/data-table';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Combobox } from '@/components/ui/combobox';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { apiClient } from '@/modules/shared/api/client';
 import {
   referenceDataKeys,
   useReferenceCountries,
@@ -91,6 +95,7 @@ export function ReferenceDataPage() {
   const countries = useReferenceCountries();
   const regions = useReferenceRegions();
   const mutation = useReferenceMutation();
+  const queryClient = useQueryClient();
 
   async function reloadVehicleRecords(): Promise<
     Array<{ id: string; name: string; is_active: boolean }>
@@ -106,6 +111,23 @@ export function ReferenceDataPage() {
     >(path, { params });
     setVehicleRecords(response.data);
     return response.data;
+  }
+
+  async function loadVehicleDefaults() {
+    setVehicleBusy(true);
+    try {
+      const seedKind = vehicleKind === 'makes' ? 'makes_models' : vehicleKind;
+      const response = await apiClient.post<{ message: string }>(
+        `/reference-data/vehicle/seed/${seedKind}`,
+      );
+      await queryClient.invalidateQueries({ queryKey: referenceDataKeys.all });
+      await reloadVehicleRecords();
+      toast.success(response.data.message);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setVehicleBusy(false);
+    }
   }
 
   const { tableProps, state } = useServerTable<AnyRecord, ReferenceFilterKey>({
@@ -440,12 +462,12 @@ export function ReferenceDataPage() {
       <PageHeader
         title="Reference Data"
         description="Manage global countries, regions, districts, and currencies."
-        action={
+        action={tab !== 'vehicle-reference' ? (
           <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Add
           </Button>
-        }
+        ) : undefined}
       />
 
       <Tabs
@@ -466,26 +488,34 @@ export function ReferenceDataPage() {
       </Tabs>
       {tab === 'vehicle-reference' ? (
         <div className="space-y-4 rounded-lg border bg-white p-4">
+          <Tabs
+            value={vehicleKind}
+            onValueChange={(value) => {
+              setVehicleKind(value as typeof vehicleKind);
+              setVehicleSearch('');
+            }}
+          >
+            <TabsList className="mb-4 flex-wrap">
+              <TabsTrigger value="makes">Makes &amp; models</TabsTrigger>
+              <TabsTrigger value="fuel_type">Fuel types</TabsTrigger>
+              <TabsTrigger value="body_type">Body types</TabsTrigger>
+              <TabsTrigger value="colour">Colours</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="flex flex-wrap items-center gap-3">
-            <select
-              aria-label="Vehicle reference type"
-              className="h-10 rounded-md border px-3"
-              value={vehicleKind}
-              onChange={(e) =>
-                setVehicleKind(e.target.value as typeof vehicleKind)
-              }
-            >
-              <option value="makes">Makes / manufacturers</option>
-              <option value="body_type">Body types</option>
-              <option value="colour">Colours</option>
-              <option value="fuel_type">Fuel types</option>
-            </select>
             <Input
               placeholder="Search records"
               value={vehicleSearch}
               onChange={(e) => setVehicleSearch(e.target.value)}
               className="max-w-sm"
             />
+            <Button
+              variant="outline"
+              disabled={vehicleBusy}
+              onClick={() => void loadVehicleDefaults()}
+            >
+              {vehicleBusy ? 'Loading defaults…' : 'Load default data'}
+            </Button>
             <Button
               disabled={vehicleBusy}
               onClick={async () => {
@@ -630,8 +660,9 @@ export function ReferenceDataPage() {
             </table>
           </div>
           <p className="text-xs text-slate-500">
-            Reference data uses a pinned multi-market catalog and remains
-            incomplete outside its covered regions. See
+            Load default data adds missing seeded records and preserves
+            existing entries. Makes &amp; models loads the curated catalog;
+            fuel, body type, and colour lists can be loaded separately. See
             docs/vehicle-reference-data.md for source, licensing, coverage, and
             update process.
           </p>
