@@ -771,13 +771,6 @@ export function ReferenceDataPage() {
             filters={tableFilters(vehicleKind === 'makes' ? makeListTable.state.filters : vehicleListTable.state.filters, [{ key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS }])}
             toolbarActions={canCreateVehicleRefs ? <Button disabled={vehicleBusy} onClick={() => openVehicleForm()}><Plus className="mr-2 h-4 w-4" />Add {vehicleKind === 'makes' ? 'make' : vehicleKind.replace('_', ' ')}</Button> : undefined}
           />
-          <p className="text-xs text-slate-500">
-            Load default data adds missing seeded records and preserves existing
-            entries. Makes &amp; models loads the curated catalog; fuel, body
-            type, and colour lists can be loaded separately. See
-            docs/vehicle-reference-data.md for source, licensing, coverage, and
-            update process.
-          </p>
         </div>
       ) : (
         <DataTable
