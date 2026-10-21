@@ -145,6 +145,7 @@ export function MotorQuotationWizardPage() {
                   <div id={SECTION_ANCHORS.vehicle} className="min-w-0">
                     <MotorVehicleSection
                       form={form}
+                      compactOnMobile
                       customer={wizard.customerOptions.find(
                         (customer) => customer.id === form.watch('customer_id'),
                       ) ?? null}

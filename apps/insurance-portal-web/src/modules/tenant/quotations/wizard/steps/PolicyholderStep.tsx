@@ -592,13 +592,7 @@ export function PolicyholderStep({
             control={form.control}
             name="customer_id"
             render={({ field, fieldState }) => (
-              <WizardFormItem
-                className={
-                  compactOnMobile && selectedCustomer
-                    ? 'hidden sm:block'
-                    : undefined
-                }
-              >
+              <WizardFormItem className={selectedCustomer ? 'hidden' : undefined}>
                 <FormLabel required>Customer</FormLabel>
                 <div
                   className={
@@ -750,7 +744,7 @@ export function PolicyholderStep({
         {mode === 'existing' && selectedCustomer && (
           <ExistingCustomerCard
             customer={selectedCustomer}
-            compactOnMobile={compactOnMobile}
+            compactOnMobile
             onChangeCustomer={() => form.setValue('customer_id', '')}
             onEditDetails={() => {
               setDialogPurpose('edit');
