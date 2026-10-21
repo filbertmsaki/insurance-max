@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Pencil, Plus, Power, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -88,6 +88,9 @@ export function ReferenceDataPage() {
     'makes' | 'body_type' | 'colour' | 'fuel_type'
   >('makes');
   const [vehicleMakeId, setVehicleMakeId] = useState('');
+  const [vehicleMakeOptions, setVehicleMakeOptions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   const [vehicleBusy, setVehicleBusy] = useState(false);
   const [vehicleFormOpen, setVehicleFormOpen] = useState(false);
   const [vehicleEditing, setVehicleEditing] = useState<{
@@ -202,6 +205,7 @@ export function ReferenceDataPage() {
     enabled: tab === 'vehicle-reference' && vehicleKind !== 'makes',
     defaultSortBy: 'name',
     defaultSortOrder: 'ASC',
+    filterKeys: REFERENCE_FILTER_KEYS,
     fetcher: async (params, signal) => {
       const response = await apiClient.get(`/reference-data/vehicle/attributes/${vehicleKind}`, { params, signal });
       return response.data;
@@ -214,6 +218,7 @@ export function ReferenceDataPage() {
     enabled: tab === 'vehicle-reference' && vehicleKind === 'makes',
     defaultSortBy: 'name',
     defaultSortOrder: 'ASC',
+    filterKeys: REFERENCE_FILTER_KEYS,
     fetcher: async (params, signal) => {
       const response = await apiClient.get('/reference-data/vehicle/makes', { params, signal });
       return response.data;
@@ -226,12 +231,29 @@ export function ReferenceDataPage() {
     enabled: tab === 'vehicle-reference' && vehicleKind === 'makes' && Boolean(vehicleMakeId),
     defaultSortBy: 'name',
     defaultSortOrder: 'ASC',
+    filterKeys: REFERENCE_FILTER_KEYS,
     extraParams: { make_id: vehicleMakeId || undefined },
     fetcher: async (params, signal) => {
       const response = await apiClient.get('/reference-data/vehicle/models', { params, signal });
       return response.data;
     },
   });
+
+  useEffect(() => {
+    if (tab !== 'vehicle-reference' || vehicleKind !== 'makes') return;
+    const loadMakeOptions = async () => {
+      try {
+        const response = await apiClient.get<Array<{ id: string; name: string }>>(
+          '/reference-data/vehicle/makes',
+          { params: { limit: 100 } },
+        );
+        setVehicleMakeOptions(response.data);
+      } catch {
+        setVehicleMakeOptions(makeListTable.rows.map(({ id, name }) => ({ id, name })));
+      }
+    };
+    void loadMakeOptions();
+  }, [tab, vehicleKind, makeListTable.rows]);
 
   const { tableProps, state } = useServerTable<AnyRecord, ReferenceFilterKey>({
     queryKey: [...referenceDataKeys.all, 'table', tab],
@@ -252,7 +274,6 @@ export function ReferenceDataPage() {
           ? `/reference-data/vehicle/models/${target.id}`
           : `/reference-data/vehicle/attributes/${target.kind}/${target.id}/status`;
       await apiClient.patch(path, { is_active: !target.is_active });
-      await queryClient.invalidateQueries({ queryKey: referenceDataKeys.all });
       await queryClient.invalidateQueries({ queryKey: referenceDataKeys.all });
       setVehicleStatusTarget(null);
       toast.success(`Vehicle reference ${target.is_active ? 'deactivated' : 'activated'}.`);
@@ -634,7 +655,7 @@ export function ReferenceDataPage() {
             <>
               <div className="grid gap-3 rounded-md bg-slate-50 p-3 md:grid-cols-[1fr_2fr_auto]">
                 <Combobox
-                  options={makeListTable.rows.map((r) => ({
+                  options={vehicleMakeOptions.map((r) => ({
                     value: r.id,
                     label: r.name,
                   }))}
@@ -729,6 +750,7 @@ export function ReferenceDataPage() {
                 ]}
                 searchPlaceholder="Search models�"
                 emptyMessage="No models found for this make"
+                filters={tableFilters(modelListTable.state.filters, [{ key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS }])}
               />}
             </>
           )}
@@ -746,6 +768,7 @@ export function ReferenceDataPage() {
             ]}
             searchPlaceholder="Search records..."
             emptyMessage="No vehicle reference data yet"
+            filters={tableFilters(vehicleKind === 'makes' ? makeListTable.state.filters : vehicleListTable.state.filters, [{ key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS }])}
             toolbarActions={canCreateVehicleRefs ? <Button disabled={vehicleBusy} onClick={() => openVehicleForm()}><Plus className="mr-2 h-4 w-4" />Add {vehicleKind === 'makes' ? 'make' : vehicleKind.replace('_', ' ')}</Button> : undefined}
           />
           <p className="text-xs text-slate-500">
