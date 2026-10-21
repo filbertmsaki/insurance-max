@@ -296,6 +296,29 @@ export class ReferenceDataService {
     };
   }
 
+  async updateVehicleModel(
+    id: string,
+    dto: { name?: string; is_active?: boolean },
+  ) {
+    const model = await this.vehicleModels.findOneBy({
+      id,
+      deleted_at: IsNull(),
+    });
+    if (!model) throw new NotFoundException('Vehicle model not found');
+    if (dto.name !== undefined) {
+      model.name = this.cleanRequired(dto.name, 'name');
+      model.normalized_name = this.normalize(model.name);
+    }
+    if (dto.is_active !== undefined) model.is_active = dto.is_active;
+    try {
+      return await this.vehicleModels.save(model);
+    } catch (error) {
+      if (this.isUniqueViolation(error))
+        throw new ConflictException('Model already exists for this make');
+      throw error;
+    }
+  }
+
   async createVehicleAttribute(
     kind: string,
     dto: { name: string; is_active?: boolean },

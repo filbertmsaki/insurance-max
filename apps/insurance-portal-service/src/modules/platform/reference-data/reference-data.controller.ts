@@ -91,6 +91,15 @@ export class ReferenceDataController {
     return this.service.saveVehicleModels(dto.make_id, dto.models);
   }
 
+  @Patch('vehicle/models/:id')
+  @Roles('OWNER', 'SUPER_ADMIN')
+  updateVehicleModel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { name?: string; is_active?: boolean },
+  ) {
+    return this.service.updateVehicleModel(id, dto);
+  }
+
   @Post('vehicle/attributes/:kind')
   @Roles('OWNER', 'SUPER_ADMIN')
   createVehicleAttribute(

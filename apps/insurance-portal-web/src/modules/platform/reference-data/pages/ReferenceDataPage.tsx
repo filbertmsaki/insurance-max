@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -88,9 +89,22 @@ export function ReferenceDataPage() {
   const [vehicleRecords, setVehicleRecords] = useState<
     Array<{ id: string; name: string; is_active: boolean }>
   >([]);
+  const [vehicleModelRecords, setVehicleModelRecords] = useState<
+    Array<{ id: string; make_id: string; name: string; is_active: boolean }>
+  >([]);
   const [vehicleSearch, setVehicleSearch] = useState('');
   const [vehicleMakeId, setVehicleMakeId] = useState('');
   const [vehicleBusy, setVehicleBusy] = useState(false);
+  const [vehicleFormOpen, setVehicleFormOpen] = useState(false);
+  const [vehicleEditing, setVehicleEditing] = useState<{
+    id: string;
+    name: string;
+    entity: 'make' | 'model' | 'attribute';
+  } | null>(null);
+  const [vehicleFormEntity, setVehicleFormEntity] = useState<
+    'make' | 'model' | 'attribute'
+  >('make');
+  const [vehicleFormName, setVehicleFormName] = useState('');
   // Full lists only feed the parent pickers (form + country filter).
   const countries = useReferenceCountries();
   const regions = useReferenceRegions();
@@ -113,6 +127,19 @@ export function ReferenceDataPage() {
     return response.data;
   }
 
+  async function reloadVehicleModels(makeId = vehicleMakeId) {
+    if (!makeId) {
+      setVehicleModelRecords([]);
+      return;
+    }
+    const response = await apiClient.get<
+      Array<{ id: string; make_id: string; name: string; is_active: boolean }>
+    >('/reference-data/vehicle/models', {
+      params: { make_id: makeId, search: vehicleSearch },
+    });
+    setVehicleModelRecords(response.data);
+  }
+
   async function loadVehicleDefaults() {
     setVehicleBusy(true);
     try {
@@ -122,7 +149,75 @@ export function ReferenceDataPage() {
       );
       await queryClient.invalidateQueries({ queryKey: referenceDataKeys.all });
       await reloadVehicleRecords();
+      if (vehicleKind === 'makes' && vehicleMakeId) {
+        await reloadVehicleModels();
+      }
       toast.success(response.data.message);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    } finally {
+      setVehicleBusy(false);
+    }
+  }
+
+  function openVehicleForm(
+    record?: { id: string; name: string },
+    entity: 'make' | 'model' | 'attribute' = vehicleKind === 'makes'
+      ? 'make'
+      : 'attribute',
+  ) {
+    setVehicleEditing(record ? { ...record, entity } : null);
+    setVehicleFormEntity(entity);
+    setVehicleFormName(record?.name ?? '');
+    setVehicleFormOpen(true);
+  }
+
+  async function saveVehicleRecord() {
+    const name = vehicleFormName.trim();
+    if (!name) {
+      toast.error('Enter a name before saving.');
+      return;
+    }
+    setVehicleBusy(true);
+    try {
+      if (vehicleFormEntity === 'model') {
+        if (!vehicleMakeId)
+          throw new Error('Select a make before adding a model.');
+        if (vehicleEditing) {
+          await apiClient.patch(
+            `/reference-data/vehicle/models/${vehicleEditing.id}`,
+            { name },
+          );
+        } else {
+          const result = await apiClient.post<{
+            created: string[];
+            skipped: string[];
+          }>('/reference-data/vehicle/models/bulk-save', {
+            make_id: vehicleMakeId,
+            models: name,
+          });
+          if (result.data.created.length === 0) {
+            throw new Error('That model already exists for the selected make.');
+          }
+        }
+        await reloadVehicleModels();
+      } else {
+        const path =
+          vehicleFormEntity === 'make'
+            ? '/reference-data/vehicle/makes'
+            : `/reference-data/vehicle/attributes/${vehicleKind}`;
+        if (vehicleEditing) {
+          await apiClient.patch(`${path}/${vehicleEditing.id}`, { name });
+        } else {
+          await apiClient.post(path, { name });
+        }
+        await reloadVehicleRecords();
+      }
+      await queryClient.invalidateQueries({ queryKey: referenceDataKeys.all });
+      setVehicleFormOpen(false);
+      toast.success(
+        vehicleEditing ? 'Reference value updated.' : 'Reference value added.',
+      );
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     } finally {
@@ -462,12 +557,14 @@ export function ReferenceDataPage() {
       <PageHeader
         title="Reference Data"
         description="Manage global countries, regions, districts, and currencies."
-        action={tab !== 'vehicle-reference' ? (
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add
-          </Button>
-        ) : undefined}
+        action={
+          tab !== 'vehicle-reference' ? (
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add
+            </Button>
+          ) : undefined
+        }
       />
 
       <Tabs
@@ -516,107 +613,159 @@ export function ReferenceDataPage() {
             >
               {vehicleBusy ? 'Loading defaults…' : 'Load default data'}
             </Button>
-            <Button
-              disabled={vehicleBusy}
-              onClick={async () => {
-                const name = window.prompt(
-                  `New ${vehicleKind.replace('_', ' ')} name`,
-                );
-                if (!name?.trim()) return;
-                setVehicleBusy(true);
-                try {
-                  const { apiClient } =
-                    await import('@/modules/shared/api/client');
-                  const path =
-                    vehicleKind === 'makes'
-                      ? '/reference-data/vehicle/makes'
-                      : `/reference-data/vehicle/attributes/${vehicleKind}`;
-                  await apiClient.post(path, { name });
-                  await reloadVehicleRecords();
-                } finally {
-                  setVehicleBusy(false);
-                }
-              }}
-            >
+            <Button disabled={vehicleBusy} onClick={() => openVehicleForm()}>
               <Plus className="mr-2 h-4 w-4" />
-              Add
+              Add{' '}
+              {vehicleKind === 'makes' ? 'make' : vehicleKind.replace('_', ' ')}
             </Button>
           </div>
           {vehicleKind === 'makes' && (
-            <div className="grid gap-3 rounded-md bg-slate-50 p-3 md:grid-cols-[1fr_2fr_auto]">
-              <Combobox
-                options={vehicleRecords.map((r) => ({
-                  value: r.id,
-                  label: r.name,
-                }))}
-                value={vehicleMakeId}
-                onValueChange={(value) => {
-                  setVehicleMakeId(value);
-                  setModelPreview(null);
-                }}
-                placeholder="Select make for models"
-              />
-              <Input
-                placeholder="Bulk models: Corolla, Hilux, Land Cruiser"
-                value={bulkModels}
-                onChange={(e) => {
-                  setBulkModels(e.target.value);
-                  setModelPreview(null);
-                }}
-              />
-              <Button
-                variant="outline"
-                disabled={!vehicleMakeId || !bulkModels.trim()}
-                onClick={async () => {
-                  const { apiClient } =
-                    await import('@/modules/shared/api/client');
-                  const response = await apiClient.post(
-                    '/reference-data/vehicle/models/bulk-preview',
-                    { make_id: vehicleMakeId, models: bulkModels },
-                  );
-                  setModelPreview(response.data as typeof modelPreview);
-                }}
-              >
-                Preview models
-              </Button>
-              {modelPreview && (
-                <div className="md:col-span-3 space-y-2 text-sm">
-                  <p>New: {modelPreview.new_models.join(', ') || 'None'}</p>
-                  <p>
-                    Duplicates: {modelPreview.duplicates.join(', ') || 'None'} ·
-                    Already registered:{' '}
-                    {modelPreview.existing_models.join(', ') || 'None'} ·
-                    Invalid: {modelPreview.invalid.join(', ') || 'None'}
-                  </p>
-                  <Button
-                    disabled={!modelPreview.new_models.length || vehicleBusy}
-                    onClick={async () => {
-                      setVehicleBusy(true);
-                      try {
-                        const { apiClient } =
-                          await import('@/modules/shared/api/client');
-                        const result = await apiClient.post<{
-                          created: string[];
-                          skipped: string[];
-                        }>('/reference-data/vehicle/models/bulk-save', {
-                          make_id: vehicleMakeId,
-                          models: bulkModels,
-                        });
-                        setBulkModels('');
-                        setModelPreview(null);
-                        window.alert(
-                          `Added ${result.data.created.length} models. Skipped: ${result.data.skipped.join(', ') || 'none'}`,
-                        );
-                      } finally {
-                        setVehicleBusy(false);
-                      }
-                    }}
-                  >
-                    Save valid models
-                  </Button>
+            <>
+              <div className="grid gap-3 rounded-md bg-slate-50 p-3 md:grid-cols-[1fr_2fr_auto]">
+                <Combobox
+                  options={vehicleRecords.map((r) => ({
+                    value: r.id,
+                    label: r.name,
+                  }))}
+                  value={vehicleMakeId}
+                  onValueChange={(value) => {
+                    setVehicleMakeId(value);
+                    setModelPreview(null);
+                    void reloadVehicleModels(value).catch((error) =>
+                      toast.error(getApiErrorMessage(error)),
+                    );
+                  }}
+                  placeholder="Select make for models"
+                />
+                <Input
+                  placeholder="Bulk models: Corolla, Hilux, Land Cruiser"
+                  value={bulkModels}
+                  onChange={(e) => {
+                    setBulkModels(e.target.value);
+                    setModelPreview(null);
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  disabled={!vehicleMakeId || !bulkModels.trim()}
+                  onClick={async () => {
+                    const { apiClient } =
+                      await import('@/modules/shared/api/client');
+                    const response = await apiClient.post(
+                      '/reference-data/vehicle/models/bulk-preview',
+                      { make_id: vehicleMakeId, models: bulkModels },
+                    );
+                    setModelPreview(response.data as typeof modelPreview);
+                  }}
+                >
+                  Preview models
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!vehicleMakeId || vehicleBusy}
+                  onClick={() => openVehicleForm(undefined, 'model')}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add single model
+                </Button>
+                {modelPreview && (
+                  <div className="md:col-span-3 space-y-2 text-sm">
+                    <p>New: {modelPreview.new_models.join(', ') || 'None'}</p>
+                    <p>
+                      Duplicates: {modelPreview.duplicates.join(', ') || 'None'}{' '}
+                      · Already registered:{' '}
+                      {modelPreview.existing_models.join(', ') || 'None'} ·
+                      Invalid: {modelPreview.invalid.join(', ') || 'None'}
+                    </p>
+                    <Button
+                      disabled={!modelPreview.new_models.length || vehicleBusy}
+                      onClick={async () => {
+                        setVehicleBusy(true);
+                        try {
+                          const { apiClient } =
+                            await import('@/modules/shared/api/client');
+                          const result = await apiClient.post<{
+                            created: string[];
+                            skipped: string[];
+                          }>('/reference-data/vehicle/models/bulk-save', {
+                            make_id: vehicleMakeId,
+                            models: bulkModels,
+                          });
+                          setBulkModels('');
+                          setModelPreview(null);
+                          await queryClient.invalidateQueries({
+                            queryKey: referenceDataKeys.all,
+                          });
+                          await reloadVehicleModels();
+                          toast.success(
+                            `Added ${result.data.created.length} models. Skipped: ${result.data.skipped.join(', ') || 'none'}`,
+                          );
+                        } finally {
+                          setVehicleBusy(false);
+                        }
+                      }}
+                    >
+                      Save valid models
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {vehicleMakeId && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="p-2">Model</th>
+                        <th className="p-2">Status</th>
+                        <th className="p-2">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vehicleModelRecords.map((model) => (
+                        <tr className="border-b" key={model.id}>
+                          <td className="p-2">{model.name}</td>
+                          <td className="p-2">
+                            <StatusBadge active={model.is_active} />
+                          </td>
+                          <td className="p-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="mr-2"
+                              onClick={() => openVehicleForm(model, 'model')}
+                            >
+                              <Pencil className="mr-1 h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  await apiClient.patch(
+                                    `/reference-data/vehicle/models/${model.id}`,
+                                    { is_active: !model.is_active },
+                                  );
+                                  await queryClient.invalidateQueries({
+                                    queryKey: referenceDataKeys.all,
+                                  });
+                                  await reloadVehicleModels();
+                                  toast.success('Model status updated.');
+                                } catch (error) {
+                                  toast.error(getApiErrorMessage(error));
+                                }
+                              }}
+                            >
+                              {model.is_active ? 'Deactivate' : 'Activate'}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-            </div>
+            </>
           )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -635,6 +784,15 @@ export function ReferenceDataPage() {
                       <StatusBadge active={record.is_active} />
                     </td>
                     <td className="p-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mr-2"
+                        onClick={() => openVehicleForm(record)}
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" />
+                        Edit
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -660,9 +818,9 @@ export function ReferenceDataPage() {
             </table>
           </div>
           <p className="text-xs text-slate-500">
-            Load default data adds missing seeded records and preserves
-            existing entries. Makes &amp; models loads the curated catalog;
-            fuel, body type, and colour lists can be loaded separately. See
+            Load default data adds missing seeded records and preserves existing
+            entries. Makes &amp; models loads the curated catalog; fuel, body
+            type, and colour lists can be loaded separately. See
             docs/vehicle-reference-data.md for source, licensing, coverage, and
             update process.
           </p>
@@ -716,6 +874,61 @@ export function ReferenceDataPage() {
             </Button>
             <Button onClick={submit} disabled={mutation.isPending}>
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={vehicleFormOpen}
+        onOpenChange={(open) => {
+          if (!vehicleBusy) setVehicleFormOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {vehicleEditing ? 'Edit' : 'Add'}{' '}
+              {vehicleFormEntity === 'model'
+                ? 'model'
+                : vehicleFormEntity === 'make'
+                  ? 'make / manufacturer'
+                  : vehicleKind.replace('_', ' ')}
+            </DialogTitle>
+            <DialogDescription>
+              Enter the display name for this shared vehicle reference value.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            aria-label="Vehicle reference name"
+            placeholder="Name"
+            value={vehicleFormName}
+            onChange={(event) => setVehicleFormName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void saveVehicleRecord();
+              }
+            }}
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={vehicleBusy}
+              onClick={() => setVehicleFormOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={vehicleBusy}
+              onClick={() => void saveVehicleRecord()}
+            >
+              {vehicleBusy
+                ? 'Saving…'
+                : vehicleEditing
+                  ? 'Save changes'
+                  : 'Add'}
             </Button>
           </DialogFooter>
         </DialogContent>
