@@ -692,6 +692,24 @@ const defaultBranchSeeds: SeedBranchConfig[] = ALLIANCE_BRANCHES.map(
 
 const permissionSeeds: PermissionSeed[] = [
   {
+    name: 'reference-data:create',
+    displayName: 'Create reference data',
+    description: 'Allow creating vehicle reference values and loading defaults',
+    scopes: GLOBAL_SCOPE,
+  },
+  {
+    name: 'reference-data:update',
+    displayName: 'Update reference data',
+    description: 'Allow editing and activating vehicle reference values',
+    scopes: GLOBAL_SCOPE,
+  },
+  {
+    name: 'reference-data:delete',
+    displayName: 'Delete reference data',
+    description: 'Allow deleting unused vehicle reference values',
+    scopes: GLOBAL_SCOPE,
+  },
+  {
     name: 'create_company',
     displayName: 'Create company',
     description: 'Allow creating a new company tenant',
@@ -3553,6 +3571,9 @@ const roleSeeds: RoleSeed[] = [
       'permissions:create',
       'permissions:update',
       'permissions:delete',
+      'reference-data:create',
+      'reference-data:update',
+      'reference-data:delete',
       'tiramis-submissions:read',
       'tiramis.admin',
       'audit:read',

@@ -166,6 +166,56 @@ export class ReferenceDataService {
     return qb.take(100).getMany();
   }
 
+  async deleteVehicleMake(id: string) {
+    const make = await this.vehicleMakes.findOneBy({ id, deleted_at: IsNull() });
+    if (!make) throw new NotFoundException('Vehicle make not found');
+    const [modelCount, vehicleCount] = await Promise.all([
+      this.vehicleModels.count({ where: { make_id: id, deleted_at: IsNull() } }),
+      this.dataSource.query(
+        `SELECT COUNT(*)::int AS count FROM motor_vehicles WHERE deleted_at IS NULL AND lower(trim(make)) = lower(trim($1))`,
+        [make.name],
+      ).then((rows: Array<{ count: number }>) => Number(rows[0]?.count ?? 0)),
+    ]);
+    if (modelCount > 0 || vehicleCount > 0) {
+      throw new ConflictException('Make is in use by models or vehicles and cannot be deleted');
+    }
+    await this.vehicleMakes.softRemove(make);
+    return { deleted: true };
+  }
+
+  async deleteVehicleModel(id: string) {
+    const model = await this.vehicleModels.findOne({
+      where: { id, deleted_at: IsNull() },
+      relations: { make: true },
+    });
+    if (!model) throw new NotFoundException('Vehicle model not found');
+    const rows: Array<{ count: number }> = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS count FROM motor_vehicles WHERE deleted_at IS NULL AND lower(trim(make)) = lower(trim($1)) AND lower(trim(model)) = lower(trim($2))`,
+      [model.make.name, model.name],
+    );
+    if (Number(rows[0]?.count ?? 0) > 0) {
+      throw new ConflictException('Model is in use by vehicles and cannot be deleted');
+    }
+    await this.vehicleModels.softRemove(model);
+    return { deleted: true };
+  }
+
+  async deleteVehicleAttribute(kind: string, id: string) {
+    this.assertVehicleAttributeKind(kind);
+    const item = await this.vehicleAttributes.findOneBy({ id, kind, deleted_at: IsNull() });
+    if (!item) throw new NotFoundException('Vehicle reference value not found');
+    const column = kind === 'colour' ? 'color' : kind === 'body_type' ? 'body_type' : 'fuel_type';
+    const rows: Array<{ count: number }> = await this.dataSource.query(
+      `SELECT COUNT(*)::int AS count FROM motor_vehicles WHERE deleted_at IS NULL AND lower(trim(${column})) = lower(trim($1))`,
+      [item.name],
+    );
+    if (Number(rows[0]?.count ?? 0) > 0) {
+      throw new ConflictException('Reference value is in use by vehicles and cannot be deleted');
+    }
+    await this.vehicleAttributes.softRemove(item);
+    return { deleted: true };
+  }
+
   async createVehicleMake(dto: {
     name: string;
     is_active?: boolean;

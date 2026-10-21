@@ -1737,6 +1737,18 @@ export function MotorFleetDetailsStep({
     // editor is closed. Start each editing session clean and show them again
     // only after the user tries to add/save the vehicle.
     form.clearErrors(`fleet.items.${index}`);
+    const ownerPath = `fleet.items.${index}.motor_dtl` as const;
+    const ownerValues = form.getValues(ownerPath);
+    if (ownerDefaults) {
+      (['owner_name', 'owner_category', 'owner_address'] as const).forEach((key) => {
+        if (!ownerValues[key]) {
+          form.setValue(`${ownerPath}.${key}`, ownerDefaults[key], {
+            shouldDirty: false,
+            shouldValidate: false,
+          });
+        }
+      });
+    }
     setEditingVehicle({
       index,
       isNew: false,
