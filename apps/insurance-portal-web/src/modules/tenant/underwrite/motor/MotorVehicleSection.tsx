@@ -598,9 +598,6 @@ export function MotorVehicleSection({
                 ? 'Enter vehicle details'
                 : 'Edit vehicle details'}
             </DialogTitle>
-            <DialogDescription>
-              Review and complete the vehicle information for this quotation.
-            </DialogDescription>
           </DialogHeader>
           <VehicleDetailsFields
             key={revision}
