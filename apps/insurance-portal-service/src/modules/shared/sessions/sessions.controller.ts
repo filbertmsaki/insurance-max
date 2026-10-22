@@ -26,7 +26,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 @ApiTags('sessions')
 @ApiBearerAuth('access-token')
 @UseGuards(AuthGuard('jwt'))
-@Controller({ path: 'sessions', version: '1' })
+@Controller({ path: ['sessions', 'apps/sessions'], version: '1' })
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 

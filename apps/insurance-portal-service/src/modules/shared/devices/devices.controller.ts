@@ -28,7 +28,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 @ApiTags('devices')
 @ApiBearerAuth('access-token')
 @UseGuards(AuthGuard('jwt'))
-@Controller({ path: 'devices', version: '1' })
+@Controller({ path: ['devices', 'apps/devices'], version: '1' })
 export class DevicesController {
   constructor(
     private readonly devicesService: DevicesService,

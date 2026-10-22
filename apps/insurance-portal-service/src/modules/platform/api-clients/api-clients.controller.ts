@@ -27,7 +27,7 @@ import { ApiClientsService } from './api-clients.service';
 @ApiTags('api-clients')
 @ApiBearerAuth('access-token')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Controller({ path: 'api-clients', version: '1' })
+@Controller({ path: ['api-clients', 'apps/api-clients'], version: '1' })
 export class ApiClientsController {
   constructor(private readonly apiClientsService: ApiClientsService) {}
 
