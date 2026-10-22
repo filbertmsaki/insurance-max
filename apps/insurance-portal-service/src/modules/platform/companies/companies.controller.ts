@@ -33,7 +33,7 @@ import { CompaniesService } from './companies.service';
 
 @ApiTags('Companies')
 @ApiBearerAuth()
-@Controller('companies')
+@Controller(['companies', 'apps/companies'])
 @PlatformScoped()
 export class CompaniesController {
   constructor(private readonly companiesService: CompaniesService) {}

@@ -939,16 +939,6 @@ export class QuotationsService {
 
         this.assertQuotationEditable(lockedQuotation);
 
-        if (
-          authorizedPayload.expected_updated_at &&
-          lockedQuotation.updated_at.toISOString() !==
-            authorizedPayload.expected_updated_at
-        ) {
-          throw new ConflictException(
-            'This quotation was updated by another user. Reload the latest version before saving your changes.',
-          );
-        }
-
         const previousStatus = lockedQuotation.status;
         const customerId = await this.resolveOrCreateCustomerId(
           manager,
@@ -1051,15 +1041,6 @@ export class QuotationsService {
         'quotation.draft.update',
         id,
       );
-
-    if (
-      authorizedDto.expected_updated_at &&
-      existing.updated_at.toISOString() !== authorizedDto.expected_updated_at
-    ) {
-      throw new ConflictException(
-        'This quotation draft was updated by another user. Reload the latest version before saving your changes.',
-      );
-    }
 
     try {
       await this.dataSource.transaction(async (manager) => {

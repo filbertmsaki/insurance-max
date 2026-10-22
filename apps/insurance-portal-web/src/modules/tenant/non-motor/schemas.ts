@@ -18,7 +18,11 @@ const optionalJsonText = z.string().trim().optional().or(z.literal(''));
 export const subjectMatterSchema = z.object({
   customer_id: z.string().min(1, 'Customer is required'),
   subject_type: optionalText,
-  subject_code: z.string().trim().min(1, 'Subject code is required').max(100),
+  subject_code: z
+    .string()
+    .trim()
+    .transform((value) => value.replace(/[^a-zA-Z0-9]/g, ''))
+    .pipe(z.string().min(1, 'Subject code is required').max(100)),
   description: optionalText,
   location: optionalText,
   country: optionalText,

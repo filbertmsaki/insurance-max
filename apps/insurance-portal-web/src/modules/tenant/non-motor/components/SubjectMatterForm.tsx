@@ -120,6 +120,13 @@ export function SubjectMatterForm({
                       <Input
                         {...field}
                         value={field.value == null ? '' : String(field.value)}
+                        onChange={(event) =>
+                          name === 'subject_code'
+                            ? field.onChange(
+                                event.target.value.replace(/[^a-zA-Z0-9]/g, ''),
+                              )
+                            : field.onChange(event)
+                        }
                       />
                     </FormControl>
                     <FormMessage />

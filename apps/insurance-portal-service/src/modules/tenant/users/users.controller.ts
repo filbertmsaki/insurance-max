@@ -36,7 +36,7 @@ import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/aut
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
-@Controller('users')
+@Controller(['users', 'apps/users'])
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,

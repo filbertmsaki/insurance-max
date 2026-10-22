@@ -63,6 +63,22 @@ function withFriendlyTiramisMessage(details: ApiErrorDetails): ApiErrorDetails {
   const direct = TIRAMIS_ERROR_MESSAGES[details.code];
   if (direct) return { ...details, message: direct };
 
+  // TIRAMIS often wraps field-level validation failures in a generic summary
+  // (for example, "Motor payload validation failed"). Show the actionable
+  // downstream messages in the toast and other error surfaces instead.
+  if (
+    details.code === 'TIRAMIS_SERVICE_REQUEST_FAILED' &&
+    details.errors?.length
+  ) {
+    const validationMessages = details.errors
+      .map((item) => item.message.trim())
+      .filter(Boolean);
+
+    if (validationMessages.length > 0) {
+      return { ...details, message: validationMessages.join('; ') };
+    }
+  }
+
   if (details.code === 'ORGANIZATION_NOT_TIRAMIS_READY') {
     const missing = stringMessages(details.details?.missingRequirements).map(
       (code) => TIRAMIS_ERROR_MESSAGES[code] ?? code,

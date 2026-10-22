@@ -1,6 +1,6 @@
 // Redeploy trigger: restart the production TIRAMIS process via CI/CD.
 import * as bodyParser from 'body-parser';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger, RequestMethod, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -63,7 +63,9 @@ async function bootstrap() {
   );
 
   if (globalPrefix) {
-    app.setGlobalPrefix(globalPrefix);
+    app.setGlobalPrefix(globalPrefix, {
+      exclude: [{ path: '', method: RequestMethod.GET }],
+    });
   }
 
   const swaggerConfig = new DocumentBuilder()
