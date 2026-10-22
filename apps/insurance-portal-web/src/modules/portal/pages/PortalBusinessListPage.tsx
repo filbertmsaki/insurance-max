@@ -590,9 +590,7 @@ export function PortalBusinessListPage({
               <div className="flex justify-end gap-2">
                 {canOpenDetail ? (
                   <Button asChild size="sm" variant="outline">
-                    <Link
-                      to={`/${audience}/${resource}/${record.id}`}
-                    >
+                    <Link to={`/${audience}/${resource}/${record.id}`}>
                       <Eye className="h-3.5 w-3.5" />
                       View
                     </Link>
@@ -655,12 +653,9 @@ export function PortalBusinessListPage({
                     ) : null}
                   </>
                 ) : null}
-                {audience === 'intermediary' &&
-                resource === 'customers' ? (
+                {audience === 'intermediary' && resource === 'customers' ? (
                   <Button asChild size="sm" variant="outline">
-                    <Link
-                      to={`/intermediary/customers/${record.id}/edit`}
-                    >
+                    <Link to={`/apps/intermediary/customers/${record.id}/edit`}>
                       <FilePenLine className="h-3.5 w-3.5" />
                       Edit
                     </Link>
@@ -671,7 +666,7 @@ export function PortalBusinessListPage({
                 canEditQuotation(record) ? (
                   <Button asChild size="sm" variant="outline">
                     <Link
-                      to={`/intermediary/quotations/${record.id}/edit`}
+                      to={`/apps/intermediary/quotations/${record.id}/edit`}
                     >
                       <FilePenLine className="h-3.5 w-3.5" />
                       Edit
@@ -722,7 +717,7 @@ export function PortalBusinessListPage({
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {audience === 'intermediary' && resource === 'customers' ? (
               <Button asChild>
-                <Link to="/intermediary/customers/new">
+                <Link to="/apps/intermediary/customers/new">
                   <Plus className="h-4 w-4" />
                   New customer
                 </Link>
@@ -741,7 +736,7 @@ export function PortalBusinessListPage({
                   </Button>
                 ) : null}
                 <Button asChild>
-                  <Link to="/intermediary/quotations/new">
+                  <Link to="/apps/intermediary/quotations/new">
                     <Plus className="h-4 w-4" />
                     New quotation
                   </Link>

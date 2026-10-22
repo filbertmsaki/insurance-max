@@ -54,7 +54,7 @@ export function buildClaimsNavNodes(): NavNode[] {
     {
       kind: 'link',
       label: 'Analytics',
-      to: '/analytics/metrics',
+      to: '/apps/analytics/metrics',
       icon: BarChart3,
       anyPermission: ['analytics:metrics:read', 'analytics:read'],
       allowedScopes: ['company'],

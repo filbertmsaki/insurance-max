@@ -18,9 +18,13 @@ import {
   Building2,
   CarFront,
   Check,
+  ChevronDown,
+  ChevronRight,
   CircleHelp,
+  FileText,
   HeartPulse,
   Home as HomeIcon,
+  LogIn,
   Mail,
   MapPin,
   Phone,
@@ -33,6 +37,7 @@ import {
 import { apiClient } from '@/modules/shared/api/client';
 import { VehicleDataAttribution } from '@/components/shared/VehicleDataAttribution';
 import { PublicLayout } from './PublicShell';
+import { BUY_INSURANCE_PATH } from './public-routes';
 import { usePageMeta } from './usePageMeta';
 import { CUSTOMER_ID_TYPE_OPTIONS } from '@/modules/tenant/customers/types';
 import { motorFields } from '@/modules/tenant/quotations/wizard/utils/motorFields';
@@ -395,151 +400,150 @@ function useDisplayedCatalogue(limit?: number) {
 function EmptyCatalogueState({
   isLoading,
   isError,
+  onRetry,
 }: {
   isLoading: boolean;
   isError: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <div className="catalogue-empty" role={isError ? 'alert' : 'status'}>
       <CircleHelp size={24} aria-hidden="true" />
-      <h3>
-        {isLoading
-          ? 'Loading available products...'
-          : isError
-            ? 'Product catalogue could not be loaded.'
-            : 'No active products are available yet.'}
-      </h3>
-      <p>
-        {isLoading
-          ? 'We are checking the active Insurance Max catalogue.'
-          : isError
-            ? 'Please try again shortly or contact support if this continues.'
-            : 'Please contact the team to discuss your insurance needs.'}
-      </p>
+      <div>
+        <h3>
+          {isLoading
+            ? 'Loading products…'
+            : isError
+              ? 'Products could not be loaded.'
+              : 'No products are available yet.'}
+        </h3>
+        {!isLoading && (
+          <p>
+            {isError
+              ? 'Please try again, or contact us if this continues.'
+              : 'Contact us to discuss your insurance needs.'}
+          </p>
+        )}
+        {isError && onRetry ? (
+          <button className="text-link" type="button" onClick={onRetry}>
+            Try again
+          </button>
+        ) : (
+          !isLoading && (
+            <Link className="text-link" to="/contact">
+              Contact us
+            </Link>
+          )
+        )}
+      </div>
     </div>
   );
 }
 
 function SectionHeader({
-  eyebrow,
   title,
   body,
+  action,
 }: {
-  eyebrow: string;
   title: string;
   body?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="section-header">
-      <span className="eyebrow">{eyebrow}</span>
-      <h2>{title}</h2>
-      {body && <p>{body}</p>}
+      <div>
+        <h2>{title}</h2>
+        {body && <p>{body}</p>}
+      </div>
+      {action}
     </div>
   );
 }
 
-function CategoryCard({
-  category,
-  index,
-}: {
-  category: CategoryDisplay;
-  index: number;
-}) {
+function CategoryCard({ category }: { category: CategoryDisplay }) {
   const Icon = category.icon;
-  const path = `/insurance?category=${encodeURIComponent(category.id)}`;
+  const count = category.products.length;
 
   return (
-    <article className="category-card">
-      <div className={`category-icon category-icon-${index % 4}`}>
+    <Link
+      className="category-card"
+      to={`/insurance?category=${encodeURIComponent(category.id)}`}
+    >
+      <span className="category-icon">
         <Icon size={22} aria-hidden="true" />
+      </span>
+      <div>
+        <h3>{category.name}</h3>
+        {category.description && <p>{category.description}</p>}
+        <span className="category-count">
+          {count} {count === 1 ? 'product' : 'products'}
+        </span>
       </div>
-      <h3>{category.name}</h3>
-      <p>
-        {category.description ||
-          `Explore ${category.name.toLowerCase()} products and the insurers offering them.`}
-      </p>
-      <Link to={path} aria-label={`Explore ${category.name}`}>
-        Explore <ArrowRight size={16} aria-hidden="true" />
-      </Link>
-    </article>
+    </Link>
   );
 }
 
 function HomeHero() {
   return (
-    <section className="home-hero">
+    <section className="home-hero" aria-labelledby="home-title">
       <div className="public-container hero-grid">
         <div className="hero-copy">
-          <span className="eyebrow">For the road ahead</span>
-          <h1>
-            Life moves forward.
-            <br />
-            <em>Go with cover.</em>
-          </h1>
+          <h1 id="home-title">Insure your vehicle online</h1>
           <p>
-            From your daily drive to the business you are building, find
-            insurance that fits your next step.
+            Check your vehicle, choose from available insurers and see your
+            premium in TZS before you submit a request.
           </p>
           <div className="hero-actions">
-            <Link className="button" to="/buy-cover">
-              Get a quote <ArrowRight size={17} aria-hidden="true" />
+            <Link className="button" to={BUY_INSURANCE_PATH}>
+              Buy insurance <ArrowRight size={18} aria-hidden="true" />
             </Link>
-            <Link className="button button-outline" to="/buy-cover">
-              Buy insurance
+            <Link className="button button-outline" to="/insurance">
+              View products
             </Link>
           </div>
-          <div className="hero-footnote">
-            <span className="short-rule" />
-            Check your vehicle. Review your premium. Choose your cover.
-          </div>
+          <p className="hero-note">
+            Have your vehicle registration card and ID ready.
+          </p>
         </div>
         <figure className="hero-photo">
           <img
             src="/images/tanzania-road.webp"
             alt="A car beside an open road in Morogoro, Tanzania"
             width="1000"
-            height="1000"
+            height="750"
             fetchPriority="high"
           />
-          <figcaption>Everyday journeys. Thoughtful protection.</figcaption>
         </figure>
       </div>
     </section>
   );
 }
 
+const purchaseSteps = [
+  ['Check your vehicle', 'We look up the registration and any active cover.'],
+  ['Choose cover', 'Pick an insurer and cover, then confirm your details.'],
+  ['Review the premium', 'See charges, taxes and the total before you send.'],
+  [
+    'Submit and pay',
+    'Keep your reference. Your insurer confirms payment and issues cover.',
+  ],
+] as const;
+
 function PurchaseSteps() {
   return (
-    <section className="steps-section">
+    <section className="public-section public-section-tinted">
       <div className="public-container">
-        <SectionHeader
-          eyebrow="A clearer way to get covered"
-          title="Know what comes next."
-          body="Start with a motor quote online. We will guide you through the details you need."
-        />
+        <SectionHeader title="How buying works" />
         <ol className="steps-grid">
-          {[
-            [
-              'Check your vehicle',
-              'Enter your registration and contact details. We check the vehicle and any active cover.',
-            ],
-            [
-              'Choose your cover',
-              'Select an available insurer and cover, then confirm your vehicle and personal details.',
-            ],
-            [
-              'Review your premium',
-              'See your premium, charges and taxes before submitting your request.',
-            ],
-            [
-              'Complete your purchase',
-              'Keep your reference. Confirm payment and cover issuance with your insurer.',
-            ],
-          ].map(([title, body], index) => (
+          {purchaseSteps.map(([title, body], index) => (
             <li className="step" key={title}>
-              <span>0{index + 1}</span>
-              <h3>{title}</h3>
-              <p>{body}</p>
+              <span className="step-number" aria-hidden="true">
+                {index + 1}
+              </span>
+              <div>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </div>
             </li>
           ))}
         </ol>
@@ -551,25 +555,25 @@ function PurchaseSteps() {
 const questions = [
   [
     'What do I need for a motor quote?',
-    'Have your vehicle registration, registration card, contact number and policyholder identification ready. After the vehicle check, you can review the insurer, cover and required details before calculating a premium.',
+    'Your vehicle registration card, a contact phone number and the policyholder’s identification. After the vehicle check you choose the insurer and cover, then confirm the details before a premium is calculated.',
   ],
   [
     'What if my vehicle already has insurance?',
-    'The vehicle check shows active cover when a record is returned. The purchase cannot proceed for that vehicle while active cover is found. Check the displayed dates and contact your insurer if the record needs clarification.',
+    'The vehicle check shows active cover when a record is found, and a new purchase cannot continue for that vehicle. Check the dates shown and contact your insurer if the record looks wrong.',
   ],
   [
     'Does submitting a request mean I am insured?',
-    'Submission creates an insurance request. Keep your reference and confirm payment and policy issuance with your insurer before relying on the cover.',
+    'No. Submitting creates an insurance request. Keep your reference and confirm payment and policy issuance with your insurer before relying on the cover.',
   ],
   [
     'Can I arrange business, fleet or other insurance?',
-    'Explore the published product catalogue for available cover. For fleet and other insurance enquiries, contact the support team. The public online purchase journey currently handles individual motor vehicles.',
+    'Online purchase is currently for individual motor vehicles. For fleet and other cover, see the products page and contact us.',
   ],
   [
-    'How do I check my documents or get claims help?',
-    'Use the verification link on a document to view its record. For claims, sign in to your customer account or use the claims contact details on your policy.',
+    'How do I verify a document or get claims help?',
+    'Use the verification link printed on the document. For claims, sign in to your account or use the claims contact on your policy.',
   ],
-];
+] as const;
 
 function Questions({ all = false }: { all?: boolean }) {
   return (
@@ -578,7 +582,7 @@ function Questions({ all = false }: { all?: boolean }) {
         <details key={question}>
           <summary>
             {question}
-            <span aria-hidden="true">+</span>
+            <ChevronDown size={20} aria-hidden="true" />
           </summary>
           <p>{answer}</p>
         </details>
@@ -587,49 +591,74 @@ function Questions({ all = false }: { all?: boolean }) {
   );
 }
 
+function SupportLinks() {
+  return (
+    <div className="md-card support-card">
+      <h3>Already insured?</h3>
+      <nav className="support-links" aria-label="Support">
+        <Link to="/login">
+          <LogIn size={20} aria-hidden="true" />
+          <span>
+            <strong>Sign in</strong>
+            <small>View your policies and requests</small>
+          </span>
+          <ChevronRight size={18} aria-hidden="true" />
+        </Link>
+        <Link to="/claim-help">
+          <FileText size={20} aria-hidden="true" />
+          <span>
+            <strong>Make a claim</strong>
+            <small>What to prepare and who to contact</small>
+          </span>
+          <ChevronRight size={18} aria-hidden="true" />
+        </Link>
+        <Link to="/contact">
+          <Mail size={20} aria-hidden="true" />
+          <span>
+            <strong>Contact us</strong>
+            <small>Questions about cover or a request</small>
+          </span>
+          <ChevronRight size={18} aria-hidden="true" />
+        </Link>
+      </nav>
+    </div>
+  );
+}
+
 function HomePage() {
   usePageMeta(
-    'Insurance Max | Simple Digital Insurance',
-    'Discover and buy insurance through a clear, secure digital experience with Insurance Max.',
+    'Insurance Max | Motor insurance online in Tanzania',
+    'Check your vehicle, compare available motor cover and request insurance online with Insurance Max.',
   );
 
   const catalogue = useDisplayedCatalogue(6);
+  const totalCategories = catalogue.data?.length ?? 0;
 
   return (
     <PublicLayout>
       <main>
         <HomeHero />
-        <div className="service-strip">
-          <div className="public-container service-strip-inner">
-            <span>
-              <ShieldCheck size={21} aria-hidden="true" />
-              Vehicle & active cover checks
-            </span>
-            <span>
-              <Check size={21} aria-hidden="true" />
-              Premiums shown in TZS
-            </span>
-            <Link to="/contact">
-              <CircleHelp size={21} aria-hidden="true" />
-              Help with your next step{' '}
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
 
-        <section className="public-section categories-section">
+        <section
+          className="public-section"
+          aria-labelledby="home-products-title"
+        >
           <div className="public-container">
-            <SectionHeader
-              eyebrow="Explore your options"
-              title="Protection for what matters to you."
-              body="Browse the current catalogue. Available products and insurers are shown before you choose."
-            />
+            <div className="section-header">
+              <div>
+                <h2 id="home-products-title">Available insurance</h2>
+              </div>
+              {totalCategories > 0 && (
+                <Link className="text-link" to="/insurance">
+                  All products <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+              )}
+            </div>
             {catalogue.categories.length ? (
               <div className="category-grid">
-                {catalogue.categories.map((category, index) => (
+                {catalogue.categories.map((category) => (
                   <CategoryCard
                     category={category}
-                    index={index}
                     key={`${category.business_line}-${category.name}`}
                   />
                 ))}
@@ -638,102 +667,41 @@ function HomePage() {
               <EmptyCatalogueState
                 isLoading={catalogue.isLoading}
                 isError={catalogue.isError}
+                onRetry={() => void catalogue.refetch()}
               />
             )}
           </div>
         </section>
 
         <PurchaseSteps />
-        <section className="public-section support-section">
-          <div className="public-container support-grid">
+
+        <section className="public-section" aria-labelledby="home-help-title">
+          <div className="public-container help-grid">
             <div>
               <SectionHeader
-                eyebrow="Already have cover?"
-                title="Support when you need it."
-                body="Find your policy information, follow up on a claim or ask a question about your cover."
+                title="Common questions"
+                action={
+                  <Link className="text-link" to="/faq">
+                    All questions <ArrowRight size={16} aria-hidden="true" />
+                  </Link>
+                }
               />
-              <Link className="text-link" to="/claims">
-                Claims & support <ArrowRight size={17} aria-hidden="true" />
-              </Link>
+              <Questions />
             </div>
-            <div className="support-links">
-              <Link to="/login">
-                <span>
-                  <strong>Your insurance account</strong>
-                  <small>Sign in to access your policies and requests</small>
-                </span>
-                <ArrowRight aria-hidden="true" />
-              </Link>
-              <Link to="/contact">
-                <span>
-                  <strong>Talk to the team</strong>
-                  <small>Help choosing cover or following up</small>
-                </span>
-                <ArrowRight aria-hidden="true" />
-              </Link>
-            </div>
+            <SupportLinks />
           </div>
         </section>
-        <section className="public-section faq-section">
-          <div className="public-container support-grid">
-            <div>
-              <SectionHeader
-                eyebrow="Useful to know"
-                title="A little clarity goes a long way."
-              />
-              <Link className="text-link" to="/faq">
-                All questions <ArrowRight size={17} aria-hidden="true" />
-              </Link>
-            </div>
-            <Questions />
-          </div>
-        </section>
-        <CTASection />
       </main>
     </PublicLayout>
   );
 }
 
-function CTASection() {
-  return (
-    <section className="cta-section">
-      <div className="public-container cta-inner">
-        <div>
-          <span className="eyebrow">Ready to get covered?</span>
-          <h2>Find the protection that suits your needs.</h2>
-          <p>
-            Explore available insurance products or contact us if you need help
-            choosing the right next step.
-          </p>
-        </div>
-        <div className="cta-actions">
-          <Link className="button button-light" to="/buy-cover">
-            Get a quote <ArrowRight size={17} aria-hidden="true" />
-          </Link>
-          <Link className="text-link light-link" to="/contact">
-            Contact Us
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function PageIntro({
-  eyebrow,
-  title,
-  body,
-}: {
-  eyebrow: string;
-  title: string;
-  body: string;
-}) {
+function PageIntro({ title, body }: { title: string; body?: string }) {
   return (
     <section className="page-intro">
       <div className="public-container">
-        <span className="eyebrow">{eyebrow}</span>
         <h1>{title}</h1>
-        <p>{body}</p>
+        {body && <p>{body}</p>}
       </div>
     </section>
   );
@@ -749,45 +717,35 @@ function AboutPage() {
     <PublicLayout>
       <main>
         <PageIntro
-          eyebrow="About Insurance Max"
-          title="Simple digital insurance."
-          body="Insurance Max brings product discovery, motor quotations and customer account access into one place, with clear information at each step."
+          title="About Insurance Max"
+          body="Insurance Max brings product information, online motor cover requests and customer account access into one place."
         />
-
-        <section className="public-section values-section">
-          <div className="public-container">
-            <SectionHeader
-              eyebrow="Our approach"
-              title="Make informed choices about your cover."
-              body="Insurance starts with understanding what you are buying. Compare available products, check your details and review costs before you continue."
-            />
-            <div className="value-grid">
-              {[
-                [
-                  'Buy Cover',
-                  'Check your vehicle and existing cover, confirm your details and request a motor quotation.',
-                ],
-                [
-                  'View Products',
-                  'Browse published products and see which insurance company provides each cover.',
-                ],
-                [
-                  'Get Support',
-                  'Find contact options or sign in to follow up on your policies and requests.',
-                ],
-              ].map(([title, body], index) => (
-                <article className="value-item" key={title}>
-                  <span>0{index + 1}</span>
-                  <h3>{title}</h3>
-                  <p>{body}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
         <section className="public-section">
-          <div className="public-container">
-            <VehicleDataAttribution />
+          <div className="public-container reading-width">
+            <h2>What you can do here</h2>
+            <ul className="prose-list">
+              <li>
+                <Link className="inline-link" to={BUY_INSURANCE_PATH}>
+                  Buy motor insurance
+                </Link>{' '}
+                — check your vehicle, choose cover and review the premium.
+              </li>
+              <li>
+                <Link className="inline-link" to="/insurance">
+                  Browse products
+                </Link>{' '}
+                — see published products and the insurer providing each one.
+              </li>
+              <li>
+                <Link className="inline-link" to="/login">
+                  Sign in
+                </Link>{' '}
+                — follow up on your policies and requests.
+              </li>
+            </ul>
+            <div className="attribution">
+              <VehicleDataAttribution />
+            </div>
           </div>
         </section>
       </main>
@@ -805,9 +763,8 @@ function ContactPage() {
     <PublicLayout>
       <main>
         <PageIntro
-          eyebrow="Contact Us"
-          title="We're here to help."
-          body="Have a question about insurance, your account or our services? Get in touch with our team."
+          title="Contact us"
+          body="Ask about products, an existing request or your account. For a claim, use the insurer’s contact details on your policy."
         />
         <ContactContent />
       </main>
@@ -846,14 +803,10 @@ function ContactContent() {
   }
 
   return (
-    <section className="public-section contact-section">
+    <section className="public-section">
       <div className="public-container contact-grid">
-        <div className="contact-details">
-          <SectionHeader
-            eyebrow="Reach Out"
-            title="Tell us what you need."
-            body="Ask about products, an existing request or your account. For a claim, use the insurer's contact details on your policy."
-          />
+        <div className="md-card contact-details">
+          <h2 className="visually-hidden">Contact details</h2>
 
           <ContactDetail
             icon={Mail}
@@ -887,14 +840,15 @@ function ContactContent() {
           {workingHours && (
             <ContactDetail
               icon={CircleHelp}
-              title="Working Hours"
+              title="Working hours"
               content={<span>{workingHours}</span>}
             />
           )}
         </div>
 
         <form
-          className="contact-form"
+          className="md-card contact-form"
+          aria-label="Contact form"
           onSubmit={handleContactSubmit}
           noValidate
         >
@@ -936,13 +890,12 @@ function ContactContent() {
               <div className="form-row">
                 <PublicField
                   id="fullName"
-                  label="Full Name"
+                  label="Full name"
                   error={form.formState.errors.fullName?.message}
                 >
                   <input
                     id="fullName"
                     autoComplete="name"
-                    placeholder="Your name"
                     {...form.register('fullName')}
                   />
                 </PublicField>
@@ -964,14 +917,14 @@ function ContactContent() {
               <div className="form-row">
                 <PublicField
                   id="phone"
-                  label="Phone Number"
+                  label="Phone number (optional)"
                   error={form.formState.errors.phone?.message}
                 >
                   <input
                     id="phone"
                     type="tel"
                     autoComplete="tel"
-                    placeholder="+255 7XX XXX XXX (optional)"
+                    placeholder="+255 7XX XXX XXX"
                     {...form.register('phone')}
                   />
                 </PublicField>
@@ -980,11 +933,7 @@ function ContactContent() {
                   label="Subject"
                   error={form.formState.errors.subject?.message}
                 >
-                  <input
-                    id="subject"
-                    placeholder="How can we help?"
-                    {...form.register('subject')}
-                  />
+                  <input id="subject" {...form.register('subject')} />
                 </PublicField>
               </div>
 
@@ -996,7 +945,7 @@ function ContactContent() {
                 <textarea
                   id="message"
                   rows={6}
-                  placeholder="Tell us a little more..."
+                  placeholder="How can we help?"
                   {...form.register('message')}
                 />
               </PublicField>
@@ -1177,6 +1126,15 @@ function validateTiraMotorPurchaseDetails(
   return missing;
 }
 
+const PURCHASE_PROGRESS = [
+  'Check vehicle',
+  'Details & cover',
+  'Review premium',
+  'Request sent',
+] as const;
+
+type IntakeErrors = Partial<Record<keyof MotorIntakeValues, string>>;
+
 function MotorInsurancePurchasePage() {
   usePageMeta(
     'Get Insurance | Insurance Max',
@@ -1190,6 +1148,7 @@ function MotorInsurancePurchasePage() {
     registrationNumber: '',
     phone: '',
   });
+  const [intakeErrors, setIntakeErrors] = useState<IntakeErrors>({});
   const [companyId, setCompanyId] = useState('');
   const [productId, setProductId] = useState('');
   const [riskId, setRiskId] = useState('');
@@ -1260,9 +1219,16 @@ function MotorInsurancePurchasePage() {
 
     const parsed = motorIntakeSchema.safeParse(intake);
     if (!parsed.success) {
+      const fieldErrors: IntakeErrors = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as keyof MotorIntakeValues;
+        fieldErrors[key] ??= issue.message;
+      }
+      setIntakeErrors(fieldErrors);
       setError(parsed.error.issues[0]?.message ?? 'Check the vehicle details.');
       return;
     }
+    setIntakeErrors({});
 
     if (!selectedCompany) {
       setError('No motor insurer is currently available.');
@@ -1395,6 +1361,11 @@ function MotorInsurancePurchasePage() {
     }
   }
 
+  function updateIntake(key: keyof MotorIntakeValues, value: string) {
+    setIntake((current) => ({ ...current, [key]: value }));
+    setIntakeErrors((current) => ({ ...current, [key]: undefined }));
+  }
+
   function updateVehicle<K extends keyof PublicMotorVehicle>(
     key: K,
     value: PublicMotorVehicle[K],
@@ -1413,55 +1384,52 @@ function MotorInsurancePurchasePage() {
     setConfirmed(false);
   }
 
+  const currentStep = submitted ? 3 : quote ? 2 : verified ? 1 : 0;
+
   return (
     <PublicLayout>
       <main>
         <PageIntro
-          eyebrow="Motor insurance"
-          title="Your next journey starts here."
-          body="Check your vehicle, choose your cover and review a quotation in Tanzanian shillings. Have your registration card and identification ready."
+          title="Buy motor insurance"
+          body="Have your vehicle registration card and ID ready. Premiums are shown in TZS."
         />
-        <section className="public-section motor-purchase-section">
+        <section className="public-section">
           <div
             ref={purchasePanel}
             className="public-container motor-purchase-layout"
             aria-busy={busy !== null}
           >
             <ol className="motor-progress" aria-label="Purchase progress">
-              {[
-                'Check vehicle',
-                'Details & cover',
-                'Review premium',
-                'Request confirmation',
-              ].map((label, index) => {
-                const current = submitted ? 3 : quote ? 2 : verified ? 1 : 0;
-                return (
-                  <li
-                    key={label}
-                    className={
-                      index < current
-                        ? 'is-complete'
-                        : index === current
-                          ? 'is-current'
-                          : ''
-                    }
-                    aria-current={index === current ? 'step' : undefined}
-                  >
-                    <strong>
-                      {index < current ? (
-                        <Check size={16} aria-hidden="true" />
-                      ) : (
-                        index + 1
-                      )}
-                    </strong>
-                    <span>{label}</span>
-                  </li>
-                );
-              })}
+              {PURCHASE_PROGRESS.map((label, index) => (
+                <li
+                  key={label}
+                  className={
+                    index < currentStep
+                      ? 'is-complete'
+                      : index === currentStep
+                        ? 'is-current'
+                        : ''
+                  }
+                  aria-current={index === currentStep ? 'step' : undefined}
+                >
+                  <strong>
+                    {index < currentStep ? (
+                      <Check size={16} aria-label="Completed" />
+                    ) : (
+                      index + 1
+                    )}
+                  </strong>
+                  <span>{label}</span>
+                </li>
+              ))}
             </ol>
+            <p className="motor-progress-mobile" aria-hidden="true">
+              Step {currentStep + 1} of {PURCHASE_PROGRESS.length}:{' '}
+              <strong>{PURCHASE_PROGRESS[currentStep]}</strong>
+            </p>
             <p className="purchase-note">
-              Online quotation and submission. Payment and cover issuance are
-              confirmed separately by your insurer.
+              Payment and cover issuance are confirmed separately by your
+              insurer.
             </p>
             {optionsQuery.isError && (
               <div className="motor-alert motor-alert-error" role="alert">
@@ -1500,7 +1468,7 @@ function MotorInsurancePurchasePage() {
                 <Check size={28} aria-hidden="true" />
                 <h2>Insurance request submitted</h2>
                 <p>
-                  Your request has been sent for processing. Reference:{' '}
+                  Your reference:{' '}
                   <strong>
                     {String(
                       submitted.quotation_no ??
@@ -1510,21 +1478,22 @@ function MotorInsurancePurchasePage() {
                   </strong>
                 </p>
                 <p>
-                  Keep this reference for follow-up. Contact your insurer to
-                  confirm the payment instructions and cover issuance. This
-                  request confirmation is not proof of insurance.
+                  Keep this reference. Your insurer will confirm payment
+                  instructions and issue your cover. This request confirmation
+                  is not proof of insurance.
                 </p>
-                <Link className="text-link" to="/contact">
-                  Get help with your request{' '}
-                  <ArrowRight size={16} aria-hidden="true" />
-                </Link>
-                <button
-                  className="button"
-                  type="button"
-                  onClick={() => navigate('/')}
-                >
-                  Back to Home
-                </button>
+                <div className="motor-actions">
+                  <button
+                    className="button"
+                    type="button"
+                    onClick={() => navigate('/')}
+                  >
+                    Back to home
+                  </button>
+                  <Link className="text-link" to="/contact">
+                    Get help with your request
+                  </Link>
+                </div>
               </div>
             ) : activeCover ? (
               <div className="motor-result-panel">
@@ -1572,7 +1541,7 @@ function MotorInsurancePurchasePage() {
                     ])}
                   />
                   <SummaryItem
-                    label="Start Date"
+                    label="Start date"
                     value={coverValue(activeCover, [
                       'cover_start_date',
                       'coverNoteStartDate',
@@ -1585,7 +1554,7 @@ function MotorInsurancePurchasePage() {
                     ])}
                   />
                   <SummaryItem
-                    label="End Date"
+                    label="End date"
                     value={coverValue(activeCover, [
                       'cover_end_date',
                       'coverNoteEndDate',
@@ -1601,81 +1570,90 @@ function MotorInsurancePurchasePage() {
                 </div>
                 <div className="motor-actions">
                   <button
-                    className="button button-light"
+                    className="button"
                     type="button"
                     onClick={() => {
                       setActiveCover(null);
                       setVerified(false);
                     }}
                   >
-                    Check Another Vehicle
+                    Check another vehicle
                   </button>
                   <button
-                    className="button"
+                    className="button button-outline"
                     type="button"
                     onClick={() => navigate('/')}
                   >
-                    Back to Home
+                    Back to home
                   </button>
                 </div>
               </div>
             ) : (
               <>
                 {!verified ? (
-                  <form className="motor-panel" onSubmit={verifyVehicle}>
+                  <form
+                    className="motor-panel"
+                    onSubmit={verifyVehicle}
+                    noValidate
+                  >
                     <SectionHeader
-                      eyebrow="Vehicle"
-                      title="First, let us check your vehicle."
-                      body="We check the registration and look for active insurance before you continue."
+                      title="Check your vehicle"
+                      body="We look up the registration and any active insurance before you continue."
                     />
                     <div className="form-row">
-                      <PublicField id="publicMotorFullName" label="Full Name">
+                      <PublicField
+                        id="publicMotorFullName"
+                        label="Full name"
+                        error={intakeErrors.fullName}
+                      >
                         <input
                           id="publicMotorFullName"
                           autoComplete="name"
                           value={intake.fullName}
                           onChange={(event) =>
-                            setIntake((current) => ({
-                              ...current,
-                              fullName: event.target.value,
-                            }))
+                            updateIntake('fullName', event.target.value)
                           }
                         />
                       </PublicField>
                       <PublicField
                         id="publicMotorRegistration"
-                        label="Vehicle Registration Number"
+                        label="Vehicle registration number"
+                        error={intakeErrors.registrationNumber}
                       >
                         <input
                           id="publicMotorRegistration"
                           placeholder="e.g. T123ABC"
                           autoCapitalize="characters"
+                          autoComplete="off"
                           value={intake.registrationNumber}
                           onChange={(event) =>
-                            setIntake((current) => ({
-                              ...current,
-                              registrationNumber: event.target.value,
-                            }))
+                            updateIntake(
+                              'registrationNumber',
+                              event.target.value,
+                            )
                           }
                         />
                       </PublicField>
                     </div>
-                    <PublicField id="publicMotorPhone" label="Phone Number">
-                      <input
+                    <div className="form-row">
+                      <PublicField
                         id="publicMotorPhone"
-                        type="tel"
-                        placeholder="+255 7XX XXX XXX"
-                        autoComplete="tel"
-                        inputMode="tel"
-                        value={intake.phone}
-                        onChange={(event) =>
-                          setIntake((current) => ({
-                            ...current,
-                            phone: event.target.value,
-                          }))
-                        }
-                      />
-                    </PublicField>
+                        label="Phone number"
+                        error={intakeErrors.phone}
+                      >
+                        <input
+                          id="publicMotorPhone"
+                          type="tel"
+                          placeholder="+255 7XX XXX XXX"
+                          autoComplete="tel"
+                          inputMode="tel"
+                          value={intake.phone}
+                          onChange={(event) =>
+                            updateIntake('phone', event.target.value)
+                          }
+                        />
+                      </PublicField>
+                    </div>
                     <button
                       className="button"
                       type="submit"
@@ -1685,21 +1663,25 @@ function MotorInsurancePurchasePage() {
                         !selectedCompany
                       }
                     >
-                      {busy === 'verify' ? 'Checking...' : 'Check Vehicle'}
-                      <ArrowRight size={17} aria-hidden="true" />
+                      {busy === 'verify'
+                        ? 'Checking…'
+                        : optionsQuery.isLoading
+                          ? 'Loading insurers…'
+                          : 'Check vehicle'}
                     </button>
                   </form>
                 ) : quote ? null : (
-                  <form className="motor-panel" onSubmit={calculateQuote}>
-                    <SectionHeader
-                      eyebrow="Details"
-                      title="Confirm details and choose cover"
-                    />
+                  <form
+                    className="motor-panel"
+                    onSubmit={calculateQuote}
+                    noValidate
+                  >
+                    <SectionHeader title="Confirm details and choose cover" />
 
                     <div className="form-row">
                       <PublicField
                         id="publicMotorCompany"
-                        label="Insurance Company"
+                        label="Insurance company"
                       >
                         <select
                           id="publicMotorCompany"
@@ -1756,7 +1738,7 @@ function MotorInsurancePurchasePage() {
                       </PublicField>
                       <PublicField
                         id="publicMotorSumInsured"
-                        label="Vehicle Value (TZS)"
+                        label="Vehicle value (TZS)"
                       >
                         <input
                           id="publicMotorSumInsured"
@@ -1771,11 +1753,11 @@ function MotorInsurancePurchasePage() {
                       </PublicField>
                     </div>
 
-                    <div className="motor-fieldset">
-                      <h3>Motor details</h3>
+                    <fieldset className="motor-fieldset">
+                      <legend>Motor details</legend>
                       <div className="motor-subgrid">
                         <MotorInput
-                          label="Chassis Number"
+                          label="Chassis number"
                           value={vehicle.chassis_number}
                           onChange={(value) =>
                             updateVehicle('chassis_number', value)
@@ -1792,14 +1774,14 @@ function MotorInsurancePurchasePage() {
                           onChange={(value) => updateVehicle('model', value)}
                         />
                         <MotorInput
-                          label="Model Number"
+                          label="Model number"
                           value={vehicle.model_number ?? ''}
                           onChange={(value) =>
                             updateVehicle('model_number', value)
                           }
                         />
                         <MotorInput
-                          label="Body Type"
+                          label="Body type"
                           value={vehicle.body_type}
                           onChange={(value) =>
                             updateVehicle('body_type', value)
@@ -1811,14 +1793,14 @@ function MotorInsurancePurchasePage() {
                           onChange={(value) => updateVehicle('color', value)}
                         />
                         <MotorInput
-                          label="Engine Number"
+                          label="Engine number"
                           value={vehicle.engine_number}
                           onChange={(value) =>
                             updateVehicle('engine_number', value)
                           }
                         />
                         <MotorInput
-                          label="Engine Capacity"
+                          label="Engine capacity"
                           inputMode="numeric"
                           value={vehicle.engine_capacity}
                           onChange={(value) =>
@@ -1826,21 +1808,21 @@ function MotorInsurancePurchasePage() {
                           }
                         />
                         <MotorInput
-                          label="Fuel Used"
+                          label="Fuel used"
                           value={vehicle.fuel_used}
                           onChange={(value) =>
                             updateVehicle('fuel_used', value)
                           }
                         />
                         <MotorNumberInput
-                          label="Number of Axles"
+                          label="Number of axles"
                           value={vehicle.number_of_axles}
                           onChange={(value) =>
                             updateVehicle('number_of_axles', value)
                           }
                         />
                         <MotorNumberInput
-                          label="Axle Distance"
+                          label="Axle distance"
                           value={vehicle.axle_distance}
                           onChange={(value) =>
                             updateVehicle('axle_distance', value)
@@ -1861,75 +1843,75 @@ function MotorInsurancePurchasePage() {
                           }
                         />
                         <MotorNumberInput
-                          label="Tare Weight"
+                          label="Tare weight"
                           value={vehicle.tare_weight}
                           onChange={(value) =>
                             updateVehicle('tare_weight', value)
                           }
                         />
                         <MotorNumberInput
-                          label="Gross Weight"
+                          label="Gross weight"
                           value={vehicle.gross_weight}
                           onChange={(value) =>
                             updateVehicle('gross_weight', value)
                           }
                         />
                         <MotorNumberInput
-                          label="Motor Usage"
+                          label="Motor usage"
                           value={vehicle.motor_usage}
                           onChange={(value) =>
                             updateVehicle('motor_usage', value)
                           }
                         />
                       </div>
-                    </div>
+                    </fieldset>
 
-                    <div className="motor-fieldset">
-                      <h3>Owner details</h3>
+                    <fieldset className="motor-fieldset">
+                      <legend>Owner details</legend>
                       <div className="motor-subgrid">
                         <MotorInput
-                          label="Owner Name"
+                          label="Owner name"
                           value={vehicle.owner_name}
                           onChange={(value) =>
                             updateVehicle('owner_name', value)
                           }
                         />
                         <MotorNumberInput
-                          label="Owner Category"
+                          label="Owner category"
                           value={vehicle.owner_category}
                           onChange={(value) =>
                             updateVehicle('owner_category', value)
                           }
                         />
                         <MotorInput
-                          label="Owner Address"
+                          label="Owner address"
                           value={vehicle.owner_address}
                           onChange={(value) =>
                             updateVehicle('owner_address', value)
                           }
                         />
                       </div>
-                    </div>
+                    </fieldset>
 
-                    <div className="motor-fieldset">
-                      <h3>Policy holder details</h3>
+                    <fieldset className="motor-fieldset">
+                      <legend>Policy holder details</legend>
                       <div className="motor-subgrid">
                         <MotorInput
-                          label="Policy Holder Name"
+                          label="Policy holder name"
                           value={holder.policy_holder_name}
                           onChange={(value) =>
                             updateHolder('policy_holder_name', value)
                           }
                         />
                         <MotorNumberInput
-                          label="Policy Holder Type"
+                          label="Policy holder type"
                           value={holder.policy_holder_type}
                           onChange={(value) =>
                             updateHolder('policy_holder_type', value)
                           }
                         />
                         <MotorInput
-                          label="Date of Birth"
+                          label="Date of birth"
                           type="date"
                           value={holder.policy_holder_birth_date}
                           onChange={(value) =>
@@ -1937,14 +1919,14 @@ function MotorInsurancePurchasePage() {
                           }
                         />
                         <MotorNumberInput
-                          label="ID Type"
+                          label="ID type"
                           value={holder.policy_holder_id_type}
                           onChange={(value) =>
                             updateHolder('policy_holder_id_type', value)
                           }
                         />
                         <MotorInput
-                          label="ID Number"
+                          label="ID number"
                           value={holder.policy_holder_id_number}
                           onChange={(value) =>
                             updateHolder('policy_holder_id_number', value)
@@ -1971,7 +1953,7 @@ function MotorInsurancePurchasePage() {
                           </select>
                         </label>
                         <MotorInput
-                          label="Country Code"
+                          label="Country code"
                           value={holder.country_code}
                           onChange={(value) =>
                             updateHolder('country_code', value.toUpperCase())
@@ -1993,7 +1975,7 @@ function MotorInsurancePurchasePage() {
                           onChange={(value) => updateHolder('street', value)}
                         />
                         <MotorInput
-                          label="Phone Number"
+                          label="Phone number"
                           inputMode="tel"
                           value={holder.policy_holder_phone_number}
                           onChange={(value) =>
@@ -2001,7 +1983,7 @@ function MotorInsurancePurchasePage() {
                           }
                         />
                         <MotorInput
-                          label="Postal Address"
+                          label="Postal address"
                           value={holder.postal_address ?? ''}
                           onChange={(value) =>
                             updateHolder('postal_address', value)
@@ -2024,15 +2006,14 @@ function MotorInsurancePurchasePage() {
                           }
                         />
                       </div>
-                    </div>
+                    </fieldset>
 
                     <button
                       className="button"
                       type="submit"
                       disabled={busy === 'quote'}
                     >
-                      {busy === 'quote' ? 'Calculating...' : 'Calculate Quote'}
-                      <ArrowRight size={17} aria-hidden="true" />
+                      {busy === 'quote' ? 'Calculating…' : 'Calculate quote'}
                     </button>
                   </form>
                 )}
@@ -2051,9 +2032,8 @@ function MotorInsurancePurchasePage() {
                       Edit details and cover
                     </button>
                     <SectionHeader
-                      eyebrow="Your quotation"
-                      title="Review before you continue."
-                      body="Check the vehicle, cover period and premium. Submitting a request does not confirm payment or activate cover."
+                      title="Review your quotation"
+                      body="Submitting a request does not confirm payment or activate cover."
                     />
                     <div className="motor-summary-grid">
                       <SummaryItem
@@ -2071,7 +2051,7 @@ function MotorInsurancePurchasePage() {
                         value={quote.default_branch.name}
                       />
                       <SummaryItem
-                        label="Cover Period"
+                        label="Cover period"
                         value={`${quote.cover_period.start_date} to ${quote.cover_period.end_date}`}
                       />
                       <SummaryItem
@@ -2079,7 +2059,7 @@ function MotorInsurancePurchasePage() {
                         value={quote.premium.pricing_quote_id}
                       />
                       <SummaryItem
-                        label="Basic Premium"
+                        label="Basic premium"
                         value={money(quote.premium.basic_premium)}
                       />
                       <SummaryItem
@@ -2087,17 +2067,19 @@ function MotorInsurancePurchasePage() {
                         value={money(quote.premium.discount_amount)}
                       />
                       <SummaryItem
-                        label="Levies/Charges"
+                        label="Levies and charges"
                         value={money(quote.premium.charges_amount)}
                       />
                       <SummaryItem
                         label="VAT"
                         value={money(quote.premium.vat_amount)}
                       />
-                      <SummaryItem
-                        label="Total Payable"
-                        value={money(quote.premium.total_amount_payable)}
-                      />
+                    </div>
+                    <div className="premium-total">
+                      <span>Total payable</span>
+                      <strong>
+                        {money(quote.premium.total_amount_payable)}
+                      </strong>
                     </div>
                     <label className="motor-confirm">
                       <input
@@ -2114,9 +2096,8 @@ function MotorInsurancePurchasePage() {
                       onClick={() => void submitPurchase()}
                     >
                       {busy === 'submit'
-                        ? 'Submitting...'
+                        ? 'Submitting…'
                         : 'Submit insurance request'}
-                      <ArrowRight size={17} aria-hidden="true" />
                     </button>
                   </div>
                 )}
@@ -2169,13 +2150,13 @@ function MotorNumberInput({
 }) {
   const id = useId();
   const codedField =
-    label === 'Motor Usage'
+    label === 'Motor usage'
       ? 'motor_usage'
-      : label === 'Owner Category' || label === 'Policy Holder Type'
+      : label === 'Owner category' || label === 'Policy holder type'
         ? 'owner_category'
         : null;
   const options =
-    label === 'ID Type'
+    label === 'ID type'
       ? CUSTOMER_ID_TYPE_OPTIONS.map((option) => ({
           value: String(option.value),
           label: option.label,
@@ -2233,8 +2214,8 @@ function PublicField({
   children: React.ReactNode;
 }) {
   return (
-    <label htmlFor={id}>
-      <span>{label}</span>
+    <div className="public-field">
+      <label htmlFor={id}>{label}</label>
       {isValidElement<React.HTMLAttributes<HTMLElement>>(children)
         ? cloneElement(children, {
             'aria-invalid': Boolean(error),
@@ -2242,11 +2223,11 @@ function PublicField({
           })
         : children}
       {error && (
-        <span id={`${id}-error`} className="form-error" role="alert">
+        <span id={`${id}-error`} className="form-error">
           {error}
         </span>
       )}
-    </label>
+    </div>
   );
 }
 
@@ -2272,19 +2253,19 @@ function InsurancePage() {
     <PublicLayout>
       <main>
         <PageIntro
-          eyebrow="Insurance Products"
-          title="Find cover for your next step."
-          body="Explore published products by category. Review the provider and cover details, then start a motor quote or ask about other insurance."
+          title="Insurance products"
+          body="Products currently published by insurers on Insurance Max. Motor insurance can be bought online."
         />
         <section className="public-section">
           <div className="public-container">
             {catalogue.categories.length ? (
-              <div className="catalogue-tabs-layout">
+              <>
                 <div
                   className="catalogue-tabs"
+                  role="group"
                   aria-label="Insurance categories"
                 >
-                  {catalogue.categories.map((category, index) => {
+                  {catalogue.categories.map((category) => {
                     const Icon = category.icon;
                     const active = category.id === activeCategory?.id;
 
@@ -2298,20 +2279,9 @@ function InsurancePage() {
                         onClick={() => setActiveCategoryId(category.id)}
                         type="button"
                       >
-                        <span
-                          className={`category-icon category-icon-${index % 4}`}
-                        >
-                          <Icon size={19} aria-hidden="true" />
-                        </span>
-                        <span>
-                          <strong>{category.name}</strong>
-                          <small>
-                            {category.products.length} available{' '}
-                            {category.products.length === 1
-                              ? 'product'
-                              : 'products'}
-                          </small>
-                        </span>
+                        <Icon size={18} aria-hidden="true" />
+                        {category.name}
+                        <small>({category.products.length})</small>
                       </button>
                     );
                   })}
@@ -2319,57 +2289,69 @@ function InsurancePage() {
 
                 {activeCategory && (
                   <section
-                    aria-labelledby={`catalogue-tab-${activeCategory.id}`}
+                    aria-labelledby={`catalogue-heading-${activeCategory.id}`}
                     className="catalogue-panel"
                     id={`catalogue-panel-${activeCategory.id}`}
                   >
                     <div className="catalogue-panel-header">
-                      <h2>{activeCategory.name}</h2>
+                      <h2 id={`catalogue-heading-${activeCategory.id}`}>
+                        {activeCategory.name}
+                      </h2>
                       <span>
-                        {activeCategory.products.length} available products
+                        {activeCategory.products.length}{' '}
+                        {activeCategory.products.length === 1
+                          ? 'product'
+                          : 'products'}
                       </span>
                     </div>
 
                     <div className="product-grid">
-                      {activeCategory.products.map((product) => (
-                        <article className="product-card" key={product.id}>
-                          <div>
-                            <h3>{product.name}</h3>
-                            <p>
-                              {product.description ||
-                                'Ask about the benefits, limits and exclusions before choosing this cover.'}
-                            </p>
-                          </div>
-                          <div className="product-meta">
-                            <span>{product.company.name}</span>
-                          </div>
-                          <Link
-                            to={
-                              isMotorCatalogueCategory(product)
-                                ? '/buy-cover'
-                                : '/contact'
-                            }
+                      {activeCategory.products.map((product) => {
+                        const motor = isMotorCatalogueCategory(product);
+                        return (
+                          <article
+                            className="md-card product-card"
+                            key={product.id}
                           >
-                            {isMotorCatalogueCategory(product)
-                              ? 'Get a motor quote'
-                              : 'Enquire about cover'}{' '}
-                            <ArrowRight size={16} aria-hidden="true" />
-                          </Link>
-                        </article>
-                      ))}
+                            <h3>{product.name}</h3>
+                            <span className="product-meta">
+                              Insurer: {product.company.name}
+                            </span>
+                            {product.description && (
+                              <p>{product.description}</p>
+                            )}
+                            <Link
+                              className={
+                                motor ? 'button button-small' : 'text-link'
+                              }
+                              to={motor ? BUY_INSURANCE_PATH : '/contact'}
+                            >
+                              {motor ? 'Buy insurance' : 'Enquire about cover'}
+                            </Link>
+                          </article>
+                        );
+                      })}
                     </div>
                   </section>
                 )}
-              </div>
+                <p className="catalogue-note">
+                  Ask the insurer about benefits, limits and exclusions before
+                  choosing cover. Need help?{' '}
+                  <Link className="inline-link" to="/contact">
+                    Contact us
+                  </Link>
+                  .
+                </p>
+              </>
             ) : (
               <EmptyCatalogueState
                 isLoading={catalogue.isLoading}
                 isError={catalogue.isError}
+                onRetry={() => void catalogue.refetch()}
               />
             )}
           </div>
         </section>
-        <CTASection />
       </main>
     </PublicLayout>
   );
@@ -2394,21 +2376,19 @@ function FaqPage() {
   return (
     <PublicLayout>
       <main>
-        <PageIntro
-          eyebrow="Help & guidance"
-          title="Your questions, answered."
-          body="Practical information before you get a quote, submit a request or follow up on your insurance."
-        />
+        <PageIntro title="Help & FAQs" />
         <section className="public-section">
           <div className="public-container reading-width">
             <Questions all />
-            <p className="purchase-note">
+            <p className="catalogue-note">
               Need help with a particular policy? Keep your reference ready and
-              use the contact details on your policy document.
+              use the contact details on your policy document, or contact us.
             </p>
-            <Link className="button" to="/contact">
-              Contact options <ArrowRight size={17} aria-hidden="true" />
-            </Link>
+            <div className="page-actions">
+              <Link className="button" to="/contact">
+                Contact us
+              </Link>
+            </div>
           </div>
         </section>
       </main>
@@ -2425,49 +2405,46 @@ function ClaimsPage() {
     <PublicLayout>
       <main>
         <PageIntro
-          eyebrow="Claims & support"
-          title="Let us take the next step together."
-          body="If something has happened, contact your insurer using the claims details on your policy. Your insurer will explain the documents and next steps for your cover."
+          title="Make a claim"
+          body="Claims are handled by your insurer. Contact them using the claims details on your policy and they will explain the documents and next steps."
         />
         <section className="public-section">
-          <div className="public-container support-grid">
+          <div className="public-container two-column">
             <div>
-              <SectionHeader
-                eyebrow="Preparing a claim"
-                title="Keep the details together."
-                body="Your policy terms explain what is covered, the reporting requirements and any applicable excess."
-              />
-              <ol className="claims-list">
+              <h2>Before you contact your insurer</h2>
+              <ol className="prose-list">
+                <li>Have your policy or cover note number ready.</li>
                 <li>
-                  Have your policy or cover note number and contact details
-                  ready.
-                </li>
-                <li>
-                  Record when and where the incident happened. Keep relevant
-                  photos, receipts and supporting documents.
+                  Note when and where the incident happened. Keep photos,
+                  receipts and other supporting documents.
                 </li>
                 <li>
                   Notify your insurer using the claims contact on your policy
                   and follow their instructions.
                 </li>
               </ol>
+              <p className="catalogue-note">
+                Your policy terms explain what is covered, reporting
+                requirements and any excess.
+              </p>
             </div>
-            <div className="contact-form contact-account">
-              <h2>Already have an account?</h2>
+            <div className="md-card side-card">
+              <h2>Have an account?</h2>
               <p>
-                Sign in to access your policy information and available claims
+                Sign in to see your policy information and available claims
                 services.
               </p>
-              <Link className="button" to="/login">
-                Sign in <ArrowRight size={17} aria-hidden="true" />
-              </Link>
-              <Link className="text-link" to="/contact">
-                Get help finding your next step
-              </Link>
+              <div className="page-actions">
+                <Link className="button" to="/login">
+                  Sign in
+                </Link>
+                <Link className="text-link" to="/contact">
+                  Contact us
+                </Link>
+              </div>
             </div>
           </div>
         </section>
-        <CTASection />
       </main>
     </PublicLayout>
   );

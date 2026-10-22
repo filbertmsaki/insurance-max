@@ -55,7 +55,7 @@ export function ComplaintsPage() {
             className="font-medium text-slate-900 hover:text-blue-700"
             type="button"
             onClick={() => {
-              navigate(`/complaints/${row.id}`);
+              navigate(`/apps/complaints/${row.id}`);
             }}
           >
             {row.complaint_no}
@@ -113,7 +113,7 @@ export function ComplaintsPage() {
           {
             label: 'Open',
             icon: Eye,
-            onClick: (row) => navigate(`/complaints/${row.id}`),
+            onClick: (row) => navigate(`/apps/complaints/${row.id}`),
           },
         ]}
         showColumnVisibility={false}

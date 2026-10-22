@@ -64,7 +64,7 @@ export const departmentsApi = {
   getDepartments: (params?: DepartmentQueryParams) => {
     const wantsAll = (params?.limit ?? 0) > MAX_TABLE_LIMIT;
     return apiClient
-      .get<PaginatedResponse<DepartmentRecord>>('/departments', {
+      .get<PaginatedResponse<DepartmentRecord>>('/apps/departments', {
         params: wantsAll ? undefined : params,
       })
       .then((r) => r.data);
@@ -73,7 +73,7 @@ export const departmentsApi = {
   /** GET /departments?page=… — server-side table page (search/status/branch/sort). */
   listDepartments: (params: Record<string, unknown>, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<DepartmentRecord>>('/departments', {
+      .get<PaginatedResponse<DepartmentRecord>>('/apps/departments', {
         params,
         signal,
       })
@@ -81,15 +81,17 @@ export const departmentsApi = {
 
   getDepartment: (departmentId: string) =>
     apiClient
-      .get<DepartmentRecord>(`/departments/${departmentId}`)
+      .get<DepartmentRecord>(`/apps/departments/${departmentId}`)
       .then((r) => r.data),
 
   createDepartment: (data: CreateDepartmentDto) =>
-    apiClient.post<DepartmentRecord>('/departments', data).then((r) => r.data),
+    apiClient
+      .post<DepartmentRecord>('/apps/departments', data)
+      .then((r) => r.data),
 
   updateDepartment: (departmentId: string, data: UpdateDepartmentDto) =>
     apiClient
-      .patch<DepartmentRecord>(`/departments/${departmentId}`, data)
+      .patch<DepartmentRecord>(`/apps/departments/${departmentId}`, data)
       .then((r) => r.data),
 
   updateDepartmentStatus: (
@@ -97,11 +99,11 @@ export const departmentsApi = {
     status: 'active' | 'inactive',
   ) =>
     apiClient
-      .patch<DepartmentRecord>(`/departments/${departmentId}/status`, {
+      .patch<DepartmentRecord>(`/apps/departments/${departmentId}/status`, {
         status,
       })
       .then((r) => r.data),
 
   deleteDepartment: (departmentId: string) =>
-    apiClient.delete(`/departments/${departmentId}`).then((r) => r.data),
+    apiClient.delete(`/apps/departments/${departmentId}`).then((r) => r.data),
 };

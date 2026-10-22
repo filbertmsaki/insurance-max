@@ -51,7 +51,9 @@ export function FinanceCommissionAccrualsPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/finance/commission-accruals/${row.id}`)}
+          onClick={() =>
+            navigate(`/apps/finance/commission-accruals/${row.id}`)
+          }
         >
           Open
         </Button>

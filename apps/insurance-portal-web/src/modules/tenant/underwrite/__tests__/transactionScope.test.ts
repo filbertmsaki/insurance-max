@@ -60,26 +60,28 @@ describe('underwrite transaction scope', () => {
   it('links to the line routes', () => {
     const { paths } = buildUnderwriteTransactionScope('non-motor');
 
-    expect(paths.policyDetail('p1')).toBe('/underwrite/non-motor/policies/p1');
+    expect(paths.policyDetail('p1')).toBe(
+      '/apps/underwrite/non-motor/policies/p1',
+    );
     expect(paths.policyEndorsementEdit('p1', 'e1')).toBe(
-      '/underwrite/non-motor/policies/p1/endorsements/e1',
+      '/apps/underwrite/non-motor/policies/p1/endorsements/e1',
     );
     expect(paths.quotationWizardEdit('q1')).toBe(
-      '/underwrite/non-motor/quotations/q1/edit',
+      '/apps/underwrite/non-motor/quotations/q1/edit',
     );
   });
 
   it('defaults shared policy navigation to the Motor underwrite line', () => {
     expect(legacyPolicyTransactionScope.paths.policyDetail('p1')).toBe(
-      '/underwrite/motor/policies/p1',
+      '/apps/underwrite/motor/policies/p1',
     );
   });
 
   it('reads the line from static routes that have no :line param', () => {
-    expect(underwriteSlugFromPath('/underwrite/fleet/policies/p1')).toBe(
+    expect(underwriteSlugFromPath('/apps/underwrite/fleet/policies/p1')).toBe(
       'fleet',
     );
-    expect(underwriteSlugFromPath('/underwrite/motor/policies/p1')).toBe(
+    expect(underwriteSlugFromPath('/apps/underwrite/motor/policies/p1')).toBe(
       'motor',
     );
   });

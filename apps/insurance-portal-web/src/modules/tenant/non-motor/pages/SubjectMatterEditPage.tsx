@@ -33,7 +33,7 @@ export function SubjectMatterEditPage() {
         <p className="font-medium">Subject matter not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/underwrite/non-motor/risks')}
+          onClick={() => navigate('/apps/underwrite/non-motor/risks')}
         >
           Back to Subject Matters
         </Button>
@@ -48,9 +48,7 @@ export function SubjectMatterEditPage() {
           variant="ghost"
           size="icon"
           onClick={() =>
-            navigate(
-              `/underwrite/non-motor/risks/${subjectMatter.id}`,
-            )
+            navigate(`/apps/underwrite/non-motor/risks/${subjectMatter.id}`)
           }
         >
           <ArrowLeft className="h-4 w-4" />
@@ -69,9 +67,7 @@ export function SubjectMatterEditPage() {
         onSubmit={(values) =>
           updateMutation.mutate(values, {
             onSuccess: () =>
-              navigate(
-                `/underwrite/non-motor/risks/${subjectMatter.id}`,
-              ),
+              navigate(`/apps/underwrite/non-motor/risks/${subjectMatter.id}`),
           })
         }
       />

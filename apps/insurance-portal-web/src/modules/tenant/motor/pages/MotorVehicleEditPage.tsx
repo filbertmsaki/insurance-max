@@ -33,7 +33,7 @@ export function MotorVehicleEditPage() {
         <p className="font-medium">Vehicle not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/underwrite/motor/vehicles')}
+          onClick={() => navigate('/apps/underwrite/motor/vehicles')}
         >
           Back to Vehicles
         </Button>
@@ -47,7 +47,9 @@ export function MotorVehicleEditPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(`/underwrite/motor/vehicles/${vehicle.id}`)}
+          onClick={() =>
+            navigate(`/apps/underwrite/motor/vehicles/${vehicle.id}`)
+          }
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -65,7 +67,7 @@ export function MotorVehicleEditPage() {
         onSubmit={(values) =>
           updateMutation.mutate(values, {
             onSuccess: () =>
-              navigate(`/underwrite/motor/vehicles/${vehicle.id}`),
+              navigate(`/apps/underwrite/motor/vehicles/${vehicle.id}`),
           })
         }
       />

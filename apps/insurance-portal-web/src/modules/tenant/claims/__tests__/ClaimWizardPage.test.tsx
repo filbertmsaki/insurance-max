@@ -56,13 +56,16 @@ function renderWizard() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/claims/new']}>
+      <MemoryRouter initialEntries={['/apps/claims/new']}>
         <PageFooterProvider>
           {(footer) => (
             <>
               <Routes>
-                <Route path="/claims/new" element={<ClaimWizardPage />} />
-                <Route path="/claims/:id" element={<p>Claim detail page</p>} />
+                <Route path="/apps/claims/new" element={<ClaimWizardPage />} />
+                <Route
+                  path="/apps/claims/:id"
+                  element={<p>Claim detail page</p>}
+                />
               </Routes>
               <footer data-testid="footer">{footer}</footer>
             </>

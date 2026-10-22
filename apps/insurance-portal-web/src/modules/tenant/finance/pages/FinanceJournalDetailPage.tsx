@@ -24,7 +24,10 @@ export function FinanceJournalDetailPage() {
     return (
       <div className="py-24 text-center text-sm text-slate-500">
         <p className="font-medium">Finance journal not found</p>
-        <Button variant="link" onClick={() => navigate('/finance/journals')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/apps/finance/journals')}
+        >
           Back to journals
         </Button>
       </div>
@@ -37,7 +40,7 @@ export function FinanceJournalDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/finance/journals')}
+          onClick={() => navigate('/apps/finance/journals')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

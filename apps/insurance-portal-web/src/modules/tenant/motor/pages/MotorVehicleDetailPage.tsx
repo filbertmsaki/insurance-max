@@ -65,7 +65,7 @@ export function MotorVehicleDetailPage() {
         <p className="font-medium">Vehicle not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/underwrite/motor/vehicles')}
+          onClick={() => navigate('/apps/underwrite/motor/vehicles')}
         >
           Back to Vehicles
         </Button>
@@ -80,7 +80,7 @@ export function MotorVehicleDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/underwrite/motor/vehicles')}
+            onClick={() => navigate('/apps/underwrite/motor/vehicles')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -103,7 +103,7 @@ export function MotorVehicleDetailPage() {
             variant="outline"
             size="sm"
             onClick={() =>
-              navigate(`/underwrite/motor/vehicles/${vehicle.id}/edit`)
+              navigate(`/apps/underwrite/motor/vehicles/${vehicle.id}/edit`)
             }
           >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
@@ -337,7 +337,7 @@ export function MotorVehicleDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() =>
           deleteMutation.mutate(vehicle.id, {
-            onSuccess: () => navigate('/underwrite/motor/vehicles'),
+            onSuccess: () => navigate('/apps/underwrite/motor/vehicles'),
           })
         }
       />

@@ -90,14 +90,16 @@ export function MotorFleetsPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(`/underwrite/fleet/fleets/${row.id}`)}
+            onClick={() => navigate(`/apps/underwrite/fleet/fleets/${row.id}`)}
           >
             <Eye className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(`/underwrite/fleet/fleets/${row.id}/edit`)}
+            onClick={() =>
+              navigate(`/apps/underwrite/fleet/fleets/${row.id}/edit`)
+            }
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -119,7 +121,7 @@ export function MotorFleetsPage() {
         title="Motor Fleets"
         description="Manage fleet records for grouped vehicle underwriting"
         action={
-          <Button onClick={() => navigate('/underwrite/fleet/fleets/new')}>
+          <Button onClick={() => navigate('/apps/underwrite/fleet/fleets/new')}>
             <Plus className="mr-2 h-4 w-4" />
             Create Fleet
           </Button>

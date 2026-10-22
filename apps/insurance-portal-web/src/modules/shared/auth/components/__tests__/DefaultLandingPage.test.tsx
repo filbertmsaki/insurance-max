@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { legacyAppRedirect } from '@/modules/shared/auth/app-paths';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 import { DefaultLandingPage } from '../DefaultLandingPage';
@@ -11,13 +12,13 @@ function renderWithRoutes() {
     <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route path="/" element={<DefaultLandingPage />} />
-        <Route path="/dashboard" element={<div>internal-dashboard</div>} />
+        <Route path="/apps/dashboard" element={<div>internal-dashboard</div>} />
         <Route
-          path="/customer/dashboard"
+          path="/apps/customer/dashboard"
           element={<div>customer-dashboard</div>}
         />
         <Route
-          path="/intermediary/dashboard"
+          path="/apps/intermediary/dashboard"
           element={<div>intermediary-dashboard</div>}
         />
       </Routes>
@@ -108,5 +109,32 @@ describe('DefaultLandingPage', () => {
     renderWithRoutes();
 
     expect(await screen.findByText('internal-dashboard')).toBeInTheDocument();
+  });
+
+  it('forwards pre-/apps links to their /apps location', async () => {
+    function Probe() {
+      const { pathname, search } = useLocation();
+      return <div>{`at ${pathname}${search}`}</div>;
+    }
+    render(
+      <MemoryRouter initialEntries={['/claims/claim-1?tab=documents']}>
+        <Routes>
+          <Route path="/apps/*" element={<Probe />} />
+          <Route path="*" element={<DefaultLandingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText('at /apps/claims/claim-1?tab=documents'),
+    ).toBeInTheDocument();
+  });
+
+  it('does not treat public paths as legacy app links', () => {
+    expect(legacyAppRedirect('/claim-help')).toBeNull();
+    expect(legacyAppRedirect('/unknown-page')).toBeNull();
+    expect(legacyAppRedirect('/finance/payments')).toBe(
+      '/apps/finance/payments',
+    );
   });
 });

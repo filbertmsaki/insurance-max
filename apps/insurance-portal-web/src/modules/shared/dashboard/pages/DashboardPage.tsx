@@ -212,7 +212,7 @@ function normalizeDashboardTab(value?: string): DashboardSectionId | null {
 }
 
 function getDashboardPath(tab: DashboardSectionId) {
-  return tab === 'overview' ? '/dashboard' : `/dashboard/${tab}`;
+  return tab === 'overview' ? '/apps/dashboard' : `/apps/dashboard/${tab}`;
 }
 
 function buildTabList(capabilities?: DashboardCapabilitiesResponse) {
@@ -1829,41 +1829,40 @@ function PlatformDashboardPage() {
   const trustedDevices =
     devices?.filter((device) => device.trusted).length ?? 0;
   const activeClients =
-    apiClients?.filter((client) => client.status === 'active').length ??
-    0;
+    apiClients?.filter((client) => client.status === 'active').length ?? 0;
 
   const platformActions: ShortcutAction[] = [
     {
       key: 'companies',
       title: 'Companies',
       description: 'Manage onboarded companies and inspect tenant setup.',
-      to: '/companies',
+      to: '/apps/companies',
       badge: `${formatCount(companies?.length, numberFormatSettings)} companies`,
     },
     {
       key: 'api-clients',
       title: 'API clients',
       description: 'Audit active integration credentials and their usage.',
-      to: '/api-clients',
+      to: '/apps/api-clients',
       badge: `${formatCount(activeClients, numberFormatSettings)} active`,
     },
     {
       key: 'reference-data',
       title: 'Reference data',
       description: 'Maintain countries, currencies, and shared reference sets.',
-      to: '/reference-data',
+      to: '/apps/reference-data',
     },
     {
       key: 'permissions',
       title: 'Roles and permissions',
       description: 'Review access grants, roles, and permission assignments.',
-      to: '/permissions',
+      to: '/apps/permissions',
     },
     {
       key: 'reports',
       title: 'Reports',
       description: 'Open the reporting workbench for platform-wide reporting.',
-      to: '/reports',
+      to: '/apps/reports',
     },
   ];
 
@@ -2095,7 +2094,7 @@ export function DashboardPage() {
         description:
           'Review invoice and receipt performance in the finance workspace.',
         tab: 'finance',
-        to: '/finance/dashboard',
+        to: '/apps/finance/dashboard',
       });
     }
 
@@ -2106,7 +2105,7 @@ export function DashboardPage() {
         description:
           'Monitor commission exposure and open the commission accrual register.',
         tab: 'commissions',
-        to: '/finance/commission-accruals',
+        to: '/apps/finance/commission-accruals',
       });
     }
 
@@ -2117,7 +2116,7 @@ export function DashboardPage() {
         description:
           'Open submission monitoring and investigate failed or retryable items.',
         tab: 'tiramis',
-        to: '/tiramis/dashboard',
+        to: '/apps/tiramis/dashboard',
       });
     }
 
@@ -2128,7 +2127,7 @@ export function DashboardPage() {
         description:
           'Review operational queues on the dashboard and open formal work items.',
         tab: 'tasks',
-        to: '/work-items',
+        to: '/apps/work-items',
       });
     }
 
@@ -2139,7 +2138,7 @@ export function DashboardPage() {
         description:
           'Open treaty and cession monitoring plus the reinsurance workbench.',
         tab: 'reinsurance',
-        to: '/reinsurance',
+        to: '/apps/reinsurance',
       });
     }
 
@@ -2152,8 +2151,8 @@ export function DashboardPage() {
 
     const canonicalPath = getDashboardPath(resolvedActiveTab);
     const currentPath = routeTabParam
-      ? `/dashboard/${routeTabParam}`
-      : '/dashboard';
+      ? `/apps/dashboard/${routeTabParam}`
+      : '/apps/dashboard';
 
     if (currentPath !== canonicalPath) {
       navigate(canonicalPath, { replace: true });

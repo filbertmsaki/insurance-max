@@ -61,7 +61,7 @@ export function PasswordlessPage() {
       setSession(tokens);
       setErrorMessage(null);
       toast.success('Signed in!');
-      navigate('/dashboard');
+      navigate('/apps/dashboard');
     },
     onError: (error) => {
       setErrorMessage(getApiErrorMessage(error));
@@ -142,7 +142,9 @@ export function PasswordlessPage() {
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Passwordless sign in</CardTitle>
+            <CardTitle role="heading" aria-level={1}>
+              Passwordless sign in
+            </CardTitle>
             <CardDescription>
               Receive a magic link in your email to sign in instantly
             </CardDescription>

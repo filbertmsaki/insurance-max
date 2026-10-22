@@ -260,7 +260,11 @@ export function UserDetailPage() {
     <div>
       {/* ── Header ── */}
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/users')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/apps/users')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-semibold text-slate-900">{fullName}</h1>

@@ -56,7 +56,7 @@ const columns: Column<WorkItemRecord>[] = [
     cell: (item) => (
       <>
         <Link
-          to={`/work-items/${item.id}`}
+          to={`/apps/work-items/${item.id}`}
           className="font-medium text-slate-900 hover:text-blue-700"
         >
           {item.work_item_no ?? item.title}

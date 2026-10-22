@@ -51,7 +51,9 @@ export function FinanceCommissionPaymentsPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/finance/commission-payments/${row.id}`)}
+          onClick={() =>
+            navigate(`/apps/finance/commission-payments/${row.id}`)
+          }
         >
           Open
         </Button>

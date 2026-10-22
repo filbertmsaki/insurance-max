@@ -712,7 +712,7 @@ export function PortalBuyCoverPage() {
     },
     onSuccess: () => {
       toast.success('Cover submitted to TIRAMIS.');
-      navigate('/customer/quotations');
+      navigate('/apps/customer/quotations');
     },
     onError: (error) => {
       toast.error(

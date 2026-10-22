@@ -637,7 +637,7 @@ export function CompanyDetailPage() {
       <div className="text-center py-24 text-slate-500">
         <Building2 className="h-12 w-12 mx-auto mb-3 text-slate-300" />
         <p className="font-medium">Company not found</p>
-        <Button variant="link" onClick={() => navigate('/companies')}>
+        <Button variant="link" onClick={() => navigate('/apps/companies')}>
           Back to Companies
         </Button>
       </div>
@@ -662,7 +662,7 @@ export function CompanyDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/companies')}
+            onClick={() => navigate('/apps/companies')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -979,7 +979,7 @@ export function CompanyDetailPage() {
         confirmLabel="Delete Company"
         onConfirm={() =>
           deleteMutation.mutate(company.id, {
-            onSuccess: () => navigate('/companies'),
+            onSuccess: () => navigate('/apps/companies'),
           })
         }
         loading={deleteMutation.isPending}

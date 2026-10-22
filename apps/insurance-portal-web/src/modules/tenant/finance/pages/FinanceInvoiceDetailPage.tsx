@@ -178,7 +178,10 @@ export function FinanceInvoiceDetailPage() {
     return (
       <div className="py-24 text-center text-sm text-slate-500">
         <p className="font-medium">Invoice not found</p>
-        <Button variant="link" onClick={() => navigate('/finance/invoices')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/apps/finance/invoices')}
+        >
           Back to invoices
         </Button>
       </div>
@@ -199,7 +202,7 @@ export function FinanceInvoiceDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/finance/invoices')}
+          onClick={() => navigate('/apps/finance/invoices')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -264,7 +267,9 @@ export function FinanceInvoiceDetailPage() {
         ) : null}
         {invoice.quotation_id ? (
           <Button variant="outline" asChild>
-            <Link to={`/underwrite/motor/quotations/${invoice.quotation_id}`}>
+            <Link
+              to={`/apps/underwrite/motor/quotations/${invoice.quotation_id}`}
+            >
               Open Quotation Payment
             </Link>
           </Button>

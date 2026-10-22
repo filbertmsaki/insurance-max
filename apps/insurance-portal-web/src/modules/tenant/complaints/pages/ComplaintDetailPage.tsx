@@ -78,7 +78,7 @@ export function ComplaintDetailPage() {
         description={complaint.subject}
         action={
           <Button asChild variant="outline">
-            <Link to="/complaints">Back</Link>
+            <Link to="/apps/complaints">Back</Link>
           </Button>
         }
       />

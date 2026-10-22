@@ -84,7 +84,7 @@ export function FinanceCommissionPaymentDetailPage() {
         <p className="font-medium">Commission payment not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/finance/commission-payments')}
+          onClick={() => navigate('/apps/finance/commission-payments')}
         >
           Back to commission payments
         </Button>
@@ -98,7 +98,7 @@ export function FinanceCommissionPaymentDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/finance/commission-payments')}
+          onClick={() => navigate('/apps/finance/commission-payments')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

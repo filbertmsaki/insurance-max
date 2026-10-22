@@ -50,7 +50,7 @@ export function FinanceJournalsPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/finance/journals/${row.id}`)}
+          onClick={() => navigate(`/apps/finance/journals/${row.id}`)}
         >
           Open
         </Button>

@@ -50,7 +50,7 @@ export function TiramisDashboardPage() {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(`/tiramis/submissions/${row.id}`)}
+          onClick={() => navigate(`/apps/tiramis/submissions/${row.id}`)}
         >
           Open
         </Button>
@@ -66,7 +66,10 @@ export function TiramisDashboardPage() {
         title="TIRAMIS Dashboard"
         description="Monitor submissions, status distribution, and recent activity"
         action={
-          <Button variant="outline" onClick={() => navigate('/tiramis/health')}>
+          <Button
+            variant="outline"
+            onClick={() => navigate('/apps/tiramis/health')}
+          >
             Health
           </Button>
         }

@@ -72,7 +72,7 @@ export function LoginPage() {
           | undefined;
         const nextPath = from?.from?.pathname
           ? `${from.from.pathname}${from.from.search ?? ''}`
-          : '/dashboard';
+          : '/apps/dashboard';
         navigate(nextPath, { replace: true });
       }
     },
@@ -91,7 +91,9 @@ export function LoginPage() {
       <div className="w-full max-w-md">
         <Card>
           <CardHeader className="px-6 pb-2 pt-8 sm:px-8">
-            <CardTitle className="text-xl">Sign in</CardTitle>
+            <CardTitle role="heading" aria-level={1} className="text-xl">
+              Sign in
+            </CardTitle>
             <CardDescription>
               Enter your email and password to continue.
             </CardDescription>

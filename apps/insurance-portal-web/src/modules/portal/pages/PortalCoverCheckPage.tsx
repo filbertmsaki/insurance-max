@@ -148,7 +148,7 @@ export function PortalCoverCheckPage() {
                   </div>
                 </div>
                 <Button asChild variant="success" className="shrink-0">
-                  <Link to="/customer/buy-cover">Buy cover</Link>
+                  <Link to="/apps/customer/buy-cover">Buy cover</Link>
                 </Button>
               </div>
             ) : (

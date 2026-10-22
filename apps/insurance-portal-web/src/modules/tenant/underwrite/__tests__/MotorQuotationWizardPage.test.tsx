@@ -111,11 +111,11 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/underwrite/motor/quotations/new']}>
+      <MemoryRouter initialEntries={['/apps/underwrite/motor/quotations/new']}>
         <Routes>
           <Route element={<Layout />}>
             <Route
-              path="/underwrite/motor/quotations/new"
+              path="/apps/underwrite/motor/quotations/new"
               element={<MotorQuotationWizardPage />}
             />
           </Route>

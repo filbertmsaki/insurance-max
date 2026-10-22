@@ -3,10 +3,10 @@ import { NAV_NODES, type NavLeaf } from './nav-config';
 
 // Routes that are not in the sidebar but still deserve a friendly trail.
 const EXTRA_ROUTES: [string, string[]][] = [
-  ['/settings/profile', ['Settings', 'Profile']],
-  ['/customer', ['Customer Portal']],
+  ['/apps/settings/profile', ['Settings', 'Profile']],
+  ['/apps/customer', ['Customer Portal']],
   // Listed before nav entries so it wins over the bare "Dashboard" leaf.
-  ['/underwrite/dashboard', ['Underwrite', 'Dashboard']],
+  ['/apps/underwrite/dashboard', ['Underwrite', 'Dashboard']],
 ];
 
 interface RouteEntry {

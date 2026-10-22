@@ -50,7 +50,7 @@ export function FinanceRefundsPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/finance/refunds/${row.id}`)}
+          onClick={() => navigate(`/apps/finance/refunds/${row.id}`)}
         >
           Open
         </Button>

@@ -49,8 +49,8 @@ interface HeaderProps {
 export function Header({
   onToggleSidebar,
   onOpenCommand,
-  profilePath = '/settings/profile',
-  notificationsPath = '/notifications',
+  profilePath = '/apps/settings/profile',
+  notificationsPath = '/apps/notifications',
   hideSwitchers = false,
 }: HeaderProps) {
   const navigate = useNavigate();

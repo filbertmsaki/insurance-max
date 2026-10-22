@@ -1,11 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Eye } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
-import {
-  DataTable,
-  tableFilters,
-  type Column,
-} from '@/components/data-table';
+import { DataTable, tableFilters, type Column } from '@/components/data-table';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
 import { TiramisTextFilter } from '../components/TiramisTextFilter';
 import { useTenantSubmissionsTable } from '../hooks';
@@ -89,7 +85,7 @@ export function TiramisSubmissionsPage() {
           {
             label: 'View',
             icon: Eye,
-            onClick: (row) => navigate(`/tiramis/submissions/${row.id}`),
+            onClick: (row) => navigate(`/apps/tiramis/submissions/${row.id}`),
           },
         ]}
         emptyMessage="No TIRAMIS submissions yet"

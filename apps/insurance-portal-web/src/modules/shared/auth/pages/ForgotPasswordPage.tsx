@@ -68,7 +68,9 @@ export function ForgotPasswordPage() {
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Reset your password</CardTitle>
+            <CardTitle role="heading" aria-level={1}>
+              Reset your password
+            </CardTitle>
             <CardDescription>
               Enter your email and we'll send you a reset link
             </CardDescription>

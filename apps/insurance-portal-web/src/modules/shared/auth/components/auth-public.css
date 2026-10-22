@@ -1,53 +1,15 @@
-﻿.public-auth {
-  background: #f5f6f8;
+﻿/* Account pages inside the public shell. Uses the tokens from public.css. */
+.public-auth {
+  background: var(--md-surface-low);
 }
 .public-auth-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 90px;
-  align-items: start;
-  padding-block: 65px;
-}
-.public-auth-grid-login {
   grid-template-columns: minmax(0, 440px);
   justify-content: center;
-  align-items: center;
-  min-height: min(70vh, 680px);
-  padding-block: 48px;
+  padding-block: 48px 64px;
 }
-.public-auth-intro {
-  padding-block: 30px;
-}
-.public-auth-intro h1 {
-  line-height: 1.15;
-}
-.public-auth-intro > p {
-  max-width: 400px;
-  margin-top: 24px;
-  color: var(--muted);
-}
-.auth-benefit {
-  display: flex;
-  gap: 18px;
-  margin-top: 32px;
-}
-.auth-benefit > svg {
-  color: var(--green);
-  flex-shrink: 0;
-  margin-top: 3px;
-}
-.public-auth .auth-benefit h2 {
-  font-size: 17px;
-  letter-spacing: 0;
-}
-.auth-benefit p {
-  margin-top: 7px;
-  color: var(--muted);
-  font-size: 14px;
-  max-width: 350px;
-}
-.public-auth-intro > a {
-  margin-top: 35px;
+.public-auth-grid-wide {
+  grid-template-columns: minmax(0, 560px);
 }
 .public-auth .vz-auth {
   display: block;
@@ -66,64 +28,41 @@
 }
 .public-auth .vz-auth [data-slot='card'],
 .public-auth .vz-auth > div > .bg-white {
-  border: 1px solid #dce1e7;
-  border-top: 3px solid #405189;
-  border-radius: 3px;
-  box-shadow: none;
-  background: #fff;
+  border: 1px solid var(--md-outline-variant);
+  border-radius: var(--md-radius-md);
+  box-shadow: var(--md-elevation-1);
+  background: var(--md-surface);
 }
 .public-auth .vz-auth h1,
 .public-auth .vz-auth h2,
 .public-auth .vz-auth [data-slot='card-title'] {
-  font-size: 24px;
-  color: #24324a;
+  color: var(--md-on-surface);
+  font-size: 1.5rem;
   font-weight: 600;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
 }
 .public-auth .vz-auth button {
   min-height: 44px;
-  border-radius: 3px;
+  border-radius: var(--md-radius-full);
 }
 .public-auth .vz-auth input {
-  border-radius: 3px;
+  min-height: 44px;
+  border-radius: var(--md-radius-xs);
 }
 .public-auth .vz-auth label {
   margin-bottom: 0;
+  display: inline-block;
+  padding-bottom: 6px;
 }
 .public-auth .vz-auth form button[type='submit'] {
-  background: #405189;
-  color: #fff;
+  background: var(--md-primary);
+  color: var(--md-on-primary);
 }
 .public-auth .vz-auth form button[type='submit']:hover {
-  background: #30406f;
+  background: var(--md-primary-hover);
 }
-@media (max-width: 900px) {
+@media (max-width: 600px) {
   .public-auth-grid {
-    gap: 35px;
-    padding-block: 40px;
-  }
-}
-@media (max-width: 680px) {
-  .public-auth-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 30px;
-    padding-block: 30px 45px;
-  }
-  .public-auth-intro {
-    padding: 0;
-  }
-  .public-auth-intro h1 {
-    font-size: 32px;
-  }
-  .public-auth-intro h1 br {
-    display: none;
-  }
-  .public-auth-intro > p {
-    margin-top: 15px;
-    font-size: 14px;
-  }
-  .public-auth .public-auth-intro .auth-benefit,
-  .public-auth .public-auth-intro > a {
-    display: none;
+    padding-block: 24px 40px;
   }
 }

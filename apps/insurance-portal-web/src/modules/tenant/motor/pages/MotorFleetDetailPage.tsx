@@ -46,7 +46,7 @@ export function MotorFleetDetailPage() {
         <p className="font-medium">Fleet not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/underwrite/fleet/fleets')}
+          onClick={() => navigate('/apps/underwrite/fleet/fleets')}
         >
           Back to Fleets
         </Button>
@@ -61,7 +61,7 @@ export function MotorFleetDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/underwrite/fleet/fleets')}
+            onClick={() => navigate('/apps/underwrite/fleet/fleets')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -84,7 +84,7 @@ export function MotorFleetDetailPage() {
             variant="outline"
             size="sm"
             onClick={() =>
-              navigate(`/underwrite/fleet/fleets/${fleet.id}/edit`)
+              navigate(`/apps/underwrite/fleet/fleets/${fleet.id}/edit`)
             }
           >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
@@ -134,7 +134,7 @@ export function MotorFleetDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() =>
           deleteMutation.mutate(fleet.id, {
-            onSuccess: () => navigate('/underwrite/fleet/fleets'),
+            onSuccess: () => navigate('/apps/underwrite/fleet/fleets'),
           })
         }
       />

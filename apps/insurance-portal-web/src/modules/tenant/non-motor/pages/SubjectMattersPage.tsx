@@ -90,7 +90,9 @@ export function SubjectMattersPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate(`/underwrite/non-motor/risks/${row.id}`)}
+            onClick={() =>
+              navigate(`/apps/underwrite/non-motor/risks/${row.id}`)
+            }
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -98,7 +100,7 @@ export function SubjectMattersPage() {
             variant="ghost"
             size="icon"
             onClick={() =>
-              navigate(`/underwrite/non-motor/risks/${row.id}/edit`)
+              navigate(`/apps/underwrite/non-motor/risks/${row.id}/edit`)
             }
           >
             <Pencil className="h-4 w-4" />
@@ -121,7 +123,9 @@ export function SubjectMattersPage() {
         title="Subject Matters"
         description="Reference data for non-motor risks (Fire, Marine, Engineering, Liability, etc.)"
         action={
-          <Button onClick={() => navigate('/underwrite/non-motor/risks/new')}>
+          <Button
+            onClick={() => navigate('/apps/underwrite/non-motor/risks/new')}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Subject Matter
           </Button>

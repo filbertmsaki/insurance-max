@@ -35,7 +35,7 @@ function PaymentTransactions({ quotationId }: { quotationId: string }) {
         <div className="min-w-0 [overflow-wrap:anywhere]">
           <Link
             className="font-medium text-blue-700 hover:underline"
-            to={`/finance/payments/${row.id}`}
+            to={`/apps/finance/payments/${row.id}`}
           >
             {row.transaction_no ?? row.id}
           </Link>

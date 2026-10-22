@@ -24,8 +24,8 @@ export const underwriteKeys = {
 };
 
 /**
- * The line addressed by the current `/underwrite/<line>/...` route. Static
- * routes such as `/underwrite/fleet/policies/:id` have no `:line` param, so
+ * The line addressed by the current `/apps/underwrite/<line>/...` route. Static
+ * routes such as `/apps/underwrite/fleet/policies/:id` have no `:line` param, so
  * fall back to the path segment.
  */
 export function useUnderwriteLineParam(): UnderwriteLineMeta | null {
@@ -35,7 +35,7 @@ export function useUnderwriteLineParam(): UnderwriteLineMeta | null {
 }
 
 export function underwriteSlugFromPath(pathname: string): string | undefined {
-  return /^\/underwrite\/([^/]+)/.exec(pathname)?.[1];
+  return /^\/apps\/underwrite\/([^/]+)/.exec(pathname)?.[1];
 }
 
 export function useUnderwriteOverview() {

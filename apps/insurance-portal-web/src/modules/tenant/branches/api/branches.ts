@@ -86,7 +86,7 @@ export const branchesApi = {
    */
   listBranches: (params: Record<string, unknown>, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<Branch>>('/branches', { params, signal })
+      .get<PaginatedResponse<Branch>>('/apps/branches', { params, signal })
       .then((r) => r.data),
 
   /**
@@ -94,56 +94,60 @@ export const branchesApi = {
    * selectors/dropdowns (legacy unpaged response).
    */
   getAllBranches: () =>
-    apiClient.get<{ data: Branch[] }>('/branches').then((r) => r.data.data),
+    apiClient
+      .get<{ data: Branch[] }>('/apps/branches')
+      .then((r) => r.data.data),
 
   /** POST /branches — create a new branch (requires branches:create) */
   createBranch: (data: CreateBranchDto) =>
-    apiClient.post<Branch>('/branches', data).then((r) => r.data),
+    apiClient.post<Branch>('/apps/branches', data).then((r) => r.data),
 
   /** GET /branches/:id — get single branch (requires branches:read) */
   getBranchById: (id: string) =>
-    apiClient.get<Branch>(`/branches/${id}`).then((r) => r.data),
+    apiClient.get<Branch>(`/apps/branches/${id}`).then((r) => r.data),
 
   /** PATCH /branches/:id — update branch (requires branches:update) */
   updateBranch: (id: string, data: UpdateBranchDto) =>
-    apiClient.patch<Branch>(`/branches/${id}`, data).then((r) => r.data),
+    apiClient.patch<Branch>(`/apps/branches/${id}`, data).then((r) => r.data),
 
   /** PATCH /branches/:id/status — toggle active/inactive (requires branches:update) */
   setBranchStatus: (id: string, status: 'active' | 'inactive') =>
     apiClient
-      .patch<Branch>(`/branches/${id}/status`, { status })
+      .patch<Branch>(`/apps/branches/${id}/status`, { status })
       .then((r) => r.data),
 
   /** DELETE /branches/:id — soft-delete branch (requires branches:delete) */
   deleteBranch: (id: string) =>
-    apiClient.delete(`/branches/${id}`).then((r) => r.data),
+    apiClient.delete(`/apps/branches/${id}`).then((r) => r.data),
 
   /** GET /branches/:id/users — list users assigned to branch */
   getBranchUsers: (branchId: string) =>
     apiClient
-      .get<BranchUserAssignment[]>(`/branches/${branchId}/users`)
+      .get<BranchUserAssignment[]>(`/apps/branches/${branchId}/users`)
       .then((r) => r.data),
   getEligibleBranchUsers: (branchId: string, search?: string) =>
     apiClient
       .get<
         EligibleBranchUser[]
-      >(`/branches/${branchId}/eligible-users`, { params: search ? { search } : undefined })
+      >(`/apps/branches/${branchId}/eligible-users`, { params: search ? { search } : undefined })
       .then((r) => r.data),
   getUserBranches: (companyUserId: string) =>
     apiClient
       .get<
         UserBranchAssignment[]
-      >(`/company-features/${companyUserId}/branches`)
+      >(`/apps/company-features/${companyUserId}/branches`)
       .then((r) => r.data),
 
   /** POST /branches/:id/users — assign a company user to branch */
   assignBranchUser: (branchId: string, data: AssignBranchUserDto) =>
-    apiClient.post(`/branches/${branchId}/users`, data).then((r) => r.data),
+    apiClient
+      .post(`/apps/branches/${branchId}/users`, data)
+      .then((r) => r.data),
 
   /** DELETE /branches/:id/users/:companyUserId — remove user from branch */
   removeBranchUser: (branchId: string, companyUserId: string) =>
     apiClient
-      .delete(`/branches/${branchId}/users/${companyUserId}`)
+      .delete(`/apps/branches/${branchId}/users/${companyUserId}`)
       .then((r) => r.data),
   removeBranchUsers: (
     branchId: string,
@@ -151,23 +155,25 @@ export const branchesApi = {
     replacement_branch_id?: string,
   ) =>
     apiClient
-      .delete(`/branches/${branchId}/users`, {
+      .delete(`/apps/branches/${branchId}/users`, {
         data: { company_user_ids, replacement_branch_id },
       })
       .then((r) => r.data),
   setUserActiveBranch: (companyUserId: string, branch_id: string) =>
     apiClient
-      .patch(`/branches/users/${companyUserId}/active-branch`, { branch_id })
+      .patch(`/apps/branches/users/${companyUserId}/active-branch`, {
+        branch_id,
+      })
       .then((r) => r.data),
   setMyActiveBranch: (branch_id: string) =>
     apiClient
-      .patch('/branches/me/active-branch', { branch_id })
+      .patch('/apps/branches/me/active-branch', { branch_id })
       .then((r) => r.data),
 
   /** GET /branches/:id/features — effective features (company defaults merged with branch overrides) */
   getBranchFeatures: (branchId: string) =>
     apiClient
-      .get<EffectiveBranchFeature[]>(`/branches/${branchId}/features`)
+      .get<EffectiveBranchFeature[]>(`/apps/branches/${branchId}/features`)
       .then((r) => r.data),
 
   /** PUT /branches/:id/features/:companyFeatureId — set branch-level override */
@@ -178,7 +184,7 @@ export const branchesApi = {
   ) =>
     apiClient
       .put<BranchFeature>(
-        `/branches/${branchId}/features/${companyFeatureId}`,
+        `/apps/branches/${branchId}/features/${companyFeatureId}`,
         { is_enabled },
       )
       .then((r) => r.data),
@@ -186,6 +192,6 @@ export const branchesApi = {
   /** DELETE /branches/:id/features/:companyFeatureId — remove override, revert to company default */
   removeBranchFeatureOverride: (branchId: string, companyFeatureId: string) =>
     apiClient
-      .delete(`/branches/${branchId}/features/${companyFeatureId}`)
+      .delete(`/apps/branches/${branchId}/features/${companyFeatureId}`)
       .then((r) => r.data),
 };

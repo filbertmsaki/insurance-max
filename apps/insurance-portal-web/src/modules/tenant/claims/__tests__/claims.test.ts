@@ -28,19 +28,19 @@ describe('claims navigation', () => {
       to: claimsPaths.dashboard,
     });
     expect(nodes.map((item) => ('to' in item ? item.to : undefined))).toEqual([
-      '/claims/dashboard',
-      '/claims',
-      '/analytics/metrics',
-      '/claims/new',
-      '/claims/queue/notification',
-      '/claims/queue/intimation',
-      '/claims/queue/assessment',
-      '/claims/queue/discharge',
-      '/claims/queue/payment',
-      '/claims/queue/rejection',
-      '/claims/documents',
-      '/claims/reports',
-      '/claims/configuration',
+      '/apps/claims/dashboard',
+      '/apps/claims',
+      '/apps/analytics/metrics',
+      '/apps/claims/new',
+      '/apps/claims/queue/notification',
+      '/apps/claims/queue/intimation',
+      '/apps/claims/queue/assessment',
+      '/apps/claims/queue/discharge',
+      '/apps/claims/queue/payment',
+      '/apps/claims/queue/rejection',
+      '/apps/claims/documents',
+      '/apps/claims/reports',
+      '/apps/claims/configuration',
     ]);
   });
 

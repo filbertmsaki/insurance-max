@@ -166,7 +166,9 @@ export function RegisterPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Create an account</CardTitle>
+            <CardTitle role="heading" aria-level={1}>
+              Create an account
+            </CardTitle>
             <CardDescription>
               Sign up for customer self-service, or enter a company slug to join
               an existing insurer workspace

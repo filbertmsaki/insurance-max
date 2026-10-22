@@ -152,7 +152,8 @@ export function DepartmentsPage() {
     {
       label: 'View Details',
       icon: Building2,
-      onClick: (row: DepartmentRecord) => navigate(`/departments/${row.id}`),
+      onClick: (row: DepartmentRecord) =>
+        navigate(`/apps/departments/${row.id}`),
     },
     {
       label: 'Edit',

@@ -87,7 +87,7 @@ const nonMotorGate = (action: Parameters<typeof underwritePermission>[1]) =>
   underwritePermission(UnderwriteLine.NON_MOTOR, action);
 
 /**
- * Routes for `/underwrite/...`. Rendered inside the authenticated AppShell in
+ * Routes for `/apps/underwrite/...`. Rendered inside the authenticated AppShell in
  * App.tsx. Called as a function (not a component) because `<Routes>` only
  * accepts `<Route>` elements as children.
  */

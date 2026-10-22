@@ -240,7 +240,7 @@ export function IntermediaryQuotationFormPage() {
       await queryClient.invalidateQueries({
         queryKey: ['portal', 'intermediary', 'quotations'],
       });
-      navigate(`/intermediary/quotations/${quotation.id}`);
+      navigate(`/apps/intermediary/quotations/${quotation.id}`);
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
@@ -252,7 +252,7 @@ export function IntermediaryQuotationFormPage() {
       await queryClient.invalidateQueries({
         queryKey: ['portal', 'intermediary', 'quotations'],
       });
-      navigate('/intermediary/quotations');
+      navigate('/apps/intermediary/quotations');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
@@ -321,7 +321,7 @@ export function IntermediaryQuotationFormPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon">
-            <Link to="/intermediary/quotations">
+            <Link to="/apps/intermediary/quotations">
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -666,7 +666,7 @@ export function IntermediaryQuotationFormPage() {
 
         <div className="flex justify-end gap-2">
           <Button asChild type="button" variant="outline">
-            <Link to="/intermediary/quotations">Cancel</Link>
+            <Link to="/apps/intermediary/quotations">Cancel</Link>
           </Button>
           <Button
             type="submit"

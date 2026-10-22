@@ -134,7 +134,7 @@ export function PortalRequestReviewDetailPage() {
   return (
     <div className="space-y-6">
       <Button asChild variant="ghost" size="sm" className="-ml-2">
-        <Link to="/portal-requests">
+        <Link to="/apps/portal-requests">
           <ArrowLeft className="h-4 w-4" />
           Back
         </Link>

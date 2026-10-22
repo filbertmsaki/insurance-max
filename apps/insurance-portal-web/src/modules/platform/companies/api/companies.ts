@@ -111,75 +111,77 @@ export interface CompaniesListParams {
 export const companiesApi = {
   /** GET /companies — Owner only: list all companies */
   getCompanies: () =>
-    apiClient.get<Company[]>('/companies').then((r) => r.data),
+    apiClient.get<Company[]>('/apps/companies').then((r) => r.data),
 
   /** GET /companies?page=… — Owner only: server-side paginated list */
   listCompanies: (params: CompaniesListParams, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<Company>>('/companies', { params, signal })
+      .get<PaginatedResponse<Company>>('/apps/companies', { params, signal })
       .then((r) => r.data),
 
   /** POST /companies — Owner only: create company + admin */
   createCompany: (data: CreateCompanyDto) =>
-    apiClient.post<Company>('/companies', data).then((r) => r.data),
+    apiClient.post<Company>('/apps/companies', data).then((r) => r.data),
 
   /** GET /companies/my — Company-scoped users: get own company */
   getMyCompany: () =>
-    apiClient.get<Company>('/companies/my').then((r) => r.data),
+    apiClient.get<Company>('/apps/companies/my').then((r) => r.data),
 
   getMyCompanyDataAccess: () =>
     apiClient
-      .get<CompanyDataAccessMember[]>('/companies/my/data-access')
+      .get<CompanyDataAccessMember[]>('/apps/companies/my/data-access')
       .then((r) => r.data),
 
   updateMemberBranchReadAccess: (userId: string, branchId: string | null) =>
     apiClient
       .patch<
         CompanyDataAccessMember[]
-      >(`/companies/my/users/${userId}/data-access`, { branch_id: branchId })
+      >(`/apps/companies/my/users/${userId}/data-access`, { branch_id: branchId })
       .then((r) => r.data),
 
   /** PATCH /companies/my — Company-scoped users: update own company */
   updateMyCompany: (data: UpdateCompanyDto) =>
-    apiClient.patch<Company>('/companies/my', data).then((r) => r.data),
+    apiClient.patch<Company>('/apps/companies/my', data).then((r) => r.data),
 
   getMyNumberFormat: () =>
     apiClient
-      .get<NumberFormatSettings>('/companies/my/number-format')
+      .get<NumberFormatSettings>('/apps/companies/my/number-format')
       .then((r) => r.data),
 
   updateMyNumberFormat: (data: UpdateNumberFormatSettingsDto) =>
     apiClient
-      .patch<NumberFormatSettings>('/companies/my/number-format', data)
+      .patch<NumberFormatSettings>('/apps/companies/my/number-format', data)
       .then((r) => r.data),
 
   /** GET /companies/:id — Owner only */
   getCompanyById: (id: string) =>
-    apiClient.get<Company>(`/companies/${id}`).then((r) => r.data),
+    apiClient.get<Company>(`/apps/companies/${id}`).then((r) => r.data),
 
   /** GET /companies/:id/users — Owner only */
   getCompanyUsers: (id: string, params?: { page?: number; limit?: number }) =>
     apiClient
-      .get<PaginatedResponse<CompanyUser>>(`/companies/${id}/users`, { params })
+      .get<
+        PaginatedResponse<CompanyUser>
+      >(`/apps/companies/${id}/users`, { params })
       .then((r) => r.data),
 
   /** PATCH /companies/:id/primary-user — Owner only */
   setPrimaryUser: (id: string, user_id: string) =>
     apiClient
-      .patch(`/companies/${id}/primary-user`, { user_id })
+      .patch(`/apps/companies/${id}/primary-user`, { user_id })
       .then((r) => r.data),
 
   /** PATCH /companies/:id — Owner only */
   updateCompany: (id: string, data: UpdateCompanyDto) =>
-    apiClient.patch<Company>(`/companies/${id}`, data).then((r) => r.data),
+    apiClient.patch<Company>(`/apps/companies/${id}`, data).then((r) => r.data),
 
   /** PATCH /companies/:id/status — Owner only */
   setCompanyStatus: (id: string, status: 'active' | 'inactive') =>
     apiClient
-      .patch<Company>(`/companies/${id}/status`, { status })
+      .patch<Company>(`/apps/companies/${id}/status`, { status })
       .then((r) => r.data),
 
   /** DELETE /companies/:id — Owner only */
   deleteCompany: (id: string) =>
-    apiClient.delete(`/companies/${id}`).then((r) => r.data),
+    apiClient.delete(`/apps/companies/${id}`).then((r) => r.data),
 };

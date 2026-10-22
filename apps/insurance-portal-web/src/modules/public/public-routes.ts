@@ -1,11 +1,15 @@
+/** Entry point of the public motor insurance purchase journey. */
+export const BUY_INSURANCE_PATH = '/buy-cover';
+
 const publicPaths = new Set([
   '/',
   '/insurance',
   '/about',
   '/contact',
-  '/claims',
+  '/claim-help',
   '/faq',
   '/buy-cover',
+  '/buy-insurance',
   '/motor-insurance',
   '/login',
   '/register',

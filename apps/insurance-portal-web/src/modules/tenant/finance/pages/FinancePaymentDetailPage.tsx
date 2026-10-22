@@ -57,7 +57,10 @@ export function FinancePaymentDetailPage() {
     return (
       <div className="py-24 text-center text-sm text-slate-500">
         <p className="font-medium">Payment transaction not found</p>
-        <Button variant="link" onClick={() => navigate('/finance/payments')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/apps/finance/payments')}
+        >
           Back to payments
         </Button>
       </div>
@@ -70,7 +73,7 @@ export function FinancePaymentDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/finance/payments')}
+          onClick={() => navigate('/apps/finance/payments')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -92,7 +95,9 @@ export function FinancePaymentDetailPage() {
         {payment.receipt_id ? (
           <Button
             variant="outline"
-            onClick={() => navigate(`/finance/receipts/${payment.receipt_id}`)}
+            onClick={() =>
+              navigate(`/apps/finance/receipts/${payment.receipt_id}`)
+            }
           >
             Open Receipt
           </Button>
@@ -100,7 +105,9 @@ export function FinancePaymentDetailPage() {
         {payment.invoice_id ? (
           <Button
             variant="outline"
-            onClick={() => navigate(`/finance/invoices/${payment.invoice_id}`)}
+            onClick={() =>
+              navigate(`/apps/finance/invoices/${payment.invoice_id}`)
+            }
           >
             Open Invoice
           </Button>

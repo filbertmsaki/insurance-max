@@ -4,63 +4,69 @@ type LineSegment = UnderwriteLineSlug | ':line';
 
 /** Route paths for the Underwrite module. */
 export const underwritePaths = {
-  root: '/underwrite',
-  dashboard: '/underwrite/dashboard',
-  line: (line: LineSegment) => `/underwrite/${line}`,
-  lineDashboard: (line: LineSegment) => `/underwrite/${line}/dashboard`,
-  quotations: (line: LineSegment) => `/underwrite/${line}/quotations`,
-  quotationCreate: (line: LineSegment) => `/underwrite/${line}/quotations/new`,
+  root: '/apps/underwrite',
+  dashboard: '/apps/underwrite/dashboard',
+  line: (line: LineSegment) => `/apps/underwrite/${line}`,
+  lineDashboard: (line: LineSegment) => `/apps/underwrite/${line}/dashboard`,
+  quotations: (line: LineSegment) => `/apps/underwrite/${line}/quotations`,
+  quotationCreate: (line: LineSegment) =>
+    `/apps/underwrite/${line}/quotations/new`,
   quotationDetail: (line: LineSegment, id: string) =>
-    `/underwrite/${line}/quotations/${id}`,
+    `/apps/underwrite/${line}/quotations/${id}`,
   quotationEdit: (line: LineSegment, id: string) =>
-    `/underwrite/${line}/quotations/${id}/edit`,
-  policies: (line: LineSegment) => `/underwrite/${line}/policies`,
+    `/apps/underwrite/${line}/quotations/${id}/edit`,
+  policies: (line: LineSegment) => `/apps/underwrite/${line}/policies`,
   policyDetail: (line: LineSegment, id: string) =>
-    `/underwrite/${line}/policies/${id}`,
+    `/apps/underwrite/${line}/policies/${id}`,
   policyEndorsementCreate: (line: LineSegment, policyId: string) =>
-    `/underwrite/${line}/policies/${policyId}/endorsements/new`,
+    `/apps/underwrite/${line}/policies/${policyId}/endorsements/new`,
   policyEndorsementEdit: (
     line: LineSegment,
     policyId: string,
     endorsementId: string,
-  ) => `/underwrite/${line}/policies/${policyId}/endorsements/${endorsementId}`,
+  ) =>
+    `/apps/underwrite/${line}/policies/${policyId}/endorsements/${endorsementId}`,
   policyCancellationCreate: (line: LineSegment, policyId: string) =>
-    `/underwrite/${line}/policies/${policyId}/cancellations/new`,
+    `/apps/underwrite/${line}/policies/${policyId}/cancellations/new`,
   policyCancellationDetail: (
     line: LineSegment,
     policyId: string,
     cancellationId: string,
   ) =>
-    `/underwrite/${line}/policies/${policyId}/cancellations/${cancellationId}`,
+    `/apps/underwrite/${line}/policies/${policyId}/cancellations/${cancellationId}`,
   policyRenewalDetail: (
     line: LineSegment,
     policyId: string,
     renewalId: string,
-  ) => `/underwrite/${line}/policies/${policyId}/renewals/${renewalId}`,
-  customers: (line: LineSegment) => `/underwrite/${line}/customers`,
-  customerCreate: (line: LineSegment) => `/underwrite/${line}/customers/new`,
+  ) => `/apps/underwrite/${line}/policies/${policyId}/renewals/${renewalId}`,
+  customers: (line: LineSegment) => `/apps/underwrite/${line}/customers`,
+  customerCreate: (line: LineSegment) =>
+    `/apps/underwrite/${line}/customers/new`,
   customerDetail: (line: LineSegment, id: string) =>
-    `/underwrite/${line}/customers/${id}`,
+    `/apps/underwrite/${line}/customers/${id}`,
   customerEdit: (line: LineSegment, id: string) =>
-    `/underwrite/${line}/customers/${id}/edit`,
-  renewals: (line: LineSegment) => `/underwrite/${line}/renewals`,
-  endorsements: (line: LineSegment) => `/underwrite/${line}/endorsements`,
-  cancellations: (line: LineSegment) => `/underwrite/${line}/cancellations`,
-  tiraFailed: (line: LineSegment) => `/underwrite/${line}/tira-failed`,
-  tiraPending: (line: LineSegment) => `/underwrite/${line}/tira-pending`,
-  motorVehicles: '/underwrite/motor/vehicles',
-  motorVehicleCreate: '/underwrite/motor/vehicles/new',
-  motorVehicleDetail: (id: string) => `/underwrite/motor/vehicles/${id}`,
-  motorVehicleEdit: (id: string) => `/underwrite/motor/vehicles/${id}/edit`,
-  fleetRegister: '/underwrite/fleet/fleets',
-  fleetCreate: '/underwrite/fleet/fleets/new',
-  fleetDetail: (id: string) => `/underwrite/fleet/fleets/${id}`,
-  fleetEdit: (id: string) => `/underwrite/fleet/fleets/${id}/edit`,
-  nonMotorRisks: '/underwrite/non-motor/risks',
-  nonMotorRiskCreate: '/underwrite/non-motor/risks/new',
-  nonMotorRiskDetail: (id: string) => `/underwrite/non-motor/risks/${id}`,
-  nonMotorRiskEdit: (id: string) => `/underwrite/non-motor/risks/${id}/edit`,
-  riskSchemas: '/underwrite/non-motor/risk-schemas',
+    `/apps/underwrite/${line}/customers/${id}/edit`,
+  renewals: (line: LineSegment) => `/apps/underwrite/${line}/renewals`,
+  endorsements: (line: LineSegment) => `/apps/underwrite/${line}/endorsements`,
+  cancellations: (line: LineSegment) =>
+    `/apps/underwrite/${line}/cancellations`,
+  tiraFailed: (line: LineSegment) => `/apps/underwrite/${line}/tira-failed`,
+  tiraPending: (line: LineSegment) => `/apps/underwrite/${line}/tira-pending`,
+  motorVehicles: '/apps/underwrite/motor/vehicles',
+  motorVehicleCreate: '/apps/underwrite/motor/vehicles/new',
+  motorVehicleDetail: (id: string) => `/apps/underwrite/motor/vehicles/${id}`,
+  motorVehicleEdit: (id: string) =>
+    `/apps/underwrite/motor/vehicles/${id}/edit`,
+  fleetRegister: '/apps/underwrite/fleet/fleets',
+  fleetCreate: '/apps/underwrite/fleet/fleets/new',
+  fleetDetail: (id: string) => `/apps/underwrite/fleet/fleets/${id}`,
+  fleetEdit: (id: string) => `/apps/underwrite/fleet/fleets/${id}/edit`,
+  nonMotorRisks: '/apps/underwrite/non-motor/risks',
+  nonMotorRiskCreate: '/apps/underwrite/non-motor/risks/new',
+  nonMotorRiskDetail: (id: string) => `/apps/underwrite/non-motor/risks/${id}`,
+  nonMotorRiskEdit: (id: string) =>
+    `/apps/underwrite/non-motor/risks/${id}/edit`,
+  riskSchemas: '/apps/underwrite/non-motor/risk-schemas',
 } as const;
 
 export const defaultUnderwriteLine = 'motor';
@@ -129,6 +135,6 @@ export const sharedUnderwritePaths = {
   nonMotorSubjectMatterCreate: underwritePaths.nonMotorRiskCreate,
   nonMotorSubjectMatterDetail: underwritePaths.nonMotorRiskDetail,
   nonMotorSubjectMatterEdit: underwritePaths.nonMotorRiskEdit,
-  submissions: '/tiramis/submissions',
-  submissionDetail: (id: string) => `/tiramis/submissions/${id}`,
+  submissions: '/apps/tiramis/submissions',
+  submissionDetail: (id: string) => `/apps/tiramis/submissions/${id}`,
 } as const;

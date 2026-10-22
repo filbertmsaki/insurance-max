@@ -22,9 +22,10 @@ import { Badge } from '@/components/ui/badge';
 const TEMPLATE_FILTER_KEYS = ['status'] as const;
 type TemplateFilterKey = (typeof TEMPLATE_FILTER_KEYS)[number];
 
-const TEMPLATE_STATUS_OPTIONS = ['DRAFT', 'ACTIVE', 'RETIRED'].map(
-  (value) => ({ label: value, value }),
-);
+const TEMPLATE_STATUS_OPTIONS = ['DRAFT', 'ACTIVE', 'RETIRED'].map((value) => ({
+  label: value,
+  value,
+}));
 
 const columns: Column<DocumentTemplateRecord>[] = [
   {
@@ -34,7 +35,7 @@ const columns: Column<DocumentTemplateRecord>[] = [
     cell: (template) => (
       <>
         <Link
-          to={`/document-templates/${template.id}`}
+          to={`/apps/document-templates/${template.id}`}
           className="font-medium text-slate-900 hover:text-blue-700"
         >
           {template.template_code}

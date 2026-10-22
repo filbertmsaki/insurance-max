@@ -35,7 +35,7 @@ const columns: Column<CommunicationThreadRecord>[] = [
     cell: (thread) => (
       <>
         <Link
-          to={`/communications/${thread.id}`}
+          to={`/apps/communications/${thread.id}`}
           className="font-medium text-slate-900 hover:text-blue-700"
         >
           {thread.thread_no}

@@ -15,7 +15,7 @@ export function ForbiddenPage() {
         </p>
 
         <Button asChild className="mt-6">
-          <Link to="/dashboard">Return to dashboard</Link>
+          <Link to="/apps/dashboard">Return to dashboard</Link>
         </Button>
       </div>
     </div>

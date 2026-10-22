@@ -1046,7 +1046,7 @@ export function BranchDetailPage() {
       <div className="text-center py-24 text-slate-500">
         <GitBranch className="h-12 w-12 mx-auto mb-3 text-slate-300" />
         <p className="font-medium">Branch not found</p>
-        <Button variant="link" onClick={() => navigate('/branches')}>
+        <Button variant="link" onClick={() => navigate('/apps/branches')}>
           Back to Branches
         </Button>
       </div>
@@ -1071,7 +1071,7 @@ export function BranchDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/branches')}
+            onClick={() => navigate('/apps/branches')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -1303,7 +1303,7 @@ export function BranchDetailPage() {
         confirmLabel="Delete Branch"
         onConfirm={() =>
           deleteMutation.mutate(branch.id, {
-            onSuccess: () => navigate('/branches'),
+            onSuccess: () => navigate('/apps/branches'),
           })
         }
         loading={deleteMutation.isPending}

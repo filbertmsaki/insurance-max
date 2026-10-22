@@ -76,7 +76,7 @@ export function ProtectedRoute({
   }
 
   if (hideForStandardUser && isStandardCompanyUser(user)) {
-    return <Navigate to="/forbidden" replace />;
+    return <Navigate to="/apps/forbidden" replace />;
   }
 
   const permissions = new Set(
@@ -140,7 +140,7 @@ export function ProtectedRoute({
         mergedAnyRoles.some((role) => roles.has(role)));
 
   if (!allowed) {
-    return <Navigate to="/forbidden" replace />;
+    return <Navigate to="/apps/forbidden" replace />;
   }
 
   return <Outlet />;

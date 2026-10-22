@@ -65,7 +65,7 @@ export function PhoneLoginPage() {
       setSession(tokens);
       setErrorMessage(null);
       toast.success('Signed in!');
-      navigate('/dashboard');
+      navigate('/apps/dashboard');
     },
     onError: (error) => {
       setErrorMessage(getApiErrorMessage(error));
@@ -84,7 +84,9 @@ export function PhoneLoginPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Sign in with phone</CardTitle>
+            <CardTitle role="heading" aria-level={1}>
+              Sign in with phone
+            </CardTitle>
             <CardDescription>
               {!otpId
                 ? 'Enter your Tanzanian phone number to receive an OTP'

@@ -457,7 +457,7 @@ export function BranchesListPage() {
     {
       label: 'View Details',
       icon: Eye,
-      onClick: (r: Branch) => navigate(`/branches/${r.id}`),
+      onClick: (r: Branch) => navigate(`/apps/branches/${r.id}`),
     },
     {
       label: 'Deactivate',

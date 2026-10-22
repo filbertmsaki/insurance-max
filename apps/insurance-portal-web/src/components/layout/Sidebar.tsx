@@ -108,7 +108,7 @@ function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
     return (
       <NavLink
         to={leaf.to}
-        end={leaf.to === '/dashboard'}
+        end={leaf.to === '/apps/dashboard'}
         className={cn(
           'relative flex items-center py-[7px] pl-[3.25rem] pr-5 text-[13px] transition-colors duration-150 outline-none',
           'before:absolute before:left-[2.1rem] before:top-1/2 before:h-px before:w-1.5 before:-translate-y-1/2 before:transition-all',
@@ -125,7 +125,7 @@ function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
   const inner = (
     <NavLink
       to={leaf.to}
-      end={leaf.to === '/dashboard'}
+      end={leaf.to === '/apps/dashboard'}
       className={cn(
         sidebarLinkClass(isActive),
         collapsed && 'mx-auto h-11 w-11 justify-center rounded-md px-0 py-0',

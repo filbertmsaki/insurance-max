@@ -80,7 +80,7 @@ export function FinanceInvoicesPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/finance/invoices/${row.id}`)}
+          onClick={() => navigate(`/apps/finance/invoices/${row.id}`)}
         >
           Open
         </Button>

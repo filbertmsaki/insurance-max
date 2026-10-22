@@ -174,7 +174,7 @@ export function ProductsPage() {
     createMutation.mutate(values, {
       onSuccess: (created) => {
         setCreateOpen(false);
-        navigate(`/product-engine/products/${created.id}`);
+        navigate(`/apps/product-engine/products/${created.id}`);
       },
     });
   }
@@ -214,7 +214,7 @@ export function ProductsPage() {
       cell: (row) => (
         <button
           className="font-mono text-xs font-medium text-primary hover:underline"
-          onClick={() => navigate(`/product-engine/products/${row.id}`)}
+          onClick={() => navigate(`/apps/product-engine/products/${row.id}`)}
         >
           {row.product_code}
         </button>
@@ -305,7 +305,9 @@ export function ProductsPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
-              onClick={() => navigate(`/product-engine/products/${row.id}`)}
+              onClick={() =>
+                navigate(`/apps/product-engine/products/${row.id}`)
+              }
             >
               <Eye className="mr-2 h-4 w-4" /> View / Versions
             </DropdownMenuItem>

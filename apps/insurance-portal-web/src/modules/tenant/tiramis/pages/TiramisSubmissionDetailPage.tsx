@@ -72,7 +72,10 @@ export function TiramisSubmissionDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Submission not found</p>
-        <Button variant="link" onClick={() => navigate('/tiramis/submissions')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/apps/tiramis/submissions')}
+        >
           Back to submissions
         </Button>
       </div>
@@ -87,7 +90,7 @@ export function TiramisSubmissionDetailPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate('/tiramis/submissions')}
+              onClick={() => navigate('/apps/tiramis/submissions')}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -143,7 +146,7 @@ export function TiramisSubmissionDetailPage() {
                           );
                           if (submissionDetailId) {
                             navigate(
-                              `/tiramis/submissions/${submissionDetailId}`,
+                              `/apps/tiramis/submissions/${submissionDetailId}`,
                             );
                           }
                         },
@@ -257,7 +260,7 @@ export function TiramisSubmissionDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/tiramis/submissions')}
+          onClick={() => navigate('/apps/tiramis/submissions')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

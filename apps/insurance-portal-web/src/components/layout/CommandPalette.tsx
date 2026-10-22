@@ -119,14 +119,16 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         <CommandGroup heading="Account">
           <CommandItem
-            onSelect={() => runAndClose(() => navigate('/settings/profile'))}
+            onSelect={() =>
+              runAndClose(() => navigate('/apps/settings/profile'))
+            }
           >
             <User className="mr-2 h-4 w-4 text-slate-500" />
             My Profile
           </CommandItem>
           <CommandItem
             onSelect={() =>
-              runAndClose(() => navigate('/settings/profile?tab=password'))
+              runAndClose(() => navigate('/apps/settings/profile?tab=password'))
             }
           >
             <KeyRound className="mr-2 h-4 w-4 text-slate-500" />

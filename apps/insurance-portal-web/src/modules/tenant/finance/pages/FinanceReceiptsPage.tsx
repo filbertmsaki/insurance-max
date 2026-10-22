@@ -71,7 +71,7 @@ export function FinanceReceiptsPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/finance/receipts/${row.id}`)}
+          onClick={() => navigate(`/apps/finance/receipts/${row.id}`)}
         >
           Open
         </Button>

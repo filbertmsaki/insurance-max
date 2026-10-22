@@ -5,7 +5,7 @@ import { buildUnderwriteTransactionScope } from '../transaction-scope';
 
 /**
  * Points the shared policy/transaction screens rendered inside it at the line
- * in the URL: line-scoped endpoints and `/underwrite/<line>/...` links.
+ * in the URL: line-scoped endpoints and `/apps/underwrite/<line>/...` links.
  */
 export function UnderwriteTransactionScope({
   children,

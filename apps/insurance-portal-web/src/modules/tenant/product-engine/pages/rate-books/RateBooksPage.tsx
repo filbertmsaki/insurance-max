@@ -160,7 +160,7 @@ export function RateBooksPage() {
       {
         onSuccess: (created) => {
           setDialogOpen(false);
-          navigate(`/product-engine/rate-books/${created.id}`);
+          navigate(`/apps/product-engine/rate-books/${created.id}`);
         },
       },
     );
@@ -262,7 +262,9 @@ export function RateBooksPage() {
         rowKey={(rb) => rb.id}
         searchPlaceholder="Search code, name, version or product"
         emptyMessage='No rate books yet. Click "New Rate Book" to create one.'
-        onRowClick={(rb) => navigate(`/product-engine/rate-books/${rb.id}`)}
+        onRowClick={(rb) =>
+          navigate(`/apps/product-engine/rate-books/${rb.id}`)
+        }
         filters={tableFilters(state.filters, [
           {
             key: 'product_id',
@@ -286,7 +288,8 @@ export function RateBooksPage() {
           {
             label: 'View',
             icon: Eye,
-            onClick: (rb) => navigate(`/product-engine/rate-books/${rb.id}`),
+            onClick: (rb) =>
+              navigate(`/apps/product-engine/rate-books/${rb.id}`),
           },
           {
             label: 'Clone',

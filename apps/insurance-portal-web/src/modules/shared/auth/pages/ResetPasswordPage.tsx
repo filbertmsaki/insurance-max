@@ -82,7 +82,9 @@ export function ResetPasswordPage() {
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Set new password</CardTitle>
+            <CardTitle role="heading" aria-level={1}>
+              Set new password
+            </CardTitle>
             <CardDescription>
               Choose a strong password for your account
             </CardDescription>

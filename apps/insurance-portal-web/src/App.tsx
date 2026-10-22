@@ -160,7 +160,7 @@ export default function App() {
           {/* 2FA (needs tempToken, no full auth) */}
           <Route path="/2fa" element={<TwoFactorPage />} />
         </Route>
-        <Route path="/forbidden" element={<ForbiddenPage />} />
+        <Route path="/apps/forbidden" element={<ForbiddenPage />} />
         <Route
           path="/documents/verify/:code"
           element={<PublicDocumentVerificationPage />}
@@ -172,7 +172,10 @@ export default function App() {
 
         {/* Authenticated routes */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/customer" element={<PortalShell audience="customer" />}>
+          <Route
+            path="/apps/customer"
+            element={<PortalShell audience="customer" />}
+          >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route
               path="dashboard"
@@ -331,7 +334,7 @@ export default function App() {
             }
           >
             <Route
-              path="/intermediary"
+              path="/apps/intermediary"
               element={<PortalShell audience="intermediary" />}
             >
               <Route index element={<Navigate to="dashboard" replace />} />
@@ -539,9 +542,9 @@ export default function App() {
           </Route>
 
           <Route element={<AppShell />}>
-            <Route path="/forbidden" element={<ForbiddenPage />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/dashboard/:tab" element={<DashboardPage />} />
+            <Route path="/apps/forbidden" element={<ForbiddenPage />} />
+            <Route path="/apps/dashboard" element={<DashboardPage />} />
+            <Route path="/apps/dashboard/:tab" element={<DashboardPage />} />
 
             {renderUnderwriteRoutes()}
             {renderClaimsRoutes()}
@@ -554,7 +557,7 @@ export default function App() {
               }
             >
               <Route
-                path="/analytics/metrics"
+                path="/apps/analytics/metrics"
                 element={<AnalyticsMetricsPage />}
               />
             </Route>
@@ -566,8 +569,11 @@ export default function App() {
                 />
               }
             >
-              <Route path="/documents" element={<DocumentsPage />} />
-              <Route path="/documents/:id" element={<DocumentDetailPage />} />
+              <Route path="/apps/documents" element={<DocumentsPage />} />
+              <Route
+                path="/apps/documents/:id"
+                element={<DocumentDetailPage />}
+              />
             </Route>
 
             <Route
@@ -576,11 +582,11 @@ export default function App() {
               }
             >
               <Route
-                path="/document-templates"
+                path="/apps/document-templates"
                 element={<DocumentTemplatesPage />}
               />
               <Route
-                path="/document-templates/:id"
+                path="/apps/document-templates/:id"
                 element={<DocumentTemplateDetailPage />}
               />
             </Route>
@@ -588,9 +594,12 @@ export default function App() {
             <Route
               element={<ProtectedRoute requiredPermission="signatures:read" />}
             >
-              <Route path="/signatures" element={<SignatureRequestsPage />} />
               <Route
-                path="/signatures/:id"
+                path="/apps/signatures"
+                element={<SignatureRequestsPage />}
+              />
+              <Route
+                path="/apps/signatures/:id"
                 element={<SignatureRequestDetailPage />}
               />
             </Route>
@@ -600,9 +609,12 @@ export default function App() {
                 <ProtectedRoute requiredPermission="notifications:read" />
               }
             >
-              <Route path="/notifications" element={<NotificationsPage />} />
               <Route
-                path="/notification-preferences"
+                path="/apps/notifications"
+                element={<NotificationsPage />}
+              />
+              <Route
+                path="/apps/notification-preferences"
                 element={<NotificationPreferencesPage />}
               />
             </Route>
@@ -612,9 +624,12 @@ export default function App() {
                 <ProtectedRoute requiredPermission="communications:read" />
               }
             >
-              <Route path="/communications" element={<CommunicationsPage />} />
               <Route
-                path="/communications/:id"
+                path="/apps/communications"
+                element={<CommunicationsPage />}
+              />
+              <Route
+                path="/apps/communications/:id"
                 element={<CommunicationDetailPage />}
               />
             </Route>
@@ -622,8 +637,11 @@ export default function App() {
             <Route
               element={<ProtectedRoute requiredPermission="work-items:read" />}
             >
-              <Route path="/work-items" element={<WorkItemsPage />} />
-              <Route path="/work-items/:id" element={<WorkItemDetailPage />} />
+              <Route path="/apps/work-items" element={<WorkItemsPage />} />
+              <Route
+                path="/apps/work-items/:id"
+                element={<WorkItemDetailPage />}
+              />
             </Route>
 
             <Route
@@ -638,11 +656,11 @@ export default function App() {
               }
             >
               <Route
-                path="/portal-requests"
+                path="/apps/portal-requests"
                 element={<PortalRequestsReviewPage />}
               />
               <Route
-                path="/portal-requests/:id"
+                path="/apps/portal-requests/:id"
                 element={<PortalRequestReviewDetailPage />}
               />
             </Route>
@@ -658,7 +676,7 @@ export default function App() {
               }
             >
               <Route
-                path="/portal-invitations"
+                path="/apps/portal-invitations"
                 element={<PortalInvitationsPage />}
               />
             </Route>
@@ -668,7 +686,10 @@ export default function App() {
                 <ProtectedRoute requiredPermission="security-policies:read" />
               }
             >
-              <Route path="/security-policy" element={<SecurityPolicyPage />} />
+              <Route
+                path="/apps/security-policy"
+                element={<SecurityPolicyPage />}
+              />
             </Route>
 
             <Route
@@ -684,7 +705,7 @@ export default function App() {
                 />
               }
             >
-              <Route path="/reports" element={<ReportsWorkbenchPage />} />
+              <Route path="/apps/reports" element={<ReportsWorkbenchPage />} />
             </Route>
 
             <Route
@@ -702,7 +723,10 @@ export default function App() {
                 />
               }
             >
-              <Route path="/regulatory" element={<RegulatoryWorkbenchPage />} />
+              <Route
+                path="/apps/regulatory"
+                element={<RegulatoryWorkbenchPage />}
+              />
             </Route>
 
             <Route
@@ -713,16 +737,19 @@ export default function App() {
                 />
               }
             >
-              <Route path="/users" element={<UsersListPage />} />
-              <Route path="/users/:id" element={<UserDetailPage />} />
+              <Route path="/apps/users" element={<UsersListPage />} />
+              <Route path="/apps/users/:id" element={<UserDetailPage />} />
             </Route>
 
             {/* Owner-only: manage all companies */}
             <Route
               element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
             >
-              <Route path="/companies" element={<CompaniesListPage />} />
-              <Route path="/companies/:id" element={<CompanyDetailPage />} />
+              <Route path="/apps/companies" element={<CompaniesListPage />} />
+              <Route
+                path="/apps/companies/:id"
+                element={<CompanyDetailPage />}
+              />
             </Route>
 
             {/* Company-scoped users: view/edit their own company */}
@@ -735,7 +762,7 @@ export default function App() {
               }
             >
               <Route
-                path="/insurance-partners"
+                path="/apps/insurance-partners"
                 element={<InsurancePartnersPage />}
               />
             </Route>
@@ -748,7 +775,7 @@ export default function App() {
                 />
               }
             >
-              <Route path="/my-company" element={<MyCompanyPage />} />
+              <Route path="/apps/my-company" element={<MyCompanyPage />} />
             </Route>
 
             {/* Branches: accessible to users with branches:read permission */}
@@ -760,17 +787,17 @@ export default function App() {
                 />
               }
             >
-              <Route path="/branches" element={<BranchesListPage />} />
-              <Route path="/branches/:id" element={<BranchDetailPage />} />
-              <Route path="/sale-points" element={<SalePointsPage />} />
+              <Route path="/apps/branches" element={<BranchesListPage />} />
+              <Route path="/apps/branches/:id" element={<BranchDetailPage />} />
+              <Route path="/apps/sale-points" element={<SalePointsPage />} />
               <Route
-                path="/company-features"
+                path="/apps/company-features"
                 element={<CompanyFeaturesPage />}
               />
             </Route>
 
             <Route element={<ProtectedRoute requiredPermission="audit:read" />}>
-              <Route path="/audit-logs" element={<AuditLogsPage />} />
+              <Route path="/apps/audit-logs" element={<AuditLogsPage />} />
             </Route>
 
             <Route
@@ -781,39 +808,42 @@ export default function App() {
                 />
               }
             >
-              <Route path="/departments" element={<DepartmentsPage />} />
+              <Route path="/apps/departments" element={<DepartmentsPage />} />
               <Route
-                path="/departments/:id"
+                path="/apps/departments/:id"
                 element={<DepartmentDetailPage />}
               />
             </Route>
 
             <Route element={<ProtectedRoute requiredPermission="roles:read" />}>
-              <Route path="/roles" element={<RolesPage />} />
+              <Route path="/apps/roles" element={<RolesPage />} />
             </Route>
 
             <Route
               element={<ProtectedRoute requiredPermission="permissions:read" />}
             >
-              <Route path="/permissions" element={<PermissionsPage />} />
+              <Route path="/apps/permissions" element={<PermissionsPage />} />
             </Route>
 
-            <Route path="/devices" element={<DevicesPage />} />
-            <Route path="/sessions" element={<SessionsPage />} />
+            <Route path="/apps/devices" element={<DevicesPage />} />
+            <Route path="/apps/sessions" element={<SessionsPage />} />
             <Route
               element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
             >
-              <Route path="/reference-data" element={<ReferenceDataPage />} />
-              <Route path="/saas-billing" element={<SaasBillingPage />} />
               <Route
-                path="/platform-intelligence"
+                path="/apps/reference-data"
+                element={<ReferenceDataPage />}
+              />
+              <Route path="/apps/saas-billing" element={<SaasBillingPage />} />
+              <Route
+                path="/apps/platform-intelligence"
                 element={<PlatformIntelligencePage />}
               />
             </Route>
             <Route
               element={<ProtectedRoute anyRole={['SUPER_ADMIN', 'OWNER']} />}
             >
-              <Route path="/api-clients" element={<ApiClientsPage />} />
+              <Route path="/apps/api-clients" element={<ApiClientsPage />} />
             </Route>
             <Route
               element={
@@ -824,13 +854,13 @@ export default function App() {
               }
             >
               <Route
-                path="/platform/tiramis-integration"
+                path="/apps/platform/tiramis-integration"
                 element={<PlatformTiramisIntegrationPage />}
               />
             </Route>
-            <Route path="/settings/profile" element={<ProfilePage />} />
+            <Route path="/apps/settings/profile" element={<ProfilePage />} />
             <Route
-              path="/settings/number-format"
+              path="/apps/settings/number-format"
               element={<NumberFormatSettingsPage />}
             />
 
@@ -843,15 +873,18 @@ export default function App() {
               }
             >
               <Route
-                path="/endorsement-types"
+                path="/apps/endorsement-types"
                 element={<EndorsementTypesPage />}
               />
             </Route>
             <Route
               element={<ProtectedRoute requiredPermission="complaints:read" />}
             >
-              <Route path="/complaints" element={<ComplaintsPage />} />
-              <Route path="/complaints/:id" element={<ComplaintDetailPage />} />
+              <Route path="/apps/complaints" element={<ComplaintsPage />} />
+              <Route
+                path="/apps/complaints/:id"
+                element={<ComplaintDetailPage />}
+              />
             </Route>
 
             <Route
@@ -860,11 +893,11 @@ export default function App() {
               }
             >
               <Route
-                path="/tiramis/submissions"
+                path="/apps/tiramis/submissions"
                 element={<TiramisSubmissionsPage />}
               />
               <Route
-                path="/tiramis/submissions/:id"
+                path="/apps/tiramis/submissions/:id"
                 element={<TiramisSubmissionDetailPage />}
               />
             </Route>
@@ -879,7 +912,10 @@ export default function App() {
                 />
               }
             >
-              <Route path="/verifications" element={<VerificationsPage />} />
+              <Route
+                path="/apps/verifications"
+                element={<VerificationsPage />}
+              />
             </Route>
 
             {/* Product Engine */}
@@ -890,7 +926,7 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/categories"
+                  path="/apps/product-engine/categories"
                   element={<CategoriesPage />}
                 />
               </Route>
@@ -900,11 +936,11 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/products"
+                  path="/apps/product-engine/products"
                   element={<ProductsPage />}
                 />
                 <Route
-                  path="/product-engine/products/:productId"
+                  path="/apps/product-engine/products/:productId"
                   element={<ProductDetailPage />}
                 />
               </Route>
@@ -914,7 +950,7 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/sub-classes"
+                  path="/apps/product-engine/sub-classes"
                   element={<SubClassesPage />}
                 />
               </Route>
@@ -923,7 +959,10 @@ export default function App() {
                   <ProtectedRoute requiredPermission="insurance-risks:read" />
                 }
               >
-                <Route path="/product-engine/risks" element={<RisksPage />} />
+                <Route
+                  path="/apps/product-engine/risks"
+                  element={<RisksPage />}
+                />
               </Route>
               <Route
                 element={
@@ -931,7 +970,7 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/rating-factors"
+                  path="/apps/product-engine/rating-factors"
                   element={<RatingFactorsPage />}
                 />
               </Route>
@@ -941,7 +980,7 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/rating-rules"
+                  path="/apps/product-engine/rating-rules"
                   element={<RatingRulesPage />}
                 />
               </Route>
@@ -951,11 +990,11 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/rate-books"
+                  path="/apps/product-engine/rate-books"
                   element={<RateBooksPage />}
                 />
                 <Route
-                  path="/product-engine/rate-books/:rateBookId"
+                  path="/apps/product-engine/rate-books/:rateBookId"
                   element={<RateBookDetailPage />}
                 />
               </Route>
@@ -964,7 +1003,10 @@ export default function App() {
                   <ProtectedRoute requiredPermission="product-distribution:read" />
                 }
               >
-                <Route path="/product-engine/taxes" element={<TaxesPage />} />
+                <Route
+                  path="/apps/product-engine/taxes"
+                  element={<TaxesPage />}
+                />
               </Route>
               <Route
                 element={
@@ -972,7 +1014,7 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/access/categories"
+                  path="/apps/product-engine/access/categories"
                   element={<CategoryAccessPage />}
                 />
               </Route>
@@ -982,7 +1024,7 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/access/products"
+                  path="/apps/product-engine/access/products"
                   element={<ProductAccessPage />}
                 />
               </Route>
@@ -992,7 +1034,7 @@ export default function App() {
                 }
               >
                 <Route
-                  path="/product-engine/calculator"
+                  path="/apps/product-engine/calculator"
                   element={<CalculatorPage />}
                 />
               </Route>
@@ -1004,7 +1046,7 @@ export default function App() {
               }
             >
               <Route
-                path="/finance/dashboard"
+                path="/apps/finance/dashboard"
                 element={<FinanceDashboardPage />}
               />
             </Route>
@@ -1012,11 +1054,11 @@ export default function App() {
               element={<ProtectedRoute requiredPermission="invoices:read" />}
             >
               <Route
-                path="/finance/invoices"
+                path="/apps/finance/invoices"
                 element={<FinanceInvoicesPage />}
               />
               <Route
-                path="/finance/invoices/:id"
+                path="/apps/finance/invoices/:id"
                 element={<FinanceInvoiceDetailPage />}
               />
             </Route>
@@ -1024,11 +1066,11 @@ export default function App() {
               element={<ProtectedRoute requiredPermission="payments:read" />}
             >
               <Route
-                path="/finance/payments"
+                path="/apps/finance/payments"
                 element={<FinancePaymentsPage />}
               />
               <Route
-                path="/finance/payments/:id"
+                path="/apps/finance/payments/:id"
                 element={<FinancePaymentDetailPage />}
               />
             </Route>
@@ -1036,20 +1078,23 @@ export default function App() {
               element={<ProtectedRoute requiredPermission="receipts:read" />}
             >
               <Route
-                path="/finance/receipts"
+                path="/apps/finance/receipts"
                 element={<FinanceReceiptsPage />}
               />
               <Route
-                path="/finance/receipts/:id"
+                path="/apps/finance/receipts/:id"
                 element={<FinanceReceiptDetailPage />}
               />
             </Route>
             <Route
               element={<ProtectedRoute requiredPermission="refunds:read" />}
             >
-              <Route path="/finance/refunds" element={<FinanceRefundsPage />} />
               <Route
-                path="/finance/refunds/:id"
+                path="/apps/finance/refunds"
+                element={<FinanceRefundsPage />}
+              />
+              <Route
+                path="/apps/finance/refunds/:id"
                 element={<FinanceRefundDetailPage />}
               />
             </Route>
@@ -1059,11 +1104,11 @@ export default function App() {
               }
             >
               <Route
-                path="/finance/reconciliation"
+                path="/apps/finance/reconciliation"
                 element={<FinanceReconciliationPage />}
               />
               <Route
-                path="/finance/reconciliation/:id"
+                path="/apps/finance/reconciliation/:id"
                 element={<FinanceReconciliationDetailPage />}
               />
             </Route>
@@ -1071,19 +1116,19 @@ export default function App() {
               element={<ProtectedRoute requiredPermission="commissions:read" />}
             >
               <Route
-                path="/finance/commission-accruals"
+                path="/apps/finance/commission-accruals"
                 element={<FinanceCommissionAccrualsPage />}
               />
               <Route
-                path="/finance/commission-accruals/:id"
+                path="/apps/finance/commission-accruals/:id"
                 element={<FinanceCommissionAccrualDetailPage />}
               />
               <Route
-                path="/finance/commission-payments"
+                path="/apps/finance/commission-payments"
                 element={<FinanceCommissionPaymentsPage />}
               />
               <Route
-                path="/finance/commission-payments/:id"
+                path="/apps/finance/commission-payments/:id"
                 element={<FinanceCommissionPaymentDetailPage />}
               />
             </Route>
@@ -1093,11 +1138,11 @@ export default function App() {
               }
             >
               <Route
-                path="/finance/journals"
+                path="/apps/finance/journals"
                 element={<FinanceJournalsPage />}
               />
               <Route
-                path="/finance/journals/:id"
+                path="/apps/finance/journals/:id"
                 element={<FinanceJournalDetailPage />}
               />
             </Route>
@@ -1105,7 +1150,7 @@ export default function App() {
               element={<ProtectedRoute requiredPermission="reinsurance:read" />}
             >
               <Route
-                path="/reinsurance"
+                path="/apps/reinsurance"
                 element={<ReinsuranceWorkbenchPage />}
               />
             </Route>
@@ -1116,16 +1161,19 @@ export default function App() {
               }
             >
               <Route
-                path="/tiramis/dashboard"
+                path="/apps/tiramis/dashboard"
                 element={<TiramisDashboardPage />}
               />
-              <Route path="/tiramis/health" element={<TiramisHealthPage />} />
               <Route
-                path="/tiramis/failed"
+                path="/apps/tiramis/health"
+                element={<TiramisHealthPage />}
+              />
+              <Route
+                path="/apps/tiramis/failed"
                 element={<TiramisFailedSubmissionsPage />}
               />
               <Route
-                path="/tiramis/retryable"
+                path="/apps/tiramis/retryable"
                 element={<TiramisRetryablePage />}
               />
             </Route>
@@ -1141,7 +1189,7 @@ export default function App() {
               }
             >
               <Route
-                path="/tiramis/tracking"
+                path="/apps/tiramis/tracking"
                 element={<TiramisTrackingPage />}
               />
             </Route>
@@ -1150,12 +1198,16 @@ export default function App() {
 
         {/* Public website */}
         <Route path="/" element={<HomePage />} />
-        <Route path="/claims" element={<ClaimsPage />} />
+        <Route path="/claim-help" element={<ClaimsPage />} />
         <Route path="/faq" element={<FaqPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/insurance" element={<InsurancePage />} />
         <Route path="/buy-cover" element={<BuyCoverPage />} />
+        <Route
+          path="/buy-insurance"
+          element={<Navigate to="/buy-cover" replace />}
+        />
         <Route
           path="/motor-insurance"
           element={<MotorInsurancePurchasePage />}

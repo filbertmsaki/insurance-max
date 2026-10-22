@@ -406,7 +406,7 @@ export function UsersListPage() {
     {
       label: 'View profile',
       icon: Eye,
-      onClick: (row: UserProfile) => navigate(`/users/${row.id}`),
+      onClick: (row: UserProfile) => navigate(`/apps/users/${row.id}`),
     },
     {
       label: 'Edit',

@@ -16,7 +16,7 @@ interface UnderwriteLineRouteProps {
 }
 
 /**
- * Route guard for `/underwrite/:line/...`: resolves the line from the URL and
+ * Route guard for `/apps/underwrite/:line/...`: resolves the line from the URL and
  * requires a line gate granting `action` plus the existing action permission.
  */
 export function UnderwriteLineRoute({

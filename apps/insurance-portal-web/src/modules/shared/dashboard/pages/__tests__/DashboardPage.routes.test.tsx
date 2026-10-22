@@ -275,8 +275,8 @@ function renderDashboard(initialEntry: string) {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/dashboard/:tab" element={<DashboardPage />} />
+          <Route path="/apps/dashboard" element={<DashboardPage />} />
+          <Route path="/apps/dashboard/:tab" element={<DashboardPage />} />
         </Routes>
         <LocationDisplay />
       </MemoryRouter>
@@ -326,12 +326,12 @@ describe('DashboardPage route tabs', () => {
       throw new Error(`Unexpected section ${section}`);
     });
 
-    renderDashboard('/dashboard/sales');
+    renderDashboard('/apps/dashboard/sales');
 
     expect(await screen.findByText('Total quotations')).toBeInTheDocument();
     expect(screen.getByText('Conversion rate')).toBeInTheDocument();
     expect(screen.getByTestId('location-display')).toHaveTextContent(
-      '/dashboard/sales',
+      '/apps/dashboard/sales',
     );
   });
 
@@ -347,12 +347,12 @@ describe('DashboardPage route tabs', () => {
       throw new Error(`Unexpected section ${section}`);
     });
 
-    renderDashboard('/dashboard/tiramis');
+    renderDashboard('/apps/dashboard/tiramis');
 
     expect(await screen.findByText('Total submissions')).toBeInTheDocument();
     expect(screen.getByText('Retryable queue')).toBeInTheDocument();
     expect(screen.getByTestId('location-display')).toHaveTextContent(
-      '/dashboard/tiramis',
+      '/apps/dashboard/tiramis',
     );
   });
 
@@ -377,12 +377,12 @@ describe('DashboardPage route tabs', () => {
       throw new Error(`Unexpected section ${section}`);
     });
 
-    renderDashboard('/dashboard/not-a-real-tab');
+    renderDashboard('/apps/dashboard/not-a-real-tab');
 
     expect(await screen.findByText('Total quotations')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId('location-display')).toHaveTextContent(
-        '/dashboard/sales',
+        '/apps/dashboard/sales',
       );
     });
   });

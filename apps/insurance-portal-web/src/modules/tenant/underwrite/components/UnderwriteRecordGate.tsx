@@ -9,7 +9,7 @@ import { underwritePaths } from '../paths';
  * Confirms the `:id` in the URL belongs to the `:line` in the URL (backend
  * line endpoint, which also applies data scope) before rendering a shared
  * detail screen. Until the per-line detail screens land, this is what keeps
- * `/underwrite/motor/policies/<fleet policy>` from rendering.
+ * `/apps/underwrite/motor/policies/<fleet policy>` from rendering.
  */
 export function UnderwriteRecordGate({
   kind,

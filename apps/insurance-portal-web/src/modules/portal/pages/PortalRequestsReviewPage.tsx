@@ -112,7 +112,7 @@ export function PortalRequestsReviewPage() {
                 label: 'Review',
                 icon: Eye,
                 onClick: (request) =>
-                  navigate(`/portal-requests/${request.id}`),
+                  navigate(`/apps/portal-requests/${request.id}`),
               },
             ]}
             emptyMessage="No portal requests. Customer and intermediary submissions will appear here."

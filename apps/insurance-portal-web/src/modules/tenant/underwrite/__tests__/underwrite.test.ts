@@ -45,7 +45,7 @@ describe('underwrite navigation', () => {
       kind: 'link',
       section: 'Underwrite',
       label: 'Dashboard',
-      to: '/underwrite/dashboard',
+      to: '/apps/underwrite/dashboard',
       permission: 'underwrite.dashboard.view',
     });
     expect(groups.map((item) => item.label)).toEqual([

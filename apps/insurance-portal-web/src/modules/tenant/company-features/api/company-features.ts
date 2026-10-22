@@ -30,7 +30,9 @@ export interface CompanyUserBranchAssignment {
 export const companyFeaturesApi = {
   /** GET /company-features — list all company-level features (requires branches:read) */
   getCompanyFeatures: () =>
-    apiClient.get<CompanyFeature[]>('/company-features').then((r) => r.data),
+    apiClient
+      .get<CompanyFeature[]>('/apps/company-features')
+      .then((r) => r.data),
 
   /** GET /company-features?page=… — server-side table page (search/is_enabled/sort) */
   listCompanyFeatures: (
@@ -38,7 +40,7 @@ export const companyFeaturesApi = {
     signal?: AbortSignal,
   ) =>
     apiClient
-      .get<PaginatedResponse<CompanyFeature>>('/company-features', {
+      .get<PaginatedResponse<CompanyFeature>>('/apps/company-features', {
         params,
         signal,
       })
@@ -47,18 +49,18 @@ export const companyFeaturesApi = {
   /** POST /company-features — create or update a company feature (requires branches:manage-access) */
   upsertCompanyFeature: (data: UpsertCompanyFeatureDto) =>
     apiClient
-      .post<CompanyFeature>('/company-features', data)
+      .post<CompanyFeature>('/apps/company-features', data)
       .then((r) => r.data),
 
   /** DELETE /company-features/:id — delete a company feature (requires branches:manage-access) */
   deleteCompanyFeature: (id: string) =>
-    apiClient.delete(`/company-features/${id}`).then((r) => r.data),
+    apiClient.delete(`/apps/company-features/${id}`).then((r) => r.data),
 
   /** GET /company-features/:companyUserId/branches — branches assigned to a user */
   getUserBranches: (companyUserId: string) =>
     apiClient
       .get<
         CompanyUserBranchAssignment[]
-      >(`/company-features/${companyUserId}/branches`)
+      >(`/apps/company-features/${companyUserId}/branches`)
       .then((r) => r.data),
 };

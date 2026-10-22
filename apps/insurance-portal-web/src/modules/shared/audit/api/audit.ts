@@ -56,7 +56,7 @@ export const auditApi = {
   /** GET /audit-logs — always paged server-side (limit max 100). */
   search: (filters: AuditFilters, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<AuditLog>>('/audit-logs', {
+      .get<PaginatedResponse<AuditLog>>('/apps/audit-logs', {
         params: filters,
         signal,
       })
@@ -64,7 +64,7 @@ export const auditApi = {
 
   findOne: (id: string) =>
     apiClient
-      .get<AuditLog>(`/audit-logs/${id}`)
+      .get<AuditLog>(`/apps/audit-logs/${id}`)
       .then((response) => response.data),
 
   verifyChain: () =>
@@ -75,6 +75,6 @@ export const auditApi = {
         brokenEventId: string | null;
         brokenEventNo: string | null;
         reason: string | null;
-      }>('/audit-logs/verify-chain/status')
+      }>('/apps/audit-logs/verify-chain/status')
       .then((response) => response.data),
 };

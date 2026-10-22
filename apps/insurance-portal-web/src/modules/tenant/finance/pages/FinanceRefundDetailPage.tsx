@@ -75,7 +75,10 @@ export function FinanceRefundDetailPage() {
     return (
       <div className="py-24 text-center text-sm text-slate-500">
         <p className="font-medium">Refund not found</p>
-        <Button variant="link" onClick={() => navigate('/finance/refunds')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/apps/finance/refunds')}
+        >
           Back to refunds
         </Button>
       </div>
@@ -88,7 +91,7 @@ export function FinanceRefundDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/finance/refunds')}
+          onClick={() => navigate('/apps/finance/refunds')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

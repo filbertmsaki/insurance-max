@@ -28,27 +28,27 @@ export type UpdateRoleDto = Partial<CreateRoleDto>;
 
 export const rolesApi = {
   /** GET /roles — returns Role[] (not paginated) */
-  getRoles: () => apiClient.get<Role[]>('/roles').then((r) => r.data),
+  getRoles: () => apiClient.get<Role[]>('/apps/roles').then((r) => r.data),
 
   /** GET /roles?page=… — server-side paginated/searchable/sortable list */
   listRoles: (params: RolesListParams, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<Role>>('/roles', { params, signal })
+      .get<PaginatedResponse<Role>>('/apps/roles', { params, signal })
       .then((r) => r.data),
 
   /** GET /roles/:id */
   getRoleById: (id: string) =>
-    apiClient.get<Role>(`/roles/${id}`).then((r) => r.data),
+    apiClient.get<Role>(`/apps/roles/${id}`).then((r) => r.data),
 
   /** POST /roles */
   createRole: (data: CreateRoleDto) =>
-    apiClient.post<Role>('/roles', data).then((r) => r.data),
+    apiClient.post<Role>('/apps/roles', data).then((r) => r.data),
 
   /** PATCH /roles/:id */
   updateRole: (id: string, data: UpdateRoleDto) =>
-    apiClient.patch<Role>(`/roles/${id}`, data).then((r) => r.data),
+    apiClient.patch<Role>(`/apps/roles/${id}`, data).then((r) => r.data),
 
   /** DELETE /roles/:id */
   deleteRole: (id: string) =>
-    apiClient.delete(`/roles/${id}`).then((r) => r.data),
+    apiClient.delete(`/apps/roles/${id}`).then((r) => r.data),
 };

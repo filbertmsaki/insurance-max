@@ -33,24 +33,26 @@ export const apiClientsApi = {
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getApiClients: (_params?: { page?: number; limit?: number }) =>
-    apiClient.get<ApiClient[]>('/api-clients').then((r) => r.data),
+    apiClient.get<ApiClient[]>('/apps/api-clients').then((r) => r.data),
 
   /** GET /api-clients?page=… — server-side paginated/searchable/sortable list */
   listApiClients: (params: ApiClientsListParams, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<ApiClient>>('/api-clients', { params, signal })
+      .get<
+        PaginatedResponse<ApiClient>
+      >('/apps/api-clients', { params, signal })
       .then((r) => r.data),
 
   createApiClient: (data: CreateApiClientDto) =>
     apiClient
-      .post<CreateApiClientResponse>('/api-clients', data)
+      .post<CreateApiClientResponse>('/apps/api-clients', data)
       .then((r) => r.data),
 
   rotateSecret: (id: string) =>
     apiClient
-      .post<{ plainSecret: string }>(`/api-clients/${id}/rotate-secret`)
+      .post<{ plainSecret: string }>(`/apps/api-clients/${id}/rotate-secret`)
       .then((r) => r.data),
 
   revokeApiClient: (id: string) =>
-    apiClient.delete(`/api-clients/${id}`).then((r) => r.data),
+    apiClient.delete(`/apps/api-clients/${id}`).then((r) => r.data),
 };

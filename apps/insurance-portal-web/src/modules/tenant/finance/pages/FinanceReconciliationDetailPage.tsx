@@ -95,7 +95,7 @@ export function FinanceReconciliationDetailPage() {
         <p className="font-medium">Reconciliation batch not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/finance/reconciliation')}
+          onClick={() => navigate('/apps/finance/reconciliation')}
         >
           Back to reconciliation
         </Button>
@@ -109,7 +109,7 @@ export function FinanceReconciliationDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/finance/reconciliation')}
+          onClick={() => navigate('/apps/finance/reconciliation')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

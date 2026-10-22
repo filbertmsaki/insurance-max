@@ -95,32 +95,32 @@ describe('public catalogue and purchase', () => {
     show(<BuyCoverPage />);
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Check Vehicle' }),
+        screen.getByRole('button', { name: 'Check vehicle' }),
       ).toBeEnabled(),
     );
     for (const [label, value] of [
-      ['Full Name', 'Amina Juma'],
-      ['Vehicle Registration Number', 'T123ABC'],
-      ['Phone Number', '+255712345678'],
+      ['Full name', 'Amina Juma'],
+      ['Vehicle registration number', 'T123ABC'],
+      ['Phone number', '+255712345678'],
     ])
       fireEvent.change(screen.getByLabelText(label), { target: { value } });
-    fireEvent.click(screen.getByRole('button', { name: 'Check Vehicle' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check vehicle' }));
     await screen.findByRole('heading', {
       name: 'Confirm details and choose cover',
     });
     for (const [label, value] of [
-      ['Date of Birth', '1990-01-01'],
-      ['ID Number', 'NIN123456'],
+      ['Date of birth', '1990-01-01'],
+      ['ID number', 'NIN123456'],
       ['Gender', 'F'],
       ['Region', 'Dar es Salaam'],
       ['District', 'Kinondoni'],
-      ['Vehicle Value (TZS)', '20000000'],
+      ['Vehicle value (TZS)', '20000000'],
     ])
       fireEvent.change(screen.getByLabelText(label), { target: { value } });
-    fireEvent.click(screen.getByRole('button', { name: 'Calculate Quote' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Calculate quote' }));
     await screen.findByText('QUOTE-TEST');
     expect(
-      screen.queryByRole('button', { name: 'Calculate Quote' }),
+      screen.queryByRole('button', { name: 'Calculate quote' }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Submit insurance request' }),
@@ -128,10 +128,10 @@ describe('public catalogue and purchase', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Edit details and cover' }),
     );
-    expect(screen.getByLabelText('Vehicle Value (TZS)')).toHaveValue(
+    expect(screen.getByLabelText('Vehicle value (TZS)')).toHaveValue(
       '20000000',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Calculate Quote' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Calculate quote' }));
     await screen.findByText('QUOTE-TEST');
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(
@@ -193,7 +193,7 @@ describe('public catalogue and purchase', () => {
       'load available insurers',
     );
     expect(
-      screen.getByRole('button', { name: 'Check Vehicle' }),
+      screen.getByRole('button', { name: 'Check vehicle' }),
     ).toBeDisabled();
     expect(
       screen.getByRole('button', { name: 'Try again' }),
@@ -205,11 +205,19 @@ describe('public catalogue and purchase', () => {
     show(<BuyCoverPage />);
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Check Vehicle' }),
+        screen.getByRole('button', { name: 'Check vehicle' }),
       ).toBeEnabled(),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Check Vehicle' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check vehicle' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('full name');
+    expect(screen.getByLabelText('Full name')).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    fireEvent.change(screen.getByLabelText('Full name'), {
+      target: { value: 'Amina' },
+    });
+    expect(screen.getByLabelText('Full name')).toHaveValue('Amina');
     expect(apiClient.post).not.toHaveBeenCalled();
   });
 
@@ -227,19 +235,19 @@ describe('public catalogue and purchase', () => {
     show(<BuyCoverPage />);
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Check Vehicle' }),
+        screen.getByRole('button', { name: 'Check vehicle' }),
       ).toBeEnabled(),
     );
-    fireEvent.change(screen.getByLabelText('Full Name'), {
+    fireEvent.change(screen.getByLabelText('Full name'), {
       target: { value: 'Amina Juma' },
     });
-    fireEvent.change(screen.getByLabelText('Vehicle Registration Number'), {
+    fireEvent.change(screen.getByLabelText('Vehicle registration number'), {
       target: { value: 'T123ABC' },
     });
-    fireEvent.change(screen.getByLabelText('Phone Number'), {
+    fireEvent.change(screen.getByLabelText('Phone number'), {
       target: { value: '+255712345678' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Check Vehicle' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check vehicle' }));
     expect(
       await screen.findByRole('heading', { name: 'Active insurance found' }),
     ).toHaveFocus();
@@ -255,7 +263,7 @@ describe('public catalogue and purchase', () => {
       { skipAuthRefresh: true, suppressErrorToast: true },
     );
     expect(
-      screen.queryByRole('button', { name: 'Calculate Quote' }),
+      screen.queryByRole('button', { name: 'Calculate quote' }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Submit insurance request' }),
@@ -272,7 +280,7 @@ describe('public catalogue and purchase', () => {
       within(notice).getByRole('button', { name: 'Check connection' }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Find cover for your next step.' }),
+      screen.getByRole('heading', { name: 'Insurance products' }),
     ).toBeVisible();
     expect(
       screen.getAllByRole('link', { name: 'Contact options' }).length,
@@ -290,10 +298,10 @@ describe('public catalogue and purchase', () => {
     ])
       expect(isPublicWebsitePath(path)).toBe(true);
     for (const path of [
-      '/dashboard',
-      '/customer/policies',
-      '/finance/payments',
-      '/documents',
+      '/apps/dashboard',
+      '/apps/customer/policies',
+      '/apps/finance/payments',
+      '/apps/documents',
     ])
       expect(isPublicWebsitePath(path)).toBe(false);
   });

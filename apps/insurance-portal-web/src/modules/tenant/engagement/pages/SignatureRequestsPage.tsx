@@ -39,7 +39,7 @@ const columns: Column<SignatureRequestRecord>[] = [
     sortable: true,
     cell: (request) => (
       <Link
-        to={`/signatures/${request.id}`}
+        to={`/apps/signatures/${request.id}`}
         className="font-medium text-slate-900 hover:text-blue-700"
       >
         {request.request_no}

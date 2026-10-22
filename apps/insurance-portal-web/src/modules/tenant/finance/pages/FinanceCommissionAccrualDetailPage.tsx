@@ -72,7 +72,7 @@ export function FinanceCommissionAccrualDetailPage() {
         <p className="font-medium">Commission accrual not found</p>
         <Button
           variant="link"
-          onClick={() => navigate('/finance/commission-accruals')}
+          onClick={() => navigate('/apps/finance/commission-accruals')}
         >
           Back to commission accruals
         </Button>
@@ -86,7 +86,7 @@ export function FinanceCommissionAccrualDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/finance/commission-accruals')}
+          onClick={() => navigate('/apps/finance/commission-accruals')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

@@ -83,7 +83,7 @@ const columns: Column<DocumentRecord>[] = [
     cell: (document) => (
       <div className="space-y-1">
         <Link
-          to={`/documents/${document.id}`}
+          to={`/apps/documents/${document.id}`}
           className="font-medium text-slate-900 hover:text-blue-700"
         >
           {document.document_no ?? document.title ?? 'Document'}
@@ -349,7 +349,11 @@ export function DocumentsPage() {
             columns={columns}
             searchPlaceholder="Search documents…"
             filters={tableFilters(state.filters, [
-              { key: 'status', label: 'Status', options: DOCUMENT_STATUS_OPTIONS },
+              {
+                key: 'status',
+                label: 'Status',
+                options: DOCUMENT_STATUS_OPTIONS,
+              },
               {
                 key: 'classification',
                 label: 'Classification',

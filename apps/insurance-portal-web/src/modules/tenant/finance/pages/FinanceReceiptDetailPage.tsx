@@ -55,7 +55,10 @@ export function FinanceReceiptDetailPage() {
     return (
       <div className="py-24 text-center text-sm text-slate-500">
         <p className="font-medium">Receipt not found</p>
-        <Button variant="link" onClick={() => navigate('/finance/receipts')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/apps/finance/receipts')}
+        >
           Back to receipts
         </Button>
       </div>
@@ -70,7 +73,7 @@ export function FinanceReceiptDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/finance/receipts')}
+          onClick={() => navigate('/apps/finance/receipts')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -96,7 +99,9 @@ export function FinanceReceiptDetailPage() {
           <Button
             variant="outline"
             onClick={() =>
-              navigate(`/finance/payments/${receipt.payment_transaction_id}`)
+              navigate(
+                `/apps/finance/payments/${receipt.payment_transaction_id}`,
+              )
             }
           >
             Open Payment Transaction
@@ -105,7 +110,9 @@ export function FinanceReceiptDetailPage() {
         {receipt.invoice_id ? (
           <Button
             variant="outline"
-            onClick={() => navigate(`/finance/invoices/${receipt.invoice_id}`)}
+            onClick={() =>
+              navigate(`/apps/finance/invoices/${receipt.invoice_id}`)
+            }
           >
             Open Invoice
           </Button>

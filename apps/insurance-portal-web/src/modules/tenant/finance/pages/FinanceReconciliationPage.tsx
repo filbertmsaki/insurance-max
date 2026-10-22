@@ -68,7 +68,7 @@ export function FinanceReconciliationPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/finance/reconciliation/${row.id}`)}
+          onClick={() => navigate(`/apps/finance/reconciliation/${row.id}`)}
         >
           Open
         </Button>
@@ -87,7 +87,7 @@ export function FinanceReconciliationPage() {
       queryClient.invalidateQueries({
         queryKey: ['finance', 'reconciliation'],
       });
-      navigate(`/finance/reconciliation/${batch.id}`);
+      navigate(`/apps/finance/reconciliation/${batch.id}`);
     },
   });
 

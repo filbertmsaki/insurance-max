@@ -28,7 +28,7 @@ export function IntermediaryCustomerFormPage() {
     queryFn: () => portalApi.getIntermediaryCustomer(id!),
   });
 
-  const backPath = '/intermediary/customers';
+  const backPath = '/apps/intermediary/customers';
 
   const saveMutation = useMutation({
     mutationFn: (values: CustomerFormValues) => {
@@ -43,7 +43,7 @@ export function IntermediaryCustomerFormPage() {
       await queryClient.invalidateQueries({
         queryKey: ['portal', 'intermediary', 'customers'],
       });
-      navigate(`/intermediary/customers/${customer.id}`);
+      navigate(`/apps/intermediary/customers/${customer.id}`);
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });

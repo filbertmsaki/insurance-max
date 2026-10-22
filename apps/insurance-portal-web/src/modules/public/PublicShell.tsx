@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { ArrowRight, Mail, MapPin, Menu, Phone, X } from 'lucide-react';
+import { Mail, MapPin, Menu, Phone, X } from 'lucide-react';
 import './public.css';
 import { useConnectivityStore } from '@/modules/shared/connectivity/store/connectivity.store';
 import { retryConnectionNow } from '@/modules/shared/connectivity/lib/connectivity-monitor';
+import { BUY_INSURANCE_PATH } from './public-routes';
 
 const navigation = [
-  ['/', 'Home'],
-  ['/insurance', 'Insurance products'],
-  ['/about', 'About us'],
-  ['/claims', 'Claims & support'],
+  ['/insurance', 'Products'],
+  ['/claim-help', 'Claims'],
+  ['/faq', 'Help'],
+  ['/about', 'About'],
+  ['/contact', 'Contact'],
 ] as const;
 
 export function PublicBrand() {
@@ -32,6 +34,9 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
   const email = import.meta.env.VITE_SUPPORT_EMAIL as string | undefined;
   const phone = import.meta.env.VITE_SUPPORT_PHONE as string | undefined;
   const address = import.meta.env.VITE_SUPPORT_ADDRESS as string | undefined;
+  const onPurchasePage =
+    location.pathname === BUY_INSURANCE_PATH ||
+    location.pathname === '/motor-insurance';
 
   useEffect(() => {
     document.documentElement.classList.add('public-html');
@@ -51,45 +56,37 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
-      <div className="utility-bar">
-        <div className="public-container utility-inner">
-          <span>Insurance for life in Tanzania</span>
-          <div>
-            {phone && (
-              <a href={`tel:${phone}`}>
-                <Phone size={13} aria-hidden="true" />
-                {phone}
-              </a>
-            )}
-            <Link to="/contact">Contact us</Link>
-            <Link to="/login">Sign in</Link>
-          </div>
-        </div>
-      </div>
       <header className="public-nav">
         <div className="public-container nav-inner">
           <PublicBrand />
           <nav className="desktop-links" aria-label="Main navigation">
             {navigation.map(([path, label]) => (
-              <NavLink key={path} to={path} end={path === '/'}>
+              <NavLink key={path} to={path}>
                 {label}
               </NavLink>
             ))}
           </nav>
-          <Link className="button button-small nav-quote" to="/buy-cover">
-            Get a quote <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-          <button
-            ref={menuButton}
-            className="menu-button"
-            type="button"
-            aria-expanded={open}
-            aria-controls="mobile-navigation"
-            aria-label={open ? 'Close navigation' : 'Open navigation'}
-            onClick={() => setOpen(!open)}
-          >
-            {open ? <X /> : <Menu />}
-          </button>
+          <div className="nav-actions">
+            <Link className="nav-signin" to="/login">
+              Sign in
+            </Link>
+            {!onPurchasePage && (
+              <Link className="button button-small" to={BUY_INSURANCE_PATH}>
+                Buy insurance
+              </Link>
+            )}
+            <button
+              ref={menuButton}
+              className="menu-button"
+              type="button"
+              aria-expanded={open}
+              aria-controls="mobile-navigation"
+              aria-label={open ? 'Close menu' : 'Open menu'}
+              onClick={() => setOpen(!open)}
+            >
+              {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
+            </button>
+          </div>
         </div>
         <nav
           id="mobile-navigation"
@@ -104,28 +101,22 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
           }}
         >
           {navigation.map(([path, label]) => (
-            <NavLink
-              key={path}
-              to={path}
-              end={path === '/'}
-              onClick={() => setOpen(false)}
-            >
+            <NavLink key={path} to={path} onClick={() => setOpen(false)}>
               {label}
             </NavLink>
           ))}
-          <Link to="/contact" onClick={() => setOpen(false)}>
-            Contact us
-          </Link>
           <Link to="/login" onClick={() => setOpen(false)}>
-            Sign in to your account
+            Sign in
           </Link>
-          <Link
-            className="button"
-            to="/buy-cover"
-            onClick={() => setOpen(false)}
-          >
-            Get a quote <ArrowRight size={16} aria-hidden="true" />
-          </Link>
+          {!onPurchasePage && (
+            <Link
+              className="button"
+              to={BUY_INSURANCE_PATH}
+              onClick={() => setOpen(false)}
+            >
+              Buy insurance
+            </Link>
+          )}
         </nav>
       </header>
       <PublicConnectionNotice />
@@ -136,49 +127,38 @@ export function PublicLayout({ children }: { children: React.ReactNode }) {
         <div className="public-container footer-grid">
           <div className="footer-intro">
             <PublicBrand />
-            <p>
-              Explore insurance, review your premium and take the next step with
-              clear information.
-            </p>
-            <span className="footer-location">Tanzania · TZS</span>
+            <p>Insurance products and online motor cover requests in TZS.</p>
           </div>
           <div>
             <h2>Insurance</h2>
-            <Link to="/insurance">Explore all products</Link>
-            <Link to="/buy-cover">Motor insurance</Link>
-            <Link to="/contact">Business & fleet enquiries</Link>
-            <Link to="/buy-cover">Get a quote</Link>
-          </div>
-          <div>
-            <h2>Here to help</h2>
-            <Link to="/claims">Claims & support</Link>
-            <Link to="/faq">Frequently asked questions</Link>
+            <Link to={BUY_INSURANCE_PATH}>Buy motor insurance</Link>
+            <Link to="/insurance">All products</Link>
+            <Link to="/claim-help">Claims</Link>
+            <Link to="/faq">Help & FAQs</Link>
             <Link to="/login">My account</Link>
-            <Link to="/about">About Insurance Max</Link>
           </div>
           <div>
-            <h2>Get in touch</h2>
+            <h2>Contact</h2>
             {email && (
               <a href={`mailto:${email}`}>
-                <Mail size={15} aria-hidden="true" />
+                <Mail size={16} aria-hidden="true" />
                 {email}
               </a>
             )}
             {phone && (
               <a href={`tel:${phone}`}>
-                <Phone size={15} aria-hidden="true" />
+                <Phone size={16} aria-hidden="true" />
                 {phone}
               </a>
             )}
             {address && (
               <p>
-                <MapPin size={15} aria-hidden="true" />
+                <MapPin size={16} aria-hidden="true" />
                 {address}
               </p>
             )}
-            <Link to="/contact">
-              Contact options <ArrowRight size={14} aria-hidden="true" />
-            </Link>
+            <Link to="/contact">Contact options</Link>
+            <Link to="/about">About Insurance Max</Link>
           </div>
         </div>
         <div className="public-container footer-bottom">

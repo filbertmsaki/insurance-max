@@ -76,7 +76,7 @@ export function DepartmentDetailPage() {
       <div className="text-center py-24 text-slate-500">
         <Building2 className="h-12 w-12 mx-auto mb-3 text-slate-300" />
         <p className="font-medium">Department not found</p>
-        <Button variant="link" onClick={() => navigate('/departments')}>
+        <Button variant="link" onClick={() => navigate('/apps/departments')}>
           Back to Departments
         </Button>
       </div>
@@ -105,7 +105,7 @@ export function DepartmentDetailPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/departments')}
+            onClick={() => navigate('/apps/departments')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -236,7 +236,7 @@ export function DepartmentDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() =>
           deleteMutation.mutate(department.id, {
-            onSuccess: () => navigate('/departments'),
+            onSuccess: () => navigate('/apps/departments'),
           })
         }
       />

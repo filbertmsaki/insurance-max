@@ -49,7 +49,7 @@ export function TwoFactorPage() {
       setSession(tokens);
       setErrorMessage(null);
       toast.success('Welcome back!');
-      navigate('/dashboard');
+      navigate('/apps/dashboard');
     },
     onError: (error) => {
       setErrorMessage(getApiErrorMessage(error));
@@ -77,7 +77,9 @@ export function TwoFactorPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Two-factor authentication</CardTitle>
+            <CardTitle role="heading" aria-level={1}>
+              Two-factor authentication
+            </CardTitle>
             <CardDescription>
               {useBackup
                 ? 'Enter one of your backup codes'

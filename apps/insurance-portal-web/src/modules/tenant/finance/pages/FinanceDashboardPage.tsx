@@ -84,16 +84,16 @@ export function FinanceDashboardPage() {
             </h2>
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm">
-                <Link to="/finance/invoices">Invoices</Link>
+                <Link to="/apps/finance/invoices">Invoices</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
-                <Link to="/finance/payments">Payments</Link>
+                <Link to="/apps/finance/payments">Payments</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
-                <Link to="/finance/receipts">Receipts</Link>
+                <Link to="/apps/finance/receipts">Receipts</Link>
               </Button>
               <Button asChild size="sm" variant="outline">
-                <Link to="/finance/reconciliation">Reconciliation</Link>
+                <Link to="/apps/finance/reconciliation">Reconciliation</Link>
               </Button>
             </div>
           </CardContent>

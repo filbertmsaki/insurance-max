@@ -38,7 +38,7 @@ function anyGuardedRoute(
 }
 
 /**
- * Routes for `/claims/...`, rendered inside the authenticated AppShell in
+ * Routes for `/apps/claims/...`, rendered inside the authenticated AppShell in
  * App.tsx. `new` and `queue/*` are declared before `:id` for readability;
  * React Router ranks static segments above params either way.
  */

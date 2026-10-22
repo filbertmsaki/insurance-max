@@ -739,7 +739,9 @@ export function CompaniesListPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={() => navigate(`/companies/${r.id}`)}>
+            <DropdownMenuItem
+              onClick={() => navigate(`/apps/companies/${r.id}`)}
+            >
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>

@@ -385,7 +385,7 @@ export function PolicyEndorsementPage() {
   const requestPayment = async () => {
     const invoice = await runAction((id) => api.requestEndorsementPayment(id));
     if (invoice) {
-      navigate(`/finance/invoices/${invoice.id}`);
+      navigate(`/apps/finance/invoices/${invoice.id}`);
     }
   };
 
