@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomInt } from 'node:crypto';
 import { environment } from '@insurance-max/shared-config';
 import { DataSource } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
@@ -6,6 +6,17 @@ import { ALLIANCE_TENANT } from './data/alliance.seed-data';
 import { requireColumns, withSeedTransaction } from './shared/seed-utils';
 
 const SEED_SOURCE = '008-alliance-customer-vehicles.seed';
+
+function generateDemoPassportNumber(): string {
+  const letters = String.fromCharCode(65 + randomInt(26), 65 + randomInt(26));
+  const digits = randomInt(1_000_000).toString().padStart(6, '0');
+  return `${letters}${digits}`;
+}
+
+function generateDemoTinNumber(): string {
+  const digits = randomInt(100_000_000, 1_000_000_000).toString();
+  return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
 
 const DEMO_CUSTOMERS = [
   {
@@ -19,10 +30,11 @@ const DEMO_CUSTOMERS = [
     dateOfBirth: '1988-04-12',
     companyName: null,
     tin: null,
-    idType: 1,
+    idType: 3,
     phone: '0711000001',
     email: 'amani.mashauri@example.test',
-    idNumber: '19900412123456789001',
+    idNumber: generateDemoPassportNumber(),
+    passportNo: null,
     metadata: {
       seedSource: SEED_SOURCE,
       demoProfile: 'individual-motor-showcase',
@@ -114,10 +126,11 @@ const DEMO_CUSTOMERS = [
     dateOfBirth: '1992-09-03',
     companyName: null,
     tin: null,
-    idType: 1,
+    idType: 3,
     phone: '0711000003',
     email: 'neema.kileo@example.test',
-    idNumber: '19920903123456789002',
+    idNumber: generateDemoPassportNumber(),
+    passportNo: null,
     metadata: {
       seedSource: SEED_SOURCE,
       demoProfile: 'individual-motor-showcase',
@@ -207,12 +220,13 @@ const DEMO_CUSTOMERS = [
     lastName: null,
     gender: null,
     dateOfBirth: null,
-    idType: null,
-    idNumber: null,
+    idType: 6,
+    idNumber: generateDemoTinNumber(),
+    passportNo: null,
     companyName: 'Alliance Fleet Services Limited',
     phone: '0711000002',
     email: 'fleet.operations@example.test',
-    tin: '120-456-789',
+    tin: null,
     metadata: {
       seedSource: SEED_SOURCE,
       demoProfile: 'corporate-motor-showcase',
@@ -338,12 +352,13 @@ const DEMO_CUSTOMERS = [
     lastName: null,
     gender: null,
     dateOfBirth: null,
-    idType: null,
-    idNumber: null,
+    idType: 6,
+    idNumber: generateDemoTinNumber(),
+    passportNo: null,
     companyName: 'Serengeti Logistics Company Limited',
     phone: '0711000004',
     email: 'logistics@example.test',
-    tin: '120-456-999',
+    tin: null,
     metadata: {
       seedSource: SEED_SOURCE,
       demoProfile: 'corporate-motor-showcase',
@@ -497,6 +512,8 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
           'region',
           'district',
           'id_type',
+          'id_number',
+          'passport_no',
           'status',
         ]);
         await requireColumns(queryRunner, 'customer_identifiers', [
@@ -587,14 +604,15 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
               INSERT INTO customers (
                 company_id, customer_no, customer_type, first_name,
                 middle_name, last_name, gender, date_of_birth,
-                company_name, tin, policy_holder_type, id_type, id_number, phone,
+                company_name, tin, policy_holder_type, id_type, id_number,
+                passport_no, phone,
                 email, country, country_code, region, district, status,
                 metadata, created_at, updated_at
               )
               VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-                $14, $15, 'Tanzania', 'TZA', 'Dar es Salaam', 'Ilala',
-                'ACTIVE', $16::jsonb, now(), now()
+                $14, $15, $16, 'Tanzania', 'TZA', 'Dar es Salaam', 'Ilala',
+                'ACTIVE', $17::jsonb, now(), now()
               )
               ON CONFLICT (company_id, customer_no)
               WHERE deleted_at IS NULL
@@ -610,6 +628,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
                 policy_holder_type = EXCLUDED.policy_holder_type,
                 id_type = EXCLUDED.id_type,
                 id_number = EXCLUDED.id_number,
+                passport_no = EXCLUDED.passport_no,
                 phone = EXCLUDED.phone,
                 email = EXCLUDED.email,
                 status = 'ACTIVE',
@@ -627,10 +646,11 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
               customer.gender ?? null,
               customer.dateOfBirth ?? null,
               customer.companyName ?? null,
-              customer.tin ?? null,
+              customer.tin ?? customer.idNumber ?? null,
               customer.policyHolderType,
               customer.idType ?? null,
-              customer.idNumber ?? null,
+              customer.idNumber ?? customer.passportNo ?? null,
+              customer.passportNo ?? customer.idNumber ?? null,
               customer.phone,
               customer.email,
               JSON.stringify(customer.metadata),
@@ -651,11 +671,19 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
             [companyId, customerId, SEED_SOURCE],
           );
 
-          if (customer.idType && customer.idNumber) {
-            const normalizedId = customer.idNumber
+          const identifierValue = customer.passportNo ?? customer.idNumber;
+          if (customer.idType && identifierValue) {
+            const normalizedId = identifierValue
               .replace(/[^A-Za-z0-9]/g, '')
               .toUpperCase();
-            const identifierType = customer.idType === 1 ? 'NIN' : 'OTHER';
+            const identifierType =
+              customer.idType === 1
+                ? 'NIN'
+                : customer.idType === 3
+                  ? 'PASSPORT'
+                  : customer.idType === 6
+                    ? 'TIN'
+                    : 'OTHER';
             const fingerprint = createHash('sha256')
               .update(normalizedId, 'utf8')
               .digest('hex');
@@ -675,7 +703,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
                 companyId,
                 customerId,
                 identifierType,
-                customer.idNumber,
+                identifierValue,
                 normalizedId,
                 fingerprint,
                 JSON.stringify({ seedSource: SEED_SOURCE }),
