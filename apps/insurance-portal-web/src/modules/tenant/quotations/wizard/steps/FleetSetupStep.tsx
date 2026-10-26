@@ -145,15 +145,6 @@ export function FleetSetupStep({
                   ? `${comprehensive.comprehensive} of ${comprehensive.total} vehicle${comprehensive.total === 1 ? '' : 's'} on Comprehensive or Third Party, Fire & Theft cover.`
                   : 'Calculated from each vehicle’s cover.'}
               </p>
-              {comprehensive && comprehensive.unclassified > 0 && (
-                <p role="status" className="text-xs text-amber-700">
-                  {comprehensive.unclassified} vehicle
-                  {comprehensive.unclassified === 1 ? '' : 's'} ha
-                  {comprehensive.unclassified === 1 ? 's' : 've'} a cover
-                  that isn’t classified and isn’t counted. Set its Motor
-                  Cover Class under Product Engine → Risks.
-                </p>
-              )}
               <FormMessage />
             </WizardFormItem>
           )}
