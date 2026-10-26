@@ -11,6 +11,7 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 import type { QuotationWizardStepId } from '../types';
 import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 import { quotationTotals } from '../utils/quotationTotals';
+import { countFleetComprehensive } from '../hooks/useFleetComprehensiveCount';
 import { quotationPricingIssues } from '../utils/quotationReadiness';
 import { StepSection } from '../components/StepSection';
 import { WizardInput } from '../components/WizardInput';
@@ -97,6 +98,8 @@ export function SummaryReviewStep({
     values.quotation_flow === 'MOTOR_FLEET'
       ? values.fleet.items.flatMap((item) => item.risks_covered)
       : values.risks;
+  // Same rule that sets the TIRA ComprehensiveInsured header value.
+  const fleetCount = countFleetComprehensive(values.fleet.items, riskOptions);
   const coverName = (id: string) =>
     riskOptions.find((item) => item.id === id)?.risk_name || 'Cover';
   return (
@@ -168,6 +171,25 @@ export function SummaryReviewStep({
               ] ?? '—'}
             </p>
           </div>
+        )}
+        {values.quotation_flow === 'MOTOR_FLEET' && (
+          <>
+            <div>
+              <p className="text-slate-500">Fleet size</p>
+              <p>
+                {fleetCount.total} vehicle{fleetCount.total === 1 ? '' : 's'}
+              </p>
+            </div>
+            <div>
+              <p className="text-slate-500">Comprehensively insured</p>
+              <p>
+                {fleetCount.comprehensive} of {fleetCount.total}
+              </p>
+              <p className="text-xs text-slate-500">
+                Comprehensive or Third Party, Fire &amp; Theft cover
+              </p>
+            </div>
+          </>
         )}
         {totals.sumInsured > 0 && (
           <div>

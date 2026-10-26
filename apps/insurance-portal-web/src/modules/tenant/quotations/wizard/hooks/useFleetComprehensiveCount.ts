@@ -48,8 +48,12 @@ export function useFleetComprehensiveCount(
   );
 
   // Until the product's risks load, every cover looks unclassified; writing
-  // then would overwrite a saved draft's value with 0.
-  const ready = enabled && riskOptions.length > 0;
+  // then would overwrite a saved draft's value with 0. With no covers chosen
+  // yet there is nothing to wait for, so the default must not linger.
+  const hasCovers = (items ?? []).some((item) =>
+    item.risks_covered.some((risk) => risk.risk_id || risk.risk_code),
+  );
+  const ready = enabled && (riskOptions.length > 0 || !hasCovers);
   useEffect(() => {
     if (!ready) return;
     const next = String(count.comprehensive);

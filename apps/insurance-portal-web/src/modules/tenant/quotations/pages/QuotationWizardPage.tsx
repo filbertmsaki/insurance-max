@@ -367,7 +367,8 @@ export function QuotationWizardPage() {
     productId ||
       (usesPrefilledQuotation ? savedProductId || undefined : undefined),
   );
-  const fleetComprehensive = useFleetComprehensiveCount(
+  // Keeps fleet.header.comprehensive_insured in sync on every step.
+  useFleetComprehensiveCount(
     form,
     riskOptions,
     quotationFlow === 'MOTOR_FLEET',
@@ -1455,7 +1456,6 @@ export function QuotationWizardPage() {
                         <>
                           <FleetSetupStep
                             form={form}
-                            comprehensive={fleetComprehensive}
                             categoryOptions={categoryOptions}
                             productOptions={productOptions}
                             isHydrating={isEditHydrating}

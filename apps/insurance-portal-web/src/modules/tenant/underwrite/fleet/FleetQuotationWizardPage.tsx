@@ -23,22 +23,19 @@ import { FleetPremiumStep } from './FleetPremiumStep';
 const FLEET = getUnderwriteLineMeta(UnderwriteLine.FLEET);
 
 /*
- * Product & Cover comes before Vehicles (unlike the order first proposed):
+ * Product & Cover (on the first step) comes before Vehicles:
  * each vehicle is priced against the product's covers as it is captured, so
  * the product has to be known before vehicles are added.
  */
 const FLEET_WIZARD_STEPS: UnderwriteWizardStep[] = [
   {
     id: 'customer',
-    label: 'Customer & Fleet',
-    description: 'Fleet owner, fleet reference and type',
-    fields: ['customer_id', 'policyholder', 'fleet.header'],
-  },
-  {
-    id: 'cover',
-    label: 'Product & Cover',
-    description: 'Product, cover period and default vehicle cover',
+    label: 'Customer, Fleet & Cover',
+    description: 'Fleet owner, fleet type, product and cover period',
     fields: [
+      'customer_id',
+      'policyholder',
+      'fleet.header',
       'category_id',
       'product_id',
       'currency',
@@ -193,8 +190,8 @@ export function FleetQuotationWizardPage() {
     line: FLEET,
     quotationId: id,
     steps: FLEET_WIZARD_STEPS,
-    // Drafts saved before Customer and Fleet Details were merged.
-    stepAliases: { fleet: 'customer' },
+    // Drafts saved before Customer, Fleet Details and Product & Cover merged.
+    stepAliases: { fleet: 'customer', cover: 'customer' },
   });
   const actions = useFleetVehicleActions(wizard);
   const { form } = wizard;
@@ -218,17 +215,11 @@ export function FleetQuotationWizardPage() {
                 />
                 <FleetSetupStep
                   form={form}
-                  comprehensive={wizard.fleetComprehensive}
                   categoryOptions={wizard.categoryOptions}
                   productOptions={wizard.productOptions}
                   isHydrating={wizard.isHydrating}
                   headerOnly
                 />
-              </div>
-            );
-          case 'cover':
-            return (
-              <div className="space-y-6">
                 <ProductCoverStep wizard={wizard} />
                 <StepSection
                   title="Default vehicle cover"

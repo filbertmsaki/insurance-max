@@ -1,7 +1,5 @@
 import { useEffect } from 'react';
-import type { FleetComprehensiveCount } from '@insurance-max/contracts';
 import type { UseFormReturn } from 'react-hook-form';
-import { Input } from '@/components/ui/input';
 import {
   FormControl,
   FormField,
@@ -37,8 +35,6 @@ interface Props {
   productOptions: OptionLike[];
   isHydrating?: boolean;
   headerOnly?: boolean;
-  /** Calculated comprehensive count (see useFleetComprehensiveCount). */
-  comprehensive?: FleetComprehensiveCount;
 }
 
 const FLEET_TYPES = [
@@ -52,28 +48,8 @@ export function FleetSetupStep({
   productOptions,
   isHydrating = false,
   headerOnly = false,
-  comprehensive,
 }: Props) {
   const fleetItems = form.watch('fleet.items');
-  const computedPremiumExcludingTax = fleetItems.reduce(
-    (sum, item) =>
-      sum +
-      item.risks_covered.reduce(
-        (riskSum, risk) =>
-          riskSum + (Number(risk.premium_excluding_tax_equivalent) || 0),
-        0,
-      ),
-    0,
-  );
-  const computedPremiumIncludingTax = fleetItems.reduce(
-    (sum, item) =>
-      sum +
-      item.risks_covered.reduce(
-        (riskSum, risk) => riskSum + (Number(risk.premium_including_tax) || 0),
-        0,
-      ),
-    0,
-  );
 
   useEffect(() => {
     form.setValue('fleet.header.fleet_size', String(fleetItems.length || 0));
@@ -116,52 +92,6 @@ export function FleetSetupStep({
             </WizardFormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="fleet.header.fleet_size"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Fleet Size</FormLabel>
-              <FormControl>
-                <Input {...field} readOnly tabIndex={-1} className="bg-slate-50" />
-              </FormControl>
-              <p className="text-xs text-slate-500">
-                Calculated from the vehicles added.
-              </p>
-            </WizardFormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="fleet.header.comprehensive_insured"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Comprehensively Insured Vehicles</FormLabel>
-              <FormControl>
-                <Input {...field} readOnly tabIndex={-1} className="bg-slate-50" />
-              </FormControl>
-              <p className="text-xs text-slate-500">
-                {comprehensive && comprehensive.total > 0
-                  ? `${comprehensive.comprehensive} of ${comprehensive.total} vehicle${comprehensive.total === 1 ? '' : 's'} on Comprehensive or Third Party, Fire & Theft cover.`
-                  : 'Calculated from each vehicle’s cover.'}
-              </p>
-              <FormMessage />
-            </WizardFormItem>
-          )}
-        />
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
-          <p className="text-sm font-medium text-slate-900">
-            Calculated Fleet Totals
-          </p>
-          <div className="mt-2 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-            <p>
-              Premium excluding tax: {computedPremiumExcludingTax.toFixed(2)}
-            </p>
-            <p>
-              Premium including tax: {computedPremiumIncludingTax.toFixed(2)}
-            </p>
-          </div>
-        </div>
       </StepSection>
 
       {!headerOnly && (
