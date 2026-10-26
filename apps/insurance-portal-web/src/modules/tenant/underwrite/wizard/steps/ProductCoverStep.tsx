@@ -109,15 +109,10 @@ export function ProductCoverStep({
 
   return (
     <div className={compact ? 'space-y-3' : 'space-y-6'}>
-      <StepSection
-        title={compact ? undefined : 'Product'}
-        first={first}
-      >
+      <StepSection title={compact ? undefined : 'Product'} first={first}>
         <div
           className={
-            compact
-              ? 'grid gap-4 md:grid-cols-2'
-              : 'grid gap-4 lg:grid-cols-3'
+            compact ? 'grid gap-4 md:grid-cols-2' : 'grid gap-4 lg:grid-cols-3'
           }
         >
           <WizardInput

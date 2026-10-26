@@ -1,9 +1,5 @@
 import { useEffect, useRef } from 'react';
-import {
-  useWatch,
-  type FieldPath,
-  type UseFormReturn,
-} from 'react-hook-form';
+import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { motorFields } from '../utils/motorFields';
 import { WizardInput } from './WizardInput';

@@ -19,10 +19,7 @@ import {
 } from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
-import {
-  dateOnlyPart,
-  pricingCoverEndDate,
-} from '../utils/coverNoteDateRange';
+import { dateOnlyPart, pricingCoverEndDate } from '../utils/coverNoteDateRange';
 import { setPricingFormValue as setValueIfChanged } from '../utils/pricingFormUpdates';
 
 const CALCULATION_DEBOUNCE_MS = 400;

@@ -39,11 +39,7 @@ const DELIVERY_STATUSES: PortalInvitationDeliveryStatus[] = [
 ];
 
 const statusVariant = (status: PortalInvitationStatus) =>
-  status === 'ACCEPTED'
-    ? 'success'
-    : status === 'PENDING'
-      ? 'info'
-      : 'muted';
+  status === 'ACCEPTED' ? 'success' : status === 'PENDING' ? 'info' : 'muted';
 
 const deliveryVariant = (status: PortalInvitationDeliveryStatus) =>
   status === 'SENT'
@@ -257,7 +253,9 @@ export function PortalInvitationsPage() {
             if (!open && !action.isPending) setPending(null);
           }}
           title={
-            pending.kind === 'resend' ? 'Resend invitation' : 'Revoke invitation'
+            pending.kind === 'resend'
+              ? 'Resend invitation'
+              : 'Revoke invitation'
           }
           description={
             pending.kind === 'resend'

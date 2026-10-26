@@ -116,7 +116,11 @@ export function PortalNotificationsPage({
             columns={columns}
             searchPlaceholder="Search notifications…"
             filters={tableFilters(state.filters, [
-              { key: 'unread_only', label: 'Read state', options: READ_OPTIONS },
+              {
+                key: 'unread_only',
+                label: 'Read state',
+                options: READ_OPTIONS,
+              },
             ])}
             rowActions={[
               {

@@ -91,7 +91,9 @@ describe('VehicleLookup', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Vehicle details populated',
     );
-    expect(screen.getByRole('combobox', { name: 'Make' })).toHaveTextContent('TOYOTA');
+    expect(screen.getByRole('combobox', { name: 'Make' })).toHaveTextContent(
+      'TOYOTA',
+    );
     expect(screen.getByRole('combobox', { name: 'Model' })).toHaveTextContent(
       'COROLLA',
     );

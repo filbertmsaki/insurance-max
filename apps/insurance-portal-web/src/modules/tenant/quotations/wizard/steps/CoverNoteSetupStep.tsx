@@ -108,16 +108,16 @@ export function CoverNoteSetupStep({
       {showCategoryPicker &&
         !values.category_id &&
         categoryOptions.length > 1 && (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {field('category_id', 'Insurance category', {
-            required: true,
-            options: categoryOptions.map((item) => ({
-              value: item.id,
-              label: item.name ?? 'Category',
-            })),
-          })}
-        </div>
-      )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {field('category_id', 'Insurance category', {
+              required: true,
+              options: categoryOptions.map((item) => ({
+                value: item.id,
+                label: item.name ?? 'Category',
+              })),
+            })}
+          </div>
+        )}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-1">
           <Label htmlFor="cover-duration" required>

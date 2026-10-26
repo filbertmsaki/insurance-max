@@ -99,7 +99,9 @@ export interface PortalPagedResponse<T> {
 }
 
 /** Maps the portal `{ items, meta }` page shape onto the shared table contract. */
-function toPaginated<T>(response: PortalPagedResponse<T>): PaginatedResponse<T> {
+function toPaginated<T>(
+  response: PortalPagedResponse<T>,
+): PaginatedResponse<T> {
   const { page, limit, total } = response.meta;
   const totalPages =
     response.meta.total_pages ?? (total > 0 ? Math.ceil(total / limit) : 0);
@@ -438,12 +440,9 @@ export const portalApi = {
     signal?: AbortSignal,
   ): Promise<PaginatedResponse<PortalBusinessRecord>> =>
     apiClient
-      .get<PortalPagedResponse<PortalBusinessRecord>>(
-        resource === 'requests'
-          ? '/portal/requests'
-          : `${basePath(audience)}/${resource}`,
-        { params, signal },
-      )
+      .get<
+        PortalPagedResponse<PortalBusinessRecord>
+      >(resource === 'requests' ? '/portal/requests' : `${basePath(audience)}/${resource}`, { params, signal })
       .then(({ data }) => toPaginated(data)),
 
   getBusinessRecord: (audience: PortalAudience, resource: string, id: string) =>
@@ -485,10 +484,9 @@ export const portalApi = {
     signal?: AbortSignal,
   ) =>
     apiClient
-      .get<PaginatedResponse<DocumentRecord>>(
-        `${basePath(audience)}/documents`,
-        { params, signal },
-      )
+      .get<
+        PaginatedResponse<DocumentRecord>
+      >(`${basePath(audience)}/documents`, { params, signal })
       .then((response) => response.data),
 
   pageNotifications: (
@@ -497,10 +495,9 @@ export const portalApi = {
     signal?: AbortSignal,
   ) =>
     apiClient
-      .get<PaginatedResponse<PortalNotificationRecord>>(
-        `${basePath(audience)}/notifications`,
-        { params, signal },
-      )
+      .get<
+        PaginatedResponse<PortalNotificationRecord>
+      >(`${basePath(audience)}/notifications`, { params, signal })
       .then((response) => response.data),
 
   pageMessages: (
@@ -509,10 +506,9 @@ export const portalApi = {
     signal?: AbortSignal,
   ) =>
     apiClient
-      .get<PaginatedResponse<CommunicationThreadRecord>>(
-        `${basePath(audience)}/messages`,
-        { params, signal },
-      )
+      .get<
+        PaginatedResponse<CommunicationThreadRecord>
+      >(`${basePath(audience)}/messages`, { params, signal })
       .then((response) => response.data),
 
   pageSignatures: (
@@ -521,10 +517,9 @@ export const portalApi = {
     signal?: AbortSignal,
   ) =>
     apiClient
-      .get<PaginatedResponse<SignatureRequestRecord>>(
-        `${basePath(audience)}/signatures`,
-        { params, signal },
-      )
+      .get<
+        PaginatedResponse<SignatureRequestRecord>
+      >(`${basePath(audience)}/signatures`, { params, signal })
       .then((response) => response.data),
 
   listDocuments: (audience: PortalAudience) =>
@@ -807,10 +802,9 @@ export const portalApi = {
     signal?: AbortSignal,
   ): Promise<PaginatedResponse<PortalBusinessRecord>> =>
     apiClient
-      .get<PortalPagedResponse<PortalBusinessRecord>>(
-        '/tenant/portal/requests',
-        { params, signal },
-      )
+      .get<
+        PortalPagedResponse<PortalBusinessRecord>
+      >('/tenant/portal/requests', { params, signal })
       .then(({ data }) => toPaginated(data)),
 
   getAdminRequest: (id: string) =>

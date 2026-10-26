@@ -17,9 +17,10 @@ import { portalApi, type PortalAudience } from '../api';
 const DOCUMENT_FILTER_KEYS = ['status'] as const;
 type DocumentFilterKey = (typeof DOCUMENT_FILTER_KEYS)[number];
 
-const STATUS_OPTIONS = ['AVAILABLE', 'SUPERSEDED', 'ARCHIVED'].map(
-  (value) => ({ label: value, value }),
-);
+const STATUS_OPTIONS = ['AVAILABLE', 'SUPERSEDED', 'ARCHIVED'].map((value) => ({
+  label: value,
+  value,
+}));
 
 const columns: Column<DocumentRecord>[] = [
   {

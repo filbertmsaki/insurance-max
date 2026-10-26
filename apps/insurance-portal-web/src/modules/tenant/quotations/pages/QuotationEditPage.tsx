@@ -9,5 +9,7 @@ import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
  */
 export function QuotationEditPage() {
   const { id } = useParams<{ id: string }>();
-  return <Navigate to={sharedUnderwritePaths.quotationWizardEdit(id!)} replace />;
+  return (
+    <Navigate to={sharedUnderwritePaths.quotationWizardEdit(id!)} replace />
+  );
 }
