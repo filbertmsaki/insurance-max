@@ -127,6 +127,7 @@ export class InsuranceRisksService {
       risk_code: dto.risk_code.trim().toUpperCase(),
       risk_name: dto.risk_name.trim(),
       description: dto.description ?? null,
+      cover_class: dto.cover_class ?? null,
       is_active: dto.is_active ?? true,
       created_by: userId,
       updated_by: userId,
@@ -306,6 +307,8 @@ export class InsuranceRisksService {
     if (dto.description !== undefined)
       risk.description = dto.description ?? null;
     if (dto.is_active !== undefined) risk.is_active = dto.is_active;
+    if (dto.cover_class !== undefined)
+      risk.cover_class = dto.cover_class ?? null;
     risk.updated_by = userId;
 
     try {

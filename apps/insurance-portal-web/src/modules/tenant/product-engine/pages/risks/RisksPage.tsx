@@ -3,6 +3,12 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
+  classifyMotorCover,
+  isMotorCoverClass,
+  MOTOR_COVER_CLASS_LABELS,
+  MotorCoverClass,
+} from '@insurance-max/contracts';
+import {
   Plus,
   Pencil,
   Trash2,
@@ -86,8 +92,11 @@ const riskSchema = z.object({
   risk_code: z.string().min(1).max(50).toUpperCase(),
   risk_name: z.string().min(1).max(150),
   description: z.string().max(500).optional(),
+  cover_class: z.string(),
   is_active: z.boolean(),
 });
+
+const COVER_CLASS_NONE = '__none__';
 type RiskFormValues = z.infer<typeof riskSchema>;
 
 function ActiveBadge({ active }: { active: boolean }) {
@@ -431,6 +440,7 @@ export function RisksPage() {
       risk_code: '',
       risk_name: '',
       description: '',
+      cover_class: COVER_CLASS_NONE,
       is_active: true,
     },
   });
@@ -450,6 +460,7 @@ export function RisksPage() {
       risk_code: '',
       risk_name: '',
       description: '',
+      cover_class: COVER_CLASS_NONE,
       is_active: true,
     });
     setDialogOpen(true);
@@ -463,6 +474,7 @@ export function RisksPage() {
       risk_code: item.risk_code,
       risk_name: item.risk_name,
       description: item.description ?? '',
+      cover_class: item.cover_class ?? COVER_CLASS_NONE,
       is_active: item.is_active,
     });
     setDialogOpen(true);
@@ -471,6 +483,9 @@ export function RisksPage() {
   function onSubmit(values: RiskFormValues) {
     const payload = {
       ...values,
+      cover_class: isMotorCoverClass(values.cover_class)
+        ? values.cover_class
+        : null,
       sub_class_id:
         values.sub_class_id === '__none__'
           ? undefined
@@ -518,6 +533,22 @@ export function RisksPage() {
           {row.sub_class?.name ?? (row.sub_class_id ? row.sub_class_id : '—')}
         </span>
       ),
+    },
+    {
+      key: 'cover_class',
+      header: 'Motor Cover',
+      cell: (row) => {
+        const coverClass = classifyMotorCover(row);
+        if (!coverClass) return <span className="text-slate-400">—</span>;
+        return (
+          <span className="text-sm text-slate-600">
+            {MOTOR_COVER_CLASS_LABELS[coverClass]}
+            {!row.cover_class && (
+              <span className="ml-1 text-xs text-amber-600">(from name)</span>
+            )}
+          </span>
+        );
+      },
     },
     {
       key: 'is_active',
@@ -781,6 +812,37 @@ export function RisksPage() {
                     <FormControl>
                       <Input {...field} placeholder="Risk name" />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="cover_class"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Motor Cover Class</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Not a motor cover" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={COVER_CLASS_NONE}>
+                          Not set / not a motor cover
+                        </SelectItem>
+                        {Object.values(MotorCoverClass).map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {MOTOR_COVER_CLASS_LABELS[value]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500">
+                      Comprehensive and Third Party, Fire &amp; Theft count
+                      towards a fleet&apos;s comprehensively insured vehicles.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

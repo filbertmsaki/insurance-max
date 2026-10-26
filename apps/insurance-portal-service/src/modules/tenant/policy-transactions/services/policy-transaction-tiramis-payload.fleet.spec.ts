@@ -118,8 +118,8 @@ describe('PolicyTransactionTiramisPayloadService fleet vehicle endorsements', ()
     expect(payload.coverNoteType).toBe(1);
     expect(payload.prevCoverNoteReferenceNumber).toBeNull();
     expect(payload.endorsementType).toBeNull();
-    expect(payload.totalPremiumExcludingTax).toBe('100000.0000');
-    expect(payload.commissionPaid).toBe('10000.0000');
+    expect(payload.totalPremiumExcludingTax).toBe('100000.00');
+    expect(payload.commissionPaid).toBe('10000.00');
     const fleet = payload.fleet as any;
     expect(fleet).toMatchObject({
       fleetId: 'FLEET-001',
@@ -174,7 +174,7 @@ describe('PolicyTransactionTiramisPayloadService fleet vehicle endorsements', ()
     // Issued risks are sent as-is (TIRA rejects zero premiums).
     expect(item.risks[0].premiumExcludingTaxEquivalent).toBe('665000');
     // Earned = issued 784700 - remaining 590000 (incl. tax).
-    expect(item.endorsementPremiumEarned).toBe('194700.0000');
+    expect(item.endorsementPremiumEarned).toBe('194700.00');
   });
 
   it('refuses vehicle additions on an ordinary endorsement', async () => {
@@ -245,9 +245,9 @@ describe('PolicyTransactionTiramisPayloadService whole-fleet cancellation', () =
     coverNoteNumber: 'CN-1',
     branchCode: 'HQ',
     coverNoteEndDate: '2027-09-20',
-    totalPremiumExcludingTax: '1800000.0000',
-    totalPremiumIncludingTax: '2124000.0000',
-    commissionPaid: '180000.0000',
+    totalPremiumExcludingTax: '1800000.00',
+    totalPremiumIncludingTax: '2124000.00',
+    commissionPaid: '180000.00',
     commissionRate: '0.1',
     risks: [riskRow(0, '600000')],
     isFleet: true,
@@ -308,7 +308,7 @@ describe('PolicyTransactionTiramisPayloadService whole-fleet cancellation', () =
     );
 
     expect(payload.fleet).toEqual(issuedCoverNote.fleet);
-    expect(payload.totalPremiumExcludingTax).toBe('1800000.0000');
+    expect(payload.totalPremiumExcludingTax).toBe('1800000.00');
     expect(payload.branchCode).toBeUndefined();
     expect(payload).toMatchObject({
       coverNoteType: 3,
@@ -386,9 +386,9 @@ describe('PolicyTransactionTiramisPayloadService whole-fleet cancellation', () =
     expect(added.risks[0].premiumExcludingTaxEquivalent).toBe('100000');
 
     // Totals are the items' risks: 600000 + 600000 + 100000.
-    expect(payload.totalPremiumExcludingTax).toBe('1300000.0000');
-    expect(payload.totalPremiumIncludingTax).toBe('1534000.0000');
-    expect(payload.commissionPaid).toBe('130000.0000');
+    expect(payload.totalPremiumExcludingTax).toBe('1300000.00');
+    expect(payload.totalPremiumIncludingTax).toBe('1534000.00');
+    expect(payload.commissionPaid).toBe('130000.00');
   });
 
   it('refuses an added vehicle without issued risk pricing', async () => {
@@ -420,6 +420,6 @@ describe('PolicyTransactionTiramisPayloadService whole-fleet cancellation', () =
     );
 
     expect(payload.fleet).toEqual(issuedCoverNote.fleet);
-    expect(payload.totalPremiumExcludingTax).toBe('1800000.0000');
+    expect(payload.totalPremiumExcludingTax).toBe('1800000.00');
   });
 });

@@ -1,3 +1,7 @@
+import {
+  classifyMotorCover,
+  countsAsComprehensive,
+} from '@insurance-max/contracts';
 import { Injectable } from '@nestjs/common';
 import { Quotation } from '../entities/quotation.entity';
 import { QuotationStatusHistory } from '../entities/quotation-status-history.entity';
@@ -785,6 +789,7 @@ export class QuotationPreviewMapper {
         risk.insurance_risk?.risk_name ??
         risk.insurance_risk?.risk_code ??
         null,
+      cover_class: risk.insurance_risk?.cover_class ?? null,
       sum_insured: this.toNumber(risk.sum_insured),
       sum_insured_equivalent: this.toNumber(risk.sum_insured_equivalent),
       premium_rate: this.toNumber(risk.premium_rate),
@@ -1248,9 +1253,11 @@ export class QuotationPreviewMapper {
       : 'quotation';
   }
 
+  /** Same rule as the wizard and TIRA submission (`countComprehensiveVehicles`). */
   private vehicleIsComprehensive(vehicle: QuotationPreviewFleetVehicle) {
-    const status = this.tiramisStatus(vehicle.tiramis);
-    return !status || !status.includes('THIRD');
+    return vehicle.risks.some((risk) =>
+      countsAsComprehensive(classifyMotorCover(risk)),
+    );
   }
 
   private tiramisStatus(submission: QuotationPreviewTiramisSubmission | null) {

@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import { Copy, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import {
+  ClipboardPaste,
+  Copy,
+  Download,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useFieldArray,
@@ -91,6 +99,7 @@ import {
 } from '../utils/taxOptions';
 import { RiskTaxesFields } from '../components/RiskTaxesFields';
 import { VehicleLookup } from '../components/VehicleLookup';
+import { FleetQuickAddPanel } from '../components/FleetQuickAddPanel';
 import { VehicleDetailsFields } from '../components/VehicleDetailsFields';
 import { motorFields, motorFieldError } from '../utils/motorFields';
 import { verificationsApi } from '@/modules/tenant/verifications/api';
@@ -1205,6 +1214,7 @@ export function MotorFleetDetailsStep({
     {},
   );
   const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   // Vehicle open in the editor dialog. A new vehicle is appended to the fleet
   // immediately so the editor can bind to it, and hidden from the list until
   // confirmed. An existing vehicle keeps a snapshot so Cancel can restore it.
@@ -1379,6 +1389,21 @@ export function MotorFleetDetailsStep({
     URL.revokeObjectURL(url);
   }
 
+  /** Append rows (replacing the untouched starter row) and fetch from TIRA. */
+  function importVehicles(rows: FleetCsvRow[]) {
+    if (showEmptyState && fields.length === 1) fieldArray.remove(0);
+    onImportVehicles(rows);
+    void lookupFleetVehicles();
+  }
+
+  function handleQuickAdd(rows: FleetCsvRow[]) {
+    importVehicles(rows);
+    setQuickAddOpen(false);
+    toast.success(
+      `Added ${rows.length} vehicle${rows.length === 1 ? '' : 's'}. Fetching details from TIRA…`,
+    );
+  }
+
   async function handleCsvFileSelected(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -1389,8 +1414,7 @@ export function MotorFleetDetailsStep({
     setImportErrors(errors);
 
     if (rows.length > 0) {
-      onImportVehicles(rows);
-      void lookupFleetVehicles();
+      importVehicles(rows);
       toast.success(
         `Imported ${rows.length} vehicle${rows.length === 1 ? '' : 's'} from CSV.`,
       );
@@ -1688,6 +1712,18 @@ export function MotorFleetDetailsStep({
     (fields.length === 1 &&
       !editingVehicle &&
       isBlankFleetItem(values.fleet.items[0]));
+  const existingIdentifiers = useMemo(
+    () =>
+      showEmptyState
+        ? []
+        : values.fleet.items.flatMap((item) =>
+            [
+              item.motor_dtl.registration_number,
+              item.motor_dtl.chassis_number,
+            ].filter(Boolean),
+          ),
+    [showEmptyState, values.fleet.items],
+  );
   const tableRows = showEmptyState
     ? []
     : fields.flatMap((field, index) =>
@@ -1805,10 +1841,22 @@ export function MotorFleetDetailsStep({
     <>
       <StepSection
         title="Vehicles"
-        description="Import a list or add vehicles one at a time. Use Edit to complete missing details."
+        description="Paste plate numbers to add vehicles in bulk. Details are fetched from TIRA; use Edit to complete anything missing."
         first
         action={
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+            {!showEmptyState && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-expanded={quickAddOpen}
+                onClick={() => setQuickAddOpen((open) => !open)}
+              >
+                <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" />
+                Paste list
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -1877,15 +1925,35 @@ export function MotorFleetDetailsStep({
             ))}
           </div>
         )}
+        {!showEmptyState && quickAddOpen && (
+          <FleetQuickAddPanel
+            existingIdentifiers={existingIdentifiers}
+            pending={lookupPending}
+            onAdd={handleQuickAdd}
+            onCancel={() => setQuickAddOpen(false)}
+          />
+        )}
         {showEmptyState ? (
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-slate-300 px-4 py-10 text-center">
-            <p className="text-sm text-slate-500">
-              No vehicles added yet. Add a vehicle or import a CSV list.
-            </p>
-            <Button type="button" onClick={openNewVehicleDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Vehicle
-            </Button>
+          <div className="space-y-3">
+            <FleetQuickAddPanel
+              existingIdentifiers={existingIdentifiers}
+              pending={lookupPending}
+              onAdd={handleQuickAdd}
+            />
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-5 text-center sm:flex-row sm:justify-center">
+              <p className="text-sm text-slate-500">
+                Prefer to enter details by hand?
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={openNewVehicleDialog}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add one vehicle
+              </Button>
+            </div>
           </div>
         ) : (
           <FleetVehicleTable
@@ -1907,7 +1975,7 @@ export function MotorFleetDetailsStep({
         }}
       >
         <DialogContent
-          className="flex max-w-5xl flex-col gap-0 p-0 sm:max-h-[90vh]"
+          className="flex max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90vh] max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none"
           onInteractOutside={(event) => event.preventDefault()}
         >
           <DialogHeader className="border-b border-slate-100 px-4 py-4 sm:px-6">
@@ -1929,7 +1997,7 @@ export function MotorFleetDetailsStep({
               />
             )}
           </div>
-          <div className="space-y-3 border-t border-slate-100 px-4 py-3 sm:px-6">
+          <div className="space-y-3 border-t border-slate-100 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
             {vehicleErrors.length > 0 && (
               <div
                 role="alert"

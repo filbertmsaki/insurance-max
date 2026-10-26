@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { FleetComprehensiveCount } from '@insurance-max/contracts';
 import type { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import {
@@ -36,6 +37,8 @@ interface Props {
   productOptions: OptionLike[];
   isHydrating?: boolean;
   headerOnly?: boolean;
+  /** Calculated comprehensive count (see useFleetComprehensiveCount). */
+  comprehensive?: FleetComprehensiveCount;
 }
 
 const FLEET_TYPES = [
@@ -49,6 +52,7 @@ export function FleetSetupStep({
   productOptions,
   isHydrating = false,
   headerOnly = false,
+  comprehensive,
 }: Props) {
   const fleetItems = form.watch('fleet.items');
   const computedPremiumExcludingTax = fleetItems.reduce(
@@ -117,10 +121,13 @@ export function FleetSetupStep({
           name="fleet.header.fleet_size"
           render={({ field }) => (
             <WizardFormItem>
-              <FormLabel>Expected Fleet Size</FormLabel>
+              <FormLabel>Fleet Size</FormLabel>
               <FormControl>
-                <Input {...field} readOnly />
+                <Input {...field} readOnly tabIndex={-1} className="bg-slate-50" />
               </FormControl>
+              <p className="text-xs text-slate-500">
+                Calculated from the vehicles added.
+              </p>
             </WizardFormItem>
           )}
         />
@@ -129,10 +136,24 @@ export function FleetSetupStep({
           name="fleet.header.comprehensive_insured"
           render={({ field }) => (
             <WizardFormItem>
-              <FormLabel required>Comprehensively Insured Vehicles</FormLabel>
+              <FormLabel>Comprehensively Insured Vehicles</FormLabel>
               <FormControl>
-                <Input type="number" min="0" {...field} />
+                <Input {...field} readOnly tabIndex={-1} className="bg-slate-50" />
               </FormControl>
+              <p className="text-xs text-slate-500">
+                {comprehensive && comprehensive.total > 0
+                  ? `${comprehensive.comprehensive} of ${comprehensive.total} vehicle${comprehensive.total === 1 ? '' : 's'} on Comprehensive or Third Party, Fire & Theft cover.`
+                  : 'Calculated from each vehicle’s cover.'}
+              </p>
+              {comprehensive && comprehensive.unclassified > 0 && (
+                <p role="status" className="text-xs text-amber-700">
+                  {comprehensive.unclassified} vehicle
+                  {comprehensive.unclassified === 1 ? '' : 's'} ha
+                  {comprehensive.unclassified === 1 ? 's' : 've'} a cover
+                  that isn’t classified and isn’t counted. Set its Motor
+                  Cover Class under Product Engine → Risks.
+                </p>
+              )}
               <FormMessage />
             </WizardFormItem>
           )}

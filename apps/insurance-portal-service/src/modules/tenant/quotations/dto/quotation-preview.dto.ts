@@ -1,3 +1,5 @@
+import type { MotorCoverClass } from '@insurance-max/contracts';
+
 export interface QuotationPreviewRef {
   id?: string | null;
   code?: string | null;
@@ -135,6 +137,7 @@ export interface QuotationPreviewRisk {
   risk_number: number | null;
   risk_code: string | null;
   risk_name: string | null;
+  cover_class: MotorCoverClass | null;
   sum_insured: number | null;
   sum_insured_equivalent: number | null;
   premium_rate: number | null;

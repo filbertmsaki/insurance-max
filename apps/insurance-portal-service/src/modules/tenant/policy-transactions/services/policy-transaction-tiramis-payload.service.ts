@@ -1,10 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  Optional,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
+import { countComprehensiveVehicles } from '@insurance-max/contracts';
+import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
 
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
@@ -59,9 +62,70 @@ export class PolicyTransactionTiramisPayloadService {
     private readonly companyRepository: Repository<Company>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @Optional()
+    @InjectRepository(InsuranceRisk)
+    private readonly insuranceRiskRepository?: Repository<InsuranceRisk>,
   ) {}
 
   async buildEndorsementPayload(
+    transaction: PolicyTransaction,
+    endorsement: PolicyEndorsement,
+    policy: Policy,
+  ): Promise<Record<string, unknown>> {
+    return this.withComprehensiveCount(
+      await this.composeEndorsementPayload(transaction, endorsement, policy),
+      policy,
+    );
+  }
+
+  async buildCancellationPayload(
+    transaction: PolicyTransaction,
+    cancellation: PolicyCancellation,
+    policy: Policy,
+  ): Promise<Record<string, unknown>> {
+    return this.withComprehensiveCount(
+      await this.composeCancellationPayload(transaction, cancellation, policy),
+      policy,
+    );
+  }
+
+  /**
+   * Replaces the fleet ComprehensiveInsured estimate with the count of
+   * vehicles whose cover counts as comprehensive (`countComprehensiveVehicles`,
+   * the same rule as the wizard). Keeps the estimate when any cover cannot be
+   * classified, rather than under-reporting.
+   */
+  private async withComprehensiveCount(
+    payload: Record<string, unknown>,
+    policy: Policy,
+  ): Promise<Record<string, unknown>> {
+    const fleet = this.asObject(payload['fleet']);
+    if (!fleet || !this.insuranceRiskRepository) return payload;
+    const items = this.asArray(fleet['items']).map((item) =>
+      this.asArray(this.asObject(item)?.['risks']).map((risk) =>
+        String(this.asObject(risk)?.['riskCode'] ?? ''),
+      ),
+    );
+    const codes = [...new Set(items.flat().filter(Boolean))];
+    if (codes.length === 0) return payload;
+    const risks = await this.insuranceRiskRepository.find({
+      where: { company_id: policy.company_id, risk_code: In(codes) },
+      select: ['risk_code', 'risk_name', 'cover_class'],
+    });
+    const byCode = new Map(risks.map((risk) => [risk.risk_code, risk]));
+    const count = countComprehensiveVehicles(
+      items.map((codesOfVehicle) =>
+        codesOfVehicle.map((code) => byCode.get(code) ?? { risk_code: code }),
+      ),
+    );
+    if (count.unclassified > 0) return payload;
+    return {
+      ...payload,
+      fleet: { ...fleet, comprehensiveInsured: count.comprehensive },
+    };
+  }
+
+  private async composeEndorsementPayload(
     transaction: PolicyTransaction,
     endorsement: PolicyEndorsement,
     policy: Policy,
@@ -258,7 +322,7 @@ export class PolicyTransactionTiramisPayloadService {
     };
   }
 
-  async buildCancellationPayload(
+  private async composeCancellationPayload(
     transaction: PolicyTransaction,
     cancellation: PolicyCancellation,
     policy: Policy,
@@ -462,7 +526,7 @@ export class PolicyTransactionTiramisPayloadService {
             (issuedCoverNote['commissionRate'] ?? '0') as string | number,
           ),
         )
-        .toFixed(4),
+        .toFixed(2),
       risks: first.risks,
       subjectMatters: first.subjectMatters,
       addons: first.addons,
@@ -868,7 +932,7 @@ export class PolicyTransactionTiramisPayloadService {
             (common['commissionRate'] ?? '0') as string | number,
           ),
         )
-        .toFixed(4),
+        .toFixed(2),
       endorsementType: null,
       endorsementReason: null,
       endorsementPremiumEarned: null,
@@ -949,8 +1013,8 @@ export class PolicyTransactionTiramisPayloadService {
         endorsementType: endorsement.tira_endorsement_type,
         endorsementReason: transaction.reason,
         endorsementPremiumEarned: earned.isNegative()
-          ? '0.0000'
-          : earned.toFixed(4),
+          ? '0.00'
+          : earned.toFixed(2),
         risks,
         subjectMatters:
           issued?.['subjectMatters'] ?? this.mapSubjectMatters(entry),
@@ -980,7 +1044,7 @@ export class PolicyTransactionTiramisPayloadService {
             total.plus(DecimalUtil.value(item.endorsementPremiumEarned)),
           DecimalUtil.value(0),
         )
-        .toFixed(4),
+        .toFixed(2),
       risks: first.risks,
       subjectMatters: first.subjectMatters,
       addons: first.addons,
@@ -1054,16 +1118,22 @@ export class PolicyTransactionTiramisPayloadService {
     );
   }
 
+  /**
+   * TIRA amounts are Numeric(36,2) and totals must equal the sum of the
+   * lines as sent (TIRA035/083/084), so round each line before summing.
+   */
   private sumField(rows: unknown[], field: string) {
     let total = DecimalUtil.value(0);
     for (const row of rows) {
       total = total.plus(
         DecimalUtil.value(
-          (this.asObject(row)?.[field] ?? 0) as string | number,
+          DecimalUtil.value(
+            (this.asObject(row)?.[field] ?? 0) as string | number,
+          ).toFixed(2),
         ),
       );
     }
-    return total.toFixed(4);
+    return total.toFixed(2);
   }
 
   private buildFleetEndorsementPayload(

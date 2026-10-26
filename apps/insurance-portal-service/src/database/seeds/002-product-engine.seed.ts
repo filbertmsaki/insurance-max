@@ -1,3 +1,4 @@
+import type { MotorCoverClass } from '@insurance-max/contracts';
 import { environment } from '@insurance-max/shared-config';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -56,6 +57,8 @@ type RiskSeed = {
   risk_code: string;
   risk_name: string;
   description: string | null;
+  /** Motor cover class; drives the fleet ComprehensiveInsured count. */
+  cover_class?: MotorCoverClass | null;
 };
 
 type RuleSeed = {
@@ -337,6 +340,7 @@ export default class ProductEngineSeeder implements Seeder {
         riskCode: seed.risk_code,
         riskName,
         description: seed.description,
+        coverClass: seed.cover_class ?? null,
       });
 
       map.set(seed.risk_code, entity);
@@ -822,6 +826,7 @@ export default class ProductEngineSeeder implements Seeder {
       riskCode: string;
       riskName: string;
       description: string | null;
+      coverClass: MotorCoverClass | null;
     },
   ): Promise<InsuranceRisk> {
     const existing = await repo.findOne({
@@ -839,6 +844,11 @@ export default class ProductEngineSeeder implements Seeder {
     }
 
     if (existing) {
+      // Backfill only: never overwrite a class chosen in Product Engine.
+      if (!existing.cover_class && seed.coverClass) {
+        existing.cover_class = seed.coverClass;
+        return repo.save(existing);
+      }
       return existing;
     }
 
@@ -850,6 +860,7 @@ export default class ProductEngineSeeder implements Seeder {
         risk_code: seed.riskCode,
         risk_name: seed.riskName,
         description: seed.description,
+        cover_class: seed.coverClass,
         is_active: true,
       }),
     );

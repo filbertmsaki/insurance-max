@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 import type {
   CreateCoverNoteAddonDto,
@@ -75,13 +75,15 @@ export class TiramisMotorPayloadService {
     dto: CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields,
   ): Record<string, any> {
     const items = dto.fleet?.items || [];
+    this.assertFleetSubmittable(dto, items);
 
     return {
       FleetHdr: {
         FleetId: dto.fleet?.fleetId,
         FleetType: dto.fleet?.fleetType || '',
         FleetSize: dto.fleet?.fleetSize,
-        ComprehensiveInsured: dto.fleet?.comprehensiveInsured || '',
+        // 0 is valid (third-party-only fleet); `||` would blank it.
+        ComprehensiveInsured: dto.fleet?.comprehensiveInsured ?? '',
         SalePointCode: dto.salePointCode,
         CoverNoteStartDate: this.formatDateTime(dto.coverNoteStartDate),
         CoverNoteEndDate: this.formatDateTime(dto.coverNoteEndDate),
@@ -107,25 +109,84 @@ export class TiramisMotorPayloadService {
     };
   }
 
+  /**
+   * Reject fleets TIRA would refuse (§6 mandatory fields) before sending,
+   * with messages naming the vehicle, instead of a blank element in the XML.
+   */
+  private assertFleetSubmittable(
+    dto: CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields,
+    items: CreateMotorFleetItemDto[],
+  ) {
+    const issues: string[] = [];
+    if (!dto.fleet?.fleetId) issues.push('FleetId is required.');
+    if (!dto.fleet?.fleetType) issues.push('FleetType is required.');
+    if (items.length === 0) issues.push('A fleet needs at least one vehicle.');
+
+    (dto.policyHolders || []).forEach((holder, index) => {
+      const label = `Policyholder ${index + 1}`;
+      if (!holder.street?.trim())
+        issues.push(`${label}: street is required for motor cover.`);
+      if (String(holder.policyHolderType) === '1' && !holder.gender?.trim())
+        issues.push(`${label}: gender is required for individuals.`);
+    });
+
+    items.forEach((item, index) => {
+      const label = `Vehicle ${item.fleetEntry || index + 1}`;
+      if (!item.motorDetail?.chassisNumber?.trim())
+        issues.push(`${label}: chassis number is required.`);
+      // A multi-vehicle fleet must price each vehicle; inheriting the
+      // parent's (vehicle 1's) risks would duplicate its premium.
+      if (items.length > 1 && !item.risks?.length)
+        issues.push(`${label}: no risks covered.`);
+    });
+
+    if (issues.length > 0) {
+      throw new BadRequestException({
+        message: 'Fleet cover note is incomplete for TIRA submission.',
+        errors: issues,
+      });
+    }
+  }
+
   private mapFleetItem(params: {
     item: CreateMotorFleetItemDto;
     parentDto: CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields;
     index: number;
   }): Record<string, any> {
     const { item, parentDto, index } = params;
+    // Only a single-vehicle fleet may fall back to the parent's lines; in a
+    // larger fleet the parent mirrors vehicle 1 and would be duplicated.
+    const inherit = (parentDto.fleet?.items?.length ?? 0) <= 1;
 
     const itemRisks =
-      item.risks && item.risks.length > 0 ? item.risks : parentDto.risks || [];
+      item.risks && item.risks.length > 0
+        ? item.risks
+        : inherit
+          ? parentDto.risks || []
+          : [];
 
+    const motor = item.motorDetail;
     const itemSubjectMatters =
       item.subjectMatters && item.subjectMatters.length > 0
         ? item.subjectMatters
-        : parentDto.subjectMatters || [];
+        : inherit && parentDto.subjectMatters?.length
+          ? parentDto.subjectMatters
+          : [
+              {
+                subjectMatterReference:
+                  motor?.registrationNumber || motor?.chassisNumber || '',
+                subjectMatterDesc:
+                  [motor?.make, motor?.model].filter(Boolean).join(' ') ||
+                  'Motor vehicle',
+              },
+            ];
 
     const itemAddons =
       item.addons && item.addons.length > 0
         ? item.addons
-        : parentDto.addons || [];
+        : inherit
+          ? parentDto.addons || []
+          : [];
 
     return {
       FleetEntry: item.fleetEntry || String(index + 1),
@@ -283,8 +344,16 @@ export class TiramisMotorPayloadService {
       }
     }
 
-    const date = new Date(value);
-    return date.toISOString().slice(0, 19);
+    return this.toTanzaniaIso(value).slice(0, 19);
+  }
+
+  /**
+   * TIRA dates are Tanzania local time (EAT, UTC+3, no DST). `toISOString`
+   * alone is UTC and would turn 23:59:59 into 20:59:59.
+   */
+  private toTanzaniaIso(value: Date | string): string {
+    const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+    return new Date(new Date(value).getTime() + EAT_OFFSET_MS).toISOString();
   }
 
   private formatDate(value: Date | string): string {
@@ -296,7 +365,6 @@ export class TiramisMotorPayloadService {
       }
     }
 
-    const date = new Date(value);
-    return date.toISOString().slice(0, 10);
+    return this.toTanzaniaIso(value).slice(0, 10);
   }
 }

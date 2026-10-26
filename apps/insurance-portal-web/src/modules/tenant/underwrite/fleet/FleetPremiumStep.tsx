@@ -104,7 +104,68 @@ export function FleetPremiumStep({
           </button>
         }
       >
-        <div className="overflow-x-auto rounded-lg border">
+        {/* Phones: one card per vehicle */}
+        <ul className="space-y-2 md:hidden">
+          {rows.length === 0 ? (
+            <li className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-slate-500">
+              No vehicles added yet.
+            </li>
+          ) : (
+            rows.map((row) => (
+              <li key={row.key} className="rounded-lg border p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">
+                      {row.entry}. {row.registration}
+                    </p>
+                    <p className="truncate text-xs text-slate-500">
+                      {row.vehicle}
+                      {row.cover ? ` · ${row.cover}` : ''}
+                      {row.addons
+                        ? ` · ${row.addons} add-on${row.addons === 1 ? '' : 's'}`
+                        : ''}
+                    </p>
+                  </div>
+                  {row.priced ? (
+                    <Badge variant="success">Priced</Badge>
+                  ) : (
+                    <Badge variant="warning">Not priced</Badge>
+                  )}
+                </div>
+                <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                  <div className="min-w-0">
+                    <dt className="text-slate-500">Sum insured</dt>
+                    <dd className="truncate tabular-nums">
+                      {money(row.sumInsured)}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-slate-500">Premium</dt>
+                    <dd className="truncate tabular-nums">
+                      {money(row.premium)}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-slate-500">Incl. taxes</dt>
+                    <dd className="truncate font-semibold tabular-nums">
+                      {money(row.total)}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            ))
+          )}
+          {rows.length > 0 && (
+            <li className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold">
+              <span>
+                Fleet total ({rows.length} vehicle
+                {rows.length === 1 ? '' : 's'})
+              </span>
+              <span className="tabular-nums">{money(totals.total)}</span>
+            </li>
+          )}
+        </ul>
+        <div className="hidden overflow-x-auto rounded-lg border md:block">
           <Table>
             <TableHeader>
               <TableRow>

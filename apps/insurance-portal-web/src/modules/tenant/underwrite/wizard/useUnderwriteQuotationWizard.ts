@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFleetComprehensiveCount } from '@/modules/tenant/quotations/wizard/hooks/useFleetComprehensiveCount';
 import { useNavigate } from 'react-router-dom';
 import {
   useFieldArray,
@@ -232,6 +233,11 @@ export function useUnderwriteQuotationWizard({
     existingQuotation?.internal_quotation.category_id ?? '';
   const { data: riskOptions = [] } = useQuotationRisks(
     productId || savedProductId || undefined,
+  );
+  const fleetComprehensive = useFleetComprehensiveCount(
+    form,
+    riskOptions,
+    line.line === 'FLEET',
   );
   // Fleet lists the customer's saved vehicles; Motor searches the register.
   const { data: vehicleOptions = [] } = useQuotationVehicles(
@@ -896,6 +902,7 @@ export function useUnderwriteQuotationWizard({
     categoryOptions,
     productOptions,
     riskOptions,
+    fleetComprehensive,
     vehicleOptions,
     subjectMatterOptions,
     /** Persisted quotation id, once the first draft has been saved. */

@@ -1,12 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import { MotorCoverClass } from '@insurance-max/contracts';
 
 export class CreateInsuranceRiskDto {
   @ApiProperty({ description: 'Insurance product UUID this risk belongs to' })
@@ -41,6 +43,16 @@ export class CreateInsuranceRiskDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({
+    enum: Object.values(MotorCoverClass),
+    nullable: true,
+    description:
+      'Motor cover class; counts towards the TIRAMIS fleet comprehensive total',
+  })
+  @IsOptional()
+  @IsIn([...Object.values(MotorCoverClass), null])
+  cover_class?: MotorCoverClass | null;
 
   @ApiPropertyOptional({ example: true, default: true })
   @IsOptional()

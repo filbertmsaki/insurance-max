@@ -1236,364 +1236,416 @@
       "sub_class_code": null,
       "risk_code": "SP014001000001",
       "risk_name": "MOTOR Private Vehicles-Comprehensive claim free Vehicle",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014001000000",
       "sub_class_code": null,
       "risk_code": "SP014001000002",
       "risk_name": "MOTOR Private Vehicles-Comprehensive with claim record",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014001000000",
       "sub_class_code": null,
       "risk_code": "SP014001000003",
       "risk_name": "MOTOR Private Vehicles-TPFT",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014001000000",
       "sub_class_code": null,
       "risk_code": "SP014001000004",
       "risk_name": "MOTOR Private Vehicles-TPO",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014001000000",
       "sub_class_code": null,
       "risk_code": "SP014001000007",
       "risk_name": "MOTOR Private Vehicles-Transit",
-      "description": "Short-term private motor transit cover"
+      "description": "Short-term private motor transit cover",
+      "cover_class": null
     },
     {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000001",
       "risk_name": "MOTOR Motor Cycle-Comprehensive-Two wheelers claims free",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000002",
       "risk_name": "MOTOR Motor Cycle-Comprehensive- Two wheelers with claims record",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000003",
       "risk_name": "MOTOR Motor Cycle-Comprehensive-Three Wheelers claims free",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000004",
       "risk_name": "MOTOR Motor Cycle-Comprehensive -Three wheelers with claims record",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000005",
       "risk_name": "MOTOR Motor Cycle-TPFT - Two wheelers",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000006",
       "risk_name": "MOTOR Motor Cycle-TPFT - Three wheelers",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000007",
       "risk_name": "MOTOR Motor Cycle-TPO",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014002000000",
       "sub_class_code": null,
       "risk_code": "SP014002000008",
       "risk_name": "MOTOR Motor Cycle-TPO (Three Wheelers)",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000001",
       "risk_name": "MOTOR Commercial Vehicle-General Goods Carrying Own Goods (Comprehensive)of claims free vehicle",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000002",
       "risk_name": "MOTOR Commercial Vehicle-General Goods Carrying Own Goods (Comprehensive)with claim record.",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000003",
       "risk_name": "MOTOR Commercial Vehicle- Own Goods-TPFT- Up to 2 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000004",
       "risk_name": "MOTOR Commercial Vehicle- Own Goods-TPFT- Above 2 to 5 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000005",
       "risk_name": "MOTOR Commercial Vehicle-Own Goods-TPFT- In excess of 5 tonnes but less than 10 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000006",
       "risk_name": "MOTOR Commercial Vehicle-Own Goods-TPFT- In excess of 10 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000007",
       "risk_name": "MOTOR Commercial Vehicle-General Cartage claims free vehicle",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000008",
       "risk_name": "MOTOR Commercial Vehicle-General Cartage with claims record.",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000009",
       "risk_name": "MOTOR Commercial Vehicle- General Cartage-TPFT- Up to 2 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000010",
       "risk_name": "MOTOR Commercial Vehicle- General Cartage-TPFT- Above 2 to 5 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000011",
       "risk_name": "MOTOR Commercial Vehicle-General Cartage-TPFT- In excess of 5 tonnes but less than 10 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000012",
       "risk_name": "MOTOR Commercial Vehicle-General Cartage-TPFT- In excess of 10 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000013",
       "risk_name": "MOTOR Commercial Vehicle-General Goods Carrying-TPO Up to 2 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000014",
       "risk_name": "MOTOR Commercial Vehicle-General Goods Carrying-TPO Above 2 to 5 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000015",
       "risk_name": "MOTOR Commercial Vehicle-General Goods Carrying-TPO In excess of 5 tonnes but less in 10 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000016",
       "risk_name": "MOTOR Commercial Vehicle-General Goods Carrying-TPO In excess of 10 tonnes",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000017",
       "risk_name": "MOTOR Commercial Vehicle-Trailers - Comprehensive:Trailers manufactured locally/bought from the dealer and less than 10 years old -Claims Free",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000018",
       "risk_name": "MOTOR Commercial Vehicle-Trailers - Comprehensive:Trailers manufactured locally/bought from the dealer and less than 10 years old% -with Claim record",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000019",
       "risk_name": "MOTOR Commercial Vehicle-Trailers - Comprehensive:Conversion trailers or trailers over 10 years old - Claims Free",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000020",
       "risk_name": "MOTOR Commercial Vehicle-Trailers - Comprehensive:Conversion trailers or trailers over 10 years old- with Claim record",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000021",
       "risk_name": "MOTOR Commercial Vehicle-Trailers - Third Party Only",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000022",
       "risk_name": "MOTOR Commercial Vehicle-Oil tankers- Comprehensive:Steel Tankers below 10 years",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000023",
       "risk_name": "MOTOR Commercial Vehicle-Oil tankers- Comprehensive:Aluminium Tankers below 10 years",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000024",
       "risk_name": "MOTOR Commercial Vehicle-Oil tankers- Comprehensive:Tankers over 10 years old",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000025",
       "risk_name": "MOTOR Commercial Vehicle-Oil tankers- Comprehensive:TPFT",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY_FIRE_THEFT"
     },
     {
       "product_code": "SP014003000000",
       "sub_class_code": null,
       "risk_code": "SP014003000026",
       "risk_name": "MOTOR Commercial Vehicle-Oil tankers- Comprehensive:TPO",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000001",
       "risk_name": "MOTOR Passenger Carrying-Comprehensive- Public Taxis, private hire, tour operators with No Claim Record",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000002",
       "risk_name": "MOTOR Passenger Carrying-Comprehensive Public Taxis, private hire, tour operators with claim record",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000003",
       "risk_name": "MOTOR Passenger Carrying-Comprehensive-Buses-Daladala within City",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000004",
       "risk_name": "MOTOR Passenger Carrying-Comprehensive-Buses- Up Country",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000005",
       "risk_name": "MOTOR Passenger Carrying-Comprehensive-Buses- Private",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000006",
       "risk_name": "MOTOR Passenger Carrying-Comprehensive Buses- School",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000007",
       "risk_name": "MOTOR Passenger Carrying-Third Party Premium Public Taxis, private hire, tour operators",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000008",
       "risk_name": "MOTOR Passenger Carrying-Third Party Premium Buses-Daladala within City",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000009",
       "risk_name": "MOTOR Passenger Carrying-Third Party Premium Buses- Up Country",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000010",
       "risk_name": "MOTOR Passenger Carrying-Third Party Premium Buses- Private",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014004000000",
       "sub_class_code": null,
       "risk_code": "SP014004000011",
       "risk_name": "MOTOR Passenger Carrying-Third Party Premium Buses- School",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP014005000000",
       "sub_class_code": null,
       "risk_code": "SP014005000001",
       "risk_name": "MOTOR Special Type Vehicles-Comprehensive-Farm Tractors, Forklifts, Graders, Cranes, Excavators etc.",
-      "description": null
+      "description": null,
+      "cover_class": "COMPREHENSIVE"
     },
     {
       "product_code": "SP014005000000",
       "sub_class_code": null,
       "risk_code": "SP014005000002",
       "risk_name": "MOTOR Special Type Vehicles-Third Party Premium- Farm Tractors, Forklifts, Graders, Cranes, Excavators etc.",
-      "description": null
+      "description": null,
+      "cover_class": "THIRD_PARTY"
     },
     {
       "product_code": "SP013001000000",

@@ -11,6 +11,7 @@ import {
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
+import type { MotorCoverClass } from '@insurance-max/contracts';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
 import { InsuranceSubClass } from '../../insurance-sub-classes/entities/insurance-sub-class.entity';
@@ -56,6 +57,10 @@ export class InsuranceRisk {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   tiramis_risk_code: string | null;
+
+  /** Motor cover class; drives the TIRAMIS fleet ComprehensiveInsured count. */
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  cover_class: MotorCoverClass | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   code_locked_at: Date | null;

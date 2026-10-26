@@ -30,15 +30,9 @@ const FLEET = getUnderwriteLineMeta(UnderwriteLine.FLEET);
 const FLEET_WIZARD_STEPS: UnderwriteWizardStep[] = [
   {
     id: 'customer',
-    label: 'Customer',
-    description: 'Select or capture the fleet owner',
-    fields: ['customer_id', 'policyholder'],
-  },
-  {
-    id: 'fleet',
-    label: 'Fleet Details',
-    description: 'Fleet reference, type and comprehensive count',
-    fields: ['fleet.header'],
+    label: 'Customer & Fleet',
+    description: 'Fleet owner, fleet reference and type',
+    fields: ['customer_id', 'policyholder', 'fleet.header'],
   },
   {
     id: 'cover',
@@ -88,7 +82,6 @@ const FLEET_WIZARD_STEPS: UnderwriteWizardStep[] = [
 function fleetStepFor(step: QuotationWizardStepId): string {
   switch (step) {
     case 'fleet-setup':
-      return 'fleet';
     case 'policyholder':
       return 'customer';
     default:
@@ -200,6 +193,8 @@ export function FleetQuotationWizardPage() {
     line: FLEET,
     quotationId: id,
     steps: FLEET_WIZARD_STEPS,
+    // Drafts saved before Customer and Fleet Details were merged.
+    stepAliases: { fleet: 'customer' },
   });
   const actions = useFleetVehicleActions(wizard);
   const { form } = wizard;
@@ -212,20 +207,24 @@ export function FleetQuotationWizardPage() {
         switch (stepId) {
           case 'customer':
             return (
-              <PolicyholderStep
-                form={form}
-                customerOptions={wizard.customerOptions}
-              />
-            );
-          case 'fleet':
-            return (
-              <FleetSetupStep
-                form={form}
-                categoryOptions={wizard.categoryOptions}
-                productOptions={wizard.productOptions}
-                isHydrating={wizard.isHydrating}
-                headerOnly
-              />
+              <div className="space-y-6">
+                {/* Same select / create / edit behaviour as the motor wizard. */}
+                <PolicyholderStep
+                  form={form}
+                  customerOptions={wizard.customerOptions}
+                  newCustomerInDialog
+                  hideNewCustomerButton
+                  compactOnMobile
+                />
+                <FleetSetupStep
+                  form={form}
+                  comprehensive={wizard.fleetComprehensive}
+                  categoryOptions={wizard.categoryOptions}
+                  productOptions={wizard.productOptions}
+                  isHydrating={wizard.isHydrating}
+                  headerOnly
+                />
+              </div>
             );
           case 'cover':
             return (

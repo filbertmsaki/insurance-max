@@ -1,3 +1,5 @@
+import type { MotorCoverClass } from '@insurance-max/contracts';
+
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 export type RateType =
@@ -432,6 +434,8 @@ export interface InsuranceRisk {
   risk_code: string;
   risk_name: string;
   description: string | null;
+  /** Motor cover class (see `MotorCoverClass`); null when not configured. */
+  cover_class?: MotorCoverClass | null;
   is_active: boolean;
   created_at: string;
   product?: InsuranceProduct;
@@ -444,6 +448,7 @@ export interface CreateRiskDto {
   risk_code: string;
   risk_name: string;
   description?: string;
+  cover_class?: MotorCoverClass | null;
   is_active?: boolean;
 }
 
@@ -453,6 +458,7 @@ export interface UpdateRiskDto {
   risk_code?: string;
   risk_name?: string;
   description?: string;
+  cover_class?: MotorCoverClass | null;
   is_active?: boolean;
 }
 

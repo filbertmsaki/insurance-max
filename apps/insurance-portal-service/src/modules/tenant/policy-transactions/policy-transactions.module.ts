@@ -1,3 +1,4 @@
+import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductDefinitionModule } from '@insurance-max/shared-kernel';
@@ -111,6 +112,7 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
       DocumentLink,
       Company,
       User,
+      InsuranceRisk,
     ]),
     forwardRef(() => TiramisIntegrationModule),
   ],

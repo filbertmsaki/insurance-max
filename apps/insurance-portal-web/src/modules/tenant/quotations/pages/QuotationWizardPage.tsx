@@ -1,3 +1,4 @@
+import { useFleetComprehensiveCount } from '../wizard/hooks/useFleetComprehensiveCount';
 import {
   useCallback,
   useEffect,
@@ -365,6 +366,11 @@ export function QuotationWizardPage() {
   const { data: riskOptions = [] } = useQuotationRisks(
     productId ||
       (usesPrefilledQuotation ? savedProductId || undefined : undefined),
+  );
+  const fleetComprehensive = useFleetComprehensiveCount(
+    form,
+    riskOptions,
+    quotationFlow === 'MOTOR_FLEET',
   );
   const { data: vehicleOptions = [] } = useQuotationVehicles(
     policyholderMode === 'existing' ? customerId : undefined,
@@ -1449,6 +1455,7 @@ export function QuotationWizardPage() {
                         <>
                           <FleetSetupStep
                             form={form}
+                            comprehensive={fleetComprehensive}
                             categoryOptions={categoryOptions}
                             productOptions={productOptions}
                             isHydrating={isEditHydrating}
