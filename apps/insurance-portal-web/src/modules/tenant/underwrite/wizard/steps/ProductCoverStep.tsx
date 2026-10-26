@@ -20,6 +20,8 @@ export function ProductCoverStep({
   currencyEditable = false,
   compact = false,
   extraFields,
+  leadingFields,
+  title = 'Product',
   first = true,
 }: {
   wizard: UnderwriteQuotationWizard;
@@ -29,6 +31,9 @@ export function ProductCoverStep({
   compact?: boolean;
   /** Extra inputs placed in the product grid (e.g. payment method). */
   extraFields?: ReactNode;
+  /** Inputs placed before Product in the same grid row (e.g. fleet type). */
+  leadingFields?: ReactNode;
+  title?: string;
   first?: boolean;
 }) {
   const { form, categoryOptions, productOptions, isHydrating, line } = wizard;
@@ -109,12 +114,13 @@ export function ProductCoverStep({
 
   return (
     <div className={compact ? 'space-y-3' : 'space-y-6'}>
-      <StepSection title={compact ? undefined : 'Product'} first={first}>
+      <StepSection title={compact ? undefined : title} first={first}>
         <div
           className={
             compact ? 'grid gap-4 md:grid-cols-2' : 'grid gap-4 lg:grid-cols-3'
           }
         >
+          {leadingFields}
           <WizardInput
             form={form}
             name="product_id"

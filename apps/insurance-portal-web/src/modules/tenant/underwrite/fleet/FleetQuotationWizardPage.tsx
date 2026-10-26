@@ -3,7 +3,6 @@ import { UnderwriteLine } from '@insurance-max/contracts';
 import { createEmptyFleetItemRow } from '@/modules/tenant/quotations/schemas';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
 import { WizardInput } from '@/modules/tenant/quotations/wizard/components/WizardInput';
-import { FleetSetupStep } from '@/modules/tenant/quotations/wizard/steps/FleetSetupStep';
 import { MotorFleetDetailsStep } from '@/modules/tenant/quotations/wizard/steps/MotorFleetDetailsStep';
 import { PolicyholderStep } from '@/modules/tenant/quotations/wizard/steps/PolicyholderStep';
 import { SummaryReviewStep } from '@/modules/tenant/quotations/wizard/steps/SummaryReviewStep';
@@ -21,6 +20,11 @@ import {
 import { FleetPremiumStep } from './FleetPremiumStep';
 
 const FLEET = getUnderwriteLineMeta(UnderwriteLine.FLEET);
+
+const FLEET_TYPE_OPTIONS = [
+  { value: '1', label: 'New Fleet' },
+  { value: '2', label: 'Fleet Addition' },
+];
 
 /*
  * Product & Cover (on the first step) comes before Vehicles:
@@ -213,14 +217,19 @@ export function FleetQuotationWizardPage() {
                   hideNewCustomerButton
                   compactOnMobile
                 />
-                <FleetSetupStep
-                  form={form}
-                  categoryOptions={wizard.categoryOptions}
-                  productOptions={wizard.productOptions}
-                  isHydrating={wizard.isHydrating}
-                  headerOnly
+                <ProductCoverStep
+                  wizard={wizard}
+                  title="Fleet & Product"
+                  leadingFields={
+                    <WizardInput
+                      form={form}
+                      name="fleet.header.fleet_type"
+                      label="Fleet Type"
+                      required
+                      options={FLEET_TYPE_OPTIONS}
+                    />
+                  }
                 />
-                <ProductCoverStep wizard={wizard} />
                 <StepSection
                   title="Default vehicle cover"
                   description="Applied to vehicles as they are added; each vehicle can be changed individually."
