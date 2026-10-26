@@ -1,49 +1,40 @@
 import { z } from 'zod';
 import {
   getCustomerFullName,
-  getCustomerIdFieldName,
-  splitCustomerFullName,
+  getPolicyHolderType,
+  POLICY_HOLDER_FIELD_MAX_LENGTH as MAX,
   type CustomerFormValues,
+  type CustomerIdType,
   type CustomerPayload,
   type CustomerRecord,
 } from './types';
 
-const optionalText = z
-  .string()
-  .trim()
-  .max(255)
-  .optional()
-  .or(z.literal(''))
-  .transform((value) => value ?? '');
-const optionalTextWithMax = (max: number, message?: string) =>
+const requiredText = (max: number, label: string) =>
   z
     .string()
     .trim()
-    .max(max, message)
+    .min(1, `${label} is required`)
+    .max(max, `${label} must be at most ${max} characters`);
+const optionalText = (max: number, label: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, `${label} must be at most ${max} characters`)
     .optional()
-    .or(z.literal(''))
     .transform((value) => value ?? '');
-const optionalEmail = z
-  .string()
-  .trim()
-  .email('Invalid email')
-  .optional()
-  .or(z.literal(''))
-  .transform((value) => value ?? '');
-const optionalCountryCode = z
-  .string()
-  .trim()
-  .length(3, 'Country code must be 3 letters')
-  .optional()
-  .or(z.literal(''))
-  .transform((value) => value ?? '');
-const optionalGender = z
-  .enum(['M', 'F'])
-  .optional()
-  .or(z.literal(''))
-  .transform((value) => value ?? '');
-const optionalIdType = z
-  .union([
+
+/**
+ * The policyholder field shape without the type-conditional refinement.
+ * Exported separately so other forms (e.g. the quotation wizard's inline
+ * "create new policyholder" step) can nest it as a sub-object and decide for
+ * themselves when the full `customerFormSchema` validation should apply.
+ */
+export const customerFormObjectSchema = z.object({
+  policy_holder_name: z.string().trim(),
+  policy_holder_birth_date: z.string(),
+  policy_holder_type: z.union([z.literal(1), z.literal(2)]),
+  policy_holder_id_number: z.string().trim(),
+  policy_holder_id_type: z.union([
     z.literal(1),
     z.literal(2),
     z.literal(3),
@@ -51,244 +42,104 @@ const optionalIdType = z
     z.literal(5),
     z.literal(6),
     z.literal(7),
-  ])
-  .optional()
-  .or(z.literal(''))
-  .transform((value) => value ?? '');
-const optionalDocumentType = z
-  .union([
-    z.literal('NIDA'),
-    z.literal('VOTER_ID'),
-    z.literal('PASSPORT'),
-    z.literal('DRIVING_LICENSE'),
-    z.literal('ZANID'),
-    z.literal('TIN_CERTIFICATE'),
-    z.literal('VRN_CERTIFICATE'),
-    z.literal('BUSINESS_REGISTRATION'),
-    z.literal('INCORPORATION_CERTIFICATE'),
-    z.literal('OTHER'),
-  ])
-  .optional()
-  .or(z.literal(''))
-  .transform((value) => value ?? '');
+    z.literal(''),
+  ]),
+  gender: z.enum(['M', 'F']).or(z.literal('')),
+  country_code: z.string().trim(),
+  region: z.string().trim(),
+  district: z.string().trim(),
+  street: z.string().trim(),
+  policy_holder_phone_number: z.string().trim(),
+  policy_holder_fax: optionalText(MAX.policy_holder_fax, 'Fax'),
+  postal_address: optionalText(MAX.postal_address, 'Postal address'),
+  email_address: z
+    .string()
+    .trim()
+    .max(
+      MAX.email_address,
+      `Email must be at most ${MAX.email_address} characters`,
+    )
+    .email('Invalid email')
+    .or(z.literal(''))
+    .optional()
+    .transform((value) => value ?? ''),
+});
 
-/**
- * The customer field shape without the customer_type-conditional refinement.
- * Exported separately so other forms (e.g. the quotation wizard's inline
- * "create new policyholder" step) can nest it as a sub-object and decide for
- * themselves when the full `customerFormSchema` validation should apply,
- * without unconditionally forcing every required-customer-field check to run.
- */
-export const customerFormObjectSchema = z.object({
-  customer_type: z.enum(['INDIVIDUAL', 'CORPORATE']),
-  customer_no: z
-    .string()
-    .optional()
-    .or(z.literal(''))
-    .transform((value) => value ?? ''),
-  full_name: optionalTextWithMax(150),
-  first_name: optionalTextWithMax(50),
-  middle_name: optionalTextWithMax(50),
-  last_name: optionalTextWithMax(50),
-  gender: optionalGender,
-  date_of_birth: z
-    .string()
-    .optional()
-    .or(z.literal(''))
-    .transform((value) => value ?? ''),
-  nationality: optionalText,
-  company_name: optionalTextWithMax(150),
-  registration_no: optionalText,
-  incorporation_certificate_no: optionalText,
-  tin: optionalText,
-  vrn: optionalText,
-  id_type: optionalIdType,
-  id_number: optionalTextWithMax(50),
-  nida_no: optionalText,
-  voter_no: optionalText,
-  passport_no: optionalText,
-  driving_license_no: optionalText,
-  zanid_no: optionalText,
-  phone: z.string().trim().max(30),
-  alternate_phone: optionalText,
-  fax: optionalText,
-  email: optionalEmail,
-  country: optionalText,
-  country_code: optionalCountryCode,
-  region: optionalTextWithMax(50),
-  district: optionalTextWithMax(50),
-  ward: optionalText,
-  street: optionalText,
-  postal_address: optionalText,
-  contact_name: optionalText,
-  contact_role: optionalText,
-  contact_phone: optionalText,
-  contact_email: optionalEmail,
-  document_type: optionalDocumentType,
-  document_no: optionalText,
-  document_file_name: optionalText,
-  document_file_url: optionalText,
-  document_mime_type: optionalText,
-  document_verified: z.boolean(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'BLACKLISTED']),
+const requiredFields = z.object({
+  policy_holder_name: requiredText(MAX.policy_holder_name, 'Name'),
+  policy_holder_id_number: requiredText(
+    MAX.policy_holder_id_number,
+    'ID number',
+  ),
+  region: requiredText(MAX.region, 'Region'),
+  district: requiredText(MAX.district, 'District'),
+  street: requiredText(MAX.street, 'Street'),
+  policy_holder_phone_number: requiredText(
+    MAX.policy_holder_phone_number,
+    'Phone number',
+  ),
 });
 
 export const customerFormSchema = customerFormObjectSchema.superRefine(
   (values, ctx) => {
-    const text = (value?: string | null) => (value ?? '').trim();
-    const fullName = text(values.full_name);
-    const nameParts = fullName ? fullName.split(/\s+/).filter(Boolean) : [];
-    const isIndividual = values.customer_type === 'INDIVIDUAL';
-    const isCorporate = values.customer_type === 'CORPORATE';
-    const today = new Date().toISOString().slice(0, 10);
-    const idField = getCustomerIdFieldName(
-      values.customer_type,
-      values.id_type,
-    );
-    const idSpecificValue = idField
-      ? text((values as unknown as Record<string, string | undefined>)[idField])
-      : '';
-    const resolvedIdNumber = text(values.id_number) || idSpecificValue;
+    const required = requiredFields.safeParse(values);
+    if (!required.success) {
+      for (const issue of required.error.issues) {
+        ctx.addIssue({
+          code: 'custom',
+          path: issue.path,
+          message: issue.message,
+        });
+      }
+    }
 
-    if (values.id_type && !idField) {
+    const isIndividual = values.policy_holder_type === 1;
+    const dateLabel = isIndividual ? 'Date of birth' : 'Incorporation date';
+    const today = new Date().toISOString().slice(0, 10);
+    const birthDate = values.policy_holder_birth_date;
+
+    if (!birthDate) {
       ctx.addIssue({
         code: 'custom',
-        path: ['id_type'],
-        message:
-          'Select a valid identification type for this policyholder type',
+        path: ['policy_holder_birth_date'],
+        message: `${dateLabel} is required`,
+      });
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['policy_holder_birth_date'],
+        message: 'Use the YYYY-MM-DD format',
+      });
+    } else if (birthDate > today) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['policy_holder_birth_date'],
+        message: `${dateLabel} cannot be in the future`,
       });
     }
 
-    if (isIndividual) {
-      if (!fullName && !text(values.first_name) && !text(values.last_name)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['full_name'],
-          message: 'Full name is required',
-        });
-      }
-      if (fullName && nameParts.length < 2) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['full_name'],
-          message: 'Enter at least first and last name',
-        });
-      }
-      if (!values.gender)
-        ctx.addIssue({
-          code: 'custom',
-          path: ['gender'],
-          message: 'Gender is required',
-        });
-      if (!values.date_of_birth)
-        ctx.addIssue({
-          code: 'custom',
-          path: ['date_of_birth'],
-          message: 'Date of birth is required',
-        });
-      if (values.date_of_birth && values.date_of_birth > today) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['date_of_birth'],
-          message: 'Date of birth cannot be in the future',
-        });
-      }
-      if (!values.id_type)
-        ctx.addIssue({
-          code: 'custom',
-          path: ['id_type'],
-          message: 'ID type is required',
-        });
-      if (!resolvedIdNumber)
-        ctx.addIssue({
-          code: 'custom',
-          path: ['id_number'],
-          message: 'ID number is required',
-        });
-      if (!text(values.phone))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['phone'],
-          message: 'Phone is required',
-        });
-      if (!text(values.country_code))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['country_code'],
-          message: 'Country code is required',
-        });
-      if (!text(values.region))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['region'],
-          message: 'Region is required',
-        });
-      if (!text(values.district))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['district'],
-          message: 'District is required',
-        });
+    if (!values.policy_holder_id_type) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['policy_holder_id_type'],
+        message: 'ID type is required',
+      });
     }
 
-    if (isCorporate) {
-      if (!fullName && !text(values.company_name)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['full_name'],
-          message: 'Full name is required',
-        });
-      }
-      if (!values.id_type)
-        ctx.addIssue({
-          code: 'custom',
-          path: ['id_type'],
-          message: 'ID type is required',
-        });
-      if (!resolvedIdNumber)
-        ctx.addIssue({
-          code: 'custom',
-          path: ['id_number'],
-          message: 'ID number is required',
-        });
-      if (!values.date_of_birth) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['date_of_birth'],
-          message: 'Date of birth / incorporation date is required',
-        });
-      }
-      if (values.date_of_birth && values.date_of_birth > today) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['date_of_birth'],
-          message: 'Date of birth / incorporation date cannot be in the future',
-        });
-      }
-      if (!text(values.phone))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['phone'],
-          message: 'Phone is required',
-        });
-      if (!text(values.country_code))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['country_code'],
-          message: 'Country code is required',
-        });
-      if (!text(values.region))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['region'],
-          message: 'Region is required',
-        });
-      if (!text(values.district))
-        ctx.addIssue({
-          code: 'custom',
-          path: ['district'],
-          message: 'District is required',
-        });
+    if (isIndividual && !values.gender) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['gender'],
+        message: 'Gender is required',
+      });
+    }
+
+    if (!/^[A-Za-z]{3}$/.test(values.country_code)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['country_code'],
+        message: 'Country code must be a 3-letter ISO code',
+      });
     }
   },
 );
@@ -297,140 +148,97 @@ export function getCustomerDefaultValues(
   customer?: Partial<CustomerRecord> | null,
 ): CustomerFormValues {
   return {
-    customer_type: customer?.customer_type ?? 'INDIVIDUAL',
-    customer_no: customer?.customer_no ?? '',
-    full_name: getCustomerFullName(customer ?? null),
-    first_name: customer?.first_name ?? '',
-    middle_name: customer?.middle_name ?? '',
-    last_name: customer?.last_name ?? '',
+    policy_holder_name: customer
+      ? getCustomerFullName(customer) || (customer.display_name ?? '')
+      : '',
+    policy_holder_birth_date: customer?.date_of_birth ?? '',
+    policy_holder_type: customer ? getPolicyHolderType(customer) : 1,
+    policy_holder_id_number: customer?.id_number ?? '',
+    policy_holder_id_type: (customer?.id_type ?? '') as CustomerIdType | '',
     gender: customer?.gender ?? '',
-    date_of_birth: customer?.date_of_birth ?? '',
-    nationality: customer?.nationality ?? '',
-    company_name: customer?.company_name ?? '',
-    registration_no: customer?.registration_no ?? '',
-    incorporation_certificate_no: customer?.incorporation_certificate_no ?? '',
-    tin: customer?.tin ?? '',
-    vrn: customer?.vrn ?? '',
-    id_type:
-      customer?.id_type ?? (customer?.customer_type === 'CORPORATE' ? 7 : 1),
-    id_number: customer?.id_number ?? '',
-    nida_no: customer?.nida_no ?? '',
-    voter_no: customer?.voter_no ?? '',
-    passport_no: customer?.passport_no ?? '',
-    driving_license_no: customer?.driving_license_no ?? '',
-    zanid_no: customer?.zanid_no ?? '',
-    phone: customer?.phone ?? '',
-    alternate_phone: customer?.alternate_phone ?? '',
-    fax: customer?.fax ?? '',
-    email: customer?.email ?? '',
-    country: customer?.country ?? '',
     country_code: customer?.country_code ?? 'TZA',
     region: customer?.region ?? '',
     district: customer?.district ?? '',
-    ward: customer?.ward ?? '',
     street: customer?.street ?? '',
+    policy_holder_phone_number: customer?.phone ?? '',
+    policy_holder_fax: customer?.fax ?? '',
     postal_address: customer?.postal_address ?? '',
-    contact_name: customer?.contact_name ?? '',
-    contact_role: customer?.contact_role ?? '',
-    contact_phone: customer?.contact_phone ?? '',
-    contact_email: customer?.contact_email ?? '',
-    document_type: customer?.document_type ?? '',
-    document_no: customer?.document_no ?? '',
-    document_file_name: customer?.document_file_name ?? '',
-    document_file_url: customer?.document_file_url ?? '',
-    document_mime_type: customer?.document_mime_type ?? '',
-    document_verified: customer?.document_verified ?? false,
-    status: customer?.status ?? 'ACTIVE',
+    email_address: customer?.email ?? '',
   };
 }
 
-function normalizeText(value: string) {
+function optional(value: string) {
   const trimmed = value.trim();
-  return trimmed.length ? trimmed : undefined;
+  return trimmed.length ? trimmed : null;
 }
 
 export function buildCustomerPayload(
   values: CustomerFormValues,
 ): CustomerPayload {
-  const fullName = normalizeText(values.full_name) ?? '';
-  const derivedNames = fullName ? splitCustomerFullName(fullName) : null;
-  const idType = values.id_type || 1;
-  const idField = getCustomerIdFieldName(values.customer_type, idType);
-  const formValues = values as unknown as Record<string, string>;
-  const idNumber =
-    normalizeText(values.id_number) ??
-    (idField ? normalizeText(formValues[idField] ?? '') : undefined) ??
-    '';
-  const specificValue = idField
-    ? (normalizeText(formValues[idField] ?? '') ?? idNumber)
-    : undefined;
+  return {
+    policy_holder_name: values.policy_holder_name.trim(),
+    policy_holder_birth_date: values.policy_holder_birth_date,
+    policy_holder_type: values.policy_holder_type,
+    policy_holder_id_number: values.policy_holder_id_number.trim(),
+    policy_holder_id_type: values.policy_holder_id_type as CustomerIdType,
+    gender: values.gender || null,
+    country_code: values.country_code.trim().toUpperCase(),
+    region: values.region.trim(),
+    district: values.district.trim(),
+    street: values.street.trim(),
+    policy_holder_phone_number: values.policy_holder_phone_number.trim(),
+    policy_holder_fax: optional(values.policy_holder_fax),
+    postal_address: optional(values.postal_address),
+    email_address: optional(values.email_address),
+  };
+}
 
-  const payload = {
-    customer_type: values.customer_type,
-    id_type: idType,
-    id_number: idNumber,
-    phone: normalizeText(values.phone) ?? values.phone,
-    country_code: (normalizeText(values.country_code) ?? 'TZA').toUpperCase(),
-    region: normalizeText(values.region) ?? values.region,
-    district: normalizeText(values.district) ?? values.district,
-    status: values.status,
-  } as CustomerPayload &
-    Record<string, string | number | boolean | null | undefined>;
+/**
+ * Quotation drafts saved before the policyholder-only form stored the old
+ * customer form shape (customer_type, full_name, phone, ...). Converts such a
+ * snapshot to the current fields; current-shape values pass through.
+ */
+export function normalizePolicyholderFormValues(
+  value: unknown,
+): CustomerFormValues {
+  const defaults = getCustomerDefaultValues();
+  if (!value || typeof value !== 'object') return defaults;
 
-  if (values.customer_type === 'INDIVIDUAL') {
-    const firstName =
-      normalizeText(values.first_name) ?? derivedNames?.first_name;
-    const middleName =
-      normalizeText(values.middle_name) ?? derivedNames?.middle_name;
-    const lastName = normalizeText(values.last_name) ?? derivedNames?.last_name;
-
-    if (firstName) payload.first_name = firstName;
-    if (middleName) payload.middle_name = middleName;
-    if (lastName) payload.last_name = lastName;
-  }
-
-  if (values.gender) payload.gender = values.gender;
-  if (values.date_of_birth) payload.date_of_birth = values.date_of_birth;
-  if (normalizeText(values.nationality))
-    payload.nationality = normalizeText(values.nationality);
-  if (values.customer_type === 'CORPORATE') {
-    const companyName = normalizeText(values.company_name) ?? fullName;
-    if (companyName) payload.company_name = companyName;
-  }
-  if (normalizeText(values.registration_no))
-    payload.registration_no = normalizeText(values.registration_no);
-  if (normalizeText(values.incorporation_certificate_no))
-    payload.incorporation_certificate_no = normalizeText(
-      values.incorporation_certificate_no,
-    );
-  if (normalizeText(values.tin)) payload.tin = normalizeText(values.tin);
-  if (normalizeText(values.vrn)) payload.vrn = normalizeText(values.vrn);
-  if (specificValue && idField) {
-    payload[idField] = specificValue;
-    if (idField !== 'tin' && values.customer_type === 'CORPORATE') {
-      payload.tin = payload.tin ?? specificValue;
+  const source = value as Record<string, unknown>;
+  const text = (...keys: string[]) => {
+    for (const key of keys) {
+      const candidate = source[key];
+      if (typeof candidate === 'string' && candidate.trim()) return candidate;
     }
-  }
-  if (normalizeText(values.alternate_phone))
-    payload.alternate_phone = normalizeText(values.alternate_phone);
-  if (normalizeText(values.fax)) payload.fax = normalizeText(values.fax);
-  if (normalizeText(values.email)) payload.email = normalizeText(values.email);
-  if (normalizeText(values.country))
-    payload.country = normalizeText(values.country);
-  if (normalizeText(values.ward)) payload.ward = normalizeText(values.ward);
-  if (normalizeText(values.street))
-    payload.street = normalizeText(values.street);
-  if (normalizeText(values.postal_address))
-    payload.postal_address = normalizeText(values.postal_address);
-  if (normalizeText(values.contact_name))
-    payload.contact_name = normalizeText(values.contact_name);
-  if (normalizeText(values.contact_role))
-    payload.contact_role = normalizeText(values.contact_role);
-  if (normalizeText(values.contact_phone))
-    payload.contact_phone = normalizeText(values.contact_phone);
-  if (normalizeText(values.contact_email))
-    payload.contact_email = normalizeText(values.contact_email);
-  payload.policy_holder_type = values.customer_type === 'INDIVIDUAL' ? 1 : 2;
+    return '';
+  };
+  const legacyName = [source.first_name, source.middle_name, source.last_name]
+    .filter((part): part is string => typeof part === 'string' && !!part.trim())
+    .join(' ');
+  const policyHolderType =
+    source.policy_holder_type === 2 || source.customer_type === 'CORPORATE'
+      ? 2
+      : 1;
+  const idType = Number(source.policy_holder_id_type ?? source.id_type);
+  const gender =
+    source.gender === 'M' || source.gender === 'F' ? source.gender : '';
 
-  return payload;
+  return {
+    policy_holder_name:
+      text('policy_holder_name', 'full_name', 'company_name') || legacyName,
+    policy_holder_birth_date: text('policy_holder_birth_date', 'date_of_birth'),
+    policy_holder_type: policyHolderType,
+    policy_holder_id_number: text('policy_holder_id_number', 'id_number'),
+    policy_holder_id_type:
+      idType >= 1 && idType <= 7 ? (idType as CustomerIdType) : '',
+    gender,
+    country_code: text('country_code') || defaults.country_code,
+    region: text('region'),
+    district: text('district'),
+    street: text('street'),
+    policy_holder_phone_number: text('policy_holder_phone_number', 'phone'),
+    policy_holder_fax: text('policy_holder_fax', 'fax'),
+    postal_address: text('postal_address'),
+    email_address: text('email_address', 'email'),
+  };
 }

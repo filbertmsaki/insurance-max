@@ -42,8 +42,10 @@ const customer = {
   id_number: '19900101123450000112',
   date_of_birth: '1990-01-01',
   gender: 'M',
+  country_code: 'TZA',
   region: 'Dar es Salaam',
   district: null,
+  street: 'Samora Ave',
   status: 'ACTIVE',
 } as unknown as CustomerRecord;
 
@@ -75,17 +77,17 @@ function renderStep() {
           onClick={() =>
             form.setValue('policyholder', {
               ...form.getValues('policyholder'),
-              customer_type: 'INDIVIDUAL',
-              full_name: 'Amina Hassan',
+              policy_holder_type: 1,
+              policy_holder_name: 'Amina Hassan',
               gender: 'F',
-              date_of_birth: '1992-05-05',
-              id_type: 1,
-              id_number: '19920505123450000111',
-              phone: '0754000111',
-              country: 'Tanzania',
+              policy_holder_birth_date: '1992-05-05',
+              policy_holder_id_type: 1,
+              policy_holder_id_number: '19920505123450000111',
+              policy_holder_phone_number: '0754000111',
               country_code: 'TZA',
               region: 'Arusha',
               district: 'Arusha',
+              street: 'Sokoine Rd',
             })
           }
         />
@@ -189,7 +191,10 @@ describe('PolicyholderStep customer selection', () => {
     expect(customersApi.createCustomer).toHaveBeenCalledTimes(1);
     expect(
       vi.mocked(customersApi.createCustomer).mock.calls[0][0],
-    ).toMatchObject({ phone: '0754000111', id_number: '19920505123450000111' });
+    ).toMatchObject({
+      policy_holder_phone_number: '0754000111',
+      policy_holder_id_number: '19920505123450000111',
+    });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

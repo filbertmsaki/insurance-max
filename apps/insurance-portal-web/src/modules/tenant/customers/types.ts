@@ -15,20 +15,16 @@ export type CustomerDocumentType =
   | 'INCORPORATION_CERTIFICATE'
   | 'OTHER';
 
+/** TIRA PolicyHolderIdType. */
 export type CustomerIdType = 1 | 2 | 3 | 4 | 5 | 6 | 7;
-export type CustomerIdField =
-  | 'nida_no'
-  | 'voter_no'
-  | 'passport_no'
-  | 'driving_license_no'
-  | 'zanid_no'
-  | 'tin'
-  | 'incorporation_certificate_no';
+/** TIRA PolicyHolderType: 1 = Individual, 2 = Corporate. */
+export type CustomerPolicyHolderType = 1 | 2;
 
 export interface CustomerRecord {
   id: string;
   company_id: string;
   customer_no: string;
+  display_name: string | null;
   customer_type: CustomerType;
   first_name: string | null;
   middle_name: string | null;
@@ -144,97 +140,76 @@ export interface CustomerListParams {
   sortOrder?: SortOrder;
 }
 
+/**
+ * Customer form and API payload. Field-for-field the TIRA `PolicyHolder`
+ * element (snake_case); these are the only customer fields the API accepts.
+ */
 export interface CustomerFormValues {
-  customer_type: CustomerType;
-  customer_no?: string;
-  full_name: string;
-  first_name: string;
-  middle_name: string;
-  last_name: string;
+  policy_holder_name: string;
+  policy_holder_birth_date: string;
+  policy_holder_type: CustomerPolicyHolderType;
+  policy_holder_id_number: string;
+  policy_holder_id_type: CustomerIdType | '';
   gender: CustomerGender | '';
-  date_of_birth: string;
-  nationality: string;
-  company_name: string;
-  registration_no: string;
-  incorporation_certificate_no: string;
-  tin: string;
-  vrn: string;
-  id_type: CustomerIdType | '';
-  id_number: string;
-  nida_no: string;
-  voter_no: string;
-  passport_no: string;
-  driving_license_no: string;
-  zanid_no: string;
-  phone: string;
-  alternate_phone: string;
-  fax: string;
-  email: string;
-  country: string;
   country_code: string;
   region: string;
   district: string;
-  ward: string;
   street: string;
+  policy_holder_phone_number: string;
+  policy_holder_fax: string;
   postal_address: string;
-  contact_name: string;
-  contact_role: string;
-  contact_phone: string;
-  contact_email: string;
-  document_type: CustomerDocumentType | '';
-  document_no: string;
-  document_file_name: string;
-  document_file_url: string;
-  document_mime_type: string;
-  document_verified: boolean;
-  status: CustomerStatus;
+  email_address: string;
 }
 
-export type CustomerPayload = {
-  customer_type: CustomerType;
-  first_name?: string;
-  middle_name?: string | null;
-  last_name?: string;
-  gender?: CustomerGender;
-  date_of_birth?: string;
-  nationality?: string | null;
-  company_name?: string;
-  registration_no?: string | null;
-  incorporation_certificate_no?: string | null;
-  tin?: string | null;
-  vrn?: string | null;
-  policy_holder_type?: number;
-  id_type: number;
-  id_number: string;
-  nida_no?: string | null;
-  voter_no?: string | null;
-  passport_no?: string | null;
-  driving_license_no?: string | null;
-  zanid_no?: string | null;
-  phone: string;
-  alternate_phone?: string | null;
-  fax?: string | null;
-  email?: string | null;
-  country?: string | null;
+export interface CustomerPayload {
+  policy_holder_name: string;
+  policy_holder_birth_date: string;
+  policy_holder_type: CustomerPolicyHolderType;
+  policy_holder_id_number: string;
+  policy_holder_id_type: CustomerIdType;
+  gender: CustomerGender | null;
   country_code: string;
   region: string;
   district: string;
-  ward?: string | null;
-  street?: string | null;
-  postal_address?: string | null;
-  contact_name?: string | null;
-  contact_role?: string | null;
-  contact_phone?: string | null;
-  contact_email?: string | null;
-  document_type?: CustomerDocumentType | null;
-  document_no?: string | null;
-  document_file_name?: string | null;
-  document_file_url?: string | null;
-  document_mime_type?: string | null;
-  document_verified?: boolean;
-  status?: CustomerStatus;
-  metadata?: Record<string, unknown> | null;
-};
+  street: string;
+  policy_holder_phone_number: string;
+  policy_holder_fax: string | null;
+  postal_address: string | null;
+  email_address: string | null;
+  duplicate_override_reason?: string | null;
+}
+
+/** Maximum lengths from the TIRA PolicyHolder specification. */
+export const POLICY_HOLDER_FIELD_MAX_LENGTH = {
+  policy_holder_name: 100,
+  policy_holder_id_number: 50,
+  region: 50,
+  district: 50,
+  street: 50,
+  policy_holder_phone_number: 50,
+  policy_holder_fax: 50,
+  postal_address: 50,
+  email_address: 100,
+} as const;
+
+export const POLICY_HOLDER_TYPE_OPTIONS: {
+  value: CustomerPolicyHolderType;
+  label: string;
+}[] = [
+  { value: 1, label: 'Individual' },
+  { value: 2, label: 'Corporate' },
+];
+
+export function getPolicyHolderType(
+  customer: Partial<
+    Pick<CustomerRecord, 'policy_holder_type' | 'customer_type'>
+  >,
+): CustomerPolicyHolderType {
+  if (customer.policy_holder_type === 1 || customer.policy_holder_type === 2) {
+    return customer.policy_holder_type;
+  }
+  return customer.customer_type === 'CORPORATE' ? 2 : 1;
+}
 
 export const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'INDIVIDUAL', label: 'Individual' },
@@ -278,64 +253,15 @@ export const CUSTOMER_DOCUMENT_TYPE_OPTIONS: {
 export const CUSTOMER_ID_TYPE_OPTIONS: {
   value: CustomerIdType;
   label: string;
-  field: CustomerIdField;
-  appliesTo: CustomerType | 'BOTH';
 }[] = [
-  {
-    value: 1,
-    label: 'National Identification Number (NIN)',
-    field: 'nida_no',
-    appliesTo: 'INDIVIDUAL',
-  },
-  {
-    value: 2,
-    label: 'Voters Registration Number',
-    field: 'voter_no',
-    appliesTo: 'INDIVIDUAL',
-  },
-  {
-    value: 3,
-    label: 'Passport Number',
-    field: 'passport_no',
-    appliesTo: 'INDIVIDUAL',
-  },
-  {
-    value: 4,
-    label: 'Driving License',
-    field: 'driving_license_no',
-    appliesTo: 'INDIVIDUAL',
-  },
-  {
-    value: 5,
-    label: 'Zanzibar Resident ID (ZANID)',
-    field: 'zanid_no',
-    appliesTo: 'INDIVIDUAL',
-  },
-  {
-    value: 6,
-    label: 'Tax Identification Number (TIN)',
-    field: 'tin',
-    appliesTo: 'BOTH',
-  },
-  {
-    value: 7,
-    label: 'Company Incorporation Certificate Number',
-    field: 'incorporation_certificate_no',
-    appliesTo: 'CORPORATE',
-  },
+  { value: 1, label: 'National Identification Number (NIN)' },
+  { value: 2, label: 'Voter Registration Number' },
+  { value: 3, label: 'Passport Number' },
+  { value: 4, label: 'Driving Licence' },
+  { value: 5, label: 'Zanzibar Resident ID (ZANID)' },
+  { value: 6, label: 'Tax Identification Number (TIN)' },
+  { value: 7, label: 'Company Incorporation Certificate Number' },
 ];
-
-export function getCustomerIdFieldName(
-  customerType: CustomerType,
-  idType: CustomerIdType | '',
-): CustomerIdField | null {
-  const option = CUSTOMER_ID_TYPE_OPTIONS.find(
-    (item) =>
-      item.value === idType &&
-      (item.appliesTo === 'BOTH' || item.appliesTo === customerType),
-  );
-  return option?.field ?? null;
-}
 
 export function getCustomerDisplayName(
   customer: Pick<
@@ -389,30 +315,4 @@ export function getCustomerFullName(
     .map((part) => part?.trim())
     .filter(Boolean)
     .join(' ');
-}
-
-export function splitCustomerFullName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-
-  if (parts.length === 0) {
-    return {
-      first_name: '',
-      middle_name: '',
-      last_name: '',
-    };
-  }
-
-  if (parts.length === 1) {
-    return {
-      first_name: parts[0],
-      middle_name: '',
-      last_name: '',
-    };
-  }
-
-  return {
-    first_name: parts[0],
-    middle_name: parts.slice(1, -1).join(' '),
-    last_name: parts[parts.length - 1],
-  };
 }

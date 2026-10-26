@@ -108,11 +108,8 @@ export function ownerDefaultsFromPolicyholder(
           }
         : null
       : {
-          name:
-            values.policyholder.full_name ||
-            values.policyholder.company_name ||
-            '',
-          corporate: values.policyholder.customer_type === 'CORPORATE',
+          name: values.policyholder.policy_holder_name || '',
+          corporate: values.policyholder.policy_holder_type === 2,
           postal: values.policyholder.postal_address,
           street: values.policyholder.street,
           district: values.policyholder.district,

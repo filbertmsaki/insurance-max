@@ -14,6 +14,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { hasPermission } from '@/lib/auth/permissions';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { useCustomer } from '@/modules/tenant/customers/hooks';
+import { normalizePolicyholderFormValues } from '@/modules/tenant/customers/schemas';
 import {
   quotationKeys,
   useQuotationCategories,
@@ -187,9 +188,9 @@ export function useUnderwriteQuotationWizard({
     control: form.control,
     name: 'policyholder_mode',
   });
-  const policyholderCustomerType = useWatch({
+  const policyholderType = useWatch({
     control: form.control,
-    name: 'policyholder.customer_type',
+    name: 'policyholder.policy_holder_type',
   });
   const paymentMode = useWatch({
     control: form.control,
@@ -253,9 +254,7 @@ export function useUnderwriteQuotationWizard({
     policyholderMode === 'existing' && selectedCustomer
       ? (selectedCustomer.policy_holder_type ??
         (selectedCustomer.customer_type === 'CORPORATE' ? 2 : 1))
-      : policyholderCustomerType === 'CORPORATE'
-        ? 2
-        : 1;
+      : (policyholderType ?? 1);
   const savedSalePointCode =
     existingQuotation?.cover_note_dtl.sale_point_code ??
     existingQuotation?.cover_note_dtl.fleet_hdr?.sale_point_code ??
@@ -315,8 +314,16 @@ export function useUnderwriteQuotationWizard({
     const draftSnapshot =
       existingQuotation.draft_payload &&
       typeof existingQuotation.draft_payload === 'object'
-        ? (existingQuotation.draft_payload as Partial<QuotationFormSchemaValues>)
+        ? ({
+            ...existingQuotation.draft_payload,
+          } as Partial<QuotationFormSchemaValues>)
         : null;
+
+    if (draftSnapshot?.policyholder) {
+      draftSnapshot.policyholder = normalizePolicyholderFormValues(
+        draftSnapshot.policyholder,
+      );
+    }
 
     form.reset({
       ...defaultValues,

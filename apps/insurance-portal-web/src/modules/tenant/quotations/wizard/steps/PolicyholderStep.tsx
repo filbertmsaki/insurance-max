@@ -47,6 +47,10 @@ import {
   CUSTOMER_GENDER_OPTIONS,
   CUSTOMER_ID_TYPE_OPTIONS,
   getCustomerDisplayName,
+  getPolicyHolderType,
+  POLICY_HOLDER_FIELD_MAX_LENGTH,
+  POLICY_HOLDER_TYPE_OPTIONS,
+  type CustomerPolicyHolderType,
   type CustomerRecord,
 } from '@/modules/tenant/customers/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
@@ -80,10 +84,12 @@ function prefillPolicyholderFromSearch(
   const term = search.trim();
   if (!term) return values;
   const digits = term.replace(/[\s()+.-]/g, '');
-  if (/^\d{9,12}$/.test(digits)) return { ...values, phone: term };
-  if (/^\d{13,}$/.test(digits)) return { ...values, id_number: term };
+  if (/^\d{9,12}$/.test(digits))
+    return { ...values, policy_holder_phone_number: term };
+  if (/^\d{13,}$/.test(digits))
+    return { ...values, policy_holder_id_number: term };
   if (/[a-z]/i.test(term) && !/\d/.test(term)) {
-    return { ...values, full_name: term };
+    return { ...values, policy_holder_name: term };
   }
   return values;
 }
@@ -96,9 +102,11 @@ export function missingPolicyholderDetails(customer: CustomerRecord): string[] {
     [!customer.date_of_birth, 'date of birth'],
     [!customer.id_type || !customer.id_number, 'ID number'],
     [!customer.phone, 'phone number'],
+    [!customer.country_code, 'country'],
     [!customer.region, 'region'],
     [!customer.district, 'district'],
-    [customer.customer_type !== 'CORPORATE' && !customer.gender, 'gender'],
+    [!customer.street, 'street'],
+    [getPolicyHolderType(customer) === 1 && !customer.gender, 'gender'],
   ];
   return missing.filter(([isMissing]) => isMissing).map(([, label]) => label);
 }
@@ -447,7 +455,7 @@ function ExistingCustomerCard({
   );
 }
 
-// Dynamic nested paths (policyholder.full_name, policyholder.id_number, ...) can't be
+// Dynamic nested paths (policyholder.policy_holder_name, policyholder.street, ...) can't be
 // enumerated as a literal union without duplicating every CustomerFormValues key here,
 // so this cast is the pragmatic bridge into RHF's FieldPath type for a dynamic name.
 function fieldName(name: string): FieldPath<QuotationFormSchemaValues> {
@@ -499,9 +507,8 @@ export function PolicyholderStep({
   const detailsInDialog = newCustomerInDialog || savesCustomerImmediately;
   const today = new Date().toISOString().slice(0, 10);
 
-  const customerType = form.watch('policyholder.customer_type');
-  const currentIdType = form.watch('policyholder.id_type');
-  const policyholderCountry = form.watch('policyholder.country');
+  const policyHolderType = form.watch('policyholder.policy_holder_type');
+  const isIndividual = policyHolderType === 1;
   const policyholderCountryCode = form.watch('policyholder.country_code');
   const policyholderRegion = form.watch('policyholder.region');
   const policyholderDistrict = form.watch('policyholder.district');
@@ -510,10 +517,6 @@ export function PolicyholderStep({
       void form.trigger('policyholder');
     }
   }, [form, hasPolicyholderErrors, mode, policyholderValues]);
-  const idFieldOptions = CUSTOMER_ID_TYPE_OPTIONS.filter(
-    (option) =>
-      option.appliesTo === 'BOTH' || option.appliesTo === customerType,
-  );
   function openNewCustomerDialog(search = '') {
     if (mode !== 'new' || dialogPurpose === 'edit') {
       form.setValue(
@@ -561,22 +564,10 @@ export function PolicyholderStep({
     }
   }
 
-  function handleCustomerTypeChange(nextType: 'INDIVIDUAL' | 'CORPORATE') {
-    form.setValue('policyholder.customer_type', nextType);
-
-    const idTypeStillValid = CUSTOMER_ID_TYPE_OPTIONS.some(
-      (option) =>
-        option.value === currentIdType &&
-        (option.appliesTo === 'BOTH' || option.appliesTo === nextType),
-    );
-
-    if (!idTypeStillValid) {
-      form.setValue('policyholder.id_type', nextType === 'CORPORATE' ? 7 : 1);
-    }
-
-    if (nextType === 'CORPORATE') {
-      form.setValue('policyholder.gender', '');
-    }
+  function handlePolicyHolderTypeChange(nextType: CustomerPolicyHolderType) {
+    form.setValue('policyholder.policy_holder_type', nextType, {
+      shouldValidate: form.formState.isSubmitted,
+    });
   }
 
   return (
@@ -592,7 +583,9 @@ export function PolicyholderStep({
             control={form.control}
             name="customer_id"
             render={({ field, fieldState }) => (
-              <WizardFormItem className={selectedCustomer ? 'hidden' : undefined}>
+              <WizardFormItem
+                className={selectedCustomer ? 'hidden' : undefined}
+              >
                 <FormLabel required>Customer</FormLabel>
                 <div
                   className={
@@ -645,11 +638,12 @@ export function PolicyholderStep({
           >
             <div className="min-w-0">
               <p className="text-sm font-medium text-slate-800">
-                {form.watch('policyholder.full_name') || 'New policyholder'}
+                {form.watch('policyholder.policy_holder_name') ||
+                  'New policyholder'}
               </p>
               <p className="text-xs text-slate-500">
                 {detailsInDialog
-                  ? form.watch('policyholder.phone') ||
+                  ? form.watch('policyholder.policy_holder_phone_number') ||
                     'Add the policyholder details to continue.'
                   : 'Fill in the policyholder details below. A new customer record will be created when you save this quotation.'}
               </p>
@@ -684,12 +678,12 @@ export function PolicyholderStep({
                   type="button"
                   variant="outline"
                   aria-label={
-                    form.watch('policyholder.full_name')
+                    form.watch('policyholder.policy_holder_name')
                       ? 'Edit customer details'
                       : 'Enter customer details'
                   }
                   title={
-                    form.watch('policyholder.full_name')
+                    form.watch('policyholder.policy_holder_name')
                       ? 'Edit customer details'
                       : 'Enter customer details'
                   }
@@ -708,7 +702,7 @@ export function PolicyholderStep({
                       compactOnMobile ? 'sr-only sm:not-sr-only' : undefined
                     }
                   >
-                    {form.watch('policyholder.full_name')
+                    {form.watch('policyholder.policy_holder_name')
                       ? 'Edit details'
                       : 'Enter details'}
                   </span>
@@ -783,19 +777,16 @@ export function PolicyholderStep({
             contentClassName="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
           >
             <div className="sm:col-span-2 lg:col-span-3">
-              <Label className="mb-2 block">Customer Type</Label>
+              <Label className="mb-2 block">Policyholder Type</Label>
               <div className="flex gap-2">
-                {[
-                  { value: 'INDIVIDUAL' as const, label: 'Individual' },
-                  { value: 'CORPORATE' as const, label: 'Corporate' },
-                ].map((option) => (
+                {POLICY_HOLDER_TYPE_OPTIONS.map((option) => (
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => handleCustomerTypeChange(option.value)}
+                    onClick={() => handlePolicyHolderTypeChange(option.value)}
                     className={[
                       'cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
-                      customerType === option.value
+                      policyHolderType === option.value
                         ? 'border-slate-900 bg-slate-900 text-white'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                     ].join(' ')}
@@ -808,16 +799,21 @@ export function PolicyholderStep({
 
             <FormField
               control={form.control}
-              name={fieldName('full_name')}
+              name={fieldName('policy_holder_name')}
               render={({ field }) => (
                 <WizardFormItem className="sm:col-span-2 lg:col-span-2">
-                  <FormLabel required>Full Name</FormLabel>
+                  <FormLabel required>
+                    {isIndividual ? 'Full Name' : 'Registered Company Name'}
+                  </FormLabel>
                   <FormControl>
                     <Input
                       {...field}
                       value={field.value as string}
+                      maxLength={
+                        POLICY_HOLDER_FIELD_MAX_LENGTH.policy_holder_name
+                      }
                       placeholder={
-                        customerType === 'INDIVIDUAL'
+                        isIndividual
                           ? 'Augustino Aidan Mwageni'
                           : 'KISWIGU Company Ltd'
                       }
@@ -830,11 +826,11 @@ export function PolicyholderStep({
 
             <FormField
               control={form.control}
-              name={fieldName('date_of_birth')}
+              name={fieldName('policy_holder_birth_date')}
               render={({ field }) => (
                 <WizardFormItem>
                   <FormLabel required>
-                    Date of Birth / Incorporation Date
+                    {isIndividual ? 'Date of Birth' : 'Incorporation Date'}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -849,39 +845,39 @@ export function PolicyholderStep({
               )}
             />
 
-            {customerType === 'INDIVIDUAL' && (
-              <FormField
-                control={form.control}
-                name={fieldName('gender')}
-                render={({ field }) => (
-                  <WizardFormItem>
-                    <FormLabel required>Gender</FormLabel>
-                    <Select
-                      value={toSelectValue(field.value as string)}
-                      onValueChange={(value) =>
-                        field.onChange(fromSelectValue(value))
-                      }
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select gender" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                        <SelectItem value="M">Male</SelectItem>
-                        <SelectItem value="F">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </WizardFormItem>
-                )}
-              />
-            )}
+            <FormField
+              control={form.control}
+              name={fieldName('gender')}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel required={isIndividual}>
+                    {isIndividual ? 'Gender' : 'Gender (optional)'}
+                  </FormLabel>
+                  <Select
+                    value={toSelectValue(field.value as string)}
+                    onValueChange={(value) =>
+                      field.onChange(fromSelectValue(value))
+                    }
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                      <SelectItem value="M">Male</SelectItem>
+                      <SelectItem value="F">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </WizardFormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
-              name={fieldName('id_type')}
+              name={fieldName('policy_holder_id_type')}
               render={({ field }) => (
                 <WizardFormItem>
                   <FormLabel required>Identification Type</FormLabel>
@@ -902,7 +898,7 @@ export function PolicyholderStep({
                     </FormControl>
                     <SelectContent>
                       <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                      {idFieldOptions.map((option) => (
+                      {CUSTOMER_ID_TYPE_OPTIONS.map((option) => (
                         <SelectItem
                           key={option.value}
                           value={String(option.value)}
@@ -919,7 +915,7 @@ export function PolicyholderStep({
 
             <FormField
               control={form.control}
-              name={fieldName('id_number')}
+              name={fieldName('policy_holder_id_number')}
               render={({ field }) => (
                 <WizardFormItem>
                   <FormLabel required>Identification Number</FormLabel>
@@ -933,7 +929,7 @@ export function PolicyholderStep({
 
             <FormField
               control={form.control}
-              name={fieldName('phone')}
+              name={fieldName('policy_holder_phone_number')}
               render={({ field }) => (
                 <WizardFormItem>
                   <FormLabel required>Phone Number</FormLabel>
@@ -946,7 +942,7 @@ export function PolicyholderStep({
             />
             <FormField
               control={form.control}
-              name={fieldName('email')}
+              name={fieldName('email_address')}
               render={({ field }) => (
                 <WizardFormItem>
                   <FormLabel>Email (optional)</FormLabel>
@@ -963,13 +959,14 @@ export function PolicyholderStep({
             />
             <FormField
               control={form.control}
-              name={fieldName('fax')}
+              name={fieldName('policy_holder_fax')}
               render={({ field }) => (
                 <WizardFormItem>
                   <FormLabel>Fax (optional)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
+                  <FormMessage />
                 </WizardFormItem>
               )}
             />
@@ -977,26 +974,22 @@ export function PolicyholderStep({
             <div className="sm:col-span-2 lg:col-span-3">
               <LocationReferenceSelects
                 required
-                country={policyholderCountry}
                 countryCode={policyholderCountryCode}
                 region={policyholderRegion}
                 district={policyholderDistrict}
                 errors={{
-                  country: form.formState.errors.policyholder?.country?.message,
+                  country:
+                    form.formState.errors.policyholder?.country_code?.message,
                   region: form.formState.errors.policyholder?.region?.message,
                   district:
                     form.formState.errors.policyholder?.district?.message,
                 }}
-                onCountryChange={(country, code) => {
-                  form.setValue('policyholder.country', country, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
+                onCountryChange={(_country, code) =>
                   form.setValue('policyholder.country_code', code, {
                     shouldDirty: true,
                     shouldValidate: true,
-                  });
-                }}
+                  })
+                }
                 onRegionChange={(region) =>
                   form.setValue('policyholder.region', region, {
                     shouldDirty: true,
@@ -1016,10 +1009,11 @@ export function PolicyholderStep({
               name={fieldName('street')}
               render={({ field }) => (
                 <WizardFormItem>
-                  <FormLabel>Street (optional)</FormLabel>
+                  <FormLabel required>Street</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
+                  <FormMessage />
                 </WizardFormItem>
               )}
             />
@@ -1028,7 +1022,7 @@ export function PolicyholderStep({
               name={fieldName('postal_address')}
               render={({ field }) => (
                 <WizardFormItem className="sm:col-span-2 lg:col-span-2">
-                  <FormLabel>Postal Address</FormLabel>
+                  <FormLabel>Postal Address (optional)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>

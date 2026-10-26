@@ -139,7 +139,7 @@ describe('owner defaults', () => {
         policyholder_mode: 'new',
         policyholder: {
           ...getCustomerDefaultValues(),
-          full_name: 'John Mwita',
+          policy_holder_name: 'John Mwita',
           postal_address: 'P.O. Box 1, Dodoma',
         },
       }),
@@ -237,13 +237,11 @@ describe('lookupVehicleWithTira', () => {
   });
 
   it('reports pending lookups and TIRA errors without a second call', async () => {
-    const pending = vi
-      .fn()
-      .mockResolvedValue({
-        ...notFound,
-        responseCode: null,
-        status: 'PENDING',
-      });
+    const pending = vi.fn().mockResolvedValue({
+      ...notFound,
+      responseCode: null,
+      status: 'PENDING',
+    });
     expect(await lookupVehicleWithTira('T123ABC', pending)).toEqual({
       status: 'pending',
     });

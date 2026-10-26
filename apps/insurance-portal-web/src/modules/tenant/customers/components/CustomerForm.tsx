@@ -3,7 +3,6 @@ import { useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -26,9 +25,8 @@ import { LocationReferenceSelects } from '@/modules/platform/reference-data/comp
 import {
   CUSTOMER_GENDER_OPTIONS,
   CUSTOMER_ID_TYPE_OPTIONS,
-  CUSTOMER_STATUS_OPTIONS,
-  CUSTOMER_TYPE_OPTIONS,
-  getCustomerIdFieldName,
+  POLICY_HOLDER_FIELD_MAX_LENGTH as MAX,
+  POLICY_HOLDER_TYPE_OPTIONS,
   type CustomerFormValues,
   type CustomerRecord,
 } from '../types';
@@ -55,308 +53,40 @@ export function CustomerForm({
     if (customer) form.reset(getCustomerDefaultValues(customer));
   }, [customer, form]);
 
-  const customerType = useWatch({
+  const policyHolderType = useWatch({
     control: form.control,
-    name: 'customer_type',
+    name: 'policy_holder_type',
   });
-  const idType = useWatch({
-    control: form.control,
-    name: 'id_type',
-  });
-  const country = useWatch({ control: form.control, name: 'country' });
   const countryCode = useWatch({ control: form.control, name: 'country_code' });
   const region = useWatch({ control: form.control, name: 'region' });
   const district = useWatch({ control: form.control, name: 'district' });
-
-  const selectedIdField = getCustomerIdFieldName(customerType, idType);
-  const selectedIdFieldName = selectedIdField;
-
-  useEffect(() => {
-    const idTypeIsAvailable = CUSTOMER_ID_TYPE_OPTIONS.some(
-      (option) =>
-        option.value === idType &&
-        (option.appliesTo === 'BOTH' || option.appliesTo === customerType),
-    );
-
-    if (!idTypeIsAvailable) {
-      const defaultIdType = customerType === 'CORPORATE' ? 7 : 1;
-      form.setValue('id_type', defaultIdType, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    }
-  }, [customerType, form, idType]);
-
-  useEffect(() => {
-    if (!idType) return;
-    const current = form.getValues(selectedIdFieldName ?? 'id_number');
-    if (!current) {
-      const explicit = form.getValues('id_number');
-      if (explicit) form.setValue(selectedIdFieldName ?? 'id_number', explicit);
-    }
-  }, [form, idType, selectedIdFieldName]);
+  const isIndividual = policyHolderType === 1;
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Customer Type</CardTitle>
+            <CardTitle className="text-base">Policyholder</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}
-              name="customer_type"
+              name="policy_holder_type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Customer Type</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <FormLabel required>Policyholder Type</FormLabel>
+                  <Select
+                    value={String(field.value)}
+                    onValueChange={(value) => field.onChange(Number(value))}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {CUSTOMER_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {CUSTOMER_STATUS_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              {customerType === 'CORPORATE'
-                ? 'Company Details'
-                : 'Personal Details'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            {customerType === 'INDIVIDUAL' ? (
-              <>
-                <FormField
-                  control={form.control}
-                  name="first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="middle_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Middle Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Optional" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="gender"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel required>Gender</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select gender" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CUSTOMER_GENDER_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="date_of_birth"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Date of Birth</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="nationality"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nationality</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Tanzanian" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            ) : (
-              <>
-                <FormField
-                  control={form.control}
-                  name="company_name"
-                  render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Company Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="ABC Holdings Ltd" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="registration_no"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Registration No.</FormLabel>
-                      <FormControl>
-                        <Input placeholder="REG-12345" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="incorporation_certificate_no"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Incorporation Certificate No.</FormLabel>
-                      <FormControl>
-                        <Input placeholder="INC-12345" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="tin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>TIN</FormLabel>
-                      <FormControl>
-                        <Input placeholder="TIN1234567" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="vrn"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>VRN</FormLabel>
-                      <FormControl>
-                        <Input placeholder="VRN1234567" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Identification</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="id_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ID Type</FormLabel>
-                  <Select
-                    value={field.value ? String(field.value) : ''}
-                    onValueChange={(value) => field.onChange(Number(value))}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select ID type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {CUSTOMER_ID_TYPE_OPTIONS.filter(
-                        (option) =>
-                          option.appliesTo === 'BOTH' ||
-                          option.appliesTo === customerType,
-                      ).map((option) => (
+                      {POLICY_HOLDER_TYPE_OPTIONS.map((option) => (
                         <SelectItem
                           key={option.value}
                           value={String(option.value)}
@@ -372,34 +102,128 @@ export function CustomerForm({
             />
             <FormField
               control={form.control}
-              name="id_number"
+              name="policy_holder_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>ID Number</FormLabel>
+                  <FormLabel required>
+                    {isIndividual ? 'Full Name' : 'Registered Company Name'}
+                  </FormLabel>
                   <FormControl>
-                    <Input placeholder="ID number" {...field} />
+                    <Input
+                      maxLength={MAX.policy_holder_name}
+                      placeholder={
+                        isIndividual ? 'John Michael Doe' : 'ABC Holdings Ltd'
+                      }
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            {selectedIdField && (
-              <FormField
-                control={form.control}
-                name={selectedIdFieldName ?? 'id_number'}
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>
-                      {selectedIdField.replace(/_/g, ' ').toUpperCase()}
-                    </FormLabel>
+            <FormField
+              control={form.control}
+              name="policy_holder_birth_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>
+                    {isIndividual ? 'Date of Birth' : 'Incorporation Date'}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      max={new Date().toISOString().slice(0, 10)}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="gender"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required={isIndividual}>
+                    {isIndividual ? 'Gender' : 'Gender (optional)'}
+                  </FormLabel>
+                  <Select
+                    value={field.value || undefined}
+                    onValueChange={field.onChange}
+                  >
                     <FormControl>
-                      <Input placeholder={selectedIdField} {...field} />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+                    <SelectContent>
+                      {CUSTOMER_GENDER_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Identification</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="policy_holder_id_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>ID Type</FormLabel>
+                  <Select
+                    value={field.value ? String(field.value) : undefined}
+                    onValueChange={(value) => field.onChange(Number(value))}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select ID type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CUSTOMER_ID_TYPE_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={String(option.value)}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="policy_holder_id_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel required>ID Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      maxLength={MAX.policy_holder_id_number}
+                      placeholder="ID number"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
@@ -410,12 +234,16 @@ export function CustomerForm({
           <CardContent className="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}
-              name="phone"
+              name="policy_holder_phone_number"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone</FormLabel>
+                  <FormLabel required>Phone Number</FormLabel>
                   <FormControl>
-                    <Input placeholder="+255 700 000 000" {...field} />
+                    <Input
+                      maxLength={MAX.policy_holder_phone_number}
+                      placeholder="+255 700 000 000"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -423,12 +251,12 @@ export function CustomerForm({
             />
             <FormField
               control={form.control}
-              name="alternate_phone"
+              name="policy_holder_fax"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Alternate Phone</FormLabel>
+                  <FormLabel>Fax (optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Optional" {...field} />
+                    <Input maxLength={MAX.policy_holder_fax} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -436,13 +264,14 @@ export function CustomerForm({
             />
             <FormField
               control={form.control}
-              name="email"
+              name="email_address"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Email Address (optional)</FormLabel>
                   <FormControl>
                     <Input
                       type="email"
+                      maxLength={MAX.email_address}
                       placeholder="customer@example.com"
                       {...field}
                     />
@@ -453,25 +282,21 @@ export function CustomerForm({
             />
             <div className="md:col-span-2">
               <LocationReferenceSelects
-                country={country}
+                required
                 countryCode={countryCode}
                 region={region}
                 district={district}
                 errors={{
-                  country: form.formState.errors.country?.message,
+                  country: form.formState.errors.country_code?.message,
                   region: form.formState.errors.region?.message,
                   district: form.formState.errors.district?.message,
                 }}
-                onCountryChange={(nextCountry, nextCode) => {
-                  form.setValue('country', nextCountry, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
+                onCountryChange={(_country, nextCode) =>
                   form.setValue('country_code', nextCode, {
                     shouldDirty: true,
                     shouldValidate: true,
-                  });
-                }}
+                  })
+                }
                 onRegionChange={(nextRegion) =>
                   form.setValue('region', nextRegion, {
                     shouldDirty: true,
@@ -488,25 +313,16 @@ export function CustomerForm({
             </div>
             <FormField
               control={form.control}
-              name="ward"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ward</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ward" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="street"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Street</FormLabel>
+                  <FormLabel required>Street</FormLabel>
                   <FormControl>
-                    <Input placeholder="Street" {...field} />
+                    <Input
+                      maxLength={MAX.street}
+                      placeholder="Street"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -516,74 +332,14 @@ export function CustomerForm({
               control={form.control}
               name="postal_address"
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
-                  <FormLabel>Postal Address</FormLabel>
+                <FormItem>
+                  <FormLabel>Postal Address (optional)</FormLabel>
                   <FormControl>
-                    <Textarea
-                      rows={2}
-                      placeholder="Postal address"
+                    <Input
+                      maxLength={MAX.postal_address}
+                      placeholder="P.O. Box 123"
                       {...field}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Contact Person</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="contact_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Optional" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="contact_role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Role</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Optional" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="contact_phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Phone</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Optional" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="contact_email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Email</FormLabel>
-                  <FormControl>
-                    <Input type="email" placeholder="Optional" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

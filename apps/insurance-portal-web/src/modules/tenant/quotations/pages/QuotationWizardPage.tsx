@@ -22,7 +22,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
-import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
+import {
+  getCustomerDefaultValues,
+  normalizePolicyholderFormValues,
+} from '@/modules/tenant/customers/schemas';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import {
   createEmptyFleetDetails,
@@ -83,11 +86,7 @@ import { hasPermission } from '@/lib/auth/permissions';
 const SELECT_INSURANCE_CHANNEL_PERMISSION =
   'quotations:select-insurance-channel';
 
-const EDITABLE_STATUSES = new Set([
-  'COMPLETED',
-  'CANCELLED',
-  'EXPIRED',
-]);
+const EDITABLE_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'EXPIRED']);
 
 const COVER_FIELDS: FieldPath<QuotationFormSchemaValues>[] = [
   'category_id',
@@ -320,13 +319,13 @@ export function QuotationWizardPage() {
     control: form.control,
     name: 'policyholder_mode',
   });
-  const policyholderCustomerType = useWatch({
+  const policyholderType = useWatch({
     control: form.control,
-    name: 'policyholder.customer_type',
+    name: 'policyholder.policy_holder_type',
   });
   const policyholderFullName = useWatch({
     control: form.control,
-    name: 'policyholder.full_name',
+    name: 'policyholder.policy_holder_name',
   });
   const motorRegistration = useWatch({
     control: form.control,
@@ -387,9 +386,7 @@ export function QuotationWizardPage() {
     policyholderMode === 'existing' && selectedCustomer
       ? (selectedCustomer.policy_holder_type ??
         (selectedCustomer.customer_type === 'CORPORATE' ? 2 : 1))
-      : policyholderCustomerType === 'CORPORATE'
-        ? 2
-        : 1;
+      : (policyholderType ?? 1);
   const salePointCode = usesPrefilledQuotation
     ? savedSalePointCode
     : defaultSalePointCode;
@@ -643,8 +640,16 @@ export function QuotationWizardPage() {
     const draftSnapshot =
       quotationContext.draft_payload &&
       typeof quotationContext.draft_payload === 'object'
-        ? (quotationContext.draft_payload as Partial<QuotationFormSchemaValues>)
+        ? ({
+            ...quotationContext.draft_payload,
+          } as Partial<QuotationFormSchemaValues>)
         : null;
+
+    if (draftSnapshot?.policyholder) {
+      draftSnapshot.policyholder = normalizePolicyholderFormValues(
+        draftSnapshot.policyholder,
+      );
+    }
 
     form.reset({
       ...DEFAULT_VALUES,

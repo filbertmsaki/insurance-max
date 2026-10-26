@@ -144,21 +144,16 @@ function buildPolicyholderFormDefaults(
 
   return {
     ...defaults,
-    customer_type:
-      policyHolder.policy_holder_type === 2 ? 'CORPORATE' : 'INDIVIDUAL',
-    full_name: policyHolder.policy_holder_name,
-    company_name:
-      policyHolder.policy_holder_type === 2
-        ? policyHolder.policy_holder_name
-        : '',
+    policy_holder_type: policyHolder.policy_holder_type === 2 ? 2 : 1,
+    policy_holder_name: policyHolder.policy_holder_name,
     gender: policyHolder.gender ?? '',
-    date_of_birth: policyHolder.policy_holder_birth_date,
-    id_type:
-      policyHolder.policy_holder_id_type as CustomerFormValues['id_type'],
-    id_number: policyHolder.policy_holder_id_number,
-    phone: policyHolder.policy_holder_phone_number,
-    fax: policyHolder.policy_holder_fax ?? '',
-    email: policyHolder.email_address ?? '',
+    policy_holder_birth_date: policyHolder.policy_holder_birth_date,
+    policy_holder_id_type:
+      policyHolder.policy_holder_id_type as CustomerFormValues['policy_holder_id_type'],
+    policy_holder_id_number: policyHolder.policy_holder_id_number,
+    policy_holder_phone_number: policyHolder.policy_holder_phone_number,
+    policy_holder_fax: policyHolder.policy_holder_fax ?? '',
+    email_address: policyHolder.email_address ?? '',
     country_code: policyHolder.country_code,
     region: policyHolder.region,
     district: policyHolder.district,
@@ -1167,36 +1162,22 @@ function buildPolicyHolderPayload(
   }
 
   const policyholder = values.policyholder;
-  const isCorporate = policyholder.customer_type === 'CORPORATE';
-  const policyHolderName =
-    normalizeText(policyholder.full_name) ??
-    (isCorporate
-      ? normalizeText(policyholder.company_name)
-      : [
-          policyholder.first_name,
-          policyholder.middle_name,
-          policyholder.last_name,
-        ]
-          .map((part) => part.trim())
-          .filter(Boolean)
-          .join(' ')) ??
-    '';
 
   return {
-    policy_holder_name: policyHolderName,
-    policy_holder_birth_date: policyholder.date_of_birth,
-    policy_holder_type: isCorporate ? 2 : 1,
-    policy_holder_id_number: policyholder.id_number,
-    policy_holder_id_type: Number(policyholder.id_type || 1),
+    policy_holder_name: policyholder.policy_holder_name.trim(),
+    policy_holder_birth_date: policyholder.policy_holder_birth_date,
+    policy_holder_type: policyholder.policy_holder_type,
+    policy_holder_id_number: policyholder.policy_holder_id_number.trim(),
+    policy_holder_id_type: Number(policyholder.policy_holder_id_type || 1),
     gender: policyholder.gender || null,
     country_code: policyholder.country_code || 'TZA',
     region: policyholder.region,
     district: policyholder.district,
     street: normalizeText(policyholder.street),
-    policy_holder_phone_number: policyholder.phone,
-    policy_holder_fax: normalizeText(policyholder.fax),
+    policy_holder_phone_number: policyholder.policy_holder_phone_number.trim(),
+    policy_holder_fax: normalizeText(policyholder.policy_holder_fax),
     postal_address: normalizeText(policyholder.postal_address),
-    email_address: normalizeText(policyholder.email),
+    email_address: normalizeText(policyholder.email_address),
   };
 }
 

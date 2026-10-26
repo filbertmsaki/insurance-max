@@ -112,8 +112,7 @@ export function SummaryReviewStep({
               ? customer
                 ? getCustomerDisplayName(customer)
                 : 'Select policyholder'
-              : values.policyholder.full_name ||
-                values.policyholder.company_name}
+              : values.policyholder.policy_holder_name}
           </p>
           {values.policyholder_mode === 'existing' && customer && (
             <p className="text-xs text-slate-500">

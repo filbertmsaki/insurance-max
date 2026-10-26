@@ -20,12 +20,12 @@ import {
 
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import {
-  CreateCustomerDto,
-  CustomerAddressDto,
-  CustomerContactDto,
-  CustomerDocumentDto,
-  CustomerIdentifierDto,
-} from './dto/create-customer.dto';
+  CustomerAddressInput,
+  CustomerContactInput,
+  CustomerIdentifierInput,
+  CustomerWriteModel,
+} from './customer-write-model';
+import { CreateCustomerDto } from './dto/create-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
 import {
   CUSTOMER_SEARCH_MAX_LIMIT,
@@ -40,6 +40,7 @@ import { CustomerAuditLog } from './entities/customer-audit-log.entity';
 import { CustomerVersion } from './entities/customer-version.entity';
 import { Customer } from './entities/customer.entity';
 import { InsuredAsset } from './entities/insured-asset.entity';
+import { CustomerGender } from './enums/customer-gender.enum';
 import { CustomerPolicyHolderType } from './enums/customer-policy-holder-type.enum';
 import { CustomerStatus } from './enums/customer-status.enum';
 import { CustomerType } from './enums/customer-type.enum';
@@ -67,17 +68,6 @@ type IdentifierType =
   | 'OTHER';
 
 type NumericLike = number | string | null | undefined;
-
-interface NormalizedCustomerPayload {
-  dto: CreateCustomerDto | UpdateCustomerDto;
-  customerType: CustomerType;
-  identifiers: CustomerIdentifierDto[];
-  addresses: CustomerAddressDto[];
-  contacts: CustomerContactDto[];
-  documents: CustomerDocumentDto[];
-  displayName: string;
-  possibleDuplicateOverrideReason: string | null;
-}
 
 @Injectable()
 export class CustomersService {
@@ -225,6 +215,14 @@ export class CustomersService {
     return value;
   }
 
+  private mapPolicyHolderTypeToCustomerType(
+    policyHolderType: CustomerPolicyHolderType,
+  ): CustomerType {
+    return policyHolderType === CustomerPolicyHolderType.CORPORATE
+      ? CustomerType.CORPORATE
+      : CustomerType.INDIVIDUAL;
+  }
+
   private mapPolicyHolderType(
     customerType: CustomerType,
   ): CustomerPolicyHolderType {
@@ -279,311 +277,239 @@ export class CustomersService {
     }
   }
 
-  private buildDisplayName(dto: CreateCustomerDto | UpdateCustomerDto): string {
-    if (dto.customer_type === CustomerType.CORPORATE) {
-      return (
-        this.normalizeText(dto.company_name) ??
-        this.normalizeText(dto.registration_no) ??
-        'Corporate Customer'
-      );
-    }
-
-    return (
-      [
-        this.normalizeText(dto.first_name),
-        this.normalizeText(dto.middle_name),
-        this.normalizeText(dto.last_name),
-      ]
-        .filter(Boolean)
-        .join(' ') || 'Individual Customer'
-    );
-  }
-
-  private buildLegacyIdentifier(
-    customerType: CustomerType,
-    dto: CreateCustomerDto | UpdateCustomerDto,
-  ) {
-    const identifierValue =
-      this.normalizeText(dto.id_number) ??
-      this.normalizeText(dto.nida_no) ??
-      this.normalizeText(dto.voter_no) ??
-      this.normalizeText(dto.passport_no) ??
-      this.normalizeText(dto.driving_license_no) ??
-      this.normalizeText(dto.zanid_no) ??
-      this.normalizeText(dto.tin) ??
-      this.normalizeText(dto.incorporation_certificate_no) ??
-      this.normalizeText(dto.registration_no) ??
-      null;
-
-    if (!identifierValue) {
-      return null;
+  /**
+   * Splits an individual's PolicyHolderName into the stored name columns.
+   * The full name is kept verbatim as display_name.
+   */
+  private splitPersonName(name: string) {
+    const parts = name.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) {
+      return { first_name: parts[0], middle_name: null, last_name: null };
     }
 
     return {
-      identifier_type: this.mapLegacyIdTypeToIdentifierType(dto.id_type),
-      identifier_value: identifierValue,
-      country_code: this.normalizeCountryCode(dto.country_code) ?? 'TZA',
-      is_primary: true,
-      is_verified: false,
-    } satisfies CustomerIdentifierDto;
-  }
-
-  private buildLegacyAddress(dto: CreateCustomerDto | UpdateCustomerDto) {
-    const region = this.normalizeText(dto.region);
-    const district = this.normalizeText(dto.district);
-    const countryCode = this.normalizeCountryCode(dto.country_code);
-
-    if (!region || !district || !countryCode) {
-      return null;
-    }
-
-    return {
-      address_type: 'PHYSICAL',
-      country_code: countryCode,
-      country: this.normalizeText(dto.country),
-      region,
-      district,
-      ward: this.normalizeText(dto.ward),
-      street: this.normalizeText(dto.street),
-      postal_address: this.normalizeText(dto.postal_address),
-      latitude:
-        dto.latitude !== undefined && dto.latitude !== null
-          ? Number(dto.latitude)
-          : null,
-      longitude:
-        dto.longitude !== undefined && dto.longitude !== null
-          ? Number(dto.longitude)
-          : null,
-      is_primary: true,
-    } satisfies CustomerAddressDto;
-  }
-
-  private buildLegacyContacts(
-    dto: CreateCustomerDto | UpdateCustomerDto,
-  ): CustomerContactDto[] {
-    const contacts: CustomerContactDto[] = [];
-    const phone = this.normalizePhone(dto.phone);
-    if (phone) {
-      contacts.push({
-        contact_type: 'PHONE',
-        value: phone,
-        is_primary: true,
-        is_verified: false,
-      });
-    }
-
-    const alternatePhone = this.normalizePhone(dto.alternate_phone);
-    if (alternatePhone) {
-      contacts.push({
-        contact_type: 'PHONE',
-        value: alternatePhone,
-        is_primary:
-          contacts.filter((item) => item.contact_type === 'PHONE').length === 0,
-      });
-    }
-
-    const fax = this.normalizePhone(dto.fax);
-    if (fax) {
-      contacts.push({
-        contact_type: 'FAX',
-        value: fax,
-        is_primary: true,
-      });
-    }
-
-    const email = this.normalizeEmail(dto.email);
-    if (email) {
-      contacts.push({
-        contact_type: 'EMAIL',
-        value: email,
-        is_primary: true,
-      });
-    }
-
-    const representativePhone = this.normalizePhone(dto.contact_phone);
-    const representativeEmail = this.normalizeEmail(dto.contact_email);
-    const representativeName = this.normalizeText(dto.contact_name);
-    const representativeRole = this.normalizeText(dto.contact_role);
-
-    if (
-      representativePhone ||
-      representativeEmail ||
-      representativeName ||
-      representativeRole
-    ) {
-      contacts.push({
-        contact_type: 'REPRESENTATIVE',
-        value:
-          representativePhone ??
-          representativeEmail ??
-          representativeName ??
-          'REPRESENTATIVE',
-        contact_name: representativeName,
-        contact_role: representativeRole,
-        label: 'Primary representative',
-        is_primary: true,
-      });
-    }
-
-    return contacts;
-  }
-
-  private buildLegacyDocuments(
-    dto: CreateCustomerDto | UpdateCustomerDto,
-  ): CustomerDocumentDto[] {
-    const documentType = this.normalizeText(dto.document_type ?? null);
-    if (!documentType) {
-      return [];
-    }
-
-    return [
-      {
-        document_type: documentType,
-        document_number: this.normalizeText(dto.document_no),
-        original_file_name: this.normalizeText(dto.document_file_name),
-        mime_type: this.normalizeText(dto.document_mime_type),
-        status: dto.document_verified ? 'VERIFIED' : 'PENDING',
-      },
-    ];
-  }
-
-  private normalizeCustomerPayload(
-    dto: CreateCustomerDto | UpdateCustomerDto,
-  ): NormalizedCustomerPayload {
-    const customerType = dto.customer_type;
-    if (!customerType) {
-      throw new BadRequestException('customer_type is required');
-    }
-
-    const identifiers =
-      dto.identifiers && dto.identifiers.length > 0
-        ? dto.identifiers
-        : this.buildLegacyIdentifier(customerType, dto)
-          ? [this.buildLegacyIdentifier(customerType, dto)!]
-          : [];
-
-    const addresses =
-      dto.addresses && dto.addresses.length > 0
-        ? dto.addresses
-        : this.buildLegacyAddress(dto)
-          ? [this.buildLegacyAddress(dto)!]
-          : [];
-
-    const contacts =
-      dto.contacts && dto.contacts.length > 0
-        ? dto.contacts
-        : this.buildLegacyContacts(dto);
-
-    const documents =
-      dto.documents && dto.documents.length > 0
-        ? dto.documents
-        : this.buildLegacyDocuments(dto);
-
-    this.assertCustomerRules(dto, identifiers, addresses, contacts);
-
-    return {
-      dto,
-      customerType,
-      identifiers,
-      addresses,
-      contacts,
-      documents,
-      displayName: this.buildDisplayName(dto),
-      possibleDuplicateOverrideReason:
-        this.normalizeText(dto.duplicate_override_reason) ?? null,
+      first_name: parts[0] ?? null,
+      middle_name: parts.length > 2 ? parts.slice(1, -1).join(' ') : null,
+      last_name: parts[parts.length - 1] ?? null,
     };
   }
 
-  private assertCustomerRules(
-    dto: CreateCustomerDto | UpdateCustomerDto,
-    identifiers: CustomerIdentifierDto[],
-    addresses: CustomerAddressDto[],
-    contacts: CustomerContactDto[],
-  ): void {
-    if (dto.customer_type === CustomerType.INDIVIDUAL) {
-      if (
-        !this.normalizeText(dto.first_name) ||
-        !this.normalizeText(dto.last_name)
-      ) {
-        throw new BadRequestException(
-          'Individual customers require first_name and last_name',
-        );
-      }
+  /** Current stored values expressed as the public policyholder contract. */
+  private toPolicyHolderFields(customer: Customer): Partial<CreateCustomerDto> {
+    return {
+      policy_holder_name:
+        customer.display_name ??
+        customer.company_name ??
+        ([customer.first_name, customer.middle_name, customer.last_name]
+          .filter(Boolean)
+          .join(' ') ||
+          undefined),
+      policy_holder_birth_date: customer.date_of_birth ?? undefined,
+      policy_holder_type:
+        customer.policy_holder_type ??
+        this.mapPolicyHolderType(customer.customer_type),
+      policy_holder_id_number: customer.id_number ?? undefined,
+      policy_holder_id_type: customer.id_type ?? undefined,
+      gender: customer.gender,
+      country_code: customer.country_code,
+      region: customer.region,
+      district: customer.district,
+      street: customer.street ?? undefined,
+      policy_holder_phone_number: customer.phone,
+      policy_holder_fax: customer.fax,
+      postal_address: customer.postal_address,
+      email_address: customer.email,
+    };
+  }
 
-      if (!this.normalizeText(dto.gender)) {
-        throw new BadRequestException('Individual customers require gender');
-      }
+  /**
+   * Builds the persisted write model from the policyholder fields. When
+   * updating, child records the policyholder contract does not describe
+   * (secondary identifiers/addresses, representatives, extra phones) are
+   * carried over so existing relationships survive the edit.
+   */
+  private buildWriteModel(
+    input: Partial<CreateCustomerDto>,
+    current?: {
+      customer: Customer;
+      identifiers: CustomerIdentifier[];
+      addresses: CustomerAddress[];
+      contacts: CustomerContact[];
+    },
+  ): CustomerWriteModel {
+    const name = this.normalizeText(input.policy_holder_name);
+    const birthDate = this.normalizeDate(input.policy_holder_birth_date);
+    const policyHolderType = input.policy_holder_type
+      ? Number(input.policy_holder_type)
+      : null;
+    const idType = input.policy_holder_id_type
+      ? Number(input.policy_holder_id_type)
+      : null;
+    const idNumber = this.normalizeText(input.policy_holder_id_number);
+    const gender = this.normalizeText(input.gender) as CustomerGender | null;
+    const countryCode = this.normalizeCountryCode(input.country_code);
+    const region = this.normalizeText(input.region);
+    const district = this.normalizeText(input.district);
+    const street = this.normalizeText(input.street);
+    const phone = this.normalizePhone(input.policy_holder_phone_number);
+    const fax = this.normalizePhone(input.policy_holder_fax);
+    const email = this.normalizeEmail(input.email_address);
+    const postalAddress = this.normalizeText(input.postal_address);
 
-      if (!this.normalizeDate(dto.date_of_birth)) {
-        throw new BadRequestException(
-          'Individual customers require date_of_birth',
-        );
-      }
-    }
-
-    if (dto.customer_type === CustomerType.CORPORATE) {
-      if (!this.normalizeText(dto.company_name)) {
-        throw new BadRequestException(
-          'Corporate customers require company_name',
-        );
-      }
-    }
-
-    if (identifiers.length < 1) {
+    const missing = [
+      !name && 'policy_holder_name',
+      !birthDate && 'policy_holder_birth_date',
+      !policyHolderType && 'policy_holder_type',
+      !idNumber && 'policy_holder_id_number',
+      !idType && 'policy_holder_id_type',
+      !countryCode && 'country_code',
+      !region && 'region',
+      !district && 'district',
+      !street && 'street',
+      !phone && 'policy_holder_phone_number',
+      policyHolderType === CustomerPolicyHolderType.INDIVIDUAL &&
+        !gender &&
+        'gender',
+    ].filter(Boolean);
+    if (missing.length > 0) {
       throw new BadRequestException(
-        'At least one customer identifier is required',
+        `Missing required policyholder fields: ${missing.join(', ')}`,
       );
     }
 
-    const primaryIdentifiers = identifiers.filter(
-      (item) => item.is_primary !== false,
+    const customerType = this.mapPolicyHolderTypeToCustomerType(
+      policyHolderType as CustomerPolicyHolderType,
     );
-    if (primaryIdentifiers.length !== 1) {
-      throw new BadRequestException(
-        'Exactly one primary customer identifier is required',
-      );
-    }
+    const identifierType = this.mapLegacyIdTypeToIdentifierType(idType);
 
-    if (addresses.length < 1) {
-      throw new BadRequestException(
-        'At least one customer address is required',
-      );
-    }
+    const identifiers: CustomerIdentifierInput[] = [
+      {
+        identifier_type: identifierType,
+        identifier_value: idNumber!,
+        country_code: countryCode,
+        is_primary: true,
+        is_verified: false,
+      },
+      ...(current?.identifiers ?? [])
+        .filter(
+          (item) =>
+            !item.is_primary &&
+            item.identifier_type.trim().toUpperCase() !== identifierType,
+        )
+        .map((item) => ({
+          identifier_type: item.identifier_type,
+          identifier_value: item.identifier_value,
+          country_code: item.country_code,
+          is_primary: false,
+          is_verified: item.is_verified,
+          issued_at: item.issued_at,
+          expires_at: item.expires_at,
+          metadata: item.metadata,
+        })),
+    ];
 
-    const primaryAddresses = addresses.filter(
-      (item) => item.is_primary !== false,
+    const currentPrimaryAddress = current?.addresses.find(
+      (item) => item.is_primary,
     );
-    if (primaryAddresses.length !== 1) {
-      throw new BadRequestException(
-        'Exactly one primary customer address is required',
-      );
-    }
+    const addresses: CustomerAddressInput[] = [
+      {
+        address_type: currentPrimaryAddress?.address_type ?? 'PHYSICAL',
+        country_code: countryCode!,
+        country: currentPrimaryAddress?.country ?? null,
+        region: region!,
+        district: district!,
+        ward: currentPrimaryAddress?.ward ?? null,
+        street,
+        postal_address: postalAddress,
+        latitude: currentPrimaryAddress?.latitude ?? null,
+        longitude: currentPrimaryAddress?.longitude ?? null,
+        is_primary: true,
+      },
+      ...(current?.addresses ?? [])
+        .filter((item) => !item.is_primary)
+        .map((item) => ({
+          address_type: item.address_type,
+          country_code: item.country_code,
+          country: item.country,
+          region: item.region,
+          district: item.district,
+          ward: item.ward,
+          street: item.street,
+          postal_address: item.postal_address,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          is_primary: false,
+        })),
+    ];
 
-    const phoneContacts = contacts.filter(
-      (item) => item.contact_type.trim().toUpperCase() === 'PHONE',
-    );
-    if (phoneContacts.length < 1) {
-      throw new BadRequestException('At least one phone contact is required');
-    }
+    const policyHolderContactTypes = new Set(['PHONE', 'FAX', 'EMAIL']);
+    const contacts: CustomerContactInput[] = [
+      { contact_type: 'PHONE', value: phone!, is_primary: true },
+      ...(fax ? [{ contact_type: 'FAX', value: fax, is_primary: true }] : []),
+      ...(email
+        ? [{ contact_type: 'EMAIL', value: email, is_primary: true }]
+        : []),
+      ...(current?.contacts ?? [])
+        .filter((item) => {
+          const type = item.contact_type.trim().toUpperCase();
+          // Primary phone/fax/email are replaced by the policyholder fields.
+          return !(policyHolderContactTypes.has(type) && item.is_primary);
+        })
+        .filter((item) => {
+          const type = item.contact_type.trim().toUpperCase();
+          if (type === 'PHONE') return item.normalized_value !== phone;
+          if (type === 'FAX') return item.normalized_value !== fax;
+          if (type === 'EMAIL') return item.normalized_value !== email;
+          return true;
+        })
+        .map((item) => {
+          const type = item.contact_type.trim().toUpperCase();
+          return {
+            contact_type: item.contact_type,
+            label: item.label,
+            contact_name: item.contact_name,
+            contact_role: item.contact_role,
+            value: item.value,
+            // A secondary fax/email becomes primary when the field is cleared.
+            is_primary: policyHolderContactTypes.has(type)
+              ? false
+              : item.is_primary,
+            is_verified: item.is_verified,
+          };
+        }),
+    ];
 
-    const primaryContactCountByType = new Map<string, number>();
-    for (const contact of contacts) {
-      const type = contact.contact_type.trim().toUpperCase();
-      if (contact.is_primary !== false) {
-        primaryContactCountByType.set(
-          type,
-          Number(primaryContactCountByType.get(type) ?? 0) + 1,
-        );
-      }
-    }
+    const personName =
+      customerType === CustomerType.INDIVIDUAL
+        ? this.splitPersonName(name!)
+        : { first_name: null, middle_name: null, last_name: null };
 
-    for (const [type, count] of primaryContactCountByType.entries()) {
-      if (count !== 1) {
-        throw new BadRequestException(
-          `Exactly one primary contact is required for contact type ${type}`,
-        );
-      }
-    }
+    return {
+      customer_type: customerType,
+      display_name: name!,
+      ...personName,
+      company_name: customerType === CustomerType.CORPORATE ? name : null,
+      gender,
+      date_of_birth: birthDate!,
+      id_type: idType!,
+      id_number: idNumber!,
+      phone: phone!,
+      fax,
+      email,
+      country_code: countryCode!,
+      region: region!,
+      district: district!,
+      street: street!,
+      postal_address: postalAddress,
+      status: current?.customer.status ?? CustomerStatus.ACTIVE,
+      metadata: current?.customer.metadata ?? null,
+      identifiers,
+      addresses,
+      contacts,
+      duplicate_override_reason: this.normalizeText(
+        input.duplicate_override_reason,
+      ),
+    };
   }
 
   private buildIdentityFingerprint(
@@ -603,7 +529,7 @@ export class CustomersService {
 
   private async assertExactIdentifierDuplicates(
     companyId: string,
-    identifiers: CustomerIdentifierDto[],
+    identifiers: CustomerIdentifierInput[],
     excludeCustomerId?: string,
   ): Promise<void> {
     for (const identifier of identifiers) {
@@ -643,7 +569,7 @@ export class CustomersService {
   private async assertPossibleContactDuplicates(
     user: AuthenticatedUser | null,
     companyId: string,
-    contacts: CustomerContactDto[],
+    contacts: CustomerContactInput[],
     duplicateOverrideReason: string | null,
     excludeCustomerId?: string,
   ): Promise<void> {
@@ -774,120 +700,49 @@ export class CustomersService {
 
   private projectCompatibilityFields(
     customer: Customer,
-    payload: NormalizedCustomerPayload,
+    model: CustomerWriteModel,
   ): Partial<Customer> {
-    const primaryIdentifier =
-      payload.identifiers.find((item) => item.is_primary !== false) ??
-      payload.identifiers[0];
-    const primaryAddress =
-      payload.addresses.find((item) => item.is_primary !== false) ??
-      payload.addresses[0];
-
-    const phoneContacts = payload.contacts.filter(
-      (item) => item.contact_type.trim().toUpperCase() === 'PHONE',
-    );
-    const emailContacts = payload.contacts.filter(
-      (item) => item.contact_type.trim().toUpperCase() === 'EMAIL',
-    );
-    const representative =
-      payload.contacts.find(
-        (item) => item.contact_type.trim().toUpperCase() === 'REPRESENTATIVE',
-      ) ?? null;
-    const primaryDocument = payload.documents[0] ?? null;
-
-    const identifierType =
-      primaryIdentifier?.identifier_type?.trim().toUpperCase() ?? null;
-    const idType = this.mapIdentifierTypeToLegacyIdType(identifierType);
-    const idNumber = this.normalizeText(primaryIdentifier?.identifier_value);
+    const identifierType = this.mapLegacyIdTypeToIdentifierType(model.id_type);
 
     const projection: Partial<Customer> = {
-      display_name: payload.displayName,
-      customer_type: payload.customerType,
-      policy_holder_type: this.mapPolicyHolderType(payload.customerType),
-      first_name:
-        payload.customerType === CustomerType.INDIVIDUAL
-          ? this.normalizeText(payload.dto.first_name)
-          : null,
-      middle_name:
-        payload.customerType === CustomerType.INDIVIDUAL
-          ? this.normalizeText(payload.dto.middle_name)
-          : null,
-      last_name:
-        payload.customerType === CustomerType.INDIVIDUAL
-          ? this.normalizeText(payload.dto.last_name)
-          : null,
-      gender:
-        payload.customerType === CustomerType.INDIVIDUAL
-          ? (payload.dto.gender ?? null)
-          : null,
-      date_of_birth: this.normalizeDate(payload.dto.date_of_birth),
-      nationality: this.normalizeText(payload.dto.nationality),
-      company_name:
-        payload.customerType === CustomerType.CORPORATE
-          ? this.normalizeText(payload.dto.company_name)
-          : null,
+      display_name: model.display_name,
+      customer_type: model.customer_type,
+      policy_holder_type: this.mapPolicyHolderType(model.customer_type),
+      first_name: model.first_name,
+      middle_name: model.middle_name,
+      last_name: model.last_name,
+      company_name: model.company_name,
+      gender: model.gender,
+      date_of_birth: model.date_of_birth,
+      id_type: model.id_type,
+      id_number: model.id_number,
       registration_no: null,
       incorporation_certificate_no: null,
       tin: null,
       vrn: null,
-      id_type: idType,
-      id_number: idNumber,
       nida_no: null,
       voter_no: null,
       passport_no: null,
       driving_license_no: null,
       zanid_no: null,
-      phone:
-        this.normalizePhone(phoneContacts[0]?.value) ?? customer.phone ?? '',
-      alternate_phone: this.normalizePhone(phoneContacts[1]?.value),
-      fax:
-        this.normalizePhone(
-          payload.contacts.find(
-            (item) => item.contact_type.trim().toUpperCase() === 'FAX',
-          )?.value,
-        ) ?? null,
-      email: this.normalizeEmail(emailContacts[0]?.value),
-      country: this.normalizeText(primaryAddress?.country),
-      country_code:
-        this.normalizeCountryCode(primaryAddress?.country_code) ?? 'TZA',
-      region: this.normalizeText(primaryAddress?.region) ?? '',
-      district: this.normalizeText(primaryAddress?.district) ?? '',
-      ward: this.normalizeText(primaryAddress?.ward),
-      street: this.normalizeText(primaryAddress?.street),
-      postal_address: this.normalizeText(primaryAddress?.postal_address),
-      latitude: this.normalizeNumeric(primaryAddress?.latitude),
-      longitude: this.normalizeNumeric(primaryAddress?.longitude),
-      contact_name: this.normalizeText(representative?.contact_name),
-      contact_role: this.normalizeText(representative?.contact_role),
-      contact_phone: representative
-        ? this.normalizePhone(representative.value)
-        : null,
-      contact_email: representative
-        ? this.normalizeEmail(representative.value)
-        : null,
-      document_type: (primaryDocument?.document_type as any) ?? null,
-      document_no: this.normalizeText(primaryDocument?.document_number),
-      document_file_name: this.normalizeText(
-        primaryDocument?.original_file_name,
-      ),
-      document_file_url: customer.document_file_url ?? null,
-      document_mime_type: this.normalizeText(primaryDocument?.mime_type),
-      document_verified:
-        (primaryDocument?.status ?? '').trim().toUpperCase() === 'VERIFIED',
-      document_verified_at:
-        (primaryDocument?.status ?? '').trim().toUpperCase() === 'VERIFIED'
-          ? new Date()
-          : null,
-      status: payload.dto.status ?? customer.status ?? CustomerStatus.ACTIVE,
-      metadata: payload.dto.metadata ?? customer.metadata ?? null,
+      phone: model.phone,
+      fax: model.fax,
+      email: model.email,
+      country_code: model.country_code,
+      region: model.region,
+      district: model.district,
+      street: model.street,
+      postal_address: model.postal_address,
+      status: model.status,
+      metadata: model.metadata,
       identity_fingerprint: this.buildIdentityFingerprint(
         customer.company_id,
         identifierType,
-        idNumber,
+        model.id_number,
       ),
     };
 
-    for (const identifier of payload.identifiers) {
+    for (const identifier of model.identifiers) {
       const type = identifier.identifier_type.trim().toUpperCase();
       const value = this.normalizeText(identifier.identifier_value);
       switch (type) {
@@ -1146,7 +1001,7 @@ export class CustomersService {
   private async replaceChildRecords(
     manager: DataSource['manager'],
     customer: Customer,
-    payload: NormalizedCustomerPayload,
+    payload: CustomerWriteModel,
     userId: string,
   ) {
     await manager
@@ -1158,14 +1013,10 @@ export class CustomersService {
     await manager
       .getRepository(CustomerContact)
       .softDelete({ customer_id: customer.id });
-    await manager
-      .getRepository(CustomerDocument)
-      .softDelete({ customer_id: customer.id });
 
     const identifierRepository = manager.getRepository(CustomerIdentifier);
     const addressRepository = manager.getRepository(CustomerAddress);
     const contactRepository = manager.getRepository(CustomerContact);
-    const documentRepository = manager.getRepository(CustomerDocument);
 
     const identifiers = payload.identifiers.map((identifier) => {
       const normalizedValue = this.normalizeIdentifierValue(
@@ -1243,29 +1094,15 @@ export class CustomersService {
       });
     });
 
-    const documents = payload.documents.map((document) =>
-      documentRepository.create({
-        company_id: customer.company_id,
-        customer_id: customer.id,
-        document_type: document.document_type.trim().toUpperCase(),
-        document_number: this.normalizeText(document.document_number),
-        original_file_name: this.normalizeText(document.original_file_name),
-        mime_type: this.normalizeText(document.mime_type),
-        checksum: this.normalizeText(document.checksum),
-        status: this.normalizeText(document.status)?.toUpperCase() ?? 'PENDING',
-        issued_at: this.normalizeDate(document.issued_at),
-        expires_at: this.normalizeDate(document.expires_at),
-        created_by: userId,
-        updated_by: userId,
-      }),
-    );
-
     await identifierRepository.save(identifiers);
     await addressRepository.save(addresses);
     await contactRepository.save(contacts);
-    if (documents.length > 0) {
-      await documentRepository.save(documents);
-    }
+
+    // Documents are not part of the policyholder contract; keep them as-is.
+    const documents = await manager.getRepository(CustomerDocument).find({
+      where: { customer_id: customer.id, deleted_at: IsNull() },
+      order: { created_at: 'DESC' },
+    });
 
     return {
       identifiers,
@@ -1315,7 +1152,7 @@ export class CustomersService {
 
   async createForUser(user: AuthenticatedUser, dto: CreateCustomerDto) {
     this.dataAccessScopeService.resolve(user);
-    const payload = this.normalizeCustomerPayload(dto);
+    const payload = this.buildWriteModel(dto);
 
     await this.assertExactIdentifierDuplicates(
       user.companyId!,
@@ -1325,7 +1162,7 @@ export class CustomersService {
       user,
       user.companyId!,
       payload.contacts,
-      payload.possibleDuplicateOverrideReason,
+      payload.duplicate_override_reason,
     );
 
     const customer = await this.dataSource.transaction(async (manager) => {
@@ -1641,95 +1478,19 @@ export class CustomersService {
     dto: UpdateCustomerDto,
   ) {
     const current = await this.findScopedCustomer(user, id, true);
-    const mergedDto = {
-      ...dto,
-      customer_type: dto.customer_type ?? current.customer_type,
-      first_name: dto.first_name ?? current.first_name ?? undefined,
-      middle_name: dto.middle_name ?? current.middle_name ?? undefined,
-      last_name: dto.last_name ?? current.last_name ?? undefined,
-      gender:
-        dto.gender !== undefined
-          ? dto.gender
-          : (dto.customer_type ?? current.customer_type) ===
-              CustomerType.CORPORATE
-            ? null
-            : (current.gender ?? undefined),
-      date_of_birth: dto.date_of_birth ?? current.date_of_birth ?? undefined,
-      nationality: dto.nationality ?? current.nationality ?? undefined,
-      company_name: dto.company_name ?? current.company_name ?? undefined,
-      registration_no:
-        dto.registration_no ?? current.registration_no ?? undefined,
-      incorporation_certificate_no:
-        dto.incorporation_certificate_no ??
-        current.incorporation_certificate_no ??
-        undefined,
-      tin: dto.tin ?? current.tin ?? undefined,
-      vrn: dto.vrn ?? current.vrn ?? undefined,
-      id_type: dto.id_type ?? current.id_type ?? undefined,
-      id_number: dto.id_number ?? current.id_number ?? undefined,
-      nida_no: dto.nida_no ?? current.nida_no ?? undefined,
-      voter_no: dto.voter_no ?? current.voter_no ?? undefined,
-      passport_no: dto.passport_no ?? current.passport_no ?? undefined,
-      driving_license_no:
-        dto.driving_license_no ?? current.driving_license_no ?? undefined,
-      zanid_no: dto.zanid_no ?? current.zanid_no ?? undefined,
-      phone: dto.phone ?? current.phone,
-      alternate_phone:
-        dto.alternate_phone ?? current.alternate_phone ?? undefined,
-      fax: dto.fax ?? current.fax ?? undefined,
-      email: dto.email ?? current.email ?? undefined,
-      country: dto.country ?? current.country ?? undefined,
-      country_code: dto.country_code ?? current.country_code,
-      region: dto.region ?? current.region,
-      district: dto.district ?? current.district,
-      ward: dto.ward ?? current.ward ?? undefined,
-      street: dto.street ?? current.street ?? undefined,
-      postal_address: dto.postal_address ?? current.postal_address ?? undefined,
-      latitude:
-        dto.latitude !== undefined
-          ? dto.latitude
-          : current.latitude != null
-            ? Number(current.latitude)
-            : undefined,
-      longitude:
-        dto.longitude !== undefined
-          ? dto.longitude
-          : current.longitude != null
-            ? Number(current.longitude)
-            : undefined,
-      contact_name: dto.contact_name ?? current.contact_name ?? undefined,
-      contact_role: dto.contact_role ?? current.contact_role ?? undefined,
-      contact_phone: dto.contact_phone ?? current.contact_phone ?? undefined,
-      contact_email: dto.contact_email ?? current.contact_email ?? undefined,
-      document_type: dto.document_type ?? current.document_type ?? undefined,
-      document_no: dto.document_no ?? current.document_no ?? undefined,
-      document_file_name:
-        dto.document_file_name ?? current.document_file_name ?? undefined,
-      document_file_url:
-        dto.document_file_url ?? current.document_file_url ?? undefined,
-      document_mime_type:
-        dto.document_mime_type ?? current.document_mime_type ?? undefined,
-      document_verified:
-        dto.document_verified ?? current.document_verified ?? undefined,
-      status: dto.status ?? current.status,
-      metadata: dto.metadata ?? current.metadata ?? undefined,
-      identifiers: dto.identifiers,
-      addresses: dto.addresses,
-      contacts: dto.contacts,
-      documents: dto.documents,
-      duplicate_override_reason: dto.duplicate_override_reason,
-      policy_holder_type:
-        dto.policy_holder_type ??
-        ((dto.customer_type ?? current.customer_type) ===
-        CustomerType.INDIVIDUAL
-          ? CustomerPolicyHolderType.INDIVIDUAL
-          : CustomerPolicyHolderType.CORPORATE),
-      document_verified_by: current.document_verified_by ?? undefined,
-      document_verified_at:
-        current.document_verified_at?.toISOString() ?? undefined,
-    } as CreateCustomerDto;
-
-    const payload = this.normalizeCustomerPayload(mergedDto);
+    const currentRelations = await this.getCustomerRelations(
+      this.dataSource.manager,
+      current.id,
+    );
+    // PATCH semantics: omitted fields keep their stored value; an explicit
+    // null clears an optional field.
+    const changes = Object.fromEntries(
+      Object.entries(dto).filter(([, value]) => value !== undefined),
+    ) as Partial<CreateCustomerDto>;
+    const payload = this.buildWriteModel(
+      { ...this.toPolicyHolderFields(current), ...changes },
+      { customer: current, ...currentRelations },
+    );
 
     await this.assertExactIdentifierDuplicates(
       user.companyId!,
@@ -1740,7 +1501,7 @@ export class CustomersService {
       user,
       user.companyId!,
       payload.contacts,
-      payload.possibleDuplicateOverrideReason,
+      payload.duplicate_override_reason,
       id,
     );
 

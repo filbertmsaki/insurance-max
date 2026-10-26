@@ -27,56 +27,43 @@ const sha256 = (value: string) =>
 
 function individualDto(overrides: Record<string, unknown> = {}) {
   return {
-    customer_type: CustomerType.INDIVIDUAL,
-    first_name: 'Asha',
-    last_name: 'Juma',
+    policy_holder_name: 'Asha Juma',
+    policy_holder_birth_date: '1990-01-01',
+    policy_holder_type: 1,
+    policy_holder_id_number: '19900101-12345-00001-12',
+    policy_holder_id_type: 1,
     gender: 'F',
-    date_of_birth: '1990-01-01',
-    identifiers: [
-      {
-        identifier_type: 'NIN',
-        identifier_value: '19900101-12345-00001-12',
-        is_primary: true,
-      },
-    ],
-    addresses: [
-      {
-        address_type: 'PHYSICAL',
-        country_code: 'TZA',
-        region: 'Dar es Salaam',
-        district: 'Ilala',
-        is_primary: true,
-      },
-    ],
-    contacts: [
-      { contact_type: 'PHONE', value: '+255 700 000 000', is_primary: true },
-    ],
+    country_code: 'TZA',
+    region: 'Dar es Salaam',
+    district: 'Ilala',
+    street: 'Samora Ave',
+    policy_holder_phone_number: '+255 700 000 000',
     ...overrides,
   } as any;
 }
 
 function corporateDto(overrides: Record<string, unknown> = {}) {
   return individualDto({
-    customer_type: CustomerType.CORPORATE,
-    first_name: undefined,
-    last_name: undefined,
+    policy_holder_name: 'Kilimo Ltd',
+    policy_holder_birth_date: '2010-05-20',
+    policy_holder_type: 2,
+    policy_holder_id_number: '100-200-300',
+    policy_holder_id_type: 6,
     gender: undefined,
-    date_of_birth: undefined,
-    company_name: 'Kilimo Ltd',
-    identifiers: [
-      {
-        identifier_type: 'TIN',
-        identifier_value: '100-200-300',
-        is_primary: true,
-      },
-    ],
     ...overrides,
   });
 }
 
 function makeChainQueryBuilder(result: () => any) {
   const qb: any = {};
-  for (const method of ['where', 'andWhere', 'orderBy', 'limit']) {
+  for (const method of [
+    'where',
+    'andWhere',
+    'orderBy',
+    'limit',
+    'setParameters',
+    'withDeleted',
+  ]) {
     qb[method] = jest.fn(() => qb);
   }
   qb.getOne = jest.fn(async () => result());
@@ -88,6 +75,8 @@ function makeHarness(
     existingIdentifier?: any;
     existingContact?: any;
     findOne?: any;
+    scopedCustomer?: any;
+    relations?: { identifiers?: any[]; addresses?: any[]; contacts?: any[] };
   } = {},
 ) {
   const identifierQb = makeChainQueryBuilder(
@@ -95,26 +84,31 @@ function makeHarness(
   );
   const contactQb = makeChainQueryBuilder(() => params.existingContact ?? null);
 
-  const childRepo = () => ({
+  const childRepo = (existing: any[] = []) => ({
     softDelete: jest.fn().mockResolvedValue(undefined),
     create: jest.fn((value: any) => ({ ...value })),
     save: jest.fn(async (value: any) => value),
-    find: jest.fn().mockResolvedValue([]),
+    find: jest.fn().mockResolvedValue(existing),
   });
   const identifierRepo = {
-    ...childRepo(),
+    ...childRepo(params.relations?.identifiers),
     createQueryBuilder: jest.fn(() => identifierQb),
   };
   const contactRepo = {
-    ...childRepo(),
+    ...childRepo(params.relations?.contacts),
     createQueryBuilder: jest.fn(() => contactQb),
   };
-  const addressRepo = childRepo();
+  const addressRepo = childRepo(params.relations?.addresses);
   const documentRepo = childRepo();
   const assetRepo = childRepo();
 
   const customerRepo = {
-    createQueryBuilder: jest.fn(() => makeChainQueryBuilder(() => null)),
+    createQueryBuilder: jest.fn(() =>
+      makeChainQueryBuilder(() =>
+        params.scopedCustomer ? { ...params.scopedCustomer } : null,
+      ),
+    ),
+    findOneOrFail: jest.fn(async () => ({ ...params.scopedCustomer })),
     create: jest.fn((value: any) => ({ ...value })),
     save: jest.fn(async (value: any) =>
       Object.assign(value, { id: value.id ?? 'customer-new' }),
@@ -182,170 +176,249 @@ function makeHarness(
     identifierQb,
     contactRepo,
     addressRepo,
+    documentRepo,
   };
 }
 
 describe('CustomersService customer validation', () => {
-  it('creates a valid individual customer', async () => {
+  it('creates a valid individual customer from policyholder fields', async () => {
     const h = makeHarness();
 
-    const customer = await h.service.createForUser(user, individualDto());
+    const customer = await h.service.createForUser(
+      user,
+      individualDto({
+        policy_holder_name: 'Asha Mwanaidi Juma',
+        policy_holder_fax: '022 211 0000',
+        postal_address: 'P.O. Box 1',
+        email_address: 'Asha@Example.tz',
+      }),
+    );
 
     expect(customer).toMatchObject({
       company_id: 'company-1',
-      display_name: 'Asha Juma',
+      customer_type: CustomerType.INDIVIDUAL,
+      policy_holder_type: 1,
+      display_name: 'Asha Mwanaidi Juma',
+      first_name: 'Asha',
+      middle_name: 'Mwanaidi',
+      last_name: 'Juma',
+      company_name: null,
+      gender: 'F',
+      date_of_birth: '1990-01-01',
       id_type: 1,
+      id_number: '19900101-12345-00001-12',
       nida_no: '19900101-12345-00001-12',
       phone: '+255700000000',
+      fax: '0222110000',
+      email: 'asha@example.tz',
+      street: 'Samora Ave',
+      postal_address: 'P.O. Box 1',
     });
     expect(h.dataSource.transaction).toHaveBeenCalledTimes(1);
   });
 
-  it('requires customer_type', async () => {
-    const h = makeHarness();
-
-    await expect(
-      h.service.createForUser(
-        user,
-        individualDto({ customer_type: undefined }),
-      ),
-    ).rejects.toThrow('customer_type is required');
-  });
-
   it.each([
-    [{ first_name: '  ' }, 'first_name and last_name'],
-    [{ last_name: undefined }, 'first_name and last_name'],
-    [{ gender: undefined }, 'require gender'],
-    [{ date_of_birth: undefined }, 'require date_of_birth'],
-    [{ date_of_birth: 'not-a-date' }, 'Invalid date value'],
+    [{ policy_holder_name: '  ' }, 'policy_holder_name'],
+    [{ policy_holder_birth_date: undefined }, 'policy_holder_birth_date'],
+    [{ policy_holder_type: undefined }, 'policy_holder_type'],
+    [{ policy_holder_id_number: undefined }, 'policy_holder_id_number'],
+    [{ policy_holder_id_type: undefined }, 'policy_holder_id_type'],
+    [{ street: undefined }, 'street'],
+    [{ policy_holder_phone_number: ' ' }, 'policy_holder_phone_number'],
+    [{ gender: undefined }, 'gender'],
+    [{ policy_holder_birth_date: 'not-a-date' }, 'Invalid date value'],
   ])('rejects an individual customer with %j', async (overrides, message) => {
-    const h = makeHarness();
-
-    await expect(
-      h.service.createForUser(user, individualDto(overrides)),
-    ).rejects.toThrow(message);
-    expect(h.dataSource.transaction).not.toHaveBeenCalled();
-  });
-
-  it('requires company_name for corporate customers', async () => {
-    const h = makeHarness();
-
-    await expect(
-      h.service.createForUser(user, corporateDto({ company_name: ' ' })),
-    ).rejects.toThrow('Corporate customers require company_name');
-  });
-
-  it('does not require personal fields for corporate customers', async () => {
-    const h = makeHarness();
-
-    const customer = await h.service.createForUser(user, corporateDto());
-
-    expect(customer).toMatchObject({
-      display_name: 'Kilimo Ltd',
-      policy_holder_type: 2,
-      first_name: null,
-      gender: null,
-      tin: '100-200-300',
-      id_type: 6,
-    });
-  });
-
-  it.each([
-    [{ identifiers: [] }, 'At least one customer identifier is required'],
-    [
-      {
-        identifiers: [
-          { identifier_type: 'NIN', identifier_value: 'A1', is_primary: true },
-          { identifier_type: 'TIN', identifier_value: 'B2' },
-        ],
-      },
-      'Exactly one primary customer identifier is required',
-    ],
-    [{ addresses: [] }, 'At least one customer address is required'],
-    [
-      { contacts: [{ contact_type: 'EMAIL', value: 'a@b.tz' }] },
-      'At least one phone contact is required',
-    ],
-    [
-      {
-        contacts: [
-          { contact_type: 'PHONE', value: '0700000001', is_primary: true },
-          { contact_type: 'phone', value: '0700000002', is_primary: true },
-        ],
-      },
-      'Exactly one primary contact is required for contact type PHONE',
-    ],
-  ])('rejects structured payload %j', async (overrides, message) => {
     const h = makeHarness();
 
     const promise = h.service.createForUser(user, individualDto(overrides));
 
     await expect(promise).rejects.toBeInstanceOf(BadRequestException);
     await expect(promise).rejects.toThrow(message);
+    expect(h.dataSource.transaction).not.toHaveBeenCalled();
   });
 
-  it('builds identifiers, address and contacts from legacy flat fields', async () => {
+  it('does not require gender for corporate customers', async () => {
+    const h = makeHarness();
+
+    const customer = await h.service.createForUser(user, corporateDto());
+
+    expect(customer).toMatchObject({
+      customer_type: CustomerType.CORPORATE,
+      display_name: 'Kilimo Ltd',
+      company_name: 'Kilimo Ltd',
+      policy_holder_type: 2,
+      first_name: null,
+      gender: null,
+      date_of_birth: '2010-05-20',
+      tin: '100-200-300',
+      id_type: 6,
+    });
+  });
+
+  it('keeps an optional gender supplied for a corporate customer', async () => {
     const h = makeHarness();
 
     const customer = await h.service.createForUser(
       user,
+      corporateDto({ gender: 'M' }),
+    );
+
+    expect(customer).toMatchObject({ gender: 'M' });
+  });
+
+  it('builds the primary identifier, address and contacts', async () => {
+    const h = makeHarness();
+
+    await h.service.createForUser(
+      user,
       individualDto({
-        identifiers: undefined,
-        addresses: undefined,
-        contacts: undefined,
-        id_type: 3,
-        id_number: 'AB123456',
+        policy_holder_id_type: 3,
+        policy_holder_id_number: 'AB123456',
         country_code: 'tza',
-        region: 'Arusha',
-        district: 'Arusha CBD',
-        phone: '0754 (123) 456',
+        email_address: 'a@b.tz',
       }),
     );
 
+    expect(h.identifierRepo.save.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        identifier_type: 'PASSPORT',
+        identifier_value: 'AB123456',
+        is_primary: true,
+      }),
+    ]);
+    expect(h.addressRepo.save.mock.calls[0][0]).toEqual([
+      expect.objectContaining({
+        country_code: 'TZA',
+        region: 'Dar es Salaam',
+        district: 'Ilala',
+        street: 'Samora Ave',
+        is_primary: true,
+      }),
+    ]);
+    expect(h.contactRepo.save.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ contact_type: 'PHONE', is_primary: true }),
+      expect.objectContaining({ contact_type: 'EMAIL', is_primary: true }),
+    ]);
+  });
+});
+
+describe('CustomersService update', () => {
+  const stored = {
+    id: 'customer-1',
+    company_id: 'company-1',
+    customer_type: CustomerType.INDIVIDUAL,
+    policy_holder_type: 1,
+    display_name: 'Asha Juma',
+    first_name: 'Asha',
+    middle_name: null,
+    last_name: 'Juma',
+    company_name: null,
+    gender: 'F',
+    date_of_birth: '1990-01-01',
+    id_type: 1,
+    id_number: 'NIN-1',
+    phone: '+255700000000',
+    fax: '0222110000',
+    email: 'asha@example.tz',
+    country_code: 'TZA',
+    region: 'Dar es Salaam',
+    district: 'Ilala',
+    street: 'Samora Ave',
+    postal_address: null,
+    nationality: 'Tanzanian',
+    status: 'ACTIVE',
+    metadata: { source: 'legacy' },
+  };
+
+  function relations() {
+    return {
+      identifiers: [
+        { identifier_type: 'NIN', identifier_value: 'NIN-1', is_primary: true },
+        {
+          identifier_type: 'TIN',
+          identifier_value: 'TIN-9',
+          is_primary: false,
+          is_verified: true,
+        },
+      ],
+      addresses: [
+        {
+          address_type: 'PHYSICAL',
+          country_code: 'TZA',
+          region: 'Dar es Salaam',
+          district: 'Ilala',
+          ward: 'Kariakoo',
+          street: 'Samora Ave',
+          is_primary: true,
+        },
+      ],
+      contacts: [
+        {
+          contact_type: 'PHONE',
+          value: '+255700000000',
+          normalized_value: '+255700000000',
+          is_primary: true,
+        },
+        {
+          contact_type: 'FAX',
+          value: '0222110000',
+          normalized_value: '0222110000',
+          is_primary: true,
+        },
+        {
+          contact_type: 'REPRESENTATIVE',
+          value: '0711111111',
+          normalized_value: '0711111111',
+          contact_name: 'Juma',
+          is_primary: true,
+        },
+      ],
+    };
+  }
+
+  it('applies a partial change and keeps the other policyholder fields', async () => {
+    const h = makeHarness({ scopedCustomer: stored, relations: relations() });
+
+    const customer = await h.service.updateForUser(user, 'customer-1', {
+      street: 'Uhuru St',
+    });
+
     expect(customer).toMatchObject({
-      id_type: 3,
-      passport_no: 'AB123456',
-      country_code: 'TZA',
-      region: 'Arusha',
-      phone: '0754123456',
+      street: 'Uhuru St',
+      display_name: 'Asha Juma',
+      phone: '+255700000000',
+      fax: '0222110000',
+      nationality: 'Tanzanian',
+      metadata: { source: 'legacy' },
+      tin: 'TIN-9',
     });
   });
 
-  it('persists an implicitly primary phone contact as primary', async () => {
-    const h = makeHarness();
+  it('preserves secondary identifiers, address details and representatives', async () => {
+    const h = makeHarness({ scopedCustomer: stored, relations: relations() });
 
-    await h.service.createForUser(
-      user,
-      individualDto({
-        contacts: [{ contact_type: 'PHONE', value: '0700000000' }],
+    await h.service.updateForUser(user, 'customer-1', {
+      policy_holder_fax: null,
+    });
+
+    expect(h.identifierRepo.save.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ identifier_type: 'NIN', is_primary: true }),
+      expect.objectContaining({
+        identifier_type: 'TIN',
+        is_primary: false,
+        is_verified: true,
       }),
-    );
-
-    const saved = h.contactRepo.save.mock.calls[0][0];
-    expect(saved).toEqual([
-      expect.objectContaining({ contact_type: 'PHONE', is_primary: true }),
     ]);
-  });
-
-  it('persists exactly one primary identifier when the primary is implied', async () => {
-    const h = makeHarness();
-
-    await h.service.createForUser(
-      user,
-      individualDto({
-        identifiers: [
-          {
-            identifier_type: 'TIN',
-            identifier_value: '111',
-            is_primary: false,
-          },
-          { identifier_type: 'NIN', identifier_value: '222' },
-        ],
-      }),
-    );
-
-    const saved = h.identifierRepo.save.mock.calls[0][0];
-    expect(saved.filter((item: any) => item.is_primary)).toHaveLength(1);
+    expect(h.addressRepo.save.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ ward: 'Kariakoo', is_primary: true }),
+    ]);
+    const contacts = h.contactRepo.save.mock.calls[0][0];
+    expect(contacts.map((item: any) => item.contact_type)).toEqual([
+      'PHONE',
+      'EMAIL',
+      'REPRESENTATIVE',
+    ]);
+    expect(h.documentRepo.softDelete).not.toHaveBeenCalled();
   });
 });
 
