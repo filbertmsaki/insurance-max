@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -415,33 +416,53 @@ export function MotorVehicleSection({
           aria-label="Selected vehicle"
           className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white shadow-sm"
         >
-          <div className={[
-            'flex items-start gap-3 p-4',
-            compactOnMobile && 'gap-2 p-3 sm:gap-3 sm:p-4',
-          ].filter(Boolean).join(' ')}>
-            <div className={[
-              'flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-700',
-              compactOnMobile && 'h-9 w-9 sm:h-11 sm:w-11',
-            ].filter(Boolean).join(' ')}>
+          <div
+            className={[
+              'flex items-start gap-3 p-4',
+              compactOnMobile && 'gap-2 p-3 sm:gap-3 sm:p-4',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            <div
+              className={[
+                'flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-700',
+                compactOnMobile && 'h-9 w-9 sm:h-11 sm:w-11',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
               <Car className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className={[
-                'break-words font-semibold text-slate-900',
-                compactOnMobile ? 'text-sm sm:text-base' : 'text-base',
-              ].join(' ')}>
-                {compactOnMobile && <span className="sm:hidden">
-                  {motor.registration_no || motor.chassis_no || 'New vehicle'}
-                </span>}
-                <span className={compactOnMobile ? 'hidden sm:inline' : undefined}>{title}</span>
+              <p
+                className={[
+                  'break-words font-semibold text-slate-900',
+                  compactOnMobile ? 'text-sm sm:text-base' : 'text-base',
+                ].join(' ')}
+              >
+                {compactOnMobile && (
+                  <span className="sm:hidden">
+                    {motor.registration_no || motor.chassis_no || 'New vehicle'}
+                  </span>
+                )}
+                <span
+                  className={compactOnMobile ? 'hidden sm:inline' : undefined}
+                >
+                  {title}
+                </span>
               </p>
-              {compactOnMobile && <p className="mt-0.5 break-words text-xs text-slate-500 sm:hidden">
-                {[motor.make, motor.model].filter(Boolean).join(' ')}
-              </p>}
-              <p className={[
-                'mt-0.5 break-words text-xs text-slate-500',
-                compactOnMobile ? 'hidden sm:block' : '',
-              ].join(' ')}>
+              {compactOnMobile && (
+                <p className="mt-0.5 break-words text-xs text-slate-500 sm:hidden">
+                  {[motor.make, motor.model].filter(Boolean).join(' ')}
+                </p>
+              )}
+              <p
+                className={[
+                  'mt-0.5 break-words text-xs text-slate-500',
+                  compactOnMobile ? 'hidden sm:block' : '',
+                ].join(' ')}
+              >
                 {[...facts, source ? SOURCE_LABELS[source] : null]
                   .filter(Boolean)
                   .join(' · ')}
@@ -454,7 +475,11 @@ export function MotorVehicleSection({
                 size="sm"
                 aria-label="Edit vehicle details"
                 title="Edit vehicle details"
-                className={compactOnMobile ? 'h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3' : undefined}
+                className={
+                  compactOnMobile
+                    ? 'h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3'
+                    : undefined
+                }
                 aria-haspopup="dialog"
                 aria-expanded={detailsDialogOpen}
                 onClick={() => setDetailsDialogOpen(true)}
@@ -463,7 +488,13 @@ export function MotorVehicleSection({
                   aria-hidden="true"
                   className="h-4 w-4 sm:h-3.5 sm:w-3.5"
                 />
-                <span className={compactOnMobile ? 'sr-only sm:not-sr-only' : undefined}>Edit details</span>
+                <span
+                  className={
+                    compactOnMobile ? 'sr-only sm:not-sr-only' : undefined
+                  }
+                >
+                  Edit details
+                </span>
               </Button>
               <Button
                 type="button"
@@ -471,14 +502,24 @@ export function MotorVehicleSection({
                 size="sm"
                 aria-label="Change vehicle"
                 title="Change vehicle"
-                className={compactOnMobile ? 'h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3' : undefined}
+                className={
+                  compactOnMobile
+                    ? 'h-11 w-11 px-0 sm:h-8 sm:w-auto sm:px-3'
+                    : undefined
+                }
                 onClick={changeVehicle}
               >
                 <RefreshCw
                   aria-hidden="true"
                   className="h-4 w-4 sm:h-3.5 sm:w-3.5"
                 />
-                <span className={compactOnMobile ? 'sr-only sm:not-sr-only' : undefined}>Change</span>
+                <span
+                  className={
+                    compactOnMobile ? 'sr-only sm:not-sr-only' : undefined
+                  }
+                >
+                  Change
+                </span>
               </Button>
             </div>
           </div>
@@ -497,10 +538,15 @@ export function MotorVehicleSection({
             </div>
           )}
 
-          <div className={[
-            'grid flex-1 content-start gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2',
-            compactOnMobile && 'gap-x-3 gap-y-1 px-3 py-2 sm:gap-x-6 sm:gap-y-2 sm:px-4 sm:py-3',
-          ].filter(Boolean).join(' ')}>
+          <div
+            className={[
+              'grid flex-1 content-start gap-x-6 gap-y-2 border-t border-slate-100 px-4 py-3 sm:grid-cols-2',
+              compactOnMobile &&
+                'gap-x-3 gap-y-1 px-3 py-2 sm:gap-x-6 sm:gap-y-2 sm:px-4 sm:py-3',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             {motor.manufacture_year && (
               <VehicleQuickFact icon={CalendarDays}>
                 {motor.manufacture_year}
@@ -614,14 +660,15 @@ export function MotorVehicleSection({
                 ? 'Enter vehicle details'
                 : 'Edit vehicle details'}
             </DialogTitle>
+            <DialogDescription>
+              Registration, chassis and specifications of the insured vehicle.
+            </DialogDescription>
           </DialogHeader>
           <VehicleDetailsFields
             key={revision}
             form={form}
             title={null}
-            showErrorMessages={
-              source !== 'manual' || vehicleDetailsSubmitted
-            }
+            showErrorMessages={source !== 'manual' || vehicleDetailsSubmitted}
           />
           <DialogFooter>
             <Button type="button" onClick={() => void finishVehicleDetails()}>

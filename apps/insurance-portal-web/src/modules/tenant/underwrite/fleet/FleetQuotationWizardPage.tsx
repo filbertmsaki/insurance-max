@@ -271,10 +271,27 @@ export function FleetQuotationWizardPage() {
             );
           case 'premium':
             return (
-              <FleetPremiumStep
-                wizard={wizard}
-                onEditVehicles={() => wizard.setStep('vehicles')}
-              />
+              <>
+                <div className="hidden" aria-hidden="true">
+                  <MotorFleetDetailsStep
+                    form={form}
+                    customerOptions={wizard.customerOptions}
+                    riskOptions={wizard.riskOptions}
+                    vehicleOptions={wizard.vehicleOptions}
+                    fieldArray={wizard.fleetFieldArray}
+                    onAddVehicle={actions.add}
+                    onRemoveVehicle={actions.remove}
+                    onDuplicateVehicle={actions.duplicate}
+                    onImportVehicles={actions.importRows}
+                    factorContext={wizard.factorContext}
+                    autoCalculateUnpricedOnly
+                  />
+                </div>
+                <FleetPremiumStep
+                  wizard={wizard}
+                  onEditVehicles={() => wizard.setStep('vehicles')}
+                />
+              </>
             );
           case 'source':
             return <BusinessSourceStep wizard={wizard} />;

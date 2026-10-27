@@ -12,6 +12,7 @@ export enum IdentifierType {
   ENDORSEMENT = 'ENDORSEMENT',
   CANCELLATION = 'CANCELLATION',
   RENEWAL = 'RENEWAL',
+  SUBJECT_MATTER = 'SUBJECT_MATTER',
 }
 
 export const IDENTIFIER_CONSTANTS = {
@@ -27,6 +28,7 @@ export const IDENTIFIER_CONSTANTS = {
   endorsement: 'END',
   cancellation: 'CXL',
   renewal: 'RNW',
+  subjectMatter: 'SM',
 } as const;
 
 export const IDENTIFIER_SEQUENCE_LENGTHS = {
@@ -44,6 +46,7 @@ export const IDENTIFIER_SEQUENCE_LENGTHS = {
   endorsement: 5,
   cancellation: 5,
   renewal: 5,
+  subjectMatter: 6,
 } as const;
 
 export const IDENTIFIER_DATE_FORMATS = {
@@ -52,4 +55,5 @@ export const IDENTIFIER_DATE_FORMATS = {
   coverNoteTime: 'HHmmss',
   request: 'yyMMdd',
   finance: 'yyMMdd',
+  subjectMatter: 'yyyyMMddHHmmss',
 } as const;

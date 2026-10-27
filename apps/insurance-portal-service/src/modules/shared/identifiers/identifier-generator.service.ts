@@ -159,6 +159,31 @@ export class IdentifierGeneratorService {
     return numbers;
   }
 
+  async generateSubjectMatterReference(
+    companyId: string,
+    chassisNumber: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const chassisPrefix = chassisNumber
+      .replace(/[^A-Za-z0-9]/g, '')
+      .toUpperCase()
+      .slice(0, 60);
+    const timestamp = this.formatDate(
+      new Date(),
+      IDENTIFIER_DATE_FORMATS.subjectMatter,
+    );
+
+    return this.generateFormattedIdentifier({
+      companyId,
+      identifierType: IdentifierType.SUBJECT_MATTER,
+      prefix: chassisPrefix || 'VEHICLE',
+      datePart: timestamp,
+      sequenceLength: IDENTIFIER_SEQUENCE_LENGTHS.subjectMatter,
+      readableConstant: IDENTIFIER_CONSTANTS.subjectMatter,
+      manager,
+    });
+  }
+
   async generateRequestId(
     companyId: string,
     manager?: EntityManager,
@@ -418,6 +443,10 @@ export class IdentifierGeneratorService {
       return `${prefix}-${readableConstant}-${sequenceDate}-${sequenceTimeBucket}-${suffix}`;
     }
 
+    if (identifierType === IdentifierType.SUBJECT_MATTER) {
+      return `${prefix}${sequenceDate}${suffix}`;
+    }
+
     return `${prefix}-${readableConstant}-${sequenceDate}-${suffix}`;
   }
 
@@ -650,6 +679,8 @@ export class IdentifierGeneratorService {
         return `${lookup.get('year') ?? ''}${month}${day}`;
       case IDENTIFIER_DATE_FORMATS.coverNoteTime:
         return `${hour}${minute}${second}`;
+      case IDENTIFIER_DATE_FORMATS.subjectMatter:
+        return `${lookup.get('year') ?? ''}${month}${day}${hour}${minute}${second}`;
       default:
         return `${year}${month}${day}`;
     }

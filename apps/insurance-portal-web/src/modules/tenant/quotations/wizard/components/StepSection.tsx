@@ -41,7 +41,7 @@ export function StepSection({
       )}
     >
       {(title || action) && (
-        <div className="mb-2.5 flex flex-row items-center justify-between gap-2">
+        <div className="mb-2.5 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             {title && (
               <h3

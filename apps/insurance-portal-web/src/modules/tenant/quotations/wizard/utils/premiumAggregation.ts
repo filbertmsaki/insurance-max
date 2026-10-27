@@ -366,16 +366,36 @@ export function applyFleetRiskPremiumResult(
   result: RiskPremiumResult,
 ): QuotationFleetRiskFormRow {
   const premiumBeforeDiscount = resolvePremiumBeforeDiscount(result);
+  const premiumAfterDiscount = resolvePremiumAfterDiscount(result);
+  const premiumExcludingTaxEquivalent =
+    resolvePremiumExcludingTaxEquivalent(result);
+  const premiumIncludingTax = resolvePremiumIncludingTax(result);
   const resolvedSumInsured =
     result.sum_insured ??
     (hasValue(row.sum_insured) ? Number(row.sum_insured) : 0);
+  const discounts =
+    row.discounts_offered.length > 0
+      ? row.discounts_offered.map((discount, discountIndex) =>
+          discountIndex === 0
+            ? {
+                ...discount,
+                discount_amount: String(result.discount_amount ?? 0),
+              }
+            : discount,
+        )
+      : row.discounts_offered;
 
   return {
     ...row,
     sum_insured: String(resolvedSumInsured),
     sum_insured_equivalent: String(resolvedSumInsured),
-    premium_rate: String(result.percentage_rate ?? 0),
+    premium_rate: String(result.premium_rate ?? result.percentage_rate ?? 0),
     premium_before_discount: String(premiumBeforeDiscount),
+    discounts_offered: discounts,
+    premium_after_discount: String(premiumAfterDiscount),
+    premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
+    taxes_charged: applyChargesToTaxRows(row.taxes_charged, result.charges),
+    premium_including_tax: String(premiumIncludingTax),
     rating_result_metadata: {
       pricing_quote_id: result.pricing_quote_id ?? null,
       pricing_status: result.pricing_status ?? null,
@@ -385,8 +405,8 @@ export function applyFleetRiskPremiumResult(
       quotation_type: result.quotation_type ?? null,
       currency_code: result.currency_code ?? null,
       exchange_rate_snapshot: result.exchange_rate_snapshot ?? null,
-      minimum_applied: result.minimum_applied,
-      minimum_amount: result.minimum_amount,
+      minimum_applied: result.minimum_premium_applied ?? result.minimum_applied,
+      minimum_amount: result.minimum_premium ?? result.minimum_amount,
       discount_control: result.discount_control,
       loading_control: result.loading_control,
       validation_errors: result.validation_errors,

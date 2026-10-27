@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -72,7 +73,6 @@ import { WizardFormItem } from '../components/WizardFormItem';
 import { AddonRow } from '../components/AddonRow';
 import {
   applyFleetRiskPremiumResult,
-  recomputeFleetRiskRow,
   resolveSelectedTaxCodes,
   toNumber,
 } from '../utils/premiumAggregation';
@@ -106,6 +106,7 @@ import { verificationsApi } from '@/modules/tenant/verifications/api';
 import { readVerifiedMotorDetails } from '../utils/vehicleVerification';
 import { toFleetMotorDetails } from '../utils/vehicleVerification';
 import { ownerDefaultsFromPolicyholder } from '../utils/motorVehicleSelection';
+import { quotationPricingIssues } from '../utils/quotationReadiness';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -118,6 +119,7 @@ interface Props {
   onDuplicateVehicle: (index: number) => void;
   onImportVehicles: (rows: FleetCsvRow[]) => void;
   factorContext?: QuotationFactorContext;
+  autoCalculateUnpricedOnly?: boolean;
 }
 
 function resolveFleetRequestedDiscount(
@@ -153,16 +155,6 @@ function getVehicleIssues(
     !item.risks_covered.some((risk) => risk.risk_code.trim())
   ) {
     issues.push('At least one risk is required');
-  }
-  if (
-    item.subject_matters_covered.length === 0 ||
-    !item.subject_matters_covered.some(
-      (subject) =>
-        subject.subject_matter_reference.trim() &&
-        subject.subject_matter_desc.trim(),
-    )
-  ) {
-    issues.push('At least one subject matter is required');
   }
   if (
     !item.motor_dtl.registration_number.trim() &&
@@ -214,7 +206,14 @@ function resetFleetRiskPricing(
     premium_excluding_tax_equivalent: '',
     premium_including_tax: '',
     discounts_offered: [createEmptyRiskDiscountRow()],
-    taxes_charged: [createEmptyRiskTaxRow()],
+    // Keep the selected taxes when the cover changes. Clearing this array
+    // causes RiskTaxesFields to restore defaults asynchronously; that can
+    // change the pricing signature while the new risk is being priced and
+    // cause the valid response to be discarded as stale.
+    taxes_charged:
+      row.taxes_charged.length > 0
+        ? row.taxes_charged.map((tax) => ({ ...tax, tax_amount: '' }))
+        : [createEmptyRiskTaxRow()],
     rating_result_metadata: null,
   };
 }
@@ -242,10 +241,6 @@ function FleetVehicleEditor({
     control: form.control,
     name: `fleet.items.${index}.risks_covered`,
   });
-  const subjectArray = useFieldArray({
-    control: form.control,
-    name: `fleet.items.${index}.subject_matters_covered`,
-  });
   const addonArray = useFieldArray({
     control: form.control,
     name: `fleet.items.${index}.cover_note_addons`,
@@ -254,6 +249,35 @@ function FleetVehicleEditor({
   const [wordingExpanded, setWordingExpanded] = useState(false);
   const item = form.watch(`fleet.items.${index}` as const);
   const coverNoteType = form.watch('cover_note_type');
+  const transitRisk = riskOptions.find(
+    (risk) =>
+      risk.risk_code === 'SP014001000007' ||
+      /motor\s+private\s+vehicles[-\s]+transit/i.test(risk.risk_name),
+  );
+
+  useEffect(() => {
+    if (item.motor_dtl.motor_type !== '2' || !transitRisk) return;
+    const firstRisk = item.risks_covered[0];
+    if (!firstRisk || firstRisk.risk_code === transitRisk.risk_code) return;
+
+    form.setValue(
+      `fleet.items.${index}.risks_covered.0`,
+      {
+        ...resetFleetRiskPricing(firstRisk),
+        risk_id: transitRisk.id,
+        risk_code: transitRisk.risk_code,
+      },
+      { shouldDirty: true, shouldValidate: true },
+    );
+    onCalculateVehicle(index);
+  }, [
+    form,
+    index,
+    item.motor_dtl.motor_type,
+    item.risks_covered,
+    onCalculateVehicle,
+    transitRisk,
+  ]);
 
   function fillFromExistingVehicle(vehicle: MotorVehicleRecord) {
     const prefix = `fleet.items.${index}.motor_dtl` as const;
@@ -513,16 +537,16 @@ function FleetVehicleEditor({
         )}
       </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="text-base font-semibold text-slate-900">
-            Cover &amp; premium
-          </p>
-          <div className="flex items-center gap-2">
+      <StepSection
+        title="Cover & premium"
+        contentClassName="space-y-3"
+        action={
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
             <Button
               type="button"
               variant="secondary"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() => onCalculateVehicle(index)}
               disabled={isCalculating}
             >
@@ -532,6 +556,7 @@ function FleetVehicleEditor({
               type="button"
               variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() =>
                 riskArray.append({
                   client_ref: createBrowserSafeId(),
@@ -555,7 +580,8 @@ function FleetVehicleEditor({
               Add Risk
             </Button>
           </div>
-        </div>
+        }
+      >
         {calculationErrorMessage ? (
           <PricingStatusAlert compact errorMessage={calculationErrorMessage} />
         ) : null}
@@ -687,6 +713,7 @@ function FleetVehicleEditor({
                               risk_id: nextRiskId,
                             },
                           );
+                          if (nextRiskId) onCalculateVehicle(index);
                         }}
                       >
                         <FormControl>
@@ -847,75 +874,9 @@ function FleetVehicleEditor({
             </StepSection>
           );
         })}
-      </div>
+      </StepSection>
 
       <div className="space-y-6">
-        <StepSection
-          first
-          title="Insured items"
-          action={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                subjectArray.append({
-                  subject_matter_reference: '',
-                  subject_matter_desc: '',
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Subject
-            </Button>
-          }
-          contentClassName="space-y-1"
-        >
-          {subjectArray.fields.map((field, subjectIndex) => (
-            <div key={field.id} className="grid gap-3 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name={
-                  `fleet.items.${index}.subject_matters_covered.${subjectIndex}.subject_matter_reference` as const
-                }
-                render={({ field }) => (
-                  <WizardFormItem>
-                    <FormLabel>Reference</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                  </WizardFormItem>
-                )}
-              />
-              <div className="flex gap-2">
-                <FormField
-                  control={form.control}
-                  name={
-                    `fleet.items.${index}.subject_matters_covered.${subjectIndex}.subject_matter_desc` as const
-                  }
-                  render={({ field }) => (
-                    <WizardFormItem className="flex-1">
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => subjectArray.remove(subjectIndex)}
-                  disabled={subjectArray.fields.length === 1}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </StepSection>
-
         <StepSection
           title="Add-ons"
           action={
@@ -968,6 +929,21 @@ function summarizeFleetItem(item: FleetItemValues) {
     ),
     issueCount: getVehicleIssues(item).length,
   };
+}
+
+function getFleetPricingSignature(values: QuotationFormSchemaValues) {
+  return JSON.stringify(
+    values.fleet.items.map((item) =>
+      item.risks_covered.map((risk) =>
+        buildFleetRiskPricingSignature({
+          ...values,
+          fleet_header: values.fleet.header,
+          item,
+          risk,
+        }),
+      ),
+    ),
+  );
 }
 
 // A fleet quotation starts with one blank vehicle row; until the user touches
@@ -1201,6 +1177,7 @@ export function MotorFleetDetailsStep({
   onDuplicateVehicle,
   onImportVehicles,
   factorContext,
+  autoCalculateUnpricedOnly = false,
 }: Props) {
   const { fields } = fieldArray;
   const queryClient = useQueryClient();
@@ -1228,6 +1205,7 @@ export function MotorFleetDetailsStep({
   const [vehicleErrors, setVehicleErrors] = useState<string[]>([]);
   const [showVehicleValidationErrors, setShowVehicleValidationErrors] =
     useState(false);
+  const lastAutoCalculationSignature = useRef<string | null>(null);
   const selectedCustomerId = form.watch('customer_id');
   const policyholderMode = form.watch('policyholder_mode');
   const policyholder = form.watch('policyholder');
@@ -1247,8 +1225,6 @@ export function MotorFleetDetailsStep({
       {
         description: string;
         clause: string;
-        reference: string;
-        subject: string;
       }
     >(),
   );
@@ -1256,11 +1232,6 @@ export function MotorFleetDetailsStep({
     fleetValues.items.forEach((item, index) => {
       const key = item.risks_covered[0]?.client_ref ?? String(index);
       const previous = generatedRef.current.get(key);
-      const reference =
-        item.motor_dtl.registration_number || item.motor_dtl.chassis_number;
-      const subject = [item.motor_dtl.make, item.motor_dtl.model]
-        .filter(Boolean)
-        .join(' ');
       if (
         !item.cover_note_desc ||
         item.cover_note_desc === previous?.description
@@ -1273,34 +1244,11 @@ export function MotorFleetDetailsStep({
       if (!item.operative_clause || item.operative_clause === previous?.clause)
         if (item.operative_clause !== commonClause)
           form.setValue(`fleet.items.${index}.operative_clause`, commonClause);
-      const first = item.subject_matters_covered[0];
-      if (
-        first &&
-        (!first.subject_matter_reference ||
-          first.subject_matter_reference === previous?.reference) &&
-        first.subject_matter_reference !== reference
-      )
-        form.setValue(
-          `fleet.items.${index}.subject_matters_covered.0.subject_matter_reference`,
-          reference,
-        );
-      if (
-        first &&
-        (!first.subject_matter_desc ||
-          first.subject_matter_desc === previous?.subject) &&
-        first.subject_matter_desc !== subject
-      )
-        form.setValue(
-          `fleet.items.${index}.subject_matters_covered.0.subject_matter_desc`,
-          subject,
-        );
       if (item.fleet_entry !== String(index + 1))
         form.setValue(`fleet.items.${index}.fleet_entry`, String(index + 1));
       generatedRef.current.set(key, {
         description: commonDescription,
         clause: commonClause,
-        reference,
-        subject,
       });
     });
   }, [form, fleetValues, commonDescription, commonClause]);
@@ -1612,13 +1560,11 @@ export function MotorFleetDetailsStep({
           return;
         const success = successByReference.get(row.client_ref);
         if (success) {
-          const nextRow = recomputeFleetRiskRow(
-            applyFleetRiskPremiumResult(
-              form.getValues(
-                `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}`,
-              ),
-              success,
+          const nextRow = applyFleetRiskPremiumResult(
+            form.getValues(
+              `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}`,
             ),
+            success,
           );
           const currentItem = form.getValues(`fleet.items.${vehicleIndex}`);
           const pricingInputSignature = buildFleetRiskPricingSignature({
@@ -1659,6 +1605,10 @@ export function MotorFleetDetailsStep({
         }
       });
 
+      lastAutoCalculationSignature.current = getFleetPricingSignature(
+        form.getValues(),
+      );
+
       const scopedLabel =
         targetVehicleIndex == null ? 'fleet risks' : 'vehicle risks';
       if (silent) return;
@@ -1681,30 +1631,38 @@ export function MotorFleetDetailsStep({
   }
 
   const values = form.watch();
-  const fleetSignature = JSON.stringify(
-    values.fleet.items.map((item) =>
-      item.risks_covered.map((risk) =>
-        buildFleetRiskPricingSignature({
-          ...values,
-          fleet_header: values.fleet.header,
-          item,
-          risk,
-        }),
-      ),
-    ),
-  );
+  const fleetSignature = getFleetPricingSignature(values);
   const calculateRef = useRef(calculateFleetPremiums);
   useEffect(() => {
     calculateRef.current = calculateFleetPremiums;
   });
   useEffect(() => {
     if (!values.product_id || !values.fleet.items.length) return;
-    const timeout = setTimeout(
-      () => void calculateRef.current(undefined, true),
-      600,
-    );
+    if (
+      autoCalculateUnpricedOnly &&
+      quotationPricingIssues(form.getValues()).length === 0
+    )
+      return;
+    if (lastAutoCalculationSignature.current === fleetSignature) return;
+    const timeout = setTimeout(() => {
+      lastAutoCalculationSignature.current = fleetSignature;
+      void calculateRef.current(undefined, !autoCalculateUnpricedOnly);
+    }, 600);
     return () => clearTimeout(timeout);
-  }, [fleetSignature, values.product_id, values.fleet.items.length]);
+  }, [
+    autoCalculateUnpricedOnly,
+    fleetSignature,
+    form,
+    values.product_id,
+    values.fleet.items.length,
+  ]);
+
+  function calculateVehicleAndTrack(index: number) {
+    lastAutoCalculationSignature.current = getFleetPricingSignature(
+      form.getValues(),
+    );
+    void calculateFleetPremiums(index);
+  }
 
   const currency = values.currency?.trim().toUpperCase() || 'TZS';
   const showEmptyState =
@@ -1841,22 +1799,25 @@ export function MotorFleetDetailsStep({
     <>
       <StepSection
         title="Vehicles"
-        description="Paste plate numbers to add vehicles in bulk. Details are fetched from TIRA; use Edit to complete anything missing."
         first
         action={
-          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
-            {!showEmptyState && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-expanded={quickAddOpen}
-                onClick={() => setQuickAddOpen((open) => !open)}
-              >
-                <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" />
-                Paste list
-              </Button>
-            )}
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <div className="grid grid-cols-2 gap-2 sm:contents">
+              {!showEmptyState && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  aria-expanded={quickAddOpen}
+                  onClick={() => setQuickAddOpen((open) => !open)}
+                >
+                  <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" />
+                  Paste list
+                </Button>
+              )}
+            </div>
+
             <Button
               type="button"
               variant="outline"
@@ -1904,10 +1865,6 @@ export function MotorFleetDetailsStep({
                 >
                   Calculate Fleet Premiums
                 </Button>
-                <Button type="button" size="sm" onClick={openNewVehicleDialog}>
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
-                  Add Vehicle
-                </Button>
               </>
             )}
           </div>
@@ -1942,7 +1899,7 @@ export function MotorFleetDetailsStep({
             />
             <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-5 text-center sm:flex-row sm:justify-center">
               <p className="text-sm text-slate-500">
-                Prefer to enter details by hand?
+                Enter vehicle details manually
               </p>
               <Button
                 type="button"
@@ -1980,6 +1937,9 @@ export function MotorFleetDetailsStep({
         >
           <DialogHeader className="border-b border-slate-100 px-4 py-4 sm:px-6">
             <DialogTitle>{dialogTitle}</DialogTitle>
+            <DialogDescription>
+              Vehicle details, risks covered and premium for this fleet entry.
+            </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
             {editingVehicle && (
@@ -1992,7 +1952,7 @@ export function MotorFleetDetailsStep({
                 calculationErrorMessage={calculationErrorMessage}
                 showVehicleValidationErrors={showVehicleValidationErrors}
                 onCalculateVehicle={(vehicleIndex) =>
-                  void calculateFleetPremiums(vehicleIndex)
+                  calculateVehicleAndTrack(vehicleIndex)
                 }
               />
             )}

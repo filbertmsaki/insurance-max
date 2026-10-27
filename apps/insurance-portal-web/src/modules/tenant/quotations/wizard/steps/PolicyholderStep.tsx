@@ -55,7 +55,13 @@ import {
 } from '@/modules/tenant/customers/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { StepSection } from '../components/StepSection';
-import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 import {
   fromSelectValue,
@@ -135,6 +141,10 @@ function PolicyholderDetailsContainer({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl">
+        <DialogTitle className="sr-only">Policyholder</DialogTitle>
+        <DialogDescription className="sr-only">
+          Review the policyholder details before continuing.
+        </DialogDescription>
         {children}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onCancel}>

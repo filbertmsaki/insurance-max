@@ -794,14 +794,6 @@ function validateFleet(
         });
       }
     });
-
-    if (item.subject_matters_covered.length === 0) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['fleet', 'items', index, 'subject_matters_covered'],
-        message: 'Add at least one subject matter for this vehicle',
-      });
-    }
   });
 }
 

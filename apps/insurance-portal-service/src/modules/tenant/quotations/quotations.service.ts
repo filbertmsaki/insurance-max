@@ -9503,6 +9503,62 @@ export class QuotationsService {
           item.cover_note_number ||
           '';
       });
+
+      for (const [index, item] of fleetDetails.entries()) {
+        const fleetEntry = Number(item.fleet_entry ?? index + 1);
+        const existingEntry = existingEntries.find(
+          (entry) =>
+            Number(entry.fleet_entry ?? entry.entry_number) === fleetEntry,
+        );
+        const chassisNumber = item.motor_dtl?.chassis_number ?? '';
+        const unchangedChassis =
+          existingEntry?.motor_detail?.chassis_number?.trim().toUpperCase() ===
+          chassisNumber.trim().toUpperCase();
+        const existingReference =
+          existingEntry?.subject_matters?.[0]?.subject_matter_reference;
+        const chassisPrefix = chassisNumber
+          .replace(/[^A-Za-z0-9]/g, '')
+          .toUpperCase()
+          .slice(0, 60);
+        const existingReferenceSuffix = existingReference
+          ?.slice(chassisPrefix.length)
+          .toUpperCase();
+        const existingReferenceIsUnique =
+          !!existingReference &&
+          existingEntries.filter(
+            (entry) =>
+              entry.subject_matters?.[0]?.subject_matter_reference ===
+              existingReference,
+          ).length === 1;
+        const existingReferenceWasGeneratedByBackend =
+          !!chassisPrefix &&
+          existingReference?.toUpperCase().startsWith(chassisPrefix) &&
+          /^\d{20,}$/.test(existingReferenceSuffix ?? '');
+
+        const subjectMatterReference =
+          unchangedChassis &&
+          existingReference &&
+          existingReferenceWasGeneratedByBackend &&
+          existingReferenceIsUnique
+            ? existingReference
+            : await this.identifierGeneratorService.generateSubjectMatterReference(
+                companyId,
+                chassisNumber,
+              );
+        const vehicleDescription = [item.motor_dtl?.make, item.motor_dtl?.model]
+          .filter((part) => !!part?.trim())
+          .join(' ');
+        const subjectMatterDescription = vehicleDescription
+          ? `${vehicleDescription} - Chassis ${chassisNumber}`
+          : `Vehicle - Chassis ${chassisNumber}`;
+
+        item.subject_matters_covered = [
+          {
+            subject_matter_reference: subjectMatterReference,
+            subject_matter_desc: subjectMatterDescription.slice(0, 500),
+          },
+        ];
+      }
     } else {
       const existingNumber = existingEntries[0]?.cover_note_number ?? null;
       prepared.cover_note_dtl.cover_note_number =
