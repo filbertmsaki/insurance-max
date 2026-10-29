@@ -13,6 +13,7 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { PremiumCalculationService } from './premium-calculation.service';
 import {
+  CalculateFleetPremiumDto,
   CalculateMultiRiskPremiumDto,
   CalculateSingleRiskPremiumDto,
 } from './dto/calculate-premium.dto';
@@ -72,6 +73,20 @@ export class PremiumCalculationController {
     @Body() dto: CalculateMultiRiskPremiumDto,
   ) {
     return this.service.calculateMultiRisk(user.companyId!, dto, user.id, user);
+  }
+
+  @Post('fleet')
+  @Permissions('pricing.calculate')
+  @ApiOperation({
+    summary: 'Calculate motor fleet premium',
+    description:
+      'Applies one risk, discount and tax selection to every vehicle, rates each vehicle on its own sum insured and factors, and returns per-vehicle results plus fleet totals excluding and including tax.',
+  })
+  async calculateFleet(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CalculateFleetPremiumDto,
+  ) {
+    return this.service.calculateFleet(user.companyId!, dto, user.id, user);
   }
 
   @Get('explain/:risk_id')

@@ -33,7 +33,8 @@ import { WizardFormItem } from './WizardFormItem';
 
 type RiskPath =
   | `risks.${number}`
-  | `fleet.items.${number}.risks_covered.${number}`;
+  | `fleet.items.${number}.risks_covered.${number}`
+  | 'fleet.header.cover';
 export function RiskTaxesFields({
   form,
   riskPath,

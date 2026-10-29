@@ -17,9 +17,9 @@ const PolicyDetailPage = lazy(() =>
 );
 
 /**
- * Fleet quotation details: the fleet vehicles panel (vehicle premiums, cover
- * notes, register link) above the shared quotation screen, which keeps all
- * workflow actions (approval, payment, TIRA).
+ * Fleet quotation details: the shared quotation screen (header, workflow
+ * actions, approval, payment, TIRA). Per-vehicle cover notes, stickers and the
+ * fleet-register link sit in its TIRAMIS tab, next to cover note issuance.
  */
 export function FleetQuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,20 +27,22 @@ export function FleetQuotationDetailPage() {
 
   return (
     <UnderwriteRecordGate kind="quotation">
-      <div className="space-y-5">
-        <FleetVehiclesPanel
-          kind="quotation"
-          id={id!}
-          currency={
-            quotation?.cover_note_dtl.fleet_hdr?.currency_code ??
-            quotation?.cover_note_dtl.currency_code ??
-            'TZS'
+      <Suspense fallback={<TableSkeleton />}>
+        <QuotationDetailPage
+          tiramisPanel={
+            <FleetVehiclesPanel
+              kind="quotation"
+              id={id!}
+              showSummary={false}
+              currency={
+                quotation?.cover_note_dtl.fleet_hdr?.currency_code ??
+                quotation?.cover_note_dtl.currency_code ??
+                'TZS'
+              }
+            />
           }
         />
-        <Suspense fallback={<TableSkeleton />}>
-          <QuotationDetailPage />
-        </Suspense>
-      </div>
+      </Suspense>
     </UnderwriteRecordGate>
   );
 }

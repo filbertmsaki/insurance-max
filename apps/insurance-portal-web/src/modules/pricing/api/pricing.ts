@@ -1,5 +1,7 @@
 import { apiClient } from '@/modules/shared/api/client';
 import type {
+  PricingFleetRequest,
+  PricingFleetResult,
   PricingMultiRiskRequest,
   PricingMultiRiskResult,
   PricingRatingRequirements,
@@ -17,6 +19,11 @@ export const pricingApi = {
   calculateMulti: (data: PricingMultiRiskRequest) =>
     apiClient
       .post<PricingMultiRiskResult>('/premium-calculation/multi', data)
+      .then((response) => response.data),
+
+  calculateFleet: (data: PricingFleetRequest) =>
+    apiClient
+      .post<PricingFleetResult>('/premium-calculation/fleet', data)
       .then((response) => response.data),
 
   explainRisk: (riskId: string) =>

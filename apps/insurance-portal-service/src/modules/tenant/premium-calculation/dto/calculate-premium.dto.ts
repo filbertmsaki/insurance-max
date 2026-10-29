@@ -281,3 +281,98 @@ export class CalculateMultiRiskPremiumDto {
   @IsNumber()
   exchange_rate?: number;
 }
+
+export class FleetVehiclePricingDto {
+  @ApiProperty({
+    example: 'VEHICLE-001',
+    description: 'Client identifier for the vehicle, echoed back per result.',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  client_reference: string;
+
+  @ApiPropertyOptional({
+    example: 25000000,
+    description:
+      "The vehicle's own sum insured. Optional for risks whose pricing does not depend on it (e.g. third party).",
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sum_insured?: number;
+
+  @ApiProperty({
+    type: Object,
+    description: 'Map of factor_code to value for this vehicle.',
+  })
+  @IsObject()
+  factors: Record<string, string | number | boolean>;
+}
+
+/**
+ * Motor fleet pricing: one risk, discount and tax selection shared by the
+ * whole fleet, rated per vehicle and rolled up into fleet totals.
+ */
+export class CalculateFleetPremiumDto {
+  @ApiProperty({ description: 'Insurance risk UUID applied to every vehicle' })
+  @IsUUID()
+  @IsNotEmpty()
+  risk_id: string;
+
+  @ApiProperty({ type: [FleetVehiclePricingDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FleetVehiclePricingDto)
+  vehicles: FleetVehiclePricingDto[];
+
+  @ApiPropertyOptional({ type: PricingAdjustmentRequestDto })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PricingAdjustmentRequestDto)
+  discount?: PricingAdjustmentRequestDto;
+
+  @ApiPropertyOptional({ type: [String], example: ['VAT-MAINLAND'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tax_codes?: string[];
+
+  @ApiPropertyOptional({ example: 'MOTOR' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  product_code?: string;
+
+  @ApiPropertyOptional({ example: '2026-07-27' })
+  @IsOptional()
+  @IsDateString()
+  effective_date?: string;
+
+  @ApiPropertyOptional({ example: '2026-07-27' })
+  @IsOptional()
+  @IsDateString()
+  cover_start_date?: string;
+
+  @ApiPropertyOptional({ example: '2027-07-26' })
+  @IsOptional()
+  @IsDateString()
+  cover_end_date?: string;
+
+  @ApiPropertyOptional({ enum: QuotationType })
+  @IsOptional()
+  @IsEnum(QuotationType)
+  quotation_type?: QuotationType;
+
+  @ApiPropertyOptional({ example: 'TZS' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  currency_code?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  exchange_rate?: number;
+}

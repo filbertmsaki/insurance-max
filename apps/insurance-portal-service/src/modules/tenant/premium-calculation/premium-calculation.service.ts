@@ -1,9 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
+import {
+  roundMoney,
+  sumDecimals,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { AuditService } from '../../shared/audit/audit.service';
 import { PricingEngineService } from '../pricing/application/pricing-engine.service';
 import { PricingQuoteService } from '../pricing/application/pricing-quote.service';
 import type {
+  FleetPremiumTotals,
+  MultiRiskPremiumFailure,
+  PersistedFleetPremiumResult,
   PersistedMultiRiskPremiumResult,
   PersistedRiskPremiumResult,
   RiskPremiumResult,
@@ -11,9 +18,23 @@ import type {
   StoredPricingQuote,
 } from '../pricing/domain/pricing.types';
 import {
+  CalculateFleetPremiumDto,
   CalculateMultiRiskPremiumDto,
   CalculateSingleRiskPremiumDto,
 } from './dto/calculate-premium.dto';
+
+const FLEET_PRICING_CONCURRENCY = 8;
+
+function readErrorMessage(error: unknown): string {
+  if (error instanceof HttpException) {
+    const response = error.getResponse();
+    if (typeof response === 'object' && response && 'message' in response) {
+      const message = response.message;
+      return Array.isArray(message) ? message.join('; ') : String(message);
+    }
+  }
+  return error instanceof Error ? error.message : 'Pricing calculation failed';
+}
 
 @Injectable()
 export class PremiumCalculationService {
@@ -240,6 +261,84 @@ export class PremiumCalculationService {
   }
 
   /**
+   * Motor fleet pricing: the fleet's single risk, discount and tax selection
+   * is applied to every vehicle, each vehicle is rated on its own sum insured
+   * and factors (one pricing quote per vehicle, re-verified at quotation
+   * create), and the results are rolled up into fleet totals.
+   */
+  async calculateFleet(
+    companyId: string,
+    dto: CalculateFleetPremiumDto,
+    userId: string | null = null,
+    user?: Pick<AuthenticatedUser, 'id' | 'permissions'> | null,
+  ): Promise<PersistedFleetPremiumResult> {
+    const risks: PersistedRiskPremiumResult[] = [];
+    const failedRisks: MultiRiskPremiumFailure[] = [];
+
+    // Bounded concurrency keeps large fleets from flooding the database.
+    for (
+      let start = 0;
+      start < dto.vehicles.length;
+      start += FLEET_PRICING_CONCURRENCY
+    ) {
+      const batch = dto.vehicles.slice(
+        start,
+        start + FLEET_PRICING_CONCURRENCY,
+      );
+      const settled = await Promise.allSettled(
+        batch.map((vehicle) =>
+          this.calculateSingleRisk(
+            companyId,
+            {
+              client_reference: vehicle.client_reference,
+              risk_id: dto.risk_id,
+              sum_insured: vehicle.sum_insured,
+              factors: vehicle.factors ?? {},
+              effective_date: dto.effective_date,
+              cover_start_date: dto.cover_start_date,
+              cover_end_date: dto.cover_end_date,
+              quotation_type: dto.quotation_type,
+              currency_code: dto.currency_code,
+              exchange_rate: dto.exchange_rate,
+              discount: dto.discount,
+              tax_codes: dto.tax_codes,
+            },
+            userId,
+            user,
+          ),
+        ),
+      );
+      settled.forEach((outcome, index) => {
+        if (outcome.status === 'fulfilled') {
+          risks.push(outcome.value);
+          return;
+        }
+        const message = readErrorMessage(outcome.reason);
+        failedRisks.push({
+          client_reference: batch[index].client_reference,
+          risk_id: dto.risk_id,
+          status: 'FAILED',
+          message,
+          validation_errors: [message],
+          validation_warnings: [],
+          details: null,
+        });
+      });
+    }
+
+    const fleetTotals = buildFleetPremiumTotals(dto.vehicles.length, risks);
+    return {
+      risk_id: dto.risk_id,
+      risks,
+      failed_risks: failedRisks,
+      successful_risk_count: risks.length,
+      failed_risk_count: failedRisks.length,
+      grand_total: fleetTotals.premium_including_tax,
+      fleet_totals: fleetTotals,
+    };
+  }
+
+  /**
    * Resolves a risk's highest-priority active rating rule without requiring
    * sum_insured or factor values, and without running a calculation. Powers
    * the frontend's "show minimum premium the moment a risk is selected"
@@ -435,4 +534,33 @@ export class PremiumCalculationService {
       validation_warnings: result.validation_warnings,
     };
   }
+}
+
+export function buildFleetPremiumTotals(
+  vehicleCount: number,
+  risks: RiskPremiumResult[],
+): FleetPremiumTotals {
+  const total = (
+    pick: (risk: RiskPremiumResult) => number | null | undefined,
+  ) =>
+    roundMoney(
+      sumDecimals(risks.map((risk) => roundMoney(Number(pick(risk) ?? 0)))),
+    );
+  const premiumExcludingTax = total(
+    (risk) => risk.premium_excluding_tax_equivalent,
+  );
+  const taxAmount = total((risk) => risk.total_tax_amount ?? risk.tax_amount);
+
+  return {
+    vehicle_count: vehicleCount,
+    priced_vehicle_count: risks.length,
+    sum_insured: total((risk) => risk.sum_insured),
+    premium_before_discount: total((risk) => risk.premium_before_discount),
+    discount_amount: total((risk) => risk.discount_amount),
+    premium_excluding_tax: premiumExcludingTax,
+    tax_amount: taxAmount,
+    premium_including_tax: roundMoney(
+      sumDecimals([premiumExcludingTax, taxAmount]),
+    ),
+  };
 }

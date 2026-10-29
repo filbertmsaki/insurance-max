@@ -1,14 +1,6 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { useQueries, useQueryClient } from '@tanstack/react-query';
-import {
-  ClipboardPaste,
-  Copy,
-  Download,
-  Pencil,
-  Plus,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Copy, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useFieldArray,
@@ -27,7 +19,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { createBrowserSafeId } from '@/lib/ids';
 import {
   FormControl,
   FormField,
@@ -50,6 +41,7 @@ import {
   readPricingQuoteMetadata,
   usePricingCalculator,
   type PricingFactorValue,
+  type PricingFleetTotals,
 } from '@/modules/pricing';
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
 import type { MotorVehicleRecord } from '@/modules/tenant/motor/types';
@@ -63,6 +55,7 @@ import type {
 import {
   createEmptyAddonRow,
   createEmptyFleetItemRow,
+  createEmptyFleetRiskRow,
   createEmptyRiskDiscountRow,
   createEmptyRiskTaxRow,
   type QuotationFormSchemaValues,
@@ -72,6 +65,7 @@ import { StepSection } from '../components/StepSection';
 import { WizardFormItem } from '../components/WizardFormItem';
 import { AddonRow } from '../components/AddonRow';
 import {
+  aggregateFleetRiskTotals,
   applyFleetRiskPremiumResult,
   resolveSelectedTaxCodes,
   toNumber,
@@ -99,7 +93,6 @@ import {
 } from '../utils/taxOptions';
 import { RiskTaxesFields } from '../components/RiskTaxesFields';
 import { VehicleLookup } from '../components/VehicleLookup';
-import { FleetQuickAddPanel } from '../components/FleetQuickAddPanel';
 import { VehicleDetailsFields } from '../components/VehicleDetailsFields';
 import { motorFields, motorFieldError } from '../utils/motorFields';
 import { verificationsApi } from '@/modules/tenant/verifications/api';
@@ -141,6 +134,19 @@ function resolveFleetRequestedDiscount(
 
   return undefined;
 }
+
+// Factors resolved from quotation context or vehicle details, never asked
+// per vehicle.
+const HIDDEN_FLEET_FACTOR_CODES = [
+  'sum_insured',
+  'payment_mode',
+  'currency_code',
+  'exchange_rate',
+  'sale_point_code',
+  'officer_name',
+  'officer_title',
+  'policy_holder_type',
+];
 
 function getVehicleIssues(
   item: QuotationFormSchemaValues['fleet']['items'][number],
@@ -237,10 +243,6 @@ function FleetVehicleEditor({
   showVehicleValidationErrors: boolean;
   onCalculateVehicle: (index: number) => void;
 }) {
-  const riskArray = useFieldArray({
-    control: form.control,
-    name: `fleet.items.${index}.risks_covered`,
-  });
   const addonArray = useFieldArray({
     control: form.control,
     name: `fleet.items.${index}.cover_note_addons`,
@@ -249,35 +251,6 @@ function FleetVehicleEditor({
   const [wordingExpanded, setWordingExpanded] = useState(false);
   const item = form.watch(`fleet.items.${index}` as const);
   const coverNoteType = form.watch('cover_note_type');
-  const transitRisk = riskOptions.find(
-    (risk) =>
-      risk.risk_code === 'SP014001000007' ||
-      /motor\s+private\s+vehicles[-\s]+transit/i.test(risk.risk_name),
-  );
-
-  useEffect(() => {
-    if (item.motor_dtl.motor_type !== '2' || !transitRisk) return;
-    const firstRisk = item.risks_covered[0];
-    if (!firstRisk || firstRisk.risk_code === transitRisk.risk_code) return;
-
-    form.setValue(
-      `fleet.items.${index}.risks_covered.0`,
-      {
-        ...resetFleetRiskPricing(firstRisk),
-        risk_id: transitRisk.id,
-        risk_code: transitRisk.risk_code,
-      },
-      { shouldDirty: true, shouldValidate: true },
-    );
-    onCalculateVehicle(index);
-  }, [
-    form,
-    index,
-    item.motor_dtl.motor_type,
-    item.risks_covered,
-    onCalculateVehicle,
-    transitRisk,
-  ]);
 
   function fillFromExistingVehicle(vehicle: MotorVehicleRecord) {
     const prefix = `fleet.items.${index}.motor_dtl` as const;
@@ -349,30 +322,37 @@ function FleetVehicleEditor({
     form.setValue(`${prefix}.owner_address`, vehicle.owner_address ?? '');
   }
 
-  const riskIds = useMemo(
-    () => [
-      ...new Set(
-        item.risks_covered
-          .map((risk) => risk.risk_id.trim())
-          .filter((riskId) => riskId.length > 0),
-      ),
-    ],
-    [item.risks_covered],
+  const risk = item.risks_covered[0];
+  const coverRisk = riskOptions.find(
+    (option) => option.id === form.watch('fleet.header.cover.risk_id'),
   );
-  const requiredFactorsQueries = useQueries({
-    queries: riskIds.map((riskId) => ({
-      queryKey: peKeys.requiredFactors.byRisk(riskId),
-      queryFn: () => requiredFactorsApi.getByRisk(riskId),
-      staleTime: 30_000,
-    })),
+  const { data: requiredFactors = [] } = useQuery({
+    queryKey: peKeys.requiredFactors.byRisk(coverRisk?.id ?? ''),
+    queryFn: () => requiredFactorsApi.getByRisk(coverRisk!.id),
+    enabled: !!coverRisk,
+    staleTime: 30_000,
   });
-  const requiredFactorsByRiskId = useMemo(() => {
-    const map = new Map<string, RiskRequiredFactor[]>();
-    riskIds.forEach((riskId, queryIndex) => {
-      map.set(riskId, requiredFactorsQueries[queryIndex]?.data ?? []);
-    });
-    return map;
-  }, [riskIds, requiredFactorsQueries]);
+  const requiresSumInsured = requiredFactors.some(
+    (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
+  );
+  const visibleRequiredFactors = requiredFactors.filter(
+    (requiredFactor) =>
+      !HIDDEN_FLEET_FACTOR_CODES.includes(requiredFactor.factor.code) &&
+      !isFleetMotorFactorCovered(requiredFactor.factor.code),
+  );
+  const rowFactorValues =
+    (risk?.factor_values as Record<string, PricingFactorValue> | undefined) ??
+    {};
+  const ratingMetadata = readPricingQuoteMetadata(risk?.rating_result_metadata);
+  const currencyCode = form.watch('currency')?.trim().toUpperCase();
+  const totalDiscount = (risk?.discounts_offered ?? []).reduce(
+    (sum, row) => sum + toNumber(row.discount_amount),
+    0,
+  );
+  const totalTax = (risk?.taxes_charged ?? []).reduce(
+    (sum, row) => sum + toNumber(row.tax_amount),
+    0,
+  );
 
   return (
     <div className="space-y-6">
@@ -537,343 +517,112 @@ function FleetVehicleEditor({
         )}
       </div>
 
-      <StepSection
-        title="Cover & premium"
-        contentClassName="space-y-3"
-        action={
-          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="w-full sm:w-auto"
-              onClick={() => onCalculateVehicle(index)}
-              disabled={isCalculating}
-            >
-              Calculate Vehicle Premiums
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto"
-              onClick={() =>
-                riskArray.append({
-                  client_ref: createBrowserSafeId(),
-                  risk_id: '',
-                  risk_code: '',
-                  factor_values: {},
-                  sum_insured: '',
-                  sum_insured_equivalent: '',
-                  premium_rate: '',
-                  premium_before_discount: '',
-                  premium_after_discount: '',
-                  premium_excluding_tax_equivalent: '',
-                  premium_including_tax: '',
-                  discounts_offered: [createEmptyRiskDiscountRow()],
-                  taxes_charged: [createEmptyRiskTaxRow()],
-                  rating_result_metadata: null,
-                })
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Risk
-            </Button>
-          </div>
-        }
-      >
+      <StepSection title="Premium" contentClassName="space-y-3">
         {calculationErrorMessage ? (
           <PricingStatusAlert compact errorMessage={calculationErrorMessage} />
         ) : null}
-        {riskArray.fields.map((field, riskIndex) => {
-          const discountRows =
-            form.watch(
-              `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
-            ) ?? [];
-          const taxRows =
-            form.watch(
-              `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged` as const,
-            ) ?? [];
-          const premiumAfterDiscount = form.watch(
-            `fleet.items.${index}.risks_covered.${riskIndex}.premium_after_discount` as const,
-          );
-          const premiumExcludingTax = form.watch(
-            `fleet.items.${index}.risks_covered.${riskIndex}.premium_excluding_tax_equivalent` as const,
-          );
-          const premiumIncludingTax = form.watch(
-            `fleet.items.${index}.risks_covered.${riskIndex}.premium_including_tax` as const,
-          );
-          const totalDiscount = discountRows.reduce(
-            (sum, row) => sum + toNumber(row.discount_amount),
-            0,
-          );
-          const totalTax = taxRows.reduce(
-            (sum, row) => sum + toNumber(row.tax_amount),
-            0,
-          );
-          const currencyCode = form.watch('currency')?.trim().toUpperCase();
-          const ratingMetadata = readPricingQuoteMetadata(
-            form.watch(
-              `fleet.items.${index}.risks_covered.${riskIndex}.rating_result_metadata` as const,
-            ),
-          );
-          const riskId = form.watch(
-            `fleet.items.${index}.risks_covered.${riskIndex}.risk_id` as const,
-          );
-          const riskCode = form.watch(
-            `fleet.items.${index}.risks_covered.${riskIndex}.risk_code` as const,
-          );
-          const selectedRisk =
-            riskOptions.find((risk) => risk.id === riskId) ??
-            riskOptions.find((risk) => risk.risk_code === riskCode);
-          const rowFactorValues =
-            (form.watch(
-              `fleet.items.${index}.risks_covered.${riskIndex}.factor_values` as const,
-            ) as Record<string, PricingFactorValue> | undefined) ?? {};
-          const requiresSumInsured = (
-            requiredFactorsByRiskId.get(riskId.trim()) ?? []
-          ).some(
-            (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
-          );
-          const visibleRequiredFactors = (
-            requiredFactorsByRiskId.get(riskId.trim()) ?? []
-          ).filter(
-            (requiredFactor) =>
-              ![
-                'sum_insured',
-                'payment_mode',
-                'currency_code',
-                'exchange_rate',
-                'sale_point_code',
-                'officer_name',
-                'officer_title',
-                'policy_holder_type',
-              ].includes(requiredFactor.factor.code) &&
-              !isFleetMotorFactorCovered(requiredFactor.factor.code),
-          );
-
-          return (
-            <StepSection
-              key={field.client_ref || riskIndex}
-              variant="item"
-              className="bg-slate-50/50"
-              title={
-                <>
-                  Risk #{riskIndex + 1}{' '}
-                  {selectedRisk?.risk_name ? (
-                    <span className="text-slate-500">
-                      {selectedRisk.risk_name}
-                    </span>
-                  ) : null}
-                </>
-              }
-              action={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => riskArray.remove(riskIndex)}
-                  disabled={riskArray.fields.length === 1}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              }
-            >
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <FormField
-                  control={form.control}
-                  name={
-                    `fleet.items.${index}.risks_covered.${riskIndex}.risk_id` as const
-                  }
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel required>Risk</FormLabel>
-                      <Select
-                        value={toSelectValue(field.value)}
-                        onValueChange={(value) => {
-                          const nextRiskId = fromSelectValue(value);
-                          const selectedRisk =
-                            riskOptions.find(
-                              (risk) => risk.id === nextRiskId,
-                            ) ?? null;
-                          field.onChange(nextRiskId);
-                          form.setValue(
-                            `fleet.items.${index}.risks_covered.${riskIndex}.risk_code`,
-                            selectedRisk?.risk_code ?? '',
-                          );
-                          form.setValue(
-                            `fleet.items.${index}.risks_covered.${riskIndex}`,
-                            {
-                              ...resetFleetRiskPricing(
-                                form.getValues(
-                                  `fleet.items.${index}.risks_covered.${riskIndex}`,
-                                ),
-                              ),
-                              risk_code: selectedRisk?.risk_code ?? '',
-                              risk_id: nextRiskId,
-                            },
-                          );
-                          if (nextRiskId) onCalculateVehicle(index);
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select risk" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={SELECT_NONE_VALUE}>
-                            None
-                          </SelectItem>
-                          {riskOptions.map((risk) => (
-                            <SelectItem key={risk.id} value={risk.id}>
-                              {risk.risk_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={
-                    `fleet.items.${index}.risks_covered.${riskIndex}.sum_insured` as const
-                  }
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel required={requiresSumInsured}>
-                        Sum Insured
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          {...field}
-                          onChange={(event) => {
-                            field.onChange(event);
-                            form.setValue(
-                              `fleet.items.${index}.risks_covered.${riskIndex}.sum_insured_equivalent` as const,
-                              event.target.value,
-                            );
-                          }}
-                        />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={
-                    `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.0.discount_type` as const
-                  }
-                  render={() => (
-                    <WizardFormItem>
-                      <FormLabel>Discount Type</FormLabel>
-                      <Select
-                        value={toSelectValue(discountRows[0]?.discount_type)}
-                        onValueChange={(value) => {
-                          const nextType = fromSelectValue(value);
-                          form.setValue(
-                            `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
-                            [
-                              {
-                                ...createEmptyRiskDiscountRow(),
-                                ...(discountRows[0] ?? {}),
-                                discount_type: nextType,
-                                discount_rate: nextType
-                                  ? getDiscountRateForType(nextType)
-                                  : '',
-                                discount_amount: '',
-                              },
-                            ],
-                          );
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="No discount" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={SELECT_NONE_VALUE}>
-                            No discount
-                          </SelectItem>
-                          {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {formatDiscountOptionLabel(option)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <RiskTaxesFields
-                  form={form}
-                  riskPath={`fleet.items.${index}.risks_covered.${riskIndex}`}
-                  inline
-                />
-              </div>
-
-              <PricingStatusAlert
-                compact
-                isPending={isCalculating}
-                minimumAmount={ratingMetadata?.minimum_amount}
-                metadata={ratingMetadata}
-                showQuoteMetadata={false}
-              />
-
-              {visibleRequiredFactors.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                    Underwriting Details
-                  </p>
-                  <RatingFactorFields
-                    requiredFactors={visibleRequiredFactors}
-                    values={rowFactorValues}
-                    onChange={(code, value) =>
+        {coverRisk ? (
+          <p className="text-sm text-slate-600">
+            Fleet cover:{' '}
+            <span className="font-medium text-slate-900">
+              {coverRisk.risk_name}
+            </span>
+          </p>
+        ) : (
+          <p className="text-sm text-amber-700">
+            Select the fleet cover above the vehicle list before pricing this
+            vehicle.
+          </p>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <FormField
+            control={form.control}
+            name={`fleet.items.${index}.risks_covered.0.sum_insured` as const}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel required={requiresSumInsured}>Sum Insured</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder={requiresSumInsured ? undefined : 'Optional'}
+                    {...field}
+                    onChange={(event) => {
+                      field.onChange(event);
                       form.setValue(
-                        `fleet.items.${index}.risks_covered.${riskIndex}.factor_values.${code}` as const,
-                        value,
-                      )
-                    }
+                        `fleet.items.${index}.risks_covered.0.sum_insured_equivalent` as const,
+                        event.target.value,
+                      );
+                    }}
                   />
-                </div>
+                </FormControl>
+              </WizardFormItem>
+            )}
+          />
+        </div>
+
+        <PricingStatusAlert
+          compact
+          isPending={isCalculating}
+          minimumAmount={ratingMetadata?.minimum_amount}
+          metadata={ratingMetadata}
+          showQuoteMetadata={false}
+        />
+
+        {visibleRequiredFactors.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Underwriting Details
+            </p>
+            <RatingFactorFields
+              requiredFactors={visibleRequiredFactors}
+              values={rowFactorValues}
+              onChange={(code, value) =>
+                form.setValue(
+                  `fleet.items.${index}.risks_covered.0.factor_values.${code}` as const,
+                  value,
+                )
+              }
+            />
+          </div>
+        )}
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:grid-cols-4">
+          {totalDiscount > 0 && (
+            <div>
+              <dt className="text-xs">Discount</dt>
+              <dd>{formatMoney(totalDiscount, currencyCode)}</dd>
+            </div>
+          )}
+          <div>
+            <dt className="text-xs">Premium excl. tax</dt>
+            <dd>
+              {formatMoney(
+                toNumber(risk?.premium_excluding_tax_equivalent),
+                currencyCode,
               )}
-              <dl className="col-span-full grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:grid-cols-4">
-                {totalDiscount > 0 && (
-                  <div>
-                    <dt className="text-xs">Discount</dt>
-                    <dd>{formatMoney(totalDiscount, currencyCode)}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt className="text-xs">Premium excl. tax</dt>
-                  <dd>
-                    {formatMoney(toNumber(premiumExcludingTax), currencyCode)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs">Tax</dt>
-                  <dd>{formatMoney(totalTax, currencyCode)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs">Total premium</dt>
-                  <dd className="font-semibold text-slate-900">
-                    {formatMoney(
-                      toNumber(premiumIncludingTax) ||
-                        toNumber(premiumAfterDiscount) + totalTax,
-                      currencyCode,
-                    )}
-                  </dd>
-                </div>
-              </dl>
-            </StepSection>
-          );
-        })}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs">Tax</dt>
+            <dd>{formatMoney(totalTax, currencyCode)}</dd>
+          </div>
+          <div>
+            <dt className="text-xs">Premium incl. tax</dt>
+            <dd className="font-semibold text-slate-900">
+              {formatMoney(toNumber(risk?.premium_including_tax), currencyCode)}
+            </dd>
+          </div>
+        </dl>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={() => onCalculateVehicle(index)}
+          disabled={isCalculating || !coverRisk}
+        >
+          Calculate Vehicle Premium
+        </Button>
       </StepSection>
 
       <div className="space-y-6">
@@ -1166,6 +915,214 @@ function FleetVehicleTable({
   );
 }
 
+type FleetRiskRow = FleetItemValues['risks_covered'][number];
+
+/**
+ * The parts of a risk row chosen once for the whole fleet. Rates and amounts
+ * are left out: the backend rewrites them on every calculation, and comparing
+ * them would re-sync rows the backend just priced.
+ */
+function fleetCoverSelectionKey(row: FleetRiskRow | undefined) {
+  if (!row) return '';
+  return JSON.stringify([
+    row.risk_code.trim().toUpperCase(),
+    row.risk_id,
+    row.discounts_offered.map((discount) => [
+      discount.discount_type,
+      Number(discount.discount_rate) || 0,
+    ]),
+    row.taxes_charged.map((tax) => [tax.tax_code, tax.is_tax_exempted]),
+  ]);
+}
+
+/** Copies the fleet cover onto a vehicle's risk row, keeping its own sum insured. */
+function applyFleetCoverToRow(
+  row: FleetRiskRow,
+  cover: FleetRiskRow,
+): FleetRiskRow {
+  const sameRisk =
+    row.risk_code.trim().toUpperCase() === cover.risk_code.trim().toUpperCase();
+  const base = sameRisk
+    ? row
+    : {
+        ...resetFleetRiskPricing(row),
+        sum_insured: row.sum_insured,
+        sum_insured_equivalent: row.sum_insured_equivalent,
+      };
+  return {
+    ...base,
+    risk_id: cover.risk_id,
+    risk_code: cover.risk_code,
+    discounts_offered: cover.discounts_offered.map((discount) => ({
+      ...discount,
+      discount_amount: '',
+    })),
+    taxes_charged: cover.taxes_charged.map((tax) => ({
+      ...tax,
+      tax_amount: '',
+    })),
+  };
+}
+
+function FleetCoverSection({
+  form,
+  riskOptions,
+  totals,
+  totalsConfirmed,
+  currency,
+  isCalculating,
+  onCalculate,
+}: {
+  form: UseFormReturn<QuotationFormSchemaValues>;
+  riskOptions: InsuranceRisk[];
+  totals: Pick<
+    PricingFleetTotals,
+    | 'sum_insured'
+    | 'premium_excluding_tax'
+    | 'tax_amount'
+    | 'premium_including_tax'
+  >;
+  totalsConfirmed: boolean;
+  currency: string;
+  isCalculating: boolean;
+  onCalculate: () => void;
+}) {
+  const discountRows = form.watch('fleet.header.cover.discounts_offered') ?? [];
+
+  return (
+    <StepSection
+      title="Fleet cover"
+      first
+      contentClassName="space-y-3"
+      action={
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="w-full sm:w-auto"
+          onClick={onCalculate}
+          disabled={isCalculating}
+        >
+          Calculate Fleet Premium
+        </Button>
+      }
+    >
+      <p className="text-sm text-slate-500">
+        One cover for every vehicle. Each vehicle is rated on its own sum
+        insured and details.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <FormField
+          control={form.control}
+          name="fleet.header.cover.risk_id"
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel required>Risk</FormLabel>
+              <Select
+                value={toSelectValue(field.value)}
+                onValueChange={(value) => {
+                  const nextRiskId = fromSelectValue(value);
+                  field.onChange(nextRiskId);
+                  form.setValue(
+                    'fleet.header.cover.risk_code',
+                    riskOptions.find((risk) => risk.id === nextRiskId)
+                      ?.risk_code ?? '',
+                    { shouldDirty: true },
+                  );
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select risk" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                  {riskOptions.map((risk) => (
+                    <SelectItem key={risk.id} value={risk.id}>
+                      {risk.risk_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="fleet.header.cover.discounts_offered.0.discount_type"
+          render={() => (
+            <WizardFormItem>
+              <FormLabel>Discount Type</FormLabel>
+              <Select
+                value={toSelectValue(discountRows[0]?.discount_type)}
+                onValueChange={(value) => {
+                  const nextType = fromSelectValue(value);
+                  form.setValue(
+                    'fleet.header.cover.discounts_offered',
+                    [
+                      {
+                        ...createEmptyRiskDiscountRow(),
+                        ...(discountRows[0] ?? {}),
+                        discount_type: nextType,
+                        discount_rate: nextType
+                          ? getDiscountRateForType(nextType)
+                          : '',
+                        discount_amount: '',
+                      },
+                    ],
+                    { shouldDirty: true },
+                  );
+                }}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="No discount" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value={SELECT_NONE_VALUE}>No discount</SelectItem>
+                  {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {formatDiscountOptionLabel(option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+        <RiskTaxesFields form={form} riskPath="fleet.header.cover" inline />
+      </div>
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(
+          [
+            ['Total sum insured', totals.sum_insured],
+            ['Premium excl. tax', totals.premium_excluding_tax],
+            ['Tax', totals.tax_amount],
+            ['Premium incl. tax', totals.premium_including_tax],
+          ] as const
+        ).map(([label, amount]) => (
+          <div key={label} className="rounded-lg bg-slate-50 px-3 py-2">
+            <dt className="text-xs text-slate-500">{label}</dt>
+            <dd className="text-sm font-semibold tabular-nums text-slate-900">
+              {formatMoney(amount, currency)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {!totalsConfirmed && (
+        <p role="status" className="text-xs text-amber-700">
+          Totals are not yet confirmed for the current fleet. Calculate the
+          fleet premium to confirm them.
+        </p>
+      )}
+    </StepSection>
+  );
+}
+
 export function MotorFleetDetailsStep({
   form,
   customerOptions,
@@ -1181,7 +1138,11 @@ export function MotorFleetDetailsStep({
 }: Props) {
   const { fields } = fieldArray;
   const queryClient = useQueryClient();
-  const { calculateMultiMutation } = usePricingCalculator();
+  const { calculateFleetMutation } = usePricingCalculator();
+  const [fleetTotals, setFleetTotals] = useState<{
+    signature: string;
+    totals: PricingFleetTotals;
+  } | null>(null);
   const [calculationErrorMessage, setCalculationErrorMessage] = useState<
     string | null
   >(null);
@@ -1191,7 +1152,6 @@ export function MotorFleetDetailsStep({
     {},
   );
   const [importErrors, setImportErrors] = useState<string[]>([]);
-  const [quickAddOpen, setQuickAddOpen] = useState(false);
   // Vehicle open in the editor dialog. A new vehicle is appended to the fleet
   // immediately so the editor can bind to it, and hidden from the list until
   // confirmed. An existing vehicle keeps a snapshot so Cancel can restore it.
@@ -1341,14 +1301,8 @@ export function MotorFleetDetailsStep({
   function importVehicles(rows: FleetCsvRow[]) {
     if (showEmptyState && fields.length === 1) fieldArray.remove(0);
     onImportVehicles(rows);
-    void lookupFleetVehicles();
-  }
-
-  function handleQuickAdd(rows: FleetCsvRow[]) {
-    importVehicles(rows);
-    setQuickAddOpen(false);
-    toast.success(
-      `Added ${rows.length} vehicle${rows.length === 1 ? '' : 's'}. Fetching details from TIRA…`,
+    void lookupFleetVehicles().then(() =>
+      calculateFleetPremiums(undefined, true),
     );
   }
 
@@ -1376,6 +1330,58 @@ export function MotorFleetDetailsStep({
   useEffect(() => {
     form.setValue('fleet.header.fleet_size', String(fields.length || 0));
   }, [fields.length, form]);
+
+  const coverKey = fleetCoverSelectionKey(form.watch('fleet.header.cover'));
+  const vehicleCoverKeys = form
+    .watch('fleet.items')
+    .map(
+      (item) =>
+        `${item.risks_covered.length}:${fleetCoverSelectionKey(item.risks_covered[0])}`,
+    )
+    .join('|');
+  useEffect(() => {
+    const cover = form.getValues('fleet.header.cover');
+    const items = form.getValues('fleet.items');
+    if (!cover.risk_code.trim()) {
+      // Drafts saved before the fleet cover existed carry the risk per
+      // vehicle; adopt the first vehicle's selection as the fleet cover.
+      const seed = items.find((item) => item.risks_covered[0]?.risk_code.trim())
+        ?.risks_covered[0];
+      if (!seed) return;
+      form.setValue('fleet.header.cover', {
+        ...createEmptyFleetRiskRow(),
+        risk_id: seed.risk_id,
+        risk_code: seed.risk_code,
+        discounts_offered: seed.discounts_offered,
+        taxes_charged: seed.taxes_charged.map((tax) => ({
+          ...tax,
+          tax_amount: '',
+        })),
+      });
+      return;
+    }
+    if (!cover.risk_id.trim()) {
+      const resolved = riskOptions.find(
+        (risk) => risk.risk_code === cover.risk_code,
+      );
+      if (resolved) form.setValue('fleet.header.cover.risk_id', resolved.id);
+      return;
+    }
+    const key = fleetCoverSelectionKey(cover);
+    items.forEach((item, index) => {
+      const row = item.risks_covered[0];
+      if (
+        item.risks_covered.length === 1 &&
+        fleetCoverSelectionKey(row) === key
+      )
+        return;
+      form.setValue(
+        `fleet.items.${index}.risks_covered`,
+        [applyFleetCoverToRow(row ?? createEmptyFleetRiskRow(), cover)],
+        { shouldDirty: true },
+      );
+    });
+  }, [form, riskOptions, coverKey, vehicleCoverKeys]);
 
   async function calculateFleetPremiums(
     targetVehicleIndex?: number,
@@ -1436,16 +1442,16 @@ export function MotorFleetDetailsStep({
       );
     });
 
+    const coverRiskId = form.getValues('fleet.header.cover.risk_id').trim();
     const calculableRows = fleetRisks.filter(
       ({ row, vehicleIndex }) =>
-        row.risk_id.trim() &&
+        coverRiskId &&
+        row.risk_id.trim() === coverRiskId &&
         (!silent || getVehicleIssues(fleetItems[vehicleIndex]).length === 0),
     );
     if (calculableRows.length === 0) {
       if (silent) return;
-      toast.error(
-        'Select at least one valid fleet risk before calculating premiums.',
-      );
+      toast.error('Select the fleet cover before calculating premiums.');
       return;
     }
 
@@ -1496,43 +1502,40 @@ export function MotorFleetDetailsStep({
         if (!silent) toast.error(message);
         return;
       }
-      const request = {
+      const cover = form.getValues('fleet.header.cover');
+      const coverRequiredFactors =
+        requiredFactorsByRisk.get(cover.risk_id.trim()) ?? [];
+      const currencyCode =
+        form.getValues('currency')?.trim().toUpperCase() || 'TZS';
+      const response = await calculateFleetMutation.mutateAsync({
+        risk_id: cover.risk_id.trim(),
         effective_date: dateOnlyPart(form.getValues('valid_from')),
+        cover_start_date: dateOnlyPart(form.getValues('valid_from')),
+        cover_end_date: pricingCoverEndDate(form.getValues('valid_until')),
         quotation_type: 'MOTOR',
-        currency_code:
-          form.getValues('currency')?.trim().toUpperCase() || 'TZS',
+        currency_code: currencyCode,
         exchange_rate:
-          (form.getValues('currency')?.trim().toUpperCase() || 'TZS') === 'TZS'
+          currencyCode === 'TZS'
             ? 1
             : Number(form.getValues('exchange_rate')) || 1,
-        risks: calculableRows.map(({ vehicleIndex, riskIndex, row }) => {
-          const requiredFactors =
-            requiredFactorsByRisk.get(row.risk_id.trim()) ?? [];
-          const item = form.getValues(`fleet.items.${vehicleIndex}`);
-
-          return {
-            client_reference: row.client_ref,
-            risk_id: row.risk_id.trim(),
-            sum_insured: row.sum_insured.trim()
-              ? Number(row.sum_insured)
-              : undefined,
-            cover_start_date: dateOnlyPart(form.getValues('valid_from')),
-            cover_end_date: pricingCoverEndDate(form.getValues('valid_until')),
-            factors: resolveFleetFactorValues(
-              requiredFactors,
-              item,
-              riskIndex,
-              form.getValues(),
-              factorContext,
-            ),
-            discount: resolveFleetRequestedDiscount(row.discounts_offered),
-            // Restrict charges to exactly what was picked in this vehicle's
-            // "Taxes Charged" rows, not every active company tax rule.
-            tax_codes: resolveSelectedTaxCodes(row.taxes_charged),
-          };
-        }),
-      };
-      const response = await calculateMultiMutation.mutateAsync(request);
+        discount: resolveFleetRequestedDiscount(cover.discounts_offered),
+        // Restrict charges to exactly the fleet's selected tax codes, not
+        // every active company tax rule.
+        tax_codes: resolveSelectedTaxCodes(cover.taxes_charged),
+        vehicles: calculableRows.map(({ vehicleIndex, riskIndex, row }) => ({
+          client_reference: row.client_ref,
+          sum_insured: row.sum_insured.trim()
+            ? Number(row.sum_insured)
+            : undefined,
+          factors: resolveFleetFactorValues(
+            coverRequiredFactors,
+            form.getValues(`fleet.items.${vehicleIndex}`),
+            riskIndex,
+            form.getValues(),
+            factorContext,
+          ),
+        })),
+      });
       const successByReference = new Map(
         response.risks
           .filter((risk) => !!risk.client_reference)
@@ -1608,6 +1611,18 @@ export function MotorFleetDetailsStep({
       lastAutoCalculationSignature.current = getFleetPricingSignature(
         form.getValues(),
       );
+      // Backend totals describe the whole fleet only when every vehicle was
+      // priced together.
+      setFleetTotals(
+        targetVehicleIndex == null &&
+          response.failed_risk_count === 0 &&
+          calculableRows.length === fleetItems.length
+          ? {
+              signature: lastAutoCalculationSignature.current,
+              totals: response.fleet_totals,
+            }
+          : null,
+      );
 
       const scopedLabel =
         targetVehicleIndex == null ? 'fleet risks' : 'vehicle risks';
@@ -1636,17 +1651,17 @@ export function MotorFleetDetailsStep({
   useEffect(() => {
     calculateRef.current = calculateFleetPremiums;
   });
+  // While editing vehicles the fleet is priced when a vehicle is added or
+  // saved, not on every keystroke. Only the premium step's hidden instance
+  // auto-prices, and only while some vehicle is still unpriced.
   useEffect(() => {
+    if (!autoCalculateUnpricedOnly) return;
     if (!values.product_id || !values.fleet.items.length) return;
-    if (
-      autoCalculateUnpricedOnly &&
-      quotationPricingIssues(form.getValues()).length === 0
-    )
-      return;
+    if (quotationPricingIssues(form.getValues()).length === 0) return;
     if (lastAutoCalculationSignature.current === fleetSignature) return;
     const timeout = setTimeout(() => {
       lastAutoCalculationSignature.current = fleetSignature;
-      void calculateRef.current(undefined, !autoCalculateUnpricedOnly);
+      void calculateRef.current(undefined, false);
     }, 600);
     return () => clearTimeout(timeout);
   }, [
@@ -1665,23 +1680,13 @@ export function MotorFleetDetailsStep({
   }
 
   const currency = values.currency?.trim().toUpperCase() || 'TZS';
+  const backendTotalsCurrent = fleetTotals?.signature === fleetSignature;
+  const summedTotals = aggregateFleetRiskTotals(values.fleet.items);
   const showEmptyState =
     fields.length === 0 ||
     (fields.length === 1 &&
       !editingVehicle &&
       isBlankFleetItem(values.fleet.items[0]));
-  const existingIdentifiers = useMemo(
-    () =>
-      showEmptyState
-        ? []
-        : values.fleet.items.flatMap((item) =>
-            [
-              item.motor_dtl.registration_number,
-              item.motor_dtl.chassis_number,
-            ].filter(Boolean),
-          ),
-    [showEmptyState, values.fleet.items],
-  );
   const tableRows = showEmptyState
     ? []
     : fields.flatMap((field, index) =>
@@ -1781,6 +1786,7 @@ export function MotorFleetDetailsStep({
     if (fieldsValid && issues.length === 0) {
       setVehicleErrors([]);
       setEditingVehicle(null);
+      void calculateFleetPremiums(undefined, true);
       return;
     }
     setVehicleErrors(
@@ -1797,27 +1803,28 @@ export function MotorFleetDetailsStep({
 
   return (
     <>
+      <FleetCoverSection
+        form={form}
+        riskOptions={riskOptions}
+        totals={
+          fleetTotals && backendTotalsCurrent
+            ? fleetTotals.totals
+            : {
+                sum_insured: Number(summedTotals.sum_insured),
+                premium_excluding_tax: Number(summedTotals.basic_premium),
+                tax_amount: Number(summedTotals.total_tax),
+                premium_including_tax: Number(summedTotals.total_premium),
+              }
+        }
+        totalsConfirmed={backendTotalsCurrent}
+        currency={currency}
+        isCalculating={calculateFleetMutation.isPending}
+        onCalculate={() => void calculateFleetPremiums()}
+      />
       <StepSection
         title="Vehicles"
-        first
         action={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <div className="grid grid-cols-2 gap-2 sm:contents">
-              {!showEmptyState && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  aria-expanded={quickAddOpen}
-                  onClick={() => setQuickAddOpen((open) => !open)}
-                >
-                  <ClipboardPaste className="mr-1.5 h-3.5 w-3.5" />
-                  Paste list
-                </Button>
-              )}
-            </div>
-
             <Button
               type="button"
               variant="outline"
@@ -1849,6 +1856,15 @@ export function MotorFleetDetailsStep({
                   type="button"
                   variant="outline"
                   size="sm"
+                  onClick={openNewVehicleDialog}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Add vehicle
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   disabled={lookupPending}
                   onClick={() => void lookupFleetVehicles()}
                 >
@@ -1861,7 +1877,7 @@ export function MotorFleetDetailsStep({
                   variant="secondary"
                   size="sm"
                   onClick={() => void calculateFleetPremiums()}
-                  disabled={calculateMultiMutation.isPending}
+                  disabled={calculateFleetMutation.isPending}
                 >
                   Calculate Fleet Premiums
                 </Button>
@@ -1882,35 +1898,20 @@ export function MotorFleetDetailsStep({
             ))}
           </div>
         )}
-        {!showEmptyState && quickAddOpen && (
-          <FleetQuickAddPanel
-            existingIdentifiers={existingIdentifiers}
-            pending={lookupPending}
-            onAdd={handleQuickAdd}
-            onCancel={() => setQuickAddOpen(false)}
-          />
-        )}
         {showEmptyState ? (
-          <div className="space-y-3">
-            <FleetQuickAddPanel
-              existingIdentifiers={existingIdentifiers}
-              pending={lookupPending}
-              onAdd={handleQuickAdd}
-            />
-            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-5 text-center sm:flex-row sm:justify-center">
-              <p className="text-sm text-slate-500">
-                Enter vehicle details manually
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full sm:w-auto"
-                onClick={openNewVehicleDialog}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add one vehicle
-              </Button>
-            </div>
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-5 text-center sm:flex-row sm:justify-center">
+            <p className="text-sm text-slate-500">
+              Enter vehicle details manually
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={openNewVehicleDialog}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add one vehicle
+            </Button>
           </div>
         ) : (
           <FleetVehicleTable
@@ -1948,7 +1949,7 @@ export function MotorFleetDetailsStep({
                 riskOptions={riskOptions}
                 vehicleOptions={vehicleOptions}
                 index={editingVehicle.index}
-                isCalculating={calculateMultiMutation.isPending}
+                isCalculating={calculateFleetMutation.isPending}
                 calculationErrorMessage={calculationErrorMessage}
                 showVehicleValidationErrors={showVehicleValidationErrors}
                 onCalculateVehicle={(vehicleIndex) =>

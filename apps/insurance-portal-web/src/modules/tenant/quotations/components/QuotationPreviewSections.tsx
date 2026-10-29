@@ -955,6 +955,17 @@ export function FleetHeaderPreview({
   );
 }
 
+function tiramisStatusBadge(status: string | null | undefined) {
+  if (!status) return <Badge variant="muted">Not submitted</Badge>;
+  const normalized = status.toUpperCase();
+  const variant = ['SUCCESS', 'ACCEPTED', 'SUBMITTED'].includes(normalized)
+    ? 'success'
+    : ['FAILED', 'REJECTED', 'ERROR'].includes(normalized)
+      ? 'destructive'
+      : 'warning';
+  return <Badge variant={variant}>{humanizeCode(status)}</Badge>;
+}
+
 /** Sum of already-computed line-item premiums for display — not a recalculation, the backend doesn't return a per-vehicle total. */
 function vehicleTotalPremium(vehicle: QuotationPreviewFleetVehicle) {
   return (
@@ -1015,12 +1026,18 @@ export function FleetVehiclesTable({
       key: 'registration',
       header: 'Reg. No.',
       cell: (vehicle) => (
-        <div>
+        <div className="min-w-0">
           <p className="font-medium text-slate-900">
             {displayValue(vehicle.motor_details?.registration_number)}
           </p>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Entry {displayValue(vehicle.fleet_entry_number)}
+            <span className="md:hidden">
+              {' · '}
+              {[vehicle.motor_details?.make, vehicle.motor_details?.model]
+                .filter(Boolean)
+                .join(' ')}
+            </span>
           </p>
         </div>
       ),
@@ -1028,30 +1045,38 @@ export function FleetVehiclesTable({
     {
       key: 'vehicle',
       header: 'Vehicle',
+      hideOnMobile: true,
       cell: (vehicle) =>
         `${displayValue(vehicle.motor_details?.make)} ${displayValue(vehicle.motor_details?.model)}`,
     },
     {
       key: 'cover',
       header: 'Cover',
+      hideOnMobile: true,
       cell: (vehicle) => displayValue(vehicle.risks[0]?.risk_name),
     },
     {
       key: 'sumInsured',
       header: 'Sum Insured',
-      className: 'text-right',
+      className: 'text-right tabular-nums',
+      hideOnMobile: true,
       cell: (vehicle) => formatMoney(vehicleTotalSumInsured(vehicle)),
     },
     {
       key: 'premium',
       header: 'Premium',
-      className: 'text-right',
-      cell: (vehicle) => formatMoney(vehicleTotalPremium(vehicle)),
+      className: 'text-right tabular-nums',
+      cell: (vehicle) => (
+        <span className="font-medium text-slate-900">
+          {formatMoney(vehicleTotalPremium(vehicle))}
+        </span>
+      ),
     },
     {
       key: 'tiramis',
       header: 'TIRAMIS',
-      cell: (vehicle) => displayValue(vehicle.tiramis?.submission_status),
+      hideOnMobile: true,
+      cell: (vehicle) => tiramisStatusBadge(vehicle.tiramis?.submission_status),
     },
     {
       key: 'actions',
@@ -1062,7 +1087,11 @@ export function FleetVehiclesTable({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setSelectedVehicle(vehicle)}
+            aria-label={`View vehicle ${displayValue(vehicle.motor_details?.registration_number)}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedVehicle(vehicle);
+            }}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -1073,9 +1102,13 @@ export function FleetVehiclesTable({
 
   return (
     <div className="space-y-3">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+      <div className="relative w-full sm:max-w-sm">
+        <Search
+          className="absolute left-3 top-2.5 h-4 w-4 text-slate-400"
+          aria-hidden="true"
+        />
         <Input
+          aria-label="Search vehicles"
           placeholder="Search registration, make, model..."
           value={search}
           onChange={(event) => {
@@ -1099,6 +1132,7 @@ export function FleetVehiclesTable({
           setPage(1);
         }}
         showColumnVisibility={false}
+        onRowClick={setSelectedVehicle}
       />
 
       <Dialog

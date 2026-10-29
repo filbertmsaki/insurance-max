@@ -566,6 +566,10 @@ const quotationFormObjectSchema = z.object({
       fleet_type: z.enum(['1', '2']),
       fleet_size: optionalText,
       comprehensive_insured: optionalText,
+      // The one risk, discount and tax selection shared by every vehicle.
+      // Each vehicle's risks_covered[0] mirrors it and carries that
+      // vehicle's own sum insured, factors and backend-priced amounts.
+      cover: fleetRiskSchema,
     }),
     items: z.array(fleetItemSchema),
   }),
@@ -1007,7 +1011,7 @@ export function createEmptyMotorDetails(): QuotationFormValues['motor'] {
   };
 }
 
-function createEmptyFleetRiskRow(): QuotationFormValues['fleet']['items'][number]['risks_covered'][number] {
+export function createEmptyFleetRiskRow(): QuotationFormValues['fleet']['items'][number]['risks_covered'][number] {
   return {
     client_ref: createClientRef('fleet-risk'),
     risk_id: '',
@@ -1107,6 +1111,7 @@ export function createEmptyFleetDetails(): QuotationFormValues['fleet'] {
       fleet_type: '1',
       fleet_size: '1',
       comprehensive_insured: '1',
+      cover: createEmptyFleetRiskRow(),
     },
     items: [createEmptyFleetItemRow()],
   };
@@ -2096,6 +2101,7 @@ export function quotationRecordToFormValues(
         comprehensive_insured: String(
           fleetHeader?.comprehensive_insured ?? fleetItems.length,
         ),
+        cover: createEmptyFleetRiskRow(),
       },
       items: fleetItems.map((item) => ({
         ...createEmptyFleetItemRow(),

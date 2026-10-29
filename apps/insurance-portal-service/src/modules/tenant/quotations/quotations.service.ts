@@ -3422,6 +3422,10 @@ export class QuotationsService {
       );
     }
 
+    if (internal.quotation_flow === QuotationFlow.MOTOR_FLEET) {
+      this.assertSingleFleetRisk(payload);
+    }
+
     if (
       product.tiramis_product_code &&
       this.normalizeUppercase(product.tiramis_product_code) !==
@@ -9371,7 +9375,7 @@ export class QuotationsService {
       const fleetHeader = payload.cover_note_dtl.fleet_hdr!;
 
       return {
-        sale_point_code: fleetHeader.sale_point_code,
+        sale_point_code: fleetHeader.sale_point_code!,
         cover_note_start_date: fleetHeader.cover_note_start_date,
         cover_note_end_date: fleetHeader.cover_note_end_date,
         payment_mode: fleetHeader.payment_mode,
@@ -9410,6 +9414,30 @@ export class QuotationsService {
       product_code: detail.product_code!,
       policy_holders: detail.policy_holders!,
     };
+  }
+
+  /**
+   * A motor fleet is quoted under one risk: every vehicle carries exactly one
+   * risks_covered row, and all of them share the same risk_code.
+   */
+  private assertSingleFleetRisk(payload: CreateQuotationDto): void {
+    const entries = payload.cover_note_dtl.fleet_dtls ?? [];
+    const riskCodes = new Set<string>();
+
+    for (const entry of entries) {
+      if (entry.risks_covered.length !== 1) {
+        throw new BadRequestException(
+          `Fleet entry ${entry.fleet_entry} must cover exactly one risk`,
+        );
+      }
+      riskCodes.add(this.normalizeUppercase(entry.risks_covered[0].risk_code));
+    }
+
+    if (riskCodes.size > 1) {
+      throw new BadRequestException(
+        'All vehicles in a motor fleet must be quoted under the same risk',
+      );
+    }
   }
 
   private resolveEntries(payload: CreateQuotationDto): ResolvedEntry[] {

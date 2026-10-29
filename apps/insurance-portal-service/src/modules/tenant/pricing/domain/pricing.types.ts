@@ -330,11 +330,37 @@ export interface MultiRiskPremiumResult {
   premium_breakdown?: PricingPremiumBreakdown;
 }
 
+/** Fleet totals: per-vehicle amounts are rounded first, then summed. */
+export interface FleetPremiumTotals {
+  vehicle_count: number;
+  priced_vehicle_count: number;
+  sum_insured: number;
+  premium_before_discount: number;
+  discount_amount: number;
+  premium_excluding_tax: number;
+  tax_amount: number;
+  premium_including_tax: number;
+}
+
 export type PersistedRiskPremiumResult = RiskPremiumResult &
   PricingQuoteMetadata;
 
 export type PersistedMultiRiskPremiumResult = MultiRiskPremiumResult &
   PricingQuoteMetadata;
+
+/**
+ * Each vehicle is priced as its own SINGLE_RISK quote, because quotation
+ * create verifies every fleet entry against its own pricing_quote_id.
+ */
+export interface PersistedFleetPremiumResult {
+  risk_id: string;
+  risks: PersistedRiskPremiumResult[];
+  failed_risks: MultiRiskPremiumFailure[];
+  successful_risk_count: number;
+  failed_risk_count: number;
+  grand_total: number;
+  fleet_totals: FleetPremiumTotals;
+}
 
 export interface RiskRuleConditionSummary {
   factor_code: string;

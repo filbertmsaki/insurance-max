@@ -115,7 +115,14 @@ export function buildFleetRiskPricingSignature(input: {
     valid_until: input.valid_until,
     currency: input.currency,
     exchange_rate: input.exchange_rate,
-    fleet_header: input.fleet_header,
+    // Only the fleet type can affect a vehicle's price. The shared cover is
+    // already mirrored into the vehicle's own risk row, and the vehicle counts
+    // are recounted after pricing, so including them would mark freshly
+    // priced vehicles as stale.
+    fleet_header: {
+      fleet_type: (input.fleet_header as { fleet_type?: unknown } | undefined)
+        ?.fleet_type,
+    },
     item: {
       cover_note_addons: input.item.cover_note_addons,
       subject_matters_covered: input.item.subject_matters_covered,

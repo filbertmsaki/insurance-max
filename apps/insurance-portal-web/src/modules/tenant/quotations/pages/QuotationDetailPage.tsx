@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -88,7 +88,12 @@ type ApprovalDialogState = {
   open: boolean;
 };
 
-export function QuotationDetailPage() {
+export function QuotationDetailPage({
+  tiramisPanel,
+}: {
+  /** Extra issuance content for the TIRAMIS tab, e.g. a fleet's per-vehicle cover notes. */
+  tiramisPanel?: ReactNode;
+} = {}) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
@@ -636,6 +641,7 @@ export function QuotationDetailPage() {
           {visitedTabs.includes('tiramis') && (
             <>
               <TiramisSubmissionPreview tiramis={preview.tiramis} />
+              {tiramisPanel}
               <div className="min-w-0 p-4 sm:p-6">
                 <CoverNotesSection
                   quotationId={preview.overview.quotation_id}

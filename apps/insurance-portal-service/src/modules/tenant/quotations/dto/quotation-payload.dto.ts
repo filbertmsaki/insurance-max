@@ -505,9 +505,8 @@ export class FleetHeaderDto {
   @Min(0)
   comprehensive_insured: number;
 
-  @IsString()
-  @MaxLength(50)
-  sale_point_code: string;
+  /** Resolved server-side from the active branch's default sale point. */
+  declare sale_point_code?: string;
 
   @IsDateString()
   cover_note_start_date: string;

@@ -167,7 +167,8 @@ export class TiramisMotorService {
         fleetId: resolvedDto.fleet.fleetId,
         fleetType: resolvedDto.fleet.fleetType || null,
         fleetSize: resolvedDto.fleet.fleetSize,
-        comprehensiveInsured: resolvedDto.fleet.comprehensiveInsured || null,
+        // `??` keeps a third-party-only fleet's 0; `||` would store null.
+        comprehensiveInsured: resolvedDto.fleet.comprehensiveInsured ?? null,
       });
 
       const savedFleet = await this.motorRepository.saveFleet(fleet);
@@ -823,11 +824,20 @@ export class TiramisMotorService {
       'fleet.fleetSize',
       errors,
     );
-    this.payloadValidator.requirePositiveNumber(
-      dto.fleet.comprehensiveInsured,
-      'fleet.comprehensiveInsured',
-      errors,
-    );
+    // Optional: a third-party-only fleet has no comprehensive vehicles, so
+    // blank and 0 are both valid. A supplied value must be a whole count.
+    if (!this.payloadValidator.isBlank(dto.fleet.comprehensiveInsured)) {
+      const comprehensiveInsured = Number(dto.fleet.comprehensiveInsured);
+      if (!Number.isInteger(comprehensiveInsured) || comprehensiveInsured < 0) {
+        errors.push(
+          'fleet.comprehensiveInsured must be a whole number of 0 or more',
+        );
+      } else if (comprehensiveInsured > Number(dto.fleet.fleetSize)) {
+        errors.push(
+          'fleet.comprehensiveInsured cannot be greater than fleet.fleetSize',
+        );
+      }
+    }
 
     if (!dto.fleet.items || dto.fleet.items.length === 0) {
       errors.push('fleet.items must contain at least one vehicle');

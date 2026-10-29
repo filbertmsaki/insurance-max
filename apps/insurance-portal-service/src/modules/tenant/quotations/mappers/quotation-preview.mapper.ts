@@ -3,6 +3,7 @@ import {
   countsAsComprehensive,
 } from '@insurance-max/contracts';
 import { Injectable } from '@nestjs/common';
+import { roundMoney } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { Quotation } from '../entities/quotation.entity';
 import { QuotationStatusHistory } from '../entities/quotation-status-history.entity';
 import { QuotationCoverNoteEntry } from '../entities/structured/quotation-cover-note-entry.entity';
@@ -234,10 +235,13 @@ export class QuotationPreviewMapper {
     if (fleetSummary) {
       return {
         total_sum_insured: fleetSummary.total_fleet_sum_insured,
-        total_premium_before_discount:
-          fleetSummary.total_risk_premium + fleetSummary.total_discounts,
+        // total_risk_premium sums premiums including tax; the discount
+        // figures must be built from the tax-exclusive premium instead.
+        total_premium_before_discount: roundMoney(
+          (totalPremiumExcludingTax ?? 0) + fleetSummary.total_discounts,
+        ),
         total_discount_amount: fleetSummary.total_discounts,
-        total_premium_after_discount: fleetSummary.total_risk_premium,
+        total_premium_after_discount: totalPremiumExcludingTax,
         total_premium_excluding_tax: totalPremiumExcludingTax,
         total_tax_amount: fleetSummary.total_taxes,
         total_premium_including_tax: totalPremiumIncludingTax,

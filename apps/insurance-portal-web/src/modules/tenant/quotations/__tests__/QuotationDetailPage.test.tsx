@@ -142,12 +142,13 @@ describe('Quotation details redesign', () => {
         'TIRAMIS Information',
         'Quotation History',
       ]);
-      expect(
-        screen.getByRole('heading', { name: 'Quotation Information' }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole('heading', { name: 'Cover and Insurance Details' }),
-      ).toBeInTheDocument();
+      const sectionHeadings =
+        flow === 'MOTOR_FLEET'
+          ? ['Fleet overview', 'Vehicles', 'Cover and terms', 'Record details']
+          : ['Quotation Information', 'Cover and Insurance Details'];
+      sectionHeadings.forEach((name) =>
+        expect(screen.getByRole('heading', { name })).toBeInTheDocument(),
+      );
       expect(
         screen.getByRole('heading', { name: 'Premium Summary' }),
       ).toBeInTheDocument();
@@ -160,9 +161,7 @@ describe('Quotation details redesign', () => {
         ).not.toBeInTheDocument();
       }
       if (flow === 'MOTOR_FLEET')
-        expect(
-          screen.getByRole('heading', { name: 'Fleet Vehicles' }),
-        ).toBeInTheDocument();
+        expect(screen.getAllByText('Total payable').length).toBeGreaterThan(0);
       expect(financeTableApi.payments).not.toHaveBeenCalled();
     },
   );

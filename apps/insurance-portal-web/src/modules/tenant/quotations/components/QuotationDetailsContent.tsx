@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react';
 import type { QuotationPreviewRecord, QuotationPreviewRisk } from '../types';
-import { SectionCard } from './QuotationDetailLayout';
+import { FleetQuotationDetails } from './FleetQuotationDetails';
 import {
   AddonPreview,
-  FleetHeaderPreview,
-  FleetVehiclesTable,
   MotorDetailsPreview,
   PolicyholderPreview,
   QuotationInformationPreview,
@@ -21,26 +19,21 @@ export function QuotationDetailsContent({
   preview: QuotationPreviewRecord;
   renderRiskActions: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
+  if (preview.overview.quotation_flow === 'MOTOR_FLEET' && preview.fleet) {
+    return (
+      <FleetQuotationDetails
+        preview={preview}
+        renderRiskActions={renderRiskActions}
+      />
+    );
+  }
+
   return (
     <>
       <QuotationInformationPreview preview={preview} />
       <PolicyholderPreview policyholders={preview.policyholders} />
       {preview.overview.quotation_flow === 'MOTOR_SINGLE' && (
         <MotorDetailsPreview motor={preview.motor_details} />
-      )}
-      {preview.overview.quotation_flow === 'MOTOR_FLEET' && preview.fleet && (
-        <>
-          <FleetHeaderPreview
-            header={preview.fleet.header}
-            summary={preview.fleet.summary}
-          />
-          <SectionCard title="Fleet Vehicles">
-            <FleetVehiclesTable
-              vehicles={preview.fleet.vehicles}
-              renderRiskActions={renderRiskActions}
-            />
-          </SectionCard>
-        </>
       )}
       <QuotationCoverPreview preview={preview} />
       {preview.overview.quotation_flow !== 'MOTOR_FLEET' && (

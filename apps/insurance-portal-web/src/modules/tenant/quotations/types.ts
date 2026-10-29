@@ -994,6 +994,8 @@ export interface QuotationWizardFleetHeader {
   fleet_type: '1' | '2';
   fleet_size: string;
   comprehensive_insured: string;
+  /** The one risk, discount and tax selection shared by every vehicle. */
+  cover: QuotationWizardFleetRiskRow;
 }
 
 export interface QuotationWizardFleetRiskRow {

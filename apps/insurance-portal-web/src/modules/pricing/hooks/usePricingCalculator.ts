@@ -11,9 +11,14 @@ export function usePricingCalculator() {
     mutationFn: pricingApi.calculateMulti,
   });
 
+  const calculateFleetMutation = useMutation({
+    mutationFn: pricingApi.calculateFleet,
+  });
+
   return {
     calculateSingleMutation,
     calculateMultiMutation,
+    calculateFleetMutation,
   };
 }
 

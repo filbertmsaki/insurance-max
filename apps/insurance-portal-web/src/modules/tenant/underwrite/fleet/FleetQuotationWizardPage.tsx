@@ -1,7 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { UnderwriteLine } from '@insurance-max/contracts';
 import { createEmptyFleetItemRow } from '@/modules/tenant/quotations/schemas';
-import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
 import { WizardInput } from '@/modules/tenant/quotations/wizard/components/WizardInput';
 import { MotorFleetDetailsStep } from '@/modules/tenant/quotations/wizard/steps/MotorFleetDetailsStep';
 import { PolicyholderStep } from '@/modules/tenant/quotations/wizard/steps/PolicyholderStep';
@@ -230,28 +229,6 @@ export function FleetQuotationWizardPage() {
                     />
                   }
                 />
-                <StepSection
-                  title="Default vehicle cover"
-                  description="Applied to vehicles as they are added; each vehicle can be changed individually."
-                >
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <WizardInput
-                      form={form}
-                      name="risks.0.risk_id"
-                      label="Default cover"
-                      options={wizard.riskOptions.map((risk) => ({
-                        value: risk.id,
-                        label: risk.risk_name,
-                      }))}
-                    />
-                    <WizardInput
-                      form={form}
-                      name="risks.0.sum_insured"
-                      label="Default sum insured (optional)"
-                      type="number"
-                    />
-                  </div>
-                </StepSection>
               </div>
             );
           case 'vehicles':

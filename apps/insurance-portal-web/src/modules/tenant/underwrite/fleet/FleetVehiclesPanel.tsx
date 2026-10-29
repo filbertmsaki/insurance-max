@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable, type Column } from '@/components/data-table';
 import { SectionCard } from '@/components/shared/DetailSections';
+import { SectionCard as QuotationSection } from '@/modules/tenant/quotations/components/QuotationDetailLayout';
 import { ErrorState } from '@/components/shared/ContentStates';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -59,10 +60,13 @@ export function FleetVehiclesPanel({
   kind,
   id,
   currency = 'TZS',
+  showSummary = true,
 }: {
   kind: 'quotation' | 'policy';
   id: string;
   currency?: string;
+  /** Off where the page already shows fleet totals (the quotation details tab). */
+  showSummary?: boolean;
 }) {
   const queryClient = useQueryClient();
   const hasPermission = useAuthStore((state) => state.hasPermission);
@@ -90,6 +94,9 @@ export function FleetVehiclesPanel({
   });
 
   const money = (value: number) => formatMoney(value, currency);
+  // Inside the quotation tabs, match the tab's flat sections instead of
+  // nesting a card.
+  const Section = showSummary ? SectionCard : QuotationSection;
   const summary = query.data;
   const vehicles = summary?.vehicles ?? [];
   // Vehicles come back in one response; paginate client-side.
@@ -166,38 +173,42 @@ export function FleetVehiclesPanel({
 
   if (query.error) {
     return (
-      <SectionCard title="Fleet vehicles">
+      <Section title="Fleet vehicles">
         <ErrorState onRetry={() => void query.refetch()} />
-      </SectionCard>
+      </Section>
     );
   }
 
-  const facts = summary
-    ? [
-        ['Fleet reference', summary.fleet_reference ?? '—'],
-        ['Vehicles', String(summary.totals.vehicles)],
-        [
-          'Comprehensive',
-          summary.comprehensive_insured == null
-            ? '—'
-            : String(summary.comprehensive_insured),
-        ],
-        ['Total sum insured', money(summary.totals.sum_insured)],
-        ['Total premium', money(summary.totals.premium_including_tax)],
-        [
-          'Cover notes issued',
-          `${summary.totals.issued_cover_notes} of ${summary.totals.vehicles}`,
-        ],
-      ]
-    : [];
+  const facts =
+    summary && showSummary
+      ? [
+          ['Fleet reference', summary.fleet_reference ?? '—'],
+          ['Vehicles', String(summary.totals.vehicles)],
+          [
+            'Comprehensive',
+            summary.comprehensive_insured == null
+              ? '—'
+              : String(summary.comprehensive_insured),
+          ],
+          ['Total sum insured', money(summary.totals.sum_insured)],
+          ['Total premium', money(summary.totals.premium_including_tax)],
+          [
+            'Cover notes issued',
+            `${summary.totals.issued_cover_notes} of ${summary.totals.vehicles}`,
+          ],
+        ]
+      : [];
+  const registerNote = summary?.register_fleet_id
+    ? `Linked to the fleet register (${summary.register_status ?? 'registered'}).`
+    : 'Not yet linked to the fleet register.';
 
   return (
-    <SectionCard
-      title="Fleet vehicles"
+    <Section
+      title={showSummary ? 'Fleet vehicles' : 'Vehicle cover notes'}
       description={
-        summary?.register_fleet_id
-          ? `Linked to the fleet register (${summary.register_status ?? 'registered'}).`
-          : 'Not yet linked to the fleet register.'
+        !showSummary && summary
+          ? `${summary.totals.issued_cover_notes} of ${summary.totals.vehicles} cover notes issued. ${registerNote}`
+          : registerNote
       }
       action={
         canSync ? (
@@ -247,6 +258,6 @@ export function FleetVehiclesPanel({
         emptyMessage="No fleet vehicles on this record"
         showColumnVisibility={false}
       />
-    </SectionCard>
+    </Section>
   );
 }

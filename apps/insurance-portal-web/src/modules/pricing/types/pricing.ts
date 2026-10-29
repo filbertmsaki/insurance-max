@@ -17,6 +17,41 @@ export type PricingMultiRiskRequest = MultiCalcRequest;
 export type PricingSingleRiskResult = RiskPremiumResult;
 export type PricingMultiRiskResult = MultiCalcResponse;
 export type PricingMultiRiskFailure = MultiCalcFailure;
+
+export interface PricingFleetRequest {
+  risk_id: string;
+  vehicles: Array<{
+    client_reference: string;
+    sum_insured?: number;
+    factors: Record<string, string | number | boolean>;
+  }>;
+  discount?: { rate?: number; fixed_amount?: number };
+  tax_codes?: string[];
+  product_code?: string;
+  effective_date?: string;
+  cover_start_date?: string;
+  cover_end_date?: string;
+  quotation_type?: string;
+  currency_code?: string;
+  exchange_rate?: number;
+}
+
+/** Fleet totals computed by the backend: per-vehicle amounts rounded, then summed. */
+export interface PricingFleetTotals {
+  vehicle_count: number;
+  priced_vehicle_count: number;
+  sum_insured: number;
+  premium_before_discount: number;
+  discount_amount: number;
+  premium_excluding_tax: number;
+  tax_amount: number;
+  premium_including_tax: number;
+}
+
+export type PricingFleetResult = MultiCalcResponse & {
+  risk_id: string;
+  fleet_totals: PricingFleetTotals;
+};
 export type PricingRequiredFactor = RiskRequiredFactor;
 export type PricingRatingRequirements = RiskRatingRequirements;
 export type PricingRuleExplanation = RiskRuleExplanation;
