@@ -11,7 +11,6 @@ import type {
   QuotationListParams,
   QuotationPayload,
   QuotationPreviewRecord,
-  QuotationTiramisPayloadPreview,
   QuotationSubmitResponse,
   QuotationWorkflowView,
   RequestQuotationPremiumOverridePayload,
@@ -77,12 +76,6 @@ export const quotationsApi = {
   getPreview: (id: string) =>
     apiClient
       .get<QuotationPreviewRecord>(`/tenant/quotations/${id}/preview`)
-      .then((response) => response.data),
-  getTiramisPayload: (id: string) =>
-    apiClient
-      .get<QuotationTiramisPayloadPreview>(
-        `/tenant/quotations/${id}/tiramis-payload`,
-      )
       .then((response) => response.data),
   getWorkflow: (id: string) =>
     apiClient

@@ -1156,10 +1156,3 @@ export interface QuotationFormValues {
 }
 
 export type QuotationPage = PaginatedResponse<QuotationListItem>;
-
-/** Payload issuing cover would send to TIRAMIS: GET /tenant/quotations/:id/tiramis-payload. */
-export interface QuotationTiramisPayloadPreview {
-  requestType: string;
-  businessReference: string | null;
-  payload: Record<string, unknown>;
-}

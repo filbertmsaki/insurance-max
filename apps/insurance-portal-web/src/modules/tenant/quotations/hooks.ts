@@ -47,8 +47,6 @@ const quotationKeys = {
   editDetail: (id: string) => ['quotations', 'edit-detail', id] as const,
   preview: (id: string) => ['quotations', 'preview', id] as const,
   workflow: (id: string) => ['quotations', 'workflow', id] as const,
-  tiramisPayload: (id: string) =>
-    ['quotations', 'tiramis-payload', id] as const,
   payload: (id: string) => ['quotations', 'payload', id] as const,
 };
 
@@ -76,15 +74,6 @@ export function useQuotationPreview(id?: string) {
     queryFn: () => quotationsApi.getPreview(id!),
     enabled: !!id,
     staleTime: 30_000,
-  });
-}
-
-export function useQuotationTiramisPayload(id: string, enabled: boolean) {
-  return useQuery({
-    queryKey: quotationKeys.tiramisPayload(id),
-    queryFn: () => quotationsApi.getTiramisPayload(id),
-    enabled,
-    staleTime: 0,
   });
 }
 
