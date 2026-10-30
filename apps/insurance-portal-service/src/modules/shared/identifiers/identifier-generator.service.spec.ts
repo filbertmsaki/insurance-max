@@ -230,7 +230,7 @@ describe('IdentifierGeneratorService', () => {
     ).rejects.toThrow('connection reset');
   });
 
-  it('leaves the cover-note number format (dashed, with time bucket) unchanged', async () => {
+  it('leaves the cover-note number alphanumeric with a time bucket', async () => {
     const { service, manager } = createFixture({ sequenceValues: [7] });
 
     const coverNoteNo = await service.generateCoverNoteNumber(
@@ -242,14 +242,14 @@ describe('IdentifierGeneratorService', () => {
     // but formatDate()'s `.includes('yy')` check also matches the 'yyyy'
     // substring, so this pre-existing (unrelated to this change) behavior
     // actually produces a 2-digit year here too.
-    expect(coverNoteNo).toMatch(/^ICC739-CN-260729-\d{6}-0007$/);
+    expect(coverNoteNo).toMatch(/^ICC739CN260729\d{6}0007$/);
   });
 
-  it('leaves the TIRAMIS request id format (dashed, no time bucket) unchanged', async () => {
+  it('leaves the TIRAMIS request id alphanumeric', async () => {
     const { service, manager } = createFixture({ sequenceValues: [3] });
 
     const requestId = await service.generateRequestId('company-1', manager);
 
-    expect(requestId).toBe('AICL-REQ-260729-000003');
+    expect(requestId).toBe('AICLREQ260729000003');
   });
 });

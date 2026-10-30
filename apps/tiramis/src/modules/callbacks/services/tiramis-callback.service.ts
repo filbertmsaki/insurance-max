@@ -703,7 +703,7 @@ export class TiramisCallbackService {
     acknowledgementStatusDesc?: string;
   }): Promise<TiramisCallbackAckResultDto> {
     const acknowledgementPayload = {
-      AcknowledgementId: this.tiramisRequestIdService.generate('ACK'),
+      AcknowledgementId: await this.tiramisRequestIdService.generate('ACK'),
       ResponseId: params.finalResponse.responseId,
       AcknowledgementStatusCode: params.acknowledgementStatusCode || 'TIRA001',
       AcknowledgementStatusDesc:

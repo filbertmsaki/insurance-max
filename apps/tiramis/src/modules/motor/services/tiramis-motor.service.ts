@@ -70,7 +70,10 @@ export class TiramisMotorService {
     this.validateMotorPayload(resolvedDto);
 
     const requestId =
-      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
+      sourceMetadata?.requestId ||
+      (await this.tiramisRequestIdService.generate(
+        resolvedDto.companyCode || 'AIC',
+      ));
     const serviceType = resolvedDto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
       : 'MOTOR_COVER_NOTE_NON_FLEET';
@@ -329,7 +332,7 @@ export class TiramisMotorService {
         dto.callbackUrl,
       );
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId = await this.tiramisRequestIdService.generate('AIC');
 
     const payload = this.motorPayloadService.buildMotorCoverNotePayload({
       dto: resolvedDto,

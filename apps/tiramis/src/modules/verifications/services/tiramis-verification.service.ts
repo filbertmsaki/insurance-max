@@ -157,7 +157,7 @@ export class TiramisVerificationService {
     businessReference: string;
     buildPayload: (dto: any, requestId: string) => Record<string, any>;
   }) {
-    const requestId = this.requestIdService.generate('AIC');
+    const requestId = await this.requestIdService.generate('AIC');
 
     const transaction = await this.submissionService.createTransaction({
       clientConfigurationId: params.dto.clientConfigurationId,

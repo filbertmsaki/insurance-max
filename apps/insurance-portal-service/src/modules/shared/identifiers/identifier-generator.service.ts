@@ -13,6 +13,7 @@ import {
 } from '@insurance-max/portal-shared/constants/identifier.constants';
 import { PolicyTransactionType } from '@insurance-max/contracts';
 import { Company } from '../../platform/companies/entities/company.entity';
+import { toAlphanumericReference } from './business-reference.service';
 
 const POLICY_TRANSACTION_IDENTIFIER_TYPE: Record<
   PolicyTransactionType,
@@ -225,7 +226,7 @@ export class IdentifierGeneratorService {
     }).format(new Date());
 
     return {
-      pricingQuoteId: `PQ-${year}-${String(sequenceNo).padStart(8, '0')}`,
+      pricingQuoteId: `PQ${year}${String(sequenceNo).padStart(8, '0')}`,
       sequenceNo,
     };
   }
@@ -435,19 +436,23 @@ export class IdentifierGeneratorService {
       suffix,
     } = params;
 
-    if (identifierType === IdentifierType.QUOTATION) {
-      return `${prefix}${sequenceDate}${suffix}`;
+    // References are sent to TIRA, so every type is alphanumeric only.
+    if (
+      identifierType === IdentifierType.QUOTATION ||
+      identifierType === IdentifierType.SUBJECT_MATTER
+    ) {
+      return toAlphanumericReference(`${prefix}${sequenceDate}${suffix}`);
     }
 
     if (identifierType === IdentifierType.COVER_NOTE) {
-      return `${prefix}-${readableConstant}-${sequenceDate}-${sequenceTimeBucket}-${suffix}`;
+      return toAlphanumericReference(
+        `${prefix}${readableConstant}${sequenceDate}${sequenceTimeBucket}${suffix}`,
+      );
     }
 
-    if (identifierType === IdentifierType.SUBJECT_MATTER) {
-      return `${prefix}${sequenceDate}${suffix}`;
-    }
-
-    return `${prefix}-${readableConstant}-${sequenceDate}-${suffix}`;
+    return toAlphanumericReference(
+      `${prefix}${readableConstant}${sequenceDate}${suffix}`,
+    );
   }
 
   private async incrementSequence(params: {

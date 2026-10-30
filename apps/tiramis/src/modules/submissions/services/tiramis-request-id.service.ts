@@ -1,21 +1,48 @@
 import { Injectable } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 
+/**
+ * TIRA RequestId: {prefix}{yyMMddHHmmssSSS}{4-digit counter}, letters and
+ * digits only. The counter is a database sequence that wraps at 9999, so it
+ * stays unique across app instances; the millisecond timestamp keeps ids
+ * unique after a database reset or a counter wrap.
+ */
 @Injectable()
 export class TiramisRequestIdService {
-  generate(prefix = 'AIC'): string {
-    const now = new Date();
+  private readonly timeZone = 'Africa/Dar_es_Salaam';
 
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hour = String(now.getHours()).padStart(2, '0');
-    const minute = String(now.getMinutes()).padStart(2, '0');
-    const second = String(now.getSeconds()).padStart(2, '0');
+  constructor(private readonly dataSource: DataSource) {}
 
-    const random = Math.floor(Math.random() * 999999)
-      .toString()
-      .padStart(6, '0');
+  async generate(prefix = 'AIC'): Promise<string> {
+    const rows: Array<{ value: string }> = await this.dataSource.query(
+      `SELECT nextval('tiramis_request_id_counter_seq') AS value`,
+    );
+    const counter = String(Number(rows[0].value)).padStart(4, '0');
+    const cleanPrefix = prefix.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-    return `${prefix}${year}${month}${day}${hour}${minute}${second}${random}`;
+    return `${cleanPrefix}${this.timestamp(new Date())}${counter}`;
+  }
+
+  /** yyMMddHHmmssSSS in Tanzania time. */
+  private timestamp(date: Date): string {
+    const parts = new Map<string, string>(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: this.timeZone,
+        year: '2-digit',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      })
+        .formatToParts(date)
+        .map((part) => [part.type, part.value]),
+    );
+    const millis = String(date.getMilliseconds()).padStart(3, '0');
+    return ['year', 'month', 'day', 'hour', 'minute', 'second']
+      .map((type) => parts.get(type) ?? '')
+      .join('')
+      .concat(millis);
   }
 }

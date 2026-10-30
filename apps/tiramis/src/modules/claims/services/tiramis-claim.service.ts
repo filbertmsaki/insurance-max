@@ -65,7 +65,8 @@ export class TiramisClaimService {
     this.validateClaimNotificationPayload(resolvedDto);
 
     const requestId =
-      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
+      sourceMetadata?.requestId ||
+      (await this.tiramisRequestIdService.generate('AIC'));
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -171,7 +172,7 @@ export class TiramisClaimService {
 
     this.validateClaimNotificationPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId = await this.tiramisRequestIdService.generate('AIC');
 
     const payload = this.claimPayloadService.buildClaimNotificationPayload({
       dto: resolvedDto,
@@ -215,7 +216,8 @@ export class TiramisClaimService {
     this.validateClaimIntimationPayload(resolvedDto);
 
     const requestId =
-      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
+      sourceMetadata?.requestId ||
+      (await this.tiramisRequestIdService.generate('AIC'));
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -323,7 +325,7 @@ export class TiramisClaimService {
 
     this.validateClaimIntimationPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId = await this.tiramisRequestIdService.generate('AIC');
 
     const payload = this.claimPayloadService.buildClaimIntimationPayload({
       dto: resolvedDto,
@@ -422,7 +424,8 @@ export class TiramisClaimService {
     this.validateClaimPaymentPayload(resolvedDto);
 
     const requestId =
-      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
+      sourceMetadata?.requestId ||
+      (await this.tiramisRequestIdService.generate('AIC'));
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -497,7 +500,8 @@ export class TiramisClaimService {
     this.validateClaimAssessmentPayload(resolvedDto);
 
     const requestId =
-      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
+      sourceMetadata?.requestId ||
+      (await this.tiramisRequestIdService.generate('AIC'));
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -605,7 +609,7 @@ export class TiramisClaimService {
 
     this.validateClaimAssessmentPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId = await this.tiramisRequestIdService.generate('AIC');
 
     const payload = this.claimPayloadService.buildClaimAssessmentPayload({
       dto: resolvedDto,
@@ -683,7 +687,7 @@ export class TiramisClaimService {
 
     this.validateClaimPaymentPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId = await this.tiramisRequestIdService.generate('AIC');
 
     const payload = this.claimPayloadService.buildClaimPaymentPayload({
       dto: resolvedDto,
@@ -740,7 +744,8 @@ export class TiramisClaimService {
     this.validateClaimRejectionPayload(resolvedDto);
 
     const requestId =
-      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
+      sourceMetadata?.requestId ||
+      (await this.tiramisRequestIdService.generate('AIC'));
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
@@ -846,7 +851,7 @@ export class TiramisClaimService {
 
     this.validateClaimRejectionPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId = await this.tiramisRequestIdService.generate('AIC');
 
     const payload = this.claimPayloadService.buildClaimRejectionPayload({
       dto: resolvedDto,

@@ -22,14 +22,14 @@ describe('BusinessReferenceService', () => {
   }
 
   it('uses the caller prefix when the company has no format', async () => {
-    await expect(service().next()).resolves.toBe('CLM-2026-00042');
+    await expect(service().next()).resolves.toBe('CLM202600042');
   });
 
   it("uses the company's configured prefix and length", async () => {
     const year = String(new Date().getFullYear()).slice(-2);
     await expect(
       service({ prefix: 'AIC/CL/{YY}/', sequence_length: 7 }).next(),
-    ).resolves.toBe(`AIC/CL/${year}/0000042`);
+    ).resolves.toBe(`AICCL${year}0000042`);
   });
 
   it('renders the year and month tokens', () => {

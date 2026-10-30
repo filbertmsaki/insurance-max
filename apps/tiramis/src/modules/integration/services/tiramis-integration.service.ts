@@ -61,7 +61,7 @@ export class TiramisIntegrationService {
 
     const serviceType = envelope.requestType;
     const rootElement = this.resolveRootElement(envelope.requestType);
-    const requestId = this.requestIdService.generate('IMX');
+    const requestId = await this.requestIdService.generate('IMX');
 
     const transaction = await this.submissionService.createTransaction({
       clientConfigurationId: runtimeConfiguration.id,

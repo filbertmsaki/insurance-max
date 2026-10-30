@@ -37,7 +37,7 @@ export class TiramisResubmissionService {
     const latestAttempt =
       await this.attemptRepository.findLatestByTransactionId(transaction.id);
 
-    const newRequestId = this.requestIdService.generate(
+    const newRequestId = await this.requestIdService.generate(
       params.requestIdPrefix || 'AIC',
     );
 

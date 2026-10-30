@@ -13,6 +13,11 @@ export function renderNumberPrefix(template: string, date = new Date()) {
     .replace(/\{MM\}/g, String(date.getMonth() + 1).padStart(2, '0'));
 }
 
+/** Upper-cases and drops every character other than A-Z and 0-9. */
+export function toAlphanumericReference(value: string) {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
 @Injectable()
 export class BusinessReferenceService {
   constructor(private readonly dataSource: DataSource) {}
@@ -42,6 +47,28 @@ export class BusinessReferenceService {
       );
     const format = formats[0];
 
+    const sequence = await this.nextValue({
+      companyId: params.companyId,
+      documentType: params.documentType,
+      periodKey,
+      manager,
+    });
+    const prefix = format ? renderNumberPrefix(format.prefix) : params.prefix;
+    const length = format?.sequence_length ?? params.sequenceLength ?? 5;
+
+    return toAlphanumericReference(
+      `${prefix}${String(sequence).padStart(length, '0')}`,
+    );
+  }
+
+  /** Raw auto-increment value for a company, document type and period. */
+  async nextValue(params: {
+    companyId: string;
+    documentType: string;
+    periodKey: string;
+    manager?: EntityManager;
+  }): Promise<number> {
+    const manager = params.manager ?? this.dataSource.manager;
     const rows = await manager.query(
       `
       INSERT INTO business_document_sequences (
@@ -63,13 +90,9 @@ export class BusinessReferenceService {
         updated_at = now()
       RETURNING current_value
       `,
-      [params.companyId, params.documentType, periodKey],
+      [params.companyId, params.documentType, params.periodKey],
     );
 
-    const sequence = Number(rows?.[0]?.current_value);
-    const prefix = format ? renderNumberPrefix(format.prefix) : params.prefix;
-    const length = format?.sequence_length ?? params.sequenceLength ?? 5;
-
-    return `${prefix}${String(sequence).padStart(length, '0')}`;
+    return Number(rows?.[0]?.current_value);
   }
 }
