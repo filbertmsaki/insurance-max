@@ -29,6 +29,7 @@ export function FleetQuotationDetailPage() {
     <UnderwriteRecordGate kind="quotation">
       <Suspense fallback={<TableSkeleton />}>
         <QuotationDetailPage
+          line="fleet"
           tiramisPanel={
             <FleetVehiclesPanel
               kind="quotation"

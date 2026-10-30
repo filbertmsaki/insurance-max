@@ -81,6 +81,28 @@ describe('TiramisMotorPayloadService fleet', () => {
     });
   });
 
+  it('totals FleetHdr from the vehicle premiums in cover-note currency', () => {
+    const dto = fleetDto({
+      currencyCode: 'USD',
+      exchangeRate: '2500',
+      totalPremiumExcludingTax: '750000',
+      totalPremiumIncludingTax: '885000',
+    });
+    dto.fleet.items[0].risks[0].premiumIncludingTax = '118';
+    dto.fleet.items[1].addons = [
+      { premiumExcludingTax: '10', premiumIncludingTax: '11.80', taxes: [] },
+    ];
+    const header = build(dto).FleetHdr;
+    expect(header.TotalPremiumExcludingTax).toBe('310.00');
+    expect(header.TotalPremiumIncludingTax).toBe('329.80');
+  });
+
+  it('rejects a fleet with no premium', () => {
+    const dto = fleetDto();
+    dto.fleet.items.forEach((item: any) => (item.risks = [risk('0')]));
+    expect(() => build(dto)).toThrow(BadRequestException);
+  });
+
   it('rejects missing mandatory fields with per-vehicle messages', () => {
     const dto = fleetDto();
     dto.policyHolders[0] = { policyHolderType: 1 };

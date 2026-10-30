@@ -76,6 +76,7 @@ export class TiramisMotorPayloadService {
   ): Record<string, any> {
     const items = dto.fleet?.items || [];
     this.assertFleetSubmittable(dto, items);
+    const totals = this.fleetPremiumTotals(dto, items);
 
     return {
       FleetHdr: {
@@ -90,8 +91,8 @@ export class TiramisMotorPayloadService {
         PaymentMode: dto.paymentMode,
         CurrencyCode: dto.currencyCode,
         ExchangeRate: dto.exchangeRate,
-        TotalPremiumExcludingTax: dto.totalPremiumExcludingTax,
-        TotalPremiumIncludingTax: dto.totalPremiumIncludingTax,
+        TotalPremiumExcludingTax: totals.excludingTax,
+        TotalPremiumIncludingTax: totals.includingTax,
         CommisionPaid: dto.commissionPaid || '0.00',
         CommisionRate: dto.commissionRate || '0.00',
         OfficerName: dto.officerName,
@@ -140,6 +141,9 @@ export class TiramisMotorPayloadService {
         issues.push(`${label}: no risks covered.`);
     });
 
+    if (Number(this.fleetPremiumTotals(dto, items).excludingTax) <= 0)
+      issues.push('Fleet premium is zero; price every vehicle first.');
+
     if (issues.length > 0) {
       throw new BadRequestException({
         message: 'Fleet cover note is incomplete for TIRA submission.',
@@ -148,22 +152,71 @@ export class TiramisMotorPayloadService {
     }
   }
 
+  /**
+   * FleetHdr totals as TIRA checks them (TIRA083/TIRA084): the sum of the
+   * premiums actually sent in FleetDtl, in the cover-note currency. Stored
+   * header totals use TZS equivalents and can drift from the vehicles.
+   */
+  private fleetPremiumTotals(
+    dto: CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields,
+    items: CreateMotorFleetItemDto[],
+  ) {
+    let excludingCents = 0;
+    let includingCents = 0;
+    const cents = (value: unknown) => Math.round(Number(value || 0) * 100);
+
+    for (const item of items) {
+      const { risks, addons } = this.fleetItemLines(item, dto);
+      for (const risk of risks) {
+        excludingCents += cents(risk.premiumAfterDiscount);
+        includingCents += cents(risk.premiumIncludingTax);
+      }
+      for (const addon of addons) {
+        excludingCents += cents(addon.premiumExcludingTax);
+        includingCents += cents(addon.premiumIncludingTax);
+      }
+    }
+
+    return {
+      excludingTax: (excludingCents / 100).toFixed(2),
+      includingTax: (includingCents / 100).toFixed(2),
+    };
+  }
+
+  /** Risks and add-ons sent for one vehicle. */
+  private fleetItemLines(
+    item: CreateMotorFleetItemDto,
+    parentDto: CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields,
+  ) {
+    // Only a single-vehicle fleet may fall back to the parent's lines; in a
+    // larger fleet the parent mirrors vehicle 1 and would be duplicated.
+    const inherit = (parentDto.fleet?.items?.length ?? 0) <= 1;
+    const risks =
+      item.risks && item.risks.length > 0
+        ? item.risks
+        : inherit
+          ? parentDto.risks || []
+          : [];
+    const addons =
+      item.addons && item.addons.length > 0
+        ? item.addons
+        : inherit
+          ? parentDto.addons || []
+          : [];
+    return { risks, addons, inherit };
+  }
+
   private mapFleetItem(params: {
     item: CreateMotorFleetItemDto;
     parentDto: CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields;
     index: number;
   }): Record<string, any> {
     const { item, parentDto, index } = params;
-    // Only a single-vehicle fleet may fall back to the parent's lines; in a
-    // larger fleet the parent mirrors vehicle 1 and would be duplicated.
-    const inherit = (parentDto.fleet?.items?.length ?? 0) <= 1;
-
-    const itemRisks =
-      item.risks && item.risks.length > 0
-        ? item.risks
-        : inherit
-          ? parentDto.risks || []
-          : [];
+    const {
+      risks: itemRisks,
+      addons: itemAddons,
+      inherit,
+    } = this.fleetItemLines(item, parentDto);
 
     const motor = item.motorDetail;
     const itemSubjectMatters =
@@ -180,13 +233,6 @@ export class TiramisMotorPayloadService {
                   'Motor vehicle',
               },
             ];
-
-    const itemAddons =
-      item.addons && item.addons.length > 0
-        ? item.addons
-        : inherit
-          ? parentDto.addons || []
-          : [];
 
     return {
       FleetEntry: item.fleetEntry || String(index + 1),

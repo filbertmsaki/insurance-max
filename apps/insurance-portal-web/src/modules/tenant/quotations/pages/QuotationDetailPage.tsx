@@ -23,7 +23,8 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
+import { underwritePaths } from '@/modules/tenant/underwrite/paths';
+import type { UnderwriteLineSlug } from '@insurance-max/contracts';
 import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
 import {
   QuotationHistoryPreview,
@@ -90,11 +91,18 @@ type ApprovalDialogState = {
 
 export function QuotationDetailPage({
   tiramisPanel,
+  line,
 }: {
+  /** Underwrite line whose routes this page links to; defaults to the URL line. */
+  line?: UnderwriteLineSlug;
   /** Extra issuance content for the TIRAMIS tab, e.g. a fleet's per-vehicle cover notes. */
   tiramisPanel?: ReactNode;
 } = {}) {
-  const { id } = useParams<{ id: string }>();
+  const { id, line: lineParam } = useParams<{
+    id: string;
+    line: UnderwriteLineSlug;
+  }>();
+  const activeLine: UnderwriteLineSlug = line ?? lineParam ?? 'motor';
   const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
@@ -397,7 +405,7 @@ export function QuotationDetailPage({
         <p className="font-medium">Quotation not found</p>
         <Button
           variant="link"
-          onClick={() => navigate(sharedUnderwritePaths.quotations)}
+          onClick={() => navigate(underwritePaths.quotations(activeLine))}
         >
           Back to Quotations
         </Button>
@@ -414,7 +422,10 @@ export function QuotationDetailPage({
     submitMutation.mutate(undefined, {
       onSuccess: () => {
         navigate(
-          sharedUnderwritePaths.quotationDetail(preview.overview.quotation_id),
+          underwritePaths.quotationDetail(
+            activeLine,
+            preview.overview.quotation_id,
+          ),
         );
       },
     });
@@ -585,7 +596,7 @@ export function QuotationDetailPage({
       <QuotationDetailHeader
         preview={preview}
         workflowLabel={friendlyWorkflowLabel}
-        onBack={() => navigate(sharedUnderwritePaths.quotations)}
+        onBack={() => navigate(underwritePaths.quotations(activeLine))}
         actions={actionButtons}
       />
 
