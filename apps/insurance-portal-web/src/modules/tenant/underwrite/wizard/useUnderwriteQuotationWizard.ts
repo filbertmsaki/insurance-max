@@ -485,9 +485,10 @@ export function useUnderwriteQuotationWizard({
 
   useEffect(() => {
     if (line.line !== 'FLEET') return;
-    const common = form.getValues('risks.0');
+    // Saved fleets can load without a header risk row.
+    const common = form.getValues('risks').at(0);
     const selected =
-      riskOptions.find((option) => option.id === common.risk_id) ??
+      riskOptions.find((option) => option.id === common?.risk_id) ??
       (riskOptions.length === 1 ? riskOptions[0] : undefined);
 
     form.getValues('fleet.items').forEach((item, itemIndex) => {
@@ -497,7 +498,7 @@ export function useUnderwriteQuotationWizard({
         if (!risk.risk_id && !risk.risk_code && selected) {
           form.setValue(`${path}.risk_id`, selected.id);
           form.setValue(`${path}.risk_code`, selected.risk_code);
-          if (!risk.sum_insured && common.sum_insured) {
+          if (!risk.sum_insured && common?.sum_insured) {
             form.setValue(`${path}.sum_insured`, common.sum_insured);
           }
         }

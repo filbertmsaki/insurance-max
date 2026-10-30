@@ -46,6 +46,7 @@ import {
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisRequestType } from '../../tiramis/enums/tiramis-request-type.enum';
+import { TiramisSubmissionStatus } from '../../tiramis/enums/tiramis-submission-status.enum';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
 import { Branch } from '../branches/entities/branch.entity';
 import { BranchUser } from '../branches/entities/branch-user.entity';
@@ -2202,8 +2203,54 @@ export class QuotationsService {
     }
 
     const submittedAt = new Date();
+    const tiraRequestId =
+      typeof (result as { requestId?: unknown }).requestId === 'string'
+        ? ((result as { requestId?: string }).requestId ?? null)
+        : null;
+    // TIRA can reject the request in its acknowledgement (e.g. TIRA105)
+    // without the call throwing; that must leave the quotation retryable.
+    const failedLocalStatus = [
+      TiramisSubmissionStatus.ACK_FAILED,
+      TiramisSubmissionStatus.FINAL_FAILED,
+      TiramisSubmissionStatus.FAILED,
+      TiramisSubmissionStatus.RETRY_EXHAUSTED,
+    ].includes(
+      (result as { localStatus?: unknown })
+        .localStatus as TiramisSubmissionStatus,
+    );
 
-    if (!shouldReuseExistingSubmission) {
+    if (!shouldReuseExistingSubmission && failedLocalStatus) {
+      const tracking = (
+        result as {
+          tracking?: {
+            acknowledgementStatusCode?: string | null;
+            acknowledgementStatusDesc?: string | null;
+            lastErrorMessage?: string | null;
+          };
+        }
+      ).tracking;
+      await this.quotationLifecycleService.markTiraFailed(
+        companyId,
+        quotation.id,
+        {
+          changedBy: user.id,
+          changedByType: 'USER',
+          source: 'TIRAMIS',
+          channel: quotation.channel_type,
+          reason:
+            [
+              tracking?.acknowledgementStatusCode,
+              tracking?.acknowledgementStatusDesc,
+            ]
+              .filter(Boolean)
+              .join(' - ') ||
+            tracking?.lastErrorMessage ||
+            'TIRAMIS rejected the submission',
+          tiraRequestId,
+          metadata: result,
+        },
+      );
+    } else if (!shouldReuseExistingSubmission) {
       await this.quotationLifecycleService.markTiraSubmitted(
         companyId,
         quotation.id,
@@ -2213,10 +2260,7 @@ export class QuotationsService {
           source: 'USER',
           channel: quotation.channel_type,
           reason: 'TIRAMIS accepted the submission request',
-          tiraRequestId:
-            typeof (result as { requestId?: unknown }).requestId === 'string'
-              ? ((result as { requestId?: string }).requestId ?? null)
-              : null,
+          tiraRequestId,
           metadata: result,
         },
       );
