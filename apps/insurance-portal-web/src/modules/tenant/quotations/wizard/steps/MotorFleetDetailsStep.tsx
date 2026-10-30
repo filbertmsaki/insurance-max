@@ -1657,6 +1657,8 @@ export function MotorFleetDetailsStep({
   useEffect(() => {
     if (!autoCalculateUnpricedOnly) return;
     if (!values.product_id || !values.fleet.items.length) return;
+    // Nothing to price until the fleet cover is chosen.
+    if (!values.fleet.header.cover.risk_id.trim()) return;
     if (quotationPricingIssues(form.getValues()).length === 0) return;
     if (lastAutoCalculationSignature.current === fleetSignature) return;
     const timeout = setTimeout(() => {
@@ -1670,6 +1672,7 @@ export function MotorFleetDetailsStep({
     form,
     values.product_id,
     values.fleet.items.length,
+    values.fleet.header.cover.risk_id,
   ]);
 
   function calculateVehicleAndTrack(index: number) {

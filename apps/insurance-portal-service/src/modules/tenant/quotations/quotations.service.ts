@@ -8205,15 +8205,24 @@ export class QuotationsService {
   ): Promise<void> {
     const header = this.resolveHeader(payload);
     const fleetHeader = payload.cover_note_dtl.fleet_hdr;
-    // Fleet references are system-assigned per company. A reference that is
-    // already set (edits, endorsements) is kept so TIRA sees a stable fleet.
-    if (fleetHeader && !fleetHeader.fleet_id?.trim()) {
-      fleetHeader.fleet_id = await this.businessReferenceService.next({
+    // TIRA rejects a FleetId it has already registered (TIRA105) across all
+    // insurers, so a per-company counter alone collides. New business gets a
+    // fresh id on every save, since TIRA has not accepted it yet; endorsements
+    // and cancellations resend the policy's issued FleetId unchanged.
+    const isPolicyTransaction = Boolean(quotation.source_policy_transaction_id);
+    if (
+      fleetHeader &&
+      (!isPolicyTransaction || !fleetHeader.fleet_id?.trim())
+    ) {
+      const sequence = await this.businessReferenceService.next({
         companyId: quotation.company_id,
         documentType: 'MOTOR_FLEET',
         prefix: `FLT-${new Date().getFullYear()}-`,
         manager,
       });
+      fleetHeader.fleet_id = `${sequence}-${Date.now().toString(36)}`
+        .toUpperCase()
+        .slice(0, 50);
     }
     const coverNoteRepository = manager.getRepository(QuotationCoverNote);
     const productDefinition = quotation.product_definition_snapshot;
