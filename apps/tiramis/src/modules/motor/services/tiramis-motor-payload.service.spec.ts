@@ -97,6 +97,25 @@ describe('TiramisMotorPayloadService fleet', () => {
     expect(header.TotalPremiumIncludingTax).toBe('329.80');
   });
 
+  it('sends every money amount with two decimal places', () => {
+    const dto = fleetDto();
+    dto.fleet.items[0].risks[0].taxes = [{ taxRate: '0.18', taxAmount: '18' }];
+    const risk = build(dto).FleetDtl[0].RisksCovered.RiskCovered[0];
+    expect(risk).toMatchObject({
+      SumInsured: '1000.00',
+      PremiumBeforeDiscount: '100.00',
+      PremiumAfterDiscount: '100.00',
+      PremiumExcludingTaxEquivalent: '100.00',
+      PremiumIncludingTax: '100.00',
+      PremiumRate: '0.1',
+    });
+    expect(risk.TaxesCharged.TaxCharged[0]).toMatchObject({
+      TaxRate: '0.18',
+      TaxAmount: '18.00',
+    });
+    expect(build(dto).FleetHdr.CommisionPaid).toBe('0.00');
+  });
+
   it('rejects a fleet with no premium', () => {
     const dto = fleetDto();
     dto.fleet.items.forEach((item: any) => (item.risks = [risk('0')]));

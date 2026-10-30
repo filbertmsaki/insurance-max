@@ -164,6 +164,20 @@ export class QuotationsController {
     return this.quotationsService.getAuthoritativePayloadForUser(user, id);
   }
 
+  @Get(':id/tiramis-payload')
+  @Permissions('quotations:read')
+  @ApiOperation({
+    summary: 'Preview the payload sent to TIRAMIS',
+    description:
+      'Builds the payload issuing cover would send to the TIRAMIS service, without contacting TIRAMIS.',
+  })
+  getTiramisPayload(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quotationsService.getTiramisPayloadPreviewForUser(user, id);
+  }
+
   @Get(':id')
   @Permissions('quotations:read')
   @ApiOperation({

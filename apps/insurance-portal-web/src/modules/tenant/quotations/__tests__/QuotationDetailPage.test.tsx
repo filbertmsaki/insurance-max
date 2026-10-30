@@ -132,7 +132,7 @@ describe('Quotation details redesign', () => {
     );
   });
   it.each(['MOTOR_SINGLE', 'NON_MOTOR', 'MOTOR_FLEET'] as const)(
-    'keeps exactly four tabs and category-specific details for %s',
+    'keeps exactly five tabs and category-specific details for %s',
     (flow) => {
       state.preview = quotationDetailFixture(flow);
       renderPage();
@@ -140,6 +140,7 @@ describe('Quotation details redesign', () => {
         'Quotation Details',
         'Payment Details & History',
         'TIRAMIS Information',
+        'TIRAMIS Payload',
         'Quotation History',
       ]);
       const sectionHeadings =

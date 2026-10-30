@@ -1471,6 +1471,32 @@ export class QuotationsService {
     return this.payloadMapper.toAuthoritativePayload(quotation);
   }
 
+  /**
+   * The payload issuing cover would send to the TIRAMIS service, built
+   * locally; nothing is sent to TIRAMIS.
+   */
+  async getTiramisPayloadPreviewForUser(user: AuthenticatedUser, id: string) {
+    const scope = this.resolveUserScope(user);
+    const quotation = await this.quotationsRepository.findOneAggregateForScope(
+      scope,
+      id,
+    );
+    const companyId = quotation.company_id;
+    const tiramisContext = await this.resolveStoredTiramisContext(
+      companyId,
+      quotation,
+    );
+
+    return {
+      requestType: this.toTiramisRequestType(quotation.quotation_flow),
+      businessReference: this.payloadMapper.businessReference(quotation),
+      payload: this.tiramisPayloadMapper.toTiramisPayload(
+        this.payloadMapper.toAuthoritativePayload(quotation),
+        { branchCode: tiramisContext.branchCode },
+      ),
+    };
+  }
+
   async getPreview(
     companyId: string,
     id: string,

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatMoney } from '@/components/shared/detailFormat';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { QuotationTiramisPayloadTab } from '../components/QuotationTiramisPayloadTab';
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -60,6 +61,7 @@ const QUOTATION_DETAIL_TABS = [
   { id: 'details', label: 'Quotation Details' },
   { id: 'payment', label: 'Payment Details & History' },
   { id: 'tiramis', label: 'TIRAMIS Information' },
+  { id: 'tira-payload', label: 'TIRAMIS Payload' },
   { id: 'history', label: 'Quotation History' },
 ] as const;
 
@@ -668,6 +670,19 @@ export function QuotationDetailPage({
                 )}
               />
             </>
+          )}
+        </TabsContent>
+
+        <TabsContent
+          value="tira-payload"
+          forceMount
+          hidden={activeTab !== 'tira-payload'}
+          className="mt-0 min-w-0"
+        >
+          {visitedTabs.includes('tira-payload') && (
+            <QuotationTiramisPayloadTab
+              quotationId={preview.overview.quotation_id}
+            />
           )}
         </TabsContent>
 

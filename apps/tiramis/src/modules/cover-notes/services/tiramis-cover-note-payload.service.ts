@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { toTiraMoney } from '../../shared/utils/tira-money.util';
 
 import type { CreateCoverNoteDto } from '../dto/create-cover-note.dto';
 import { TiramisCoverNoteEntity } from '../entities/tiramis-cover-note.entity';
@@ -33,31 +34,33 @@ export class TiramisCoverNotePayloadService {
         PaymentMode: dto.paymentMode,
         CurrencyCode: dto.currencyCode,
         ExchangeRate: dto.exchangeRate,
-        TotalPremiumExcludingTax: dto.totalPremiumExcludingTax,
-        TotalPremiumIncludingTax: dto.totalPremiumIncludingTax,
-        CommisionPaid: dto.commissionPaid || '0.00',
+        TotalPremiumExcludingTax: toTiraMoney(dto.totalPremiumExcludingTax),
+        TotalPremiumIncludingTax: toTiraMoney(dto.totalPremiumIncludingTax),
+        CommisionPaid: toTiraMoney(dto.commissionPaid || 0),
         CommisionRate: dto.commissionRate || '0.00',
         OfficerName: dto.officerName,
         OfficerTitle: dto.officerTitle,
         ProductCode: dto.productCode,
         EndorsementType: dto.endorsementType || '',
         EndorsementReason: dto.endorsementReason || '',
-        EndorsementPremiumEarned: dto.endorsementPremiumEarned || '',
+        EndorsementPremiumEarned: toTiraMoney(dto.endorsementPremiumEarned),
         RisksCovered: {
           RiskCovered: dto.risks.map((risk) => ({
             RiskCode: risk.riskCode,
-            SumInsured: risk.sumInsured,
-            SumInsuredEquivalent: risk.sumInsuredEquivalent,
+            SumInsured: toTiraMoney(risk.sumInsured),
+            SumInsuredEquivalent: toTiraMoney(risk.sumInsuredEquivalent),
             PremiumRate: risk.premiumRate,
-            PremiumBeforeDiscount: risk.premiumBeforeDiscount,
-            PremiumAfterDiscount: risk.premiumAfterDiscount,
-            PremiumExcludingTaxEquivalent: risk.premiumExcludingTaxEquivalent,
-            PremiumIncludingTax: risk.premiumIncludingTax,
+            PremiumBeforeDiscount: toTiraMoney(risk.premiumBeforeDiscount),
+            PremiumAfterDiscount: toTiraMoney(risk.premiumAfterDiscount),
+            PremiumExcludingTaxEquivalent: toTiraMoney(
+              risk.premiumExcludingTaxEquivalent,
+            ),
+            PremiumIncludingTax: toTiraMoney(risk.premiumIncludingTax),
             DiscountsOffered: {
               DiscountOffered: (risk.discounts || []).map((discount) => ({
                 DiscountType: discount.discountType || '',
                 DiscountRate: discount.discountRate || '0.00',
-                DiscountAmount: discount.discountAmount || '0.00',
+                DiscountAmount: toTiraMoney(discount.discountAmount || 0),
               })),
             },
             TaxesCharged: {
@@ -77,11 +80,13 @@ export class TiramisCoverNotePayloadService {
           CoverNoteAddon: (dto.addons || []).map((addon) => ({
             AddonReference: addon.addonReference,
             AddonDesc: addon.addonDesc,
-            AddonAmount: addon.addonAmount,
+            AddonAmount: toTiraMoney(addon.addonAmount),
             AddonPremiumRate: addon.addonPremiumRate,
-            PremiumExcludingTax: addon.premiumExcludingTax,
-            PremiumExcludingTaxEquivalent: addon.premiumExcludingTaxEquivalent,
-            PremiumIncludingTax: addon.premiumIncludingTax,
+            PremiumExcludingTax: toTiraMoney(addon.premiumExcludingTax),
+            PremiumExcludingTaxEquivalent: toTiraMoney(
+              addon.premiumExcludingTaxEquivalent,
+            ),
+            PremiumIncludingTax: toTiraMoney(addon.premiumIncludingTax),
             TaxesCharged: {
               TaxCharged: (addon.taxes || []).map((tax) =>
                 this.mapTaxPayload(tax),
@@ -136,16 +141,22 @@ export class TiramisCoverNotePayloadService {
         PaymentMode: coverNote.paymentMode,
         CurrencyCode: coverNote.currencyCode,
         ExchangeRate: coverNote.exchangeRate,
-        TotalPremiumExcludingTax: coverNote.totalPremiumExcludingTax,
-        TotalPremiumIncludingTax: coverNote.totalPremiumIncludingTax,
-        CommisionPaid: coverNote.commissionPaid || '0.00',
+        TotalPremiumExcludingTax: toTiraMoney(
+          coverNote.totalPremiumExcludingTax,
+        ),
+        TotalPremiumIncludingTax: toTiraMoney(
+          coverNote.totalPremiumIncludingTax,
+        ),
+        CommisionPaid: toTiraMoney(coverNote.commissionPaid || 0),
         CommisionRate: coverNote.commissionRate || '0.00',
         OfficerName: coverNote.officerName,
         OfficerTitle: coverNote.officerTitle,
         ProductCode: coverNote.productCode,
         EndorsementType: coverNote.endorsementType || '',
         EndorsementReason: coverNote.endorsementReason || '',
-        EndorsementPremiumEarned: coverNote.endorsementPremiumEarned || '',
+        EndorsementPremiumEarned: toTiraMoney(
+          coverNote.endorsementPremiumEarned,
+        ),
       },
     };
   }
@@ -164,7 +175,7 @@ export class TiramisCoverNotePayloadService {
       TaxExemptionType: tax.taxExemptionType || '',
       TaxExemptionReference: tax.taxExemptionReference || '',
       TaxRate: tax.taxRate,
-      TaxAmount: tax.taxAmount,
+      TaxAmount: toTiraMoney(tax.taxAmount),
     };
   }
 
