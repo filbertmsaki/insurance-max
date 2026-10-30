@@ -2043,6 +2043,9 @@ export function quotationRecordToFormValues(
     nonMotor: createEmptyNonMotorDetails(),
     risks: mapRiskRows(record.cover_note_dtl.risks_covered),
   };
+  // Fleets keep their cover on each vehicle, so the header list can be
+  // empty; the form still needs one row to pass validation.
+  if (common.risks.length === 0) common.risks = [createEmptyRiskRow()];
 
   if (flow === 'MOTOR_SINGLE' && record.cover_note_dtl.motor_dtl) {
     const motor = record.cover_note_dtl.motor_dtl;
