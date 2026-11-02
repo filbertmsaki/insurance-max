@@ -8,6 +8,7 @@ export interface CompanySummary {
   companySlug: string;
   companyType: CompanyType;
   membershipId: string;
+  userNo: number;
   isDefault: boolean;
   roles: string[];
   permissions: string[];

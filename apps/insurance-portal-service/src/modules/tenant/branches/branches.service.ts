@@ -423,7 +423,7 @@ export class BranchesService {
       .orderBy('user.first_name', 'ASC');
     if (search?.trim()) {
       qb.andWhere(
-        '(user.first_name ILIKE :search OR user.last_name ILIKE :search OR user.email ILIKE :search OR user.user_no ILIKE :search)',
+        '(user.first_name ILIKE :search OR user.last_name ILIKE :search OR user.email ILIKE :search OR CAST(membership.user_no AS TEXT) ILIKE :search)',
         { search: `%${search.trim()}%` },
       );
     }
@@ -432,7 +432,7 @@ export class BranchesService {
       company_user_id: membership.id,
       user: {
         id: membership.user.id,
-        user_no: membership.user.user_no,
+        user_no: membership.user_no,
         first_name: membership.user.first_name,
         last_name: membership.user.last_name,
         email: membership.user.email,
@@ -577,7 +577,7 @@ export class BranchesService {
       assigned_at: assignment.created_at,
       user: {
         id: assignment.company_user.user.id,
-        user_no: assignment.company_user.user.user_no,
+        user_no: assignment.company_user.user_no,
         first_name: assignment.company_user.user.first_name,
         last_name: assignment.company_user.user.last_name,
         email: assignment.company_user.user.email,

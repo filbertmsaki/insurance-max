@@ -42,7 +42,6 @@ type SeedUserConfig = {
   email: string;
   phone: string;
   password: string;
-  userNo: string;
   userType: 'OWNER' | 'COMPANY_USER';
   officerTitle: string;
 };
@@ -4495,7 +4494,6 @@ export default class InitialRbacSeeder implements Seeder {
         email: environment.INITIAL_OWNER_EMAIL ?? 'asha.mtemi@gmail.com',
         phone: environment.INITIAL_OWNER_PHONE ?? '+255700000001',
         password: environment.INITIAL_OWNER_PASSWORD ?? 'Owner123!',
-        userNo: environment.INITIAL_OWNER_USER_NO ?? 'OWNER-00001',
         userType: 'OWNER',
         officerTitle: 'Owner',
       };
@@ -4510,7 +4508,6 @@ export default class InitialRbacSeeder implements Seeder {
           environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'baraka.mushi@gmail.com',
         phone: environment.INITIAL_COMPANY_ADMIN_PHONE ?? '+255700000002',
         password: environment.INITIAL_COMPANY_ADMIN_PASSWORD ?? 'Admin123!',
-        userNo: environment.INITIAL_COMPANY_ADMIN_USER_NO ?? 'ADMIN-00001',
         userType: 'COMPANY_USER',
         officerTitle: 'Underwriter',
       };
@@ -4523,7 +4520,6 @@ export default class InitialRbacSeeder implements Seeder {
           'neema.alliance.user@example.test',
         phone: environment.INITIAL_COMPANY_USER_PHONE ?? '+255700000003',
         password: environment.INITIAL_COMPANY_USER_PASSWORD ?? 'User123!',
-        userNo: environment.INITIAL_COMPANY_USER_USER_NO ?? 'USER-00001',
         userType: 'COMPANY_USER',
         officerTitle: 'Standard User',
       };
@@ -4893,7 +4889,6 @@ export default class InitialRbacSeeder implements Seeder {
 
     if (!user) {
       user = userRepo.create({
-        user_no: config.userNo,
         first_name: config.firstName,
         last_name: config.lastName,
         phone: config.phone,
@@ -4933,7 +4928,6 @@ export default class InitialRbacSeeder implements Seeder {
 
     if (!user) {
       user = userRepo.create({
-        user_no: config.userNo,
         first_name: config.firstName,
         last_name: config.lastName,
         phone: config.phone,

@@ -1029,7 +1029,6 @@ export class QuotationPreviewMapper {
           first_name?: string | null;
           last_name?: string | null;
           email?: string | null;
-          user_no?: string | null;
         }
       | null
       | undefined,
@@ -1040,7 +1039,7 @@ export class QuotationPreviewMapper {
 
     return {
       id: user.id ?? null,
-      code: user.user_no ?? null,
+      code: null,
       name:
         [user.first_name, user.last_name].filter(Boolean).join(' ') ||
         user.email ||
@@ -1055,7 +1054,6 @@ export class QuotationPreviewMapper {
           first_name?: string | null;
           last_name?: string | null;
           email?: string | null;
-          user_no?: string | null;
         }
       | null
       | undefined,
@@ -1067,7 +1065,6 @@ export class QuotationPreviewMapper {
     return (
       [user.first_name, user.last_name].filter(Boolean).join(' ') ||
       user.email ||
-      user.user_no ||
       null
     );
   }

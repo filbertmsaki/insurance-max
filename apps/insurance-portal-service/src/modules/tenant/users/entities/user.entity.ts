@@ -34,9 +34,6 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 30, unique: true })
-  user_no: string;
-
   @Column({ length: 50 })
   first_name: string;
 

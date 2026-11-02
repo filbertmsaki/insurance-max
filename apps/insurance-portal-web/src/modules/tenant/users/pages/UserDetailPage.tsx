@@ -1,11 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import {
   ArrowLeft,
   Mail,
@@ -33,14 +29,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -52,67 +40,15 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { rolesApi } from '@/modules/platform/roles/api/roles';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard';
-import { mapApiErrorsToForm } from '@/lib/api-error';
 import {
   useUser,
-  useUpdateUser,
   useAssignRole,
   useRevokeRole,
   useUpdateUserDataScope,
   useSetUserInsuranceChannelAccess,
 } from '@/modules/tenant/users/hooks';
-import type { QuotationPolicyDataScope, UserStatus, UserType } from '@/types';
+import type { QuotationPolicyDataScope } from '@/types';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
-
-// ─── Schema ───────────────────────────────────────────────────────────────────
-
-const PHONE_REGEX = /^(\+255|255|0)[67]\d{8}$/;
-
-const ALL_USER_TYPES: { value: UserType; label: string }[] = [
-  { value: 'SUPER_ADMIN', label: 'Super Admin' },
-  { value: 'COMPANY_ADMIN', label: 'Company Admin' },
-  { value: 'OWNER', label: 'Owner' },
-  { value: 'STAFF', label: 'Staff' },
-  { value: 'AGENT', label: 'Agent' },
-  { value: 'BROKER', label: 'Broker' },
-  { value: 'CUSTOMER', label: 'Customer' },
-  { value: 'COMPANY_USER', label: 'Company User' },
-];
-
-const NON_OWNER_USER_TYPES = ALL_USER_TYPES.filter(
-  (t) => t.value !== 'SUPER_ADMIN' && t.value !== 'COMPANY_ADMIN',
-);
-
-const editSchema = z.object({
-  first_name: z.string().min(1, 'Required'),
-  last_name: z.string().min(1, 'Required'),
-  phone: z
-    .string()
-    .regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
-  status: z.enum(['active', 'inactive', 'suspended', 'locked']),
-  user_type: z
-    .enum([
-      'SUPER_ADMIN',
-      'COMPANY_ADMIN',
-      'STAFF',
-      'AGENT',
-      'BROKER',
-      'CUSTOMER',
-      'OWNER',
-      'COMPANY_USER',
-    ] as const)
-    .optional(),
-});
-
-type EditForm = z.infer<typeof editSchema>;
-
-const USER_STATUSES: UserStatus[] = [
-  'active',
-  'inactive',
-  'suspended',
-  'locked',
-];
 
 const DATA_SCOPE_OPTIONS: Array<{
   value: QuotationPolicyDataScope;
@@ -145,14 +81,6 @@ const DATA_SCOPE_LABELS = Object.fromEntries(
   DATA_SCOPE_OPTIONS.map((item) => [item.value, item.label]),
 ) as Record<QuotationPolicyDataScope, string>;
 
-const EDIT_FIELD_MAP: Partial<Record<string, keyof EditForm & string>> = {
-  first_name: 'first_name',
-  last_name: 'last_name',
-  phone: 'phone',
-  status: 'status',
-  user_type: 'user_type',
-};
-
 const SELECT_INSURANCE_CHANNEL_PERMISSION =
   'quotations:select-insurance-channel';
 
@@ -162,8 +90,6 @@ export function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
-  const { isOwner } = useRbacGuard();
-  const userTypeOptions = isOwner ? ALL_USER_TYPES : NON_OWNER_USER_TYPES;
 
   // ── Permissions ───────────────────────────────────────────────────────────
   const canUpdate = hasPermission('users:update');
@@ -176,7 +102,6 @@ export function UserDetailPage() {
   usePageTitle(user && `User ${user.first_name} ${user.last_name}`);
 
   // ── Dialog state ─────────────────────────────────────────────────────────
-  const [editOpen, setEditOpen] = useState(false);
   const [revokeRoleId, setRevokeRoleId] = useState<string | null>(null);
   const [assignRoleOpen, setAssignRoleOpen] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState('');
@@ -192,51 +117,11 @@ export function UserDetailPage() {
     enabled: assignRoleOpen,
   });
 
-  // ── Form ─────────────────────────────────────────────────────────────────
-  const editForm = useForm<EditForm>({
-    resolver: zodResolver(editSchema),
-    defaultValues: {
-      first_name: '',
-      last_name: '',
-      phone: '',
-      status: 'active',
-      user_type: undefined,
-    },
-  });
-
   // ── Mutations ────────────────────────────────────────────────────────────
-  const updateMutation = useUpdateUser(id);
   const assignRoleMutation = useAssignRole();
   const revokeRoleMutation = useRevokeRole();
   const updateDataScopeMutation = useUpdateUserDataScope(id);
   const insuranceChannelMutation = useSetUserInsuranceChannelAccess();
-
-  const openEdit = () => {
-    if (!user) return;
-    editForm.reset({
-      first_name: user.first_name,
-      last_name: user.last_name,
-      phone: user.phone,
-      status: user.status,
-      user_type: user.user_type as UserType | undefined,
-    });
-    setEditOpen(true);
-  };
-
-  const handleUpdate = (data: EditForm) => {
-    if (!id) return;
-    updateMutation.mutate(
-      { id, data },
-      {
-        onSuccess: () => {
-          setEditOpen(false);
-          toast.success('User updated');
-        },
-        onError: (err) =>
-          mapApiErrorsToForm(err, editForm.setError, EDIT_FIELD_MAP),
-      },
-    );
-  };
 
   // ── Loading skeleton ─────────────────────────────────────────────────────
   if (isLoading) {
@@ -286,7 +171,11 @@ export function UserDetailPage() {
             </Button>
           )}
           {canUpdate && (
-            <Button variant="outline" size="sm" onClick={openEdit}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/apps/users/${user.id}/edit`)}
+            >
               <Pencil className="mr-2 h-4 w-4" /> Edit
             </Button>
           )}
@@ -352,7 +241,7 @@ export function UserDetailPage() {
             <CardContent>
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { label: 'User Number', value: user.user_no },
+                  { label: 'User Number', value: user.user_no ?? '—' },
                   {
                     label: 'Status',
                     value: <StatusBadge status={user.status} />,
@@ -544,129 +433,6 @@ export function UserDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* ── Edit Dialog ── */}
-      <Dialog open={editOpen} onOpenChange={(o) => !o && setEditOpen(false)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update {fullName}'s profile details.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...editForm}>
-            <form
-              onSubmit={editForm.handleSubmit(handleUpdate)}
-              className="space-y-4"
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={editForm.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {USER_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s} className="capitalize">
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="user_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>User type</FormLabel>
-                    <Select
-                      value={field.value ?? ''}
-                      onValueChange={(v) => field.onChange(v || undefined)}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select user type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {userTypeOptions.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? 'Saving…' : 'Save changes'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Assign Role Dialog ── */}
       <Dialog open={assignRoleOpen} onOpenChange={setAssignRoleOpen}>

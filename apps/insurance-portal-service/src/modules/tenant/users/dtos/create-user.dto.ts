@@ -37,10 +37,6 @@ export class CreateUserDto {
 
   @IsString()
   @IsOptional()
-  user_no?: string;
-
-  @IsString()
-  @IsOptional()
   status?: string;
 
   @IsEnum(UserType)

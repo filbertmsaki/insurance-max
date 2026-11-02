@@ -498,6 +498,7 @@ export class AuthService {
           companySlug: companyContext.companySlug,
           companyType: companyContext.companyType,
           membershipId: companyContext.membershipId,
+          userNo: companyContext.userNo,
           isDefault: companyContext.isDefault,
           roles: companyContext.roles,
           permissions: companyContext.permissions,
@@ -922,7 +923,6 @@ export class AuthService {
       message: 'Registered successfully',
       user: {
         id: createdUser.id,
-        user_no: createdUser.user_no,
         first_name: createdUser.first_name,
         last_name: createdUser.last_name,
         phone: createdUser.phone,

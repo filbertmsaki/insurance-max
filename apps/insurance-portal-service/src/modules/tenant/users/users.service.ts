@@ -50,27 +50,6 @@ export class UsersService {
     return user;
   }
 
-  async generateUserNo(manager?: EntityManager): Promise<string> {
-    const repository = manager?.getRepository(User) ?? this.userRepository;
-    const year = new Date().getFullYear();
-    const prefix = `USER-${year}-`;
-
-    const lastUser = await repository
-      .createQueryBuilder('user')
-      .where('user.user_no LIKE :prefix', { prefix: `${prefix}%` })
-      .orderBy('user.user_no', 'DESC')
-      .limit(1)
-      .getOne();
-
-    let nextNumber = 1;
-    if (lastUser?.user_no) {
-      const parsed = Number(lastUser.user_no.substring(prefix.length));
-      if (!isNaN(parsed)) nextNumber = parsed + 1;
-    }
-
-    return `${prefix}${String(nextNumber).padStart(5, '0')}`;
-  }
-
   async createForCompany(
     companyId: string,
     createUserDto: CreateUserDto,
@@ -182,7 +161,6 @@ export class UsersService {
         const user = userRepository.create({
           ...userData,
           password: hashedPassword,
-          user_no: userData.user_no ?? (await this.generateUserNo(manager)),
           status: userData.status ?? 'active',
           user_type: userData.user_type ?? 'COMPANY_USER',
           officer_title: officer_title || 'Underwriter',
@@ -270,7 +248,6 @@ export class UsersService {
 
     const hashedPassword = await hashPassword(params.password);
     const user = this.userRepository.create({
-      user_no: await this.generateUserNo(),
       first_name: params.first_name,
       last_name: params.last_name,
       email: params.email,
@@ -305,7 +282,7 @@ export class UsersService {
 
     return new UserProfileDto({
       id: user.id,
-      user_no: user.user_no,
+      user_no: companyContext.userNo,
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,
@@ -341,7 +318,6 @@ export class UsersService {
         user_type: true,
         first_name: true,
         last_name: true,
-        user_no: true,
         phone: true,
         last_login_at: true,
         last_login_ip: true,
@@ -404,7 +380,7 @@ export class UsersService {
         first_name: 'user.first_name',
         last_name: 'user.last_name',
         email: 'user.email',
-        user_no: 'user.user_no',
+        user_no: 'membership.user_no',
         status: 'user.status',
         created_at: 'user.created_at',
       },
@@ -414,7 +390,7 @@ export class UsersService {
         'user.last_name',
         'user.email',
         'user.phone',
-        'user.user_no',
+        'membership.user_no',
       ],
       tieBreaker: 'membership.id',
     });
@@ -439,7 +415,7 @@ export class UsersService {
     });
     return {
       id: user.id,
-      user_no: user.user_no,
+      user_no: membership.user_no,
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,
@@ -505,14 +481,6 @@ export class UsersService {
     });
   }
 
-  async findByUserNo(userNo: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { user_no: userNo } });
-  }
-
-  async existsByUserNo(userNo: string): Promise<boolean> {
-    return !!(await this.findByUserNo(userNo));
-  }
-
   async findMyProfileById(
     id: string,
     companyId?: string,
@@ -532,7 +500,7 @@ export class UsersService {
 
       return new UserProfileDto({
         id: user.id,
-        user_no: user.user_no,
+        user_no: null,
         first_name: user.first_name,
         last_name: user.last_name,
         phone: user.phone,
@@ -560,7 +528,7 @@ export class UsersService {
 
     return new UserProfileDto({
       id: user.id,
-      user_no: user.user_no,
+      user_no: currentCompany.userNo,
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,
@@ -598,7 +566,7 @@ export class UsersService {
 
     return new UserProfileDto({
       id: user.id,
-      user_no: user.user_no,
+      user_no: companyContext.userNo,
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,
@@ -635,7 +603,7 @@ export class UsersService {
 
     return new UserAdminDetailDto({
       id: user.id,
-      user_no: user.user_no,
+      user_no: ctx.userNo,
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,

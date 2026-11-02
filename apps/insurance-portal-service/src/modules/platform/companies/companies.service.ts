@@ -374,6 +374,7 @@ export class CompaniesService {
       companySlug: membership.company.slug,
       companyType: membership.company.company_type,
       membershipId: membership.id,
+      userNo: membership.user_no,
       isDefault: membership.is_default,
       roles:
         membership.role_assignments?.map(
@@ -384,26 +385,6 @@ export class CompaniesService {
       authorizationVersion: membership.authorization_version,
     };
   }
-
-  private async generateUserNo(manager?: EntityManager): Promise<string> {
-    const repository = this.getUserRepository(manager);
-    const year = new Date().getFullYear();
-    const prefix = `USER-${year}-`;
-
-    const lastUser = await repository
-      .createQueryBuilder('user')
-      .where('user.user_no LIKE :prefix', { prefix: `${prefix}%` })
-      .orderBy('user.user_no', 'DESC')
-      .limit(1)
-      .getOne();
-
-    const nextNumber = lastUser?.user_no
-      ? Number(lastUser.user_no.substring(prefix.length)) + 1
-      : 1;
-
-    return `${prefix}${String(nextNumber || 1).padStart(5, '0')}`;
-  }
-
   async createCompany(
     dto: {
       name: string;
@@ -542,11 +523,9 @@ export class CompaniesService {
       );
 
       const hashedPassword = await hashPassword(admin_password);
-      const userNo = await this.generateUserNo(manager);
 
       const administrator = await userRepository.save(
         userRepository.create({
-          user_no: userNo,
           first_name: admin_first_name,
           last_name: admin_last_name,
           phone: admin_phone,
@@ -599,7 +578,7 @@ export class CompaniesService {
         },
         administrator: {
           id: administrator.id,
-          user_no: administrator.user_no,
+          user_no: companyContext.userNo,
           first_name: administrator.first_name,
           last_name: administrator.last_name,
           phone: administrator.phone,
@@ -1935,6 +1914,7 @@ export class CompaniesService {
     companyId: string;
     companyName: string;
     companySlug: string;
+    userNo: number;
     quotationPolicyDataScope: CompanyUser['quotation_policy_data_scope'];
     roles: { id: string; name: string; display_name: string }[];
     permissions: { id: string; name: string; display_name: string }[];
@@ -1956,6 +1936,7 @@ export class CompaniesService {
       companyId: membership.company_id,
       companyName: membership.company.name,
       companySlug: membership.company.slug,
+      userNo: membership.user_no,
       quotationPolicyDataScope: membership.quotation_policy_data_scope,
       roles: (membership.role_assignments ?? []).map((a) => ({
         id: a.role.id,
@@ -2180,7 +2161,7 @@ export class CompaniesService {
           'user.last_name ILIKE :term OR ' +
           'user.email ILIKE :term OR ' +
           'user.phone ILIKE :term OR ' +
-          'user.user_no ILIKE :term)',
+          'CAST(membership.user_no AS TEXT) ILIKE :term)',
         { term },
       );
     }
@@ -2202,7 +2183,10 @@ export class CompaniesService {
       : 'created_at';
     const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
 
-    qb.orderBy(`user.${safeSortBy}`, direction);
+    qb.orderBy(
+      safeSortBy === 'user_no' ? 'membership.user_no' : `user.${safeSortBy}`,
+      direction,
+    );
 
     const skip = (page - 1) * limit;
     const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
@@ -2210,7 +2194,7 @@ export class CompaniesService {
     return {
       data: items.map((membership) => ({
         id: membership.user.id,
-        user_no: membership.user.user_no,
+        user_no: membership.user_no,
         first_name: membership.user.first_name,
         last_name: membership.user.last_name,
         phone: membership.user.phone,

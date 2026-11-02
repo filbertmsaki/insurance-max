@@ -12,7 +12,7 @@ export class PermissionDto {
 
 export class UserAdminDetailDto {
   id: string;
-  user_no: string;
+  user_no: number;
   first_name: string;
   last_name: string;
   phone: string;

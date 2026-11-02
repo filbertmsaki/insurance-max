@@ -124,6 +124,8 @@ route('/apps/reinsurance', 'Reinsurance');
 
 // ── Organisation & access ────────────────────────────────────────────────────
 route('/apps/users', 'Users');
+route('/apps/users/new', 'New User');
+route('/apps/users/:id/edit', 'Edit User');
 route('/apps/users/:id', 'User Details');
 route('/apps/roles', 'Roles');
 route('/apps/permissions', 'Permissions');

@@ -1,6 +1,6 @@
 export class UserProfileDto {
   id: string;
-  user_no: string;
+  user_no: number | null;
   first_name: string;
   last_name: string;
   phone: string;

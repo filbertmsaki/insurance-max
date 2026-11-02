@@ -22,7 +22,6 @@ type SeedUser = {
   email: string;
   phone: string;
   password: string;
-  userNo: string;
   officerTitle: string;
   roleNames: string[];
 };
@@ -52,7 +51,6 @@ const INTERMEDIARY_PORTAL_USER_SEEDS: IntermediaryPortalUserSeed[] = [
       phone: environment.SEED_BROKER_ADMIN_PHONE ?? '+255700000201',
       password:
         environment.SEED_BROKER_ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD,
-      userNo: environment.SEED_BROKER_ADMIN_USER_NO ?? 'BROKER-ADMIN-00001',
       officerTitle: 'Broker Administrator',
       roleNames: ['BROKER_ADMIN', 'PORTAL_ADMIN', 'INTERMEDIARY_PORTAL'],
     },
@@ -63,7 +61,6 @@ const INTERMEDIARY_PORTAL_USER_SEEDS: IntermediaryPortalUserSeed[] = [
         environment.SEED_BROKER_USER_EMAIL ?? 'kivuli.broker.user@example.test',
       phone: environment.SEED_BROKER_USER_PHONE ?? '+255700000202',
       password: environment.SEED_BROKER_USER_PASSWORD ?? DEFAULT_USER_PASSWORD,
-      userNo: environment.SEED_BROKER_USER_USER_NO ?? 'BROKER-USER-00001',
       officerTitle: 'Broker Portal User',
       roleNames: ['USER', 'INTERMEDIARY_PORTAL'],
     },
@@ -82,7 +79,6 @@ const INTERMEDIARY_PORTAL_USER_SEEDS: IntermediaryPortalUserSeed[] = [
       phone: environment.SEED_AGENCY_ADMIN_PHONE ?? '+255700000101',
       password:
         environment.SEED_AGENCY_ADMIN_PASSWORD ?? DEFAULT_ADMIN_PASSWORD,
-      userNo: environment.SEED_AGENCY_ADMIN_USER_NO ?? 'AGENCY-ADMIN-00001',
       officerTitle: 'Agency Administrator',
       roleNames: ['AGENCY_ADMIN', 'PORTAL_ADMIN', 'INTERMEDIARY_PORTAL'],
     },
@@ -93,7 +89,6 @@ const INTERMEDIARY_PORTAL_USER_SEEDS: IntermediaryPortalUserSeed[] = [
         environment.SEED_AGENCY_USER_EMAIL ?? 'heri.agency.user@example.test',
       phone: environment.SEED_AGENCY_USER_PHONE ?? '+255700000102',
       password: environment.SEED_AGENCY_USER_PASSWORD ?? DEFAULT_USER_PASSWORD,
-      userNo: environment.SEED_AGENCY_USER_USER_NO ?? 'AGENCY-USER-00001',
       officerTitle: 'Agency Portal User',
       roleNames: ['USER', 'INTERMEDIARY_PORTAL'],
     },
@@ -362,15 +357,14 @@ export default class IntermediaryPortalUsersSeeder implements Seeder {
         `
           UPDATE users
           SET
-            user_no = $2,
-            first_name = $3,
-            last_name = $4,
-            phone = $5,
-            email = $6,
-            password = $7,
+            first_name = $2,
+            last_name = $3,
+            phone = $4,
+            email = $5,
+            password = $6,
             status = 'active',
             user_type = 'COMPANY_USER',
-            officer_title = $8,
+            officer_title = $7,
             is_email_verified = true,
             failed_login_attempts = 0,
             locked_until = NULL,
@@ -379,7 +373,6 @@ export default class IntermediaryPortalUsersSeeder implements Seeder {
         `,
         [
           existingRows[0].id,
-          seed.userNo,
           seed.firstName,
           seed.lastName,
           seed.phone,
@@ -394,7 +387,6 @@ export default class IntermediaryPortalUsersSeeder implements Seeder {
     const insertedRows = (await queryRunner.query(
       `
         INSERT INTO users (
-          user_no,
           first_name,
           last_name,
           phone,
@@ -412,13 +404,12 @@ export default class IntermediaryPortalUsersSeeder implements Seeder {
           updated_at
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, 'active', 'COMPANY_USER',
-          $7, true, false, 0, false, 1, now(), now()
+          $1, $2, $3, $4, $5, 'active', 'COMPANY_USER',
+          $6, true, false, 0, false, 1, now(), now()
         )
         RETURNING id
       `,
       [
-        seed.userNo,
         seed.firstName,
         seed.lastName,
         seed.phone,

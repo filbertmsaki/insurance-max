@@ -14,7 +14,6 @@ export interface CreateUserDto {
   email: string;
   phone: string;
   password: string;
-  user_no?: string;
   status?: string;
   user_type?: UserType;
   officer_title: string;

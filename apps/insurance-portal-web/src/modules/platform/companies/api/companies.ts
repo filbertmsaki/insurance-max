@@ -63,7 +63,7 @@ export type UpdateNumberFormatSettingsDto = Partial<NumberFormatSettings>;
 
 export interface CompanyUser {
   id: string;
-  user_no: string;
+  user_no: number;
   first_name: string;
   last_name: string;
   phone: string;

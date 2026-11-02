@@ -48,7 +48,7 @@ export interface BranchUserAssignment {
   assigned_at: string;
   user: {
     id: string;
-    user_no: string;
+    user_no: number;
     first_name: string;
     last_name: string;
     email: string;
@@ -62,7 +62,7 @@ export interface EligibleBranchUser {
   company_user_id: string;
   user: {
     id: string;
-    user_no: string;
+    user_no: number;
     first_name: string;
     last_name: string;
     email: string;

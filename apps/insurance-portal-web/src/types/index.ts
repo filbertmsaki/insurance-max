@@ -33,7 +33,7 @@ export const COMPANY_USER_TYPES: UserType[] = [
 
 export interface User {
   id: string;
-  user_no: string;
+  user_no: number | null;
   first_name: string;
   last_name: string;
   phone: string;
@@ -57,7 +57,7 @@ export interface User {
 /** Shape returned by /users/me — roles/permissions are name strings for auth checks */
 export interface UserProfile {
   id: string;
-  user_no: string;
+  user_no: number | null;
   first_name: string;
   last_name: string;
   phone: string;
@@ -87,7 +87,7 @@ export interface UserProfile {
 /** Shape returned by /users/:id — full admin view with Role/Permission objects */
 export interface UserDetail {
   id: string;
-  user_no: string;
+  user_no: number | null;
   first_name: string;
   last_name: string;
   phone: string;

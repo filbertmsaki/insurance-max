@@ -352,7 +352,7 @@ export class DepartmentsService {
       assigned_at: assignment.created_at,
       user: {
         id: assignment.company_user.user.id,
-        user_no: assignment.company_user.user.user_no,
+        user_no: assignment.company_user.user_no,
         first_name: assignment.company_user.user.first_name,
         last_name: assignment.company_user.user.last_name,
         email: assignment.company_user.user.email,

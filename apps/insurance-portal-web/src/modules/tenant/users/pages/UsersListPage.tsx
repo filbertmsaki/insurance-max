@@ -10,12 +10,8 @@ import {
   UserX,
   ShieldCheck,
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -26,14 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
@@ -52,65 +40,14 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { usersApi } from '@/modules/tenant/users/api/users';
 import { rolesApi } from '@/modules/platform/roles/api/roles';
-import { branchesApi } from '@/modules/tenant/branches/api/branches';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard';
-import { mapApiErrorsToForm } from '@/lib/api-error';
 import {
   usersKeys,
-  useCreateUser,
   useUpdateUser,
   useDeleteUser,
   useAssignRole,
 } from '@/modules/tenant/users/hooks';
-import type {
-  QuotationPolicyDataScope,
-  UserProfile,
-  UserStatus,
-  UserType,
-} from '@/types';
-
-// ─── Validation schemas ───────────────────────────────────────────────────────
-
-const PHONE_REGEX = /^(\+255|255|0)[67]\d{8}$/;
-
-const USER_TYPE_VALUES = [
-  'SUPER_ADMIN',
-  'COMPANY_ADMIN',
-  'STAFF',
-  'AGENT',
-  'BROKER',
-  'CUSTOMER',
-  'OWNER',
-  'COMPANY_USER',
-] as const;
-
-const createUserSchema = z.object({
-  first_name: z.string().min(1, 'Required'),
-  last_name: z.string().min(1, 'Required'),
-  email: z.string().email('Invalid email'),
-  phone: z
-    .string()
-    .regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
-  password: z.string().min(6, 'Min 6 characters'),
-  user_no: z.string().optional(),
-  user_type: z.enum(USER_TYPE_VALUES).optional(),
-  officer_title: z.string().min(1, 'Required'),
-  branch_id: z.string().uuid('Branch is required'),
-});
-
-const editUserSchema = z.object({
-  first_name: z.string().min(1, 'Required'),
-  last_name: z.string().min(1, 'Required'),
-  phone: z
-    .string()
-    .regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
-  status: z.enum(['active', 'inactive', 'suspended', 'locked']),
-  user_type: z.enum(USER_TYPE_VALUES).optional(),
-});
-
-type CreateUserForm = z.infer<typeof createUserSchema>;
-type EditUserForm = z.infer<typeof editUserSchema>;
+import type { UserProfile, UserStatus, UserType } from '@/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -150,43 +87,11 @@ const ALL_USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'COMPANY_USER', label: 'Company User' },
 ];
 
-const NON_OWNER_USER_TYPES = ALL_USER_TYPES.filter(
-  (t) => t.value !== 'SUPER_ADMIN' && t.value !== 'COMPANY_ADMIN',
-);
-
-const DATA_SCOPE_LABELS: Record<QuotationPolicyDataScope, string> = {
-  USER: 'User Only',
-  DEPARTMENT: 'Department',
-  BRANCH: 'Branch',
-  COMPANY: 'Company',
-};
-
-const CREATE_FIELD_MAP: Partial<Record<string, keyof CreateUserForm & string>> =
-  {
-    first_name: 'first_name',
-    last_name: 'last_name',
-    email: 'email',
-    phone: 'phone',
-    password: 'password',
-    user_no: 'user_no',
-    officer_title: 'officer_title',
-    branch_id: 'branch_id',
-  };
-
-const EDIT_FIELD_MAP: Partial<Record<string, keyof EditUserForm & string>> = {
-  first_name: 'first_name',
-  last_name: 'last_name',
-  phone: 'phone',
-  status: 'status',
-};
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function UsersListPage() {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
-  const { isOwner } = useRbacGuard();
-  const userTypeOptions = isOwner ? ALL_USER_TYPES : NON_OWNER_USER_TYPES;
 
   // ── Permissions ───────────────────────────────────────────────────────────
   const canCreate = hasPermission('users:create');
@@ -203,8 +108,6 @@ export function UsersListPage() {
   });
 
   // ── Dialog state ─────────────────────────────────────────────────────────
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editUser, setEditUser] = useState<UserProfile | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [assignRoleUser, setAssignRoleUser] = useState<UserProfile | null>(
     null,
@@ -217,87 +120,28 @@ export function UsersListPage() {
     queryFn: rolesApi.getRoles,
     enabled: !!assignRoleUser,
   });
-  const { data: branchOptions = [] } = useQuery({
-    queryKey: ['branches', 'user-assignment-options'],
-    queryFn: branchesApi.getAllBranches,
-    staleTime: 30_000,
-  });
-
-  // ── Forms ────────────────────────────────────────────────────────────────
-  const createForm = useForm<CreateUserForm>({
-    resolver: zodResolver(createUserSchema),
-    defaultValues: {
-      first_name: '',
-      last_name: '',
-      email: '',
-      phone: '',
-      password: '',
-      user_no: '',
-      user_type: undefined,
-      officer_title: 'Underwriter',
-      branch_id: '',
-    },
-  });
-
-  const editForm = useForm<EditUserForm>({
-    resolver: zodResolver(editUserSchema),
-    defaultValues: {
-      first_name: '',
-      last_name: '',
-      phone: '',
-      status: 'active',
-      user_type: undefined,
-    },
-  });
 
   // ── Mutations ────────────────────────────────────────────────────────────
-  const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
   const assignRoleMutation = useAssignRole();
-
-  const handleCreate = (data: CreateUserForm) => {
-    const payload = { ...data, user_no: data.user_no || undefined };
-    createMutation.mutate(payload, {
-      onSuccess: () => {
-        setCreateOpen(false);
-        createForm.reset();
-      },
-      onError: (err) =>
-        mapApiErrorsToForm(err, createForm.setError, CREATE_FIELD_MAP),
-    });
-  };
-
-  const handleUpdate = (data: EditUserForm) => {
-    if (!editUser) return;
-    updateMutation.mutate(
-      { id: editUser.id, data },
-      {
-        onSuccess: () => setEditUser(null),
-        onError: (err) =>
-          mapApiErrorsToForm(err, editForm.setError, EDIT_FIELD_MAP),
-      },
-    );
-  };
 
   const handleToggleStatus = (user: UserProfile) => {
     const next = STATUS_NEXT[user.status].next;
     updateMutation.mutate({ id: user.id, data: { status: next } });
   };
 
-  const openEdit = (user: UserProfile) => {
-    editForm.reset({
-      first_name: user.first_name,
-      last_name: user.last_name,
-      phone: user.phone,
-      status: user.status,
-      user_type: user.user_type as UserType | undefined,
-    });
-    setEditUser(user);
-  };
-
   // ── Columns ──────────────────────────────────────────────────────────────
   const columns: Column<UserProfile>[] = [
+    {
+      key: 'user_no',
+      header: 'User No.',
+      cell: (row) => (
+        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+          {row.user_no}
+        </code>
+      ),
+    },
     {
       key: 'user',
       header: 'User',
@@ -320,15 +164,6 @@ export function UsersListPage() {
       ),
     },
     {
-      key: 'user_no',
-      header: 'User No.',
-      cell: (row) => (
-        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">
-          {row.user_no}
-        </code>
-      ),
-    },
-    {
       key: 'phone',
       header: 'Phone',
       cell: (row) => (
@@ -340,55 +175,6 @@ export function UsersListPage() {
       header: 'Status',
       sortable: true,
       cell: (row) => <StatusBadge status={row.status} />,
-    },
-    {
-      key: 'user_type',
-      header: 'Type',
-      cell: (row) => (
-        <Badge variant="outline" className="text-xs font-normal">
-          {row.user_type?.replace(/_/g, ' ') ?? '—'}
-        </Badge>
-      ),
-    },
-    {
-      key: 'officer_title',
-      header: 'Officer title',
-      cell: (row) => (
-        <span className="text-sm text-slate-600">
-          {row.officer_title || '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'roles',
-      header: 'Roles',
-      cell: (row) => (
-        <div className="flex flex-wrap gap-1">
-          {row.roles.length === 0 ? (
-            <span className="text-xs text-slate-400">—</span>
-          ) : (
-            row.roles.slice(0, 2).map((r) => (
-              <Badge key={r} variant="secondary" className="text-xs">
-                {r}
-              </Badge>
-            ))
-          )}
-          {row.roles.length > 2 && (
-            <Badge variant="secondary" className="text-xs">
-              +{row.roles.length - 2}
-            </Badge>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'quotation_policy_data_scope',
-      header: 'Data scope',
-      cell: (row) => (
-        <Badge variant="outline" className="text-xs font-normal">
-          {DATA_SCOPE_LABELS[row.quotation_policy_data_scope ?? 'USER']}
-        </Badge>
-      ),
     },
     {
       key: 'created_at',
@@ -412,7 +198,7 @@ export function UsersListPage() {
       label: 'Edit',
       icon: Pencil,
       hidden: !canUpdate,
-      onClick: openEdit,
+      onClick: (row: UserProfile) => navigate(`/apps/users/${row.id}/edit`),
     },
     {
       label: 'Deactivate',
@@ -460,7 +246,7 @@ export function UsersListPage() {
         description="Manage all users in this company"
         action={
           canCreate ? (
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button onClick={() => navigate('/apps/users/new')}>
               <Plus className="mr-2 h-4 w-4" /> Add User
             </Button>
           ) : undefined
@@ -485,327 +271,6 @@ export function UsersListPage() {
         rowActions={rowActions}
         emptyMessage="No users yet"
       />
-
-      {/* ── Create Dialog ── */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>
-              Create a new user account in this company.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...createForm}>
-            <form
-              onSubmit={createForm.handleSubmit(handleCreate)}
-              className="space-y-4"
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={createForm.control}
-                  name="first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createForm.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={createForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="john@company.com"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <Input placeholder="+255712345678" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Min 6 characters"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="user_no"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      User number{' '}
-                      <span className="text-slate-400 font-normal">
-                        (optional)
-                      </span>
-                    </FormLabel>
-                    <FormControl>
-                      <Input placeholder="Auto-generated if blank" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="user_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      User type{' '}
-                      <span className="text-slate-400 font-normal">
-                        (optional)
-                      </span>
-                    </FormLabel>
-                    <Select
-                      value={field.value ?? ''}
-                      onValueChange={(v) => field.onChange(v || undefined)}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select user type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {userTypeOptions.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="officer_title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Officer title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Underwriter" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name="branch_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assigned branch</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select branch" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {branchOptions
-                          .filter((branch) => branch.status === 'active')
-                          .map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id}>
-                              {branch.name} ({branch.code})
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setCreateOpen(false);
-                    createForm.reset();
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Creating…' : 'Create user'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Edit Dialog ── */}
-      <Dialog open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update {editUser?.first_name} {editUser?.last_name}'s details.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...editForm}>
-            <form
-              onSubmit={editForm.handleSubmit(handleUpdate)}
-              className="space-y-4"
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={editForm.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {USER_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s} className="capitalize">
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="user_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>User type</FormLabel>
-                    <Select
-                      value={field.value ?? ''}
-                      onValueChange={(v) => field.onChange(v || undefined)}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select user type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {userTypeOptions.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditUser(null)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateMutation.isPending}>
-                  {updateMutation.isPending ? 'Saving…' : 'Save changes'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Assign Role Dialog ── */}
       <Dialog

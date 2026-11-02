@@ -28,6 +28,10 @@ export class CompanyUser {
   @Column({ type: 'varchar' })
   user_id: string;
 
+  // Assigned per company by the assign_company_user_no database trigger.
+  @Column({ type: 'integer', insert: false, update: false })
+  user_no: number;
+
   @Column({ default: 'active', length: 20 })
   status: string;
 

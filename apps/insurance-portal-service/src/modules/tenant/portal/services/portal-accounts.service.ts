@@ -376,11 +376,8 @@ export class PortalAccountsService {
         );
       }
 
-      const userNo = await this.generateUserNo(manager);
-
       const user = await userRepository.save(
         userRepository.create({
-          user_no: userNo,
           first_name: invitation.first_name?.trim() || 'Portal',
           last_name: invitation.last_name?.trim() || 'User',
           phone: normalizedPhone,
@@ -1597,29 +1594,6 @@ export class PortalAccountsService {
     invitation.accepted_at = new Date();
 
     await manager.getRepository(PortalInvitation).save(invitation);
-  }
-
-  /**
-   * Follows the existing USR-00001 format. A dedicated sequence table would
-   * be preferable if the user count can exceed the fixed number length.
-   */
-  private async generateUserNo(manager: EntityManager) {
-    await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
-      'portal-user-number',
-    ]);
-
-    const rows = await manager.query(`
-      SELECT user_no
-      FROM users
-      WHERE user_no ~ '^USR-[0-9]+$'
-      ORDER BY CAST(REPLACE(user_no, 'USR-', '') AS bigint) DESC
-      LIMIT 1
-    `);
-
-    const last = String(rows[0]?.user_no ?? 'USR-00000');
-    const next = Number(last.replace('USR-', '')) + 1;
-
-    return `USR-${String(next).padStart(5, '0')}`;
   }
 
   private resolveIntermediaryUserType(companyType: CompanyType): UserType {

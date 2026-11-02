@@ -43,6 +43,7 @@ import { TwoFactorPage } from '@/modules/shared/auth/pages/TwoFactorPage';
 import { DashboardPage } from '@/modules/shared/dashboard/pages/DashboardPage';
 import { UsersListPage } from '@/modules/tenant/users/pages/UsersListPage';
 import { UserDetailPage } from '@/modules/tenant/users/pages/UserDetailPage';
+import { UserFormPage } from '@/modules/tenant/users/pages/UserFormPage';
 import { CompaniesListPage } from '@/modules/platform/companies/pages/CompaniesListPage';
 import { CompanyDetailPage } from '@/modules/platform/companies/pages/CompanyDetailPage';
 import { MyCompanyPage } from '@/modules/platform/companies/pages/MyCompanyPage';
@@ -756,6 +757,29 @@ export default function App() {
                 }
               >
                 <Route path="/apps/users" element={<UsersListPage />} />
+                <Route
+                  element={
+                    <ProtectedRoute
+                      requiredPermission="users:create"
+                      allowedScopes={['company']}
+                    />
+                  }
+                >
+                  <Route path="/apps/users/new" element={<UserFormPage />} />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute
+                      requiredPermission="users:update"
+                      allowedScopes={['company']}
+                    />
+                  }
+                >
+                  <Route
+                    path="/apps/users/:id/edit"
+                    element={<UserFormPage />}
+                  />
+                </Route>
                 <Route path="/apps/users/:id" element={<UserDetailPage />} />
               </Route>
 
