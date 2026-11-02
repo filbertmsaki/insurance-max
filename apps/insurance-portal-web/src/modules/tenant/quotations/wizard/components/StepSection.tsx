@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
+import { WizardSectionTitleContext } from './WizardSectionTitleContext';
 import { cn } from '@/lib/utils';
 
 interface StepSectionProps {
@@ -30,6 +31,7 @@ export function StepSection({
   children,
 }: StepSectionProps) {
   const isItem = variant === 'item';
+  const showTitle = useContext(WizardSectionTitleContext);
 
   return (
     <div
@@ -40,10 +42,11 @@ export function StepSection({
         className,
       )}
     >
-      {(title || action) && (
+      {!showTitle && title && <h3 className="sr-only">{title}</h3>}
+      {((showTitle && title) || description || action) && (
         <div className="mb-2.5 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            {title && (
+            {showTitle && title && (
               <h3
                 className={
                   isItem

@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from 'react';
+import { WizardSectionTitle } from '@/modules/tenant/quotations/wizard/components/WizardSectionTitle';
+import { useEffect, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Label } from '@/components/ui/label';
 import {
@@ -34,6 +35,7 @@ interface Props {
   firstSection?: boolean;
   canSelectInsuranceChannel?: boolean;
   showCategoryPicker?: boolean;
+  showWording?: boolean;
 }
 // eslint-disable-next-line react-refresh/only-export-components
 export const CHANNEL_TYPES = [
@@ -52,6 +54,7 @@ export function CoverNoteSetupStep({
   firstSection = true,
   canSelectInsuranceChannel = true,
   showCategoryPicker = true,
+  showWording = true,
 }: Props) {
   const values = form.watch();
   const product = productOptions.find((item) => item.id === values.product_id);
@@ -165,8 +168,10 @@ export function CoverNoteSetupStep({
         })}
       </div>
       {hasCoverOptions && (
-        <div className="rounded-lg border p-3">
-          <p className="text-sm font-medium">Cover options</p>
+        <div hidden={!showWording} className="rounded-lg border p-3">
+          <WizardSectionTitle className="text-sm font-medium">
+            Cover options
+          </WizardSectionTitle>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {canSelectInsuranceChannel &&
               values.channel_type !== 'DIRECT' &&
@@ -218,7 +223,9 @@ export function CoverNoteSetupStep({
       )}
       <div className="rounded-lg border p-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium">Cover wording</p>
+          <WizardSectionTitle className="text-sm font-medium">
+            Cover wording
+          </WizardSectionTitle>
           <button
             type="button"
             className="text-xs font-medium text-primary hover:underline"

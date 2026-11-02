@@ -186,7 +186,9 @@ function Notice({ children }: { children: ReactNode }) {
 export function FleetQuotationDetails({
   preview,
   renderRiskActions,
+  onViewTiramis,
 }: {
+  onViewTiramis?: () => void;
   preview: QuotationPreviewRecord;
   renderRiskActions: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
@@ -259,6 +261,16 @@ export function FleetQuotationDetails({
           summary.failed_entries > 0 ||
           summary.pending_entries > 0) && (
           <div className="mt-3 space-y-2">
+            {onViewTiramis &&
+              (summary.failed_entries > 0 || summary.pending_entries > 0) && (
+                <button
+                  type="button"
+                  className="min-h-11 text-sm font-medium text-blue-600 underline"
+                  onClick={onViewTiramis}
+                >
+                  View vehicle submission status in TIRAMIS
+                </button>
+              )}
             {sizeMismatch && (
               <Notice>
                 {formatNumber(summary.declared_fleet_size, 0)} vehicles were
@@ -288,6 +300,7 @@ export function FleetQuotationDetails({
         description="Select a vehicle to see its details, risk and premium breakdown."
       >
         <FleetVehiclesTable
+          currency={currency ?? undefined}
           vehicles={vehicles}
           renderRiskActions={renderRiskActions}
         />
@@ -295,7 +308,7 @@ export function FleetQuotationDetails({
 
       <FleetPremiumBreakdown preview={preview} />
 
-      <SectionCard title="Cover and terms">
+      <SectionCard title="Cover and terms" mobileCollapsible>
         <FactList
           items={[
             { label: 'Fleet ID', value: header.fleet_id },
@@ -346,9 +359,12 @@ export function FleetQuotationDetails({
         />
       </SectionCard>
 
-      <PolicyholderPreview policyholders={preview.policyholders} />
+      <PolicyholderPreview
+        policyholders={preview.policyholders}
+        mobileCollapsible
+      />
 
-      <SectionCard title="Record details">
+      <SectionCard title="Record details" mobileCollapsible>
         <FactList
           items={[
             { label: 'Channel', value: overview.channel_type },

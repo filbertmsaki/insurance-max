@@ -33,7 +33,7 @@ const FLEET_TYPE_OPTIONS = [
 const FLEET_WIZARD_STEPS: UnderwriteWizardStep[] = [
   {
     id: 'customer',
-    label: 'Customer, Fleet & Cover',
+    label: 'Customer & Cover',
     description: 'Fleet owner, fleet type, product and cover period',
     fields: [
       'customer_id',
@@ -73,7 +73,7 @@ const FLEET_WIZARD_STEPS: UnderwriteWizardStep[] = [
   },
   {
     id: 'review',
-    label: 'Review & Submit',
+    label: 'Review',
     description: 'Check the fleet before completing',
     fields: ['payment_mode_tira'],
   },
@@ -193,6 +193,8 @@ export function FleetQuotationWizardPage() {
     line: FLEET,
     quotationId: id,
     steps: FLEET_WIZARD_STEPS,
+    deferDraftUntilStepId: 'premium',
+    allowEarlyManualDraft: true,
     // Drafts saved before Customer, Fleet Details and Product & Cover merged.
     stepAliases: { fleet: 'customer', cover: 'customer' },
   });
@@ -248,41 +250,42 @@ export function FleetQuotationWizardPage() {
             );
           case 'premium':
             return (
-              <>
-                <div className="hidden" aria-hidden="true">
-                  <MotorFleetDetailsStep
-                    form={form}
-                    customerOptions={wizard.customerOptions}
-                    riskOptions={wizard.riskOptions}
-                    vehicleOptions={wizard.vehicleOptions}
-                    fieldArray={wizard.fleetFieldArray}
-                    onAddVehicle={actions.add}
-                    onRemoveVehicle={actions.remove}
-                    onDuplicateVehicle={actions.duplicate}
-                    onImportVehicles={actions.importRows}
-                    factorContext={wizard.factorContext}
-                    autoCalculateUnpricedOnly
-                  />
-                </div>
-                <FleetPremiumStep
-                  wizard={wizard}
-                  onEditVehicles={() => wizard.setStep('vehicles')}
-                />
-              </>
+              <FleetPremiumStep
+                wizard={wizard}
+                onEditVehicles={() => wizard.setStep('vehicles')}
+              />
             );
           case 'source':
             return <BusinessSourceStep wizard={wizard} />;
           case 'review':
             return (
-              <SummaryReviewStep
-                form={form}
-                customerOptions={wizard.customerOptions}
-                categoryOptions={wizard.categoryOptions}
-                productOptions={wizard.productOptions}
-                riskOptions={wizard.riskOptions}
-                riskCount={wizard.fleetFieldArray.fields.length}
-                onEditStep={(step) => wizard.setStep(fleetStepFor(step))}
-              />
+              <div className="space-y-6">
+                <SummaryReviewStep
+                  form={form}
+                  customerOptions={wizard.customerOptions}
+                  categoryOptions={wizard.categoryOptions}
+                  productOptions={wizard.productOptions}
+                  riskOptions={wizard.riskOptions}
+                  riskCount={wizard.fleetFieldArray.fields.length}
+                  onEditStep={(step) =>
+                    void wizard.goToStep(fleetStepFor(step))
+                  }
+                  onEditSection={(section) =>
+                    void wizard.goToStep(
+                      section === 'customer' || section === 'cover'
+                        ? 'customer'
+                        : section === 'premium'
+                          ? 'premium'
+                          : 'vehicles',
+                    )
+                  }
+                />
+                <BusinessSourceStep
+                  wizard={wizard}
+                  readOnly
+                  onEdit={() => void wizard.goToStep('source')}
+                />
+              </div>
             );
           default:
             return null;

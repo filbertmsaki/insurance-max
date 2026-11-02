@@ -106,6 +106,7 @@ export function useUnderwriteQuotationWizard({
   steps: allSteps,
   stepAliases,
   deferDraftUntilStepId,
+  allowEarlyManualDraft = false,
   hooks,
 }: {
   line: UnderwriteLineMeta;
@@ -115,6 +116,8 @@ export function useUnderwriteQuotationWizard({
   stepAliases?: Record<string, string>;
   /** New drafts are first persisted when moving forward from this step. */
   deferDraftUntilStepId?: string;
+  /** Allow an explicit Save draft before automatic draft creation is enabled. */
+  allowEarlyManualDraft?: boolean;
   hooks?: UnderwriteWizardHooks;
 }) {
   // Kept in a ref so callers can pass inline callbacks without re-creating
@@ -530,7 +533,11 @@ export function useUnderwriteQuotationWizard({
     [queryClient],
   );
 
+  const [savedValuesSignature, setSavedValuesSignature] = useState<
+    string | null
+  >(null);
   const saveMutation = useMutation({
+    onMutate: () => ({ valuesSignature: JSON.stringify(form.getValues()) }),
     mutationFn: ({
       currentWizardStep,
     }: {
@@ -548,7 +555,8 @@ export function useUnderwriteQuotationWizard({
           })
         : underwriteApi.createDraft(line.slug, payload);
     },
-    onSuccess: async (quotation, variables) => {
+    onSuccess: async (quotation, variables, context) => {
+      setSavedValuesSignature(context?.valuesSignature ?? null);
       onSaved(quotation);
       if (hooksRef.current?.afterDraftSaved) {
         try {
@@ -605,7 +613,8 @@ export function useUnderwriteQuotationWizard({
         !activeDraftId &&
         !isEditMode &&
         deferredStepIndex >= 0 &&
-        stepIndex <= deferredStepIndex
+        stepIndex <= deferredStepIndex &&
+        (silent || !allowEarlyManualDraft)
       ) {
         return null;
       }
@@ -620,6 +629,7 @@ export function useUnderwriteQuotationWizard({
     },
     [
       activeDraftId,
+      allowEarlyManualDraft,
       deferDraftUntilStepId,
       isEditMode,
       saveMutation,
@@ -704,6 +714,23 @@ export function useUnderwriteQuotationWizard({
           toast.error(earlierStepError.validate!());
           return;
         }
+        if (line.line === 'FLEET') {
+          const values = form.getValues();
+          if (
+            !values.fleet.items.length ||
+            values.fleet.items.some((item) => !item.risks_covered.length)
+          ) {
+            toast.error(
+              'Add at least one vehicle with cover before saving the fleet draft.',
+            );
+            return;
+          }
+          const pricingIssues = quotationPricingIssues(values);
+          if (pricingIssues.length) {
+            toast.error(pricingIssues[0]);
+            return;
+          }
+        }
         try {
           await saveMutation.mutateAsync({
             currentWizardStep: nextStepId,
@@ -717,7 +744,7 @@ export function useUnderwriteQuotationWizard({
         previous.includes(stepId) ? previous : [...previous, stepId],
       );
       setSelectedStepId(nextStepId);
-      // Defer first Motor persistence until its configured completion step.
+      // Defer first automatic persistence until the configured completion step.
       // Existing drafts and other line wizards keep their normal autosaves.
       if (
         form.getValues('product_id') &&
@@ -725,8 +752,7 @@ export function useUnderwriteQuotationWizard({
           deferDraftUntilStepId &&
           !activeDraftId &&
           !isEditMode &&
-          deferredStepIndex >= 0 &&
-          stepIndex < deferredStepIndex
+          deferredStepIndex >= 0
         ) &&
         !creatingDeferredDraft
       ) {
@@ -741,6 +767,7 @@ export function useUnderwriteQuotationWizard({
       deferDraftUntilStepId,
       form,
       isEditMode,
+      line.line,
       saveMutation,
       stepId,
       stepIndex,
@@ -864,6 +891,8 @@ export function useUnderwriteQuotationWizard({
 
   return {
     form,
+    savedValuesSignature,
+    existingQuotation,
     line,
     steps,
     stepId,
@@ -890,7 +919,10 @@ export function useUnderwriteQuotationWizard({
     isDeleting: deleteMutation.isPending,
     hasProduct: Boolean(productId),
     canSaveDraft:
-      isEditMode || Boolean(activeDraftId) || !deferDraftUntilStepId,
+      isEditMode ||
+      Boolean(activeDraftId) ||
+      allowEarlyManualDraft ||
+      !deferDraftUntilStepId,
     canSelectInsuranceChannel,
     companyId,
     salePointCode,

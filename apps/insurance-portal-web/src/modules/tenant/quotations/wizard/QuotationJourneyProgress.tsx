@@ -60,7 +60,6 @@ export function QuotationJourneyProgress({
     0,
     steps.findIndex((step) => step.id === currentStep),
   );
-  const progressPercent = ((activeIndex + 1) / Math.max(steps.length, 1)) * 100;
 
   const isPassed = steps.map(
     (step, index) => completedSteps.includes(step.id) || index < activeIndex,
@@ -68,14 +67,25 @@ export function QuotationJourneyProgress({
 
   return (
     <nav aria-label="Quotation progress">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-          Step {activeIndex + 1} of {steps.length}
-        </p>
-        <p className="text-[11px] font-medium text-slate-400">
-          {Math.round(progressPercent)}% complete
-        </p>
-      </div>
+      <select
+        aria-label="Navigate quotation steps"
+        value={currentStep}
+        onChange={(event) => onStepClick?.(event.target.value)}
+        className="mb-4 min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base sm:hidden"
+      >
+        {steps.map((step, index) => (
+          <option
+            key={step.id}
+            value={step.id}
+            disabled={
+              !onStepClick || !(step.id === currentStep || isPassed[index])
+            }
+          >
+            {index + 1}. {step.title ?? step.label ?? step.id}
+            {errorSteps.includes(step.id) ? ' — Needs attention' : ''}
+          </option>
+        ))}
+      </select>
 
       <ol
         className="grid overflow-x-auto pb-1"
@@ -148,7 +158,7 @@ export function QuotationJourneyProgress({
               </div>
               <span
                 className={cn(
-                  'mt-2 hidden max-w-[6.5rem] truncate text-center text-[11px] leading-tight transition-colors duration-300 sm:block',
+                  'mt-2 hidden max-w-32 text-center text-xs leading-snug transition-colors duration-300 sm:block',
                   LABEL_CLASSES[status],
                 )}
               >

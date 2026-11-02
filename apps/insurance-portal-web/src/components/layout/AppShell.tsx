@@ -1,3 +1,4 @@
+import { underwritePaths } from '@/modules/tenant/underwrite/paths';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -88,7 +89,19 @@ export function AppShell() {
                 ref={mainRef}
                 className="vz-main flex min-h-0 flex-1 flex-col overflow-y-auto"
               >
-                <PageTitleBar crumbs={crumbs} />
+                <PageTitleBar
+                  crumbs={crumbs}
+                  links={
+                    location.pathname.startsWith(
+                      underwritePaths.quotations('fleet'),
+                    )
+                      ? {
+                          Fleet: underwritePaths.lineDashboard('fleet'),
+                          Quotations: underwritePaths.quotations('fleet'),
+                        }
+                      : undefined
+                  }
+                />
                 <div className="w-full flex-1 px-3 py-5 sm:px-5 lg:px-6 lg:py-6">
                   <Outlet />
                 </div>

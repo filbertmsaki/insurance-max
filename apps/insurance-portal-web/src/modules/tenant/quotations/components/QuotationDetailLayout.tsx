@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,12 +17,16 @@ export function SectionCard({
   description,
   action,
   children,
+  mobileCollapsible = false,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
   children: ReactNode;
+  mobileCollapsible?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const contentId = useId();
   return (
     <section className="min-w-0 border-b border-slate-200 px-4 py-5 last:border-b-0 sm:px-6">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -32,9 +36,31 @@ export function SectionCard({
             <p className="mt-1 text-xs text-slate-500">{description}</p>
           )}
         </div>
-        {action}
+        <div className="flex items-center gap-2">
+          {action}
+          {mobileCollapsible && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="min-h-11 sm:hidden"
+              aria-expanded={expanded}
+              aria-controls={contentId}
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? 'Hide' : 'Show'}
+              <span className="sr-only"> {title}</span>
+            </Button>
+          )}
+        </div>
       </div>
-      {children}
+      <div
+        id={contentId}
+        className={
+          mobileCollapsible && !expanded ? 'hidden sm:block' : undefined
+        }
+      >
+        {children}
+      </div>
     </section>
   );
 }
@@ -121,7 +147,14 @@ export function QuotationDetailHeader({
           {actions}
         </div>
       </div>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-slate-100 px-4 py-4 sm:px-5 xl:grid-cols-4">
+      <dl
+        className={
+          'grid grid-cols-1 gap-x-6 gap-y-3 border-t border-slate-100 px-4 py-4 sm:grid-cols-2 sm:px-5 ' +
+          (overview.quotation_flow === 'MOTOR_FLEET'
+            ? 'xl:grid-cols-3'
+            : 'xl:grid-cols-4')
+        }
+      >
         {[
           ['Quotation date', formatDate(overview.created_at)],
           ['Workflow', workflowLabel],
@@ -133,14 +166,20 @@ export function QuotationDetailHeader({
               premium_summary.currency,
             ),
           ],
-        ].map(([label, value]) => (
-          <div key={label} className="min-w-0">
-            <dt className="text-xs text-slate-500">{label}</dt>
-            <dd className="mt-1 font-semibold text-slate-900 [overflow-wrap:anywhere]">
-              {displayValue(value)}
-            </dd>
-          </div>
-        ))}
+        ]
+          .filter(
+            ([label]) =>
+              preview.overview.quotation_flow !== 'MOTOR_FLEET' ||
+              label !== 'Total premium',
+          )
+          .map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-xs text-slate-500">{label}</dt>
+              <dd className="mt-1 font-semibold text-slate-900 [overflow-wrap:anywhere]">
+                {displayValue(value)}
+              </dd>
+            </div>
+          ))}
       </dl>
     </header>
   );

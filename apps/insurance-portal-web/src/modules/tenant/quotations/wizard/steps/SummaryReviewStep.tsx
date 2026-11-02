@@ -175,7 +175,10 @@ export function SummaryReviewStep({
         {values.quotation_flow === 'MOTOR_FLEET' && (
           <>
             <div>
-              <p className="text-slate-500">Fleet size</p>
+              <p className="text-slate-500">
+                Fleet size
+                <EditLink section="vehicle" onEditSection={onEditSection} />
+              </p>
               <p>
                 {fleetCount.total} vehicle{fleetCount.total === 1 ? '' : 's'}
               </p>

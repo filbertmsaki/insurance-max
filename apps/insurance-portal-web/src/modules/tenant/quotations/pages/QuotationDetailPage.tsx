@@ -621,7 +621,14 @@ export function QuotationDetailPage({
                 value={tab.id}
                 className="min-h-11 px-3 sm:px-4"
               >
-                {tab.label}
+                {activeLine === 'fleet'
+                  ? {
+                      details: 'Overview',
+                      payment: 'Payments',
+                      tiramis: 'TIRAMIS',
+                      history: 'History',
+                    }[tab.id]
+                  : tab.label}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -630,6 +637,12 @@ export function QuotationDetailPage({
           <QuotationDetailsContent
             preview={preview}
             renderRiskActions={renderRiskActions}
+            onViewTiramis={() => {
+              setActiveTab('tiramis');
+              setVisitedTabs((tabs) =>
+                tabs.includes('tiramis') ? tabs : [...tabs, 'tiramis'],
+              );
+            }}
           />
         </TabsContent>
         <TabsContent

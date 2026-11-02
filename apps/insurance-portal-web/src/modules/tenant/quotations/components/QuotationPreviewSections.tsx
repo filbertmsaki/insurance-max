@@ -284,7 +284,9 @@ export function QuotationOverviewPreview({
 
 export function PolicyholderPreview({
   policyholders,
+  mobileCollapsible = false,
 }: {
+  mobileCollapsible?: boolean;
   policyholders: QuotationPreviewPolicyholder[];
 }) {
   if (!policyholders.length)
@@ -294,6 +296,7 @@ export function PolicyholderPreview({
     <div className="space-y-4">
       {policyholders.map((holder, index) => (
         <SectionCard
+          mobileCollapsible={mobileCollapsible}
           key={`${holder.full_name ?? 'policyholder'}-${index}`}
           title={
             policyholders.length === 1
@@ -986,8 +989,10 @@ function vehicleTotalSumInsured(vehicle: QuotationPreviewFleetVehicle) {
 
 export function FleetVehiclesTable({
   vehicles,
+  currency,
   renderRiskActions,
 }: {
+  currency?: string;
   vehicles: QuotationPreviewFleetVehicle[];
   renderRiskActions?: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
@@ -1003,6 +1008,7 @@ export function FleetVehiclesTable({
     return vehicles.filter((vehicle) =>
       [
         vehicle.motor_details?.registration_number,
+        vehicle.motor_details?.chassis_number,
         vehicle.motor_details?.make,
         vehicle.motor_details?.model,
         vehicle.cover_note_number,
@@ -1060,7 +1066,7 @@ export function FleetVehiclesTable({
       header: 'Sum Insured',
       className: 'text-right tabular-nums',
       hideOnMobile: true,
-      cell: (vehicle) => formatMoney(vehicleTotalSumInsured(vehicle)),
+      cell: (vehicle) => formatMoney(vehicleTotalSumInsured(vehicle), currency),
     },
     {
       key: 'premium',
@@ -1068,7 +1074,7 @@ export function FleetVehiclesTable({
       className: 'text-right tabular-nums',
       cell: (vehicle) => (
         <span className="font-medium text-slate-900">
-          {formatMoney(vehicleTotalPremium(vehicle))}
+          {formatMoney(vehicleTotalPremium(vehicle), currency)}
         </span>
       ),
     },
@@ -1115,25 +1121,94 @@ export function FleetVehiclesTable({
             setSearch(event.target.value);
             setPage(1);
           }}
-          className="pl-9"
+          className="min-h-11 pl-9 text-base sm:text-sm"
         />
       </div>
 
-      <DataTable
-        columns={columns}
-        data={pageVehicles}
-        page={page}
-        limit={limit}
-        total={filtered.length}
-        totalPages={totalPages}
-        onPageChange={setPage}
-        onLimitChange={(nextLimit) => {
-          setLimit(nextLimit);
-          setPage(1);
-        }}
-        showColumnVisibility={false}
-        onRowClick={setSelectedVehicle}
-      />
+      {filtered.length === 0 && (
+        <p
+          role="status"
+          className="py-6 text-center text-sm text-slate-500 md:hidden"
+        >
+          No vehicles match your search.
+        </p>
+      )}
+      <ul className="space-y-3 md:hidden">
+        {pageVehicles.map((vehicle) => (
+          <li
+            key={vehicle.fleet_entry_number}
+            className="rounded-lg border border-slate-200 p-4"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="break-all text-sm font-semibold">
+                  {vehicle.motor_details?.registration_number ||
+                    vehicle.motor_details?.chassis_number ||
+                    'Vehicle'}
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {[vehicle.motor_details?.make, vehicle.motor_details?.model]
+                    .filter(Boolean)
+                    .join(' ')}
+                </p>
+              </div>
+              {tiramisStatusBadge(vehicle.tiramis?.submission_status)}
+            </div>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div>
+                <dt className="text-xs text-slate-500">Cover</dt>
+                <dd>
+                  {vehicle.risks
+                    .map((risk) => risk.risk_name)
+                    .filter(Boolean)
+                    .join(', ') || 'Not provided'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Sum insured</dt>
+                <dd className="break-words tabular-nums">
+                  {formatMoney(vehicleTotalSumInsured(vehicle), currency)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Premium incl. tax</dt>
+                <dd className="break-words font-semibold tabular-nums">
+                  {formatMoney(vehicleTotalPremium(vehicle), currency)}
+                </dd>
+              </div>
+            </dl>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3 min-h-11 w-full"
+              onClick={() => setSelectedVehicle(vehicle)}
+            >
+              View details
+              <span className="sr-only">
+                {' '}
+                for vehicle {vehicle.fleet_entry_number}
+              </span>
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <div className="[&_table]:hidden md:[&_table]:table">
+        <DataTable
+          columns={columns}
+          data={pageVehicles}
+          page={page}
+          limit={limit}
+          total={filtered.length}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onLimitChange={(nextLimit) => {
+            setLimit(nextLimit);
+            setPage(1);
+          }}
+          showColumnVisibility={false}
+          onRowClick={setSelectedVehicle}
+        />
+      </div>
 
       <Dialog
         open={selectedVehicle != null}
@@ -1141,8 +1216,8 @@ export function FleetVehiclesTable({
           if (!open) setSelectedVehicle(null);
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="flex max-w-3xl max-h-[90dvh] flex-col overflow-hidden p-0 max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
+          <DialogHeader className="shrink-0 border-b border-slate-100 p-4 pr-12 sm:p-6">
             <DialogTitle>
               {selectedVehicle
                 ? displayValue(
@@ -1154,12 +1229,14 @@ export function FleetVehiclesTable({
               Vehicle details and risks covered.
             </DialogDescription>
           </DialogHeader>
-          {selectedVehicle ? (
-            <FleetVehiclePreview
-              vehicle={selectedVehicle}
-              renderRiskActions={renderRiskActions}
-            />
-          ) : null}
+          <div className="min-h-0 flex-1 overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {selectedVehicle ? (
+              <FleetVehiclePreview
+                vehicle={selectedVehicle}
+                renderRiskActions={renderRiskActions}
+              />
+            ) : null}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

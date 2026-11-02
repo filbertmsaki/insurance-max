@@ -1,17 +1,19 @@
+import { WizardSectionTitle } from '@/modules/tenant/quotations/wizard/components/WizardSectionTitle';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useFieldArray,
+  type FieldPath,
   type UseFieldArrayReturn,
   type UseFormReturn,
 } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
+import { ActionMenu } from '@/components/shared/ActionMenu';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -38,8 +40,9 @@ import { formatMoney } from '@/modules/shared/formatting/number-format';
 import {
   PricingStatusAlert,
   RatingFactorFields,
-  readPricingQuoteMetadata,
   usePricingCalculator,
+  usePricingExplanation,
+  pricingApi,
   type PricingFactorValue,
   type PricingFleetTotals,
 } from '@/modules/pricing';
@@ -68,7 +71,6 @@ import {
   aggregateFleetRiskTotals,
   applyFleetRiskPremiumResult,
   resolveSelectedTaxCodes,
-  toNumber,
 } from '../utils/premiumAggregation';
 import { buildFleetRiskPricingSignature } from '../utils/pricingStaleness';
 import {
@@ -99,7 +101,6 @@ import { verificationsApi } from '@/modules/tenant/verifications/api';
 import { readVerifiedMotorDetails } from '../utils/vehicleVerification';
 import { toFleetMotorDetails } from '../utils/vehicleVerification';
 import { ownerDefaultsFromPolicyholder } from '../utils/motorVehicleSelection';
-import { quotationPricingIssues } from '../utils/quotationReadiness';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -112,7 +113,6 @@ interface Props {
   onDuplicateVehicle: (index: number) => void;
   onImportVehicles: (rows: FleetCsvRow[]) => void;
   factorContext?: QuotationFactorContext;
-  autoCalculateUnpricedOnly?: boolean;
 }
 
 function resolveFleetRequestedDiscount(
@@ -224,24 +224,49 @@ function resetFleetRiskPricing(
   };
 }
 
+function zeroFleetSumInsured(
+  form: UseFormReturn<QuotationFormSchemaValues>,
+  riskId: string,
+) {
+  form.getValues('fleet.items').forEach((item, vehicleIndex) => {
+    item.risks_covered.forEach((risk, riskIndex) => {
+      if (risk.risk_id !== riskId) return;
+      const path =
+        `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}` as const;
+      if (risk.sum_insured !== '0')
+        form.setValue(`${path}.sum_insured`, '0', { shouldDirty: true });
+      if (risk.sum_insured_equivalent !== '0')
+        form.setValue(`${path}.sum_insured_equivalent`, '0', {
+          shouldDirty: true,
+        });
+      if (risk.factor_values.sum_insured !== 0)
+        form.setValue(`${path}.factor_values.sum_insured`, 0, {
+          shouldDirty: true,
+        });
+      form.clearErrors([
+        `${path}.sum_insured`,
+        `${path}.sum_insured_equivalent`,
+      ]);
+    });
+  });
+}
+
 function FleetVehicleEditor({
   form,
   riskOptions,
   vehicleOptions,
   index,
-  isCalculating,
   calculationErrorMessage,
   showVehicleValidationErrors,
-  onCalculateVehicle,
+  showSumInsured,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
   riskOptions: InsuranceRisk[];
   vehicleOptions: MotorVehicleRecord[];
   index: number;
-  isCalculating: boolean;
   calculationErrorMessage: string | null;
   showVehicleValidationErrors: boolean;
-  onCalculateVehicle: (index: number) => void;
+  showSumInsured: boolean;
 }) {
   const addonArray = useFieldArray({
     control: form.control,
@@ -343,20 +368,12 @@ function FleetVehicleEditor({
   const rowFactorValues =
     (risk?.factor_values as Record<string, PricingFactorValue> | undefined) ??
     {};
-  const ratingMetadata = readPricingQuoteMetadata(risk?.rating_result_metadata);
-  const currencyCode = form.watch('currency')?.trim().toUpperCase();
-  const totalDiscount = (risk?.discounts_offered ?? []).reduce(
-    (sum, row) => sum + toNumber(row.discount_amount),
-    0,
-  );
-  const totalTax = (risk?.taxes_charged ?? []).reduce(
-    (sum, row) => sum + toNumber(row.tax_amount),
-    0,
-  );
-
   return (
     <div className="space-y-6">
       <div className="space-y-4">
+        <WizardSectionTitle className="text-sm font-semibold text-slate-900">
+          Find or select a vehicle
+        </WizardSectionTitle>
         <VehicleLookup
           initialCategory={item.motor_dtl.motor_category}
           onFound={(details) => {
@@ -412,9 +429,11 @@ function FleetVehicleEditor({
           showErrorMessages={showVehicleValidationErrors}
         />
       </div>
-      <div className="rounded-lg border p-3">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium">Cover wording</p>
+      <div hidden={coverNoteType === '1'} className="space-y-3">
+        <div hidden className="flex items-center justify-between gap-2">
+          <WizardSectionTitle className="text-sm font-medium">
+            Cover wording
+          </WizardSectionTitle>
           <button
             type="button"
             className="text-xs font-medium text-primary hover:underline"
@@ -423,8 +442,10 @@ function FleetVehicleEditor({
             {wordingExpanded ? 'Hide' : 'Edit wording'}
           </button>
         </div>
-        {wordingExpanded ? (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {wordingExpanded ||
+        showVehicleValidationErrors ||
+        coverNoteType !== '1' ? (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {coverNoteType !== '1' && (
               <FormField
                 control={form.control}
@@ -444,7 +465,7 @@ function FleetVehicleEditor({
               control={form.control}
               name={`fleet.items.${index}.cover_note_desc` as const}
               render={({ field }) => (
-                <WizardFormItem>
+                <WizardFormItem className="hidden">
                   <FormLabel required>Cover Note Description</FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={3} />
@@ -457,7 +478,7 @@ function FleetVehicleEditor({
               control={form.control}
               name={`fleet.items.${index}.operative_clause` as const}
               render={({ field }) => (
-                <WizardFormItem>
+                <WizardFormItem className="hidden">
                   <FormLabel required>Operative Clause</FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={3} />
@@ -510,124 +531,82 @@ function FleetVehicleEditor({
             )}
           </div>
         ) : (
-          <div className="mt-2 space-y-1 text-sm text-slate-600">
+          <div hidden className="mt-2 space-y-1 text-sm text-slate-600">
             <p>{item.cover_note_desc || '—'}</p>
             <p className="text-slate-500">{item.operative_clause || '—'}</p>
           </div>
         )}
       </div>
 
-      <StepSection title="Premium" contentClassName="space-y-3">
-        {calculationErrorMessage ? (
-          <PricingStatusAlert compact errorMessage={calculationErrorMessage} />
-        ) : null}
-        {coverRisk ? (
-          <p className="text-sm text-slate-600">
-            Fleet cover:{' '}
-            <span className="font-medium text-slate-900">
-              {coverRisk.risk_name}
-            </span>
-          </p>
-        ) : (
-          <p className="text-sm text-amber-700">
-            Select the fleet cover above the vehicle list before pricing this
-            vehicle.
-          </p>
-        )}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.risks_covered.0.sum_insured` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel required={requiresSumInsured}>Sum Insured</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder={requiresSumInsured ? undefined : 'Optional'}
-                    {...field}
-                    onChange={(event) => {
-                      field.onChange(event);
-                      form.setValue(
-                        `fleet.items.${index}.risks_covered.0.sum_insured_equivalent` as const,
-                        event.target.value,
-                      );
-                    }}
-                  />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-        </div>
-
-        <PricingStatusAlert
-          compact
-          isPending={isCalculating}
-          minimumAmount={ratingMetadata?.minimum_amount}
-          metadata={ratingMetadata}
-          showQuoteMetadata={false}
-        />
-
-        {visibleRequiredFactors.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Underwriting Details
-            </p>
-            <RatingFactorFields
-              requiredFactors={visibleRequiredFactors}
-              values={rowFactorValues}
-              onChange={(code, value) =>
-                form.setValue(
-                  `fleet.items.${index}.risks_covered.0.factor_values.${code}` as const,
-                  value,
-                )
-              }
+      {(showSumInsured ||
+        calculationErrorMessage ||
+        visibleRequiredFactors.length > 0) && (
+        <StepSection title="Premium" first contentClassName="space-y-3">
+          {calculationErrorMessage ? (
+            <PricingStatusAlert
+              compact
+              errorMessage={calculationErrorMessage}
             />
-          </div>
-        )}
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:grid-cols-4">
-          {totalDiscount > 0 && (
-            <div>
-              <dt className="text-xs">Discount</dt>
-              <dd>{formatMoney(totalDiscount, currencyCode)}</dd>
+          ) : null}
+          {showSumInsured && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <FormField
+                control={form.control}
+                name={
+                  `fleet.items.${index}.risks_covered.0.sum_insured` as const
+                }
+                render={({ field }) => (
+                  <WizardFormItem>
+                    <FormLabel required={requiresSumInsured}>
+                      Sum Insured
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder={
+                          requiresSumInsured ? undefined : 'Optional'
+                        }
+                        {...field}
+                        onChange={(event) => {
+                          field.onChange(event);
+                          form.setValue(
+                            `fleet.items.${index}.risks_covered.0.sum_insured_equivalent` as const,
+                            event.target.value,
+                          );
+                        }}
+                      />
+                    </FormControl>
+                  </WizardFormItem>
+                )}
+              />
             </div>
           )}
-          <div>
-            <dt className="text-xs">Premium excl. tax</dt>
-            <dd>
-              {formatMoney(
-                toNumber(risk?.premium_excluding_tax_equivalent),
-                currencyCode,
-              )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs">Tax</dt>
-            <dd>{formatMoney(totalTax, currencyCode)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs">Premium incl. tax</dt>
-            <dd className="font-semibold text-slate-900">
-              {formatMoney(toNumber(risk?.premium_including_tax), currencyCode)}
-            </dd>
-          </div>
-        </dl>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          className="w-full sm:w-auto"
-          onClick={() => onCalculateVehicle(index)}
-          disabled={isCalculating || !coverRisk}
-        >
-          Calculate Vehicle Premium
-        </Button>
-      </StepSection>
+
+          {visibleRequiredFactors.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Underwriting Details
+              </p>
+              <RatingFactorFields
+                requiredFactors={visibleRequiredFactors}
+                values={rowFactorValues}
+                onChange={(code, value) =>
+                  form.setValue(
+                    `fleet.items.${index}.risks_covered.0.factor_values.${code}` as const,
+                    value,
+                  )
+                }
+              />
+            </div>
+          )}
+        </StepSection>
+      )}
 
       <div className="space-y-6">
         <StepSection
           title="Add-ons"
+          first
           action={
             <Button
               type="button"
@@ -741,6 +720,29 @@ function FleetVehicleTable({
   onDuplicate: (index: number) => void;
   onRemove: (index: number) => void;
 }) {
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [needsAttention, setNeedsAttention] = useState(false);
+  const filteredRows = rows.filter(({ item }) => {
+    const motor = item.motor_dtl;
+    const matches = [
+      motor.registration_number,
+      motor.chassis_number,
+      motor.make,
+      motor.model,
+    ]
+      .join(' ')
+      .toLowerCase()
+      .includes(search.trim().toLowerCase());
+    return matches && (!needsAttention || getVehicleIssues(item).length > 0);
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / limit));
+  const currentPage = Math.min(page, totalPages);
+  const visibleRows = filteredRows.slice(
+    (currentPage - 1) * limit,
+    currentPage * limit,
+  );
   const summaries = rows.map(({ item }) => summarizeFleetItem(item));
   const totals = summaries.reduce(
     (acc, summary) => ({
@@ -752,7 +754,7 @@ function FleetVehicleTable({
   );
 
   const actions = (index: number) => (
-    <div className="flex justify-end gap-1">
+    <div className="flex flex-wrap justify-end gap-1 [&_button]:min-h-11">
       <Button
         type="button"
         variant="outline"
@@ -789,12 +791,11 @@ function FleetVehicleTable({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-3 gap-2">
         {[
           ['Vehicles', String(rows.length)],
           ['Ready', `${totals.ready} of ${rows.length}`],
-          ['Total sum insured', formatMoney(totals.sumInsured, currency)],
-          ['Total premium', formatMoney(totals.premium, currency)],
+          ['Needs attention', String(rows.length - totals.ready)],
         ].map(([label, value]) => (
           <div key={label} className="rounded-lg bg-slate-50 px-3 py-2">
             <p className="text-xs text-slate-500">{label}</p>
@@ -805,6 +806,39 @@ function FleetVehicleTable({
         ))}
       </div>
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Input
+          aria-label="Search fleet vehicles"
+          placeholder="Search registration, chassis, make or model"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+          className="min-h-11 text-base sm:max-w-md sm:text-sm"
+        />
+        <label className="flex min-h-11 items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-blue-600"
+            style={{ minHeight: 16 }}
+            checked={needsAttention}
+            onChange={(event) => {
+              setNeedsAttention(event.target.checked);
+              setPage(1);
+            }}
+          />
+          Needs attention only
+        </label>
+      </div>
+      {filteredRows.length === 0 && (
+        <p
+          role="status"
+          className="rounded-lg border border-dashed p-6 text-center text-sm text-slate-500"
+        >
+          No vehicles match. Clear your search or filter to see all vehicles.
+        </p>
+      )}
       {/* Tablet and desktop */}
       <div className="hidden overflow-x-auto rounded-lg border border-slate-200 md:block">
         <table className="w-full text-sm">
@@ -823,9 +857,9 @@ function FleetVehicleTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.map(({ key, index, item }, rowIndex) => {
+            {visibleRows.map(({ key, index, item }) => {
               const motor = item.motor_dtl;
-              const summary = summaries[rowIndex];
+              const summary = summarizeFleetItem(item);
               const message = lookupMessages[item.risks_covered[0]?.client_ref];
               return (
                 <tr key={key}>
@@ -865,15 +899,15 @@ function FleetVehicleTable({
 
       {/* Mobile */}
       <ul className="space-y-2 md:hidden">
-        {rows.map(({ key, index, item }, rowIndex) => {
+        {visibleRows.map(({ key, index, item }) => {
           const motor = item.motor_dtl;
-          const summary = summaries[rowIndex];
+          const summary = summarizeFleetItem(item);
           const message = lookupMessages[item.risks_covered[0]?.client_ref];
           return (
             <li key={key} className="rounded-lg border border-slate-200 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-900">
+                  <p className="break-all text-sm font-medium text-slate-900">
                     {index + 1}.{' '}
                     {motor.registration_number || motor.chassis_number || '—'}
                   </p>
@@ -911,6 +945,47 @@ function FleetVehicleTable({
           );
         })}
       </ul>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-sm">
+        <label className="flex items-center gap-2">
+          Per page
+          <select
+            aria-label="Vehicles per page"
+            value={limit}
+            className="min-h-11 rounded-md border bg-white px-2"
+            onChange={(event) => {
+              setLimit(Number(event.target.value));
+              setPage(1);
+            }}
+          >
+            {[10, 25, 50].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span role="status">
+          {filteredRows.length} vehicles · Page {currentPage} of {totalPages}
+        </span>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={currentPage <= 1}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            Previous
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={currentPage >= totalPages}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Next page
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1134,7 +1209,6 @@ export function MotorFleetDetailsStep({
   onDuplicateVehicle,
   onImportVehicles,
   factorContext,
-  autoCalculateUnpricedOnly = false,
 }: Props) {
   const { fields } = fieldArray;
   const queryClient = useQueryClient();
@@ -1165,7 +1239,6 @@ export function MotorFleetDetailsStep({
   const [vehicleErrors, setVehicleErrors] = useState<string[]>([]);
   const [showVehicleValidationErrors, setShowVehicleValidationErrors] =
     useState(false);
-  const lastAutoCalculationSignature = useRef<string | null>(null);
   const selectedCustomerId = form.watch('customer_id');
   const policyholderMode = form.watch('policyholder_mode');
   const policyholder = form.watch('policyholder');
@@ -1177,6 +1250,44 @@ export function MotorFleetDetailsStep({
     selectedCustomer,
   );
   const fleetValues = form.watch('fleet');
+  const selectedFleetRiskId = form.watch('fleet.header.cover.risk_id');
+  const ruleExplanation = usePricingExplanation(
+    selectedFleetRiskId || undefined,
+  );
+  const currentRule =
+    ruleExplanation.data?.risk_id === selectedFleetRiskId
+      ? ruleExplanation.data
+      : undefined;
+  const showSumInsured = Boolean(
+    currentRule && Number(currentRule.percentage_rate) > 0,
+  );
+  const fleetSumInsuredKey = JSON.stringify(
+    fleetValues.items.map((item) =>
+      item.risks_covered.map((risk) => [
+        risk.risk_id,
+        risk.sum_insured,
+        risk.sum_insured_equivalent,
+        risk.factor_values.sum_insured,
+      ]),
+    ),
+  );
+  useEffect(() => {
+    // Unknown/loading/failed rule lookups must never erase entered values.
+    if (
+      !ruleExplanation.isSuccess ||
+      !currentRule ||
+      !Number.isFinite(Number(currentRule.percentage_rate)) ||
+      Number(currentRule.percentage_rate) > 0
+    )
+      return;
+    zeroFleetSumInsured(form, selectedFleetRiskId);
+  }, [
+    currentRule,
+    fleetSumInsuredKey,
+    form,
+    ruleExplanation.isSuccess,
+    selectedFleetRiskId,
+  ]);
   const commonDescription = form.watch('cover_note_desc');
   const commonClause = form.watch('operative_clause');
   const generatedRef = useRef(
@@ -1387,6 +1498,29 @@ export function MotorFleetDetailsStep({
     targetVehicleIndex?: number,
     silent = false,
   ) {
+    const selectedRiskId = form.getValues('fleet.header.cover.risk_id').trim();
+    let selectedRiskRate: number | undefined;
+    if (selectedRiskId) {
+      try {
+        const explanation = await queryClient.fetchQuery({
+          queryKey: ['pricing', 'explain', selectedRiskId],
+          queryFn: () => pricingApi.explainRisk(selectedRiskId),
+          staleTime: 30_000,
+        });
+        if (
+          form.getValues('fleet.header.cover.risk_id').trim() !== selectedRiskId
+        )
+          return;
+        selectedRiskRate = Number(explanation.percentage_rate);
+        if (Number.isFinite(selectedRiskRate) && selectedRiskRate <= 0)
+          zeroFleetSumInsured(form, selectedRiskId);
+      } catch (error) {
+        const message = getApiErrorMessage(error);
+        setCalculationErrorMessage(message);
+        if (!silent) toast.error(message);
+        return;
+      }
+    }
     const fleetItems = form.getValues('fleet.items');
     const selectedVehicles =
       targetVehicleIndex == null
@@ -1475,6 +1609,7 @@ export function MotorFleetDetailsStep({
       const requiredFactorsByRisk = new Map(requiredFactorsEntries);
       const missingSumInsuredRows = calculableRows.filter(
         ({ row }) =>
+          Number(selectedRiskRate) > 0 &&
           (requiredFactorsByRisk.get(row.risk_id.trim()) ?? []).some(
             (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
           ) &&
@@ -1608,9 +1743,7 @@ export function MotorFleetDetailsStep({
         }
       });
 
-      lastAutoCalculationSignature.current = getFleetPricingSignature(
-        form.getValues(),
-      );
+      const calculatedSignature = getFleetPricingSignature(form.getValues());
       // Backend totals describe the whole fleet only when every vehicle was
       // priced together.
       setFleetTotals(
@@ -1618,7 +1751,7 @@ export function MotorFleetDetailsStep({
           response.failed_risk_count === 0 &&
           calculableRows.length === fleetItems.length
           ? {
-              signature: lastAutoCalculationSignature.current,
+              signature: calculatedSignature,
               totals: response.fleet_totals,
             }
           : null,
@@ -1647,41 +1780,8 @@ export function MotorFleetDetailsStep({
 
   const values = form.watch();
   const fleetSignature = getFleetPricingSignature(values);
-  const calculateRef = useRef(calculateFleetPremiums);
-  useEffect(() => {
-    calculateRef.current = calculateFleetPremiums;
-  });
-  // While editing vehicles the fleet is priced when a vehicle is added or
-  // saved, not on every keystroke. Only the premium step's hidden instance
-  // auto-prices, and only while some vehicle is still unpriced.
-  useEffect(() => {
-    if (!autoCalculateUnpricedOnly) return;
-    if (!values.product_id || !values.fleet.items.length) return;
-    // Nothing to price until the fleet cover is chosen.
-    if (!values.fleet.header.cover.risk_id.trim()) return;
-    if (quotationPricingIssues(form.getValues()).length === 0) return;
-    if (lastAutoCalculationSignature.current === fleetSignature) return;
-    const timeout = setTimeout(() => {
-      lastAutoCalculationSignature.current = fleetSignature;
-      void calculateRef.current(undefined, false);
-    }, 600);
-    return () => clearTimeout(timeout);
-  }, [
-    autoCalculateUnpricedOnly,
-    fleetSignature,
-    form,
-    values.product_id,
-    values.fleet.items.length,
-    values.fleet.header.cover.risk_id,
-  ]);
-
-  function calculateVehicleAndTrack(index: number) {
-    lastAutoCalculationSignature.current = getFleetPricingSignature(
-      form.getValues(),
-    );
-    void calculateFleetPremiums(index);
-  }
-
+  // Pricing is requested by explicit vehicle save/import or the fleet calculation action.
+  // Input edits and step navigation only invalidate the existing pricing signature.
   const currency = values.currency?.trim().toUpperCase() || 'TZS';
   const backendTotalsCurrent = fleetTotals?.signature === fleetSignature;
   const summedTotals = aggregateFleetRiskTotals(values.fleet.items);
@@ -1778,6 +1878,37 @@ export function MotorFleetDetailsStep({
     setEditingVehicle(null);
   }
 
+  function focusVehicleIssue(issue: string) {
+    if (!editingVehicle) return;
+    const item = form.getValues(`fleet.items.${editingVehicle.index}`);
+    const motor = Object.fromEntries(
+      motorFields.map((field) => [
+        field.key,
+        item.motor_dtl[field.fleetKey as keyof typeof item.motor_dtl],
+      ]),
+    );
+    const definition = motorFields.find(
+      (field) => motorFieldError(field.key, motor[field.key], motor) === issue,
+    );
+    let field = definition ? 'motor_dtl.' + definition.fleetKey : '';
+    if (issue.includes('cover note description')) field = 'cover_note_desc';
+    else if (issue.includes('operative clause')) field = 'operative_clause';
+    else if (issue.startsWith('Registration number'))
+      field = 'motor_dtl.registration_number';
+    else if (issue.startsWith('Vehicle chassis'))
+      field = 'motor_dtl.chassis_number';
+    else if (issue.startsWith('Vehicle make'))
+      field = !item.motor_dtl.make ? 'motor_dtl.make' : 'motor_dtl.model';
+    if (field)
+      form.setFocus(
+        `fleet.items.${editingVehicle.index}.${field}` as FieldPath<QuotationFormSchemaValues>,
+      );
+    else
+      document
+        .getElementById('fleet-vehicle-editor')
+        ?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+
   async function confirmVehicleDialog() {
     if (!editingVehicle) return;
     setShowVehicleValidationErrors(true);
@@ -1828,24 +1959,25 @@ export function MotorFleetDetailsStep({
         title="Vehicles"
         action={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadTemplate}
-            >
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-              CSV Template
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => csvInputRef.current?.click()}
-            >
-              <Upload className="mr-1.5 h-3.5 w-3.5" />
-              Import CSV
-            </Button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600">Import</span>
+              <ActionMenu
+                ariaLabel="Import vehicles"
+                className="h-11 w-11"
+                items={[
+                  {
+                    label: 'Import CSV',
+                    icon: <Upload className="h-4 w-4" />,
+                    onClick: () => csvInputRef.current?.click(),
+                  },
+                  {
+                    label: 'Download CSV template',
+                    icon: <Download className="h-4 w-4" />,
+                    onClick: handleDownloadTemplate,
+                  },
+                ]}
+              />
+            </div>
             <input
               ref={csvInputRef}
               type="file"
@@ -1857,8 +1989,8 @@ export function MotorFleetDetailsStep({
               <>
                 <Button
                   type="button"
-                  variant="outline"
                   size="sm"
+                  className="min-h-11"
                   onClick={openNewVehicleDialog}
                 >
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -1874,15 +2006,6 @@ export function MotorFleetDetailsStep({
                   {lookupPending
                     ? 'Fetching vehicles...'
                     : 'Fetch vehicle details'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void calculateFleetPremiums()}
-                  disabled={calculateFleetMutation.isPending}
-                >
-                  Calculate Fleet Premiums
                 </Button>
               </>
             )}
@@ -1936,28 +2059,48 @@ export function MotorFleetDetailsStep({
         }}
       >
         <DialogContent
-          className="flex max-w-5xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90vh] max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none"
+          aria-describedby={undefined}
+          className="flex h-[100dvh] sm:h-auto max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90vh] max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none"
           onInteractOutside={(event) => event.preventDefault()}
         >
           <DialogHeader className="border-b border-slate-100 px-4 py-4 sm:px-6">
-            <DialogTitle>{dialogTitle}</DialogTitle>
-            <DialogDescription>
-              Vehicle details, risks covered and premium for this fleet entry.
-            </DialogDescription>
+            <DialogTitle className="pr-6 break-words">
+              {dialogTitle}
+              {editingVehicle &&
+              (form.getValues(
+                `fleet.items.${editingVehicle.index}.motor_dtl.registration_number`,
+              ) ||
+                form.getValues(
+                  `fleet.items.${editingVehicle.index}.motor_dtl.chassis_number`,
+                ))
+                ? ' · ' +
+                  (form.getValues(
+                    `fleet.items.${editingVehicle!.index}.motor_dtl.registration_number`,
+                  ) ||
+                    form.getValues(
+                      `fleet.items.${editingVehicle!.index}.motor_dtl.chassis_number`,
+                    ))
+                : ''}
+            </DialogTitle>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+          <div
+            id="fleet-vehicle-editor"
+            className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 [&_input]:min-h-11 [&_input]:text-base [&_textarea]:text-base sm:[&_input]:text-sm sm:[&_textarea]:text-sm"
+          >
             {editingVehicle && (
               <FleetVehicleEditor
                 form={form}
                 riskOptions={riskOptions}
                 vehicleOptions={vehicleOptions}
                 index={editingVehicle.index}
-                isCalculating={calculateFleetMutation.isPending}
-                calculationErrorMessage={calculationErrorMessage}
-                showVehicleValidationErrors={showVehicleValidationErrors}
-                onCalculateVehicle={(vehicleIndex) =>
-                  calculateVehicleAndTrack(vehicleIndex)
+                calculationErrorMessage={
+                  calculationErrorMessage ??
+                  (ruleExplanation.isError
+                    ? 'Could not load the selected risk rate. Try calculating again.'
+                    : null)
                 }
+                showVehicleValidationErrors={showVehicleValidationErrors}
+                showSumInsured={showSumInsured}
               />
             )}
           </div>
@@ -1965,12 +2108,20 @@ export function MotorFleetDetailsStep({
             {vehicleErrors.length > 0 && (
               <div
                 role="alert"
-                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                className="max-h-32 overflow-y-auto rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
               >
                 <p className="font-medium">This vehicle can't be saved yet:</p>
                 <ul className="mt-1 list-disc pl-5">
                   {vehicleErrors.map((error) => (
-                    <li key={error}>{error}</li>
+                    <li key={error}>
+                      <button
+                        type="button"
+                        className="py-1 text-left underline underline-offset-2"
+                        onClick={() => focusVehicleIssue(error)}
+                      >
+                        {error}
+                      </button>
+                    </li>
                   ))}
                 </ul>
               </div>

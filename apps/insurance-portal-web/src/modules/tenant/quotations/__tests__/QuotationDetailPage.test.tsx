@@ -52,7 +52,7 @@ vi.mock('@/modules/tenant/cover-notes/components/CoverNotesSection', () => ({
   CoverNotesSection: () => <p>Cover note actions</p>,
 }));
 
-function renderPage() {
+function renderPage(line?: 'fleet') {
   return render(
     <QueryClientProvider
       client={
@@ -61,7 +61,10 @@ function renderPage() {
     >
       <MemoryRouter initialEntries={['/quotations/quotation-1']}>
         <Routes>
-          <Route path="/quotations/:id" element={<QuotationDetailPage />} />
+          <Route
+            path="/quotations/:id"
+            element={<QuotationDetailPage line={line} />}
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -209,6 +212,88 @@ describe('Quotation details redesign', () => {
     expect(screen.getByText('Acknowledgement received')).toBeInTheDocument();
     selectTab('Quotation History');
     expect(screen.getByText('Quotation created')).toBeInTheDocument();
+  });
+  it('opens the existing TIRAMIS tab from a fleet submission warning', () => {
+    const preview = quotationDetailFixture('MOTOR_FLEET');
+    preview.fleet!.summary.failed_entries = 1;
+    state.preview = preview;
+    renderPage('fleet');
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+      'Overview',
+      'Payments',
+      'TIRAMIS',
+      'History',
+    ]);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'View vehicle submission status in TIRAMIS',
+      }),
+    );
+    expect(screen.getByRole('tab', { name: 'TIRAMIS' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByText('Cover note actions')).toBeInTheDocument();
+    expect(financeTableApi.payments).not.toHaveBeenCalled();
+  });
+  it('keeps fleet vehicle detail and risk actions accessible after searching', () => {
+    const preview = quotationDetailFixture('MOTOR_FLEET');
+    const single = quotationDetailFixture('MOTOR_SINGLE');
+    preview.fleet!.vehicles = [1, 2].map((entry) => ({
+      fleet_entry_number: entry,
+      cover_note_number: null,
+      previous_cover_note_reference_number: null,
+      cover_note_description: 'Fleet vehicle cover',
+      operative_clause: 'Fleet operative clause',
+      endorsement_type: null,
+      endorsement_reason: null,
+      endorsement_premium_earned: null,
+      risks: [
+        {
+          risk_id: 'risk-' + entry,
+          risk_number: 1,
+          risk_code: 'COMP',
+          risk_name: 'Comprehensive',
+          sum_insured: 20000000,
+          sum_insured_equivalent: 20000000,
+          premium_rate: 0.05,
+          premium_before_discount: 1000000,
+          premium_after_discount: 1000000,
+          premium_excluding_tax_equivalent: 1000000,
+          premium_including_tax: 1180000,
+          discounts: [],
+          premium_overrides: [],
+          taxes: [],
+        },
+      ],
+      subject_matters: [],
+      addons: [],
+      motor_details: {
+        ...single.motor_details!,
+        registration_number: 'T00' + entry + 'AAA',
+      },
+      tiramis: single.tiramis,
+    }));
+    state.preview = preview;
+    useAuthStore.setState({
+      hasPermission: (permission) => permission === 'pricing.request_override',
+    });
+    renderPage('fleet');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search vehicles' }), {
+      target: { value: 'T002AAA' },
+    });
+    expect(screen.queryByText('T001AAA')).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'View vehicle T002AAA' }),
+    );
+    expect(screen.getByRole('dialog')).toHaveTextContent('Fleet vehicle cover');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Vehicle Risk');
+    expect(
+      screen.getByRole('button', { name: 'Request Override' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveTextContent(
+      'CHASSIS-LONG-12345678901234567890',
+    );
   });
   it('keeps workflow actions gated by backend commands', () => {
     state.commands = { APPROVE: true };

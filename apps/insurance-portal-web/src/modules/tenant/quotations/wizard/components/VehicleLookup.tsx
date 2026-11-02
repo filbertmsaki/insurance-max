@@ -108,7 +108,7 @@ export function VehicleLookup({
 
   return (
     <div className="min-w-0 space-y-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4">
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-center gap-2.5">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
           <Search className="h-4 w-4" />
         </span>
@@ -116,13 +116,10 @@ export function VehicleLookup({
           <p className="text-sm font-semibold text-slate-900">
             Fetch vehicle details
           </p>
-          <p className="text-xs text-slate-500">
-            Look up a registered vehicle to auto-fill its details below.
-          </p>
         </div>
       </div>
 
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,10rem)_minmax(0,11rem)_minmax(0,1fr)] items-start">
+      <div className="grid min-w-0 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${id}-category`}>Motor category</Label>
           <Select
@@ -162,7 +159,7 @@ export function VehicleLookup({
             </SelectContent>
           </Select>
         </div>
-        <div className="min-w-0 space-y-1.5 sm:col-span-2 xl:col-span-1">
+        <div className="min-w-0 space-y-1.5 sm:col-span-2 lg:col-span-1">
           <Label htmlFor={`${id}-identifier`}>
             {identifierType === 'registration'
               ? 'Registration number'
@@ -194,7 +191,7 @@ export function VehicleLookup({
         <Button
           type="button"
           disabled={pending}
-          className="w-full sm:col-span-2 xl:col-span-3"
+          className="w-full sm:col-span-2 lg:col-span-3"
           onClick={() => void fetchVehicle()}
         >
           {pending ? (

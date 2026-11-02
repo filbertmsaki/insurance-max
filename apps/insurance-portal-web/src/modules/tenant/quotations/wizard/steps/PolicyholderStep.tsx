@@ -1,3 +1,4 @@
+import { WizardSectionTitle } from '@/modules/tenant/quotations/wizard/components/WizardSectionTitle';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import { cn } from '@/lib/utils';
 import {
@@ -172,9 +173,9 @@ function DetailGroup({ title, items }: { title: string; items: DetailItem[] }) {
 
   return (
     <div>
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+      <WizardSectionTitle className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
         {title}
-      </p>
+      </WizardSectionTitle>
       <dl className="space-y-1.5">
         {visible.map(([label, value]) => (
           <div key={label} className="flex justify-between gap-3 text-sm">

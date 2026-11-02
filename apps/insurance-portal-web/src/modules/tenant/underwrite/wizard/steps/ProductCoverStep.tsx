@@ -197,6 +197,7 @@ export function ProductCoverStep({
           firstSection={false}
           canSelectInsuranceChannel={false}
           showCategoryPicker={!isMotor}
+          showWording={wizard.line.slug !== 'fleet'}
         />
       )}
     </div>

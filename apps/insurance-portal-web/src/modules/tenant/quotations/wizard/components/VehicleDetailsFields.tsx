@@ -1,3 +1,4 @@
+import { WizardSectionTitle } from '@/modules/tenant/quotations/wizard/components/WizardSectionTitle';
 import { useEffect, useRef } from 'react';
 import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import type { QuotationFormSchemaValues } from '../../schemas';
@@ -144,9 +145,17 @@ export function VehicleDetailsFields({
   return (
     <div className="space-y-4">
       <div>
-        {title && <p className="mb-3 text-sm font-medium">{title}</p>}
+        {title && (
+          <WizardSectionTitle className="mb-3 text-sm font-medium">
+            {title}
+          </WizardSectionTitle>
+        )}
         <div
-          className={`grid gap-4 sm:grid-cols-2 ${fleetIndex == null ? 'lg:grid-cols-3 2xl:grid-cols-4' : 'lg:grid-cols-4'}`}
+          className={
+            fleetIndex == null
+              ? 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4'
+              : 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3'
+          }
         >
           {definitions.map(renderField)}
         </div>

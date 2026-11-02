@@ -90,6 +90,40 @@ export function FleetPremiumStep({
 
   return (
     <div className="space-y-6">
+      <StepSection title="Fleet totals">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            ['Premium', totals.premium],
+            ['Taxes & levies', totals.tax],
+            ['Final payable premium', totals.total],
+          ].map(([label, value]) => (
+            <div
+              key={label as string}
+              className="rounded-lg border border-slate-200 bg-slate-50/60 p-3"
+            >
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                {label}
+              </p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
+                {money(value as number)}
+              </p>
+            </div>
+          ))}
+        </div>
+        {issues.length > 0 && (
+          <div
+            role="status"
+            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          >
+            <p className="font-medium">
+              Waiting for complete, current premiums.
+            </p>
+            {issues.map((issue, index) => (
+              <p key={index}>{issue}</p>
+            ))}
+          </div>
+        )}
+      </StepSection>
       <StepSection
         title="Vehicle premiums"
         description="Each vehicle is priced individually; adjust cover, discounts or add-ons from the Vehicles step."
@@ -132,22 +166,22 @@ export function FleetPremiumStep({
                     <Badge variant="warning">Not priced</Badge>
                   )}
                 </div>
-                <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                <dl className="mt-2 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                   <div className="min-w-0">
                     <dt className="text-slate-500">Sum insured</dt>
-                    <dd className="truncate tabular-nums">
+                    <dd className="break-words tabular-nums">
                       {money(row.sumInsured)}
                     </dd>
                   </div>
                   <div className="min-w-0">
                     <dt className="text-slate-500">Premium</dt>
-                    <dd className="truncate tabular-nums">
+                    <dd className="break-words tabular-nums">
                       {money(row.premium)}
                     </dd>
                   </div>
                   <div className="min-w-0">
                     <dt className="text-slate-500">Incl. taxes</dt>
-                    <dd className="truncate font-semibold tabular-nums">
+                    <dd className="break-words font-semibold tabular-nums">
                       {money(row.total)}
                     </dd>
                   </div>
@@ -243,41 +277,6 @@ export function FleetPremiumStep({
             )}
           </Table>
         </div>
-      </StepSection>
-
-      <StepSection title="Fleet totals">
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            ['Premium', totals.premium],
-            ['Taxes & levies', totals.tax],
-            ['Final payable premium', totals.total],
-          ].map(([label, value]) => (
-            <div
-              key={label as string}
-              className="rounded-lg border border-slate-200 bg-slate-50/60 p-3"
-            >
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                {label}
-              </p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">
-                {money(value as number)}
-              </p>
-            </div>
-          ))}
-        </div>
-        {issues.length > 0 && (
-          <div
-            role="status"
-            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
-          >
-            <p className="font-medium">
-              Waiting for complete, current premiums.
-            </p>
-            {issues.map((issue, index) => (
-              <p key={index}>{issue}</p>
-            ))}
-          </div>
-        )}
       </StepSection>
     </div>
   );

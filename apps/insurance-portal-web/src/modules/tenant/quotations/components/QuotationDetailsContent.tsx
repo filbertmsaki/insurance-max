@@ -15,13 +15,16 @@ import {
 export function QuotationDetailsContent({
   preview,
   renderRiskActions,
+  onViewTiramis,
 }: {
+  onViewTiramis?: () => void;
   preview: QuotationPreviewRecord;
   renderRiskActions: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
   if (preview.overview.quotation_flow === 'MOTOR_FLEET' && preview.fleet) {
     return (
       <FleetQuotationDetails
+        onViewTiramis={onViewTiramis}
         preview={preview}
         renderRiskActions={renderRiskActions}
       />
