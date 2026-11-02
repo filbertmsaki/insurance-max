@@ -127,7 +127,6 @@ import { WorkItemsPage } from '@/modules/tenant/engagement/pages/WorkItemsPage';
 import { ReportsWorkbenchPage } from '@/modules/tenant/reporting/pages/ReportsWorkbenchPage';
 import { RegulatoryWorkbenchPage } from '@/modules/tenant/regulatory/pages/RegulatoryWorkbenchPage';
 import {
-  HomePage,
   AboutPage,
   ContactPage,
   InsurancePage,
@@ -1234,7 +1233,7 @@ export default function App() {
           </Route>
 
           {/* Public website */}
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
           <Route path="/claim-help" element={<ClaimsPage />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/about" element={<AboutPage />} />

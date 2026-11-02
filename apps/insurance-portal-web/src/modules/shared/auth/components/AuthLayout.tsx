@@ -1,8 +1,10 @@
 import { Outlet, useLocation } from 'react-router-dom';
-import { PublicLayout } from '@/modules/public/PublicShell';
+import { PublicBrand } from '@/modules/public/PublicShell';
+import '@/modules/public/public.css';
 import './auth-public.css';
 import { usePageMeta } from '@/modules/public/usePageMeta';
 
+/** Minimal account shell: brand, form card and a copyright line only. */
 export function AuthLayout() {
   const { pathname } = useLocation();
   const pageName =
@@ -21,14 +23,18 @@ export function AuthLayout() {
     true,
   );
   return (
-    <PublicLayout>
-      <main className="public-auth">
-        <div
-          className={`public-container public-auth-grid${pathname === '/register' ? ' public-auth-grid-wide' : ''}`}
-        >
-          <Outlet />
+    <div className="public-site public-auth public-auth-minimal">
+      <main
+        className={`public-auth-grid${pathname === '/register' ? ' public-auth-grid-wide' : ''}`}
+      >
+        <div className="public-auth-brand">
+          <PublicBrand />
         </div>
+        <Outlet />
+        <p className="public-auth-footnote">
+          © {new Date().getFullYear()} Insurance Max
+        </p>
       </main>
-    </PublicLayout>
+    </div>
   );
 }

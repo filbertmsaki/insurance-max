@@ -152,7 +152,6 @@ export function motorFieldError(
     'seating_capacity',
     'cubic_capacity',
     'number_of_axles',
-    'axle_distance',
     'tare_weight',
     'gross_weight',
   ];
@@ -161,6 +160,11 @@ export function motorFieldError(
     (!Number.isFinite(Number(value)) || Number(value) <= 0)
   )
     return `${definition?.label} must be greater than zero.`;
+  if (
+    key === 'axle_distance' &&
+    (!Number.isFinite(Number(value)) || Number(value) < 0)
+  )
+    return `${definition?.label} cannot be negative.`;
   if (
     ['manufacture_year', 'seating_capacity', 'number_of_axles'].includes(key) &&
     !Number.isInteger(Number(value))
