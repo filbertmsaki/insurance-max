@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { complaintsApi } from '../api';
 import { complaintTone, formatComplaintDate } from '../utils';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function Detail({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -33,6 +34,10 @@ export function ComplaintDetailPage() {
     queryFn: () => complaintsApi.get(id!),
     enabled: Boolean(id),
   });
+  usePageTitle(
+    complaintQuery.data?.complaint_no &&
+      `Complaint ${complaintQuery.data.complaint_no}`,
+  );
   const commentsQuery = useQuery({
     queryKey: ['complaints', id, 'comments'],
     queryFn: () => complaintsApi.comments(id!),

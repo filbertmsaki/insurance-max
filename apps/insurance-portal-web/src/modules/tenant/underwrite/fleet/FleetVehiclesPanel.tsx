@@ -111,7 +111,7 @@ export function FleetVehiclesPanel({
       cell: (row) => (
         <div>
           <span className="block font-medium text-slate-900">
-            {row.registration_number || 'N/A'}
+            {row.registration_number || row.chassis_number || 'N/A'}
             {row.vehicle_status === 'ADDED' && (
               <Badge variant="outline" className="ml-2">
                 Added{row.added_at ? ` ${row.added_at}` : ''}

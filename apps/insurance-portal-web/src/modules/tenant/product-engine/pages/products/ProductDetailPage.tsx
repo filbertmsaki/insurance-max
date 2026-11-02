@@ -45,6 +45,7 @@ import type {
   ProductRequirementAppliesTo,
   UpsertProductVersionDto,
 } from '@/types/product-engine';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const ITEM_TYPES: ProductDefinitionItemType[] = [
   'COVERAGE',
@@ -137,6 +138,9 @@ export function ProductDetailPage() {
   const canRetire = hasPermission('product-definitions:retire');
 
   const { data: product } = useProduct(productId);
+  usePageTitle(
+    product && `Product ${product.product_code} - ${product.product_name}`,
+  );
   const { data: versions = [] } = useProductVersions(productId ?? '');
   const { data: subClasses = [] } = useSubClassesByProduct(productId ?? '');
 
@@ -243,7 +247,7 @@ export function ProductDetailPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader
-          title={`${product.product_code} — ${product.product_name}`}
+          title={`${product.product_code} - ${product.product_name}`}
           description={`${product.category?.name ?? ''} · ${product.business_line} · Lifecycle: ${product.lifecycle_status}`}
         />
       </div>

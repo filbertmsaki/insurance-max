@@ -24,6 +24,8 @@ import type {
   RiskRuleExplanation,
 } from '@/types/product-engine';
 import { defaultValuesForLine } from '../wizard/defaults';
+import { FleetPremiumStep } from '../fleet/FleetPremiumStep';
+import type { UnderwriteQuotationWizard } from '../wizard/useUnderwriteQuotationWizard';
 import { getUnderwriteLineMeta } from '../lines';
 
 vi.mock(
@@ -65,7 +67,7 @@ function explanation(riskId: string, rate: number): RiskRuleExplanation {
     other_active_rule_count: 0,
   };
 }
-function renderFleet(selectedRiskId: string) {
+function renderFleet(selectedRiskId: string, withPremiumStep = false) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -140,6 +142,18 @@ function renderFleet(selectedRiskId: string) {
           onDuplicateVehicle={() => undefined}
           onImportVehicles={() => undefined}
         />
+        {/* The fleet-wide Calculate Fleet Premium action lives on the Premium step. */}
+        {withPremiumStep && (
+          <FleetPremiumStep
+            wizard={
+              {
+                form,
+                riskOptions: risks,
+              } as unknown as UnderwriteQuotationWizard
+            }
+            onEditVehicles={() => undefined}
+          />
+        )}
       </Form>
     );
   }
@@ -228,7 +242,7 @@ describe('Fleet sum insured visibility', () => {
     const calculate = vi
       .spyOn(pricingApi, 'calculateFleet')
       .mockRejectedValue(new Error('Stop after capturing payload'));
-    renderFleet('zero');
+    renderFleet('zero', true);
     fireEvent.click(
       screen.getByRole('button', { name: 'Calculate Fleet Premium' }),
     );

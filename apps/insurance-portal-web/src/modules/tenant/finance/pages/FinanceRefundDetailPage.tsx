@@ -14,6 +14,7 @@ import {
   formatDate,
   formatMoney,
 } from '../components';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function FinanceRefundDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,7 @@ export function FinanceRefundDetailPage() {
     queryFn: () => financeApi.getRefund(id!),
     enabled: !!id,
   });
+  usePageTitle(query.data?.refund_no && `Refund ${query.data.refund_no}`);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['finance', 'refund', id] });

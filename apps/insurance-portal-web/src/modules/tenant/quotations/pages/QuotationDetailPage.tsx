@@ -13,6 +13,7 @@ import {
 import { QuotationDetailHeader } from '../components/QuotationDetailLayout';
 import { QuotationDetailsContent } from '../components/QuotationDetailsContent';
 import { QuotationPaymentTab } from '../components/QuotationPaymentTab';
+import { FleetQuotationVehicles } from '../components/FleetQuotationDetails';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ import type {
   QuotationStatusTransitionAction,
 } from '../types';
 import { getFriendlyWorkflowLabel } from '../utils/quotationWorkflowLabels';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 type PremiumOverrideRequestDialogState = {
   risk: QuotationPreviewRisk;
   open: boolean;
@@ -61,6 +63,15 @@ const QUOTATION_DETAIL_TABS = [
   { id: 'payment', label: 'Payment Details & History' },
   { id: 'tiramis', label: 'TIRAMIS Information' },
   { id: 'history', label: 'Quotation History' },
+] as const;
+
+/** Fleet quotations use shorter labels and give the vehicles their own tab. */
+const FLEET_DETAIL_TABS = [
+  { id: 'details', label: 'Overview' },
+  { id: 'vehicles', label: 'Vehicles' },
+  { id: 'payment', label: 'Payments' },
+  { id: 'tiramis', label: 'TIRAMIS' },
+  { id: 'history', label: 'History' },
 ] as const;
 
 type PremiumOverrideDecisionDialogState = {
@@ -113,6 +124,10 @@ export function QuotationDetailPage({
     isError,
     refetch,
   } = useQuotationPreview(id);
+  usePageTitle(
+    preview?.overview.quotation_no &&
+      `Quotation ${preview.overview.quotation_no}`,
+  );
   const { data: workflow } = useQuotationWorkflow(id);
   const submitMutation = useSubmitQuotation(id);
   const submitForApprovalMutation = useSubmitQuotationForApproval(id);
@@ -591,6 +606,8 @@ export function QuotationDetailPage({
     </div>
   );
 
+  const isFleet = activeLine === 'fleet' && !!preview.fleet;
+
   return (
     <div className="min-w-0 space-y-4">
       <QuotationDetailHeader
@@ -615,22 +632,19 @@ export function QuotationDetailPage({
             aria-label="Quotation information"
             className="w-max min-w-full flex-nowrap gap-0"
           >
-            {QUOTATION_DETAIL_TABS.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="min-h-11 px-3 sm:px-4"
-              >
-                {activeLine === 'fleet'
-                  ? {
-                      details: 'Overview',
-                      payment: 'Payments',
-                      tiramis: 'TIRAMIS',
-                      history: 'History',
-                    }[tab.id]
-                  : tab.label}
-              </TabsTrigger>
-            ))}
+            {(isFleet ? FLEET_DETAIL_TABS : QUOTATION_DETAIL_TABS).map(
+              (tab) => (
+                <TabsTrigger
+                  key={tab.id}
+                  value={tab.id}
+                  className="min-h-11 px-3 sm:px-4"
+                >
+                  {tab.id === 'vehicles'
+                    ? `${tab.label} (${preview.fleet!.vehicles.length})`
+                    : tab.label}
+                </TabsTrigger>
+              ),
+            )}
           </TabsList>
         </div>
         <TabsContent value="details" className="mt-0 min-w-0">
@@ -645,6 +659,14 @@ export function QuotationDetailPage({
             }}
           />
         </TabsContent>
+        {isFleet && (
+          <TabsContent value="vehicles" className="mt-0 min-w-0">
+            <FleetQuotationVehicles
+              preview={preview}
+              renderRiskActions={renderRiskActions}
+            />
+          </TabsContent>
+        )}
         <TabsContent
           value="payment"
           forceMount
@@ -672,20 +694,20 @@ export function QuotationDetailPage({
                   tiraAccepted={preview.overview.tira_status === 'SUCCESS'}
                 />
               </div>
-              <QuotationHistoryPreview
-                title="Submission and Synchronization History"
-                history={preview.history.filter((item) =>
-                  /tiramIS|tira |acknowledgement|callback|retry|sync/i.test(
-                    item.action,
-                  ),
-                )}
-              />
             </>
           )}
         </TabsContent>
 
         <TabsContent value="history" className="mt-0 min-w-0">
           <QuotationHistoryPreview history={preview.history} />
+          <QuotationHistoryPreview
+            title="Submission and Synchronization History"
+            history={preview.history.filter((item) =>
+              /tiramIS|tira |acknowledgement|callback|retry|sync/i.test(
+                item.action,
+              ),
+            )}
+          />
         </TabsContent>
       </Tabs>
 

@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { MotorStatusBadge } from '../components/MotorStatusBadge';
 import { useDeleteMotorFleet, useMotorFleet } from '../hooks';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function Row({
   label,
@@ -28,6 +29,7 @@ export function MotorFleetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: fleet, isLoading } = useMotorFleet(id);
+  usePageTitle(fleet?.fleet_no && `Fleet ${fleet.fleet_no}`);
   const deleteMutation = useDeleteMotorFleet();
   const [deleteOpen, setDeleteOpen] = useState(false);
 

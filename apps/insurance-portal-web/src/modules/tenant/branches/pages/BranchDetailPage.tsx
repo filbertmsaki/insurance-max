@@ -74,6 +74,7 @@ import {
   type BranchUserAssignment,
   type UpdateBranchDto,
 } from '@/modules/tenant/branches/api/branches';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 type ApiErrorLike = { response?: { data?: { message?: string } } };
 
@@ -1028,6 +1029,7 @@ export function BranchDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data: branch, isLoading } = useBranch(id);
+  usePageTitle(branch?.name && `Branch ${branch.name}`);
   const updateMutation = useUpdateBranch(id!);
   const statusMutation = useUpdateBranchStatus();
   const deleteMutation = useDeleteBranch();

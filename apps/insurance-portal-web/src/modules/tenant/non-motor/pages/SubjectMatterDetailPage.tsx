@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { SubjectMatterStatusBadge } from '../components/SubjectMatterStatusBadge';
 import { useDeleteSubjectMatter, useSubjectMatter } from '../hooks';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function Row({
   label,
@@ -28,6 +29,10 @@ export function SubjectMatterDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: subjectMatter, isLoading } = useSubjectMatter(id);
+  usePageTitle(
+    subjectMatter &&
+      `Subject Matter ${subjectMatter.subject_code ?? subjectMatter.id}`,
+  );
   const deleteMutation = useDeleteSubjectMatter();
   const [deleteOpen, setDeleteOpen] = useState(false);
 

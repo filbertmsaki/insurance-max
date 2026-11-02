@@ -32,6 +32,7 @@ import {
 } from '@/modules/tenant/departments/hooks';
 import { useQuery } from '@tanstack/react-query';
 import { branchesApi } from '@/modules/tenant/branches/api/branches';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function StatusBadge({ status }: { status: string }) {
   return status === 'active' ? (
@@ -49,6 +50,7 @@ export function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: department, isLoading } = useDepartment(id);
+  usePageTitle(department?.name && `Department ${department.name}`);
   const { data: branchOptions = [] } = useQuery({
     queryKey: ['branches', 'all'],
     queryFn: branchesApi.getAllBranches,

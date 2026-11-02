@@ -29,6 +29,7 @@ import { NonMotorPremiumStep } from './NonMotorPremiumStep';
 import { RiskDetailsStep, type RiskDetailsState } from './RiskDetailsStep';
 import { formatRiskValue, riskDataErrors } from './riskFields';
 import { useMissingMandatoryDocuments } from './useNonMotorDocuments';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const NON_MOTOR = getUnderwriteLineMeta(UnderwriteLine.NON_MOTOR);
 
@@ -181,6 +182,10 @@ export function NonMotorQuotationWizardPage() {
     },
   });
   const { form } = wizard;
+  usePageTitle(
+    wizard.existingQuotation?.quotation_no &&
+      `Edit Quotation ${wizard.existingQuotation.quotation_no}`,
+  );
 
   const productId = useWatch({ control: form.control, name: 'product_id' });
   const subClassId = useWatch({ control: form.control, name: 'sub_class_id' });
@@ -211,14 +216,16 @@ export function NonMotorQuotationWizardPage() {
     : null;
   const currentRiskState =
     id && hydratedRiskState
-      ? (savedRiskState?.quotationId === id
-          ? savedRiskState.state
-          : hydratedRiskState)
+      ? savedRiskState?.quotationId === id
+        ? savedRiskState.state
+        : hydratedRiskState
       : riskState;
   const hydratedRiskQuotationId =
     id && savedRiskState?.quotationId === id ? id : null;
   const updateRiskState = (
-    nextState: RiskDetailsState | ((current: RiskDetailsState) => RiskDetailsState),
+    nextState:
+      | RiskDetailsState
+      | ((current: RiskDetailsState) => RiskDetailsState),
   ) => {
     const resolvedState =
       typeof nextState === 'function' ? nextState(currentRiskState) : nextState;
@@ -380,7 +387,7 @@ export function NonMotorQuotationWizardPage() {
                     <button
                       type="button"
                       className="text-sm font-medium text-blue-600 hover:underline"
-                    onClick={() => wizard.setStep('customer-cover')}
+                      onClick={() => wizard.setStep('customer-cover')}
                     >
                       Edit
                     </button>

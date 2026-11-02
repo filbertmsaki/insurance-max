@@ -9602,9 +9602,24 @@ export class QuotationsService {
     const flow = prepared.internal_quotation.quotation_flow;
     const shouldReuseExistingIdentifiers =
       options.reuseExistingIdentifiers ?? true;
-    const existingEntries = shouldReuseExistingIdentifiers
-      ? (currentQuotation?.cover_note?.entries ?? [])
-      : [];
+    // Draft saves store `${quotation_no}` / `${quotation_no}-N` as placeholder
+    // cover note numbers; those must be replaced, not reused.
+    const quotationNo = currentQuotation?.quotation_no;
+    const isDraftPlaceholder = (value?: string | null) =>
+      !!quotationNo &&
+      !!value &&
+      (value === quotationNo ||
+        /^-\d+$/.test(value.slice(quotationNo.length))) &&
+      value.startsWith(quotationNo);
+    const existingEntries = (
+      shouldReuseExistingIdentifiers
+        ? (currentQuotation?.cover_note?.entries ?? [])
+        : []
+    ).map((entry) =>
+      isDraftPlaceholder(entry.cover_note_number)
+        ? { ...entry, cover_note_number: null }
+        : entry,
+    );
 
     if (flow === QuotationFlow.MOTOR_FLEET) {
       const fleetDetails = prepared.cover_note_dtl.fleet_dtls ?? [];

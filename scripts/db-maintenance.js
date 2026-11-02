@@ -354,9 +354,24 @@ async function wipeSchema(config) {
   await client.connect();
 
   try {
+    // Extensions living in the schema are dropped with it; remember them so
+    // migrations that expect a DBA-installed extension (e.g. pg_trgm) still run.
+    const { rows: extensions } = await client.query(
+      `SELECT e.extname FROM pg_extension e
+         JOIN pg_namespace n ON n.oid = e.extnamespace
+        WHERE n.nspname = $1`,
+      [config.schema],
+    );
+
     await client.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     await client.query(`CREATE SCHEMA ${schema}`);
     await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+
+    for (const { extname } of extensions) {
+      await client.query(
+        `CREATE EXTENSION IF NOT EXISTS ${quoteIdentifier(extname)} WITH SCHEMA ${schema}`,
+      );
+    }
     await client.query(
       `GRANT ALL ON SCHEMA ${schema} TO ${quoteIdentifier(config.username)}`,
     );

@@ -19,6 +19,7 @@ import {
   type UnderwriteWizardStep,
 } from '../wizard/useUnderwriteQuotationWizard';
 import { MotorVehicleSection } from './MotorVehicleSection';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const MOTOR = getUnderwriteLineMeta(UnderwriteLine.MOTOR);
 
@@ -97,6 +98,10 @@ export function MotorQuotationWizardPage() {
     deferDraftUntilStepId: 'details',
   });
   const { form } = wizard;
+  usePageTitle(
+    wizard.existingQuotation?.quotation_no &&
+      `Edit Quotation ${wizard.existingQuotation.quotation_no}`,
+  );
   const productId = useWatch({ control: form.control, name: 'product_id' });
   const { data: addonDefinitions = [] } = useProductAddonDefinitions(
     productId || undefined,
@@ -146,9 +151,12 @@ export function MotorQuotationWizardPage() {
                     <MotorVehicleSection
                       form={form}
                       compactOnMobile
-                      customer={wizard.customerOptions.find(
-                        (customer) => customer.id === form.watch('customer_id'),
-                      ) ?? null}
+                      customer={
+                        wizard.customerOptions.find(
+                          (customer) =>
+                            customer.id === form.watch('customer_id'),
+                        ) ?? null
+                      }
                     />
                   </div>
                 </div>

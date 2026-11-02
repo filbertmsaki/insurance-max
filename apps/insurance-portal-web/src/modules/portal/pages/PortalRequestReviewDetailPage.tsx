@@ -29,6 +29,7 @@ import {
   type PortalBusinessRecord,
   type PortalRequestStatus,
 } from '../api';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const reviewStatuses: PortalRequestStatus[] = [
   'IN_REVIEW',
@@ -56,6 +57,9 @@ export function PortalRequestReviewDetailPage() {
     enabled: Boolean(id),
     queryFn: () => portalApi.getAdminRequest(id!),
   });
+  usePageTitle(
+    text(query.data?.request_no) && `Request ${text(query.data?.request_no)}`,
+  );
 
   const record = query.data;
   const fields = useMemo(() => (record ? flattenRecord(record) : []), [record]);

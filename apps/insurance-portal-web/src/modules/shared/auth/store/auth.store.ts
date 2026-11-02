@@ -200,7 +200,7 @@ function mergeSessionUser(
 interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
-  /** Decoded JWT claims â€” used for permission/role checks */
+  /** Decoded JWT claims - used for permission/role checks */
   user: AuthUser | null;
   /** Active company resolved by the backend during login/switch */
   company: AuthSessionCompany | null;

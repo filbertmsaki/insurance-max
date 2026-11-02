@@ -63,6 +63,7 @@ import {
   useSetUserInsuranceChannelAccess,
 } from '@/modules/tenant/users/hooks';
 import type { QuotationPolicyDataScope, UserStatus, UserType } from '@/types';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -172,6 +173,7 @@ export function UserDetailPage() {
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { data: user, isLoading } = useUser(id);
+  usePageTitle(user && `User ${user.first_name} ${user.last_name}`);
 
   // ── Dialog state ─────────────────────────────────────────────────────────
   const [editOpen, setEditOpen] = useState(false);

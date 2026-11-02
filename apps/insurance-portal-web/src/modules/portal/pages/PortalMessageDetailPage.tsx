@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatDateTime } from '@/modules/tenant/engagement/utils';
 
 import { portalApi, type PortalAudience } from '../api';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function PortalMessageDetailPage({
   audience,
@@ -24,6 +25,9 @@ export function PortalMessageDetailPage({
     queryFn: () => portalApi.getMessageThread(audience, id),
     enabled: Boolean(id),
   });
+  usePageTitle(
+    threadQuery.data?.subject && `Conversation ${threadQuery.data.subject}`,
+  );
   const messagesQuery = useQuery({
     queryKey: ['portal', audience, 'messages', 'entries', id],
     queryFn: () => portalApi.listMessageEntries(audience, id),

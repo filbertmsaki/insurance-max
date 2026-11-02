@@ -32,6 +32,7 @@ import {
   getCustomerDisplayName,
 } from '../hooks';
 import { useMotorVehiclesByCustomer } from '@/modules/tenant/motor/hooks';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function DetailRow({
   label,
@@ -76,6 +77,7 @@ export function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: customer, isLoading } = useCustomer(id);
+  usePageTitle(customer && `Customer ${getCustomerDisplayName(customer)}`);
   const { data: versions = [] } = useCustomerVersions(id);
   const { data: auditHistory = [] } = useCustomerAuditHistory(id);
   const { data: customerVehicles } = useMotorVehiclesByCustomer(id);

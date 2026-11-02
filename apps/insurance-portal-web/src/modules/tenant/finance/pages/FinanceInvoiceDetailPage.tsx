@@ -29,6 +29,7 @@ import {
   partyName,
 } from '../components';
 import type { FinancePaymentReference } from '../types';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const paymentMethods = [
   { value: 'CONTROL_NUMBER', label: 'Control number', provider: 'GEPG' },
@@ -61,6 +62,9 @@ export function FinanceInvoiceDetailPage() {
     queryFn: () => financeApi.getInvoice(id!),
     enabled: !!id,
   });
+  usePageTitle(
+    invoiceQuery.data?.invoice_no && `Invoice ${invoiceQuery.data.invoice_no}`,
+  );
 
   const referencesQuery = useQuery({
     queryKey: ['finance', 'invoice', id, 'payment-references'],

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { engagementApi } from '../api';
 import { formatDateTime } from '../utils';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function CommunicationDetailPage() {
   const { id = '' } = useParams();
@@ -21,6 +22,10 @@ export function CommunicationDetailPage() {
     queryFn: () => engagementApi.getCommunicationThread(id),
     enabled: Boolean(id),
   });
+  usePageTitle(
+    threadQuery.data?.thread_no &&
+      `Communication ${threadQuery.data.thread_no}`,
+  );
 
   const messagesQuery = useQuery({
     queryKey: ['engagement', 'communications', 'messages', id],

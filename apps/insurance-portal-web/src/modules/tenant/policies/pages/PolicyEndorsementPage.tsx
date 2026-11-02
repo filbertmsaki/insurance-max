@@ -46,6 +46,7 @@ import type {
 } from '../types';
 import { usePolicyTransactionScope } from '../transaction-scope';
 import { FLEET_VEHICLE_ENDORSEMENT_CODES } from '../fleet-vehicle-endorsement';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function asObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -169,6 +170,10 @@ export function PolicyEndorsementPage() {
     canCreateCancellation && cancellationEligibility?.eligible;
   const { data: context, refetch: refetchContext } =
     useEndorsementContext(endorsementId);
+  usePageTitle(
+    context?.transaction?.transaction_no &&
+      `Endorsement ${context.transaction.transaction_no}`,
+  );
   const canCompleteEndorsement = hasPermission('endorsements:complete');
   const canSubmitEndorsementApproval = hasPermission(
     'endorsements:submit-approval',

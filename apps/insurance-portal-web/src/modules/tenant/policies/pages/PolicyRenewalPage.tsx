@@ -9,6 +9,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { policyKeys, useRenewalContext } from '../hooks';
 import { usePolicyTransactionScope } from '../transaction-scope';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function Row({
   label,
@@ -38,6 +39,7 @@ export function PolicyRenewalPage() {
   const { data: context } = useRenewalContext(renewalId);
   const renewal = context?.renewal;
   const quotation = context?.renewal_quotation;
+  usePageTitle(renewal?.renewal_no && `Renewal ${renewal.renewal_no}`);
 
   const refresh = () => {
     if (renewalId) {

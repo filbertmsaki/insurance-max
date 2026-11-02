@@ -66,6 +66,7 @@ import {
   formatClaimDateTime,
   formatClaimMoney,
 } from '../utils';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function notificationOperation(claim: ClaimDetail) {
   return [...(claim.regulatory_operations ?? [])]
@@ -471,6 +472,9 @@ export function ClaimDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const claimQuery = useClaim(id);
+  usePageTitle(
+    claimQuery.data?.claim_no && `Claim ${claimQuery.data.claim_no}`,
+  );
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') ?? 'overview';
   const setTab = (next: string) =>

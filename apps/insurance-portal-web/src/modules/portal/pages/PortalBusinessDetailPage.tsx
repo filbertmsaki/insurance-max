@@ -16,6 +16,7 @@ import {
   type PortalAudience,
   type PortalBusinessRecord,
 } from '../api';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 type PortalDetailResource =
   | 'quotations'
@@ -63,6 +64,7 @@ export function PortalBusinessDetailPage({
   });
   const record = query.data;
   const title = titles[resource];
+  usePageTitle(record && `${title} ${primaryReference(record)}`);
   const backPath = `/${audience}/${resource}`;
   const fields = useMemo(() => (record ? flattenRecord(record) : []), [record]);
   const attachments = arrayOfObjects(record?.attachments);

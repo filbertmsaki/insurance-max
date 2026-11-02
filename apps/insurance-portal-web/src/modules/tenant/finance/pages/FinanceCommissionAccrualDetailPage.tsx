@@ -15,6 +15,7 @@ import {
   formatDate,
   formatMoney,
 } from '../components';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function FinanceCommissionAccrualDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +26,9 @@ export function FinanceCommissionAccrualDetailPage() {
     queryFn: () => financeApi.getCommissionAccrual(id!),
     enabled: !!id,
   });
+  usePageTitle(
+    query.data?.accrual_no && `Commission Accrual ${query.data.accrual_no}`,
+  );
 
   const approveMutation = useMutation({
     mutationFn: () =>

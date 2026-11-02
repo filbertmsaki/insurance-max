@@ -14,6 +14,7 @@ import {
   formatDate,
   formatMoney,
 } from '../components';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function FinancePaymentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,9 @@ export function FinancePaymentDetailPage() {
     queryFn: () => financeApi.getPaymentTransaction(id!),
     enabled: !!id,
   });
+  usePageTitle(
+    query.data?.transaction_no && `Payment ${query.data.transaction_no}`,
+  );
 
   const postReceiptMutation = useMutation({
     mutationFn: async () => {

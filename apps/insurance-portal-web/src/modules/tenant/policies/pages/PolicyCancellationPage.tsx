@@ -30,6 +30,7 @@ import {
 } from '../components/TransactionReasonDialog';
 import type { CancellationReasonType } from '../types';
 import { usePolicyTransactionScope } from '../transaction-scope';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const TERMINAL_STAGES = ['APPLIED', 'CANCELLED', 'EXPIRED', 'REJECTED'];
 
@@ -81,6 +82,9 @@ export function PolicyCancellationPage() {
     isLoading: contextLoading,
     error: contextError,
   } = useCancellationContext(isNew ? undefined : cancellationId);
+  usePageTitle(
+    !isNew && policy?.policy_no && `Cancellation ${policy.policy_no}`,
+  );
   const createCancellation = useCreateCancellation(policyId);
   const completeCancellation = useCompleteCancellation(cancellationId);
   const issueCancellation = useIssueCancellation(policyId);

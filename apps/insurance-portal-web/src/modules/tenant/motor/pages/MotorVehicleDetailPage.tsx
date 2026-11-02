@@ -22,6 +22,7 @@ import {
   useRestoreMotorVehicle,
 } from '../hooks';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function Row({
   label,
@@ -42,6 +43,7 @@ export function MotorVehicleDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: vehicle, isLoading } = useMotorVehicle(id);
+  usePageTitle(vehicle && `Vehicle ${vehicle.registration_no ?? vehicle.id}`);
   const { data: versions = [] } = useMotorVehicleVersions(id);
   const { data: auditHistory = [] } = useMotorVehicleAuditHistory(id);
   const { data: insuranceHistory } = useMotorVehicleInsuranceHistory(id);

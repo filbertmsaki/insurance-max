@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 
 import { engagementApi } from '../api';
 import { formatDateTime, statusTone } from '../utils';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function SignatureRequestDetailPage() {
   const { id = '' } = useParams();
@@ -26,6 +27,10 @@ export function SignatureRequestDetailPage() {
     queryFn: () => engagementApi.getSignatureRequest(id),
     enabled: Boolean(id),
   });
+  usePageTitle(
+    requestQuery.data?.request_no &&
+      `Signature Request ${requestQuery.data.request_no}`,
+  );
 
   const refresh = () => {
     queryClient.invalidateQueries({

@@ -129,7 +129,9 @@ const COLUMNS: Column<CoverNoteRecord>[] = [
     header: 'Entry',
     sortable: true,
     cell: (note) =>
-      `${humanizeCode(note.entry_type)}${note.fleet_entry != null ? ` #${note.fleet_entry}` : ''}`,
+      note.fleet_entry != null
+        ? String(note.fleet_entry)
+        : humanizeCode(note.entry_type),
   },
   {
     key: 'start_date',

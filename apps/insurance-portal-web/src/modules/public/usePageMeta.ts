@@ -30,6 +30,21 @@ export function usePageMeta(
     ogDescription.setAttribute('content', description);
     document.head.appendChild(ogDescription);
 
+    const ogType =
+      document.querySelector<HTMLMetaElement>('meta[property="og:type"]') ??
+      document.createElement('meta');
+    ogType.setAttribute('property', 'og:type');
+    ogType.setAttribute('content', 'website');
+    document.head.appendChild(ogType);
+
+    const ogUrl = document.createElement('meta');
+    ogUrl.setAttribute('property', 'og:url');
+    ogUrl.setAttribute(
+      'content',
+      window.location.origin + window.location.pathname,
+    );
+    if (!noIndex) document.head.appendChild(ogUrl);
+
     const robots = document.createElement('meta');
     robots.name = 'robots';
     robots.content = noIndex ? 'noindex, nofollow' : 'index, follow';
@@ -51,6 +66,7 @@ export function usePageMeta(
     return () => {
       robots.remove();
       canonical.remove();
+      ogUrl.remove();
     };
   }, [description, title, noIndex]);
 }

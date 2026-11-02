@@ -75,6 +75,7 @@ import type {
   PolicyRenewalRecord,
 } from '../types';
 import { usePolicyTransactionScope } from '../transaction-scope';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function Row({
   label,
@@ -359,6 +360,7 @@ export function PolicyDetailPage() {
   const canSubmitEndorsement = hasPermission('endorsements:submit-tiramis');
   const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
   const { data: policy, isLoading } = usePolicyDetail(id);
+  usePageTitle(policy?.policy_no && `Policy ${policy.policy_no}`);
   const { tableProps: endorsementsTableProps } = usePolicyEndorsementsTable(
     policy?.id,
     canViewEndorsements,

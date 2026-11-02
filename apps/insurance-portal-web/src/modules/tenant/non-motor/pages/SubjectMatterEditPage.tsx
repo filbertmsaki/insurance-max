@@ -10,12 +10,17 @@ import {
 } from '../hooks';
 import { SubjectMatterForm } from '../components/SubjectMatterForm';
 import { subjectMatterRecordToFormValues } from '../schemas';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function SubjectMatterEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: customerOptions = [] } = useNonMotorCustomers();
   const { data: subjectMatter, isLoading } = useSubjectMatter(id);
+  usePageTitle(
+    subjectMatter &&
+      `Edit Subject Matter ${subjectMatter.subject_code ?? subjectMatter.id}`,
+  );
   const updateMutation = useUpdateSubjectMatter(id);
 
   if (isLoading) {

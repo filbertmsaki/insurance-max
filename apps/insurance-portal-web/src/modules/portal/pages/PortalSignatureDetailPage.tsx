@@ -16,6 +16,7 @@ import {
 import { formatDateTime, statusTone } from '@/modules/tenant/engagement/utils';
 
 import { portalApi, type PortalAudience } from '../api';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function PortalSignatureDetailPage({
   audience,
@@ -28,6 +29,10 @@ export function PortalSignatureDetailPage({
     queryFn: () => portalApi.getSignature(audience, id),
     enabled: Boolean(id),
   });
+  usePageTitle(
+    signatureQuery.data?.request_no &&
+      `Signature Request ${signatureQuery.data.request_no}`,
+  );
 
   const request = signatureQuery.data;
 

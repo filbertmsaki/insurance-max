@@ -29,6 +29,7 @@ import { DefaultLandingPage } from '@/modules/shared/auth/components/DefaultLand
 import { ForbiddenPage } from '@/modules/shared/auth/pages/ForbiddenPage';
 import { AuthBootstrap } from '@/modules/shared/auth/components/AuthBootstrap';
 import { NumberFormatProvider } from '@/modules/shared/formatting/NumberFormatProvider';
+import { DocumentTitle } from '@/modules/shared/meta/DocumentTitle';
 
 import { LoginPage } from '@/modules/shared/auth/pages/LoginPage';
 import { RegisterPage } from '@/modules/shared/auth/pages/RegisterPage';
@@ -140,273 +141,78 @@ export default function App() {
   return (
     <NumberFormatProvider>
       <AuthBootstrap />
-      <Routes>
-        {/* Guest-only routes */}
-        <Route element={<AuthLayout />}>
-          <Route element={<GuestRoute />}>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/verify-email" element={<VerifyEmailPage />} />
-            <Route path="/phone-login" element={<PhoneLoginPage />} />
-            <Route path="/passwordless" element={<PasswordlessPage />} />
-            <Route
-              path="/passwordless/complete"
-              element={<PasswordlessPage />}
-            />
+      <DocumentTitle>
+        <Routes>
+          {/* Guest-only routes */}
+          <Route element={<AuthLayout />}>
+            <Route element={<GuestRoute />}>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/phone-login" element={<PhoneLoginPage />} />
+              <Route path="/passwordless" element={<PasswordlessPage />} />
+              <Route
+                path="/passwordless/complete"
+                element={<PasswordlessPage />}
+              />
+            </Route>
+
+            {/* 2FA (needs tempToken, no full auth) */}
+            <Route path="/2fa" element={<TwoFactorPage />} />
           </Route>
-
-          {/* 2FA (needs tempToken, no full auth) */}
-          <Route path="/2fa" element={<TwoFactorPage />} />
-        </Route>
-        <Route path="/apps/forbidden" element={<ForbiddenPage />} />
-        <Route
-          path="/documents/verify/:code"
-          element={<PublicDocumentVerificationPage />}
-        />
-        <Route
-          path="/signatures/respond/:token"
-          element={<PublicSignaturePage />}
-        />
-
-        {/* Authenticated routes */}
-        <Route element={<ProtectedRoute />}>
+          <Route path="/apps/forbidden" element={<ForbiddenPage />} />
           <Route
-            path="/apps/customer"
-            element={<PortalShell audience="customer" />}
-          >
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route
-              path="dashboard"
-              element={<PortalDashboardPage audience="customer" />}
-            />
-            <Route
-              path="profile"
-              element={<PortalProfilePage audience="customer" />}
-            />
-            <Route path="buy-cover" element={<PortalBuyCoverPage />} />
-            <Route path="check-cover" element={<PortalCoverCheckPage />} />
-            <Route path="vehicles" element={<PortalVehiclesPage />} />
-            <Route
-              path="quotations"
-              element={
-                <PortalBusinessListPage
-                  audience="customer"
-                  resource="quotations"
-                />
-              }
-            />
-            <Route
-              path="quotations/:id"
-              element={
-                <PortalBusinessDetailPage
-                  audience="customer"
-                  resource="quotations"
-                />
-              }
-            />
-            <Route
-              path="policies"
-              element={
-                <PortalBusinessListPage
-                  audience="customer"
-                  resource="policies"
-                />
-              }
-            />
-            <Route
-              path="policies/:id"
-              element={
-                <PortalBusinessDetailPage
-                  audience="customer"
-                  resource="policies"
-                />
-              }
-            />
-            <Route
-              path="invoices"
-              element={
-                <PortalBusinessListPage
-                  audience="customer"
-                  resource="invoices"
-                />
-              }
-            />
-            <Route
-              path="invoices/:id"
-              element={
-                <PortalBusinessDetailPage
-                  audience="customer"
-                  resource="invoices"
-                />
-              }
-            />
-            <Route
-              path="receipts"
-              element={
-                <PortalBusinessListPage
-                  audience="customer"
-                  resource="receipts"
-                />
-              }
-            />
-            <Route
-              path="claims"
-              element={
-                <PortalBusinessListPage audience="customer" resource="claims" />
-              }
-            />
-            <Route
-              path="claims/:id"
-              element={
-                <PortalBusinessDetailPage
-                  audience="customer"
-                  resource="claims"
-                />
-              }
-            />
-            <Route
-              path="complaints"
-              element={
-                <PortalBusinessListPage
-                  audience="customer"
-                  resource="complaints"
-                />
-              }
-            />
-            <Route
-              path="complaints/:id"
-              element={
-                <PortalBusinessDetailPage
-                  audience="customer"
-                  resource="complaints"
-                />
-              }
-            />
-            <Route
-              path="requests"
-              element={
-                <PortalBusinessListPage
-                  audience="customer"
-                  resource="requests"
-                />
-              }
-            />
-            <Route
-              path="requests/:id"
-              element={
-                <PortalBusinessDetailPage
-                  audience="customer"
-                  resource="requests"
-                />
-              }
-            />
-            <Route
-              path="documents"
-              element={<PortalDocumentsPage audience="customer" />}
-            />
-            <Route
-              path="notifications"
-              element={<PortalNotificationsPage audience="customer" />}
-            />
-            <Route
-              path="messages"
-              element={<PortalMessagesPage audience="customer" />}
-            />
-            <Route
-              path="messages/:id"
-              element={<PortalMessageDetailPage audience="customer" />}
-            />
-            <Route
-              path="signatures"
-              element={<PortalSignaturesPage audience="customer" />}
-            />
-            <Route
-              path="signatures/:id"
-              element={<PortalSignatureDetailPage audience="customer" />}
-            />
-          </Route>
-
+            path="/documents/verify/:code"
+            element={<PublicDocumentVerificationPage />}
+          />
           <Route
-            element={
-              <ProtectedRoute anyPermissions={['portal:intermediary-access']} />
-            }
-          >
+            path="/signatures/respond/:token"
+            element={<PublicSignaturePage />}
+          />
+
+          {/* Authenticated routes */}
+          <Route element={<ProtectedRoute />}>
             <Route
-              path="/apps/intermediary"
-              element={<PortalShell audience="intermediary" />}
+              path="/apps/customer"
+              element={<PortalShell audience="customer" />}
             >
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route
                 path="dashboard"
-                element={<PortalDashboardPage audience="intermediary" />}
+                element={<PortalDashboardPage audience="customer" />}
               />
               <Route
                 path="profile"
-                element={<PortalProfilePage audience="intermediary" />}
+                element={<PortalProfilePage audience="customer" />}
               />
-              <Route
-                path="insurer-connections"
-                element={<IntermediaryRelationshipsPage />}
-              />
-              <Route
-                path="customers"
-                element={
-                  <PortalBusinessListPage
-                    audience="intermediary"
-                    resource="customers"
-                  />
-                }
-              />
-              <Route
-                path="customers/new"
-                element={<IntermediaryCustomerFormPage />}
-              />
-              <Route
-                path="customers/:id"
-                element={
-                  <PortalBusinessDetailPage
-                    audience="intermediary"
-                    resource="customers"
-                  />
-                }
-              />
-              <Route
-                path="customers/:id/edit"
-                element={<IntermediaryCustomerFormPage />}
-              />
+              <Route path="buy-cover" element={<PortalBuyCoverPage />} />
+              <Route path="check-cover" element={<PortalCoverCheckPage />} />
+              <Route path="vehicles" element={<PortalVehiclesPage />} />
               <Route
                 path="quotations"
                 element={
                   <PortalBusinessListPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="quotations"
                   />
                 }
-              />
-              <Route
-                path="quotations/new"
-                element={<IntermediaryQuotationFormPage />}
               />
               <Route
                 path="quotations/:id"
                 element={
                   <PortalBusinessDetailPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="quotations"
                   />
                 }
               />
               <Route
-                path="quotations/:id/edit"
-                element={<IntermediaryQuotationFormPage />}
-              />
-              <Route
                 path="policies"
                 element={
                   <PortalBusinessListPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="policies"
                   />
                 }
@@ -415,7 +221,7 @@ export default function App() {
                 path="policies/:id"
                 element={
                   <PortalBusinessDetailPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="policies"
                   />
                 }
@@ -424,7 +230,7 @@ export default function App() {
                 path="invoices"
                 element={
                   <PortalBusinessListPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="invoices"
                   />
                 }
@@ -433,7 +239,7 @@ export default function App() {
                 path="invoices/:id"
                 element={
                   <PortalBusinessDetailPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="invoices"
                   />
                 }
@@ -442,7 +248,7 @@ export default function App() {
                 path="receipts"
                 element={
                   <PortalBusinessListPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="receipts"
                   />
                 }
@@ -451,7 +257,7 @@ export default function App() {
                 path="claims"
                 element={
                   <PortalBusinessListPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="claims"
                   />
                 }
@@ -460,7 +266,7 @@ export default function App() {
                 path="claims/:id"
                 element={
                   <PortalBusinessDetailPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="claims"
                   />
                 }
@@ -469,7 +275,7 @@ export default function App() {
                 path="complaints"
                 element={
                   <PortalBusinessListPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="complaints"
                   />
                 }
@@ -478,29 +284,16 @@ export default function App() {
                 path="complaints/:id"
                 element={
                   <PortalBusinessDetailPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="complaints"
                   />
                 }
               />
               <Route
-                path="commissions"
-                element={
-                  <PortalBusinessListPage
-                    audience="intermediary"
-                    resource="commissions"
-                  />
-                }
-              />
-              <Route
-                path="commission-settlement-report"
-                element={<IntermediarySettlementReportPage />}
-              />
-              <Route
                 path="requests"
                 element={
                   <PortalBusinessListPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="requests"
                   />
                 }
@@ -509,712 +302,957 @@ export default function App() {
                 path="requests/:id"
                 element={
                   <PortalBusinessDetailPage
-                    audience="intermediary"
+                    audience="customer"
                     resource="requests"
                   />
                 }
               />
               <Route
                 path="documents"
-                element={<PortalDocumentsPage audience="intermediary" />}
+                element={<PortalDocumentsPage audience="customer" />}
               />
               <Route
                 path="notifications"
-                element={<PortalNotificationsPage audience="intermediary" />}
+                element={<PortalNotificationsPage audience="customer" />}
               />
               <Route
                 path="messages"
-                element={<PortalMessagesPage audience="intermediary" />}
+                element={<PortalMessagesPage audience="customer" />}
               />
               <Route
                 path="messages/:id"
-                element={<PortalMessageDetailPage audience="intermediary" />}
+                element={<PortalMessageDetailPage audience="customer" />}
               />
               <Route
                 path="signatures"
-                element={<PortalSignaturesPage audience="intermediary" />}
+                element={<PortalSignaturesPage audience="customer" />}
               />
               <Route
                 path="signatures/:id"
-                element={<PortalSignatureDetailPage audience="intermediary" />}
+                element={<PortalSignatureDetailPage audience="customer" />}
               />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  anyPermissions={['portal:intermediary-access']}
+                />
+              }
+            >
+              <Route
+                path="/apps/intermediary"
+                element={<PortalShell audience="intermediary" />}
+              >
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route
+                  path="dashboard"
+                  element={<PortalDashboardPage audience="intermediary" />}
+                />
+                <Route
+                  path="profile"
+                  element={<PortalProfilePage audience="intermediary" />}
+                />
+                <Route
+                  path="insurer-connections"
+                  element={<IntermediaryRelationshipsPage />}
+                />
+                <Route
+                  path="customers"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="customers"
+                    />
+                  }
+                />
+                <Route
+                  path="customers/new"
+                  element={<IntermediaryCustomerFormPage />}
+                />
+                <Route
+                  path="customers/:id"
+                  element={
+                    <PortalBusinessDetailPage
+                      audience="intermediary"
+                      resource="customers"
+                    />
+                  }
+                />
+                <Route
+                  path="customers/:id/edit"
+                  element={<IntermediaryCustomerFormPage />}
+                />
+                <Route
+                  path="quotations"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="quotations"
+                    />
+                  }
+                />
+                <Route
+                  path="quotations/new"
+                  element={<IntermediaryQuotationFormPage />}
+                />
+                <Route
+                  path="quotations/:id"
+                  element={
+                    <PortalBusinessDetailPage
+                      audience="intermediary"
+                      resource="quotations"
+                    />
+                  }
+                />
+                <Route
+                  path="quotations/:id/edit"
+                  element={<IntermediaryQuotationFormPage />}
+                />
+                <Route
+                  path="policies"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="policies"
+                    />
+                  }
+                />
+                <Route
+                  path="policies/:id"
+                  element={
+                    <PortalBusinessDetailPage
+                      audience="intermediary"
+                      resource="policies"
+                    />
+                  }
+                />
+                <Route
+                  path="invoices"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="invoices"
+                    />
+                  }
+                />
+                <Route
+                  path="invoices/:id"
+                  element={
+                    <PortalBusinessDetailPage
+                      audience="intermediary"
+                      resource="invoices"
+                    />
+                  }
+                />
+                <Route
+                  path="receipts"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="receipts"
+                    />
+                  }
+                />
+                <Route
+                  path="claims"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="claims"
+                    />
+                  }
+                />
+                <Route
+                  path="claims/:id"
+                  element={
+                    <PortalBusinessDetailPage
+                      audience="intermediary"
+                      resource="claims"
+                    />
+                  }
+                />
+                <Route
+                  path="complaints"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="complaints"
+                    />
+                  }
+                />
+                <Route
+                  path="complaints/:id"
+                  element={
+                    <PortalBusinessDetailPage
+                      audience="intermediary"
+                      resource="complaints"
+                    />
+                  }
+                />
+                <Route
+                  path="commissions"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="commissions"
+                    />
+                  }
+                />
+                <Route
+                  path="commission-settlement-report"
+                  element={<IntermediarySettlementReportPage />}
+                />
+                <Route
+                  path="requests"
+                  element={
+                    <PortalBusinessListPage
+                      audience="intermediary"
+                      resource="requests"
+                    />
+                  }
+                />
+                <Route
+                  path="requests/:id"
+                  element={
+                    <PortalBusinessDetailPage
+                      audience="intermediary"
+                      resource="requests"
+                    />
+                  }
+                />
+                <Route
+                  path="documents"
+                  element={<PortalDocumentsPage audience="intermediary" />}
+                />
+                <Route
+                  path="notifications"
+                  element={<PortalNotificationsPage audience="intermediary" />}
+                />
+                <Route
+                  path="messages"
+                  element={<PortalMessagesPage audience="intermediary" />}
+                />
+                <Route
+                  path="messages/:id"
+                  element={<PortalMessageDetailPage audience="intermediary" />}
+                />
+                <Route
+                  path="signatures"
+                  element={<PortalSignaturesPage audience="intermediary" />}
+                />
+                <Route
+                  path="signatures/:id"
+                  element={
+                    <PortalSignatureDetailPage audience="intermediary" />
+                  }
+                />
+              </Route>
+            </Route>
+
+            <Route element={<AppShell />}>
+              <Route path="/apps/forbidden" element={<ForbiddenPage />} />
+              <Route path="/apps/dashboard" element={<DashboardPage />} />
+              <Route path="/apps/dashboard/:tab" element={<DashboardPage />} />
+
+              {renderUnderwriteRoutes()}
+              {renderClaimsRoutes()}
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermissions={[
+                      'analytics:metrics:read',
+                      'analytics:read',
+                    ]}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/analytics/metrics"
+                  element={<AnalyticsMetricsPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermissions={['documents:read', 'documents:register']}
+                  />
+                }
+              >
+                <Route path="/apps/documents" element={<DocumentsPage />} />
+                <Route
+                  path="/apps/documents/:id"
+                  element={<DocumentDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="document-templates:read" />
+                }
+              >
+                <Route
+                  path="/apps/document-templates"
+                  element={<DocumentTemplatesPage />}
+                />
+                <Route
+                  path="/apps/document-templates/:id"
+                  element={<DocumentTemplateDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="signatures:read" />
+                }
+              >
+                <Route
+                  path="/apps/signatures"
+                  element={<SignatureRequestsPage />}
+                />
+                <Route
+                  path="/apps/signatures/:id"
+                  element={<SignatureRequestDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="notifications:read" />
+                }
+              >
+                <Route
+                  path="/apps/notifications"
+                  element={<NotificationsPage />}
+                />
+                <Route
+                  path="/apps/notification-preferences"
+                  element={<NotificationPreferencesPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="communications:read" />
+                }
+              >
+                <Route
+                  path="/apps/communications"
+                  element={<CommunicationsPage />}
+                />
+                <Route
+                  path="/apps/communications/:id"
+                  element={<CommunicationDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="work-items:read" />
+                }
+              >
+                <Route path="/apps/work-items" element={<WorkItemsPage />} />
+                <Route
+                  path="/apps/work-items/:id"
+                  element={<WorkItemDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermissions={[
+                      'portal:request-read',
+                      'portal:request-review',
+                      'portal:request-complete',
+                    ]}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/portal-requests"
+                  element={<PortalRequestsReviewPage />}
+                />
+                <Route
+                  path="/apps/portal-requests/:id"
+                  element={<PortalRequestReviewDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermissions={[
+                      'portal:account-read',
+                      'portal:account-invite',
+                    ]}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/portal-invitations"
+                  element={<PortalInvitationsPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="security-policies:read" />
+                }
+              >
+                <Route
+                  path="/apps/security-policy"
+                  element={<SecurityPolicyPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermissions={[
+                      'reports:definition-read',
+                      'reports:run',
+                      'reports:job-read',
+                      'reports:schedule-read',
+                      'reports:definitions:read',
+                    ]}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/reports"
+                  element={<ReportsWorkbenchPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermissions={[
+                      'regulatory:calendar-read',
+                      'regulatory:return-read',
+                      'regulatory:levy-read',
+                      'regulatory-authorities:read',
+                      'regulatory-obligations:read',
+                      'regulatory-returns:read',
+                      'regulatory-levies:read',
+                    ]}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/regulatory"
+                  element={<RegulatoryWorkbenchPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    requiredPermission="users:read"
+                    allowedScopes={['company']}
+                  />
+                }
+              >
+                <Route path="/apps/users" element={<UsersListPage />} />
+                <Route path="/apps/users/:id" element={<UserDetailPage />} />
+              </Route>
+
+              {/* Owner-only: manage all companies */}
+              <Route
+                element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
+              >
+                <Route path="/apps/companies" element={<CompaniesListPage />} />
+                <Route
+                  path="/apps/companies/:id"
+                  element={<CompanyDetailPage />}
+                />
+              </Route>
+
+              {/* Company-scoped users: view/edit their own company */}
+              <Route
+                element={
+                  <ProtectedRoute
+                    requiredPermission="insurance-partners:read"
+                    hideForStandardUser
+                  />
+                }
+              >
+                <Route
+                  path="/apps/insurance-partners"
+                  element={<InsurancePartnersPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    requiredPermission="view_company_data"
+                    hideForStandardUser
+                  />
+                }
+              >
+                <Route path="/apps/my-company" element={<MyCompanyPage />} />
+              </Route>
+
+              {/* Branches: accessible to users with branches:read permission */}
+              <Route
+                element={
+                  <ProtectedRoute
+                    requiredPermission="branches:read"
+                    hideForStandardUser
+                  />
+                }
+              >
+                <Route path="/apps/branches" element={<BranchesListPage />} />
+                <Route
+                  path="/apps/branches/:id"
+                  element={<BranchDetailPage />}
+                />
+                <Route path="/apps/sale-points" element={<SalePointsPage />} />
+                <Route
+                  path="/apps/company-features"
+                  element={<CompanyFeaturesPage />}
+                />
+              </Route>
+
+              <Route
+                element={<ProtectedRoute requiredPermission="audit:read" />}
+              >
+                <Route path="/apps/audit-logs" element={<AuditLogsPage />} />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    requiredPermission="departments:read"
+                    hideForStandardUser
+                  />
+                }
+              >
+                <Route path="/apps/departments" element={<DepartmentsPage />} />
+                <Route
+                  path="/apps/departments/:id"
+                  element={<DepartmentDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={<ProtectedRoute requiredPermission="roles:read" />}
+              >
+                <Route path="/apps/roles" element={<RolesPage />} />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="permissions:read" />
+                }
+              >
+                <Route path="/apps/permissions" element={<PermissionsPage />} />
+              </Route>
+
+              <Route path="/apps/devices" element={<DevicesPage />} />
+              <Route path="/apps/sessions" element={<SessionsPage />} />
+              <Route
+                element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
+              >
+                <Route
+                  path="/apps/reference-data"
+                  element={<ReferenceDataPage />}
+                />
+                <Route
+                  path="/apps/saas-billing"
+                  element={<SaasBillingPage />}
+                />
+                <Route
+                  path="/apps/platform-intelligence"
+                  element={<PlatformIntelligencePage />}
+                />
+              </Route>
+              <Route
+                element={<ProtectedRoute anyRole={['SUPER_ADMIN', 'OWNER']} />}
+              >
+                <Route path="/apps/api-clients" element={<ApiClientsPage />} />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyRole={['OWNER', 'SUPER_ADMIN']}
+                    requiredPermission="platform:tiramis-integration:read"
+                  />
+                }
+              >
+                <Route
+                  path="/apps/platform/tiramis-integration"
+                  element={<PlatformTiramisIntegrationPage />}
+                />
+              </Route>
+              <Route path="/apps/settings/profile" element={<ProfilePage />} />
+              <Route
+                path="/apps/settings/number-format"
+                element={<NumberFormatSettingsPage />}
+              />
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    requiredPermission="endorsements:create"
+                    hideForStandardUser
+                  />
+                }
+              >
+                <Route
+                  path="/apps/endorsement-types"
+                  element={<EndorsementTypesPage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="complaints:read" />
+                }
+              >
+                <Route path="/apps/complaints" element={<ComplaintsPage />} />
+                <Route
+                  path="/apps/complaints/:id"
+                  element={<ComplaintDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="tiramis-submissions:read" />
+                }
+              >
+                <Route
+                  path="/apps/tiramis/submissions"
+                  element={<TiramisSubmissionsPage />}
+                />
+                <Route
+                  path="/apps/tiramis/submissions/:id"
+                  element={<TiramisSubmissionDetailPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermission={[
+                      'verifications:motor:submit',
+                      'verifications:cover-note:submit',
+                    ]}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/verifications"
+                  element={<VerificationsPage />}
+                />
+              </Route>
+
+              {/* Product Engine */}
+              <Route element={<ProtectedRoute hideForStandardUser />}>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="insurance-categories:read" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/categories"
+                    element={<CategoriesPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="insurance-products:read" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/products"
+                    element={<ProductsPage />}
+                  />
+                  <Route
+                    path="/apps/product-engine/products/:productId"
+                    element={<ProductDetailPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="insurance-sub-classes:read" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/sub-classes"
+                    element={<SubClassesPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="insurance-risks:read" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/risks"
+                    element={<RisksPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="rating-factors:read" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/rating-factors"
+                    element={<RatingFactorsPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="pricing.manage_rules" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/rating-rules"
+                    element={<RatingRulesPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="pricing.manage_rate_books" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/rate-books"
+                    element={<RateBooksPage />}
+                  />
+                  <Route
+                    path="/apps/product-engine/rate-books/:rateBookId"
+                    element={<RateBookDetailPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="product-distribution:read" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/taxes"
+                    element={<TaxesPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="category-access:read" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/access/categories"
+                    element={<CategoryAccessPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="product-access:read" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/access/products"
+                    element={<ProductAccessPage />}
+                  />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute requiredPermission="pricing.calculate" />
+                  }
+                >
+                  <Route
+                    path="/apps/product-engine/calculator"
+                    element={<CalculatorPage />}
+                  />
+                </Route>
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="finance:dashboard" />
+                }
+              >
+                <Route
+                  path="/apps/finance/dashboard"
+                  element={<FinanceDashboardPage />}
+                />
+              </Route>
+              <Route
+                element={<ProtectedRoute requiredPermission="invoices:read" />}
+              >
+                <Route
+                  path="/apps/finance/invoices"
+                  element={<FinanceInvoicesPage />}
+                />
+                <Route
+                  path="/apps/finance/invoices/:id"
+                  element={<FinanceInvoiceDetailPage />}
+                />
+              </Route>
+              <Route
+                element={<ProtectedRoute requiredPermission="payments:read" />}
+              >
+                <Route
+                  path="/apps/finance/payments"
+                  element={<FinancePaymentsPage />}
+                />
+                <Route
+                  path="/apps/finance/payments/:id"
+                  element={<FinancePaymentDetailPage />}
+                />
+              </Route>
+              <Route
+                element={<ProtectedRoute requiredPermission="receipts:read" />}
+              >
+                <Route
+                  path="/apps/finance/receipts"
+                  element={<FinanceReceiptsPage />}
+                />
+                <Route
+                  path="/apps/finance/receipts/:id"
+                  element={<FinanceReceiptDetailPage />}
+                />
+              </Route>
+              <Route
+                element={<ProtectedRoute requiredPermission="refunds:read" />}
+              >
+                <Route
+                  path="/apps/finance/refunds"
+                  element={<FinanceRefundsPage />}
+                />
+                <Route
+                  path="/apps/finance/refunds/:id"
+                  element={<FinanceRefundDetailPage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="reconciliation:read" />
+                }
+              >
+                <Route
+                  path="/apps/finance/reconciliation"
+                  element={<FinanceReconciliationPage />}
+                />
+                <Route
+                  path="/apps/finance/reconciliation/:id"
+                  element={<FinanceReconciliationDetailPage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="commissions:read" />
+                }
+              >
+                <Route
+                  path="/apps/finance/commission-accruals"
+                  element={<FinanceCommissionAccrualsPage />}
+                />
+                <Route
+                  path="/apps/finance/commission-accruals/:id"
+                  element={<FinanceCommissionAccrualDetailPage />}
+                />
+                <Route
+                  path="/apps/finance/commission-payments"
+                  element={<FinanceCommissionPaymentsPage />}
+                />
+                <Route
+                  path="/apps/finance/commission-payments/:id"
+                  element={<FinanceCommissionPaymentDetailPage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="finance-journals:read" />
+                }
+              >
+                <Route
+                  path="/apps/finance/journals"
+                  element={<FinanceJournalsPage />}
+                />
+                <Route
+                  path="/apps/finance/journals/:id"
+                  element={<FinanceJournalDetailPage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="reinsurance:read" />
+                }
+              >
+                <Route
+                  path="/apps/reinsurance"
+                  element={<ReinsuranceWorkbenchPage />}
+                />
+              </Route>
+
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="tiramis.monitoring.view" />
+                }
+              >
+                <Route
+                  path="/apps/tiramis/dashboard"
+                  element={<TiramisDashboardPage />}
+                />
+                <Route
+                  path="/apps/tiramis/health"
+                  element={<TiramisHealthPage />}
+                />
+                <Route
+                  path="/apps/tiramis/failed"
+                  element={<TiramisFailedSubmissionsPage />}
+                />
+                <Route
+                  path="/apps/tiramis/retryable"
+                  element={<TiramisRetryablePage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute
+                    anyPermission={[
+                      'tiramis.tracking.view',
+                      'verifications:motor:submit',
+                      'verifications:cover-note:submit',
+                    ]}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/tiramis/tracking"
+                  element={<TiramisTrackingPage />}
+                />
+              </Route>
             </Route>
           </Route>
 
-          <Route element={<AppShell />}>
-            <Route path="/apps/forbidden" element={<ForbiddenPage />} />
-            <Route path="/apps/dashboard" element={<DashboardPage />} />
-            <Route path="/apps/dashboard/:tab" element={<DashboardPage />} />
-
-            {renderUnderwriteRoutes()}
-            {renderClaimsRoutes()}
-
-            <Route
-              element={
-                <ProtectedRoute
-                  anyPermissions={['analytics:metrics:read', 'analytics:read']}
-                />
-              }
-            >
-              <Route
-                path="/apps/analytics/metrics"
-                element={<AnalyticsMetricsPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  anyPermissions={['documents:read', 'documents:register']}
-                />
-              }
-            >
-              <Route path="/apps/documents" element={<DocumentsPage />} />
-              <Route
-                path="/apps/documents/:id"
-                element={<DocumentDetailPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="document-templates:read" />
-              }
-            >
-              <Route
-                path="/apps/document-templates"
-                element={<DocumentTemplatesPage />}
-              />
-              <Route
-                path="/apps/document-templates/:id"
-                element={<DocumentTemplateDetailPage />}
-              />
-            </Route>
-
-            <Route
-              element={<ProtectedRoute requiredPermission="signatures:read" />}
-            >
-              <Route
-                path="/apps/signatures"
-                element={<SignatureRequestsPage />}
-              />
-              <Route
-                path="/apps/signatures/:id"
-                element={<SignatureRequestDetailPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="notifications:read" />
-              }
-            >
-              <Route
-                path="/apps/notifications"
-                element={<NotificationsPage />}
-              />
-              <Route
-                path="/apps/notification-preferences"
-                element={<NotificationPreferencesPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="communications:read" />
-              }
-            >
-              <Route
-                path="/apps/communications"
-                element={<CommunicationsPage />}
-              />
-              <Route
-                path="/apps/communications/:id"
-                element={<CommunicationDetailPage />}
-              />
-            </Route>
-
-            <Route
-              element={<ProtectedRoute requiredPermission="work-items:read" />}
-            >
-              <Route path="/apps/work-items" element={<WorkItemsPage />} />
-              <Route
-                path="/apps/work-items/:id"
-                element={<WorkItemDetailPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  anyPermissions={[
-                    'portal:request-read',
-                    'portal:request-review',
-                    'portal:request-complete',
-                  ]}
-                />
-              }
-            >
-              <Route
-                path="/apps/portal-requests"
-                element={<PortalRequestsReviewPage />}
-              />
-              <Route
-                path="/apps/portal-requests/:id"
-                element={<PortalRequestReviewDetailPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  anyPermissions={[
-                    'portal:account-read',
-                    'portal:account-invite',
-                  ]}
-                />
-              }
-            >
-              <Route
-                path="/apps/portal-invitations"
-                element={<PortalInvitationsPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="security-policies:read" />
-              }
-            >
-              <Route
-                path="/apps/security-policy"
-                element={<SecurityPolicyPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  anyPermissions={[
-                    'reports:definition-read',
-                    'reports:run',
-                    'reports:job-read',
-                    'reports:schedule-read',
-                    'reports:definitions:read',
-                  ]}
-                />
-              }
-            >
-              <Route path="/apps/reports" element={<ReportsWorkbenchPage />} />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  anyPermissions={[
-                    'regulatory:calendar-read',
-                    'regulatory:return-read',
-                    'regulatory:levy-read',
-                    'regulatory-authorities:read',
-                    'regulatory-obligations:read',
-                    'regulatory-returns:read',
-                    'regulatory-levies:read',
-                  ]}
-                />
-              }
-            >
-              <Route
-                path="/apps/regulatory"
-                element={<RegulatoryWorkbenchPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  requiredPermission="users:read"
-                  allowedScopes={['company']}
-                />
-              }
-            >
-              <Route path="/apps/users" element={<UsersListPage />} />
-              <Route path="/apps/users/:id" element={<UserDetailPage />} />
-            </Route>
-
-            {/* Owner-only: manage all companies */}
-            <Route
-              element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
-            >
-              <Route path="/apps/companies" element={<CompaniesListPage />} />
-              <Route
-                path="/apps/companies/:id"
-                element={<CompanyDetailPage />}
-              />
-            </Route>
-
-            {/* Company-scoped users: view/edit their own company */}
-            <Route
-              element={
-                <ProtectedRoute
-                  requiredPermission="insurance-partners:read"
-                  hideForStandardUser
-                />
-              }
-            >
-              <Route
-                path="/apps/insurance-partners"
-                element={<InsurancePartnersPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  requiredPermission="view_company_data"
-                  hideForStandardUser
-                />
-              }
-            >
-              <Route path="/apps/my-company" element={<MyCompanyPage />} />
-            </Route>
-
-            {/* Branches: accessible to users with branches:read permission */}
-            <Route
-              element={
-                <ProtectedRoute
-                  requiredPermission="branches:read"
-                  hideForStandardUser
-                />
-              }
-            >
-              <Route path="/apps/branches" element={<BranchesListPage />} />
-              <Route path="/apps/branches/:id" element={<BranchDetailPage />} />
-              <Route path="/apps/sale-points" element={<SalePointsPage />} />
-              <Route
-                path="/apps/company-features"
-                element={<CompanyFeaturesPage />}
-              />
-            </Route>
-
-            <Route element={<ProtectedRoute requiredPermission="audit:read" />}>
-              <Route path="/apps/audit-logs" element={<AuditLogsPage />} />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  requiredPermission="departments:read"
-                  hideForStandardUser
-                />
-              }
-            >
-              <Route path="/apps/departments" element={<DepartmentsPage />} />
-              <Route
-                path="/apps/departments/:id"
-                element={<DepartmentDetailPage />}
-              />
-            </Route>
-
-            <Route element={<ProtectedRoute requiredPermission="roles:read" />}>
-              <Route path="/apps/roles" element={<RolesPage />} />
-            </Route>
-
-            <Route
-              element={<ProtectedRoute requiredPermission="permissions:read" />}
-            >
-              <Route path="/apps/permissions" element={<PermissionsPage />} />
-            </Route>
-
-            <Route path="/apps/devices" element={<DevicesPage />} />
-            <Route path="/apps/sessions" element={<SessionsPage />} />
-            <Route
-              element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
-            >
-              <Route
-                path="/apps/reference-data"
-                element={<ReferenceDataPage />}
-              />
-              <Route path="/apps/saas-billing" element={<SaasBillingPage />} />
-              <Route
-                path="/apps/platform-intelligence"
-                element={<PlatformIntelligencePage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute anyRole={['SUPER_ADMIN', 'OWNER']} />}
-            >
-              <Route path="/apps/api-clients" element={<ApiClientsPage />} />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute
-                  anyRole={['OWNER', 'SUPER_ADMIN']}
-                  requiredPermission="platform:tiramis-integration:read"
-                />
-              }
-            >
-              <Route
-                path="/apps/platform/tiramis-integration"
-                element={<PlatformTiramisIntegrationPage />}
-              />
-            </Route>
-            <Route path="/apps/settings/profile" element={<ProfilePage />} />
-            <Route
-              path="/apps/settings/number-format"
-              element={<NumberFormatSettingsPage />}
-            />
-
-            <Route
-              element={
-                <ProtectedRoute
-                  requiredPermission="endorsements:create"
-                  hideForStandardUser
-                />
-              }
-            >
-              <Route
-                path="/apps/endorsement-types"
-                element={<EndorsementTypesPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="complaints:read" />}
-            >
-              <Route path="/apps/complaints" element={<ComplaintsPage />} />
-              <Route
-                path="/apps/complaints/:id"
-                element={<ComplaintDetailPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="tiramis-submissions:read" />
-              }
-            >
-              <Route
-                path="/apps/tiramis/submissions"
-                element={<TiramisSubmissionsPage />}
-              />
-              <Route
-                path="/apps/tiramis/submissions/:id"
-                element={<TiramisSubmissionDetailPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  anyPermission={[
-                    'verifications:motor:submit',
-                    'verifications:cover-note:submit',
-                  ]}
-                />
-              }
-            >
-              <Route
-                path="/apps/verifications"
-                element={<VerificationsPage />}
-              />
-            </Route>
-
-            {/* Product Engine */}
-            <Route element={<ProtectedRoute hideForStandardUser />}>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="insurance-categories:read" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/categories"
-                  element={<CategoriesPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="insurance-products:read" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/products"
-                  element={<ProductsPage />}
-                />
-                <Route
-                  path="/apps/product-engine/products/:productId"
-                  element={<ProductDetailPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="insurance-sub-classes:read" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/sub-classes"
-                  element={<SubClassesPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="insurance-risks:read" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/risks"
-                  element={<RisksPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="rating-factors:read" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/rating-factors"
-                  element={<RatingFactorsPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="pricing.manage_rules" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/rating-rules"
-                  element={<RatingRulesPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="pricing.manage_rate_books" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/rate-books"
-                  element={<RateBooksPage />}
-                />
-                <Route
-                  path="/apps/product-engine/rate-books/:rateBookId"
-                  element={<RateBookDetailPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="product-distribution:read" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/taxes"
-                  element={<TaxesPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="category-access:read" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/access/categories"
-                  element={<CategoryAccessPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="product-access:read" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/access/products"
-                  element={<ProductAccessPage />}
-                />
-              </Route>
-              <Route
-                element={
-                  <ProtectedRoute requiredPermission="pricing.calculate" />
-                }
-              >
-                <Route
-                  path="/apps/product-engine/calculator"
-                  element={<CalculatorPage />}
-                />
-              </Route>
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="finance:dashboard" />
-              }
-            >
-              <Route
-                path="/apps/finance/dashboard"
-                element={<FinanceDashboardPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="invoices:read" />}
-            >
-              <Route
-                path="/apps/finance/invoices"
-                element={<FinanceInvoicesPage />}
-              />
-              <Route
-                path="/apps/finance/invoices/:id"
-                element={<FinanceInvoiceDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="payments:read" />}
-            >
-              <Route
-                path="/apps/finance/payments"
-                element={<FinancePaymentsPage />}
-              />
-              <Route
-                path="/apps/finance/payments/:id"
-                element={<FinancePaymentDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="receipts:read" />}
-            >
-              <Route
-                path="/apps/finance/receipts"
-                element={<FinanceReceiptsPage />}
-              />
-              <Route
-                path="/apps/finance/receipts/:id"
-                element={<FinanceReceiptDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="refunds:read" />}
-            >
-              <Route
-                path="/apps/finance/refunds"
-                element={<FinanceRefundsPage />}
-              />
-              <Route
-                path="/apps/finance/refunds/:id"
-                element={<FinanceRefundDetailPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="reconciliation:read" />
-              }
-            >
-              <Route
-                path="/apps/finance/reconciliation"
-                element={<FinanceReconciliationPage />}
-              />
-              <Route
-                path="/apps/finance/reconciliation/:id"
-                element={<FinanceReconciliationDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="commissions:read" />}
-            >
-              <Route
-                path="/apps/finance/commission-accruals"
-                element={<FinanceCommissionAccrualsPage />}
-              />
-              <Route
-                path="/apps/finance/commission-accruals/:id"
-                element={<FinanceCommissionAccrualDetailPage />}
-              />
-              <Route
-                path="/apps/finance/commission-payments"
-                element={<FinanceCommissionPaymentsPage />}
-              />
-              <Route
-                path="/apps/finance/commission-payments/:id"
-                element={<FinanceCommissionPaymentDetailPage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="finance-journals:read" />
-              }
-            >
-              <Route
-                path="/apps/finance/journals"
-                element={<FinanceJournalsPage />}
-              />
-              <Route
-                path="/apps/finance/journals/:id"
-                element={<FinanceJournalDetailPage />}
-              />
-            </Route>
-            <Route
-              element={<ProtectedRoute requiredPermission="reinsurance:read" />}
-            >
-              <Route
-                path="/apps/reinsurance"
-                element={<ReinsuranceWorkbenchPage />}
-              />
-            </Route>
-
-            <Route
-              element={
-                <ProtectedRoute requiredPermission="tiramis.monitoring.view" />
-              }
-            >
-              <Route
-                path="/apps/tiramis/dashboard"
-                element={<TiramisDashboardPage />}
-              />
-              <Route
-                path="/apps/tiramis/health"
-                element={<TiramisHealthPage />}
-              />
-              <Route
-                path="/apps/tiramis/failed"
-                element={<TiramisFailedSubmissionsPage />}
-              />
-              <Route
-                path="/apps/tiramis/retryable"
-                element={<TiramisRetryablePage />}
-              />
-            </Route>
-            <Route
-              element={
-                <ProtectedRoute
-                  anyPermission={[
-                    'tiramis.tracking.view',
-                    'verifications:motor:submit',
-                    'verifications:cover-note:submit',
-                  ]}
-                />
-              }
-            >
-              <Route
-                path="/apps/tiramis/tracking"
-                element={<TiramisTrackingPage />}
-              />
-            </Route>
-          </Route>
-        </Route>
-
-        {/* Public website */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/claim-help" element={<ClaimsPage />} />
-        <Route path="/faq" element={<FaqPage />} />
-        <Route path="/about" element={<AboutPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/insurance" element={<InsurancePage />} />
-        <Route path="/buy-cover" element={<BuyCoverPage />} />
-        <Route
-          path="/buy-insurance"
-          element={<Navigate to="/buy-cover" replace />}
-        />
-        <Route
-          path="/motor-insurance"
-          element={<MotorInsurancePurchasePage />}
-        />
-        {/* Default redirects */}
-        <Route path="*" element={<DefaultLandingPage />} />
-      </Routes>
+          {/* Public website */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/claim-help" element={<ClaimsPage />} />
+          <Route path="/faq" element={<FaqPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/insurance" element={<InsurancePage />} />
+          <Route path="/buy-cover" element={<BuyCoverPage />} />
+          <Route
+            path="/buy-insurance"
+            element={<Navigate to="/buy-cover" replace />}
+          />
+          <Route
+            path="/motor-insurance"
+            element={<MotorInsurancePurchasePage />}
+          />
+          {/* Default redirects */}
+          <Route path="*" element={<DefaultLandingPage />} />
+        </Routes>
+      </DocumentTitle>
     </NumberFormatProvider>
   );
 }

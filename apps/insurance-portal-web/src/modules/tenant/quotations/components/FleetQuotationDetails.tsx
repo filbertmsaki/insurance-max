@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { coverNotesApi } from '@/modules/tenant/cover-notes/api';
 import {
   formatDate,
   formatDateTime,
@@ -92,76 +95,34 @@ function OverviewFact({
 }
 
 /**
- * The premium as a short calculation, each figure shown once: base, less any
- * discount, plus tax, giving the total payable. All figures are the backend's.
+ * One plain line under the total explaining how it is made up: premium, less
+ * any discount, plus tax. All figures are the backend's.
  */
-function FleetPremiumBreakdown({
-  preview,
-}: {
-  preview: QuotationPreviewRecord;
-}) {
+function PremiumMakeup({ preview }: { preview: QuotationPreviewRecord }) {
   const summary = preview.premium_summary;
   const money = (value: number | null | undefined) =>
     formatMoney(value, summary.currency);
   const discount = summary.total_discount_amount ?? 0;
-  const lines: Array<{ sign?: string; label: string; value: string }> = [
-    {
-      label: 'Base premium',
-      value: money(summary.total_premium_before_discount),
-    },
+  const parts = [
+    { label: 'premium', value: money(summary.total_premium_before_discount) },
     ...(discount > 0
-      ? [
-          { sign: '−', label: 'Discount', value: money(discount) },
-          {
-            sign: '=',
-            label: 'Premium excl. tax',
-            value: money(summary.total_premium_excluding_tax),
-          },
-        ]
+      ? [{ sign: '−', label: 'discount', value: money(discount) }]
       : []),
-    { sign: '+', label: 'Tax', value: money(summary.total_tax_amount) },
+    { sign: '+', label: 'tax', value: money(summary.total_tax_amount) },
   ];
 
   return (
-    <SectionCard title="Premium Summary">
-      <div className="max-w-xl">
-        <dl className="space-y-2 text-sm">
-          {lines.map((line) => (
-            <div
-              key={line.label}
-              className="flex items-baseline justify-between gap-4"
-            >
-              <dt className="flex min-w-0 items-baseline gap-2 text-slate-600">
-                <span
-                  aria-hidden="true"
-                  className="w-3 shrink-0 text-center text-slate-400"
-                >
-                  {line.sign}
-                </span>
-                {line.label}
-              </dt>
-              <dd className="whitespace-nowrap tabular-nums text-slate-900">
-                {line.value}
-              </dd>
-            </div>
-          ))}
-        </dl>
-        <div className="mt-3 flex items-baseline justify-between gap-4 border-t border-slate-200 pt-3">
-          <p className="flex items-baseline gap-2 text-sm font-semibold text-slate-900">
-            <span
-              aria-hidden="true"
-              className="w-3 shrink-0 text-center text-slate-400"
-            >
-              =
-            </span>
-            Total payable
-          </p>
-          <p className="whitespace-nowrap text-lg font-semibold tabular-nums text-slate-900">
-            {money(summary.total_premium_including_tax)}
-          </p>
-        </div>
-      </div>
-    </SectionCard>
+    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-sm text-sky-900/80">
+      {parts.map((part) => (
+        <span key={part.label} className="whitespace-nowrap">
+          {part.sign && <span className="mr-1.5">{part.sign}</span>}
+          <span className="font-medium tabular-nums text-sky-950">
+            {part.value}
+          </span>{' '}
+          {part.label}
+        </span>
+      ))}
+    </p>
   );
 }
 
@@ -177,20 +138,55 @@ function Notice({ children }: { children: ReactNode }) {
   );
 }
 
+/** Vehicles tab for a motor fleet quotation, with each vehicle's TIRA references. */
+export function FleetQuotationVehicles({
+  preview,
+  renderRiskActions,
+}: {
+  preview: QuotationPreviewRecord;
+  renderRiskActions: (risk: QuotationPreviewRisk) => ReactNode;
+}) {
+  const { header, vehicles } = preview.fleet!;
+  const quotationId = preview.overview.quotation_id;
+  const canReadCoverNotes = useAuthStore((state) =>
+    state.hasPermission('cover-notes:read'),
+  );
+  // Same key prefix as the Cover Notes table, so a re-sync refreshes both.
+  const { data: coverNotes } = useQuery({
+    queryKey: ['cover-notes', { quotation_id: quotationId }, 'all'],
+    queryFn: () => coverNotesApi.list({ quotation_id: quotationId }),
+    enabled: canReadCoverNotes && !!quotationId,
+  });
+
+  return (
+    <SectionCard
+      title="Vehicles"
+      description="Select a vehicle to see its details, risk, premium and TIRA references."
+    >
+      <FleetVehiclesTable
+        currency={
+          header.currency ?? preview.premium_summary.currency ?? undefined
+        }
+        vehicles={vehicles}
+        coverNotes={coverNotes}
+        renderRiskActions={renderRiskActions}
+      />
+    </SectionCard>
+  );
+}
+
 /**
- * Details tab for a motor fleet quotation: totals first, then the vehicles,
- * the premium, the cover terms, the policyholder and finally the record's
- * audit details. Quotation number, status and product already sit in the
- * page header, so they are not repeated here.
+ * Overview tab for a motor fleet quotation: totals first, then the cover
+ * terms, the policyholder and finally the record's audit details. Vehicles
+ * have their own tab. Quotation number, status and product already sit in
+ * the page header, so they are not repeated here.
  */
 export function FleetQuotationDetails({
   preview,
-  renderRiskActions,
   onViewTiramis,
 }: {
   onViewTiramis?: () => void;
   preview: QuotationPreviewRecord;
-  renderRiskActions: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
   const fleet = preview.fleet!;
   const { header, summary, vehicles } = fleet;
@@ -242,6 +238,7 @@ export function FleetQuotationDetails({
             <p className="mt-1 text-2xl font-semibold tabular-nums text-sky-950 [overflow-wrap:anywhere] sm:text-3xl">
               {money(summary.total_premium_including_tax)}
             </p>
+            <PremiumMakeup preview={preview} />
           </div>
           <dl className="grid grid-cols-2 gap-4 border-t border-sky-200 bg-white/60 px-4 py-4 sm:px-5 md:w-auto md:min-w-72 md:grid-cols-1 md:border-l md:border-t-0 lg:grid-cols-2 lg:min-w-96">
             <OverviewFact
@@ -294,19 +291,6 @@ export function FleetQuotationDetails({
           </div>
         )}
       </SectionCard>
-
-      <SectionCard
-        title="Vehicles"
-        description="Select a vehicle to see its details, risk and premium breakdown."
-      >
-        <FleetVehiclesTable
-          currency={currency ?? undefined}
-          vehicles={vehicles}
-          renderRiskActions={renderRiskActions}
-        />
-      </SectionCard>
-
-      <FleetPremiumBreakdown preview={preview} />
 
       <SectionCard title="Cover and terms" mobileCollapsible>
         <FactList

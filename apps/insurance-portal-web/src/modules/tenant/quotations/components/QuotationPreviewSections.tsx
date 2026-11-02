@@ -47,6 +47,7 @@ import type {
   QuotationPreviewSubjectMatter,
   QuotationPreviewTiramisSubmission,
 } from '../types';
+import type { CoverNoteRecord } from '@/modules/tenant/cover-notes/types';
 import { getFriendlyTiramisStatus } from '../utils/quotationWorkflowLabels';
 import {
   getMotorTypeLabelFromCode,
@@ -961,9 +962,15 @@ export function FleetHeaderPreview({
 function tiramisStatusBadge(status: string | null | undefined) {
   if (!status) return <Badge variant="muted">Not submitted</Badge>;
   const normalized = status.toUpperCase();
-  const variant = ['SUCCESS', 'ACCEPTED', 'SUBMITTED'].includes(normalized)
+  // TIRA's final outcome is FINAL_SUCCESS / FINAL_FAILED; ACK_* are interim.
+  const variant = [
+    'SUCCESS',
+    'FINAL_SUCCESS',
+    'ACCEPTED',
+    'SUBMITTED',
+  ].includes(normalized)
     ? 'success'
-    : ['FAILED', 'REJECTED', 'ERROR'].includes(normalized)
+    : /FAILED|REJECTED|ERROR|EXHAUSTED/.test(normalized)
       ? 'destructive'
       : 'warning';
   return <Badge variant={variant}>{humanizeCode(status)}</Badge>;
@@ -987,13 +994,48 @@ function vehicleTotalSumInsured(vehicle: QuotationPreviewFleetVehicle) {
   return vehicle.risks.reduce((sum, risk) => sum + (risk.sum_insured ?? 0), 0);
 }
 
+/** Registration number, or the chassis number for unregistered vehicles. */
+function vehicleIdentifier(vehicle: QuotationPreviewFleetVehicle) {
+  return (
+    vehicle.motor_details?.registration_number?.trim() ||
+    vehicle.motor_details?.chassis_number?.trim() ||
+    null
+  );
+}
+
+interface FleetVehicleTiraRefs {
+  coverNote: string | null;
+  reference: string | null;
+  sticker: string | null;
+}
+
+/**
+ * Cover note per fleet entry. An entry can have several notes over time
+ * (re-issues, cancellations); the issued one wins, then the most recent.
+ */
+function coverNotesByEntry(coverNotes: CoverNoteRecord[] = []) {
+  const byEntry = new Map<number, CoverNoteRecord>();
+  for (const note of coverNotes) {
+    if (note.fleet_entry == null) continue;
+    const current = byEntry.get(note.fleet_entry);
+    const rank = (n: CoverNoteRecord) =>
+      `${n.status === 'ISSUED' ? 1 : 0}|${n.issued_at ?? ''}`;
+    if (!current || rank(note) > rank(current))
+      byEntry.set(note.fleet_entry, note);
+  }
+  return byEntry;
+}
+
 export function FleetVehiclesTable({
   vehicles,
   currency,
+  coverNotes,
   renderRiskActions,
 }: {
   currency?: string;
   vehicles: QuotationPreviewFleetVehicle[];
+  /** Issued cover notes for the quotation, matched to vehicles by fleet entry. */
+  coverNotes?: CoverNoteRecord[];
   renderRiskActions?: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
   const [search, setSearch] = useState('');
@@ -1001,6 +1043,28 @@ export function FleetVehiclesTable({
   const [limit, setLimit] = useState(10);
   const [selectedVehicle, setSelectedVehicle] =
     useState<QuotationPreviewFleetVehicle | null>(null);
+
+  const notesByEntry = useMemo(
+    () => coverNotesByEntry(coverNotes),
+    [coverNotes],
+  );
+  /** The vehicle's own cover note first, then its TIRA response. */
+  const tiraRefs = (
+    vehicle: QuotationPreviewFleetVehicle,
+  ): FleetVehicleTiraRefs => {
+    const note =
+      vehicle.fleet_entry_number != null
+        ? notesByEntry.get(vehicle.fleet_entry_number)
+        : undefined;
+    return {
+      coverNote: note?.cover_note_number ?? vehicle.cover_note_number,
+      reference:
+        note?.cover_note_reference_number ??
+        vehicle.tiramis?.cover_note_reference_number ??
+        null,
+      sticker: note?.sticker_number ?? vehicle.tiramis?.sticker_number ?? null,
+    };
+  };
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -1011,15 +1075,17 @@ export function FleetVehiclesTable({
         vehicle.motor_details?.chassis_number,
         vehicle.motor_details?.make,
         vehicle.motor_details?.model,
-        vehicle.cover_note_number,
         vehicle.fleet_entry_number,
+        ...Object.values(tiraRefs(vehicle)),
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
         .includes(query),
     );
-  }, [vehicles, search]);
+    // tiraRefs only reads notesByEntry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, search, notesByEntry]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
   const pageVehicles = filtered.slice((page - 1) * limit, page * limit);
@@ -1034,7 +1100,7 @@ export function FleetVehiclesTable({
       cell: (vehicle) => (
         <div className="min-w-0">
           <p className="font-medium text-slate-900">
-            {displayValue(vehicle.motor_details?.registration_number)}
+            {displayValue(vehicleIdentifier(vehicle))}
           </p>
           <p className="text-xs text-slate-500">
             Entry {displayValue(vehicle.fleet_entry_number)}
@@ -1060,6 +1126,36 @@ export function FleetVehiclesTable({
       header: 'Cover',
       hideOnMobile: true,
       cell: (vehicle) => displayValue(vehicle.risks[0]?.risk_name),
+    },
+    {
+      key: 'coverNote',
+      header: 'Cover note',
+      hideOnMobile: true,
+      cell: (vehicle) => (
+        <span className="font-mono text-xs">
+          {displayValue(tiraRefs(vehicle).coverNote)}
+        </span>
+      ),
+    },
+    {
+      key: 'coverNoteRef',
+      header: 'TIRA reference',
+      hideOnMobile: true,
+      cell: (vehicle) => (
+        <span className="font-mono text-xs">
+          {displayValue(tiraRefs(vehicle).reference)}
+        </span>
+      ),
+    },
+    {
+      key: 'sticker',
+      header: 'Sticker',
+      hideOnMobile: true,
+      cell: (vehicle) => (
+        <span className="font-mono text-xs">
+          {displayValue(tiraRefs(vehicle).sticker)}
+        </span>
+      ),
     },
     {
       key: 'sumInsured',
@@ -1093,7 +1189,7 @@ export function FleetVehiclesTable({
           <Button
             variant="ghost"
             size="icon"
-            aria-label={`View vehicle ${displayValue(vehicle.motor_details?.registration_number)}`}
+            aria-label={`View vehicle ${displayValue(vehicleIdentifier(vehicle))}`}
             onClick={(event) => {
               event.stopPropagation();
               setSelectedVehicle(vehicle);
@@ -1115,7 +1211,7 @@ export function FleetVehiclesTable({
         />
         <Input
           aria-label="Search vehicles"
-          placeholder="Search registration, make, model..."
+          placeholder="Search registration, make, sticker, cover note..."
           value={search}
           onChange={(event) => {
             setSearch(event.target.value);
@@ -1142,9 +1238,7 @@ export function FleetVehiclesTable({
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="break-all text-sm font-semibold">
-                  {vehicle.motor_details?.registration_number ||
-                    vehicle.motor_details?.chassis_number ||
-                    'Vehicle'}
+                  {vehicleIdentifier(vehicle) || 'Vehicle'}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
                   {[vehicle.motor_details?.make, vehicle.motor_details?.model]
@@ -1162,6 +1256,24 @@ export function FleetVehiclesTable({
                     .map((risk) => risk.risk_name)
                     .filter(Boolean)
                     .join(', ') || 'Not provided'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Cover note</dt>
+                <dd className="break-all font-mono text-xs">
+                  {displayValue(tiraRefs(vehicle).coverNote)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">TIRA reference</dt>
+                <dd className="break-all font-mono text-xs">
+                  {displayValue(tiraRefs(vehicle).reference)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-slate-500">Sticker</dt>
+                <dd className="break-all font-mono text-xs">
+                  {displayValue(tiraRefs(vehicle).sticker)}
                 </dd>
               </div>
               <div>
@@ -1219,11 +1331,8 @@ export function FleetVehiclesTable({
         <DialogContent className="flex max-w-3xl max-h-[90dvh] flex-col overflow-hidden p-0 max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
           <DialogHeader className="shrink-0 border-b border-slate-100 p-4 pr-12 sm:p-6">
             <DialogTitle>
-              {selectedVehicle
-                ? displayValue(
-                    selectedVehicle.motor_details?.registration_number,
-                  )
-                : 'Vehicle'}
+              {(selectedVehicle && vehicleIdentifier(selectedVehicle)) ||
+                'Vehicle'}
             </DialogTitle>
             <DialogDescription>
               Vehicle details and risks covered.

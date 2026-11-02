@@ -14,6 +14,7 @@ import {
   formatDate,
   formatMoney,
 } from '../components';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function FinanceReceiptDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,7 @@ export function FinanceReceiptDetailPage() {
     queryFn: () => financeApi.getReceipt(id!),
     enabled: !!id,
   });
+  usePageTitle(query.data?.receipt_no && `Receipt ${query.data.receipt_no}`);
 
   const reverseMutation = useMutation({
     mutationFn: async () => {

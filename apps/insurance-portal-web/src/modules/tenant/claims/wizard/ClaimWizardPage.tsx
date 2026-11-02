@@ -19,6 +19,7 @@ import {
   useClaimWizard,
   type ClaimWizard,
 } from './useClaimWizard';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function StepContent({
   wizard,
@@ -189,6 +190,9 @@ export function ClaimWizardPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const claim = useClaim(id);
+  usePageTitle(
+    id && claim.data?.claim_no && `Edit Claim ${claim.data.claim_no}`,
+  );
 
   if (!id) return <ClaimWizardView existing={null} />;
 

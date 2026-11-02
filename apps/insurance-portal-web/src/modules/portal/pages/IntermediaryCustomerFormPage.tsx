@@ -14,6 +14,7 @@ import type { CustomerFormValues } from '@/modules/tenant/customers/types';
 import { getApiErrorMessage } from '@/lib/api-error';
 
 import { portalApi } from '../api';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function IntermediaryCustomerFormPage() {
   const { id } = useParams<{ id?: string }>();
@@ -27,6 +28,11 @@ export function IntermediaryCustomerFormPage() {
     enabled: isEdit,
     queryFn: () => portalApi.getIntermediaryCustomer(id!),
   });
+  usePageTitle(
+    isEdit &&
+      customerQuery.data?.customer_no &&
+      `Edit Customer ${customerQuery.data.customer_no}`,
+  );
 
   const backPath = '/apps/intermediary/customers';
 

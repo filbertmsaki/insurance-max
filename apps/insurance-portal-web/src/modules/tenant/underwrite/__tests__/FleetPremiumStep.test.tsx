@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { describe, expect, it } from 'vitest';
 import { UnderwriteLine } from '@insurance-max/contracts';
@@ -64,7 +65,11 @@ function Harness() {
 
 describe('FleetPremiumStep', () => {
   it('lists each vehicle premium and flags vehicles still to be priced', () => {
-    render(<Harness />);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Harness />
+      </QueryClientProvider>,
+    );
 
     const table = screen.getByRole('table');
     const rows = within(table).getAllByRole('row');
@@ -77,5 +82,37 @@ describe('FleetPremiumStep', () => {
     expect(
       within(rows[3]).getByText(/Fleet total \(2 vehicles\)/),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Calculate Fleet Premium' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the chassis number for a vehicle without a registration', () => {
+    const unregistered = vehicle('1', '', '1000', '1180', true);
+    unregistered.motor_dtl.chassis_number = 'CHS-UNREG-001';
+    function UnregisteredHarness() {
+      const defaults = defaultValuesForLine(
+        getUnderwriteLineMeta(UnderwriteLine.FLEET),
+      );
+      const form = useForm<QuotationFormSchemaValues>({
+        defaultValues: {
+          ...defaults,
+          fleet: { ...defaults.fleet, items: [unregistered] },
+        },
+      });
+      const wizard = {
+        form,
+        riskOptions: [{ id: 'risk-comp', risk_name: 'Comprehensive' }],
+      } as unknown as UnderwriteQuotationWizard;
+      return (
+        <FleetPremiumStep wizard={wizard} onEditVehicles={() => undefined} />
+      );
+    }
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <UnregisteredHarness />
+      </QueryClientProvider>,
+    );
+    expect(screen.getAllByText('CHS-UNREG-001').length).toBeGreaterThan(0);
   });
 });

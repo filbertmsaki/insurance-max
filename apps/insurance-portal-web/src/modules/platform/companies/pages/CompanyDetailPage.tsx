@@ -68,6 +68,7 @@ import {
   type UpdateCompanyDto,
 } from '@/modules/platform/companies/api/companies';
 import { CompanyTiramisAccessCard } from '@/modules/platform/tiramis-integration/components/CompanyTiramisAccessCard';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -619,6 +620,7 @@ export function CompanyDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const { data: company, isLoading } = useCompany(id);
+  usePageTitle(company?.name && `Company ${company.name}`);
   const updateMutation = useUpdateCompany(id!);
   const statusMutation = useUpdateCompanyStatus();
   const deleteMutation = useDeleteCompany();

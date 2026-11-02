@@ -12,6 +12,7 @@ import {
   useUpdateMotorFleet,
 } from '../hooks';
 import { motorFleetRecordToFormValues } from '../schemas';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function MotorFleetEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ export function MotorFleetEditPage() {
   const { data: quotationOptions = [] } = useMotorQuotations();
   const { data: policyOptions = [] } = useMotorPolicies();
   const { data: fleet, isLoading } = useMotorFleet(id);
+  usePageTitle(fleet?.fleet_no && `Edit Fleet ${fleet.fleet_no}`);
   const updateMutation = useUpdateMotorFleet(id);
 
   if (isLoading) {

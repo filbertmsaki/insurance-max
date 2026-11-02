@@ -81,6 +81,7 @@ import type {
   RiskPremiumResult,
   RiskRequiredFactor,
 } from '@/types/product-engine';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1266,6 +1267,7 @@ export function RateBookDetailPage() {
   const { rateBookId } = useParams<{ rateBookId: string }>();
   const navigate = useNavigate();
   const { data: rateBook } = useRateBook(rateBookId);
+  usePageTitle(rateBook && `Rate Book ${rateBook.code} - v${rateBook.version}`);
 
   if (!rateBookId) {
     return null;
@@ -1278,7 +1280,7 @@ export function RateBookDetailPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader
-          title={rateBook ? `${rateBook.code} — v${rateBook.version}` : '…'}
+          title={rateBook ? `${rateBook.code} - v${rateBook.version}` : '…'}
           description={
             rateBook
               ? `${rateBook.product?.product_name ?? ''} · Status: ${rateBook.status}`

@@ -32,6 +32,7 @@ import {
   type CreateQuotationDraftPayload,
   type PortalBusinessRecord,
 } from '../api';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 type QuotationFlow = 'MOTOR_SINGLE' | 'MOTOR_FLEET' | 'NON_MOTOR';
 
@@ -92,6 +93,11 @@ export function IntermediaryQuotationFormPage() {
     queryFn: () =>
       portalApi.getBusinessRecord('intermediary', 'quotations', id!),
   });
+  usePageTitle(
+    isEdit &&
+      text(quotationQuery.data?.quotation_no) &&
+      `Edit Quotation ${text(quotationQuery.data?.quotation_no)}`,
+  );
 
   const insurersQuery = useQuery({
     queryKey: ['portal', 'intermediary', 'insurers'],

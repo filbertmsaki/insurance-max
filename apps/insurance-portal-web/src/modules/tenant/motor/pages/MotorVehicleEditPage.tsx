@@ -10,12 +10,16 @@ import {
 } from '../hooks';
 import { MotorVehicleForm } from '../components/MotorVehicleForm';
 import { motorVehicleRecordToFormValues } from '../schemas';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function MotorVehicleEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: customerOptions = [] } = useMotorCustomers();
   const { data: vehicle, isLoading } = useMotorVehicle(id);
+  usePageTitle(
+    vehicle && `Edit Vehicle ${vehicle.registration_no ?? vehicle.id}`,
+  );
   const updateMutation = useUpdateMotorVehicle(id);
 
   if (isLoading) {

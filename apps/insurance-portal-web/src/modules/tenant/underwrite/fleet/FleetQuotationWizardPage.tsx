@@ -2,7 +2,11 @@ import { useParams } from 'react-router-dom';
 import { UnderwriteLine } from '@insurance-max/contracts';
 import { createEmptyFleetItemRow } from '@/modules/tenant/quotations/schemas';
 import { WizardInput } from '@/modules/tenant/quotations/wizard/components/WizardInput';
-import { MotorFleetDetailsStep } from '@/modules/tenant/quotations/wizard/steps/MotorFleetDetailsStep';
+import {
+  FleetAdjustmentsFields,
+  FleetRiskField,
+  MotorFleetDetailsStep,
+} from '@/modules/tenant/quotations/wizard/steps/MotorFleetDetailsStep';
 import { PolicyholderStep } from '@/modules/tenant/quotations/wizard/steps/PolicyholderStep';
 import { SummaryReviewStep } from '@/modules/tenant/quotations/wizard/steps/SummaryReviewStep';
 import type { QuotationWizardStepId } from '@/modules/tenant/quotations/wizard/types';
@@ -17,6 +21,7 @@ import {
   type UnderwriteWizardStep,
 } from '../wizard/useUnderwriteQuotationWizard';
 import { FleetPremiumStep } from './FleetPremiumStep';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const FLEET = getUnderwriteLineMeta(UnderwriteLine.FLEET);
 
@@ -200,6 +205,10 @@ export function FleetQuotationWizardPage() {
   });
   const actions = useFleetVehicleActions(wizard);
   const { form } = wizard;
+  usePageTitle(
+    wizard.existingQuotation?.quotation_no &&
+      `Edit Quotation ${wizard.existingQuotation.quotation_no}`,
+  );
 
   return (
     <UnderwriteWizardShell
@@ -221,6 +230,8 @@ export function FleetQuotationWizardPage() {
                 <ProductCoverStep
                   wizard={wizard}
                   title="Fleet & Product"
+                  // Fleet type, product, risk and currency on one row.
+                  gridClassName="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
                   leadingFields={
                     <WizardInput
                       form={form}
@@ -230,6 +241,14 @@ export function FleetQuotationWizardPage() {
                       options={FLEET_TYPE_OPTIONS}
                     />
                   }
+                  productFollowingFields={
+                    <FleetRiskField
+                      form={form}
+                      riskOptions={wizard.riskOptions}
+                      disabled={!form.watch('product_id')}
+                    />
+                  }
+                  extraFields={<FleetAdjustmentsFields form={form} />}
                 />
               </div>
             );
@@ -279,11 +298,6 @@ export function FleetQuotationWizardPage() {
                           : 'vehicles',
                     )
                   }
-                />
-                <BusinessSourceStep
-                  wizard={wizard}
-                  readOnly
-                  onEdit={() => void wizard.goToStep('source')}
                 />
               </div>
             );

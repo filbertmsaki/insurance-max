@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { engagementApi } from '../api';
 import { formatDateTime, statusTone } from '../utils';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function DocumentTemplateDetailPage() {
   const { id = '' } = useParams();
@@ -33,6 +34,10 @@ export function DocumentTemplateDetailPage() {
     queryFn: () => engagementApi.getDocumentTemplate(id),
     enabled: Boolean(id),
   });
+  usePageTitle(
+    templateQuery.data?.template_code &&
+      `Document Template ${templateQuery.data.template_code}`,
+  );
 
   const previewQuery = useQuery({
     queryKey: ['engagement', 'document-template-preview', previewVersionId],

@@ -35,7 +35,7 @@ function mockRepo() {
   };
 }
 
-describe('MotorService â€” tenant isolation on policy details', () => {
+describe('MotorService - tenant isolation on policy details', () => {
   let service: MotorService;
   let motorVehicleRepo: ReturnType<typeof mockRepo>;
   let policyRepo: ReturnType<typeof mockRepo>;
@@ -112,7 +112,7 @@ describe('MotorService â€” tenant isolation on policy details', () => {
       company_id: companyId,
     });
     // Policy lookup is scoped by company_id in the query itself, so a cross-tenant
-    // policy id resolves to no row â€” this must produce a BadRequestException, not a save.
+    // policy id resolves to no row - this must produce a BadRequestException, not a save.
     policyRepo.findOne.mockResolvedValue(null);
 
     await expect(

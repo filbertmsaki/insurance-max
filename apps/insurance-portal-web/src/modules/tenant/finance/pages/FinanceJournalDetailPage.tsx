@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { financeApi } from '../api';
 import { DetailRow, FinanceStatusBadge, formatMoney } from '../components';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function FinanceJournalDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,7 @@ export function FinanceJournalDetailPage() {
     queryFn: () => financeApi.getJournal(id!),
     enabled: !!id,
   });
+  usePageTitle(query.data?.journal_no && `Journal ${query.data.journal_no}`);
 
   if (query.isLoading) return <Skeleton className="h-[640px] w-full" />;
 

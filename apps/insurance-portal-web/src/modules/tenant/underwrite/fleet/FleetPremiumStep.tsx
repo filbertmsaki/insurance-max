@@ -1,5 +1,6 @@
 import { useWatch } from 'react-hook-form';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -11,6 +12,7 @@ import {
 } from '@/components/ui/table';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
+import { useFleetPremiumCalculation } from '@/modules/tenant/quotations/wizard/steps/MotorFleetDetailsStep';
 import { quotationPricingIssues } from '@/modules/tenant/quotations/wizard/utils/quotationReadiness';
 import { quotationTotals } from '@/modules/tenant/quotations/wizard/utils/quotationTotals';
 import type { UnderwriteQuotationWizard } from '../wizard/useUnderwriteQuotationWizard';
@@ -33,6 +35,12 @@ export function FleetPremiumStep({
   onEditVehicles: () => void;
 }) {
   const { form, riskOptions } = wizard;
+  const { calculateFleetPremiums, isCalculating, calculationErrorMessage } =
+    useFleetPremiumCalculation({
+      form,
+      riskOptions,
+      factorContext: wizard.factorContext,
+    });
   const items = useWatch({ control: form.control, name: 'fleet.items' }) ?? [];
   const currency = useWatch({ control: form.control, name: 'currency' });
   const values = form.getValues();
@@ -49,7 +57,11 @@ export function FleetPremiumStep({
     return {
       key: risks[0]?.client_ref || String(index),
       entry: item.fleet_entry || String(index + 1),
-      registration: item.motor_dtl?.registration_number || '—',
+      // Unregistered vehicles are identified by their chassis number.
+      registration:
+        item.motor_dtl?.registration_number?.trim() ||
+        item.motor_dtl?.chassis_number?.trim() ||
+        '—',
       vehicle: [item.motor_dtl?.make, item.motor_dtl?.model]
         .filter(Boolean)
         .join(' '),
@@ -90,7 +102,30 @@ export function FleetPremiumStep({
 
   return (
     <div className="space-y-6">
-      <StepSection title="Fleet totals">
+      <StepSection
+        title="Fleet totals"
+        description="One cover for every vehicle. Each vehicle is rated on its own sum insured and details."
+        action={
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="w-full sm:w-auto"
+            onClick={() => void calculateFleetPremiums()}
+            disabled={isCalculating}
+          >
+            {isCalculating ? 'Calculating…' : 'Calculate Fleet Premium'}
+          </Button>
+        }
+      >
+        {calculationErrorMessage && (
+          <p
+            role="alert"
+            className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          >
+            {calculationErrorMessage}
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             ['Premium', totals.premium],

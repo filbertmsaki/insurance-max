@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 
 import { engagementApi } from '../api';
 import { formatDateTime, statusTone } from '../utils';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function WorkItemDetailPage() {
   const { id = '' } = useParams();
@@ -21,6 +22,9 @@ export function WorkItemDetailPage() {
     queryFn: () => engagementApi.getWorkItem(id),
     enabled: Boolean(id),
   });
+  usePageTitle(
+    itemQuery.data?.work_item_no && `Work Item ${itemQuery.data.work_item_no}`,
+  );
 
   const timelineQuery = useQuery({
     queryKey: ['engagement', 'work-item', id, 'timeline'],

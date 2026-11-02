@@ -21,6 +21,8 @@ export function ProductCoverStep({
   compact = false,
   extraFields,
   leadingFields,
+  productFollowingFields,
+  gridClassName,
   title = 'Product',
   first = true,
 }: {
@@ -33,6 +35,10 @@ export function ProductCoverStep({
   extraFields?: ReactNode;
   /** Inputs placed before Product in the same grid row (e.g. fleet type). */
   leadingFields?: ReactNode;
+  /** Inputs placed straight after Product (e.g. the fleet-wide risk). */
+  productFollowingFields?: ReactNode;
+  /** Overrides the product grid's responsive columns. */
+  gridClassName?: string;
   title?: string;
   first?: boolean;
 }) {
@@ -117,7 +123,10 @@ export function ProductCoverStep({
       <StepSection title={compact ? undefined : title} first={first}>
         <div
           className={
-            compact ? 'grid gap-4 md:grid-cols-2' : 'grid gap-4 lg:grid-cols-3'
+            gridClassName ??
+            (compact
+              ? 'grid gap-4 md:grid-cols-2'
+              : 'grid gap-4 lg:grid-cols-3')
           }
         >
           {leadingFields}
@@ -138,6 +147,7 @@ export function ProductCoverStep({
               }
             }}
           />
+          {productFollowingFields}
           {isMotor && (
             <WizardInput
               form={form}

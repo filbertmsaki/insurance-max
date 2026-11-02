@@ -23,11 +23,7 @@ export function QuotationDetailsContent({
 }) {
   if (preview.overview.quotation_flow === 'MOTOR_FLEET' && preview.fleet) {
     return (
-      <FleetQuotationDetails
-        onViewTiramis={onViewTiramis}
-        preview={preview}
-        renderRiskActions={renderRiskActions}
-      />
+      <FleetQuotationDetails onViewTiramis={onViewTiramis} preview={preview} />
     );
   }
 

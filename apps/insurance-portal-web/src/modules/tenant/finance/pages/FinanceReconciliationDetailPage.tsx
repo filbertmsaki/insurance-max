@@ -15,6 +15,7 @@ import {
   createIdempotencyKey,
   formatMoney,
 } from '../components';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function FinanceReconciliationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +27,7 @@ export function FinanceReconciliationDetailPage() {
     queryFn: () => financeApi.getReconciliationBatch(id!),
     enabled: !!id,
   });
+  usePageTitle(query.data?.batch_no && `Reconciliation ${query.data.batch_no}`);
 
   const refresh = () => {
     queryClient.invalidateQueries({

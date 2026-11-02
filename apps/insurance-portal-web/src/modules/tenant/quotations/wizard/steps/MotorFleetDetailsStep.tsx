@@ -1,16 +1,24 @@
 import { WizardSectionTitle } from '@/modules/tenant/quotations/wizard/components/WizardSectionTitle';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import {
+  Copy,
+  Download,
+  Pencil,
+  Plus,
+  Trash2,
+  Truck,
+  Upload,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useFieldArray,
+  useFormState,
   type FieldPath,
   type UseFieldArrayReturn,
   type UseFormReturn,
 } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
-import { ActionMenu } from '@/components/shared/ActionMenu';
 import {
   Dialog,
   DialogContent,
@@ -68,7 +76,6 @@ import { StepSection } from '../components/StepSection';
 import { WizardFormItem } from '../components/WizardFormItem';
 import { AddonRow } from '../components/AddonRow';
 import {
-  aggregateFleetRiskTotals,
   applyFleetRiskPremiumResult,
   resolveSelectedTaxCodes,
 } from '../utils/premiumAggregation';
@@ -91,6 +98,7 @@ import {
 import {
   DISCOUNT_TYPE_OPTIONS,
   formatDiscountOptionLabel,
+  formatRatePercent,
   getDiscountRateForType,
 } from '../utils/taxOptions';
 import { RiskTaxesFields } from '../components/RiskTaxesFields';
@@ -754,15 +762,16 @@ function FleetVehicleTable({
   );
 
   const actions = (index: number) => (
-    <div className="flex flex-wrap justify-end gap-1 [&_button]:min-h-11">
+    <div className="flex flex-nowrap items-center justify-end gap-1 [&_button]:h-9 [&_button]:w-9 [&_button]:p-0">
       <Button
         type="button"
         variant="outline"
         size="sm"
         onClick={() => onEdit(index)}
+        aria-label="Edit"
+        title="Edit"
       >
-        <Pencil className="mr-1.5 h-3.5 w-3.5" />
-        Edit
+        <Pencil className="h-4 w-4" />
       </Button>
       <Button
         type="button"
@@ -781,10 +790,10 @@ function FleetVehicleTable({
         className="text-red-600 hover:text-red-700"
         onClick={() => onRemove(index)}
         disabled={!canRemove}
-        title={canRemove ? undefined : 'A fleet needs at least one vehicle'}
+        aria-label="Remove"
+        title={canRemove ? 'Remove' : 'A fleet needs at least one vehicle'}
       >
-        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-        Remove
+        <Trash2 className="h-4 w-4" />
       </Button>
     </div>
   );
@@ -1039,91 +1048,126 @@ function applyFleetCoverToRow(
   };
 }
 
-function FleetCoverSection({
+/**
+ * The single risk every vehicle in the fleet is covered under. Lives on the
+ * first wizard step next to Product; the vehicles step applies it to each
+ * vehicle (see the `fleet.header.cover` sync effect below).
+ */
+export function FleetRiskField({
   form,
   riskOptions,
-  totals,
-  totalsConfirmed,
-  currency,
-  isCalculating,
-  onCalculate,
+  disabled,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
   riskOptions: InsuranceRisk[];
-  totals: Pick<
-    PricingFleetTotals,
-    | 'sum_insured'
-    | 'premium_excluding_tax'
-    | 'tax_amount'
-    | 'premium_including_tax'
-  >;
-  totalsConfirmed: boolean;
-  currency: string;
-  isCalculating: boolean;
-  onCalculate: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <FormField
+      control={form.control}
+      name="fleet.header.cover.risk_id"
+      render={({ field }) => (
+        <WizardFormItem>
+          <FormLabel required>Risk</FormLabel>
+          <Select
+            value={toSelectValue(field.value)}
+            disabled={disabled}
+            onValueChange={(value) => {
+              const nextRiskId = fromSelectValue(value);
+              field.onChange(nextRiskId);
+              form.setValue(
+                'fleet.header.cover.risk_code',
+                riskOptions.find((risk) => risk.id === nextRiskId)?.risk_code ??
+                  '',
+                { shouldDirty: true },
+              );
+            }}
+          >
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue placeholder="Select risk" />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+              {riskOptions.map((risk) => (
+                <SelectItem key={risk.id} value={risk.id}>
+                  {risk.risk_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormMessage />
+        </WizardFormItem>
+      )}
+    />
+  );
+}
+
+/**
+ * The fleet-wide discount and tax, collapsed to a one-line summary like the
+ * motor wizard's risk row. Lives on the first wizard step with the risk; the
+ * vehicles step applies it to every vehicle.
+ */
+export function FleetAdjustmentsFields({
+  form,
+}: {
+  form: UseFormReturn<QuotationFormSchemaValues>;
 }) {
   const discountRows = form.watch('fleet.header.cover.discounts_offered') ?? [];
+  const taxRows = form.watch('fleet.header.cover.taxes_charged') ?? [];
+  const [adjustmentsOpen, setAdjustmentsOpen] = useState(false);
+  // Same collapsed summary as the motor wizard's risk row; a validation error
+  // in the discount or tax keeps the fields open so it stays visible.
+  const coverErrors = useFormState({
+    control: form.control,
+    name: [
+      'fleet.header.cover.discounts_offered',
+      'fleet.header.cover.taxes_charged',
+    ] as const,
+  }).errors.fleet?.header?.cover;
+  const showAdjustments =
+    adjustmentsOpen ||
+    Boolean(coverErrors?.discounts_offered || coverErrors?.taxes_charged);
+  const discountOption = DISCOUNT_TYPE_OPTIONS.find(
+    (option) => option.value === discountRows[0]?.discount_type,
+  );
+  const adjustmentsSummary = [
+    discountOption ? formatDiscountOptionLabel(discountOption) : 'No discount',
+    taxRows.some((row) => row.is_tax_exempted)
+      ? 'Tax exempted'
+      : taxRows
+          .filter((row) => row.tax_code)
+          .map(
+            (row) =>
+              `${row.tax_code} ${formatRatePercent(row.tax_rate || '0')}%`,
+          )
+          .join(', ') || 'No tax',
+  ].join(' · ');
 
   return (
-    <StepSection
-      title="Fleet cover"
-      first
-      contentClassName="space-y-3"
-      action={
-        <Button
+    <div className="col-span-full space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-slate-200 px-3 py-2 text-sm">
+        <span className="text-slate-600">
+          <span className="font-medium text-slate-800">Adjustments:</span>{' '}
+          {adjustmentsSummary}
+        </span>
+        <button
           type="button"
-          variant="secondary"
-          size="sm"
-          className="w-full sm:w-auto"
-          onClick={onCalculate}
-          disabled={isCalculating}
+          className="text-xs font-medium text-primary hover:underline"
+          aria-expanded={showAdjustments}
+          onClick={() => setAdjustmentsOpen((open) => !open)}
         >
-          Calculate Fleet Premium
-        </Button>
-      }
-    >
-      <p className="text-sm text-slate-500">
-        One cover for every vehicle. Each vehicle is rated on its own sum
-        insured and details.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <FormField
-          control={form.control}
-          name="fleet.header.cover.risk_id"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel required>Risk</FormLabel>
-              <Select
-                value={toSelectValue(field.value)}
-                onValueChange={(value) => {
-                  const nextRiskId = fromSelectValue(value);
-                  field.onChange(nextRiskId);
-                  form.setValue(
-                    'fleet.header.cover.risk_code',
-                    riskOptions.find((risk) => risk.id === nextRiskId)
-                      ?.risk_code ?? '',
-                    { shouldDirty: true },
-                  );
-                }}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select risk" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                  {riskOptions.map((risk) => (
-                    <SelectItem key={risk.id} value={risk.id}>
-                      {risk.risk_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </WizardFormItem>
-          )}
-        />
+          {showAdjustments ? 'Hide' : 'Change discount or tax'}
+        </button>
+      </div>
+      <div
+        className={
+          showAdjustments
+            ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3'
+            : 'hidden'
+        }
+      >
         <FormField
           control={form.control}
           name="fleet.header.cover.discounts_offered.0.discount_type"
@@ -1171,46 +1215,25 @@ function FleetCoverSection({
         />
         <RiskTaxesFields form={form} riskPath="fleet.header.cover" inline />
       </div>
-      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {(
-          [
-            ['Total sum insured', totals.sum_insured],
-            ['Premium excl. tax', totals.premium_excluding_tax],
-            ['Tax', totals.tax_amount],
-            ['Premium incl. tax', totals.premium_including_tax],
-          ] as const
-        ).map(([label, amount]) => (
-          <div key={label} className="rounded-lg bg-slate-50 px-3 py-2">
-            <dt className="text-xs text-slate-500">{label}</dt>
-            <dd className="text-sm font-semibold tabular-nums text-slate-900">
-              {formatMoney(amount, currency)}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      {!totalsConfirmed && (
-        <p role="status" className="text-xs text-amber-700">
-          Totals are not yet confirmed for the current fleet. Calculate the
-          fleet premium to confirm them.
-        </p>
-      )}
-    </StepSection>
+    </div>
   );
 }
 
-export function MotorFleetDetailsStep({
+/**
+ * Fleet premium calculation, shared by the Vehicles step (automatic pricing
+ * after a vehicle is saved or imported) and the Premium step (the Calculate
+ * Fleet Premium action). Also keeps every vehicle on the fleet-wide cover.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useFleetPremiumCalculation({
   form,
-  customerOptions,
   riskOptions,
-  vehicleOptions,
-  fieldArray,
-  onAddVehicle,
-  onRemoveVehicle,
-  onDuplicateVehicle,
-  onImportVehicles,
   factorContext,
-}: Props) {
-  const { fields } = fieldArray;
+}: {
+  form: UseFormReturn<QuotationFormSchemaValues>;
+  riskOptions: InsuranceRisk[];
+  factorContext?: QuotationFactorContext;
+}) {
   const queryClient = useQueryClient();
   const { calculateFleetMutation } = usePricingCalculator();
   const [fleetTotals, setFleetTotals] = useState<{
@@ -1220,227 +1243,6 @@ export function MotorFleetDetailsStep({
   const [calculationErrorMessage, setCalculationErrorMessage] = useState<
     string | null
   >(null);
-  const csvInputRef = useRef<HTMLInputElement>(null);
-  const [lookupPending, setLookupPending] = useState(false);
-  const [lookupMessages, setLookupMessages] = useState<Record<string, string>>(
-    {},
-  );
-  const [importErrors, setImportErrors] = useState<string[]>([]);
-  // Vehicle open in the editor dialog. A new vehicle is appended to the fleet
-  // immediately so the editor can bind to it, and hidden from the list until
-  // confirmed. An existing vehicle keeps a snapshot so Cancel can restore it.
-  const [editingVehicle, setEditingVehicle] = useState<{
-    index: number;
-    isNew: boolean;
-    /** Editing the untouched starter row, presented as adding a vehicle. */
-    isFirstVehicle?: boolean;
-    snapshot: FleetItemValues | null;
-  } | null>(null);
-  const [vehicleErrors, setVehicleErrors] = useState<string[]>([]);
-  const [showVehicleValidationErrors, setShowVehicleValidationErrors] =
-    useState(false);
-  const selectedCustomerId = form.watch('customer_id');
-  const policyholderMode = form.watch('policyholder_mode');
-  const policyholder = form.watch('policyholder');
-  const selectedCustomer = customerOptions.find(
-    (customer) => customer.id === selectedCustomerId,
-  );
-  const ownerDefaults = ownerDefaultsFromPolicyholder(
-    { policyholder_mode: policyholderMode, policyholder },
-    selectedCustomer,
-  );
-  const fleetValues = form.watch('fleet');
-  const selectedFleetRiskId = form.watch('fleet.header.cover.risk_id');
-  const ruleExplanation = usePricingExplanation(
-    selectedFleetRiskId || undefined,
-  );
-  const currentRule =
-    ruleExplanation.data?.risk_id === selectedFleetRiskId
-      ? ruleExplanation.data
-      : undefined;
-  const showSumInsured = Boolean(
-    currentRule && Number(currentRule.percentage_rate) > 0,
-  );
-  const fleetSumInsuredKey = JSON.stringify(
-    fleetValues.items.map((item) =>
-      item.risks_covered.map((risk) => [
-        risk.risk_id,
-        risk.sum_insured,
-        risk.sum_insured_equivalent,
-        risk.factor_values.sum_insured,
-      ]),
-    ),
-  );
-  useEffect(() => {
-    // Unknown/loading/failed rule lookups must never erase entered values.
-    if (
-      !ruleExplanation.isSuccess ||
-      !currentRule ||
-      !Number.isFinite(Number(currentRule.percentage_rate)) ||
-      Number(currentRule.percentage_rate) > 0
-    )
-      return;
-    zeroFleetSumInsured(form, selectedFleetRiskId);
-  }, [
-    currentRule,
-    fleetSumInsuredKey,
-    form,
-    ruleExplanation.isSuccess,
-    selectedFleetRiskId,
-  ]);
-  const commonDescription = form.watch('cover_note_desc');
-  const commonClause = form.watch('operative_clause');
-  const generatedRef = useRef(
-    new Map<
-      string,
-      {
-        description: string;
-        clause: string;
-      }
-    >(),
-  );
-  useEffect(() => {
-    fleetValues.items.forEach((item, index) => {
-      const key = item.risks_covered[0]?.client_ref ?? String(index);
-      const previous = generatedRef.current.get(key);
-      if (
-        !item.cover_note_desc ||
-        item.cover_note_desc === previous?.description
-      )
-        if (item.cover_note_desc !== commonDescription)
-          form.setValue(
-            `fleet.items.${index}.cover_note_desc`,
-            commonDescription,
-          );
-      if (!item.operative_clause || item.operative_clause === previous?.clause)
-        if (item.operative_clause !== commonClause)
-          form.setValue(`fleet.items.${index}.operative_clause`, commonClause);
-      if (item.fleet_entry !== String(index + 1))
-        form.setValue(`fleet.items.${index}.fleet_entry`, String(index + 1));
-      generatedRef.current.set(key, {
-        description: commonDescription,
-        clause: commonClause,
-      });
-    });
-  }, [form, fleetValues, commonDescription, commonClause]);
-  async function lookupFleetVehicles() {
-    if (lookupPending) return;
-    setLookupPending(true);
-    const queue = form
-      .getValues('fleet.items')
-      .map((item) => ({ item, key: item.risks_covered[0]?.client_ref ?? '' }));
-    let cursor = 0;
-    const worker = async () => {
-      while (cursor < queue.length) {
-        const { item, key } = queue[cursor++];
-        const motor = item.motor_dtl;
-        if (!motor.registration_number && !motor.chassis_number) {
-          setLookupMessages((current) => ({
-            ...current,
-            [key]: 'Enter a registration or chassis number.',
-          }));
-          continue;
-        }
-        try {
-          const category = motor.motor_category === '2' ? 2 : 1;
-          const result = await verificationsApi.motor({
-            motorCategory: category,
-            ...(motor.registration_number
-              ? { motorRegistrationNumber: motor.registration_number }
-              : { motorChassisNumber: motor.chassis_number }),
-          });
-          const details = readVerifiedMotorDetails(
-            result,
-            String(category) as '1' | '2',
-          );
-          const index = form
-            .getValues('fleet.items')
-            .findIndex((row) => row.risks_covered[0]?.client_ref === key);
-          if (index < 0) continue;
-          const current = form.getValues(`fleet.items.${index}.motor_dtl`);
-          if (
-            current.registration_number !== motor.registration_number ||
-            current.chassis_number !== motor.chassis_number
-          )
-            continue;
-          if (details) {
-            form.setValue(
-              `fleet.items.${index}.motor_dtl`,
-              { ...current, ...toFleetMotorDetails(details) },
-              { shouldDirty: true, shouldValidate: true },
-            );
-            setLookupMessages((messages) => ({
-              ...messages,
-              [key]: 'Vehicle details fetched.',
-            }));
-          } else
-            setLookupMessages((messages) => ({
-              ...messages,
-              [key]:
-                result.status === 'PENDING'
-                  ? 'Verification pending. Retry shortly.'
-                  : 'Vehicle not found. Complete the details manually.',
-            }));
-        } catch (error) {
-          setLookupMessages((messages) => ({
-            ...messages,
-            [key]: getApiErrorMessage(error),
-          }));
-        }
-      }
-    };
-    try {
-      await Promise.all([worker(), worker(), worker()]);
-    } finally {
-      setLookupPending(false);
-    }
-  }
-
-  function handleDownloadTemplate() {
-    const blob = new Blob([buildFleetCsvTemplate()], {
-      type: 'text/csv;charset=utf-8;',
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'fleet-vehicles-template.csv';
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  /** Append rows (replacing the untouched starter row) and fetch from TIRA. */
-  function importVehicles(rows: FleetCsvRow[]) {
-    if (showEmptyState && fields.length === 1) fieldArray.remove(0);
-    onImportVehicles(rows);
-    void lookupFleetVehicles().then(() =>
-      calculateFleetPremiums(undefined, true),
-    );
-  }
-
-  async function handleCsvFileSelected(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    const text = await file.text();
-    const { rows, errors } = parseFleetCsv(text);
-    setImportErrors(errors);
-
-    if (rows.length > 0) {
-      importVehicles(rows);
-      toast.success(
-        `Imported ${rows.length} vehicle${rows.length === 1 ? '' : 's'} from CSV.`,
-      );
-    }
-    if (errors.length > 0) {
-      const shown = errors.slice(0, 5).join(' ');
-      const more = errors.length > 5 ? ` (+${errors.length - 5} more)` : '';
-      toast.error(`${errors.length} row(s) skipped: ${shown}${more}`);
-    }
-  }
-  useEffect(() => {
-    form.setValue('fleet.header.fleet_size', String(fields.length || 0));
-  }, [fields.length, form]);
 
   const coverKey = fleetCoverSelectionKey(form.watch('fleet.header.cover'));
   const vehicleCoverKeys = form
@@ -1778,13 +1580,255 @@ export function MotorFleetDetailsStep({
     }
   }
 
+  return {
+    calculateFleetPremiums,
+    isCalculating: calculateFleetMutation.isPending,
+    calculationErrorMessage,
+    fleetTotals,
+  };
+}
+
+export function MotorFleetDetailsStep({
+  form,
+  customerOptions,
+  riskOptions,
+  vehicleOptions,
+  fieldArray,
+  onAddVehicle,
+  onRemoveVehicle,
+  onDuplicateVehicle,
+  onImportVehicles,
+  factorContext,
+}: Props) {
+  const { fields } = fieldArray;
+  const { calculateFleetPremiums, calculationErrorMessage } =
+    useFleetPremiumCalculation({ form, riskOptions, factorContext });
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [lookupPending, setLookupPending] = useState(false);
+  const [lookupMessages, setLookupMessages] = useState<Record<string, string>>(
+    {},
+  );
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  // Vehicle open in the editor dialog. A new vehicle is appended to the fleet
+  // immediately so the editor can bind to it, and hidden from the list until
+  // confirmed. An existing vehicle keeps a snapshot so Cancel can restore it.
+  const [editingVehicle, setEditingVehicle] = useState<{
+    index: number;
+    isNew: boolean;
+    /** Editing the untouched starter row, presented as adding a vehicle. */
+    isFirstVehicle?: boolean;
+    snapshot: FleetItemValues | null;
+  } | null>(null);
+  const [vehicleErrors, setVehicleErrors] = useState<string[]>([]);
+  const [showVehicleValidationErrors, setShowVehicleValidationErrors] =
+    useState(false);
+  const selectedCustomerId = form.watch('customer_id');
+  const policyholderMode = form.watch('policyholder_mode');
+  const policyholder = form.watch('policyholder');
+  const selectedCustomer = customerOptions.find(
+    (customer) => customer.id === selectedCustomerId,
+  );
+  const ownerDefaults = ownerDefaultsFromPolicyholder(
+    { policyholder_mode: policyholderMode, policyholder },
+    selectedCustomer,
+  );
+  const fleetValues = form.watch('fleet');
+  const selectedFleetRiskId = form.watch('fleet.header.cover.risk_id');
+  const ruleExplanation = usePricingExplanation(
+    selectedFleetRiskId || undefined,
+  );
+  const currentRule =
+    ruleExplanation.data?.risk_id === selectedFleetRiskId
+      ? ruleExplanation.data
+      : undefined;
+  const showSumInsured = Boolean(
+    currentRule && Number(currentRule.percentage_rate) > 0,
+  );
+  const fleetSumInsuredKey = JSON.stringify(
+    fleetValues.items.map((item) =>
+      item.risks_covered.map((risk) => [
+        risk.risk_id,
+        risk.sum_insured,
+        risk.sum_insured_equivalent,
+        risk.factor_values.sum_insured,
+      ]),
+    ),
+  );
+  useEffect(() => {
+    // Unknown/loading/failed rule lookups must never erase entered values.
+    if (
+      !ruleExplanation.isSuccess ||
+      !currentRule ||
+      !Number.isFinite(Number(currentRule.percentage_rate)) ||
+      Number(currentRule.percentage_rate) > 0
+    )
+      return;
+    zeroFleetSumInsured(form, selectedFleetRiskId);
+  }, [
+    currentRule,
+    fleetSumInsuredKey,
+    form,
+    ruleExplanation.isSuccess,
+    selectedFleetRiskId,
+  ]);
+  const commonDescription = form.watch('cover_note_desc');
+  const commonClause = form.watch('operative_clause');
+  const generatedRef = useRef(
+    new Map<
+      string,
+      {
+        description: string;
+        clause: string;
+      }
+    >(),
+  );
+  useEffect(() => {
+    fleetValues.items.forEach((item, index) => {
+      const key = item.risks_covered[0]?.client_ref ?? String(index);
+      const previous = generatedRef.current.get(key);
+      if (
+        !item.cover_note_desc ||
+        item.cover_note_desc === previous?.description
+      )
+        if (item.cover_note_desc !== commonDescription)
+          form.setValue(
+            `fleet.items.${index}.cover_note_desc`,
+            commonDescription,
+          );
+      if (!item.operative_clause || item.operative_clause === previous?.clause)
+        if (item.operative_clause !== commonClause)
+          form.setValue(`fleet.items.${index}.operative_clause`, commonClause);
+      if (item.fleet_entry !== String(index + 1))
+        form.setValue(`fleet.items.${index}.fleet_entry`, String(index + 1));
+      generatedRef.current.set(key, {
+        description: commonDescription,
+        clause: commonClause,
+      });
+    });
+  }, [form, fleetValues, commonDescription, commonClause]);
+  async function lookupFleetVehicles() {
+    if (lookupPending) return;
+    setLookupPending(true);
+    const queue = form
+      .getValues('fleet.items')
+      .map((item) => ({ item, key: item.risks_covered[0]?.client_ref ?? '' }));
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < queue.length) {
+        const { item, key } = queue[cursor++];
+        const motor = item.motor_dtl;
+        if (!motor.registration_number && !motor.chassis_number) {
+          setLookupMessages((current) => ({
+            ...current,
+            [key]: 'Enter a registration or chassis number.',
+          }));
+          continue;
+        }
+        try {
+          const category = motor.motor_category === '2' ? 2 : 1;
+          const result = await verificationsApi.motor({
+            motorCategory: category,
+            ...(motor.registration_number
+              ? { motorRegistrationNumber: motor.registration_number }
+              : { motorChassisNumber: motor.chassis_number }),
+          });
+          const details = readVerifiedMotorDetails(
+            result,
+            String(category) as '1' | '2',
+          );
+          const index = form
+            .getValues('fleet.items')
+            .findIndex((row) => row.risks_covered[0]?.client_ref === key);
+          if (index < 0) continue;
+          const current = form.getValues(`fleet.items.${index}.motor_dtl`);
+          if (
+            current.registration_number !== motor.registration_number ||
+            current.chassis_number !== motor.chassis_number
+          )
+            continue;
+          if (details) {
+            form.setValue(
+              `fleet.items.${index}.motor_dtl`,
+              { ...current, ...toFleetMotorDetails(details) },
+              { shouldDirty: true, shouldValidate: true },
+            );
+            setLookupMessages((messages) => ({
+              ...messages,
+              [key]: 'Vehicle details fetched.',
+            }));
+          } else
+            setLookupMessages((messages) => ({
+              ...messages,
+              [key]:
+                result.status === 'PENDING'
+                  ? 'Verification pending. Retry shortly.'
+                  : 'Vehicle not found. Complete the details manually.',
+            }));
+        } catch (error) {
+          setLookupMessages((messages) => ({
+            ...messages,
+            [key]: getApiErrorMessage(error),
+          }));
+        }
+      }
+    };
+    try {
+      await Promise.all([worker(), worker(), worker()]);
+    } finally {
+      setLookupPending(false);
+    }
+  }
+
+  function handleDownloadTemplate() {
+    const blob = new Blob([buildFleetCsvTemplate()], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'fleet-vehicles-template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Append rows (replacing the untouched starter row) and fetch from TIRA. */
+  function importVehicles(rows: FleetCsvRow[]) {
+    if (showEmptyState && fields.length === 1) fieldArray.remove(0);
+    onImportVehicles(rows);
+    void lookupFleetVehicles().then(() =>
+      calculateFleetPremiums(undefined, true),
+    );
+  }
+
+  async function handleCsvFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const text = await file.text();
+    const { rows, errors } = parseFleetCsv(text);
+    setImportErrors(errors);
+
+    if (rows.length > 0) {
+      importVehicles(rows);
+      toast.success(
+        `Imported ${rows.length} vehicle${rows.length === 1 ? '' : 's'} from CSV.`,
+      );
+    }
+    if (errors.length > 0) {
+      const shown = errors.slice(0, 5).join(' ');
+      const more = errors.length > 5 ? ` (+${errors.length - 5} more)` : '';
+      toast.error(`${errors.length} row(s) skipped: ${shown}${more}`);
+    }
+  }
+  useEffect(() => {
+    form.setValue('fleet.header.fleet_size', String(fields.length || 0));
+  }, [fields.length, form]);
+
   const values = form.watch();
-  const fleetSignature = getFleetPricingSignature(values);
   // Pricing is requested by explicit vehicle save/import or the fleet calculation action.
   // Input edits and step navigation only invalidate the existing pricing signature.
   const currency = values.currency?.trim().toUpperCase() || 'TZS';
-  const backendTotalsCurrent = fleetTotals?.signature === fleetSignature;
-  const summedTotals = aggregateFleetRiskTotals(values.fleet.items);
   const showEmptyState =
     fields.length === 0 ||
     (fields.length === 1 &&
@@ -1937,47 +1981,15 @@ export function MotorFleetDetailsStep({
 
   return (
     <>
-      <FleetCoverSection
-        form={form}
-        riskOptions={riskOptions}
-        totals={
-          fleetTotals && backendTotalsCurrent
-            ? fleetTotals.totals
-            : {
-                sum_insured: Number(summedTotals.sum_insured),
-                premium_excluding_tax: Number(summedTotals.basic_premium),
-                tax_amount: Number(summedTotals.total_tax),
-                premium_including_tax: Number(summedTotals.total_premium),
-              }
-        }
-        totalsConfirmed={backendTotalsCurrent}
-        currency={currency}
-        isCalculating={calculateFleetMutation.isPending}
-        onCalculate={() => void calculateFleetPremiums()}
-      />
       <StepSection
         title="Vehicles"
+        description={
+          showEmptyState
+            ? undefined
+            : `${tableRows.length} vehicle${tableRows.length === 1 ? '' : 's'} in this fleet`
+        }
         action={
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-600">Import</span>
-              <ActionMenu
-                ariaLabel="Import vehicles"
-                className="h-11 w-11"
-                items={[
-                  {
-                    label: 'Import CSV',
-                    icon: <Upload className="h-4 w-4" />,
-                    onClick: () => csvInputRef.current?.click(),
-                  },
-                  {
-                    label: 'Download CSV template',
-                    icon: <Download className="h-4 w-4" />,
-                    onClick: handleDownloadTemplate,
-                  },
-                ]}
-              />
-            </div>
+          <>
             <input
               ref={csvInputRef}
               type="file"
@@ -1985,31 +1997,39 @@ export function MotorFleetDetailsStep({
               className="hidden"
               onChange={(event) => void handleCsvFileSelected(event)}
             />
+            {/* The empty state offers its own start options. */}
             {!showEmptyState && (
-              <>
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
                 <Button
                   type="button"
-                  size="sm"
-                  className="min-h-11"
+                  className="col-span-2 min-h-11 sm:col-span-1"
                   onClick={openNewVehicleDialog}
                 >
-                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  <Plus className="mr-1.5 h-4 w-4" />
                   Add vehicle
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  disabled={lookupPending}
-                  onClick={() => void lookupFleetVehicles()}
+                  className="min-h-11"
+                  onClick={() => csvInputRef.current?.click()}
                 >
-                  {lookupPending
-                    ? 'Fetching vehicles...'
-                    : 'Fetch vehicle details'}
+                  <Upload className="mr-1.5 h-4 w-4" />
+                  Import CSV
                 </Button>
-              </>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={handleDownloadTemplate}
+                  title="Download CSV template"
+                >
+                  <Download className="mr-1.5 h-4 w-4" />
+                  Download template
+                </Button>
+              </div>
             )}
-          </div>
+          </>
         }
         contentClassName="space-y-3"
       >
@@ -2025,19 +2045,60 @@ export function MotorFleetDetailsStep({
           </div>
         )}
         {showEmptyState ? (
-          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-slate-300 px-4 py-5 text-center sm:flex-row sm:justify-center">
-            <p className="text-sm text-slate-500">
-              Enter vehicle details manually
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-8 text-center sm:px-8">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-primary shadow-sm ring-1 ring-slate-200">
+              <Truck className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <h3 className="mt-3 text-base font-semibold text-slate-900">
+              Add the vehicles in this fleet
+            </h3>
+            <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+              Add vehicles one at a time, or import many at once from a CSV
+              file. Each vehicle is priced as soon as it is saved.
             </p>
-            <Button
+            <div className="mx-auto mt-5 grid max-w-xl gap-3 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    icon: Plus,
+                    title: 'Add a vehicle',
+                    hint: 'Enter the details yourself',
+                    onClick: openNewVehicleDialog,
+                  },
+                  {
+                    icon: Upload,
+                    title: 'Import from CSV',
+                    hint: 'Upload many vehicles at once',
+                    onClick: () => csvInputRef.current?.click(),
+                  },
+                ] as const
+              ).map(({ icon: Icon, title, hint, onClick }) => (
+                <button
+                  key={title}
+                  type="button"
+                  onClick={onClick}
+                  className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-primary hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-slate-900">
+                      {title}
+                    </span>
+                    <span className="block text-xs text-slate-500">{hint}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
               type="button"
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={openNewVehicleDialog}
+              onClick={handleDownloadTemplate}
+              className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add one vehicle
-            </Button>
+              <Download className="h-4 w-4" aria-hidden="true" />
+              Download CSV template
+            </button>
           </div>
         ) : (
           <FleetVehicleTable

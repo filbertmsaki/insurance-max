@@ -19,6 +19,7 @@ import {
   isTiramisFinalSuccess,
 } from '../utils';
 import type { TiramisRequestType } from '../types';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -65,6 +66,12 @@ export function TiramisSubmissionDetailPage() {
     (tenantDetail.isLoading ||
       tenantDetailByRequestId.isLoading ||
       trackingDetail.isLoading);
+  usePageTitle(
+    tenantSubmission
+      ? `Submission ${tenantSubmission.tiramis_request_id || tenantSubmission.business_reference || tenantSubmission.id}`
+      : trackingSubmission &&
+          `Submission ${trackingSubmission.tiramisRequestId || trackingSubmission.businessReference || trackingSubmission.id}`,
+  );
 
   if (isLoading) return <Skeleton className="h-[640px] w-full" />;
 

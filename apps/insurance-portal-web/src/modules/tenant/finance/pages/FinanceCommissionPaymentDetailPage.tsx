@@ -14,6 +14,7 @@ import {
   formatDate,
   formatMoney,
 } from '../components';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function FinanceCommissionPaymentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,9 @@ export function FinanceCommissionPaymentDetailPage() {
     queryFn: () => financeApi.getCommissionPayment(id!),
     enabled: !!id,
   });
+  usePageTitle(
+    query.data?.payment_no && `Commission Payment ${query.data.payment_no}`,
+  );
 
   const refresh = () => {
     queryClient.invalidateQueries({

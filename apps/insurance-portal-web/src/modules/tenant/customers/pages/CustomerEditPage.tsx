@@ -6,11 +6,15 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import { CustomerForm } from '../components/CustomerForm';
 import { useCustomer, useUpdateCustomer } from '../hooks';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function CustomerEditPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: customer, isLoading } = useCustomer(id);
+  usePageTitle(
+    customer?.customer_no && `Edit Customer ${customer.customer_no}`,
+  );
   const updateMutation = useUpdateCustomer(id);
 
   if (isLoading) {

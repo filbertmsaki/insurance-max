@@ -23,6 +23,7 @@ import {
 } from '@/components/data-table';
 import { engagementApi, type DocumentAccessEventRecord } from '../api';
 import { formatDate, formatDateTime, statusTone } from '../utils';
+import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function DocumentDetailPage() {
   const { id = '' } = useParams();
@@ -33,6 +34,10 @@ export function DocumentDetailPage() {
     queryFn: () => engagementApi.getDocument(id),
     enabled: Boolean(id),
   });
+  usePageTitle(
+    documentQuery.data?.document_no &&
+      `Document ${documentQuery.data.document_no}`,
+  );
 
   const versionsQuery = useQuery({
     queryKey: ['engagement', 'documents', id, 'versions'],
