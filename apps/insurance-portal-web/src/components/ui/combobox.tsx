@@ -80,7 +80,9 @@ export function Combobox({
             className,
           )}
         >
-          <span>{selected ? selected.label : placeholder}</span>
+          <span className="min-w-0 flex-1 truncate" title={selected?.label}>
+            {selected ? selected.label : placeholder}
+          </span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
@@ -112,11 +114,11 @@ export function Combobox({
                 >
                   <Check
                     className={cn(
-                      'mr-2 h-4 w-4',
+                      'mr-2 h-4 w-4 shrink-0',
                       option.value === value ? 'opacity-100' : 'opacity-0',
                     )}
                   />
-                  {option.label}
+                  <span className="min-w-0 break-words">{option.label}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

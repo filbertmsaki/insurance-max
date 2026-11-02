@@ -223,7 +223,7 @@ export function AsyncCombobox({
                       )}
                     />
                     <span className="min-w-0">
-                      <span className="block truncate">{option.label}</span>
+                      <span className="block break-words">{option.label}</span>
                       {option.description && (
                         <span className="block truncate text-xs text-slate-500">
                           {option.description}

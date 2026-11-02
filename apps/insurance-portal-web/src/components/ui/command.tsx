@@ -58,7 +58,14 @@ const CommandList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
-    className={cn('max-h-[420px] overflow-y-auto overflow-x-hidden', className)}
+    className={cn(
+      'max-h-[420px] overflow-y-auto overflow-x-hidden overscroll-contain',
+      className,
+    )}
+    // Inside a modal dialog the scroll lock swallows wheel/touch scrolling of
+    // portalled popovers; keep those events on the list so it scrolls.
+    onWheel={(event) => event.stopPropagation()}
+    onTouchMove={(event) => event.stopPropagation()}
     {...props}
   />
 ));
