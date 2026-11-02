@@ -677,13 +677,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
               .replace(/[^A-Za-z0-9]/g, '')
               .toUpperCase();
             const identifierType =
-              (customer.idType as number) === 1
-                ? 'NIN'
-                : customer.idType === 3
-                  ? 'PASSPORT'
-                  : customer.idType === 6
-                    ? 'TIN'
-                    : 'OTHER';
+              { 1: 'NIN', 3: 'PASSPORT', 6: 'TIN' }[customer.idType] ?? 'OTHER';
             const fingerprint = createHash('sha256')
               .update(normalizedId, 'utf8')
               .digest('hex');
