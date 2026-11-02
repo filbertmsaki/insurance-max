@@ -16,7 +16,7 @@ import { FilterAuditLogDto } from './dto/filter-audit-log.dto';
 
 @ApiTags('Audit logs')
 @ApiBearerAuth('access-token')
-@Controller({ path: 'audit-logs', version: '1' })
+@Controller({ path: ['audit-logs', 'apps/audit-logs'], version: '1' })
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 

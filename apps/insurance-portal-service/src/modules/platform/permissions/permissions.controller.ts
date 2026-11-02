@@ -28,7 +28,7 @@ import { PermissionsService } from './permissions.service';
 
 @ApiTags('Permissions')
 @ApiBearerAuth('access-token')
-@Controller('permissions')
+@Controller(['permissions', 'apps/permissions'])
 export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 

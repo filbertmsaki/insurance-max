@@ -22,7 +22,7 @@ import { UpdateSalePointStatusDto } from './dto/update-sale-point-status.dto';
 
 @ApiTags('Sale points')
 @ApiBearerAuth('access-token')
-@Controller('sale-points')
+@Controller(['sale-points', 'apps/sale-points'])
 @TenantScoped()
 export class SalePointsController {
   constructor(private readonly salePointsService: SalePointsService) {}

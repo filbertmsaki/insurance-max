@@ -26,7 +26,7 @@ import {
 
 @ApiTags('Departments')
 @ApiBearerAuth()
-@Controller('departments')
+@Controller(['departments', 'apps/departments'])
 @TenantScoped()
 export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}

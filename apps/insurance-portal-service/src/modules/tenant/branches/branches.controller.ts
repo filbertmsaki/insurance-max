@@ -33,7 +33,7 @@ import {
 
 @ApiTags('Branches')
 @ApiBearerAuth()
-@Controller('branches')
+@Controller(['branches', 'apps/branches'])
 @TenantScoped()
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
@@ -277,7 +277,7 @@ export class BranchesController {
 
 @ApiTags('Company Features')
 @ApiBearerAuth()
-@Controller('company-features')
+@Controller(['company-features', 'apps/company-features'])
 export class CompanyFeaturesController {
   constructor(private readonly branchesService: BranchesService) {}
 
