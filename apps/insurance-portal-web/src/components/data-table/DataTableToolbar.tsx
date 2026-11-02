@@ -68,7 +68,7 @@ export function DataTableToolbar<T>({
   if (!hasToolbar) return null;
 
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {onSearchChange && (
           <DataTableSearch

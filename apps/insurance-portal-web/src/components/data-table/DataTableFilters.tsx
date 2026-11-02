@@ -24,7 +24,7 @@ export function DataTableFilters({
   const hasActiveFilters = filters.some((filter) => filter.value);
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
       {filters.map((filter) => (
         <Select
           key={filter.key}
@@ -33,7 +33,7 @@ export function DataTableFilters({
             onFilterChange?.(filter.key, value === ALL_VALUE ? '' : value)
           }
         >
-          <SelectTrigger className="h-9 w-[min(14rem,100%)]">
+          <SelectTrigger className="w-full sm:w-44">
             <SelectValue placeholder={filter.placeholder ?? filter.label} />
           </SelectTrigger>
           <SelectContent>
@@ -49,7 +49,13 @@ export function DataTableFilters({
         </Select>
       ))}
       {hasActiveFilters && onClearFilters && (
-        <Button type="button" variant="ghost" size="sm" onClick={onClearFilters}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="col-span-2 justify-self-start sm:col-span-1"
+          onClick={onClearFilters}
+        >
           Clear filters
         </Button>
       )}
