@@ -72,7 +72,7 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
         user_type, officer_title, is_email_verified, is_phone_verified,
         is_two_factor_enabled
       )
-      VALUES ($1, $2, 'Tester', $3, $4, $5, 'active', 'STAFF', $6, true, true, false)
+      VALUES ($1, $2, 'Tester', $3, $4, $5, 'active', 'COMPANY_USER', $6, true, true, false)
       RETURNING id
       `,
       [
@@ -304,7 +304,7 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
         WHERE c.company_type = 'INSURANCE_COMPANY'
           AND (SELECT count(DISTINCT r.name) FROM roles r
                 WHERE r.company_id = c.id
-                  AND r.name IN ('CLAIMS_OFFICER', 'CLAIMS_MANAGER', 'CLAIMS_FINANCE', 'CLAIMS_ASSESSOR')) = 4
+                  AND r.name IN ('CLAIMS_OFFICER', 'CLAIMS_MANAGER', 'CLAIMS_ASSESSOR')) = 3
         ORDER BY c.created_at ASC
         LIMIT 1`,
     );
@@ -371,7 +371,8 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
     for (const [label, role] of [
       ['Officer', 'CLAIMS_OFFICER'],
       ['Manager', 'CLAIMS_MANAGER'],
-      ['Finance', 'CLAIMS_FINANCE'],
+      // Claims Finance was folded into Claims Manager.
+      ['Finance', 'CLAIMS_MANAGER'],
       ['Assessor', 'CLAIMS_ASSESSOR'],
     ] as const) {
       await addMembership(await createUser(label), companyId, branchId, role);

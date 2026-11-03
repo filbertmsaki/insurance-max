@@ -172,7 +172,7 @@ describe('SecurityPoliciesService', () => {
     const requirement = await service.resolveTwoFactorRequirement(
       {
         is_two_factor_enabled: false,
-        user_type: 'STAFF',
+        user_type: 'COMPANY_USER',
         roles: [{ name: 'CLAIMS_MANAGER', permissions: [] }],
         permissions: [],
       } as any,

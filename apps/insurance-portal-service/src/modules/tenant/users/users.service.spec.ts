@@ -8,6 +8,7 @@ import { Department } from '../departments/entities/department.entity';
 import { DepartmentUser } from '../departments/entities/department-user.entity';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
+import { UserAccessService } from './user-access.service';
 
 describe('UsersService.createForCompany — user creation transaction validation', () => {
   const companyId = 'company-1';
@@ -95,6 +96,7 @@ describe('UsersService.createForCompany — user creation transaction validation
       userRepository as unknown as Repository<User>,
       companiesService as unknown as CompaniesService,
       dataSource as unknown as DataSource,
+      {} as UserAccessService,
     );
   });
 

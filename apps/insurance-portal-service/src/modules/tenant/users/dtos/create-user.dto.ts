@@ -1,7 +1,9 @@
+import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -10,8 +12,10 @@ import {
   IsString,
   IsUUID,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
-import { UserType } from '../entities/user.entity';
+import { UserPermissionGrantDto } from './user-access.dto';
+import { QuotationPolicyDataScope } from '../../../shared/authorization/quotation-policy-data-scope.enum';
 
 export class CreateUserDto {
   @IsString()
@@ -38,10 +42,6 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   status?: string;
-
-  @IsEnum(UserType)
-  @IsOptional()
-  user_type?: UserType;
 
   @IsString()
   @IsNotEmpty()
@@ -71,4 +71,24 @@ export class CreateUserDto {
   @ArrayUnique()
   @IsUUID(undefined, { each: true })
   role_ids?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UserPermissionGrantDto)
+  permission_grants?: UserPermissionGrantDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  excluded_permission_ids?: string[];
+
+  @IsOptional()
+  @IsEnum(QuotationPolicyDataScope)
+  quotation_policy_data_scope?: QuotationPolicyDataScope;
+
+  @IsOptional()
+  @IsBoolean()
+  insurance_channel_access?: boolean;
 }

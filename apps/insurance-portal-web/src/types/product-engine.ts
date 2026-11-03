@@ -238,6 +238,8 @@ export interface InsuranceProductVersion {
   definition_hash: string | null;
   review_comments: string | null;
   published_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
 
   definition_items: ProductDefinitionItem[];
   addons: ProductAddonDefinition[];

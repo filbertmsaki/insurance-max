@@ -27,7 +27,8 @@ import { UpdateUserDataScopeDto } from './dtos/update-user-data-scope.dto';
 import { UserProfileDto } from './dtos/user-profile-dto';
 import { UserAdminDetailDto } from './dtos/user-admin-detail.dto';
 import { FindUsersQueryDto } from './dtos/find-users-query.dto';
-import { User } from './entities/user.entity';
+import { User, UserType } from './entities/user.entity';
+import { UserAccessService } from './user-access.service';
 import { Permission } from '../../platform/permissions/entities/permission.entity';
 import { SELECT_INSURANCE_CHANNEL_PERMISSION } from '../quotations/authorization/insurance-channel-permission';
 import { QuotationPolicyDataScope } from '../../shared/authorization/quotation-policy-data-scope.enum';
@@ -39,6 +40,7 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
     private readonly companiesService: CompaniesService,
     private readonly dataSource: DataSource,
+    private readonly userAccessService: UserAccessService,
   ) {}
 
   private async findOrFail(id: string): Promise<User> {
@@ -53,6 +55,8 @@ export class UsersService {
   async createForCompany(
     companyId: string,
     createUserDto: CreateUserDto,
+    /** Absent for self-registration, which never carries access sections. */
+    actor?: AuthenticatedUser,
   ): Promise<UserProfileDto | { message: string; user: UserProfileDto }> {
     const {
       password,
@@ -62,6 +66,10 @@ export class UsersService {
       active_department_id,
       role_ids,
       officer_title,
+      permission_grants,
+      excluded_permission_ids,
+      quotation_policy_data_scope,
+      insurance_channel_access,
       ...userData
     } = createUserDto;
 
@@ -162,7 +170,9 @@ export class UsersService {
           ...userData,
           password: hashedPassword,
           status: userData.status ?? 'active',
-          user_type: userData.user_type ?? 'COMPANY_USER',
+          // Tenant admins only create company users; platform, portal and
+          // agent types are assigned by their own flows.
+          user_type: UserType.COMPANY_USER,
           officer_title: officer_title || 'Underwriter',
           is_email_verified: true,
         });
@@ -200,6 +210,27 @@ export class UsersService {
             activated_at: isActive ? new Date() : null,
             activated_by: null,
           }),
+        );
+      }
+
+      // Roles and organisation are already applied above; the remaining
+      // sections share the access service so its checks and audit apply.
+      if (actor) {
+        const createdMembership = await manager
+          .getRepository(CompanyUser)
+          .findOneOrFail({ where: { id: membership.membershipId } });
+        await this.userAccessService.applyAccess(
+          manager,
+          companyId,
+          createdMembership,
+          {
+            permission_grants,
+            excluded_permission_ids,
+            quotation_policy_data_scope,
+            insurance_channel_access,
+          },
+          actor,
+          'user.access.initialized',
         );
       }
 
@@ -362,6 +393,7 @@ export class UsersService {
         'permissionAssignments',
       )
       .leftJoinAndSelect('permissionAssignments.permission', 'permissions')
+      .leftJoinAndSelect('membership.permission_exclusions', 'exclusions')
       .where('membership.company_id = :companyId', { companyId })
       .andWhere('membership.status = :membershipStatus', {
         membershipStatus: 'active',
@@ -408,9 +440,14 @@ export class UsersService {
       if (assignment.permission?.name)
         permissions.add(assignment.permission.name);
     });
+    const excluded = new Set(
+      membership.permission_exclusions?.map((item) => item.permission_id),
+    );
     membership.role_assignments?.forEach((assignment) => {
       assignment.role?.permissions?.forEach((permission) => {
-        if (permission?.name) permissions.add(permission.name);
+        if (permission?.name && !excluded.has(permission.id)) {
+          permissions.add(permission.name);
+        }
       });
     });
     return {

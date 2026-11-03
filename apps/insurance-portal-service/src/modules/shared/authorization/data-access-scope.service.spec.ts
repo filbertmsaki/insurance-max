@@ -13,7 +13,7 @@ describe('DataAccessScopeService', () => {
     id: 'user-1',
     email: 'user@example.com',
     scope: 'company',
-    userType: 'STAFF',
+    userType: 'COMPANY_USER',
     companyId: 'company-1',
     companyName: 'Test Company',
     companySlug: 'test-company',

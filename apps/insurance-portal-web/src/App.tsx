@@ -44,6 +44,7 @@ import { DashboardPage } from '@/modules/shared/dashboard/pages/DashboardPage';
 import { UsersListPage } from '@/modules/tenant/users/pages/UsersListPage';
 import { UserDetailPage } from '@/modules/tenant/users/pages/UserDetailPage';
 import { UserFormPage } from '@/modules/tenant/users/pages/UserFormPage';
+import { USER_EDIT_PERMISSIONS } from '@/modules/tenant/users/permissions';
 import { CompaniesListPage } from '@/modules/platform/companies/pages/CompaniesListPage';
 import { CompanyDetailPage } from '@/modules/platform/companies/pages/CompanyDetailPage';
 import { MyCompanyPage } from '@/modules/platform/companies/pages/MyCompanyPage';
@@ -770,7 +771,7 @@ export default function App() {
                 <Route
                   element={
                     <ProtectedRoute
-                      requiredPermission="users:update"
+                      anyPermissions={USER_EDIT_PERMISSIONS}
                       allowedScopes={['company']}
                     />
                   }

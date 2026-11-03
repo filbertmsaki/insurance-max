@@ -5,7 +5,7 @@ type CompanyAdminAwareUser = Pick<AuthenticatedUser, 'roles'>;
 // The full-authority "administrator for this company tenant" roles seeded in
 // 001-initial-rbac.seed.ts — one per company type. Deliberately excludes
 // narrower admin roles scoped to a single subsystem (e.g. PORTAL_ADMIN,
-// PRODUCT_ADMINISTRATOR), which are not general company administration.
+// PRODUCT_APPROVER), which are not general company administration.
 export const COMPANY_ADMIN_ROLES = [
   'ADMINISTRATOR',
   'INSURANCE_ADMIN',

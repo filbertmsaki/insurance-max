@@ -18,6 +18,11 @@ import {
 } from '@nestjs/swagger';
 
 import { UsersService } from './users.service';
+import {
+  USER_ACCESS_EDIT_PERMISSIONS,
+  UserAccessService,
+} from './user-access.service';
+import { UpdateUserAccessDto } from './dtos/user-access.dto';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { UpdateUserDataScopeDto } from './dtos/update-user-data-scope.dto';
@@ -32,7 +37,10 @@ import { Verify2FaDto } from '../../shared/auth/2fa/dto/verify-2fa.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
 import { FindUsersQueryDto } from './dtos/find-users-query.dto';
 import { TenantScoped } from '@insurance-max/portal-shared';
-import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
+import {
+  AnyPermissions,
+  AuthenticatedAccess,
+} from '@insurance-max/portal-shared/decorators/authorization.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -40,6 +48,7 @@ import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/aut
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
+    private readonly userAccessService: UserAccessService,
     private readonly twoFaService: TwoFaService,
   ) {}
 
@@ -90,9 +99,15 @@ export class UsersController {
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() createUserDto: CreateUserDto,
   ) {
+    this.userAccessService.assertSectionsAllowed(
+      req.user,
+      createUserDto,
+      'create',
+    );
     return this.usersService.createForCompany(
       req.user.companyId!,
       createUserDto,
+      req.user,
     );
   }
 
@@ -107,6 +122,49 @@ export class UsersController {
     return this.usersService.findAllPaginatedInCompany(
       req.user.companyId!,
       query,
+    );
+  }
+
+  @Get('access-options')
+  @TenantScoped()
+  @AnyPermissions('users:create', ...USER_ACCESS_EDIT_PERMISSIONS)
+  @ApiOperation({
+    summary:
+      'Roles, permissions, branches and departments the actor can assign',
+  })
+  accessOptions(@Req() req: ExpressRequest & { user: AuthenticatedUser }) {
+    return this.userAccessService.getOptions(req.user.companyId!, req.user);
+  }
+
+  @Get(':id/access')
+  @TenantScoped()
+  @Permissions('users:read')
+  @ApiOperation({ summary: 'Get the organisation, roles and access of a user' })
+  getAccess(
+    @Req() req: ExpressRequest & { user: AuthenticatedUser },
+    @Param('id') id: string,
+  ) {
+    return this.userAccessService.getAccess(req.user.companyId!, id);
+  }
+
+  @Put(':id/access')
+  @TenantScoped()
+  // Each submitted section is checked against its own permission.
+  @AnyPermissions(...USER_ACCESS_EDIT_PERMISSIONS)
+  @ApiOperation({
+    summary:
+      'Replace the submitted access sections for a user in one transaction',
+  })
+  updateAccess(
+    @Req() req: ExpressRequest & { user: AuthenticatedUser },
+    @Param('id') id: string,
+    @Body() dto: UpdateUserAccessDto,
+  ) {
+    return this.userAccessService.updateAccess(
+      req.user.companyId!,
+      id,
+      dto,
+      req.user,
     );
   }
 

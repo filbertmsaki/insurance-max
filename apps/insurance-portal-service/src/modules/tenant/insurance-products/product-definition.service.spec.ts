@@ -276,4 +276,75 @@ describe('ProductDefinitionService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('publish', () => {
+    const runPublish = (version: InsuranceProductVersion, actor: string) => {
+      const repo = {
+        findOneOrFail: jest.fn().mockResolvedValue(version),
+        save: jest.fn((entity) => Promise.resolve(entity)),
+      };
+      const manager = { getRepository: () => repo };
+      Object.assign((service as any).dataSource, {
+        transaction: (cb: (m: unknown) => unknown) => cb(manager),
+      });
+      // Definition validation and overlap checks are covered elsewhere.
+      jest
+        .spyOn(service as any, 'validateDefinition')
+        .mockReturnValue(undefined);
+      jest
+        .spyOn(service as any, 'assertNoEffectiveOverlap')
+        .mockResolvedValue(undefined);
+      return service.publish('company-1', 'product-1', 'version-1', actor);
+    };
+
+    it('publishes a version that is in review', async () => {
+      const version = makeVersion({ created_by: 'maker', updated_by: 'maker' });
+      await runPublish(version, 'approver');
+      expect(version.status).toBe(ProductVersionStatus.PUBLISHED);
+    });
+
+    it('lets an approver publish their own draft without review', async () => {
+      const version = makeVersion({
+        review_status: ProductReviewStatus.DRAFT,
+        created_by: 'approver',
+        updated_by: 'approver',
+      });
+      await runPublish(version, 'approver');
+      expect(version.status).toBe(ProductVersionStatus.PUBLISHED);
+      expect(version.review_status).toBe(ProductReviewStatus.APPROVED);
+    });
+
+    it('requires review for a draft authored by someone else', async () => {
+      const version = makeVersion({
+        review_status: ProductReviewStatus.DRAFT,
+        created_by: 'maker',
+        updated_by: 'maker',
+      });
+      await expect(runPublish(version, 'approver')).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('requires review when another user edited the approver draft', async () => {
+      const version = makeVersion({
+        review_status: ProductReviewStatus.DRAFT,
+        created_by: 'approver',
+        updated_by: 'maker',
+      });
+      await expect(runPublish(version, 'approver')).rejects.toThrow(
+        ConflictException,
+      );
+    });
+
+    it('does not self-publish a rejected draft', async () => {
+      const version = makeVersion({
+        review_status: ProductReviewStatus.REJECTED,
+        created_by: 'approver',
+        updated_by: 'approver',
+      });
+      await expect(runPublish(version, 'approver')).rejects.toThrow(
+        ConflictException,
+      );
+    });
+  });
 });

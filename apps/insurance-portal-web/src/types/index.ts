@@ -3,7 +3,6 @@
 export type UserType =
   | 'SUPER_ADMIN'
   | 'COMPANY_ADMIN'
-  | 'STAFF'
   | 'AGENT'
   | 'BROKER'
   | 'CUSTOMER'
@@ -22,7 +21,6 @@ export type QuotationPolicyDataScope =
 export const PLATFORM_USER_TYPES: UserType[] = ['SUPER_ADMIN', 'OWNER'];
 export const COMPANY_USER_TYPES: UserType[] = [
   'COMPANY_ADMIN',
-  'STAFF',
   'AGENT',
   'BROKER',
   'CUSTOMER',

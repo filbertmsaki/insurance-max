@@ -2,6 +2,10 @@ import { environment } from '@insurance-max/shared-config';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import {
+  adminRoleForCompanyType,
+  isRoleAllowedForCompanyType,
+} from '../../modules/platform/companies/access-rules';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
 import {
   PermissionAssignmentScope,
@@ -4261,23 +4265,6 @@ const roleSeeds: RoleSeed[] = [
     ],
   },
   {
-    name: 'CLAIMS_FINANCE',
-    displayName: 'Claims Finance',
-    description:
-      'Processes and confirms claim disbursements and recovery receipts',
-    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
-    permissionNames: [
-      'claims:read',
-      'claims:payment-create',
-      'claims:payment-submit',
-      'claim-payments:request-disbursement',
-      'claim-payments:confirm-disbursement',
-      'claim-recoveries:record-receipt',
-      'claims:report-read',
-      'claims:dashboard',
-    ],
-  },
-  {
     name: 'VIEWER',
     displayName: 'Viewer',
     description:
@@ -4312,10 +4299,10 @@ const roleSeeds: RoleSeed[] = [
     permissionNames: ['portal:intermediary-access'],
   },
   {
-    name: 'PRODUCT_ADMINISTRATOR',
-    displayName: 'Product Administrator',
+    name: 'PRODUCT_APPROVER',
+    displayName: 'Product Approver',
     description:
-      'Authors and maintains the insurance product catalogue and its versions',
+      'Authors, reviews, publishes and retires product-definition versions; their own drafts publish without a separate review',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       'insurance-products:read',
@@ -4328,25 +4315,11 @@ const roleSeeds: RoleSeed[] = [
       'product-definitions:create-version',
       'product-definitions:update',
       'product-definitions:submit-review',
-      'product-definitions:use',
-      'product-distribution:read',
-    ],
-  },
-  {
-    name: 'PRODUCT_APPROVER',
-    displayName: 'Product Approver',
-    description:
-      'Reviews, publishes and retires proposed product-definition versions',
-    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
-    permissionNames: [
-      'insurance-products:read',
-      'insurance-categories:read',
-      'insurance-sub-classes:read',
-      'product-definitions:read',
       'product-definitions:review',
       'product-definitions:publish',
       'product-definitions:retire',
       'product-definitions:use',
+      'product-distribution:read',
     ],
   },
   {
@@ -4560,10 +4533,11 @@ export default class InitialRbacSeeder implements Seeder {
         roleSeeds,
         permissionsByName,
         defaultCompany.id,
+        defaultCompany.company_type ?? CompanyType.INSURANCE_COMPANY,
       );
 
       const ownerRole = this.requireRole(rolesByScopeAndName, 'OWNER', null);
-      const defaultAdminRoleName = this.getDefaultCompanyAdminRoleName(
+      const defaultAdminRoleName = adminRoleForCompanyType(
         defaultCompany.company_type ?? CompanyType.INSURANCE_COMPANY,
       );
       const adminRole = this.requireRole(
@@ -4698,24 +4672,6 @@ export default class InitialRbacSeeder implements Seeder {
     return `${companyId ?? 'global'}::${name}`;
   }
 
-  private getDefaultCompanyAdminRoleName(companyType: CompanyType): string {
-    switch (companyType) {
-      case CompanyType.REINSURANCE_COMPANY:
-        return 'REINSURANCE_ADMIN';
-      case CompanyType.BROKER:
-        return 'BROKER_ADMIN';
-      case CompanyType.AGENCY:
-        return 'AGENCY_ADMIN';
-      case CompanyType.BANCASSURANCE:
-        return 'BANCASSURANCE_ADMIN';
-      case CompanyType.SERVICE_PROVIDER:
-        return 'SERVICE_PROVIDER_ADMIN';
-      case CompanyType.INSURANCE_COMPANY:
-      default:
-        return 'INSURANCE_ADMIN';
-    }
-  }
-
   private resolveScopeCompanyId(
     scope: SeedScope,
     defaultCompanyId: string,
@@ -4767,11 +4723,21 @@ export default class InitialRbacSeeder implements Seeder {
     definitions: RoleSeed[],
     permissionsByName: Map<string, Permission>,
     defaultCompanyId: string,
+    defaultCompanyType: CompanyType,
   ): Promise<Map<string, Role>> {
     const rolesByScopeAndName = new Map<string, Role>();
 
     for (const definition of definitions) {
       for (const scope of definition.scopes) {
+        // Other company types' admin roles stay templates only; copying them
+        // into the default company would let it grant them.
+        if (
+          scope === 'default_company' &&
+          !isRoleAllowedForCompanyType(definition.name, defaultCompanyType)
+        ) {
+          continue;
+        }
+
         const companyId = this.resolveScopeCompanyId(scope, defaultCompanyId);
 
         let role = await roleRepo.findOne({

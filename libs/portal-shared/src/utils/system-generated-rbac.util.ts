@@ -28,9 +28,11 @@ export function isReservedPlatformRoleName(name: string | null | undefined) {
 export function hasOwnerRole(
   actor?: OwnerAwareUser | null,
 ): actor is OwnerAwareUser {
+  // Owners only act as owners from a platform session; a tenant session must
+  // never gain owner powers from a user type or role name.
   return (
-    actor?.userType === 'OWNER' ||
-    (actor?.scope === 'platform' && actor?.roles?.includes('OWNER') === true)
+    actor?.scope === 'platform' &&
+    (actor.userType === 'OWNER' || actor.roles?.includes('OWNER') === true)
   );
 }
 

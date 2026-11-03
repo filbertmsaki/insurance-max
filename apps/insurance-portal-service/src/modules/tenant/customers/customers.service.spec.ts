@@ -14,7 +14,7 @@ import { TiraPolicyholderMapperService } from './services/tira-policyholder-mapp
 const user = {
   id: 'user-1',
   scope: 'company',
-  userType: 'STAFF',
+  userType: 'COMPANY_USER',
   companyId: 'company-1',
   companyType: 'INSURANCE_COMPANY',
   companyMembershipId: 'membership-1',

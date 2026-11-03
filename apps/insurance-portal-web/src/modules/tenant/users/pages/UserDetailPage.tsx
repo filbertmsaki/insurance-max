@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
   ArrowLeft,
@@ -20,62 +19,17 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { rolesApi } from '@/modules/platform/roles/api/roles';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   useUser,
-  useAssignRole,
   useRevokeRole,
-  useUpdateUserDataScope,
   useSetUserInsuranceChannelAccess,
 } from '@/modules/tenant/users/hooks';
 import type { QuotationPolicyDataScope } from '@/types';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
-
-const DATA_SCOPE_OPTIONS: Array<{
-  value: QuotationPolicyDataScope;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: 'USER',
-    label: 'User Only',
-    description: 'Can see only their own quotations and policies.',
-  },
-  {
-    value: 'DEPARTMENT',
-    label: 'Department',
-    description: 'Can see quotations and policies in their department.',
-  },
-  {
-    value: 'BRANCH',
-    label: 'Branch',
-    description: 'Can see quotations and policies in authorized branches.',
-  },
-  {
-    value: 'COMPANY',
-    label: 'Company',
-    description: 'Can see all quotations and policies in this company.',
-  },
-];
+import { DATA_SCOPE_OPTIONS } from '@/modules/tenant/users/schemas/user-form.schema';
 
 const DATA_SCOPE_LABELS = Object.fromEntries(
   DATA_SCOPE_OPTIONS.map((item) => [item.value, item.label]),
@@ -103,24 +57,9 @@ export function UserDetailPage() {
 
   // ── Dialog state ─────────────────────────────────────────────────────────
   const [revokeRoleId, setRevokeRoleId] = useState<string | null>(null);
-  const [assignRoleOpen, setAssignRoleOpen] = useState(false);
-  const [selectedRoleId, setSelectedRoleId] = useState('');
-  const [dataScopeOpen, setDataScopeOpen] = useState(false);
-  const [selectedDataScope, setSelectedDataScope] =
-    useState<QuotationPolicyDataScope>('USER');
-  const [dataScopeReason, setDataScopeReason] = useState('');
-
-  // ── Roles list for assign dialog ─────────────────────────────────────────
-  const { data: roles } = useQuery({
-    queryKey: ['roles'],
-    queryFn: rolesApi.getRoles,
-    enabled: assignRoleOpen,
-  });
 
   // ── Mutations ────────────────────────────────────────────────────────────
-  const assignRoleMutation = useAssignRole();
   const revokeRoleMutation = useRevokeRole();
-  const updateDataScopeMutation = useUpdateUserDataScope(id);
   const insuranceChannelMutation = useSetUserInsuranceChannelAccess();
 
   // ── Loading skeleton ─────────────────────────────────────────────────────
@@ -161,11 +100,9 @@ export function UserDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setSelectedDataScope(currentDataScope);
-                setDataScopeReason('');
-                setDataScopeOpen(true);
-              }}
+              onClick={() =>
+                navigate(`/apps/users/${user.id}/edit?tab=data_access`)
+              }
             >
               <Shield className="mr-2 h-4 w-4" /> Data scope
             </Button>
@@ -183,12 +120,9 @@ export function UserDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setSelectedRoleId('');
-                setAssignRoleOpen(true);
-              }}
+              onClick={() => navigate(`/apps/users/${user.id}/edit?tab=roles`)}
             >
-              <ShieldCheck className="mr-2 h-4 w-4" /> Assign role
+              <ShieldCheck className="mr-2 h-4 w-4" /> Roles and permissions
             </Button>
           )}
         </div>
@@ -433,137 +367,6 @@ export function UserDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {/* ── Assign Role Dialog ── */}
-      <Dialog open={assignRoleOpen} onOpenChange={setAssignRoleOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Role</DialogTitle>
-            <DialogDescription>Assign a role to {fullName}.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                {(roles ?? []).map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    <span>{r.display_name}</span>
-                    <span className="ml-2 text-xs text-slate-400">
-                      {r.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {user.roles.length > 0 && (
-              <p className="text-xs text-slate-500">
-                Current roles:{' '}
-                {user.roles.map((r) => (
-                  <Badge
-                    key={r.id}
-                    variant="secondary"
-                    className="text-xs mr-1"
-                  >
-                    {r.display_name}
-                  </Badge>
-                ))}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignRoleOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={!selectedRoleId || assignRoleMutation.isPending}
-              onClick={() => {
-                if (!id) return;
-                assignRoleMutation.mutate(
-                  { userId: id, roleId: selectedRoleId },
-                  {
-                    onSuccess: () => {
-                      setAssignRoleOpen(false);
-                      setSelectedRoleId('');
-                    },
-                  },
-                );
-              }}
-            >
-              {assignRoleMutation.isPending ? 'Assigning…' : 'Assign role'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Revoke Role Confirm ── */}
-      <Dialog open={dataScopeOpen} onOpenChange={setDataScopeOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Quotation & Policy Data Scope</DialogTitle>
-            <DialogDescription>
-              Change the maximum quotation and policy records {fullName} can
-              view.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <Select
-              value={selectedDataScope}
-              onValueChange={(value) =>
-                setSelectedDataScope(value as QuotationPolicyDataScope)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DATA_SCOPE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-slate-500">
-              {
-                DATA_SCOPE_OPTIONS.find(
-                  (option) => option.value === selectedDataScope,
-                )?.description
-              }
-            </p>
-            <Input
-              value={dataScopeReason}
-              onChange={(event) => setDataScopeReason(event.target.value)}
-              placeholder="Reason or remarks"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDataScopeOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={updateDataScopeMutation.isPending}
-              onClick={() => {
-                if (!id) return;
-                updateDataScopeMutation.mutate(
-                  {
-                    id,
-                    data: {
-                      quotation_policy_data_scope: selectedDataScope,
-                      reason: dataScopeReason || undefined,
-                    },
-                  },
-                  { onSuccess: () => setDataScopeOpen(false) },
-                );
-              }}
-            >
-              {updateDataScopeMutation.isPending ? 'Saving...' : 'Save scope'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <ConfirmDialog
         open={!!revokeRoleId}

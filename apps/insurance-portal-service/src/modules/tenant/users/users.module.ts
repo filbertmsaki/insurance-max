@@ -2,6 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { UsersService } from './users.service';
+import { UserAccessService } from './user-access.service';
 import { UsersController } from './users.controller';
 import { TwoFaModule } from '../../shared/auth/2fa/2fa.module';
 import { CompaniesModule } from '../../platform/companies/companies.module';
@@ -14,7 +15,7 @@ import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
     CompaniesModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService, TenantGuard],
+  providers: [UsersService, UserAccessService, TenantGuard],
   exports: [UsersService, TypeOrmModule],
 })
 export class UsersModule {}

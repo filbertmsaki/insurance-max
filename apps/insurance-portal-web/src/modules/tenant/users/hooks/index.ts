@@ -7,3 +7,6 @@ export { useSetUserInsuranceChannelAccess } from './useSetUserInsuranceChannelAc
 export { useDeleteUser } from './useDeleteUser';
 export { useAssignRole } from './useAssignRole';
 export { useRevokeRole } from './useRevokeRole';
+export { useUserAccess } from './useUserAccess';
+export { useUserAccessOptions } from './useUserAccessOptions';
+export { useUpdateUserAccess } from './useUpdateUserAccess';

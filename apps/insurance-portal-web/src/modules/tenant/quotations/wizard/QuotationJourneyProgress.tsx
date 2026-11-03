@@ -14,6 +14,8 @@ type Props = {
   completedSteps?: string[];
   errorSteps?: string[];
   onStepClick?: (step: string) => void;
+  /** Names the journey for screen readers, e.g. "Quotation" or "New user". */
+  journeyLabel?: string;
 };
 
 type StepStatus = 'error' | 'active' | 'complete' | 'upcoming';
@@ -55,6 +57,7 @@ export function QuotationJourneyProgress({
   completedSteps = [],
   errorSteps = [],
   onStepClick,
+  journeyLabel = 'Quotation',
 }: Props) {
   const activeIndex = Math.max(
     0,
@@ -66,9 +69,9 @@ export function QuotationJourneyProgress({
   );
 
   return (
-    <nav aria-label="Quotation progress">
+    <nav aria-label={`${journeyLabel} progress`}>
       <select
-        aria-label="Navigate quotation steps"
+        aria-label={`Navigate ${journeyLabel.toLowerCase()} steps`}
         value={currentStep}
         onChange={(event) => onStepClick?.(event.target.value)}
         className="mb-4 min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base sm:hidden"

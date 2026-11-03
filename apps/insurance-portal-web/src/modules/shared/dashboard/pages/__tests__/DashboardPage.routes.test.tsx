@@ -54,7 +54,7 @@ function createCapabilities(
     },
     user: {
       user_id: 'user-1',
-      user_type: 'STAFF',
+      user_type: 'COMPANY_USER',
       roles: ['UNDERWRITER'],
     },
     scope: {
@@ -293,7 +293,7 @@ describe('DashboardPage route tabs', () => {
         id: 'user-1',
         email: 'staff@example.com',
         scope: 'company',
-        userType: 'STAFF',
+        userType: 'COMPANY_USER',
         companyId: 'company-1',
         companyName: 'Alliance',
         roles: ['UNDERWRITER'],

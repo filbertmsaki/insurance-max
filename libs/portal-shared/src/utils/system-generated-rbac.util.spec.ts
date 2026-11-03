@@ -4,16 +4,22 @@ import {
 } from './system-generated-rbac.util';
 
 describe('hasOwnerRole', () => {
-  it('trusts the OWNER user type in any scope', () => {
+  it('trusts the OWNER user type in platform scope', () => {
+    expect(
+      hasOwnerRole({ userType: 'OWNER', roles: [], scope: 'platform' } as any),
+    ).toBe(true);
+  });
+
+  it('ignores the OWNER user type in company scope', () => {
     expect(
       hasOwnerRole({ userType: 'OWNER', roles: [], scope: 'company' } as any),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('trusts an OWNER role name in platform scope', () => {
     expect(
       hasOwnerRole({
-        userType: 'STAFF',
+        userType: 'COMPANY_USER',
         roles: ['OWNER'],
         scope: 'platform',
       } as any),
@@ -23,7 +29,7 @@ describe('hasOwnerRole', () => {
   it('ignores an OWNER role name in company scope (tenant-controlled)', () => {
     expect(
       hasOwnerRole({
-        userType: 'STAFF',
+        userType: 'COMPANY_USER',
         roles: ['OWNER'],
         scope: 'company',
       } as any),
@@ -31,9 +37,9 @@ describe('hasOwnerRole', () => {
   });
 
   it('ignores an OWNER role name when the scope is unknown', () => {
-    expect(hasOwnerRole({ userType: 'STAFF', roles: ['OWNER'] } as any)).toBe(
-      false,
-    );
+    expect(
+      hasOwnerRole({ userType: 'COMPANY_USER', roles: ['OWNER'] } as any),
+    ).toBe(false);
   });
 
   it('is false for no actor', () => {

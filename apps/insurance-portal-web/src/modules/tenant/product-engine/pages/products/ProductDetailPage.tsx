@@ -128,7 +128,7 @@ function VersionStatusBadge({ version }: { version: InsuranceProductVersion }) {
 export function ProductDetailPage() {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, user } = useAuthStore();
 
   const canUpdate = hasPermission('product-definitions:update');
   const canCreateVersion = hasPermission('product-definitions:create-version');
@@ -236,6 +236,17 @@ export function ProductDetailPage() {
     submitReview.mutate(version.id);
   }
 
+  // Approvers publish drafts they authored directly; the server re-checks
+  // that nobody else has edited the draft.
+  const canSelfPublish =
+    canPublish && !!version && version.created_by === user?.id;
+
+  async function onSaveThenPublish(values: UpsertProductVersionDto) {
+    if (!version) return;
+    await updateDraft.mutateAsync({ versionId: version.id, data: values });
+    publishVersion.mutate(version.id);
+  }
+
   if (!product) {
     return <div className="p-6">Loading…</div>;
   }
@@ -291,6 +302,14 @@ export function ProductDetailPage() {
                     disabled={updateDraft.isPending || submitReview.isPending}
                   >
                     Submit for Review
+                  </Button>
+                )}
+                {canSelfPublish && (
+                  <Button
+                    onClick={form.handleSubmit(onSaveThenPublish)}
+                    disabled={updateDraft.isPending || publishVersion.isPending}
+                  >
+                    Publish
                   </Button>
                 )}
               </>

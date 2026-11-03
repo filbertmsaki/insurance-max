@@ -26,7 +26,7 @@ const baseUser: AuthenticatedUser = {
   id: 'user-1',
   email: 'user@example.com',
   scope: 'company',
-  userType: 'STAFF',
+  userType: 'COMPANY_USER',
   sessionId: 'session-1',
   accessTokenId: 'token-1',
   companyId: 'company-1',

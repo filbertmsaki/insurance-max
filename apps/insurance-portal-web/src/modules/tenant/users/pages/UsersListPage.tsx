@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import {
   Plus,
   Eye,
@@ -12,23 +11,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   DataTable,
   tableFilters,
@@ -39,13 +22,11 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { usersApi } from '@/modules/tenant/users/api/users';
-import { rolesApi } from '@/modules/platform/roles/api/roles';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   usersKeys,
   useUpdateUser,
   useDeleteUser,
-  useAssignRole,
 } from '@/modules/tenant/users/hooks';
 import type { UserProfile, UserStatus, UserType } from '@/types';
 
@@ -80,7 +61,6 @@ const ALL_USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'SUPER_ADMIN', label: 'Super Admin' },
   { value: 'COMPANY_ADMIN', label: 'Company Admin' },
   { value: 'OWNER', label: 'Owner' },
-  { value: 'STAFF', label: 'Staff' },
   { value: 'AGENT', label: 'Agent' },
   { value: 'BROKER', label: 'Broker' },
   { value: 'CUSTOMER', label: 'Customer' },
@@ -109,22 +89,10 @@ export function UsersListPage() {
 
   // ── Dialog state ─────────────────────────────────────────────────────────
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [assignRoleUser, setAssignRoleUser] = useState<UserProfile | null>(
-    null,
-  );
-  const [selectedRoleId, setSelectedRoleId] = useState('');
-
-  // ── Roles for assign-role dialog ─────────────────────────────────────────
-  const { data: roles } = useQuery({
-    queryKey: ['roles'],
-    queryFn: rolesApi.getRoles,
-    enabled: !!assignRoleUser,
-  });
 
   // ── Mutations ────────────────────────────────────────────────────────────
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
-  const assignRoleMutation = useAssignRole();
 
   const handleToggleStatus = (user: UserProfile) => {
     const next = STATUS_NEXT[user.status].next;
@@ -220,13 +188,11 @@ export function UsersListPage() {
       onClick: handleToggleStatus,
     },
     {
-      label: 'Assign role',
+      label: 'Roles & permissions',
       icon: ShieldCheck,
       hidden: !canAssignRole,
-      onClick: (row: UserProfile) => {
-        setAssignRoleUser(row);
-        setSelectedRoleId('');
-      },
+      onClick: (row: UserProfile) =>
+        navigate(`/apps/users/${row.id}/edit?tab=roles`),
     },
     {
       label: 'Delete',
@@ -271,67 +237,6 @@ export function UsersListPage() {
         rowActions={rowActions}
         emptyMessage="No users yet"
       />
-
-      {/* ── Assign Role Dialog ── */}
-      <Dialog
-        open={!!assignRoleUser}
-        onOpenChange={(o) => !o && setAssignRoleUser(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Role</DialogTitle>
-            <DialogDescription>
-              Assign a role to {assignRoleUser?.first_name}{' '}
-              {assignRoleUser?.last_name}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a role" />
-              </SelectTrigger>
-              <SelectContent>
-                {(roles ?? []).map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    <span>{r.display_name}</span>
-                    <span className="ml-2 text-xs text-slate-400">
-                      {r.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {assignRoleUser && assignRoleUser.roles.length > 0 && (
-              <p className="text-xs text-slate-500">
-                Current roles:{' '}
-                {assignRoleUser.roles.map((r) => (
-                  <Badge key={r} variant="secondary" className="text-xs mr-1">
-                    {r}
-                  </Badge>
-                ))}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignRoleUser(null)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={!selectedRoleId || assignRoleMutation.isPending}
-              onClick={() => {
-                if (!assignRoleUser) return;
-                assignRoleMutation.mutate(
-                  { userId: assignRoleUser.id, roleId: selectedRoleId },
-                  { onSuccess: () => setAssignRoleUser(null) },
-                );
-              }}
-            >
-              {assignRoleMutation.isPending ? 'Assigning…' : 'Assign role'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Delete Confirm ── */}
       <ConfirmDialog

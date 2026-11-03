@@ -14,6 +14,7 @@ import { User } from '../../../tenant/users/entities/user.entity';
 import { Company } from './company.entity';
 import { CompanyUserRole } from './company-user-role.entity';
 import { CompanyUserPermission } from './company-user-permission.entity';
+import { CompanyUserPermissionExclusion } from './company-user-permission-exclusion.entity';
 import { QuotationPolicyDataScope } from '../../../shared/authorization/quotation-policy-data-scope.enum';
 
 @Entity('company_users')
@@ -79,4 +80,10 @@ export class CompanyUser {
     { cascade: true },
   )
   permission_assignments: CompanyUserPermission[];
+
+  @OneToMany(
+    () => CompanyUserPermissionExclusion,
+    (exclusion) => exclusion.company_user,
+  )
+  permission_exclusions: CompanyUserPermissionExclusion[];
 }

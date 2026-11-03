@@ -168,8 +168,8 @@ describe('Payment proof review locking (real database)', () => {
     customerId = customer[0].id;
 
     portalUserId = await insertUser('Portal', 'CUSTOMER');
-    financeUserAId = await insertUser('FinanceA', 'STAFF');
-    financeUserBId = await insertUser('FinanceB', 'STAFF');
+    financeUserAId = await insertUser('FinanceA', 'COMPANY_USER');
+    financeUserBId = await insertUser('FinanceB', 'COMPANY_USER');
 
     const account = await dataSource.query(
       `

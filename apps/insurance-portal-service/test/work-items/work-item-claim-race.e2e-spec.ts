@@ -25,7 +25,7 @@ describe('Work item claim race (real database)', () => {
       companyMembershipId: randomUUID(),
       roles: ['CLAIMS_OFFICER'],
       permissions: [],
-      userType: 'STAFF',
+      userType: 'COMPANY_USER',
       quotationPolicyDataScope: 'COMPANY',
       assignedBranchIds: [],
       activeBranchId: null,

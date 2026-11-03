@@ -444,9 +444,22 @@ export class ProductDefinitionService {
           versionId,
         );
 
+        if (version.status !== ProductVersionStatus.DRAFT) {
+          throw new ConflictException('Only a draft version can be published');
+        }
+
+        // Publishing requires product-definitions:publish (the approver
+        // capability). An approver may publish a draft they authored without
+        // a separate review; anyone else's draft — or one another user has
+        // since edited — must go through review first.
+        const selfApproved =
+          version.review_status === ProductReviewStatus.DRAFT &&
+          version.created_by === actorUserId &&
+          version.updated_by === actorUserId;
+
         if (
-          version.status !== ProductVersionStatus.DRAFT ||
-          version.review_status !== ProductReviewStatus.IN_REVIEW
+          version.review_status !== ProductReviewStatus.IN_REVIEW &&
+          !selfApproved
         ) {
           throw new ConflictException(
             'The version must be in review before it can be published',
@@ -512,6 +525,7 @@ export class ProductDefinitionService {
               effectiveTo: version.effective_to,
               tiramisProductCode: version.tiramis_product_code,
               definitionHash,
+              selfApproved,
             },
           },
           manager,

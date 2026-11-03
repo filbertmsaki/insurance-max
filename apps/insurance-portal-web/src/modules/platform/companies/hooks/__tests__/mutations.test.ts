@@ -80,7 +80,7 @@ describe('OWNER detection', () => {
   it('recognises SUPER_ADMIN', () => expect(isOwner('SUPER_ADMIN')).toBe(true));
   it('rejects COMPANY_ADMIN', () =>
     expect(isOwner('COMPANY_ADMIN')).toBe(false));
-  it('rejects STAFF', () => expect(isOwner('STAFF')).toBe(false));
+  it('rejects COMPANY_USER', () => expect(isOwner('COMPANY_USER')).toBe(false));
 });
 
 // ─── Create company schema validation ─────────────────────────────────────────

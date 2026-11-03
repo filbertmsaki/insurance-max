@@ -14,7 +14,6 @@ import { Permission } from '../../../platform/permissions/entities/permission.en
 export enum UserType {
   SUPER_ADMIN = 'SUPER_ADMIN',
   COMPANY_ADMIN = 'COMPANY_ADMIN',
-  STAFF = 'STAFF',
   AGENT = 'AGENT',
   BROKER = 'BROKER',
   CUSTOMER = 'CUSTOMER',

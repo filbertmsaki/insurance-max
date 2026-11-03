@@ -31,7 +31,7 @@ describe('Notification visibility (real database)', () => {
       companyMembershipId: randomUUID(),
       roles: [],
       permissions: [],
-      userType: 'STAFF',
+      userType: 'COMPANY_USER',
       quotationPolicyDataScope: 'COMPANY',
       assignedBranchIds: [],
       activeBranchId: null,

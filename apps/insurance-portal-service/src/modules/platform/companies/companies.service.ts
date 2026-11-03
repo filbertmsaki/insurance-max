@@ -15,6 +15,14 @@ import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enu
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { isDuplicateEntryError } from '@insurance-max/portal-shared/utils/db-error.util';
 import { RoleScope } from '@insurance-max/contracts';
+import {
+  actorCanDelegatePermission,
+  adminRoleForCompanyType,
+  isPermissionGrantableToMembership,
+  isRoleAllowedForCompanyType,
+  isRoleAssignableToCompany,
+  isSystemRole,
+} from './access-rules';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Role } from '../roles/entities/role.entity';
 import { Permission } from '../permissions/entities/permission.entity';
@@ -47,6 +55,7 @@ import {
   RoundingMode,
   UpdateNumberFormatSettingsDto,
 } from './dtos/update-number-format-settings.dto';
+import { departmentServesBranch } from '../../tenant/departments/entities/department.entity';
 
 export interface NumberFormatSettings {
   currency_code: string;
@@ -135,7 +144,7 @@ export class CompaniesService {
    * Protect the final company administrator (spec 3.19). Counts other active
    * memberships holding an administrative role, excluding the given membership.
    */
-  private async assertNotLastCompanyAdministrator(
+  async assertNotLastCompanyAdministrator(
     companyId: string,
     membershipId: string,
     manager: EntityManager,
@@ -252,8 +261,40 @@ export class CompaniesService {
       throw new NotFoundException('One or more requested roles were not found');
     }
 
+    await this.assertRolesAllowedForCompany(roles, companyId, manager);
+
     const byId = new Map(roles.map((role) => [role.id, role]));
     return uniqueRoleIds.map((roleId) => byId.get(roleId)!);
+  }
+
+  /**
+   * Manual role assignment may not hand out another company type's
+   * administrator role or a portal system role.
+   */
+  async assertRolesAllowedForCompany(
+    roles: Pick<Role, 'name' | 'display_name'>[],
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    if (!roles.length) return;
+
+    const company = await this.getCompanyRepository(manager).findOne({
+      where: { id: companyId },
+      select: { id: true, company_type: true },
+    });
+    if (!company) throw new NotFoundException('Company not found');
+
+    const refused = roles.find(
+      (role) =>
+        isSystemRole(role.name) ||
+        !isRoleAllowedForCompanyType(role.name, company.company_type),
+    );
+    if (refused) {
+      throw new ForbiddenException({
+        code: 'ROLE_NOT_ASSIGNABLE_TO_COMPANY',
+        message: `The role ${refused.display_name} cannot be assigned within this company.`,
+      });
+    }
   }
 
   private async resolveRolesByNamesForCompany(
@@ -347,21 +388,27 @@ export class CompaniesService {
     }
   }
 
+  /** (role permissions − per-member exclusions) ∪ direct grants. */
   private getMembershipPermissions(membership: CompanyUser): string[] {
     const permissions = new Set<string>();
+    const excluded = new Set(
+      (membership.permission_exclusions ?? [])
+        .map((exclusion) => exclusion.permission?.name)
+        .filter(Boolean),
+    );
+
+    membership.role_assignments?.forEach((assignment) => {
+      assignment.role?.permissions?.forEach((permission) => {
+        if (permission?.name && !excluded.has(permission.name)) {
+          permissions.add(permission.name);
+        }
+      });
+    });
 
     membership.permission_assignments?.forEach((assignment) => {
       if (assignment.permission?.name) {
         permissions.add(assignment.permission.name);
       }
-    });
-
-    membership.role_assignments?.forEach((assignment) => {
-      assignment.role?.permissions?.forEach((permission) => {
-        if (permission?.name) {
-          permissions.add(permission.name);
-        }
-      });
     });
 
     return Array.from(permissions);
@@ -543,9 +590,7 @@ export class CompaniesService {
         {
           isDefault: true,
           allowUnverified: true,
-          roleNames: [
-            this.getDefaultAdminRoleForCompanyType(company.company_type),
-          ],
+          roleNames: [adminRoleForCompanyType(company.company_type)],
         },
         manager,
       );
@@ -863,6 +908,9 @@ export class CompaniesService {
         permission_assignments: {
           permission: true,
         },
+        permission_exclusions: {
+          permission: true,
+        },
       },
       order: {
         is_default: 'DESC',
@@ -904,6 +952,9 @@ export class CompaniesService {
           },
         },
         permission_assignments: {
+          permission: true,
+        },
+        permission_exclusions: {
           permission: true,
         },
       },
@@ -953,6 +1004,10 @@ export class CompaniesService {
         LEFT JOIN role_permission_scopes scope
           ON scope.role_id = assignment.role_id AND scope.permission_id = permission.id
         WHERE membership.id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM company_user_permission_exclusions exclusion
+            WHERE exclusion.company_user_id = membership.id
+              AND exclusion.permission_id = permission.id)
         UNION ALL
         SELECT permission.name AS permission_name,
           COALESCE(direct.data_scope, membership.quotation_policy_data_scope) AS data_scope,
@@ -1011,8 +1066,7 @@ export class CompaniesService {
     const compatible = assignments.filter(
       (assignment) =>
         assignment.department?.status === 'active' &&
-        (assignment.department.branch_id === null ||
-          assignment.department.branch_id === activeBranchId),
+        departmentServesBranch(assignment.department, activeBranchId),
     );
 
     const assignedDepartmentIds = compatible.map(
@@ -1245,6 +1299,9 @@ export class CompaniesService {
         permission_assignments: {
           permission: true,
         },
+        permission_exclusions: {
+          permission: true,
+        },
       },
     });
 
@@ -1431,16 +1488,13 @@ export class CompaniesService {
         throw new NotFoundException('Role not found.');
       }
 
-      const assignable =
-        (role.scope === RoleScope.TENANT && role.company_id === companyId) ||
-        (role.scope === RoleScope.TENANT_TEMPLATE && role.company_id === null);
-
-      if (!assignable) {
+      if (!isRoleAssignableToCompany(role, companyId)) {
         throw new ForbiddenException({
           code: 'ROLE_NOT_ASSIGNABLE_TO_COMPANY',
           message: 'This role cannot be assigned within this company.',
         });
       }
+      await this.assertRolesAllowedForCompany([role], companyId, manager);
 
       const existingAssignment = await assignmentRepository.findOne({
         where: {
@@ -1551,6 +1605,76 @@ export class CompaniesService {
   }
 
   /**
+   * A direct grant's branch/department target must match its data scope and
+   * be assigned to the membership.
+   */
+  async assertPermissionGrantScope(
+    companyId: string,
+    membershipId: string,
+    scope: {
+      dataScope: QuotationPolicyDataScope;
+      branchId?: string | null;
+      departmentId?: string | null;
+    },
+    manager: EntityManager,
+  ): Promise<void> {
+    if (scope.dataScope === QuotationPolicyDataScope.BRANCH) {
+      if (scope.departmentId) {
+        throw new BadRequestException(
+          'A branch-scoped grant cannot target a department.',
+        );
+      }
+      if (scope.branchId) {
+        const targetBranch = await manager.getRepository(Branch).findOne({
+          where: {
+            id: scope.branchId,
+            company_id: companyId,
+            status: 'active',
+          },
+          select: { id: true },
+        });
+        const assigned = await manager.getRepository(BranchUser).exist({
+          where: {
+            branch_id: scope.branchId,
+            company_user_id: membershipId,
+          },
+        });
+        if (!targetBranch || !assigned) {
+          throw new BadRequestException(
+            'The target branch must be active and assigned to this company membership.',
+          );
+        }
+      }
+    } else if (scope.dataScope === QuotationPolicyDataScope.DEPARTMENT) {
+      if (scope.branchId) {
+        throw new BadRequestException(
+          'A department-scoped grant cannot target a branch.',
+        );
+      }
+      if (scope.departmentId) {
+        const targetDepartment = await manager
+          .getRepository(DepartmentUser)
+          .findOne({
+            where: {
+              company_id: companyId,
+              company_user_id: membershipId,
+              department_id: scope.departmentId,
+            },
+          });
+        if (!targetDepartment) {
+          throw new BadRequestException(
+            'The target department must belong to and be assigned within this company.',
+          );
+        }
+      }
+    } else if (scope.branchId || scope.departmentId) {
+      throw new BadRequestException(
+        'USER and COMPANY scoped grants cannot have branch or department targets.',
+      );
+    }
+  }
+
+  /**
    * Grant a direct permission exception to a company membership (spec 3.18/3.20).
    */
   async grantPermission(
@@ -1589,25 +1713,14 @@ export class CompaniesService {
         throw new NotFoundException('Permission not found.');
       }
 
-      if (permission.is_deprecated || !permission.assignable_to_company_role) {
+      if (!isPermissionGrantableToMembership(permission)) {
         throw new ForbiddenException({
           code: 'PERMISSION_NOT_ASSIGNABLE',
           message: 'This permission cannot be granted to a company membership.',
         });
       }
 
-      if (
-        actor &&
-        !actor.permissions?.includes(permission.name) &&
-        !actor.roles?.some(
-          (name) =>
-            [
-              'COMPANY_ADMIN',
-              'COMPANY_ADMINISTRATOR',
-              'ADMINISTRATOR',
-            ].includes(name) || name.endsWith('_ADMIN'),
-        )
-      ) {
+      if (actor && !actorCanDelegatePermission(actor, permission.name)) {
         throw new ForbiddenException({
           code: 'CANNOT_DELEGATE_UNHELD_PERMISSION',
           message:
@@ -1615,60 +1728,12 @@ export class CompaniesService {
         });
       }
 
-      if (scope.dataScope === QuotationPolicyDataScope.BRANCH) {
-        if (scope.departmentId) {
-          throw new BadRequestException(
-            'A branch-scoped grant cannot target a department.',
-          );
-        }
-        if (scope.branchId) {
-          const targetBranch = await manager.getRepository(Branch).findOne({
-            where: {
-              id: scope.branchId,
-              company_id: companyId,
-              status: 'active',
-            },
-            select: { id: true },
-          });
-          const assigned = await manager.getRepository(BranchUser).exist({
-            where: {
-              branch_id: scope.branchId,
-              company_user_id: membership.id,
-            },
-          });
-          if (!targetBranch || !assigned) {
-            throw new BadRequestException(
-              'The target branch must be active and assigned to this company membership.',
-            );
-          }
-        }
-      } else if (scope.dataScope === QuotationPolicyDataScope.DEPARTMENT) {
-        if (scope.branchId) {
-          throw new BadRequestException(
-            'A department-scoped grant cannot target a branch.',
-          );
-        }
-        if (scope.departmentId) {
-          const targetDepartment = await manager
-            .getRepository(DepartmentUser)
-            .findOne({
-              where: {
-                company_id: companyId,
-                company_user_id: membership.id,
-                department_id: scope.departmentId,
-              },
-            });
-          if (!targetDepartment) {
-            throw new BadRequestException(
-              'The target department must belong to and be assigned within this company.',
-            );
-          }
-        }
-      } else if (scope.branchId || scope.departmentId) {
-        throw new BadRequestException(
-          'USER and COMPANY scoped grants cannot have branch or department targets.',
-        );
-      }
+      await this.assertPermissionGrantScope(
+        companyId,
+        membership.id,
+        scope,
+        manager,
+      );
 
       const existingAssignment = await assignmentRepository.findOne({
         where: {
@@ -2151,6 +2216,8 @@ export class CompaniesService {
         'permissionAssignments',
       )
       .leftJoinAndSelect('permissionAssignments.permission', 'permissions')
+      .leftJoinAndSelect('membership.permission_exclusions', 'exclusions')
+      .leftJoinAndSelect('exclusions.permission', 'excludedPermissions')
       .where('membership.company_id = :companyId', { companyId })
       .andWhere('membership.status = :status', { status: 'active' });
 
@@ -2288,6 +2355,10 @@ export class CompaniesService {
             ON permission.id = role_permission.permissions_id
           WHERE membership.company_id = $1 AND membership.status = 'active'
             AND permission.name = ANY($2::varchar[])
+            AND NOT EXISTS (
+              SELECT 1 FROM company_user_permission_exclusions exclusion
+              WHERE exclusion.company_user_id = membership.id
+                AND exclusion.permission_id = permission.id)
           UNION
           SELECT membership.user_id, permission.name
           FROM company_users membership
@@ -2396,6 +2467,10 @@ export class CompaniesService {
               ON permission.id = role_permission.permissions_id
             WHERE role_assignment.company_user_id = $1
               AND permission.name = ANY($2::varchar[])
+              AND NOT EXISTS (
+                SELECT 1 FROM company_user_permission_exclusions exclusion
+                WHERE exclusion.company_user_id = $1
+                  AND exclusion.permission_id = permission.id)
             UNION
             SELECT permission.id, permission.name
             FROM company_user_permissions direct
@@ -2472,24 +2547,5 @@ export class CompaniesService {
     });
 
     return this.getMyCompanyDataAccess(companyId);
-  }
-
-  private getDefaultAdminRoleForCompanyType(companyType: CompanyType): string {
-    switch (companyType) {
-      case CompanyType.INSURANCE_COMPANY:
-        return 'INSURANCE_ADMIN';
-      case CompanyType.REINSURANCE_COMPANY:
-        return 'REINSURANCE_ADMIN';
-      case CompanyType.BROKER:
-        return 'BROKER_ADMIN';
-      case CompanyType.AGENCY:
-        return 'AGENCY_ADMIN';
-      case CompanyType.BANCASSURANCE:
-        return 'BANCASSURANCE_ADMIN';
-      case CompanyType.SERVICE_PROVIDER:
-        return 'SERVICE_PROVIDER_ADMIN';
-      default:
-        return 'ADMINISTRATOR';
-    }
   }
 }

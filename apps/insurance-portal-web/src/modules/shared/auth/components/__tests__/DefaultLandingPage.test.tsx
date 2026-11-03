@@ -98,7 +98,7 @@ describe('DefaultLandingPage', () => {
         id: 'user-3',
         email: 'staff@example.com',
         scope: 'company',
-        userType: 'STAFF',
+        userType: 'COMPANY_USER',
         companyId: 'company-3',
         roles: [],
         permissions: ['users:read'],

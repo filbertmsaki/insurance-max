@@ -7,6 +7,7 @@ import { User } from '../../tenant/users/entities/user.entity';
 import { Company } from './entities/company.entity';
 import { CompanyUser } from './entities/company-user.entity';
 import { CompanyUserPermission } from './entities/company-user-permission.entity';
+import { CompanyUserPermissionExclusion } from './entities/company-user-permission-exclusion.entity';
 import { CompanyUserRole } from './entities/company-user-role.entity';
 import { CompaniesService } from './companies.service';
 import { CompaniesController } from './companies.controller';
@@ -26,6 +27,7 @@ import { CompanyConfigsModule } from '../company-configs/company-configs.module'
       CompanyUser,
       CompanyUserRole,
       CompanyUserPermission,
+      CompanyUserPermissionExclusion,
       User,
       Role,
       RolePermissionScope,
