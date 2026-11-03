@@ -68,15 +68,14 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
     const rows = await dataSource.query(
       `
       INSERT INTO users (
-        user_no, first_name, last_name, email, phone, password, status,
+        first_name, last_name, email, phone, password, status,
         user_type, officer_title, is_email_verified, is_phone_verified,
         is_two_factor_enabled
       )
-      VALUES ($1, $2, 'Tester', $3, $4, $5, 'active', 'COMPANY_USER', $6, true, true, false)
+      VALUES ($1, 'Tester', $2, $3, $4, 'active', 'COMPANY_USER', $5, true, true, false)
       RETURNING id
       `,
       [
-        `USR-C${suffix}${randomUUID().slice(0, 4)}`,
         label,
         `${label.toLowerCase()}.${suffix}@example.com`,
         `+25573${randomUUID().replace(/\D/g, '').slice(0, 7).padEnd(7, '0')}`,

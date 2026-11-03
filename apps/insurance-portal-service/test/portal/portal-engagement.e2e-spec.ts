@@ -92,15 +92,14 @@ describe('Portal engagement access (real database)', () => {
     const rows = await dataSource.query(
       `
       INSERT INTO users (
-        user_no, first_name, last_name, email, phone, password, status,
+        first_name, last_name, email, phone, password, status,
         user_type, officer_title, is_email_verified, is_phone_verified,
         is_two_factor_enabled
       )
-      VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, $8, true, true, false)
+      VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, true, true, false)
       RETURNING id
       `,
       [
-        `USR-E${suffix}${randomUUID().slice(0, 4)}`,
         params.firstName,
         params.lastName,
         params.email,

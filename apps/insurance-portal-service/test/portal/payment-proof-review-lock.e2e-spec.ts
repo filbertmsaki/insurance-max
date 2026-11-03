@@ -32,16 +32,15 @@ describe('Payment proof review locking (real database)', () => {
     const rows = await dataSource.query(
       `
       INSERT INTO users (
-        user_no, first_name, last_name, email, phone, password, status,
+        first_name, last_name, email, phone, password, status,
         user_type, officer_title, is_email_verified, is_phone_verified,
         is_two_factor_enabled
       )
-      VALUES ($1, $2, 'LockTest', $3, $4, 'not-used', 'active', $5, $2,
+      VALUES ($1, 'LockTest', $2, $3, 'not-used', 'active', $4, $1,
               true, true, false)
       RETURNING id
       `,
       [
-        `USR-L${suffix}${randomUUID().slice(0, 4)}`,
         label,
         `${label.toLowerCase()}.${suffix}@example.com`,
         `+25573${randomUUID().replace(/\D/g, '').padEnd(7, '0').slice(0, 7)}`,
