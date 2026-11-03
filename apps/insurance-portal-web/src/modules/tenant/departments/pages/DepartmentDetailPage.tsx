@@ -89,12 +89,8 @@ export function DepartmentDetailPage() {
     updateMutation.mutate(
       {
         name: values.name,
-        code: values.code,
         description: values.description || undefined,
-        branch_id:
-          values.branch_id && values.branch_id !== 'none'
-            ? values.branch_id
-            : null,
+        branch_ids: values.branch_ids,
       },
       { onSuccess: () => setEditOpen(false) },
     );
@@ -200,21 +196,31 @@ export function DepartmentDetailPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Branch Assignment</CardTitle>
+            <CardTitle className="text-base">Branches</CardTitle>
             <CardDescription>
-              Departments can be assigned to a branch or left unassigned.
+              Branches this department operates in. With none selected it is
+              company-wide.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            {department.branch ? (
-              <div className="flex items-center gap-2 text-sm text-slate-700">
-                <MapPin className="h-4 w-4 text-slate-400" />
-                <span>
-                  {department.branch.name} ({department.branch.code})
-                </span>
-              </div>
+            {department.branches?.length ? (
+              <ul className="space-y-1.5">
+                {department.branches.map((branch) => (
+                  <li
+                    key={branch.id}
+                    className="flex items-center gap-2 text-sm text-slate-700"
+                  >
+                    <MapPin className="h-4 w-4 text-slate-400" />
+                    <span>
+                      {branch.name} ({branch.code})
+                    </span>
+                  </li>
+                ))}
+              </ul>
             ) : (
-              <p className="text-sm text-slate-400 py-4">No branch assigned</p>
+              <p className="text-sm text-slate-400 py-4">
+                Company-wide (all branches)
+              </p>
             )}
           </CardContent>
         </Card>

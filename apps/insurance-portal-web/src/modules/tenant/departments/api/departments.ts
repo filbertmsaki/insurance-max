@@ -13,7 +13,8 @@ export interface DepartmentBranchSummary {
 export interface DepartmentRecord {
   id: string;
   company_id: string;
-  branch_id: string | null;
+  /** Branches the department operates in; empty means company-wide. */
+  branch_ids: string[];
   name: string;
   code: string;
   description: string | null;
@@ -23,7 +24,7 @@ export interface DepartmentRecord {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  branch?: DepartmentBranchSummary | null;
+  branches?: DepartmentBranchSummary[];
 }
 
 export interface DepartmentQueryParams {
@@ -36,16 +37,14 @@ export interface DepartmentQueryParams {
 
 export interface CreateDepartmentDto {
   name: string;
-  code: string;
   description?: string;
-  branch_id?: string;
+  branch_ids?: string[];
 }
 
 export interface UpdateDepartmentDto {
   name?: string;
-  code?: string;
   description?: string | null;
-  branch_id?: string | null;
+  branch_ids?: string[];
 }
 
 export interface UpdateDepartmentStatusDto {

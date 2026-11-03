@@ -11,7 +11,10 @@ import {
   ProductVersionStatus,
 } from '@insurance-max/contracts';
 import { Branch } from '../branches/entities/branch.entity';
-import { Department } from '../departments/entities/department.entity';
+import {
+  Department,
+  departmentServesBranch,
+} from '../departments/entities/department.entity';
 import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import {
@@ -256,13 +259,9 @@ export class ProductAccessService {
         companyId,
         dto.department_id,
       );
-      if (
-        dto.branch_id &&
-        department.branch_id &&
-        department.branch_id !== dto.branch_id
-      ) {
+      if (dto.branch_id && !departmentServesBranch(department, dto.branch_id)) {
         throw new BadRequestException(
-          'Department does not belong to the selected branch',
+          'Department does not operate in the selected branch',
         );
       }
     }

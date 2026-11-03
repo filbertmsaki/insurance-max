@@ -57,7 +57,10 @@ import { CustomerStatus } from '../customers/enums/customer-status.enum';
 import { Customer } from '../customers/entities/customer.entity';
 import { CustomerVersion } from '../customers/entities/customer-version.entity';
 import { InsuredAsset } from '../customers/entities/insured-asset.entity';
-import { Department } from '../departments/entities/department.entity';
+import {
+  Department,
+  departmentServesBranch,
+} from '../departments/entities/department.entity';
 import { User } from '../users/entities/user.entity';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceBusinessLine } from '../insurance-categories/enums/insurance-business-line.enum';
@@ -3548,11 +3551,10 @@ export class QuotationsService {
 
       if (
         internal.branch_id &&
-        department.branch_id &&
-        department.branch_id !== internal.branch_id
+        !departmentServesBranch(department, internal.branch_id)
       ) {
         throw new BadRequestException(
-          'Selected department does not belong to the selected branch',
+          'Selected department does not operate in the selected branch',
         );
       }
     }

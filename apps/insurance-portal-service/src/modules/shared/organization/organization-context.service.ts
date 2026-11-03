@@ -16,6 +16,7 @@ import { DepartmentUser } from '../../tenant/departments/entities/department-use
 import { TiramisCompanyLinkStatus } from '../../tiramis/entities/tiramis-company-link.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { TiramisPlatformAccessService } from './tiramis-platform-access.service';
+import { departmentServesBranch } from '../../tenant/departments/entities/department.entity';
 
 @Injectable()
 export class OrganizationContextService {
@@ -105,10 +106,8 @@ export class OrganizationContextService {
       },
     });
 
-    const compatibleDepartments = departmentAssignments.filter(
-      (assignment) =>
-        assignment.department.branch_id === null ||
-        assignment.department.branch_id === activeBranch?.id,
+    const compatibleDepartments = departmentAssignments.filter((assignment) =>
+      departmentServesBranch(assignment.department, activeBranch?.id),
     );
 
     const activeDepartmentAssignment =
@@ -197,7 +196,7 @@ export class OrganizationContextService {
             id: activeDepartment.id,
             code: activeDepartment.code,
             name: activeDepartment.name,
-            branchId: activeDepartment.branch_id,
+            branchIds: activeDepartment.branch_ids,
           }
         : null,
 
@@ -205,7 +204,7 @@ export class OrganizationContextService {
         id: assignment.department.id,
         code: assignment.department.code,
         name: assignment.department.name,
-        branchId: assignment.department.branch_id,
+        branchIds: assignment.department.branch_ids,
       })),
 
       defaultSalePoint: defaultSalePoint

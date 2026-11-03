@@ -102,7 +102,7 @@ describe('DepartmentsService', () => {
             department: {
               company_id: 'other-company',
               status: 'active',
-              branch_id: 'branch-A',
+              branch_ids: ['branch-A'],
             },
           }),
         },
@@ -131,7 +131,7 @@ describe('DepartmentsService', () => {
             department: {
               company_id: companyId,
               status: 'active',
-              branch_id: null,
+              branch_ids: [],
             },
           }),
           save: jest.fn().mockImplementation(async (value) => value),
@@ -162,7 +162,7 @@ describe('DepartmentsService', () => {
     it('demotes the active department when it no longer matches the new active branch', async () => {
       departmentUserRepository.findOne.mockResolvedValue({
         id: 'du-1',
-        department: { branch_id: 'branch-A' },
+        department: { branch_ids: ['branch-A'] },
       });
       const qb = departmentUserRepository.createQueryBuilder();
       qb.getOne.mockResolvedValue(null);
@@ -178,10 +178,10 @@ describe('DepartmentsService', () => {
       });
     });
 
-    it('leaves a company-wide active department (branch_id null) untouched', async () => {
+    it('leaves a company-wide active department (no branches) untouched', async () => {
       departmentUserRepository.findOne.mockResolvedValue({
         id: 'du-1',
-        department: { branch_id: null },
+        department: { branch_ids: [] },
       });
 
       await service.reconcileActiveDepartmentForBranch(

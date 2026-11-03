@@ -636,7 +636,8 @@ export function useQuotationDepartments(branchId?: string) {
       if (!branchId) return all;
       return all.filter(
         (department) =>
-          (department.branch_id ?? department.branch?.id ?? '') === branchId,
+          !department.branch_ids?.length ||
+          department.branch_ids.includes(branchId),
       );
     },
     staleTime: 60_000,

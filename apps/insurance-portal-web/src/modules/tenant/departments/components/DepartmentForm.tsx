@@ -20,13 +20,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { DepartmentRecord } from '@/modules/tenant/departments/api/departments';
 
 const schema = z.object({
@@ -34,16 +28,8 @@ const schema = z.object({
     .string()
     .min(2, 'Department name must be at least 2 characters')
     .max(120),
-  code: z
-    .string()
-    .min(1, 'Department code is required')
-    .max(50)
-    .regex(
-      /^[A-Za-z0-9_-]+$/,
-      'Letters, numbers, hyphens and underscores only',
-    ),
   description: z.string().max(500).optional().or(z.literal('')),
-  branch_id: z.string().optional().or(z.literal('')),
+  branch_ids: z.array(z.string()),
 });
 
 export type DepartmentFormValues = z.infer<typeof schema>;
@@ -72,16 +58,14 @@ export function DepartmentForm({
     values: editing
       ? {
           name: editing.name,
-          code: editing.code,
           description: editing.description ?? '',
-          branch_id: editing.branch_id ?? '',
+          branch_ids: editing.branch_ids ?? [],
         }
       : undefined,
     defaultValues: {
       name: '',
-      code: '',
       description: '',
-      branch_id: '',
+      branch_ids: [],
     },
   });
 
@@ -99,7 +83,7 @@ export function DepartmentForm({
           </DialogTitle>
           <DialogDescription>
             {editing
-              ? 'Update the department identity and branch assignment.'
+              ? 'Update the department identity and the branches it operates in.'
               : 'Add a new department for the current company.'}
           </DialogDescription>
         </DialogHeader>
@@ -130,55 +114,63 @@ export function DepartmentForm({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="code"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Department Code <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="CLAIMS"
-                      {...field}
-                      onChange={(e) =>
-                        field.onChange(e.target.value.toUpperCase())
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {editing && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Department Code</p>
+                <Input value={editing.code} readOnly disabled />
+                <p className="text-xs text-slate-500">
+                  Generated automatically and unique within the company.
+                </p>
+              </div>
+            )}
 
             <FormField
               control={form.control}
-              name="branch_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Branch</FormLabel>
-                  <Select
-                    value={field.value || 'none'}
-                    onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Assign a branch" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">No branch</SelectItem>
-                      {branchOptions.map((branch) => (
-                        <SelectItem key={branch.id} value={branch.id}>
-                          {branch.name} ({branch.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+              name="branch_ids"
+              render={({ field }) => {
+                const selected = field.value ?? [];
+                const toggle = (branchId: string, checked: boolean) =>
+                  field.onChange(
+                    checked
+                      ? [...selected, branchId]
+                      : selected.filter((id) => id !== branchId),
+                  );
+                return (
+                  <FormItem>
+                    <FormLabel>Branches</FormLabel>
+                    <p className="text-xs text-slate-500">
+                      Select every branch this department operates in. Leave
+                      all unchecked to make it company-wide.
+                    </p>
+                    {branchOptions.length ? (
+                      <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2">
+                        {branchOptions.map((branch) => (
+                          <label
+                            key={branch.id}
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-slate-50"
+                          >
+                            <Checkbox
+                              checked={selected.includes(branch.id)}
+                              onCheckedChange={(checked) =>
+                                toggle(branch.id, checked === true)
+                              }
+                            />
+                            <span>
+                              {branch.name} ({branch.code})
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400">
+                        No branches available — the department will be
+                        company-wide.
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField

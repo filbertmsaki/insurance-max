@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayUnique,
+  IsArray,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -14,24 +16,19 @@ export class CreateDepartmentDto {
   @MaxLength(120)
   name: string;
 
-  @ApiProperty({
-    example: 'CLAIMS',
-    description: 'Unique department code within the company',
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(50)
-  code: string;
-
   @ApiPropertyOptional({ example: 'Handles all insurance claims processing' })
   @IsOptional()
   @IsString()
   description?: string;
 
   @ApiPropertyOptional({
-    description: 'Branch UUID this department belongs to',
+    type: [String],
+    description:
+      'Branch UUIDs this department operates in; empty means company-wide',
   })
   @IsOptional()
-  @IsUUID()
-  branch_id?: string;
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  branch_ids?: string[];
 }

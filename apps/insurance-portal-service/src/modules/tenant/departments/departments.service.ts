@@ -24,7 +24,10 @@ import {
   UpdateDepartmentDto,
   UpdateDepartmentStatusDto,
 } from './dto/update-department.dto';
-import { Department } from './entities/department.entity';
+import {
+  Department,
+  departmentServesBranch,
+} from './entities/department.entity';
 import { DepartmentUser } from './entities/department-user.entity';
 
 @Injectable()
@@ -59,6 +62,24 @@ export class DepartmentsService {
     );
   }
 
+  /** Loads and validates the branches a department should operate in. */
+  private async resolveBranches(
+    companyId: string,
+    branchIds: string[] | undefined,
+  ): Promise<Branch[]> {
+    const ids = [...new Set(branchIds ?? [])];
+    if (ids.length === 0) return [];
+    const branches = await this.branchRepository.find({
+      where: { id: In(ids), company_id: companyId },
+    });
+    if (branches.length !== ids.length) {
+      throw new NotFoundException(
+        'One or more branches were not found or do not belong to this company',
+      );
+    }
+    return branches;
+  }
+
   private async requireDepartment(
     companyId: string,
     id: string,
@@ -77,37 +98,54 @@ export class DepartmentsService {
     dto: CreateDepartmentDto,
     userId: string,
   ): Promise<Department> {
-    if (dto.branch_id) {
-      const branch = await this.branchRepository.findOne({
-        where: { id: dto.branch_id, company_id: companyId },
-      });
-      if (!branch)
-        throw new NotFoundException(
-          'Branch not found or does not belong to this company',
-        );
-    }
-
-    const dept = this.departmentRepository.create({
-      company_id: companyId,
-      branch_id: dto.branch_id ?? null,
-      name: dto.name.trim(),
-      code: dto.code.trim().toUpperCase(),
-      description: dto.description ?? null,
-      status: 'active',
-      created_by: userId,
-      updated_by: userId,
-    });
+    const branches = await this.resolveBranches(companyId, dto.branch_ids);
 
     try {
-      return await this.departmentRepository.save(dept);
+      const saved = await this.dataSource.transaction(async (manager) => {
+        const repo = manager.getRepository(Department);
+        const dept = repo.create({
+          company_id: companyId,
+          branches,
+          name: dto.name.trim(),
+          code: await this.nextDepartmentCode(manager, companyId),
+          description: dto.description ?? null,
+          status: 'active',
+          created_by: userId,
+          updated_by: userId,
+        });
+        return repo.save(dept);
+      });
+      return this.findOne(companyId, saved.id);
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
-          `A department with code "${dto.code.trim().toUpperCase()}" already exists in this company`,
+          `A department named "${dto.name.trim()}" already exists in this company`,
         );
       }
       throw error;
     }
+  }
+
+  /**
+   * Next sequential code (DEP-0001, DEP-0002, …) for the company. A
+   * transaction-scoped advisory lock serialises concurrent creates per
+   * company; soft-deleted rows count so a code is never reused.
+   */
+  private async nextDepartmentCode(
+    manager: EntityManager,
+    companyId: string,
+  ): Promise<string> {
+    await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      `departments:code:${companyId}`,
+    ]);
+    const [row] = await manager.query(
+      `SELECT COALESCE(MAX(CAST(SUBSTRING(code FROM 5) AS integer)), 0) AS max
+         FROM departments
+        WHERE company_id = $1 AND code ~ '^DEP-[0-9]+$'`,
+      [companyId],
+    );
+    const next = Number(row?.max ?? 0) + 1;
+    return `DEP-${String(next).padStart(4, '0')}`;
   }
 
   /**
@@ -118,14 +156,19 @@ export class DepartmentsService {
   async findAll(companyId: string, query: FindDepartmentsQueryDto) {
     const qb = this.departmentRepository
       .createQueryBuilder('dept')
-      .leftJoinAndSelect('dept.branch', 'branch')
+      .leftJoinAndSelect('dept.branches', 'branch')
       .where('dept.company_id = :companyId', { companyId });
 
     if (query.status) {
       qb.andWhere('dept.status = :status', { status: query.status });
     }
     if (query.branch_id) {
-      qb.andWhere('dept.branch_id = :branchId', { branchId: query.branch_id });
+      // Departments operating in the branch, plus company-wide ones.
+      qb.andWhere(
+        `(NOT EXISTS (SELECT 1 FROM department_branches db WHERE db.department_id = dept.id)
+          OR EXISTS (SELECT 1 FROM department_branches db WHERE db.department_id = dept.id AND db.branch_id = :branchId))`,
+        { branchId: query.branch_id },
+      );
     }
 
     if (!isPagedRequest(query)) {
@@ -152,7 +195,6 @@ export class DepartmentsService {
         name: 'dept.name',
         code: 'dept.code',
         status: 'dept.status',
-        branch: 'branch.name',
         created_at: 'dept.created_at',
         updated_at: 'dept.updated_at',
       },
@@ -171,7 +213,7 @@ export class DepartmentsService {
   async findOne(companyId: string, id: string): Promise<Department> {
     const dept = await this.departmentRepository.findOne({
       where: { id, company_id: companyId },
-      relations: { branch: true },
+      relations: { branches: true },
     });
     if (!dept) throw new NotFoundException('Department not found');
     return dept;
@@ -185,29 +227,21 @@ export class DepartmentsService {
   ): Promise<Department> {
     const dept = await this.requireDepartment(companyId, id);
 
-    if (dto.branch_id !== undefined && dto.branch_id !== null) {
-      const branch = await this.branchRepository.findOne({
-        where: { id: dto.branch_id, company_id: companyId },
-      });
-      if (!branch)
-        throw new NotFoundException(
-          'Branch not found or does not belong to this company',
-        );
-    }
-
     if (dto.name !== undefined) dept.name = dto.name.trim();
-    if (dto.code !== undefined) dept.code = dto.code.trim().toUpperCase();
     if (dto.description !== undefined)
       dept.description = dto.description ?? null;
-    if (dto.branch_id !== undefined) dept.branch_id = dto.branch_id ?? null;
+    if (dto.branch_ids !== undefined) {
+      dept.branches = await this.resolveBranches(companyId, dto.branch_ids);
+    }
     dept.updated_by = userId;
 
     try {
-      return await this.departmentRepository.save(dept);
+      await this.departmentRepository.save(dept);
+      return this.findOne(companyId, dept.id);
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
-          `A department with code "${dept.code}" already exists in this company`,
+          `A department named "${dept.name}" already exists in this company`,
         );
       }
       throw error;
@@ -385,7 +419,7 @@ export class DepartmentsService {
           id: assignment.department.id,
           code: assignment.department.code,
           name: assignment.department.name,
-          branch_id: assignment.department.branch_id,
+          branch_ids: assignment.department.branch_ids,
           status: assignment.department.status,
         },
       }));
@@ -438,7 +472,7 @@ export class DepartmentsService {
    * compatible with their newly-activated branch. Department assignments
    * that are branch-scoped and no longer match the active branch are
    * demoted from active/primary so a stale department claim never lingers
-   * across a branch switch. Company-wide departments (branch_id === null)
+   * across a branch switch. Company-wide departments (no branches)
    * are always compatible and left untouched.
    */
   async reconcileActiveDepartmentForBranch(
@@ -459,11 +493,7 @@ export class DepartmentsService {
       return;
     }
 
-    const isCompatible =
-      activeAssignment.department.branch_id === null ||
-      activeAssignment.department.branch_id === activeBranchId;
-
-    if (isCompatible) {
+    if (departmentServesBranch(activeAssignment.department, activeBranchId)) {
       return;
     }
 
@@ -478,7 +508,8 @@ export class DepartmentsService {
       .andWhere('assignment.company_id = :companyId', { companyId })
       .andWhere('department.status = :status', { status: 'active' })
       .andWhere(
-        '(department.branch_id IS NULL OR department.branch_id = :activeBranchId)',
+        `(NOT EXISTS (SELECT 1 FROM department_branches db WHERE db.department_id = department.id)
+          OR EXISTS (SELECT 1 FROM department_branches db WHERE db.department_id = department.id AND db.branch_id = :activeBranchId))`,
         { activeBranchId },
       )
       .orderBy('assignment.is_primary', 'DESC')

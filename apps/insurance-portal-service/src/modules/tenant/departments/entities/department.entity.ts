@@ -5,9 +5,12 @@ import {
   Entity,
   Index,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  RelationId,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
@@ -19,7 +22,6 @@ import { DepartmentUser } from './department-user.entity';
 @Unique('UQ_departments_company_code', ['company_id', 'code'])
 @Unique('UQ_departments_company_name', ['company_id', 'name'])
 @Index('IDX_departments_company_id', ['company_id'])
-@Index('IDX_departments_branch_id', ['branch_id'])
 @Index('IDX_departments_status', ['status'])
 export class Department {
   @PrimaryGeneratedColumn('uuid')
@@ -27,9 +29,6 @@ export class Department {
 
   @Column({ type: 'varchar' })
   company_id: string;
-
-  @Column({ type: 'varchar', nullable: true })
-  branch_id: string | null;
 
   @Column({ length: 120 })
   name: string;
@@ -62,10 +61,27 @@ export class Department {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'branch_id' })
-  branch: Branch | null;
+  /** Branches this department operates in; empty means company-wide. */
+  @ManyToMany(() => Branch)
+  @JoinTable({
+    name: 'department_branches',
+    joinColumn: { name: 'department_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'branch_id', referencedColumnName: 'id' },
+  })
+  branches: Branch[];
+
+  @RelationId((department: Department) => department.branches)
+  branch_ids: string[];
 
   @OneToMany(() => DepartmentUser, (assignment) => assignment.department)
   department_users: DepartmentUser[];
+}
+
+/** True when the department is company-wide or operates in the given branch. */
+export function departmentServesBranch(
+  department: Pick<Department, 'branch_ids'>,
+  branchId: string | null | undefined,
+): boolean {
+  const branchIds = department.branch_ids ?? [];
+  return branchIds.length === 0 || (!!branchId && branchIds.includes(branchId));
 }

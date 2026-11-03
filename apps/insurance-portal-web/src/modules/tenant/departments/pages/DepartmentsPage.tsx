@@ -115,16 +115,17 @@ export function DepartmentsPage() {
     },
     {
       key: 'branch',
-      header: 'Branch',
-      sortable: true,
+      header: 'Branches',
       cell: (row) =>
-        row.branch ? (
+        row.branches?.length ? (
           <div className="flex items-center gap-1.5 text-sm text-slate-600">
-            <MapPin className="h-3.5 w-3.5 text-slate-400" />
-            <span>{row.branch.name}</span>
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="line-clamp-1">
+              {row.branches.map((branch) => branch.name).join(', ')}
+            </span>
           </div>
         ) : (
-          <span className="text-sm text-slate-400">Unassigned</span>
+          <span className="text-sm text-slate-400">Company-wide</span>
         ),
     },
     {
@@ -193,12 +194,8 @@ export function DepartmentsPage() {
   function handleSubmit(values: DepartmentFormValues) {
     const dto = {
       name: values.name,
-      code: values.code,
       description: values.description || undefined,
-      branch_id:
-        values.branch_id && values.branch_id !== 'none'
-          ? values.branch_id
-          : undefined,
+      branch_ids: values.branch_ids,
     };
 
     if (editing) {

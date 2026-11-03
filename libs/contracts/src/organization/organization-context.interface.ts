@@ -18,7 +18,8 @@ export interface OrganizationDepartmentContext {
   id: string;
   code: string;
   name: string;
-  branchId: string | null;
+  /** Branches the department operates in; empty means company-wide. */
+  branchIds: string[];
 }
 
 export interface OrganizationSalePointContext {
