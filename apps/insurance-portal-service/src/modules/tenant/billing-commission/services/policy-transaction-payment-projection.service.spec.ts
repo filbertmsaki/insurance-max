@@ -15,11 +15,9 @@ describe('policy transaction finance projection', () => {
       status,
     };
     const manager = {
-      getRepository: jest
-        .fn()
-        .mockReturnValue({
-          findOneOrFail: jest.fn().mockResolvedValue(invoice),
-        }),
+      getRepository: jest.fn().mockReturnValue({
+        findOneOrFail: jest.fn().mockResolvedValue(invoice),
+      }),
     };
     const lifecycle = {
       markPaymentPaid: jest.fn(),

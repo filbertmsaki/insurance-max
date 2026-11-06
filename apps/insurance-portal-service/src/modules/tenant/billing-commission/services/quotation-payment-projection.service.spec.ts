@@ -22,11 +22,9 @@ describe('quotation finance projection transaction', () => {
         currency: 'TZS',
       };
       const manager = {
-        getRepository: jest
-          .fn()
-          .mockReturnValue({
-            findOneOrFail: jest.fn().mockResolvedValue(invoice),
-          }),
+        getRepository: jest.fn().mockReturnValue({
+          findOneOrFail: jest.fn().mockResolvedValue(invoice),
+        }),
       };
       const lifecycle = {
         markPaymentPaid: jest.fn(),
@@ -36,7 +34,7 @@ describe('quotation finance projection transaction', () => {
       const outbox = { add: jest.fn() };
       const commission = { accrueForPaidQuotation: jest.fn() };
       const service = new QuotationPaymentProjectionService(
-        outbox as any,
+        outbox,
         lifecycle as any,
         commission as any,
       );

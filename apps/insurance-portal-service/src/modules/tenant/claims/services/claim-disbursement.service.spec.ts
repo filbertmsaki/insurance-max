@@ -212,7 +212,10 @@ describe('ClaimDisbursementService', () => {
     });
 
     it.each([
-      ['approved the payment', approvedPayment({ approved_by: 'finance-user' })],
+      [
+        'approved the payment',
+        approvedPayment({ approved_by: 'finance-user' }),
+      ],
       ['created the payment', approvedPayment({ created_by: 'finance-user' })],
       [
         'submitted the payment',

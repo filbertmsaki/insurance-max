@@ -1943,14 +1943,27 @@ describe('QuotationsService', () => {
   });
 
   it('allows a cash payment request through the Finance invoice workflow', async () => {
-    const fixture = createServiceFixture({ requires_approval: false, requires_payment: true,
-      payment_status: PaymentStatus.NOT_INITIATED, status: QuotationStatus.PENDING_REQUIREMENTS });
-    jest.spyOn(fixture.service as any, 'findLatestInvoice').mockResolvedValue({id:'invoice-1',invoice_no:'INV-1',status:'ISSUED'});
+    const fixture = createServiceFixture({
+      requires_approval: false,
+      requires_payment: true,
+      payment_status: PaymentStatus.NOT_INITIATED,
+      status: QuotationStatus.PENDING_REQUIREMENTS,
+    });
+    jest.spyOn(fixture.service as any, 'findLatestInvoice').mockResolvedValue({
+      id: 'invoice-1',
+      invoice_no: 'INV-1',
+      status: 'ISSUED',
+    });
     await fixture.service.requestPayment('company-1', fixture.quotation.id, {
-      id:'user-1', permissions:['quotations:request-payment'],
+      id: 'user-1',
+      permissions: ['quotations:request-payment'],
     } as any);
-    expect(fixture.quotationLifecycleService.markPaymentRequested).toHaveBeenCalled();
-    expect(fixture.quotationLifecycleService.markPaymentPaid).not.toHaveBeenCalled();
+    expect(
+      fixture.quotationLifecycleService.markPaymentRequested,
+    ).toHaveBeenCalled();
+    expect(
+      fixture.quotationLifecycleService.markPaymentPaid,
+    ).not.toHaveBeenCalled();
   });
 
   it('still requires approval before requesting non-cash payment', async () => {
@@ -1978,28 +1991,58 @@ describe('QuotationsService', () => {
   });
 
   it('blocks unpaid cash submission without creating or settling an invoice', async () => {
-    const fixture = createServiceFixture({ requires_payment: true,
-      payment_status: PaymentStatus.NOT_INITIATED, status: QuotationStatus.PENDING_REQUIREMENTS });
-    await expect(fixture.service.submit('company-1', fixture.quotation.id, undefined, submitTiramisUser))
-      .rejects.toThrow('Quotation payment is not complete');
-    expect(fixture.quotationInvoiceService.createOrReuseQuotationInvoice).not.toHaveBeenCalled();
-    expect(fixture.quotationLifecycleService.markPaymentPaid).not.toHaveBeenCalled();
-    expect(fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord).not.toHaveBeenCalled();
+    const fixture = createServiceFixture({
+      requires_payment: true,
+      payment_status: PaymentStatus.NOT_INITIATED,
+      status: QuotationStatus.PENDING_REQUIREMENTS,
+    });
+    await expect(
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
+    ).rejects.toThrow('Quotation payment is not complete');
+    expect(
+      fixture.quotationInvoiceService.createOrReuseQuotationInvoice,
+    ).not.toHaveBeenCalled();
+    expect(
+      fixture.quotationLifecycleService.markPaymentPaid,
+    ).not.toHaveBeenCalled();
+    expect(
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
+    ).not.toHaveBeenCalled();
   });
 
   it('blocks an apparently paid cash invoice without receipt allocation evidence', async () => {
     const fixture = createServiceFixture();
-    (fixture.dataSource.query as jest.Mock).mockResolvedValue([{cleared:false}]);
-    await expect(fixture.service.submit('company-1', fixture.quotation.id, undefined, submitTiramisUser))
-      .rejects.toThrow('Quotation payment requires a posted receipt');
-    expect(fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord).not.toHaveBeenCalled();
+    (fixture.dataSource.query as jest.Mock).mockResolvedValue([
+      { cleared: false },
+    ]);
+    await expect(
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
+    ).rejects.toThrow('Quotation payment requires a posted receipt');
+    expect(
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
+    ).not.toHaveBeenCalled();
   });
 
   it('checks allocation evidence against the current quotation without requiring equal workflow revisions', async () => {
     const fixture = createServiceFixture({ workflow_revision: 9 });
     fixture.quotation.cover_note.total_premium_including_tax = '112100.00';
     fixture.quotation.cover_note.currency_code = 'TZS';
-    await fixture.service.submit('company-1', fixture.quotation.id, undefined, submitTiramisUser);
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      submitTiramisUser,
+    );
     expect(fixture.dataSource.query).toHaveBeenCalledWith(
       expect.stringContaining('i.source_revision <= $3'),
       ['company-1', fixture.quotation.id, 9, 'TZS', '112100.00', null],
@@ -2009,10 +2052,20 @@ describe('QuotationsService', () => {
   it('also blocks a non-cash invoice without receipt allocation evidence', async () => {
     const fixture = createServiceFixture();
     fixture.quotation.cover_note.payment_mode = 2;
-    (fixture.dataSource.query as jest.Mock).mockResolvedValue([{ cleared: false }]);
-    await expect(fixture.service.submit('company-1', fixture.quotation.id, undefined, submitTiramisUser))
-      .rejects.toThrow('Quotation payment requires a posted receipt');
-    expect(fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord).not.toHaveBeenCalled();
+    (fixture.dataSource.query as jest.Mock).mockResolvedValue([
+      { cleared: false },
+    ]);
+    await expect(
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
+    ).rejects.toThrow('Quotation payment requires a posted receipt');
+    expect(
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
+    ).not.toHaveBeenCalled();
   });
 
   it('logs pricing expiry, invalidation, and recalculation-required when a quote is expired', async () => {

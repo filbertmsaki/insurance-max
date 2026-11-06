@@ -3248,7 +3248,10 @@ export class QuotationsService {
   }
 
   private assertPaymentRequestAllowed(quotation: Quotation): void {
-    if (quotation.offer_expires_at && quotation.offer_expires_at.getTime() <= Date.now()) {
+    if (
+      quotation.offer_expires_at &&
+      quotation.offer_expires_at.getTime() <= Date.now()
+    ) {
       throw new ConflictException('Quotation offer has expired.');
     }
     if (quotation.status === QuotationStatus.DRAFT) {
@@ -10019,7 +10022,9 @@ export class QuotationsService {
           ), 0) >= i.total_amount
       ) AS cleared`,
       [
-        quotation.company_id, quotation.id, Number(quotation.workflow_revision ?? 1),
+        quotation.company_id,
+        quotation.id,
+        Number(quotation.workflow_revision ?? 1),
         quotation.cover_note?.currency_code?.trim().toUpperCase() ?? 'TZS',
         quotation.cover_note?.total_premium_including_tax ?? null,
         this.resolveQuotationPricingResultHash(quotation),

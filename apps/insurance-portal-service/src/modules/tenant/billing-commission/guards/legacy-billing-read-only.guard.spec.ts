@@ -14,8 +14,6 @@ describe('LegacyBillingReadOnlyGuard', () => {
   });
 
   it.each(['POST', 'PATCH', 'PUT', 'DELETE'])('rejects %s', (method) => {
-    expect(() => guard.canActivate(contextFor(method))).toThrow(
-      GoneException,
-    );
+    expect(() => guard.canActivate(contextFor(method))).toThrow(GoneException);
   });
 });

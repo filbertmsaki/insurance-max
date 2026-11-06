@@ -4355,7 +4355,9 @@ const roleSeeds: RoleSeed[] = [
   },
 ];
 
-export function withPricingPermissionAliases(permissionNames: string[]): string[] {
+export function withPricingPermissionAliases(
+  permissionNames: string[],
+): string[] {
   const expanded = new Set(permissionNames);
 
   if (expanded.has('premium-calculation:calculate')) {
