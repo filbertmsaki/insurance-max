@@ -219,6 +219,198 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
     );
   });
 
+  it('stores offer validity when an ordinary quotation is finalized', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.DRAFT,
+      tira_status: TiraStatus.NOT_SUBMITTED,
+      requires_payment: false,
+      requires_approval: false,
+      source_policy_transaction_id: null,
+    });
+    await fixture.service.evaluateRequirements('company-1', 'quotation-1', {
+      startOfferValidity: true,
+    });
+    expect(fixture.quotation.offer_finalized_at).toBeInstanceOf(Date);
+    expect(fixture.quotation.offer_expires_at.getTime()).toBeGreaterThan(
+      fixture.quotation.offer_finalized_at.getTime(),
+    );
+    expect(fixture.quotation.status).toBe(QuotationStatus.READY_FOR_SUBMISSION);
+  });
+  it('does not set offer validity on policy transaction background quotations', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.DRAFT,
+      tira_status: TiraStatus.NOT_SUBMITTED,
+      requires_payment: false,
+      requires_approval: false,
+      source_policy_transaction_id: 'tx1',
+    });
+    await fixture.service.evaluateRequirements('company-1', 'quotation-1', {
+      startOfferValidity: true,
+    });
+    expect(fixture.quotation.offer_expires_at).toBeUndefined();
+  });
+
+  it('blocks submission at the offer deadline', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.READY_FOR_SUBMISSION,
+      tira_status: TiraStatus.NOT_SUBMITTED,
+      offer_expires_at: new Date(Date.now() - 1),
+      requires_payment: false,
+      requires_approval: false,
+    });
+    await expect(
+      fixture.service.startTiraSubmission('company-1', 'quotation-1'),
+    ).rejects.toThrow('offer has expired');
+    expect(fixture.quotationRepository.save).not.toHaveBeenCalled();
+  });
+  it.each([
+    QuotationStatus.EXPIRED,
+    QuotationStatus.CANCELLED,
+    QuotationStatus.REJECTED,
+  ])(
+    'records a late finance payment without reopening a %s quotation',
+    async (status) => {
+      const fixture = createFixture({
+        status,
+        tira_status: TiraStatus.NOT_SUBMITTED,
+        requires_payment: true,
+        payment_status: PaymentStatus.REQUESTED,
+      });
+      await fixture.service.markPaymentPaid('company-1', 'quotation-1', {
+        source: 'SYSTEM',
+        changedByType: 'SYSTEM',
+      });
+      expect(fixture.quotation.status).toBe(status);
+      expect(fixture.quotation.payment_status).toBe(PaymentStatus.PAID);
+    },
+  );
+  it('rejects a user-driven payment change on an expired quotation', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.EXPIRED,
+      tira_status: TiraStatus.NOT_SUBMITTED,
+      requires_payment: true,
+      payment_status: PaymentStatus.REQUESTED,
+    });
+    await expect(
+      fixture.service.markPaymentPaid('company-1', 'quotation-1', {
+        source: 'USER',
+        changedByType: 'USER',
+      }),
+    ).rejects.toThrow('Payment cannot be updated');
+  });
+
+  it('expires a due unsubmitted offer and leaves paid status intact', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.READY_FOR_SUBMISSION,
+      tira_status: TiraStatus.NOT_SUBMITTED,
+      offer_expires_at: new Date(Date.now() - 1),
+      requires_payment: true,
+      payment_status: PaymentStatus.PAID,
+    });
+    await fixture.service.expireQuotation(
+      'company-1',
+      'quotation-1',
+      {},
+      { onlyWhenDue: true },
+    );
+    expect(fixture.quotation.status).toBe(QuotationStatus.EXPIRED);
+    expect(fixture.quotation.payment_status).toBe(PaymentStatus.PAID);
+  });
+  it('does not expire an in-flight or extended offer in a scheduler race', async () => {
+    for (const override of [
+      {
+        status: QuotationStatus.SUBMITTING_TO_TIRA,
+        tira_status: TiraStatus.SUBMITTING,
+        offer_expires_at: new Date(Date.now() - 1),
+      },
+      {
+        status: QuotationStatus.READY_FOR_SUBMISSION,
+        tira_status: TiraStatus.NOT_SUBMITTED,
+        offer_expires_at: new Date(Date.now() + 60000),
+      },
+    ]) {
+      const fixture = createFixture(override);
+      await fixture.service.expireQuotation(
+        'company-1',
+        'quotation-1',
+        {},
+        { onlyWhenDue: true },
+      );
+      expect(fixture.quotationRepository.save).not.toHaveBeenCalled();
+    }
+  });
+
+  it('records a rejection after an acknowledgement, including legacy COMPLETED records', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.COMPLETED,
+      tira_status: TiraStatus.SUBMITTED,
+    });
+    await fixture.service.markTiraRejected('company-1', 'quotation-1', {
+      reason: 'Rejected',
+      requestId: 'REQ-1',
+    });
+    expect(fixture.quotation.status).toBe(QuotationStatus.REJECTED);
+    expect(fixture.quotation.tira_status).toBe(TiraStatus.REJECTED);
+    expect(fixture.historyRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transition_type: 'MARK_TIRA_REJECTED',
+        previous_quotation_status: QuotationStatus.COMPLETED,
+        new_tira_status: TiraStatus.REJECTED,
+        request_id: 'REQ-1',
+      }),
+    );
+    await fixture.service.markTiraRejected('company-1', 'quotation-1');
+    expect(fixture.historyRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not replace a failed or successful regulatory outcome with a late acknowledgment', async () => {
+    for (const tiraStatus of [
+      TiraStatus.FAILED,
+      TiraStatus.SUCCESS,
+      TiraStatus.REJECTED,
+    ]) {
+      const fixture = createFixture({
+        status: QuotationStatus.COMPLETED,
+        tira_status: tiraStatus,
+      });
+      await fixture.service.markTiraAcknowledged('company-1', 'quotation-1');
+      expect(fixture.quotation.tira_status).toBe(tiraStatus);
+      expect(fixture.historyRepository.save).not.toHaveBeenCalled();
+    }
+  });
+
+  it('does not let rejection overwrite a successful regulatory outcome', async () => {
+    const fixture = createFixture({
+      status: QuotationStatus.COMPLETED,
+      tira_status: TiraStatus.SUCCESS,
+    });
+    await fixture.service.markTiraRejected('company-1', 'quotation-1');
+    expect(fixture.quotation.tira_status).toBe(TiraStatus.SUCCESS);
+    expect(fixture.historyRepository.save).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [QuotationStatus.SUBMITTING_TO_TIRA, TiraStatus.SUBMITTING],
+    [QuotationStatus.COMPLETED, TiraStatus.SUBMITTED],
+    [QuotationStatus.TIRA_PROCESSING, TiraStatus.PROCESSING],
+  ])(
+    'preserves in-flight status %s when payment is reversed',
+    async (status, tiraStatus) => {
+      const fixture = createFixture({
+        status,
+        tira_status: tiraStatus,
+        requires_payment: true,
+        payment_status: PaymentStatus.PAID,
+      });
+      await fixture.service.markPaymentRequested('company-1', 'quotation-1', {
+        source: 'SYSTEM',
+      });
+      expect(fixture.quotation.status).toBe(status);
+      expect(fixture.quotation.tira_status).toBe(tiraStatus);
+      expect(fixture.quotation.payment_status).toBe(PaymentStatus.REQUESTED);
+    },
+  );
+
   it('ignores duplicate cancellation callbacks without creating another history row', async () => {
     const fixture = createFixture({
       status: QuotationStatus.COMPLETED,
@@ -293,6 +485,7 @@ describe('QuotationLifecycleService approval maker-checker', () => {
       requires_payment: false,
       approval_status: ApprovalStatus.PENDING,
       approval_submitted_by: 'maker-1',
+      created_by: 'creator-1',
       payment_status: PaymentStatus.NOT_REQUIRED,
       tira_status: TiraStatus.NOT_SUBMITTED,
       updated_by: null,
@@ -323,15 +516,32 @@ describe('QuotationLifecycleService approval maker-checker', () => {
     expect(quotation.approval_decided_by).toBe('checker-1');
   });
 
-  it('exempts users with self-approve rights', async () => {
+  it('refuses the creator even when another user submitted the referral', async () => {
     const quotation = pendingQuotation();
+    await expect(
+      createService(quotation).approveQuotation('company-1', 'quotation-1', {
+        changedBy: 'creator-1',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 
-    await createService(quotation).approveQuotation(
-      'company-1',
-      'quotation-1',
-      { changedBy: 'maker-1', isMakerCheckerExempt: true },
-    );
+  it('does not allow the self-approval permission to bypass maker-checker', async () => {
+    const quotation = pendingQuotation();
+    await expect(
+      createService(quotation).approveQuotation('company-1', 'quotation-1', {
+        changedBy: 'maker-1',
+        isMakerCheckerExempt: true,
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
 
-    expect(quotation.approval_status).toBe(ApprovalStatus.APPROVED);
+  it('requires an identified approver', async () => {
+    await expect(
+      createService(pendingQuotation()).approveQuotation(
+        'company-1',
+        'quotation-1',
+        {},
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

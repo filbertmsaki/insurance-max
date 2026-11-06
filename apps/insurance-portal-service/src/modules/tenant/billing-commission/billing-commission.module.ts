@@ -34,7 +34,6 @@ import { BillingCommissionService } from './billing-commission.service';
 import { FinanceController } from './finance.controller';
 import { FinanceWebhookController } from './finance-webhook.controller';
 import { FinanceLifecycleService } from './finance-lifecycle.service';
-import { FinanceOperationsController } from './finance-operations.controller';
 import { FinanceOutboxProcessor } from './outbox/finance-outbox.processor';
 import { FinanceCommandService } from './services/finance-command.service';
 import { FinanceAutoReceiptService } from './services/finance-auto-receipt.service';
@@ -91,7 +90,9 @@ import { AuditModule } from '../../shared/audit/audit.module';
   ],
   controllers: [
     BillingCommissionController,
-    FinanceOperationsController,
+    // FinanceOperationsController (legacy /tenant/billing writes without
+    // locks, journals or quotation projection) is intentionally not
+    // registered. Use FinanceController (/tenant/finance) instead.
     FinanceController,
     FinanceWebhookController,
   ],

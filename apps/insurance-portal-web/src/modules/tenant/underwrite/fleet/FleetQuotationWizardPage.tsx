@@ -259,6 +259,7 @@ export function FleetQuotationWizardPage() {
                 customerOptions={wizard.customerOptions}
                 riskOptions={wizard.riskOptions}
                 vehicleOptions={wizard.vehicleOptions}
+                productOptions={wizard.productOptions}
                 fieldArray={wizard.fleetFieldArray}
                 onAddVehicle={actions.add}
                 onRemoveVehicle={actions.remove}

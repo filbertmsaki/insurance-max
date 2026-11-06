@@ -109,12 +109,17 @@ import { verificationsApi } from '@/modules/tenant/verifications/api';
 import { readVerifiedMotorDetails } from '../utils/vehicleVerification';
 import { toFleetMotorDetails } from '../utils/vehicleVerification';
 import { ownerDefaultsFromPolicyholder } from '../utils/motorVehicleSelection';
+import {
+  buildDefaultCoverNoteDescription,
+  buildDefaultOperativeClause,
+} from '../utils/coverNoteText';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   customerOptions: CustomerRecord[];
   riskOptions: InsuranceRisk[];
   vehicleOptions: MotorVehicleRecord[];
+  productOptions?: { id: string; name?: string; product_name?: string }[];
   fieldArray: UseFieldArrayReturn<QuotationFormSchemaValues, 'fleet.items'>;
   onAddVehicle: () => void;
   onRemoveVehicle: (index: number) => void;
@@ -1593,6 +1598,7 @@ export function MotorFleetDetailsStep({
   customerOptions,
   riskOptions,
   vehicleOptions,
+  productOptions = [],
   fieldArray,
   onAddVehicle,
   onRemoveVehicle,
@@ -1671,8 +1677,20 @@ export function MotorFleetDetailsStep({
     ruleExplanation.isSuccess,
     selectedFleetRiskId,
   ]);
-  const commonDescription = form.watch('cover_note_desc');
-  const commonClause = form.watch('operative_clause');
+  const productId = form.watch('product_id');
+  const validFrom = form.watch('valid_from');
+  const validUntil = form.watch('valid_until');
+  const product = productOptions.find((option) => option.id === productId);
+  const productName = product?.product_name ?? product?.name;
+  const sharedDescription = form.watch('cover_note_desc');
+  const sharedClause = form.watch('operative_clause');
+  const commonDescription = sharedDescription?.trim()
+    ? sharedDescription
+    : (buildDefaultCoverNoteDescription(productName, validFrom, validUntil) ??
+      '');
+  const commonClause = sharedClause?.trim()
+    ? sharedClause
+    : (buildDefaultOperativeClause(productName, validFrom, validUntil) ?? '');
   const generatedRef = useRef(
     new Map<
       string,
@@ -1687,7 +1705,7 @@ export function MotorFleetDetailsStep({
       const key = item.risks_covered[0]?.client_ref ?? String(index);
       const previous = generatedRef.current.get(key);
       if (
-        !item.cover_note_desc ||
+        !item.cover_note_desc?.trim() ||
         item.cover_note_desc === previous?.description
       )
         if (item.cover_note_desc !== commonDescription)
@@ -1695,7 +1713,10 @@ export function MotorFleetDetailsStep({
             `fleet.items.${index}.cover_note_desc`,
             commonDescription,
           );
-      if (!item.operative_clause || item.operative_clause === previous?.clause)
+      if (
+        !item.operative_clause?.trim() ||
+        item.operative_clause === previous?.clause
+      )
         if (item.operative_clause !== commonClause)
           form.setValue(`fleet.items.${index}.operative_clause`, commonClause);
       if (item.fleet_entry !== String(index + 1))
@@ -1705,7 +1726,7 @@ export function MotorFleetDetailsStep({
         clause: commonClause,
       });
     });
-  }, [form, fleetValues, commonDescription, commonClause]);
+  }, [form, fields, fleetValues, commonDescription, commonClause]);
   async function lookupFleetVehicles() {
     if (lookupPending) return;
     setLookupPending(true);
@@ -1957,6 +1978,15 @@ export function MotorFleetDetailsStep({
     if (!editingVehicle) return;
     setShowVehicleValidationErrors(true);
     const path = `fleet.items.${editingVehicle.index}` as const;
+    const item = form.getValues(path);
+    if (!item.cover_note_desc?.trim() && commonDescription)
+      form.setValue(`${path}.cover_note_desc`, commonDescription, {
+        shouldDirty: true,
+      });
+    if (!item.operative_clause?.trim() && commonClause)
+      form.setValue(`${path}.operative_clause`, commonClause, {
+        shouldDirty: true,
+      });
     const fieldsValid = await form.trigger(path, { shouldFocus: true });
     // The schema checks fleet items in a root-level refinement, which Zod
     // skips while another step has invalid fields, so re-check here too.

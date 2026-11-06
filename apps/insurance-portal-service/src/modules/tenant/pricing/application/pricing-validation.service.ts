@@ -84,7 +84,10 @@ export class PricingValidationService {
 
     if (constraint.kind === 'WEIGHT_BAND') {
       const weight = Number(factorValues.gross_weight_tons);
-      if (!Number.isFinite(weight)) {
+      if (
+        this.isMissingFactor(factorValues.gross_weight_tons) ||
+        !Number.isFinite(weight)
+      ) {
         throw new BadRequestException({
           status: 'INCOMPLETE',
           calculation_allowed: false,
@@ -128,8 +131,10 @@ export class PricingValidationService {
 
     const manufactureYear = Number(factorValues.year_of_manufacture);
     if (
+      this.isMissingFactor(factorValues.year_of_manufacture) ||
       !Number.isFinite(manufactureYear) ||
-      !Number.isInteger(manufactureYear)
+      !Number.isInteger(manufactureYear) ||
+      manufactureYear <= 0
     ) {
       throw new BadRequestException({
         status: 'INCOMPLETE',
@@ -144,6 +149,17 @@ export class PricingValidationService {
 
     const coverYear = this.resolveCoverYear(effectiveDate);
     const vehicleAge = coverYear - manufactureYear;
+    if (vehicleAge < 0) {
+      throw new BadRequestException({
+        status: 'INCOMPLETE',
+        calculation_allowed: false,
+        code: 'YEAR_OF_MANUFACTURE_INVALID',
+        message: 'Year of manufacture cannot be after the cover year',
+        validation_errors: [
+          'year_of_manufacture cannot be after the cover year',
+        ],
+      });
+    }
     const isValid =
       (constraint.minInclusive === undefined ||
         vehicleAge >= constraint.minInclusive) &&
@@ -169,10 +185,26 @@ export class PricingValidationService {
     }
   }
 
+  private isMissingFactor(value: unknown): boolean {
+    return (
+      value === null ||
+      value === undefined ||
+      (typeof value === 'string' && value.trim() === '')
+    );
+  }
+
   private resolveCoverYear(effectiveDate?: string | null): number {
-    const parsed = effectiveDate ? new Date(effectiveDate) : new Date();
-    return Number.isNaN(parsed.getTime())
-      ? new Date().getUTCFullYear()
-      : parsed.getUTCFullYear();
+    if (!effectiveDate) return new Date().getUTCFullYear();
+    const parsed = new Date(effectiveDate);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException({
+        status: 'INCOMPLETE',
+        calculation_allowed: false,
+        code: 'INVALID_EFFECTIVE_DATE',
+        message: 'A valid effective date is required for motor age validation',
+        validation_errors: ['effective_date must be a valid date'],
+      });
+    }
+    return parsed.getUTCFullYear();
   }
 }

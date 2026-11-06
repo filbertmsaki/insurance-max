@@ -13,7 +13,7 @@ import { QuotationJourneyProgress } from '@/modules/tenant/quotations/wizard/Quo
 import { defaultValuesForLine } from '../wizard/defaults';
 import { getUnderwriteLineMeta } from '../lines';
 
-function renderWorkspace() {
+function renderWorkspace(withGeneratedWording = false) {
   const duplicate = vi.fn();
   const remove = vi.fn();
   function Harness() {
@@ -23,6 +23,13 @@ function renderWorkspace() {
     const form = useForm<QuotationFormSchemaValues>({
       defaultValues: {
         ...defaults,
+        ...(withGeneratedWording
+          ? {
+              product_id: 'product-1',
+              cover_note_desc: '',
+              operative_clause: '',
+            }
+          : {}),
         fleet: {
           ...defaults.fleet,
           items: Array.from({ length: 12 }, (_, index) => {
@@ -54,11 +61,19 @@ function renderWorkspace() {
           riskOptions={[]}
           vehicleOptions={[]}
           fieldArray={fieldArray}
-          onAddVehicle={() => undefined}
+          productOptions={
+            withGeneratedWording
+              ? [{ id: 'product-1', product_name: 'Motor Fleet' }]
+              : []
+          }
+          onAddVehicle={() => fieldArray.append(createEmptyFleetItemRow())}
           onRemoveVehicle={remove}
           onDuplicateVehicle={duplicate}
           onImportVehicles={() => undefined}
         />
+        <output data-testid="last-vehicle-wording">
+          {JSON.stringify(form.watch('fleet.items').at(-1))}
+        </output>
       </Form>
     );
   }
@@ -75,6 +90,15 @@ function renderWorkspace() {
 }
 
 describe('Fleet vehicle workspace', () => {
+  it('generates missing wording for newly added vehicles', () => {
+    renderWorkspace(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Add vehicle' }));
+    const item = JSON.parse(
+      screen.getByTestId('last-vehicle-wording').textContent!,
+    );
+    expect(item.cover_note_desc).toContain('Motor Fleet');
+    expect(item.operative_clause).toContain('Motor Fleet');
+  });
   it('keeps actions attached to the original vehicle after searching', () => {
     const { duplicate, remove } = renderWorkspace();
     fireEvent.change(

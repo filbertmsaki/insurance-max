@@ -21,10 +21,6 @@ export class QuotationDisplayStatusResolver {
       cover_note?: { payment_mode?: number | null } | null;
     },
   ): ResolvedQuotationDisplayStatus {
-    if (quotation.status === QuotationStatus.COMPLETED) {
-      return this.status(QuotationDisplayStatus.COMPLETED, 'Completed');
-    }
-
     if (quotation.status === QuotationStatus.CANCELLED) {
       return this.status(QuotationDisplayStatus.CANCELLED, 'Cancelled');
     }
@@ -50,25 +46,38 @@ export class QuotationDisplayStatusResolver {
       );
     }
 
-    if (quotation.status === QuotationStatus.TIRA_PROCESSING) {
+    if (
+      quotation.tira_status === TiraStatus.PROCESSING ||
+      quotation.status === QuotationStatus.TIRA_PROCESSING
+    ) {
       return this.status(
         QuotationDisplayStatus.PROCESSING_AT_TIRAMIS,
         'Processing at TIRAMIS',
       );
     }
 
-    if (quotation.status === QuotationStatus.SUBMITTED_TO_TIRA) {
+    if (
+      quotation.tira_status === TiraStatus.SUBMITTED ||
+      quotation.status === QuotationStatus.SUBMITTED_TO_TIRA
+    ) {
       return this.status(
         QuotationDisplayStatus.SUBMITTED_TO_TIRAMIS,
         'Submitted to TIRAMIS',
       );
     }
 
-    if (quotation.status === QuotationStatus.SUBMITTING_TO_TIRA) {
+    if (
+      quotation.tira_status === TiraStatus.SUBMITTING ||
+      quotation.status === QuotationStatus.SUBMITTING_TO_TIRA
+    ) {
       return this.status(
         QuotationDisplayStatus.SUBMITTING_TO_TIRAMIS,
         'Submitting to TIRAMIS',
       );
+    }
+
+    if (quotation.status === QuotationStatus.COMPLETED) {
+      return this.status(QuotationDisplayStatus.COMPLETED, 'Completed');
     }
 
     if (quotation.approval_status === ApprovalStatus.PENDING) {
@@ -92,13 +101,8 @@ export class QuotationDisplayStatusResolver {
       );
     }
 
-    const isCashPayment = Number(quotation.cover_note?.payment_mode) === 1;
-
     switch (quotation.payment_status) {
       case PaymentStatus.NOT_INITIATED:
-        if (isCashPayment) {
-          break;
-        }
         return this.status(
           QuotationDisplayStatus.PAYMENT_REQUIRED,
           'Payment Required',
@@ -135,14 +139,7 @@ export class QuotationDisplayStatusResolver {
         );
     }
 
-    if (
-      quotation.status === QuotationStatus.READY_FOR_SUBMISSION ||
-      (isCashPayment &&
-        quotation.status === QuotationStatus.PENDING_REQUIREMENTS &&
-        [ApprovalStatus.APPROVED, ApprovalStatus.NOT_REQUIRED].includes(
-          quotation.approval_status,
-        ))
-    ) {
+    if (quotation.status === QuotationStatus.READY_FOR_SUBMISSION) {
       return this.status(
         QuotationDisplayStatus.READY_FOR_TIRA_SUBMISSION,
         'Ready for TIRAMIS Submission',

@@ -241,6 +241,13 @@ export class Quotation {
   @Column({ type: 'timestamptz', nullable: true })
   workflow_completed_at: Date | null;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  offer_finalized_at: Date | null;
+
+  /** Exclusive deadline for a finalized quotation offer; null for legacy records. */
+  @Column({ type: 'timestamptz', nullable: true })
+  offer_expires_at: Date | null;
+
   @Column({
     type: 'varchar',
     length: 30,

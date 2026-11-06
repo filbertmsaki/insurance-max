@@ -28,11 +28,7 @@ export interface PolicyTransactionLifecycleContext {
   tiraRequestId?: string | null;
   tiraResponseId?: string | null;
   metadata?: Record<string, unknown> | null;
-  /**
-   * Set by the caller when the acting user holds `approvals:self-approve`
-   * (see `canSelfApprove`), exempting them from the maker-checker
-   * rule that otherwise blocks approving a transaction they requested.
-   */
+  /** Retained for caller compatibility; underwriting approvals cannot bypass maker-checker. */
   isMakerCheckerExempt?: boolean;
   /**
    * Set by `PolicyTransactionTiramisSubmissionService` when this
@@ -156,9 +152,12 @@ export class PolicyTransactionLifecycleService {
           );
         }
 
-        const isSelfApproval =
-          !!context.changedBy && context.changedBy === transaction.requested_by;
-        if (isSelfApproval && !context.isMakerCheckerExempt) {
+        if (!context.changedBy) {
+          throw new ForbiddenException(
+            'An identified user is required to approve a transaction.',
+          );
+        }
+        if (context.changedBy === transaction.requested_by) {
           throw new ForbiddenException(
             'The maker of a transaction cannot approve it (maker-checker).',
           );
@@ -173,12 +172,7 @@ export class PolicyTransactionLifecycleService {
           transaction,
           previous,
           PolicyTransactionEventType.APPROVED,
-          isSelfApproval
-            ? {
-                ...context,
-                metadata: { ...context.metadata, self_approved: true },
-              }
-            : context,
+          context,
         );
       },
     );
@@ -249,6 +243,7 @@ export class PolicyTransactionLifecycleService {
     companyId: string,
     transactionId: string,
     context: PolicyTransactionLifecycleContext = {},
+    manager?: EntityManager,
   ) {
     return this.updatePaymentStatus(
       companyId,
@@ -256,6 +251,7 @@ export class PolicyTransactionLifecycleService {
       WorkflowPaymentStatus.REQUESTED,
       PolicyTransactionEventType.PAYMENT_REQUESTED,
       context,
+      manager,
     );
   }
 
@@ -277,6 +273,7 @@ export class PolicyTransactionLifecycleService {
     companyId: string,
     transactionId: string,
     context: PolicyTransactionLifecycleContext = {},
+    manager?: EntityManager,
   ) {
     return this.updatePaymentStatus(
       companyId,
@@ -284,6 +281,7 @@ export class PolicyTransactionLifecycleService {
       WorkflowPaymentStatus.PARTIAL,
       PolicyTransactionEventType.PAYMENT_REQUESTED,
       context,
+      manager,
     );
   }
 
@@ -291,6 +289,7 @@ export class PolicyTransactionLifecycleService {
     companyId: string,
     transactionId: string,
     context: PolicyTransactionLifecycleContext = {},
+    manager?: EntityManager,
   ) {
     return this.updatePaymentStatus(
       companyId,
@@ -298,6 +297,7 @@ export class PolicyTransactionLifecycleService {
       WorkflowPaymentStatus.PAID,
       PolicyTransactionEventType.PAYMENT_SATISFIED,
       context,
+      manager,
     );
   }
 
@@ -561,6 +561,7 @@ export class PolicyTransactionLifecycleService {
     nextStatus: WorkflowPaymentStatus,
     eventType: PolicyTransactionEventType,
     context: PolicyTransactionLifecycleContext,
+    manager?: EntityManager,
   ) {
     return this.withLockedTransaction(
       companyId,
@@ -588,11 +589,15 @@ export class PolicyTransactionLifecycleService {
           context,
         );
       },
+      manager,
     );
   }
 
   private applyRequirementStage(transaction: PolicyTransaction) {
-    if (this.isTerminal(transaction.stage)) {
+    if (
+      this.isTerminal(transaction.stage) ||
+      transaction.submission_status === WorkflowSubmissionStatus.PROCESSING
+    ) {
       return;
     }
 
@@ -645,8 +650,9 @@ export class PolicyTransactionLifecycleService {
       manager: EntityManager,
       transaction: PolicyTransaction,
     ) => Promise<PolicyTransaction>,
+    existingManager?: EntityManager,
   ) {
-    return this.dataSource.transaction(async (manager) => {
+    const execute = async (manager: EntityManager) => {
       const transaction = await manager
         .getRepository(PolicyTransaction)
         .createQueryBuilder('transaction')
@@ -660,7 +666,10 @@ export class PolicyTransactionLifecycleService {
       }
 
       return handler(manager, transaction);
-    });
+    };
+    return existingManager
+      ? execute(existingManager)
+      : this.dataSource.transaction(execute);
   }
 
   private async persistTransition(

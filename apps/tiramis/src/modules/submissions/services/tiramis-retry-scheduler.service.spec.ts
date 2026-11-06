@@ -99,6 +99,38 @@ function createService() {
 }
 
 describe('TiramisRetrySchedulerService recovery states', () => {
+  it('checks overdue callbacks even when automatic retries are disabled', async () => {
+    const fixture = createService();
+    (fixture.service as any).configService = {
+      get: (key: string, fallback: unknown) =>
+        key === 'tiramisService.retryEnabled' ? false : fallback,
+    };
+    fixture.attemptRepository.findFinalCallbackOverdueAttempts.mockResolvedValue(
+      [],
+    );
+    await fixture.service.run();
+    expect(
+      fixture.attemptRepository.findFinalCallbackOverdueAttempts,
+    ).toHaveBeenCalled();
+    expect(
+      fixture.attemptRepository.findRetryableDueAttempts,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('still checks overdue callbacks if retry processing fails', async () => {
+    const fixture = createService();
+    fixture.attemptRepository.findRetryableDueAttempts.mockRejectedValue(
+      new Error('retry failure'),
+    );
+    fixture.attemptRepository.findFinalCallbackOverdueAttempts.mockResolvedValue(
+      [],
+    );
+    await fixture.service.run();
+    expect(
+      fixture.attemptRepository.findFinalCallbackOverdueAttempts,
+    ).toHaveBeenCalled();
+  });
+
   it('creates a new request ID and preserves the prior attempt on manual retry', async () => {
     const {
       service,

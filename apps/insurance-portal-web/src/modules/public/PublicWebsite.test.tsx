@@ -248,9 +248,10 @@ describe('public catalogue and purchase', () => {
       target: { value: '+255712345678' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Check vehicle' }));
-    expect(
-      await screen.findByRole('heading', { name: 'Active insurance found' }),
-    ).toHaveFocus();
+    const heading = await screen.findByRole('heading', {
+      name: 'Active insurance found',
+    });
+    await waitFor(() => expect(heading).toHaveFocus());
     expect(apiClient.post).toHaveBeenCalledWith(
       '/public/motor-purchase/verify',
       {

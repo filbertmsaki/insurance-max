@@ -19,6 +19,7 @@ import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { QuotationStatusBadge } from '@/modules/tenant/quotations/components/QuotationStatusBadge';
 import { TiraStatusBadge } from '@/modules/tenant/quotations/components/TiraStatusBadge';
+import { PaymentStatusBadge } from '@/modules/tenant/quotations/components/PaymentStatusBadge';
 import type { QuotationListItem } from '@/modules/tenant/quotations/types';
 import { formatCoverPeriod } from '@/modules/tenant/quotations/utils/coverPeriod';
 import { underwriteApi } from '../api';
@@ -144,17 +145,14 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
     },
     {
       key: 'total_premium_including_tax',
-      header: 'Premium',
+      header: 'Quoted premium',
       sortable: true,
       className: 'text-right',
       cell: (row) => (
         <span className="tabular-nums">
-          {formatMoney(
-            Number.isFinite(row.total_premium_including_tax)
-              ? row.total_premium_including_tax
-              : 0,
-            row.currency_code,
-          )}
+          {Number.isFinite(row.total_premium_including_tax)
+            ? formatMoney(row.total_premium_including_tax, row.currency_code)
+            : '?'}
         </span>
       ),
     },
@@ -163,6 +161,20 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
       header: 'Status',
       sortable: true,
       cell: (row) => <QuotationStatusBadge status={row.display_status} />,
+    },
+    {
+      key: 'approval_status',
+      header: 'Approval',
+      hideOnMobile: true,
+      cell: (row) => (
+        <Badge variant="muted">{row.approval_status.replace(/_/g, ' ')}</Badge>
+      ),
+    },
+    {
+      key: 'payment_status',
+      header: 'Payment',
+      hideOnMobile: true,
+      cell: (row) => <PaymentStatusBadge status={row.payment_status} />,
     },
     {
       key: 'tira_status',

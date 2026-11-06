@@ -60,6 +60,7 @@ export class PolicyTransactionPaymentProjectionService {
           reason:
             'Finance allocation fully settled endorsement additional premium',
         },
+        manager,
       );
 
       return;
@@ -74,6 +75,7 @@ export class PolicyTransactionPaymentProjectionService {
           reason:
             'Finance allocation partially settled endorsement additional premium',
         },
+        manager,
       );
 
       return;
@@ -86,6 +88,7 @@ export class PolicyTransactionPaymentProjectionService {
         ...context,
         reason: 'Endorsement invoice is awaiting settlement',
       },
+      manager,
     );
   }
 }

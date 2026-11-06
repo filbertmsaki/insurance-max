@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import Decimal from 'decimal.js';
 
 interface ProductPerformanceRow {
   branch_id: string | null;
@@ -24,18 +25,14 @@ interface ProductPerformanceRow {
  * previously nothing wrote to this table at all, so the one working report
  * type (`product-performance`) always returned zero rows.
  *
- * Methodology (documented since none of this is enforced by a spec):
- * - "Written" is scoped to policies whose `issue_date` falls in the period.
- * - Earned premium is a simple day-count proration of the full-term
- *   premium as of the snapshot date — not a per-risk rating re-run.
- * - Claims are aggregated as of the snapshot date regardless of when the
- *   underlying policy was written (a claim on an older policy still counts
- *   toward that product's current outstanding reserve).
- * - Premium collected is the sum of paid amounts on `POLICY`-sourced
- *   invoices for policies of that product (not scoped to the period,
- *   mirroring real collections lagging the writing period).
- * - Aggregated at (company, product) — branch-level breakdown is out of
- *   scope for this pass; `branch_id` is left null on every snapshot row.
+ * Current methodology, pending Finance validation:
+ * - Written premium uses policies issued within the requested period.
+ * - Earned premium prorates those policies through period end by days on risk.
+ * - Claims created by period end use current claim balances, not historical balances.
+ * - Collections use current paid amounts on POLICY-sourced invoices, without a period filter.
+ * - Rows group by company, branch, department, user, product and policy currency.
+ * Claim and invoice balances are grouped in their original currency. Source coverage
+ * and historical balances must still be reconciled before operational use.
  */
 @Injectable()
 export class ProductPerformanceSnapshotService {
@@ -49,8 +46,14 @@ export class ProductPerformanceSnapshotService {
     periodEnd: string;
     snapshotDate: string;
   }): Promise<number> {
-    const rows: ProductPerformanceRow[] = await this.dataSource.query(
-      `
+    const count = await this.dataSource.transaction(async (manager) => {
+      // Serialize refreshes of the same published snapshot across workers.
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+        [params.companyId, params.snapshotDate],
+      );
+      const rows: ProductPerformanceRow[] = await manager.query(
+        `
       WITH policy_agg AS (
         SELECT
           branch_id,
@@ -65,7 +68,8 @@ export class ProductPerformanceSnapshotService {
           COALESCE(SUM(
             total_premium * LEAST(1.0, GREATEST(0.0,
               (LEAST($3::date, end_date) - start_date + 1)::numeric
-            )) / GREATEST(1, (end_date - start_date + 1))
+                / GREATEST(1, (end_date - start_date + 1))
+            ))
           ), 0) AS earned_premium
         FROM policies
         WHERE company_id = $1
@@ -79,15 +83,17 @@ export class ProductPerformanceSnapshotService {
           p.department_id,
           p.created_by AS user_id,
           p.product_id,
+          c.currency_code AS currency,
           COUNT(DISTINCT c.id) AS claims_count,
           COALESCE(SUM(c.paid_amount), 0) AS claims_paid,
           COALESCE(SUM(c.outstanding_reserve), 0) AS outstanding_reserve,
           COALESCE(SUM(c.paid_amount + c.outstanding_reserve), 0) AS claims_incurred
         FROM claims c
-        JOIN policies p ON p.id = c.policy_id
+        JOIN policies p ON p.id = c.policy_id AND p.company_id = c.company_id
         WHERE c.company_id = $1
+          AND p.deleted_at IS NULL
           AND c.created_at::date <= $3::date
-        GROUP BY p.branch_id, p.department_id, p.created_by, p.product_id
+        GROUP BY p.branch_id, p.department_id, p.created_by, p.product_id, c.currency_code
       ),
       invoice_agg AS (
         SELECT
@@ -95,18 +101,20 @@ export class ProductPerformanceSnapshotService {
           p.department_id,
           p.created_by AS user_id,
           p.product_id,
+          i.currency AS currency,
           COALESCE(SUM(i.paid_amount), 0) AS premium_collected
         FROM invoices i
-        JOIN policies p ON p.id = i.source_record_id AND i.source_type = 'POLICY'
+        JOIN policies p ON p.id = i.source_record_id AND p.company_id = i.company_id AND i.source_type = 'POLICY'
         WHERE i.company_id = $1
-        GROUP BY p.branch_id, p.department_id, p.created_by, p.product_id
+          AND i.deleted_at IS NULL AND p.deleted_at IS NULL
+        GROUP BY p.branch_id, p.department_id, p.created_by, p.product_id, i.currency
       )
       SELECT
         COALESCE(pa.branch_id, ca.branch_id, ia.branch_id) AS branch_id,
         COALESCE(pa.department_id, ca.department_id, ia.department_id) AS department_id,
         COALESCE(pa.user_id, ca.user_id, ia.user_id) AS user_id,
         COALESCE(pa.product_id, ca.product_id, ia.product_id) AS product_id,
-        COALESCE(pa.currency, 'TZS') AS currency,
+        COALESCE(pa.currency, ca.currency, ia.currency) AS currency,
         COALESCE(pa.policies_count, 0) AS policies_count,
         COALESCE(pa.gross_written_premium, 0) AS gross_written_premium,
         COALESCE(pa.earned_premium, 0) AS earned_premium,
@@ -120,34 +128,38 @@ export class ProductPerformanceSnapshotService {
       FROM policy_agg pa
       FULL OUTER JOIN claim_agg ca
         ON ca.product_id = pa.product_id
+        AND ca.currency = pa.currency
         AND ca.branch_id IS NOT DISTINCT FROM pa.branch_id
         AND ca.department_id IS NOT DISTINCT FROM pa.department_id
         AND ca.user_id IS NOT DISTINCT FROM pa.user_id
       FULL OUTER JOIN invoice_agg ia
         ON ia.product_id = COALESCE(pa.product_id, ca.product_id)
+        AND ia.currency = COALESCE(pa.currency, ca.currency)
         AND ia.branch_id IS NOT DISTINCT FROM COALESCE(pa.branch_id, ca.branch_id)
         AND ia.department_id IS NOT DISTINCT FROM COALESCE(pa.department_id, ca.department_id)
         AND ia.user_id IS NOT DISTINCT FROM COALESCE(pa.user_id, ca.user_id)
       `,
-      [params.companyId, params.periodStart, params.periodEnd],
-    );
+        [params.companyId, params.periodStart, params.periodEnd],
+      );
 
-    await this.dataSource.query(
-      `
+      for (const row of rows) this.validateRow(row);
+
+      await manager.query(
+        `
       DELETE FROM product_performance_snapshots
       WHERE company_id = $1 AND snapshot_date = $2
       `,
-      [params.companyId, params.snapshotDate],
-    );
+        [params.companyId, params.snapshotDate],
+      );
 
-    for (const row of rows) {
-      const earnedPremium = Number(row.earned_premium);
-      const claimsIncurred = Number(row.claims_incurred);
-      const lossRatio =
-        earnedPremium !== 0 ? claimsIncurred / earnedPremium : null;
+      for (const row of rows) {
+        const earnedPremium = Number(row.earned_premium);
+        const claimsIncurred = Number(row.claims_incurred);
+        const lossRatio =
+          earnedPremium !== 0 ? claimsIncurred / earnedPremium : null;
 
-      await this.dataSource.query(
-        `
+        await manager.query(
+          `
         INSERT INTO product_performance_snapshots (
           company_id,
           branch_id,
@@ -170,38 +182,73 @@ export class ProductPerformanceSnapshotService {
           claims_count,
           loss_ratio
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
         )
         `,
-        [
-          params.companyId,
-          row.branch_id,
-          row.department_id,
-          row.user_id,
-          row.product_id,
-          row.currency,
-          params.snapshotDate,
-          params.periodStart,
-          params.periodEnd,
-          row.gross_written_premium,
-          row.earned_premium,
-          row.premium_collected,
-          row.claims_incurred,
-          row.claims_paid,
-          row.outstanding_reserve,
-          row.ceded_premium,
-          row.commissions,
-          Number(row.policies_count),
-          Number(row.claims_count),
-          lossRatio,
-        ],
-      );
-    }
+          [
+            params.companyId,
+            row.branch_id,
+            row.department_id,
+            row.user_id,
+            row.product_id,
+            row.currency,
+            params.snapshotDate,
+            params.periodStart,
+            params.periodEnd,
+            row.gross_written_premium,
+            row.earned_premium,
+            row.premium_collected,
+            row.claims_incurred,
+            row.claims_paid,
+            row.outstanding_reserve,
+            row.ceded_premium,
+            row.commissions,
+            Number(row.policies_count),
+            Number(row.claims_count),
+            lossRatio,
+          ],
+        );
+      }
+
+      return rows.length;
+    });
 
     this.logger.log(
-      `Refreshed ${rows.length} product performance snapshot(s) for company ${params.companyId} as of ${params.snapshotDate}`,
+      `Refreshed ${count} product performance snapshot(s) for company ${params.companyId} as of ${params.snapshotDate}`,
     );
+    return count;
+  }
 
-    return rows.length;
+  private validateRow(row: ProductPerformanceRow): void {
+    if (!row.product_id || !row.currency?.trim()) {
+      throw new Error('Product performance row is missing product or currency');
+    }
+    const amounts = [
+      row.gross_written_premium,
+      row.earned_premium,
+      row.ceded_premium,
+      row.commissions,
+      row.claims_paid,
+      row.outstanding_reserve,
+      row.claims_incurred,
+      row.premium_collected,
+    ];
+    for (const value of amounts) {
+      try {
+        if (value == null || !new Decimal(value).isFinite())
+          throw new Error('invalid');
+      } catch {
+        throw new Error('Product performance row contains an invalid amount');
+      }
+    }
+    for (const value of [row.policies_count, row.claims_count]) {
+      if (
+        value == null ||
+        !Number.isSafeInteger(Number(value)) ||
+        Number(value) < 0
+      ) {
+        throw new Error('Product performance row contains an invalid count');
+      }
+    }
   }
 }

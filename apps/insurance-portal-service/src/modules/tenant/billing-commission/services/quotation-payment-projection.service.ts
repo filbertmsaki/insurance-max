@@ -86,6 +86,7 @@ export class QuotationPaymentProjectionService {
           reason: 'Finance allocation completed invoice payment',
           metadata: payload as unknown as Record<string, unknown>,
         },
+        manager,
       );
 
       await this.commissionAccrualService.accrueForPaidQuotation(
@@ -106,6 +107,7 @@ export class QuotationPaymentProjectionService {
           reason: 'Finance allocation partially settled invoice payment',
           metadata: payload as unknown as Record<string, unknown>,
         },
+        manager,
       );
     } else {
       await this.quotationLifecycleService.markPaymentRequested(
@@ -118,6 +120,7 @@ export class QuotationPaymentProjectionService {
           reason: 'Finance reversal removed settled payment state',
           metadata: payload as unknown as Record<string, unknown>,
         },
+        manager,
       );
     }
   }

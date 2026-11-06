@@ -470,7 +470,7 @@ export class UnderwriteDashboardService {
         'ready_for_submission',
       )
       .addSelect(
-        `COUNT(*) FILTER (WHERE quotation.status IN ('SUBMITTING_TO_TIRA', 'SUBMITTED_TO_TIRA', 'TIRA_PROCESSING'))`,
+        `COUNT(*) FILTER (WHERE quotation.tira_status IN ('SUBMITTING', 'SUBMITTED', 'PROCESSING'))`,
         'tira_in_progress',
       )
       .addSelect(
@@ -478,7 +478,7 @@ export class UnderwriteDashboardService {
         'tira_failed',
       )
       .addSelect(
-        `COUNT(*) FILTER (WHERE quotation.status = 'COMPLETED')`,
+        `COUNT(*) FILTER (WHERE quotation.tira_status = 'SUCCESS')`,
         'completed',
       )
       .where('quotation.deleted_at IS NULL')

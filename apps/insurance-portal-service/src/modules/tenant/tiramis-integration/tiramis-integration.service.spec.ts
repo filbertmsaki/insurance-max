@@ -240,6 +240,26 @@ describe('TiramisIntegrationService callback handling', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('records an unauthenticated callback as an exception without applying a business outcome', async () => {
+    const fixture = createFixture();
+    await fixture.service.handleTiramisNotification({
+      eventType: 'TIRAMIS_CALLBACK_REJECTED',
+      requestId: 'REQ-1',
+      errorMessage: 'Invalid signature',
+    });
+    expect(fixture.submission.status).toBe(
+      PortalTiraSubmissionStatus.CALLBACK_REJECTED,
+    );
+    expect(fixture.eventRepository.save).toHaveBeenCalled();
+    expect(
+      fixture.quotationLifecycleService.markTiraRejected,
+    ).not.toHaveBeenCalled();
+    expect(
+      fixture.quotationLifecycleService.markTiraFailed,
+    ).not.toHaveBeenCalled();
+    expect(fixture.issuanceService.applyNotification).not.toHaveBeenCalled();
+  });
+
   it('treats callback overdue as a warning after successful acknowledgement', async () => {
     const fixture = createFixture();
 

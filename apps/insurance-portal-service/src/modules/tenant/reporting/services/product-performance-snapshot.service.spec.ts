@@ -2,8 +2,8 @@ import { ProductPerformanceSnapshotService } from './product-performance-snapsho
 
 describe('ProductPerformanceSnapshotService', () => {
   it('deletes any existing snapshot for the date, then inserts one row per product with a computed loss ratio', async () => {
-    const query = jest.fn();
-    // First call: the CTE aggregate SELECT.
+    const query = jest.fn().mockResolvedValueOnce(undefined);
+    // Advisory lock precedes the aggregate SELECT.
     query.mockResolvedValueOnce([
       {
         branch_id: 'branch-1',
@@ -28,7 +28,9 @@ describe('ProductPerformanceSnapshotService', () => {
     // Third call: the INSERT.
     query.mockResolvedValueOnce(undefined);
 
-    const dataSource = { query } as any;
+    const dataSource = {
+      transaction: jest.fn(async (work) => work({ query })),
+    } as any;
     const service = new ProductPerformanceSnapshotService(dataSource);
 
     const count = await service.refreshSnapshots({
@@ -39,16 +41,16 @@ describe('ProductPerformanceSnapshotService', () => {
     });
 
     expect(count).toBe(1);
-    expect(query).toHaveBeenCalledTimes(3);
+    expect(query).toHaveBeenCalledTimes(4);
 
     // DELETE happens before the INSERT, scoped to the company + snapshot date.
-    expect(query.mock.calls[1][0]).toContain(
+    expect(query.mock.calls[2][0]).toContain(
       'DELETE FROM product_performance_snapshots',
     );
-    expect(query.mock.calls[1][1]).toEqual(['company-1', '2026-08-01']);
+    expect(query.mock.calls[2][1]).toEqual(['company-1', '2026-08-01']);
 
     // Loss ratio = claims_incurred / earned_premium = 30000 / 150000 = 0.2.
-    const insertParams = query.mock.calls[2][1];
+    const insertParams = query.mock.calls[3][1];
     expect(insertParams).toEqual([
       'company-1',
       'branch-1',
@@ -74,7 +76,7 @@ describe('ProductPerformanceSnapshotService', () => {
   });
 
   it('leaves loss ratio null when earned premium is zero, instead of dividing by zero', async () => {
-    const query = jest.fn();
+    const query = jest.fn().mockResolvedValueOnce(undefined);
     query.mockResolvedValueOnce([
       {
         branch_id: null,
@@ -97,7 +99,9 @@ describe('ProductPerformanceSnapshotService', () => {
     query.mockResolvedValueOnce(undefined);
     query.mockResolvedValueOnce(undefined);
 
-    const dataSource = { query } as any;
+    const dataSource = {
+      transaction: jest.fn(async (work) => work({ query })),
+    } as any;
     const service = new ProductPerformanceSnapshotService(dataSource);
 
     await service.refreshSnapshots({
@@ -107,16 +111,18 @@ describe('ProductPerformanceSnapshotService', () => {
       snapshotDate: '2026-08-01',
     });
 
-    const insertParams = query.mock.calls[2][1];
+    const insertParams = query.mock.calls[3][1];
     expect(insertParams[insertParams.length - 1]).toBeNull();
   });
 
   it('returns 0 and issues no insert when there is nothing to aggregate', async () => {
-    const query = jest.fn();
+    const query = jest.fn().mockResolvedValueOnce(undefined);
     query.mockResolvedValueOnce([]);
     query.mockResolvedValueOnce(undefined);
 
-    const dataSource = { query } as any;
+    const dataSource = {
+      transaction: jest.fn(async (work) => work({ query })),
+    } as any;
     const service = new ProductPerformanceSnapshotService(dataSource);
 
     const count = await service.refreshSnapshots({
@@ -128,6 +134,75 @@ describe('ProductPerformanceSnapshotService', () => {
 
     expect(count).toBe(0);
     // Only the SELECT and the DELETE ran — no INSERT for an empty result set.
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenCalledTimes(3);
+  });
+  it('propagates an insertion failure so replacement is rolled back', async () => {
+    const published = ['old snapshot'];
+    let staged = [...published];
+    const query = jest.fn(async (sql: string) => {
+      if (sql.includes('pg_advisory_xact_lock')) return [];
+      if (sql.includes('WITH policy_agg'))
+        return [
+          {
+            product_id: 'p',
+            currency: 'TZS',
+            earned_premium: '1',
+            gross_written_premium: '1',
+            ceded_premium: '0',
+            commissions: '0',
+            claims_paid: '0',
+            outstanding_reserve: '0',
+            premium_collected: '0',
+            claims_incurred: '0',
+            policies_count: '1',
+            claims_count: '0',
+          },
+        ];
+      if (sql.includes('DELETE FROM')) {
+        staged = [];
+        return;
+      }
+      if (sql.includes('INSERT INTO')) throw new Error('insert failed');
+    });
+    const dataSource = {
+      transaction: jest.fn(async (work) => {
+        staged = [...published];
+        const value = await work({ query });
+        published.splice(0, published.length, ...staged);
+        return value;
+      }),
+    };
+    const service = new ProductPerformanceSnapshotService(dataSource as any);
+    await expect(
+      service.refreshSnapshots({
+        companyId: 'co',
+        periodStart: '2026-01-01',
+        periodEnd: '2026-01-31',
+        snapshotDate: '2026-02-01',
+      }),
+    ).rejects.toThrow('insert failed');
+    expect(published).toEqual(['old snapshot']);
+  });
+  it('rejects invalid aggregate rows before deleting the existing snapshot', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { product_id: 'p', currency: '', earned_premium: '1' },
+      ]);
+    const service = new ProductPerformanceSnapshotService({
+      transaction: async (work: any) => work({ query }),
+    } as any);
+    await expect(
+      service.refreshSnapshots({
+        companyId: 'co',
+        periodStart: '2026-01-01',
+        periodEnd: '2026-01-31',
+        snapshotDate: '2026-02-01',
+      }),
+    ).rejects.toThrow('missing product or currency');
+    expect(
+      query.mock.calls.some(([sql]) => String(sql).includes('DELETE FROM')),
+    ).toBe(false);
   });
 });

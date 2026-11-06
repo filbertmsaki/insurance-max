@@ -3447,6 +3447,13 @@ const permissionSeeds: PermissionSeed[] = [
 // full-access or administrative role.
 const OWN_RECORDS_PERMISSION_NAME = 'data-scope:own-records';
 
+const RISK_REQUIRED_FACTOR_PERMISSION_NAMES = [
+  'risk-required-factors:read',
+  'risk-required-factors:create',
+  'risk-required-factors:update',
+  'risk-required-factors:delete',
+];
+
 const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
   .filter((permission) => permission.scopes.includes('default_company'))
   .map((permission) => permission.name)
@@ -4348,7 +4355,7 @@ const roleSeeds: RoleSeed[] = [
   },
 ];
 
-function withPricingPermissionAliases(permissionNames: string[]): string[] {
+export function withPricingPermissionAliases(permissionNames: string[]): string[] {
   const expanded = new Set(permissionNames);
 
   if (expanded.has('premium-calculation:calculate')) {
@@ -4395,15 +4402,9 @@ function withPricingPermissionAliases(permissionNames: string[]): string[] {
   if (expanded.has('quotations:update')) {
     expanded.add('quotations:complete');
     expanded.add('quotations:submit-approval');
-    expanded.add('quotations:approve');
-    expanded.add('quotations:approve-high-risk');
-    expanded.add('quotations:request-changes');
-    expanded.add('quotations:reject');
     expanded.add('quotations:request-payment');
     expanded.add('quotations:cancel');
     expanded.add('quotation-approvals:read');
-    expanded.add('quotation-approvals:assign');
-    expanded.add('quotation-requirements:waive');
   }
 
   if (expanded.has('quotations:submit')) {
@@ -4781,7 +4782,10 @@ export default class InitialRbacSeeder implements Seeder {
         const permissionNames = [
           ...new Set(
             withUnderwritePermissionAliases(
-              withPricingPermissionAliases(sourcePermissionNames),
+              withPricingPermissionAliases([
+                ...sourcePermissionNames,
+                ...RISK_REQUIRED_FACTOR_PERMISSION_NAMES,
+              ]),
             ),
           ),
         ].filter((name) => !PER_USER_ONLY_PERMISSION_NAMES.has(name));

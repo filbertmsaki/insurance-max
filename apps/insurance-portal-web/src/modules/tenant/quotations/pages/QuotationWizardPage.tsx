@@ -1560,6 +1560,7 @@ export function QuotationWizardPage() {
                         customerOptions={customerOptions}
                         riskOptions={riskOptions}
                         vehicleOptions={vehicleOptions}
+                        productOptions={productOptions}
                         fieldArray={fleetFieldArray}
                         onAddVehicle={addFleetVehicle}
                         onRemoveVehicle={removeFleetVehicle}

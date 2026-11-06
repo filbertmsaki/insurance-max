@@ -20,6 +20,7 @@ import { ApprovalStatus } from '../enums/approval-status.enum';
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { QuotationStatus } from '../enums/quotation-status.enum';
 import { TiraStatus } from '../enums/tira-status.enum';
+import { quotationOfferExpiry } from '../utils/quotation-offer-validity.util';
 
 export interface QuotationLifecycleRequirements {
   requiresApproval: boolean;
@@ -38,12 +39,9 @@ export interface QuotationLifecycleContext {
   tiraRequestId?: string | null;
   tiraResponseId?: string | null;
   metadata?: Record<string, unknown> | null;
-  /**
-   * Set by the caller when the acting user holds `approvals:self-approve`
-   * (see `canSelfApprove`), exempting them from the maker-checker
-   * rule that blocks approving a quotation they submitted for approval.
-   */
+  /** Retained for caller compatibility; underwriting approvals cannot bypass maker-checker. */
   isMakerCheckerExempt?: boolean;
+  startOfferValidity?: boolean;
 }
 
 interface QuotationLifecycleSnapshot {
@@ -156,6 +154,15 @@ export class QuotationLifecycleService {
           return quotation;
         }
 
+        if (
+          context.startOfferValidity &&
+          !quotation.source_policy_transaction_id
+        ) {
+          const now = new Date();
+          quotation.offer_finalized_at = now;
+          quotation.offer_expires_at = quotationOfferExpiry(now);
+          await manager.getRepository(Quotation).save(quotation);
+        }
         const previous = this.snapshot(quotation);
         this.applyRequirementStatus(quotation);
         return this.persistTransition(
@@ -198,6 +205,13 @@ export class QuotationLifecycleService {
       companyId,
       quotationId,
       async (manager, quotation) => {
+        if (
+          quotation.offer_expires_at &&
+          quotation.offer_expires_at.getTime() <= Date.now()
+        ) {
+          throw new ConflictException('Quotation offer has expired.');
+        }
+
         if (!quotation.requires_approval) {
           throw new ConflictException(
             'Approval is not required for this quotation',
@@ -244,6 +258,13 @@ export class QuotationLifecycleService {
       companyId,
       quotationId,
       async (manager, quotation) => {
+        if (
+          quotation.offer_expires_at &&
+          quotation.offer_expires_at.getTime() <= Date.now()
+        ) {
+          throw new ConflictException('Quotation offer has expired.');
+        }
+
         if (!quotation.requires_approval) {
           throw new ConflictException(
             'Approval is not required for this quotation',
@@ -256,15 +277,19 @@ export class QuotationLifecycleService {
           );
         }
 
-        // Maker-checker: whoever submitted the quotation for approval may not
-        // approve it, unless they hold `approvals:self-approve`.
-        const isSelfApproval =
-          !!context.changedBy &&
-          !!quotation.approval_submitted_by &&
-          context.changedBy === quotation.approval_submitted_by;
-        if (isSelfApproval && !context.isMakerCheckerExempt) {
+        // A referral submitter can differ from the quotation's original maker.
+        // Neither may approve the transaction, even with administrative grants.
+        if (!context.changedBy) {
           throw new ForbiddenException(
-            'The user who submitted a quotation for approval cannot approve it (maker-checker).',
+            'An identified user is required to approve a quotation.',
+          );
+        }
+        if (
+          context.changedBy === quotation.created_by ||
+          context.changedBy === quotation.approval_submitted_by
+        ) {
+          throw new ForbiddenException(
+            'The quotation maker or approval submitter cannot approve it (maker-checker).',
           );
         }
 
@@ -282,12 +307,7 @@ export class QuotationLifecycleService {
           quotation,
           previous,
           'APPROVE',
-          isSelfApproval
-            ? {
-                ...context,
-                metadata: { ...context.metadata, self_approved: true },
-              }
-            : context,
+          context,
         );
       },
     );
@@ -379,6 +399,7 @@ export class QuotationLifecycleService {
     companyId: string,
     quotationId: string,
     context: QuotationLifecycleContext = {},
+    manager?: EntityManager,
   ) {
     return this.updatePaymentStatus(
       companyId,
@@ -391,6 +412,7 @@ export class QuotationLifecycleService {
         quotation.payment_request_reference =
           context.paymentTransactionId ?? context.requestId ?? null;
       },
+      manager,
     );
   }
 
@@ -412,6 +434,7 @@ export class QuotationLifecycleService {
     companyId: string,
     quotationId: string,
     context: QuotationLifecycleContext = {},
+    manager?: EntityManager,
   ) {
     return this.updatePaymentStatus(
       companyId,
@@ -419,6 +442,8 @@ export class QuotationLifecycleService {
       PaymentStatus.PARTIALLY_PAID,
       'MARK_PARTIALLY_PAID',
       context,
+      undefined,
+      manager,
     );
   }
 
@@ -426,6 +451,7 @@ export class QuotationLifecycleService {
     companyId: string,
     quotationId: string,
     context: QuotationLifecycleContext = {},
+    manager?: EntityManager,
   ) {
     return this.updatePaymentStatus(
       companyId,
@@ -437,6 +463,7 @@ export class QuotationLifecycleService {
         quotation.payment_completed_at = new Date();
         quotation.payment_failure_reason = null;
       },
+      manager,
     );
   }
 
@@ -495,6 +522,12 @@ export class QuotationLifecycleService {
       companyId,
       quotationId,
       async (manager, quotation) => {
+        if (
+          quotation.offer_expires_at &&
+          quotation.offer_expires_at.getTime() <= Date.now()
+        ) {
+          throw new ConflictException('Quotation offer has expired.');
+        }
         const canRetryFromFailure =
           options.allowRetryFromFailure &&
           this.canRetryTiraSubmission(quotation);
@@ -641,7 +674,8 @@ export class QuotationLifecycleService {
       async (manager, quotation) => {
         if (
           this.isAcceptedTiraStatus(quotation.tira_status) ||
-          quotation.tira_status === TiraStatus.REJECTED
+          quotation.tira_status === TiraStatus.REJECTED ||
+          quotation.tira_status === TiraStatus.FAILED
         ) {
           return quotation;
         }
@@ -762,7 +796,6 @@ export class QuotationLifecycleService {
         if (
           quotation.status === QuotationStatus.CANCELLED ||
           quotation.status === QuotationStatus.EXPIRED ||
-          quotation.status === QuotationStatus.COMPLETED ||
           this.isAcceptedTiraStatus(quotation.tira_status)
         ) {
           return quotation;
@@ -875,11 +908,21 @@ export class QuotationLifecycleService {
     companyId: string,
     quotationId: string,
     context: QuotationLifecycleContext = {},
+    options: { onlyWhenDue?: boolean } = {},
   ) {
     return this.withLockedQuotation(
       companyId,
       quotationId,
       async (manager, quotation) => {
+        if (
+          options.onlyWhenDue &&
+          (!quotation.offer_expires_at ||
+            quotation.offer_expires_at.getTime() > Date.now() ||
+            quotation.tira_status !== TiraStatus.NOT_SUBMITTED ||
+            this.isTerminalQuotationStatus(quotation.status))
+        ) {
+          return quotation;
+        }
         if (this.isTerminalQuotationStatus(quotation.status)) {
           throw new ConflictException(
             `Quotation cannot be expired from ${quotation.status}`,
@@ -986,6 +1029,7 @@ export class QuotationLifecycleService {
     transitionType: string,
     context: QuotationLifecycleContext,
     afterUpdate?: (quotation: Quotation) => void,
+    manager?: EntityManager,
   ) {
     return this.withLockedQuotation(
       companyId,
@@ -1001,12 +1045,16 @@ export class QuotationLifecycleService {
           return quotation;
         }
 
+        const isClosed = [
+          QuotationStatus.CANCELLED,
+          QuotationStatus.EXPIRED,
+          QuotationStatus.REJECTED,
+        ].includes(quotation.status);
+        // Finance must still be able to record a late payment or reversal on a
+        // closed quotation; doing so must not reopen the insurance workflow.
         if (
-          [
-            QuotationStatus.CANCELLED,
-            QuotationStatus.EXPIRED,
-            QuotationStatus.REJECTED,
-          ].includes(quotation.status)
+          isClosed &&
+          !(context.source === 'SYSTEM' && context.changedByType === 'SYSTEM')
         ) {
           throw new ConflictException(
             `Payment cannot be updated while quotation is ${quotation.status}`,
@@ -1016,7 +1064,7 @@ export class QuotationLifecycleService {
         const previous = this.snapshot(quotation);
         quotation.payment_status = nextStatus;
         afterUpdate?.(quotation);
-        this.applyRequirementStatus(quotation);
+        if (!isClosed) this.applyRequirementStatus(quotation);
 
         return this.persistTransition(
           manager,
@@ -1026,10 +1074,23 @@ export class QuotationLifecycleService {
           context,
         );
       },
+      manager,
     );
   }
 
   private applyRequirementStatus(quotation: Quotation) {
+    // Finance updates must not turn an in-flight submission back into a
+    // fresh submission-ready quotation. Preserve the regulatory progress.
+    if (
+      [
+        TiraStatus.SUBMITTING,
+        TiraStatus.SUBMITTED,
+        TiraStatus.PROCESSING,
+      ].includes(quotation.tira_status)
+    ) {
+      return;
+    }
+
     if (quotation.approval_status === ApprovalStatus.CHANGES_REQUESTED) {
       quotation.status = QuotationStatus.DRAFT;
       return;
@@ -1107,8 +1168,9 @@ export class QuotationLifecycleService {
       manager: EntityManager,
       quotation: Quotation,
     ) => Promise<Quotation>,
+    transactionManager?: EntityManager,
   ) {
-    return this.dataSource.transaction(async (manager) => {
+    const run = async (manager: EntityManager) => {
       const quotation = await manager
         .getRepository(Quotation)
         .createQueryBuilder('quotation')
@@ -1123,7 +1185,10 @@ export class QuotationLifecycleService {
       }
 
       return handler(manager, quotation);
-    });
+    };
+    return transactionManager
+      ? run(transactionManager)
+      : this.dataSource.transaction(run);
   }
 
   private async persistTransition(

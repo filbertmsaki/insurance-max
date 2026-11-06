@@ -56,7 +56,8 @@ export class ProductPerformanceReportGenerator implements ReportGenerator {
     }
     if (branchId) {
       query.andWhere('snapshot.branch_id = :branchId', { branchId });
-    } else if (context.allowedBranchIds) {
+    }
+    if (context.allowedBranchIds) {
       if (!allowedBranchIds.length) {
         query.andWhere('1 = 0');
       } else {

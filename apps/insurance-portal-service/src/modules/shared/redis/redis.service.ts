@@ -116,6 +116,24 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  async setIfAbsent(
+    key: string,
+    value: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    if (this.client) {
+      return (
+        (await this.client.set(key, value, 'EX', ttlSeconds, 'NX')) === 'OK'
+      );
+    }
+    if (this.purgeIfExpired(key)) return false;
+    this.fallbackStore.set(key, {
+      value,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    });
+    return true;
+  }
+
   async del(key: string): Promise<void> {
     if (this.client) {
       await this.client.del(key);

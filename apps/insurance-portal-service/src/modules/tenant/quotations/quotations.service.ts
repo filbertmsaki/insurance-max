@@ -36,7 +36,6 @@ import {
   QuotationStage,
   QuotationSubmissionStatus,
   type QuotationBlockingReason,
-  InvoiceStatus,
   ServiceInsuredDataContext,
   ServiceFinanceContext,
   ServicePricingContext,
@@ -303,6 +302,21 @@ const QUOTATION_SUBMIT_TIRAMIS_PERMISSION = 'quotations:submit-tiramis';
 const QUOTATION_RETRY_TIRAMIS_PERMISSION = 'quotations:retry-tiramis';
 const QUOTATION_CANCEL_PERMISSION = 'quotations:cancel';
 const QUOTATION_DELETE_DRAFT_PERMISSION = 'quotations:delete-draft';
+/**
+ * Transitions that must never be driven from the manual status endpoint:
+ * payment outcomes come from Finance (invoice allocation / refunds) and
+ * conversion comes from TIRA issuance.
+ */
+const SYSTEM_ONLY_QUOTATION_TRANSITIONS: ReadonlySet<QuotationStatusTransitionAction> =
+  new Set([
+    QuotationStatusTransitionAction.MARK_PAYMENT_PROCESSING,
+    QuotationStatusTransitionAction.MARK_PARTIALLY_PAID,
+    QuotationStatusTransitionAction.MARK_PAYMENT_PAID,
+    QuotationStatusTransitionAction.MARK_PAYMENT_FAILED,
+    QuotationStatusTransitionAction.MARK_PAYMENT_EXPIRED,
+    QuotationStatusTransitionAction.MARK_PAYMENT_REFUNDED,
+    QuotationStatusTransitionAction.CONVERT,
+  ]);
 const MONEY_TOLERANCE = 0.01;
 const RATE_TOLERANCE = 0.000001;
 const PRICING_VIEW_BREAKDOWN_PERMISSION = 'pricing.view_breakdown';
@@ -457,6 +471,7 @@ export class QuotationsService {
       source: 'USER' as const,
       channel: preparedPayload.internal_quotation.channel_type,
       reason: 'Quotation requirements evaluated after creation',
+      startOfferValidity: true,
     };
 
     try {
@@ -1174,6 +1189,7 @@ export class QuotationsService {
       source: 'USER',
       channel: replacedAggregate.channel_type,
       reason: 'Quotation finalized from draft',
+      startOfferValidity: true,
     });
 
     await this.dataSource.getRepository(Quotation).update(
@@ -3232,15 +3248,12 @@ export class QuotationsService {
   }
 
   private assertPaymentRequestAllowed(quotation: Quotation): void {
+    if (quotation.offer_expires_at && quotation.offer_expires_at.getTime() <= Date.now()) {
+      throw new ConflictException('Quotation offer has expired.');
+    }
     if (quotation.status === QuotationStatus.DRAFT) {
       throw new ConflictException(
         'Complete the quotation before requesting payment',
-      );
-    }
-
-    if (this.isCashPaymentMode(quotation)) {
-      throw new ConflictException(
-        'Cash payment is settled directly when submitting the quotation.',
       );
     }
 
@@ -4565,13 +4578,6 @@ export class QuotationsService {
     tiramisPayload: Record<string, unknown>;
   }> {
     try {
-      await this.ensureCashInvoiceSettledForSubmission(
-        companyId,
-        quotation,
-        submitOptions,
-        userId,
-      );
-
       this.assertTiraSubmissionReadiness(quotation, submitOptions);
 
       if (quotation.requires_payment) {
@@ -4684,8 +4690,7 @@ export class QuotationsService {
 
     const paymentSatisfied =
       !quotation.requires_payment ||
-      quotation.payment_status === PaymentStatus.PAID ||
-      this.isCashPaymentMode(quotation);
+      quotation.payment_status === PaymentStatus.PAID;
     if (!paymentSatisfied) {
       throw new ConflictException(
         `Quotation payment is not complete. Current payment status is ${quotation.payment_status}.`,
@@ -4693,10 +4698,7 @@ export class QuotationsService {
     }
 
     const readyForInitialSubmission =
-      (quotation.status === QuotationStatus.READY_FOR_SUBMISSION ||
-        (this.isCashPaymentMode(quotation) &&
-          approvalSatisfied &&
-          quotation.status === QuotationStatus.PENDING_REQUIREMENTS)) &&
+      quotation.status === QuotationStatus.READY_FOR_SUBMISSION &&
       quotation.tira_status === TiraStatus.NOT_SUBMITTED;
     const readyForRetry =
       !!submitOptions.force_resubmit &&
@@ -6189,10 +6191,18 @@ export class QuotationsService {
     user: Pick<AuthenticatedUser, 'permissions'> | null | undefined,
     action: QuotationStatusTransitionAction,
   ): void {
+    if (SYSTEM_ONLY_QUOTATION_TRANSITIONS.has(action)) {
+      throw new ForbiddenException(
+        `${action} cannot be applied manually. Payment status is set by Finance and conversion by issuance.`,
+      );
+    }
+
     const requiredPermissions = this.requiredPermissionsForTransition(action);
 
     if (requiredPermissions.length === 0) {
-      return;
+      throw new ForbiddenException(
+        `No permission is configured for quotation transition ${action}`,
+      );
     }
 
     this.assertWorkflowPermission(user, requiredPermissions);
@@ -6215,6 +6225,7 @@ export class QuotationsService {
       case QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED:
         return [QUOTATION_REQUEST_PAYMENT_PERMISSION];
       case QuotationStatusTransitionAction.CANCEL:
+      case QuotationStatusTransitionAction.EXPIRE:
         return [QUOTATION_CANCEL_PERMISSION];
       default:
         return [];
@@ -6714,25 +6725,11 @@ export class QuotationsService {
       quotation.quotation_stage ?? this.mapQuotationStageForGate(quotation, {});
     const approvalStatus =
       quotation.approval_status_v2 ?? this.mapApprovalStatusForGate(quotation);
-    const cashPaymentMode = this.isCashPaymentMode(quotation);
-    const approvalSatisfiedForWorkflow =
-      !quotation.requires_approval ||
-      quotation.approval_status === ApprovalStatus.APPROVED;
-    const paymentStatus = cashPaymentMode
-      ? QuotationPaymentStatus.PAID
-      : (quotation.payment_status_v2 ??
-        this.mapPaymentStatusForGate(quotation));
+    const paymentStatus =
+      quotation.payment_status_v2 ?? this.mapPaymentStatusForGate(quotation);
     const submissionStatus =
       quotation.submission_status_v2 ??
-      (cashPaymentMode &&
-      quotation.tira_status === TiraStatus.NOT_SUBMITTED &&
-      approvalSatisfiedForWorkflow &&
-      [
-        QuotationStatus.READY_FOR_SUBMISSION,
-        QuotationStatus.PENDING_REQUIREMENTS,
-      ].includes(quotation.status)
-        ? QuotationSubmissionStatus.READY
-        : this.mapSubmissionStatusForGate(quotation, {}));
+      this.mapSubmissionStatusForGate(quotation, {});
 
     const pricingIntegration = this.canViewPricingBreakdown(user)
       ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
@@ -6953,7 +6950,7 @@ export class QuotationsService {
         reason: quotation.approval_reason ?? null,
       },
       payment: {
-        required: cashPaymentMode ? false : quotation.requires_payment,
+        required: quotation.requires_payment,
         status: paymentStatus,
         mode: null,
         reference: quotation.payment_request_reference ?? null,
@@ -9923,56 +9920,6 @@ export class QuotationsService {
     return Number(quotation.cover_note?.payment_mode) === DEFAULT_PAYMENT_MODE;
   }
 
-  private async ensureCashInvoiceSettledForSubmission(
-    companyId: string,
-    quotation: Quotation,
-    submitOptions: SubmitQuotationDto,
-    userId: string,
-  ): Promise<void> {
-    if (
-      !quotation.requires_payment ||
-      !this.isCashPaymentMode(quotation) ||
-      quotation.payment_status === PaymentStatus.PAID ||
-      (!!submitOptions.return_existing &&
-        quotation.tira_status !== TiraStatus.NOT_SUBMITTED)
-    ) {
-      return;
-    }
-
-    const approvalSatisfied =
-      !quotation.requires_approval ||
-      quotation.approval_status === ApprovalStatus.APPROVED;
-    if (!approvalSatisfied) {
-      return;
-    }
-
-    const invoice = await this.createOrReuseQuotationPaymentInvoice(
-      companyId,
-      quotation,
-      userId,
-      'Cash quotation invoice generated and settled during TIRAMIS submission',
-    );
-
-    await this.settleCashQuotationInvoice(invoice, userId);
-
-    await this.quotationLifecycleService.markPaymentPaid(
-      companyId,
-      quotation.id,
-      {
-        changedBy: userId,
-        changedByType: 'USER',
-        source: 'USER',
-        reason: `Cash payment settled against invoice ${invoice.invoice_no}`,
-        requestId: invoice.id,
-      },
-    );
-
-    quotation.payment_status = PaymentStatus.PAID;
-    quotation.payment_completed_at = new Date();
-    quotation.payment_failure_reason = null;
-    quotation.status = QuotationStatus.READY_FOR_SUBMISSION;
-  }
-
   private async createOrReuseQuotationPaymentInvoice(
     companyId: string,
     quotation: Quotation,
@@ -10039,81 +9986,48 @@ export class QuotationsService {
     return snapshot?.resultHash ?? null;
   }
 
-  private async settleCashQuotationInvoice(
-    invoice: Invoice,
-    userId: string,
-  ): Promise<void> {
-    if (
-      invoice.status === InvoiceStatus.PAID ||
-      invoice.status === InvoiceStatus.OVERPAID
-    ) {
-      return;
-    }
-
-    if (
-      invoice.status === InvoiceStatus.VOIDED ||
-      invoice.status === InvoiceStatus.CANCELLED
-    ) {
-      throw new ConflictException('Cash payment invoice is not active.');
-    }
-
-    const totalAmount = this.numeric(invoice.total_amount ?? 0, 2);
-    const now = new Date();
-
-    invoice.status = InvoiceStatus.PAID;
-    invoice.paid_amount = totalAmount;
-    invoice.allocated_amount = this.numeric(totalAmount, 4);
-    invoice.balance_amount = this.numeric(0, 2);
-    invoice.issued_by = invoice.issued_by ?? userId;
-    invoice.issued_at = invoice.issued_at ?? now;
-    invoice.posted_by = invoice.posted_by ?? userId;
-    invoice.posted_at = invoice.posted_at ?? now;
-    invoice.updated_by = userId;
-    invoice.balance_revision = Number(invoice.balance_revision ?? 0) + 1;
-    invoice.state_version = Number(invoice.state_version ?? 0) + 1;
-
-    await this.dataSource.manager.getRepository(Invoice).save(invoice);
-  }
-
   private async assertPaymentReady(quotation: Quotation): Promise<void> {
-    const invoices: Array<{
-      id: string;
-      status: string;
-      total_amount: string;
-      paid_amount: string;
-      balance_amount: string;
-    }> = await this.dataSource.query(
-      `
-        SELECT
-          id,
-          status,
-          total_amount,
-          paid_amount,
-          balance_amount
-        FROM invoices
-        WHERE quotation_id = $1
-          AND deleted_at IS NULL
-        ORDER BY created_at DESC
-      `,
-      [quotation.id],
+    // A workflow revision advances for status events as well as edits. The
+    // invoice revision is its creation revision, not the current status version.
+    // Check the latest active invoice and its financial evidence instead.
+    const [result] = await this.dataSource.query(
+      `SELECT EXISTS (
+        SELECT 1 FROM invoices i
+        WHERE i.company_id = $1 AND i.quotation_id = $2
+          AND i.source_type = 'QUOTATION' AND i.source_record_id = $2
+          AND i.deleted_at IS NULL AND i.source_revision IS NOT NULL
+          AND i.source_revision <= $3
+          AND i.status IN ('PAID', 'OVERPAID') AND i.total_amount > 0
+          AND i.currency = $4 AND i.total_amount = $5::numeric
+          AND ($6::text IS NULL OR i.pricing_result_hash = $6)
+          AND NOT EXISTS (
+            SELECT 1 FROM invoices newer
+            WHERE newer.company_id = i.company_id AND newer.quotation_id = i.quotation_id
+              AND newer.deleted_at IS NULL AND newer.status NOT IN ('VOID', 'VOIDED', 'CANCELLED')
+              AND (newer.created_at, newer.id) > (i.created_at, i.id)
+          )
+          AND COALESCE((
+            SELECT SUM(a.amount) FROM receipt_allocations a
+            JOIN receipts r ON r.id = a.receipt_id AND r.company_id = i.company_id
+            WHERE a.invoice_id = i.id AND a.company_id = i.company_id
+              AND a.status = 'ACTIVE' AND r.deleted_at IS NULL AND r.posted_at IS NOT NULL
+              AND r.status IN ('POSTED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED')
+              AND a.currency = i.currency AND r.currency = i.currency
+          ), 0) - COALESCE((
+            SELECT SUM(f.amount) FROM finance_refunds f
+            WHERE f.invoice_id = i.id AND f.company_id = i.company_id AND f.status = 'PAID'
+          ), 0) >= i.total_amount
+      ) AS cleared`,
+      [
+        quotation.company_id, quotation.id, Number(quotation.workflow_revision ?? 1),
+        quotation.cover_note?.currency_code?.trim().toUpperCase() ?? 'TZS',
+        quotation.cover_note?.total_premium_including_tax ?? null,
+        this.resolveQuotationPricingResultHash(quotation),
+      ],
     );
-
-    const settled = invoices.some((invoice) => {
-      const status = String(invoice.status).toUpperCase();
-      const totalAmount = Number(invoice.total_amount ?? 0);
-      const paidAmount = Number(invoice.paid_amount ?? 0);
-      const balanceAmount = Number(invoice.balance_amount ?? 0);
-
-      if (['PAID', 'SETTLED'].includes(status)) {
-        return true;
-      }
-
-      return totalAmount > 0 && balanceAmount <= 0 && paidAmount >= totalAmount;
-    });
-
-    if (!settled) {
+    if (!result?.cleared) {
       throw new ConflictException(
-        'Quotation payment is not settled. Generate and settle an invoice before submitting to TIRA.',
+        'Quotation payment requires a posted receipt allocated to the current quotation invoice before submitting to TIRA.',
       );
     }
   }

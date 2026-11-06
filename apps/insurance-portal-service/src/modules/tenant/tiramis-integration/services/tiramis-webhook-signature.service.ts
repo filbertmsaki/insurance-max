@@ -33,7 +33,7 @@ export class TiramisWebhookSignatureService {
 
     this.assertFreshTimestamp(timestamp);
     this.assertPayloadHash(payload, payloadHash);
-    await this.assertNonceUnused(nonce);
+    this.assertValidNonce(nonce);
 
     const secret = this.resolveSigningSecret(request);
     const expected = createHmac('sha256', secret)
@@ -45,7 +45,17 @@ export class TiramisWebhookSignatureService {
       throw new UnauthorizedException('Invalid TIRAMIS webhook signature');
     }
 
-    await this.reserveNonce(nonce);
+    const reserved = await this.redisService.setIfAbsent(
+      `tiramis:webhook:nonce:${nonce}`,
+      '1',
+      2 *
+        this.configService.get<number>(
+          'TIRAMIS_PORTAL_WEBHOOK_SIGNATURE_MAX_AGE_SECONDS',
+          300,
+        ),
+    );
+    if (!reserved)
+      throw new UnauthorizedException('Replayed TIRAMIS webhook nonce');
   }
 
   private requiredHeader(request: Request, name: string): string {
@@ -88,26 +98,10 @@ export class TiramisWebhookSignatureService {
     }
   }
 
-  private async assertNonceUnused(nonce: string): Promise<void> {
+  private assertValidNonce(nonce: string): void {
     if (!/^[a-f0-9-]{16,80}$/i.test(nonce)) {
       throw new UnauthorizedException('Invalid TIRAMIS webhook nonce');
     }
-
-    const key = `tiramis:webhook:nonce:${nonce}`;
-    if (await this.redisService.exists(key)) {
-      throw new UnauthorizedException('Replayed TIRAMIS webhook nonce');
-    }
-  }
-
-  private async reserveNonce(nonce: string): Promise<void> {
-    await this.redisService.set(
-      `tiramis:webhook:nonce:${nonce}`,
-      '1',
-      this.configService.get<number>(
-        'TIRAMIS_PORTAL_WEBHOOK_SIGNATURE_MAX_AGE_SECONDS',
-        300,
-      ),
-    );
   }
 
   private resolveSigningSecret(request: Request): string {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import { UnderwriteLine } from '@insurance-max/contracts';
 import type { NavGroup } from '@/components/layout/nav-config';
 import { buildQuotationDraftPayload } from '@/modules/tenant/quotations/schemas';
@@ -77,6 +77,28 @@ describe('underwrite navigation', () => {
       );
     }
   });
+
+  it.each(['motor', 'fleet', 'non-motor'] as const)(
+    'exposes existing TIRA queues with the same line and operation gates for %s',
+    (slug) => {
+      const label =
+        slug === 'motor' ? 'Motor' : slug === 'fleet' ? 'Fleet' : 'Non-Motor';
+      for (const to of [
+        underwritePaths.tiraPending(slug),
+        underwritePaths.tiraFailed(slug),
+      ]) {
+        const item = group(label).children.find((child) => child.to === to);
+        expect(item?.anyPermissionGroups?.[0]).toContain(
+          `underwrite.${slug.replace('-', '_')}.tira.retry`,
+        );
+        expect(item?.anyPermission).toEqual([
+          'quotations:retry-tiramis',
+          'endorsements:retry-tiramis',
+          'cancellations:submit-tiramis',
+        ]);
+      }
+    },
+  );
 
   it('offers each line its own asset register', () => {
     expect(group('Motor').children.map((item) => item.to)).toContain(

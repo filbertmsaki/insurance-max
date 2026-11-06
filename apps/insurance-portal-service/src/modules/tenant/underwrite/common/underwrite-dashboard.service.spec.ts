@@ -46,6 +46,28 @@ const user: AuthenticatedUser = {
 } as AuthenticatedUser;
 
 describe('UnderwriteDashboardService', () => {
+  it('counts pending and successful TIRA outcomes using the regulatory status axis', async () => {
+    const query = makeQueryBuilder();
+    const service = new UnderwriteDashboardService(
+      { resolve: jest.fn(), applyQuotationReadScope: jest.fn() } as never,
+      { createQueryBuilder: jest.fn(() => query) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    await (service as any).quotationStats(user, UnderwriteLine.MOTOR);
+    expect(query.addSelect).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "quotation.tira_status IN ('SUBMITTING', 'SUBMITTED', 'PROCESSING')",
+      ),
+      'tira_in_progress',
+    );
+    expect(query.addSelect).toHaveBeenCalledWith(
+      expect.stringContaining("quotation.tira_status = 'SUCCESS'"),
+      'completed',
+    );
+  });
+
   it('returns transaction counts using the branch-scoped policy filters', async () => {
     const scope = { allowedBranchIds: ['branch-1'] };
     const renewalQuery = makeQueryBuilder({ total: '2' });

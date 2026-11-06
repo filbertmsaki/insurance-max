@@ -117,7 +117,38 @@ export class PolicyTransactionReturnPremiumService {
       amount: string;
     }> = [];
 
+    // Refund identity and reservations are per receipt/invoice pair, not per
+    // allocation row. Combine rows before subtracting existing reservations.
+    const allocationGroups = new Map<
+      string,
+      {
+        allocation: ReceiptAllocation;
+        amount: ReturnType<typeof DecimalUtil.value>;
+      }
+    >();
     for (const allocation of allocations) {
+      if (
+        allocation.currency !== transaction.currency_code ||
+        allocation.receipt?.currency !== transaction.currency_code
+      ) {
+        continue;
+      }
+      const key = JSON.stringify([
+        allocation.receipt_id,
+        allocation.invoice_id,
+      ]);
+      const group = allocationGroups.get(key);
+      if (group) {
+        group.amount = group.amount.plus(DecimalUtil.value(allocation.amount));
+      } else {
+        allocationGroups.set(key, {
+          allocation,
+          amount: DecimalUtil.value(allocation.amount),
+        });
+      }
+    }
+
+    for (const { allocation, amount: allocated } of allocationGroups.values()) {
       if (remaining.lessThanOrEqualTo(0)) {
         break;
       }
@@ -145,10 +176,9 @@ export class PolicyTransactionReturnPremiumService {
         })
         .getRawOne<{ amount: string }>();
 
-      const available = DecimalUtil.value(allocation.amount).minus(
+      const available = allocated.minus(
         DecimalUtil.value(reserved?.amount ?? 0),
       );
-
       if (available.lessThanOrEqualTo(0)) {
         continue;
       }

@@ -63,10 +63,47 @@ function makeHarness(transaction: any) {
     eventRepo as any,
   );
 
-  return { service, transactionRepo, eventRepo, policyRepo };
+  return {
+    service,
+    transactionRepo,
+    eventRepo,
+    policyRepo,
+    manager,
+    dataSource,
+  };
 }
 
 describe('PolicyTransactionLifecycleService', () => {
+  it('writes the payment transition with the caller transaction manager', async () => {
+    const transaction = makeTransaction({
+      payment_required: true,
+      payment_status: WorkflowPaymentStatus.REQUESTED,
+    });
+    const { service, manager, dataSource, eventRepo } =
+      makeHarness(transaction);
+    await service.markPaymentPaid('company-1', 'txn-1', {}, manager as any);
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(transaction.payment_status).toBe(WorkflowPaymentStatus.PAID);
+    expect(eventRepo.save).toHaveBeenCalled();
+  });
+  it('records payment reversal without reopening an in-flight submission', async () => {
+    const transaction = makeTransaction({
+      payment_required: true,
+      payment_status: WorkflowPaymentStatus.PAID,
+      stage: PolicyTransactionStage.SUBMISSION_PROCESSING,
+      submission_status: WorkflowSubmissionStatus.PROCESSING,
+    });
+    const { service } = makeHarness(transaction);
+    await service.markPaymentRequested('company-1', 'txn-1');
+    expect(transaction.payment_status).toBe(WorkflowPaymentStatus.REQUESTED);
+    expect(transaction.stage).toBe(
+      PolicyTransactionStage.SUBMISSION_PROCESSING,
+    );
+    expect(transaction.submission_status).toBe(
+      WorkflowSubmissionStatus.PROCESSING,
+    );
+  });
+
   describe('approveTransaction', () => {
     it('rejects the maker approving their own transaction', async () => {
       const transaction = makeTransaction({
@@ -81,21 +118,16 @@ describe('PolicyTransactionLifecycleService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
-    it('lets a maker with self-approve rights approve and flags the event', async () => {
-      const transaction = makeTransaction({
-        approval_status: WorkflowApprovalStatus.PENDING,
-      });
-      const { service, eventRepo } = makeHarness(transaction);
-
-      const result = await service.approveTransaction('company-1', 'txn-1', {
-        changedBy: 'maker-user',
-        isMakerCheckerExempt: true,
-      });
-
-      expect(result.approval_status).toBe(WorkflowApprovalStatus.APPROVED);
-      expect(eventRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ metadata: { self_approved: true } }),
+    it('refuses a maker even with self-approve rights', async () => {
+      const { service } = makeHarness(
+        makeTransaction({ approval_status: WorkflowApprovalStatus.PENDING }),
       );
+      await expect(
+        service.approveTransaction('company-1', 'txn-1', {
+          changedBy: 'maker-user',
+          isMakerCheckerExempt: true,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
     it('allows a different checker to approve without a self-approval flag', async () => {

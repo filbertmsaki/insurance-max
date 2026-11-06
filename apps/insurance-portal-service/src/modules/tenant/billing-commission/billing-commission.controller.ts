@@ -8,7 +8,9 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
+import { LegacyBillingReadOnlyGuard } from './guards/legacy-billing-read-only.guard';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
@@ -31,6 +33,7 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 @ApiBearerAuth()
 @Controller('tenant/billing')
 @TenantScoped()
+@UseGuards(LegacyBillingReadOnlyGuard)
 export class BillingCommissionController {
   constructor(
     private readonly billingCommissionService: BillingCommissionService,

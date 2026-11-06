@@ -52,15 +52,6 @@ export class TiramisRetrySchedulerService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async run() {
-    if (
-      !this.configBoolean(
-        'tiramisService.retryEnabled',
-        TIRAMIS_DEFAULTS.retryEnabled,
-      )
-    ) {
-      return;
-    }
-
     if (this.isRunning) {
       return;
     }
@@ -68,7 +59,21 @@ export class TiramisRetrySchedulerService {
     this.isRunning = true;
 
     try {
-      await this.retryFailedDeliveries();
+      if (
+        this.configBoolean(
+          'tiramisService.retryEnabled',
+          TIRAMIS_DEFAULTS.retryEnabled,
+        )
+      ) {
+        try {
+          await this.retryFailedDeliveries();
+        } catch (error: any) {
+          this.logger.error(
+            `TIRAMIS delivery retry failed: ${error?.message || 'Unknown error'}`,
+            error?.stack,
+          );
+        }
+      }
       await this.detectMissingFinalCallbacks();
     } catch (error: any) {
       this.logger.error(

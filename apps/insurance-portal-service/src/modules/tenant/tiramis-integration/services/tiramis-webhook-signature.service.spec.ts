@@ -1,4 +1,4 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+﻿import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { createHash, createHmac } from 'node:crypto';
 
 import { TiramisWebhookSignatureService } from './tiramis-webhook-signature.service';
@@ -32,8 +32,7 @@ describe('TiramisWebhookSignatureService', () => {
     signature?: string;
   }) {
     const redisService = {
-      exists: jest.fn().mockResolvedValue(options?.nonceExists ?? false),
-      set: jest.fn().mockResolvedValue(undefined),
+      setIfAbsent: jest.fn().mockResolvedValue(!options?.nonceExists),
     };
     const configService = {
       get: jest.fn((key: string, fallback?: unknown) => {
@@ -76,11 +75,28 @@ describe('TiramisWebhookSignatureService', () => {
     await expect(service.verify(request as any, payload)).resolves.toBe(
       undefined,
     );
-    expect(redisService.set).toHaveBeenCalledWith(
+    expect(redisService.setIfAbsent).toHaveBeenCalledWith(
       'tiramis:webhook:nonce:0123456789abcdef',
       '1',
-      300,
+      600,
     );
+  });
+
+  it('accepts only one concurrent delivery with the same nonce', async () => {
+    const { service, redisService, request } = createFixture();
+    redisService.setIfAbsent
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const results = await Promise.allSettled([
+      service.verify(request as any, payload),
+      service.verify(request as any, payload),
+    ]);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
   });
 
   it('rejects stale timestamps', async () => {
@@ -119,6 +135,6 @@ describe('TiramisWebhookSignatureService', () => {
     await expect(
       service.verify(request as any, payload),
     ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(redisService.set).not.toHaveBeenCalled();
+    expect(redisService.setIfAbsent).not.toHaveBeenCalled();
   });
 });

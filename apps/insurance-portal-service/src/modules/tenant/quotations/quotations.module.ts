@@ -49,6 +49,7 @@ import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { QuotationDisplayStatusResolver } from './services/quotation-display-status.resolver';
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
+import { QuotationOfferExpiryJob } from './services/quotation-offer-expiry.job';
 import { InsuranceChannelPermissionService } from './authorization/insurance-channel-permission';
 import { QuotationsService } from './quotations.service';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
@@ -120,6 +121,7 @@ import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.serv
     QuotationPayloadValidator,
     QuotationDisplayStatusResolver,
     QuotationLifecycleService,
+    QuotationOfferExpiryJob,
     InsuranceChannelPermissionService,
     IdentifierGeneratorService,
     // Non-Motor finalize gates run inside QuotationsService.finalize.

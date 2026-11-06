@@ -1,5 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
-import { ClaimPaymentStatus } from '../enums/claim.enums';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  ClaimDisbursementStatus,
+  ClaimPaymentStatus,
+} from '../enums/claim.enums';
 import { ClaimDisbursementService } from './claim-disbursement.service';
 
 function makeHarness(params: {
@@ -150,6 +153,105 @@ describe('ClaimDisbursementService', () => {
 
       expect(result).toBe(existing);
       expect(disbursementRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('separation of duties', () => {
+    function makeSodHarness(disbursement: any, payment: any) {
+      const queryBuilder = (result: any) => ({
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(result),
+        getOneOrFail: jest.fn().mockResolvedValue(result),
+      });
+      const save = jest.fn().mockImplementation(async (value) => value);
+      const manager = {
+        getRepository: (entity: any) => {
+          switch (entity?.name) {
+            case 'ClaimDisbursement':
+              return {
+                createQueryBuilder: () => queryBuilder(disbursement),
+                save,
+              };
+            case 'ClaimPayment':
+              return {
+                createQueryBuilder: () => queryBuilder(payment),
+                findOneOrFail: jest.fn().mockResolvedValue(payment),
+                save,
+              };
+            default:
+              throw new Error(`Unexpected entity ${entity?.name}`);
+          }
+        },
+      };
+      const service = new ClaimDisbursementService(
+        { transaction: (fn: any) => fn(manager) } as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
+      return { service, save };
+    }
+
+    const requested = (overrides: any = {}) => ({
+      id: 'disb-1',
+      claim_id: 'claim-1',
+      claim_payment_id: 'payment-1',
+      status: ClaimDisbursementStatus.REQUESTED,
+      requested_by: 'claims-requester',
+      ...overrides,
+    });
+    const approvedPayment = (overrides: any = {}) => ({
+      id: 'payment-1',
+      created_by: 'claims-officer',
+      submitted_by: 'claims-officer',
+      approved_by: 'claims-manager',
+      ...overrides,
+    });
+
+    it.each([
+      ['approved the payment', approvedPayment({ approved_by: 'finance-user' })],
+      ['created the payment', approvedPayment({ created_by: 'finance-user' })],
+      [
+        'submitted the payment',
+        approvedPayment({ submitted_by: 'finance-user' }),
+      ],
+    ])('refuses confirmation by the person who %s', async (_label, payment) => {
+      const { service, save } = makeSodHarness(requested(), payment);
+
+      await expect(
+        service.confirmDisbursement(user, 'disb-1', 'BANK', null),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('refuses confirmation by the person who requested the disbursement', async () => {
+      const { service, save } = makeSodHarness(
+        requested({ requested_by: 'finance-user' }),
+        approvedPayment(),
+      );
+
+      await expect(
+        service.confirmDisbursement(user, 'disb-1', 'BANK', null),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('refuses reversal by the person who confirmed the disbursement', async () => {
+      const { service, save } = makeSodHarness(
+        requested({
+          status: ClaimDisbursementStatus.PAID,
+          confirmed_by: 'finance-user',
+        }),
+        approvedPayment(),
+      );
+
+      await expect(
+        service.reverseDisbursement(user, 'disb-1', 'wrong payee'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(save).not.toHaveBeenCalled();
     });
   });
 });

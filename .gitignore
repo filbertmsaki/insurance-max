@@ -63,6 +63,9 @@ apps/**/.env.*
 # Test overrides only - no secrets; shared so local runs and CI agree.
 !apps/insurance-portal-service/.env.test
 certificates/
+apps/tiramis/src/assets/certificaties/
+*.pfx.*
+**/.env copy*
 *.pfx
 *.p12
 *.pem

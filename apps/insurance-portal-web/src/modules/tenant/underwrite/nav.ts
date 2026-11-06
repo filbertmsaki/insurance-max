@@ -1,5 +1,7 @@
 import {
   CarFront,
+  AlertTriangle,
+  Hourglass,
   Ban,
   FileText,
   FileClock,
@@ -118,6 +120,34 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
       CANCELLATION_VIEW_PERMISSIONS,
     ),
   );
+
+  for (const queue of [
+    {
+      label: 'TIRA pending',
+      to: underwritePaths.tiraPending(line.slug),
+      icon: Hourglass,
+    },
+    {
+      label: 'TIRA exceptions',
+      to: underwritePaths.tiraFailed(line.slug),
+      icon: AlertTriangle,
+    },
+  ]) {
+    children.push(
+      leaf(
+        line,
+        queue.label,
+        queue.to,
+        queue.icon,
+        UnderwriteAction.TIRA_RETRY,
+        [
+          'quotations:retry-tiramis',
+          'endorsements:retry-tiramis',
+          'cancellations:submit-tiramis',
+        ],
+      ),
+    );
+  }
 
   if (line.line === 'MOTOR') {
     children.push(

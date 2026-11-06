@@ -547,6 +547,12 @@ export class TiramisIntegrationService {
 
     await this.createEvent(savedSubmission, payload);
 
+    // A rejected callback may have failed signature verification. It is an
+    // integration exception, not an authenticated regulatory business outcome.
+    if (payload.eventType === 'TIRAMIS_CALLBACK_REJECTED') {
+      return savedSubmission;
+    }
+
     // Claim outcomes are applied from the tracking record by
     // TiramisBusinessRecordSyncService; the quotation, issuance and policy
     // updaters below must never run for claim events.

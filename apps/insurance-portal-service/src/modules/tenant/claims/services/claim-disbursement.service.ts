@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -21,6 +22,27 @@ import { ClaimPayment } from '../entities/claim-payment.entity';
 import { ClaimDisbursement } from '../entities/claim-disbursement.entity';
 import { ClaimFinancialProjectionService } from './claim-financial-projection.service';
 import { ClaimStateMachineService } from './claim-state-machine.service';
+
+/**
+ * Separation of duties for claim payouts. Deliberately has no admin or
+ * self-approve bypass: the person who releases money must not be anyone who
+ * raised, approved or requested it, and a reversal needs a second person.
+ */
+function assertSegregatedFrom(
+  actorId: string,
+  action: string,
+  priorActors: Record<string, string | null | undefined>,
+): void {
+  const conflicts = Object.entries(priorActors)
+    .filter(([, priorActor]) => priorActor && priorActor === actorId)
+    .map(([role]) => role);
+
+  if (conflicts.length > 0) {
+    throw new ForbiddenException(
+      `Separation of duties: you cannot ${action} because you ${conflicts.join(', ')}.`,
+    );
+  }
+}
 
 /**
  * "Finance is the only authority that confirms an actual disbursement"
@@ -159,6 +181,13 @@ export class ClaimDisbursementService {
         .setLock('pessimistic_write')
         .where('payment.id = :id', { id: disbursement.claim_payment_id })
         .getOneOrFail();
+
+      assertSegregatedFrom(user.id, 'confirm this disbursement', {
+        'created the claim payment': payment.created_by,
+        'submitted the claim payment': payment.submitted_by,
+        'approved the claim payment': payment.approved_by,
+        'requested the disbursement': disbursement.requested_by,
+      });
 
       const claim = await manager
         .getRepository(InsuranceClaim)
@@ -311,6 +340,10 @@ export class ClaimDisbursementService {
       if (disbursement.status !== ClaimDisbursementStatus.PAID) {
         throw new ConflictException('Only a paid disbursement can be reversed');
       }
+
+      assertSegregatedFrom(user.id, 'reverse this disbursement', {
+        'confirmed the disbursement': disbursement.confirmed_by,
+      });
 
       disbursement.status = ClaimDisbursementStatus.REVERSED;
       await manager.getRepository(ClaimDisbursement).save(disbursement);
