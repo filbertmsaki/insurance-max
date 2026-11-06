@@ -48,6 +48,7 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
   let officerToken: string;
   let managerToken: string;
   let financeToken: string;
+  let financeConfirmerToken: string;
   let assessorToken: string;
   let outsiderToken: string;
   let sameBranchToken: string;
@@ -372,6 +373,7 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
       ['Manager', 'CLAIMS_MANAGER'],
       // Claims Finance was folded into Claims Manager.
       ['Finance', 'CLAIMS_MANAGER'],
+      ['FinanceConfirmer', 'CLAIMS_MANAGER'],
       ['Assessor', 'CLAIMS_ASSESSOR'],
     ] as const) {
       await addMembership(await createUser(label), companyId, branchId, role);
@@ -433,6 +435,7 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
     otherBranchToken = await login('Elsewhere');
     managerToken = await login('Manager');
     financeToken = await login('Finance');
+    financeConfirmerToken = await login('FinanceConfirmer');
     assessorToken = await login('Assessor');
     outsiderToken = await login('Outsider');
   });
@@ -658,6 +661,16 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
     );
     await call(
       financeToken,
+      'post',
+      `/disbursements/${disbursement.id}/confirm`,
+      {
+        payment_method: 'EFT / bank transfer',
+        provider_reference: `FT${suffix}`,
+      },
+      [403],
+    );
+    await call(
+      financeConfirmerToken,
       'post',
       `/disbursements/${disbursement.id}/confirm`,
       {
