@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { QuotationFlow } from '../../quotations/enums/quotation-flow.enum';
 import { QuotationType } from '../../quotations/enums/quotation-type.enum';
 import { PolicyTransactionContextService } from './policy-transaction-context.service';
@@ -246,6 +247,86 @@ describe('PolicyTransactionContextService', () => {
       ),
     ).toEqual(['T001AAA', 'T003AAA']);
     expect(context.dto.draft_payload['sum_insured']).toBe('130000000.00');
+  });
+
+  it('keeps a fleet renewal with two vehicles on cover as a fleet', () => {
+    const context = service.buildDraftContext({
+      policy: makePolicy(),
+      version: makeVersion(fleetSnapshot()),
+      type: 'RENEWAL',
+      effectiveDate: '2027-09-16',
+      endDate: '2028-09-15',
+      previousCoverNoteReference: 'CN-OLD',
+    });
+
+    expect(context.convertedFromFleet).toBe(false);
+    expect(context.quotationFlow).toBe(QuotationFlow.MOTOR_FLEET);
+    expect(context.dto.is_fleet).toBe(true);
+  });
+
+  it('renews a fleet with one vehicle left on cover as Single Motor (D4a)', () => {
+    const snapshot = fleetSnapshot();
+    const entries = snapshot.entries as Record<string, unknown>[];
+    // Only T003AAA stays on cover.
+    entries[0] = { ...entries[0], status: 'REMOVED' };
+
+    const context = service.buildDraftContext({
+      policy: makePolicy(),
+      version: makeVersion(snapshot),
+      type: 'RENEWAL',
+      effectiveDate: '2027-09-16',
+      endDate: '2028-09-15',
+      previousCoverNoteReference: 'CN-OLD',
+    });
+    const payload = context.dto.draft_payload;
+
+    expect(context.convertedFromFleet).toBe(true);
+    expect(context.quotationFlow).toBe(QuotationFlow.MOTOR_SINGLE);
+    expect(context.dto.quotation_flow).toBe(QuotationFlow.MOTOR_SINGLE);
+    expect(context.dto.is_fleet).toBe(false);
+    expect(payload['quotation_flow']).toBe(QuotationFlow.MOTOR_SINGLE);
+    expect(
+      (payload['motor'] as Record<string, unknown>)['registration_no'],
+    ).toBe('T003AAA');
+    expect(payload['fleet']).toEqual({ header: {}, items: [] });
+    expect((payload['risks'] as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('refuses a fleet renewal with no vehicle left on cover', () => {
+    const snapshot = fleetSnapshot();
+    const entries = snapshot.entries as Record<string, unknown>[];
+    entries[0] = { ...entries[0], status: 'REMOVED' };
+    entries[2] = { ...entries[2], status: 'REMOVED' };
+
+    expect(() =>
+      service.buildDraftContext({
+        policy: makePolicy(),
+        version: makeVersion(snapshot),
+        type: 'RENEWAL',
+        effectiveDate: '2027-09-16',
+        endDate: '2028-09-15',
+        previousCoverNoteReference: 'CN-OLD',
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('never converts a fleet endorsement to Single Motor', () => {
+    const snapshot = fleetSnapshot();
+    const entries = snapshot.entries as Record<string, unknown>[];
+    entries[0] = { ...entries[0], status: 'REMOVED' };
+
+    const context = service.buildDraftContext({
+      policy: makePolicy(),
+      version: makeVersion(snapshot),
+      type: 'ENDORSEMENT',
+      effectiveDate: '2026-10-01',
+      endDate: '2027-09-15',
+      previousCoverNoteReference: 'CN-OLD',
+      endorsementType: 1,
+    });
+
+    expect(context.convertedFromFleet).toBe(false);
+    expect(context.quotationFlow).toBe(QuotationFlow.MOTOR_FLEET);
   });
 
   it('keeps every fleet entry for an endorsement so indices stay stable', () => {

@@ -30,7 +30,8 @@ describe('underwrite lines', () => {
 });
 
 describe('underwrite navigation', () => {
-  const nodes = buildUnderwriteNavNodes();
+  // The pre-cutover (rollback) menu still exists and must stay correct.
+  const nodes = buildUnderwriteNavNodes(false);
   const groups = nodes.filter(
     (node): node is NavGroup => node.kind === 'group',
   );

@@ -71,6 +71,24 @@ export class UnderwriteQuotationsController {
     return this.commands.createDraft(user, line, dto);
   }
 
+  @Post(':id/duplicate')
+  @Permissions('quotations:create')
+  @UnderwriteLineAccess(UnderwriteAction.CREATE)
+  @ApiParam(LINE_PARAM)
+  @ApiBody({ type: SaveQuotationDraftDto })
+  @ApiOperation({
+    summary:
+      'Duplicate a quotation in the line as a new draft (identifiers, approval, payment and TIRA state are not copied)',
+  })
+  duplicate(
+    @CurrentUser() user: AuthenticatedUser,
+    @CurrentUnderwriteLine() line: UnderwriteLine,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SaveQuotationDraftDto,
+  ) {
+    return this.commands.duplicate(user, line, id, dto);
+  }
+
   @Get(':id/edit')
   @Permissions('quotations:update')
   @UnderwriteLineAccess(UnderwriteAction.EDIT)

@@ -29,3 +29,12 @@ export class FilterQuotationDto extends PaginationDto {
   @IsUUID()
   product_id?: string;
 }
+
+/**
+ * Internal list query: adds server-only filters that must never be accepted
+ * from a client (kept off the DTO class so the ValidationPipe never sees them).
+ */
+export type QuotationListQuery = FilterQuotationDto & {
+  /** Several flows at once (Motor Insurance register). */
+  quotation_flows?: QuotationFlow[];
+};

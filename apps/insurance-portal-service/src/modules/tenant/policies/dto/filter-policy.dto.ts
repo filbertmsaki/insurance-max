@@ -19,3 +19,9 @@ export class FilterPolicyDto extends PaginationDto {
   @IsEnum(UnderwriteLine)
   business_line?: UnderwriteLine;
 }
+
+/** Internal list query with server-only filters (never from a client). */
+export type PolicyListQuery = FilterPolicyDto & {
+  /** Several lines at once (Motor Insurance register). */
+  business_lines?: UnderwriteLine[];
+};

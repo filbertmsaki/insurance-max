@@ -5,7 +5,10 @@ import { QuotationType } from '../../quotations/enums/quotation-type.enum';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
-import { FLEET_OFF_COVER_STATUSES } from '../constants/fleet-vehicle-endorsement.constants';
+import {
+  FLEET_MINIMUM_ACTIVE_VEHICLES,
+  FLEET_OFF_COVER_STATUSES,
+} from '../constants/fleet-vehicle-endorsement.constants';
 
 const TIRA_COVER_NOTE_TYPE_RENEWAL = 2;
 const TIRA_COVER_NOTE_TYPE_ENDORSEMENT = 3;
@@ -31,6 +34,8 @@ export interface PolicyTransactionDraftContext {
   snapshot: Record<string, unknown>;
   quotationFlow: QuotationFlow;
   quotationType: QuotationType;
+  /** D4a: a fleet renewal reduced to one vehicle, renewed as Single Motor. */
+  convertedFromFleet: boolean;
   dto: SaveQuotationDraftDto;
   branchContext?: {
     branchId: string;
@@ -68,9 +73,23 @@ export class PolicyTransactionContextService {
       );
     }
 
-    const quotationFlow = String(
+    const sourceFlow = String(
       source['quotationFlow'] ?? QuotationFlow.NON_MOTOR,
     ) as QuotationFlow;
+    // Business decision D4a (2026-11-07): a fleet renewal with fewer than
+    // FLEET_MINIMUM_ACTIVE_VEHICLES vehicles still on cover is renewed as a
+    // Single Motor quotation for the remaining vehicle.
+    const convertedFromFleet =
+      input.type === 'RENEWAL' &&
+      sourceFlow === QuotationFlow.MOTOR_FLEET &&
+      entries.length < FLEET_MINIMUM_ACTIVE_VEHICLES;
+    const quotationFlow = convertedFromFleet
+      ? QuotationFlow.MOTOR_SINGLE
+      : sourceFlow;
+    const previousCoverNoteReference = convertedFromFleet
+      ? (this.resolveEntryPreviousReference(entries[0]) ??
+        input.previousCoverNoteReference)
+      : input.previousCoverNoteReference;
     const quotationType =
       quotationFlow === QuotationFlow.NON_MOTOR
         ? QuotationType.NON_MOTOR
@@ -84,6 +103,8 @@ export class PolicyTransactionContextService {
         : this.asArray(customer['policyHolders']);
     const draftPayload = this.buildDraftPayload({
       ...input,
+      previousCoverNoteReference,
+      convertedFromFleet,
       snapshot,
       source,
       cover,
@@ -122,6 +143,7 @@ export class PolicyTransactionContextService {
       snapshot,
       quotationFlow,
       quotationType,
+      convertedFromFleet,
       dto,
       branchContext: this.buildBranchContext(input.policy, cover),
     };
@@ -139,6 +161,7 @@ export class PolicyTransactionContextService {
       entries: Record<string, unknown>[];
       quotationFlow: QuotationFlow;
       quotationType: QuotationType;
+      convertedFromFleet?: boolean;
     },
   ): Record<string, unknown> {
     const firstEntry = params.entries[0];

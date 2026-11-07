@@ -38,7 +38,7 @@ import { InsuranceChannelPermissionService } from '../quotations/authorization/i
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { User } from '../users/entities/user.entity';
 import { CreatePolicyDto } from './dto/create-policy.dto';
-import { FilterPolicyDto } from './dto/filter-policy.dto';
+import { FilterPolicyDto, type PolicyListQuery } from './dto/filter-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
 import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
 import { PolicyRisk } from './entities/policy-risk.entity';
@@ -564,7 +564,7 @@ export class PoliciesService {
     };
   }
 
-  async findAllForUser(user: AuthenticatedUser, query: FilterPolicyDto) {
+  async findAllForUser(user: AuthenticatedUser, query: PolicyListQuery) {
     const scope = this.dataAccessScopeService.resolve(user, 'policies:read');
     const {
       page = 1,
@@ -635,6 +635,17 @@ export class PoliciesService {
       queryBuilder.andWhere(`${POLICY_BUSINESS_LINE_SQL} = :businessLine`, {
         businessLine: query.business_line,
       });
+    }
+
+    if (query.business_lines) {
+      if (query.business_lines.length === 0) {
+        queryBuilder.andWhere('1 = 0');
+      } else {
+        queryBuilder.andWhere(
+          `${POLICY_BUSINESS_LINE_SQL} IN (:...businessLines)`,
+          { businessLines: query.business_lines },
+        );
+      }
     }
 
     const skip = (page - 1) * limit;

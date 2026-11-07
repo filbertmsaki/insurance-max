@@ -656,6 +656,9 @@ function validateMotorSingle(
   });
 }
 
+/** Minimum vehicles on a new-business fleet quotation (decision D4). */
+export const FLEET_MINIMUM_VEHICLES = 2;
+
 function validateFleet(
   values: z.infer<typeof quotationFormObjectSchema>,
   ctx: z.RefinementCtx,
@@ -667,6 +670,15 @@ function validateFleet(
       message: 'Add at least one fleet vehicle',
     });
     return;
+  }
+
+  // Business decision D4 (2026-11-07); the server enforces the same at finalize.
+  if (values.fleet.items.length < FLEET_MINIMUM_VEHICLES) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['fleet', 'items'],
+      message: `A fleet needs at least ${FLEET_MINIMUM_VEHICLES} vehicles. Add another vehicle or quote it as Single Motor.`,
+    });
   }
 
   const seenRegistration = new Map<string, number>();

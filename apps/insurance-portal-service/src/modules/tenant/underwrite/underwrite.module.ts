@@ -12,6 +12,8 @@ import { PolicyTransaction } from '../policy-transactions/entities/policy-transa
 import { ProductAccessModule } from '../product-access/product-access.module';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationsModule } from '../quotations/quotations.module';
+import { MotorInsuranceQueryService } from './common/motor-insurance-query.service';
+import { MotorInsuranceController } from './motor-insurance.controller';
 import { UnderwriteDashboardService } from './common/underwrite-dashboard.service';
 import { UnderwriteLineGuard } from './common/underwrite-line.guard';
 import { UnderwriteQueryService } from './common/underwrite-query.service';
@@ -59,6 +61,7 @@ import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-s
     ]),
   ],
   controllers: [
+    MotorInsuranceController,
     UnderwriteController,
     UnderwriteLineController,
     UnderwriteQuotationsController,
@@ -68,6 +71,7 @@ import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-s
   ],
   providers: [
     UnderwriteQueryService,
+    MotorInsuranceQueryService,
     UnderwriteQuotationCommandService,
     UnderwriteTransactionsService,
     UnderwriteDashboardService,

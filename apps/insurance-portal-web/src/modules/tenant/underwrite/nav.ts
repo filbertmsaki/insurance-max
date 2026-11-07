@@ -11,6 +11,8 @@ import {
   Users,
 } from 'lucide-react';
 import {
+  MOTOR_INSURANCE_CUTOVER,
+  isMotorInsuranceLine,
   UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
   UnderwriteAction,
   underwritePermission,
@@ -178,7 +180,9 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
   return children;
 }
 
-export function buildUnderwriteNavNodes(): NavNode[] {
+export function buildUnderwriteNavNodes(
+  cutover: boolean = MOTOR_INSURANCE_CUTOVER,
+): NavNode[] {
   const dashboard: NavLeaf = {
     kind: 'link',
     section: 'Underwrite',
@@ -189,7 +193,10 @@ export function buildUnderwriteNavNodes(): NavNode[] {
     allowedScopes: ['company'],
   };
 
-  const lines: NavGroup[] = UNDERWRITE_LINE_META.map((line) => ({
+  // After the MF-7 cutover Motor and Fleet live in the Motor Insurance group.
+  const lines: NavGroup[] = UNDERWRITE_LINE_META.filter(
+    (line) => !(cutover && isMotorInsuranceLine(line.line)),
+  ).map((line) => ({
     kind: 'group',
     label: line.label,
     icon: line.icon,

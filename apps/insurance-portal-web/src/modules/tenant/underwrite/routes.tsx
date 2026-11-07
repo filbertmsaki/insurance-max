@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import {
+  MOTOR_INSURANCE_CUTOVER,
   UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
   UnderwriteAction,
   UnderwriteLine,
@@ -412,47 +413,55 @@ export function renderUnderwriteRoutes() {
       </Route>
 
       {/* Motor: its own wizard (static paths outrank `:line/quotations/:id`). */}
-      <Route
-        element={
-          <ProtectedRoute
-            allPermissions={[
-              underwritePermission(
-                UnderwriteLine.MOTOR,
-                UnderwriteAction.CREATE,
-              ),
-              'quotations:create',
-            ]}
-          />
-        }
-      >
-        <Route
-          path={underwritePaths.quotationCreate('motor')}
-          element={
-            <Page>
-              <MotorQuotationWizardPage />
-            </Page>
-          }
-        />
-      </Route>
-      <Route
-        element={
-          <ProtectedRoute
-            allPermissions={[
-              underwritePermission(UnderwriteLine.MOTOR, UnderwriteAction.EDIT),
-              'quotations:update',
-            ]}
-          />
-        }
-      >
-        <Route
-          path={underwritePaths.quotationEdit('motor', ':id')}
-          element={
-            <Page>
-              <MotorQuotationWizardPage />
-            </Page>
-          }
-        />
-      </Route>
+      {/* After the MF-7 cutover these URLs redirect into /apps/motor. */}
+      {!MOTOR_INSURANCE_CUTOVER && (
+        <>
+          <Route
+            element={
+              <ProtectedRoute
+                allPermissions={[
+                  underwritePermission(
+                    UnderwriteLine.MOTOR,
+                    UnderwriteAction.CREATE,
+                  ),
+                  'quotations:create',
+                ]}
+              />
+            }
+          >
+            <Route
+              path={underwritePaths.quotationCreate('motor')}
+              element={
+                <Page>
+                  <MotorQuotationWizardPage />
+                </Page>
+              }
+            />
+          </Route>
+          <Route
+            element={
+              <ProtectedRoute
+                allPermissions={[
+                  underwritePermission(
+                    UnderwriteLine.MOTOR,
+                    UnderwriteAction.EDIT,
+                  ),
+                  'quotations:update',
+                ]}
+              />
+            }
+          >
+            <Route
+              path={underwritePaths.quotationEdit('motor', ':id')}
+              element={
+                <Page>
+                  <MotorQuotationWizardPage />
+                </Page>
+              }
+            />
+          </Route>
+        </>
+      )}
       <Route
         element={
           <ProtectedRoute
@@ -523,28 +532,31 @@ export function renderUnderwriteRoutes() {
       </Route>
 
       {/* Fleet: its own wizard and vehicle-level detail screens. */}
-      {guardedRoute(
-        [fleetGate(UnderwriteAction.CREATE), 'quotations:create'],
-        underwritePaths.quotationCreate('fleet'),
-        <FleetQuotationWizardPage />,
-      )}
-      {guardedRoute(
-        [fleetGate(UnderwriteAction.EDIT), 'quotations:update'],
-        underwritePaths.quotationEdit('fleet', ':id'),
-        <FleetQuotationWizardPage />,
-      )}
-      {guardedRoute(
-        [fleetGate(UnderwriteAction.VIEW), 'quotations:read'],
-        underwritePaths.quotationDetail('fleet', ':id'),
-        <FleetQuotationDetailPage />,
-      )}
-      {guardedRoute(
-        [fleetGate(UnderwriteAction.POLICIES_VIEW), 'policies:read'],
-        underwritePaths.policyDetail('fleet', ':id'),
-        <UnderwriteTransactionScope>
-          <FleetPolicyDetailPage />
-        </UnderwriteTransactionScope>,
-      )}
+      {/* After the MF-7 cutover these URLs redirect into /apps/motor. */}
+      {!MOTOR_INSURANCE_CUTOVER && [
+        guardedRoute(
+          [fleetGate(UnderwriteAction.CREATE), 'quotations:create'],
+          underwritePaths.quotationCreate('fleet'),
+          <FleetQuotationWizardPage />,
+        ),
+        guardedRoute(
+          [fleetGate(UnderwriteAction.EDIT), 'quotations:update'],
+          underwritePaths.quotationEdit('fleet', ':id'),
+          <FleetQuotationWizardPage />,
+        ),
+        guardedRoute(
+          [fleetGate(UnderwriteAction.VIEW), 'quotations:read'],
+          underwritePaths.quotationDetail('fleet', ':id'),
+          <FleetQuotationDetailPage />,
+        ),
+        guardedRoute(
+          [fleetGate(UnderwriteAction.POLICIES_VIEW), 'policies:read'],
+          underwritePaths.policyDetail('fleet', ':id'),
+          <UnderwriteTransactionScope>
+            <FleetPolicyDetailPage />
+          </UnderwriteTransactionScope>,
+        ),
+      ]}
       {guardedRoute(
         [fleetGate(UnderwriteAction.VIEW), 'motor:read'],
         underwritePaths.fleetRegister,

@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { buildClaimsNavNodes } from '@/modules/tenant/claims/nav';
 import { buildUnderwriteNavNodes } from '@/modules/tenant/underwrite/nav';
+import { buildMotorInsuranceNavNodes } from '@/modules/tenant/motor-insurance/nav';
 
 export interface NavLeaf {
   kind: 'link';
@@ -238,6 +239,7 @@ export const NAV_NODES: NavNode[] = [
     ],
   },
   ...buildUnderwriteNavNodes(),
+  ...buildMotorInsuranceNavNodes(),
   ...buildClaimsNavNodes(),
   {
     kind: 'group',

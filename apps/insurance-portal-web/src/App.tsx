@@ -81,6 +81,7 @@ import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage';
 import { renderClaimsRoutes } from '@/modules/tenant/claims/routes';
 import { renderUnderwriteRoutes } from '@/modules/tenant/underwrite/routes';
+import { renderMotorInsuranceRoutes } from '@/modules/tenant/motor-insurance/routes';
 import { EndorsementTypesPage } from '@/modules/tenant/policies/pages/EndorsementTypesPage';
 import { ComplaintsPage } from '@/modules/tenant/complaints/pages/ComplaintsPage';
 import { ComplaintDetailPage } from '@/modules/tenant/complaints/pages/ComplaintDetailPage';
@@ -557,6 +558,7 @@ export default function App() {
               <Route path="/apps/dashboard/:tab" element={<DashboardPage />} />
 
               {renderUnderwriteRoutes()}
+              {renderMotorInsuranceRoutes()}
               {renderClaimsRoutes()}
 
               <Route

@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { underwritePaths } from '@/modules/tenant/underwrite/paths';
+import { useWizardNavigation } from '@/modules/tenant/underwrite/wizard/wizardNavigation';
 import type { UnderwriteLineSlug } from '@insurance-max/contracts';
 import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
 import {
@@ -115,6 +115,7 @@ export function QuotationDetailPage({
   }>();
   const activeLine: UnderwriteLineSlug = line ?? lineParam ?? 'motor';
   const navigate = useNavigate();
+  const quotationNav = useWizardNavigation();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   useQuotationRealtime(id);
@@ -420,7 +421,7 @@ export function QuotationDetailPage({
         <p className="font-medium">Quotation not found</p>
         <Button
           variant="link"
-          onClick={() => navigate(underwritePaths.quotations(activeLine))}
+          onClick={() => navigate(quotationNav.quotations(activeLine))}
         >
           Back to Quotations
         </Button>
@@ -437,7 +438,7 @@ export function QuotationDetailPage({
     submitMutation.mutate(undefined, {
       onSuccess: () => {
         navigate(
-          underwritePaths.quotationDetail(
+          quotationNav.quotationDetail(
             activeLine,
             preview.overview.quotation_id,
           ),
@@ -613,7 +614,7 @@ export function QuotationDetailPage({
       <QuotationDetailHeader
         preview={preview}
         workflowLabel={friendlyWorkflowLabel}
-        onBack={() => navigate(underwritePaths.quotations(activeLine))}
+        onBack={() => navigate(quotationNav.quotations(activeLine))}
         actions={actionButtons}
       />
 

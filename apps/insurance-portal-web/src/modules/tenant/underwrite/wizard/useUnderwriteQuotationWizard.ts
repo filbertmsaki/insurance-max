@@ -44,7 +44,7 @@ import { useSubjectMatterOptions } from '@/modules/tenant/non-motor/hooks';
 import { underwriteApi } from '../api';
 import { underwriteKeys } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
-import { underwritePaths } from '../paths';
+import { useWizardNavigation } from './wizardNavigation';
 import { defaultValuesForLine } from './defaults';
 
 /**
@@ -127,6 +127,7 @@ export function useUnderwriteQuotationWizard({
     hooksRef.current = hooks;
   });
   const navigate = useNavigate();
+  const wizardNav = useWizardNavigation();
   const queryClient = useQueryClient();
   const isEditMode = Boolean(quotationId);
   const [draftId, setDraftId] = useState<string | null>(quotationId ?? null);
@@ -369,10 +370,10 @@ export function useUnderwriteQuotationWizard({
     toast.error(
       'This quotation cannot be edited in its current status. Please create an endorsement or renewal where required.',
     );
-    navigate(underwritePaths.quotationDetail(line.slug, existingQuotation.id), {
+    navigate(wizardNav.quotationDetail(line.slug, existingQuotation.id), {
       replace: true,
     });
-  }, [existingQuotation, line.slug, navigate]);
+  }, [existingQuotation, line.slug, navigate, wizardNav]);
 
   // Users without channel permission always quote DIRECT (backend enforces).
   useEffect(() => {
@@ -567,7 +568,7 @@ export function useUnderwriteQuotationWizard({
       }
       if (!variables.silent) toast.success('Quotation draft saved');
       if (!quotationId) {
-        navigate(underwritePaths.quotationEdit(line.slug, quotation.id), {
+        navigate(wizardNav.quotationEdit(line.slug, quotation.id), {
           replace: true,
         });
       }
@@ -588,7 +589,7 @@ export function useUnderwriteQuotationWizard({
     onSuccess: (quotation) => {
       onSaved(quotation);
       toast.success('Quotation completed');
-      navigate(underwritePaths.quotationDetail(line.slug, quotation.id));
+      navigate(wizardNav.quotationDetail(line.slug, quotation.id));
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
@@ -599,7 +600,7 @@ export function useUnderwriteQuotationWizard({
       void queryClient.invalidateQueries({ queryKey: underwriteKeys.all });
       void queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       toast.success('Quotation draft deleted');
-      navigate(underwritePaths.quotations(line.slug));
+      navigate(wizardNav.quotations(line.slug));
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
@@ -877,11 +878,11 @@ export function useUnderwriteQuotationWizard({
 
   const deleteDraft = useCallback(() => {
     if (!activeDraftId) {
-      navigate(underwritePaths.quotations(line.slug));
+      navigate(wizardNav.quotations(line.slug));
       return;
     }
     deleteMutation.mutate(activeDraftId);
-  }, [activeDraftId, deleteMutation, line.slug, navigate]);
+  }, [activeDraftId, deleteMutation, line.slug, navigate, wizardNav]);
 
   const errorSteps = steps
     .filter((step) =>

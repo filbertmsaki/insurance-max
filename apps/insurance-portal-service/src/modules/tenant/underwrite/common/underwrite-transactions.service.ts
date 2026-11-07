@@ -89,6 +89,22 @@ const TRANSACTION_TABLE = {
 };
 
 /**
+ * One line, or several (the Motor Insurance module lists Motor and Fleet
+ * together). Single-record checks (`assert*InLine`) stay single-line.
+ */
+export type LineFilter = UnderwriteLine | readonly UnderwriteLine[];
+
+function realLines(line: LineFilter): UnderwriteLine[] {
+  return Array.isArray(line) ? [...line] : [line as UnderwriteLine];
+}
+
+function linesOf(line: LineFilter): UnderwriteLine[] {
+  const lines = Array.isArray(line) ? [...line] : [line as UnderwriteLine];
+  // IN () is invalid SQL; an impossible value keeps the query empty.
+  return lines.length > 0 ? lines : ['__NONE__' as UnderwriteLine];
+}
+
+/**
  * Applies allowlisted search + sort to a scoped query and returns the page
  * window. Scope/filters must already be on the query so count and rows match.
  * Uses offset/limit because the joins are all many-to-one (one row per root).
@@ -166,16 +182,16 @@ export class UnderwriteTransactionsService {
 
   listRenewals(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
   ): Promise<UnderwriteRenewalRow[]>;
   listRenewals(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     table?: TableQueryDto,
   ): Promise<UnderwriteRenewalRow[] | PaginatedResult<UnderwriteRenewalRow>>;
   async listRenewals(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     table?: TableQueryDto,
   ) {
     const query = this.renewalRepository
@@ -184,7 +200,9 @@ export class UnderwriteTransactionsService {
       .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
       .addSelect('policy.policy_no', 'source_policy_no')
       .where('renewal.company_id = :companyId', { companyId: user.companyId! })
-      .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line })
+      .andWhere(`${policyBusinessLineSql('policy')} IN (:...lines)`, {
+        lines: linesOf(line),
+      })
       .orderBy('renewal.created_at', 'DESC');
 
     this.applyPolicyScope(query, user, 'renewals:read');
@@ -246,12 +264,12 @@ export class UnderwriteTransactionsService {
 
   listTransactions(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: Exclude<TransactionKind, 'renewal'>,
   ): Promise<UnderwriteTransactionRow[]>;
   listTransactions(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: Exclude<TransactionKind, 'renewal'>,
     table?: TableQueryDto,
   ): Promise<
@@ -259,7 +277,7 @@ export class UnderwriteTransactionsService {
   >;
   async listTransactions(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: Exclude<TransactionKind, 'renewal'>,
     table?: TableQueryDto,
   ) {
@@ -342,7 +360,7 @@ export class UnderwriteTransactionsService {
 
   async listTiraQueue(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: TiraQueueKind,
     table?: TableQueryDto,
   ) {
@@ -371,7 +389,7 @@ export class UnderwriteTransactionsService {
    */
   private async listTiraQueuePage(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: TiraQueueKind,
     table: TableQueryDto,
   ) {
@@ -531,18 +549,18 @@ export class UnderwriteTransactionsService {
 
   private async listQuotationTiraQueue(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: TiraQueueKind,
   ): Promise<ReturnType<typeof mapQuotationTiraRows>>;
   private async listQuotationTiraQueue(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: TiraQueueKind,
     window: TiraQueueWindow,
   ): Promise<{ rows: ReturnType<typeof mapQuotationTiraRows>; total: number }>;
   private async listQuotationTiraQueue(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: TiraQueueKind,
     window?: TiraQueueWindow,
   ) {
@@ -564,10 +582,19 @@ export class UnderwriteTransactionsService {
       .where('quotation.company_id = :companyId', {
         companyId: user.companyId!,
       })
-      .andWhere('quotation.quotation_flow = :quotationFlow', {
-        quotationFlow: quotationFlowForUnderwriteLine(line),
-      })
       .andWhere('quotation.deleted_at IS NULL');
+
+    // quotation_flow is an enum: an empty line list must not reach the IN().
+    const quotationFlows = realLines(line).map((item) =>
+      quotationFlowForUnderwriteLine(item),
+    );
+    if (quotationFlows.length > 0) {
+      query.andWhere('quotation.quotation_flow IN (:...quotationFlows)', {
+        quotationFlows,
+      });
+    } else {
+      query.andWhere('1 = 0');
+    }
 
     if (kind === 'failed') {
       // TIRA failures only: a REJECTED status alone can be an approval
@@ -624,12 +651,12 @@ export class UnderwriteTransactionsService {
 
   private listTransactionTiraQueue(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: TiraQueueKind,
   ): Promise<ReturnType<typeof mapTransactionTiraRows>>;
   private listTransactionTiraQueue(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: TiraQueueKind,
     window: TiraQueueWindow,
   ): Promise<{
@@ -638,7 +665,7 @@ export class UnderwriteTransactionsService {
   }>;
   private async listTransactionTiraQueue(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind: TiraQueueKind,
     window?: TiraQueueWindow,
   ) {
@@ -688,7 +715,7 @@ export class UnderwriteTransactionsService {
 
   private scopedTransactionQuery(
     user: AuthenticatedUser,
-    line: UnderwriteLine,
+    line: LineFilter,
     kind?: Exclude<TransactionKind, 'renewal'>,
   ) {
     const query = this.transactionRepository
@@ -735,7 +762,9 @@ export class UnderwriteTransactionsService {
       .where('transaction.company_id = :companyId', {
         companyId: user.companyId!,
       })
-      .andWhere(`${policyBusinessLineSql('policy')} = :line`, { line });
+      .andWhere(`${policyBusinessLineSql('policy')} IN (:...lines)`, {
+        lines: linesOf(line),
+      });
 
     this.applyTransactionScope(query, user, 'policies:read', kind);
 

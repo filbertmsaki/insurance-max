@@ -17,7 +17,7 @@ import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { QuotationJourneyProgress } from '@/modules/tenant/quotations/wizard/QuotationJourneyProgress';
-import { underwritePaths } from '../paths';
+import { useWizardNavigation } from './wizardNavigation';
 import type { UnderwriteQuotationWizard } from './useUnderwriteQuotationWizard';
 
 /**
@@ -45,6 +45,7 @@ export function UnderwriteWizardShell({
   onRetryAdditionalLoad?: () => void;
 }) {
   const navigate = useNavigate();
+  const wizardNav = useWizardNavigation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const {
@@ -200,9 +201,9 @@ export function UnderwriteWizardShell({
           )}
           <Button
             variant="outline"
-            onClick={() => navigate(underwritePaths.quotations(line.slug))}
+            onClick={() => navigate(wizardNav.quotations(line.slug))}
           >
-            Back to {line.label} quotations
+            {wizardNav.backLabel ?? `Back to ${line.label} quotations`}
           </Button>
         </div>
       </div>
@@ -222,10 +223,10 @@ export function UnderwriteWizardShell({
                     variant="link"
                     className="h-auto px-0 text-sm"
                     onClick={() =>
-                      navigate(underwritePaths.quotations(line.slug))
+                      navigate(wizardNav.quotations(line.slug))
                     }
                   >
-                    Back to {line.label} quotations
+                    {wizardNav.backLabel ?? `Back to ${line.label} quotations`}
                   </Button>
                 )}
                 {!isFleet && (
