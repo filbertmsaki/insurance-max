@@ -178,7 +178,7 @@ describe('Single Motor and Fleet business acceptance (real database)', () => {
     expect(copy.id).not.toBe(draft.id);
     expect(copy.quotation_no).not.toBe(draft.quotation_no);
     expect(copy.status).toBe('DRAFT');
-    expect(copy.draft_payload).not.toHaveProperty('cover_note_number');
+    expect(copy.draft_payload.cover_note_number).toBe('');
     await commands.finalize(maker, line, draft.id, body);
     const persisted = await quotations.getAuthoritativePayload(
       fx.companyId,
