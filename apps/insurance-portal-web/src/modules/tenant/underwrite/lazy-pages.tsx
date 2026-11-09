@@ -11,14 +11,14 @@ export const UnderwriteLineDashboardPage = lazy(() =>
     default: module.UnderwriteLineDashboardPage,
   })),
 );
-export const UnderwriteQuotationsPage = lazy(() =>
-  import('./pages/UnderwriteQuotationsPage').then((module) => ({
-    default: module.UnderwriteQuotationsPage,
+export const NonMotorQuotationsPage = lazy(() =>
+  import('./non-motor/NonMotorQuotationsPage').then((module) => ({
+    default: module.NonMotorQuotationsPage,
   })),
 );
-export const UnderwritePoliciesPage = lazy(() =>
-  import('./pages/UnderwritePoliciesPage').then((module) => ({
-    default: module.UnderwritePoliciesPage,
+export const NonMotorPoliciesPage = lazy(() =>
+  import('./non-motor/NonMotorPoliciesPage').then((module) => ({
+    default: module.NonMotorPoliciesPage,
   })),
 );
 export const UnderwriteCustomersPage = lazy(() =>
@@ -41,19 +41,14 @@ export const CustomerEditPage = lazy(() =>
     (module) => ({ default: module.CustomerEditPage }),
   ),
 );
-export const UnderwriteTransactionsPage = lazy(() =>
-  import('./pages/UnderwriteTransactionsPage').then((module) => ({
-    default: module.UnderwriteTransactionsPage,
+export const NonMotorTransactionsPage = lazy(() =>
+  import('./non-motor/NonMotorTransactionsPage').then((module) => ({
+    default: module.NonMotorTransactionsPage,
   })),
 );
-export const UnderwriteTiraQueuePage = lazy(() =>
-  import('./pages/UnderwriteTransactionsPage').then((module) => ({
-    default: module.UnderwriteTiraQueuePage,
-  })),
-);
-export const MotorQuotationWizardPage = lazy(() =>
-  import('./motor/MotorQuotationWizardPage').then((module) => ({
-    default: module.MotorQuotationWizardPage,
+export const NonMotorTiraQueuePage = lazy(() =>
+  import('./non-motor/NonMotorTransactionsPage').then((module) => ({
+    default: module.NonMotorTiraQueuePage,
   })),
 );
 export const NonMotorQuotationWizardPage = lazy(() =>
@@ -81,42 +76,6 @@ export const SubjectMattersPage = lazy(() =>
   import('@/modules/tenant/non-motor/pages/SubjectMattersPage').then(
     (module) => ({ default: module.SubjectMattersPage }),
   ),
-);
-export const FleetQuotationWizardPage = lazy(() =>
-  import('./fleet/FleetQuotationWizardPage').then((module) => ({
-    default: module.FleetQuotationWizardPage,
-  })),
-);
-export const FleetQuotationDetailPage = lazy(() =>
-  import('./fleet/FleetDetailPages').then((module) => ({
-    default: module.FleetQuotationDetailPage,
-  })),
-);
-export const FleetPolicyDetailPage = lazy(() =>
-  import('./fleet/FleetDetailPages').then((module) => ({
-    default: module.FleetPolicyDetailPage,
-  })),
-);
-// Central fleet register screen, reused for Fleet > Fleets.
-export const MotorFleetsPage = lazy(() =>
-  import('@/modules/tenant/motor/pages/MotorFleetsPage').then((module) => ({
-    default: module.MotorFleetsPage,
-  })),
-);
-export const MotorFleetDetailPage = lazy(() =>
-  import('@/modules/tenant/motor/pages/MotorFleetDetailPage').then(
-    (module) => ({ default: module.MotorFleetDetailPage }),
-  ),
-);
-export const MotorFleetCreatePage = lazy(() =>
-  import('@/modules/tenant/motor/pages/MotorFleetCreatePage').then(
-    (module) => ({ default: module.MotorFleetCreatePage }),
-  ),
-);
-export const MotorFleetEditPage = lazy(() =>
-  import('@/modules/tenant/motor/pages/MotorFleetEditPage').then((module) => ({
-    default: module.MotorFleetEditPage,
-  })),
 );
 // Central asset registry screen, reused for Motor > Vehicles.
 export const MotorVehiclesPage = lazy(() =>

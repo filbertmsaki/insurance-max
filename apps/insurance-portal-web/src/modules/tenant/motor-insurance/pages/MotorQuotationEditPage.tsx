@@ -11,9 +11,9 @@ import { Button } from '@/components/ui/button';
 import { EmptyState, TableSkeleton } from '@/components/shared/ContentStates';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
-  FleetQuotationWizardPage,
-  MotorQuotationWizardPage,
-} from '@/modules/tenant/underwrite/lazy-pages';
+  FleetQuotationWizard,
+  SingleMotorQuotationWizard,
+} from '../lazy-pages';
 import { motorInsuranceApi, motorInsuranceKeys } from '../api';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { motorInsurancePaths } from '../paths';
@@ -55,7 +55,7 @@ export function MotorQuotationEditPage() {
   }
 
   const isFleet = line === UnderwriteLine.FLEET;
-  const Wizard = isFleet ? FleetQuotationWizardPage : MotorQuotationWizardPage;
+  const Wizard = isFleet ? FleetQuotationWizard : SingleMotorQuotationWizard;
 
   return (
     <MotorWizardNavigation>

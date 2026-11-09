@@ -869,6 +869,9 @@ export interface QuotationListParams {
   limit?: number;
   search?: string;
   status?: QuotationStatus;
+  approval_status?: ApprovalStatus;
+  payment_status?: PaymentStatus;
+  tira_status?: TiraStatus;
   quotation_type?: QuotationType;
   quotation_flow?: QuotationFlow;
   product_id?: string;

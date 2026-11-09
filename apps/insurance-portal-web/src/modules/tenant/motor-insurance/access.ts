@@ -1,7 +1,5 @@
 import {
-  MOTOR_INSURANCE_CUTOVER,
   MOTOR_INSURANCE_LINES,
-  MOTOR_INSURANCE_PREVIEW_PERMISSION,
   UnderwriteAction,
   type UnderwriteActionValue,
   type UnderwriteLine,
@@ -19,18 +17,13 @@ export function motorInsuranceLineGates(action: UnderwriteActionValue) {
   );
 }
 
-/** Before the MF-7 cutover the pilot permission is also required. */
-export function pilotPermissions(cutover = MOTOR_INSURANCE_CUTOVER): string[] {
-  return cutover ? [] : [MOTOR_INSURANCE_PREVIEW_PERMISSION];
-}
-
 export interface MotorInsuranceGate {
   allPermissions: string[];
   anyPermissionGroups: string[][];
 }
 
 /**
- * Route/nav gate: the pilot permission, the line gate of at least one of
+ * Route/nav gate: the line gate of at least one of
  * Motor or Fleet, and the legacy action permission (any one of them when a
  * list is given). The backend enforces the same.
  */
@@ -42,7 +35,7 @@ export function motorInsuranceGate(
     ? legacyPermissions
     : [legacyPermissions];
   return {
-    allPermissions: pilotPermissions(),
+    allPermissions: [],
     anyPermissionGroups: [motorInsuranceLineGates(action), legacy],
   };
 }
@@ -103,7 +96,7 @@ export const MOTOR_INSURANCE_TIRA_GATE = motorInsuranceGate(
 
 /** Any transaction tab visible: used for the "Policy Transactions" nav item. */
 export const MOTOR_INSURANCE_TRANSACTIONS_GATE: MotorInsuranceGate = {
-  allPermissions: pilotPermissions(),
+  allPermissions: [],
   anyPermissionGroups: [
     [
       ...motorInsuranceLineGates(UnderwriteAction.ENDORSEMENTS_VIEW),
@@ -113,3 +106,8 @@ export const MOTOR_INSURANCE_TRANSACTIONS_GATE: MotorInsuranceGate = {
     ],
   ],
 };
+
+export const MOTOR_INSURANCE_CUSTOMERS_GATE = motorInsuranceGate(
+  UnderwriteAction.VIEW,
+  'customers:read',
+);

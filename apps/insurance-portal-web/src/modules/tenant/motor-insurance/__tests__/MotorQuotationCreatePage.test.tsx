@@ -11,9 +11,9 @@ import { MotorQuotationCreatePage } from '../pages/MotorQuotationCreatePage';
 
 // The real wizards are covered by their own tests; here we only need to know
 // which one the page mounted and where it would navigate.
-vi.mock('@/modules/tenant/underwrite/lazy-pages', () => ({
-  MotorQuotationWizardPage: () => <WizardProbe name="single-wizard" />,
-  FleetQuotationWizardPage: () => <WizardProbe name="fleet-wizard" />,
+vi.mock('../lazy-pages', () => ({
+  SingleMotorQuotationWizard: () => <WizardProbe name="single-wizard" />,
+  FleetQuotationWizard: () => <WizardProbe name="fleet-wizard" />,
 }));
 
 function WizardProbe({ name }: { name: string }) {
@@ -114,9 +114,9 @@ describe('MotorQuotationCreatePage', () => {
 });
 
 describe('wizard navigation', () => {
-  it('defaults to the line routes when no provider is set', () => {
+  it('uses canonical Motor Insurance links without a provider', () => {
     expect(defaultWizardNavigation.quotationEdit('fleet', 'q-1')).toBe(
-      '/apps/underwrite/fleet/quotations/q-1/edit',
+      '/apps/motor/quotations/q-1/edit',
     );
   });
 

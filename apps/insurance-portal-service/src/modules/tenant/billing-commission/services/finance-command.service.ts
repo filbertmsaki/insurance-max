@@ -191,8 +191,9 @@ export class FinanceCommandService {
     user: AuthenticatedUser,
     invoiceId: string,
     dto: VoidInvoiceDto,
+    transactionManager?: EntityManager,
   ) {
-    return this.dataSource.transaction(async (manager) => {
+    const run = async (manager: EntityManager) => {
       const invoice = await this.getInvoiceForUpdate(
         manager,
         user.companyId!,
@@ -247,7 +248,10 @@ export class FinanceCommandService {
       });
 
       return saved;
-    });
+    };
+    return transactionManager
+      ? run(transactionManager)
+      : this.dataSource.transaction(run);
   }
 
   async recordManualPayment(
@@ -541,6 +545,28 @@ export class FinanceCommandService {
       throw new ConflictException('The receipt cannot be allocated.');
     }
 
+    // Return an exact replay before checking balances/status changed by its first application.
+    const allocationUnsigned = {
+      receiptId: receipt.id,
+      invoiceId: invoice.id,
+      amount: params.amount.toFixed(4),
+      currencyCode: invoice.currency,
+      idempotencyKey: params.idempotencyKey,
+    };
+
+    const allocationHash = this.hashService.hashDefinition(allocationUnsigned);
+    const existing = await manager.getRepository(ReceiptAllocation).findOne({
+      where: {
+        company_id: user.companyId!,
+        allocation_hash: allocationHash,
+        status: ReceiptAllocationStatus.ACTIVE,
+      },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
     if (
       invoice.status !== InvoiceStatus.ISSUED &&
       invoice.status !== InvoiceStatus.PARTIALLY_PAID
@@ -574,26 +600,6 @@ export class FinanceCommandService {
 
     if (params.amount.greaterThan(invoiceBalance)) {
       throw new BadRequestException('Allocation exceeds the invoice balance.');
-    }
-
-    const allocationUnsigned = {
-      receiptId: receipt.id,
-      invoiceId: invoice.id,
-      amount: params.amount.toFixed(4),
-      currencyCode: invoice.currency,
-      idempotencyKey: params.idempotencyKey,
-    };
-
-    const allocationHash = this.hashService.hashDefinition(allocationUnsigned);
-    const existing = await manager.getRepository(ReceiptAllocation).findOne({
-      where: {
-        allocation_hash: allocationHash,
-        status: ReceiptAllocationStatus.ACTIVE,
-      },
-    });
-
-    if (existing) {
-      return existing;
     }
 
     const allocation = await manager.getRepository(ReceiptAllocation).save(

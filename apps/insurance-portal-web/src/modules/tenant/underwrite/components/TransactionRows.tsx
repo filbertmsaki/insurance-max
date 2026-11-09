@@ -9,15 +9,10 @@ import {
   useServerTable,
   type Column,
 } from '@/components/data-table';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { formatDate, formatMoney } from '@/components/shared/detailFormat';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { useUnderwriteLineParam } from '../hooks';
-import {
-  lineTransactionSource,
-  type TransactionListSource,
-} from './transaction-list-source';
+import type { TransactionListSource } from '../pages/transaction-list-source';
 import type {
   UnderwritePolicyTransactionRow,
   UnderwriteRenewalRow,
@@ -353,57 +348,5 @@ export function TiraRows({
       searchPlaceholder="Search reference, request or customer…"
       emptyMessage={`No ${source.noun} TIRA ${kind} items found`}
     />
-  );
-}
-
-const TITLES: Record<TransactionListKind | TiraListKind, string> = {
-  renewals: 'renewals',
-  endorsements: 'endorsements',
-  cancellations: 'cancellations',
-  failed: 'TIRA failed',
-  pending: 'TIRA pending',
-};
-
-export function UnderwriteTransactionsPage({
-  kind,
-}: {
-  kind: TransactionListKind;
-}) {
-  const line = useUnderwriteLineParam();
-  if (!line) return null;
-
-  return (
-    <div>
-      <PageHeader
-        eyebrow={`Underwrite - ${line.label}`}
-        title={`${line.label} ${TITLES[kind]}`}
-        description={line.description}
-      />
-      {kind === 'renewals' ? (
-        <RenewalRows source={lineTransactionSource(line)} />
-      ) : (
-        <TransactionRows
-          key={kind}
-          source={lineTransactionSource(line)}
-          kind={kind}
-        />
-      )}
-    </div>
-  );
-}
-
-export function UnderwriteTiraQueuePage({ kind }: { kind: TiraListKind }) {
-  const line = useUnderwriteLineParam();
-  if (!line) return null;
-
-  return (
-    <div>
-      <PageHeader
-        eyebrow={`Underwrite - ${line.label}`}
-        title={`${line.label} ${TITLES[kind]}`}
-        description={line.description}
-      />
-      <TiraRows source={lineTransactionSource(line)} kind={kind} />
-    </div>
   );
 }

@@ -270,6 +270,34 @@ describe('Motor Insurance (New) authorization and data scope (real database)', (
       expect(ids).not.toContain(q.fleetOther);
     });
 
+    it('combines approval, payment and TIRAMIS filters without changing scope', async () => {
+      await dataSource.query(
+        `UPDATE quotations SET approval_status='PENDING', payment_status='REQUESTED', tira_status='NOT_SUBMITTED' WHERE id=$1`,
+        [q.motorA],
+      );
+      const filters = {
+        approval_status: 'PENDING',
+        payment_status: 'REQUESTED',
+        tira_status: 'NOT_SUBMITTED',
+        limit: 100,
+      } as any;
+      const result = await service.listQuotations(viewer(ALL), filters);
+      expect(result.items.map((item: { id: string }) => item.id)).toEqual([
+        q.motorA,
+      ]);
+      expect(
+        (
+          await service.listQuotations(
+            viewer(ALL, {
+              assignedBranchIds: [branchB],
+              quotationPolicyDataScope: 'BRANCH',
+            }),
+            filters,
+          )
+        ).items,
+      ).toEqual([]);
+    });
+
     it('filters by type', async () => {
       const fleet = await quotationIds(viewer(ALL), 'fleet');
       expect(fleet).toEqual(expect.arrayContaining([q.fleetA, q.fleetB]));

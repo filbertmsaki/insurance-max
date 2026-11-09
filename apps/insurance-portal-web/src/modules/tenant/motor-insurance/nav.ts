@@ -1,13 +1,14 @@
 import {
-  ArrowLeftRight,
+  FilePenLine,
+  RefreshCw,
+  Ban,
+  Hourglass,
   CarFront,
   FileText,
   ShieldCheck,
-  Truck,
   Users,
 } from 'lucide-react';
 import {
-  MOTOR_INSURANCE_CUTOVER,
   UnderwriteAction,
   UnderwriteLine,
   underwritePermissionsGranting,
@@ -16,8 +17,12 @@ import type { NavLeaf, NavNode } from '@/components/layout/nav-config';
 import { underwritePaths } from '@/modules/tenant/underwrite/paths';
 import {
   MOTOR_INSURANCE_POLICIES_GATE,
+  MOTOR_INSURANCE_CUSTOMERS_GATE,
   MOTOR_INSURANCE_QUOTATIONS_GATE,
-  MOTOR_INSURANCE_TRANSACTIONS_GATE,
+  MOTOR_INSURANCE_ENDORSEMENTS_VIEW_GATE,
+  MOTOR_INSURANCE_RENEWALS_VIEW_GATE,
+  MOTOR_INSURANCE_CANCELLATIONS_VIEW_GATE,
+  MOTOR_INSURANCE_TIRA_GATE,
   type MotorInsuranceGate,
 } from './access';
 import { motorInsurancePaths } from './paths';
@@ -60,14 +65,10 @@ function lineLeaf(
 }
 
 /**
- * Sidebar group for the unified module. Before the MF-7 cutover it is the
- * pilot "Motor Insurance (New)" group beside the old Motor and Fleet groups;
- * after it, it replaces them and also links each line's existing customer,
+ * Sidebar group for the unified Motor Insurance module, including customer,
  * vehicle and fleet registers.
  */
-export function buildMotorInsuranceNavNodes(
-  cutover: boolean = MOTOR_INSURANCE_CUTOVER,
-): NavNode[] {
+export function buildMotorInsuranceNavNodes(): NavNode[] {
   const children: NavLeaf[] = [
     leaf(
       'Quotations',
@@ -82,50 +83,51 @@ export function buildMotorInsuranceNavNodes(
       MOTOR_INSURANCE_POLICIES_GATE,
     ),
     leaf(
-      'Policy Transactions',
-      motorInsurancePaths.transactions(),
-      ArrowLeftRight,
-      MOTOR_INSURANCE_TRANSACTIONS_GATE,
+      'Endorsements',
+      motorInsurancePaths.transactions('endorsements'),
+      FilePenLine,
+      MOTOR_INSURANCE_ENDORSEMENTS_VIEW_GATE,
+    ),
+    leaf(
+      'Renewals',
+      motorInsurancePaths.transactions('renewals'),
+      RefreshCw,
+      MOTOR_INSURANCE_RENEWALS_VIEW_GATE,
+    ),
+    leaf(
+      'Cancellations',
+      motorInsurancePaths.transactions('cancellations'),
+      Ban,
+      MOTOR_INSURANCE_CANCELLATIONS_VIEW_GATE,
+    ),
+    leaf(
+      'TIRAMIS Pending',
+      motorInsurancePaths.transactions('tira-pending'),
+      Hourglass,
+      MOTOR_INSURANCE_TIRA_GATE,
     ),
   ];
 
-  if (cutover) {
-    children.push(
-      lineLeaf(
-        'Motor Customers',
-        underwritePaths.customers('motor'),
-        Users,
-        UnderwriteLine.MOTOR,
-        'customers:read',
-      ),
-      lineLeaf(
-        'Fleet Customers',
-        underwritePaths.customers('fleet'),
-        Users,
-        UnderwriteLine.FLEET,
-        'customers:read',
-      ),
-      lineLeaf(
-        'Vehicles',
-        underwritePaths.motorVehicles,
-        CarFront,
-        UnderwriteLine.MOTOR,
-        'motor:read',
-      ),
-      lineLeaf(
-        'Fleets',
-        underwritePaths.fleetRegister,
-        Truck,
-        UnderwriteLine.FLEET,
-        'motor:read',
-      ),
-    );
-  }
+  children.push(
+    leaf(
+      'Customers',
+      motorInsurancePaths.customers,
+      Users,
+      MOTOR_INSURANCE_CUSTOMERS_GATE,
+    ),
+    lineLeaf(
+      'Vehicles',
+      underwritePaths.motorVehicles,
+      CarFront,
+      UnderwriteLine.MOTOR,
+      'motor:read',
+    ),
+  );
 
   return [
     {
       kind: 'group',
-      label: cutover ? 'Motor Insurance' : 'Motor Insurance (New)',
+      label: 'Motor Insurance',
       icon: CarFront,
       children,
     },

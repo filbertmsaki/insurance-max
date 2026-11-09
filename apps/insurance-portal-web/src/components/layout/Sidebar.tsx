@@ -17,12 +17,7 @@ import {
   type NavNode,
 } from './nav-config';
 import { sidebarLinkClass } from './sidebar-styles';
-
-function isLeafActive(pathname: string, to: string) {
-  if (pathname === to) return true;
-  if (pathname.startsWith(to + '/')) return true;
-  return false;
-}
+import { isNavLinkActive } from './sidebar-navigation';
 
 // ─── Visibility helpers ───────────────────────────────────────────────────────
 
@@ -101,21 +96,24 @@ interface LeafItemProps {
 }
 
 function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
-  const { pathname } = useLocation();
-  const isActive = isLeafActive(pathname, leaf.to);
+  const { pathname, search } = useLocation();
+  const isActive = isNavLinkActive(pathname, search, leaf.to);
 
   if (indented) {
     return (
       <NavLink
         to={leaf.to}
         end={leaf.to === '/apps/dashboard'}
-        className={cn(
-          'relative flex items-center py-[7px] pl-[3.25rem] pr-5 text-[13px] transition-colors duration-150 outline-none',
-          'before:absolute before:left-[2.1rem] before:top-1/2 before:h-px before:w-1.5 before:-translate-y-1/2 before:transition-all',
-          isActive
-            ? 'text-white before:w-2 before:bg-white'
-            : 'text-vz-sidebar-item before:bg-vz-sidebar-item/70 hover:text-white hover:before:bg-white',
-        )}
+        aria-current={isActive ? 'page' : false}
+        className={() =>
+          cn(
+            'relative flex items-center py-[7px] pl-[3.25rem] pr-5 text-[13px] transition-colors duration-150 outline-none',
+            'before:absolute before:left-[2.1rem] before:top-1/2 before:h-px before:w-1.5 before:-translate-y-1/2 before:transition-all',
+            isActive
+              ? 'text-white before:w-2 before:bg-white'
+              : 'text-vz-sidebar-item before:bg-vz-sidebar-item/70 hover:text-white hover:before:bg-white',
+          )
+        }
       >
         <span className="truncate">{leaf.label}</span>
       </NavLink>
@@ -126,11 +124,14 @@ function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
     <NavLink
       to={leaf.to}
       end={leaf.to === '/apps/dashboard'}
-      className={cn(
-        sidebarLinkClass(isActive),
-        collapsed && 'mx-auto h-11 w-11 justify-center rounded-md px-0 py-0',
-        collapsed && isActive && 'bg-white/10',
-      )}
+      aria-current={isActive ? 'page' : false}
+      className={() =>
+        cn(
+          sidebarLinkClass(isActive),
+          collapsed && 'mx-auto h-11 w-11 justify-center rounded-md px-0 py-0',
+          collapsed && isActive && 'bg-white/10',
+        )
+      }
     >
       <leaf.icon className="h-[18px] w-[18px] shrink-0" />
       {!collapsed && <span className="truncate">{leaf.label}</span>}
@@ -163,7 +164,9 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
   const { visibleChildren } = useNavFilter();
 
   const children = visibleChildren(group);
-  const hasActive = children.some((c) => isLeafActive(pathname, c.to));
+  const hasActive = children.some((c) =>
+    isNavLinkActive(pathname, '', c.to.split('?')[0]),
+  );
 
   const [isOpen, setIsOpen] = useState(hasActive);
 

@@ -28,6 +28,20 @@ function landAt(url: string) {
 describe('MF-7 legacy Motor/Fleet redirects', () => {
   it.each([
     ['/apps/underwrite/motor/quotations', '/apps/motor/quotations'],
+    ['/apps/underwrite/fleet/fleets', '/apps/motor/quotations?type=fleet'],
+    ['/apps/underwrite/fleet/fleets/new', '/apps/motor/quotations?type=fleet'],
+    ['/apps/underwrite/fleet/fleets/f-1', '/apps/motor/quotations?type=fleet'],
+    [
+      '/apps/underwrite/fleet/fleets/f-1/edit',
+      '/apps/motor/quotations?type=fleet',
+    ],
+    ['/apps/underwrite/motor/customers', '/apps/motor/customers'],
+    ['/apps/underwrite/fleet/customers', '/apps/motor/customers'],
+    ['/apps/underwrite/fleet/customers/c-1', '/apps/motor/customers/c-1'],
+    [
+      '/apps/underwrite/motor/customers/c-1/edit',
+      '/apps/motor/customers/c-1/edit',
+    ],
     [
       '/apps/underwrite/fleet/quotations/new',
       '/apps/motor/quotations/new?type=fleet',
@@ -55,13 +69,10 @@ describe('MF-7 legacy Motor/Fleet redirects', () => {
       '/apps/underwrite/motor/policies/p-1/renewals/r-1',
       '/apps/motor/policies/p-1/renewals/r-1',
     ],
-    [
-      '/apps/underwrite/fleet/renewals',
-      '/apps/motor/transactions?tab=renewals',
-    ],
+    ['/apps/underwrite/fleet/renewals', '/apps/motor/renewals'],
     [
       '/apps/underwrite/motor/tira-failed',
-      '/apps/motor/transactions?tab=tira-failed',
+      '/apps/motor/quotations?tira_status=FAILED',
     ],
   ])('redirects %s to %s', (from, to) => {
     expect(landAt(from)).toBe(to);
@@ -77,8 +88,6 @@ describe('MF-7 legacy Motor/Fleet redirects', () => {
 
   it.each([
     '/apps/underwrite/motor/vehicles',
-    '/apps/underwrite/fleet/fleets',
-    '/apps/underwrite/motor/customers',
     '/apps/underwrite/fleet/dashboard',
     '/apps/underwrite/non-motor/quotations',
   ])('does not redirect %s', (url) => {

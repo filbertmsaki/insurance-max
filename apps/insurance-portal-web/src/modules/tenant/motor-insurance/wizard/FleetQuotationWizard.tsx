@@ -11,16 +11,16 @@ import { PolicyholderStep } from '@/modules/tenant/quotations/wizard/steps/Polic
 import { SummaryReviewStep } from '@/modules/tenant/quotations/wizard/steps/SummaryReviewStep';
 import type { QuotationWizardStepId } from '@/modules/tenant/quotations/wizard/types';
 import type { FleetCsvRow } from '@/modules/tenant/quotations/wizard/utils/fleetCsvImport';
-import { getUnderwriteLineMeta } from '../lines';
-import { BusinessSourceStep } from '../wizard/steps/BusinessSourceStep';
-import { ProductCoverStep } from '../wizard/steps/ProductCoverStep';
-import { UnderwriteWizardShell } from '../wizard/UnderwriteWizardShell';
+import { getUnderwriteLineMeta } from '@/modules/tenant/underwrite/lines';
+import { BusinessSourceStep } from '@/modules/tenant/underwrite/wizard/steps/BusinessSourceStep';
+import { ProductCoverStep } from '@/modules/tenant/underwrite/wizard/steps/ProductCoverStep';
+import { UnderwriteWizardShell } from '@/modules/tenant/underwrite/wizard/UnderwriteWizardShell';
 import {
   useUnderwriteQuotationWizard,
   type UnderwriteQuotationWizard,
   type UnderwriteWizardStep,
-} from '../wizard/useUnderwriteQuotationWizard';
-import { FleetPremiumStep } from './FleetPremiumStep';
+} from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
+import { FleetPremiumStep } from '@/modules/tenant/underwrite/fleet/FleetPremiumStep';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const FLEET = getUnderwriteLineMeta(UnderwriteLine.FLEET);
@@ -192,7 +192,7 @@ function useFleetVehicleActions(wizard: UnderwriteQuotationWizard) {
   };
 }
 
-export function FleetQuotationWizardPage() {
+export function FleetQuotationWizard() {
   const { id } = useParams<{ id?: string }>();
   const wizard = useUnderwriteQuotationWizard({
     line: FLEET,

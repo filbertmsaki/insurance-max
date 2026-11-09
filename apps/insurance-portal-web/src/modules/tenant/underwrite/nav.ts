@@ -1,5 +1,4 @@
 import {
-  CarFront,
   AlertTriangle,
   Hourglass,
   Ban,
@@ -7,11 +6,9 @@ import {
   FileClock,
   LayoutDashboard,
   ShieldCheck,
-  Truck,
   Users,
 } from 'lucide-react';
 import {
-  MOTOR_INSURANCE_CUTOVER,
   isMotorInsuranceLine,
   UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
   UnderwriteAction,
@@ -151,38 +148,10 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
     );
   }
 
-  if (line.line === 'MOTOR') {
-    children.push(
-      leaf(
-        line,
-        'Vehicles',
-        underwritePaths.motorVehicles,
-        CarFront,
-        UnderwriteAction.VIEW,
-        'motor:read',
-      ),
-    );
-  }
-
-  if (line.line === 'FLEET') {
-    children.push(
-      leaf(
-        line,
-        'Fleets / Vehicles',
-        underwritePaths.fleetRegister,
-        Truck,
-        UnderwriteAction.VIEW,
-        'motor:read',
-      ),
-    );
-  }
-
   return children;
 }
 
-export function buildUnderwriteNavNodes(
-  cutover: boolean = MOTOR_INSURANCE_CUTOVER,
-): NavNode[] {
+export function buildUnderwriteNavNodes(): NavNode[] {
   const dashboard: NavLeaf = {
     kind: 'link',
     section: 'Underwrite',
@@ -193,9 +162,9 @@ export function buildUnderwriteNavNodes(
     allowedScopes: ['company'],
   };
 
-  // After the MF-7 cutover Motor and Fleet live in the Motor Insurance group.
+  // Motor and Fleet business pages are owned by the unified Motor Insurance module.
   const lines: NavGroup[] = UNDERWRITE_LINE_META.filter(
-    (line) => !(cutover && isMotorInsuranceLine(line.line)),
+    (line) => !isMotorInsuranceLine(line.line),
   ).map((line) => ({
     kind: 'group',
     label: line.label,

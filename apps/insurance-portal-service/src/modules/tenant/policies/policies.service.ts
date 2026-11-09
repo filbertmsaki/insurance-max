@@ -512,6 +512,7 @@ export class PoliciesService {
       search,
       policy_status,
       customer_id,
+      quotation_id,
     } = query;
     const allowedSortFields = [
       'policy_no',
@@ -545,6 +546,8 @@ export class PoliciesService {
     }
     if (policy_status)
       qb.andWhere('policy.policy_status = :policy_status', { policy_status });
+    if (quotation_id)
+      qb.andWhere('policy.quotation_id = :quotation_id', { quotation_id });
     if (customer_id)
       qb.andWhere('policy.customer_id = :customer_id', { customer_id });
 
@@ -574,6 +577,7 @@ export class PoliciesService {
       search,
       policy_status,
       customer_id,
+      quotation_id,
     } = query;
 
     const allowedSortFields = [
@@ -625,6 +629,11 @@ export class PoliciesService {
       });
     }
 
+    if (quotation_id) {
+      queryBuilder.andWhere('policy.quotation_id = :quotationId', {
+        quotationId: quotation_id,
+      });
+    }
     if (customer_id) {
       queryBuilder.andWhere('policy.customer_id = :customerId', {
         customerId: customer_id,

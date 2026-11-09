@@ -30,100 +30,28 @@ describe('underwrite lines', () => {
 });
 
 describe('underwrite navigation', () => {
-  // The pre-cutover (rollback) menu still exists and must stay correct.
-  const nodes = buildUnderwriteNavNodes(false);
+  const nodes = buildUnderwriteNavNodes();
   const groups = nodes.filter(
     (node): node is NavGroup => node.kind === 'group',
   );
-  const group = (label: string) => groups.find((item) => item.label === label)!;
-  const lineGroups = () =>
-    groups.filter((item) =>
-      ['Motor', 'Fleet', 'Non-Motor'].includes(item.label),
-    );
-
-  it('renders the dashboard as a direct link above the line groups', () => {
+  it('retains the dashboard and Non-Motor group only', () => {
     expect(nodes[0]).toMatchObject({
       kind: 'link',
-      section: 'Underwrite',
-      label: 'Dashboard',
-      to: '/apps/underwrite/dashboard',
+      to: underwritePaths.dashboard,
       permission: 'underwrite.dashboard.view',
     });
-    expect(groups.map((item) => item.label)).toEqual([
-      'Motor',
-      'Fleet',
-      'Non-Motor',
-    ]);
+    expect(groups.map((group) => group.label)).toEqual(['Non-Motor']);
   });
-
-  it('gates every entry by a line permission', () => {
-    for (const item of lineGroups().flatMap((entry) => entry.children)) {
-      const [gates] = item.anyPermissionGroups ?? [];
-      expect(gates?.length).toBeGreaterThan(0);
-      for (const gate of gates ?? []) {
-        expect(gate).toMatch(/^underwrite\.(motor|fleet|non_motor)\./);
-      }
-    }
-  });
-
-  it('lets line approvers open endorsements and cancellations', () => {
-    const children = group('Motor').children;
-    for (const to of [
-      underwritePaths.endorsements('motor'),
-      underwritePaths.cancellations('motor'),
-    ]) {
-      const item = children.find((child) => child.to === to);
-      expect(item?.anyPermissionGroups?.[0]).toContain(
-        'underwrite.motor.approve',
-      );
-    }
-  });
-
-  it.each(['motor', 'fleet', 'non-motor'] as const)(
-    'exposes existing TIRA queues with the same line and operation gates for %s',
-    (slug) => {
-      const label =
-        slug === 'motor' ? 'Motor' : slug === 'fleet' ? 'Fleet' : 'Non-Motor';
-      for (const to of [
-        underwritePaths.tiraPending(slug),
-        underwritePaths.tiraFailed(slug),
-      ]) {
-        const item = group(label).children.find((child) => child.to === to);
-        expect(item?.anyPermissionGroups?.[0]).toContain(
-          `underwrite.${slug.replace('-', '_')}.tira.retry`,
-        );
-        expect(item?.anyPermission).toEqual([
-          'quotations:retry-tiramis',
-          'endorsements:retry-tiramis',
-          'cancellations:submit-tiramis',
-        ]);
-      }
-    },
-  );
-
-  it('offers each line its own asset register', () => {
-    expect(group('Motor').children.map((item) => item.to)).toContain(
-      underwritePaths.motorVehicles,
+  it('preserves Non-Motor business and operation permissions', () => {
+    const children = groups[0].children;
+    expect(children.map((child) => child.to)).toContain(
+      underwritePaths.quotations('non-motor'),
     );
-    expect(group('Fleet').children.map((item) => item.to)).toContain(
-      underwritePaths.fleetRegister,
-    );
-  });
-
-  it('does not list New Quotation in the sidebar', () => {
-    const links = lineGroups()
-      .flatMap((entry) => entry.children)
-      .map((item) => item.to);
-    for (const slug of ['motor', 'fleet', 'non-motor'] as const) {
-      expect(links).not.toContain(underwritePaths.quotationCreate(slug));
+    for (const child of children) {
+      expect(child.anyPermissionGroups?.[0]?.length).toBeGreaterThan(0);
+      for (const gate of child.anyPermissionGroups?.[0] ?? [])
+        expect(gate).toMatch(/^underwrite\.non_motor\./);
     }
-  });
-
-  it('keeps Non-Motor quoting available without risk admin links', () => {
-    const paths = group('Non-Motor').children.map((item) => item.to);
-    expect(paths).toContain(underwritePaths.quotations('non-motor'));
-    expect(paths).not.toContain(underwritePaths.nonMotorRisks);
-    expect(paths).not.toContain(underwritePaths.riskSchemas);
   });
 });
 

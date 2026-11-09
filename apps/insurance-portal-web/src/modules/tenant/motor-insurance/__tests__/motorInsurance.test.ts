@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-  MOTOR_INSURANCE_CUTOVER,
-  MOTOR_INSURANCE_PREVIEW_PERMISSION,
-} from '@insurance-max/contracts';
 import type { NavGroup } from '@/components/layout/nav-config';
 import { canAccessRoute } from '@/lib/auth/permissions';
 import { buildUnderwriteNavNodes } from '@/modules/tenant/underwrite/nav';
-import { MOTOR_INSURANCE_QUOTATIONS_GATE, pilotPermissions } from '../access';
+import { MOTOR_INSURANCE_QUOTATIONS_GATE } from '../access';
 import { buildMotorInsuranceNavNodes } from '../nav';
 
 function companyUser(permissions: string[]) {
@@ -23,11 +19,7 @@ function companyUser(permissions: string[]) {
 const group = (nodes: ReturnType<typeof buildMotorInsuranceNavNodes>) =>
   nodes[0] as NavGroup;
 
-describe('Motor Insurance access after the MF-7 cutover', () => {
-  it('is cut over', () => {
-    expect(MOTOR_INSURANCE_CUTOVER).toBe(true);
-  });
-
+describe('Motor Insurance permanent unified access', () => {
   it('needs the legacy permission and a Motor or Fleet line gate, no pilot permission', () => {
     const quotations = group(buildMotorInsuranceNavNodes()).children[0];
     const visible = (permissions: string[]) =>
@@ -55,36 +47,36 @@ describe('Motor Insurance access after the MF-7 cutover', () => {
     ).not.toContain('underwrite.non_motor.view');
   });
 
-  it('requires the pilot permission when rolled back', () => {
-    expect(pilotPermissions(false)).toEqual([
-      MOTOR_INSURANCE_PREVIEW_PERMISSION,
-    ]);
-    expect(pilotPermissions(true)).toEqual([]);
-  });
-
   it('replaces the old Motor and Fleet groups and links the line registers', () => {
-    const motorGroup = group(buildMotorInsuranceNavNodes(true));
+    const motorGroup = group(buildMotorInsuranceNavNodes());
     expect(motorGroup.label).toBe('Motor Insurance');
+    expect(
+      motorGroup.children.some((item) => item.label === 'TIRAMIS Exceptions'),
+    ).toBe(false);
+    expect(motorGroup.children.some((item) => item.label === 'Fleets')).toBe(
+      false,
+    );
     expect(motorGroup.children.map((item) => item.to)).toEqual([
       '/apps/motor/quotations',
       '/apps/motor/policies',
-      '/apps/motor/transactions',
-      '/apps/underwrite/motor/customers',
-      '/apps/underwrite/fleet/customers',
+      '/apps/motor/endorsements',
+      '/apps/motor/renewals',
+      '/apps/motor/cancellations',
+      '/apps/motor/tira-pending',
+      '/apps/motor/customers',
       '/apps/underwrite/motor/vehicles',
-      '/apps/underwrite/fleet/fleets',
     ]);
 
-    const underwriteGroups = buildUnderwriteNavNodes(true)
+    const underwriteGroups = buildUnderwriteNavNodes()
       .filter((node) => node.kind === 'group')
       .map((node) => (node as NavGroup).label);
     expect(underwriteGroups).toEqual(['Non-Motor']);
   });
 
   it('shows each register only to users of its line', () => {
-    const [, , , , fleetCustomers, vehicles] = group(
-      buildMotorInsuranceNavNodes(true),
-    ).children;
+    const children = group(buildMotorInsuranceNavNodes()).children;
+    const customers = children.find((item) => item.label === 'Customers')!;
+    const vehicles = children.find((item) => item.label === 'Vehicles')!;
     const motorUser = companyUser([
       'underwrite.motor.view',
       'customers:read',
@@ -92,17 +84,48 @@ describe('Motor Insurance access after the MF-7 cutover', () => {
     ]);
 
     expect(canAccessRoute(motorUser, vehicles)).toBe(true);
-    expect(canAccessRoute(motorUser, fleetCustomers)).toBe(false);
-  });
-
-  it('restores the pilot menu on rollback', () => {
-    const pilot = group(buildMotorInsuranceNavNodes(false));
-    expect(pilot.label).toBe('Motor Insurance (New)');
-    expect(pilot.children).toHaveLength(3);
+    expect(canAccessRoute(motorUser, customers)).toBe(true);
     expect(
-      buildUnderwriteNavNodes(false)
-        .filter((node) => node.kind === 'group')
-        .map((node) => (node as NavGroup).label),
-    ).toEqual(['Motor', 'Fleet', 'Non-Motor']);
+      canAccessRoute(
+        companyUser(['underwrite.fleet.view', 'customers:read']),
+        customers,
+      ),
+    ).toBe(true);
+    expect(canAccessRoute(companyUser(['customers:read']), customers)).toBe(
+      false,
+    );
+    expect(
+      children.filter((item) => /Customers/.test(item.label)),
+    ).toHaveLength(1);
   });
+  it.each([
+    [
+      'Endorsements',
+      'underwrite.fleet.endorsements.view',
+      'endorsements:create',
+    ],
+    ['Renewals', 'underwrite.motor.renewals.view', 'renewals:read'],
+    [
+      'Cancellations',
+      'underwrite.fleet.cancellations.view',
+      'cancellations:read',
+    ],
+    [
+      'TIRAMIS Pending',
+      'underwrite.motor.tira.retry',
+      'quotations:retry-tiramis',
+    ],
+  ])(
+    'gates %s by its line and operation permissions',
+    (label, linePermission, operation) => {
+      const item = group(buildMotorInsuranceNavNodes()).children.find(
+        (child) => child.label === label,
+      )!;
+      expect(
+        canAccessRoute(companyUser([linePermission, operation]), item),
+      ).toBe(true);
+      expect(canAccessRoute(companyUser([linePermission]), item)).toBe(false);
+      expect(canAccessRoute(companyUser([operation]), item)).toBe(false);
+    },
+  );
 });

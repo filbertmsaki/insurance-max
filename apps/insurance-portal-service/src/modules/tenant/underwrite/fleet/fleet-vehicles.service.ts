@@ -42,6 +42,9 @@ export interface FleetSummary {
   comprehensive_insured: number | null;
   register_fleet_id: string | null;
   register_status: string | null;
+  register_sync_status?: string | null;
+  register_sync_error?: string | null;
+  register_sync_attempted_at?: string | null;
   vehicles: FleetVehicleRow[];
   totals: {
     vehicles: number;
@@ -413,10 +416,13 @@ export class FleetVehiclesService {
     if (!quotationId) return this.empty();
 
     const [header] = await this.dataSource.query<RawRow[]>(
-      `SELECT qcn.fleet_id, qcn.fleet_type, qcn.fleet_size,
+      `SELECT q.fleet_register_sync_status, q.fleet_register_sync_error,
+              q.fleet_register_sync_attempted_at,
+              qcn.fleet_id, qcn.fleet_type, qcn.fleet_size,
               qcn.comprehensive_insured,
               fleet.id AS register_fleet_id, fleet.status AS register_status
          FROM quotation_cover_notes qcn
+         JOIN quotations q ON q.id = qcn.quotation_id
          LEFT JOIN motor_fleets fleet
            ON fleet.quotation_id = qcn.quotation_id AND fleet.deleted_at IS NULL
         WHERE qcn.quotation_id = $1
@@ -530,6 +536,9 @@ export class FleetVehiclesService {
           : num(header.comprehensive_insured),
       register_fleet_id: str(header?.register_fleet_id),
       register_status: str(header?.register_status),
+      register_sync_status: str(header?.fleet_register_sync_status),
+      register_sync_error: str(header?.fleet_register_sync_error),
+      register_sync_attempted_at: str(header?.fleet_register_sync_attempted_at),
       vehicles,
       totals: this.totals(vehicles),
     };

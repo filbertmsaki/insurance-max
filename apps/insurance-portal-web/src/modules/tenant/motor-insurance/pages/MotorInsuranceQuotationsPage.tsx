@@ -45,7 +45,13 @@ const STATUS_OPTIONS = [
   'EXPIRED',
 ] as const;
 
-const FILTER_KEYS = ['status', 'type'] as const;
+const FILTER_KEYS = [
+  'status',
+  'type',
+  'approval_status',
+  'payment_status',
+  'tira_status',
+] as const;
 
 const TYPE_FILTER_OPTIONS = [
   { value: 'single', label: 'Single Motor' },
@@ -57,7 +63,7 @@ function isFleetRow(row: QuotationListItem) {
 }
 
 /**
- * Motor Insurance (New) quotation register: Single Motor and Fleet together.
+ * Motor Insurance quotation register: Single Motor and Fleet together.
  * The backend only returns the lines the user holds the line gate for, with
  * the usual data scope applied.
  */
@@ -236,7 +242,7 @@ export function MotorInsuranceQuotationsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Motor Insurance (New)"
+        eyebrow="Motor Insurance"
         title="Quotations"
         description="Single Motor and Fleet quotations in one register."
         action={
@@ -275,6 +281,62 @@ export function MotorInsuranceQuotationsPage() {
               label: value.replace(/_/g, ' '),
             })),
           },
+          ...(
+            [
+              [
+                'approval_status',
+                'Approval',
+                [
+                  'NOT_REQUIRED',
+                  'NOT_SUBMITTED',
+                  'PENDING',
+                  'APPROVED',
+                  'CHANGES_REQUESTED',
+                  'REJECTED',
+                  'CANCELLED',
+                ],
+              ],
+              [
+                'payment_status',
+                'Payment',
+                [
+                  'NOT_REQUIRED',
+                  'NOT_INITIATED',
+                  'REQUESTED',
+                  'PROCESSING',
+                  'PARTIALLY_PAID',
+                  'PAID',
+                  'FAILED',
+                  'EXPIRED',
+                  'CANCELLED',
+                  'REFUNDED',
+                ],
+              ],
+              [
+                'tira_status',
+                'TIRAMIS',
+                [
+                  'NOT_SUBMITTED',
+                  'SUBMITTING',
+                  'SUBMITTED',
+                  'PROCESSING',
+                  'SUCCESS',
+                  'ENDORSED',
+                  'CANCELLED',
+                  'REJECTED',
+                  'FAILED',
+                ],
+              ],
+            ] as const
+          ).map(([key, label, values]) => ({
+            key,
+            label,
+            placeholder: 'All statuses',
+            options: values.map((value) => ({
+              value,
+              label: value.replace(/_/g, ' '),
+            })),
+          })),
         ])}
         emptyMessage="No motor quotations found"
       />

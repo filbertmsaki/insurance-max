@@ -161,7 +161,9 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
   );
 }
 
-export function UnderwritePoliciesPage() {
+export function NonMotorPoliciesPage() {
   const line = useUnderwriteLineParam();
-  return line ? <PoliciesList key={line.slug} line={line} /> : null;
+  return line?.line === 'NON_MOTOR' ? (
+    <PoliciesList key={line.slug} line={line} />
+  ) : null;
 }

@@ -26,7 +26,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { useWizardNavigation } from '@/modules/tenant/underwrite/wizard/wizardNavigation';
 import type { UnderwriteLineSlug } from '@insurance-max/contracts';
-import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
+import {
+  QuotationApprovalTab,
+  QuotationDocumentsTab,
+  QuotationPolicyTab,
+} from '../components/QuotationAdditionalTabs';
 import {
   QuotationHistoryPreview,
   TiramisSubmissionPreview,
@@ -60,6 +64,9 @@ type PremiumOverrideRequestDialogState = {
 
 const QUOTATION_DETAIL_TABS = [
   { id: 'details', label: 'Quotation Details' },
+  { id: 'approval', label: 'Approval' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'policy', label: 'Policy' },
   { id: 'payment', label: 'Payment Details & History' },
   { id: 'tiramis', label: 'TIRAMIS Information' },
   { id: 'history', label: 'Quotation History' },
@@ -69,6 +76,9 @@ const QUOTATION_DETAIL_TABS = [
 const FLEET_DETAIL_TABS = [
   { id: 'details', label: 'Overview' },
   { id: 'vehicles', label: 'Vehicles' },
+  { id: 'approval', label: 'Approval' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'policy', label: 'Policy' },
   { id: 'payment', label: 'Payments' },
   { id: 'tiramis', label: 'TIRAMIS' },
   { id: 'history', label: 'History' },
@@ -689,16 +699,23 @@ export function QuotationDetailPage({
             <>
               <TiramisSubmissionPreview tiramis={preview.tiramis} />
               {tiramisPanel}
-              <div className="min-w-0 p-4 sm:p-6">
-                <CoverNotesSection
-                  quotationId={preview.overview.quotation_id}
-                  tiraAccepted={preview.overview.tira_status === 'SUCCESS'}
-                />
-              </div>
             </>
           )}
         </TabsContent>
 
+        <TabsContent value="approval" className="mt-0 min-w-0">
+          <QuotationApprovalTab preview={preview} workflow={workflow} />
+        </TabsContent>
+        <TabsContent value="documents" className="mt-0 min-w-0">
+          <QuotationDocumentsTab preview={preview} />
+        </TabsContent>
+        <TabsContent value="policy" className="mt-0 min-w-0">
+          <QuotationPolicyTab
+            quotationId={preview.overview.quotation_id}
+            issuanceStatus={preview.overview.tira_status}
+            line={activeLine}
+          />
+        </TabsContent>
         <TabsContent value="history" className="mt-0 min-w-0">
           <QuotationHistoryPreview history={preview.history} />
           <QuotationHistoryPreview

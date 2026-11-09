@@ -13,9 +13,9 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 import {
-  FleetQuotationWizardPage,
-  MotorQuotationWizardPage,
-} from '@/modules/tenant/underwrite/lazy-pages';
+  FleetQuotationWizard,
+  SingleMotorQuotationWizard,
+} from '../lazy-pages';
 import type { MotorInsuranceType } from '../api';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { motorInsurancePaths } from '../paths';
@@ -50,8 +50,8 @@ export function MotorQuotationCreatePage() {
 
   const Wizard =
     selected.type === 'fleet'
-      ? FleetQuotationWizardPage
-      : MotorQuotationWizardPage;
+      ? FleetQuotationWizard
+      : SingleMotorQuotationWizard;
 
   return (
     <MotorWizardNavigation>
@@ -86,7 +86,7 @@ function QuotationTypeChooser() {
         </Link>
       </Button>
       <PageHeader
-        eyebrow="Motor Insurance (New)"
+        eyebrow="Motor Insurance"
         title="New Motor Quotation"
         description="What would you like to insure?"
       />

@@ -970,9 +970,9 @@ export class QuotationsService {
     );
     this.assertDiscountPermissions(preparedPayload, user, existing);
     const premiumChange = this.detectPremiumChange(existing, preparedPayload);
-    const openInvoice = premiumChange
-      ? await this.assertPremiumMayChange(companyId, existing, premiumChange)
-      : null;
+    if (premiumChange) {
+      await this.assertPremiumMayChange(companyId, existing, premiumChange);
+    }
     const lifecycleContext = {
       changedBy: user.id,
       changedByType: 'USER' as const,
@@ -992,6 +992,28 @@ export class QuotationsService {
 
         this.assertQuotationEditable(lockedQuotation);
 
+        // Recheck after taking the row lock: payment may have arrived while pricing.
+        if (premiumChange) {
+          const currentInvoice = await this.assertPremiumMayChange(
+            companyId,
+            lockedQuotation,
+            premiumChange,
+            manager,
+          );
+          await this.resetAfterPremiumChange(
+            companyId,
+            lockedQuotation,
+            premiumChange,
+            currentInvoice,
+            user,
+            manager,
+          );
+          // persistRoot merges the locked state, so carry the reset forward.
+          const reset = await manager
+            .getRepository(Quotation)
+            .findOneByOrFail({ id });
+          Object.assign(lockedQuotation, reset);
+        }
         const previousStatus = lockedQuotation.status;
         const customerId = await this.resolveOrCreateCustomerId(
           manager,
@@ -1034,16 +1056,6 @@ export class QuotationsService {
           shouldEvaluateRequirements = true;
         }
       });
-
-      if (premiumChange) {
-        await this.resetAfterPremiumChange(
-          companyId,
-          existing,
-          premiumChange,
-          openInvoice,
-          user,
-        );
-      }
 
       if (shouldEvaluateRequirements) {
         await this.quotationLifecycleService.evaluateRequirements(
@@ -1281,12 +1293,13 @@ export class QuotationsService {
    * D3a guard, checked before anything is saved: money already received
    * fixes the premium (refunds and adjustments stay a Finance process), and
    * an open invoice for the old amount must still be voidable. Returns that
-   * invoice so it can be voided after the edit is saved.
+   * invoice so the locked transaction can void it with the edit.
    */
   private async assertPremiumMayChange(
     companyId: string,
     existing: Quotation,
     change: { previous: number; current: number },
+    manager?: EntityManager,
   ): Promise<Invoice | null> {
     if (QUOTATION_PAYMENT_LOCKED_STATES.includes(existing.payment_status)) {
       throw new ConflictException({
@@ -1299,7 +1312,11 @@ export class QuotationsService {
 
     if (!this.premiumChangeResetsWorkflow(existing).payment) return null;
 
-    const invoice = await this.findLatestInvoice(companyId, existing.id);
+    const invoice = await this.findLatestInvoice(
+      companyId,
+      existing.id,
+      manager,
+    );
     if (!invoice) return null;
     const status = String(invoice.status).toUpperCase();
     if (['VOID', 'VOIDED', 'CANCELLED'].includes(status)) return null;
@@ -1317,7 +1334,7 @@ export class QuotationsService {
   }
 
   /**
-   * D3/D3a: after an edit changed the premium, void the invoice for the old
+   * D3/D3a: as part of the premium edit, void the invoice for the old
    * amount and send approval back for resubmission. The next payment request
    * issues a new invoice for the new amount.
    */
@@ -1327,6 +1344,7 @@ export class QuotationsService {
     change: { previous: number; current: number },
     openInvoice: Invoice | null,
     user: Pick<AuthenticatedUser, 'id'> & Partial<AuthenticatedUser>,
+    manager?: EntityManager,
   ): Promise<void> {
     const resets = this.premiumChangeResetsWorkflow(existing);
     if (!resets.approval && !resets.payment) return;
@@ -1341,6 +1359,7 @@ export class QuotationsService {
           reason: `${reason}; a new invoice will be issued for quotation ${existing.quotation_no}.`,
           idempotency_key: `quotation:${existing.id}:premium-change:void:${openInvoice.id}`,
         },
+        manager,
       );
     }
 
@@ -1360,30 +1379,34 @@ export class QuotationsService {
           voided_invoice_id: openInvoice?.id ?? null,
         },
       },
+      manager,
     );
 
-    await this.auditService.logCritical({
-      userId: user.id,
-      actorType: 'user',
-      companyId,
-      action: 'quotation.approval.reset_on_premium_change',
-      eventCategory: 'quotation',
-      resource: 'quotation',
-      resourceId: existing.id,
-      reason,
-      beforeState: {
-        premium: change.previous,
-        approval_status: existing.approval_status,
-        payment_status: existing.payment_status,
-        invoice_id: openInvoice?.id ?? null,
+    await this.auditService.logCritical(
+      {
+        userId: user.id,
+        actorType: 'user',
+        companyId,
+        action: 'quotation.approval.reset_on_premium_change',
+        eventCategory: 'quotation',
+        resource: 'quotation',
+        resourceId: existing.id,
+        reason,
+        beforeState: {
+          premium: change.previous,
+          approval_status: existing.approval_status,
+          payment_status: existing.payment_status,
+          invoice_id: openInvoice?.id ?? null,
+        },
+        afterState: {
+          premium: change.current,
+          approval_reset: resets.approval,
+          payment_reset: resets.payment,
+          invoice_voided: Boolean(openInvoice),
+        },
       },
-      afterState: {
-        premium: change.current,
-        approval_reset: resets.approval,
-        payment_reset: resets.payment,
-        invoice_voided: Boolean(openInvoice),
-      },
-    });
+      manager,
+    );
   }
 
   /**
@@ -2441,10 +2464,20 @@ export class QuotationsService {
     }
 
     const submittedAt = new Date();
+    // The business submit service returns the persisted tracking record and
+    // gateway acknowledgement; older adapters also expose requestId directly.
+    const submissionResult = result as {
+      requestId?: unknown;
+      tracking?: { tiramisRequestId?: string | null };
+      tiramis?: { requestId?: string | null };
+    };
     const tiraRequestId =
-      typeof (result as { requestId?: unknown }).requestId === 'string'
-        ? ((result as { requestId?: string }).requestId ?? null)
-        : null;
+      (typeof submissionResult.requestId === 'string'
+        ? submissionResult.requestId
+        : null) ??
+      submissionResult.tracking?.tiramisRequestId ??
+      submissionResult.tiramis?.requestId ??
+      null;
     // TIRA can reject the request in its acknowledgement (e.g. TIRA105)
     // without the call throwing; that must leave the quotation retryable.
     const failedLocalStatus = [
@@ -10256,8 +10289,12 @@ export class QuotationsService {
     }
   }
 
-  private async findLatestInvoice(companyId: string, quotationId: string) {
-    return this.dataSource
+  private async findLatestInvoice(
+    companyId: string,
+    quotationId: string,
+    manager?: EntityManager,
+  ) {
+    return (manager ?? this.dataSource)
       .getRepository(Invoice)
       .createQueryBuilder('invoice')
       .where('invoice.company_id = :companyId', { companyId })

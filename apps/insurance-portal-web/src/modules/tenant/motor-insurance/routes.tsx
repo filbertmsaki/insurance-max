@@ -1,8 +1,16 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute';
-import { Page } from '@/modules/tenant/underwrite/lazy-pages';
 import {
+  Page,
+  CustomerCreatePage,
+  CustomerDetailPage,
+  CustomerEditPage,
+} from '@/modules/tenant/underwrite/lazy-pages';
+import { UnderwriteAction } from '@insurance-max/contracts';
+import {
+  motorInsuranceGate,
+  MOTOR_INSURANCE_CUSTOMERS_GATE,
   MOTOR_INSURANCE_CANCEL_GATE,
   MOTOR_INSURANCE_CANCELLATIONS_VIEW_GATE,
   MOTOR_INSURANCE_CREATE_GATE,
@@ -13,6 +21,7 @@ import {
   MOTOR_INSURANCE_QUOTATIONS_GATE,
   MOTOR_INSURANCE_RENEWALS_VIEW_GATE,
   MOTOR_INSURANCE_TRANSACTIONS_GATE,
+  MOTOR_INSURANCE_TIRA_GATE,
   type MotorInsuranceGate,
 } from './access';
 import {
@@ -20,17 +29,18 @@ import {
   MotorCancellationDetailPage,
   MotorEndorsementPage,
   MotorInsurancePoliciesPage,
+  MotorInsuranceCustomersPage,
   MotorInsuranceQuotationsPage,
   MotorPolicyDetailPage,
   MotorQuotationCreatePage,
   MotorQuotationDetailPage,
   MotorQuotationEditPage,
   MotorRenewalPage,
-  MotorTransactionsPage,
+  MotorTransactionRegisterPage,
 } from './lazy-pages';
 import { renderLegacyMotorRedirects } from './legacyRedirects';
 import { motorInsurancePaths } from './paths';
-import { MOTOR_INSURANCE_CUTOVER } from './cutover';
+import { MotorTransactionsRedirect } from './components/MotorTransactionsRedirect';
 
 function gated(gate: MotorInsuranceGate, path: string, element: ReactNode) {
   return (
@@ -41,11 +51,9 @@ function gated(gate: MotorInsuranceGate, path: string, element: ReactNode) {
 }
 
 /**
- * Routes for `/apps/motor/...` (Motor Insurance (New)). Additive: the
- * existing `/apps/underwrite/motor|fleet/...` routes are untouched. Each
- * route needs the pilot permission, Motor or Fleet access for the action and
- * the existing action permission; pages that open one record also check the
- * record's own line, and the backend enforces everything again.
+ * Permanent quotation, policy and transaction routes for Single Motor and Fleet.
+ * Old URLs are redirect aliases only. Each action retains its line and operation
+ * permissions; record pages resolve and check the stored line on the server.
  */
 export function renderMotorInsuranceRoutes() {
   const P = motorInsurancePaths;
@@ -53,7 +61,28 @@ export function renderMotorInsuranceRoutes() {
     <>
       <Route path={P.root} element={<Navigate to={P.quotations} replace />} />
 
-      {MOTOR_INSURANCE_CUTOVER && renderLegacyMotorRedirects()}
+      {renderLegacyMotorRedirects()}
+
+      {gated(
+        MOTOR_INSURANCE_CUSTOMERS_GATE,
+        P.customers,
+        <MotorInsuranceCustomersPage />,
+      )}
+      {gated(
+        motorInsuranceGate(UnderwriteAction.CREATE, 'customers:create'),
+        P.customerCreate,
+        <CustomerCreatePage />,
+      )}
+      {gated(
+        MOTOR_INSURANCE_CUSTOMERS_GATE,
+        P.customerDetail(':id'),
+        <CustomerDetailPage />,
+      )}
+      {gated(
+        motorInsuranceGate(UnderwriteAction.EDIT, 'customers:update'),
+        P.customerEdit(':id'),
+        <CustomerEditPage />,
+      )}
 
       {gated(
         MOTOR_INSURANCE_CREATE_GATE,
@@ -114,9 +143,35 @@ export function renderMotorInsuranceRoutes() {
       )}
 
       {gated(
+        MOTOR_INSURANCE_ENDORSEMENTS_VIEW_GATE,
+        P.transactions('endorsements'),
+        <MotorTransactionRegisterPage kind="endorsements" />,
+      )}
+      {gated(
+        MOTOR_INSURANCE_RENEWALS_VIEW_GATE,
+        P.transactions('renewals'),
+        <MotorTransactionRegisterPage kind="renewals" />,
+      )}
+      {gated(
+        MOTOR_INSURANCE_CANCELLATIONS_VIEW_GATE,
+        P.transactions('cancellations'),
+        <MotorTransactionRegisterPage kind="cancellations" />,
+      )}
+      {gated(
+        MOTOR_INSURANCE_TIRA_GATE,
+        P.transactions('tira-pending'),
+        <MotorTransactionRegisterPage kind="tira-pending" />,
+      )}
+      {/* Retired exceptions page: show failed quotations in the main register. */}
+      <Route
+        path="/apps/motor/tira-failed"
+        element={<Navigate to={P.failedSubmissions} replace />}
+      />
+
+      {gated(
         MOTOR_INSURANCE_TRANSACTIONS_GATE,
         P.transactions(),
-        <MotorTransactionsPage />,
+        <MotorTransactionsRedirect />,
       )}
     </>
   );

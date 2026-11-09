@@ -4,19 +4,23 @@ export type MotorTransactionTab =
   | 'endorsements'
   | 'cancellations'
   | 'renewals'
-  | 'tira-pending'
-  | 'tira-failed';
+  | 'tira-pending';
 
 /** Routes of the unified Motor Insurance module (pilot). */
 export const motorInsurancePaths = {
   root: '/apps/motor',
   quotations: '/apps/motor/quotations',
+  failedSubmissions: '/apps/motor/quotations?tira_status=FAILED',
   quotationCreate: (type?: MotorInsuranceType) =>
     type
       ? `/apps/motor/quotations/new?type=${type}`
       : '/apps/motor/quotations/new',
   quotationDetail: (id: string) => `/apps/motor/quotations/${id}`,
   quotationEdit: (id: string) => `/apps/motor/quotations/${id}/edit`,
+  customers: '/apps/motor/customers',
+  customerCreate: '/apps/motor/customers/new',
+  customerDetail: (id: string) => `/apps/motor/customers/${id}`,
+  customerEdit: (id: string) => `/apps/motor/customers/${id}/edit`,
   policies: '/apps/motor/policies',
   policyDetail: (id: string) => `/apps/motor/policies/${id}`,
   policyEndorsementCreate: (policyId: string, type?: string) =>
@@ -32,5 +36,5 @@ export const motorInsurancePaths = {
   policyRenewalDetail: (policyId: string, renewalId: string) =>
     `/apps/motor/policies/${policyId}/renewals/${renewalId}`,
   transactions: (tab?: MotorTransactionTab) =>
-    tab ? `/apps/motor/transactions?tab=${tab}` : '/apps/motor/transactions',
+    tab ? `/apps/motor/${tab}` : '/apps/motor/transactions',
 } as const;

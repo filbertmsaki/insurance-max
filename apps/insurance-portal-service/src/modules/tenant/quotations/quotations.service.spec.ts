@@ -767,6 +767,29 @@ describe('QuotationsService', () => {
     };
   }
 
+  it('keeps the request ID from the persisted TIRAMIS tracking response', async () => {
+    const fixture = createServiceFixture();
+    jest
+      .mocked(fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord)
+      .mockResolvedValue({
+        tracking: { tiramisRequestId: 'tracked-request' },
+        tiramis: { requestId: 'tracked-request' },
+      });
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      submitTiramisUser,
+    );
+    expect(
+      fixture.quotationLifecycleService.markTiraSubmitted,
+    ).toHaveBeenCalledWith(
+      'company-1',
+      fixture.quotation.id,
+      expect.objectContaining({ tiraRequestId: 'tracked-request' }),
+    );
+  });
+
   it('submits the final outbound payload to TIRAMIS using camelCase fields', async () => {
     const fixture = createServiceFixture();
 
@@ -1482,6 +1505,7 @@ describe('QuotationsService', () => {
 
     it('voids the old invoice, then resets approval and payment, and audits it', async () => {
       const { fixture, service, existing, finance, lifecycle } = arrange({});
+      const manager = { transaction: true };
       const change = { previous: 100, current: 120 };
 
       const invoice = await service.assertPremiumMayChange(
@@ -1495,6 +1519,7 @@ describe('QuotationsService', () => {
         change,
         invoice,
         user,
+        manager,
       );
 
       expect(finance.voidInvoice).toHaveBeenCalledWith(
@@ -1504,6 +1529,7 @@ describe('QuotationsService', () => {
           idempotency_key:
             'quotation:quotation-1:premium-change:void:invoice-1',
         }),
+        manager,
       );
       expect(lifecycle.resetAfterPremiumChange).toHaveBeenCalledWith(
         'company-1',
@@ -1511,6 +1537,7 @@ describe('QuotationsService', () => {
         expect.objectContaining({
           reason: 'Premium changed from 100.00 to 120.00',
         }),
+        manager,
       );
       expect(finance.voidInvoice.mock.invocationCallOrder[0]).toBeLessThan(
         lifecycle.resetAfterPremiumChange.mock.invocationCallOrder[0],
@@ -1519,6 +1546,7 @@ describe('QuotationsService', () => {
         expect.objectContaining({
           action: 'quotation.approval.reset_on_premium_change',
         }),
+        manager,
       );
     });
 

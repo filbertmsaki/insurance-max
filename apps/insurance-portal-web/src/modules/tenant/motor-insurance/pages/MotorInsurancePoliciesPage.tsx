@@ -36,7 +36,7 @@ const POLICY_STATUS_OPTIONS = [
 const FILTER_KEYS = ['policy_status', 'type'] as const;
 
 /**
- * Motor Insurance (New) policy register. Type comes from the stored
+ * Motor Insurance policy register. Type comes from the stored
  * `business_line`, never from the vehicle count: a fleet reduced to one
  * vehicle is still a fleet.
  */
@@ -152,7 +152,7 @@ export function MotorInsurancePoliciesPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Motor Insurance (New)"
+        eyebrow="Motor Insurance"
         title="Policies"
         description="Single Motor and Fleet policies in one register."
         action={<CompanySwitcher menuLabel="Filter by owner company" />}

@@ -81,6 +81,20 @@ import { QuotationRiskAsset } from './structured/quotation-risk-asset.entity';
   where: 'deleted_at IS NULL',
 })
 export class Quotation {
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  fleet_register_sync_status:
+    | 'PENDING'
+    | 'SYNCED'
+    | 'FAILED'
+    | 'SKIPPED'
+    | null;
+
+  @Column({ type: 'text', nullable: true })
+  fleet_register_sync_error: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  fleet_register_sync_attempted_at: Date | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

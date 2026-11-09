@@ -4,11 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { UnderwriteLine } from '@insurance-max/contracts';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { MotorTransactionsPage } from '../pages/MotorTransactionsPage';
+import { MotorTransactionRegisterPage } from '../pages/MotorTransactionRegisterPage';
+import { MotorTransactionsRedirect } from '../components/MotorTransactionsRedirect';
 import { MotorCancellationCreatePage } from '../pages/MotorPolicyTransactionPages';
 import { buildMotorInsuranceScope } from '../scope';
 
-vi.mock('@/modules/tenant/underwrite/pages/UnderwriteTransactionsPage', () => ({
+vi.mock('@/modules/tenant/underwrite/components/TransactionRows', () => ({
   TransactionRows: ({ kind }: { kind: string }) => (
     <div data-testid="rows">{kind}</div>
   ),
@@ -52,46 +53,49 @@ function LocationProbe() {
   );
 }
 
-describe('MotorTransactionsPage', () => {
-  it('shows only the tabs the user may see', () => {
-    setPermissions([
-      'underwrite.motor.endorsements.view',
-      'endorsements:create',
-      'underwrite.fleet.renewals.view',
-      'renewals:read',
-    ]);
+describe('Independent Motor transaction register pages', () => {
+  it.each([
+    ['endorsements', 'Endorsements', 'endorsements'],
+    ['renewals', 'Renewals', 'renewals'],
+    ['cancellations', 'Cancellations', 'cancellations'],
+    ['tira-pending', 'TIRAMIS Pending', 'tira-pending'],
+  ] as const)('opens %s as a page without tabs', (kind, title, rows) => {
     render(
-      <MemoryRouter initialEntries={['/apps/motor/transactions']}>
-        <MotorTransactionsPage />
+      <MemoryRouter>
+        <MotorTransactionRegisterPage kind={kind} />
       </MemoryRouter>,
     );
-
+    expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
+    expect(screen.getByTestId('rows')).toHaveTextContent(rows);
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('tab', { name: 'Endorsements' }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Renewals' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Cancellations' })).toBeNull();
-    expect(screen.queryByRole('tab', { name: /TIRA/ })).toBeNull();
-    expect(screen.getByTestId('rows')).toHaveTextContent('endorsements');
+      screen.queryByRole('heading', { name: 'Policy Transactions' }),
+    ).not.toBeInTheDocument();
   });
-
-  it('opens the tab named in the URL', () => {
-    setPermissions([
-      'underwrite.fleet.cancellations.view',
-      'cancellations:read',
-      'underwrite.fleet.endorsements.view',
-      'endorsements:create',
-    ]);
-    render(
-      <MemoryRouter
-        initialEntries={['/apps/motor/transactions?tab=cancellations']}
-      >
-        <MotorTransactionsPage />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByTestId('rows')).toHaveTextContent('cancellations');
-  });
+  it.each([
+    ['renewals', '/apps/motor/renewals?page=2'],
+    ['tira-failed', '/apps/motor/quotations?tira_status=FAILED&page=2'],
+  ])(
+    'redirects an old %s bookmark without mounting a table',
+    (kind, target) => {
+      setPermissions(['underwrite.fleet.renewals.view', 'renewals:read']);
+      render(
+        <MemoryRouter
+          initialEntries={['/apps/motor/transactions?tab=' + kind + '&page=2']}
+        >
+          <Routes>
+            <Route
+              path="/apps/motor/transactions"
+              element={<MotorTransactionsRedirect />}
+            />
+            <Route path="*" element={<LocationProbe />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+      expect(screen.getByTestId('location')).toHaveTextContent(target);
+      expect(screen.queryByTestId('rows')).not.toBeInTheDocument();
+    },
+  );
 });
 
 describe('MotorCancellationCreatePage', () => {

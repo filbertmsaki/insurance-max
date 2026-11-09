@@ -446,6 +446,18 @@ export class QuotationsRepository {
       });
     }
 
+    for (const field of [
+      'approval_status',
+      'payment_status',
+      'tira_status',
+    ] as const) {
+      if (query[field]) {
+        queryBuilder.andWhere(`quotation.${field} = :${field}`, {
+          [field]: query[field],
+        });
+      }
+    }
+
     if (query.quotation_type) {
       queryBuilder.andWhere('quotation.quotation_type = :quotationType', {
         quotationType: query.quotation_type,

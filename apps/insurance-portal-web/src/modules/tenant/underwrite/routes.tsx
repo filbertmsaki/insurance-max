@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import {
-  MOTOR_INSURANCE_CUTOVER,
   UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
   UnderwriteAction,
   UnderwriteLine,
@@ -12,7 +11,6 @@ import { UnderwriteLineRoute } from './components/UnderwriteLineRoute';
 import { UnderwriteRecordGate } from './components/UnderwriteRecordGate';
 import { UnderwriteTransactionScope } from './components/UnderwriteTransactionScope';
 import {
-  FleetPolicyDetailPage,
   CustomerCreatePage,
   CustomerDetailPage,
   CustomerEditPage,
@@ -24,30 +22,21 @@ import {
   SubjectMatterCreatePage,
   SubjectMatterDetailPage,
   SubjectMatterEditPage,
-  FleetQuotationDetailPage,
-  FleetQuotationWizardPage,
-  MotorFleetCreatePage,
-  MotorFleetDetailPage,
-  MotorFleetEditPage,
-  MotorFleetsPage,
-  MotorQuotationWizardPage,
   MotorVehicleCreatePage,
   MotorVehicleDetailPage,
   MotorVehicleEditPage,
   MotorVehiclesPage,
   Page,
   PolicyCancellationPage,
-  PolicyDetailPage,
   PolicyEndorsementPage,
   PolicyRenewalPage,
-  QuotationDetailPage,
   UnderwriteCustomersPage,
   UnderwriteDashboardPage,
   UnderwriteLineDashboardPage,
-  UnderwritePoliciesPage,
-  UnderwriteQuotationsPage,
-  UnderwriteTiraQueuePage,
-  UnderwriteTransactionsPage,
+  NonMotorPoliciesPage,
+  NonMotorQuotationsPage,
+  NonMotorTiraQueuePage,
+  NonMotorTransactionsPage,
 } from './lazy-pages';
 import {
   CANCELLATION_VIEW_PERMISSIONS,
@@ -82,8 +71,6 @@ function guardedRoute(permissions: string[], path: string, element: ReactNode) {
   );
 }
 
-const fleetGate = (action: Parameters<typeof underwritePermission>[1]) =>
-  underwritePermission(UnderwriteLine.FLEET, action);
 const nonMotorGate = (action: Parameters<typeof underwritePermission>[1]) =>
   underwritePermission(UnderwriteLine.NON_MOTOR, action);
 
@@ -140,20 +127,10 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.quotations(LINE)}
+          path={underwritePaths.quotations('non-motor')}
           element={
             <Page>
-              <UnderwriteQuotationsPage />
-            </Page>
-          }
-        />
-        <Route
-          path={underwritePaths.quotationDetail(LINE, ':id')}
-          element={
-            <Page>
-              <UnderwriteRecordGate kind="quotation">
-                <QuotationDetailPage />
-              </UnderwriteRecordGate>
+              <NonMotorQuotationsPage />
             </Page>
           }
         />
@@ -168,22 +145,10 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.policies(LINE)}
+          path={underwritePaths.policies('non-motor')}
           element={
             <Page>
-              <UnderwritePoliciesPage />
-            </Page>
-          }
-        />
-        <Route
-          path={underwritePaths.policyDetail(LINE, ':id')}
-          element={
-            <Page>
-              <UnderwriteTransactionScope>
-                <UnderwriteRecordGate kind="policy">
-                  <PolicyDetailPage />
-                </UnderwriteRecordGate>
-              </UnderwriteTransactionScope>
+              <NonMotorPoliciesPage />
             </Page>
           }
         />
@@ -198,7 +163,7 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.customers(LINE)}
+          path={underwritePaths.customers('non-motor')}
           element={
             <Page>
               <UnderwriteCustomersPage />
@@ -206,7 +171,7 @@ export function renderUnderwriteRoutes() {
           }
         />
         <Route
-          path={underwritePaths.customerDetail(LINE, ':id')}
+          path={underwritePaths.customerDetail('non-motor', ':id')}
           element={
             <Page>
               <CustomerDetailPage />
@@ -223,7 +188,7 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.customerCreate(LINE)}
+          path={underwritePaths.customerCreate('non-motor')}
           element={
             <Page>
               <CustomerCreatePage />
@@ -240,7 +205,7 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.customerEdit(LINE, ':id')}
+          path={underwritePaths.customerEdit('non-motor', ':id')}
           element={
             <Page>
               <CustomerEditPage />
@@ -258,10 +223,10 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.renewals(LINE)}
+          path={underwritePaths.renewals('non-motor')}
           element={
             <Page>
-              <UnderwriteTransactionsPage kind="renewals" />
+              <NonMotorTransactionsPage kind="renewals" />
             </Page>
           }
         />
@@ -276,10 +241,10 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.endorsements(LINE)}
+          path={underwritePaths.endorsements('non-motor')}
           element={
             <Page>
-              <UnderwriteTransactionsPage kind="endorsements" />
+              <NonMotorTransactionsPage kind="endorsements" />
             </Page>
           }
         />
@@ -294,10 +259,10 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.cancellations(LINE)}
+          path={underwritePaths.cancellations('non-motor')}
           element={
             <Page>
-              <UnderwriteTransactionsPage kind="cancellations" />
+              <NonMotorTransactionsPage kind="cancellations" />
             </Page>
           }
         />
@@ -316,18 +281,18 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.tiraFailed(LINE)}
+          path={underwritePaths.tiraFailed('non-motor')}
           element={
             <Page>
-              <UnderwriteTiraQueuePage kind="failed" />
+              <NonMotorTiraQueuePage kind="failed" />
             </Page>
           }
         />
         <Route
-          path={underwritePaths.tiraPending(LINE)}
+          path={underwritePaths.tiraPending('non-motor')}
           element={
             <Page>
-              <UnderwriteTiraQueuePage kind="pending" />
+              <NonMotorTiraQueuePage kind="pending" />
             </Page>
           }
         />
@@ -343,7 +308,10 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.policyEndorsementCreate(LINE, ':policyId')}
+          path={underwritePaths.policyEndorsementCreate(
+            'non-motor',
+            ':policyId',
+          )}
           element={transactionPage(<PolicyEndorsementPage />)}
         />
       </Route>
@@ -357,7 +325,7 @@ export function renderUnderwriteRoutes() {
       >
         <Route
           path={underwritePaths.policyEndorsementEdit(
-            LINE,
+            'non-motor',
             ':policyId',
             ':endorsementId',
           )}
@@ -373,7 +341,10 @@ export function renderUnderwriteRoutes() {
         }
       >
         <Route
-          path={underwritePaths.policyCancellationCreate(LINE, ':policyId')}
+          path={underwritePaths.policyCancellationCreate(
+            'non-motor',
+            ':policyId',
+          )}
           element={transactionPage(<PolicyCancellationPage />)}
         />
       </Route>
@@ -387,7 +358,7 @@ export function renderUnderwriteRoutes() {
       >
         <Route
           path={underwritePaths.policyCancellationDetail(
-            LINE,
+            'non-motor',
             ':policyId',
             ':cancellationId',
           )}
@@ -404,7 +375,7 @@ export function renderUnderwriteRoutes() {
       >
         <Route
           path={underwritePaths.policyRenewalDetail(
-            LINE,
+            'non-motor',
             ':policyId',
             ':renewalId',
           )}
@@ -412,56 +383,6 @@ export function renderUnderwriteRoutes() {
         />
       </Route>
 
-      {/* Motor: its own wizard (static paths outrank `:line/quotations/:id`). */}
-      {/* After the MF-7 cutover these URLs redirect into /apps/motor. */}
-      {!MOTOR_INSURANCE_CUTOVER && (
-        <>
-          <Route
-            element={
-              <ProtectedRoute
-                allPermissions={[
-                  underwritePermission(
-                    UnderwriteLine.MOTOR,
-                    UnderwriteAction.CREATE,
-                  ),
-                  'quotations:create',
-                ]}
-              />
-            }
-          >
-            <Route
-              path={underwritePaths.quotationCreate('motor')}
-              element={
-                <Page>
-                  <MotorQuotationWizardPage />
-                </Page>
-              }
-            />
-          </Route>
-          <Route
-            element={
-              <ProtectedRoute
-                allPermissions={[
-                  underwritePermission(
-                    UnderwriteLine.MOTOR,
-                    UnderwriteAction.EDIT,
-                  ),
-                  'quotations:update',
-                ]}
-              />
-            }
-          >
-            <Route
-              path={underwritePaths.quotationEdit('motor', ':id')}
-              element={
-                <Page>
-                  <MotorQuotationWizardPage />
-                </Page>
-              }
-            />
-          </Route>
-        </>
-      )}
       <Route
         element={
           <ProtectedRoute
@@ -530,53 +451,6 @@ export function renderUnderwriteRoutes() {
           }
         />
       </Route>
-
-      {/* Fleet: its own wizard and vehicle-level detail screens. */}
-      {/* After the MF-7 cutover these URLs redirect into /apps/motor. */}
-      {!MOTOR_INSURANCE_CUTOVER && [
-        guardedRoute(
-          [fleetGate(UnderwriteAction.CREATE), 'quotations:create'],
-          underwritePaths.quotationCreate('fleet'),
-          <FleetQuotationWizardPage />,
-        ),
-        guardedRoute(
-          [fleetGate(UnderwriteAction.EDIT), 'quotations:update'],
-          underwritePaths.quotationEdit('fleet', ':id'),
-          <FleetQuotationWizardPage />,
-        ),
-        guardedRoute(
-          [fleetGate(UnderwriteAction.VIEW), 'quotations:read'],
-          underwritePaths.quotationDetail('fleet', ':id'),
-          <FleetQuotationDetailPage />,
-        ),
-        guardedRoute(
-          [fleetGate(UnderwriteAction.POLICIES_VIEW), 'policies:read'],
-          underwritePaths.policyDetail('fleet', ':id'),
-          <UnderwriteTransactionScope>
-            <FleetPolicyDetailPage />
-          </UnderwriteTransactionScope>,
-        ),
-      ]}
-      {guardedRoute(
-        [fleetGate(UnderwriteAction.VIEW), 'motor:read'],
-        underwritePaths.fleetRegister,
-        <MotorFleetsPage />,
-      )}
-      {guardedRoute(
-        [fleetGate(UnderwriteAction.VIEW), 'motor:read'],
-        underwritePaths.fleetDetail(':id'),
-        <MotorFleetDetailPage />,
-      )}
-      {guardedRoute(
-        [fleetGate(UnderwriteAction.CREATE), 'motor:create'],
-        underwritePaths.fleetCreate,
-        <MotorFleetCreatePage />,
-      )}
-      {guardedRoute(
-        [fleetGate(UnderwriteAction.EDIT), 'motor:update'],
-        underwritePaths.fleetEdit(':id'),
-        <MotorFleetEditPage />,
-      )}
 
       {/* Non-Motor: its own wizard, risk schemas and risk-aware details. */}
       {guardedRoute(

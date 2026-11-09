@@ -543,6 +543,7 @@ export interface PolicyVersionRecord {
 }
 
 export interface PolicyListParams {
+  quotation_id?: string;
   page?: number;
   limit?: number;
   search?: string;

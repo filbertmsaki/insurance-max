@@ -346,6 +346,7 @@ export class QuotationLifecycleService {
     companyId: string,
     quotationId: string,
     context: QuotationLifecycleContext = {},
+    transactionManager?: EntityManager,
   ) {
     return this.withLockedQuotation(
       companyId,
@@ -389,6 +390,7 @@ export class QuotationLifecycleService {
           context,
         );
       },
+      transactionManager,
     );
   }
 

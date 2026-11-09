@@ -4,13 +4,22 @@ Status: **APPROVED, in progress** on branch `feat/unified-motor-mf1`.
 
 | Phase | State |
 |---|---|
-| MF-1 Shell, navigation, combined registers | Built. The feature flag was removed at the user's request; the pilot permission alone gates the module. |
+| MF-1 Shell, navigation, combined registers | Built. Combined Motor/Fleet registers respect the existing line permissions; MF-7 controls the current cutover. |
 | MF-2 Unified wizard, fleet minimum 2 vehicles (D1, D4) | Built |
-| MF-3 Quotation detail in module, Duplicate (D2), premium-change approval reset and invoice void/reissue (D3, D3a) | Built. The tab restructure (separate Approval, Documents and Policy tabs) is deferred; the existing tabs are reused. |
+| MF-3 Quotation detail in module, Duplicate (D2), premium-change approval reset and invoice void/reissue (D3, D3a) | Built, including separate Approval, Documents and Policy tabs. Premium edits, invoice voids, workflow resets and critical audit now share a database transaction. |
 | MF-4 Policy detail in module (stored line decides Single vs Fleet) | Built |
-| MF-5 Endorsements, cancellations, renewals in module; Transactions page; fleet "remove vehicles vs cancel policy"; fleet renewal with 1 vehicle becomes Single Motor (D4a) | Built |
-| MF-6 Regression | Automated part done: e2e spec `test/underwrite/motor-insurance.e2e-spec.ts` (line gates, pilot gate, company and branch scope, stored-line resolution, multi-line SQL). It found and fixed existing bugs: quotation list search and Customer/Reg No. sorting failed on a real database. User acceptance testing with underwriters is still to do. |
-| MF-7 Cutover | Done behind `MOTOR_INSURANCE_CUTOVER` (contracts). Old Motor/Fleet menus are hidden; old quotation, policy and transaction URLs redirect into `/apps/motor`; the pilot permission is no longer required. Rollback: set the switch to `false`. The old code is kept for one release. |
+| MF-5 Endorsements, cancellations, renewals and TIRAMIS queues on separate pages; fleet "remove vehicles vs cancel policy"; fleet renewal with 1 vehicle becomes Single Motor (D4a) | Built |
+| MF-6 Regression | Automated authorization, SQL and complete Single/Fleet service journeys done: `motor-quotation-journey.e2e-spec.ts` plus e2e spec `test/underwrite/motor-insurance.e2e-spec.ts` (line gates, pilot gate, company and branch scope, stored-line resolution, multi-line SQL). It found and fixed existing bugs: quotation list search and Customer/Reg No. sorting failed on a real database. User acceptance testing with underwriters is still to do. |
+| MF-7 Cutover | Permanent frontend consolidation completed. Standalone Motor/Fleet business routes and detail wrappers are removed. Wizards live in the Motor Insurance module; shared transaction rows remain reusable by Non-Motor. Internal business links use `/apps/motor`; old URLs are redirect aliases only. Frontend rollback menus/routes are removed. Backend APIs and line permissions are retained. |
+
+The standalone TIRAMIS Exceptions page is retired; its old URLs open the quotations register filtered by TIRAMIS FAILED. Failure details and retry actions remain on individual records.
+
+Standalone fleet management UI is retired: there is no Fleets menu or list/create/detail/edit page. Old fleet-register bookmarks redirect to Fleet quotations. Fleet records, vehicle memberships, quotation synchronization, policy vehicle views and endorsement updates remain in place.
+
+Implementation follow-up (2026-11-07): the configured local database has migrations 1795100000000 through 1795700000000 applied, plus 1795800000000 for fleet-register synchronization status. The combined quotation register supports approval, payment and TIRAMIS status filters in addition to quotation status and type. The Motor Insurance menu links directly to separate Endorsements, Renewals, Cancellations and TIRAMIS Pending pages; the former Policy Transactions tabbed page is removed and its URL only redirects. Policy lookup is scoped by quotation ID, stored line, tenant and normal data-access scope.
+
+Acceptance coverage: `test/underwrite/motor-quotation-journey.e2e-spec.ts` runs real migrated PostgreSQL/application services for Single Motor and Fleet: draft/reload/edit/duplicate, authoritative pricing, approval, invoice issue, payment/receipt/allocation replay, invoice-void rollback, payment during edit, TIRAMIS retry and callback, issuance, and fleet-register failure/retry. Only the external gateway transport is simulated; live gateway/signature/underwriter UAT remains a deployment acceptance step. Approval-required scenarios are configured by the fixture.
+
 Date: 2026-11-07 · Branch at analysis: `fix/phase0-critical-controls`
 
 Legend used throughout: **[V]** existing and verified · **[P]** partially implemented · **[M]** missing · **[PR]** proposed · **[BC]** requires business confirmation.
@@ -61,7 +70,7 @@ The most important finding is that **Motor and Fleet are already one module in e
 | Area | Frontend | Backend / API |
 |---|---|---|
 | Nav | Same children as Motor, plus **Fleets / Vehicles** (`/apps/underwrite/fleet/fleets`) | — |
-| Create/Edit | `UW/fleet/FleetQuotationWizardPage.tsx`. Five steps: customer (+ Fleet Type New/Addition, `FleetRiskField`, `FleetAdjustmentsFields`), vehicles (`Q/wizard/steps/MotorFleetDetailsStep.tsx` with CSV import `fleetCsvImport.ts`), premium (`FleetPremiumStep`), source, review. `deferDraftUntilStepId:'premium'`, `allowEarlyManualDraft`; `useFleetVehicleActions` L101-193 | Same draft/finalize endpoints with `:line=fleet`. Finalize also calls `FleetRegisterService.syncFromQuotation`; failures are only logged (`underwrite-quotation-command.service.ts:154-165`) |
+| Create/Edit | `UW/fleet/FleetQuotationWizardPage.tsx`. Five steps: customer (+ Fleet Type New/Addition, `FleetRiskField`, `FleetAdjustmentsFields`), vehicles (`Q/wizard/steps/MotorFleetDetailsStep.tsx` with CSV import `fleetCsvImport.ts`), premium (`FleetPremiumStep`), source, review. `deferDraftUntilStepId:'premium'`, `allowEarlyManualDraft`; `useFleetVehicleActions` L101-193 | Same draft/finalize endpoints with `:line=fleet`. Finalize also calls `FleetRegisterService.syncFromQuotation`; attempt status and failure/retry information are persisted and displayed (`underwrite-quotation-command.service.ts:154-165`) |
 | Pricing | `useFleetPremiumCalculation` → `POST /premium-calculation/fleet` | `calculateFleet` :269-337, `buildFleetPremiumTotals` :539. Finalize loops `fleet_dtls[i].risks_covered` (`quotations.service.ts:4796-4830`) |
 | Detail | `FleetQuotationDetailPage` = shared page + `FleetVehiclesPanel` + Vehicles tab (`FLEET_DETAIL_TABS`) | `GET fleet/quotations/:id/vehicles` |
 | Policy | `FleetPolicyDetailPage` = `FleetVehiclesPanel` + shared page | `GET fleet/policies/:id/vehicles` |
@@ -415,7 +424,7 @@ The §4 note that TIRAMIS accepts a one-vehicle fleet still holds for legacy and
 1. Combined dashboard KPIs: which metrics?
 2. Should Customers live inside the motor module or remain global?
 3. Who are the pilot users, and what are the exit criteria for cutover?
-4. Should the fleet register sync failure (currently only logged) be surfaced to users?
+4. Fleet register synchronization status is now persisted on quotations and surfaced with a retry action (migration `1795800000000`).
 ### Decided follow-ups (2026-11-07)
 
 | # | Decision | Design impact |

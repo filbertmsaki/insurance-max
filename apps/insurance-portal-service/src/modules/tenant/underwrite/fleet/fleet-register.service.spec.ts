@@ -56,7 +56,13 @@ function setup(options: {
   let fleetLookups = 0;
 
   const repositories = new Map<unknown, unknown>([
-    [Quotation, { findOne: jest.fn().mockResolvedValue(quotation) }],
+    [
+      Quotation,
+      {
+        update: jest.fn().mockResolvedValue(undefined),
+        findOne: jest.fn().mockResolvedValue(quotation),
+      },
+    ],
     [
       MotorFleet,
       {
@@ -115,6 +121,7 @@ function setup(options: {
     getRepository: (entity: unknown) => repositories.get(entity),
   };
   const dataSource = {
+    getRepository: manager.getRepository,
     transaction: (work: (m: typeof manager) => unknown) => work(manager),
   } as unknown as DataSource;
 

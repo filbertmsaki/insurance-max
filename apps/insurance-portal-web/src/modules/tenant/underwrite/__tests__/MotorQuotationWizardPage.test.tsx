@@ -4,7 +4,7 @@ import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PageFooterProvider } from '@/components/layout/PageFooterSlot';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { MotorQuotationWizardPage } from '../motor/MotorQuotationWizardPage';
+import { SingleMotorQuotationWizard } from '@/modules/tenant/motor-insurance/wizard/SingleMotorQuotationWizard';
 
 // Query results are referentially stable between renders, as React Query's
 // are; fresh arrays on every render would make effects re-run forever.
@@ -111,12 +111,12 @@ function renderPage() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/apps/underwrite/motor/quotations/new']}>
+      <MemoryRouter initialEntries={['/apps/motor/quotations/new']}>
         <Routes>
           <Route element={<Layout />}>
             <Route
-              path="/apps/underwrite/motor/quotations/new"
-              element={<MotorQuotationWizardPage />}
+              path="/apps/motor/quotations/new"
+              element={<SingleMotorQuotationWizard />}
             />
           </Route>
         </Routes>
@@ -142,7 +142,7 @@ beforeEach(() => {
   } as never);
 });
 
-describe('MotorQuotationWizardPage', () => {
+describe('SingleMotorQuotationWizard', () => {
   it('shows customer, vehicle, cover and premium on one step before review', async () => {
     renderPage();
 

@@ -36,9 +36,9 @@ export const MotorPolicyDetailPage = lazy(() =>
   })),
 );
 
-export const MotorTransactionsPage = lazy(() =>
-  import('./pages/MotorTransactionsPage').then((module) => ({
-    default: module.MotorTransactionsPage,
+export const MotorTransactionRegisterPage = lazy(() =>
+  import('./pages/MotorTransactionRegisterPage').then((module) => ({
+    default: module.MotorTransactionRegisterPage,
   })),
 );
 
@@ -63,5 +63,22 @@ export const MotorCancellationDetailPage = lazy(() =>
 export const MotorRenewalPage = lazy(() =>
   import('./pages/MotorPolicyTransactionPages').then((module) => ({
     default: module.MotorRenewalPage,
+  })),
+);
+
+export const SingleMotorQuotationWizard = lazy(() =>
+  import('./wizard/SingleMotorQuotationWizard').then((module) => ({
+    default: module.SingleMotorQuotationWizard,
+  })),
+);
+export const FleetQuotationWizard = lazy(() =>
+  import('./wizard/FleetQuotationWizard').then((module) => ({
+    default: module.FleetQuotationWizard,
+  })),
+);
+
+export const MotorInsuranceCustomersPage = lazy(() =>
+  import('@/modules/tenant/customers/pages/CustomersPage').then((module) => ({
+    default: module.CustomersPage,
   })),
 );
