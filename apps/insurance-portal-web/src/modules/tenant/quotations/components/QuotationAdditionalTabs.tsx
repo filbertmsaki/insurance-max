@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import type { UnderwriteLineSlug } from '@insurance-max/contracts';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { formatDate } from '@/components/shared/detailFormat';
 import {
   downloadPdf,
+  fetchPdfBlob,
   documentFilename,
 } from '@/modules/shared/documents/download-pdf';
 import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
@@ -65,42 +66,158 @@ export function QuotationApprovalTab({
   );
 }
 
+/**
+ * Quotation document actions. Preview, print and open all use the same
+ * server-rendered PDF as the download, so what users see is what they send.
+ */
+function QuotationDocumentActions({
+  quotationId,
+  quotationNo,
+}: {
+  quotationId: string;
+  quotationNo: string;
+}) {
+  const [busy, setBusy] = useState<
+    'preview' | 'download' | 'print' | 'open' | null
+  >(null);
+  const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const base = `/tenant/quotations/${quotationId}/document`;
+
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    },
+    [previewUrl],
+  );
+
+  const run = async (
+    action: NonNullable<typeof busy>,
+    task: () => Promise<void>,
+  ) => {
+    setBusy(action);
+    setError(null);
+    try {
+      await task();
+    } catch (cause) {
+      setError(getApiErrorMessage(cause));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const ensurePreviewUrl = async () => {
+    if (previewUrl) return previewUrl;
+    const url = URL.createObjectURL(await fetchPdfBlob(`${base}/preview`));
+    setPreviewUrl(url);
+    return url;
+  };
+
+  return (
+    <SectionCard title="Quotation document">
+      <p className="mb-4 text-sm text-muted-foreground">
+        Official A4 quotation with policyholder, risk, coverage, premium and
+        terms. Preview, print and download all use the same document.
+      </p>
+      <div
+        className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"
+        role="group"
+        aria-label="Quotation document actions"
+      >
+        <Button
+          variant="outline"
+          disabled={busy !== null}
+          aria-expanded={!!previewUrl}
+          onClick={() =>
+            previewUrl
+              ? setPreviewUrl(null)
+              : run('preview', async () => void (await ensurePreviewUrl()))
+          }
+        >
+          {busy === 'preview'
+            ? 'Loading preview...'
+            : previewUrl
+              ? 'Hide preview'
+              : 'Preview quotation'}
+        </Button>
+        <Button
+          variant="outline"
+          disabled={busy !== null}
+          onClick={() =>
+            run('download', () =>
+              downloadPdf(`${base}/download`, documentFilename(quotationNo)),
+            )
+          }
+        >
+          {busy === 'download' ? 'Downloading...' : 'Download quotation PDF'}
+        </Button>
+        <Button
+          variant="outline"
+          disabled={busy !== null}
+          onClick={() =>
+            run('print', async () => {
+              const url = await ensurePreviewUrl();
+              const frame = frameRef.current;
+              if (!frame) return;
+              // Print from a hidden frame so the PDF viewer's print dialog opens.
+              frame.onload = () => frame.contentWindow?.print();
+              if (frame.src === url) frame.contentWindow?.print();
+              else frame.src = url;
+            })
+          }
+        >
+          {busy === 'print' ? 'Preparing...' : 'Print'}
+        </Button>
+        <Button
+          variant="outline"
+          disabled={busy !== null}
+          onClick={() =>
+            run('open', async () => {
+              // Mobile browsers rarely render PDFs inline; open in a new tab.
+              window.open(await ensurePreviewUrl(), '_blank', 'noopener');
+            })
+          }
+        >
+          Open in new tab
+        </Button>
+      </div>
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-red-700">
+          {error}
+        </p>
+      )}
+      {previewUrl && (
+        <div className="mt-4 overflow-hidden rounded-md border bg-muted">
+          <iframe
+            title={`Quotation ${quotationNo} preview`}
+            src={previewUrl}
+            className="block h-[70vh] min-h-[420px] w-full"
+          />
+        </div>
+      )}
+      <iframe
+        ref={frameRef}
+        title="Quotation print frame"
+        aria-hidden="true"
+        tabIndex={-1}
+        className="hidden"
+      />
+    </SectionCard>
+  );
+}
+
 export function QuotationDocumentsTab({
   preview,
 }: {
   preview: QuotationPreviewRecord;
 }) {
-  const [downloading, setDownloading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   return (
     <>
-      <SectionCard title="Quotation documents">
-        <Button
-          variant="outline"
-          disabled={downloading}
-          onClick={async () => {
-            setDownloading(true);
-            setError(null);
-            try {
-              await downloadPdf(
-                `/tenant/quotations/${preview.overview.quotation_id}/document/download`,
-                documentFilename(preview.overview.quotation_no),
-              );
-            } catch (cause) {
-              setError(getApiErrorMessage(cause));
-            } finally {
-              setDownloading(false);
-            }
-          }}
-        >
-          {downloading ? 'Downloading...' : 'Download quotation PDF'}
-        </Button>
-        {error && (
-          <p role="alert" className="mt-3 text-sm text-red-700">
-            {error}
-          </p>
-        )}
-      </SectionCard>
+      <QuotationDocumentActions
+        quotationId={preview.overview.quotation_id}
+        quotationNo={preview.overview.quotation_no}
+      />
       <div className="min-w-0 p-4 sm:p-6">
         <CoverNotesSection
           quotationId={preview.overview.quotation_id}

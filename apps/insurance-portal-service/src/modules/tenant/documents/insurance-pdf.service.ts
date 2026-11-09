@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataScopePermissions } from '@insurance-max/contracts';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { PDFDocument, StandardFonts, grayscale } from 'pdf-lib';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { QuotationsService } from '../quotations/quotations.service';
 import { PoliciesService } from '../policies/policies.service';
@@ -10,12 +9,14 @@ import { Policy } from '../policies/entities/policy.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { MotorPolicyDetail } from '../motor/entities/motor-policy-detail.entity';
+import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
+import { QuotationFlow } from '../quotations/enums/quotation-flow.enum';
 import {
   MotorScheduleVehicle,
   renderMotorSchedule,
 } from './motor-schedule.renderer';
-
-type Pair = [string, unknown];
+import { buildQuotationDocument } from './quotation-document.model';
+import { renderQuotationDocument } from './quotation-document.renderer';
 
 @Injectable()
 export class InsurancePdfService {
@@ -26,43 +27,32 @@ export class InsurancePdfService {
     private readonly vehicles: Repository<MotorVehicle>,
     @InjectRepository(MotorPolicyDetail)
     private readonly motorDetails: Repository<MotorPolicyDetail>,
+    private readonly nonMotorRisks: NonMotorRiskService,
   ) {}
 
   async quotation(
     user: AuthenticatedUser,
     id: string,
   ): Promise<{ bytes: Uint8Array; filename: string }> {
-    const q = (await this.quotations.getPreviewForUser(
-      companyWide(user),
-      id,
-    )) as Record<string, any>;
-    const overview = q.overview ?? {};
-    const cover = q.cover_note ?? {};
-    const name = String(overview.quotation_no ?? 'quotation');
-    const pairs: Pair[] = [
-      ['Quotation number', overview.quotation_no],
-      ['Issue date', overview.created_at],
-      ['Status', overview.status],
-      ['Customer', overview.customer_name],
-      ['Product', overview.product_name],
-      ['Cover period', `${cover.start_date ?? ''} to ${cover.end_date ?? ''}`],
-      ['Currency', cover.currency],
-      ['Sum insured', overview.sum_insured],
-      [
-        'Total premium',
-        cover.total_premium_including_tax ??
-          overview.total_premium_including_tax,
-      ],
-    ];
-    const bytes = await this.render(
-      'INSURANCE QUOTATION',
-      name,
-      pairs,
-      [
-        'This quotation is an offer only and does not itself confirm insurance coverage.',
-      ],
-      String(overview.status ?? '').toUpperCase() === 'DRAFT',
-    );
+    const { quotation, preview } =
+      await this.quotations.getDocumentSourceForUser(companyWide(user), id);
+    const issuer = quotation.insurer_company ?? quotation.company;
+    const [nonMotor, logo] = await Promise.all([
+      quotation.quotation_flow === QuotationFlow.NON_MOTOR
+        ? this.nonMotorRisks
+            .getQuotationDetails(quotation.company_id, quotation.id)
+            .catch(() => null)
+        : Promise.resolve(null),
+      fetchLogo(issuer?.logo_url),
+    ]);
+    const doc = buildQuotationDocument({
+      quotation,
+      preview,
+      nonMotor,
+      logo,
+    });
+    const bytes = await renderQuotationDocument(doc);
+    const name = doc.quotationNo || 'quotation';
     return { bytes, filename: `${safeFilename(name)}.pdf` };
   }
 
@@ -281,82 +271,6 @@ export class InsurancePdfService {
       printedBy,
       printedOn: today,
     });
-  }
-
-  private async render(
-    title: string,
-    reference: string,
-    values: Pair[],
-    notes: string[],
-    draft: boolean,
-  ) {
-    const pdf = await PDFDocument.create();
-    const font = await pdf.embedFont(StandardFonts.Helvetica);
-    const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-    let page = pdf.addPage([595.28, 841.89]);
-    const { height } = page.getSize();
-    let y = height - 48;
-    const line = (text: string, size = 9, isBold = false) => {
-      if (y < 54) {
-        page = pdf.addPage([595.28, 841.89]);
-        y = height - 48;
-      }
-      page.drawText(text.slice(0, 160), {
-        x: 42,
-        y,
-        size,
-        font: isBold ? bold : font,
-        maxWidth: 510,
-      });
-      y -= size + 8;
-    };
-    line('INSURANCE', 12, true);
-    line(title, 16, true);
-    if (draft) line('DRAFT', 12, true);
-    page.drawRectangle({
-      x: 38,
-      y: y - 8,
-      width: 519,
-      height: 20,
-      color: grayscale(0.88),
-    });
-    y -= 3;
-    line(`Document reference: ${reference}`, 9, true);
-    y -= 6;
-    for (const [label, raw] of values) {
-      const value = raw == null || raw === '' ? '—' : String(raw);
-      if (value === '—') continue;
-      if (y < 80) {
-        page = pdf.addPage([595.28, 841.89]);
-        y = height - 48;
-      }
-      page.drawRectangle({
-        x: 38,
-        y: y - 5,
-        width: 519,
-        height: 20,
-        borderWidth: 0.4,
-        borderColor: grayscale(0.3),
-      });
-      page.drawText(label, { x: 44, y, size: 8, font: bold, maxWidth: 145 });
-      page.drawText(value.slice(0, 120), {
-        x: 195,
-        y,
-        size: 8,
-        font,
-        maxWidth: 350,
-      });
-      y -= 20;
-    }
-    y -= 14;
-    line(
-      title.includes('QUOTATION') ? 'IMPORTANT NOTICE' : 'POLICY TERMS',
-      10,
-      true,
-    );
-    for (const note of notes) line(note, 9);
-    line(`Generated ${new Date().toISOString()} · ${reference}`, 7);
-    return pdf.save();
   }
 }
 

@@ -1869,6 +1869,19 @@ export class QuotationsService {
     return { ...response, pricing_integration: pricingIntegration };
   }
 
+  /**
+   * Scoped aggregate plus its preview mapping, for rendering customer-facing
+   * documents. Uses the same read scope as the preview; payment and TIRAMIS
+   * relations are omitted because documents never print them.
+   */
+  async getDocumentSourceForUser(user: AuthenticatedUser, id: string) {
+    const quotation = await this.quotationsRepository.findOneAggregateForScope(
+      this.resolveUserScope(user),
+      id,
+    );
+    return { quotation, preview: this.previewMapper.toResponse(quotation) };
+  }
+
   async requestPremiumOverride(
     companyId: string,
     quotationId: string,

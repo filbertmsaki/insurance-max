@@ -146,7 +146,7 @@ async function embedQr(pdf: PDFDocument, text: string) {
   }
 }
 
-async function embedLogo(pdf: PDFDocument, bytes: Uint8Array | null) {
+export async function embedLogo(pdf: PDFDocument, bytes: Uint8Array | null) {
   if (!bytes || bytes.length < 4) return null;
   try {
     if (bytes[0] === 0x89 && bytes[1] === 0x50)
@@ -160,7 +160,7 @@ async function embedLogo(pdf: PDFDocument, bytes: Uint8Array | null) {
 }
 
 /** Helvetica only encodes WinAnsi; replace anything it cannot draw. */
-function clean(text: string) {
+export function clean(text: string) {
   return text
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')

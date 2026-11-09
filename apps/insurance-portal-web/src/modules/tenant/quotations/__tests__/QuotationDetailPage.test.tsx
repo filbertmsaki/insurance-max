@@ -7,7 +7,10 @@ import { financeTableApi } from '@/modules/tenant/finance/api';
 import { coverNotesApi } from '@/modules/tenant/cover-notes/api';
 import type { CoverNoteRecord } from '@/modules/tenant/cover-notes/types';
 import { underwriteApi } from '@/modules/tenant/underwrite/api';
-import { downloadPdf } from '@/modules/shared/documents/download-pdf';
+import {
+  downloadPdf,
+  fetchPdfBlob,
+} from '@/modules/shared/documents/download-pdf';
 import { QuotationDetailPage } from '../pages/QuotationDetailPage';
 import { quotationDetailFixture } from './quotationDetailFixture';
 
@@ -56,6 +59,9 @@ vi.mock('@/modules/tenant/underwrite/api', () => ({
 }));
 vi.mock('@/modules/shared/documents/download-pdf', () => ({
   downloadPdf: vi.fn().mockResolvedValue(undefined),
+  fetchPdfBlob: vi
+    .fn()
+    .mockResolvedValue(new Blob(['%PDF'], { type: 'application/pdf' })),
   documentFilename: (value: string) => value + '.pdf',
 }));
 vi.mock('@/modules/tenant/finance/api', () => ({
@@ -160,6 +166,25 @@ describe('Quotation details redesign', () => {
       screen.getByText('You do not have permission to view policies.'),
     ).toBeInTheDocument();
     expect(underwriteApi.getPolicies).not.toHaveBeenCalled();
+  });
+  it('previews the quotation PDF from the same document endpoint', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:quotation');
+    URL.revokeObjectURL = vi.fn();
+    renderPage();
+    selectTab('Documents');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview quotation' }));
+    await waitFor(() =>
+      expect(fetchPdfBlob).toHaveBeenCalledWith(
+        '/tenant/quotations/quotation-1/document/preview',
+      ),
+    );
+    expect(await screen.findByTitle(/Quotation .* preview/)).toHaveAttribute(
+      'src',
+      'blob:quotation',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Hide preview' }),
+    ).toBeInTheDocument();
   });
   it('loads only policies belonging to this quotation when the Policy tab is opened', async () => {
     useAuthStore.setState({ hasPermission: () => true });
