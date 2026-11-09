@@ -82,3 +82,8 @@ export const MotorInsuranceCustomersPage = lazy(() =>
     default: module.CustomersPage,
   })),
 );
+export const ShortTermQuotationWizard = lazy(() =>
+  import('./wizard/ShortTermQuotationWizard').then((module) => ({
+    default: module.ShortTermQuotationWizard,
+  })),
+);

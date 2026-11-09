@@ -14,6 +14,9 @@ import { MotorQuotationCreatePage } from '../pages/MotorQuotationCreatePage';
 vi.mock('../lazy-pages', () => ({
   SingleMotorQuotationWizard: () => <WizardProbe name="single-wizard" />,
   FleetQuotationWizard: () => <WizardProbe name="fleet-wizard" />,
+  ShortTermQuotationWizard: ({ allowFleet }: { allowFleet?: boolean }) => (
+    <div data-testid="short-term-wizard">{String(allowFleet)}</div>
+  ),
 }));
 
 function WizardProbe({ name }: { name: string }) {
@@ -82,6 +85,29 @@ describe('MotorQuotationCreatePage', () => {
 
     expect(await screen.findByTestId('fleet-wizard')).toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent('?type=fleet');
+  });
+
+  it('offers Short-Term as a third type and opens its wizard', async () => {
+    renderAt('/apps/motor/quotations/new');
+
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    fireEvent.click(screen.getByRole('radio', { name: /Short-Term/ }));
+
+    expect(await screen.findByTestId('short-term-wizard')).toHaveTextContent(
+      'true',
+    );
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '?type=short-term',
+    );
+  });
+
+  it('offers Short-Term single only without Fleet permission', async () => {
+    setPermissions(['quotations:create', 'underwrite.motor.create']);
+    renderAt('/apps/motor/quotations/new?type=short-term');
+
+    expect(await screen.findByTestId('short-term-wizard')).toHaveTextContent(
+      'false',
+    );
   });
 
   it('keeps the wizard inside the Motor Insurance module', async () => {

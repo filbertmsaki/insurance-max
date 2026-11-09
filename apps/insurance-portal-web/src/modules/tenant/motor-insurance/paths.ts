@@ -1,4 +1,4 @@
-import type { MotorInsuranceType } from './api';
+import type { MotorQuotationKind } from './types';
 
 export type MotorTransactionTab =
   | 'endorsements'
@@ -11,7 +11,7 @@ export const motorInsurancePaths = {
   root: '/apps/motor',
   quotations: '/apps/motor/quotations',
   failedSubmissions: '/apps/motor/quotations?tira_status=FAILED',
-  quotationCreate: (type?: MotorInsuranceType) =>
+  quotationCreate: (type?: MotorQuotationKind) =>
     type
       ? `/apps/motor/quotations/new?type=${type}`
       : '/apps/motor/quotations/new',

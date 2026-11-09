@@ -95,7 +95,8 @@ function fleetStepFor(step: QuotationWizardStepId): string {
 }
 
 /** Vehicle list operations; behaviour matches the legacy fleet wizard. */
-function useFleetVehicleActions(wizard: UnderwriteQuotationWizard) {
+// eslint-disable-next-line react-refresh/only-export-components
+export function useFleetVehicleActions(wizard: UnderwriteQuotationWizard) {
   const { form, fleetFieldArray, riskOptions } = wizard;
 
   const renumber = () =>

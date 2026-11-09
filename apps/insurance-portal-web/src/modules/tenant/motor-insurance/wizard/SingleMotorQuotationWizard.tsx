@@ -185,7 +185,11 @@ export function SingleMotorQuotationWizard() {
                   />
                 </div>
                 {showAddOns && (
-                  <AddOnsStep form={form} fieldArray={wizard.addonFieldArray} />
+                  <AddOnsStep
+                    form={form}
+                    fieldArray={wizard.addonFieldArray}
+                    requirePremiumRate
+                  />
                 )}
                 <BusinessSourceStep wizard={wizard} />
               </div>

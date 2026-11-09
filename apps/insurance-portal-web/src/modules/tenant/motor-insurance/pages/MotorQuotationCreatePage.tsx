@@ -1,9 +1,9 @@
-import { Suspense } from 'react';
+import { Fragment, Suspense } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowRight, CarFront, Truck } from 'lucide-react';
+import { ArrowRight, CarFront, Timer, Truck } from 'lucide-react';
 import {
   UnderwriteAction,
-  type UnderwriteLine,
+  UnderwriteLine,
   underwritePermission,
 } from '@insurance-max/contracts';
 import { Button } from '@/components/ui/button';
@@ -13,16 +13,18 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 import {
   FleetQuotationWizard,
+  ShortTermQuotationWizard,
   SingleMotorQuotationWizard,
 } from '../lazy-pages';
-import type { MotorInsuranceType } from '../api';
+
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { motorInsurancePaths } from '../paths';
-import { MOTOR_INSURANCE_TYPES } from '../types';
+import { MOTOR_QUOTATION_KINDS, type MotorQuotationKind } from '../types';
 
-const ICONS: Record<MotorInsuranceType, typeof CarFront> = {
+const ICONS: Record<MotorQuotationKind, typeof CarFront> = {
   single: CarFront,
   fleet: Truck,
+  'short-term': Timer,
 };
 
 function useCanCreate() {
@@ -41,16 +43,22 @@ export function MotorQuotationCreatePage() {
   const [searchParams] = useSearchParams();
   const canCreate = useCanCreate();
   const requested = searchParams.get('type');
-  const selected = MOTOR_INSURANCE_TYPES.find(
+  const selected = MOTOR_QUOTATION_KINDS.find(
     (item) => item.type === requested && canCreate(item.line),
   );
 
   if (!selected) return <QuotationTypeChooser />;
 
-  const Wizard =
-    selected.type === 'fleet'
-      ? FleetQuotationWizard
-      : SingleMotorQuotationWizard;
+  const wizard =
+    selected.type === 'short-term' ? (
+      <ShortTermQuotationWizard
+        allowFleet={canCreate(UnderwriteLine.FLEET)}
+      />
+    ) : selected.type === 'fleet' ? (
+      <FleetQuotationWizard />
+    ) : (
+      <SingleMotorQuotationWizard />
+    );
 
   return (
     <MotorWizardNavigation>
@@ -64,7 +72,7 @@ export function MotorQuotationCreatePage() {
       </div>
       <Suspense fallback={<TableSkeleton />}>
         {/* key: remount the wizard if the type changes before a draft exists. */}
-        <Wizard key={selected.type} />
+        <Fragment key={selected.type}>{wizard}</Fragment>
       </Suspense>
     </MotorWizardNavigation>
   );
@@ -74,7 +82,7 @@ function QuotationTypeChooser() {
   const navigate = useNavigate();
   const canCreate = useCanCreate();
   usePageTitle('New Motor Quotation');
-  const options = MOTOR_INSURANCE_TYPES.filter((item) => canCreate(item.line));
+  const options = MOTOR_QUOTATION_KINDS.filter((item) => canCreate(item.line));
 
   if (options.length === 0) {
     return (
@@ -98,7 +106,12 @@ function QuotationTypeChooser() {
       <div
         role="radiogroup"
         aria-label="Quotation type"
-        className="grid min-h-0 w-full flex-1 grid-rows-2 gap-3 sm:min-h-[calc(100vh-20rem)] sm:grid-cols-2 sm:grid-rows-1 sm:gap-4"
+        className={cn(
+          'grid min-h-0 w-full flex-1 auto-rows-fr gap-3 sm:min-h-[calc(100vh-20rem)] sm:gap-4',
+          options.length >= 3
+            ? 'md:grid-cols-3'
+            : options.length === 2 && 'sm:grid-cols-2',
+        )}
       >
         {options.map((option) => {
           const Icon = ICONS[option.type];

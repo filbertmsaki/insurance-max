@@ -12,8 +12,13 @@ import { EmptyState, TableSkeleton } from '@/components/shared/ContentStates';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   FleetQuotationWizard,
+  ShortTermQuotationWizard,
   SingleMotorQuotationWizard,
 } from '../lazy-pages';
+import { underwriteApi } from '@/modules/tenant/underwrite/api';
+import { underwriteKeys } from '@/modules/tenant/underwrite/hooks';
+import { getUnderwriteLineMeta } from '@/modules/tenant/underwrite/lines';
+import { isShortTermQuotation } from '../shortTerm';
 import { motorInsuranceApi, motorInsuranceKeys } from '../api';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { motorInsurancePaths } from '../paths';
@@ -54,19 +59,48 @@ export function MotorQuotationEditPage() {
     );
   }
 
-  const isFleet = line === UnderwriteLine.FLEET;
-  const Wizard = isFleet ? FleetQuotationWizard : SingleMotorQuotationWizard;
+  return <EditWizard id={id} isFleet={line === UnderwriteLine.FLEET} />;
+}
+
+/**
+ * Picks the wizard. A quotation on the Short-Term transit risk reopens in the
+ * Short-Term wizard; the record is read with the wizard's own query key, so
+ * the wizard reuses it instead of fetching again.
+ */
+function EditWizard({ id, isFleet }: { id: string; isFleet: boolean }) {
+  const slug = getUnderwriteLineMeta(
+    isFleet ? UnderwriteLine.FLEET : UnderwriteLine.MOTOR,
+  ).slug;
+  const record = useQuery({
+    queryKey: [...underwriteKeys.all, slug, 'edit', id],
+    queryFn: () => underwriteApi.getQuotationForEdit(slug, id),
+    staleTime: 30_000,
+  });
+
+  // Errors are shown by the wizard, which owns the same query.
+  if (record.isPending) return <TableSkeleton />;
+
+  const isShortTerm = isShortTermQuotation(record.data);
+  const label = isShortTerm
+    ? `Short-Term (In-Transit) · ${isFleet ? 'Fleet' : 'Single'}`
+    : isFleet
+      ? 'Fleet'
+      : 'Single Motor';
 
   return (
     <MotorWizardNavigation>
       <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
         Quotation type:
-        <Badge variant={isFleet ? 'primary' : 'muted'}>
-          {isFleet ? 'Fleet' : 'Single Motor'}
-        </Badge>
+        <Badge variant={isFleet ? 'primary' : 'muted'}>{label}</Badge>
       </div>
       <Suspense fallback={<TableSkeleton />}>
-        <Wizard />
+        {isShortTerm ? (
+          <ShortTermQuotationWizard lockedMode={isFleet ? 'fleet' : 'single'} />
+        ) : isFleet ? (
+          <FleetQuotationWizard />
+        ) : (
+          <SingleMotorQuotationWizard />
+        )}
       </Suspense>
     </MotorWizardNavigation>
   );
