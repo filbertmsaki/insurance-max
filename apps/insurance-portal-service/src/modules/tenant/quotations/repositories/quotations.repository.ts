@@ -396,6 +396,7 @@ export class QuotationsRepository {
       .leftJoinAndSelect('quotation.creator', 'creator')
       .leftJoinAndSelect('quotation.updater', 'updater')
       .leftJoinAndSelect('quotation.submitter', 'submitter')
+      .leftJoinAndSelect('quotation.approval_decider', 'approvalDecider')
       .leftJoinAndSelect('quotation.customer', 'customer')
       .leftJoinAndSelect('quotation.category', 'category')
       .leftJoinAndSelect('quotation.product', 'product')

@@ -507,6 +507,7 @@ export class QuotationsController {
     'quotations:submit-approval',
     'quotations:approve',
     'quotations:approve-high-risk',
+    'quotations:direct-approve',
     'quotations:request-changes',
     'quotations:reject',
     'quotations:request-payment',

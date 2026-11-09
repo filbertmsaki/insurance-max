@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { financeTableApi } from '../api';
 import type { FinancePaymentTransaction } from '../types';
 import { FinanceStatusBadge, formatMoney } from '../components';
+import { CashVerificationBadge } from '../cashVerification';
 
 export function FinancePaymentsPage() {
   const navigate = useNavigate();
@@ -41,7 +42,12 @@ export function FinancePaymentsPage() {
       key: 'status',
       header: 'Status',
       sortable: true,
-      cell: (row) => <FinanceStatusBadge status={row.status} />,
+      cell: (row) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FinanceStatusBadge status={row.status} />
+          <CashVerificationBadge payment={row} />
+        </div>
+      ),
     },
     {
       key: 'amount',

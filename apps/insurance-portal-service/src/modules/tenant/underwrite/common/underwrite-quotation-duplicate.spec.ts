@@ -74,9 +74,9 @@ describe('Duplicate quotation (D2)', () => {
     const result = stripDuplicateIdentifiers(dto.draft_payload) as any;
 
     expect(result.status).toBeUndefined();
-    expect(result.fleet.header.fleet_id).toBeUndefined();
+    expect(result.fleet.header.fleet_id).toBe('');
     expect(result.fleet.header.fleet_type).toBe('1');
-    expect(result.fleet.items[0].cover_note_number).toBeUndefined();
+    expect(result.fleet.items[0].cover_note_number).toBe('');
     expect(
       result.fleet.items[0].risks_covered[0].pricing_quote_id,
     ).toBeUndefined();
@@ -105,7 +105,7 @@ describe('Duplicate quotation (D2)', () => {
       'src-1',
     );
     const draftArg = quotationsService.createDraft.mock.calls[0][1];
-    expect(draftArg.draft_payload.fleet.header.fleet_id).toBeUndefined();
+    expect(draftArg.draft_payload.fleet.header.fleet_id).toBe('');
     expect(audit.logCritical).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'quotation.duplicated',

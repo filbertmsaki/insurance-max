@@ -1,7 +1,15 @@
+import { QuotationApprovalPolicyService } from './approval-policy/quotation-approval-policy.service';
+import {
+  QUOTATION_DIRECT_APPROVE_PERMISSION,
+  directApprovalViolation,
+  matchAutoApprovalRule,
+  autoPaymentRequestSource,
+} from './approval-policy/quotation-approval-policy';
 import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
 import { FLEET_MINIMUM_ACTIVE_VEHICLES } from '../policy-transactions/constants/fleet-vehicle-endorsement.constants';
 import {
   BadRequestException,
+  Logger,
   ConflictException,
   ForbiddenException,
   forwardRef,
@@ -138,6 +146,12 @@ import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
+import type {
+  IssueInvoiceDto,
+  PostReceiptDto,
+  RecordPaymentTransactionDto,
+} from '../billing-commission/dto/finance-operations.dto';
+import { PaymentMethod } from '@insurance-max/contracts';
 import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
 import { QuotationInvoiceService } from '../billing-commission/services/quotation-invoice.service';
 import { FinanceCommandService } from '../billing-commission/services/finance-command.service';
@@ -344,6 +358,7 @@ const PRICING_AUDIT_VIEW_PERMISSIONS = [
 
 @Injectable()
 export class QuotationsService {
+  private readonly logger = new Logger(QuotationsService.name);
   constructor(
     private readonly dataSource: DataSource,
     private readonly quotationsRepository: QuotationsRepository,
@@ -375,6 +390,8 @@ export class QuotationsService {
     private readonly financeCommandService: FinanceCommandService,
     @Optional()
     private readonly platformAccess?: TiramisPlatformAccessService,
+    @Optional()
+    private readonly approvalPolicyService?: QuotationApprovalPolicyService,
   ) {}
 
   /** New business needs the insurer's TIRAMIS access to be active. */
@@ -1245,6 +1262,16 @@ export class QuotationsService {
       reason: 'Quotation finalized from draft',
       startOfferValidity: true,
     });
+
+    // Automatic approval never blocks completion: on any failure the
+    // quotation simply stays on the normal approval route.
+    await this.tryAutoApprove(companyId, id).catch((error: unknown) =>
+      this.logger.warn(
+        `Automatic approval skipped for quotation ${id}: ${String(error)}`,
+      ),
+    );
+
+    await this.tryAutoRequestPayment(companyId, id, user as AuthenticatedUser);
 
     await this.dataSource.getRepository(Quotation).update(
       { id, company_id: companyId },
@@ -2683,6 +2710,8 @@ export class QuotationsService {
       )
         ? 'quotations:approve-high-risk'
         : 'quotations:approve',
+      [QuotationStatusTransitionAction.DIRECT_APPROVE]:
+        QUOTATION_DIRECT_APPROVE_PERMISSION,
       [QuotationStatusTransitionAction.REQUEST_CHANGES]:
         QUOTATION_REQUEST_CHANGES_PERMISSION,
       [QuotationStatusTransitionAction.REJECT_APPROVAL]:
@@ -2770,6 +2799,9 @@ export class QuotationsService {
           id,
           context,
         );
+        break;
+      case QuotationStatusTransitionAction.DIRECT_APPROVE:
+        await this.directApprove(companyId, id, user, context);
         break;
       case QuotationStatusTransitionAction.REQUEST_CHANGES:
         await this.quotationLifecycleService.requestChanges(
@@ -6389,6 +6421,7 @@ export class QuotationsService {
     return [
       QuotationStatusTransitionAction.SUBMIT_FOR_APPROVAL,
       QuotationStatusTransitionAction.APPROVE,
+      QuotationStatusTransitionAction.DIRECT_APPROVE,
       QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED,
       QuotationStatusTransitionAction.MARK_PAYMENT_PROCESSING,
       QuotationStatusTransitionAction.MARK_PARTIALLY_PAID,
@@ -6473,6 +6506,8 @@ export class QuotationsService {
         return [QUOTATION_SUBMIT_APPROVAL_PERMISSION];
       case QuotationStatusTransitionAction.APPROVE:
         return QUOTATION_APPROVE_PERMISSIONS;
+      case QuotationStatusTransitionAction.DIRECT_APPROVE:
+        return [QUOTATION_DIRECT_APPROVE_PERMISSION];
       case QuotationStatusTransitionAction.REQUEST_CHANGES:
         return [QUOTATION_REQUEST_CHANGES_PERMISSION];
       case QuotationStatusTransitionAction.REJECT_APPROVAL:
@@ -7054,6 +7089,30 @@ export class QuotationsService {
             }
           : undefined,
     );
+    // Complete and Approve: offered only when this user's authority and the
+    // policy limits cover the quotation (re-checked when it is executed).
+    const directApprovalBlocker = this.isApprovalOpen(quotation)
+      ? await this.directApprovalBlocker(
+          companyId,
+          quotation,
+          user as Pick<AuthenticatedUser, 'id' | 'permissions'> | null,
+        )
+      : 'Approval is not open for this quotation.';
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.DIRECT_APPROVE,
+      directApprovalBlocker === null,
+      directApprovalBlocker &&
+        this.isApprovalOpen(quotation) &&
+        this.hasPermission(user, QUOTATION_DIRECT_APPROVE_PERMISSION)
+        ? {
+            code: 'QUOTATION_DIRECT_APPROVAL_NOT_ALLOWED',
+            message: directApprovalBlocker,
+            field: 'approval',
+          }
+        : undefined,
+    );
     this.setWorkflowCommandAvailability(
       availableCommands,
       blockingReasons,
@@ -7285,6 +7344,243 @@ export class QuotationsService {
       code: 'QUOTATION_WORKFLOW_BLOCKED',
       message: this.readErrorMessage(error),
     };
+  }
+
+  /** Approval states from which an approval can still be granted. */
+  private isApprovalOpen(quotation: Quotation): boolean {
+    return (
+      quotation.requires_approval &&
+      quotation.status !== QuotationStatus.DRAFT &&
+      [
+        ApprovalStatus.NOT_SUBMITTED,
+        ApprovalStatus.CHANGES_REQUESTED,
+        ApprovalStatus.PENDING,
+      ].includes(quotation.approval_status)
+    );
+  }
+
+  /**
+   * Why `user` may not directly approve this quotation, or null when they
+   * may. Requires the direct-approve permission AND an enabled entry in the
+   * company's approval policy whose limits cover the quotation.
+   */
+  private async directApprovalBlocker(
+    companyId: string,
+    quotation: Quotation,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'> | null | undefined,
+  ): Promise<string | null> {
+    if (
+      !user?.id ||
+      !this.hasPermission(user, QUOTATION_DIRECT_APPROVE_PERMISSION)
+    ) {
+      return 'You do not have direct approval permission.';
+    }
+    // Direct approval covers one's own quotations; anyone else's goes through
+    // the normal maker-checker approval.
+    if (quotation.created_by !== user.id) {
+      return 'Only quotations you created can be approved directly.';
+    }
+    if (!this.approvalPolicyService) {
+      return 'Direct approval is not configured.';
+    }
+    const policy = await this.approvalPolicyService.getPolicy(companyId);
+    return directApprovalViolation(
+      policy,
+      user.id,
+      this.approvalPolicyService.factsFor(quotation),
+    );
+  }
+
+  /** "Complete and Approve": the backend re-checks authority and limits. */
+  private async directApprove(
+    companyId: string,
+    id: string,
+    user: AuthenticatedUser,
+    context: { changedBy: string; reason?: string; comments?: string },
+  ) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    if (!this.isApprovalOpen(quotation)) {
+      throw new ConflictException(
+        quotation.requires_approval
+          ? `Approval cannot be completed from ${quotation.approval_status}`
+          : 'Approval is not required for this quotation',
+      );
+    }
+    const blocker = await this.directApprovalBlocker(
+      companyId,
+      quotation,
+      user,
+    );
+    if (blocker) throw new ForbiddenException(blocker);
+
+    await this.quotationLifecycleService.approveWithoutReferral(
+      companyId,
+      id,
+      'DIRECT',
+      {
+        changedBy: user.id,
+        changedByType: 'USER',
+        source: 'USER',
+        reason: context.reason,
+        comments: context.comments ?? 'Approved directly by an authorised user',
+        metadata: { approval_method: 'DIRECT' },
+      },
+    );
+    await this.tryAutoRequestPayment(companyId, id, user);
+  }
+
+  /**
+   * Automatic approval after completion: when approval is required and an
+   * enabled rule matches, the system approves and records the rule. Pricing
+   * was validated by finalize; any failure leaves the normal approval flow.
+   */
+  private async tryAutoApprove(companyId: string, id: string) {
+    if (!this.approvalPolicyService) return;
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    if (
+      !quotation.requires_approval ||
+      quotation.approval_status !== ApprovalStatus.NOT_SUBMITTED
+    ) {
+      return;
+    }
+    const policy = await this.approvalPolicyService.getPolicy(companyId);
+    const rule = matchAutoApprovalRule(
+      policy,
+      this.approvalPolicyService.factsFor(quotation),
+    );
+    if (!rule) return;
+    await this.quotationLifecycleService.approveWithoutReferral(
+      companyId,
+      id,
+      'AUTO',
+      {
+        changedBy: null,
+        changedByType: 'SYSTEM',
+        source: 'SYSTEM',
+        comments: `Automatically approved by rule "${rule.name}"`,
+        metadata: {
+          approval_method: 'AUTO',
+          rule_id: rule.id,
+          rule_name: rule.name,
+        },
+      },
+    );
+  }
+
+  /**
+   * Creates the payment invoice right after completion/approval when the
+   * approval policy says so (a matching rule, or the user's own approver
+   * entry, with "create invoice automatically"). Reuses `requestPayment`, so
+   * its permission, scope, approval and payment checks all still apply; if
+   * any fails the user simply uses "Request Payment" as before.
+   */
+  private async tryAutoRequestPayment(
+    companyId: string,
+    id: string,
+    user: AuthenticatedUser,
+  ) {
+    if (!this.approvalPolicyService) return;
+    try {
+      const quotation = await this.quotationsRepository.findOneAggregate(
+        companyId,
+        id,
+      );
+      if (
+        !quotation.requires_payment ||
+        quotation.payment_status !== PaymentStatus.NOT_INITIATED
+      ) {
+        return;
+      }
+      const policy = await this.approvalPolicyService.getPolicy(companyId);
+      const source = autoPaymentRequestSource(
+        policy,
+        user.id,
+        this.approvalPolicyService.factsFor(quotation),
+      );
+      if (!source) return;
+      await this.requestPayment(companyId, id, user);
+      if (source.recordCash) {
+        await this.autoRecordCashPayment(companyId, quotation, user, source);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Automatic payment request skipped for quotation ${id}: ${String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Cash quotations covered by "Mark cash as paid": records the cash payment
+   * against the quotation invoice, posts the receipt and allocates it with
+   * the existing Finance commands, so the quotation becomes Paid through the
+   * normal allocation path. Fixed idempotency keys make retries safe. The
+   * payment is flagged "pending cash verification" for Finance to confirm.
+   */
+  private async autoRecordCashPayment(
+    companyId: string,
+    quotation: Quotation,
+    user: AuthenticatedUser,
+    source: { source: 'RULE' | 'USER'; rule?: { id: string; name: string } },
+  ) {
+    let invoice = await this.findLatestInvoice(companyId, quotation.id);
+    if (!invoice) return;
+    // The payment request leaves the invoice as a DRAFT; a payment can only
+    // be recorded against an issued invoice, so issue it first (the same
+    // command as Finance's "Issue" button).
+    if (String(invoice.status).toUpperCase() === 'DRAFT') {
+      await this.financeCommandService.issue(user, invoice.id, {
+        expected_state_version: invoice.state_version,
+        idempotency_key: `auto-cash-issue-${invoice.id}`,
+      } as IssueInvoiceDto);
+      invoice = await this.findLatestInvoice(companyId, quotation.id);
+      if (!invoice) return;
+    }
+    const amount = Number(invoice.balance_amount ?? invoice.total_amount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    const payment = await this.financeCommandService.recordManualPayment(user, {
+      invoice_id: invoice.id,
+      customer_id: invoice.customer_id ?? undefined,
+      payment_method: PaymentMethod.CASH,
+      provider_code: 'CASH_DESK',
+      // No receipt number is captured; the quotation number identifies it.
+      payment_reference: quotation.quotation_no,
+      amount,
+      currency_code: invoice.currency,
+      payer_name:
+        quotation.policy_holders?.[0]?.policy_holder_name ??
+        quotation.quotation_no,
+      idempotency_key: `auto-cash-${quotation.id}-${invoice.id}`,
+    });
+    await this.financeCommandService.postReceipt(user, {
+      payment_transaction_id: payment.id,
+      invoice_id: invoice.id,
+      allocation_amount: amount,
+      idempotency_key: `auto-cash-receipt-${payment.id}`,
+    });
+
+    await this.dataSource.getRepository(PaymentTransaction).update(
+      { id: payment.id, company_id: companyId },
+      {
+        request_payload: {
+          cash_verification: {
+            status: 'PENDING',
+            recorded_automatically: true,
+            quotation_id: quotation.id,
+            quotation_no: quotation.quotation_no,
+            source: source.source,
+            rule_id: source.rule?.id ?? null,
+            rule_name: source.rule?.name ?? null,
+          },
+        },
+      },
+    );
   }
 
   private canApproveQuotationWorkflow(

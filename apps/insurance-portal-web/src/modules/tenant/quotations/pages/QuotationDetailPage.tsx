@@ -180,6 +180,7 @@ export function QuotationDetailPage({
     preview?.overview.tira_status !== 'SUCCESS';
   const canCancel = workflow?.availableCommands.CANCEL ?? false;
   const canApproveQuotation = workflow?.availableCommands.APPROVE ?? false;
+  const canDirectApprove = workflow?.availableCommands.DIRECT_APPROVE ?? false;
   const canRequestQuotationChanges =
     workflow?.availableCommands.REQUEST_CHANGES ?? false;
   const canRejectQuotation = workflow?.availableCommands.REJECT ?? false;
@@ -457,55 +458,76 @@ export function QuotationDetailPage({
     });
   };
 
-  const primaryWorkflowAction: WorkflowAction | null = canApproveQuotation
+  const primaryWorkflowAction: WorkflowAction | null = canDirectApprove
     ? {
-        label: 'Approve',
+        // Authorised users approve their own eligible quotation in one step;
+        // the backend re-checks their authority and limits.
+        label: 'Complete and Approve',
         pendingLabel: 'Approving...',
         isPending: transitionStatusMutation.isPending,
         disabled: hasStalePricing,
         onClick: () =>
-          openApprovalDialog('APPROVE', {
-            title: 'Approve Quotation',
-            description:
-              'Approve this quotation so it can continue to payment or issuance.',
-            reasonRequired: false,
-          }),
+          transitionStatusMutation.mutate({ action: 'DIRECT_APPROVE' }),
       }
-    : canSubmitForApproval
+    : canApproveQuotation
       ? {
-          label: 'Complete Quotation',
-          pendingLabel: 'Submitting...',
-          isPending: submitForApprovalMutation.isPending,
+          label: 'Approve',
+          pendingLabel: 'Approving...',
+          isPending: transitionStatusMutation.isPending,
           disabled: hasStalePricing,
-          onClick: () => submitForApprovalMutation.mutate(),
+          onClick: () =>
+            openApprovalDialog('APPROVE', {
+              title: 'Approve Quotation',
+              description:
+                'Approve this quotation so it can continue to payment or issuance.',
+              reasonRequired: false,
+            }),
         }
-      : canRequestPayment
+      : canSubmitForApproval
         ? {
-            label: 'Request Payment',
-            pendingLabel: 'Requesting...',
-            isPending: requestPaymentMutation.isPending,
+            label: 'Complete Quotation',
+            pendingLabel: 'Submitting...',
+            isPending: submitForApprovalMutation.isPending,
             disabled: hasStalePricing,
-            onClick: () => requestPaymentMutation.mutate(),
+            onClick: () => submitForApprovalMutation.mutate(),
           }
-        : canSubmit
+        : canRequestPayment
           ? {
-              label: 'Issue Cover',
-              pendingLabel: 'Submitting...',
-              isPending: submitMutation.isPending,
+              label: 'Request Payment',
+              pendingLabel: 'Requesting...',
+              isPending: requestPaymentMutation.isPending,
               disabled: hasStalePricing,
-              onClick: submitToTiramis,
+              onClick: () => requestPaymentMutation.mutate(),
             }
-          : canRetrySubmission
+          : canSubmit
             ? {
-                label: 'Retry Issue Cover',
-                pendingLabel: 'Retrying...',
-                isPending: retryTiraMutation.isPending,
+                label: 'Issue Cover',
+                pendingLabel: 'Submitting...',
+                isPending: submitMutation.isPending,
                 disabled: hasStalePricing,
-                onClick: () => retryTiraMutation.mutate(),
+                onClick: submitToTiramis,
               }
-            : null;
+            : canRetrySubmission
+              ? {
+                  label: 'Retry Issue Cover',
+                  pendingLabel: 'Retrying...',
+                  isPending: retryTiraMutation.isPending,
+                  disabled: hasStalePricing,
+                  onClick: () => retryTiraMutation.mutate(),
+                }
+              : null;
 
   const secondaryWorkflowActions: ActionMenuItem[] = [
+    // With Complete and Approve as the main action, referral stays available.
+    ...(canDirectApprove && canSubmitForApproval
+      ? [
+          {
+            label: 'Submit for Approval',
+            onClick: () => submitForApprovalMutation.mutate(),
+            disabled: submitForApprovalMutation.isPending,
+          },
+        ]
+      : []),
     ...(canRequestQuotationChanges
       ? [
           {

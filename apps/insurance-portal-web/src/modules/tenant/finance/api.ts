@@ -119,6 +119,14 @@ export const financeApi = {
       '/tenant/finance/payment-transactions',
       params,
     ),
+  /** Confirm cash that was recorded automatically at quotation completion. */
+  verifyCashPayment: (id: string, note?: string) =>
+    apiClient
+      .post<FinancePaymentTransaction>(
+        `/tenant/finance/payment-transactions/${id}/verify-cash`,
+        { note },
+      )
+      .then((response) => response.data),
   getPaymentTransaction: (id: string) =>
     apiClient
       .get<FinancePaymentTransaction>(

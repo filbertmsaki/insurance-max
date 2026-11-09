@@ -490,6 +490,7 @@ export function useTransitionQuotationStatus(id?: string) {
         EVALUATE_REQUIREMENTS: 'Quotation requirements re-evaluated',
         SUBMIT_FOR_APPROVAL: 'Quotation submitted for approval',
         APPROVE: 'Quotation approved',
+        DIRECT_APPROVE: 'Quotation approved',
         REQUEST_CHANGES: 'Changes requested',
         REJECT_APPROVAL: 'Quotation rejected',
         MARK_PAYMENT_REQUESTED: 'Payment request recorded',

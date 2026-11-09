@@ -612,6 +612,13 @@ export const NAV_NODES: NavNode[] = [
         to: '/apps/settings/number-format',
         icon: Settings,
       },
+      {
+        kind: 'link',
+        label: 'Quotation Approval',
+        to: '/apps/settings/quotation-approval',
+        icon: ShieldCheck,
+        permission: 'quotations:approval-policy:manage',
+      },
     ],
   },
 ];

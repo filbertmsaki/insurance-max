@@ -363,6 +363,51 @@ export class FinanceCommandService {
     });
   }
 
+  /**
+   * Finance confirms a cash payment that was recorded automatically when a
+   * quotation was completed (approval policy "Mark cash as paid"). It does
+   * not change money or allocation — only records who checked the cash and
+   * when, in the payment's request payload. Verifying twice is refused.
+   */
+  async verifyCashPayment(
+    user: AuthenticatedUser,
+    paymentId: string,
+    note?: string,
+  ) {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId, company_id: user.companyId! },
+    });
+    if (!payment) {
+      throw new NotFoundException('Payment transaction not found');
+    }
+    const payload = payment.request_payload ?? {};
+    const verification = payload.cash_verification as
+      | Record<string, unknown>
+      | undefined;
+    if (!verification) {
+      throw new BadRequestException(
+        'This payment does not need cash verification.',
+      );
+    }
+    if (verification.status !== 'PENDING') {
+      throw new ConflictException('This cash payment is already verified.');
+    }
+    payment.request_payload = {
+      ...payload,
+      cash_verification: {
+        ...verification,
+        status: 'VERIFIED',
+        verified_by: user.id,
+        verified_at: new Date().toISOString(),
+        // Recorded so reviewers can see when the recorder verified it too.
+        self_verified: payment.created_by === user.id,
+        note: note?.trim() || null,
+      },
+    };
+    payment.updated_by = user.id;
+    return this.paymentRepository.save(payment);
+  }
+
   async postReceipt(user: AuthenticatedUser, dto: PostReceiptDto) {
     return this.dataSource.transaction(async (manager) => {
       const payment = await manager

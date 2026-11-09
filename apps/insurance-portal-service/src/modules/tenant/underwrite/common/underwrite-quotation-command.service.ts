@@ -319,6 +319,15 @@ export const DUPLICATE_STRIPPED_KEYS = new Set([
   'premium_override_id',
 ]);
 
+/** Identifiers kept as an empty string (the form's "not issued yet"). */
+const BLANKED_IDENTIFIER_KEYS = new Set([
+  'fleet_id',
+  'cover_note_number',
+  'cover_note_reference_number',
+  'prev_cover_note_reference_number',
+  'sticker_number',
+]);
+
 /** Deep copy of a draft payload without identifiers that must be new. */
 export function stripDuplicateIdentifiers(
   payload: Record<string, unknown> | null | undefined,
@@ -328,8 +337,17 @@ export function stripDuplicateIdentifiers(
     if (value && typeof value === 'object') {
       return Object.fromEntries(
         Object.entries(value as Record<string, unknown>)
-          .filter(([key]) => !DUPLICATE_STRIPPED_KEYS.has(key))
-          .map(([key, item]) => [key, strip(item)]),
+          // Text identifiers are blanked, not removed: required string fields
+          // (e.g. fleet_hdr.fleet_id) must stay strings, as in a fresh draft.
+          .filter(
+            ([key, item]) =>
+              !DUPLICATE_STRIPPED_KEYS.has(key) ||
+              (BLANKED_IDENTIFIER_KEYS.has(key) && typeof item === 'string'),
+          )
+          .map(([key, item]) => [
+            key,
+            DUPLICATE_STRIPPED_KEYS.has(key) ? '' : strip(item),
+          ]),
       );
     }
     return value;

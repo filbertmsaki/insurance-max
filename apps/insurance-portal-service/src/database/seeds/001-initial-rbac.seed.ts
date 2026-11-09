@@ -2530,6 +2530,20 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'quotations:direct-approve',
+    displayName: 'Complete and approve own quotations',
+    description:
+      'Approve own eligible quotations without a second approver, within the limits set in the quotation approval policy.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:approval-policy:manage',
+    displayName: 'Manage quotation approval policy',
+    description:
+      'Configure automatic approval rules and which users may directly approve quotations, with their limits.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'quotations:request-changes',
     displayName: 'Request quotation changes',
     description:
@@ -3473,6 +3487,8 @@ const PER_USER_ONLY_PERMISSION_NAMES = new Set([
   'quotations:select-insurance-channel',
   // Motor Insurance (New) pilot: granted per user only, never via a role.
   MOTOR_INSURANCE_PREVIEW_PERMISSION,
+  // Complete and Approve: given to selected users, never via a role.
+  'quotations:direct-approve',
 ]);
 
 const FULL_COMPANY_PERMISSION_ROLE_NAMES = new Set([
@@ -3616,6 +3632,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       'approvals:self-approve',
+      'quotations:approval-policy:manage',
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       ...ANALYTICS_ADMIN_PERMISSION_NAMES,
       ...BASE_ADMIN_PERMISSION_NAMES,
@@ -3773,6 +3790,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       'approvals:self-approve',
+      'quotations:approval-policy:manage',
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,

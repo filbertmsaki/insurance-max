@@ -334,6 +334,80 @@ export class QuotationLifecycleService {
   }
 
   /**
+   * Approves without a referral to a second person:
+   * - `DIRECT`: an authorised user approves their own eligible quotation
+   *   ("Complete and Approve"). Their authority is checked by the caller.
+   * - `AUTO`: a configured automatic-approval rule matched at completion.
+   * Recorded in status history with the method (and rule) in its metadata.
+   * Only an approval that is required and not yet decided can be granted, so
+   * a quotation is never approved twice.
+   */
+  async approveWithoutReferral(
+    companyId: string,
+    quotationId: string,
+    method: 'DIRECT' | 'AUTO',
+    context: QuotationLifecycleContext = {},
+  ) {
+    return this.withLockedQuotation(
+      companyId,
+      quotationId,
+      async (manager, quotation) => {
+        if (
+          quotation.offer_expires_at &&
+          quotation.offer_expires_at.getTime() <= Date.now()
+        ) {
+          throw new ConflictException('Quotation offer has expired.');
+        }
+        if (!quotation.requires_approval) {
+          throw new ConflictException(
+            'Approval is not required for this quotation',
+          );
+        }
+        if (
+          ![
+            ApprovalStatus.NOT_SUBMITTED,
+            ApprovalStatus.CHANGES_REQUESTED,
+            ApprovalStatus.PENDING,
+          ].includes(quotation.approval_status)
+        ) {
+          throw new ConflictException(
+            `Approval cannot be completed from ${quotation.approval_status}`,
+          );
+        }
+        if (method === 'DIRECT' && !context.changedBy) {
+          throw new ForbiddenException(
+            'An identified user is required to approve a quotation.',
+          );
+        }
+
+        const previous = this.snapshot(quotation);
+        const now = new Date();
+        quotation.approval_status = ApprovalStatus.APPROVED;
+        quotation.approval_submitted_by =
+          quotation.approval_submitted_by ?? context.changedBy ?? null;
+        quotation.approval_submitted_at =
+          quotation.approval_submitted_at ?? now;
+        // Auto approval is a system decision: no human decider.
+        quotation.approval_decided_by =
+          method === 'DIRECT' ? (context.changedBy ?? null) : null;
+        quotation.approval_decided_at = now;
+        quotation.approval_comments =
+          context.comments ?? context.reason ?? null;
+        quotation.approval_reason = null;
+        this.applyRequirementStatus(quotation);
+
+        return this.persistTransition(
+          manager,
+          quotation,
+          previous,
+          method === 'DIRECT' ? 'DIRECT_APPROVE' : 'AUTO_APPROVE',
+          context,
+        );
+      },
+    );
+  }
+
+  /**
    * Business decision D3/D3a (2026-11-07): when an edit changes the
    * authoritative premium, an approval that was pending or granted no longer
    * covers the quotation, and a payment request for the old amount is void.

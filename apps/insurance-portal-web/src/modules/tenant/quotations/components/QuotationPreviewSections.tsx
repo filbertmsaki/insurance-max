@@ -135,6 +135,28 @@ export function QuotationInformationPreview({
             label: 'Last Updated Date',
             value: formatDateTime(overview.updated_at),
           },
+          // Approval details, once decided. Automatic approval has no
+          // approver; the comment records the method (direct or rule).
+          ...(overview.approval_decided_at
+            ? [
+                {
+                  label: 'Approved By',
+                  value:
+                    overview.approved_by?.name ??
+                    (overview.approval_comments?.startsWith('Automatically')
+                      ? 'System (automatic)'
+                      : null),
+                },
+                {
+                  label: 'Approval Date',
+                  value: formatDateTime(overview.approval_decided_at),
+                },
+                {
+                  label: 'Approval Note',
+                  value: overview.approval_comments,
+                },
+              ]
+            : []),
         ]}
       />
     </SectionCard>

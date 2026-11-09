@@ -75,6 +75,7 @@ export type QuotationStatusTransitionAction =
   | 'EVALUATE_REQUIREMENTS'
   | 'SUBMIT_FOR_APPROVAL'
   | 'APPROVE'
+  | 'DIRECT_APPROVE'
   | 'REQUEST_CHANGES'
   | 'REJECT_APPROVAL'
   | 'MARK_PAYMENT_REQUESTED'
@@ -137,6 +138,7 @@ export type QuotationWorkflowCommand =
   | 'COMPLETE'
   | 'SUBMIT_APPROVAL'
   | 'APPROVE'
+  | 'DIRECT_APPROVE'
   | 'REQUEST_CHANGES'
   | 'REJECT'
   | 'REQUEST_PAYMENT'
@@ -681,6 +683,9 @@ export interface QuotationPreviewRecord {
     created_by: QuotationPreviewRef;
     updated_by: QuotationPreviewRef;
     submitted_by: QuotationPreviewRef;
+    approved_by?: QuotationPreviewRef;
+    approval_decided_at?: string | null;
+    approval_comments?: string | null;
     created_at: string;
     updated_at: string;
     submitted_at: string | null;

@@ -82,6 +82,8 @@ export const QuotationCommand = {
   SAVE_AND_CONTINUE: 'SAVE_AND_CONTINUE',
   COMPLETE: 'COMPLETE',
   SUBMIT_APPROVAL: 'SUBMIT_APPROVAL',
+  /** Complete and Approve: authorised self-approval within policy limits. */
+  DIRECT_APPROVE: 'DIRECT_APPROVE',
   APPROVE: 'APPROVE',
   REQUEST_CHANGES: 'REQUEST_CHANGES',
   REJECT: 'REJECT',
