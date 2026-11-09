@@ -60,12 +60,6 @@ const FLEET_WIZARD_STEPS: UnderwriteWizardStep[] = [
     fields: ['fleet.items'],
   },
   {
-    id: 'premium',
-    label: 'Premium',
-    description: 'Vehicle premiums, taxes and fleet totals',
-    fields: [],
-  },
-  {
     id: 'source',
     label: 'Business Source',
     description: 'Channel, intermediary and branch',
@@ -77,9 +71,11 @@ const FLEET_WIZARD_STEPS: UnderwriteWizardStep[] = [
     ],
   },
   {
+    // Premium and review on one step: vehicle premiums, fleet totals, then
+    // the summary before completing.
     id: 'review',
-    label: 'Review',
-    description: 'Check the fleet before completing',
+    label: 'Review & Complete',
+    description: 'Vehicle premiums, fleet totals and summary',
     fields: ['payment_mode_tira'],
   },
 ];
@@ -199,10 +195,11 @@ export function FleetQuotationWizard() {
     line: FLEET,
     quotationId: id,
     steps: FLEET_WIZARD_STEPS,
-    deferDraftUntilStepId: 'premium',
+    // First saved when leaving Vehicles (Premium merged into Review).
+    deferDraftUntilStepId: 'vehicles',
     allowEarlyManualDraft: true,
     // Drafts saved before Customer, Fleet Details and Product & Cover merged.
-    stepAliases: { fleet: 'customer', cover: 'customer' },
+    stepAliases: { fleet: 'customer', cover: 'customer', premium: 'review' },
   });
   const actions = useFleetVehicleActions(wizard);
   const { form } = wizard;
@@ -269,18 +266,15 @@ export function FleetQuotationWizard() {
                 factorContext={wizard.factorContext}
               />
             );
-          case 'premium':
-            return (
-              <FleetPremiumStep
-                wizard={wizard}
-                onEditVehicles={() => wizard.setStep('vehicles')}
-              />
-            );
           case 'source':
             return <BusinessSourceStep wizard={wizard} />;
           case 'review':
             return (
               <div className="space-y-6">
+                <FleetPremiumStep
+                  wizard={wizard}
+                  onEditVehicles={() => wizard.setStep('vehicles')}
+                />
                 <SummaryReviewStep
                   form={form}
                   customerOptions={wizard.customerOptions}
@@ -296,7 +290,7 @@ export function FleetQuotationWizard() {
                       section === 'customer' || section === 'cover'
                         ? 'customer'
                         : section === 'premium'
-                          ? 'premium'
+                          ? 'review'
                           : 'vehicles',
                     )
                   }

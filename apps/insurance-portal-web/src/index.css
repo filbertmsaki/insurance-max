@@ -426,3 +426,47 @@
     margin-block-end: 0.5rem;
   }
 }
+
+/*
+ * Clickable elements show the pointer cursor (Tailwind v4 resets buttons to
+ * `cursor: default`). Base layer, so an explicit `cursor-*` utility on an
+ * element still wins. Disabled controls show "not allowed".
+ */
+@layer base {
+  a[href],
+  button,
+  [role='button'],
+  [role='link'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='menuitemcheckbox'],
+  [role='menuitemradio'],
+  [role='option'],
+  [role='radio'],
+  [role='checkbox'],
+  [role='switch'],
+  [role='combobox'],
+  summary,
+  select,
+  label[for],
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='file'],
+  input[type='submit'],
+  input[type='button'],
+  input[type='reset'] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role='button'][aria-disabled='true'],
+  [role='tab'][aria-disabled='true'],
+  [role='menuitem'][aria-disabled='true'],
+  [role='menuitem'][data-disabled],
+  [role='option'][aria-disabled='true'],
+  [role='option'][data-disabled],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+}

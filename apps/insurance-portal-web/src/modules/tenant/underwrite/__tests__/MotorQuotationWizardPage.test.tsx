@@ -147,7 +147,7 @@ describe('SingleMotorQuotationWizard', () => {
     renderPage();
 
     expect(await screen.findByText('Quote details')).toBeInTheDocument();
-    expect(screen.getByText('Review & submit')).toBeInTheDocument();
+    expect(screen.getByText('Review & Complete')).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Policyholder' }),
     ).not.toBeInTheDocument();

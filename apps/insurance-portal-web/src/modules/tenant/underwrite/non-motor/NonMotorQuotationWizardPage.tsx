@@ -142,7 +142,7 @@ export function NonMotorQuotationWizardPage() {
     },
     {
       id: 'review',
-      label: 'Review & submit',
+      label: 'Review & Complete',
       description: 'Documents, business source and final checks',
       fields: [
         'payment_mode_tira',

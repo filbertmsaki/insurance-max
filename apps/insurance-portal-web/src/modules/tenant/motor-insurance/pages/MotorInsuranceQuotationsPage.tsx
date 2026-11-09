@@ -130,10 +130,12 @@ export function MotorInsuranceQuotationsPage() {
     },
     {
       key: 'vehicle_registration_number',
-      header: 'Reg No. / Fleet ID',
+      header: 'Reg No. / Chassis / Fleet ID',
       hideOnMobile: true,
       cell: (row) =>
-        (isFleetRow(row) ? row.fleet_id : row.vehicle_registration_number) ||
+        (isFleetRow(row)
+          ? row.fleet_id
+          : row.vehicle_registration_number || row.vehicle_chassis_number) ||
         'N/A',
     },
     {

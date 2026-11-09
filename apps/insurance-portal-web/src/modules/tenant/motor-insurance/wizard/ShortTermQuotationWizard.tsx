@@ -76,16 +76,16 @@ const SINGLE_STEPS: UnderwriteWizardStep[] = [
     fields: ['motor'],
   },
   {
-    id: 'st-premium',
-    label: 'Premium',
-    description: 'Premium, taxes and total',
-    fields: ['risks.0.sum_insured', 'addons', ...SOURCE_FIELDS],
-  },
-  {
+    // Premium and review on one step.
     id: 'st-review',
     label: 'Review & Complete',
-    description: 'Check the quotation and complete it',
-    fields: ['payment_mode_tira'],
+    description: 'Premium, taxes, total and summary',
+    fields: [
+      'risks.0.sum_insured',
+      'addons',
+      ...SOURCE_FIELDS,
+      'payment_mode_tira',
+    ],
   },
 ];
 
@@ -110,16 +110,11 @@ const FLEET_STEPS: UnderwriteWizardStep[] = [
     fields: ['fleet.items'],
   },
   {
-    id: 'st-premium',
-    label: 'Premium',
-    description: 'Vehicle premiums and fleet totals',
-    fields: [...SOURCE_FIELDS],
-  },
-  {
+    // Premium and review on one step.
     id: 'st-review',
     label: 'Review & Complete',
-    description: 'Check the fleet and complete it',
-    fields: ['payment_mode_tira'],
+    description: 'Vehicle premiums, fleet totals and summary',
+    fields: [...SOURCE_FIELDS, 'payment_mode_tira'],
   },
 ];
 
@@ -423,7 +418,9 @@ function ShortTermSingle({
     line: MOTOR,
     quotationId: id,
     steps: SINGLE_STEPS,
-    deferDraftUntilStepId: 'st-premium',
+    // First saved when leaving the vehicle step (Premium merged into Review).
+    deferDraftUntilStepId: 'st-vehicles',
+    stepAliases: { 'st-premium': 'st-review' },
   });
   const { form } = wizard;
   const presets = useShortTermPresets(wizard, mode, carryRef);
@@ -475,7 +472,7 @@ function ShortTermSingle({
                 }
               />
             );
-          case 'st-premium':
+          case 'st-review':
             return (
               <div className="space-y-3">
                 <RiskPremiumStep
@@ -500,29 +497,26 @@ function ShortTermSingle({
                   />
                 )}
                 <BusinessSourceStep wizard={wizard} />
+                <SummaryReviewStep
+                  form={form}
+                  customerOptions={wizard.customerOptions}
+                  categoryOptions={wizard.categoryOptions}
+                  productOptions={wizard.productOptions}
+                  riskOptions={wizard.riskOptions}
+                  riskCount={wizard.riskFieldArray.fields.length}
+                  onEditStep={() => wizard.setStep('st-cover')}
+                  onEditSection={(section) =>
+                    wizard.setStep(
+                      section === 'vehicle'
+                        ? 'st-vehicles'
+                        : section === 'premium'
+                          ? 'st-review'
+                          : 'st-cover',
+                    )
+                  }
+                  showPaymentMode
+                />
               </div>
-            );
-          case 'st-review':
-            return (
-              <SummaryReviewStep
-                form={form}
-                customerOptions={wizard.customerOptions}
-                categoryOptions={wizard.categoryOptions}
-                productOptions={wizard.productOptions}
-                riskOptions={wizard.riskOptions}
-                riskCount={wizard.riskFieldArray.fields.length}
-                onEditStep={() => wizard.setStep('st-cover')}
-                onEditSection={(section) =>
-                  wizard.setStep(
-                    section === 'vehicle'
-                      ? 'st-vehicles'
-                      : section === 'premium'
-                        ? 'st-premium'
-                        : 'st-cover',
-                  )
-                }
-                showPaymentMode
-              />
             );
           default:
             return null;
@@ -543,7 +537,9 @@ function ShortTermFleet({
     line: FLEET,
     quotationId: id,
     steps: FLEET_STEPS,
-    deferDraftUntilStepId: 'st-premium',
+    // First saved when leaving the vehicle step (Premium merged into Review).
+    deferDraftUntilStepId: 'st-vehicles',
+    stepAliases: { 'st-premium': 'st-review' },
     allowEarlyManualDraft: true,
   });
   const actions = useFleetVehicleActions(wizard);
@@ -590,7 +586,7 @@ function ShortTermFleet({
                 />
               </div>
             );
-          case 'st-premium':
+          case 'st-review':
             return (
               <div className="space-y-6">
                 <FleetPremiumStep
@@ -598,28 +594,21 @@ function ShortTermFleet({
                   onEditVehicles={() => wizard.setStep('st-vehicles')}
                 />
                 <BusinessSourceStep wizard={wizard} />
+                <SummaryReviewStep
+                  form={form}
+                  customerOptions={wizard.customerOptions}
+                  categoryOptions={wizard.categoryOptions}
+                  productOptions={wizard.productOptions}
+                  riskOptions={wizard.riskOptions}
+                  riskCount={wizard.fleetFieldArray.fields.length}
+                  onEditStep={() => void wizard.goToStep('st-cover')}
+                  onEditSection={(section) =>
+                    void wizard.goToStep(
+                      section === 'vehicle' ? 'st-vehicles' : 'st-cover',
+                    )
+                  }
+                />
               </div>
-            );
-          case 'st-review':
-            return (
-              <SummaryReviewStep
-                form={form}
-                customerOptions={wizard.customerOptions}
-                categoryOptions={wizard.categoryOptions}
-                productOptions={wizard.productOptions}
-                riskOptions={wizard.riskOptions}
-                riskCount={wizard.fleetFieldArray.fields.length}
-                onEditStep={() => void wizard.goToStep('st-cover')}
-                onEditSection={(section) =>
-                  void wizard.goToStep(
-                    section === 'vehicle'
-                      ? 'st-vehicles'
-                      : section === 'premium'
-                        ? 'st-premium'
-                        : 'st-cover',
-                  )
-                }
-              />
             );
           default:
             return null;

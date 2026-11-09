@@ -115,10 +115,11 @@ export function QuotationsPage() {
     },
     {
       key: 'vehicle_registration_number',
-      header: 'Reg No.',
+      header: 'Reg No. / Chassis',
       sortable: true,
       hideOnMobile: true,
-      cell: (row) => row.vehicle_registration_number || 'N/A',
+      cell: (row) =>
+        row.vehicle_registration_number || row.vehicle_chassis_number || 'N/A',
     },
     {
       key: 'cover_note_start_date',

@@ -8792,10 +8792,8 @@ export class QuotationsService {
   }
 
   /**
-   * FleetId: {TIRA company code}F{yyMMddHHmmssSSS}{3-digit counter}. The
-   * TIRA-issued code keeps it apart from other insurers, the daily counter
-   * (wrapping at 999) from concurrent saves, and the millisecond timestamp
-   * from database resets.
+   * FleetId: {TIRA company code}F{yyMMdd}{sequence}. A transaction lock
+   * and collision check protect companies that share a TIRA code.
    */
   private async generateFleetId(
     manager: EntityManager,
@@ -8821,30 +8819,37 @@ export class QuotationsService {
         year: '2-digit',
         month: '2-digit',
         day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
       })
         .formatToParts(now)
         .map((part) => [part.type, part.value]),
     );
-    const timestamp = ['year', 'month', 'day', 'hour', 'minute', 'second']
+    const date = ['year', 'month', 'day']
       .map((type) => parts.get(type) ?? '')
-      .join('')
-      .concat(String(now.getMilliseconds()).padStart(3, '0'));
+      .join('');
 
-    const value = await this.businessReferenceService.nextValue({
-      companyId,
-      documentType: 'MOTOR_FLEET',
-      periodKey: timestamp.slice(0, 6),
-      manager,
-    });
-    const counter = String(((value - 1) % 999) + 1).padStart(3, '0');
-
-    return toAlphanumericReference(
-      `${companyCode}F${timestamp}${counter}`,
-    ).slice(0, 50);
+    const prefix = toAlphanumericReference(`${companyCode}F${date}`);
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `fleet-id:${prefix}`,
+    ]);
+    for (;;) {
+      const value = await this.businessReferenceService.nextValue({
+        companyId,
+        documentType: 'MOTOR_FLEET_REFERENCE',
+        periodKey: 'LIFETIME',
+        manager,
+      });
+      const fleetId = `${prefix}${String(value).padStart(3, '0')}`;
+      if (fleetId.length > 50) {
+        throw new BadRequestException(
+          'The generated fleet ID exceeds 50 characters.',
+        );
+      }
+      const existing = await manager.query(
+        'SELECT 1 FROM quotation_cover_notes WHERE fleet_id = $1 LIMIT 1',
+        [fleetId],
+      );
+      if (!existing.length) return fleetId;
+    }
   }
 
   private async persistAggregate(

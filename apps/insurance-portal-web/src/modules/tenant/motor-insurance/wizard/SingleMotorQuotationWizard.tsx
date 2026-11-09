@@ -61,7 +61,7 @@ export const MOTOR_WIZARD_STEPS: UnderwriteWizardStep[] = [
   },
   {
     id: 'review',
-    label: 'Review & submit',
+    label: 'Review & Complete',
     description: 'Check the premium and create the quotation',
     fields: [],
   },

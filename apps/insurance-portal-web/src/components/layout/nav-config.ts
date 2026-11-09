@@ -238,8 +238,10 @@ export const NAV_NODES: NavNode[] = [
       },
     ],
   },
-  ...buildUnderwriteNavNodes(),
+  // Underwrite section: Dashboard, then Motor Insurance, then the other lines.
+  ...buildUnderwriteNavNodes().slice(0, 1),
   ...buildMotorInsuranceNavNodes(),
+  ...buildUnderwriteNavNodes().slice(1),
   ...buildClaimsNavNodes(),
   {
     kind: 'group',
