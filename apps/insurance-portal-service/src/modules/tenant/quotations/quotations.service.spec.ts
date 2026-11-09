@@ -2345,7 +2345,7 @@ describe('QuotationsService', () => {
     );
     expect(fixture.dataSource.query).toHaveBeenCalledWith(
       expect.stringContaining('i.source_revision <= $3'),
-      ['company-1', fixture.quotation.id, 9, 'TZS', '112100.00', null],
+      ['company-1', fixture.quotation.id, 9, 'TZS', '112100.00'],
     );
   });
 

@@ -5,6 +5,8 @@ import { DataSource } from 'typeorm';
 import { UnderwriteLine } from '@insurance-max/contracts';
 import { AppModule } from '../../src/app.module';
 import { QuotationsService } from '../../src/modules/tenant/quotations/quotations.service';
+import { QuotationApprovalPolicyService } from '../../src/modules/tenant/quotations/approval-policy/quotation-approval-policy.service';
+import { normalizeApprovalPolicy } from '../../src/modules/tenant/quotations/approval-policy/quotation-approval-policy';
 import { UnderwriteQuotationCommandService } from '../../src/modules/tenant/underwrite/common/underwrite-quotation-command.service';
 import { FinanceCommandService } from '../../src/modules/tenant/billing-commission/services/finance-command.service';
 import { QuotationStatusTransitionAction } from '../../src/modules/tenant/quotations/enums/quotation-status-transition-action.enum';
@@ -141,7 +143,7 @@ describe('Single Motor and Fleet business acceptance (real database)', () => {
       )
     )[0];
 
-  async function prepare(fleet: boolean) {
+  async function prepare(fleet: boolean, automaticApproval = false) {
     const line = fleet ? UnderwriteLine.FLEET : UnderwriteLine.MOTOR;
     const body = motorJourneyPayload(fx, fleet);
     // Fresh vehicle identity for each independent business journey.
@@ -193,17 +195,32 @@ describe('Single Motor and Fleet business acceptance (real database)', () => {
       `UPDATE quotations SET requires_approval=true, approval_status='NOT_SUBMITTED', quotation_status='PENDING_REQUIREMENTS' WHERE id=$1`,
       [draft.id],
     );
-    await quotations.submitForApprovalAction(fx.companyId, draft.id, maker);
-    expect((await row(draft.id)).approval_status).toBe('PENDING');
-    await quotations.transitionStatus(
-      fx.companyId,
-      draft.id,
-      {
-        action: QuotationStatusTransitionAction.APPROVE,
-        comments: 'Acceptance approved',
-      },
-      checker,
-    );
+    if (automaticApproval) {
+      const policy = jest
+        .spyOn(app.get(QuotationApprovalPolicyService), 'getPolicy')
+        .mockResolvedValue(
+          normalizeApprovalPolicy({
+            auto_approval: {
+              enabled: true,
+              rules: [{ id: 'auto', name: 'Acceptance auto approval' }],
+            },
+          }),
+        );
+      await (quotations as any).tryAutoApprove(fx.companyId, draft.id);
+      policy.mockRestore();
+    } else {
+      await quotations.submitForApprovalAction(fx.companyId, draft.id, maker);
+      expect((await row(draft.id)).approval_status).toBe('PENDING');
+      await quotations.transitionStatus(
+        fx.companyId,
+        draft.id,
+        {
+          action: QuotationStatusTransitionAction.APPROVE,
+          comments: 'Acceptance approved',
+        },
+        checker,
+      );
+    }
     expect((await row(draft.id)).approval_status).toBe('APPROVED');
     await quotations.requestPayment(fx.companyId, draft.id, maker);
     let invoice = await latestInvoice(draft.id);
@@ -400,9 +417,13 @@ describe('Single Motor and Fleet business acceptance (real database)', () => {
       (fleet ? 'Fleet' : 'Single Motor') +
         ': creates, reloads, edits, duplicates, prices, approves, pays, submits, applies callback and issues idempotently',
       async () => {
-        const journey = await prepare(fleet);
+        const journey = await prepare(fleet, true);
+        await expect(
+          quotations.submit(fx.companyId, journey.id, {}, maker),
+        ).rejects.toThrow('Quotation payment is not complete');
         await pay(journey.invoice);
         expect((await row(journey.id)).payment_status).toBe('PAID');
+        await quotations.replace(fx.companyId, journey.id, journey.body, maker);
         await submitAndIssue(journey, fleet);
         if (fleet) {
           const register = app.get(FleetRegisterService);

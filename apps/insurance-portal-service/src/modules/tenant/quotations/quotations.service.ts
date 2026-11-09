@@ -10545,6 +10545,8 @@ export class QuotationsService {
     // A workflow revision advances for status events as well as edits. The
     // invoice revision is its creation revision, not the current status version.
     // Check the latest active invoice and its financial evidence instead.
+    // Pricing result hashes include quote IDs and timestamps, so repricing an
+    // unchanged premium during an edit can legitimately produce a new hash.
     const [result] = await this.dataSource.query(
       `SELECT EXISTS (
         SELECT 1 FROM invoices i
@@ -10554,7 +10556,6 @@ export class QuotationsService {
           AND i.source_revision <= $3
           AND i.status IN ('PAID', 'OVERPAID') AND i.total_amount > 0
           AND i.currency = $4 AND i.total_amount = $5::numeric
-          AND ($6::text IS NULL OR i.pricing_result_hash = $6)
           AND NOT EXISTS (
             SELECT 1 FROM invoices newer
             WHERE newer.company_id = i.company_id AND newer.quotation_id = i.quotation_id
@@ -10579,7 +10580,6 @@ export class QuotationsService {
         Number(quotation.workflow_revision ?? 1),
         quotation.cover_note?.currency_code?.trim().toUpperCase() ?? 'TZS',
         quotation.cover_note?.total_premium_including_tax ?? null,
-        this.resolveQuotationPricingResultHash(quotation),
       ],
     );
     if (!result?.cleared) {
