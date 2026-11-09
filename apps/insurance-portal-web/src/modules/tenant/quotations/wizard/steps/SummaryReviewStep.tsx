@@ -11,6 +11,7 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 import type { QuotationWizardStepId } from '../types';
 import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 import { quotationTotals } from '../utils/quotationTotals';
+import { withApplicableAddons } from '../utils/addonVisibility';
 import { countFleetComprehensive } from '../hooks/useFleetComprehensiveCount';
 import { quotationPricingIssues } from '../utils/quotationReadiness';
 import { StepSection } from '../components/StepSection';
@@ -76,7 +77,8 @@ export function SummaryReviewStep({
   showPaymentMode = true,
   onEditSection,
 }: Props) {
-  const values = form.watch();
+  // Only add-ons that are still applicable are listed and charged.
+  const values = withApplicableAddons(form.watch(), 'charge');
   const totals = quotationTotals(values);
   const issues = quotationPricingIssues(values);
   const product = productOptions.find((item) => item.id === values.product_id);

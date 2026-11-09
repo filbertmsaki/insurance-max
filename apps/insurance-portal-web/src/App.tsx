@@ -48,6 +48,7 @@ import { USER_EDIT_PERMISSIONS } from '@/modules/tenant/users/permissions';
 import { CompaniesListPage } from '@/modules/platform/companies/pages/CompaniesListPage';
 import { CompanyDetailPage } from '@/modules/platform/companies/pages/CompanyDetailPage';
 import { MyCompanyPage } from '@/modules/platform/companies/pages/MyCompanyPage';
+import { QuotationApprovalPolicyPage } from '@/modules/tenant/quotations/approval-policy/QuotationApprovalPolicyPage';
 import { NumberFormatSettingsPage } from '@/modules/platform/companies/pages/NumberFormatSettingsPage';
 import { BranchesListPage } from '@/modules/tenant/branches/pages/BranchesListPage';
 import { BranchDetailPage } from '@/modules/tenant/branches/pages/BranchDetailPage';
@@ -81,6 +82,7 @@ import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage';
 import { renderClaimsRoutes } from '@/modules/tenant/claims/routes';
 import { renderUnderwriteRoutes } from '@/modules/tenant/underwrite/routes';
+import { renderMotorInsuranceRoutes } from '@/modules/tenant/motor-insurance/routes';
 import { EndorsementTypesPage } from '@/modules/tenant/policies/pages/EndorsementTypesPage';
 import { ComplaintsPage } from '@/modules/tenant/complaints/pages/ComplaintsPage';
 import { ComplaintDetailPage } from '@/modules/tenant/complaints/pages/ComplaintDetailPage';
@@ -557,6 +559,7 @@ export default function App() {
               <Route path="/apps/dashboard/:tab" element={<DashboardPage />} />
 
               {renderUnderwriteRoutes()}
+              {renderMotorInsuranceRoutes()}
               {renderClaimsRoutes()}
 
               <Route
@@ -914,6 +917,16 @@ export default function App() {
                 />
               </Route>
               <Route path="/apps/settings/profile" element={<ProfilePage />} />
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="quotations:approval-policy:manage" />
+                }
+              >
+                <Route
+                  path="/apps/settings/quotation-approval"
+                  element={<QuotationApprovalPolicyPage />}
+                />
+              </Route>
               <Route
                 path="/apps/settings/number-format"
                 element={<NumberFormatSettingsPage />}

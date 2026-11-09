@@ -10,11 +10,14 @@ import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
 import {
   PermissionAssignmentScope,
   RoleScope,
+  MOTOR_INSURANCE_PREVIEW_PERMISSION,
+  MOTOR_INSURANCE_PREVIEW_PERMISSION_DEFINITION,
   UNDERWRITE_PERMISSION_DEFINITIONS,
   withUnderwritePermissionAliases,
 } from '@insurance-max/contracts';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
 import { CompanyUser } from '../../modules/platform/companies/entities/company-user.entity';
+import { CompanyUserPermission } from '../../modules/platform/companies/entities/company-user-permission.entity';
 import { CompanyUserRole } from '../../modules/platform/companies/entities/company-user-role.entity';
 import { Branch } from '../../modules/tenant/branches/entities/branch.entity';
 import { BranchUser } from '../../modules/tenant/branches/entities/branch-user.entity';
@@ -2527,6 +2530,20 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'quotations:direct-approve',
+    displayName: 'Complete and approve own quotations',
+    description:
+      'Approve own eligible quotations without a second approver, within the limits set in the quotation approval policy.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:approval-policy:manage',
+    displayName: 'Manage quotation approval policy',
+    description:
+      'Configure automatic approval rules and which users may directly approve quotations, with their limits.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'quotations:request-changes',
     displayName: 'Request quotation changes',
     description:
@@ -3440,6 +3457,12 @@ const permissionSeeds: PermissionSeed[] = [
     description: definition.description,
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   })),
+  {
+    name: MOTOR_INSURANCE_PREVIEW_PERMISSION_DEFINITION.name,
+    displayName: MOTOR_INSURANCE_PREVIEW_PERMISSION_DEFINITION.displayName,
+    description: MOTOR_INSURANCE_PREVIEW_PERMISSION_DEFINITION.description,
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
   ...COMPANY_OPERATIONS_PERMISSION_SEEDS,
 ];
 
@@ -3462,6 +3485,10 @@ const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
 // Granted to individual company memberships only, never through a role.
 const PER_USER_ONLY_PERMISSION_NAMES = new Set([
   'quotations:select-insurance-channel',
+  // Motor Insurance (New) pilot: granted per user only, never via a role.
+  MOTOR_INSURANCE_PREVIEW_PERMISSION,
+  // Complete and Approve: given to selected users, never via a role.
+  'quotations:direct-approve',
 ]);
 
 const FULL_COMPANY_PERMISSION_ROLE_NAMES = new Set([
@@ -3605,6 +3632,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       'approvals:self-approve',
+      'quotations:approval-policy:manage',
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       ...ANALYTICS_ADMIN_PERMISSION_NAMES,
       ...BASE_ADMIN_PERMISSION_NAMES,
@@ -3762,6 +3790,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       'approvals:self-approve',
+      'quotations:approval-policy:manage',
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       ...BASE_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
@@ -4637,6 +4666,16 @@ export default class InitialRbacSeeder implements Seeder {
         standardUserRole.id,
       );
 
+      // Motor Insurance (New) pilot: per-membership grant (company sessions
+      // read membership permissions, not direct user permissions).
+      for (const companyUserId of [membership.id, standardMembership.id]) {
+        await this.ensureMembershipPermission(
+          manager.getRepository(CompanyUserPermission),
+          companyUserId,
+          permissionsByName.get(MOTOR_INSURANCE_PREVIEW_PERMISSION),
+        );
+      }
+
       await this.ensureDefaultBranches(
         branchRepo,
         defaultCompany.id,
@@ -5086,6 +5125,24 @@ export default class InitialRbacSeeder implements Seeder {
     }
 
     return companyUserRepo.save(membership);
+  }
+
+  private async ensureMembershipPermission(
+    repo: Repository<CompanyUserPermission>,
+    companyUserId: string,
+    permission: Permission | undefined,
+  ): Promise<void> {
+    if (!permission) return;
+    const existing = await repo.findOne({
+      where: { company_user_id: companyUserId, permission_id: permission.id },
+    });
+    if (existing) return;
+    await repo.save(
+      repo.create({
+        company_user_id: companyUserId,
+        permission_id: permission.id,
+      }),
+    );
   }
 
   private async ensureMembershipRole(

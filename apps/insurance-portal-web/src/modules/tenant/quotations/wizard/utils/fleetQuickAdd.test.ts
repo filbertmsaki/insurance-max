@@ -15,13 +15,13 @@ describe('parseFleetQuickAdd', () => {
     const { rows } = parseFleetQuickAdd(
       'T123ABC\t25000000\nT124ABC,25,000,000\nT 125 ABC 30000000',
     );
-    expect(rows.map((row) => [row.registration_number, row.sum_insured])).toEqual(
-      [
-        ['T123ABC', '25000000'],
-        ['T124ABC', '25000000'],
-        ['T125ABC', '30000000'],
-      ],
-    );
+    expect(
+      rows.map((row) => [row.registration_number, row.sum_insured]),
+    ).toEqual([
+      ['T123ABC', '25000000'],
+      ['T124ABC', '25000000'],
+      ['T125ABC', '30000000'],
+    ]);
   });
 
   it('treats long identifiers as chassis numbers', () => {

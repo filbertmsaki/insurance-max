@@ -102,6 +102,55 @@ export class UnderwriteQueryService {
     return policy;
   }
 
+  /** Several flows at once (Motor Insurance register); same data scope. */
+  listQuotationsForFlows(
+    user: AuthenticatedUser,
+    flows: QuotationFlow[],
+    query: FilterQuotationDto,
+  ) {
+    return this.quotationsService.findAllForUser(user, {
+      ...query,
+      quotation_type: undefined,
+      quotation_flow: undefined,
+      quotation_flows: flows,
+    });
+  }
+
+  /** Several lines at once (Motor Insurance register); same data scope. */
+  listPoliciesForLines(
+    user: AuthenticatedUser,
+    lines: UnderwriteLine[],
+    query: FilterPolicyDto,
+  ) {
+    return this.policiesService.findAllForUser(user, {
+      ...query,
+      business_line: undefined,
+      business_lines: lines,
+    });
+  }
+
+  /** The quotation's flow, only if the user may read it (404 otherwise). */
+  async getQuotationFlowForUser(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<string | null> {
+    await this.quotationsService.assertReadableForUser(user, id);
+    const row = await this.quotationRepository.findOne({
+      select: { id: true, quotation_flow: true },
+      where: { id },
+    });
+    return row?.quotation_flow ?? null;
+  }
+
+  /** The policy's business line, only if the user may read it. */
+  async getPolicyLineForUser(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<string | null> {
+    const policy = await this.policiesService.findOneForUser(user, id);
+    return this.resolvePolicyLine(policy.id);
+  }
+
   private async resolvePolicyLine(policyId: string): Promise<string | null> {
     const row = await this.policyRepository
       .createQueryBuilder('policy')

@@ -38,7 +38,7 @@ import { InsuranceChannelPermissionService } from '../quotations/authorization/i
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { User } from '../users/entities/user.entity';
 import { CreatePolicyDto } from './dto/create-policy.dto';
-import { FilterPolicyDto } from './dto/filter-policy.dto';
+import { FilterPolicyDto, type PolicyListQuery } from './dto/filter-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
 import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
 import { PolicyRisk } from './entities/policy-risk.entity';
@@ -512,6 +512,7 @@ export class PoliciesService {
       search,
       policy_status,
       customer_id,
+      quotation_id,
     } = query;
     const allowedSortFields = [
       'policy_no',
@@ -545,6 +546,8 @@ export class PoliciesService {
     }
     if (policy_status)
       qb.andWhere('policy.policy_status = :policy_status', { policy_status });
+    if (quotation_id)
+      qb.andWhere('policy.quotation_id = :quotation_id', { quotation_id });
     if (customer_id)
       qb.andWhere('policy.customer_id = :customer_id', { customer_id });
 
@@ -564,7 +567,7 @@ export class PoliciesService {
     };
   }
 
-  async findAllForUser(user: AuthenticatedUser, query: FilterPolicyDto) {
+  async findAllForUser(user: AuthenticatedUser, query: PolicyListQuery) {
     const scope = this.dataAccessScopeService.resolve(user, 'policies:read');
     const {
       page = 1,
@@ -574,6 +577,7 @@ export class PoliciesService {
       search,
       policy_status,
       customer_id,
+      quotation_id,
     } = query;
 
     const allowedSortFields = [
@@ -625,6 +629,11 @@ export class PoliciesService {
       });
     }
 
+    if (quotation_id) {
+      queryBuilder.andWhere('policy.quotation_id = :quotationId', {
+        quotationId: quotation_id,
+      });
+    }
     if (customer_id) {
       queryBuilder.andWhere('policy.customer_id = :customerId', {
         customerId: customer_id,
@@ -635,6 +644,17 @@ export class PoliciesService {
       queryBuilder.andWhere(`${POLICY_BUSINESS_LINE_SQL} = :businessLine`, {
         businessLine: query.business_line,
       });
+    }
+
+    if (query.business_lines) {
+      if (query.business_lines.length === 0) {
+        queryBuilder.andWhere('1 = 0');
+      } else {
+        queryBuilder.andWhere(
+          `${POLICY_BUSINESS_LINE_SQL} IN (:...businessLines)`,
+          { businessLines: query.business_lines },
+        );
+      }
     }
 
     const skip = (page - 1) * limit;

@@ -81,6 +81,9 @@ export interface FleetSummary {
   comprehensive_insured: number | null;
   register_fleet_id: string | null;
   register_status: string | null;
+  register_sync_status?: string | null;
+  register_sync_error?: string | null;
+  register_sync_attempted_at?: string | null;
   vehicles: FleetVehicleRow[];
   totals: {
     vehicles: number;

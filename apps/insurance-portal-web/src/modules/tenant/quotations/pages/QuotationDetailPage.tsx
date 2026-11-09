@@ -24,9 +24,13 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { underwritePaths } from '@/modules/tenant/underwrite/paths';
+import { useWizardNavigation } from '@/modules/tenant/underwrite/wizard/wizardNavigation';
 import type { UnderwriteLineSlug } from '@insurance-max/contracts';
-import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
+import {
+  QuotationApprovalTab,
+  QuotationDocumentsTab,
+  QuotationPolicyTab,
+} from '../components/QuotationAdditionalTabs';
 import {
   QuotationHistoryPreview,
   TiramisSubmissionPreview,
@@ -60,6 +64,9 @@ type PremiumOverrideRequestDialogState = {
 
 const QUOTATION_DETAIL_TABS = [
   { id: 'details', label: 'Quotation Details' },
+  { id: 'approval', label: 'Approval' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'policy', label: 'Policy' },
   { id: 'payment', label: 'Payment Details & History' },
   { id: 'tiramis', label: 'TIRAMIS Information' },
   { id: 'history', label: 'Quotation History' },
@@ -69,6 +76,9 @@ const QUOTATION_DETAIL_TABS = [
 const FLEET_DETAIL_TABS = [
   { id: 'details', label: 'Overview' },
   { id: 'vehicles', label: 'Vehicles' },
+  { id: 'approval', label: 'Approval' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'policy', label: 'Policy' },
   { id: 'payment', label: 'Payments' },
   { id: 'tiramis', label: 'TIRAMIS' },
   { id: 'history', label: 'History' },
@@ -115,6 +125,7 @@ export function QuotationDetailPage({
   }>();
   const activeLine: UnderwriteLineSlug = line ?? lineParam ?? 'motor';
   const navigate = useNavigate();
+  const quotationNav = useWizardNavigation();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   useQuotationRealtime(id);
@@ -169,6 +180,7 @@ export function QuotationDetailPage({
     preview?.overview.tira_status !== 'SUCCESS';
   const canCancel = workflow?.availableCommands.CANCEL ?? false;
   const canApproveQuotation = workflow?.availableCommands.APPROVE ?? false;
+  const canDirectApprove = workflow?.availableCommands.DIRECT_APPROVE ?? false;
   const canRequestQuotationChanges =
     workflow?.availableCommands.REQUEST_CHANGES ?? false;
   const canRejectQuotation = workflow?.availableCommands.REJECT ?? false;
@@ -420,7 +432,7 @@ export function QuotationDetailPage({
         <p className="font-medium">Quotation not found</p>
         <Button
           variant="link"
-          onClick={() => navigate(underwritePaths.quotations(activeLine))}
+          onClick={() => navigate(quotationNav.quotations(activeLine))}
         >
           Back to Quotations
         </Button>
@@ -437,7 +449,7 @@ export function QuotationDetailPage({
     submitMutation.mutate(undefined, {
       onSuccess: () => {
         navigate(
-          underwritePaths.quotationDetail(
+          quotationNav.quotationDetail(
             activeLine,
             preview.overview.quotation_id,
           ),
@@ -446,55 +458,76 @@ export function QuotationDetailPage({
     });
   };
 
-  const primaryWorkflowAction: WorkflowAction | null = canApproveQuotation
+  const primaryWorkflowAction: WorkflowAction | null = canDirectApprove
     ? {
-        label: 'Approve',
+        // Authorised users approve their own eligible quotation in one step;
+        // the backend re-checks their authority and limits.
+        label: 'Complete and Approve',
         pendingLabel: 'Approving...',
         isPending: transitionStatusMutation.isPending,
         disabled: hasStalePricing,
         onClick: () =>
-          openApprovalDialog('APPROVE', {
-            title: 'Approve Quotation',
-            description:
-              'Approve this quotation so it can continue to payment or issuance.',
-            reasonRequired: false,
-          }),
+          transitionStatusMutation.mutate({ action: 'DIRECT_APPROVE' }),
       }
-    : canSubmitForApproval
+    : canApproveQuotation
       ? {
-          label: 'Complete Quotation',
-          pendingLabel: 'Submitting...',
-          isPending: submitForApprovalMutation.isPending,
+          label: 'Approve',
+          pendingLabel: 'Approving...',
+          isPending: transitionStatusMutation.isPending,
           disabled: hasStalePricing,
-          onClick: () => submitForApprovalMutation.mutate(),
+          onClick: () =>
+            openApprovalDialog('APPROVE', {
+              title: 'Approve Quotation',
+              description:
+                'Approve this quotation so it can continue to payment or issuance.',
+              reasonRequired: false,
+            }),
         }
-      : canRequestPayment
+      : canSubmitForApproval
         ? {
-            label: 'Request Payment',
-            pendingLabel: 'Requesting...',
-            isPending: requestPaymentMutation.isPending,
+            label: 'Complete Quotation',
+            pendingLabel: 'Submitting...',
+            isPending: submitForApprovalMutation.isPending,
             disabled: hasStalePricing,
-            onClick: () => requestPaymentMutation.mutate(),
+            onClick: () => submitForApprovalMutation.mutate(),
           }
-        : canSubmit
+        : canRequestPayment
           ? {
-              label: 'Issue Cover',
-              pendingLabel: 'Submitting...',
-              isPending: submitMutation.isPending,
+              label: 'Request Payment',
+              pendingLabel: 'Requesting...',
+              isPending: requestPaymentMutation.isPending,
               disabled: hasStalePricing,
-              onClick: submitToTiramis,
+              onClick: () => requestPaymentMutation.mutate(),
             }
-          : canRetrySubmission
+          : canSubmit
             ? {
-                label: 'Retry Issue Cover',
-                pendingLabel: 'Retrying...',
-                isPending: retryTiraMutation.isPending,
+                label: 'Issue Cover',
+                pendingLabel: 'Submitting...',
+                isPending: submitMutation.isPending,
                 disabled: hasStalePricing,
-                onClick: () => retryTiraMutation.mutate(),
+                onClick: submitToTiramis,
               }
-            : null;
+            : canRetrySubmission
+              ? {
+                  label: 'Retry Issue Cover',
+                  pendingLabel: 'Retrying...',
+                  isPending: retryTiraMutation.isPending,
+                  disabled: hasStalePricing,
+                  onClick: () => retryTiraMutation.mutate(),
+                }
+              : null;
 
   const secondaryWorkflowActions: ActionMenuItem[] = [
+    // With Complete and Approve as the main action, referral stays available.
+    ...(canDirectApprove && canSubmitForApproval
+      ? [
+          {
+            label: 'Submit for Approval',
+            onClick: () => submitForApprovalMutation.mutate(),
+            disabled: submitForApprovalMutation.isPending,
+          },
+        ]
+      : []),
     ...(canRequestQuotationChanges
       ? [
           {
@@ -613,7 +646,7 @@ export function QuotationDetailPage({
       <QuotationDetailHeader
         preview={preview}
         workflowLabel={friendlyWorkflowLabel}
-        onBack={() => navigate(underwritePaths.quotations(activeLine))}
+        onBack={() => navigate(quotationNav.quotations(activeLine))}
         actions={actionButtons}
       />
 
@@ -688,16 +721,23 @@ export function QuotationDetailPage({
             <>
               <TiramisSubmissionPreview tiramis={preview.tiramis} />
               {tiramisPanel}
-              <div className="min-w-0 p-4 sm:p-6">
-                <CoverNotesSection
-                  quotationId={preview.overview.quotation_id}
-                  tiraAccepted={preview.overview.tira_status === 'SUCCESS'}
-                />
-              </div>
             </>
           )}
         </TabsContent>
 
+        <TabsContent value="approval" className="mt-0 min-w-0">
+          <QuotationApprovalTab preview={preview} workflow={workflow} />
+        </TabsContent>
+        <TabsContent value="documents" className="mt-0 min-w-0">
+          <QuotationDocumentsTab preview={preview} />
+        </TabsContent>
+        <TabsContent value="policy" className="mt-0 min-w-0">
+          <QuotationPolicyTab
+            quotationId={preview.overview.quotation_id}
+            issuanceStatus={preview.overview.tira_status}
+            line={activeLine}
+          />
+        </TabsContent>
         <TabsContent value="history" className="mt-0 min-w-0">
           <QuotationHistoryPreview history={preview.history} />
           <QuotationHistoryPreview

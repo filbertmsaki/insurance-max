@@ -1,5 +1,4 @@
 import {
-  CarFront,
   AlertTriangle,
   Hourglass,
   Ban,
@@ -7,10 +6,10 @@ import {
   FileClock,
   LayoutDashboard,
   ShieldCheck,
-  Truck,
   Users,
 } from 'lucide-react';
 import {
+  isMotorInsuranceLine,
   UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
   UnderwriteAction,
   underwritePermission,
@@ -149,32 +148,6 @@ function lineChildren(line: UnderwriteLineMeta): NavLeaf[] {
     );
   }
 
-  if (line.line === 'MOTOR') {
-    children.push(
-      leaf(
-        line,
-        'Vehicles',
-        underwritePaths.motorVehicles,
-        CarFront,
-        UnderwriteAction.VIEW,
-        'motor:read',
-      ),
-    );
-  }
-
-  if (line.line === 'FLEET') {
-    children.push(
-      leaf(
-        line,
-        'Fleets / Vehicles',
-        underwritePaths.fleetRegister,
-        Truck,
-        UnderwriteAction.VIEW,
-        'motor:read',
-      ),
-    );
-  }
-
   return children;
 }
 
@@ -189,7 +162,10 @@ export function buildUnderwriteNavNodes(): NavNode[] {
     allowedScopes: ['company'],
   };
 
-  const lines: NavGroup[] = UNDERWRITE_LINE_META.map((line) => ({
+  // Motor and Fleet business pages are owned by the unified Motor Insurance module.
+  const lines: NavGroup[] = UNDERWRITE_LINE_META.filter(
+    (line) => !isMotorInsuranceLine(line.line),
+  ).map((line) => ({
     kind: 'group',
     label: line.label,
     icon: line.icon,

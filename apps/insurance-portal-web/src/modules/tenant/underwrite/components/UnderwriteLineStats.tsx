@@ -153,7 +153,7 @@ function buildTiles(
         value: summary.fleet.active_fleets,
         icon: Truck,
         tone: 'primary',
-        to: `${underwritePaths.policies(slug)}?policy_status=ACTIVE`,
+        to: `${underwritePaths.policies(slug)}?type=fleet&policy_status=ACTIVE`,
         description: 'Live fleet policies',
       },
       {
@@ -162,7 +162,7 @@ function buildTiles(
         value: summary.fleet.covered_vehicles,
         icon: CarFront,
         tone: 'info',
-        to: underwritePaths.fleetRegister,
+        to: `${underwritePaths.policies(slug)}?type=fleet&policy_status=ACTIVE`,
         description: 'Vehicles on live fleet policies',
       },
     );

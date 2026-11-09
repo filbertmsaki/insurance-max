@@ -10,15 +10,15 @@ import {
   type SummarySection,
 } from '@/modules/tenant/quotations/wizard/steps/SummaryReviewStep';
 import { useProductAddonDefinitions } from '@/modules/tenant/quotations/wizard/hooks/useProductAddonDefinitions';
-import { getUnderwriteLineMeta } from '../lines';
-import { BusinessSourceStep } from '../wizard/steps/BusinessSourceStep';
-import { ProductCoverStep } from '../wizard/steps/ProductCoverStep';
-import { UnderwriteWizardShell } from '../wizard/UnderwriteWizardShell';
+import { getUnderwriteLineMeta } from '@/modules/tenant/underwrite/lines';
+import { BusinessSourceStep } from '@/modules/tenant/underwrite/wizard/steps/BusinessSourceStep';
+import { ProductCoverStep } from '@/modules/tenant/underwrite/wizard/steps/ProductCoverStep';
+import { UnderwriteWizardShell } from '@/modules/tenant/underwrite/wizard/UnderwriteWizardShell';
 import {
   useUnderwriteQuotationWizard,
   type UnderwriteWizardStep,
-} from '../wizard/useUnderwriteQuotationWizard';
-import { MotorVehicleSection } from './MotorVehicleSection';
+} from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
+import { MotorVehicleSection } from '@/modules/tenant/underwrite/motor/MotorVehicleSection';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const MOTOR = getUnderwriteLineMeta(UnderwriteLine.MOTOR);
@@ -88,7 +88,7 @@ const SECTION_ANCHORS: Record<SummarySection, string> = {
   premium: 'motor-quote-premium',
 };
 
-export function MotorQuotationWizardPage() {
+export function SingleMotorQuotationWizard() {
   const { id } = useParams<{ id?: string }>();
   const wizard = useUnderwriteQuotationWizard({
     line: MOTOR,
@@ -185,7 +185,11 @@ export function MotorQuotationWizardPage() {
                   />
                 </div>
                 {showAddOns && (
-                  <AddOnsStep form={form} fieldArray={wizard.addonFieldArray} />
+                  <AddOnsStep
+                    form={form}
+                    fieldArray={wizard.addonFieldArray}
+                    requirePremiumRate
+                  />
                 )}
                 <BusinessSourceStep wizard={wizard} />
               </div>

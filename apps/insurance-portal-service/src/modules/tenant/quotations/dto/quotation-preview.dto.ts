@@ -36,6 +36,11 @@ export interface QuotationPreviewOverview {
   created_by: QuotationPreviewRef;
   updated_by: QuotationPreviewRef;
   submitted_by: QuotationPreviewRef;
+  /** Approver (null for automatic approval or when not yet decided). */
+  approved_by: QuotationPreviewRef;
+  approval_decided_at: string | null;
+  /** Records how it was approved (direct, automatic rule, or approver note). */
+  approval_comments: string | null;
   created_at: string;
   updated_at: string;
   submitted_at: string | null;

@@ -35,8 +35,8 @@ export function ColumnVisibilityMenu({
           size="sm"
           aria-label="Choose visible columns"
         >
-          <Columns3 className="mr-2 h-4 w-4" />
-          Columns
+          <Columns3 className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">Columns</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">

@@ -42,9 +42,13 @@ import { quotationPricingIssues } from '@/modules/tenant/quotations/wizard/utils
 import { quotationTotals } from '@/modules/tenant/quotations/wizard/utils/quotationTotals';
 import { useSubjectMatterOptions } from '@/modules/tenant/non-motor/hooks';
 import { underwriteApi } from '../api';
+import {
+  withApplicableAddons,
+  type AddonApplicabilityMode,
+} from '@/modules/tenant/quotations/wizard/utils/addonVisibility';
 import { underwriteKeys } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
-import { underwritePaths } from '../paths';
+import { useWizardNavigation } from './wizardNavigation';
 import { defaultValuesForLine } from './defaults';
 
 /**
@@ -127,6 +131,7 @@ export function useUnderwriteQuotationWizard({
     hooksRef.current = hooks;
   });
   const navigate = useNavigate();
+  const wizardNav = useWizardNavigation();
   const queryClient = useQueryClient();
   const isEditMode = Boolean(quotationId);
   const [draftId, setDraftId] = useState<string | null>(quotationId ?? null);
@@ -369,10 +374,10 @@ export function useUnderwriteQuotationWizard({
     toast.error(
       'This quotation cannot be edited in its current status. Please create an endorsement or renewal where required.',
     );
-    navigate(underwritePaths.quotationDetail(line.slug, existingQuotation.id), {
+    navigate(wizardNav.quotationDetail(line.slug, existingQuotation.id), {
       replace: true,
     });
-  }, [existingQuotation, line.slug, navigate]);
+  }, [existingQuotation, line.slug, navigate, wizardNav]);
 
   // Users without channel permission always quote DIRECT (backend enforces).
   useEffect(() => {
@@ -536,8 +541,50 @@ export function useUnderwriteQuotationWizard({
   const [savedValuesSignature, setSavedValuesSignature] = useState<
     string | null
   >(null);
+  /**
+   * Drops add-ons that no longer apply from the form itself, so they are
+   * neither saved nor charged and the UI matches what is stored. `draft`
+   * keeps add-ons while a rate is being recalculated; `charge` requires a
+   * positive rate (used before completing).
+   */
+  const pruneInapplicableAddons = useCallback(
+    (mode: AddonApplicabilityMode) => {
+      const current = form.getValues();
+      const cleaned = withApplicableAddons(current, mode);
+      if (cleaned === current) return;
+      if (cleaned.addons !== current.addons) {
+        form.setValue('addons', cleaned.addons, { shouldDirty: true });
+      }
+      cleaned.fleet.items.forEach((item, index) => {
+        if (item !== current.fleet.items[index]) {
+          form.setValue(`fleet.items.${index}.cover_note_addons`, [], {
+            shouldDirty: true,
+          });
+        }
+      });
+    },
+    [form],
+  );
+
+  // Remove add-ons as soon as a vehicle's rate is final and 0 — on new and
+  // edited quotations alike. A cleared/loading rate (no rating result yet)
+  // keeps them, so cover or risk changes never lose add-ons mid-recalculation.
+  useEffect(() => {
+    if (isHydrating) return;
+    pruneInapplicableAddons('draft');
+  }, [
+    isHydrating,
+    pruneInapplicableAddons,
+    watchedRisks,
+    watchedAddons,
+    watchedFleetItems,
+  ]);
+
   const saveMutation = useMutation({
-    onMutate: () => ({ valuesSignature: JSON.stringify(form.getValues()) }),
+    onMutate: () => {
+      pruneInapplicableAddons('draft');
+      return { valuesSignature: JSON.stringify(form.getValues()) };
+    },
     mutationFn: ({
       currentWizardStep,
     }: {
@@ -567,7 +614,7 @@ export function useUnderwriteQuotationWizard({
       }
       if (!variables.silent) toast.success('Quotation draft saved');
       if (!quotationId) {
-        navigate(underwritePaths.quotationEdit(line.slug, quotation.id), {
+        navigate(wizardNav.quotationEdit(line.slug, quotation.id), {
           replace: true,
         });
       }
@@ -578,17 +625,20 @@ export function useUnderwriteQuotationWizard({
   const finalizeMutation = useMutation({
     mutationFn: ({ id, productCode }: { id: string; productCode: string }) =>
       underwriteApi.finalize(line.slug, id, {
-        ...buildQuotationPayload(form.getValues(), {
-          salePointCode,
-          productCode,
-          existingCustomer: selectedCustomer ?? null,
-        }),
+        ...buildQuotationPayload(
+          withApplicableAddons(form.getValues(), 'charge'),
+          {
+            salePointCode,
+            productCode,
+            existingCustomer: selectedCustomer ?? null,
+          },
+        ),
         expected_updated_at: existingQuotation?.updated_at,
       }),
     onSuccess: (quotation) => {
       onSaved(quotation);
       toast.success('Quotation completed');
-      navigate(underwritePaths.quotationDetail(line.slug, quotation.id));
+      navigate(wizardNav.quotationDetail(line.slug, quotation.id));
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
@@ -599,7 +649,7 @@ export function useUnderwriteQuotationWizard({
       void queryClient.invalidateQueries({ queryKey: underwriteKeys.all });
       void queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       toast.success('Quotation draft deleted');
-      navigate(underwritePaths.quotations(line.slug));
+      navigate(wizardNav.quotations(line.slug));
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
@@ -810,6 +860,10 @@ export function useUnderwriteQuotationWizard({
       return;
     }
 
+    // Final check: add-ons on a risk without a positive rate are removed so
+    // they are never submitted or charged.
+    pruneInapplicableAddons('charge');
+
     const pricingIssues = quotationPricingIssues(form.getValues());
     if (pricingIssues.length) {
       toast.error(pricingIssues[0]);
@@ -867,6 +921,7 @@ export function useUnderwriteQuotationWizard({
   }, [
     activeDraftId,
     finalizeMutation,
+    pruneInapplicableAddons,
     form,
     productOptions,
     salePointCode,
@@ -877,11 +932,11 @@ export function useUnderwriteQuotationWizard({
 
   const deleteDraft = useCallback(() => {
     if (!activeDraftId) {
-      navigate(underwritePaths.quotations(line.slug));
+      navigate(wizardNav.quotations(line.slug));
       return;
     }
     deleteMutation.mutate(activeDraftId);
-  }, [activeDraftId, deleteMutation, line.slug, navigate]);
+  }, [activeDraftId, deleteMutation, line.slug, navigate, wizardNav]);
 
   const errorSteps = steps
     .filter((step) =>

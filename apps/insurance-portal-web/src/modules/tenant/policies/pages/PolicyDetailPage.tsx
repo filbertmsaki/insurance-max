@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { resolvePolicyFlow, type PolicyFlow } from '../utils/policyFlow';
 import { Eye, Play, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -119,23 +120,6 @@ function isEndorsedPolicyStatus(status: string | null | undefined) {
     .replace(/[.\s-]+/g, '_');
 
   return ENDORSED_POLICY_STATUSES.has(normalized);
-}
-
-type PolicyFlow = 'MOTOR_SINGLE' | 'MOTOR_FLEET' | 'NON_MOTOR';
-
-/**
- * Policies don't carry a quotation_flow-style discriminator directly, so this
- * derives the same three-way split from data the policy already has: business
- * line from the category, and fleet-vs-single from how many vehicles are
- * actually on the policy today (not a stale is_fleet flag from quote time —
- * this stays correct even after an endorsement changes the vehicle count).
- */
-function derivePolicyFlow(
-  businessLine: string | undefined,
-  vehicleCount: number,
-): PolicyFlow {
-  if (businessLine !== 'MOTOR') return 'NON_MOTOR';
-  return vehicleCount > 1 ? 'MOTOR_FLEET' : 'MOTOR_SINGLE';
 }
 
 const POLICY_DETAIL_TAB_LABELS: Record<string, string> = {
@@ -339,7 +323,16 @@ function PolicyVehiclesTable({
   );
 }
 
-export function PolicyDetailPage() {
+export function PolicyDetailPage({
+  storedBusinessLine,
+}: {
+  /**
+   * The policy's stored line (MOTOR | FLEET | NON_MOTOR). When given it decides
+   * Single vs Fleet, so a fleet reduced to one vehicle stays a fleet. Without
+   * it the page falls back to counting vehicles (legacy behaviour).
+   */
+  storedBusinessLine?: string | null;
+} = {}) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { paths } = usePolicyTransactionScope();
@@ -683,10 +676,11 @@ export function PolicyDetailPage() {
   const vehicleCount = (policy.risks ?? []).filter(
     (risk) => risk.motor_vehicle_id,
   ).length;
-  const policyFlow = derivePolicyFlow(
-    policy.category?.business_line,
+  const policyFlow = resolvePolicyFlow({
+    storedLine: storedBusinessLine,
+    categoryBusinessLine: policy.category?.business_line,
     vehicleCount,
-  );
+  });
   const tabs = getPolicyDetailTabs(policyFlow);
 
   const primaryAction: ActionMenuItem | null = canCreateEndorsement

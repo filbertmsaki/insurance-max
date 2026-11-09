@@ -90,7 +90,12 @@ export function FleetVehiclesPanel({
       if (result.fleetId) toast.success('Fleet register updated');
       else toast.warning(result.skippedReason ?? 'Fleet register not updated');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
+    onError: (error) => {
+      void queryClient.invalidateQueries({
+        queryKey: fleetVehiclesKey(kind, id),
+      });
+      toast.error(getApiErrorMessage(error));
+    },
   });
 
   const money = (value: number) => formatMoney(value, currency);
@@ -219,11 +224,45 @@ export function FleetVehiclesPanel({
             onClick={() => sync.mutate()}
           >
             <RefreshCw className="mr-2 h-3.5 w-3.5" />
-            {summary?.register_fleet_id ? 'Refresh register' : 'Register fleet'}
+            {sync.isPending
+              ? 'Synchronizing...'
+              : summary?.register_sync_status === 'FAILED' ||
+                  summary?.register_sync_status === 'SKIPPED'
+                ? 'Retry synchronization'
+                : summary?.register_fleet_id
+                  ? 'Refresh register'
+                  : 'Register fleet'}
           </Button>
         ) : undefined
       }
     >
+      {kind === 'quotation' && summary?.register_sync_status && (
+        <div
+          role={summary.register_sync_status === 'FAILED' ? 'alert' : 'status'}
+          className={`mb-4 rounded-md border p-3 text-sm ${summary.register_sync_status === 'FAILED' || summary.register_sync_status === 'SKIPPED' ? 'border-amber-200 bg-amber-50 text-amber-900' : 'border-slate-200 bg-slate-50 text-slate-700'}`}
+        >
+          <p className="font-medium">
+            Fleet register:{' '}
+            {sync.isPending
+              ? 'synchronizing'
+              : summary.register_sync_status.toLowerCase()}
+          </p>
+          {summary.register_sync_error && (
+            <p className="mt-1">{summary.register_sync_error}</p>
+          )}
+          {summary.register_sync_attempted_at && (
+            <p className="mt-1 text-xs">
+              Last attempt:{' '}
+              {new Date(summary.register_sync_attempted_at).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
+      {sync.isError && (
+        <p role="alert" className="mb-4 text-sm text-red-700">
+          {getApiErrorMessage(sync.error)}
+        </p>
+      )}
       {facts.length > 0 && (
         <dl className="mb-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
           {facts.map(([label, value]) => (

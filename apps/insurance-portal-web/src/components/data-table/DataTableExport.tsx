@@ -26,8 +26,10 @@ export function DataTableExport({ options }: { options?: ExportOptions }) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="h-9" disabled={busy}>
-          <Download className="mr-2 h-4 w-4" />
-          {busy ? 'Exporting…' : (options.label ?? 'Export')}
+          <Download className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">
+            {busy ? 'Exporting…' : (options.label ?? 'Export')}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

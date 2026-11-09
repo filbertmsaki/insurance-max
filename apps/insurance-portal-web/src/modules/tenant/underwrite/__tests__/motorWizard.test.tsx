@@ -12,7 +12,7 @@ import { getUnderwriteLineMeta } from '../lines';
 import {
   LEGACY_MOTOR_STEP_MAP,
   MOTOR_WIZARD_STEPS,
-} from '../motor/MotorQuotationWizardPage';
+} from '@/modules/tenant/motor-insurance/wizard/SingleMotorQuotationWizard';
 import { MotorVehicleSection } from '../motor/MotorVehicleSection';
 import { defaultValuesForLine } from '../wizard/defaults';
 

@@ -6,6 +6,8 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { financeTableApi } from '@/modules/tenant/finance/api';
 import { coverNotesApi } from '@/modules/tenant/cover-notes/api';
 import type { CoverNoteRecord } from '@/modules/tenant/cover-notes/types';
+import { underwriteApi } from '@/modules/tenant/underwrite/api';
+import { downloadPdf } from '@/modules/shared/documents/download-pdf';
 import { QuotationDetailPage } from '../pages/QuotationDetailPage';
 import { quotationDetailFixture } from './quotationDetailFixture';
 
@@ -47,6 +49,15 @@ vi.mock('../hooks', () => {
     useTransitionQuotationStatus: mutation,
   };
 });
+vi.mock('@/modules/tenant/underwrite/api', () => ({
+  underwriteApi: {
+    getPolicies: vi.fn().mockResolvedValue({ data: [], pagination: {} }),
+  },
+}));
+vi.mock('@/modules/shared/documents/download-pdf', () => ({
+  downloadPdf: vi.fn().mockResolvedValue(undefined),
+  documentFilename: (value: string) => value + '.pdf',
+}));
 vi.mock('@/modules/tenant/finance/api', () => ({
   financeTableApi: { payments: vi.fn() },
 }));
@@ -128,15 +139,57 @@ describe('Quotation details redesign', () => {
     fireEvent.click(screen.getByRole('button', { name: label }));
     expect(state.mutate).toHaveBeenCalledTimes(1);
   });
-  it('supports keyboard navigation between the four tabs', async () => {
+  it('shows approval, document download and policy permission states in separate tabs', async () => {
+    renderPage();
+    selectTab('Approval');
+    expect(
+      screen.getByRole('heading', { name: 'Approval' }),
+    ).toBeInTheDocument();
+    selectTab('Documents');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Download quotation PDF' }),
+    );
+    await waitFor(() =>
+      expect(downloadPdf).toHaveBeenCalledWith(
+        '/tenant/quotations/quotation-1/document/download',
+        expect.any(String),
+      ),
+    );
+    selectTab('Policy');
+    expect(
+      screen.getByText('You do not have permission to view policies.'),
+    ).toBeInTheDocument();
+    expect(underwriteApi.getPolicies).not.toHaveBeenCalled();
+  });
+  it('loads only policies belonging to this quotation when the Policy tab is opened', async () => {
+    useAuthStore.setState({ hasPermission: () => true });
+    vi.mocked(underwriteApi.getPolicies).mockResolvedValueOnce({
+      data: [{ id: 'policy-1', policy_no: 'POL-1', policy_status: 'ACTIVE' }],
+      pagination: {},
+    } as never);
+    renderPage();
+    expect(underwriteApi.getPolicies).not.toHaveBeenCalled();
+    selectTab('Policy');
+    expect(await screen.findByRole('link', { name: 'POL-1' })).toHaveAttribute(
+      'href',
+      '/apps/motor/policies/policy-1',
+    );
+    expect(underwriteApi.getPolicies).toHaveBeenCalledWith(
+      'motor',
+      { quotation_id: 'quotation-1', limit: 100 },
+      expect.any(AbortSignal),
+    );
+  });
+  it('supports keyboard navigation between the workflow tabs', async () => {
     renderPage();
     const details = screen.getByRole('tab', { name: 'Quotation Details' });
     details.focus();
     fireEvent.keyDown(details, { key: 'ArrowRight' });
     await waitFor(() =>
-      expect(
-        screen.getByRole('tab', { name: 'Payment Details & History' }),
-      ).toHaveAttribute('aria-selected', 'true'),
+      expect(screen.getByRole('tab', { name: 'Approval' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+      ),
     );
   });
   it('gives fleet vehicles their own tab with TIRA sticker and cover note references', async () => {
@@ -162,6 +215,9 @@ describe('Quotation details redesign', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Overview',
       'Vehicles (1)',
+      'Approval',
+      'Documents',
+      'Policy',
       'Payments',
       'TIRAMIS',
       'History',
@@ -246,12 +302,15 @@ describe('Quotation details redesign', () => {
     });
   });
   it.each(['MOTOR_SINGLE', 'NON_MOTOR', 'MOTOR_FLEET'] as const)(
-    'keeps exactly four tabs and category-specific details for %s',
+    'keeps dedicated workflow tabs and category-specific details for %s',
     (flow) => {
       state.preview = quotationDetailFixture(flow);
       renderPage();
       expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
         'Quotation Details',
+        'Approval',
+        'Documents',
+        'Policy',
         'Payment Details & History',
         'TIRAMIS Information',
         'Quotation History',
@@ -321,6 +380,7 @@ describe('Quotation details redesign', () => {
     renderPage();
     selectTab('TIRAMIS Information');
     expect(screen.getByText('REQ-2026-001')).toBeInTheDocument();
+    selectTab('Documents');
     expect(screen.getByText('Cover note actions')).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', {
@@ -346,6 +406,9 @@ describe('Quotation details redesign', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Overview',
       'Vehicles (0)',
+      'Approval',
+      'Documents',
+      'Policy',
       'Payments',
       'TIRAMIS',
       'History',
@@ -359,6 +422,7 @@ describe('Quotation details redesign', () => {
       'aria-selected',
       'true',
     );
+    selectTab('Documents');
     expect(screen.getByText('Cover note actions')).toBeInTheDocument();
     expect(financeTableApi.payments).not.toHaveBeenCalled();
   });

@@ -1,3 +1,6 @@
+import { CompanyConfig } from '../../platform/company-configs/entities/company-config.entity';
+import { QuotationApprovalPolicyController } from './approval-policy/quotation-approval-policy.controller';
+import { QuotationApprovalPolicyService } from './approval-policy/quotation-approval-policy.service';
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SharedModule } from '../../shared/shared.module';
@@ -64,6 +67,7 @@ import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.serv
   imports: [
     SharedModule,
     TypeOrmModule.forFeature([
+      CompanyConfig,
       Quotation,
       QuotationStatusHistory,
       QuotationCoverNote,
@@ -111,9 +115,10 @@ import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.serv
     InsuranceProductsModule,
     forwardRef(() => BillingCommissionModule),
   ],
-  controllers: [QuotationsController],
+  controllers: [QuotationsController, QuotationApprovalPolicyController],
   providers: [
     QuotationsService,
+    QuotationApprovalPolicyService,
     QuotationsRepository,
     QuotationPayloadMapper,
     QuotationPreviewMapper,
@@ -129,6 +134,7 @@ import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.serv
   ],
   exports: [
     QuotationsService,
+    QuotationApprovalPolicyService,
     QuotationsRepository,
     QuotationPayloadMapper,
     QuotationPreviewMapper,

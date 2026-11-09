@@ -1,3 +1,4 @@
+import { allowsAddons } from '../utils/addonVisibility';
 import { WizardSectionTitle } from '@/modules/tenant/quotations/wizard/components/WizardSectionTitle';
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -616,42 +617,45 @@ function FleetVehicleEditor({
         </StepSection>
       )}
 
-      <div className="space-y-6">
-        <StepSection
-          title="Add-ons"
-          first
-          action={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => addonArray.append(createEmptyAddonRow())}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Add-on
-            </Button>
-          }
-        >
-          {addonArray.fields.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              No add-ons for this vehicle yet.
-            </p>
-          ) : (
-            addonArray.fields.map((field, addonIndex) => (
-              <AddonRow
-                key={field.id}
-                form={form}
-                index={addonIndex}
-                basePath={`fleet.items.${index}.cover_note_addons`}
-                riskPath={`fleet.items.${index}.risks_covered.0`}
-                onRemove={addonArray.remove}
-                canRemove
-                exchangeRate={1}
-              />
-            ))
-          )}
-        </StepSection>
-      </div>
+      {/* Only offered once this vehicle has a premium rate above zero. */}
+      {allowsAddons(item?.risks_covered?.[0]?.premium_rate) && (
+        <div className="space-y-6">
+          <StepSection
+            title="Add-ons"
+            first
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => addonArray.append(createEmptyAddonRow())}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Add-on
+              </Button>
+            }
+          >
+            {addonArray.fields.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                No add-ons for this vehicle yet.
+              </p>
+            ) : (
+              addonArray.fields.map((field, addonIndex) => (
+                <AddonRow
+                  key={field.id}
+                  form={form}
+                  index={addonIndex}
+                  basePath={`fleet.items.${index}.cover_note_addons`}
+                  riskPath={`fleet.items.${index}.risks_covered.0`}
+                  onRemove={addonArray.remove}
+                  canRemove
+                  exchangeRate={1}
+                />
+              ))
+            )}
+          </StepSection>
+        </div>
+      )}
     </div>
   );
 }

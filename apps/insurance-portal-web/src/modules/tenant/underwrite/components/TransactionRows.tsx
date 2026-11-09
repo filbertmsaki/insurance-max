@@ -9,14 +9,10 @@ import {
   useServerTable,
   type Column,
 } from '@/components/data-table';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { formatDate, formatMoney } from '@/components/shared/detailFormat';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { underwriteApi } from '../api';
-import { underwriteKeys, useUnderwriteLineParam } from '../hooks';
-import type { UnderwriteLineMeta } from '../lines';
-import { underwritePaths } from '../paths';
+import type { TransactionListSource } from '../pages/transaction-list-source';
 import type {
   UnderwritePolicyTransactionRow,
   UnderwriteRenewalRow,
@@ -48,12 +44,11 @@ function StatusBadge({ value }: { value: string | null | undefined }) {
   return <Badge variant={statusVariant(value)}>{pretty(value)}</Badge>;
 }
 
-function RenewalRows({ line }: { line: UnderwriteLineMeta }) {
+export function RenewalRows({ source }: { source: TransactionListSource }) {
   const navigate = useNavigate();
   const { tableProps } = useServerTable<UnderwriteRenewalRow>({
-    queryKey: underwriteKeys.transactions(line.slug, 'renewals'),
-    fetcher: (params, signal) =>
-      underwriteApi.listRenewals(line.slug, params, signal),
+    queryKey: [...source.keyPrefix, 'renewals'],
+    fetcher: (params, signal) => source.listRenewals(params, signal),
     defaultSortBy: 'created_at',
     defaultLimit: 10,
   });
@@ -105,8 +100,7 @@ function RenewalRows({ line }: { line: UnderwriteLineMeta }) {
             aria-label={`Open renewal ${row.renewal_no}`}
             onClick={() =>
               navigate(
-                underwritePaths.policyRenewalDetail(
-                  line.slug,
+                source.paths.renewal(
                   row.policy_transaction.source_policy_id,
                   row.id,
                 ),
@@ -125,23 +119,22 @@ function RenewalRows({ line }: { line: UnderwriteLineMeta }) {
       error={tableProps.error ? 'Unable to load renewals' : undefined}
       columns={columns}
       searchPlaceholder="Search renewal or policy no…"
-      emptyMessage={`No ${line.label.toLowerCase()} renewals found`}
+      emptyMessage={`No ${source.noun} renewals found`}
     />
   );
 }
 
-function TransactionRows({
-  line,
+export function TransactionRows({
+  source,
   kind,
 }: {
-  line: UnderwriteLineMeta;
+  source: TransactionListSource;
   kind: Exclude<TransactionListKind, 'renewals'>;
 }) {
   const navigate = useNavigate();
   const { tableProps } = useServerTable<UnderwritePolicyTransactionRow>({
-    queryKey: underwriteKeys.transactions(line.slug, kind),
-    fetcher: (params, signal) =>
-      underwriteApi.listTransactions(line.slug, kind, params, signal),
+    queryKey: [...source.keyPrefix, kind],
+    fetcher: (params, signal) => source.listTransactions(kind, params, signal),
     defaultSortBy: 'created_at',
     defaultLimit: 10,
   });
@@ -206,16 +199,8 @@ function TransactionRows({
           onClick={() =>
             navigate(
               kind === 'endorsements'
-                ? underwritePaths.policyEndorsementEdit(
-                    line.slug,
-                    row.source_policy_id,
-                    row.id,
-                  )
-                : underwritePaths.policyCancellationDetail(
-                    line.slug,
-                    row.source_policy_id,
-                    row.id,
-                  ),
+                ? source.paths.endorsement(row.source_policy_id, row.id)
+                : source.paths.cancellation(row.source_policy_id, row.id),
             )
           }
         >
@@ -231,37 +216,28 @@ function TransactionRows({
       error={tableProps.error ? `Unable to load ${kind}` : undefined}
       columns={columns}
       searchPlaceholder="Search transaction or policy no…"
-      emptyMessage={`No ${line.label.toLowerCase()} ${kind} found`}
+      emptyMessage={`No ${source.noun} ${kind} found`}
     />
   );
 }
 
-function TiraRows({
-  line,
+export function TiraRows({
+  source,
   kind,
 }: {
-  line: UnderwriteLineMeta;
+  source: TransactionListSource;
   kind: TiraListKind;
 }) {
   const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const { tableProps, query } = useServerTable<UnderwriteTiraQueueRow>({
-    queryKey: underwriteKeys.tiraQueue(line.slug, kind),
-    fetcher: (params, signal) =>
-      underwriteApi.getTiraQueue(line.slug, kind, params, signal),
+    queryKey: [...source.keyPrefix, 'tira', kind],
+    fetcher: (params, signal) => source.getTiraQueue(kind, params, signal),
     defaultSortBy: 'updated',
     defaultLimit: 10,
   });
   const retry = useMutation({
-    mutationFn: (row: UnderwriteTiraQueueRow) => {
-      if (row.source_kind === 'quotation') {
-        return underwriteApi.retryQuotationTira(line.slug, row.id);
-      }
-      if (row.transaction_type === 'ENDORSEMENT') {
-        return underwriteApi.retryEndorsementTiramis(line.slug, row.id);
-      }
-      return underwriteApi.submitCancellationToTiramis(line.slug, row.id);
-    },
+    mutationFn: (row: UnderwriteTiraQueueRow) => source.retryTira!(row),
     onSuccess: () => {
       toast.success('TIRA submission queued');
       void query.refetch();
@@ -269,7 +245,7 @@ function TiraRows({
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
   const canRetry = (row: UnderwriteTiraQueueRow) => {
-    if (kind !== 'failed') {
+    if (kind !== 'failed' || !source.retryTira) {
       return false;
     }
     if (row.source_kind === 'quotation') {
@@ -331,9 +307,9 @@ function TiraRows({
       cell: (row) => {
         const target =
           row.source_kind === 'quotation'
-            ? underwritePaths.quotationDetail(line.slug, row.id)
+            ? source.paths.quotation(row.id)
             : row.source_policy_id
-              ? underwritePaths.policyDetail(line.slug, row.source_policy_id)
+              ? source.paths.policy(row.source_policy_id)
               : null;
         return (
           <div className="flex justify-end gap-1">
@@ -370,55 +346,7 @@ function TiraRows({
       error={tableProps.error ? `Unable to load TIRA ${kind}` : undefined}
       columns={columns}
       searchPlaceholder="Search reference, request or customer…"
-      emptyMessage={`No ${line.label.toLowerCase()} TIRA ${kind} items found`}
+      emptyMessage={`No ${source.noun} TIRA ${kind} items found`}
     />
-  );
-}
-
-const TITLES: Record<TransactionListKind | TiraListKind, string> = {
-  renewals: 'renewals',
-  endorsements: 'endorsements',
-  cancellations: 'cancellations',
-  failed: 'TIRA failed',
-  pending: 'TIRA pending',
-};
-
-export function UnderwriteTransactionsPage({
-  kind,
-}: {
-  kind: TransactionListKind;
-}) {
-  const line = useUnderwriteLineParam();
-  if (!line) return null;
-
-  return (
-    <div>
-      <PageHeader
-        eyebrow={`Underwrite - ${line.label}`}
-        title={`${line.label} ${TITLES[kind]}`}
-        description={line.description}
-      />
-      {kind === 'renewals' ? (
-        <RenewalRows line={line} />
-      ) : (
-        <TransactionRows key={kind} line={line} kind={kind} />
-      )}
-    </div>
-  );
-}
-
-export function UnderwriteTiraQueuePage({ kind }: { kind: TiraListKind }) {
-  const line = useUnderwriteLineParam();
-  if (!line) return null;
-
-  return (
-    <div>
-      <PageHeader
-        eyebrow={`Underwrite - ${line.label}`}
-        title={`${line.label} ${TITLES[kind]}`}
-        description={line.description}
-      />
-      <TiraRows line={line} kind={kind} />
-    </div>
   );
 }

@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { financeApi } from '../api';
+import { CashVerificationPanel } from '../cashVerification';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   DetailRow,
   FinanceStatusBadge,
@@ -28,6 +31,19 @@ export function FinancePaymentDetailPage() {
   usePageTitle(
     query.data?.transaction_no && `Payment ${query.data.transaction_no}`,
   );
+
+  const canVerifyCash = useAuthStore((state) =>
+    state.hasPermission('reconciliation:match'),
+  );
+  const verifyCashMutation = useMutation({
+    mutationFn: () => financeApi.verifyCashPayment(id!),
+    onSuccess: () => {
+      toast.success('Cash payment verified');
+      queryClient.invalidateQueries({ queryKey: ['finance', 'payment', id] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'payments'] });
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
 
   const postReceiptMutation = useMutation({
     mutationFn: async () => {
@@ -86,6 +102,15 @@ export function FinancePaymentDetailPage() {
           description={payment.provider_reference ?? payment.id}
         />
       </div>
+
+      {payment.request_payload?.cash_verification && (
+        <CashVerificationPanel
+          verification={payment.request_payload.cash_verification}
+          canVerify={canVerifyCash}
+          isVerifying={verifyCashMutation.isPending}
+          onVerify={() => verifyCashMutation.mutate()}
+        />
+      )}
 
       <div className="flex flex-wrap gap-2">
         {payment.status === 'SUCCESSFUL' && !payment.receipt_id ? (

@@ -1,8 +1,19 @@
+import { QuotationApprovalPolicyService } from './approval-policy/quotation-approval-policy.service';
+import {
+  QUOTATION_DIRECT_APPROVE_PERMISSION,
+  directApprovalViolation,
+  matchAutoApprovalRule,
+  autoPaymentRequestSource,
+} from './approval-policy/quotation-approval-policy';
 import { TiramisPlatformAccessService } from '../../shared/organization/tiramis-platform-access.service';
+import { FLEET_MINIMUM_ACTIVE_VEHICLES } from '../policy-transactions/constants/fleet-vehicle-endorsement.constants';
 import {
   BadRequestException,
+  Logger,
   ConflictException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
   Optional,
@@ -83,7 +94,10 @@ import {
   TaxChargedDto,
   UpdateQuotationDto,
 } from './dto/quotation-payload.dto';
-import { FilterQuotationDto } from './dto/filter-quotation.dto';
+import {
+  FilterQuotationDto,
+  type QuotationListQuery,
+} from './dto/filter-quotation.dto';
 import { DecideQuotationPremiumOverrideDto } from './dto/quotation-premium-override.dto';
 import { RequestQuotationPremiumOverrideDto } from './dto/quotation-premium-override.dto';
 import { TransitionQuotationStatusDto } from './dto/transition-quotation-status.dto';
@@ -132,8 +146,15 @@ import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
+import type {
+  IssueInvoiceDto,
+  PostReceiptDto,
+  RecordPaymentTransactionDto,
+} from '../billing-commission/dto/finance-operations.dto';
+import { PaymentMethod } from '@insurance-max/contracts';
 import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
 import { QuotationInvoiceService } from '../billing-commission/services/quotation-invoice.service';
+import { FinanceCommandService } from '../billing-commission/services/finance-command.service';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
@@ -157,7 +178,12 @@ import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-
 import { Tax } from '../taxes/entities/tax.entity';
 import { TaxesService } from '../taxes/taxes.service';
 import { TERMINAL_QUOTATION_STATUSES } from './utils/quotation-status-transition.util';
-import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
+import {
+  QUOTATION_APPROVAL_RESET_STATES,
+  QUOTATION_PAYMENT_LOCKED_STATES,
+  QUOTATION_PAYMENT_RESET_STATES,
+  QuotationLifecycleService,
+} from './services/quotation-lifecycle.service';
 import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
 import { canSelfApprove } from '../../shared/authorization/maker-checker';
 import {
@@ -318,6 +344,8 @@ const SYSTEM_ONLY_QUOTATION_TRANSITIONS: ReadonlySet<QuotationStatusTransitionAc
     QuotationStatusTransitionAction.CONVERT,
   ]);
 const MONEY_TOLERANCE = 0.01;
+/** Smallest premium difference treated as a change (one cent). */
+const PREMIUM_CHANGE_TOLERANCE = 0.004;
 const RATE_TOLERANCE = 0.000001;
 const PRICING_VIEW_BREAKDOWN_PERMISSION = 'pricing.view_breakdown';
 const PRICING_REQUEST_DISCOUNT_PERMISSION = 'pricing.request_discount';
@@ -330,6 +358,7 @@ const PRICING_AUDIT_VIEW_PERMISSIONS = [
 
 @Injectable()
 export class QuotationsService {
+  private readonly logger = new Logger(QuotationsService.name);
   constructor(
     private readonly dataSource: DataSource,
     private readonly quotationsRepository: QuotationsRepository,
@@ -357,8 +386,12 @@ export class QuotationsService {
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
     private readonly nonMotorRiskService: NonMotorRiskService,
     private readonly businessReferenceService: BusinessReferenceService,
+    @Inject(forwardRef(() => FinanceCommandService))
+    private readonly financeCommandService: FinanceCommandService,
     @Optional()
     private readonly platformAccess?: TiramisPlatformAccessService,
+    @Optional()
+    private readonly approvalPolicyService?: QuotationApprovalPolicyService,
   ) {}
 
   /** New business needs the insurer's TIRAMIS access to be active. */
@@ -371,6 +404,17 @@ export class QuotationsService {
     permission = 'quotations:read',
   ): TenantDataScope {
     return this.dataAccessScopeService.resolve(user, permission);
+  }
+
+  /**
+   * Read-scope check without loading the aggregate (404 when the user may
+   * not see the quotation). Used to resolve a record's line cheaply.
+   */
+  async assertReadableForUser(
+    user: AuthenticatedUser,
+    quotationId: string,
+  ): Promise<void> {
+    await this.assertUserCanReadQuotation(user, quotationId);
   }
 
   private async assertUserCanReadQuotation(
@@ -942,6 +986,10 @@ export class QuotationsService {
       },
     );
     this.assertDiscountPermissions(preparedPayload, user, existing);
+    const premiumChange = this.detectPremiumChange(existing, preparedPayload);
+    if (premiumChange) {
+      await this.assertPremiumMayChange(companyId, existing, premiumChange);
+    }
     const lifecycleContext = {
       changedBy: user.id,
       changedByType: 'USER' as const,
@@ -961,6 +1009,28 @@ export class QuotationsService {
 
         this.assertQuotationEditable(lockedQuotation);
 
+        // Recheck after taking the row lock: payment may have arrived while pricing.
+        if (premiumChange) {
+          const currentInvoice = await this.assertPremiumMayChange(
+            companyId,
+            lockedQuotation,
+            premiumChange,
+            manager,
+          );
+          await this.resetAfterPremiumChange(
+            companyId,
+            lockedQuotation,
+            premiumChange,
+            currentInvoice,
+            user,
+            manager,
+          );
+          // persistRoot merges the locked state, so carry the reset forward.
+          const reset = await manager
+            .getRepository(Quotation)
+            .findOneByOrFail({ id });
+          Object.assign(lockedQuotation, reset);
+        }
         const previousStatus = lockedQuotation.status;
         const customerId = await this.resolveOrCreateCustomerId(
           manager,
@@ -1170,6 +1240,7 @@ export class QuotationsService {
       allowBranchFailedCorrection: this.isTiraFailureQuotation(existing),
     });
     this.assertDraftWritable(existing);
+    this.assertFleetMinimumVehicles(existing, payload);
     await this.assertNonMotorFinalizeGates(companyId, existing, payload);
 
     const quotation = await this.replace(companyId, id, payload, user, {
@@ -1192,6 +1263,16 @@ export class QuotationsService {
       startOfferValidity: true,
     });
 
+    // Automatic approval never blocks completion: on any failure the
+    // quotation simply stays on the normal approval route.
+    await this.tryAutoApprove(companyId, id).catch((error: unknown) =>
+      this.logger.warn(
+        `Automatic approval skipped for quotation ${id}: ${String(error)}`,
+      ),
+    );
+
+    await this.tryAutoRequestPayment(companyId, id, user as AuthenticatedUser);
+
     await this.dataSource.getRepository(Quotation).update(
       { id, company_id: companyId },
       {
@@ -1201,6 +1282,194 @@ export class QuotationsService {
     );
 
     return this.findOne(companyId, quotation.id, user);
+  }
+
+  /**
+   * The authoritative gross premium before and after an edit, when it changed.
+   * Both figures are server-priced: the stored cover-note total and the total
+   * just recalculated by `validateAuthoritativePricing`. Quotations never
+   * priced before (fresh drafts) have no previous premium and never "change".
+   */
+  private detectPremiumChange(
+    existing: Quotation,
+    payload: CreateQuotationDto,
+  ): { previous: number; current: number } | null {
+    const previous = Number(existing.cover_note?.total_premium_including_tax);
+    const current = Number(
+      payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET
+        ? payload.cover_note_dtl.fleet_hdr?.total_premium_including_tax
+        : payload.cover_note_dtl.total_premium_including_tax,
+    );
+    if (!Number.isFinite(previous) || !Number.isFinite(current)) return null;
+    if (moneyEqual(previous, current, PREMIUM_CHANGE_TOLERANCE)) return null;
+    return { previous, current };
+  }
+
+  private premiumChangeResetsWorkflow(quotation: Quotation) {
+    return {
+      approval:
+        quotation.requires_approval &&
+        QUOTATION_APPROVAL_RESET_STATES.includes(quotation.approval_status),
+      payment:
+        quotation.requires_payment &&
+        QUOTATION_PAYMENT_RESET_STATES.includes(quotation.payment_status),
+    };
+  }
+
+  /**
+   * D3a guard, checked before anything is saved: money already received
+   * fixes the premium (refunds and adjustments stay a Finance process), and
+   * an open invoice for the old amount must still be voidable. Returns that
+   * invoice so the locked transaction can void it with the edit.
+   */
+  private async assertPremiumMayChange(
+    companyId: string,
+    existing: Quotation,
+    change: { previous: number; current: number },
+    manager?: EntityManager,
+  ): Promise<Invoice | null> {
+    if (QUOTATION_PAYMENT_LOCKED_STATES.includes(existing.payment_status)) {
+      throw new ConflictException({
+        code: 'QUOTATION_PREMIUM_LOCKED_BY_PAYMENT',
+        message:
+          'Payment has already been received for this quotation, so its premium cannot change. Ask Finance to handle any refund or adjustment.',
+        details: change,
+      });
+    }
+
+    if (!this.premiumChangeResetsWorkflow(existing).payment) return null;
+
+    const invoice = await this.findLatestInvoice(
+      companyId,
+      existing.id,
+      manager,
+    );
+    if (!invoice) return null;
+    const status = String(invoice.status).toUpperCase();
+    if (['VOID', 'VOIDED', 'CANCELLED'].includes(status)) return null;
+    if (
+      Number(invoice.allocated_amount ?? 0) > 0 ||
+      !['DRAFT', 'ISSUED'].includes(status)
+    ) {
+      throw new ConflictException({
+        code: 'QUOTATION_PREMIUM_LOCKED_BY_PAYMENT',
+        message: `Invoice ${invoice.invoice_no} already has payment activity, so the premium cannot change. Ask Finance to handle it first.`,
+        details: { ...change, invoiceId: invoice.id },
+      });
+    }
+    return invoice;
+  }
+
+  /**
+   * D3/D3a: as part of the premium edit, void the invoice for the old
+   * amount and send approval back for resubmission. The next payment request
+   * issues a new invoice for the new amount.
+   */
+  private async resetAfterPremiumChange(
+    companyId: string,
+    existing: Quotation,
+    change: { previous: number; current: number },
+    openInvoice: Invoice | null,
+    user: Pick<AuthenticatedUser, 'id'> & Partial<AuthenticatedUser>,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const resets = this.premiumChangeResetsWorkflow(existing);
+    if (!resets.approval && !resets.payment) return;
+
+    const reason = `Premium changed from ${change.previous.toFixed(2)} to ${change.current.toFixed(2)}`;
+
+    if (resets.payment && openInvoice) {
+      await this.financeCommandService.voidInvoice(
+        { ...user, id: user.id, companyId } as AuthenticatedUser,
+        openInvoice.id,
+        {
+          reason: `${reason}; a new invoice will be issued for quotation ${existing.quotation_no}.`,
+          idempotency_key: `quotation:${existing.id}:premium-change:void:${openInvoice.id}`,
+        },
+        manager,
+      );
+    }
+
+    await this.quotationLifecycleService.resetAfterPremiumChange(
+      companyId,
+      existing.id,
+      {
+        changedBy: user.id,
+        changedByType: 'USER',
+        source: 'USER',
+        reason,
+        metadata: {
+          previous_premium: change.previous,
+          new_premium: change.current,
+          approval_reset: resets.approval,
+          payment_reset: resets.payment,
+          voided_invoice_id: openInvoice?.id ?? null,
+        },
+      },
+      manager,
+    );
+
+    await this.auditService.logCritical(
+      {
+        userId: user.id,
+        actorType: 'user',
+        companyId,
+        action: 'quotation.approval.reset_on_premium_change',
+        eventCategory: 'quotation',
+        resource: 'quotation',
+        resourceId: existing.id,
+        reason,
+        beforeState: {
+          premium: change.previous,
+          approval_status: existing.approval_status,
+          payment_status: existing.payment_status,
+          invoice_id: openInvoice?.id ?? null,
+        },
+        afterState: {
+          premium: change.current,
+          approval_reset: resets.approval,
+          payment_reset: resets.payment,
+          invoice_voided: Boolean(openInvoice),
+        },
+      },
+      manager,
+    );
+  }
+
+  /**
+   * New-business fleet quotations must insure at least
+   * `FLEET_MINIMUM_ACTIVE_VEHICLES` vehicles (business decision D4,
+   * 2026-11-07). Policy-transaction quotations (endorsements, renewals,
+   * cancellations) are exempt: they carry only the vehicles being changed,
+   * and the endorsement services enforce the minimum on the policy itself.
+   */
+  private assertFleetMinimumVehicles(
+    existing: Pick<
+      Quotation,
+      'quotation_flow' | 'source_policy_transaction_id'
+    >,
+    payload: UpdateQuotationDto,
+  ): void {
+    const flow =
+      payload.internal_quotation?.quotation_flow ?? existing.quotation_flow;
+    if (
+      flow !== QuotationFlow.MOTOR_FLEET ||
+      existing.source_policy_transaction_id
+    ) {
+      return;
+    }
+
+    const vehicles = payload.cover_note_dtl?.fleet_dtls?.length ?? 0;
+    if (vehicles < FLEET_MINIMUM_ACTIVE_VEHICLES) {
+      throw new BadRequestException({
+        code: 'FLEET_MINIMUM_VEHICLES',
+        message: `A fleet quotation must have at least ${FLEET_MINIMUM_ACTIVE_VEHICLES} vehicles. Add another vehicle or quote it as Single Motor.`,
+        details: {
+          minimum: FLEET_MINIMUM_ACTIVE_VEHICLES,
+          actual: vehicles,
+        },
+      });
+    }
   }
 
   /**
@@ -1362,7 +1631,7 @@ export class QuotationsService {
     };
   }
 
-  async findAllForUser(user: AuthenticatedUser, query: FilterQuotationDto) {
+  async findAllForUser(user: AuthenticatedUser, query: QuotationListQuery) {
     const scope = this.resolveUserScope(user);
 
     const result = await this.quotationsRepository.findAllForScope(
@@ -2222,10 +2491,20 @@ export class QuotationsService {
     }
 
     const submittedAt = new Date();
+    // The business submit service returns the persisted tracking record and
+    // gateway acknowledgement; older adapters also expose requestId directly.
+    const submissionResult = result as {
+      requestId?: unknown;
+      tracking?: { tiramisRequestId?: string | null };
+      tiramis?: { requestId?: string | null };
+    };
     const tiraRequestId =
-      typeof (result as { requestId?: unknown }).requestId === 'string'
-        ? ((result as { requestId?: string }).requestId ?? null)
-        : null;
+      (typeof submissionResult.requestId === 'string'
+        ? submissionResult.requestId
+        : null) ??
+      submissionResult.tracking?.tiramisRequestId ??
+      submissionResult.tiramis?.requestId ??
+      null;
     // TIRA can reject the request in its acknowledgement (e.g. TIRA105)
     // without the call throwing; that must leave the quotation retryable.
     const failedLocalStatus = [
@@ -2431,6 +2710,8 @@ export class QuotationsService {
       )
         ? 'quotations:approve-high-risk'
         : 'quotations:approve',
+      [QuotationStatusTransitionAction.DIRECT_APPROVE]:
+        QUOTATION_DIRECT_APPROVE_PERMISSION,
       [QuotationStatusTransitionAction.REQUEST_CHANGES]:
         QUOTATION_REQUEST_CHANGES_PERMISSION,
       [QuotationStatusTransitionAction.REJECT_APPROVAL]:
@@ -2518,6 +2799,9 @@ export class QuotationsService {
           id,
           context,
         );
+        break;
+      case QuotationStatusTransitionAction.DIRECT_APPROVE:
+        await this.directApprove(companyId, id, user, context);
         break;
       case QuotationStatusTransitionAction.REQUEST_CHANGES:
         await this.quotationLifecycleService.requestChanges(
@@ -6137,6 +6421,7 @@ export class QuotationsService {
     return [
       QuotationStatusTransitionAction.SUBMIT_FOR_APPROVAL,
       QuotationStatusTransitionAction.APPROVE,
+      QuotationStatusTransitionAction.DIRECT_APPROVE,
       QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED,
       QuotationStatusTransitionAction.MARK_PAYMENT_PROCESSING,
       QuotationStatusTransitionAction.MARK_PARTIALLY_PAID,
@@ -6221,6 +6506,8 @@ export class QuotationsService {
         return [QUOTATION_SUBMIT_APPROVAL_PERMISSION];
       case QuotationStatusTransitionAction.APPROVE:
         return QUOTATION_APPROVE_PERMISSIONS;
+      case QuotationStatusTransitionAction.DIRECT_APPROVE:
+        return [QUOTATION_DIRECT_APPROVE_PERMISSION];
       case QuotationStatusTransitionAction.REQUEST_CHANGES:
         return [QUOTATION_REQUEST_CHANGES_PERMISSION];
       case QuotationStatusTransitionAction.REJECT_APPROVAL:
@@ -6802,6 +7089,30 @@ export class QuotationsService {
             }
           : undefined,
     );
+    // Complete and Approve: offered only when this user's authority and the
+    // policy limits cover the quotation (re-checked when it is executed).
+    const directApprovalBlocker = this.isApprovalOpen(quotation)
+      ? await this.directApprovalBlocker(
+          companyId,
+          quotation,
+          user as Pick<AuthenticatedUser, 'id' | 'permissions'> | null,
+        )
+      : 'Approval is not open for this quotation.';
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.DIRECT_APPROVE,
+      directApprovalBlocker === null,
+      directApprovalBlocker &&
+        this.isApprovalOpen(quotation) &&
+        this.hasPermission(user, QUOTATION_DIRECT_APPROVE_PERMISSION)
+        ? {
+            code: 'QUOTATION_DIRECT_APPROVAL_NOT_ALLOWED',
+            message: directApprovalBlocker,
+            field: 'approval',
+          }
+        : undefined,
+    );
     this.setWorkflowCommandAvailability(
       availableCommands,
       blockingReasons,
@@ -7033,6 +7344,243 @@ export class QuotationsService {
       code: 'QUOTATION_WORKFLOW_BLOCKED',
       message: this.readErrorMessage(error),
     };
+  }
+
+  /** Approval states from which an approval can still be granted. */
+  private isApprovalOpen(quotation: Quotation): boolean {
+    return (
+      quotation.requires_approval &&
+      quotation.status !== QuotationStatus.DRAFT &&
+      [
+        ApprovalStatus.NOT_SUBMITTED,
+        ApprovalStatus.CHANGES_REQUESTED,
+        ApprovalStatus.PENDING,
+      ].includes(quotation.approval_status)
+    );
+  }
+
+  /**
+   * Why `user` may not directly approve this quotation, or null when they
+   * may. Requires the direct-approve permission AND an enabled entry in the
+   * company's approval policy whose limits cover the quotation.
+   */
+  private async directApprovalBlocker(
+    companyId: string,
+    quotation: Quotation,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'> | null | undefined,
+  ): Promise<string | null> {
+    if (
+      !user?.id ||
+      !this.hasPermission(user, QUOTATION_DIRECT_APPROVE_PERMISSION)
+    ) {
+      return 'You do not have direct approval permission.';
+    }
+    // Direct approval covers one's own quotations; anyone else's goes through
+    // the normal maker-checker approval.
+    if (quotation.created_by !== user.id) {
+      return 'Only quotations you created can be approved directly.';
+    }
+    if (!this.approvalPolicyService) {
+      return 'Direct approval is not configured.';
+    }
+    const policy = await this.approvalPolicyService.getPolicy(companyId);
+    return directApprovalViolation(
+      policy,
+      user.id,
+      this.approvalPolicyService.factsFor(quotation),
+    );
+  }
+
+  /** "Complete and Approve": the backend re-checks authority and limits. */
+  private async directApprove(
+    companyId: string,
+    id: string,
+    user: AuthenticatedUser,
+    context: { changedBy: string; reason?: string; comments?: string },
+  ) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    if (!this.isApprovalOpen(quotation)) {
+      throw new ConflictException(
+        quotation.requires_approval
+          ? `Approval cannot be completed from ${quotation.approval_status}`
+          : 'Approval is not required for this quotation',
+      );
+    }
+    const blocker = await this.directApprovalBlocker(
+      companyId,
+      quotation,
+      user,
+    );
+    if (blocker) throw new ForbiddenException(blocker);
+
+    await this.quotationLifecycleService.approveWithoutReferral(
+      companyId,
+      id,
+      'DIRECT',
+      {
+        changedBy: user.id,
+        changedByType: 'USER',
+        source: 'USER',
+        reason: context.reason,
+        comments: context.comments ?? 'Approved directly by an authorised user',
+        metadata: { approval_method: 'DIRECT' },
+      },
+    );
+    await this.tryAutoRequestPayment(companyId, id, user);
+  }
+
+  /**
+   * Automatic approval after completion: when approval is required and an
+   * enabled rule matches, the system approves and records the rule. Pricing
+   * was validated by finalize; any failure leaves the normal approval flow.
+   */
+  private async tryAutoApprove(companyId: string, id: string) {
+    if (!this.approvalPolicyService) return;
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    if (
+      !quotation.requires_approval ||
+      quotation.approval_status !== ApprovalStatus.NOT_SUBMITTED
+    ) {
+      return;
+    }
+    const policy = await this.approvalPolicyService.getPolicy(companyId);
+    const rule = matchAutoApprovalRule(
+      policy,
+      this.approvalPolicyService.factsFor(quotation),
+    );
+    if (!rule) return;
+    await this.quotationLifecycleService.approveWithoutReferral(
+      companyId,
+      id,
+      'AUTO',
+      {
+        changedBy: null,
+        changedByType: 'SYSTEM',
+        source: 'SYSTEM',
+        comments: `Automatically approved by rule "${rule.name}"`,
+        metadata: {
+          approval_method: 'AUTO',
+          rule_id: rule.id,
+          rule_name: rule.name,
+        },
+      },
+    );
+  }
+
+  /**
+   * Creates the payment invoice right after completion/approval when the
+   * approval policy says so (a matching rule, or the user's own approver
+   * entry, with "create invoice automatically"). Reuses `requestPayment`, so
+   * its permission, scope, approval and payment checks all still apply; if
+   * any fails the user simply uses "Request Payment" as before.
+   */
+  private async tryAutoRequestPayment(
+    companyId: string,
+    id: string,
+    user: AuthenticatedUser,
+  ) {
+    if (!this.approvalPolicyService) return;
+    try {
+      const quotation = await this.quotationsRepository.findOneAggregate(
+        companyId,
+        id,
+      );
+      if (
+        !quotation.requires_payment ||
+        quotation.payment_status !== PaymentStatus.NOT_INITIATED
+      ) {
+        return;
+      }
+      const policy = await this.approvalPolicyService.getPolicy(companyId);
+      const source = autoPaymentRequestSource(
+        policy,
+        user.id,
+        this.approvalPolicyService.factsFor(quotation),
+      );
+      if (!source) return;
+      await this.requestPayment(companyId, id, user);
+      if (source.recordCash) {
+        await this.autoRecordCashPayment(companyId, quotation, user, source);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Automatic payment request skipped for quotation ${id}: ${String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Cash quotations covered by "Mark cash as paid": records the cash payment
+   * against the quotation invoice, posts the receipt and allocates it with
+   * the existing Finance commands, so the quotation becomes Paid through the
+   * normal allocation path. Fixed idempotency keys make retries safe. The
+   * payment is flagged "pending cash verification" for Finance to confirm.
+   */
+  private async autoRecordCashPayment(
+    companyId: string,
+    quotation: Quotation,
+    user: AuthenticatedUser,
+    source: { source: 'RULE' | 'USER'; rule?: { id: string; name: string } },
+  ) {
+    let invoice = await this.findLatestInvoice(companyId, quotation.id);
+    if (!invoice) return;
+    // The payment request leaves the invoice as a DRAFT; a payment can only
+    // be recorded against an issued invoice, so issue it first (the same
+    // command as Finance's "Issue" button).
+    if (String(invoice.status).toUpperCase() === 'DRAFT') {
+      await this.financeCommandService.issue(user, invoice.id, {
+        expected_state_version: invoice.state_version,
+        idempotency_key: `auto-cash-issue-${invoice.id}`,
+      } as IssueInvoiceDto);
+      invoice = await this.findLatestInvoice(companyId, quotation.id);
+      if (!invoice) return;
+    }
+    const amount = Number(invoice.balance_amount ?? invoice.total_amount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    const payment = await this.financeCommandService.recordManualPayment(user, {
+      invoice_id: invoice.id,
+      customer_id: invoice.customer_id ?? undefined,
+      payment_method: PaymentMethod.CASH,
+      provider_code: 'CASH_DESK',
+      // No receipt number is captured; the quotation number identifies it.
+      payment_reference: quotation.quotation_no,
+      amount,
+      currency_code: invoice.currency,
+      payer_name:
+        quotation.policy_holders?.[0]?.policy_holder_name ??
+        quotation.quotation_no,
+      idempotency_key: `auto-cash-${quotation.id}-${invoice.id}`,
+    });
+    await this.financeCommandService.postReceipt(user, {
+      payment_transaction_id: payment.id,
+      invoice_id: invoice.id,
+      allocation_amount: amount,
+      idempotency_key: `auto-cash-receipt-${payment.id}`,
+    });
+
+    await this.dataSource.getRepository(PaymentTransaction).update(
+      { id: payment.id, company_id: companyId },
+      {
+        request_payload: {
+          cash_verification: {
+            status: 'PENDING',
+            recorded_automatically: true,
+            quotation_id: quotation.id,
+            quotation_no: quotation.quotation_no,
+            source: source.source,
+            rule_id: source.rule?.id ?? null,
+            rule_name: source.rule?.name ?? null,
+          },
+        },
+      },
+    );
   }
 
   private canApproveQuotationWorkflow(
@@ -10037,8 +10585,12 @@ export class QuotationsService {
     }
   }
 
-  private async findLatestInvoice(companyId: string, quotationId: string) {
-    return this.dataSource
+  private async findLatestInvoice(
+    companyId: string,
+    quotationId: string,
+    manager?: EntityManager,
+  ) {
+    return (manager ?? this.dataSource)
       .getRepository(Invoice)
       .createQueryBuilder('invoice')
       .where('invoice.company_id = :companyId', { companyId })

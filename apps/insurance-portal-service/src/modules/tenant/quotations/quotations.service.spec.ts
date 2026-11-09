@@ -767,6 +767,29 @@ describe('QuotationsService', () => {
     };
   }
 
+  it('keeps the request ID from the persisted TIRAMIS tracking response', async () => {
+    const fixture = createServiceFixture();
+    jest
+      .mocked(fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord)
+      .mockResolvedValue({
+        tracking: { tiramisRequestId: 'tracked-request' },
+        tiramis: { requestId: 'tracked-request' },
+      });
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      submitTiramisUser,
+    );
+    expect(
+      fixture.quotationLifecycleService.markTiraSubmitted,
+    ).toHaveBeenCalledWith(
+      'company-1',
+      fixture.quotation.id,
+      expect.objectContaining({ tiraRequestId: 'tracked-request' }),
+    );
+  });
+
   it('submits the final outbound payload to TIRAMIS using camelCase fields', async () => {
     const fixture = createServiceFixture();
 
@@ -1362,6 +1385,215 @@ describe('QuotationsService', () => {
     expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
   });
 
+  describe('premium change after approval or payment request (D3, D3a)', () => {
+    const user = { id: 'user-1', permissions: [] } as any;
+
+    function arrange(overrides: Record<string, unknown>) {
+      const fixture = createServiceFixture();
+      const service = fixture.service as any;
+      const existing = {
+        id: 'quotation-1',
+        quotation_no: 'Q-1',
+        requires_approval: true,
+        requires_payment: true,
+        approval_status: ApprovalStatus.APPROVED,
+        payment_status: PaymentStatus.REQUESTED,
+        cover_note: { total_premium_including_tax: '100.00' },
+        ...overrides,
+      };
+      const finance = { voidInvoice: jest.fn().mockResolvedValue(undefined) };
+      service.financeCommandService = finance;
+      const lifecycle = {
+        resetAfterPremiumChange: jest.fn().mockResolvedValue(undefined),
+      };
+      service.quotationLifecycleService = lifecycle;
+      const findLatestInvoice = jest
+        .spyOn(service, 'findLatestInvoice')
+        .mockResolvedValue({
+          id: 'invoice-1',
+          invoice_no: 'INV-1',
+          status: 'ISSUED',
+          allocated_amount: '0',
+        });
+      return {
+        fixture,
+        service,
+        existing,
+        finance,
+        lifecycle,
+        findLatestInvoice,
+      };
+    }
+
+    const singlePayload = (total: number) => ({
+      internal_quotation: { quotation_flow: 'MOTOR_SINGLE' },
+      cover_note_dtl: { total_premium_including_tax: total },
+    });
+    const fleetPayload = (total: number) => ({
+      internal_quotation: { quotation_flow: 'MOTOR_FLEET' },
+      cover_note_dtl: { fleet_hdr: { total_premium_including_tax: total } },
+    });
+
+    it('detects a changed premium for single motor and fleet', () => {
+      const { service, existing } = arrange({});
+
+      expect(
+        service.detectPremiumChange(existing, singlePayload(100)),
+      ).toBeNull();
+      expect(
+        service.detectPremiumChange(existing, singlePayload(100.001)),
+      ).toBeNull();
+      expect(service.detectPremiumChange(existing, singlePayload(120))).toEqual(
+        {
+          previous: 100,
+          current: 120,
+        },
+      );
+      expect(service.detectPremiumChange(existing, fleetPayload(99.5))).toEqual(
+        {
+          previous: 100,
+          current: 99.5,
+        },
+      );
+    });
+
+    it('treats a never-priced quotation as unchanged', () => {
+      const { service, existing } = arrange({ cover_note: null });
+
+      expect(
+        service.detectPremiumChange(existing, singlePayload(120)),
+      ).toBeNull();
+    });
+
+    it('refuses the edit once payment has been received', async () => {
+      const { service, existing } = arrange({
+        payment_status: PaymentStatus.PAID,
+      });
+
+      await expect(
+        service.assertPremiumMayChange('company-1', existing, {
+          previous: 100,
+          current: 120,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'QUOTATION_PREMIUM_LOCKED_BY_PAYMENT',
+        }),
+      });
+    });
+
+    it('refuses the edit when the open invoice already has an allocation', async () => {
+      const { service, existing, findLatestInvoice } = arrange({});
+      findLatestInvoice.mockResolvedValue({
+        id: 'invoice-1',
+        invoice_no: 'INV-1',
+        status: 'ISSUED',
+        allocated_amount: '10',
+      });
+
+      await expect(
+        service.assertPremiumMayChange('company-1', existing, {
+          previous: 100,
+          current: 120,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({
+          code: 'QUOTATION_PREMIUM_LOCKED_BY_PAYMENT',
+        }),
+      });
+    });
+
+    it('voids the old invoice, then resets approval and payment, and audits it', async () => {
+      const { fixture, service, existing, finance, lifecycle } = arrange({});
+      const manager = { transaction: true };
+      const change = { previous: 100, current: 120 };
+
+      const invoice = await service.assertPremiumMayChange(
+        'company-1',
+        existing,
+        change,
+      );
+      await service.resetAfterPremiumChange(
+        'company-1',
+        existing,
+        change,
+        invoice,
+        user,
+        manager,
+      );
+
+      expect(finance.voidInvoice).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'user-1', companyId: 'company-1' }),
+        'invoice-1',
+        expect.objectContaining({
+          idempotency_key:
+            'quotation:quotation-1:premium-change:void:invoice-1',
+        }),
+        manager,
+      );
+      expect(lifecycle.resetAfterPremiumChange).toHaveBeenCalledWith(
+        'company-1',
+        'quotation-1',
+        expect.objectContaining({
+          reason: 'Premium changed from 100.00 to 120.00',
+        }),
+        manager,
+      );
+      expect(finance.voidInvoice.mock.invocationCallOrder[0]).toBeLessThan(
+        lifecycle.resetAfterPremiumChange.mock.invocationCallOrder[0],
+      );
+      expect(fixture.auditService.logCritical).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'quotation.approval.reset_on_premium_change',
+        }),
+        manager,
+      );
+    });
+
+    it('resets a pending approval without touching finance when no payment was requested', async () => {
+      const { service, existing, finance, lifecycle } = arrange({
+        approval_status: ApprovalStatus.PENDING,
+        payment_status: PaymentStatus.NOT_INITIATED,
+      });
+      const change = { previous: 100, current: 90 };
+
+      const invoice = await service.assertPremiumMayChange(
+        'company-1',
+        existing,
+        change,
+      );
+      await service.resetAfterPremiumChange(
+        'company-1',
+        existing,
+        change,
+        invoice,
+        user,
+      );
+
+      expect(invoice).toBeNull();
+      expect(finance.voidInvoice).not.toHaveBeenCalled();
+      expect(lifecycle.resetAfterPremiumChange).toHaveBeenCalled();
+    });
+
+    it('does nothing for a quotation with no approval or payment in progress', async () => {
+      const { service, existing, finance, lifecycle } = arrange({
+        approval_status: ApprovalStatus.NOT_SUBMITTED,
+        payment_status: PaymentStatus.NOT_INITIATED,
+      });
+
+      await service.resetAfterPremiumChange(
+        'company-1',
+        existing,
+        { previous: 100, current: 120 },
+        null,
+        user,
+      );
+
+      expect(finance.voidInvoice).not.toHaveBeenCalled();
+      expect(lifecycle.resetAfterPremiumChange).not.toHaveBeenCalled();
+    });
+  });
+
   describe('non-motor finalize gates', () => {
     const completeUser = {
       id: 'user-1',
@@ -1455,6 +1687,74 @@ describe('QuotationsService', () => {
       expect(
         fixture.nonMotorRiskService.assertCompleteForFinalize,
       ).not.toHaveBeenCalled();
+    });
+
+    const fleetPayload = (vehicles: number) =>
+      ({
+        internal_quotation: { quotation_flow: 'MOTOR_FLEET' },
+        cover_note_dtl: {
+          fleet_dtls: Array.from({ length: vehicles }, (_, index) => ({
+            fleet_entry: index + 1,
+          })),
+        },
+      }) as any;
+
+    it('refuses to finalize a new-business fleet with fewer than 2 vehicles (D4)', async () => {
+      const { fixture, replace } = arrange('MOTOR_FLEET');
+
+      await expect(
+        fixture.service.finalize(
+          'company-1',
+          'quotation-1',
+          fleetPayload(1),
+          completeUser,
+        ),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'FLEET_MINIMUM_VEHICLES' }),
+      });
+      expect(replace).not.toHaveBeenCalled();
+    });
+
+    it('finalizes a fleet with 2 vehicles', async () => {
+      const { fixture, replace } = arrange('MOTOR_FLEET');
+
+      await fixture.service.finalize(
+        'company-1',
+        'quotation-1',
+        fleetPayload(2),
+        completeUser,
+      );
+
+      expect(replace).toHaveBeenCalled();
+    });
+
+    it('exempts policy-transaction fleet quotations from the minimum', async () => {
+      const fixture = createServiceFixture({
+        quotation_flow: 'MOTOR_FLEET',
+        status: QuotationStatus.DRAFT,
+        source_policy_transaction_id: 'transaction-1',
+      });
+      const service = fixture.service as any;
+      jest
+        .spyOn(service, 'assertUserCanWriteQuotation')
+        .mockResolvedValue(undefined);
+      jest.spyOn(service, 'assertDraftWritable').mockReturnValue(undefined);
+      const replace = jest
+        .spyOn(service, 'replace')
+        .mockResolvedValue({ id: 'quotation-1' });
+      jest
+        .spyOn(service, 'assertPricingSnapshotsCurrent')
+        .mockResolvedValue(undefined);
+      jest.spyOn(service, 'findOne').mockResolvedValue({ id: 'quotation-1' });
+
+      await fixture.service.finalize(
+        'company-1',
+        'quotation-1',
+        fleetPayload(1),
+        completeUser,
+      );
+
+      expect(replace).toHaveBeenCalled();
     });
   });
   describe('authoritative pricing validation on create (real validateAuthoritativePricing, not mocked)', () => {

@@ -22,6 +22,7 @@ import { UpdateQuotationDto } from '../../quotations/dto/quotation-payload.dto';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { QuotationsService } from '../../quotations/quotations.service';
 import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
+import { AuditService } from '../../../shared/audit/audit.service';
 import { FleetRegisterService } from '../fleet/fleet-register.service';
 
 /**
@@ -45,6 +46,7 @@ export class UnderwriteQuotationCommandService {
     @InjectRepository(InsuranceProduct)
     private readonly insuranceProductRepository: Repository<InsuranceProduct>,
     private readonly fleetRegisterService: FleetRegisterService,
+    private readonly auditService: AuditService,
   ) {}
 
   private readonly logger = new Logger(UnderwriteQuotationCommandService.name);
@@ -73,6 +75,66 @@ export class UnderwriteQuotationCommandService {
       { ...dto, category_id: categoryId },
       user,
     );
+  }
+
+  /**
+   * Duplicate quotation (business decision D2, 2026-11-07).
+   *
+   * The client sends the source quotation's form values as a new draft; the
+   * server checks the user may read the source in this line, refuses
+   * policy-transaction quotations, strips every identifier that must be new
+   * (cover note numbers, Fleet ID, pricing quotes) and creates an ordinary
+   * draft through `createDraft`, so the usual product, channel and scope
+   * rules apply. Approval, payment, invoices and TIRA state are never copied:
+   * the copy starts as a fresh DRAFT and is repriced when finalized.
+   */
+  async duplicate(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    sourceId: string,
+    dto: SaveQuotationDraftDto,
+  ) {
+    // Read scope first (404 if the user may not see the source).
+    const source = await this.quotationsService.findOneForUser(user, sourceId);
+    await this.assertStoredFlow(line, sourceId);
+    const stored = await this.quotationRepository.findOne({
+      select: { id: true, source_policy_transaction_id: true },
+      where: { id: sourceId },
+    });
+    if (stored?.source_policy_transaction_id) {
+      throw new BadRequestException({
+        code: 'QUOTATION_DUPLICATE_NOT_ALLOWED',
+        message:
+          'Endorsement, cancellation and renewal quotations cannot be duplicated.',
+      });
+    }
+
+    const created = await this.createDraft(user, line, {
+      ...dto,
+      draft_payload: stripDuplicateIdentifiers(dto.draft_payload),
+    });
+
+    await this.auditService.logCritical({
+      userId: user.id,
+      actorType: 'user',
+      companyId: user.companyId!,
+      action: 'quotation.duplicated',
+      eventCategory: 'quotation',
+      resource: 'quotation',
+      resourceId: created.id,
+      reason: `Duplicated from quotation ${source.quotation_no}`,
+      beforeState: {
+        source_quotation_id: sourceId,
+        source_quotation_no: source.quotation_no,
+      },
+      afterState: {
+        quotation_id: created.id,
+        quotation_no: created.quotation_no,
+        line,
+      },
+    });
+
+    return created;
   }
 
   async getForEdit(user: AuthenticatedUser, line: UnderwriteLine, id: string) {
@@ -240,4 +302,55 @@ export class UnderwriteQuotationCommandService {
       );
     }
   }
+}
+
+/** Identifiers a duplicate must never inherit (they are issued anew). */
+export const DUPLICATE_STRIPPED_KEYS = new Set([
+  'quotation_id',
+  'quotation_no',
+  'status',
+  'fleet_id',
+  'cover_note_number',
+  'cover_note_reference_number',
+  'prev_cover_note_reference_number',
+  'sticker_number',
+  'pricing_quote_id',
+  'pricing_snapshot',
+  'premium_override_id',
+]);
+
+/** Identifiers kept as an empty string (the form's "not issued yet"). */
+const BLANKED_IDENTIFIER_KEYS = new Set([
+  'fleet_id',
+  'cover_note_number',
+  'cover_note_reference_number',
+  'prev_cover_note_reference_number',
+  'sticker_number',
+]);
+
+/** Deep copy of a draft payload without identifiers that must be new. */
+export function stripDuplicateIdentifiers(
+  payload: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  const strip = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(strip);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>)
+          // Text identifiers are blanked, not removed: required string fields
+          // (e.g. fleet_hdr.fleet_id) must stay strings, as in a fresh draft.
+          .filter(
+            ([key, item]) =>
+              !DUPLICATE_STRIPPED_KEYS.has(key) ||
+              (BLANKED_IDENTIFIER_KEYS.has(key) && typeof item === 'string'),
+          )
+          .map(([key, item]) => [
+            key,
+            DUPLICATE_STRIPPED_KEYS.has(key) ? '' : strip(item),
+          ]),
+      );
+    }
+    return value;
+  };
+  return (strip(payload ?? {}) as Record<string, unknown>) ?? {};
 }

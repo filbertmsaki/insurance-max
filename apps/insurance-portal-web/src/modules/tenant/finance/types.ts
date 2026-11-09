@@ -83,6 +83,20 @@ export interface FinancePaymentTransaction {
   received_at?: string | null;
   settled_at?: string | null;
   created_at?: string;
+  request_payload?: {
+    /** Set on cash recorded automatically when a quotation was completed. */
+    cash_verification?: CashVerification;
+  } | null;
+}
+
+export interface CashVerification {
+  status: 'PENDING' | 'VERIFIED';
+  quotation_no?: string;
+  rule_name?: string | null;
+  verified_by?: string | null;
+  verified_at?: string | null;
+  self_verified?: boolean;
+  note?: string | null;
 }
 
 export interface FinancePaymentReference {

@@ -10,17 +10,19 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { ActionMenu } from '@/components/shared/ActionMenu';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { formatDate, formatMoney } from '@/components/shared/detailFormat';
-import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
-import { PolicyStatusBadge } from '@/modules/tenant/policies/components/PolicyStatusBadge';
-import type { PolicyRecord } from '@/modules/tenant/policies/types';
-import { underwriteApi } from '../api';
-import { underwriteKeys, useUnderwriteLineParam } from '../hooks';
-import type { UnderwriteLineMeta } from '../lines';
-import { underwritePaths } from '../paths';
 import {
   downloadPdf,
   documentFilename,
 } from '@/modules/shared/documents/download-pdf';
+import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import { PolicyStatusBadge } from '@/modules/tenant/policies/components/PolicyStatusBadge';
+import {
+  motorInsuranceApi,
+  motorInsuranceKeys,
+  type MotorInsurancePolicy,
+} from '../api';
+import { MotorTypeBadge } from '../components/MotorTypeBadge';
+import { motorInsurancePaths } from '../paths';
 
 const POLICY_STATUS_OPTIONS = [
   'COVER_NOTE_ISSUED',
@@ -31,27 +33,31 @@ const POLICY_STATUS_OPTIONS = [
   'LAPSED',
 ] as const;
 
-const STATUS_FILTER_OPTIONS = POLICY_STATUS_OPTIONS.map((value) => ({
-  value,
-  label: value.replace(/_/g, ' '),
-}));
-const FILTER_KEYS = ['policy_status'] as const;
+const FILTER_KEYS = ['policy_status', 'type'] as const;
 
-function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
+/**
+ * Motor Insurance policy register. Type comes from the stored
+ * `business_line`, never from the vehicle count: a fleet reduced to one
+ * vehicle is still a fleet.
+ */
+export function MotorInsurancePoliciesPage() {
   const navigate = useNavigate();
   const { tableProps, state } = useServerTable<
-    PolicyRecord,
+    MotorInsurancePolicy,
     (typeof FILTER_KEYS)[number]
   >({
-    queryKey: underwriteKeys.policies(line.slug),
+    queryKey: motorInsuranceKeys.policies(),
     fetcher: (params, signal) =>
-      underwriteApi.getPolicies(line.slug, params, signal),
+      motorInsuranceApi.getPolicies(
+        params as Parameters<typeof motorInsuranceApi.getPolicies>[0],
+        signal,
+      ),
     filterKeys: FILTER_KEYS,
     defaultSortBy: 'created_at',
     defaultLimit: 10,
   });
 
-  const columns: Column<PolicyRecord>[] = [
+  const columns: Column<MotorInsurancePolicy>[] = [
     {
       key: 'policy_no',
       header: 'Policy No.',
@@ -61,16 +67,26 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
       ),
     },
     {
-      key: 'cover_note_no',
-      header: 'Cover Note',
-      hideOnMobile: true,
-      cell: (row) => row.cover_note_no || 'N/A',
-    },
-    {
       key: 'customer',
       header: 'Customer',
       cell: (row) =>
         row.customer ? getCustomerDisplayName(row.customer) : row.customer_id,
+    },
+    {
+      key: 'business_line',
+      header: 'Type',
+      cell: (row) =>
+        row.business_line ? (
+          <MotorTypeBadge fleet={row.business_line === 'FLEET'} />
+        ) : (
+          'N/A'
+        ),
+    },
+    {
+      key: 'cover_note_no',
+      header: 'Cover Note',
+      hideOnMobile: true,
+      cell: (row) => row.cover_note_no || 'N/A',
     },
     {
       key: 'product',
@@ -112,6 +128,12 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
             ariaLabel={`Actions for policy ${row.policy_no}`}
             items={[
               {
+                label: 'View policy',
+                icon: <Eye className="h-4 w-4" />,
+                onClick: () =>
+                  navigate(motorInsurancePaths.policyDetail(row.id)),
+              },
+              {
                 label: 'Download policy schedule PDF',
                 icon: <Download className="h-4 w-4" />,
                 onClick: () =>
@@ -119,12 +141,6 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
                     `/tenant/policies/${row.id}/schedule/download`,
                     documentFilename(row.policy_no, '-schedule'),
                   ),
-              },
-              {
-                label: 'View policy',
-                icon: <Eye className="h-4 w-4" />,
-                onClick: () =>
-                  navigate(underwritePaths.policyDetail(line.slug, row.id)),
               },
             ]}
           />
@@ -136,9 +152,9 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
   return (
     <div>
       <PageHeader
-        eyebrow={`Underwrite · ${line.label}`}
-        title={`${line.label} policies`}
-        description={line.description}
+        eyebrow="Motor Insurance"
+        title="Policies"
+        description="Single Motor and Fleet policies in one register."
         action={<CompanySwitcher menuLabel="Filter by owner company" />}
       />
 
@@ -149,19 +165,26 @@ function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
         searchPlaceholder="Search policies..."
         filters={tableFilters(state.filters, [
           {
+            key: 'type',
+            label: 'Type',
+            placeholder: 'All types',
+            options: [
+              { value: 'single', label: 'Single Motor' },
+              { value: 'fleet', label: 'Fleet' },
+            ],
+          },
+          {
             key: 'policy_status',
             label: 'Status',
             placeholder: 'All statuses',
-            options: STATUS_FILTER_OPTIONS,
+            options: POLICY_STATUS_OPTIONS.map((value) => ({
+              value,
+              label: value.replace(/_/g, ' '),
+            })),
           },
         ])}
-        emptyMessage={`No ${line.label.toLowerCase()} policies found`}
+        emptyMessage="No motor policies found"
       />
     </div>
   );
-}
-
-export function UnderwritePoliciesPage() {
-  const line = useUnderwriteLineParam();
-  return line ? <PoliciesList key={line.slug} line={line} /> : null;
 }

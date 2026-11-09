@@ -191,8 +191,9 @@ export class FinanceCommandService {
     user: AuthenticatedUser,
     invoiceId: string,
     dto: VoidInvoiceDto,
+    transactionManager?: EntityManager,
   ) {
-    return this.dataSource.transaction(async (manager) => {
+    const run = async (manager: EntityManager) => {
       const invoice = await this.getInvoiceForUpdate(
         manager,
         user.companyId!,
@@ -247,7 +248,10 @@ export class FinanceCommandService {
       });
 
       return saved;
-    });
+    };
+    return transactionManager
+      ? run(transactionManager)
+      : this.dataSource.transaction(run);
   }
 
   async recordManualPayment(
@@ -357,6 +361,51 @@ export class FinanceCommandService {
 
       return payment;
     });
+  }
+
+  /**
+   * Finance confirms a cash payment that was recorded automatically when a
+   * quotation was completed (approval policy "Mark cash as paid"). It does
+   * not change money or allocation — only records who checked the cash and
+   * when, in the payment's request payload. Verifying twice is refused.
+   */
+  async verifyCashPayment(
+    user: AuthenticatedUser,
+    paymentId: string,
+    note?: string,
+  ) {
+    const payment = await this.paymentRepository.findOne({
+      where: { id: paymentId, company_id: user.companyId! },
+    });
+    if (!payment) {
+      throw new NotFoundException('Payment transaction not found');
+    }
+    const payload = payment.request_payload ?? {};
+    const verification = payload.cash_verification as
+      | Record<string, unknown>
+      | undefined;
+    if (!verification) {
+      throw new BadRequestException(
+        'This payment does not need cash verification.',
+      );
+    }
+    if (verification.status !== 'PENDING') {
+      throw new ConflictException('This cash payment is already verified.');
+    }
+    payment.request_payload = {
+      ...payload,
+      cash_verification: {
+        ...verification,
+        status: 'VERIFIED',
+        verified_by: user.id,
+        verified_at: new Date().toISOString(),
+        // Recorded so reviewers can see when the recorder verified it too.
+        self_verified: payment.created_by === user.id,
+        note: note?.trim() || null,
+      },
+    };
+    payment.updated_by = user.id;
+    return this.paymentRepository.save(payment);
   }
 
   async postReceipt(user: AuthenticatedUser, dto: PostReceiptDto) {
@@ -541,6 +590,28 @@ export class FinanceCommandService {
       throw new ConflictException('The receipt cannot be allocated.');
     }
 
+    // Return an exact replay before checking balances/status changed by its first application.
+    const allocationUnsigned = {
+      receiptId: receipt.id,
+      invoiceId: invoice.id,
+      amount: params.amount.toFixed(4),
+      currencyCode: invoice.currency,
+      idempotencyKey: params.idempotencyKey,
+    };
+
+    const allocationHash = this.hashService.hashDefinition(allocationUnsigned);
+    const existing = await manager.getRepository(ReceiptAllocation).findOne({
+      where: {
+        company_id: user.companyId!,
+        allocation_hash: allocationHash,
+        status: ReceiptAllocationStatus.ACTIVE,
+      },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
     if (
       invoice.status !== InvoiceStatus.ISSUED &&
       invoice.status !== InvoiceStatus.PARTIALLY_PAID
@@ -574,26 +645,6 @@ export class FinanceCommandService {
 
     if (params.amount.greaterThan(invoiceBalance)) {
       throw new BadRequestException('Allocation exceeds the invoice balance.');
-    }
-
-    const allocationUnsigned = {
-      receiptId: receipt.id,
-      invoiceId: invoice.id,
-      amount: params.amount.toFixed(4),
-      currencyCode: invoice.currency,
-      idempotencyKey: params.idempotencyKey,
-    };
-
-    const allocationHash = this.hashService.hashDefinition(allocationUnsigned);
-    const existing = await manager.getRepository(ReceiptAllocation).findOne({
-      where: {
-        allocation_hash: allocationHash,
-        status: ReceiptAllocationStatus.ACTIVE,
-      },
-    });
-
-    if (existing) {
-      return existing;
     }
 
     const allocation = await manager.getRepository(ReceiptAllocation).save(

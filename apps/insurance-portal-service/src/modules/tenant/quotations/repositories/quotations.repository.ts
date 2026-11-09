@@ -4,7 +4,10 @@ import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import type { TenantDataScope } from '../../../shared/authorization/interfaces/tenant-data-scope.interface';
-import { FilterQuotationDto } from '../dto/filter-quotation.dto';
+import {
+  FilterQuotationDto,
+  type QuotationListQuery,
+} from '../dto/filter-quotation.dto';
 import { Quotation } from '../entities/quotation.entity';
 import { QuotationMotorDetail } from '../entities/structured/quotation-motor-detail.entity';
 import { QuotationPolicyHolder } from '../entities/structured/quotation-policy-holder.entity';
@@ -220,7 +223,7 @@ export class QuotationsRepository {
 
   async findAllForScope(
     scope: TenantDataScope,
-    query: FilterQuotationDto,
+    query: QuotationListQuery,
   ): Promise<PaginatedQuotations> {
     const page = this.normalizePage(query.page);
     const limit = this.normalizeLimit(query.limit);
@@ -393,6 +396,7 @@ export class QuotationsRepository {
       .leftJoinAndSelect('quotation.creator', 'creator')
       .leftJoinAndSelect('quotation.updater', 'updater')
       .leftJoinAndSelect('quotation.submitter', 'submitter')
+      .leftJoinAndSelect('quotation.approval_decider', 'approvalDecider')
       .leftJoinAndSelect('quotation.customer', 'customer')
       .leftJoinAndSelect('quotation.category', 'category')
       .leftJoinAndSelect('quotation.product', 'product')
@@ -433,7 +437,7 @@ export class QuotationsRepository {
 
   private applyListFilters(
     queryBuilder: SelectQueryBuilder<Quotation>,
-    query: FilterQuotationDto,
+    query: QuotationListQuery,
     page: number,
     limit: number,
   ): void {
@@ -441,6 +445,18 @@ export class QuotationsRepository {
       queryBuilder.andWhere('quotation.status = :status', {
         status: query.status,
       });
+    }
+
+    for (const field of [
+      'approval_status',
+      'payment_status',
+      'tira_status',
+    ] as const) {
+      if (query[field]) {
+        queryBuilder.andWhere(`quotation.${field} = :${field}`, {
+          [field]: query[field],
+        });
+      }
     }
 
     if (query.quotation_type) {
@@ -453,6 +469,17 @@ export class QuotationsRepository {
       queryBuilder.andWhere('quotation.quotation_flow = :quotationFlow', {
         quotationFlow: query.quotation_flow,
       });
+    }
+
+    if (query.quotation_flows) {
+      if (query.quotation_flows.length === 0) {
+        queryBuilder.andWhere('1 = 0');
+      } else {
+        queryBuilder.andWhere(
+          'quotation.quotation_flow IN (:...quotationFlows)',
+          { quotationFlows: query.quotation_flows },
+        );
+      }
     }
 
     if (query.product_id) {
@@ -483,6 +510,9 @@ export class QuotationsRepository {
 
     if (search) {
       const searchValue = `%${search}%`;
+      // Quotation numbers are often typed without their separators
+      // (QT20260015 for QT-2026-0015), so also match on alphanumerics only.
+      const compactSearch = search.replace(/[^a-zA-Z0-9]/g, '');
 
       queryBuilder.andWhere(
         new Brackets((searchQuery) => {
@@ -490,6 +520,12 @@ export class QuotationsRepository {
             .where('quotation.quotation_no ILIKE :search', {
               search: searchValue,
             })
+            .orWhere(
+              compactSearch
+                ? "regexp_replace(quotation.quotation_no, '[^a-zA-Z0-9]', '', 'g') ILIKE :compactSearch"
+                : 'FALSE',
+              { compactSearch: `%${compactSearch}%` },
+            )
             .orWhere('CAST(quotation.status AS text) ILIKE :search')
             .orWhere('CAST(quotation.approval_status AS text) ILIKE :search')
             .orWhere('CAST(quotation.payment_status AS text) ILIKE :search')
@@ -512,7 +548,7 @@ export class QuotationsRepository {
                 SELECT 1
                 FROM quotation_cover_note_entries AS entry_search
                 WHERE
-                  entry_search.cover_note_id = coverNote.id
+                  entry_search.cover_note_id = "coverNote".id
                   AND (
                     entry_search.cover_note_number ILIKE :search
                     OR entry_search.prev_cover_note_reference_number ILIKE :search
@@ -545,7 +581,7 @@ export class QuotationsRepository {
                 INNER JOIN quotation_motor_details AS motor_search
                   ON motor_search.entry_id = motor_entry_search.id
                 WHERE
-                  motor_entry_search.cover_note_id = coverNote.id
+                  motor_entry_search.cover_note_id = "coverNote".id
                   AND (
                     motor_search.registration_number ILIKE :search
                     OR motor_search.chassis_number ILIKE :search
@@ -565,7 +601,7 @@ export class QuotationsRepository {
                 INNER JOIN quotation_subject_matters AS subject_search
                   ON subject_search.entry_id = subject_entry_search.id
                 WHERE
-                  subject_entry_search.cover_note_id = coverNote.id
+                  subject_entry_search.cover_note_id = "coverNote".id
                   AND (
                     subject_search.subject_matter_reference ILIKE :search
                     OR subject_search.subject_matter_desc ILIKE :search
@@ -610,6 +646,17 @@ export class QuotationsRepository {
           'quotation_motor_details',
           'sortMotor',
           'sortMotor.entry_id = sortEntry.id',
+        )
+        // With skip/take TypeORM pages through a DISTINCT subquery whose
+        // ORDER BY may only use selected columns, so select the sort keys
+        // under the aliases it generates.
+        .addSelect(
+          'sortPolicyHolder.policy_holder_name',
+          'sortPolicyHolder_policy_holder_name',
+        )
+        .addSelect(
+          'sortMotor.registration_number',
+          'sortMotor_registration_number',
         );
     }
 

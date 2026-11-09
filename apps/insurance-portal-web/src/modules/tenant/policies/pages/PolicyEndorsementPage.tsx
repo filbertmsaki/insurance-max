@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Ban, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -150,7 +150,12 @@ export function PolicyEndorsementPage() {
   const { hasPermission } = useAuthStore();
   const [step, setStep] = useState(endorsementId ? 2 : 1);
   const [effectiveDate, setEffectiveDate] = useState('');
-  const [endorsementTypeCode, setEndorsementTypeCode] = useState('');
+  // Optional preselection, e.g. ?type=FLEET_REMOVE_VEHICLE from a fleet's
+  // 'Remove vehicles' choice. Only kept if the type is offered (below).
+  const [searchParams] = useSearchParams();
+  const [requestedTypeCode, setEndorsementTypeCode] = useState(() =>
+    endorsementId ? '' : (searchParams.get('type') ?? ''),
+  );
   const [reason, setReason] = useState('');
 
   const { data: policy, isLoading: policyLoading } = usePolicyDetail(policyId);
@@ -229,6 +234,15 @@ export function PolicyEndorsementPage() {
       ),
     [endorsementTypes, FleetVehiclePanel],
   );
+  // A preselected type that is not offered here (unknown code, or a fleet
+  // type outside the Fleet scope) is ignored rather than submitted.
+  const endorsementTypeCode =
+    !requestedTypeCode ||
+    endorsementTypes.length === 0 ||
+    offeredTypes.some((item) => item.code === requestedTypeCode)
+      ? requestedTypeCode
+      : '';
+
   const fleetVehicleTypeCode =
     context?.endorsement?.endorsement_type_code &&
     FLEET_VEHICLE_ENDORSEMENT_CODES.includes(

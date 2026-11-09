@@ -1,11 +1,14 @@
 import { computeAddonAmounts } from './addonCalculations';
+import { withApplicableAddons } from './addonVisibility';
 import {
   roundMoney,
   sumDecimals,
 } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import type { QuotationFormSchemaValues } from '../../schemas';
 
-export function quotationTotals(values: QuotationFormSchemaValues) {
+export function quotationTotals(input: QuotationFormSchemaValues) {
+  // Add-ons on a motor risk without a positive rate are never charged.
+  const values = withApplicableAddons(input, 'charge');
   const fleet = values.quotation_flow === 'MOTOR_FLEET';
   const risks = fleet
     ? values.fleet.items.flatMap((item) => item.risks_covered)

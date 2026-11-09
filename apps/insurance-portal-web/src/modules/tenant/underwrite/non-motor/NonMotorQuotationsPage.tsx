@@ -51,31 +51,6 @@ const STATUS_FILTER_OPTIONS = STATUS_OPTIONS.map((value) => ({
 }));
 const FILTER_KEYS = ['status'] as const;
 
-function lineColumns(line: UnderwriteLineMeta): Column<QuotationListItem>[] {
-  if (line.line === 'MOTOR') {
-    return [
-      {
-        key: 'vehicle_registration_number',
-        header: 'Reg No.',
-        sortable: true,
-        hideOnMobile: true,
-        cell: (row) => row.vehicle_registration_number || 'N/A',
-      },
-    ];
-  }
-  if (line.line === 'FLEET') {
-    return [
-      {
-        key: 'fleet_id',
-        header: 'Fleet ID',
-        hideOnMobile: true,
-        cell: (row) => row.fleet_id || 'N/A',
-      },
-    ];
-  }
-  return [];
-}
-
 function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
   const navigate = useNavigate();
   const { tableProps, state } = useServerTable<
@@ -127,7 +102,6 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
       sortable: true,
       cell: (row) => row.customer_name || 'N/A',
     },
-    ...lineColumns(line),
     {
       key: 'product_name',
       header: 'Product',
@@ -230,42 +204,26 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
 
   return (
     <div>
-      {line.line === 'MOTOR' ? (
-        <div className="mb-6 flex justify-end gap-2">
-          <CompanySwitcher menuLabel="Filter by owner company" />
-          {canCreate ? (
-            <Button
-              onClick={() =>
-                navigate(underwritePaths.quotationCreate(line.slug))
-              }
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New quotation
-            </Button>
-          ) : null}
-        </div>
-      ) : (
-        <PageHeader
-          eyebrow={`Underwrite · ${line.label}`}
-          title={`${line.label} quotations`}
-          description={line.description}
-          action={
-            <>
-              <CompanySwitcher menuLabel="Filter by owner company" />
-              {canCreate ? (
-                <Button
-                  onClick={() =>
-                    navigate(underwritePaths.quotationCreate(line.slug))
-                  }
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  New quotation
-                </Button>
-              ) : null}
-            </>
-          }
-        />
-      )}
+      <PageHeader
+        eyebrow={`Underwrite · ${line.label}`}
+        title={`${line.label} quotations`}
+        description={line.description}
+        action={
+          <>
+            <CompanySwitcher menuLabel="Filter by owner company" />
+            {canCreate ? (
+              <Button
+                onClick={() =>
+                  navigate(underwritePaths.quotationCreate(line.slug))
+                }
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                New quotation
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       <DataTable
         {...tableProps}
@@ -286,7 +244,9 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
   );
 }
 
-export function UnderwriteQuotationsPage() {
+export function NonMotorQuotationsPage() {
   const line = useUnderwriteLineParam();
-  return line ? <QuotationsList key={line.slug} line={line} /> : null;
+  return line?.line === 'NON_MOTOR' ? (
+    <QuotationsList key={line.slug} line={line} />
+  ) : null;
 }

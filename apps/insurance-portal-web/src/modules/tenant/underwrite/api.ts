@@ -550,6 +550,19 @@ export const underwriteApi = {
       .post<QuotationDetailRecord>(`${base(line)}/quotations/drafts`, data)
       .then((response) => response.data),
 
+  /** D2: copy a quotation into a new draft (server strips identifiers). */
+  duplicateQuotation: (
+    line: UnderwriteLineSlug,
+    id: string,
+    data: QuotationDraftRecordPayload,
+  ) =>
+    apiClient
+      .post<QuotationDetailRecord>(
+        `${base(line)}/quotations/${id}/duplicate`,
+        data,
+      )
+      .then((response) => response.data),
+
   getQuotationForEdit: (line: UnderwriteLineSlug, id: string) =>
     apiClient
       .get<QuotationDetailRecord>(`${base(line)}/quotations/${id}/edit`)

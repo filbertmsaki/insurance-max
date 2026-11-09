@@ -1,5 +1,10 @@
 import { useMemo } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { apiClient } from '@/modules/shared/api/client';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -101,13 +106,25 @@ export function useQuotationRealtime(id?: string) {
 
     const quotationId = notification.targetRecordId ?? payloadQuotationId;
 
-    if (quotationId === id) {
-      queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
-      queryClient.invalidateQueries({ queryKey: quotationKeys.workflow(id) });
-      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
-    }
+    if (quotationId === id) scheduleSilentRefresh(queryClient);
   });
+}
+
+let pendingRefresh: number | undefined;
+
+/**
+ * A TIRA callback (successful or failed) changes the quotation, its fleet
+ * vehicles, cover notes, payment/issuance state and policies at once. Every
+ * query on the page is refetched in the background — no browser reload, no
+ * loading skeletons; panels update in place as fresh data arrives. Callbacks
+ * that arrive together (acknowledgement + final) cause a single refresh.
+ */
+function scheduleSilentRefresh(queryClient: QueryClient) {
+  if (pendingRefresh !== undefined) return;
+  pendingRefresh = window.setTimeout(() => {
+    pendingRefresh = undefined;
+    void queryClient.invalidateQueries();
+  }, 500);
 }
 
 export function useQuotationPayload(id?: string) {
@@ -473,6 +490,7 @@ export function useTransitionQuotationStatus(id?: string) {
         EVALUATE_REQUIREMENTS: 'Quotation requirements re-evaluated',
         SUBMIT_FOR_APPROVAL: 'Quotation submitted for approval',
         APPROVE: 'Quotation approved',
+        DIRECT_APPROVE: 'Quotation approved',
         REQUEST_CHANGES: 'Changes requested',
         REJECT_APPROVAL: 'Quotation rejected',
         MARK_PAYMENT_REQUESTED: 'Payment request recorded',

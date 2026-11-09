@@ -15,6 +15,7 @@ import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepS
 import { useFleetPremiumCalculation } from '@/modules/tenant/quotations/wizard/steps/MotorFleetDetailsStep';
 import { quotationPricingIssues } from '@/modules/tenant/quotations/wizard/utils/quotationReadiness';
 import { quotationTotals } from '@/modules/tenant/quotations/wizard/utils/quotationTotals';
+import { riskKeepsAddons } from '@/modules/tenant/quotations/wizard/utils/addonVisibility';
 import type { UnderwriteQuotationWizard } from '../wizard/useUnderwriteQuotationWizard';
 
 const amount = (value: unknown) => {
@@ -52,7 +53,10 @@ export function FleetPremiumStep({
 
   const rows = items.map((item, index) => {
     const risks = item.risks_covered ?? [];
-    const addons = item.cover_note_addons ?? [];
+    // Hidden add-ons (vehicle rate not above zero) are not charged.
+    const addons = riskKeepsAddons(risks[0], 'charge')
+      ? (item.cover_note_addons ?? [])
+      : [];
     const priced = risks.every((risk) => Boolean(risk.rating_result_metadata));
     return {
       key: risks[0]?.client_ref || String(index),

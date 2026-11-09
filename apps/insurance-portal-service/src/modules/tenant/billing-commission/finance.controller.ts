@@ -137,6 +137,16 @@ export class FinanceController {
     );
   }
 
+  @Post('payment-transactions/:id/verify-cash')
+  @Permissions(FinancePermissions.RECONCILIATION_MATCH)
+  verifyCashPayment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { note?: string },
+  ) {
+    return this.financeCommandService.verifyCashPayment(user, id, body?.note);
+  }
+
   @Post('payment-transactions/manual')
   @Permissions(FinancePermissions.PAYMENTS_RECORD_MANUAL)
   recordManualPayment(

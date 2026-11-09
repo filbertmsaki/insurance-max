@@ -208,6 +208,45 @@ describe('UnderwriteTransactionsService lists', () => {
     });
   });
 
+  describe('line filter (Motor Insurance lists Motor and Fleet together)', () => {
+    async function renewalLineFilter(
+      line: Parameters<UnderwriteTransactionsService['listRenewals']>[1],
+    ) {
+      const query = makeListQueryBuilder({
+        rawAndEntities: { entities: [], raw: [] },
+      });
+      const service = new UnderwriteTransactionsService(
+        {} as never,
+        { createQueryBuilder: jest.fn(() => query) } as never,
+        {} as never,
+        {} as never,
+        scope as never,
+      );
+      await service.listRenewals(user, line);
+      return query.andWhere.mock.calls.find(
+        ([sql]) => typeof sql === 'string' && sql.includes('IN (:...lines)'),
+      );
+    }
+
+    it('filters a single line as before', async () => {
+      const call = await renewalLineFilter(UnderwriteLine.FLEET);
+      expect(call?.[1]).toEqual({ lines: ['FLEET'] });
+    });
+
+    it('filters several lines at once', async () => {
+      const call = await renewalLineFilter([
+        UnderwriteLine.MOTOR,
+        UnderwriteLine.FLEET,
+      ]);
+      expect(call?.[1]).toEqual({ lines: ['MOTOR', 'FLEET'] });
+    });
+
+    it('matches nothing for an empty line list', async () => {
+      const call = await renewalLineFilter([]);
+      expect(call?.[1]).toEqual({ lines: ['__NONE__'] });
+    });
+  });
+
   it('shows TIRA status on failed transactions and only TIRA-failed quotations', async () => {
     const transactionQuery = makeListQueryBuilder({
       rawMany: [transactionRow],

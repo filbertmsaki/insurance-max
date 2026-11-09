@@ -21,6 +21,7 @@ function generateDemoTinNumber(): string {
 const DEMO_CUSTOMERS = [
   {
     customerNo: 'AICL-CUST-001',
+    street: 'Upanga Road',
     customerType: 'INDIVIDUAL',
     policyHolderType: 1,
     firstName: 'Amani',
@@ -117,6 +118,7 @@ const DEMO_CUSTOMERS = [
   },
   {
     customerNo: 'AICL-CUST-002',
+    street: 'Mikocheni Road',
     customerType: 'INDIVIDUAL',
     policyHolderType: 1,
     firstName: 'Neema',
@@ -213,6 +215,7 @@ const DEMO_CUSTOMERS = [
   },
   {
     customerNo: 'AICL-CUST-003',
+    street: 'Nyerere Road',
     customerType: 'CORPORATE',
     policyHolderType: 2,
     firstName: null,
@@ -345,6 +348,7 @@ const DEMO_CUSTOMERS = [
   },
   {
     customerNo: 'AICL-CUST-004',
+    street: 'Nyerere Road',
     customerType: 'CORPORATE',
     policyHolderType: 2,
     firstName: null,
@@ -511,6 +515,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
           'country_code',
           'region',
           'district',
+          'street',
           'id_type',
           'id_number',
           'passport_no',
@@ -606,13 +611,13 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
                 middle_name, last_name, gender, date_of_birth,
                 company_name, tin, policy_holder_type, id_type, id_number,
                 passport_no, phone,
-                email, country, country_code, region, district, status,
+                email, country, country_code, region, district, street, status,
                 metadata, created_at, updated_at
               )
               VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
                 $14, $15, $16, 'Tanzania', 'TZA', 'Dar es Salaam', 'Ilala',
-                'ACTIVE', $17::jsonb, now(), now()
+                $17, 'ACTIVE', $18::jsonb, now(), now()
               )
               ON CONFLICT (company_id, customer_no)
               WHERE deleted_at IS NULL
@@ -631,6 +636,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
                 passport_no = EXCLUDED.passport_no,
                 phone = EXCLUDED.phone,
                 email = EXCLUDED.email,
+                street = EXCLUDED.street,
                 status = 'ACTIVE',
                 metadata = EXCLUDED.metadata,
                 updated_at = now()
@@ -653,6 +659,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
               customer.passportNo ?? customer.idNumber ?? null,
               customer.phone,
               customer.email,
+              customer.street,
               JSON.stringify(customer.metadata),
             ],
           );

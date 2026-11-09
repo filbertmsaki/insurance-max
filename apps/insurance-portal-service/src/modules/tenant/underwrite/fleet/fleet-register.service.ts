@@ -46,9 +46,38 @@ export class FleetRegisterService {
     companyId: string,
     quotationId: string,
   ): Promise<FleetRegisterSyncResult> {
-    return this.dataSource.transaction((manager) =>
-      this.syncInTransaction(manager, companyId, quotationId),
-    );
+    const where = {
+      id: quotationId,
+      company_id: companyId,
+      quotation_flow: QuotationFlow.MOTOR_FLEET,
+    };
+    const repository = this.dataSource.getRepository(Quotation);
+    await repository.update(where, {
+      fleet_register_sync_status: 'PENDING',
+      fleet_register_sync_error: null,
+      fleet_register_sync_attempted_at: new Date(),
+    });
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        const result = await this.syncInTransaction(
+          manager,
+          companyId,
+          quotationId,
+        );
+        await manager.getRepository(Quotation).update(where, {
+          fleet_register_sync_status: result.fleetId ? 'SYNCED' : 'SKIPPED',
+          fleet_register_sync_error: result.skippedReason ?? null,
+        });
+        return result;
+      });
+    } catch (error) {
+      await repository.update(where, {
+        fleet_register_sync_status: 'FAILED',
+        fleet_register_sync_error:
+          'Fleet register synchronization failed. Retry to synchronize the latest quotation.',
+      });
+      throw error;
+    }
   }
 
   private async syncInTransaction(

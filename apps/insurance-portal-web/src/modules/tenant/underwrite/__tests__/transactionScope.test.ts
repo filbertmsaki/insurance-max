@@ -71,9 +71,9 @@ describe('underwrite transaction scope', () => {
     );
   });
 
-  it('defaults shared policy navigation to the Motor underwrite line', () => {
+  it('defaults shared Motor policy navigation to the unified module', () => {
     expect(legacyPolicyTransactionScope.paths.policyDetail('p1')).toBe(
-      '/apps/underwrite/motor/policies/p1',
+      '/apps/motor/policies/p1',
     );
   });
 

@@ -44,6 +44,12 @@ export class RenewalQuotationFactoryService {
       user,
     );
 
+    if (quotation && context.convertedFromFleet) {
+      this.logger.log(
+        `Renewal of fleet policy ${params.policy.policy_no} has one vehicle left on cover; renewal quotation ${quotation.quotation_no} was created as Single Motor (decision D4a).`,
+      );
+    }
+
     if (quotation && context.quotationFlow === QuotationFlow.NON_MOTOR) {
       await this.copyNonMotorRiskDetails(user, params.policy, quotation.id);
     }

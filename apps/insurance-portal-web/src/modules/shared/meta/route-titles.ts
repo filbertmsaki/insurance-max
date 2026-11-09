@@ -32,16 +32,47 @@ route('/apps/dashboard/:tab', 'Dashboard');
 route('/apps/forbidden', 'Access Denied');
 
 // ── Underwrite ───────────────────────────────────────────────────────────────
+// Unified Motor Insurance is the sole Motor/Fleet business module.
+route('/apps/motor', 'Motor Insurance');
+route('/apps/motor/customers', 'Customers');
+route('/apps/motor/customers/new', 'New Customer');
+route('/apps/motor/customers/:id/edit', 'Edit Customer');
+route('/apps/motor/customers/:id', 'Customer Details');
+route('/apps/motor/quotations', 'Motor Quotations');
+route('/apps/motor/quotations/new', 'New Motor Quotation');
+route('/apps/motor/quotations/:id/edit', 'Edit Motor Quotation');
+route('/apps/motor/quotations/:id', 'Motor Quotation Details');
+route('/apps/motor/policies', 'Motor Policies');
+route(
+  '/apps/motor/policies/:policyId/endorsements/new',
+  'New Policy Endorsement',
+);
+route(
+  '/apps/motor/policies/:policyId/endorsements/:endorsementId',
+  'Policy Endorsement',
+);
+route(
+  '/apps/motor/policies/:policyId/cancellations/new',
+  'New Policy Cancellation',
+);
+route(
+  '/apps/motor/policies/:policyId/cancellations/:cancellationId',
+  'Policy Cancellation',
+);
+route('/apps/motor/policies/:policyId/renewals/:renewalId', 'Policy Renewal');
+route('/apps/motor/policies/:id', 'Motor Policy Details');
+route('/apps/motor/transactions', 'Motor Insurance');
+route('/apps/motor/endorsements', 'Motor Endorsements');
+route('/apps/motor/renewals', 'Motor Renewals');
+route('/apps/motor/cancellations', 'Motor Cancellations');
+route('/apps/motor/tira-pending', 'TIRAMIS Pending');
+
 const UW = '/apps/underwrite';
 route(`${UW}/dashboard`, 'Underwrite Dashboard');
 route(`${UW}/motor/vehicles`, 'Motor Vehicles');
 route(`${UW}/motor/vehicles/new`, 'New Motor Vehicle');
 route(`${UW}/motor/vehicles/:id/edit`, 'Edit Motor Vehicle');
 route(`${UW}/motor/vehicles/:id`, 'Motor Vehicle Details');
-route(`${UW}/fleet/fleets`, 'Fleets');
-route(`${UW}/fleet/fleets/new`, 'New Fleet');
-route(`${UW}/fleet/fleets/:id/edit`, 'Edit Fleet');
-route(`${UW}/fleet/fleets/:id`, 'Fleet Details');
 route(`${UW}/non-motor/risks`, 'Non-Motor Risks');
 route(`${UW}/non-motor/risks/new`, 'New Non-Motor Risk');
 route(`${UW}/non-motor/risks/:id/edit`, 'Edit Non-Motor Risk');
@@ -239,7 +270,7 @@ for (const audience of ['customer', 'intermediary'] as const) {
 /** Page name for an authenticated route, or `null` for routes that own their title. */
 export function routeTitleFor(pathname: string): string | null {
   for (const [pattern, title] of ROUTE_TITLES) {
-    const match = matchPath(pattern, pathname);
+    const match = matchPath(pattern, pathname.split(/[?#]/, 1)[0]);
     if (match) return typeof title === 'string' ? title : title(match.params);
   }
   return null;

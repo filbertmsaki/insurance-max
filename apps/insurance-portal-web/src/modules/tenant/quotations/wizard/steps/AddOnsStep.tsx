@@ -23,13 +23,20 @@ import {
 import { AddonRow } from '../components/AddonRow';
 import { StepSection } from '../components/StepSection';
 import { sumEnabledAddonsTotal } from '../utils/addonCalculations';
+import { allowsAddons } from '../utils/addonVisibility';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   fieldArray: UseFieldArrayReturn<QuotationFormSchemaValues, 'addons'>;
+  /** Motor: hide the section until the risk has a premium rate above zero. */
+  requirePremiumRate?: boolean;
 }
 
-export function AddOnsStep({ form, fieldArray }: Props) {
+export function AddOnsStep({
+  form,
+  fieldArray,
+  requirePremiumRate = false,
+}: Props) {
   const { fields, append, remove } = fieldArray;
   const [open, setOpen] = useState(false);
   const draftForm = useForm<QuotationFormSchemaValues>();
@@ -51,6 +58,12 @@ export function AddOnsStep({ form, fieldArray }: Props) {
     draftAddon.premium_excluding_tax !== '' &&
     Number.isFinite(Number(draftAddon.premium_excluding_tax)) &&
     Number(draftAddon.premium_excluding_tax) >= 0;
+  const premiumRate = useWatch({
+    control: form.control,
+    name: 'risks.0.premium_rate',
+  });
+
+  if (requirePremiumRate && !allowsAddons(premiumRate)) return null;
 
   return (
     <StepSection
