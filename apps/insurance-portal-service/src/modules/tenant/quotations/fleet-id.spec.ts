@@ -9,7 +9,7 @@ describe('fleet ID generation', () => {
       .fn()
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(1000);
-    const service = Object.create(QuotationsService.prototype) as any;
+    const service = Object.create(QuotationsService.prototype);
     service.businessReferenceService = { nextValue };
     const manager = {
       query: jest
@@ -39,7 +39,7 @@ describe('fleet ID generation', () => {
 
   it('skips an ID already used by another company', async () => {
     jest.useFakeTimers().setSystemTime(new Date('2026-11-02T12:00:00Z'));
-    const service = Object.create(QuotationsService.prototype) as any;
+    const service = Object.create(QuotationsService.prototype);
     service.businessReferenceService = {
       nextValue: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(2),
     };

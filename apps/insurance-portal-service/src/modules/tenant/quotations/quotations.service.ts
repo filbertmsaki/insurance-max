@@ -147,7 +147,6 @@ import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
 import type {
-  IssueInvoiceDto,
   PostReceiptDto,
   RecordPaymentTransactionDto,
 } from '../billing-commission/dto/finance-operations.dto';
@@ -7537,7 +7536,7 @@ export class QuotationsService {
       await this.financeCommandService.issue(user, invoice.id, {
         expected_state_version: invoice.state_version,
         idempotency_key: `auto-cash-issue-${invoice.id}`,
-      } as IssueInvoiceDto);
+      });
       invoice = await this.findLatestInvoice(companyId, quotation.id);
       if (!invoice) return;
     }
