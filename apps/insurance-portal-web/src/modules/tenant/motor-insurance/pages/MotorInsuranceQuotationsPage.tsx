@@ -171,14 +171,6 @@ export function MotorInsuranceQuotationsPage() {
       cell: (row) => <QuotationStatusBadge status={row.display_status} />,
     },
     {
-      key: 'approval_status',
-      header: 'Approval',
-      hideOnMobile: true,
-      cell: (row) => (
-        <Badge variant="muted">{row.approval_status.replace(/_/g, ' ')}</Badge>
-      ),
-    },
-    {
       key: 'payment_status',
       header: 'Payment',
       hideOnMobile: true,
@@ -250,6 +242,7 @@ export function MotorInsuranceQuotationsPage() {
             <CompanySwitcher menuLabel="Filter by owner company" />
             {canCreateAny ? (
               <Button
+                className="w-full sm:w-auto"
                 onClick={() => navigate(motorInsurancePaths.quotationCreate())}
               >
                 <Plus className="mr-2 h-4 w-4" />
@@ -264,7 +257,7 @@ export function MotorInsuranceQuotationsPage() {
         {...tableProps}
         error={tableProps.error ? 'Unable to load quotations' : undefined}
         columns={columns}
-        searchPlaceholder="Search quotations..."
+        searchPlaceholder="Search by quotation no., customer..."
         filters={tableFilters(state.filters, [
           {
             key: 'type',
@@ -274,8 +267,8 @@ export function MotorInsuranceQuotationsPage() {
           },
           {
             key: 'status',
-            label: 'Status',
-            placeholder: 'All statuses',
+            label: 'Quotation status',
+            placeholder: 'All quotation statuses',
             options: STATUS_OPTIONS.map((value) => ({
               value,
               label: value.replace(/_/g, ' '),
@@ -314,7 +307,7 @@ export function MotorInsuranceQuotationsPage() {
               ],
               [
                 'tira_status',
-                'TIRAMIS',
+                'TIRA',
                 [
                   'NOT_SUBMITTED',
                   'SUBMITTING',
@@ -331,7 +324,7 @@ export function MotorInsuranceQuotationsPage() {
           ).map(([key, label, values]) => ({
             key,
             label,
-            placeholder: 'All statuses',
+            placeholder: `Any ${label} status`,
             options: values.map((value) => ({
               value,
               label: value.replace(/_/g, ' '),

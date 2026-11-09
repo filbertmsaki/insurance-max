@@ -24,7 +24,7 @@ export function DataTableRefresh({
         className={cn('h-4 w-4', isRefreshing && 'animate-spin')}
         aria-hidden="true"
       />
-      Refresh
+      <span className="hidden sm:inline">Refresh</span>
     </Button>
   );
 }

@@ -509,6 +509,9 @@ export class QuotationsRepository {
 
     if (search) {
       const searchValue = `%${search}%`;
+      // Quotation numbers are often typed without their separators
+      // (QT20260015 for QT-2026-0015), so also match on alphanumerics only.
+      const compactSearch = search.replace(/[^a-zA-Z0-9]/g, '');
 
       queryBuilder.andWhere(
         new Brackets((searchQuery) => {
@@ -516,6 +519,12 @@ export class QuotationsRepository {
             .where('quotation.quotation_no ILIKE :search', {
               search: searchValue,
             })
+            .orWhere(
+              compactSearch
+                ? "regexp_replace(quotation.quotation_no, '[^a-zA-Z0-9]', '', 'g') ILIKE :compactSearch"
+                : 'FALSE',
+              { compactSearch: `%${compactSearch}%` },
+            )
             .orWhere('CAST(quotation.status AS text) ILIKE :search')
             .orWhere('CAST(quotation.approval_status AS text) ILIKE :search')
             .orWhere('CAST(quotation.payment_status AS text) ILIKE :search')
