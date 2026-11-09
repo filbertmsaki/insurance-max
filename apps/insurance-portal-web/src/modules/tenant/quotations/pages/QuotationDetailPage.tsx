@@ -113,9 +113,12 @@ type ApprovalDialogState = {
 export function QuotationDetailPage({
   tiramisPanel,
   line,
+  hideBackButton = false,
 }: {
   /** Underwrite line whose routes this page links to; defaults to the URL line. */
   line?: UnderwriteLineSlug;
+  /** Set when the host page already renders its own back control. */
+  hideBackButton?: boolean;
   /** Extra issuance content for the TIRAMIS tab, e.g. a fleet's per-vehicle cover notes. */
   tiramisPanel?: ReactNode;
 } = {}) {
@@ -602,7 +605,7 @@ export function QuotationDetailPage({
   ];
 
   const actionButtons = (
-    <div className="flex flex-wrap items-center gap-2 [&_button]:min-h-11 sm:[&_button]:min-h-8">
+    <div className="flex w-full items-center gap-2 lg:w-auto lg:justify-end [&_button]:min-h-11 sm:[&_button]:min-h-10">
       {preview?.overview.tira_status === 'SUCCESS' &&
       hasPermission('tiramis.sync') ? (
         <Button
@@ -619,7 +622,7 @@ export function QuotationDetailPage({
       {primaryWorkflowAction ? (
         <Button
           type="button"
-          size="sm"
+          className="flex-1 px-5 font-semibold lg:flex-none"
           disabled={
             primaryWorkflowAction.isPending || primaryWorkflowAction.disabled
           }
@@ -631,9 +634,9 @@ export function QuotationDetailPage({
         </Button>
       ) : null}
       <ActionMenu
-        className="h-11 w-11 sm:h-8 sm:w-8"
+        className="h-11 w-11 shrink-0 rounded-md border border-slate-200 sm:h-10 sm:w-10"
         items={secondaryWorkflowActions}
-        contentClassName="w-52"
+        contentClassName="w-56 [&_[role=menuitem]]:min-h-11 sm:[&_[role=menuitem]]:min-h-9"
         disabled={secondaryWorkflowActions.every((item) => item.disabled)}
       />
     </div>
@@ -646,7 +649,11 @@ export function QuotationDetailPage({
       <QuotationDetailHeader
         preview={preview}
         workflowLabel={friendlyWorkflowLabel}
-        onBack={() => navigate(quotationNav.quotations(activeLine))}
+        onBack={
+          hideBackButton
+            ? undefined
+            : () => navigate(quotationNav.quotations(activeLine))
+        }
         actions={actionButtons}
       />
 

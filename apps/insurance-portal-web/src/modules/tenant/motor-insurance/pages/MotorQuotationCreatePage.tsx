@@ -6,6 +6,7 @@ import {
   UnderwriteLine,
   underwritePermission,
 } from '@insurance-max/contracts';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableSkeleton } from '@/components/shared/ContentStates';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ import {
   SingleMotorQuotationWizard,
 } from '../lazy-pages';
 
+import { QuotationPageHeader } from '@/modules/tenant/underwrite/wizard/QuotationPageHeader';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { motorInsurancePaths } from '../paths';
 import { MOTOR_QUOTATION_KINDS, type MotorQuotationKind } from '../types';
@@ -51,25 +53,28 @@ export function MotorQuotationCreatePage() {
 
   const wizard =
     selected.type === 'short-term' ? (
-      <ShortTermQuotationWizard
-        allowFleet={canCreate(UnderwriteLine.FLEET)}
-      />
+      <ShortTermQuotationWizard allowFleet={canCreate(UnderwriteLine.FLEET)} />
     ) : selected.type === 'fleet' ? (
       <FleetQuotationWizard />
     ) : (
       <SingleMotorQuotationWizard />
     );
 
+  const typeBadge = (
+    <span className="inline-flex items-center gap-1.5">
+      <Badge
+        variant={selected.type === 'fleet' ? 'primary' : 'muted'}
+        title="Quotation type"
+      >
+        {selected.label}
+      </Badge>
+      <Button asChild variant="link" size="sm" className="h-auto px-1 text-xs">
+        <Link to={motorInsurancePaths.quotationCreate()}>Change</Link>
+      </Button>
+    </span>
+  );
   return (
-    <MotorWizardNavigation>
-      <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-        <span>
-          Quotation type: <strong>{selected.label}</strong>
-        </span>
-        <Button asChild variant="link" size="sm" className="h-auto px-0">
-          <Link to={motorInsurancePaths.quotationCreate()}>Change</Link>
-        </Button>
-      </div>
+    <MotorWizardNavigation headerBadge={typeBadge}>
       <Suspense fallback={<TableSkeleton />}>
         {/* key: remount the wizard if the type changes before a draft exists. */}
         <Fragment key={selected.type}>{wizard}</Fragment>
@@ -93,7 +98,13 @@ function QuotationTypeChooser() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-14rem)] min-h-[22rem] w-full flex-col gap-3 sm:h-auto sm:min-h-0 sm:gap-4">
+    <div className="flex h-[calc(100dvh-14rem)] min-h-88 w-full flex-col gap-3 sm:h-auto sm:min-h-0 sm:gap-4">
+      <QuotationPageHeader
+        eyebrow="Underwrite · Motor"
+        title="New motor quotation"
+        backLabel="Back to motor quotations"
+        onBack={() => navigate(motorInsurancePaths.quotations)}
+      />
       <div>
         <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
           What would you like to insure?

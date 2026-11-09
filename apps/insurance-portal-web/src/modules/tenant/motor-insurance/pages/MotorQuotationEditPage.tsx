@@ -87,12 +87,13 @@ function EditWizard({ id, isFleet }: { id: string; isFleet: boolean }) {
       ? 'Fleet'
       : 'Single Motor';
 
+  const typeBadge = (
+    <Badge variant={isFleet ? 'primary' : 'muted'} title="Quotation type">
+      {label}
+    </Badge>
+  );
   return (
-    <MotorWizardNavigation>
-      <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
-        Quotation type:
-        <Badge variant={isFleet ? 'primary' : 'muted'}>{label}</Badge>
-      </div>
+    <MotorWizardNavigation headerBadge={typeBadge}>
       <Suspense fallback={<TableSkeleton />}>
         {isShortTerm ? (
           <ShortTermQuotationWizard lockedMode={isFleet ? 'fleet' : 'single'} />

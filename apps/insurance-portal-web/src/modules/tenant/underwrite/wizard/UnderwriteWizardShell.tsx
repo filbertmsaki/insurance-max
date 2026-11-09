@@ -15,7 +15,7 @@ import { Form } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { PageHeader } from '@/components/shared/PageHeader';
+import { QuotationPageHeader } from './QuotationPageHeader';
 import { QuotationJourneyProgress } from '@/modules/tenant/quotations/wizard/QuotationJourneyProgress';
 import { useWizardNavigation } from './wizardNavigation';
 import type { UnderwriteQuotationWizard } from './useUnderwriteQuotationWizard';
@@ -214,44 +214,34 @@ export function UnderwriteWizardShell({
     <WizardSectionTitleContext.Provider value={!isFleet}>
       <div ref={containerRef} className="pb-8">
         <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-5">
-          {showHeader &&
-            (!isFleet || wizard.existingQuotation || customerName) && (
-              <div className="space-y-3">
-                {!isFleet && (
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="h-auto px-0 text-sm"
-                    onClick={() =>
-                      navigate(wizardNav.quotations(line.slug))
-                    }
-                  >
-                    {wizardNav.backLabel ?? `Back to ${line.label} quotations`}
-                  </Button>
-                )}
-                {!isFleet && (
-                  <PageHeader
-                    eyebrow={`Underwrite · ${line.label}`}
-                    title={title}
-                  />
-                )}
-                {isFleet && (wizard.existingQuotation || customerName) && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-slate-600">
-                    {wizard.existingQuotation && (
-                      <>
-                        <span className="font-medium text-slate-900">
-                          {wizard.existingQuotation.quotation_no}
-                        </span>
-                        <span>
-                          {wizard.existingQuotation.status.replaceAll('_', ' ')}
-                        </span>
-                      </>
-                    )}
-                    {customerName && <span>{customerName}</span>}
-                  </div>
-                )}
-              </div>
-            )}
+          {showHeader && (
+            <div className="space-y-3">
+              <QuotationPageHeader
+                eyebrow={`Underwrite · ${line.label}`}
+                title={title}
+                badge={wizardNav.headerBadge}
+                backLabel={
+                  wizardNav.backLabel ?? `Back to ${line.label} quotations`
+                }
+                onBack={() => navigate(wizardNav.quotations(line.slug))}
+              />
+              {isFleet && (wizard.existingQuotation || customerName) && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-14 text-sm text-slate-600 sm:pl-13">
+                  {wizard.existingQuotation && (
+                    <>
+                      <span className="font-medium text-slate-900">
+                        {wizard.existingQuotation.quotation_no}
+                      </span>
+                      <span>
+                        {wizard.existingQuotation.status.replaceAll('_', ' ')}
+                      </span>
+                    </>
+                  )}
+                  {customerName && <span>{customerName}</span>}
+                </div>
+              )}
+            </div>
+          )}
           <ConfirmDialog
             open={isDeleteOpen}
             onOpenChange={setIsDeleteOpen}

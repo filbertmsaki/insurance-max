@@ -25,7 +25,6 @@ import {
 import { usePricingCalculator } from '@/modules/pricing';
 import { tiramisApi } from '@/modules/tenant/tiramis/api';
 import { departmentsApi } from '@/modules/tenant/departments/api/departments';
-import { getApiErrorMessage } from '@/lib/api-error';
 import type { InsuranceBusinessLine } from '@/types/product-engine';
 import { quotationsApi } from './api';
 import { buildQuotationDraftPayload, buildQuotationPayload } from './schemas';
@@ -165,7 +164,6 @@ export function useCreateQuotation() {
       queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
       toast.success('Quotation created');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -203,7 +201,6 @@ export function useUpdateQuotation(id?: string) {
       }
       toast.success('Quotation updated');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -216,7 +213,6 @@ export function useDeleteQuotation() {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       toast.success('Quotation deleted');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -252,7 +248,6 @@ export function useCreateQuotationDraft() {
         toast.success('Quotation draft saved');
       }
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -290,7 +285,6 @@ export function useUpdateQuotationDraft() {
         toast.success('Quotation draft updated');
       }
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -303,7 +297,6 @@ export function useDeleteQuotationDraft() {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       toast.success('Quotation draft deleted');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -351,7 +344,6 @@ export function useFinalizeQuotation() {
       });
       toast.success('Quotation completed');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -371,7 +363,6 @@ export function useSubmitQuotation(id?: string) {
       }
       toast.success('Quotation submitted to TIRAMIS');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -390,7 +381,6 @@ export function useSubmitQuotationForApproval(id?: string) {
       }
       toast.success('Quotation submitted for approval');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -409,7 +399,6 @@ export function useRequestQuotationPayment(id?: string) {
       }
       toast.success('Payment request created');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -427,7 +416,6 @@ export function useRetryQuotationTira(id?: string) {
       }
       toast.success('TIRAMIS submission retried');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -440,7 +428,6 @@ export function useSyncQuotationTira(id?: string) {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       toast.success('TIRAMIS data synchronized');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -462,7 +449,6 @@ export function useCancelQuotation(id?: string) {
       }
       toast.success('Quotation cancelled');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -509,7 +495,6 @@ export function useTransitionQuotationStatus(id?: string) {
 
       toast.success(message);
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -532,7 +517,6 @@ export function useRequestQuotationPremiumOverride(id?: string) {
       }
       toast.success('Premium override request submitted');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -558,7 +542,6 @@ export function useApproveQuotationPremiumOverride(id?: string) {
       }
       toast.success('Premium override approved');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 
@@ -583,7 +566,6 @@ export function useRejectQuotationPremiumOverride(id?: string) {
       }
       toast.success('Premium override rejected');
     },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
   });
 }
 

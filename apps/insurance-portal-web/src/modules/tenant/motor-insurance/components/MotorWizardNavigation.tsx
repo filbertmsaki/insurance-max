@@ -13,9 +13,17 @@ const NAVIGATION: WizardNavigation = {
 };
 
 /** Keeps the existing wizards inside the Motor Insurance module. */
-export function MotorWizardNavigation({ children }: { children: ReactNode }) {
+export function MotorWizardNavigation({
+  children,
+  headerBadge,
+}: {
+  children: ReactNode;
+  headerBadge?: ReactNode;
+}) {
   return (
-    <WizardNavigationProvider value={NAVIGATION}>
+    <WizardNavigationProvider
+      value={headerBadge ? { ...NAVIGATION, headerBadge } : NAVIGATION}
+    >
       {children}
     </WizardNavigationProvider>
   );

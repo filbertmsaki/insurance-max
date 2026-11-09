@@ -13,6 +13,8 @@ export interface WizardNavigation {
   quotationEdit: (line: UnderwriteLineSlug, id: string) => string;
   /** Label for "Back to …" links; defaults to "<line> quotations". */
   backLabel?: string;
+  /** Shown beside the wizard title, e.g. the locked quotation type on edit. */
+  headerBadge?: ReactNode;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components -- default value co-located with its provider

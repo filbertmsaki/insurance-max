@@ -1775,6 +1775,7 @@ export class QuotationsService {
       portalSubmission,
       tiramisTracking,
       tiramisTrackingByEntry,
+      pricingIntegration,
     ] = await Promise.all([
       this.findLatestInvoice(companyId, quotation.id),
       this.findLatestReceipt(companyId, quotation.id),
@@ -1782,6 +1783,10 @@ export class QuotationsService {
       this.findLatestPortalSubmission(companyId, quotation.id),
       this.findLatestTiramisTracking(companyId, quotation),
       this.findTiramisTrackingByEntry(companyId, quotation),
+      // Only needs the quotation, so it runs alongside the lookups above.
+      this.canViewPricingBreakdown(user)
+        ? this.evaluateQuotationPricingIntegration(companyId, quotation)
+        : Promise.resolve(null),
     ]);
 
     const response = this.previewMapper.toResponse(
@@ -1800,12 +1805,7 @@ export class QuotationsService {
       },
     );
 
-    return {
-      ...response,
-      pricing_integration: this.canViewPricingBreakdown(user)
-        ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
-        : null,
-    };
+    return { ...response, pricing_integration: pricingIntegration };
   }
 
   async getPreviewForUser(user: AuthenticatedUser, id: string) {
@@ -1828,6 +1828,7 @@ export class QuotationsService {
       portalSubmission,
       tiramisTracking,
       tiramisTrackingByEntry,
+      pricingIntegration,
     ] = await Promise.all([
       isRecordOwner
         ? this.findLatestInvoice(quotation.company_id, quotation.id)
@@ -1841,6 +1842,12 @@ export class QuotationsService {
       this.findLatestPortalSubmission(quotation.company_id, quotation.id),
       this.findLatestTiramisTracking(quotation.company_id, quotation),
       this.findTiramisTrackingByEntry(quotation.company_id, quotation),
+      this.canViewPricingBreakdown(user)
+        ? this.evaluateQuotationPricingIntegration(
+            quotation.company_id,
+            quotation,
+          )
+        : Promise.resolve(null),
     ]);
 
     const response = this.previewMapper.toResponse(
@@ -1859,15 +1866,7 @@ export class QuotationsService {
       },
     );
 
-    return {
-      ...response,
-      pricing_integration: this.canViewPricingBreakdown(user)
-        ? await this.evaluateQuotationPricingIntegration(
-            quotation.company_id,
-            quotation,
-          )
-        : null,
-    };
+    return { ...response, pricing_integration: pricingIntegration };
   }
 
   async requestPremiumOverride(

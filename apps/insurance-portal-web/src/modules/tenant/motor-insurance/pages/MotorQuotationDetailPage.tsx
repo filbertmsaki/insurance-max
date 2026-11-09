@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Copy, Pencil } from 'lucide-react';
@@ -15,6 +15,10 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { EmptyState, TableSkeleton } from '@/components/shared/ContentStates';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import {
+  useQuotationPreview,
+  useQuotationWorkflow,
+} from '@/modules/tenant/quotations/hooks';
 import { canEditQuotation } from '@/modules/tenant/quotations/utils/quotation-editability';
 import { underwriteApi } from '@/modules/tenant/underwrite/api';
 import { FleetVehiclesPanel } from '@/modules/tenant/underwrite/fleet/FleetVehiclesPanel';
@@ -22,11 +26,14 @@ import { motorInsuranceApi, motorInsuranceKeys } from '../api';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { buildDuplicateDraft } from '../duplicate';
 import { motorInsurancePaths } from '../paths';
+import { QuotationPageHeader } from '@/modules/tenant/underwrite/wizard/QuotationPageHeader';
 
+const loadQuotationDetailPage = () =>
+  import('@/modules/tenant/quotations/pages/QuotationDetailPage');
 const QuotationDetailPage = lazy(() =>
-  import('@/modules/tenant/quotations/pages/QuotationDetailPage').then(
-    (module) => ({ default: module.QuotationDetailPage }),
-  ),
+  loadQuotationDetailPage().then((module) => ({
+    default: module.QuotationDetailPage,
+  })),
 );
 
 /**
@@ -44,6 +51,14 @@ export function MotorQuotationDetailPage() {
     enabled: Boolean(id),
     retry: false,
   });
+  // Start everything the detail screen needs while the line resolves, instead
+  // of waiting for it: the screen's code and its preview/workflow data (same
+  // query keys, so the inner page reuses these requests).
+  useEffect(() => {
+    void loadQuotationDetailPage();
+  }, []);
+  useQuotationPreview(id || undefined);
+  useQuotationWorkflow(id || undefined);
 
   if (lineQuery.isPending) return <TableSkeleton />;
 
@@ -109,44 +124,53 @@ function QuotationDetail({ id, line }: { id: string; line: UnderwriteLine }) {
 
   return (
     <MotorWizardNavigation>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <Button asChild variant="link" size="sm" className="h-auto px-0">
-            <Link to={motorInsurancePaths.quotations}>
-              Back to motor quotations
-            </Link>
-          </Button>
-          <Badge variant={isFleet ? 'primary' : 'muted'}>
-            {isFleet ? 'Fleet' : 'Single Motor'}
-          </Badge>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {canDuplicate ? (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={duplicate.isPending}
-              onClick={() => setConfirmDuplicate(true)}
+      <div className="mb-4">
+        <QuotationPageHeader
+          eyebrow="Underwrite · Motor"
+          title={isFleet ? 'View fleet quotation' : 'View motor quotation'}
+          badge={
+            <Badge
+              variant={isFleet ? 'primary' : 'muted'}
+              title="Quotation type"
             >
-              <Copy className="mr-2 h-4 w-4" />
-              Duplicate
-            </Button>
-          ) : null}
-          {canEdit ? (
-            <Button
-              size="sm"
-              onClick={() => navigate(motorInsurancePaths.quotationEdit(id))}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          ) : null}
-        </div>
+              {isFleet ? 'Fleet' : 'Single Motor'}
+            </Badge>
+          }
+          backLabel="Back to motor quotations"
+          onBack={() => navigate(motorInsurancePaths.quotations)}
+          actions={
+            canDuplicate || canEdit ? (
+              <>
+                {canDuplicate ? (
+                  <Button
+                    variant="outline"
+                    disabled={duplicate.isPending}
+                    onClick={() => setConfirmDuplicate(true)}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Duplicate
+                  </Button>
+                ) : null}
+                {canEdit ? (
+                  <Button
+                    onClick={() =>
+                      navigate(motorInsurancePaths.quotationEdit(id))
+                    }
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                ) : null}
+              </>
+            ) : undefined
+          }
+        />
       </div>
 
       <Suspense fallback={<TableSkeleton />}>
         <QuotationDetailPage
           line={slug}
+          hideBackButton
           tiramisPanel={
             isFleet ? (
               <FleetVehiclesPanel
