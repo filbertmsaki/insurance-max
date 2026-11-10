@@ -930,7 +930,14 @@ export function premiumBlock(
   // The total payable is the stored total; show any cent-level difference
   // between it and net premium plus stored taxes instead of hiding it.
   const remainder = roundMoney(total - net - taxTotal);
-  if (Math.abs(remainder) >= 0.005) {
+  if (Math.abs(remainder) >= 1) {
+    // More than cents: taxes or levies that were not itemised per risk
+    // (e.g. no tax lines stored). Show them as taxes, not as rounding.
+    lines.push({
+      label: taxes.size ? 'Other Taxes and Levies' : 'Taxes and Levies',
+      amount: formatMoney(remainder),
+    });
+  } else if (Math.abs(remainder) >= 0.005) {
     lines.push({
       label: 'Rounding Adjustment',
       amount: formatMoney(remainder),

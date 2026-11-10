@@ -587,7 +587,7 @@ describe('quotation document', () => {
       'Less: No Claim Discount',
       'Additional Covers',
       'Net Premium (excluding taxes)',
-      'VAT',
+      'VAT (18%)',
     ]);
     expect(p.total).toBe('TSh 1,702,150.00');
     expectClean(doc);

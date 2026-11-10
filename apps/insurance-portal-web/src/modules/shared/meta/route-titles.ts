@@ -188,6 +188,7 @@ route('/apps/platform/tiramis-integration', 'TIRAMIS Integration');
 // ── Settings ─────────────────────────────────────────────────────────────────
 route('/apps/settings/profile', 'Profile Settings');
 route('/apps/settings/number-format', 'Number & Currency Settings');
+route('/apps/settings/quotation-approval', 'Quotation Approval Policy');
 
 // ── Product engine ───────────────────────────────────────────────────────────
 const PE = '/apps/product-engine';
