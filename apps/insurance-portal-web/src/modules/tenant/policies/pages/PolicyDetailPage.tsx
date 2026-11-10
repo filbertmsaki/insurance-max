@@ -1,12 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { resolvePolicyFlow, type PolicyFlow } from '../utils/policyFlow';
-import { Eye, Play, Plus, Search } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { resolvePolicyFlow } from '../utils/policyFlow';
+import { Download, Play, RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -15,34 +13,35 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import {
   ActionMenu,
   type ActionMenuItem,
 } from '@/components/shared/ActionMenu';
-import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
-import {
-  SectionCard,
-  KeyValueGrid,
-  EmptyState,
-} from '@/components/shared/DetailSections';
-import { PremiumBreakdown } from '@/components/shared/PremiumBreakdown';
-import { ActivityTimeline } from '@/components/shared/ActivityTimeline';
+import { DataTable, type Column } from '@/components/data-table';
 import {
   displayValue,
   formatDate,
-  formatDateTime,
   formatMoney,
 } from '@/components/shared/detailFormat';
-import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
+import { RecordSummaryHeader } from '@/components/record-summary/RecordSummaryHeader';
+import {
+  downloadPdf,
+  documentFilename,
+} from '@/modules/shared/documents/download-pdf';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import {
+  useCreateNonMotorPolicyDetail,
+  useNonMotorPolicyDetails,
+  useNonMotorPolicyRisks,
+  useSubjectMatterOptions,
+} from '@/modules/tenant/non-motor/hooks';
+import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/PolicyNonMotorDetailForm';
+import { coverNotesApi } from '@/modules/tenant/cover-notes/api';
+import { useSyncQuotationTira } from '@/modules/tenant/quotations/hooks';
+import { SectionCard } from '@/modules/tenant/quotations/components/QuotationDetailLayout';
+import { useIsPhone } from '@/modules/tenant/quotations/utils/useIsPhone';
+import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
 import {
   useCancellationEligibility,
   useEndorsementEligibility,
@@ -58,18 +57,6 @@ import {
   useRenewalEligibility,
   useSubmitPolicyEndorsementToTiramis,
 } from '../hooks';
-import { DataTable, type Column } from '@/components/data-table';
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import {
-  useCreateNonMotorPolicyDetail,
-  useNonMotorPolicyDetails,
-  useNonMotorPolicyRisks,
-  useSubjectMatterOptions,
-} from '@/modules/tenant/non-motor/hooks';
-import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/PolicyNonMotorDetailForm';
-import type { NonMotorPolicyDetailRecord } from '@/modules/tenant/non-motor/types';
-import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
-import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
 import type {
   PolicyCancellationRecord,
   PolicyEndorsementRecord,
@@ -77,31 +64,17 @@ import type {
 } from '../types';
 import { usePolicyTransactionScope } from '../transaction-scope';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
-
-function Row({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | number | null | undefined;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="min-w-36 text-sm text-slate-500">{label}</span>
-      <span className="text-sm text-slate-900">{value ?? ' - '}</span>
-    </div>
-  );
-}
-
-function asObject(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function arrayCount(value: unknown): string {
-  return Array.isArray(value) ? String(value.length) : '0';
-}
+import { PolicyDetailsTab } from '../components/PolicyDetailSections';
+import {
+  PolicyClaimsTab,
+  PolicyDocumentsTab,
+  PolicyHistoryTab,
+  PolicyPaymentsTab,
+  PolicyTiraTab,
+} from '../components/PolicyRelatedTabs';
+import { usePolicyInvoices } from '../components/usePolicyInvoices';
+import { policyKind, type PolicyKind } from '../utils/policyDisplay';
+import { policySummary } from '../utils/policySummary';
 
 const RETRYABLE_SUBMISSION_STATUSES = new Set(['FAILED', 'RETRYABLE']);
 const ENDORSED_POLICY_STATUSES = new Set(['ENDORSED', 'ACTIVE_ENDORSED']);
@@ -118,213 +91,30 @@ function isEndorsedPolicyStatus(status: string | null | undefined) {
     .trim()
     .toUpperCase()
     .replace(/[.\s-]+/g, '_');
-
   return ENDORSED_POLICY_STATUSES.has(normalized);
 }
 
-const POLICY_DETAIL_TAB_LABELS: Record<string, string> = {
-  overview: 'Overview',
-  vehicle: 'Vehicle',
-  vehicles: 'Vehicles',
-  'risk-details': 'Risk Details',
-  nonmotor: 'Non-Motor Detail',
-  premium: 'Premium',
-  endorsements: 'Endorsements',
-  renewals: 'Renewals',
-  cancellations: 'Cancellations',
-  tiramis: 'TIRA',
-  history: 'History',
-  contract: 'Contract',
+const TABS = [
+  { id: 'details', label: 'Policy details', short: 'Details' },
+  { id: 'endorsements', label: 'Endorsements', short: 'Endorsements' },
+  { id: 'renewals', label: 'Renewals', short: 'Renewals' },
+  { id: 'claims', label: 'Claims', short: 'Claims' },
+  { id: 'documents', label: 'Documents', short: 'Documents' },
+  { id: 'payments', label: 'Payments', short: 'Payments' },
+  { id: 'tira', label: 'TIRA', short: 'TIRA MIS' },
+  { id: 'history', label: 'History', short: 'History' },
+] as const;
+
+const DETAIL_KIND: Record<string, PolicyKind> = {
+  MOTOR_SINGLE: 'single',
+  MOTOR_FLEET: 'fleet',
+  NON_MOTOR: 'non_motor',
 };
-
-function getPolicyDetailTabs(flow: PolicyFlow): string[] {
-  const tabs = ['overview'];
-  if (flow === 'MOTOR_FLEET') {
-    tabs.push('vehicles');
-  } else if (flow === 'MOTOR_SINGLE') {
-    tabs.push('vehicle');
-  } else {
-    tabs.push('risk-details', 'nonmotor');
-  }
-  tabs.push(
-    'premium',
-    'endorsements',
-    'renewals',
-    'cancellations',
-    'tiramis',
-    'history',
-    'contract',
-  );
-  return tabs;
-}
-
-/**
- * Fleet vehicle detail lives only in the policy_snapshot JSON (the same
- * source the old "Motor Details" tab read from) — the /risks endpoint's
- * motor_vehicle relation isn't joined server-side, so per-vehicle premium
- * can't be shown here without a backend change (see the View Page Blueprint).
- */
-function PolicyVehiclesTable({
-  entries,
-}: {
-  entries: Record<string, unknown>[];
-}) {
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Record<string, unknown> | null>(
-    null,
-  );
-
-  const vehicles = entries
-    .map((entry) => asObject(entry.motor))
-    .filter((motor): motor is Record<string, unknown> => Boolean(motor));
-
-  if (vehicles.length === 0) {
-    return <EmptyState text="This policy does not contain any motor assets." />;
-  }
-
-  const query = search.trim().toLowerCase();
-  const filtered = query
-    ? vehicles.filter((motor) =>
-        [motor.registrationNumber, motor.make, motor.model]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(query),
-      )
-    : vehicles;
-
-  const tableColumns: Column<Record<string, unknown>>[] = [
-    {
-      key: 'registration',
-      header: 'Reg. No.',
-      cell: (motor) => displayValue(motor.registrationNumber as string | null),
-    },
-    {
-      key: 'vehicle',
-      header: 'Vehicle',
-      cell: (motor) =>
-        `${displayValue(motor.make as string | null)} ${displayValue(motor.model as string | null)}`,
-    },
-    {
-      key: 'chassis',
-      header: 'Chassis',
-      cell: (motor) => displayValue(motor.chassisNumber as string | null),
-    },
-    {
-      key: 'usage',
-      header: 'Usage',
-      cell: (motor) => displayValue(motor.motorUsage as string | null),
-    },
-    {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      cell: (motor) => (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSelected(motor)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
-  return (
-    <div className="space-y-3">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search registration, make, model..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      <DataTable
-        columns={tableColumns}
-        data={filtered}
-        page={1}
-        limit={filtered.length || 1}
-        total={filtered.length}
-        totalPages={1}
-        onPageChange={() => undefined}
-        onLimitChange={() => undefined}
-        showColumnVisibility={false}
-      />
-
-      <Dialog
-        open={selected != null}
-        onOpenChange={(open) => {
-          if (!open) setSelected(null);
-        }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {selected
-                ? displayValue(selected.registrationNumber as string | null)
-                : 'Vehicle'}
-            </DialogTitle>
-          </DialogHeader>
-          {selected ? (
-            <KeyValueGrid
-              items={[
-                {
-                  label: 'Registration',
-                  value: displayValue(
-                    selected.registrationNumber as string | null,
-                  ),
-                },
-                {
-                  label: 'Chassis',
-                  value: displayValue(selected.chassisNumber as string | null),
-                },
-                {
-                  label: 'Engine',
-                  value: displayValue(selected.engineNumber as string | null),
-                },
-                {
-                  label: 'Make',
-                  value: displayValue(selected.make as string | null),
-                },
-                {
-                  label: 'Model',
-                  value: displayValue(selected.model as string | null),
-                },
-                {
-                  label: 'Body Type',
-                  value: displayValue(selected.bodyType as string | null),
-                },
-                {
-                  label: 'Manufacture Year',
-                  value: displayValue(
-                    selected.yearOfManufacture as string | number | null,
-                  ),
-                },
-                {
-                  label: 'Usage',
-                  value: displayValue(selected.motorUsage as string | null),
-                },
-                {
-                  label: 'Owner',
-                  value: displayValue(selected.ownerName as string | null),
-                },
-              ]}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
 
 export function PolicyDetailPage({
   storedBusinessLine,
+  insuredItems,
+  belowHeader,
 }: {
   /**
    * The policy's stored line (MOTOR | FLEET | NON_MOTOR). When given it decides
@@ -332,9 +122,14 @@ export function PolicyDetailPage({
    * it the page falls back to counting vehicles (legacy behaviour).
    */
   storedBusinessLine?: string | null;
+  /** Host content for the Vehicles / Insured items section. */
+  insuredItems?: ReactNode;
+  /** Host content between the summary header and the tabs. */
+  belowHeader?: ReactNode;
 } = {}) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const isPhone = useIsPhone();
   const { paths } = usePolicyTransactionScope();
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('non-motor:create');
@@ -352,6 +147,8 @@ export function PolicyDetailPage({
   const canViewPendingTransaction = hasPermission('policy-transactions:read');
   const canSubmitEndorsement = hasPermission('endorsements:submit-tiramis');
   const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
+  const canReadCoverNotes = hasPermission('cover-notes:read');
+  const canSync = hasPermission('tiramis.sync');
   const { data: policy, isLoading } = usePolicyDetail(id);
   usePageTitle(policy?.policy_no && `Policy ${policy.policy_no}`);
   const { tableProps: endorsementsTableProps } = usePolicyEndorsementsTable(
@@ -387,94 +184,22 @@ export function PolicyDetailPage({
     policy?.id,
   );
   const retryEndorsementMutation = useRetryPolicyEndorsementTiramis(policy?.id);
+  const syncMutation = useSyncQuotationTira(policy?.quotation_id ?? undefined);
   const { data: nonMotorDetails = [] } = useNonMotorPolicyDetails(policy?.id);
   const { data: policyRisks = [] } = useNonMotorPolicyRisks(policy?.id);
   const { data: subjectMatterOptions = [] } = useSubjectMatterOptions();
   const createNonMotorMutation = useCreateNonMotorPolicyDetail();
-  const { data: currentVersion, isLoading: currentVersionLoading } =
-    usePolicyCurrentVersion(policy?.id);
+  const { data: currentVersion } = usePolicyCurrentVersion(policy?.id);
   const { data: versions = [] } = usePolicyVersions(policy?.id);
+  const coverNotesQuery = useQuery({
+    queryKey: ['cover-notes', 'policy', policy?.id],
+    queryFn: () => coverNotesApi.list({ policy_id: policy!.id }),
+    enabled: canReadCoverNotes && Boolean(policy?.id),
+    staleTime: 30_000,
+  });
+  const { invoices } = usePolicyInvoices(policy?.id ?? '');
   const [nonMotorOpen, setNonMotorOpen] = useState(false);
-  const contractEntries = Array.isArray(
-    currentVersion?.policy_snapshot?.['entries'],
-  )
-    ? (currentVersion?.policy_snapshot?.['entries'] as Record<
-        string,
-        unknown
-      >[])
-    : [];
-  const endorsementBlockedReason = !eligibility?.eligible
-    ? (eligibility?.blockers?.[0]?.message ??
-      'This policy is not currently eligible for a new endorsement.')
-    : null;
-  const cancellationBlockedReason = ['CANCELLED', 'EXPIRED', 'LAPSED'].includes(
-    policy?.policy_status ?? '',
-  )
-    ? 'This policy is already cancelled, expired, or lapsed.'
-    : !cancellationEligibility?.eligible
-      ? (cancellationEligibility?.blockers?.[0]?.message ??
-        'This policy is not currently eligible for cancellation.')
-      : null;
-  const canStartRenewal =
-    canCreateRenewal && renewalEligibility?.eligible === true;
-  const shouldShowHeaderSecondaryActions = !isEndorsedPolicyStatus(
-    policy?.policy_status,
-  );
-
-  const pendingRenewalMatch =
-    pendingTransaction?.transaction_type === 'RENEWAL'
-      ? renewals.find(
-          (renewal) => renewal.policy_transaction_id === pendingTransaction.id,
-        )
-      : undefined;
-  const pendingTransactionLabel =
-    pendingTransaction?.transaction_type === 'ENDORSEMENT'
-      ? 'Continue Pending Endorsement'
-      : pendingTransaction?.transaction_type === 'CANCELLATION'
-        ? 'View Pending Cancellation'
-        : pendingTransaction?.transaction_type === 'RENEWAL'
-          ? 'View Pending Renewal'
-          : null;
-  const pendingTransactionHref =
-    policy && pendingTransaction?.transaction_type === 'ENDORSEMENT'
-      ? paths.policyEndorsementEdit(policy.id, pendingTransaction.id)
-      : policy && pendingTransaction?.transaction_type === 'CANCELLATION'
-        ? paths.policyCancellationDetail(policy.id, pendingTransaction.id)
-        : policy && pendingRenewalMatch
-          ? paths.policyRenewalDetail(policy.id, pendingRenewalMatch.id)
-          : null;
-
-  const nonMotorColumns: Column<NonMotorPolicyDetailRecord>[] = useMemo(
-    () => [
-      {
-        key: 'subject_matter',
-        header: 'Subject Matter',
-        cell: (row) =>
-          row.subject_matter?.subject_code ?? row.subject_matter_id,
-      },
-      {
-        key: 'risk',
-        header: 'Policy Risk',
-        cell: (row) => row.policy_risk?.risk?.risk_name ?? row.policy_risk_id,
-      },
-      {
-        key: 'insured_value',
-        header: 'Insured Value',
-        cell: (row) => row.insured_value ?? ' - ',
-      },
-      {
-        key: 'limit',
-        header: 'Limit',
-        cell: (row) => row.limit_of_liability ?? ' - ',
-      },
-      {
-        key: 'created_at',
-        header: 'Created',
-        cell: (row) => new Date(row.created_at).toLocaleString(),
-      },
-    ],
-    [],
-  );
+  const [activeTab, setActiveTab] = useState('details');
 
   const endorsementColumns: Column<PolicyEndorsementRecord>[] = useMemo(
     () => [
@@ -495,7 +220,8 @@ export function PolicyDetailPage({
       },
       {
         key: 'submission_status',
-        header: 'TIRAMIS',
+        header: 'TIRA',
+        hideOnMobile: true,
         cell: (row) => <StatusBadge status={row.submission_status} />,
       },
       {
@@ -508,13 +234,8 @@ export function PolicyDetailPage({
           ),
       },
       {
-        key: 'tiramis_request_id',
-        header: 'Request ID',
-        cell: (row) => displayValue(row.tiramis_request_id),
-      },
-      {
         key: 'actions',
-        header: 'Actions',
+        header: '',
         cell: (row) => {
           const ready = canIssueEndorsement(row);
           const retryable = RETRYABLE_SUBMISSION_STATUSES.has(
@@ -523,7 +244,6 @@ export function PolicyDetailPage({
           const canRetry =
             row.stage === 'COMPLETED' && retryable && canRetryEndorsement;
           const canSubmit = ready && !retryable && canSubmitEndorsement;
-
           if (!canRetry && !canSubmit) {
             return (
               <span className="text-xs text-slate-500">
@@ -531,11 +251,10 @@ export function PolicyDetailPage({
                   ? 'Processing'
                   : row.submission_status === 'ACCEPTED'
                     ? 'Accepted'
-                    : 'Not available'}
+                    : ''}
               </span>
             );
           }
-
           return (
             <Button
               type="button"
@@ -545,16 +264,14 @@ export function PolicyDetailPage({
                 submitEndorsementMutation.isPending ||
                 retryEndorsementMutation.isPending
               }
-              onClick={() => {
-                if (canRetry) {
-                  retryEndorsementMutation.mutate(row.id);
-                  return;
-                }
-                submitEndorsementMutation.mutate(row.id);
-              }}
+              onClick={() =>
+                canRetry
+                  ? retryEndorsementMutation.mutate(row.id)
+                  : submitEndorsementMutation.mutate(row.id)
+              }
             >
               <Play className="mr-1.5 h-3.5 w-3.5" />
-              {canRetry ? 'Retry Issuance' : 'Issue Endorsement'}
+              {canRetry ? 'Retry issuance' : 'Issue endorsement'}
             </Button>
           );
         },
@@ -589,6 +306,7 @@ export function PolicyDetailPage({
       {
         key: 'offer_expires_at',
         header: 'Offer Expires',
+        hideOnMobile: true,
         cell: (row) => formatDate(row.offer_expires_at),
       },
       {
@@ -631,6 +349,7 @@ export function PolicyDetailPage({
       {
         key: 'reason',
         header: 'Reason',
+        hideOnMobile: true,
         cell: (row) => displayValue(row.reason),
       },
       {
@@ -664,7 +383,7 @@ export function PolicyDetailPage({
 
   if (!policy) {
     return (
-      <div className="text-center py-24 text-slate-500">
+      <div className="py-24 text-center text-slate-500">
         <p className="font-medium">Policy not found</p>
         <Button variant="link" onClick={() => navigate(paths.policies)}>
           Back to Policies
@@ -676,58 +395,82 @@ export function PolicyDetailPage({
   const vehicleCount = (policy.risks ?? []).filter(
     (risk) => risk.motor_vehicle_id,
   ).length;
-  const policyFlow = resolvePolicyFlow({
-    storedLine: storedBusinessLine,
-    categoryBusinessLine: policy.category?.business_line,
-    vehicleCount,
-  });
-  const tabs = getPolicyDetailTabs(policyFlow);
+  const kind =
+    DETAIL_KIND[
+      resolvePolicyFlow({
+        storedLine: storedBusinessLine,
+        categoryBusinessLine: policy.category?.business_line,
+        vehicleCount,
+      })
+    ] ?? policyKind(storedBusinessLine);
 
-  const primaryAction: ActionMenuItem | null = canCreateEndorsement
-    ? {
-        label: 'Create Endorsement',
-        disabled: !!endorsementBlockedReason,
-        title: endorsementBlockedReason ?? undefined,
-        onClick: () => navigate(paths.policyEndorsementCreate(policy.id)),
-      }
-    : canStartRenewal
-      ? {
-          label: 'Renew Policy',
-          disabled: createRenewalMutation.isPending,
-          onClick: () =>
-            createRenewalMutation.mutate(undefined, {
-              onSuccess: (renewal: { id: string }) =>
-                navigate(paths.policyRenewalDetail(policy.id, renewal.id)),
-            }),
-        }
+  const endorsementBlockedReason = !eligibility?.eligible
+    ? (eligibility?.blockers?.[0]?.message ??
+      'This policy is not currently eligible for a new endorsement.')
+    : null;
+  const cancellationBlockedReason = ['CANCELLED', 'EXPIRED', 'LAPSED'].includes(
+    policy.policy_status ?? '',
+  )
+    ? 'This policy is already cancelled, expired, or lapsed.'
+    : !cancellationEligibility?.eligible
+      ? (cancellationEligibility?.blockers?.[0]?.message ??
+        'This policy is not currently eligible for cancellation.')
       : null;
+  const canStartRenewal =
+    canCreateRenewal && renewalEligibility?.eligible === true;
+  // Endorse is shown only when the policy's status allows it.
+  const canEndorse = canCreateEndorsement && !endorsementBlockedReason;
+  const tiraSuccess = ['SUCCESS', 'ENDORSED', 'SYNCED'].includes(
+    String(policy.tira_status || policy.tiramis_status || '').toUpperCase(),
+  );
+  const canSyncPolicy = canSync && Boolean(policy.quotation_id);
+
+  const startRenewal = () =>
+    createRenewalMutation.mutate(undefined, {
+      onSuccess: (renewal: { id: string }) =>
+        navigate(paths.policyRenewalDetail(policy.id, renewal.id)),
+    });
+  const downloadSchedule = () =>
+    void downloadPdf(
+      `/tenant/policies/${policy.id}/schedule/download`,
+      documentFilename(`Policy_${policy.policy_no}`),
+    );
+
+  const pendingRenewalMatch =
+    pendingTransaction?.transaction_type === 'RENEWAL'
+      ? renewals.find(
+          (renewal) => renewal.policy_transaction_id === pendingTransaction.id,
+        )
+      : undefined;
+  const pendingTransactionLabel =
+    pendingTransaction?.transaction_type === 'ENDORSEMENT'
+      ? 'Continue pending endorsement'
+      : pendingTransaction?.transaction_type === 'CANCELLATION'
+        ? 'View pending cancellation'
+        : pendingTransaction?.transaction_type === 'RENEWAL'
+          ? 'View pending renewal'
+          : null;
+  const pendingTransactionHref =
+    pendingTransaction?.transaction_type === 'ENDORSEMENT'
+      ? paths.policyEndorsementEdit(policy.id, pendingTransaction.id)
+      : pendingTransaction?.transaction_type === 'CANCELLATION'
+        ? paths.policyCancellationDetail(policy.id, pendingTransaction.id)
+        : pendingRenewalMatch
+          ? paths.policyRenewalDetail(policy.id, pendingRenewalMatch.id)
+          : null;
 
   const secondaryActions: ActionMenuItem[] = [
-    ...(canStartRenewal && primaryAction?.label !== 'Renew Policy'
+    ...(canCreateCancellation && !cancellationBlockedReason
       ? [
           {
-            label: 'Renew Policy',
-            disabled: createRenewalMutation.isPending,
-            onClick: () =>
-              createRenewalMutation.mutate(undefined, {
-                onSuccess: (renewal: { id: string }) =>
-                  navigate(paths.policyRenewalDetail(policy.id, renewal.id)),
-              }),
-          },
-        ]
-      : []),
-    ...(canCreateCancellation
-      ? [
-          {
-            label: 'Cancel Policy',
+            label: 'Cancel policy',
             destructive: true,
-            disabled: !!cancellationBlockedReason,
-            title: cancellationBlockedReason ?? undefined,
             onClick: () => navigate(paths.policyCancellationCreate(policy.id)),
           },
         ]
       : []),
-    ...(!policy.issued_by_system
+    ...(!policy.issued_by_system &&
+    !isEndorsedPolicyStatus(policy.policy_status)
       ? [
           {
             label: 'Edit',
@@ -738,46 +481,114 @@ export function PolicyDetailPage({
         ]
       : []),
   ];
-  // Endorsed policies keep a trimmed header menu, but can still be
-  // cancelled (the backend treats ENDORSED as cancellable).
-  const headerSecondaryActions = shouldShowHeaderSecondaryActions
-    ? secondaryActions
-    : secondaryActions.filter((action) => action.label === 'Cancel Policy');
+
+  const actions = (
+    <div className="flex items-center gap-2 [&_button]:h-[34px] [&_button]:min-h-0 [&_button]:text-[13px] [&_svg]:h-[15px] [&_svg]:w-[15px]">
+      {canSyncPolicy && tiraSuccess ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={syncMutation.isPending}
+          onClick={() => syncMutation.mutate()}
+        >
+          <RefreshCcw className="mr-2" />
+          Sync
+        </Button>
+      ) : null}
+      {canEndorse ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(paths.policyEndorsementCreate(policy.id))}
+        >
+          Endorse
+        </Button>
+      ) : null}
+      {canStartRenewal ? (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={createRenewalMutation.isPending}
+          onClick={startRenewal}
+        >
+          Renew
+        </Button>
+      ) : null}
+      <Button size="sm" onClick={downloadSchedule}>
+        <Download className="mr-2" />
+        Download
+      </Button>
+      <ActionMenu
+        className="h-[34px] w-[34px] shrink-0 rounded-md border border-slate-200"
+        items={secondaryActions}
+        contentClassName="w-56"
+      />
+    </div>
+  );
+
+  const menuItems: ActionMenuItem[] = [
+    ...(canSyncPolicy && tiraSuccess
+      ? [
+          {
+            label: 'Sync with TIRA',
+            onClick: () => syncMutation.mutate(),
+            disabled: syncMutation.isPending,
+          },
+        ]
+      : []),
+    ...(canEndorse
+      ? [
+          {
+            label: 'Endorse policy',
+            onClick: () => navigate(paths.policyEndorsementCreate(policy.id)),
+          },
+        ]
+      : []),
+    ...(canStartRenewal
+      ? [
+          {
+            label: 'Renew policy',
+            onClick: startRenewal,
+            disabled: createRenewalMutation.isPending,
+          },
+        ]
+      : []),
+    { label: 'Download policy schedule', onClick: downloadSchedule },
+    ...secondaryActions,
+  ];
+
+  const retry =
+    canSyncPolicy && !tiraSuccess
+      ? {
+          label: 'Retry sync',
+          onClick: () => syncMutation.mutate(),
+          pending: syncMutation.isPending,
+        }
+      : null;
+
+  const summary = policySummary({
+    policy,
+    kind,
+    version: currentVersion,
+    coverNotes: canReadCoverNotes ? (coverNotesQuery.data ?? []) : undefined,
+    invoices,
+    quotationHref: policy.quotation_id
+      ? paths.quotationDetail(policy.quotation_id)
+      : undefined,
+    renew: canStartRenewal
+      ? { onClick: startRenewal, pending: createRenewalMutation.isPending }
+      : null,
+  });
 
   return (
-    <div className="space-y-6">
-      <DetailPageHeader
+    <div className="mx-auto w-full min-w-0 max-w-[1440px] space-y-4 md:space-y-3">
+      <RecordSummaryHeader
+        summary={summary}
         onBack={() => navigate(paths.policies)}
-        title={policy.policy_no}
-        badges={<PolicyStatusBadge status={policy.policy_status} />}
-        subtitle={policy.customer?.company_name ?? policy.customer_id}
-        kpis={[
-          { label: 'Effective', value: formatDate(policy.start_date) },
-          { label: 'Expires', value: formatDate(policy.end_date) },
-          {
-            label: 'Total Premium',
-            value: formatMoney(Number(policy.total_premium), policy.currency),
-          },
-        ]}
-        actions={
-          <div className="flex items-center gap-2">
-            {primaryAction ? (
-              <Button
-                type="button"
-                size="sm"
-                disabled={primaryAction.disabled}
-                title={primaryAction.title}
-                onClick={primaryAction.onClick}
-              >
-                {primaryAction.label}
-              </Button>
-            ) : null}
-            <ActionMenu
-              items={headerSecondaryActions}
-              contentClassName="w-56"
-            />
-          </div>
-        }
+        actions={actions}
+        menuItems={menuItems}
+        retry={retry}
+        onViewVehicles={() => setActiveTab('details')}
       />
 
       {policy.pending_transaction_id &&
@@ -786,11 +597,11 @@ export function PolicyDetailPage({
             <AlertTitle>Policy transaction in progress</AlertTitle>
             <AlertDescription className="space-y-3">
               <p>
-                This policy already has an active endorsement, cancellation, or
-                renewal being processed. New endorsements, cancellations, and
-                renewals are disabled until it completes or is cancelled.
+                This policy already has an endorsement, cancellation or renewal
+                in progress. New ones are disabled until it completes or is
+                cancelled.
               </p>
-              {pendingTransactionHref ? (
+              {pendingTransactionHref && pendingTransactionLabel ? (
                 <Button
                   type="button"
                   size="sm"
@@ -798,660 +609,150 @@ export function PolicyDetailPage({
                 >
                   {pendingTransactionLabel}
                 </Button>
-              ) : canViewPendingTransaction ? (
-                <p className="text-xs text-slate-500">
-                  Loading the pending transaction...
-                </p>
-              ) : (
-                <p className="text-xs text-slate-500">
-                  Check the Endorsements, Cancellations, or Renewals tab below
-                  to find and complete it.
-                </p>
-              )}
+              ) : null}
             </AlertDescription>
           </Alert>
         )}
 
-      <Tabs defaultValue={tabs[0]} className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
-          {tabs.map((tabId) => (
-            <TabsTrigger key={tabId} value={tabId}>
-              {POLICY_DETAIL_TAB_LABELS[tabId] ?? tabId}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      {belowHeader}
 
-        <TabsContent value="overview" className="space-y-6">
-          <SectionCard title="Policy Details">
-            <KeyValueGrid
-              items={[
-                {
-                  label: 'Customer',
-                  value: displayValue(
-                    policy.customer?.company_name ?? policy.customer_id,
-                  ),
-                },
-                {
-                  label: 'Quotation',
-                  value: policy.quotation_id ? (
-                    <button
-                      type="button"
-                      className="cursor-pointer text-sky-700 hover:underline"
-                      onClick={() =>
-                        navigate(paths.quotationDetail(policy.quotation_id!))
-                      }
-                    >
-                      View Quotation
-                    </button>
-                  ) : (
-                    'N/A'
-                  ),
-                },
-                {
-                  label: 'Category',
-                  value: displayValue(policy.category?.name),
-                },
-                {
-                  label: 'Product',
-                  value: displayValue(policy.product?.product_name),
-                },
-                { label: 'Channel', value: displayValue(policy.channel_type) },
-                {
-                  label: 'Branch',
-                  value: displayValue(policy.branch?.name),
-                },
-                {
-                  label: 'Intermediary',
-                  value: displayValue(policy.intermediary_company?.name),
-                },
-                {
-                  label: 'Sum Insured',
-                  value: formatMoney(
-                    Number(policy.sum_insured),
-                    policy.currency,
-                  ),
-                },
-                {
-                  label: 'Issuance Source',
-                  value: policy.issued_by_system
-                    ? 'TIRAMIS final success'
-                    : 'Legacy/manual record',
-                },
-                {
-                  label: 'Cover Note',
-                  value: displayValue(policy.cover_note_no),
-                },
-                {
-                  label: 'Regulatory Sync',
-                  value: displayValue(policy.regulatory_sync_status),
-                },
-              ]}
-            />
-          </SectionCard>
-          <CoverNotesSection policyId={policy.id} />
-        </TabsContent>
-
-        <TabsContent value="contract" className="space-y-4">
-          {currentVersionLoading ? (
-            <Skeleton className="h-52 w-full" />
-          ) : !currentVersion ? (
-            <Card>
-              <CardContent className="pt-6 text-sm text-slate-500">
-                Current policy version is not available.
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {(() => {
-                const snapshot = currentVersion.policy_snapshot;
-                const source = asObject(snapshot?.source);
-                const product = asObject(snapshot?.product);
-                const regulatory = asObject(snapshot?.regulatory);
-                const totals = asObject(snapshot?.totals);
-
-                return (
-                  <>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">
-                          Current Contract Version
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <Row
-                          label="Version"
-                          value={currentVersion.version_number}
-                        />
-                        <Row
-                          label="Version Type"
-                          value={currentVersion.version_type}
-                        />
-                        <Row label="Status" value={currentVersion.status} />
-                        <Row
-                          label="Current"
-                          value={currentVersion.is_current ? 'Yes' : 'No'}
-                        />
-                        <Row
-                          label="Effective Period"
-                          value={`${currentVersion.effective_from} to ${currentVersion.effective_to}`}
-                        />
-                        <Row
-                          label="Snapshot Schema"
-                          value={String(snapshot?.schemaVersion ?? 1)}
-                        />
-                        <Row
-                          label="Snapshot Hash"
-                          value={currentVersion.policy_snapshot_hash}
-                        />
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">
-                          Issuance Source
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <Row
-                          label="Quotation"
-                          value={String(
-                            source?.quotationNo ?? policy.quotation_id ?? '-',
-                          )}
-                        />
-                        <Row
-                          label="Quotation Revision"
-                          value={String(
-                            source?.workflowRevision ??
-                              policy.source_quotation_revision ??
-                              '-',
-                          )}
-                        />
-                        <Row
-                          label="Product Version"
-                          value={String(
-                            product?.productVersionId ??
-                              policy.product_version_id ??
-                              '-',
-                          )}
-                        />
-                        <Row
-                          label="Policy Holders"
-                          value={arrayCount(snapshot?.policyHolders)}
-                        />
-                        <Row
-                          label="Insured Entries"
-                          value={arrayCount(snapshot?.entries)}
-                        />
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">
-                          Regulatory Record
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <Row
-                          label="Cover Note"
-                          value={String(
-                            regulatory?.currentCoverNoteReference ??
-                              currentVersion.regulatory_reference ??
-                              policy.cover_note_no ??
-                              '-',
-                          )}
-                        />
-                        <Row
-                          label="TIRAMIS Request"
-                          value={String(
-                            regulatory?.requestId ??
-                              policy.tiramis_request_id ??
-                              '-',
-                          )}
-                        />
-                        <Row
-                          label="TIRAMIS Transaction"
-                          value={String(
-                            regulatory?.tiramisTransactionId ??
-                              policy.tiramis_transaction_id ??
-                              '-',
-                          )}
-                        />
-                        <Row
-                          label="Total Sum Insured"
-                          value={`${policy.currency} ${String(
-                            totals?.sumInsured ?? policy.sum_insured,
-                          )}`}
-                        />
-                        <Row
-                          label="Total Premium"
-                          value={`${policy.currency} ${String(
-                            totals?.totalPremium ?? policy.total_premium,
-                          )}`}
-                        />
-                      </CardContent>
-                    </Card>
-                  </>
-                );
-              })()}
-            </>
-          )}
-
-          <SectionCard title="Version History">
-            <div className="space-y-3">
-              {versions.map((version) => (
-                <div
-                  key={version.id}
-                  className="rounded-lg border border-slate-200 p-4"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-semibold">
-                        Policy Version {version.version_number}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {version.version_type}
-                      </p>
-                    </div>
-                    {version.is_current && <Badge>Current</Badge>}
-                  </div>
-                  <div className="mt-3 space-y-1.5">
-                    <Row
-                      label="Effective"
-                      value={`${formatDate(version.effective_from)} – ${formatDate(version.effective_to)}`}
-                    />
-                    <Row
-                      label="Cover Note"
-                      value={displayValue(version.regulatory_reference)}
-                    />
-                  </div>
-                </div>
-              ))}
-              {versions.length === 0 && (
-                <EmptyState text="No policy versions are available." />
-              )}
-            </div>
-          </SectionCard>
-        </TabsContent>
-
-        {policyFlow === 'MOTOR_SINGLE' && (
-          <TabsContent value="vehicle" className="space-y-6">
-            {(() => {
-              const entryWithMotor = contractEntries.find((entry) =>
-                Boolean(asObject(entry.motor)),
-              );
-              const motor = entryWithMotor
-                ? asObject(entryWithMotor.motor)
-                : null;
-              const risk = (policy.risks ?? [])[0];
-
-              return (
-                <>
-                  {motor ? (
-                    <SectionCard title="Vehicle">
-                      <KeyValueGrid
-                        items={[
-                          {
-                            label: 'Registration',
-                            value: displayValue(motor.registrationNumber),
-                          },
-                          {
-                            label: 'Chassis',
-                            value: displayValue(motor.chassisNumber),
-                          },
-                          {
-                            label: 'Engine',
-                            value: displayValue(motor.engineNumber),
-                          },
-                          { label: 'Make', value: displayValue(motor.make) },
-                          { label: 'Model', value: displayValue(motor.model) },
-                          {
-                            label: 'Body Type',
-                            value: displayValue(motor.bodyType),
-                          },
-                          {
-                            label: 'Manufacture Year',
-                            value: displayValue(motor.yearOfManufacture),
-                          },
-                          {
-                            label: 'Usage',
-                            value: displayValue(motor.motorUsage),
-                          },
-                          {
-                            label: 'Owner',
-                            value: displayValue(motor.ownerName),
-                          },
-                        ]}
-                      />
-                    </SectionCard>
-                  ) : (
-                    <EmptyState text="This policy does not contain a motor asset." />
-                  )}
-                  {risk ? (
-                    <SectionCard title="Risk">
-                      <KeyValueGrid
-                        items={[
-                          {
-                            label: 'Risk',
-                            value: displayValue(risk.risk?.risk_name),
-                          },
-                          {
-                            label: 'Sum Insured',
-                            value: formatMoney(
-                              Number(risk.sum_insured),
-                              policy.currency,
-                            ),
-                          },
-                          {
-                            label: 'Premium',
-                            value: formatMoney(
-                              Number(risk.total_premium),
-                              policy.currency,
-                            ),
-                          },
-                        ]}
-                      />
-                    </SectionCard>
-                  ) : null}
-                </>
-              );
-            })()}
-          </TabsContent>
-        )}
-
-        {policyFlow === 'MOTOR_FLEET' && (
-          <TabsContent value="vehicles" className="space-y-4">
-            <PolicyVehiclesTable entries={contractEntries} />
-          </TabsContent>
-        )}
-
-        {policyFlow === 'NON_MOTOR' && (
-          <TabsContent value="risk-details" className="space-y-4">
-            {(policy.risks ?? []).map((risk) => (
-              <SectionCard
-                key={risk.id}
-                title={displayValue(risk.risk?.risk_name)}
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="min-w-0 space-y-0 rounded-md border border-slate-200 bg-white"
+      >
+        <div className="max-w-full overflow-x-auto px-2 max-md:sticky max-md:top-14 max-md:z-10 max-md:rounded-t-md max-md:border-b max-md:border-[#E6E8EF] max-md:bg-white sm:px-4">
+          <TabsList
+            aria-label="Policy information"
+            className="w-max min-w-full flex-nowrap gap-0"
+          >
+            {TABS.map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className="min-h-11 px-3 sm:px-4 md:h-[38px] md:min-h-0 md:py-0 md:text-[13px]"
               >
-                <KeyValueGrid
-                  items={[
-                    {
-                      label: 'Sum Insured',
-                      value: formatMoney(
-                        Number(risk.sum_insured),
-                        policy.currency,
-                      ),
-                    },
-                    {
-                      label: 'Premium',
-                      value: formatMoney(
-                        Number(risk.total_premium),
-                        policy.currency,
-                      ),
-                    },
-                  ]}
-                />
-              </SectionCard>
+                {isPhone ? tab.short : tab.label}
+              </TabsTrigger>
             ))}
-            {(policy.risks ?? []).length === 0 && (
-              <EmptyState text="No policy risks yet." />
-            )}
-          </TabsContent>
-        )}
+          </TabsList>
+        </div>
 
-        <TabsContent value="premium" className="space-y-6">
-          <PremiumBreakdown
-            currency={policy.currency}
-            sumInsured={Number(policy.sum_insured)}
-            rows={[
-              {
-                label: 'Base Premium',
-                value: Number(policy.basic_premium),
-              },
-              {
-                label: 'Discount',
-                value: Number(policy.total_discount),
-                negative: true,
-              },
-              { label: 'Charges', value: Number(policy.total_charges) },
-              {
-                label: 'Commission',
-                value: Number(policy.total_commission),
-              },
-              { label: 'Tax', value: Number(policy.total_tax) },
-            ]}
-            total={{
-              label: 'Total Premium',
-              value: Number(policy.total_premium),
-            }}
+        <TabsContent value="details" className="mt-0 min-w-0">
+          <PolicyDetailsTab
+            policy={policy}
+            kind={kind}
+            version={currentVersion}
+            versionsCount={versions.length}
+            coverNotes={coverNotesQuery.data}
+            endorsements={endorsementsTableProps.data}
+            quotationHref={
+              policy.quotation_id
+                ? paths.quotationDetail(policy.quotation_id)
+                : undefined
+            }
+            insuredItems={insuredItems}
+            nonMotorDetails={kind === 'non_motor' ? nonMotorDetails : []}
+            onAddNonMotorDetail={
+              canCreate && kind === 'non_motor'
+                ? () => setNonMotorOpen(true)
+                : undefined
+            }
+            onOpenEndorsements={() => setActiveTab('endorsements')}
+            onOpenHistory={() => setActiveTab('history')}
           />
-          <SectionCard title="Premium Line Items">
-            {(policy.premium_breakdowns ?? []).length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(policy.premium_breakdowns ?? []).map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{displayValue(item.item_name)}</TableCell>
-                      <TableCell className="text-right">
-                        {formatMoney(Number(item.amount), policy.currency)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        </TabsContent>
+
+        <TabsContent value="endorsements" className="mt-0 min-w-0">
+          {canCreateEndorsement && endorsementBlockedReason && (
+            <p className="mx-4 mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 sm:mx-6">
+              <span className="font-semibold">
+                New endorsement unavailable.
+              </span>{' '}
+              {endorsementBlockedReason}
+            </p>
+          )}
+          <SectionCard title="Endorsements">
+            <DataTable
+              {...endorsementsTableProps}
+              columns={endorsementColumns}
+              rowKey={(row) => row.id}
+              searchPlaceholder="Search endorsement number or reason"
+              showColumnVisibility={false}
+            />
+          </SectionCard>
+          <SectionCard title="Cancellations">
+            {canViewCancellations ? (
+              <DataTable
+                columns={cancellationColumns}
+                data={cancellations}
+                loading={cancellationsLoading}
+                page={1}
+                limit={cancellations.length || 1}
+                total={cancellations.length}
+                totalPages={1}
+                onPageChange={() => undefined}
+                onLimitChange={() => undefined}
+                showColumnVisibility={false}
+                emptyMessage="No cancellations have been started for this policy."
+              />
             ) : (
-              <EmptyState text="No breakdown items." />
+              <p className="text-sm text-slate-500">
+                You do not have permission to view cancellations.
+              </p>
             )}
           </SectionCard>
         </TabsContent>
 
-        {policyFlow === 'NON_MOTOR' && (
-          <TabsContent value="nonmotor" className="space-y-4">
-            {canCreate && (
-              <div className="flex justify-end">
-                <Button onClick={() => setNonMotorOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Non-Motor Detail
-                </Button>
-              </div>
-            )}
-            <DataTable
-              columns={nonMotorColumns}
-              data={nonMotorDetails}
-              loading={false}
-              page={1}
-              limit={nonMotorDetails.length || 1}
-              total={nonMotorDetails.length}
-              totalPages={1}
-              onPageChange={() => undefined}
-              onLimitChange={() => undefined}
-            />
-          </TabsContent>
-        )}
-        <TabsContent value="endorsements" className="space-y-4">
-          {canCreateEndorsement && eligibility && !eligibility.eligible && (
-            <Card>
-              <CardContent className="pt-6">
-                <p className="font-medium">Endorsement unavailable</p>
-                {eligibility.blockers.map((blocker) => (
-                  <p key={blocker.code} className="mt-1 text-sm text-slate-500">
-                    {blocker.message}
-                  </p>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-          <DataTable
-            {...endorsementsTableProps}
-            columns={endorsementColumns}
-            rowKey={(row) => row.id}
-            searchPlaceholder="Search endorsement number or reason"
-          />
-        </TabsContent>
-        <TabsContent value="renewals" className="space-y-4">
+        <TabsContent value="renewals" className="mt-0 min-w-0">
           {canCreateRenewal &&
             renewalEligibility &&
             !renewalEligibility.eligible && (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="font-medium">Renewal unavailable</p>
-                  {renewalEligibility.blockers.map((blocker) => (
-                    <p
-                      key={blocker.code}
-                      className="mt-1 text-sm text-slate-500"
-                    >
-                      {blocker.message}
-                    </p>
-                  ))}
-                </CardContent>
-              </Card>
+              <p className="mx-4 mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 sm:mx-6">
+                <span className="font-semibold">Renewal unavailable.</span>{' '}
+                {renewalEligibility.blockers.map((b) => b.message).join(' ')}
+              </p>
             )}
-          <DataTable
-            columns={renewalColumns}
-            data={renewals}
-            loading={renewalsLoading}
-            page={1}
-            limit={renewals.length || 1}
-            total={renewals.length}
-            totalPages={1}
-            onPageChange={() => undefined}
-            onLimitChange={() => undefined}
-            emptyMessage="No renewals have been started for this policy yet"
-          />
-        </TabsContent>
-        <TabsContent value="cancellations" className="space-y-4">
-          {canCreateCancellation && cancellationBlockedReason && (
-            <Card>
-              <CardContent className="pt-6">
-                <p className="font-medium">Cancellation unavailable</p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {cancellationBlockedReason}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-          <DataTable
-            columns={cancellationColumns}
-            data={cancellations}
-            loading={cancellationsLoading}
-            page={1}
-            limit={cancellations.length || 1}
-            total={cancellations.length}
-            totalPages={1}
-            onPageChange={() => undefined}
-            onLimitChange={() => undefined}
-            emptyMessage="No cancellations have been started for this policy yet"
-          />
-        </TabsContent>
-        <TabsContent value="tiramis" className="space-y-4">
-          <SectionCard title="TIRA">
-            <KeyValueGrid
-              items={[
-                {
-                  label: 'Status',
-                  value: displayValue(
-                    policy.tira_status ?? policy.tiramis_status,
-                  ),
-                },
-                {
-                  label: 'Cover Note',
-                  value: displayValue(policy.cover_note_no),
-                },
-                {
-                  label: 'Last Synced',
-                  value: formatDateTime(policy.tiramis_last_synced_at),
-                },
-                {
-                  label: 'Last Error',
-                  value: displayValue(policy.tiramis_last_error_message),
-                },
-              ]}
+          <SectionCard title="Renewals">
+            <DataTable
+              columns={renewalColumns}
+              data={renewals}
+              loading={renewalsLoading}
+              page={1}
+              limit={renewals.length || 1}
+              total={renewals.length}
+              totalPages={1}
+              onPageChange={() => undefined}
+              onLimitChange={() => undefined}
+              showColumnVisibility={false}
+              emptyMessage="No renewals have been started for this policy yet."
             />
-            <details className="mt-4 rounded-lg border border-slate-200 bg-white p-4">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-900">
-                Integration Details
-              </summary>
-              <div className="mt-4">
-                <KeyValueGrid
-                  items={[
-                    {
-                      label: 'Request ID',
-                      value: displayValue(policy.tiramis_request_id),
-                    },
-                    {
-                      label: 'Transaction ID',
-                      value: displayValue(policy.tiramis_transaction_id),
-                    },
-                    {
-                      label: 'Service Type',
-                      value: displayValue(policy.tiramis_service_type),
-                    },
-                    {
-                      label: 'Root Element',
-                      value: displayValue(policy.tiramis_root_element),
-                    },
-                    {
-                      label: 'Acknowledgement Status Code',
-                      value: displayValue(
-                        policy.tiramis_acknowledgement_status_code,
-                      ),
-                    },
-                    {
-                      label: 'Acknowledgement Description',
-                      value: displayValue(
-                        policy.tiramis_acknowledgement_status_desc,
-                      ),
-                    },
-                    {
-                      label: 'Final Response ID',
-                      value: displayValue(policy.tiramis_final_response_id),
-                    },
-                    {
-                      label: 'Final Response Status Code',
-                      value: displayValue(
-                        policy.tiramis_final_response_status_code,
-                      ),
-                    },
-                    {
-                      label: 'Final Response Description',
-                      value: displayValue(
-                        policy.tiramis_final_response_status_desc,
-                      ),
-                    },
-                  ]}
-                />
-              </div>
-            </details>
           </SectionCard>
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-4">
-          <ActivityTimeline
-            emptyText="No history yet."
-            renderStatus={(status) => <StatusBadge status={status} />}
-            entries={(policy.status_history ?? []).map((entry) => ({
-              id: entry.id,
-              dateTime: entry.created_at,
-              action: 'Status changed',
-              previousStatus: entry.old_status,
-              newStatus: entry.new_status,
-              performedBy: entry.changer
-                ? `${entry.changer.first_name} ${entry.changer.last_name}`
-                : undefined,
-              remarks: entry.reason,
-            }))}
-          />
+        <TabsContent value="claims" className="mt-0 min-w-0">
+          {activeTab === 'claims' && <PolicyClaimsTab policyId={policy.id} />}
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-0 min-w-0">
+          <PolicyDocumentsTab policy={policy} />
+        </TabsContent>
+
+        <TabsContent value="payments" className="mt-0 min-w-0">
+          {activeTab === 'payments' && <PolicyPaymentsTab policy={policy} />}
+        </TabsContent>
+
+        <TabsContent value="tira" className="mt-0 min-w-0 p-3 sm:p-4">
+          <PolicyTiraTab policy={policy} retry={retry} />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-0 min-w-0 p-3 sm:p-4">
+          <PolicyHistoryTab policy={policy} versions={versions} />
         </TabsContent>
       </Tabs>
 
       <Dialog open={nonMotorOpen} onOpenChange={setNonMotorOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Non-Motor Detail</DialogTitle>
           </DialogHeader>

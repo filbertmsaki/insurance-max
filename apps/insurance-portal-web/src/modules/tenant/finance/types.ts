@@ -279,6 +279,7 @@ export interface FinanceListParams {
   sortOrder?: 'ASC' | 'DESC';
   status?: string;
   quotation_id?: string;
+  policy_id?: string;
 }
 
 export type FinancePage<T> = PaginatedResponse<T> | BackendPaginatedResponse<T>;

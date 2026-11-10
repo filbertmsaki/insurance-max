@@ -20,14 +20,17 @@ export function AppShell() {
   const mainRef = useRef<HTMLElement>(null);
   const crumbs = useBreadcrumb();
   // Screens with a dedicated phone layout put their title in the app bar.
-  // Quotation detail screens (any line) draw their own phone top bar.
-  const isQuotationDetail = /\/quotations\/(?!new$)[^/]+$/.test(
+  // Quotation and policy detail screens (any line) draw their own phone
+  // top bar and compact header.
+  const isQuotationDetail = /\/(quotations|policies)\/(?!new$)[^/]+$/.test(
     location.pathname,
   );
   const mobileTitle =
     location.pathname === motorInsurancePaths.quotations
       ? { eyebrow: 'Motor Insurance', title: 'Quotations' }
-      : undefined;
+      : location.pathname === motorInsurancePaths.policies
+        ? { eyebrow: 'Motor Insurance', title: 'Policies' }
+        : undefined;
 
   useLayoutEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });

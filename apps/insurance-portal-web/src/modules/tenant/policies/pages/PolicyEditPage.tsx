@@ -47,7 +47,9 @@ export function PolicyEditPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(sharedUnderwritePaths.policyDetail(policy.id))}
+          onClick={() =>
+            navigate(sharedUnderwritePaths.policyDetail(policy.id))
+          }
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>

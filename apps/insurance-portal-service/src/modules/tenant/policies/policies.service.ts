@@ -568,6 +568,8 @@ export class PoliciesService {
   }
 
   async findAllForUser(user: AuthenticatedUser, query: PolicyListQuery) {
+    const EXPIRING_SOON = 'EXPIRING_SOON';
+    const IN_FORCE_STATUSES = ['ACTIVE', 'ENDORSED', 'COVER_NOTE_ISSUED'];
     const scope = this.dataAccessScopeService.resolve(user, 'policies:read');
     const {
       page = 1,
@@ -578,6 +580,8 @@ export class PoliciesService {
       policy_status,
       customer_id,
       quotation_id,
+      period_from,
+      period_to,
     } = query;
 
     const allowedSortFields = [
@@ -618,14 +622,51 @@ export class PoliciesService {
           policy.policy_no ILIKE :term
           OR policy.cover_note_no ILIKE :term
           OR policy.external_policy_no ILIKE :term
+          OR policy.sticker_no ILIKE :term
+          OR customer.company_name ILIKE :term
+          OR customer.display_name ILIKE :term
+          OR CONCAT_WS(' ', customer.first_name, customer.middle_name, customer.last_name) ILIKE :term
+          OR EXISTS (
+            SELECT 1 FROM quotations q
+            WHERE q.id = policy.quotation_id AND q.quotation_no ILIKE :term
+          )
+          OR EXISTS (
+            SELECT 1 FROM motor_policy_details mpd
+            JOIN motor_vehicles mv ON mv.id = mpd.motor_vehicle_id
+            WHERE mpd.policy_id = policy.id
+              AND (mv.registration_no ILIKE :term OR mv.chassis_no ILIKE :term)
+          )
+          OR EXISTS (
+            SELECT 1 FROM policy_versions pv
+            WHERE pv.policy_id = policy.id AND pv.is_current = true
+              AND pv.asset_manifest::text ILIKE :term
+          )
         )`,
         { term },
       );
     }
 
-    if (policy_status) {
+    if (policy_status === EXPIRING_SOON) {
+      queryBuilder.andWhere(
+        `policy.policy_status IN (:...inForce)
+          AND policy.end_date >= CURRENT_DATE
+          AND policy.end_date < CURRENT_DATE + INTERVAL '30 days'`,
+        { inForce: IN_FORCE_STATUSES },
+      );
+    } else if (policy_status) {
       queryBuilder.andWhere('policy.policy_status = :policyStatus', {
         policyStatus: policy_status,
+      });
+    }
+
+    if (period_from) {
+      queryBuilder.andWhere('policy.end_date >= :periodFrom', {
+        periodFrom: period_from,
+      });
+    }
+    if (period_to) {
+      queryBuilder.andWhere('policy.start_date <= :periodTo', {
+        periodTo: period_to,
       });
     }
 

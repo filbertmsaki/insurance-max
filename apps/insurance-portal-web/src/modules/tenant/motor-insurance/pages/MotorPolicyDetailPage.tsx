@@ -5,7 +5,6 @@ import {
   UnderwriteLine,
   getUnderwriteLineDefinition,
 } from '@insurance-max/contracts';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState, TableSkeleton } from '@/components/shared/ContentStates';
 import { PolicyTransactionScopeContext } from '@/modules/tenant/policies/transaction-scope';
@@ -69,28 +68,20 @@ function PolicyDetail({ id, line }: { id: string; line: UnderwriteLine }) {
   return (
     <PolicyTransactionScopeContext.Provider value={scope}>
       <MotorWizardNavigation>
-        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-          <Button asChild variant="link" size="sm" className="h-auto px-0">
-            <Link to={motorInsurancePaths.policies}>
-              Back to motor policies
-            </Link>
-          </Button>
-          <Badge variant={isFleet ? 'primary' : 'muted'}>
-            {isFleet ? 'Fleet' : 'Single Motor'}
-          </Badge>
-        </div>
-        <div className="space-y-5">
-          {isFleet ? (
-            <FleetVehiclesPanel
-              kind="policy"
-              id={id}
-              currency={policy.data?.currency ?? 'TZS'}
-            />
-          ) : null}
-          <Suspense fallback={<TableSkeleton />}>
-            <PolicyDetailPage storedBusinessLine={line} />
-          </Suspense>
-        </div>
+        <Suspense fallback={<TableSkeleton />}>
+          <PolicyDetailPage
+            storedBusinessLine={line}
+            insuredItems={
+              isFleet ? (
+                <FleetVehiclesPanel
+                  kind="policy"
+                  id={id}
+                  currency={policy.data?.currency ?? 'TZS'}
+                />
+              ) : undefined
+            }
+          />
+        </Suspense>
       </MotorWizardNavigation>
     </PolicyTransactionScopeContext.Provider>
   );

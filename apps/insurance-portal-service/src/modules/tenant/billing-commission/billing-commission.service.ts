@@ -589,6 +589,11 @@ export class BillingCommissionService {
         quotationId: query.quotation_id,
       });
     }
+    if (query.policy_id) {
+      qb.andWhere('invoice.policy_id = :policyId', {
+        policyId: query.policy_id,
+      });
+    }
     this.applyStatusFilter(qb, 'invoice', query);
     return this.paginateFinanceList(qb, query, {
       sortable: {
@@ -929,6 +934,11 @@ export class BillingCommissionService {
     if (query.quotation_id) {
       qb.andWhere('invoice.quotation_id = :quotationId', {
         quotationId: query.quotation_id,
+      });
+    }
+    if (query.policy_id) {
+      qb.andWhere('invoice.policy_id = :policyId', {
+        policyId: query.policy_id,
       });
     }
     this.applyStatusFilter(qb, 'payment', query);

@@ -20,6 +20,10 @@ export class FindFinanceRecordsQueryDto extends TableQueryDto {
   @IsUUID()
   quotation_id?: string;
 
+  @IsOptional()
+  @IsUUID()
+  policy_id?: string;
+
   @ApiPropertyOptional({ example: 'ISSUED' })
   @IsOptional()
   @IsString()
@@ -40,4 +44,5 @@ export interface FinanceListQuery {
   sortOrder?: string;
   status?: string;
   quotation_id?: string;
+  policy_id?: string;
 }

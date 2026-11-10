@@ -450,6 +450,7 @@ export interface PolicyRecord {
   sub_class_id: string | null;
   policy_no: string;
   cover_note_no: string | null;
+  sticker_no?: string | null;
   external_policy_no: string | null;
   policy_reference_number: string | null;
   channel_type: ProductChannelType;

@@ -180,17 +180,19 @@ export function NonMotorPolicyDetailPage() {
 
   return (
     <UnderwriteRecordGate kind="policy">
-      <div className="space-y-5">
-        <RiskDetailsPanel
-          details={details.data}
-          loading={details.isLoading}
-          error={details.error}
-          onRetry={() => void details.refetch()}
+      <Suspense fallback={<TableSkeleton />}>
+        <PolicyDetailPage
+          storedBusinessLine="NON_MOTOR"
+          insuredItems={
+            <RiskDetailsPanel
+              details={details.data}
+              loading={details.isLoading}
+              error={details.error}
+              onRetry={() => void details.refetch()}
+            />
+          }
         />
-        <Suspense fallback={<TableSkeleton />}>
-          <PolicyDetailPage />
-        </Suspense>
-      </div>
+      </Suspense>
     </UnderwriteRecordGate>
   );
 }

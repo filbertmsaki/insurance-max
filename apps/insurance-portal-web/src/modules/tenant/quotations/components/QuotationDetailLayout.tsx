@@ -11,17 +11,46 @@ import { cn } from '@/lib/utils';
 import { isEmptyDisplay } from '../utils/quotationFormat';
 import { useIsPhone } from '../utils/useIsPhone';
 
+interface SectionStyle {
+  collapsible: boolean;
+  /** Open headed groups inside one card (quotation details). */
+  group: boolean;
+  /** Separate bordered, collapsible cards (policy details). */
+  card: boolean;
+  /** Field layout: label/value rows, or a label-over-value grid. */
+  fields: 'rows' | 'grid';
+}
+
+const SectionDefaults = createContext<SectionStyle>({
+  collapsible: false,
+  group: false,
+  card: false,
+  fields: 'rows',
+});
+
 /**
  * Lets a container (the details tab) render its sections as open, headed
  * groups inside one card: no per-section card, no accordion.
  */
-const SectionDefaults = createContext<{ collapsible: boolean; group: boolean }>(
-  { collapsible: false, group: false },
-);
-
 export function SectionGroup({ children }: { children: ReactNode }) {
   return (
-    <SectionDefaults.Provider value={{ collapsible: false, group: true }}>
+    <SectionDefaults.Provider
+      value={{ collapsible: false, group: true, card: false, fields: 'rows' }}
+    >
+      {children}
+    </SectionDefaults.Provider>
+  );
+}
+
+/**
+ * Collapsible section cards with a one-line summary, and fields in a
+ * 4 / 3 / 2 column grid (desktop / tablet / phone). Used by policy details.
+ */
+export function SectionCards({ children }: { children: ReactNode }) {
+  return (
+    <SectionDefaults.Provider
+      value={{ collapsible: true, group: false, card: true, fields: 'grid' }}
+    >
       {children}
     </SectionDefaults.Provider>
   );
@@ -39,7 +68,7 @@ export function SectionCard({
   id,
   summary,
 }: {
-  /** One-line digest shown under the title while collapsed on phones. */
+  /** One-line digest shown under the title while the section is collapsed. */
   summary?: string;
   title: string;
   description?: string;
@@ -68,15 +97,18 @@ export function SectionCard({
       id={id}
       className={cn(
         'min-w-0 scroll-mt-4',
-        defaults.group
-          ? 'border-t border-slate-100 py-4 first:border-t-0'
-          : 'border-b border-slate-200 px-4 py-5 last:border-b-0 sm:px-6',
+        defaults.card
+          ? 'rounded-xl border border-[#E6E8EF] bg-white px-4 py-3 sm:px-5'
+          : defaults.group
+            ? 'border-t border-slate-100 py-4 first:border-t-0'
+            : 'border-b border-slate-200 px-4 py-5 last:border-b-0 sm:px-6',
       )}
     >
       <div
         className={cn(
           'flex flex-wrap items-start justify-between gap-3',
-          !hidden && (defaults.group ? 'mb-1' : 'mb-4'),
+          !hidden &&
+            (defaults.group ? 'mb-1' : defaults.card ? 'mb-3' : 'mb-4'),
         )}
       >
         <div className="min-w-0">
@@ -103,7 +135,7 @@ export function SectionCard({
             <h2 className="text-base font-semibold text-slate-900">{title}</h2>
           )}
           {summary && hidden && (
-            <p className="mt-0.5 truncate pl-6 text-[13px] text-slate-600 md:hidden">
+            <p className="mt-0.5 truncate pl-6 text-[13px] text-slate-600">
               {summary}
             </p>
           )}
@@ -160,9 +192,35 @@ export function KeyValueGrid({
     ? items
     : items.filter((item) => !isEmptyDisplay(item.value));
 
+  const layout = useContext(SectionDefaults).fields;
+  const emptyValue = (value: ReactNode) => (
+    <span className="font-normal text-slate-500">
+      {value === null || value === undefined || value === '' ? 'N/A' : value}
+    </span>
+  );
+
   return (
     <div className="@container min-w-0">
-      {visible.length ? (
+      {visible.length && layout === 'grid' ? (
+        // Label over value: 2 columns on phones, 3 on tablets, 4 on desktop.
+        <dl className="grid min-w-0 grid-cols-2 gap-x-6 gap-y-4 md:grid-cols-3 lg:grid-cols-4">
+          {visible.map((item) => (
+            <div key={item.label} className="min-w-0">
+              <dt className="text-[12px] text-slate-600">{item.label}</dt>
+              <dd className="mt-0.5 min-w-0 whitespace-pre-wrap text-[14px] font-semibold text-slate-900 [overflow-wrap:anywhere]">
+                {isEmptyDisplay(item.value)
+                  ? emptyValue(item.value)
+                  : item.value}
+              </dd>
+              {item.meta && (
+                <dd className="mt-0.5 text-[12px] text-slate-500">
+                  {item.meta}
+                </dd>
+              )}
+            </div>
+          ))}
+        </dl>
+      ) : visible.length ? (
         <dl className="grid min-w-0 grid-cols-1 gap-x-8 @2xl:grid-cols-2">
           {visible.map((item) => (
             <div
