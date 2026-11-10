@@ -98,6 +98,8 @@ export interface QuotationDocumentSource {
   /** QuotationPreviewMapper output for the same aggregate. */
   preview: Rec;
   nonMotor?: NonMotorRiskDetails | null;
+  /** Tax catalogue names keyed by upper-case tax code. */
+  taxNames?: Record<string, string>;
   logo?: Uint8Array | null;
   now?: Date;
 }
@@ -140,6 +142,7 @@ export function buildQuotationDocument(
     productName,
     product,
     expiresAt,
+    taxNames: source.taxNames ?? {},
   };
 
   const sections: DocSection[] = [
@@ -195,6 +198,7 @@ interface Ctx {
   productName: string;
   product: Rec;
   expiresAt: Date | null;
+  taxNames: Record<string, string>;
 }
 
 export function documentKind(q: Rec, p: Rec): QuotationDocumentKind {
@@ -764,7 +768,12 @@ function coverageSection(ctx: Ctx): DocSection | null {
  * when they reconcile with the stored totals; the final line is always the
  * quotation's stored total including tax.
  */
-export function premiumBlock(p: Rec, product: Rec, currency: string): DocBlock {
+export function premiumBlock(
+  p: Rec,
+  product: Rec,
+  currency: string,
+  taxNames: Record<string, string> = {},
+): DocBlock {
   const cover: Rec = p.cover_note ?? {};
   const fleet = !!p.fleet?.vehicles?.length;
   const risks: Rec[] = fleet
@@ -821,43 +830,47 @@ export function premiumBlock(p: Rec, product: Rec, currency: string): DocBlock {
     amount: formatMoney(net),
   });
 
-  const taxes = new Map<string, number>();
+  // Taxes exactly as stored on each risk and add-on, grouped by tax code and
+  // rate, named from the tax catalogue with the stored rate.
+  const taxes = new Map<
+    string,
+    { label: string; amount: number; exempt: boolean }
+  >();
   for (const item of [...risks, ...addons]) {
     for (const tax of (item.taxes ?? []) as Rec[]) {
-      if (tax.is_tax_exempted) continue;
-      const label = text(tax.tax_name) || text(tax.tax_code) || 'Tax';
-      taxes.set(
-        label,
-        (taxes.get(label) ?? 0) + (toNumber(tax.tax_amount) ?? 0),
-      );
+      const code = text(tax.tax_code).toUpperCase();
+      const exempt = tax.is_tax_exempted === true || tax.is_tax_exempted === 'Y';
+      const rate = toNumber(tax.tax_rate);
+      const key = `${code}|${rate ?? ''}|${exempt}`;
+      const entry = taxes.get(key) ?? {
+        label: taxLabel(code, rate, taxNames, text(tax.tax_name)),
+        amount: 0,
+        exempt,
+      };
+      entry.amount += exempt ? 0 : (toNumber(tax.tax_amount) ?? 0);
+      taxes.set(key, entry);
     }
   }
-  const taxTotal = sum([...taxes.values()]);
+  let taxTotal = 0;
+  for (const tax of taxes.values()) {
+    if (tax.exempt) {
+      lines.push({ label: `${tax.label} - Exempted`, amount: 'Exempt' });
+      continue;
+    }
+    const amount = roundMoney(tax.amount);
+    taxTotal += amount;
+    lines.push({ label: tax.label, amount: formatMoney(amount) });
+  }
+  // The total payable is the stored total; show any cent-level difference
+  // between it and net premium plus stored taxes instead of hiding it.
   const remainder = roundMoney(total - net - taxTotal);
-  if (taxes.size && Math.abs(remainder) < 1) {
-    for (const [label, amount] of taxes) {
-      if (Math.abs(amount) >= 0.005)
-        lines.push({ label, amount: formatMoney(amount) });
-    }
-    if (Math.abs(remainder) >= 0.005) {
-      lines.push({
-        label: 'Rounding Adjustment',
-        amount: formatMoney(remainder),
-        muted: true,
-      });
-    }
-  } else if (Math.abs(total - net) >= 0.005) {
-    // Itemised taxes are missing or do not reconcile: print the stored difference.
+  if (Math.abs(remainder) >= 0.005) {
     lines.push({
-      label: 'Taxes and Levies',
-      amount: formatMoney(roundMoney(total - net)),
+      label: 'Rounding Adjustment',
+      amount: formatMoney(remainder),
+      muted: true,
     });
   }
-  const exempt = [...risks, ...addons].some((item) =>
-    (item.taxes ?? []).some((t: Rec) => t.is_tax_exempted),
-  );
-  if (exempt)
-    lines.push({ label: 'Tax exemption applied', amount: '', muted: true });
 
   return {
     kind: 'premium',
@@ -868,10 +881,25 @@ export function premiumBlock(p: Rec, product: Rec, currency: string): DocBlock {
   };
 }
 
+/** Catalogue name (else preview name, else code) with the stored rate. */
+function taxLabel(
+  code: string,
+  rate: number | null,
+  names: Record<string, string>,
+  fallback: string,
+) {
+  const name = text(names[code]) || fallback || code || 'Tax';
+  if (rate == null || rate <= 0) return name;
+  // Rates are stored as fractions (0.18); tolerate percentages (18).
+  const percent = rate <= 1 ? rate * 100 : rate;
+  const shown = Number(percent.toFixed(4)).toString();
+  return name.includes('%') ? name : `${name} (${shown}%)`;
+}
+
 function premiumSection(ctx: Ctx): DocSection {
   return {
     title: 'Premium Summary',
-    blocks: [premiumBlock(ctx.p, ctx.product, ctx.currency)],
+    blocks: [premiumBlock(ctx.p, ctx.product, ctx.currency, ctx.taxNames)],
   };
 }
 
