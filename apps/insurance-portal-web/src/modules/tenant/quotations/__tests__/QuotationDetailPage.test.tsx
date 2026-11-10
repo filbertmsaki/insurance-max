@@ -511,6 +511,26 @@ describe('Quotation details redesign', () => {
       screen.queryByRole('button', { name: 'Issue Cover' }),
     ).not.toBeInTheDocument();
   });
+  it('shows Issue Cover for a ready quotation and respects workflow availability', () => {
+    const preview = quotationDetailFixture();
+    preview.overview.quotation_status = 'READY_FOR_SUBMISSION';
+    preview.overview.tira_status = 'NOT_SUBMITTED';
+    state.preview = preview;
+    const { rerender } = renderPage();
+    const buttons = screen.getAllByRole('button', { name: 'Issue Cover' });
+    expect(buttons[0]).toBeDisabled();
+    expect(state.mutate).not.toHaveBeenCalled();
+    state.commands = { SUBMIT_TIRAMIS: true };
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/quotations/quotation-1']}>
+          <Routes><Route path="/quotations/:id" element={<QuotationDetailPage />} /></Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: 'Issue Cover' })[0]);
+    expect(state.mutate).toHaveBeenCalledTimes(1);
+  });
   it.each([
     ['MOTOR_SINGLE', 'Underwrite · Motor · Single motor', 'Single motor'],
     ['MOTOR_FLEET', 'Underwrite · Motor · Fleet', 'Fleet motor'],

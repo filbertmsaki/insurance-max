@@ -215,6 +215,9 @@ export function QuotationDetailPage({
   const submittedAt = preview?.overview.submitted_at ?? null;
   const hasStalePricing = pricingIntegration?.is_stale ?? false;
   const canSubmit = workflow?.availableCommands.SUBMIT_TIRAMIS ?? false;
+  const readyForTira =
+    quotationStatus === 'READY_FOR_SUBMISSION' &&
+    preview?.overview.tira_status === 'NOT_SUBMITTED';
   const canSubmitForApproval =
     workflow?.availableCommands.SUBMIT_APPROVAL ?? false;
   const canRequestPayment =
@@ -547,12 +550,12 @@ export function QuotationDetailPage({
               disabled: hasStalePricing,
               onClick: () => requestPaymentMutation.mutate(),
             }
-          : canSubmit
+          : canSubmit || readyForTira
             ? {
                 label: 'Issue Cover',
                 pendingLabel: 'Submitting...',
                 isPending: submitMutation.isPending,
-                disabled: hasStalePricing,
+                disabled: hasStalePricing || !canSubmit,
                 onClick: submitToTiramis,
               }
             : canRetrySubmission
@@ -685,6 +688,11 @@ export function QuotationDetailPage({
           disabled={
             primaryWorkflowAction.isPending || primaryWorkflowAction.disabled
           }
+          title={
+            primaryWorkflowAction.label === 'Issue Cover' && !canSubmit
+              ? 'Cover issuance is unavailable. Check your permissions and quotation requirements.'
+              : undefined
+          }
           onClick={primaryWorkflowAction.onClick}
         >
           {primaryWorkflowAction.isPending
@@ -728,6 +736,11 @@ export function QuotationDetailPage({
       className="min-h-11 w-full font-semibold"
       disabled={
         primaryWorkflowAction.isPending || primaryWorkflowAction.disabled
+      }
+      title={
+        primaryWorkflowAction.label === 'Issue Cover' && !canSubmit
+          ? 'Cover issuance is unavailable. Check your permissions and quotation requirements.'
+          : undefined
       }
       onClick={primaryWorkflowAction.onClick}
     >
