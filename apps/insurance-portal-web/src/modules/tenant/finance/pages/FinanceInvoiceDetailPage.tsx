@@ -29,6 +29,7 @@ import {
   partyName,
 } from '../components';
 import type { FinancePaymentReference } from '../types';
+import { PdfDocumentActions } from '@/modules/shared/documents/PdfDocumentActions';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 const paymentMethods = [
@@ -251,7 +252,13 @@ export function FinanceInvoiceDetailPage() {
         </Card>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <PdfDocumentActions
+          base={`/tenant/finance/invoices/${invoice.id}/document`}
+          number={invoice.invoice_no}
+          noun="tax invoice"
+          filePrefix="Invoice"
+        />
         {invoice.status === 'DRAFT' ? (
           <Button
             onClick={() => issueMutation.mutate()}

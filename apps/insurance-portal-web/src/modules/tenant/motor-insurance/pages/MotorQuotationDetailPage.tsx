@@ -9,7 +9,6 @@ import {
   getUnderwriteLineDefinition,
   underwritePermission,
 } from '@insurance-max/contracts';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { EmptyState, TableSkeleton } from '@/components/shared/ContentStates';
@@ -26,7 +25,6 @@ import { motorInsuranceApi, motorInsuranceKeys } from '../api';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { buildDuplicateDraft } from '../duplicate';
 import { motorInsurancePaths } from '../paths';
-import { QuotationPageHeader } from '@/modules/tenant/underwrite/wizard/QuotationPageHeader';
 
 const loadQuotationDetailPage = () =>
   import('@/modules/tenant/quotations/pages/QuotationDetailPage');
@@ -124,53 +122,33 @@ function QuotationDetail({ id, line }: { id: string; line: UnderwriteLine }) {
 
   return (
     <MotorWizardNavigation>
-      <div className="mb-4">
-        <QuotationPageHeader
-          eyebrow="Underwrite · Motor"
-          title={isFleet ? 'View fleet quotation' : 'View motor quotation'}
-          badge={
-            <Badge
-              variant={isFleet ? 'primary' : 'muted'}
-              title="Quotation type"
-            >
-              {isFleet ? 'Fleet' : 'Single Motor'}
-            </Badge>
-          }
-          backLabel="Back to motor quotations"
-          onBack={() => navigate(motorInsurancePaths.quotations)}
-          actions={
-            canDuplicate || canEdit ? (
-              <>
-                {canDuplicate ? (
-                  <Button
-                    variant="outline"
-                    disabled={duplicate.isPending}
-                    onClick={() => setConfirmDuplicate(true)}
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    Duplicate
-                  </Button>
-                ) : null}
-                {canEdit ? (
-                  <Button
-                    onClick={() =>
-                      navigate(motorInsurancePaths.quotationEdit(id))
-                    }
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
-                  </Button>
-                ) : null}
-              </>
-            ) : undefined
-          }
-        />
-      </div>
-
       <Suspense fallback={<TableSkeleton />}>
         <QuotationDetailPage
           line={slug}
-          hideBackButton
+          onBack={() => navigate(motorInsurancePaths.quotations)}
+          hostActions={[
+            ...(canDuplicate
+              ? [
+                  {
+                    label: 'Duplicate',
+                    menuLabel: 'Duplicate quotation',
+                    icon: <Copy className="mr-2 h-4 w-4" />,
+                    disabled: duplicate.isPending,
+                    onClick: () => setConfirmDuplicate(true),
+                  },
+                ]
+              : []),
+            ...(canEdit
+              ? [
+                  {
+                    label: 'Edit',
+                    icon: <Pencil className="mr-2 h-4 w-4" />,
+                    onClick: () =>
+                      navigate(motorInsurancePaths.quotationEdit(id)),
+                  },
+                ]
+              : []),
+          ]}
           tiramisPanel={
             isFleet ? (
               <FleetVehiclesPanel

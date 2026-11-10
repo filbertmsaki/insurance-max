@@ -1,23 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { FileText } from 'lucide-react';
 import type { UnderwriteLineSlug } from '@insurance-max/contracts';
-import { Button } from '@/components/ui/button';
-import { formatDate } from '@/components/shared/detailFormat';
-import {
-  downloadPdf,
-  fetchPdfBlob,
-  documentFilename,
-} from '@/modules/shared/documents/download-pdf';
 import { CoverNotesSection } from '@/modules/tenant/cover-notes/components/CoverNotesSection';
-import { underwriteApi } from '@/modules/tenant/underwrite/api';
-import { underwritePaths } from '@/modules/tenant/underwrite/paths';
-import { motorInsurancePaths } from '@/modules/tenant/motor-insurance/paths';
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { getApiErrorMessage } from '@/lib/api-error';
-import { SectionCard } from './QuotationDetailLayout';
+import { KeyValueGrid, SectionCard } from './QuotationDetailLayout';
 import { QuotationHistoryPreview } from './QuotationPreviewSections';
+import { useQuotationPolicies } from './useQuotationPolicies';
+import {
+  financePaths,
+  useQuotationFinanceRecords,
+} from './useQuotationFinanceRecords';
+import {
+  formatDateTime,
+  formatMoney,
+  humanizeCode,
+} from '../utils/quotationFormat';
 import type { QuotationPreviewRecord, QuotationWorkflowView } from '../types';
+import { APPROVAL_HISTORY } from '../utils/quotationApproval';
+import { PdfDocumentActions } from '@/modules/shared/documents/PdfDocumentActions';
 
 export function QuotationApprovalTab({
   preview,
@@ -27,278 +27,211 @@ export function QuotationApprovalTab({
   workflow?: QuotationWorkflowView;
 }) {
   const approval = workflow?.approval;
-  const facts = [
-    ['Approval required', preview.overview.requires_approval ? 'Yes' : 'No'],
-    [
-      'Status',
-      (approval?.status ?? preview.overview.approval_status).replace(/_/g, ' '),
-    ],
-    [
-      'Submitted',
-      approval?.submittedAt ? formatDate(approval.submittedAt) : '-',
-    ],
-    ['Decision', approval?.decidedAt ? formatDate(approval.decidedAt) : '-'],
-    ['Comments', approval?.comments || '-'],
-    ['Reason', approval?.reason || '-'],
-  ];
   return (
     <>
       <SectionCard
         title="Approval"
         description="Available approval actions appear above the quotation tabs."
       >
-        <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {facts.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-xs text-slate-500">{label}</dt>
-              <dd className="mt-1 break-words text-sm">{value}</dd>
-            </div>
-          ))}
-        </dl>
+        <KeyValueGrid
+          items={[
+            {
+              label: 'Approval required',
+              value: preview.overview.requires_approval ? 'Yes' : 'No',
+            },
+            {
+              label: 'Status',
+              value: humanizeCode(
+                approval?.status ?? preview.overview.approval_status,
+              ),
+            },
+            {
+              label: 'Submitted',
+              value: formatDateTime(approval?.submittedAt),
+            },
+            { label: 'Decision', value: formatDateTime(approval?.decidedAt) },
+            {
+              label: 'Approved by',
+              value: preview.overview.approved_by?.name ?? null,
+            },
+            { label: 'Comments', value: approval?.comments || null },
+            { label: 'Reason', value: approval?.reason || null },
+          ]}
+        />
       </SectionCard>
       <QuotationHistoryPreview
         title="Approval history"
         history={preview.history.filter((item) =>
-          /approv|reject|changes.requested|premium.changed/i.test(item.action),
+          APPROVAL_HISTORY.test(item.action),
         )}
+        showFilters={false}
       />
     </>
   );
 }
 
-/**
- * Quotation document actions. Preview, print and open all use the same
- * server-rendered PDF as the download, so what users see is what they send.
- */
-function QuotationDocumentActions({
-  quotationId,
-  quotationNo,
+function DocumentRow({
+  title,
+  meta,
+  children,
 }: {
-  quotationId: string;
-  quotationNo: string;
+  title: ReactNode;
+  meta?: ReactNode;
+  children?: ReactNode;
 }) {
-  const [busy, setBusy] = useState<
-    'preview' | 'download' | 'print' | 'open' | null
-  >(null);
-  const [error, setError] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const frameRef = useRef<HTMLIFrameElement>(null);
-  const base = `/tenant/quotations/${quotationId}/document`;
-
-  useEffect(
-    () => () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    },
-    [previewUrl],
-  );
-
-  const run = async (
-    action: NonNullable<typeof busy>,
-    task: () => Promise<void>,
-  ) => {
-    setBusy(action);
-    setError(null);
-    try {
-      await task();
-    } catch (cause) {
-      setError(getApiErrorMessage(cause));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const ensurePreviewUrl = async () => {
-    if (previewUrl) return previewUrl;
-    const url = URL.createObjectURL(await fetchPdfBlob(`${base}/preview`));
-    setPreviewUrl(url);
-    return url;
-  };
-
   return (
-    <SectionCard title="Quotation document">
-      <p className="mb-4 text-sm text-muted-foreground">
-        Official A4 quotation with policyholder, risk, coverage, premium and
-        terms. Preview, print and download all use the same document.
-      </p>
-      <div
-        className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"
-        role="group"
-        aria-label="Quotation document actions"
-      >
-        <Button
-          variant="outline"
-          disabled={busy !== null}
-          aria-expanded={!!previewUrl}
-          onClick={() =>
-            previewUrl
-              ? setPreviewUrl(null)
-              : run('preview', async () => void (await ensurePreviewUrl()))
-          }
-        >
-          {busy === 'preview'
-            ? 'Loading preview...'
-            : previewUrl
-              ? 'Hide preview'
-              : 'Preview quotation'}
-        </Button>
-        <Button
-          variant="outline"
-          disabled={busy !== null}
-          onClick={() =>
-            run('download', () =>
-              downloadPdf(`${base}/download`, documentFilename(quotationNo)),
-            )
-          }
-        >
-          {busy === 'download' ? 'Downloading...' : 'Download quotation PDF'}
-        </Button>
-        <Button
-          variant="outline"
-          disabled={busy !== null}
-          onClick={() =>
-            run('print', async () => {
-              const url = await ensurePreviewUrl();
-              const frame = frameRef.current;
-              if (!frame) return;
-              // Print from a hidden frame so the PDF viewer's print dialog opens.
-              frame.onload = () => frame.contentWindow?.print();
-              if (frame.src === url) frame.contentWindow?.print();
-              else frame.src = url;
-            })
-          }
-        >
-          {busy === 'print' ? 'Preparing...' : 'Print'}
-        </Button>
-        <Button
-          variant="outline"
-          disabled={busy !== null}
-          onClick={() =>
-            run('open', async () => {
-              // Mobile browsers rarely render PDFs inline; open in a new tab.
-              window.open(await ensurePreviewUrl(), '_blank', 'noopener');
-            })
-          }
-        >
-          Open in new tab
-        </Button>
-      </div>
-      {error && (
-        <p role="alert" className="mt-3 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-      {previewUrl && (
-        <div className="mt-4 overflow-hidden rounded-md border bg-muted">
-          <iframe
-            title={`Quotation ${quotationNo} preview`}
-            src={previewUrl}
-            className="block h-[70vh] min-h-[420px] w-full"
-          />
+    <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <FileText
+          className="mt-0.5 h-5 w-5 shrink-0 text-slate-400"
+          aria-hidden
+        />
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold text-slate-900 [overflow-wrap:anywhere]">
+            {title}
+          </p>
+          {meta && <p className="mt-0.5 text-[13px] text-slate-500">{meta}</p>}
         </div>
-      )}
-      <iframe
-        ref={frameRef}
-        title="Quotation print frame"
-        aria-hidden="true"
-        tabIndex={-1}
-        className="hidden"
-      />
-    </SectionCard>
+      </div>
+      {children}
+    </li>
   );
 }
 
 export function QuotationDocumentsTab({
   preview,
+  line,
 }: {
   preview: QuotationPreviewRecord;
+  line: UnderwriteLineSlug;
 }) {
+  const { policies, policyHref } = useQuotationPolicies(
+    preview.overview.quotation_id,
+    line,
+    preview.overview.tira_status,
+  );
+  const { invoices, receipt } = useQuotationFinanceRecords(preview);
+  const currency =
+    preview.payment?.currency ?? preview.premium_summary.currency;
+
   return (
-    <>
-      <QuotationDocumentActions
-        quotationId={preview.overview.quotation_id}
-        quotationNo={preview.overview.quotation_no}
-      />
-      <div className="min-w-0 p-4 sm:p-6">
-        <CoverNotesSection
-          quotationId={preview.overview.quotation_id}
-          tiraAccepted={preview.overview.tira_status === 'SUCCESS'}
-        />
-      </div>
-    </>
+    <SectionCard
+      title="Documents"
+      description="Cover notes are listed under Policy & Cover Notes."
+    >
+      <ul className="divide-y divide-slate-100">
+        <DocumentRow
+          title={`Quotation · ${preview.overview.quotation_no}`}
+          meta="Quotation PDF"
+        >
+          <PdfDocumentActions
+            base={`/tenant/quotations/${preview.overview.quotation_id}/document`}
+            number={preview.overview.quotation_no}
+            noun="quotation"
+            filePrefix="Quotation"
+          />
+        </DocumentRow>
+        {policies?.map((policy) => (
+          <DocumentRow
+            key={`schedule-${policy.id}`}
+            title={`Policy schedule · ${policy.policy_no}`}
+            meta={
+              <Link
+                className="text-blue-700 hover:underline"
+                to={policyHref(policy.id)}
+              >
+                Open policy
+              </Link>
+            }
+          >
+            <PdfDocumentActions
+              base={`/tenant/policies/${policy.id}/schedule`}
+              number={policy.policy_no}
+              noun="policy schedule"
+              filePrefix="Policy"
+            />
+          </DocumentRow>
+        ))}
+        {invoices.map((invoice) => (
+          <DocumentRow
+            key={`invoice-${invoice.id}`}
+            title={`Invoice · ${invoice.invoice_no}`}
+            meta={
+              <>
+                {humanizeCode(invoice.status)} ·{' '}
+                {formatMoney(
+                  Number(invoice.total_amount),
+                  invoice.currency ?? invoice.currency_code ?? currency,
+                )}{' '}
+                ·{' '}
+                <Link
+                  className="text-blue-700 hover:underline"
+                  to={financePaths.invoice(invoice.id)}
+                >
+                  Open invoice
+                </Link>
+              </>
+            }
+          >
+            <PdfDocumentActions
+              base={`/tenant/finance/invoices/${invoice.id}/document`}
+              number={invoice.invoice_no}
+              noun="tax invoice"
+              filePrefix="Invoice"
+            />
+          </DocumentRow>
+        ))}
+        {receipt && (
+          <DocumentRow
+            title={`Receipt · ${receipt.receipt_no}`}
+            meta={
+              <>
+                {humanizeCode(receipt.status)} ·{' '}
+                {formatMoney(
+                  Number(receipt.amount),
+                  receipt.currency ?? receipt.currency_code ?? currency,
+                )}{' '}
+                ·{' '}
+                <Link
+                  className="text-blue-700 hover:underline"
+                  to={financePaths.receipt(receipt.id)}
+                >
+                  Open receipt
+                </Link>
+              </>
+            }
+          >
+            <PdfDocumentActions
+              base={`/tenant/finance/receipts/${receipt.id}/document`}
+              number={receipt.receipt_no}
+              noun="receipt"
+              filePrefix="Receipt"
+            />
+          </DocumentRow>
+        )}
+      </ul>
+    </SectionCard>
   );
 }
 
+/**
+ * Cover notes for the quotation. The issued policy number and its link sit in
+ * the summary header, so they are not repeated here.
+ */
 export function QuotationPolicyTab({
   quotationId,
-  line,
   issuanceStatus,
 }: {
   quotationId: string;
-  line: UnderwriteLineSlug;
   issuanceStatus?: string;
 }) {
-  const hasPermission = useAuthStore((state) => state.hasPermission);
-  const canView =
-    hasPermission('policies:read') &&
-    hasPermission(`underwrite.${line}.policies.view`);
-  const query = useQuery({
-    queryKey: ['quotation-issued-policies', line, quotationId, issuanceStatus],
-    queryFn: ({ signal }) =>
-      underwriteApi.getPolicies(
-        line,
-        { quotation_id: quotationId, limit: 100 },
-        signal,
-      ),
-    enabled: canView,
-    // A final callback updates quotation status before the issuance transaction
-    // finishes. Keep this visible tab current until that policy becomes available.
-    refetchInterval: (query) =>
-      issuanceStatus === 'SUCCESS' &&
-      query.state.status !== 'error' &&
-      !query.state.data?.data.length
-        ? 5000
-        : false,
-  });
   return (
-    <SectionCard title="Issued policy">
-      {!canView ? (
-        <p className="text-sm text-slate-500">
-          You do not have permission to view policies.
-        </p>
-      ) : query.isPending ? (
-        <p role="status">Loading policy...</p>
-      ) : query.isError ? (
-        <div role="alert">
-          <p>Unable to load the issued policy.</p>
-          <Button variant="outline" onClick={() => void query.refetch()}>
-            Retry
-          </Button>
-        </div>
-      ) : query.data?.data.length ? (
-        <ul className="space-y-3">
-          {query.data.data.map((policy) => (
-            <li key={policy.id}>
-              <Link
-                className="text-sm font-medium text-primary underline"
-                to={
-                  line === 'motor' || line === 'fleet'
-                    ? motorInsurancePaths.policyDetail(policy.id)
-                    : underwritePaths.policyDetail(line, policy.id)
-                }
-              >
-                {policy.policy_no}
-              </Link>
-              <p className="mt-1 text-xs text-slate-500">
-                {policy.policy_status}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-slate-500">
-          No policy has been issued for this quotation yet.
-        </p>
-      )}
-    </SectionCard>
+    <div className="min-w-0 p-4 sm:p-6">
+      <CoverNotesSection
+        quotationId={quotationId}
+        tiraAccepted={issuanceStatus === 'SUCCESS'}
+        hideHeader
+      />
+    </div>
   );
 }

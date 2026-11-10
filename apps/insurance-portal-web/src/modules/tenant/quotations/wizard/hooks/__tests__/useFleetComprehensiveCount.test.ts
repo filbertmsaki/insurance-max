@@ -9,7 +9,13 @@ const risk = (
   id: string,
   risk_name: string,
   cover_class: InsuranceRisk['cover_class'] = null,
-) => ({ id, risk_code: id.toUpperCase(), risk_name, cover_class }) as InsuranceRisk;
+) =>
+  ({
+    id,
+    risk_code: id.toUpperCase(),
+    risk_name,
+    cover_class,
+  }) as InsuranceRisk;
 
 const vehicle = (...riskIds: string[]) =>
   ({

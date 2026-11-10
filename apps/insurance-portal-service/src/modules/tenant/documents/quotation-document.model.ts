@@ -10,48 +10,37 @@
 import { SHORT_TERM_RISK_CODE } from '../quotations/approval-policy/quotation-approval-policy';
 
 /* ------------------------------------------------------------------------ */
-/* Output model                                                              */
+/* Output model: the shared branded document                                 */
 /* ------------------------------------------------------------------------ */
 
-export interface DocField {
-  label: string;
-  value: string;
-}
+import {
+  amountInWords,
+  compact,
+  compactFields,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  issuerOf,
+  money,
+  paymentInstructionFields,
+  roundMoney,
+  text,
+  toDate,
+  toNumber,
+  type BrandedDocument,
+  type DocBlock,
+  type DocField,
+  type DocSection,
+} from './branded-document';
 
-export type DocAlign = 'left' | 'right' | 'center';
-
-export interface DocColumn {
-  header: string;
-  /** Relative width; columns are scaled to the content width. */
-  width: number;
-  align?: DocAlign;
-}
-
-export type DocBlock =
-  | { kind: 'fields'; fields: DocField[]; columns: 1 | 2 }
-  | { kind: 'subheading'; text: string }
-  | {
-      kind: 'table';
-      columns: DocColumn[];
-      rows: string[][];
-      totals?: string[];
-    }
-  | { kind: 'paragraph'; text: string }
-  | { kind: 'bullets'; items: string[] }
-  | {
-      kind: 'premium';
-      currency: string;
-      lines: { label: string; amount: string; muted?: boolean }[];
-      totalLabel: string;
-      total: string;
-    };
-
-export interface DocSection {
-  title: string;
-  blocks: DocBlock[];
-  /** Start the section on a fresh page (e.g. a long fleet appendix). */
-  pageBreakBefore?: boolean;
-}
+export type {
+  DocAlign,
+  DocBlock,
+  DocColumn,
+  DocField,
+  DocSection,
+} from './branded-document';
+export { formatDate, formatDateTime, formatMoney, text, toNumber };
 
 export type QuotationDocumentKind =
   | 'MOTOR_SINGLE'
@@ -60,22 +49,9 @@ export type QuotationDocumentKind =
   | 'SHORT_TERM_FLEET'
   | 'NON_MOTOR';
 
-export interface QuotationDocument {
+export interface QuotationDocument extends BrandedDocument {
   kind: QuotationDocumentKind;
   quotationNo: string;
-  issuerName: string;
-  issuerLogo: Uint8Array | null;
-  /** Letterhead lines: address, contacts, website, regulatory identifiers. */
-  issuerLines: string[];
-  /** Short contact line for the page footer. */
-  issuerFooter: string;
-  title: string;
-  subtitle: string;
-  reference: DocField[];
-  sections: DocSection[];
-  /** Diagonal stamp (DRAFT, EXPIRED, ...); empty for a live offer. */
-  watermark: string;
-  generatedAt: string;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -153,23 +129,31 @@ export function buildQuotationDocument(
     premiumSection(ctx),
     termsSection(ctx),
     noticesSection(ctx),
+    regulatorySection(ctx),
+    nextStepsSection(ctx, insurer),
     authorisationSection(ctx),
     ...fleetAppendix(ctx),
   ].filter((section): section is DocSection => !!section);
 
+  const quotationNo = text(overview.quotation_no ?? q.quotation_no);
+  const mark = watermark(q, overview, expired);
+  const validUntil = expiresAt
+    ? formatDate(new Date(expiresAt.getTime() - 1))
+    : '';
   return {
     kind,
-    quotationNo: text(overview.quotation_no ?? q.quotation_no),
-    issuerName: text(insurer?.name),
-    issuerLogo: source.logo ?? null,
-    issuerLines: letterhead(insurer),
-    issuerFooter: compact([
-      text(insurer?.name),
-      text(insurer?.contact_phone) && `Tel ${text(insurer?.contact_phone)}`,
-      text(insurer?.contact_email),
-      text(insurer?.website),
-    ]).join('  |  '),
-    title: 'INSURANCE QUOTATION',
+    docType: 'QUOTATION',
+    quotationNo,
+    number: quotationNo,
+    ...issuerOf(insurer, source.logo ?? null),
+    badge: mark
+      ? { text: mark, tone: mark === 'DRAFT' ? 'neutral' : 'danger' }
+      : validUntil
+        ? { text: `VALID UNTIL ${validUntil.toUpperCase()}`, tone: 'success' }
+        : undefined,
+    terms:
+      'This quotation is an offer of insurance, not a policy or cover note. Cover starts only after acceptance and payment of the premium.',
+    title: 'QUOTATION',
     subtitle: subtitle(kind, productName),
     reference: compactFields([
       ['Quotation No.', overview.quotation_no ?? q.quotation_no],
@@ -179,11 +163,16 @@ export function buildQuotationDocument(
         expiresAt ? formatDate(new Date(expiresAt.getTime() - 1)) : '',
       ],
       ['Status', expired ? 'Expired' : overview.display_label],
-      ['Issuing Office', overview.branch?.name ?? overview.sales_point?.name],
+      ['Policy No.', q.policy?.policy_no ?? q.policy_no],
+      ['Branch', overview.branch?.name ?? overview.sales_point?.name],
+      [
+        'Prepared By',
+        overview.created_by?.name ?? overview.created_by?.full_name,
+      ],
       ['Currency', currency],
     ]),
     sections,
-    watermark: watermark(q, overview, expired),
+    watermark: mark,
     generatedAt: formatDateTime(now),
   };
 }
@@ -333,6 +322,43 @@ function insuranceSection(ctx: Ctx): DocSection {
   return { title: 'Insurance Details', blocks };
 }
 
+/**
+ * The quotation's "Insurance Details" fields (class, product, type of cover,
+ * risk covered, cover start/expiry, period, currency, vehicle classification
+ * and usage) for another document, e.g. the policy schedule. `start`/`end`
+ * replace the quoted cover dates when the policy has its own.
+ */
+export function insuranceDetailFields(
+  preview: Rec,
+  opts: { start?: unknown; end?: unknown; currency?: string } = {},
+): DocField[] {
+  const cover: Rec = preview.cover_note ?? {};
+  const p: Rec = {
+    ...preview,
+    cover_note: {
+      ...cover,
+      cover_note_start_date: opts.start ?? cover.cover_note_start_date,
+      cover_note_end_date: opts.end ?? cover.cover_note_end_date,
+    },
+  };
+  const q: Rec = { quotation_flow: preview.overview?.quotation_flow };
+  const kind = documentKind(q, p);
+  const ctx: Ctx = {
+    q,
+    p,
+    currency: text(opts.currency) || text(cover.currency),
+    kind,
+    fleet: kind === 'MOTOR_FLEET' || kind === 'SHORT_TERM_FLEET',
+    shortTerm: kind === 'SHORT_TERM_SINGLE' || kind === 'SHORT_TERM_FLEET',
+    productName: text(preview.overview?.product?.name) || 'Insurance',
+    product: {},
+    expiresAt: null,
+    taxNames: {},
+  };
+  const block = insuranceSection(ctx).blocks[0];
+  return block.kind === 'fields' ? block.fields : [];
+}
+
 /* -------------------------------- Risk ---------------------------------- */
 
 function riskSections(
@@ -344,14 +370,46 @@ function riskSections(
   return [vehicleSection(ctx)];
 }
 
-function vehicleFields(m: Rec, risks: Rec[], currency: string) {
+/**
+ * Vehicle identifier: in-transit (short-term) vehicles are identified by
+ * chassis number; others by registration, falling back to the chassis.
+ */
+export function vehicleIdentifier(m: Rec, transit: boolean): string {
+  const reg = text(m.registration_number ?? m.registrationNumber);
+  const chassis = text(m.chassis_number ?? m.chassisNumber);
+  return transit ? chassis || reg : reg || chassis;
+}
+
+function vehicleFields(
+  m: Rec,
+  risks: Rec[],
+  currency: string,
+  transit = false,
+) {
   const sumInsured = sum(risks.map((risk) => risk.sum_insured));
   const unregistered = /unregistered/i.test(text(m.motor_type));
+  if (transit) {
+    // In-transit cover: the chassis number is the vehicle's identifier.
+    return compactFields([
+      ['Chassis No.', vehicleIdentifier(m, true)],
+      ['Registration No.', text(m.chassis_number) ? m.registration_number : ''],
+      ...vehicleFields(m, risks, currency)
+        .filter(
+          (f) => f.label !== 'Registration No.' && f.label !== 'Chassis No.',
+        )
+        .map((f): [string, unknown] => [f.label, f.value]),
+    ]);
+  }
   return compactFields([
     [
       'Registration No.',
+      // No registration yet: identify the vehicle by its chassis number.
       text(m.registration_number) ||
-        (unregistered ? 'Unregistered (in transit)' : ''),
+        (text(m.chassis_number)
+          ? `${text(m.chassis_number)} (chassis no.)`
+          : unregistered
+            ? 'Unregistered (in transit)'
+            : ''),
     ],
     ['Make', m.make],
     ['Model', compact([m.model, m.model_number]).join(' ')],
@@ -387,7 +445,12 @@ function vehicleFields(m: Rec, risks: Rec[], currency: string) {
 
 function vehicleSection(ctx: Ctx): DocSection {
   const m: Rec = ctx.p.motor_details ?? {};
-  const fields = vehicleFields(m, ctx.p.risks ?? [], ctx.currency);
+  const fields = vehicleFields(
+    m,
+    ctx.p.risks ?? [],
+    ctx.currency,
+    ctx.shortTerm,
+  );
   return {
     title: 'Vehicle Details',
     blocks: fields.length
@@ -468,10 +531,12 @@ function fleetTable(ctx: Ctx): DocBlock {
     const risks: Rec[] = vehicle.risks ?? [];
     return [
       String(index + 1),
-      text(m.registration_number) ||
-        (text(m.chassis_number)
-          ? `Chassis ${text(m.chassis_number)}`
-          : 'Unregistered'),
+      ctx.shortTerm
+        ? vehicleIdentifier(m, true) || 'Unregistered'
+        : text(m.registration_number) ||
+          (text(m.chassis_number)
+            ? `Chassis ${text(m.chassis_number)}`
+            : 'Unregistered'),
       compact([m.make, m.model, m.body_type]).join(' / '),
       text(m.year_of_manufacture),
       compact([
@@ -488,7 +553,7 @@ function fleetTable(ctx: Ctx): DocBlock {
     kind: 'table',
     columns: [
       { header: 'SN', width: 4 },
-      { header: 'Registration', width: 12 },
+      { header: ctx.shortTerm ? 'Chassis No.' : 'Registration', width: 12 },
       { header: 'Make / Model', width: 20 },
       { header: 'Year', width: 6, align: 'center' },
       { header: 'Cover', width: 22 },
@@ -839,7 +904,8 @@ export function premiumBlock(
   for (const item of [...risks, ...addons]) {
     for (const tax of (item.taxes ?? []) as Rec[]) {
       const code = text(tax.tax_code).toUpperCase();
-      const exempt = tax.is_tax_exempted === true || tax.is_tax_exempted === 'Y';
+      const exempt =
+        tax.is_tax_exempted === true || tax.is_tax_exempted === 'Y';
       const rate = toNumber(tax.tax_rate);
       const key = `${code}|${rate ?? ''}|${exempt}`;
       const entry = taxes.get(key) ?? {
@@ -878,6 +944,7 @@ export function premiumBlock(
     lines,
     totalLabel: 'TOTAL PREMIUM PAYABLE',
     total: money(currency, total),
+    words: amountInWords(total, currency),
   };
 }
 
@@ -1000,13 +1067,67 @@ function authorisationSection(ctx: Ctx): DocSection | null {
   );
   const blocks: DocBlock[] = [];
   if (fields.length) blocks.push({ kind: 'fields', fields, columns: 2 });
+  blocks.push({
+    kind: 'signatures',
+    signatories: [
+      {
+        role: 'Authorised Officer',
+        name: text(
+          overview.approved_by?.name ??
+            overview.approved_by?.full_name ??
+            ctx.p.cover_note?.authorizing_officer_name,
+        ),
+        title: text(ctx.p.cover_note?.authorizing_officer_title),
+      },
+    ],
+    stamp: true,
+  });
   if (pending) {
     blocks.push({
       kind: 'paragraph',
       text: 'This quotation is subject to underwriting approval and is not yet authorised.',
     });
   }
-  return blocks.length ? { title: 'Authorisation', blocks } : null;
+  return { title: 'Authorisation', blocks };
+}
+
+/* ----------------------------- Regulatory ------------------------------- */
+
+/** TIRA details once a cover note has been issued for the quotation. */
+function regulatorySection(ctx: Ctx): DocSection | null {
+  if (ctx.kind === 'NON_MOTOR') return null;
+  const t: Rec = ctx.p.tiramis ?? {};
+  const fields = compactFields([
+    ['Sticker No.', t.sticker_number],
+    ['Cover Note Ref.', t.cover_note_reference_number],
+    ['TIRA Status', t.cover_note_reference_number ? 'Issued' : ''],
+  ]);
+  if (!fields.length) return null;
+  return { title: 'TIRA Details', blocks: [{ kind: 'regulatory', fields }] };
+}
+
+/* ------------------------------ Next steps ------------------------------ */
+
+function nextStepsSection(ctx: Ctx, insurer: Rec | null): DocSection {
+  const payment = paymentInstructionFields(
+    insurer,
+    ctx.p.payment?.payment_reference,
+  );
+  const blocks: DocBlock[] = [
+    {
+      kind: 'bullets',
+      items: [
+        'To accept this quotation, confirm with us in writing or through your agent before it expires.',
+        'Pay the total premium payable using the details below and quote the quotation number as the payment reference.',
+        'Once payment is confirmed, the policy and cover note are issued and sent to you.',
+      ],
+    },
+  ];
+  if (payment.length) {
+    blocks.push({ kind: 'subheading', text: 'Payment Details' });
+    blocks.push({ kind: 'fields', fields: payment, columns: 2 });
+  }
+  return { title: 'Next Steps', blocks };
 }
 
 /* ------------------------------ Helpers --------------------------------- */
@@ -1023,29 +1144,6 @@ function watermark(q: Rec, overview: Rec, expired: boolean) {
   if (expired || display === 'EXPIRED') return 'EXPIRED';
   if (display === 'DRAFT' || status === 'DRAFT') return 'DRAFT';
   return '';
-}
-
-function letterhead(company: Rec | null): string[] {
-  if (!company) return [];
-  const a: Rec = company.address ?? {};
-  return compact([
-    compact([a.street, a.city, a.region]).join(', '),
-    compact([a.postal_code && `P.O. Box ${a.postal_code}`, a.country]).join(
-      ', ',
-    ),
-    compact([
-      company.contact_phone && `Tel: ${company.contact_phone}`,
-      company.contact_email && `Email: ${company.contact_email}`,
-    ]).join('   '),
-    text(company.website),
-    compact([
-      company.tin && `TIN: ${company.tin}`,
-      company.tira_license_number &&
-        `TIRA Licence No: ${company.tira_license_number}`,
-      company.brela_registration_number &&
-        `Reg. No: ${company.brela_registration_number}`,
-    ]).join('   '),
-  ]);
 }
 
 function allRisks(p: Rec): Rec[] {
@@ -1080,31 +1178,8 @@ function countryName(code: unknown) {
   return text(code);
 }
 
-export function text(value: unknown): string {
-  if (value == null) return '';
-  if (value instanceof Date) return formatDate(value);
-  const s = String(value).trim();
-  return /^(null|undefined|nan)$/i.test(s) ? '' : s;
-}
-
-function compact(values: unknown[]): string[] {
-  return values.map(text).filter(Boolean);
-}
-
-function compactFields(pairs: [string, unknown][]): DocField[] {
-  return pairs
-    .map(([label, value]) => ({ label, value: text(value) }))
-    .filter((field) => field.value);
-}
-
 function unique(values: string[]) {
   return [...new Set(values.filter(Boolean))];
-}
-
-export function toNumber(value: unknown): number | null {
-  if (value == null || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
 }
 
 function positive(value: unknown) {
@@ -1121,63 +1196,10 @@ function sum(values: unknown[]) {
   );
 }
 
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
-export function formatMoney(value: number) {
-  return (Object.is(roundMoney(value), -0) ? 0 : value).toLocaleString(
-    'en-US',
-    {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    },
-  );
-}
-
 function formatInt(value: unknown) {
   return (toNumber(value) ?? 0).toLocaleString('en-US', {
     maximumFractionDigits: 0,
   });
-}
-
-function money(currency: string, value: number) {
-  return compact([currency, formatMoney(value)]).join(' ');
-}
-
-function toDate(value: unknown): Date | null {
-  if (!value) return null;
-  const date = value instanceof Date ? value : new Date(String(value));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-/** Tanzanian documents print dates as dd/mm/yyyy in East Africa Time. */
-const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
-
-function eat(date: Date) {
-  return new Date(date.getTime() + EAT_OFFSET_MS);
-}
-
-export function formatDate(value: unknown) {
-  const date = toDate(value);
-  if (!date) return '';
-  // Plain dates (yyyy-mm-dd) are calendar dates; print them as stored.
-  const d =
-    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
-      ? date
-      : eat(date);
-  return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`;
-}
-
-export function formatDateTime(value: unknown) {
-  const date = toDate(value);
-  if (!date) return '';
-  const d = eat(date);
-  return `${formatDate(date)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
-}
-
-function pad(n: number) {
-  return String(n).padStart(2, '0');
 }
 
 function periodLabel(start: Date | null, end: Date | null) {

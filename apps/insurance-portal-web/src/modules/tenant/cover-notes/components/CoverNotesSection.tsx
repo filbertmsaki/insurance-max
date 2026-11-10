@@ -35,10 +35,13 @@ export function CoverNotesSection({
   policyId,
   quotationId,
   tiraAccepted = false,
+  hideHeader = false,
 }: {
   policyId?: string;
   quotationId?: string;
   tiraAccepted?: boolean;
+  /** Drop the "Cover Notes" title and description (host already labels it). */
+  hideHeader?: boolean;
 }) {
   const queryClient = useQueryClient();
   const { hasPermission } = useAuthStore();
@@ -74,34 +77,46 @@ export function CoverNotesSection({
 
   if (!canRead) return null;
 
+  const resyncButton = canResync ? (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      onClick={() => resync.mutate()}
+      disabled={resync.isPending}
+      title="Re-run issuance for this TIRA-accepted quotation"
+    >
+      <RefreshCw className="mr-2 h-4 w-4" />
+      {resync.isPending ? 'Re-syncing…' : 'Re-sync issuance'}
+    </Button>
+  ) : undefined;
+  const table = (
+    <DataTable
+      {...tableProps}
+      columns={COLUMNS}
+      rowKey={(note) => note.id}
+      searchPlaceholder="Search cover note, TIRA reference or sticker"
+      emptyMessage="No cover notes have been issued yet."
+      showColumnVisibility={false}
+    />
+  );
+
+  if (hideHeader) {
+    return (
+      <div className="min-w-0 space-y-3">
+        {resyncButton && <div className="flex justify-end">{resyncButton}</div>}
+        {table}
+      </div>
+    );
+  }
+
   return (
     <SectionCard
       title="Cover Notes"
-      description="Cover notes issued through TIRAMIS for this record."
-      action={
-        canResync ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => resync.mutate()}
-            disabled={resync.isPending}
-            title="Re-run issuance for this TIRA-accepted quotation"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            {resync.isPending ? 'Re-syncing…' : 'Re-sync issuance'}
-          </Button>
-        ) : undefined
-      }
+      description="Cover notes issued through TIRA for this record."
+      action={resyncButton}
     >
-      <DataTable
-        {...tableProps}
-        columns={COLUMNS}
-        rowKey={(note) => note.id}
-        searchPlaceholder="Search cover note, TIRA reference or sticker"
-        emptyMessage="No cover notes have been issued yet."
-        showColumnVisibility={false}
-      />
+      {table}
     </SectionCard>
   );
 }

@@ -8,7 +8,7 @@ import {
   formatDateTime,
   formatMoney,
   formatNumber,
-} from '@/components/shared/detailFormat';
+} from '../utils/quotationFormat';
 import type { QuotationPreviewRecord, QuotationPreviewRisk } from '../types';
 import { SectionCard } from './QuotationDetailLayout';
 import {
@@ -265,7 +265,7 @@ export function FleetQuotationDetails({
                   className="min-h-11 text-sm font-medium text-blue-600 underline"
                   onClick={onViewTiramis}
                 >
-                  View vehicle submission status in TIRAMIS
+                  View vehicle submission status in TIRA
                 </button>
               )}
             {sizeMismatch && (
@@ -277,15 +277,15 @@ export function FleetQuotationDetails({
             {summary.failed_entries > 0 && (
               <Notice>
                 {summary.failed_entries} vehicle
-                {summary.failed_entries === 1 ? '' : 's'} failed TIRAMIS
-                submission. See the TIRAMIS Information tab.
+                {summary.failed_entries === 1 ? '' : 's'} failed TIRA
+                submission. See the TIRA tab.
               </Notice>
             )}
             {summary.pending_entries > 0 && (
               <Notice>
                 {summary.pending_entries} vehicle
                 {summary.pending_entries === 1 ? ' is' : 's are'} awaiting a
-                TIRAMIS response.
+                TIRA response.
               </Notice>
             )}
           </div>

@@ -2038,9 +2038,17 @@ export class CompaniesService {
       );
     }
 
-    const { name, ...rest } = dto;
+    const { name, settings, ...rest } = dto;
     void name;
     Object.assign(company, rest);
+    // Merge settings instead of replacing them, so a form that edits some
+    // keys (e.g. timezone) cannot wipe others (e.g. payment_details).
+    if (settings !== undefined) {
+      company.settings = {
+        ...(company.settings ?? {}),
+        ...(settings ?? {}),
+      };
+    }
 
     return this.companyRepository.save(company);
   }

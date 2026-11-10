@@ -14,6 +14,7 @@ import {
   formatDate,
   formatMoney,
 } from '../components';
+import { PdfDocumentActions } from '@/modules/shared/documents/PdfDocumentActions';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function FinanceReceiptDetailPage() {
@@ -85,7 +86,13 @@ export function FinanceReceiptDetailPage() {
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <PdfDocumentActions
+          base={`/tenant/finance/receipts/${receipt.id}/document`}
+          number={receipt.receipt_no}
+          noun="receipt"
+          filePrefix="Receipt"
+        />
         {['POSTED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED'].includes(
           receipt.status,
         ) ? (

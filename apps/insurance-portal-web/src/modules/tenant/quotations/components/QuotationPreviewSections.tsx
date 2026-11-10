@@ -1,5 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Eye, Search } from 'lucide-react';
+import {
+  CheckCircle2,
+  Cog,
+  Eye,
+  Search,
+  UserRound,
+  Wallet,
+  XCircle,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +38,7 @@ import {
   formatMoney,
   formatNumber,
   humanizeCode,
-} from '@/components/shared/detailFormat';
+} from '../utils/quotationFormat';
 import { QuotationStatusBadge } from './QuotationStatusBadge';
 import type {
   QuotationPreviewAddon,
@@ -49,6 +57,12 @@ import type {
 } from '../types';
 import type { CoverNoteRecord } from '@/modules/tenant/cover-notes/types';
 import { getFriendlyTiramisStatus } from '../utils/quotationWorkflowLabels';
+import {
+  groupHistory,
+  type HistoryEventKind,
+  type HistoryFilter,
+  type HistoryGroup,
+} from '../utils/quotationHistory';
 import {
   getMotorTypeLabelFromCode,
   getMotorUsageLabelFromCode,
@@ -78,17 +92,33 @@ export function QuotationInformationPreview({
 }) {
   const { overview } = preview;
   return (
-    <SectionCard title="Quotation Information">
+    <SectionCard
+      id="section-quotation"
+      title="Quotation information"
+      summary={[
+        humanizeCode(overview.quotation_type),
+        overview.branch.name ?? overview.branch.code,
+        overview.channel_type ? humanizeCode(overview.channel_type) : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')}
+    >
       <KeyValueGrid
         items={[
           { label: 'Quotation Number', value: overview.quotation_no },
-          { label: 'Quotation Type', value: overview.quotation_type },
-          { label: 'Quotation Flow', value: overview.quotation_flow },
+          {
+            label: 'Quotation Type',
+            value: humanizeCode(overview.quotation_type),
+          },
+          {
+            label: 'Quotation Flow',
+            value: humanizeCode(overview.quotation_flow),
+          },
           {
             label: 'Quotation Status',
             value: <QuotationStatusBadge status={overview.display_status} />,
           },
-          { label: 'Channel Type', value: overview.channel_type },
+          { label: 'Channel Type', value: humanizeCode(overview.channel_type) },
           {
             label: 'Company',
             value: overview.company.name ?? overview.company.code,
@@ -170,7 +200,15 @@ export function QuotationCoverPreview({
 }) {
   const { cover_note } = preview;
   return (
-    <SectionCard title="Cover and Insurance Details">
+    <SectionCard
+      id="section-cover"
+      title="Cover and insurance"
+      summary={
+        cover_note.cover_note_start_date || cover_note.cover_note_end_date
+          ? `${formatDate(cover_note.cover_note_start_date)} – ${formatDate(cover_note.cover_note_end_date)}`
+          : undefined
+      }
+    >
       <KeyValueGrid
         items={[
           {
@@ -266,7 +304,7 @@ export function QuotationPremiumPreview({
       sumInsured={premium_summary.total_sum_insured}
       rows={[
         {
-          label: 'Base Premium',
+          label: 'Premium before discount',
           value: premium_summary.total_premium_before_discount,
         },
         {
@@ -275,7 +313,7 @@ export function QuotationPremiumPreview({
           negative: true,
         },
         {
-          label: 'Premium Excluding Tax',
+          label: 'Premium excluding tax',
           value: premium_summary.total_premium_excluding_tax,
         },
         {
@@ -284,7 +322,7 @@ export function QuotationPremiumPreview({
         },
       ]}
       total={{
-        label: 'Total Premium',
+        label: 'Total premium',
         value: premium_summary.total_premium_including_tax,
       }}
     />
@@ -321,9 +359,17 @@ export function PolicyholderPreview({
         <SectionCard
           mobileCollapsible={mobileCollapsible}
           key={`${holder.full_name ?? 'policyholder'}-${index}`}
+          summary={[
+            holder.policyholder_type
+              ? humanizeCode(String(holder.policyholder_type))
+              : null,
+            holder.region || holder.district,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
           title={
             policyholders.length === 1
-              ? 'Policyholder / Customer Details'
+              ? 'Policyholder'
               : `Policyholder ${index + 1}`
           }
         >
@@ -403,6 +449,14 @@ function RiskSection({
         <SectionCard
           key={`${risk.risk_code ?? 'risk'}-${index}`}
           title={`${title} ${risk.risk_number ?? index + 1}`}
+          summary={[
+            risk.risk_name ?? risk.risk_code,
+            risk.premium_including_tax != null
+              ? formatMoney(risk.premium_including_tax)
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         >
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div className="flex flex-wrap gap-2">
@@ -454,92 +508,6 @@ function RiskSection({
               },
             ]}
           />
-
-          <Separator className="my-4" />
-          <div>
-            <div className="mb-2 text-sm font-semibold text-slate-900">
-              Premium Overrides
-            </div>
-            {risk.premium_overrides.length ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Original</TableHead>
-                    <TableHead>Proposed</TableHead>
-                    <TableHead>Difference</TableHead>
-                    <TableHead>Requested By</TableHead>
-                    <TableHead>Requested At</TableHead>
-                    <TableHead>Decided By</TableHead>
-                    <TableHead>Decided At</TableHead>
-                    <TableHead>Reason</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {risk.premium_overrides.map((premiumOverride) => (
-                    <TableRow key={premiumOverride.id}>
-                      <TableCell>
-                        <Badge
-                          variant={premiumOverrideBadgeVariant(
-                            premiumOverride.approval_status,
-                          )}
-                        >
-                          {premiumOverride.approval_status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {formatMoney(
-                          premiumOverride.original_calculated_premium,
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {formatMoney(premiumOverride.proposed_premium)}
-                      </TableCell>
-                      <TableCell>
-                        {formatMoney(premiumOverride.difference_amount)}
-                        {premiumOverride.difference_percentage !== null ? (
-                          <div className="text-xs text-slate-500">
-                            {formatNumber(
-                              premiumOverride.difference_percentage,
-                              4,
-                            )}
-                            %
-                          </div>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        {displayValue(
-                          premiumOverride.requested_by.name ??
-                            premiumOverride.requested_by.code,
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {formatDateTime(premiumOverride.requested_at)}
-                      </TableCell>
-                      <TableCell>
-                        {displayValue(
-                          premiumOverride.approved_by.name ??
-                            premiumOverride.approved_by.code,
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {formatDateTime(premiumOverride.approved_at)}
-                      </TableCell>
-                      <TableCell>
-                        {displayValue(
-                          premiumOverride.rejection_reason ??
-                            premiumOverride.supporting_notes ??
-                            premiumOverride.override_reason,
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <EmptyState text="No premium overrides recorded." />
-            )}
-          </div>
 
           <Separator className="my-4" />
           <div className="grid gap-4 xl:grid-cols-2">
@@ -620,6 +588,125 @@ function RiskSection({
   );
 }
 
+/** Premium overrides of every risk, in one section of their own. */
+export function PremiumOverridesPreview({
+  risks,
+}: {
+  risks: QuotationPreviewRisk[];
+}) {
+  const withOverrides = risks.filter((risk) => risk.premium_overrides.length);
+  return (
+    <SectionCard
+      id="section-overrides"
+      title="Premium overrides"
+      defaultOpen={withOverrides.length > 0}
+      summary={
+        withOverrides.length
+          ? `${withOverrides.length} ${withOverrides.length === 1 ? 'risk' : 'risks'} with overrides`
+          : 'None recorded'
+      }
+    >
+      {withOverrides.length ? (
+        <div className="space-y-5">
+          {withOverrides.map((risk, index) => (
+            <div
+              key={`${risk.risk_id}-${index}`}
+              className="min-w-0 overflow-x-auto"
+            >
+              {withOverrides.length > 1 || risks.length > 1 ? (
+                <p className="mb-2 text-sm font-semibold text-slate-900">
+                  {displayValue(risk.risk_name ?? risk.risk_code)}
+                </p>
+              ) : null}
+              {risk.premium_overrides.length ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Original</TableHead>
+                      <TableHead>Proposed</TableHead>
+                      <TableHead>Difference</TableHead>
+                      <TableHead>Requested By</TableHead>
+                      <TableHead>Requested At</TableHead>
+                      <TableHead>Decided By</TableHead>
+                      <TableHead>Decided At</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {risk.premium_overrides.map((premiumOverride) => (
+                      <TableRow key={premiumOverride.id}>
+                        <TableCell>
+                          <Badge
+                            variant={premiumOverrideBadgeVariant(
+                              premiumOverride.approval_status,
+                            )}
+                          >
+                            {premiumOverride.approval_status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {formatMoney(
+                            premiumOverride.original_calculated_premium,
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {formatMoney(premiumOverride.proposed_premium)}
+                        </TableCell>
+                        <TableCell>
+                          {formatMoney(premiumOverride.difference_amount)}
+                          {premiumOverride.difference_percentage !== null ? (
+                            <div className="text-xs text-slate-500">
+                              {formatNumber(
+                                premiumOverride.difference_percentage,
+                                4,
+                              )}
+                              %
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          {displayValue(
+                            premiumOverride.requested_by.name ??
+                              premiumOverride.requested_by.code,
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {formatDateTime(premiumOverride.requested_at)}
+                        </TableCell>
+                        <TableCell>
+                          {displayValue(
+                            premiumOverride.approved_by.name ??
+                              premiumOverride.approved_by.code,
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {formatDateTime(premiumOverride.approved_at)}
+                        </TableCell>
+                        <TableCell>
+                          {displayValue(
+                            premiumOverride.rejection_reason ??
+                              premiumOverride.supporting_notes ??
+                              premiumOverride.override_reason,
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <EmptyState text="No premium overrides recorded." />
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-500">No premium overrides recorded.</p>
+      )}
+    </SectionCard>
+  );
+}
+
 export function RiskPreview({
   risks,
   renderRiskActions,
@@ -646,7 +733,10 @@ export function SubjectMatterPreview({
   }
 
   return (
-    <SectionCard title="Subject Matters">
+    <SectionCard
+      title="Subject Matters"
+      summary={`${subjectMatters.length} ${subjectMatters.length === 1 ? 'item' : 'items'}`}
+    >
       <Table>
         <TableHeader>
           <TableRow>
@@ -755,7 +845,7 @@ export function AddonPreview({ addons }: { addons: QuotationPreviewAddon[] }) {
 
 export function MotorDetailsPreview({
   motor,
-  title = 'Motor Details',
+  title = 'Vehicle',
 }: {
   motor: QuotationPreviewMotorDetails | null;
   title?: string;
@@ -763,7 +853,15 @@ export function MotorDetailsPreview({
   if (!motor) return <EmptyState text="No motor details available." />;
 
   return (
-    <SectionCard title={title}>
+    <SectionCard
+      title={title}
+      summary={[
+        motor.registration_number || motor.chassis_number,
+        [motor.make, motor.model].filter(Boolean).join(' '),
+      ]
+        .filter(Boolean)
+        .join(' · ')}
+    >
       <KeyValueGrid
         items={[
           {
@@ -1198,7 +1296,7 @@ export function FleetVehiclesTable({
     },
     {
       key: 'tiramis',
-      header: 'TIRAMIS',
+      header: 'TIRA',
       hideOnMobile: true,
       cell: (vehicle) => tiramisStatusBadge(vehicle.tiramis?.submission_status),
     },
@@ -1529,74 +1627,121 @@ export function PaymentPreview({
   );
 }
 
+const TIRA_TONE: Record<string, string> = {
+  Issued: 'border-green-200 bg-green-50 text-green-800',
+  Issuing: 'border-sky-200 bg-sky-50 text-sky-800',
+  'Ready to Issue': 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  'Not Issued': 'border-slate-200 bg-slate-100 text-slate-700',
+  Rejected: 'border-red-200 bg-red-50 text-red-800',
+  'Action Required': 'border-red-200 bg-red-50 text-red-800',
+};
+
 export function TiramisSubmissionPreview({
   tiramis,
 }: {
   tiramis: QuotationPreviewTiramisSubmission | null;
 }) {
   if (!tiramis)
-    return <EmptyState text="No TIRAMIS submission information available." />;
+    return <EmptyState text="No TIRA submission information available." />;
 
   const friendlyStatus = getFriendlyTiramisStatus(tiramis);
+  const failed =
+    friendlyStatus === 'Rejected' || friendlyStatus === 'Action Required';
+  const error =
+    tiramis.last_submission_error ||
+    (friendlyStatus === 'Rejected'
+      ? tiramis.response_status_description
+      : null);
 
   return (
-    <SectionCard title="TIRAMIS Submission">
+    <SectionCard title="TIRA submission">
       <div className="space-y-4">
-        <KeyValueGrid
-          items={[
-            {
-              label: 'Status',
-              value: friendlyStatus,
-            },
-            { label: 'Request ID', value: displayValue(tiramis.request_id) },
-            {
-              label: 'Callback Status',
-              value: displayValue(tiramis.callback_received_status),
-            },
-            {
-              label: 'Callback Received',
-              value: formatDateTime(tiramis.callback_received_date),
-            },
-            {
-              label: 'TIRAMIS Cover Note Reference',
-              value: displayValue(tiramis.cover_note_reference_number),
-            },
-            {
-              label: 'Sticker Number',
-              value: displayValue(tiramis.sticker_number),
-            },
-            {
-              label: 'Submitted',
-              value: formatDateTime(tiramis.date_submitted),
-            },
-            {
-              label: 'Last Issue',
-              value: displayValue(tiramis.last_submission_error),
-            },
-            {
-              label: 'Next Retry',
-              value: formatDateTime(tiramis.next_retry_time),
-            },
-          ]}
-        />
+        <div
+          className={
+            'rounded-lg border p-4 ' +
+            (failed ? 'border-red-200 bg-red-50/40' : 'border-slate-200')
+          }
+        >
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <span
+              className={
+                'inline-flex items-center rounded-full border px-3 py-1 text-[13px] font-semibold ' +
+                (TIRA_TONE[friendlyStatus] ?? TIRA_TONE['Not Issued'])
+              }
+            >
+              {friendlyStatus}
+            </span>
+            {tiramis.submission_attempt_number &&
+            tiramis.submission_attempt_number > 1 ? (
+              <span className="text-[13px] text-slate-600">
+                Attempt {tiramis.submission_attempt_number}
+              </span>
+            ) : null}
+          </div>
+          <KeyValueGrid
+            items={[
+              { label: 'Request ID', value: displayValue(tiramis.request_id) },
+              {
+                label: 'Cover note reference',
+                value: displayValue(tiramis.cover_note_reference_number),
+              },
+              {
+                label: 'Sticker number',
+                value: displayValue(tiramis.sticker_number),
+              },
+              {
+                label: 'Submitted at',
+                value: formatDateTime(tiramis.date_submitted),
+              },
+              {
+                label: 'Callback status',
+                value: displayValue(tiramis.callback_received_status),
+              },
+              {
+                label: 'Callback received',
+                value: formatDateTime(tiramis.callback_received_date),
+              },
+            ]}
+          />
+        </div>
+
+        {error || tiramis.next_retry_time ? (
+          <div
+            role={error ? 'alert' : undefined}
+            className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          >
+            {error && (
+              <p className="[overflow-wrap:anywhere]">
+                <span className="font-semibold">Last error:</span>{' '}
+                {displayValue(error)}
+              </p>
+            )}
+            {tiramis.next_retry_time && (
+              <p className={error ? 'mt-1' : undefined}>
+                <span className="font-semibold">Next retry:</span>{' '}
+                {formatDateTime(tiramis.next_retry_time)}
+              </p>
+            )}
+          </div>
+        ) : null}
 
         <details className="rounded-lg border border-slate-200 bg-white p-4">
           <summary className="cursor-pointer text-sm font-semibold text-slate-900">
-            Integration Details
+            Integration details
           </summary>
           <div className="mt-4">
             <KeyValueGrid
               items={[
                 {
-                  label: 'Submission Status',
+                  label: 'Submission status',
                   value: displayValue(tiramis.submission_status),
                 },
                 {
-                  label: 'Submission Attempt',
+                  label: 'Submission attempt',
                   value: displayValue(tiramis.submission_attempt_number),
                 },
                 {
-                  label: 'Submitted By',
+                  label: 'Submitted by',
                   value: displayValue(tiramis.submitted_by),
                 },
                 {
@@ -1608,33 +1753,29 @@ export function TiramisSubmissionPreview({
                   value: displayValue(tiramis.acknowledgement_id),
                 },
                 {
-                  label: 'Acknowledgement Status Code',
+                  label: 'Acknowledgement status code',
                   value: displayValue(tiramis.acknowledgement_status_code),
                 },
                 {
-                  label: 'Acknowledgement Description',
+                  label: 'Acknowledgement description',
                   value: displayValue(
                     tiramis.acknowledgement_status_description,
                   ),
                 },
                 {
-                  label: 'Acknowledgement Received',
+                  label: 'Acknowledgement received',
                   value: formatDateTime(tiramis.acknowledgement_received_date),
-                },
-                {
-                  label: 'Callback Received Status',
-                  value: displayValue(tiramis.callback_received_status),
                 },
                 {
                   label: 'Response ID',
                   value: displayValue(tiramis.response_id),
                 },
                 {
-                  label: 'Response Status Code',
+                  label: 'Response status code',
                   value: displayValue(tiramis.response_status_code),
                 },
                 {
-                  label: 'Response Description',
+                  label: 'Response description',
                   value: displayValue(tiramis.response_status_description),
                 },
               ]}
@@ -1646,66 +1787,210 @@ export function TiramisSubmissionPreview({
   );
 }
 
+const HISTORY_FILTERS: Array<{ value: HistoryFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'user', label: 'User actions' },
+  { value: 'system', label: 'System' },
+  { value: 'errors', label: 'Errors' },
+];
+
+const KIND_STYLE: Record<
+  HistoryEventKind,
+  { icon: typeof Eye; className: string; label: string }
+> = {
+  success: {
+    icon: CheckCircle2,
+    className: 'bg-green-100 text-green-700',
+    label: 'Success',
+  },
+  failure: {
+    icon: XCircle,
+    className: 'bg-red-100 text-red-700',
+    label: 'Error',
+  },
+  payment: {
+    icon: Wallet,
+    className: 'bg-amber-100 text-amber-800',
+    label: 'Payment',
+  },
+  user: {
+    icon: UserRound,
+    className: 'bg-blue-100 text-blue-700',
+    label: 'User action',
+  },
+  system: {
+    icon: Cog,
+    className: 'bg-slate-100 text-slate-600',
+    label: 'System',
+  },
+};
+
+function HistoryEntry({ group }: { group: HistoryGroup }) {
+  const [expanded, setExpanded] = useState(false);
+  const event = group.latest;
+  const style = KIND_STYLE[event.kind];
+  const Icon = style.icon;
+  const failure = event.kind === 'failure';
+  return (
+    <li className="relative flex gap-3 pb-6 last:pb-0">
+      <span
+        aria-hidden
+        className="absolute left-[15px] top-8 h-[calc(100%-2rem)] w-px bg-slate-200"
+      />
+      <span
+        className={`relative z-[1] flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${style.className}`}
+      >
+        <Icon className="h-4 w-4" aria-hidden />
+        <span className="sr-only">{style.label}</span>
+      </span>
+      <div
+        className={
+          'min-w-0 flex-1 [overflow-wrap:anywhere] ' +
+          (failure ? 'rounded-lg border border-red-200 bg-red-50/60 p-3' : '')
+        }
+      >
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <p
+            className={
+              'text-[15px] font-semibold ' +
+              (failure ? 'text-red-800' : 'text-slate-900')
+            }
+          >
+            {event.title}
+            {group.count > 1 && (
+              <span className="ml-1.5 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                ×{group.count}
+              </span>
+            )}
+          </p>
+        </div>
+        <p className="mt-0.5 text-[13px] text-slate-500">
+          {event.actor} · {formatDateTime(event.dateTime)}
+          {group.count > 1 &&
+            ` (latest; first ${formatDateTime(
+              group.events[group.events.length - 1].dateTime,
+            )})`}
+        </p>
+        {event.transition && (
+          <p className="mt-1 text-[13px] text-slate-600">{event.transition}</p>
+        )}
+        {event.remarks && (
+          <p
+            className={
+              'mt-1 whitespace-pre-wrap text-sm ' +
+              (failure ? 'text-red-800' : 'text-slate-700')
+            }
+          >
+            {event.remarks}
+          </p>
+        )}
+        {group.count > 1 && (
+          <>
+            <button
+              type="button"
+              aria-expanded={expanded}
+              onClick={() => setExpanded(!expanded)}
+              className="mt-2 min-h-11 text-[13px] font-medium text-blue-700 hover:underline sm:min-h-0"
+            >
+              {expanded ? 'Hide occurrences' : `Show all ${group.count}`}
+            </button>
+            {expanded && (
+              <ul className="mt-2 space-y-1 border-l border-slate-200 pl-3 text-[13px] text-slate-600">
+                {group.events.map((item, index) => (
+                  <li key={index}>
+                    {formatDateTime(item.dateTime)} · {item.actor}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Vertical activity timeline, newest first. Consecutive duplicates are
+ * grouped, automated events show "System", and errors are highlighted. This
+ * only changes presentation; stored history is untouched.
+ */
 export function QuotationHistoryPreview({
   history,
-  title = 'Quotation Activity',
+  title = 'Quotation activity',
+  showFilters = true,
 }: {
   history: QuotationPreviewHistoryItem[];
   title?: string;
+  showFilters?: boolean;
 }) {
+  const [filter, setFilter] = useState<HistoryFilter>('all');
   const [page, setPage] = useState(1);
-  const ordered = [...history].sort(
-    (a, b) =>
-      (Date.parse(b.date_time ?? '') || 0) -
-      (Date.parse(a.date_time ?? '') || 0),
+  const groups = useMemo(
+    () => groupHistory(history, showFilters ? filter : 'all'),
+    [history, filter, showFilters],
   );
-  const pages = Math.max(1, Math.ceil(ordered.length / 20));
+  const errorCount = useMemo(
+    () => groupHistory(history, 'errors').length,
+    [history],
+  );
+  const pageSize = 25;
+  const pages = Math.max(1, Math.ceil(groups.length / pageSize));
   const currentPage = Math.min(page, pages);
+
   return (
     <SectionCard title={title} description="Most recent activity first.">
+      {showFilters && history.length > 0 && (
+        <div
+          role="radiogroup"
+          aria-label="Filter activity"
+          className="mb-5 flex flex-wrap gap-2"
+        >
+          {HISTORY_FILTERS.map((option) => {
+            const selected = option.value === filter;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => {
+                  setFilter(option.value);
+                  setPage(1);
+                }}
+                className={
+                  'min-h-11 rounded-full border px-4 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:min-h-9 ' +
+                  (selected
+                    ? 'border-blue-600 bg-blue-600 text-white'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50')
+                }
+              >
+                {option.label}
+                {option.value === 'errors' && errorCount > 0
+                  ? ` (${errorCount})`
+                  : ''}
+              </button>
+            );
+          })}
+        </div>
+      )}
       {!history.length ? (
         <EmptyState text="No history available." />
+      ) : !groups.length ? (
+        <p className="text-sm text-slate-500">No matching activity.</p>
       ) : (
-        <ol className="divide-y divide-slate-100">
-          {ordered
-            .slice((currentPage - 1) * 20, currentPage * 20)
-            .map((item, index) => (
-              <li
-                key={`${item.action}-${index}`}
-                className="grid min-w-0 gap-2 py-4 first:pt-0 sm:grid-cols-[10rem_minmax(0,1fr)]"
-              >
-                <p className="text-xs text-slate-500">
-                  {formatDateTime(item.date_time)}
-                </p>
-                <div className="min-w-0 space-y-1 [overflow-wrap:anywhere]">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {humanizeCode(item.action)}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {item.performed_by || 'Actor not recorded'}
-                  </p>
-                  {(item.previous_status || item.new_status) && (
-                    <p className="text-xs text-slate-600">
-                      {item.previous_status
-                        ? `${humanizeCode(item.previous_status)} → `
-                        : ''}
-                      {item.new_status ? humanizeCode(item.new_status) : '—'}
-                    </p>
-                  )}
-                  {item.remarks && (
-                    <p className="whitespace-pre-wrap text-sm text-slate-700">
-                      {item.remarks}
-                    </p>
-                  )}
-                </div>
-              </li>
+        <ol className="[&>li:last-child>span:first-child]:hidden">
+          {groups
+            .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+            .map((group) => (
+              <HistoryEntry key={group.key} group={group} />
             ))}
         </ol>
       )}
       {pages > 1 && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 text-[13px] text-slate-500">
           <span>
-            Page {currentPage} of {pages} · {history.length} events
+            Page {currentPage} of {pages} · {groups.length} entries
           </span>
           <div className="flex gap-2">
             <Button

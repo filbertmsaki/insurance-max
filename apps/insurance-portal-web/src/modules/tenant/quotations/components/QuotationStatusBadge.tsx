@@ -52,7 +52,8 @@ export function QuotationStatusBadge({
   const text = String(status)
     .toLowerCase()
     .replace(/_/g, ' ')
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+    .replace(/\bTira(mis)?\b/g, 'TIRA');
 
   return (
     <Badge variant="outline" className={statusClasses[key]}>

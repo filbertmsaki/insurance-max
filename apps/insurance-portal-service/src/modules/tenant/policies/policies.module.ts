@@ -28,6 +28,10 @@ import { PoliciesController } from './policies.controller';
 import { PoliciesService } from './policies.service';
 import { PolicyVersionDiffService } from './services/policy-version-diff.service';
 import { InsurancePdfService } from '../documents/insurance-pdf.service';
+import { Invoice } from '../billing-commission/entities/invoice.entity';
+import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { PaymentReference } from '../billing-commission/entities/payment-reference.entity';
+import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
 import { InsuranceDocumentsController } from '../documents/insurance-documents.controller';
 
 @Module({
@@ -57,6 +61,10 @@ import { InsuranceDocumentsController } from '../documents/insurance-documents.c
       Quotation,
       QuotationEntryRisk,
       User,
+      Invoice,
+      Receipt,
+      PaymentReference,
+      PaymentTransaction,
     ]),
   ],
   controllers: [PoliciesController, InsuranceDocumentsController],

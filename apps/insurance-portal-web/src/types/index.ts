@@ -212,7 +212,20 @@ export interface CompanySettings {
   currency?: string;
   date_format?: string;
   allow_self_registration?: boolean;
+  /** Printed on quotations and tax invoices (Payment Instructions). */
+  payment_details?: CompanyPaymentDetails;
   [key: string]: unknown;
+}
+
+export interface CompanyPaymentDetails {
+  bank_name?: string | null;
+  account_name?: string | null;
+  account_number?: string | null;
+  bank_branch?: string | null;
+  swift_code?: string | null;
+  mobile_money_name?: string | null;
+  mobile_money_number?: string | null;
+  vrn?: string | null;
 }
 
 export interface NumberFormatSettings {

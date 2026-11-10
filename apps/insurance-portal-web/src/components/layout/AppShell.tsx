@@ -1,4 +1,5 @@
 import { underwritePaths } from '@/modules/tenant/underwrite/paths';
+import { motorInsurancePaths } from '@/modules/tenant/motor-insurance/paths';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -18,6 +19,15 @@ export function AppShell() {
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const crumbs = useBreadcrumb();
+  // Screens with a dedicated phone layout put their title in the app bar.
+  // Quotation detail screens (any line) draw their own phone top bar.
+  const isQuotationDetail = /\/quotations\/(?!new$)[^/]+$/.test(
+    location.pathname,
+  );
+  const mobileTitle =
+    location.pathname === motorInsurancePaths.quotations
+      ? { eyebrow: 'Motor Insurance', title: 'Quotations' }
+      : undefined;
 
   useLayoutEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -84,13 +94,22 @@ export function AppShell() {
               <Header
                 onToggleSidebar={toggleSidebar}
                 onOpenCommand={() => setCommandOpen(true)}
+                mobileTitle={mobileTitle}
               />
               <main
                 ref={mainRef}
-                className="vz-main flex min-h-0 flex-1 flex-col overflow-y-auto"
+                className={cn(
+                  'vz-main flex min-h-0 flex-1 flex-col overflow-y-auto',
+                  (mobileTitle || isQuotationDetail) && 'max-md:bg-[#F4F5F9]',
+                )}
               >
                 <PageTitleBar
                   crumbs={crumbs}
+                  className={
+                    mobileTitle || isQuotationDetail
+                      ? 'max-md:hidden'
+                      : undefined
+                  }
                   links={
                     location.pathname.startsWith(
                       underwritePaths.quotations('fleet'),
@@ -102,7 +121,13 @@ export function AppShell() {
                       : undefined
                   }
                 />
-                <div className="w-full flex-1 px-3 py-5 sm:px-5 lg:px-6 lg:py-6">
+                <div
+                  className={
+                    isQuotationDetail
+                      ? 'w-full flex-1 px-3 py-5 md:px-6 md:py-[14px]'
+                      : 'w-full flex-1 px-3 py-5 sm:px-5 lg:px-6 lg:py-6'
+                  }
+                >
                   <Outlet />
                 </div>
                 <footer className="flex shrink-0 flex-col gap-1 px-3 py-4 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6">

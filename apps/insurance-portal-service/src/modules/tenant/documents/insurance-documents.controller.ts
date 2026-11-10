@@ -5,6 +5,7 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { FinancePermissions } from '../billing-commission/finance.permissions';
 import { InsurancePdfService } from './insurance-pdf.service';
 
 @ApiTags('insurance-documents')
@@ -54,6 +55,48 @@ export class InsuranceDocumentsController {
     @Res() res: Response,
   ) {
     return this.send(await this.documents.schedule(user, id), res, true);
+  }
+
+  @Get('finance/invoices/:id/document/preview')
+  @Permissions(FinancePermissions.INVOICES_READ)
+  @ApiOperation({ summary: 'Preview a tax invoice PDF' })
+  async invoicePreview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    return this.send(await this.documents.invoice(user, id), res, false);
+  }
+
+  @Get('finance/invoices/:id/document/download')
+  @Permissions(FinancePermissions.INVOICES_READ)
+  async invoiceDownload(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    return this.send(await this.documents.invoice(user, id), res, true);
+  }
+
+  @Get('finance/receipts/:id/document/preview')
+  @Permissions(FinancePermissions.RECEIPTS_READ)
+  @ApiOperation({ summary: 'Preview a receipt PDF' })
+  async receiptPreview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    return this.send(await this.documents.receipt(user, id), res, false);
+  }
+
+  @Get('finance/receipts/:id/document/download')
+  @Permissions(FinancePermissions.RECEIPTS_READ)
+  async receiptDownload(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    return this.send(await this.documents.receipt(user, id), res, true);
   }
 
   private send(

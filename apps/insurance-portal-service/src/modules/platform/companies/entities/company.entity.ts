@@ -25,6 +25,17 @@ export interface CompanySettings {
   currency?: string;
   date_format?: string;
   allow_self_registration?: boolean;
+  /** Bank / mobile-money details printed on quotations and tax invoices. */
+  payment_details?: {
+    bank_name?: string | null;
+    account_name?: string | null;
+    account_number?: string | null;
+    bank_branch?: string | null;
+    swift_code?: string | null;
+    mobile_money_name?: string | null;
+    mobile_money_number?: string | null;
+    vrn?: string | null;
+  };
   [key: string]: unknown;
 }
 

@@ -30,6 +30,10 @@ import { formatCoverPeriod } from '@/modules/tenant/quotations/utils/coverPeriod
 import { canEditQuotation } from '@/modules/tenant/quotations/utils/quotation-editability';
 import { motorInsuranceApi, motorInsuranceKeys } from '../api';
 import { MotorTypeBadge } from '../components/MotorTypeBadge';
+import {
+  MotorQuotationMobileList,
+  type MotorTypeChip,
+} from '../components/MotorQuotationMobileList';
 import { motorInsurancePaths } from '../paths';
 
 const STATUS_OPTIONS = [
@@ -70,7 +74,7 @@ function isFleetRow(row: QuotationListItem) {
 export function MotorInsuranceQuotationsPage() {
   const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
-  const { tableProps, state } = useServerTable<
+  const { tableProps, state, rows, total, totalPages, query } = useServerTable<
     QuotationListItem,
     (typeof FILTER_KEYS)[number]
   >({
@@ -233,108 +237,144 @@ export function MotorInsuranceQuotationsPage() {
     },
   ];
 
+  const filters = tableFilters(state.filters, [
+    {
+      key: 'type',
+      label: 'Type',
+      placeholder: 'All types',
+      options: TYPE_FILTER_OPTIONS,
+    },
+    {
+      key: 'status',
+      label: 'Quotation status',
+      placeholder: 'All quotation statuses',
+      options: STATUS_OPTIONS.map((value) => ({
+        value,
+        label: value.replace(/_/g, ' '),
+      })),
+    },
+    ...(
+      [
+        [
+          'approval_status',
+          'Approval',
+          [
+            'NOT_REQUIRED',
+            'NOT_SUBMITTED',
+            'PENDING',
+            'APPROVED',
+            'CHANGES_REQUESTED',
+            'REJECTED',
+            'CANCELLED',
+          ],
+        ],
+        [
+          'payment_status',
+          'Payment',
+          [
+            'NOT_REQUIRED',
+            'NOT_INITIATED',
+            'REQUESTED',
+            'PROCESSING',
+            'PARTIALLY_PAID',
+            'PAID',
+            'FAILED',
+            'EXPIRED',
+            'CANCELLED',
+            'REFUNDED',
+          ],
+        ],
+        [
+          'tira_status',
+          'TIRA',
+          [
+            'NOT_SUBMITTED',
+            'SUBMITTING',
+            'SUBMITTED',
+            'PROCESSING',
+            'SUCCESS',
+            'ENDORSED',
+            'CANCELLED',
+            'REJECTED',
+            'FAILED',
+          ],
+        ],
+      ] as const
+    ).map(([key, label, values]) => ({
+      key,
+      label,
+      placeholder: `Any ${label} status`,
+      options: values.map((value) => ({
+        value,
+        label: value.replace(/_/g, ' '),
+      })),
+    })),
+  ]);
+
   return (
     <div>
-      <PageHeader
-        eyebrow="Motor Insurance"
-        title="Quotations"
-        description="Single Motor and Fleet quotations in one register."
-        action={
-          <>
-            <CompanySwitcher menuLabel="Filter by owner company" />
-            {canCreateAny ? (
-              <Button
-                className="w-full sm:w-auto"
-                onClick={() => navigate(motorInsurancePaths.quotationCreate())}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New Motor Quotation
-              </Button>
-            ) : null}
-          </>
+      {/* Phone layout (<768px); tablet/desktop keep the header + table below. */}
+      <MotorQuotationMobileList
+        rows={rows}
+        total={total}
+        loading={tableProps.loading}
+        isFetching={tableProps.isFetching}
+        error={tableProps.error ? 'Unable to load quotations' : undefined}
+        onRetry={tableProps.onRetry}
+        onRefresh={() => query.refetch()}
+        search={state.search ?? ''}
+        onSearchChange={state.setSearch}
+        type={(state.filters.type ?? '') as MotorTypeChip}
+        onTypeChange={(value) => state.setFilter('type', value)}
+        sortBy={state.sortBy}
+        sortOrder={state.sortOrder}
+        onSortChange={state.setSort}
+        filters={filters.filter((filter) => filter.key !== 'type')}
+        onFilterChange={tableProps.onFilterChange}
+        page={state.page}
+        totalPages={totalPages}
+        onPageChange={state.setPage}
+        onOpen={(row) => navigate(motorInsurancePaths.quotationDetail(row.id))}
+        onCreate={
+          canCreateAny
+            ? () => navigate(motorInsurancePaths.quotationCreate())
+            : undefined
         }
+        sheetExtras={<CompanySwitcher menuLabel="Filter by owner company" />}
       />
 
-      <DataTable
-        {...tableProps}
-        error={tableProps.error ? 'Unable to load quotations' : undefined}
-        columns={columns}
-        searchPlaceholder="Search by quotation no., customer..."
-        filters={tableFilters(state.filters, [
-          {
-            key: 'type',
-            label: 'Type',
-            placeholder: 'All types',
-            options: TYPE_FILTER_OPTIONS,
-          },
-          {
-            key: 'status',
-            label: 'Quotation status',
-            placeholder: 'All quotation statuses',
-            options: STATUS_OPTIONS.map((value) => ({
-              value,
-              label: value.replace(/_/g, ' '),
-            })),
-          },
-          ...(
-            [
-              [
-                'approval_status',
-                'Approval',
-                [
-                  'NOT_REQUIRED',
-                  'NOT_SUBMITTED',
-                  'PENDING',
-                  'APPROVED',
-                  'CHANGES_REQUESTED',
-                  'REJECTED',
-                  'CANCELLED',
-                ],
-              ],
-              [
-                'payment_status',
-                'Payment',
-                [
-                  'NOT_REQUIRED',
-                  'NOT_INITIATED',
-                  'REQUESTED',
-                  'PROCESSING',
-                  'PARTIALLY_PAID',
-                  'PAID',
-                  'FAILED',
-                  'EXPIRED',
-                  'CANCELLED',
-                  'REFUNDED',
-                ],
-              ],
-              [
-                'tira_status',
-                'TIRA',
-                [
-                  'NOT_SUBMITTED',
-                  'SUBMITTING',
-                  'SUBMITTED',
-                  'PROCESSING',
-                  'SUCCESS',
-                  'ENDORSED',
-                  'CANCELLED',
-                  'REJECTED',
-                  'FAILED',
-                ],
-              ],
-            ] as const
-          ).map(([key, label, values]) => ({
-            key,
-            label,
-            placeholder: `Any ${label} status`,
-            options: values.map((value) => ({
-              value,
-              label: value.replace(/_/g, ' '),
-            })),
-          })),
-        ])}
-        emptyMessage="No motor quotations found"
-      />
+      <div className="max-md:hidden">
+        <PageHeader
+          eyebrow="Motor Insurance"
+          title="Quotations"
+          description="Single Motor and Fleet quotations in one register."
+          action={
+            <>
+              <CompanySwitcher menuLabel="Filter by owner company" />
+              {canCreateAny ? (
+                <Button
+                  className="w-full sm:w-auto"
+                  onClick={() =>
+                    navigate(motorInsurancePaths.quotationCreate())
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Motor Quotation
+                </Button>
+              ) : null}
+            </>
+          }
+        />
+
+        <DataTable
+          {...tableProps}
+          error={tableProps.error ? 'Unable to load quotations' : undefined}
+          columns={columns}
+          searchPlaceholder="Search by quotation no., customer..."
+          filters={filters}
+          emptyMessage="No motor quotations found"
+        />
+      </div>
     </div>
   );
 }

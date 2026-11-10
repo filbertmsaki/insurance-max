@@ -80,7 +80,37 @@ const editSchema = z.object({
   settings_currency: z.string().max(10).optional(),
   settings_date_format: z.string().max(30).optional(),
   settings_allow_self_registration: z.boolean().optional(),
+  // Payment details printed on quotations and tax invoices
+  pay_bank_name: z.string().max(120).optional(),
+  pay_account_name: z.string().max(150).optional(),
+  pay_account_number: z.string().max(60).optional(),
+  pay_bank_branch: z.string().max(120).optional(),
+  pay_swift_code: z.string().max(20).optional(),
+  pay_mobile_money_name: z.string().max(120).optional(),
+  pay_mobile_money_number: z.string().max(30).optional(),
+  pay_vrn: z.string().max(30).optional(),
 });
+
+/** Payment-detail fields, stored under settings.payment_details. */
+const PAYMENT_FIELDS = [
+  { key: 'bank_name', label: 'Bank Name', placeholder: 'CRDB Bank' },
+  { key: 'account_name', label: 'Account Name', placeholder: 'Company Ltd' },
+  { key: 'account_number', label: 'Account Number', placeholder: '0150...' },
+  { key: 'bank_branch', label: 'Bank Branch', placeholder: 'Azikiwe' },
+  { key: 'swift_code', label: 'SWIFT Code', placeholder: 'CORUTZTZ' },
+  {
+    key: 'mobile_money_number',
+    label: 'Mobile Money Number',
+    placeholder: '07...',
+  },
+  {
+    key: 'mobile_money_name',
+    label: 'Mobile Money Name',
+    placeholder: 'M-Pesa / Lipa Namba',
+  },
+  { key: 'vrn', label: 'VRN', placeholder: '40-000000-A' },
+] as const;
+type PaymentKey = (typeof PAYMENT_FIELDS)[number]['key'];
 
 type EditFormValues = z.infer<typeof editSchema>;
 
@@ -146,6 +176,12 @@ function EditMyCompanyDialog({
       settings_currency: s.currency ?? '',
       settings_date_format: s.date_format ?? '',
       settings_allow_self_registration: s.allow_self_registration ?? false,
+      ...Object.fromEntries(
+        PAYMENT_FIELDS.map(({ key }) => [
+          `pay_${key}`,
+          s.payment_details?.[key] ?? '',
+        ]),
+      ),
     },
   });
 
@@ -178,6 +214,12 @@ function EditMyCompanyDialog({
       currency: values.settings_currency || undefined,
       date_format: values.settings_date_format || undefined,
       allow_self_registration: values.settings_allow_self_registration,
+      payment_details: Object.fromEntries(
+        PAYMENT_FIELDS.map(({ key }) => [
+          key,
+          values[`pay_${key}` as `pay_${PaymentKey}`]?.trim() || null,
+        ]),
+      ),
     };
 
     onSubmit(payload);
@@ -411,6 +453,32 @@ function EditMyCompanyDialog({
                     </FormItem>
                   )}
                 />
+              </div>
+            </div>
+
+            <div>
+              <SectionLabel>Payment Details</SectionLabel>
+              <p className="-mt-1 mb-3 text-xs text-slate-500">
+                Printed under Payment Instructions on quotations and tax
+                invoices. Leave blank to hide a line.
+              </p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {PAYMENT_FIELDS.map(({ key, label, placeholder }) => (
+                  <FormField
+                    key={key}
+                    control={form.control}
+                    name={`pay_${key}` as `pay_${PaymentKey}`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{label}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={placeholder} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
               </div>
             </div>
 

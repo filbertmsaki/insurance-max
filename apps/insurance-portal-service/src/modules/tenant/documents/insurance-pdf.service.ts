@@ -11,12 +11,30 @@ import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { MotorPolicyDetail } from '../motor/entities/motor-policy-detail.entity';
 import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
 import { QuotationFlow } from '../quotations/enums/quotation-flow.enum';
+import { Invoice } from '../billing-commission/entities/invoice.entity';
+import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { PaymentReference } from '../billing-commission/entities/payment-reference.entity';
+import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
 import {
-  MotorScheduleVehicle,
-  renderMotorSchedule,
-} from './motor-schedule.renderer';
-import { buildQuotationDocument } from './quotation-document.model';
-import { renderQuotationDocument } from './quotation-document.renderer';
+  documentFileName,
+  formatDate as docDate,
+  formatDateTime as docDateTime,
+  money as docMoney,
+} from './branded-document';
+import { renderBrandedDocument } from './branded-document.renderer';
+import {
+  buildInvoiceDocument,
+  buildReceiptDocument,
+} from './finance-document.model';
+import {
+  buildPolicySchedule,
+  type PolicyScheduleVehicle,
+} from './policy-schedule.model';
+import {
+  buildQuotationDocument,
+  documentKind,
+  insuranceDetailFields,
+} from './quotation-document.model';
 
 @Injectable()
 export class InsurancePdfService {
@@ -28,7 +46,106 @@ export class InsurancePdfService {
     @InjectRepository(MotorPolicyDetail)
     private readonly motorDetails: Repository<MotorPolicyDetail>,
     private readonly nonMotorRisks: NonMotorRiskService,
+    @InjectRepository(Invoice)
+    private readonly invoices: Repository<Invoice>,
+    @InjectRepository(Receipt)
+    private readonly receipts: Repository<Receipt>,
+    @InjectRepository(PaymentReference)
+    private readonly paymentReferences: Repository<PaymentReference>,
+    @InjectRepository(PaymentTransaction)
+    private readonly transactions: Repository<PaymentTransaction>,
   ) {}
+
+  /** Tax invoice PDF, scoped to the user's company. */
+  async invoice(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<{ bytes: Uint8Array; filename: string }> {
+    const invoice = await this.invoices.findOne({
+      where: { id, company_id: user.companyId! },
+      relations: {
+        insurer_company: true,
+        company: true,
+        customer: true,
+        quotation: true,
+        policy: true,
+        branch: true,
+        issuer: true,
+        poster: true,
+        creator: true,
+        items: true,
+      },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    const issuer = invoice.insurer_company ?? invoice.company;
+    const [reference, logo] = await Promise.all([
+      this.paymentReferences.findOne({
+        where: { company_id: invoice.company_id, invoice_id: invoice.id },
+        order: { created_at: 'DESC' },
+      }),
+      fetchLogo(issuer?.logo_url),
+    ]);
+    const doc = buildInvoiceDocument({
+      invoice,
+      issuer,
+      logo,
+      controlNumber: reference?.control_number ?? null,
+    });
+    return {
+      bytes: await renderBrandedDocument(doc),
+      filename: documentFileName('Invoice', invoice.invoice_no),
+    };
+  }
+
+  /** Receipt PDF, scoped to the user's company. */
+  async receipt(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<{ bytes: Uint8Array; filename: string }> {
+    const receipt = await this.receipts.findOne({
+      where: { id, company_id: user.companyId! },
+      relations: {
+        company: true,
+        customer: true,
+        branch: true,
+        receiver: true,
+      },
+    });
+    if (!receipt) throw new NotFoundException('Receipt not found');
+    const [invoice, transaction] = await Promise.all([
+      receipt.invoice_id
+        ? this.invoices.findOne({
+            where: { id: receipt.invoice_id, company_id: receipt.company_id },
+            relations: {
+              insurer_company: true,
+              quotation: true,
+              policy: true,
+              branch: true,
+            },
+          })
+        : Promise.resolve(null),
+      receipt.payment_transaction_id
+        ? this.transactions.findOne({
+            where: {
+              id: receipt.payment_transaction_id,
+              company_id: receipt.company_id,
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+    const issuer = invoice?.insurer_company ?? receipt.company;
+    const doc = buildReceiptDocument({
+      receipt,
+      invoice,
+      issuer,
+      logo: await fetchLogo(issuer?.logo_url),
+      transactionNo: transaction?.transaction_no ?? null,
+    });
+    return {
+      bytes: await renderBrandedDocument(doc),
+      filename: documentFileName('Receipt', receipt.receipt_no),
+    };
+  }
 
   async quotation(
     user: AuthenticatedUser,
@@ -51,9 +168,11 @@ export class InsurancePdfService {
       nonMotor,
       logo,
     });
-    const bytes = await renderQuotationDocument(doc);
-    const name = doc.quotationNo || 'quotation';
-    return { bytes, filename: `${safeFilename(name)}.pdf` };
+    const bytes = await renderBrandedDocument(doc);
+    return {
+      bytes,
+      filename: documentFileName('Quotation', doc.quotationNo || 'quotation'),
+    };
   }
 
   async schedule(
@@ -97,7 +216,7 @@ export class InsurancePdfService {
     const draft = ['DRAFT', 'PENDING', 'INCOMPLETE'].includes(
       String(policy.policy_status).toUpperCase(),
     );
-    const filename = `${safeFilename(policy.policy_no)}-schedule.pdf`;
+    const filename = documentFileName('Policy', policy.policy_no);
 
     const activeRisks = (policy.risks ?? []).filter((risk) => !risk.deleted_at);
     const bytes = await this.motorSchedule(
@@ -173,27 +292,77 @@ export class InsurancePdfService {
     const end = version?.effective_to ?? policy.end_date;
     const intermediary = policy.intermediary_company?.name ?? '';
     const issuer = intermediary || policy.insurer_company?.name || '';
-    const printedBy = user.companyName || issuer;
-    const today = formatDate(new Date());
 
-    return renderMotorSchedule({
-      insurerName: policy.insurer_company?.name ?? '',
-      insurerLogo: await fetchLogo(policy.insurer_company?.logo_url),
+    const quotationOverview = quotation?.overview ?? {};
+    const motor =
+      String(quotationOverview.quotation_flow ?? '').startsWith('MOTOR') ||
+      vehicleIds.length > 0 ||
+      !!version?.asset_manifest?.entries?.some(
+        (entry: Record<string, any>) => entry?.motor,
+      );
+    const doc = buildPolicySchedule({
+      insurer: policy.insurer_company ?? null,
+      logo: await fetchLogo(policy.insurer_company?.logo_url),
       policyNo: policy.policy_no,
+      quotationNo: String(quotationOverview.quotation_no ?? ''),
       coverNoteNo: policy.cover_note_no ?? '',
-      insuredName,
-      insurerContact: insurerContact(policy.insurer_company),
-      productName: [policy.product?.product_name, policy.sub_class?.name]
-        .filter(Boolean)
-        .join(' / '),
+      stickerNo: policy.sticker_no ?? version?.regulatory_sticker_number ?? '',
       policyStatus: humanize(status),
+      issueDate: docDate(policy.issue_date ?? start),
       branch: policy.branch?.name ?? '',
-      insuredTin: String(customer.tin ?? ''),
-      insuredPhone: String(customer.phone ?? ''),
-      insuredEmail: String(customer.email ?? ''),
-      sumInsured: `${policy.currency} ${formatMoney(
+      preparedBy: issuer,
+      approvedBy: issuer,
+      intermediary,
+      policyholder: [
+        [
+          /corporate|company/i.test(String(customer.customer_type ?? ''))
+            ? 'Company Name'
+            : 'Full Name',
+          insuredName,
+        ],
+        ['Customer Type', humanize(String(customer.customer_type ?? ''))],
+        ['Customer No.', customer.customer_no],
+        ['TIN', customer.tin],
+        ['VRN', customer.vrn],
+        ['Telephone', customer.phone],
+        ['Email', customer.email],
+        [
+          'Postal Address',
+          customer.postal_address ? `P.O. Box ${customer.postal_address}` : '',
+        ],
+        [
+          'Physical Address',
+          [customer.street, customer.district, customer.region]
+            .filter(Boolean)
+            .join(', '),
+        ],
+      ],
+      productName: policy.product?.product_name ?? '',
+      insuranceClass: policy.sub_class?.name ?? '',
+      coverType: String(quotationOverview.insurance_category?.name ?? ''),
+      from: docDate(start),
+      to: docDate(end),
+      renewalDate: docDate(addDays(end, 1)),
+      sumInsured: docMoney(
+        policy.currency,
         toNumber(pricing.sum_insured ?? policy.sum_insured),
-      )}`,
+      ),
+      currency: policy.currency,
+      totalAmount: total,
+      insuranceDetails: quotation
+        ? insuranceDetailFields(quotation, {
+            start,
+            end,
+            currency: policy.currency,
+          })
+        : undefined,
+      motor,
+      transit: quotation
+        ? documentKind(
+            { quotation_flow: quotationOverview.quotation_flow },
+            quotation,
+          ).startsWith('SHORT_TERM')
+        : false,
       premiumLines,
       verification: [
         `Policy: ${policy.policy_no}`,
@@ -206,34 +375,12 @@ export class InsurancePdfService {
       ]
         .filter(Boolean)
         .join('\n'),
-      generatedAt: `${new Date().toISOString().replace('T', ' ').slice(0, 16)} UTC`,
+      generatedAt: docDateTime(new Date()),
       watermark: draft
         ? 'DRAFT'
         : STAMPED_STATUSES.includes(status.toUpperCase())
           ? status.toUpperCase()
           : '',
-      brokerInvoiceNo: String(
-        policy.metadata?.broker_invoice_no ??
-          policy.distribution_snapshot?.invoice_no ??
-          '',
-      ),
-      addressDetails: String(
-        customer.street ?? customer.district ?? customer.address ?? '',
-      ),
-      postalAddress: [
-        customer.street ?? customer.district,
-        customer.postal_address,
-        customer.region,
-        customer.district,
-        customer.country ?? 'Tanzania (United Republic of Tanzania)',
-      ]
-        .filter(Boolean)
-        .join(','),
-      from: formatDate(start),
-      to: formatDate(end),
-      renewalDate: formatDate(addDays(end, 1)),
-      currency: policy.currency,
-      total: formatMoney(total),
       vehicles:
         withFallback(
           manifestVehicles(
@@ -247,7 +394,9 @@ export class InsurancePdfService {
           const v = vehicleId ? vehicleById.get(vehicleId) : undefined;
           const detail = detailByRisk.get(risk.id);
           return {
-            registrationNo: v?.registration_no ?? '',
+            // Unregistered vehicles are identified by chassis number.
+            registrationNo: v?.registration_no || v?.chassis_no || '',
+            chassisNo: v?.chassis_no ?? '',
             makeModelBody: [v?.make, v?.model, v?.body_type]
               .filter(Boolean)
               .join(' / '),
@@ -259,32 +408,12 @@ export class InsurancePdfService {
             coverType: humanize(
               detail?.cover_type ?? v?.vehicle_category ?? v?.usage_type ?? '',
             ),
-            windscreenAmount: '',
             estimatedValue: formatMoney(toNumber(risk.sum_insured)),
           };
         }),
-      place: 'Dar Es Salaam',
-      issueDate: formatDate(policy.issue_date ?? start),
-      intermediary,
-      preparedBy: issuer,
-      approvedBy: issuer,
-      printedBy,
-      printedOn: today,
     });
+    return renderBrandedDocument(doc);
   }
-}
-
-function safeFilename(value: string) {
-  const sanitized = [...value]
-    .map((character) => {
-      const code = character.charCodeAt(0);
-      return /[\\/:*?"<>|]/.test(character) || code < 32 || code === 127
-        ? '-'
-        : character;
-    })
-    .join('');
-
-  return sanitized.replace(/\s+/g, '-').slice(0, 100) || 'document';
 }
 
 function toNumber(value: unknown) {
@@ -375,34 +504,6 @@ function itemisePremium(
     .map(([label, amount]) => [label, formatMoney(amount)]);
 }
 
-/** Letterhead lines: address, contacts and regulatory identifiers. */
-function insurerContact(company: Policy['insurer_company'] | null) {
-  if (!company) return [];
-  const a = company.address ?? {};
-  const join = (parts: unknown[], sep: string) =>
-    parts.filter(Boolean).join(sep);
-  return [
-    join([a.street, a.city, a.region], ', '),
-    join([a.postal_code && `P.O. Box ${a.postal_code}`, a.country], ', '),
-    join(
-      [
-        company.contact_phone && `Tel: ${company.contact_phone}`,
-        company.contact_email,
-      ],
-      '  |  ',
-    ),
-    company.website ?? '',
-    join(
-      [
-        company.tin && `TIN: ${company.tin}`,
-        company.tira_license_number &&
-          `TIRA Licence: ${company.tira_license_number}`,
-      ],
-      '  |  ',
-    ),
-  ].filter(Boolean);
-}
-
 /**
  * Vehicle rows from the issued version's asset manifest. Issuance snapshots
  * each cover-note entry's motor details there (policy risks are not linked to
@@ -426,7 +527,8 @@ function manifestVehicles(
     );
     const str = (value: unknown) => (value == null ? '' : String(value));
     return {
-      registrationNo: str(m.registrationNumber),
+      registrationNo: str(m.registrationNumber) || str(m.chassisNumber),
+      chassisNo: str(m.chassisNumber),
       makeModelBody: [m.make, m.model, m.bodyType].filter(Boolean).join(' / '),
       cc: str(m.engineCapacity),
       year: str(m.yearOfManufacture),
@@ -434,13 +536,12 @@ function manifestVehicles(
       seating: str(m.sittingCapacity),
       color: str(m.color),
       coverType: humanize(str(m.motorUsage ?? m.motorCategory ?? '')),
-      windscreenAmount: '',
       estimatedValue: formatMoney(sumInsured),
     };
   });
 }
 
-type VehicleRow = MotorScheduleVehicle;
+type VehicleRow = PolicyScheduleVehicle;
 
 function isBlank(value: unknown) {
   return value == null || String(value).trim() === '';
@@ -479,7 +580,8 @@ function quotationVehicles(
         0,
       );
       return {
-        registrationNo: str(m.registration_number),
+        registrationNo: str(m.registration_number) || str(m.chassis_number),
+        chassisNo: str(m.chassis_number),
         makeModelBody: [m.make, m.model, m.body_type]
           .filter(Boolean)
           .join(' / '),
@@ -489,7 +591,6 @@ function quotationVehicles(
         seating: str(m.seating_capacity),
         color: str(m.colour),
         coverType: str(m.motor_usage ?? m.motor_category),
-        windscreenAmount: '',
         estimatedValue: sumInsured ? formatMoney(sumInsured) : '',
       };
     });
@@ -515,8 +616,9 @@ function withFallback(
     const merged = { ...row };
     for (const key of Object.keys(row) as (keyof VehicleRow)[]) {
       const weak =
-        isBlank(row[key]) || (key === 'coverType' && /^\d+$/.test(row[key]));
-      if (weak && !isBlank(other[key])) merged[key] = other[key];
+        isBlank(row[key]) ||
+        (key === 'coverType' && /^\d+$/.test(row[key] ?? ''));
+      if (weak && !isBlank(other[key])) merged[key] = other[key] ?? '';
     }
     return merged;
   });

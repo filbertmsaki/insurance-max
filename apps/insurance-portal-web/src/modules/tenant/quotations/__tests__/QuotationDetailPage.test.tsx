@@ -65,7 +65,11 @@ vi.mock('@/modules/shared/documents/download-pdf', () => ({
   documentFilename: (value: string) => value + '.pdf',
 }));
 vi.mock('@/modules/tenant/finance/api', () => ({
-  financeTableApi: { payments: vi.fn() },
+  financeTableApi: {
+    payments: vi.fn(),
+    invoices: vi.fn().mockResolvedValue({ data: [], pagination: {} }),
+    receipts: vi.fn().mockResolvedValue({ data: [], pagination: {} }),
+  },
 }));
 vi.mock('@/modules/tenant/cover-notes/api', () => ({
   coverNotesApi: { list: vi.fn().mockResolvedValue([]) },
@@ -142,10 +146,14 @@ describe('Quotation details redesign', () => {
   ])('preserves the %s workflow action', (command, label) => {
     state.commands = { [command]: true };
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: label }));
+    // Desktop and phone summaries both render (CSS shows one), so use the first.
+    fireEvent.click(screen.getAllByRole('button', { name: label })[0]);
     expect(state.mutate).toHaveBeenCalledTimes(1);
   });
   it('shows approval, document download and policy permission states in separate tabs', async () => {
+    const preview = quotationDetailFixture();
+    preview.overview.requires_approval = true;
+    state.preview = preview;
     renderPage();
     selectTab('Approval');
     expect(
@@ -161,10 +169,9 @@ describe('Quotation details redesign', () => {
         expect.any(String),
       ),
     );
-    selectTab('Policy');
-    expect(
-      screen.getByText('You do not have permission to view policies.'),
-    ).toBeInTheDocument();
+    // The tab shows cover notes only; the policy number lives in the summary.
+    selectTab('Policy & Cover Notes');
+    expect(screen.getByText('Cover note actions')).toBeInTheDocument();
     expect(underwriteApi.getPolicies).not.toHaveBeenCalled();
   });
   it('previews the quotation PDF from the same document endpoint', async () => {
@@ -178,26 +185,51 @@ describe('Quotation details redesign', () => {
         '/tenant/quotations/quotation-1/document/preview',
       ),
     );
+    // The PDF opens in a pop-up dialog rather than inline on the tab.
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Quotation QUO-2026-000123');
     expect(await screen.findByTitle(/Quotation .* preview/)).toHaveAttribute(
       'src',
       'blob:quotation',
     );
-    expect(
-      screen.getByRole('button', { name: 'Hide preview' }),
-    ).toBeInTheDocument();
   });
-  it('loads only policies belonging to this quotation when the Policy tab is opened', async () => {
+  it('opens the same pop-up for printing', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:quotation');
+    URL.revokeObjectURL = vi.fn();
+    renderPage();
+    selectTab('Documents');
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(fetchPdfBlob).toHaveBeenCalledWith(
+      '/tenant/quotations/quotation-1/document/preview',
+    );
+    expect(dialog).toContainElement(screen.getByTitle(/Quotation .* preview/));
+  });
+  it('hides the approval tab when approval is not required and has no history', () => {
+    renderPage();
+    expect(screen.queryByRole('tab', { name: 'Approval' })).toBeNull();
+    expect(screen.getAllByText('Not required').length).toBeGreaterThan(0);
+  });
+  it('loads only policies belonging to this quotation for the summary and Policy tab', async () => {
     useAuthStore.setState({ hasPermission: () => true });
     vi.mocked(underwriteApi.getPolicies).mockResolvedValueOnce({
       data: [{ id: 'policy-1', policy_no: 'POL-1', policy_status: 'ACTIVE' }],
       pagination: {},
     } as never);
     renderPage();
-    expect(underwriteApi.getPolicies).not.toHaveBeenCalled();
-    selectTab('Policy');
-    expect(await screen.findByRole('link', { name: 'POL-1' })).toHaveAttribute(
-      'href',
-      '/apps/motor/policies/policy-1',
+    // The summary card shows the policy number without opening a tab.
+    const summaryLinks = await screen.findAllByRole('link', { name: 'POL-1' });
+    summaryLinks.forEach((link) =>
+      expect(link).toHaveAttribute('href', '/apps/motor/policies/policy-1'),
+    );
+    expect(
+      screen.getAllByRole('button', { name: 'Copy policy number POL-1' })
+        .length,
+    ).toBeGreaterThan(0);
+    // The tab no longer repeats the policy; the summary is the single place.
+    selectTab('Policy & Cover Notes');
+    expect(screen.getAllByRole('link', { name: 'POL-1' })).toHaveLength(
+      summaryLinks.length,
     );
     expect(underwriteApi.getPolicies).toHaveBeenCalledWith(
       'motor',
@@ -211,7 +243,7 @@ describe('Quotation details redesign', () => {
     details.focus();
     fireEvent.keyDown(details, { key: 'ArrowRight' });
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: 'Approval' })).toHaveAttribute(
+      expect(screen.getByRole('tab', { name: 'Documents' })).toHaveAttribute(
         'aria-selected',
         'true',
       ),
@@ -240,11 +272,10 @@ describe('Quotation details redesign', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Overview',
       'Vehicles (1)',
-      'Approval',
       'Documents',
-      'Policy',
+      'Policy & Cover Notes',
       'Payments',
-      'TIRAMIS',
+      'TIRA',
       'History',
     ]);
     expect(screen.queryByText('T777FLT')).not.toBeInTheDocument();
@@ -333,17 +364,16 @@ describe('Quotation details redesign', () => {
       renderPage();
       expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
         'Quotation Details',
-        'Approval',
         'Documents',
-        'Policy',
+        'Policy & Cover Notes',
         'Payment Details & History',
-        'TIRAMIS Information',
+        'TIRA',
         'Quotation History',
       ]);
       const sectionHeadings =
         flow === 'MOTOR_FLEET'
           ? ['Fleet overview', 'Cover and terms', 'Record details']
-          : ['Quotation Information', 'Cover and Insurance Details'];
+          : ['Quotation information', 'Cover and insurance'];
       sectionHeadings.forEach((name) =>
         expect(screen.getByRole('heading', { name })).toBeInTheDocument(),
       );
@@ -401,29 +431,26 @@ describe('Quotation details redesign', () => {
     );
     expect(financeTableApi.payments).toHaveBeenCalledTimes(1);
   });
-  it('preserves TIRAMIS information, cover-note actions and authentic history', () => {
+  it('preserves TIRA information, cover-note actions and authentic history', () => {
     renderPage();
-    selectTab('TIRAMIS Information');
+    selectTab('TIRA');
     expect(screen.getByText('REQ-2026-001')).toBeInTheDocument();
-    selectTab('Documents');
+    selectTab('Policy & Cover Notes');
     expect(screen.getByText('Cover note actions')).toBeInTheDocument();
+    selectTab('Quotation History');
+    expect(screen.getByText('Quotation created')).toBeInTheDocument();
+    // One filterable timeline replaces the duplicate submission list.
     expect(
       screen.queryByRole('heading', {
         name: 'Submission and Synchronization History',
       }),
     ).not.toBeInTheDocument();
-    selectTab('Quotation History');
-    expect(screen.getByText('Quotation created')).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        name: 'Submission and Synchronization History',
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Errors' })).toBeInTheDocument();
     expect(
       screen.getAllByText('Acknowledgement received').length,
     ).toBeGreaterThan(0);
   });
-  it('opens the existing TIRAMIS tab from a fleet submission warning', () => {
+  it('opens the existing TIRA tab from a fleet submission warning', () => {
     const preview = quotationDetailFixture('MOTOR_FLEET');
     preview.fleet!.summary.failed_entries = 1;
     state.preview = preview;
@@ -431,23 +458,22 @@ describe('Quotation details redesign', () => {
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Overview',
       'Vehicles (0)',
-      'Approval',
       'Documents',
-      'Policy',
+      'Policy & Cover Notes',
       'Payments',
-      'TIRAMIS',
+      'TIRA',
       'History',
     ]);
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'View vehicle submission status in TIRAMIS',
+        name: 'View vehicle submission status in TIRA',
       }),
     );
-    expect(screen.getByRole('tab', { name: 'TIRAMIS' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'TIRA' })).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    selectTab('Documents');
+    selectTab('Policy & Cover Notes');
     expect(screen.getByText('Cover note actions')).toBeInTheDocument();
     expect(financeTableApi.payments).not.toHaveBeenCalled();
   });
@@ -479,11 +505,70 @@ describe('Quotation details redesign', () => {
   it('keeps workflow actions gated by backend commands', () => {
     state.commands = { APPROVE: true };
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Approve' })[0]);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Issue Cover' }),
     ).not.toBeInTheDocument();
+  });
+  it.each([
+    ['MOTOR_SINGLE', 'Underwrite · Motor · Single motor', 'Single motor'],
+    ['MOTOR_FLEET', 'Underwrite · Motor · Fleet', 'Fleet motor'],
+    ['NON_MOTOR', 'Underwrite · Non-motor', 'Non-motor'],
+  ] as const)(
+    'labels the %s summary for desktop and phone',
+    (flow, full, short) => {
+      state.preview = quotationDetailFixture(flow);
+      renderPage(flow === 'MOTOR_FLEET' ? 'fleet' : undefined);
+      expect(screen.getByText(full)).toBeInTheDocument();
+      expect(screen.getByText(short)).toBeInTheDocument();
+      expect(
+        screen.getAllByRole('heading', { level: 1, name: 'QUO-2026-000123' }),
+      ).toHaveLength(2);
+      expect(
+        screen.queryAllByRole('button', { name: /View fleet list/ }).length > 0,
+      ).toBe(flow === 'MOTOR_FLEET');
+    },
+  );
+  it('shows fleet cover-note progress and opens the vehicle list from the summary', () => {
+    const preview = quotationDetailFixture('MOTOR_FLEET');
+    const vehicles = fleetVehicles([1, 2]);
+    vehicles[0] = {
+      ...vehicles[0],
+      tiramis: { ...vehicles[0].tiramis!, cover_note_reference_number: 'CN-1' },
+    };
+    vehicles[1] = {
+      ...vehicles[1],
+      tiramis: { ...vehicles[1].tiramis!, cover_note_reference_number: null },
+    };
+    preview.fleet!.vehicles = vehicles;
+    preview.overview.tira_status = 'SUCCESS';
+    state.preview = preview;
+    renderPage('fleet');
+    expect(screen.getAllByText('1 of 2').length).toBeGreaterThan(0);
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /View fleet list/ })[0],
+    );
+    expect(screen.getByRole('tab', { name: 'Vehicles (2)' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+  it('shows one retry for a failed TIRA submission when the main action is the retry', () => {
+    const preview = quotationDetailFixture();
+    preview.overview.quotation_status = 'FAILED';
+    preview.overview.payment_status = 'PAID';
+    preview.overview.tira_status = 'FAILED';
+    state.preview = preview;
+    state.commands = { RETRY_TIRAMIS: true };
+    renderPage();
+    // Desktop and phone both render the main button; no extra in-card retry.
+    expect(
+      screen.getAllByRole('button', { name: 'Retry Issue Cover' }),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole('button', { name: /^Retry$|Retry sync/ }),
+    ).toBeNull();
   });
   it('offers retry when loading fails', () => {
     state.isError = true;

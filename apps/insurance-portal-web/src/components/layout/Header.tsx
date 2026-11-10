@@ -44,6 +44,11 @@ interface HeaderProps {
   notificationsPath?: string;
   /** Hide company/organization switchers. */
   hideSwitchers?: boolean;
+  /**
+   * Phone-only (<768px) app-bar title. When set, the header shows it next to
+   * the menu button and the page's title strip is expected to be hidden.
+   */
+  mobileTitle?: { eyebrow?: string; title: string };
 }
 
 export function Header({
@@ -52,6 +57,7 @@ export function Header({
   profilePath = '/apps/settings/profile',
   notificationsPath = '/apps/notifications',
   hideSwitchers = false,
+  mobileTitle,
 }: HeaderProps) {
   const navigate = useNavigate();
   const { user, profile, refreshToken, logout } = useAuthStore();
@@ -114,6 +120,19 @@ export function Header({
           <Menu className="h-[22px] w-[22px]" />
         </button>
 
+        {mobileTitle && (
+          <div className="flex min-w-0 flex-col md:hidden">
+            {mobileTitle.eyebrow && (
+              <span className="truncate text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-slate-500">
+                {mobileTitle.eyebrow}
+              </span>
+            )}
+            <span className="truncate text-[18px] font-bold leading-tight text-slate-900">
+              {mobileTitle.title}
+            </span>
+          </div>
+        )}
+
         {/* Command palette trigger styled as Velzon's app-search */}
         {onOpenCommand && (
           <button
@@ -137,7 +156,10 @@ export function Header({
             type="button"
             onClick={onOpenCommand}
             aria-label="Search"
-            className={cn(headerIconClass, 'sm:hidden')}
+            className={cn(
+              headerIconClass,
+              mobileTitle ? 'hidden' : 'sm:hidden',
+            )}
           >
             <Search className="h-5 w-5" />
           </button>
@@ -171,8 +193,20 @@ export function Header({
               className={cn(headerIconClass, 'relative')}
             >
               <Bell className="h-[21px] w-[21px]" />
+              {mobileTitle &&
+              (notificationsSummaryQuery.data?.count ?? 0) > 0 ? (
+                <span
+                  aria-hidden
+                  className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-white md:hidden"
+                />
+              ) : null}
               {(notificationsSummaryQuery.data?.count ?? 0) > 0 ? (
-                <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white">
+                <span
+                  className={cn(
+                    mobileTitle && 'max-md:hidden',
+                    'absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white',
+                  )}
+                >
                   {Math.min(notificationsSummaryQuery.data?.count ?? 0, 99)}
                 </span>
               ) : null}

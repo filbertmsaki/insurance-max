@@ -562,6 +562,7 @@ describe('quotation document', () => {
       'Premium Summary',
       'Terms, Conditions and Exclusions',
       'Important Notices',
+      'Next Steps',
       'Authorisation',
     ]);
     const vehicle = section(doc, 'Vehicle Details').blocks[0] as Rec;
@@ -577,7 +578,7 @@ describe('quotation document', () => {
       ]),
     );
     expect(doc.reference.find((f) => f.label === 'Valid Until')?.value).toBe(
-      '08/12/2026',
+      '8 Dec 2026',
     );
 
     const p = premium(doc);
@@ -588,7 +589,7 @@ describe('quotation document', () => {
       'Net Premium (excluding taxes)',
       'VAT',
     ]);
-    expect(p.total).toBe('TZS 1,702,150.00');
+    expect(p.total).toBe('TSh 1,702,150.00');
     expectClean(doc);
     expect(await renderAndCount('single-motor', doc)).toBeGreaterThanOrEqual(1);
   });
@@ -622,7 +623,7 @@ describe('quotation document', () => {
       src.preview.fleet.summary.total_fleet_sum_insured,
       2,
     );
-    expect(premium(doc).total).toContain('TZS');
+    expect(premium(doc).total).toContain('TSh');
     expectClean(doc);
     expect(await renderAndCount('fleet-motor', doc)).toBeGreaterThanOrEqual(1);
   });
@@ -651,7 +652,7 @@ describe('quotation document', () => {
       insurance.fields.find((f: Rec) => f.label === label)?.value;
     expect(get('Type of Cover')).toBe('Short-Term (In-Transit) Cover');
     expect(get('Period of Insurance')).toBe('14 days');
-    expect(get('Cover Start Date')).toBe('10/11/2026 08:00');
+    expect(get('Cover Start Date')).toBe('10 Nov 2026, 08:00');
     expect(get('Vehicle Classification')).toBe('Private');
     // Risk codes are never printed.
     expect(allText(doc).join('\n')).not.toContain('SP014001000007');
@@ -680,7 +681,7 @@ describe('quotation document', () => {
           value: 'Fire and Lightning, Storm and Flood',
         },
         { label: 'Sprinklers Installed', value: 'Yes' },
-        { label: 'Limit of Liability', value: 'TZS 1,570,000,000.00' },
+        { label: 'Limit of Liability', value: 'TSh 1,570,000,000.00' },
       ]),
     );
     expect(fields.map((f: Rec) => f.label)).not.toContain('Unused Field');
@@ -706,7 +707,7 @@ describe('quotation document', () => {
       'Net Premium (excluding taxes)',
       'Taxes and Levies',
     ]);
-    expect(block.total).toBe('TZS 1,180,000.00');
+    expect(block.total).toBe('TSh 1,180,000.00');
   });
 
   it('stamps drafts and expired offers', () => {

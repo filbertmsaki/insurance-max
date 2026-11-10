@@ -147,22 +147,24 @@ export function NonMotorQuotationDetailPage() {
 
   return (
     <UnderwriteRecordGate kind="quotation">
-      <div className="space-y-5">
-        <div className="grid gap-5 xl:grid-cols-3">
-          <div className="xl:col-span-2">
-            <RiskDetailsPanel
-              details={details.data}
-              loading={details.isLoading}
-              error={details.error}
-              onRetry={() => void details.refetch()}
-            />
-          </div>
-          <QuotationDocumentsPanel quotationId={id!} />
-        </div>
-        <Suspense fallback={<TableSkeleton />}>
-          <QuotationDetailPage />
-        </Suspense>
-      </div>
+      <Suspense fallback={<TableSkeleton />}>
+        {/* Summary header first, then the risk panels, then the tabs. */}
+        <QuotationDetailPage
+          belowHeader={
+            <div className="grid gap-5 xl:grid-cols-3">
+              <div className="xl:col-span-2">
+                <RiskDetailsPanel
+                  details={details.data}
+                  loading={details.isLoading}
+                  error={details.error}
+                  onRetry={() => void details.refetch()}
+                />
+              </div>
+              <QuotationDocumentsPanel quotationId={id!} />
+            </div>
+          }
+        />
+      </Suspense>
     </UnderwriteRecordGate>
   );
 }

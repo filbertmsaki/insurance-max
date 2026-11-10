@@ -9,12 +9,18 @@ import {
   displayValue,
   formatDateTime,
   formatMoney,
-} from '@/components/shared/detailFormat';
+  humanizeCode,
+} from '../utils/quotationFormat';
 import { financeTableApi } from '@/modules/tenant/finance/api';
 import type { FinancePaymentTransaction } from '@/modules/tenant/finance/types';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import type { QuotationPreviewRecord } from '../types';
 import { SectionCard, KeyValueGrid } from './QuotationDetailLayout';
+import { PaymentStatusBadge } from './PaymentStatusBadge';
+import {
+  financePaths,
+  useQuotationFinanceRecords,
+} from './useQuotationFinanceRecords';
 
 function PaymentTransactions({ quotationId }: { quotationId: string }) {
   const { tableProps } = useServerTable<FinancePaymentTransaction>({
@@ -126,6 +132,34 @@ function PaymentTransactions({ quotationId }: { quotationId: string }) {
   );
 }
 
+function Amount({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'danger' | 'success';
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
+      <dt className="text-[13px] text-slate-500">{label}</dt>
+      <dd
+        className={
+          'mt-1 text-xl font-bold tabular-nums [overflow-wrap:anywhere] ' +
+          (tone === 'danger'
+            ? 'text-red-700'
+            : tone === 'success'
+              ? 'text-green-700'
+              : 'text-slate-900')
+        }
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 export function QuotationPaymentTab({
   preview,
 }: {
@@ -135,79 +169,108 @@ export function QuotationPaymentTab({
   const canReadPayments = useAuthStore((state) =>
     state.hasPermission('payments:read'),
   );
+  const { invoice, receipt } = useQuotationFinanceRecords(preview);
+  const currency = payment?.currency ?? preview.premium_summary.currency;
+  const outstanding = payment?.outstanding_amount ?? null;
+  const reference = (
+    value: string | null | undefined,
+    href: string | undefined,
+  ) =>
+    value && href ? (
+      <Link className="text-blue-700 hover:underline" to={href}>
+        {value}
+      </Link>
+    ) : (
+      displayValue(value)
+    );
+
   return (
     <>
-      <SectionCard title="Payment Summary">
+      <SectionCard title="Payment summary">
+        <dl className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Amount
+            label="Total premium"
+            value={formatMoney(
+              preview.premium_summary.total_premium_including_tax,
+              preview.premium_summary.currency,
+            )}
+          />
+          <Amount
+            label="Amount paid"
+            value={formatMoney(payment?.amount_paid ?? 0, currency)}
+            tone={
+              preview.overview.payment_status === 'PAID' ? 'success' : undefined
+            }
+          />
+          <Amount
+            label="Outstanding balance"
+            value={formatMoney(outstanding ?? 0, currency)}
+            tone={outstanding && outstanding > 0 ? 'danger' : undefined}
+          />
+        </dl>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <PaymentStatusBadge
+            status={
+              payment?.quotation_payment_status ??
+              preview.overview.payment_status
+            }
+          />
+          {payment?.verification_status ? (
+            <span className="text-[13px] text-slate-600">
+              Verification: {humanizeCode(payment.verification_status)}
+            </span>
+          ) : null}
+        </div>
         <KeyValueGrid
           items={[
             {
-              label: 'Total Quotation Premium',
-              value: formatMoney(
-                preview.premium_summary.total_premium_including_tax,
-                preview.premium_summary.currency,
-              ),
+              label: 'Payment status',
+              value: payment?.payment_status
+                ? humanizeCode(payment.payment_status)
+                : null,
             },
             {
-              label: 'Total Amount Paid',
-              value: formatMoney(
-                preview.payment?.amount_paid,
-                preview.payment?.currency ?? preview.premium_summary.currency,
-              ),
+              label: 'Payment method',
+              value: payment?.payment_method
+                ? humanizeCode(payment.payment_method)
+                : null,
             },
             {
-              label: 'Outstanding Balance',
-              value: formatMoney(
-                preview.payment?.outstanding_amount,
-                preview.payment?.currency ?? preview.premium_summary.currency,
-              ),
-            },
-            {
-              label: 'Quotation Payment Status',
-              value: displayValue(
-                payment?.quotation_payment_status ??
-                  preview.overview.payment_status,
-              ),
-            },
-            {
-              label: 'Payment Status',
-              value: displayValue(payment?.payment_status),
-            },
-            {
-              label: 'Payment Method',
-              value: displayValue(payment?.payment_method),
-            },
-            {
-              label: 'Payment Reference / Control Number',
-              value: displayValue(payment?.payment_reference),
-            },
-            {
-              label: 'Last Payment Date',
+              label: 'Last payment date',
               value: formatDateTime(payment?.payment_date),
             },
+            { label: 'Currency', value: displayValue(currency) },
+          ]}
+        />
+        <h3 className="mb-3 mt-6 text-sm font-semibold text-slate-900">
+          References
+        </h3>
+        <KeyValueGrid
+          items={[
             {
-              label: 'Receipt Number',
-              value: displayValue(payment?.receipt_number),
-            },
-            {
-              label: 'Invoice Number',
-              value: displayValue(payment?.invoice_number),
-            },
-            {
-              label: 'Verification Status',
-              value: displayValue(payment?.verification_status),
-            },
-            {
-              label: 'Currency',
-              value: displayValue(
-                payment?.currency ?? preview.premium_summary.currency,
+              label: 'Invoice number',
+              value: reference(
+                payment?.invoice_number,
+                invoice && financePaths.invoice(invoice.id),
               ),
+            },
+            {
+              label: 'Receipt number',
+              value: reference(
+                payment?.receipt_number,
+                receipt && financePaths.receipt(receipt.id),
+              ),
+            },
+            {
+              label: 'Payment reference / control number',
+              value: displayValue(payment?.payment_reference),
             },
           ]}
         />
       </SectionCard>
 
       <SectionCard
-        title="Payment Transactions"
+        title="Payment transactions"
         description="Recorded transactions linked to this quotation. Invoice balances reflect posted receipt allocations."
       >
         {canReadPayments ? (
