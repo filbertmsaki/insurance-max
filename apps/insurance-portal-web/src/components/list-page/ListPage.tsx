@@ -110,7 +110,7 @@ export function ListPage<T>(props: ListPageProps<T>) {
 
   return (
     <div
-      className="text-[#1B1F2E] max-md:-mx-3 max-md:-mt-5 max-md:min-h-full max-md:bg-[#F4F5F9] max-md:px-4"
+      className="text-[#1B1F2E] max-md:-mx-3 max-md:-mt-1 max-md:pt-0 max-md:min-h-full max-md:bg-[#F4F5F9] max-md:px-4"
       style={{ fontFamily: FONT, fontVariantNumeric: 'tabular-nums' }}
     >
       <ListHeader
