@@ -1,13 +1,29 @@
-import { withCustomerAuditPermission, withPricingPermissionAliases } from './001-initial-rbac.seed';
+import {
+  withCustomerAuditPermission,
+  withPricingPermissionAliases,
+} from './001-initial-rbac.seed';
 
 describe('customer audit permission assignments', () => {
-  it.each(['ADMINISTRATOR', 'INSURANCE_ADMIN', 'REINSURANCE_ADMIN', 'BROKER_ADMIN', 'AGENCY_ADMIN', 'BANCASSURANCE_ADMIN', 'PORTAL_ADMIN', 'UNDERWRITER'])(
-    'grants audit history to %s',
-    (role) => expect(withCustomerAuditPermission(role, ['customers:read'])).toContain('customers:audit-history:read'),
+  it.each([
+    'ADMINISTRATOR',
+    'INSURANCE_ADMIN',
+    'REINSURANCE_ADMIN',
+    'BROKER_ADMIN',
+    'AGENCY_ADMIN',
+    'BANCASSURANCE_ADMIN',
+    'PORTAL_ADMIN',
+    'UNDERWRITER',
+  ])('grants audit history to %s', (role) =>
+    expect(withCustomerAuditPermission(role, ['customers:read'])).toContain(
+      'customers:audit-history:read',
+    ),
   );
   it.each(['USER', 'VIEWER', 'CLAIMS_OFFICER', 'CLAIMS_MANAGER'])(
     'does not add audit history to %s',
-    (role) => expect(withCustomerAuditPermission(role, ['customers:read'])).not.toContain('customers:audit-history:read'),
+    (role) =>
+      expect(
+        withCustomerAuditPermission(role, ['customers:read']),
+      ).not.toContain('customers:audit-history:read'),
   );
 });
 

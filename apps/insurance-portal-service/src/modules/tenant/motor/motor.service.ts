@@ -932,7 +932,9 @@ export class MotorService {
           ? this.normalizeMotorIdentifier(dto.registration_no)
           : vehicle.registration_no_normalized;
       const resultingMotorType = dto.motor_type ?? vehicle.motor_type;
-      if (!this.normalizeText(dto.model !== undefined ? dto.model : vehicle.model)) {
+      if (
+        !this.normalizeText(dto.model !== undefined ? dto.model : vehicle.model)
+      ) {
         throw new BadRequestException('Vehicle model is required');
       }
       this.validateMotorTypeAndRegistration(resultingMotorType, registration);

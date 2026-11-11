@@ -3580,11 +3580,20 @@ const PORTAL_ADMIN_ROLE_PERMISSION_NAMES = [
 ];
 
 const CUSTOMER_AUDIT_HISTORY_ROLES = new Set([
-  'ADMINISTRATOR', 'INSURANCE_ADMIN', 'REINSURANCE_ADMIN', 'BROKER_ADMIN',
-  'AGENCY_ADMIN', 'BANCASSURANCE_ADMIN', 'PORTAL_ADMIN', 'UNDERWRITER',
+  'ADMINISTRATOR',
+  'INSURANCE_ADMIN',
+  'REINSURANCE_ADMIN',
+  'BROKER_ADMIN',
+  'AGENCY_ADMIN',
+  'BANCASSURANCE_ADMIN',
+  'PORTAL_ADMIN',
+  'UNDERWRITER',
 ]);
 
-export function withCustomerAuditPermission(roleName: string, permissions: string[]): string[] {
+export function withCustomerAuditPermission(
+  roleName: string,
+  permissions: string[],
+): string[] {
   return CUSTOMER_AUDIT_HISTORY_ROLES.has(roleName)
     ? [...new Set([...permissions, 'customers:audit-history:read'])]
     : permissions;
@@ -4835,7 +4844,10 @@ export default class InitialRbacSeeder implements Seeder {
           ...new Set(
             withUnderwritePermissionAliases(
               withPricingPermissionAliases([
-                ...withCustomerAuditPermission(definition.name, sourcePermissionNames),
+                ...withCustomerAuditPermission(
+                  definition.name,
+                  sourcePermissionNames,
+                ),
                 ...RISK_REQUIRED_FACTOR_PERMISSION_NAMES,
               ]),
             ),

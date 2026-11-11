@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SortOrder } from '@/types';
 
-export const LIST_PAGE_SIZES = [10, 25, 50] as const;
+export const LIST_PAGE_SIZES = [10, 20, 25, 50] as const;
 
 export interface ListState {
   page: number;
@@ -57,7 +57,7 @@ export function useListState({
       page: Math.max(1, Number(saved?.page) || 1),
       limit: (LIST_PAGE_SIZES as readonly number[]).includes(limit)
         ? limit
-        : 10,
+        : 20,
       search: typeof saved?.search === 'string' ? saved.search : '',
       sortBy: saved?.sortBy || defaultSort.key,
       sortOrder:

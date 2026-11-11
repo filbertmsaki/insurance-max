@@ -52,7 +52,7 @@ export function useListData<T>({
   });
 
   // Phone "Load more": rows from earlier pages of the same search/filters.
-  const filterSignature = JSON.stringify({ ...listQuery, page: 0 });
+  const filterSignature = JSON.stringify({ queryKey, userId, companyId, query: { ...listQuery, page: 0 } });
   const [earlier, setEarlier] = useState<{ signature: string; rows: T[] }>({
     signature: filterSignature,
     rows: [],
@@ -91,24 +91,25 @@ export function useListData<T>({
   /** Keeps the current rows and moves to the next page (phone list). */
   const loadMore = useCallback(
     (setPage: (page: number) => void) => {
+      if (query.isFetching || query.isPlaceholderData || state.page >= totalPages) return;
       setEarlier({
         signature: filterSignature,
         rows: [...earlierRows, ...rows],
       });
       setPage(state.page + 1);
     },
-    [earlierRows, filterSignature, rows, state.page],
+    [earlierRows, filterSignature, rows, state.page, query.isFetching, query.isPlaceholderData, totalPages],
   );
 
   return {
     query,
     rows,
     /** Phone list: every loaded page so far. */
-    accumulatedRows: [...earlierRows, ...rows],
+    accumulatedRows: query.isPlaceholderData ? earlierRows : [...earlierRows, ...rows],
     total,
     totalPages,
     summary: query.data?.summary,
-    loading: query.isLoading,
+    loading: query.isLoading || (query.isPlaceholderData && earlierRows.length === 0),
     fetching: query.isFetching,
     error: query.isError,
     refresh: () => query.refetch(),

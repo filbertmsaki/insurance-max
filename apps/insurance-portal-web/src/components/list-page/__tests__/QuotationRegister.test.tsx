@@ -181,6 +181,27 @@ afterEach(() => {
 });
 
 describe('QuotationRegister (standard list page)', () => {
+  it('loads 20 quotations from the server and appends the next page on demand', async () => {
+    const firstPage = Array.from({ length: 20 }, (_, index) =>
+      quotation({ id: `first-${index}`, quotation_no: `Q-FIRST-${index}` }),
+    );
+    let resolveNext!: (value: ReturnType<typeof page>) => void;
+    const fetcher = vi.fn(({ page: pageNumber }: { page?: number }) =>
+      pageNumber === 1
+        ? Promise.resolve(page(firstPage, 21))
+        : new Promise<ReturnType<typeof page>>((resolve) => { resolveNext = resolve; }),
+    );
+    renderRegister(fetcher as Fetcher);
+    const list = await screen.findByRole('list', { name: 'Quotations' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(20);
+    expect(fetcher).toHaveBeenCalledWith(expect.objectContaining({ page: 1, limit: 20 }), expect.anything());
+    fireEvent.click(screen.getByRole('button', { name: /load more quotations/i }));
+    await waitFor(() => expect(fetcher).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, limit: 20 }), expect.anything()));
+    expect(within(list).getAllByRole('listitem')).toHaveLength(20);
+    await act(async () => resolveNext(page([quotation({ id: 'next', quotation_no: 'Q-NEXT' })], 21)));
+    await waitFor(() => expect(within(list).getAllByRole('listitem')).toHaveLength(21));
+    expect(screen.queryByRole('button', { name: /load more quotations/i })).toBeNull();
+  });
   it('shows the mandatory columns in the standard order on tablet and desktop', async () => {
     renderRegister(vi.fn().mockResolvedValue(page([OK])));
     const table = await loadedTable('AICL261109011');
