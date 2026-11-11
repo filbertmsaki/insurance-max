@@ -110,12 +110,14 @@ export function MobileVehicleForm({
   form,
   fleetIndex,
   customer,
+  shortTerm = false,
 }: {
   form: Form;
   /** Set for a fleet vehicle; omitted for the single `motor` vehicle. */
   fleetIndex?: number;
   /** The selected existing customer, used for owner details. */
   customer?: CustomerRecord | null;
+  shortTerm?: boolean;
 }) {
   const isFleet = fleetIndex != null;
   const base = isFleet ? `fleet.items.${fleetIndex}.motor_dtl` : 'motor';
@@ -177,7 +179,7 @@ export function MobileVehicleForm({
     <div className="space-y-3">
       <MobileCard title="Identification">
         <div className="space-y-3">
-          <MobileSegmented
+          {shortTerm ? <Fields form={form} fleetIndex={fleetIndex} keys={['motor_type_code']} full /> : <MobileSegmented
             label="Motor type"
             value={registered ? '1' : '2'}
             onChange={(value) =>
@@ -190,7 +192,7 @@ export function MobileVehicleForm({
               { value: '1', label: 'Registered' },
               { value: '2', label: 'Unregistered' },
             ]}
-          />
+          />}
           {registered && (
             <Fields
               form={form}

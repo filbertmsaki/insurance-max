@@ -235,6 +235,17 @@ function useShortTermPresets(
   const productId = useWatch({ control: form.control, name: 'product_id' });
   const validFrom = useWatch({ control: form.control, name: 'valid_from' });
   const validUntil = useWatch({ control: form.control, name: 'valid_until' });
+  const vehicleDefaultsApplied = useRef(false);
+
+  useEffect(() => {
+    if (vehicleDefaultsApplied.current || isHydrating || !companyId || wizard.isEditMode || mode !== 'single') return;
+    vehicleDefaultsApplied.current = true;
+    form.setValue('motor.motor_type_code', '2');
+    form.setValue('motor.seating_capacity', '5');
+    form.setValue('motor.number_of_axles', '2');
+    form.setValue('motor.tare_weight', '500');
+    form.setValue('motor.gross_weight', '1250');
+  }, [companyId, form, isHydrating, mode, wizard.isEditMode]);
 
   const product = productOptions.find(
     (item) => item.product_code === SHORT_TERM_COVER.productCode,
@@ -675,6 +686,8 @@ function ShortTermFleet({
                   onDuplicateVehicle={actions.duplicate}
                   onImportVehicles={actions.importRows}
                   factorContext={wizard.factorContext}
+                  hideVehicleLookup
+                  shortTermVehicleDefaults
                 />
               </div>
             );

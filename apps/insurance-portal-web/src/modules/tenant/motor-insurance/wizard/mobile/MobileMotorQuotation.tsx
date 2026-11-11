@@ -122,9 +122,9 @@ export function MobileMotorQuotation({
         }
         if (stepId === vehicleId) {
           return isFleet ? (
-            <MobileFleetVehicles wizard={wizard} />
+            <MobileFleetVehicles wizard={wizard} hideVehicleLookup={shortTerm} />
           ) : (
-            <MobileVehicleForm form={form} customer={customer} />
+            <MobileVehicleForm form={form} customer={customer} shortTerm={shortTerm} />
           );
         }
         if (stepId === reviewId) {

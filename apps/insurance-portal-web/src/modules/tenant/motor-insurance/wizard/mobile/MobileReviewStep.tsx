@@ -11,6 +11,7 @@ import { BusinessSourceStep } from '@/modules/tenant/underwrite/wizard/steps/Bus
 import type { UnderwriteQuotationWizard } from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
 import type { CoverSummary, MobileQuoteMode } from './MobileCoverStep';
 import { MobileCard, SummaryItem } from './MobileUi';
+import { MobileFleetPricingControl, MobileSinglePricingControl } from './MobilePricingControl';
 
 const PAYMENT_MODE_OPTIONS = [
   { value: '1', label: 'Cash' },
@@ -161,6 +162,7 @@ export function MobileReviewStep({
           />
           <PriceRow label={tax} value={money(totals.tax)} />
         </dl>
+        {isFleet ? <MobileFleetPricingControl wizard={wizard} /> : <MobileSinglePricingControl wizard={wizard} />}
         {issues.length > 0 && (
           <p
             role="alert"

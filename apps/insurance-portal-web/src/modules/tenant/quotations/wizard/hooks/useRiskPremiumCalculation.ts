@@ -64,6 +64,7 @@ export function useRiskPremiumCalculation(
   index: number,
   factorContext?: QuotationFactorContext,
 ) {
+  const [calculationAttempt, setCalculationAttempt] = useState(0);
   const riskId = useWatch({
     control: form.control,
     name: path(index, 'risk_id'),
@@ -642,6 +643,7 @@ export function useRiskPremiumCalculation(
     requiredFactorsQuery.isLoading,
     requiredFactorsQuery.isError,
     currentPricingSignature,
+    calculationAttempt,
   ]);
 
   return {
@@ -649,5 +651,6 @@ export function useRiskPremiumCalculation(
     ruleListQuery,
     calculateMutation,
     handleSumInsuredBlur,
+    recalculate: () => setCalculationAttempt((attempt) => attempt + 1),
   };
 }

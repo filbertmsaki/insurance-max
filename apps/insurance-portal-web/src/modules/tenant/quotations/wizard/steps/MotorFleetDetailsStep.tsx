@@ -142,6 +142,8 @@ interface Props {
   mobileList?: (api: FleetMobileListApi) => ReactNode;
   /** Replaces the editor's vehicle detail fields (phone grouped cards). */
   renderVehicleDetails?: (index: number, revision: number) => ReactNode;
+  hideVehicleLookup?: boolean;
+  shortTermVehicleDefaults?: boolean;
 }
 
 export interface FleetMobileListApi {
@@ -298,6 +300,7 @@ function FleetVehicleEditor({
   showVehicleValidationErrors,
   showSumInsured,
   renderVehicleDetails,
+  hideVehicleLookup = false,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
   riskOptions: InsuranceRisk[];
@@ -307,6 +310,7 @@ function FleetVehicleEditor({
   showVehicleValidationErrors: boolean;
   showSumInsured: boolean;
   renderVehicleDetails?: (index: number, revision: number) => ReactNode;
+  hideVehicleLookup?: boolean;
 }) {
   const addonArray = useFieldArray({
     control: form.control,
@@ -411,6 +415,7 @@ function FleetVehicleEditor({
   return (
     <div className="space-y-6">
       <div className="space-y-4">
+        {!hideVehicleLookup && <>
         <WizardSectionTitle className="text-sm font-semibold text-slate-900">
           Find or select a vehicle
         </WizardSectionTitle>
@@ -462,6 +467,7 @@ function FleetVehicleEditor({
             </Select>
           </div>
         )}
+        </>}
         {renderVehicleDetails ? (
           <div key={vehicleRevision}>
             {renderVehicleDetails(index, vehicleRevision)}
@@ -1640,6 +1646,8 @@ export function MotorFleetDetailsStep({
   factorContext,
   mobileList,
   renderVehicleDetails,
+  hideVehicleLookup = false,
+  shortTermVehicleDefaults = false,
 }: Props) {
   const { fields } = fieldArray;
   const { calculateFleetPremiums, calculationErrorMessage } =
@@ -1905,14 +1913,26 @@ export function MotorFleetDetailsStep({
     // Cancel restores it from the snapshot.
     if (showEmptyState && fields.length === 1) {
       applyNewVehicleOwnerDefaults(0);
+      applyShortTermVehicleDefaults(0);
       openEditVehicleDialog(0, true);
       return;
     }
     const index = fields.length;
     onAddVehicle();
     applyNewVehicleOwnerDefaults(index);
+    applyShortTermVehicleDefaults(index);
     form.clearErrors(`fleet.items.${index}`);
     setEditingVehicle({ index, isNew: true, snapshot: null });
+  }
+
+  function applyShortTermVehicleDefaults(index: number) {
+    if (!shortTermVehicleDefaults) return;
+    const prefix = `fleet.items.${index}.motor_dtl` as const;
+    form.setValue(`${prefix}.motor_type`, '2');
+    form.setValue(`${prefix}.sitting_capacity`, '5');
+    form.setValue(`${prefix}.number_of_axles`, '2');
+    form.setValue(`${prefix}.tare_weight`, '500');
+    form.setValue(`${prefix}.gross_weight`, '1250');
   }
 
   function applyNewVehicleOwnerDefaults(index: number) {
@@ -2254,6 +2274,7 @@ export function MotorFleetDetailsStep({
                 showVehicleValidationErrors={showVehicleValidationErrors}
                 showSumInsured={showSumInsured}
                 renderVehicleDetails={renderVehicleDetails}
+                hideVehicleLookup={hideVehicleLookup}
               />
             )}
           </div>

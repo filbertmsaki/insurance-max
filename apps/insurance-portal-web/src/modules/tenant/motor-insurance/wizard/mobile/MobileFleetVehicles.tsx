@@ -31,8 +31,10 @@ export function fleetVehicleState(wizard: UnderwriteQuotationWizard) {
 
 export function MobileFleetVehicles({
   wizard,
+  hideVehicleLookup = false,
 }: {
   wizard: UnderwriteQuotationWizard;
+  hideVehicleLookup?: boolean;
 }) {
   const { form } = wizard;
   const actions = useFleetVehicleActions(wizard);
@@ -53,8 +55,10 @@ export function MobileFleetVehicles({
       onDuplicateVehicle={actions.duplicate}
       onImportVehicles={actions.importRows}
       factorContext={wizard.factorContext}
+      hideVehicleLookup={hideVehicleLookup}
+      shortTermVehicleDefaults={hideVehicleLookup}
       renderVehicleDetails={(index) => (
-        <MobileVehicleForm form={form} fleetIndex={index} customer={customer} />
+        <MobileVehicleForm form={form} fleetIndex={index} customer={customer} shortTerm={hideVehicleLookup} />
       )}
       mobileList={({ rows, openNewVehicle, openVehicle, duplicateVehicle, removeVehicle }) => (
         <div className="space-y-3">
