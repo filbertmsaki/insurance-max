@@ -1,13 +1,6 @@
 import { Fragment, Suspense, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  ArrowRight,
-  CarFront,
-  Check,
-  Timer,
-  Truck,
-} from 'lucide-react';
+import { ArrowRight, CarFront, Check, Timer, Truck } from 'lucide-react';
 import {
   UnderwriteAction,
   UnderwriteLine,
@@ -19,6 +12,8 @@ import { TableSkeleton } from '@/components/shared/ContentStates';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
+import { AppBarConfig } from '@/components/layout/app-bar/AppBarConfig';
+import { APP_BAR_HEIGHT_CSS } from '@/components/layout/app-bar/appBarStore';
 import {
   FleetQuotationWizard,
   ShortTermQuotationWizard,
@@ -108,23 +103,17 @@ function QuotationTypeChooser() {
 
   return (
     <>
-      <div className="fixed inset-x-0 top-[70px] bottom-0 z-40 flex flex-col overflow-hidden bg-[#F4F5F9] font-[Inter,system-ui,sans-serif] text-[#1B1F2E] md:hidden">
-        <header className="flex h-14 shrink-0 items-center border-b border-[#E6E8EF] bg-white px-2">
-          <button
-            type="button"
-            aria-label="Back to quotations"
-            onClick={() => navigate(motorInsurancePaths.quotations)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3B4A8C]"
-          >
-            <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-          </button>
-          <div className="leading-tight">
-            <div className="text-[11px] font-medium uppercase text-[#5B6275]">
-              Underwrite · Motor
-            </div>
-            <h1 className="text-base font-bold">New motor quotation</h1>
-          </div>
-        </header>
+      {/* Task flow on phones: back arrow and title in the shared app bar. */}
+      <AppBarConfig
+        variant="inner"
+        title="New motor quotation"
+        subtitle="Underwrite · Motor"
+        onBack={() => navigate(motorInsurancePaths.quotations)}
+      />
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden bg-[#F4F5F9] font-[Inter,system-ui,sans-serif] text-[#1B1F2E] md:hidden"
+        style={{ top: APP_BAR_HEIGHT_CSS }}
+      >
         <main className="flex min-h-0 flex-1 flex-col px-4 pt-4">
           <h2 className="shrink-0 text-xl font-bold leading-7">
             What would you like to insure?

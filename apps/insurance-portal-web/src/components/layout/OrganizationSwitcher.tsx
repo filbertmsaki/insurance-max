@@ -1,6 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Building, ChevronsUpDown } from 'lucide-react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,11 +8,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { authApi } from '@/modules/shared/auth/api/auth';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { organizationApi } from '@/modules/shared/organization/api/organization';
-
-type ApiErrorLike = { response?: { data?: { message?: string } } };
+import { useOrganizationSwitch } from './useOrganizationSwitch';
 
 /**
  * Switches the active branch/department for the current company by calling
@@ -24,38 +19,9 @@ type ApiErrorLike = { response?: { data?: { message?: string } } };
  * left the access token pointing at the old branch.
  */
 export function OrganizationSwitcher() {
-  const { user, setSession } = useAuthStore();
-  const queryClient = useQueryClient();
-
-  const { data: context } = useQuery({
-    queryKey: ['organization-context', user?.companyId, user?.activeBranchId],
-    queryFn: organizationApi.getContext,
-    enabled: !!user?.companyId,
-    staleTime: 15_000,
-  });
-
-  const switchMutation = useMutation({
-    mutationFn: (params: { branchId: string; departmentId?: string | null }) =>
-      authApi.switchOrganizationContext({
-        branch_id: params.branchId,
-        department_id: params.departmentId ?? undefined,
-        refresh_token: useAuthStore.getState().refreshToken!,
-      }),
-    onSuccess: (tokens) => {
-      setSession(tokens);
-      queryClient.invalidateQueries({ queryKey: ['organization-context'] });
-      queryClient.invalidateQueries();
-      toast.success('Organization context switched');
-    },
-    onError: (error: ApiErrorLike) =>
-      toast.error(
-        error?.response?.data?.message ??
-          'Unable to switch organization context',
-      ),
-  });
-
-  const branches = context?.assignedBranches ?? [];
-  const departments = context?.assignedDepartments ?? [];
+  const { user } = useAuthStore();
+  const { context, branches, departments, switchMutation } =
+    useOrganizationSwitch();
 
   if (branches.length <= 1 && departments.length <= 1) {
     return null;

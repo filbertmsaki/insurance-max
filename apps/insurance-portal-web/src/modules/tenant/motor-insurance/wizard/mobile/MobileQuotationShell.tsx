@@ -6,14 +6,15 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { AppBarConfig } from '@/components/layout/app-bar/AppBarConfig';
+import { APP_BAR_HEIGHT_CSS } from '@/components/layout/app-bar/appBarStore';
 import { Form } from '@/components/ui/form';
 import { cn } from '@/lib/utils';
 import type { UnderwriteQuotationWizard } from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
 import './mobileQuotation.css';
 
 /** Height of the app's top header (components/layout/Header.tsx). */
-const APP_HEADER_HEIGHT = 70;
 
 export interface MobileStepView {
   id: string;
@@ -157,36 +158,24 @@ export function MobileQuotationShell({
 
   return createPortal(
     <div
-      className="mq-flow fixed inset-x-0 top-[70px] z-40 flex flex-col overflow-hidden bg-[#F4F5F9] md:hidden"
+      className="mq-flow fixed inset-x-0 z-40 flex flex-col overflow-hidden bg-[#F4F5F9] md:hidden"
       style={{
-        // Below the app's 70px top header, which stays visible.
+        // Below the shared app bar, which shows the back arrow and step.
+        top: APP_BAR_HEIGHT_CSS,
         height: viewport
-          ? `${viewport.height - APP_HEADER_HEIGHT}px`
-          : `calc(100dvh - ${APP_HEADER_HEIGHT}px)`,
+          ? `calc(${viewport.height}px - ${APP_BAR_HEIGHT_CSS})`
+          : `calc(100dvh - ${APP_BAR_HEIGHT_CSS})`,
         transform: viewport ? `translateY(${viewport.top}px)` : undefined,
       }}
     >
-      <header className="shrink-0 border-b border-[#E6E8EF] bg-white">
-        <div className="flex h-14 items-center gap-1 px-1">
-          <button
-            type="button"
-            aria-label={
-              index === 0 ? 'Back to quotation type' : 'Back to previous step'
-            }
-            onClick={() => (index === 0 ? onExit() : wizard.goBack())}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#1B1F2E] focus-visible:outline-2 focus-visible:outline-[#3B4A8C]"
-          >
-            <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-          </button>
-          <div className="min-w-0 leading-tight">
-            <p className="truncate text-[11px] font-medium uppercase tracking-wide text-[#5B6275]">
-              Step {index + 1} of {steps.length} · {step?.label}
-            </p>
-            <h1 className="truncate text-base font-bold text-[#1B1F2E]">
-              {title}
-            </h1>
-          </div>
-        </div>
+      {/* Task flow: back arrow and step title, no search or account. */}
+      <AppBarConfig
+        variant="inner"
+        title={title}
+        subtitle={`Step ${index + 1} of ${steps.length} · ${step?.label ?? ''}`}
+        onBack={() => (index === 0 ? onExit() : wizard.goBack())}
+      />
+      <header className="shrink-0 border-b border-[var(--color-divider)] bg-white pt-2">
         <div
           className="flex gap-1 px-3 pb-2"
           role="progressbar"

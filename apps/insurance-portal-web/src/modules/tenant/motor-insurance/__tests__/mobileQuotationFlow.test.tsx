@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { appBarStore } from '@/components/layout/app-bar/appBarStore';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { describe, expect, it, vi } from 'vitest';
@@ -143,10 +144,12 @@ describe('MobileQuotationShell', () => {
   it('shows the step label, title, progress and one primary action', () => {
     renderShell();
 
-    expect(screen.getByText('Step 2 of 3 · Vehicle')).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'New single motor quotation' }),
-    ).toBeInTheDocument();
+    // Step label, title and back arrow sit in the shared app bar.
+    expect(appBarStore.get().config).toMatchObject({
+      variant: 'inner',
+      title: 'New single motor quotation',
+      subtitle: 'Step 2 of 3 · Vehicle',
+    });
     expect(screen.getByRole('progressbar')).toHaveAttribute(
       'aria-valuenow',
       '2',
@@ -178,18 +181,14 @@ describe('MobileQuotationShell', () => {
 
   it('goes back a step, and from step 1 back to the type selection', () => {
     const { wizard } = renderShell();
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Back to previous step' }),
-    );
+    act(() => appBarStore.back());
     expect(wizard().goBack).toHaveBeenCalled();
   });
 
   it('leaves for the type selection from step 1', () => {
     const onExit = vi.fn();
     renderShell({ stepId: 'm-cover', onExit });
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Back to quotation type' }),
-    );
+    act(() => appBarStore.back());
     expect(onExit).toHaveBeenCalled();
   });
 

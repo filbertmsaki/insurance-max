@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AppBarConfig } from '@/components/layout/app-bar/AppBarConfig';
 import { PRIMARY_BUTTON } from './ListStates';
 import type { Chip } from './types';
 
@@ -25,7 +26,9 @@ export function ListHeader({
 }) {
   return (
     <>
-      <header className="flex items-center justify-between gap-3 max-md:sticky max-md:top-0 max-md:z-20 max-md:-mx-4 max-md:h-14 max-md:bg-[#F4F5F9] max-md:px-4 md:mb-4 md:items-end">
+      {/* Phones: the title lives in the shared app bar. */}
+      <AppBarConfig title={title} />
+      <header className="mb-4 flex items-end justify-between gap-3 max-md:hidden">
         <div className="min-w-0">
           <nav aria-label="Breadcrumb" className="mb-1 max-md:hidden">
             <ol className="flex flex-wrap items-center gap-1 text-xs text-[#5B6275]">

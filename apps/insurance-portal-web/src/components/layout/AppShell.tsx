@@ -1,13 +1,16 @@
 import { underwritePaths } from '@/modules/tenant/underwrite/paths';
-import { motorInsurancePaths } from '@/modules/tenant/motor-insurance/paths';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Outlet, useLocation } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CommandPalette } from './CommandPalette';
 import { PageFooterProvider } from './PageFooterSlot';
-import { PageTitleBar } from './PageTitleBar';
+import { PageTitleBar, titleFor } from './PageTitleBar';
+import { MOBILE_DRAWER_ID, MobileAppBar } from './app-bar/MobileAppBar';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { engagementApi } from '@/modules/tenant/engagement/api';
 import { useBreadcrumb } from './breadcrumbs';
 import { cn } from '@/lib/utils';
 import { APP_NAME } from '@/modules/shared/config';
@@ -19,28 +22,55 @@ export function AppShell() {
   const location = useLocation();
   const mainRef = useRef<HTMLElement>(null);
   const crumbs = useBreadcrumb();
-  // Screens with a dedicated phone layout put their title in the app bar.
-  // Quotation and policy detail screens (any line) draw their own phone
-  // top bar and compact header.
-  const isQuotationDetail = /\/(quotations|policies)\/(?!new$)[^/]+$/.test(
+  // Quotation and policy detail screens (any line) use a compact layout.
+  const isRecordDetail = /\/(quotations|policies)\/(?!new$)[^/]+$/.test(
     location.pathname,
   );
-  const mobileTitle =
-    location.pathname === motorInsurancePaths.quotations
-      ? { eyebrow: 'Motor Insurance', title: 'Quotations' }
-      : location.pathname === motorInsurancePaths.policies
-        ? { eyebrow: 'Motor Insurance', title: 'Policies' }
-        : undefined;
+  const [scrolled, setScrolled] = useState(false);
+  const { user, profile } = useAuthStore();
+  const unread = useQuery({
+    queryKey: ['engagement', 'notifications', 'summary'],
+    queryFn: engagementApi.getNotificationUnreadSummary,
+    staleTime: 30_000,
+    enabled: user?.scope === 'company',
+  });
+  const appBarUser = {
+    name:
+      profile?.first_name && profile?.last_name
+        ? `${profile.first_name} ${profile.last_name}`
+        : (user?.email ?? ''),
+    role: user?.userType
+      ? user.userType
+          .replace(/_/g, ' ')
+          .toLowerCase()
+          .replace(/^\w/, (c) => c.toUpperCase())
+      : '',
+    initials: profile?.first_name
+      ? `${profile.first_name[0]}${profile.last_name?.[0] ?? ''}`.toUpperCase()
+      : (user?.email?.[0] ?? '?').toUpperCase(),
+  };
 
   useLayoutEffect(() => {
-    mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    mainRef.current?.scrollTo?.({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
+
+  // Phone drawer: Escape closes it.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+  const swipeStart = useRef<number | null>(null);
 
   // Close mobile sidebar on route change
   const [prevPathname, setPrevPathname] = useState(location.pathname);
   if (location.pathname !== prevPathname) {
     setPrevPathname(location.pathname);
     setMobileOpen(false);
+    setScrolled(false);
   }
 
   const toggleSidebar = () => {
@@ -84,35 +114,63 @@ export function AppShell() {
 
             {/* ── Mobile sidebar drawer ── */}
             <div
+              id={MOBILE_DRAWER_ID}
+              role="dialog"
+              aria-modal={mobileOpen || undefined}
+              aria-label="Navigation"
+              aria-hidden={!mobileOpen}
+              inert={!mobileOpen}
               className={cn(
-                'fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ease-in-out',
+                'fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[320px] md:hidden transition-transform duration-300 ease-in-out [&>*]:w-full',
                 mobileOpen ? 'translate-x-0' : '-translate-x-full',
               )}
+              onTouchStart={(event) => {
+                swipeStart.current = event.touches[0].clientX;
+              }}
+              onTouchEnd={(event) => {
+                const start = swipeStart.current;
+                swipeStart.current = null;
+                if (
+                  start !== null &&
+                  start - event.changedTouches[0].clientX > 60
+                ) {
+                  setMobileOpen(false);
+                }
+              }}
             >
               <Sidebar mobile onClose={() => setMobileOpen(false)} />
             </div>
 
             {/* ── Main content area ── */}
             <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-              <Header
-                onToggleSidebar={toggleSidebar}
-                onOpenCommand={() => setCommandOpen(true)}
-                mobileTitle={mobileTitle}
+              <div className="max-md:hidden">
+                <Header
+                  onToggleSidebar={toggleSidebar}
+                  onOpenCommand={() => setCommandOpen(true)}
+                />
+              </div>
+              <MobileAppBar
+                user={appBarUser}
+                fallbackTitle={titleFor(crumbs)}
+                unreadCount={unread.data?.count ?? 0}
+                drawerOpen={mobileOpen}
+                onMenu={() => setMobileOpen(true)}
+                scrolled={scrolled}
+                notificationsPath="/apps/notifications"
+                profilePath="/apps/settings/profile"
+                settingsPath="/apps/settings/number-format"
               />
               <main
                 ref={mainRef}
-                className={cn(
-                  'vz-main flex min-h-0 flex-1 flex-col overflow-y-auto',
-                  (mobileTitle || isQuotationDetail) && 'max-md:bg-[#F4F5F9]',
-                )}
+                onScroll={(event) => {
+                  const next = event.currentTarget.scrollTop > 0;
+                  if (next !== scrolled) setScrolled(next);
+                }}
+                className="vz-main flex min-h-0 flex-1 flex-col overflow-y-auto max-md:bg-[var(--color-surface-muted)]"
               >
                 <PageTitleBar
                   crumbs={crumbs}
-                  className={
-                    mobileTitle || isQuotationDetail
-                      ? 'max-md:hidden'
-                      : undefined
-                  }
+                  className="max-md:hidden"
                   links={
                     location.pathname.startsWith(
                       underwritePaths.quotations('fleet'),
@@ -126,14 +184,14 @@ export function AppShell() {
                 />
                 <div
                   className={
-                    isQuotationDetail
+                    isRecordDetail
                       ? 'w-full flex-1 px-3 py-5 md:px-6 md:py-[14px]'
                       : 'w-full flex-1 px-3 py-5 sm:px-5 lg:px-6 lg:py-6'
                   }
                 >
                   <Outlet />
                 </div>
-                <footer className="flex shrink-0 flex-col gap-1 px-3 py-4 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6">
+                <footer className="max-md:hidden flex shrink-0 flex-col gap-1 px-3 py-4 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6">
                   <span>
                     {new Date().getFullYear()} © {APP_NAME}.
                   </span>

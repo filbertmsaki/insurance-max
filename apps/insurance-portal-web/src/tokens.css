@@ -1,0 +1,43 @@
+:root {
+  --radius-control: 5px; --radius-card: 8px; --radius-badge: 999px;
+  --control-height-sm: 36px; --control-height-md: 44px; --control-height-lg: 48px;
+  --control-padding-x: 12px; --control-border-width: 1px;
+  --control-font-size: 14px; --control-font-size-mobile: 16px;
+  --font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --label-font-size: 13px; --helper-font-size: 12px; --transition-fast: 120ms ease;
+  --color-primary-50: #EEF4FB; --color-primary-100: #D6E4F5; --color-primary-200: #ADC8EA;
+  --color-primary-500: #2D6AB3; --color-primary-600: #1F4E8C; --color-primary-700: #183F72; --color-primary-800: #12305A;
+  --color-secondary-50: #E8F6F4; --color-secondary-600: #0F766E; --color-secondary-700: #0B5D57;
+  --color-accent-500: #D98A06;
+  --color-text: #1B1F2E; --color-text-muted: #5B6275; --color-placeholder: #8A90A2;
+  --color-border: #D5D9E2; --color-border-hover: #AEB4C2; --color-divider: #E6E8EF;
+  --color-surface: #FFFFFF; --color-surface-muted: #F4F6F9; --color-disabled-bg: #EEF0F4; --color-disabled-text: #9AA0AE;
+  --color-success: #146C43; --color-success-bg: #E3F4EC; --color-success-border: #9FD5B9;
+  --color-warning: #8A4B08; --color-warning-bg: #FDEFD9; --color-warning-border: #F2C98A;
+  --color-danger: #B42318; --color-danger-bg: #FDE8E8; --color-danger-border: #F3A6A0;
+  --color-info: #1F4E8C; --color-info-bg: #EEF4FB; --color-info-border: #ADC8EA;
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-primary-600) 25%, transparent);
+}
+@layer components {
+  .ui-control {
+    height: var(--control-height-md); width: 100%; border: var(--control-border-width) solid var(--color-border);
+    border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text);
+    padding-inline: var(--control-padding-x); font-size: var(--control-font-size);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .ui-control::placeholder, .ui-control[data-placeholder] { color: var(--color-placeholder); }
+  .ui-control[data-control-size='sm'] { height: var(--control-height-sm); }
+  .ui-control[data-control-size='lg'] { height: var(--control-height-lg); }
+  .ui-control:not(:disabled):not([readonly]):not([aria-invalid='true']):hover { border-color: var(--color-border-hover); }
+  .ui-control:focus-visible, .ui-control[data-state='open'] { outline: none; border-color: var(--color-primary-600); box-shadow: var(--focus-ring); }
+  .ui-control[aria-invalid='true'] { border-color: var(--color-danger-border); }
+  .ui-control[aria-invalid='true']:focus-visible, .ui-control[aria-invalid='true'][data-state='open'] { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-danger) 25%, transparent); }
+  .ui-control:disabled, .ui-control[data-disabled] { background: var(--color-disabled-bg); color: var(--color-disabled-text); cursor: not-allowed; }
+  .ui-control[readonly] { background: var(--color-surface-muted); }
+  textarea.ui-control { height: auto; min-height: 88px; padding-block: var(--control-padding-x); }
+  @media (max-width: 767px) { .ui-control { min-height: var(--control-height-md); font-size: var(--control-font-size-mobile); } }
+}
+
+/* SearchInput supplies its own labelled clear action. */
+input[type='search'].ui-search-with-clear::-webkit-search-cancel-button { display: none; }
+

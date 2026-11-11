@@ -4,7 +4,8 @@ import { cn } from '@/lib/utils';
 
 const GENERIC_CRUMBS = new Set(['Details', 'New', 'Edit']);
 
-function titleFor(crumbs: string[]) {
+// eslint-disable-next-line react-refresh/only-export-components
+export function titleFor(crumbs: string[]) {
   const last = crumbs[crumbs.length - 1] ?? '';
   if (!GENERIC_CRUMBS.has(last) || crumbs.length < 2) return last;
   const parent = crumbs[crumbs.length - 2];

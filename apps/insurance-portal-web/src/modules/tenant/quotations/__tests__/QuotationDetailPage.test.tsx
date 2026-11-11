@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { appBarStore } from '@/components/layout/app-bar/appBarStore';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -524,7 +525,9 @@ describe('Quotation details redesign', () => {
     rerender(
       <QueryClientProvider client={new QueryClient()}>
         <MemoryRouter initialEntries={['/quotations/quotation-1']}>
-          <Routes><Route path="/quotations/:id" element={<QuotationDetailPage />} /></Routes>
+          <Routes>
+            <Route path="/quotations/:id" element={<QuotationDetailPage />} />
+          </Routes>
         </MemoryRouter>
       </QueryClientProvider>,
     );
@@ -541,10 +544,15 @@ describe('Quotation details redesign', () => {
       state.preview = quotationDetailFixture(flow);
       renderPage(flow === 'MOTOR_FLEET' ? 'fleet' : undefined);
       expect(screen.getByText(full)).toBeInTheDocument();
-      expect(screen.getByText(short)).toBeInTheDocument();
+      // Phones: number and type sit in the shared app bar (inner variant).
+      expect(appBarStore.get().config).toMatchObject({
+        variant: 'inner',
+        title: 'QUO-2026-000123',
+        subtitle: short,
+      });
       expect(
         screen.getAllByRole('heading', { level: 1, name: 'QUO-2026-000123' }),
-      ).toHaveLength(2);
+      ).toHaveLength(1);
       expect(
         screen.queryAllByRole('button', { name: /View fleet list/ }).length > 0,
       ).toBe(flow === 'MOTOR_FLEET');

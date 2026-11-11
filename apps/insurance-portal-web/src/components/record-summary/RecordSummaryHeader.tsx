@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { AppBarConfig } from '@/components/layout/app-bar/AppBarConfig';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -805,23 +806,13 @@ function MobileHeader({
 
   return (
     <div className="space-y-3">
-      <div className="sticky top-0 z-20 -mx-3 -mt-5 flex h-14 items-center gap-1 border-b border-[#E6E8EF] bg-white px-1.5">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label={`Back to ${s.entity === 'policy' ? 'policies' : 'quotations'}`}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-700 active:bg-slate-100"
-          >
-            <ArrowLeft className="h-5 w-5" aria-hidden />
-          </button>
-        )}
-        <div className="min-w-0 flex-1 px-1">
-          <h1 className="truncate text-[16px] font-bold leading-tight">
-            {s.number}
-          </h1>
-          <p className="truncate text-[12px] text-slate-600">{s.typeLabel}</p>
-        </div>
+      {/* Phones: back, record number and actions live in the shared app bar. */}
+      <AppBarConfig
+        variant="inner"
+        title={s.number}
+        subtitle={s.typeLabel}
+        onBack={onBack}
+      >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -870,7 +861,7 @@ function MobileHeader({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>
+      </AppBarConfig>
 
       <section
         aria-label={`${entityLabel} summary`}
