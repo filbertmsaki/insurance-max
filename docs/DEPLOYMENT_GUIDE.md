@@ -208,7 +208,7 @@ openssl rand -base64 48                       # 32+ char secrets (JWT_*, peppers
 ### A1.2 Redis (Portal API only)
 
 - Redis holds 2FA challenges, passwordless tokens and the JWT blacklist.
-- If Redis is unreachable at boot, the portal **silently falls back to process memory**, but production readiness then returns **503**, so deployment health checks fail.
+- Redis is required at boot by default. If it is unreachable, the portal fails to start. `REDIS_ALLOW_IN_MEMORY_FALLBACK=true` explicitly enables process-memory fallback; production readiness reports 503 while Redis is unavailable.
 - TIRAMIS does not use Redis.
 - Only `REDIS_HOST/PORT/PASSWORD/DB` are used. `REDIS_URL` and `USE_REDIS` are dead (see C10).
 
@@ -1035,7 +1035,7 @@ In production, any of the following gives **503**: Redis down, `DOCUMENT_STORAGE
 pm2 logs insurance-max-prod-api --lines 100 --nostream | grep -iE 'error|warn|redis|started|\[startup\]'
 ```
 
-- A Redis connection **warning** means the memory fallback is active. Fix Redis before going live.
+- A Redis connection **warning** indicates a connection or command error. Check the error and Redis health; a separate startup message identifies memory fallback. Fix Redis before going live.
 - `[startup] … failed to start` means the boot failed; the reason is on the lines above it.
 
 ### B3.3 Database and seed

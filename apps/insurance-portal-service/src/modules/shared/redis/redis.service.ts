@@ -46,10 +46,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       lazyConnect: true,
     });
 
-    client.on('connect', () => this.logger.log('Redis connected'));
-    client.on('error', () =>
-      this.logger.warn('Redis client reported a connection or command error.'),
-    );
+    client.on('ready', () => this.logger.log('Redis ready'));
+    client.on('error', (error: Error) => {
+      const message = password
+        ? error.message.split(password).join('[redacted]')
+        : error.message;
+      this.logger.warn(`Redis error: ${message.replace(/[\r\n]/g, ' ')}`);
+    });
     // A close during onModuleDestroy is expected; only an unplanned one warns.
     client.on('close', () => {
       if (this.ready) this.logger.warn('Redis connection closed');
