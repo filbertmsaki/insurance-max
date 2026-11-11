@@ -282,7 +282,7 @@ describe('QuotationsService', () => {
     };
 
     const transactionManager = {
-      query: jest.fn().mockResolvedValue(undefined),
+      query: jest.fn().mockResolvedValue([]),
       getRepository: jest.fn().mockImplementation((entity: unknown) => {
         if (
           typeof entity === 'function' &&
@@ -747,6 +747,11 @@ describe('QuotationsService', () => {
         next: jest.fn().mockResolvedValue('FLT-2026-00001'),
       } as any,
     );
+    // Cover classification and enforcement are covered by
+    // quotation-cover.service.spec.ts; this harness has no stored risks.
+    (service as any).quotationCover = {
+      applyInTransaction: jest.fn().mockResolvedValue('MOTOR'),
+    };
 
     return {
       authoritativePayload,

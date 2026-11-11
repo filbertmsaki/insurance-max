@@ -822,7 +822,7 @@ export class UnderwriteTransactionsController {
 
   @Post('quotations/:id/retry-tira')
   @Permissions('quotations:retry-tiramis')
-  @UnderwriteLineAccess(UnderwriteAction.TIRA_RETRY)
+  @UnderwriteLineAccess(UnderwriteAction.TIRA_RETRY, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'Retry a quotation TIRAMIS submission in the line' })
   async retryQuotationTira(

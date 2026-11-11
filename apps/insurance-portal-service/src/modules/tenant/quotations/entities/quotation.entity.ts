@@ -176,6 +176,14 @@ export class Quotation {
   })
   quotation_flow: QuotationFlow;
 
+  /**
+   * Underwriting cover (MOTOR, FLEET, NON_MOTOR, SHORT_TERM_SINGLE,
+   * SHORT_TERM_FLEET), classified by the server on every write from the
+   * flow, product, risks and cover period. Drives cover-level access.
+   */
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  underwrite_cover: string | null;
+
   @Column({ type: 'boolean', default: false })
   is_fleet: boolean;
 

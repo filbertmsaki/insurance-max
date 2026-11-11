@@ -64,7 +64,7 @@ export class UnderwriteFleetController {
 
   @Get('quotations/:id/vehicles')
   @Permissions('quotations:read')
-  @UnderwriteLineAccess(UnderwriteAction.VIEW)
+  @UnderwriteLineAccess(UnderwriteAction.VIEW, { covers: true })
   @ApiParam(FLEET_PARAM)
   @ApiOperation({ summary: 'Vehicles of a fleet quotation, with premiums' })
   async quotationVehicles(
@@ -79,7 +79,7 @@ export class UnderwriteFleetController {
 
   @Get('policies/:id/vehicles')
   @Permissions('policies:read')
-  @UnderwriteLineAccess(UnderwriteAction.POLICIES_VIEW)
+  @UnderwriteLineAccess(UnderwriteAction.POLICIES_VIEW, { covers: true })
   @ApiParam(FLEET_PARAM)
   @ApiOperation({
     summary: 'Vehicles of a fleet policy, with cover note and cover status',
@@ -97,7 +97,7 @@ export class UnderwriteFleetController {
   @Post('quotations/:id/fleet-register')
   @HttpCode(HttpStatus.OK)
   @Permissions('quotations:update')
-  @UnderwriteLineAccess(UnderwriteAction.EDIT)
+  @UnderwriteLineAccess(UnderwriteAction.EDIT, { covers: true })
   @ApiParam(FLEET_PARAM)
   @ApiOperation({
     summary: 'Re-project a fleet quotation into the fleet register',

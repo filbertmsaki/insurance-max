@@ -33,6 +33,8 @@ export interface QuotationListItemResponse {
   quotation_no: string;
   quotation_type: string;
   quotation_flow: string;
+  /** Server-classified underwriting cover (null before classification). */
+  underwrite_cover: string | null;
   channel_type: string;
   status: string;
   quotation_status: string;
@@ -145,6 +147,7 @@ export class QuotationPayloadMapper {
       quotation_no: quotation.quotation_no,
       quotation_type: quotation.quotation_type,
       quotation_flow: quotation.quotation_flow,
+      underwrite_cover: quotation.underwrite_cover ?? null,
       channel_type: quotation.channel_type,
       status: quotation.status,
       quotation_status: quotation.status,

@@ -73,7 +73,7 @@ export class UnderwriteLineController {
   ) {}
 
   @Get('dashboard')
-  @UnderwriteLineAccess(UnderwriteAction.VIEW)
+  @UnderwriteLineAccess(UnderwriteAction.VIEW, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'Line dashboard statistics' })
   getDashboard(
@@ -85,7 +85,7 @@ export class UnderwriteLineController {
 
   @Get('quotations')
   @Permissions('quotations:read')
-  @UnderwriteLineAccess(UnderwriteAction.VIEW)
+  @UnderwriteLineAccess(UnderwriteAction.VIEW, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'List quotations in the line' })
   listQuotations(
@@ -98,7 +98,7 @@ export class UnderwriteLineController {
 
   @Get('quotations/:id')
   @Permissions('quotations:read')
-  @UnderwriteLineAccess(UnderwriteAction.VIEW)
+  @UnderwriteLineAccess(UnderwriteAction.VIEW, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'Get a quotation in the line' })
   getQuotation(
@@ -126,7 +126,7 @@ export class UnderwriteLineController {
 
   @Get('policies')
   @Permissions('policies:read')
-  @UnderwriteLineAccess(UnderwriteAction.POLICIES_VIEW)
+  @UnderwriteLineAccess(UnderwriteAction.POLICIES_VIEW, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'List policies in the line' })
   listPolicies(
@@ -139,7 +139,7 @@ export class UnderwriteLineController {
 
   @Get('policies/:id')
   @Permissions('policies:read')
-  @UnderwriteLineAccess(UnderwriteAction.POLICIES_VIEW)
+  @UnderwriteLineAccess(UnderwriteAction.POLICIES_VIEW, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'Get a policy in the line' })
   getPolicy(

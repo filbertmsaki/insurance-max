@@ -7,7 +7,6 @@ import {
   UnderwriteAction,
   UnderwriteLine,
   getUnderwriteLineDefinition,
-  underwritePermission,
 } from '@insurance-max/contracts';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -24,6 +23,7 @@ import { FleetVehiclesPanel } from '@/modules/tenant/underwrite/fleet/FleetVehic
 import { motorInsuranceApi, motorInsuranceKeys } from '../api';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { buildDuplicateDraft } from '../duplicate';
+import { hasLineGate } from '../access';
 import { motorInsurancePaths } from '../paths';
 
 const loadQuotationDetailPage = () =>
@@ -91,7 +91,7 @@ function QuotationDetail({ id, line }: { id: string; line: UnderwriteLine }) {
   });
 
   const canEdit =
-    hasPermission(underwritePermission(line, UnderwriteAction.EDIT)) &&
+    hasLineGate(hasPermission, line, UnderwriteAction.EDIT) &&
     hasPermission('quotations:update') &&
     !!record.data &&
     canEditQuotation({
@@ -101,7 +101,7 @@ function QuotationDetail({ id, line }: { id: string; line: UnderwriteLine }) {
       source_policy_transaction_id: null,
     });
   const canDuplicate =
-    hasPermission(underwritePermission(line, UnderwriteAction.CREATE)) &&
+    hasLineGate(hasPermission, line, UnderwriteAction.CREATE) &&
     hasPermission('quotations:create') &&
     !!record.data;
 

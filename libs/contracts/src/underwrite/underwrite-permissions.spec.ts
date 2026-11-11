@@ -1,4 +1,6 @@
 import { UNDERWRITE_MIGRATION_PERMISSIONS } from '../../../../apps/insurance-portal-service/src/database/migrations/1790800000000-UnderwriteLinesAndPermissions';
+import { UNDERWRITE_COVER_MIGRATION_PERMISSIONS } from '../../../../apps/insurance-portal-service/src/database/migrations/1796000000000-UnderwriteCoverAccess';
+import { UNDERWRITE_COVER_PERMISSION_DEFINITIONS } from './cover-access';
 import {
   UNDERWRITE_LINES,
   UnderwriteLine,
@@ -52,17 +54,25 @@ describe('underwrite permissions', () => {
     );
   });
 
-  it('keeps the migration snapshot in sync with the contract', () => {
-    const snapshot = UNDERWRITE_MIGRATION_PERMISSIONS.map((permission) => ({
+  it('keeps the migration snapshots in sync with the contract', () => {
+    const byName = (a: { name: string }, b: { name: string }) =>
+      a.name.localeCompare(b.name);
+    const snapshot = [
+      ...UNDERWRITE_MIGRATION_PERMISSIONS,
+      ...UNDERWRITE_COVER_MIGRATION_PERMISSIONS,
+    ].map((permission) => ({
       name: permission.name,
       legacy: [...permission.legacy].sort(),
     }));
-    const contract = UNDERWRITE_PERMISSION_DEFINITIONS.map((definition) => ({
+    const contract = [
+      ...UNDERWRITE_PERMISSION_DEFINITIONS,
+      ...UNDERWRITE_COVER_PERMISSION_DEFINITIONS,
+    ].map((definition) => ({
       name: definition.name,
       legacy: [...definition.legacyPermissions].sort(),
     }));
 
-    expect(snapshot).toEqual(contract);
+    expect(snapshot.sort(byName)).toEqual(contract.sort(byName));
   });
 
   it('grants line gates to holders of the equivalent legacy permission', () => {

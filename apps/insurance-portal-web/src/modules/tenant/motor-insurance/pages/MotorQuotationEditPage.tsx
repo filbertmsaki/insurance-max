@@ -1,11 +1,7 @@
 import { Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import {
-  UnderwriteAction,
-  UnderwriteLine,
-  underwritePermission,
-} from '@insurance-max/contracts';
+import { UnderwriteAction, UnderwriteLine } from '@insurance-max/contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState, TableSkeleton } from '@/components/shared/ContentStates';
@@ -21,6 +17,7 @@ import { getUnderwriteLineMeta } from '@/modules/tenant/underwrite/lines';
 import { isShortTermQuotation } from '../shortTerm';
 import { motorInsuranceApi, motorInsuranceKeys } from '../api';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
+import { hasLineGate } from '../access';
 import { motorInsurancePaths } from '../paths';
 
 /**
@@ -42,7 +39,7 @@ export function MotorQuotationEditPage() {
   const line = query.data?.line;
   const allowed =
     line !== undefined &&
-    hasPermission(underwritePermission(line, UnderwriteAction.EDIT)) &&
+    hasLineGate(hasPermission, line, UnderwriteAction.EDIT) &&
     hasPermission('quotations:update');
 
   if (query.isError || !line || !allowed) {

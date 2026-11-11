@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useWatch } from 'react-hook-form';
 import { CarFront, Loader2, ShieldCheck, Truck } from 'lucide-react';
-import { UnderwriteLine } from '@insurance-max/contracts';
+import { UnderwriteCover, UnderwriteLine } from '@insurance-max/contracts';
 import { cn } from '@/lib/utils';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 import type { QuotationFormSchemaValues } from '@/modules/tenant/quotations/schemas';
@@ -192,13 +192,18 @@ type Carry = Pick<
  */
 export function ShortTermQuotationWizard({
   lockedMode,
+  allowSingle = true,
   allowFleet = true,
 }: {
   lockedMode?: ShortTermMode;
+  /** False when the user may not create Short-Term Single quotations. */
+  allowSingle?: boolean;
   /** False when the user may not create Fleet quotations. */
   allowFleet?: boolean;
 }) {
-  const [mode, setMode] = useState<ShortTermMode>(lockedMode ?? 'single');
+  const [mode, setMode] = useState<ShortTermMode>(
+    lockedMode ?? (allowSingle ? 'single' : 'fleet'),
+  );
   const carryRef = useRef<Carry | null>(null);
   const activeMode = lockedMode ?? mode;
   const Wizard = activeMode === 'fleet' ? ShortTermFleet : ShortTermSingle;
@@ -209,7 +214,7 @@ export function ShortTermQuotationWizard({
       key={activeMode}
       carryRef={carryRef}
       mode={activeMode}
-      showToggle={allowFleet || activeMode === 'fleet'}
+      showToggle={(allowFleet && allowSingle) || Boolean(lockedMode)}
       onModeChange={lockedMode ? undefined : setMode}
     />
   );
@@ -238,7 +243,14 @@ function useShortTermPresets(
   const vehicleDefaultsApplied = useRef(false);
 
   useEffect(() => {
-    if (vehicleDefaultsApplied.current || isHydrating || !companyId || wizard.isEditMode || mode !== 'single') return;
+    if (
+      vehicleDefaultsApplied.current ||
+      isHydrating ||
+      !companyId ||
+      wizard.isEditMode ||
+      mode !== 'single'
+    )
+      return;
     vehicleDefaultsApplied.current = true;
     form.setValue('motor.motor_type_code', '2');
     form.setValue('motor.seating_capacity', '5');
@@ -494,6 +506,7 @@ function ShortTermSingle({
     deferDraftUntilStepId: 'st-vehicles',
     stepAliases: { 'st-premium': 'st-review' },
     allowEarlyManualDraft: isPhone,
+    underwriteCover: UnderwriteCover.SHORT_TERM_SINGLE,
   });
   const { form } = wizard;
   const presets = useShortTermPresets(wizard, mode, carryRef);
@@ -628,6 +641,7 @@ function ShortTermFleet({
     deferDraftUntilStepId: 'st-vehicles',
     stepAliases: { 'st-premium': 'st-review' },
     allowEarlyManualDraft: true,
+    underwriteCover: UnderwriteCover.SHORT_TERM_FLEET,
   });
   const actions = useFleetVehicleActions(wizard);
   const { form } = wizard;

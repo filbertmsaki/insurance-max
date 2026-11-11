@@ -59,7 +59,7 @@ export class UnderwriteQuotationsController {
 
   @Post('drafts')
   @Permissions('quotations:create')
-  @UnderwriteLineAccess(UnderwriteAction.CREATE)
+  @UnderwriteLineAccess(UnderwriteAction.CREATE, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiBody({ type: SaveQuotationDraftDto })
   @ApiOperation({ summary: 'Create a quotation draft in the line' })
@@ -73,7 +73,7 @@ export class UnderwriteQuotationsController {
 
   @Post(':id/duplicate')
   @Permissions('quotations:create')
-  @UnderwriteLineAccess(UnderwriteAction.CREATE)
+  @UnderwriteLineAccess(UnderwriteAction.CREATE, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiBody({ type: SaveQuotationDraftDto })
   @ApiOperation({
@@ -91,7 +91,7 @@ export class UnderwriteQuotationsController {
 
   @Get(':id/edit')
   @Permissions('quotations:update')
-  @UnderwriteLineAccess(UnderwriteAction.EDIT)
+  @UnderwriteLineAccess(UnderwriteAction.EDIT, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'Load a quotation in the line for the wizard' })
   getForEdit(
@@ -104,7 +104,7 @@ export class UnderwriteQuotationsController {
 
   @Put(':id/draft')
   @Permissions('quotations:update')
-  @UnderwriteLineAccess(UnderwriteAction.EDIT)
+  @UnderwriteLineAccess(UnderwriteAction.EDIT, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiBody({ type: UpdateQuotationDraftDto })
   @ApiOperation({ summary: 'Save the wizard draft of a quotation in the line' })
@@ -120,7 +120,7 @@ export class UnderwriteQuotationsController {
   @Post(':id/finalize')
   @HttpCode(HttpStatus.OK)
   @Permissions('quotations:complete')
-  @UnderwriteLineAccess(UnderwriteAction.CREATE)
+  @UnderwriteLineAccess(UnderwriteAction.CREATE, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiBody({ type: UpdateQuotationDto })
   @ApiOperation({
@@ -137,7 +137,7 @@ export class UnderwriteQuotationsController {
 
   @Delete(':id/draft')
   @Permissions('quotations:delete-draft')
-  @UnderwriteLineAccess(UnderwriteAction.DELETE)
+  @UnderwriteLineAccess(UnderwriteAction.DELETE, { covers: true })
   @ApiParam(LINE_PARAM)
   @ApiOperation({ summary: 'Delete a draft quotation in the line' })
   removeDraft(

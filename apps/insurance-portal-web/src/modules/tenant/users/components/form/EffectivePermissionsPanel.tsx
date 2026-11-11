@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { UnderwriteAccessMatrix } from './UnderwriteAccessMatrix';
 import type { UserAccessOptions } from '@/modules/tenant/users/api/users';
 import {
   DATA_SCOPE_OPTIONS,
@@ -61,37 +62,42 @@ export function EffectivePermissionsPanel({
   }, [options, roleIds, grants, excludedIds]);
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50/60">
-      <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
-        <p className="text-sm font-semibold text-slate-900">
-          Effective permissions
-        </p>
-        <Badge variant="muted">{rows.length}</Badge>
+    <div className="space-y-3">
+      <UnderwriteAccessMatrix permissionNames={rows.map((row) => row.name)} />
+      <div className="rounded-md border border-slate-200 bg-slate-50/60">
+        <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2">
+          <p className="text-sm font-semibold text-slate-900">
+            Effective permissions
+          </p>
+          <Badge variant="muted">{rows.length}</Badge>
+        </div>
+        {rows.length ? (
+          <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+            {rows.map((row) => (
+              <li key={row.name} className="px-3 py-2">
+                <p className="text-sm text-slate-800">{row.label}</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {row.sources.map((source) => (
+                    <Badge
+                      key={source}
+                      variant={
+                        source.startsWith('Extra') ? 'primary' : 'outline'
+                      }
+                      className="text-[10px] font-normal"
+                    >
+                      {source}
+                    </Badge>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-3 py-4 text-sm text-slate-500">
+            No permissions yet. Select a role or an extra permission.
+          </p>
+        )}
       </div>
-      {rows.length ? (
-        <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
-          {rows.map((row) => (
-            <li key={row.name} className="px-3 py-2">
-              <p className="text-sm text-slate-800">{row.label}</p>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {row.sources.map((source) => (
-                  <Badge
-                    key={source}
-                    variant={source.startsWith('Extra') ? 'primary' : 'outline'}
-                    className="text-[10px] font-normal"
-                  >
-                    {source}
-                  </Badge>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-3 py-4 text-sm text-slate-500">
-          No permissions yet. Select a role or an extra permission.
-        </p>
-      )}
     </div>
   );
 }

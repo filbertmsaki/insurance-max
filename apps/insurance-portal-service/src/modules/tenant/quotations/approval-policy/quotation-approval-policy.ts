@@ -1,3 +1,4 @@
+import { SHORT_TERM_COVER } from '@insurance-max/contracts';
 /**
  * Configurable quotation approval: automatic approval rules and per-user
  * direct ("Complete and Approve") authority. Stored as one JSON value in the
@@ -273,7 +274,7 @@ export function directApprovalViolation(
  * quotation type matches quotations whose every risk is that transit risk.
  */
 export const SHORT_TERM_QUOTATION_TYPE = 'SHORT_TERM';
-export const SHORT_TERM_RISK_CODE = 'SP014001000007';
+export const SHORT_TERM_RISK_CODE: string = SHORT_TERM_COVER.riskCode;
 
 export function isShortTermQuotation(facts: ApprovalFacts): boolean {
   return (

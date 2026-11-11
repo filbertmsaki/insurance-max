@@ -1,4 +1,5 @@
 import {
+  applyDecorators,
   createParamDecorator,
   ExecutionContext,
   SetMetadata,
@@ -10,13 +11,30 @@ import type {
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 export const UNDERWRITE_LINE_ACTION_KEY = 'underwrite:line-action';
+export const UNDERWRITE_LINE_COVERS_KEY = 'underwrite:line-covers';
+
+export interface UnderwriteLineAccessOptions {
+  /**
+   * Also admit holders of a restricted cover inside the line (e.g.
+   * Short-Term on Motor). Only for routes whose services filter records by
+   * cover (the `*ForUser` quotation/policy reads and the cover-checked
+   * writes); every other route stays line-only.
+   */
+  covers?: boolean;
+}
 
 /**
  * Declares the line-level gate for a route under `tenant/underwrite/:line`.
  * The existing action permission is still declared with `@Permissions(...)`.
  */
-export const UnderwriteLineAccess = (action: UnderwriteActionValue) =>
-  SetMetadata(UNDERWRITE_LINE_ACTION_KEY, action);
+export const UnderwriteLineAccess = (
+  action: UnderwriteActionValue,
+  options: UnderwriteLineAccessOptions = {},
+) =>
+  applyDecorators(
+    SetMetadata(UNDERWRITE_LINE_ACTION_KEY, action),
+    SetMetadata(UNDERWRITE_LINE_COVERS_KEY, options.covers === true),
+  );
 
 export interface UnderwriteRequest {
   user?: AuthenticatedUser;

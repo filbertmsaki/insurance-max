@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { UnderwriteCover } from '@insurance-max/contracts';
 import { useFleetComprehensiveCount } from '@/modules/tenant/quotations/wizard/hooks/useFleetComprehensiveCount';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -112,6 +113,7 @@ export function useUnderwriteQuotationWizard({
   deferDraftUntilStepId,
   allowEarlyManualDraft = false,
   hooks,
+  underwriteCover,
 }: {
   line: UnderwriteLineMeta;
   quotationId?: string;
@@ -123,6 +125,11 @@ export function useUnderwriteQuotationWizard({
   /** Allow an explicit Save draft before automatic draft creation is enabled. */
   allowEarlyManualDraft?: boolean;
   hooks?: UnderwriteWizardHooks;
+  /**
+   * Cover being quoted (Short-Term wizards). Lets the server classify a draft
+   * before a risk is chosen; it never overrides the risks.
+   */
+  underwriteCover?: UnderwriteCover;
 }) {
   // Kept in a ref so callers can pass inline callbacks without re-creating
   // the mutations on every render.
@@ -591,10 +598,10 @@ export function useUnderwriteQuotationWizard({
       currentWizardStep: string;
       silent: boolean;
     }) => {
-      const payload = buildQuotationDraftPayload(
-        form.getValues(),
-        currentWizardStep,
-      );
+      const payload = {
+        ...buildQuotationDraftPayload(form.getValues(), currentWizardStep),
+        ...(underwriteCover ? { underwrite_cover: underwriteCover } : {}),
+      };
       return activeDraftId
         ? underwriteApi.updateDraft(line.slug, activeDraftId, {
             ...payload,

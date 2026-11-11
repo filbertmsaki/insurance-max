@@ -157,6 +157,10 @@ import { FinanceCommandService } from '../billing-commission/services/finance-co
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
+import {
+  QuotationCoverService,
+  type QuotationCoverWrite,
+} from './services/quotation-cover.service';
 import type { TenantDataScope } from '../../shared/authorization/interfaces/tenant-data-scope.interface';
 import { AuditService } from '../../shared/audit/audit.service';
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
@@ -242,6 +246,8 @@ interface ReplaceQuotationOptions {
   reuseExistingIdentifiers?: boolean;
   /** Set by finalize(), which already ran the Non-Motor finalize gates. */
   nonMotorGatesChecked?: boolean;
+  /** Cover grant the write needs (finalize completes: create). */
+  coverWrite?: QuotationCoverWrite;
 }
 
 interface QuotationWriteAccessOptions {
@@ -358,6 +364,8 @@ const PRICING_AUDIT_VIEW_PERMISSIONS = [
 @Injectable()
 export class QuotationsService {
   private readonly logger = new Logger(QuotationsService.name);
+  /** Cover classification and cover-grant enforcement (stateless). */
+  private readonly quotationCover = new QuotationCoverService();
   constructor(
     private readonly dataSource: DataSource,
     private readonly quotationsRepository: QuotationsRepository,
@@ -554,6 +562,11 @@ export class QuotationsService {
           exchangeRateSnapshot,
         );
 
+        await this.quotationCover.applyInTransaction(manager, quotation.id, {
+          user,
+          write: 'quotations:create',
+        });
+
         return quotation.id;
       });
 
@@ -595,14 +608,21 @@ export class QuotationsService {
           channelUser,
           'quotation.draft.create',
         );
-      const quotationId = await this.dataSource.transaction((manager) =>
-        this.createDraftInTransaction(
+      const quotationId = await this.dataSource.transaction(async (manager) => {
+        const id = await this.createDraftInTransaction(
           manager,
           companyId,
           authorizedDto,
           channelUser.id,
-        ),
-      );
+        );
+        await this.quotationCover.applyInTransaction(manager, id, {
+          user: typeof user === 'string' ? null : user,
+          write: 'quotations:create',
+          intent: authorizedDto.underwrite_cover,
+          includeDraftPayload: true,
+        });
+        return id;
+      });
       return this.findOneForEdit(companyId, quotationId);
     } catch (error) {
       this.rethrowConstraintError(error);
@@ -690,6 +710,12 @@ export class QuotationsService {
       nextStatus: quotation.status,
       reason: 'Quotation draft created',
       changedBy: userId,
+    });
+    // Classify for every caller (portal, policy transactions); user-facing
+    // callers enforce the user's cover grant on top.
+    await this.quotationCover.applyInTransaction(manager, quotation.id, {
+      intent: dto.underwrite_cover,
+      includeDraftPayload: true,
     });
 
     return quotation.id;
@@ -836,6 +862,7 @@ export class QuotationsService {
         reason: 'Policy transaction quotation finalized from policy snapshot',
       },
     );
+    await this.quotationCover.applyInTransaction(manager, quotation.id);
 
     return quotation;
   }
@@ -1068,6 +1095,11 @@ export class QuotationsService {
           exchangeRateSnapshot,
         );
 
+        await this.quotationCover.applyInTransaction(manager, id, {
+          user,
+          write: options.coverWrite ?? 'quotations:update',
+        });
+
         if (previousStatus !== QuotationStatus.DRAFT) {
           shouldEvaluateRequirements = true;
         }
@@ -1214,6 +1246,12 @@ export class QuotationsService {
           productCode,
           draftContext.officer,
         );
+        await this.quotationCover.applyInTransaction(manager, id, {
+          user,
+          write: 'quotations:update',
+          intent: authorizedDto.underwrite_cover,
+          includeDraftPayload: true,
+        });
       });
 
       return this.findOneForEdit(companyId, id);
@@ -1245,6 +1283,7 @@ export class QuotationsService {
     const quotation = await this.replace(companyId, id, payload, user, {
       ...options,
       nonMotorGatesChecked: true,
+      coverWrite: 'quotations:create',
     });
 
     const replacedAggregate = await this.quotationsRepository.findOneAggregate(
@@ -1665,6 +1704,7 @@ export class QuotationsService {
       current_wizard_step: quotation.current_wizard_step ?? null,
       draft_payload: quotation.draft_payload ?? null,
       cancellation_reason: quotation.cancellation_reason ?? null,
+      underwrite_cover: quotation.underwrite_cover ?? null,
       pricing_integration: this.canViewPricingBreakdown(user)
         ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
         : null,
@@ -1683,6 +1723,7 @@ export class QuotationsService {
       current_wizard_step: quotation.current_wizard_step ?? null,
       draft_payload: quotation.draft_payload ?? null,
       cancellation_reason: quotation.cancellation_reason ?? null,
+      underwrite_cover: quotation.underwrite_cover ?? null,
       pricing_integration: this.canViewPricingBreakdown(user)
         ? await this.evaluateQuotationPricingIntegration(
             quotation.company_id,

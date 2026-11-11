@@ -112,6 +112,11 @@ export class QuotationsRepository {
       'quotation',
       scope,
     );
+    this.dataAccessScopeService.applyQuotationCoverScope(
+      queryBuilder,
+      'quotation',
+      scope,
+    );
 
     const quotation = await queryBuilder.getOne();
 
@@ -451,6 +456,7 @@ export class QuotationsRepository {
       'quotation.quotation_no',
       'quotation.quotation_type',
       'quotation.quotation_flow',
+      'quotation.underwrite_cover',
       'quotation.channel_type',
       'quotation.status',
       'quotation.approval_status',

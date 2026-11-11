@@ -12,6 +12,7 @@ import {
   RoleScope,
   MOTOR_INSURANCE_PREVIEW_PERMISSION,
   MOTOR_INSURANCE_PREVIEW_PERMISSION_DEFINITION,
+  UNDERWRITE_COVER_PERMISSION_DEFINITIONS,
   UNDERWRITE_PERMISSION_DEFINITIONS,
   withUnderwritePermissionAliases,
 } from '@insurance-max/contracts';
@@ -3452,6 +3453,14 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   ...UNDERWRITE_PERMISSION_DEFINITIONS.map((definition) => ({
+    name: definition.name,
+    displayName: definition.displayName,
+    description: definition.description,
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  })),
+  // Restricted covers (Short-Term). Never derived from legacy permissions:
+  // assigned explicitly through a role or a direct grant.
+  ...UNDERWRITE_COVER_PERMISSION_DEFINITIONS.map((definition) => ({
     name: definition.name,
     displayName: definition.displayName,
     description: definition.description,

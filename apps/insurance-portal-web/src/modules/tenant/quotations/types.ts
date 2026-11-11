@@ -345,6 +345,8 @@ export interface QuotationListItem {
   quotation_no: string;
   quotation_type: QuotationType;
   quotation_flow: QuotationFlow;
+  /** Server-classified underwriting cover (e.g. SHORT_TERM_SINGLE). */
+  underwrite_cover?: string | null;
   channel_type: ProductChannelType;
   status: QuotationStatus;
   quotation_status: QuotationStatus;
@@ -393,6 +395,8 @@ export interface QuotationDetailRecord extends Omit<
   };
   id: string;
   quotation_no: string;
+  /** Server-classified underwriting cover (e.g. SHORT_TERM_SINGLE). */
+  underwrite_cover?: string | null;
   customer_id?: string | null;
   status: QuotationStatus;
   quotation_status: QuotationStatus;
@@ -427,6 +431,11 @@ export interface QuotationDraftRecordPayload {
   is_fleet: boolean;
   current_wizard_step?: string | null;
   draft_payload: Record<string, unknown>;
+  /**
+   * Cover being quoted. Only decides a draft with no risk yet; the server
+   * classifies the cover from the risks once there are any.
+   */
+  underwrite_cover?: string | null;
 }
 
 export interface QuotationPricingIntegration {

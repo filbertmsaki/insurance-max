@@ -54,6 +54,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { rolesApi } from '@/modules/platform/roles/api/roles';
 import { permissionsApi } from '@/modules/platform/permissions/api/permissions';
+import { UnderwriteAccessMatrix } from '@/modules/tenant/users/components/form/UnderwriteAccessMatrix';
 import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard';
 import type { Role, Permission } from '@/types';
 
@@ -145,6 +146,10 @@ function ViewPermissionsDialog({
         </div>
 
         <Separator />
+
+        <UnderwriteAccessMatrix
+          permissionNames={(role.permissions ?? []).map((p) => p.name)}
+        />
 
         {isEmpty ? (
           <div className="py-8 text-center text-slate-400 text-sm">
@@ -419,6 +424,21 @@ function RoleFormDialog({
             )}
 
             <Separator />
+
+            <UnderwriteAccessMatrix
+              permissionNames={allPermissions
+                .filter((permission) => selectedPerms.includes(permission.id))
+                .map((permission) => permission.name)}
+              isAssignable={(name) =>
+                allPermissions.some((permission) => permission.name === name)
+              }
+              onToggle={(name, granted) => {
+                const permission = allPermissions.find(
+                  (item) => item.name === name,
+                );
+                if (permission) togglePerm(permission.id, granted);
+              }}
+            />
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">

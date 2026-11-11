@@ -9,11 +9,13 @@ import {
 import { Reflector } from '@nestjs/core';
 import {
   type UnderwriteActionValue,
+  underwriteLineEntryPermissions,
   underwriteLineFromSlug,
   underwritePermissionsGranting,
 } from '@insurance-max/contracts';
 import {
   UNDERWRITE_LINE_ACTION_KEY,
+  UNDERWRITE_LINE_COVERS_KEY,
   type UnderwriteRequest,
   userHasPermission,
 } from './underwrite-line.access';
@@ -53,7 +55,15 @@ export class UnderwriteLineGuard implements CanActivate {
       throw new ForbiddenException('Underwrite line access is not declared');
     }
 
-    const granting = underwritePermissionsGranting(line, action);
+    const acceptsCovers = this.reflector.getAllAndOverride<boolean>(
+      UNDERWRITE_LINE_COVERS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    // Restricted-cover holders enter only opted-in routes; their records are
+    // then narrowed to their covers by the data scope and the cover checks.
+    const granting = acceptsCovers
+      ? underwriteLineEntryPermissions(line, action)
+      : underwritePermissionsGranting(line, action);
     const permission = granting[0];
     if (!granting.some((item) => userHasPermission(user, item))) {
       throw new ForbiddenException({

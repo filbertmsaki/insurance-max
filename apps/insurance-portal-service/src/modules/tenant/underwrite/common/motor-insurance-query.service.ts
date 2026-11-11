@@ -11,6 +11,7 @@ import {
   UnderwriteAction,
   type UnderwriteActionValue,
   quotationFlowForUnderwriteLine,
+  underwriteLineEntryPermissions,
   underwriteLineFromQuotationFlow,
   underwritePermissionsGranting,
 } from '@insurance-max/contracts';
@@ -49,10 +50,17 @@ export class MotorInsuranceQueryService {
     action: UnderwriteActionValue,
   ): MotorInsuranceLine[] {
     this.assertPreview(user);
+    // Quotation and policy reads are filtered by cover in the data scope, so
+    // restricted-cover holders (Short-Term) may enter them. Policy
+    // transactions and TIRA queues stay line-only.
+    const coverFiltered =
+      action === UnderwriteAction.VIEW ||
+      action === UnderwriteAction.POLICIES_VIEW;
     const lines = MOTOR_INSURANCE_LINES.filter((line) =>
-      underwritePermissionsGranting(line, action).some((permission) =>
-        userHasPermission(user, permission),
-      ),
+      (coverFiltered
+        ? underwriteLineEntryPermissions(line, action)
+        : underwritePermissionsGranting(line, action)
+      ).some((permission) => userHasPermission(user, permission)),
     );
     if (lines.length === 0) {
       throw new ForbiddenException({

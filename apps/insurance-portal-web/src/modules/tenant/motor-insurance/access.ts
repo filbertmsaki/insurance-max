@@ -2,7 +2,10 @@ import {
   MOTOR_INSURANCE_LINES,
   UnderwriteAction,
   type UnderwriteActionValue,
+  UnderwriteCover,
   type UnderwriteLine,
+  underwriteCoverPermissionsGranting,
+  underwriteLineEntryPermissions,
   underwritePermissionsGranting,
 } from '@insurance-max/contracts';
 import {
@@ -10,11 +13,67 @@ import {
   ENDORSEMENT_VIEW_PERMISSIONS,
 } from '@/modules/tenant/underwrite/lines';
 
-/** Line gates of Motor OR Fleet that grant `action`. */
+/**
+ * Actions whose API routes filter records by cover, so a restricted cover
+ * grant (Short-Term) may open them. Everything else stays line-only, exactly
+ * like the backend.
+ */
+const COVER_ENTRY_ACTIONS: readonly UnderwriteActionValue[] = [
+  UnderwriteAction.VIEW,
+  UnderwriteAction.POLICIES_VIEW,
+  UnderwriteAction.CREATE,
+  UnderwriteAction.EDIT,
+  UnderwriteAction.DELETE,
+];
+
+function lineGates(line: UnderwriteLine, action: UnderwriteActionValue) {
+  return COVER_ENTRY_ACTIONS.includes(action)
+    ? underwriteLineEntryPermissions(line, action)
+    : underwritePermissionsGranting(line, action);
+}
+
+/** Gates of Motor OR Fleet (or a Short-Term cover inside them) for `action`. */
 export function motorInsuranceLineGates(action: UnderwriteActionValue) {
-  return MOTOR_INSURANCE_LINES.flatMap((line) =>
-    underwritePermissionsGranting(line, action),
-  );
+  return MOTOR_INSURANCE_LINES.flatMap((line) => lineGates(line, action));
+}
+
+export type MotorCreateKind =
+  | 'single'
+  | 'fleet'
+  | 'short-term-single'
+  | 'short-term-fleet';
+
+/** Whether the user may create quotations of a kind (UI only; the API enforces). */
+export function canCreateMotorKind(
+  hasPermission: (permission: string) => boolean,
+  kind: MotorCreateKind | 'short-term',
+): boolean {
+  if (!hasPermission('quotations:create')) return false;
+  const cover = (value: UnderwriteCover) =>
+    underwriteCoverPermissionsGranting(value, UnderwriteAction.CREATE).some(
+      hasPermission,
+    );
+  switch (kind) {
+    case 'single':
+      return underwritePermissionsGranting(
+        'MOTOR',
+        UnderwriteAction.CREATE,
+      ).some(hasPermission);
+    case 'fleet':
+      return underwritePermissionsGranting(
+        'FLEET',
+        UnderwriteAction.CREATE,
+      ).some(hasPermission);
+    case 'short-term-single':
+      return cover(UnderwriteCover.SHORT_TERM_SINGLE);
+    case 'short-term-fleet':
+      return cover(UnderwriteCover.SHORT_TERM_FLEET);
+    case 'short-term':
+      return (
+        cover(UnderwriteCover.SHORT_TERM_SINGLE) ||
+        cover(UnderwriteCover.SHORT_TERM_FLEET)
+      );
+  }
 }
 
 export interface MotorInsuranceGate {
@@ -46,7 +105,7 @@ export function hasLineGate(
   line: UnderwriteLine,
   action: UnderwriteActionValue,
 ): boolean {
-  return underwritePermissionsGranting(line, action).some(hasPermission);
+  return lineGates(line, action).some(hasPermission);
 }
 
 export const MOTOR_INSURANCE_QUOTATIONS_GATE = motorInsuranceGate(
@@ -107,7 +166,13 @@ export const MOTOR_INSURANCE_TRANSACTIONS_GATE: MotorInsuranceGate = {
   ],
 };
 
-export const MOTOR_INSURANCE_CUSTOMERS_GATE = motorInsuranceGate(
-  UnderwriteAction.VIEW,
-  'customers:read',
-);
+// The line customer register is not cover-filtered: line holders only.
+export const MOTOR_INSURANCE_CUSTOMERS_GATE: MotorInsuranceGate = {
+  allPermissions: [],
+  anyPermissionGroups: [
+    MOTOR_INSURANCE_LINES.flatMap((line) =>
+      underwritePermissionsGranting(line, UnderwriteAction.VIEW),
+    ),
+    ['customers:read'],
+  ],
+};

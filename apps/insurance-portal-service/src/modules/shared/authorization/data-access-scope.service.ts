@@ -11,6 +11,11 @@ import { Brackets, ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { DataScopePermissions } from './data-scope.constants';
 import type { TenantDataScope } from './interfaces/tenant-data-scope.interface';
 import { QuotationPolicyDataScope } from './quotation-policy-data-scope.enum';
+import {
+  policyCoverSql,
+  quotationCoverSql,
+  resolveCoverScope,
+} from './underwrite-cover-scope';
 
 @Injectable()
 export class DataAccessScopeService {
@@ -171,8 +176,54 @@ export class DataAccessScopeService {
           CompanyType.BANCASSURANCE,
         ].includes(user.companyType),
 
+      ...resolveCoverScope(permissions, permissionName),
+
       permissions: [...permissions],
     };
+  }
+
+  /** Restricts quotations to the scope's covers (no-op when unrestricted). */
+  applyQuotationCoverScope<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+    scope: TenantDataScope,
+  ): void {
+    this.applyCoverFilter(
+      queryBuilder,
+      quotationCoverSql(alias),
+      scope.quotationCovers,
+      'scopeQuotationCovers',
+    );
+  }
+
+  /** Restricts policies to the scope's covers (no-op when unrestricted). */
+  applyPolicyCoverScope<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+    scope: TenantDataScope,
+  ): void {
+    this.applyCoverFilter(
+      queryBuilder,
+      policyCoverSql(alias),
+      scope.policyCovers,
+      'scopePolicyCovers',
+    );
+  }
+
+  private applyCoverFilter<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    expression: string,
+    covers: string[] | null | undefined,
+    parameter: string,
+  ): void {
+    if (covers === null || covers === undefined) return;
+    if (covers.length === 0) {
+      queryBuilder.andWhere('1 = 0');
+      return;
+    }
+    queryBuilder.andWhere(`${expression} IN (:...${parameter})`, {
+      [parameter]: covers,
+    });
   }
 
   assertRequestedBranchAllowed(
@@ -203,6 +254,7 @@ export class DataAccessScopeService {
     scope: TenantDataScope,
   ): void {
     this.applyQuotationPolicyDataScope(queryBuilder, alias, scope);
+    this.applyQuotationCoverScope(queryBuilder, alias, scope);
   }
 
   applyPolicyReadScope<T extends ObjectLiteral>(
@@ -211,6 +263,7 @@ export class DataAccessScopeService {
     scope: TenantDataScope,
   ): void {
     this.applyQuotationPolicyDataScope(queryBuilder, alias, scope);
+    this.applyPolicyCoverScope(queryBuilder, alias, scope);
   }
 
   /**
@@ -653,6 +706,9 @@ export class DataAccessScopeService {
     scope: TenantDataScope,
     includePendingApproval: boolean,
   ): void {
+    // Cover restriction applies to approvers too: pending approvals of
+    // covers the user holds no grant for stay hidden.
+    this.applyPolicyCoverScope(queryBuilder, policyAlias, scope);
     if (!includePendingApproval) {
       this.applyQuotationPolicyDataScope(queryBuilder, policyAlias, scope);
       return;

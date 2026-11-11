@@ -18,6 +18,8 @@ export const UnderwriteAction = {
   CREATE: 'create',
   EDIT: 'edit',
   DELETE: 'delete',
+  /** Submit for approval, request payment and submit to TIRA. */
+  SUBMIT: 'submit',
   APPROVE: 'approve',
   POLICIES_VIEW: 'policies.view',
   POLICIES_EDIT: 'policies.edit',
@@ -98,6 +100,17 @@ const ACTION_DEFINITIONS: UnderwriteActionDefinition[] = [
     displayName: 'Delete quotations',
     description: 'Delete draft quotations in the line',
     legacyPermissions: ['quotations:delete-draft', 'quotations:delete'],
+  },
+  {
+    action: UnderwriteAction.SUBMIT,
+    displayName: 'Submit quotations',
+    description:
+      'Submit quotations for approval, request payment and submit to TIRA in the line',
+    legacyPermissions: [
+      'quotations:submit-approval',
+      'quotations:request-payment',
+      'quotations:submit-tiramis',
+    ],
   },
   {
     action: UnderwriteAction.APPROVE,

@@ -305,6 +305,11 @@ export class PoliciesService {
         'policy',
         scope,
       );
+      this.dataAccessScopeService.applyPolicyCoverScope(
+        queryBuilder,
+        'policy',
+        scope,
+      );
     } else {
       this.dataAccessScopeService.applyPolicyReadScope(
         queryBuilder,

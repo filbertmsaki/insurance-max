@@ -1,11 +1,6 @@
 import { Fragment, Suspense, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, CarFront, Check, Timer, Truck } from 'lucide-react';
-import {
-  UnderwriteAction,
-  UnderwriteLine,
-  underwritePermission,
-} from '@insurance-max/contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Radio } from '@/components/ui/radio';
@@ -23,6 +18,7 @@ import {
 
 import { QuotationPageHeader } from '@/modules/tenant/underwrite/wizard/QuotationPageHeader';
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
+import { canCreateMotorKind } from '../access';
 import { motorInsurancePaths } from '../paths';
 import { MOTOR_QUOTATION_KINDS, type MotorQuotationKind } from '../types';
 
@@ -34,9 +30,9 @@ const ICONS: Record<MotorQuotationKind, typeof CarFront> = {
 
 function useCanCreate() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
-  return (line: UnderwriteLine) =>
-    hasPermission(underwritePermission(line, UnderwriteAction.CREATE)) &&
-    hasPermission('quotations:create');
+  return (
+    kind: MotorQuotationKind | 'short-term-single' | 'short-term-fleet',
+  ) => canCreateMotorKind(hasPermission, kind);
 }
 
 /**
@@ -49,14 +45,17 @@ export function MotorQuotationCreatePage() {
   const canCreate = useCanCreate();
   const requested = searchParams.get('type');
   const selected = MOTOR_QUOTATION_KINDS.find(
-    (item) => item.type === requested && canCreate(item.line),
+    (item) => item.type === requested && canCreate(item.type),
   );
 
   if (!selected) return <QuotationTypeChooser />;
 
   const wizard =
     selected.type === 'short-term' ? (
-      <ShortTermQuotationWizard allowFleet={canCreate(UnderwriteLine.FLEET)} />
+      <ShortTermQuotationWizard
+        allowSingle={canCreate('short-term-single')}
+        allowFleet={canCreate('short-term-fleet')}
+      />
     ) : selected.type === 'fleet' ? (
       <FleetQuotationWizard />
     ) : (
@@ -90,7 +89,7 @@ function QuotationTypeChooser() {
   const navigate = useNavigate();
   const canCreate = useCanCreate();
   usePageTitle('New Motor Quotation');
-  const options = MOTOR_QUOTATION_KINDS.filter((item) => canCreate(item.line));
+  const options = MOTOR_QUOTATION_KINDS.filter((item) => canCreate(item.type));
   const [choice, setChoice] = useState<MotorQuotationKind | null>(null);
   const chosen = options.find((option) => option.type === choice);
 

@@ -1,13 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import {
-  UnderwriteAction,
-  UnderwriteLine,
-  underwritePermission,
-} from '@insurance-max/contracts';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { QuotationRegister } from '@/modules/tenant/quotations/components/QuotationRegister';
 import { motorInsuranceApi, motorInsuranceKeys } from '../api';
+import { canCreateMotorKind } from '../access';
 import { motorInsurancePaths } from '../paths';
 
 /**
@@ -18,11 +14,9 @@ import { motorInsurancePaths } from '../paths';
 export function MotorInsuranceQuotationsPage() {
   const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
-  const canCreate = (line: UnderwriteLine) =>
-    hasPermission(underwritePermission(line, UnderwriteAction.CREATE)) &&
-    hasPermission('quotations:create');
-  const canCreateAny =
-    canCreate(UnderwriteLine.MOTOR) || canCreate(UnderwriteLine.FLEET);
+  const canCreateAny = (['single', 'fleet', 'short-term'] as const).some(
+    (kind) => canCreateMotorKind(hasPermission, kind),
+  );
 
   return (
     <QuotationRegister

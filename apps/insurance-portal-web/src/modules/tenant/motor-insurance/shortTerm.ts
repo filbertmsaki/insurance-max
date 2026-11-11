@@ -1,3 +1,4 @@
+import { SHORT_TERM_COVER } from '@insurance-max/contracts';
 import { computeCoverNoteEndFromStart } from '@/modules/tenant/quotations/wizard/utils/coverNoteDateRange';
 
 /**
@@ -5,13 +6,8 @@ import { computeCoverNoteEndFromStart } from '@/modules/tenant/quotations/wizard
  * existing Private Vehicle product and its Transit risk, quoted through the
  * normal Motor (single) or Fleet line. Only the frontend presets these.
  */
-export const SHORT_TERM_COVER = {
-  name: 'Short-Term (In-Transit)',
-  motorClass: 'Private Vehicle',
-  productCode: 'SP014001000000',
-  riskCode: 'SP014001000007',
-  durationDays: 30,
-} as const;
+// Single source shared with the API (libs/contracts cover-access).
+export { SHORT_TERM_COVER };
 
 export type ShortTermMode = 'single' | 'fleet';
 
@@ -29,6 +25,10 @@ export function shortTermExpiry(validFrom: string): string {
  * the fleet-wide cover and every fleet vehicle (saved record or draft).
  */
 export function isShortTermQuotation(record: unknown): boolean {
+  // Prefer the server's classification when the record carries it.
+  const cover = (record as { underwrite_cover?: unknown } | null)
+    ?.underwrite_cover;
+  if (typeof cover === 'string' && cover) return cover.startsWith('SHORT_TERM');
   const target = SHORT_TERM_COVER.riskCode;
   const seen = new Set<unknown>();
   const visit = (node: unknown, depth: number): boolean => {

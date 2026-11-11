@@ -22,5 +22,14 @@ export interface TenantDataScope {
   canViewCarrierPortfolio: boolean;
   canViewIntermediaryPortfolio: boolean;
 
+  /**
+   * Underwriting covers (UnderwriteCover values) whose quotations this scope
+   * may reach; `null` means not cover-restricted. Applied together with the
+   * branch/department/user scope above. See `resolveCoverScope`.
+   */
+  quotationCovers?: string[] | null;
+  /** Same for policies (cover of the source quotation, else the line). */
+  policyCovers?: string[] | null;
+
   permissions: string[];
 }
