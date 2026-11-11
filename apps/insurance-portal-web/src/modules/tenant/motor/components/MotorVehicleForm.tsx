@@ -184,7 +184,7 @@ export function MotorVehicleForm({
                 name={name as keyof MotorVehicleFormValues}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{label}</FormLabel>
+                    <FormLabel required={name === 'model'}>{label}</FormLabel>
                     <FormControl>
                       {referenceKinds[name] ? (
                         <VehicleReferencePicker

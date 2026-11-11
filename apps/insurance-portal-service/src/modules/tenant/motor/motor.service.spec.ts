@@ -45,6 +45,12 @@ describe('MotorService - tenant isolation on policy details', () => {
   const companyId = 'company-1';
   const otherCompanyId = 'company-2';
 
+  it('rejects a vehicle without a model', async () => {
+    await expect(
+      service.createVehicle(companyId, { customer_id: 'customer-1', model: '  ' }, 'user-1'),
+    ).rejects.toThrow('Vehicle model is required');
+  });
+
   beforeEach(async () => {
     motorVehicleRepo = mockRepo();
     policyRepo = mockRepo();

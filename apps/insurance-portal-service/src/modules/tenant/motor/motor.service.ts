@@ -546,6 +546,9 @@ export class MotorService {
     dto: CreateMotorVehicleDto,
     userId: string,
   ) {
+    if (!this.normalizeText(dto.model)) {
+      throw new BadRequestException('Vehicle model is required');
+    }
     await this.ensureCompany(companyId);
 
     const registration = this.normalizeMotorIdentifier(dto.registration_no);
@@ -929,6 +932,9 @@ export class MotorService {
           ? this.normalizeMotorIdentifier(dto.registration_no)
           : vehicle.registration_no_normalized;
       const resultingMotorType = dto.motor_type ?? vehicle.motor_type;
+      if (!this.normalizeText(dto.model !== undefined ? dto.model : vehicle.model)) {
+        throw new BadRequestException('Vehicle model is required');
+      }
       this.validateMotorTypeAndRegistration(resultingMotorType, registration);
       const chassis =
         dto.chassis_no !== undefined

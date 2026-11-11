@@ -49,6 +49,9 @@ export const motorVehicleSchema = z.object({
 
 export const motorVehicleFormSchema = motorVehicleSchema.superRefine(
   (values, ctx) => {
+    if (!values.model?.trim()) {
+      ctx.addIssue({ code: 'custom', path: ['model'], message: 'Model is required' });
+    }
     if (values.motor_type !== 2 && !values.registration_no?.trim()) {
       ctx.addIssue({
         code: 'custom',

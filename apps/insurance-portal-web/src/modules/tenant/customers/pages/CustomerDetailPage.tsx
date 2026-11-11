@@ -33,6 +33,8 @@ import {
 } from '../hooks';
 import { useMotorVehiclesByCustomer } from '@/modules/tenant/motor/hooks';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
+import { hasPermission } from '@/lib/auth/permissions';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 function DetailRow({
   label,
@@ -79,7 +81,9 @@ export function CustomerDetailPage() {
   const { data: customer, isLoading } = useCustomer(id);
   usePageTitle(customer && `Customer ${getCustomerDisplayName(customer)}`);
   const { data: versions = [] } = useCustomerVersions(id);
-  const { data: auditHistory = [] } = useCustomerAuditHistory(id);
+  const user = useAuthStore((state) => state.user);
+  const canReadAudit = hasPermission(user, 'customers:audit-history:read');
+  const { data: auditHistory = [] } = useCustomerAuditHistory(canReadAudit ? id : undefined);
   const { data: customerVehicles } = useMotorVehiclesByCustomer(id);
   const deleteMutation = useDeleteCustomer();
   const restoreMutation = useRestoreCustomer();
@@ -447,7 +451,7 @@ export function CustomerDetailPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      {canReadAudit && <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4" />
@@ -489,7 +493,7 @@ export function CustomerDetailPage() {
             ))
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       <ConfirmDialog
         open={deleteOpen}
