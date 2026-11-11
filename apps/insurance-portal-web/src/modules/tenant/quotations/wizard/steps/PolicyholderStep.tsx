@@ -22,6 +22,7 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   useCreateCustomer,
   useCustomer,
+  useUpdateCustomer,
 } from '@/modules/tenant/customers/hooks';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
@@ -43,6 +44,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CustomerStatusBadge } from '@/modules/tenant/customers/components/CustomerStatusBadge';
+import { CustomerForm } from '@/modules/tenant/customers/components/CustomerForm';
 import { LocationReferenceSelects } from '@/modules/platform/reference-data/components/LocationReferenceSelects';
 import { CustomerSearchField } from '../components/CustomerSearchField';
 import {
@@ -209,9 +211,13 @@ function getInitials(name: string) {
 function MobileCustomerCard({
   customer,
   onRemove,
+  onEdit,
+  canEdit,
 }: {
   customer: CustomerRecord;
   onRemove: () => void;
+  onEdit: () => void;
+  canEdit: boolean;
 }) {
   const name = getCustomerDisplayName(customer);
   return (
@@ -238,6 +244,11 @@ function MobileCustomerCard({
             .join(' · ')}
         </p>
       </div>
+      {canEdit && (
+        <button type="button" aria-label="Edit customer details" onClick={onEdit} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[5px] text-[#5B6275] focus-visible:outline-2 focus-visible:outline-[#3B4A8C]">
+          <Pencil className="h-5 w-5" aria-hidden="true" />
+        </button>
+      )}
       <button
         type="button"
         aria-label={`Remove ${name}`}
@@ -254,11 +265,13 @@ function ExistingCustomerCard({
   customer,
   onChangeCustomer,
   onEditDetails,
+  canEdit,
   compactOnMobile = false,
 }: {
   customer: CustomerRecord;
   onChangeCustomer: () => void;
   onEditDetails: () => void;
+  canEdit: boolean;
   compactOnMobile?: boolean;
 }) {
   const [showDetails, setShowDetails] = useState(false);
@@ -318,7 +331,7 @@ function ExistingCustomerCard({
         </div>
 
         <div className="flex shrink-0 gap-1">
-          <Button
+          {canEdit && <Button
             type="button"
             variant="ghost"
             size="sm"
@@ -342,7 +355,7 @@ function ExistingCustomerCard({
             >
               Edit
             </span>
-          </Button>
+          </Button>}
           <Button
             type="button"
             variant="ghost"
@@ -408,14 +421,14 @@ function ExistingCustomerCard({
             <AlertTriangle className="h-4 w-4 shrink-0" />
             Missing for TIRA: {missing.join(', ')}
           </span>
-          <Button
+          {canEdit ? <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={onEditDetails}
           >
             Complete details
-          </Button>
+          </Button> : <span>Ask an administrator to update this customer.</span>}
         </div>
       )}
 
@@ -531,6 +544,8 @@ export function PolicyholderStep({
     CREATE_CUSTOMER_PERMISSION,
   );
   const createCustomer = useCreateCustomer();
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const canUpdateCustomer = hasPermission(currentUser, 'customers:update');
   const mode = form.watch('policyholder_mode');
   const customerId = form.watch('customer_id');
   const policyholderValues = useWatch({
@@ -540,13 +555,14 @@ export function PolicyholderStep({
   const hasPolicyholderErrors = Boolean(form.formState.errors.policyholder);
   const listedCustomer = customerOptions.find((c) => c.id === customerId);
   const customerQuery = useCustomer(
-    mode === 'existing' && customerId && !listedCustomer
+    mode === 'existing' && customerId
       ? customerId
       : undefined,
   );
   const selectedCustomer =
-    listedCustomer ??
-    (customerQuery.data?.id === customerId ? customerQuery.data : undefined);
+    (customerQuery.data?.id === customerId ? customerQuery.data : undefined) ??
+    listedCustomer;
+  const updateCustomer = useUpdateCustomer(customerId);
   // With customers:create a new customer is saved and selected straight
   // away; otherwise its details stay on the quotation and the customer is
   // created when the quotation is completed (the previous behaviour).
@@ -786,6 +802,8 @@ export function PolicyholderStep({
         {mode === 'existing' && selectedCustomer && mobileCard && (
           <MobileCustomerCard
             customer={selectedCustomer}
+            canEdit={canUpdateCustomer}
+            onEdit={() => setEditingCustomer(true)}
             onRemove={() =>
               form.setValue('customer_id', '', { shouldDirty: true })
             }
@@ -795,19 +813,24 @@ export function PolicyholderStep({
           <ExistingCustomerCard
             customer={selectedCustomer}
             compactOnMobile
+            canEdit={canUpdateCustomer}
             onChangeCustomer={() => form.setValue('customer_id', '')}
-            onEditDetails={() => {
-              setDialogPurpose('edit');
-              form.setValue(
-                'policyholder',
-                getCustomerDefaultValues(selectedCustomer),
-              );
-              form.setValue('policyholder_mode', 'new');
-              if (newCustomerInDialog) setIsNewCustomerDialogOpen(true);
-            }}
+            onEditDetails={() => setEditingCustomer(true)}
           />
         )}
       </StepSection>
+
+      {selectedCustomer && canUpdateCustomer && (
+        <Dialog open={editingCustomer} onOpenChange={setEditingCustomer}>
+          <DialogContent className="max-h-[100dvh] overflow-y-auto max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none">
+            <DialogTitle>Edit customer</DialogTitle>
+            <DialogDescription>{getCustomerDisplayName(selectedCustomer)}</DialogDescription>
+            <CustomerForm customer={selectedCustomer} isPending={updateCustomer.isPending} submitLabel="Save" onSubmit={(values) => {
+              updateCustomer.mutate(values, { onSuccess: () => setEditingCustomer(false) });
+            }} />
+          </DialogContent>
+        </Dialog>
+      )}
 
       {mode === 'new' && (
         <PolicyholderDetailsContainer

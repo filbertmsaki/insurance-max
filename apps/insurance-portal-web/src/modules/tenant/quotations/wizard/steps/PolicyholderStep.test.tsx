@@ -49,7 +49,7 @@ const customer = {
   status: 'ACTIVE',
 } as unknown as CustomerRecord;
 
-function renderStep() {
+function renderStep(mobileCard = false) {
   function Harness() {
     const form = useForm<QuotationFormSchemaValues>({
       resolver: zodResolver(
@@ -57,9 +57,10 @@ function renderStep() {
           typeof zodResolver
         >[0],
       ) as unknown as Resolver<QuotationFormSchemaValues>,
-      defaultValues: defaultValuesForLine(
-        getUnderwriteLineMeta(UnderwriteLine.MOTOR),
-      ),
+      defaultValues: {
+        ...defaultValuesForLine(getUnderwriteLineMeta(UnderwriteLine.MOTOR)),
+        ...(mobileCard ? { customer_id: customer.id } : {}),
+      },
     });
     const customerId = useWatch({ control: form.control, name: 'customer_id' });
     return (
@@ -69,6 +70,7 @@ function renderStep() {
             form={form}
             customerOptions={[]}
             newCustomerInDialog
+            mobileCard={mobileCard}
           />
         </form>
         <button
@@ -118,6 +120,22 @@ beforeEach(() => {
 });
 
 describe('PolicyholderStep customer selection', () => {
+  it('opens the selected customer editor from the mobile card when permitted', async () => {
+    signIn(['customers:update']);
+    vi.mocked(customersApi.getCustomer).mockResolvedValue(customer);
+    renderStep(true);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit customer details' }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Edit customer');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeVisible();
+  });
+
+  it('hides the mobile edit action without customer update permission', async () => {
+    signIn([]);
+    vi.mocked(customersApi.getCustomer).mockResolvedValue(customer);
+    renderStep(true);
+    await screen.findByLabelText('Selected customer');
+    expect(screen.queryByRole('button', { name: 'Edit customer details' })).toBeNull();
+  });
   it('searches customers on the server and loads the chosen record', async () => {
     signIn([]);
     vi.mocked(customersApi.searchCustomers).mockResolvedValue({

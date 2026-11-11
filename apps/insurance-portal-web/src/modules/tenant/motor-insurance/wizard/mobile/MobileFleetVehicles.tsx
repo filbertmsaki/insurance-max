@@ -1,5 +1,4 @@
-import { ChevronRight, MoreHorizontal, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Copy, Pencil, Plus, Trash2 } from 'lucide-react';
 import { FLEET_MINIMUM_VEHICLES } from '@/modules/tenant/quotations/schemas';
 import {
   getVehicleIssues,
@@ -36,7 +35,6 @@ export function MobileFleetVehicles({
   wizard: UnderwriteQuotationWizard;
 }) {
   const { form } = wizard;
-  const [actionIndex, setActionIndex] = useState<number | null>(null);
   const actions = useFleetVehicleActions(wizard);
   const customerId = form.watch('customer_id');
   const customer =
@@ -101,19 +99,12 @@ export function MobileFleetVehicles({
                           {identifier}
                         </span>
                       </span>
-                      <StatusBadge complete={complete} />
-                      <ChevronRight
-                        aria-hidden="true"
-                        className="h-5 w-5 shrink-0 text-[#5B6275]"
-                      />
+                      {!complete && <StatusBadge complete={false} />}
                     </button>
-                    <button type="button" aria-label={`Actions for vehicle ${index + 1}`} className="flex h-11 w-11 items-center justify-center" onClick={() => setActionIndex(actionIndex === index ? null : index)}><MoreHorizontal aria-hidden="true" /></button>
+                    <button type="button" aria-label={`Edit vehicle ${index + 1}`} className="flex h-11 w-11 shrink-0 items-center justify-center text-[#5B6275]" onClick={() => openVehicle(index)}><Pencil className="h-5 w-5" aria-hidden="true" /></button>
+                    <button type="button" aria-label={`Duplicate vehicle ${index + 1}`} className="flex h-11 w-11 shrink-0 items-center justify-center text-[#5B6275]" onClick={() => duplicateVehicle(index)}><Copy className="h-5 w-5" aria-hidden="true" /></button>
+                    <button type="button" aria-label={`Remove vehicle ${index + 1}`} className="flex h-11 w-11 shrink-0 items-center justify-center text-[#B42318]" onClick={() => removeVehicle(index)}><Trash2 className="h-5 w-5" aria-hidden="true" /></button>
                     </div>
-                    {actionIndex === index && <div className="flex flex-wrap gap-2 border-t px-3 py-2">
-                      <button type="button" className="min-h-11 px-3" onClick={() => { setActionIndex(null); openVehicle(index); }}>Edit</button>
-                      <button type="button" className="min-h-11 px-3" onClick={() => { setActionIndex(null); duplicateVehicle(index); }}>Duplicate</button>
-                      <button type="button" className="min-h-11 px-3 text-[#B42318]" onClick={() => { setActionIndex(null); removeVehicle(index); }}>Remove</button>
-                    </div>}
                   </li>
                 );
               })}
