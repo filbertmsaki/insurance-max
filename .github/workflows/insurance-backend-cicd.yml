@@ -265,13 +265,32 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          sudo apt-get update
+          # The hosted image already ships PostgreSQL; only install what
+          # is missing, and retry apt so a transient mirror/DNS outage
+          # does not fail the pipeline.
+          packages=()
+          command -v psql >/dev/null 2>&1 || packages+=(postgresql postgresql-client)
+          command -v redis-server >/dev/null 2>&1 || packages+=(redis-server)
 
-          sudo DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y \
-              postgresql \
-              postgresql-client \
-              redis-server
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "PostgreSQL and Redis already installed."
+            exit 0
+          fi
+
+          echo "Installing: ${packages[*]}"
+          for attempt in 1 2 3 4 5; do
+            if sudo apt-get -o Acquire::Retries=5 update \
+              && sudo DEBIAN_FRONTEND=noninteractive \
+                apt-get -o Acquire::Retries=5 install -y "${packages[@]}"
+            then
+              exit 0
+            fi
+            echo "apt failed (attempt ${attempt}/5); retrying in $((attempt * 30))s..."
+            sleep $((attempt * 30))
+          done
+
+          echo "Could not install ${packages[*]}."
+          exit 1
 
 
       # -------------------------------------------------------
