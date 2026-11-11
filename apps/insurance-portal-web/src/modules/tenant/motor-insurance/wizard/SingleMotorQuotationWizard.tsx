@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useWatch } from 'react-hook-form';
 import { UnderwriteLine } from '@insurance-max/contracts';
@@ -20,6 +20,16 @@ import {
 } from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
 import { MotorVehicleSection } from '@/modules/tenant/underwrite/motor/MotorVehicleSection';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
+import { useIsPhone } from '@/modules/tenant/quotations/utils/useIsPhone';
+import { motorInsurancePaths } from '../paths';
+import { useCanCreateMotorKind } from './mobile/useCanCreateMotorKind';
+import { useAnnualCoverSummary } from './mobile/MobileCoverStep';
+import { MobileMotorQuotation } from './mobile/MobileMotorQuotation';
+import {
+  MOBILE_SINGLE_STEPS,
+  MOBILE_TO_SINGLE,
+  SINGLE_TO_MOBILE,
+} from './mobile/mobileSteps';
 
 const MOTOR = getUnderwriteLineMeta(UnderwriteLine.MOTOR);
 
@@ -90,13 +100,21 @@ const SECTION_ANCHORS: Record<SummarySection, string> = {
 
 export function SingleMotorQuotationWizard() {
   const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
+  // Phones get the three-step mobile flow over the same wizard hook.
+  const isPhone = useIsPhone();
+  const canCreate = useCanCreateMotorKind();
   const wizard = useUnderwriteQuotationWizard({
     line: MOTOR,
     quotationId: id,
-    steps: MOTOR_WIZARD_STEPS,
-    stepAliases: LEGACY_MOTOR_STEP_MAP,
-    deferDraftUntilStepId: 'details',
+    steps: isPhone ? MOBILE_SINGLE_STEPS : MOTOR_WIZARD_STEPS,
+    stepAliases: isPhone
+      ? SINGLE_TO_MOBILE
+      : { ...LEGACY_MOTOR_STEP_MAP, ...MOBILE_TO_SINGLE },
+    deferDraftUntilStepId: isPhone ? 'm-vehicle' : 'details',
+    allowEarlyManualDraft: isPhone,
   });
+  const coverSummary = useAnnualCoverSummary(wizard);
   const { form } = wizard;
   usePageTitle(
     wizard.existingQuotation?.quotation_no &&
@@ -124,6 +142,36 @@ export function SingleMotorQuotationWizard() {
         .getElementById(SECTION_ANCHORS[section])
         ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
+  }
+
+  if (isPhone) {
+    return (
+      <MobileMotorQuotation
+        wizard={wizard}
+        mode="single"
+        title={
+          id ? 'Edit single motor quotation' : 'New single motor quotation'
+        }
+        summary={coverSummary}
+        showAddOns={showAddOns}
+        coverFields={<ProductCoverStep wizard={wizard} compact first />}
+        onModeChange={
+          canCreate('fleet')
+            ? () =>
+                navigate(motorInsurancePaths.quotationCreate('fleet'), {
+                  replace: true,
+                })
+            : undefined
+        }
+        onExit={() =>
+          navigate(
+            id
+              ? motorInsurancePaths.quotations
+              : motorInsurancePaths.quotationCreate(),
+          )
+        }
+      />
+    );
   }
 
   return (

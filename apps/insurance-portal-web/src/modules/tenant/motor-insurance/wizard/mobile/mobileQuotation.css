@@ -1,0 +1,82 @@
+/*
+ * Phone-only (< 768px) New Motor Quotation flow. Restyles the shared wizard
+ * inputs inside `.mq-flow` so the existing fields, validation and pricing
+ * components can be reused without changing their desktop appearance.
+ */
+.mq-flow {
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  color: #1b1f2e;
+}
+
+/* Labels: 12px grey above the field. */
+.mq-flow .mq-content label:not(.mq-raw) {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: #5b6275;
+}
+
+/* Inputs and select triggers: 44px, 10px radius, 15px text. */
+.mq-flow
+  .mq-content
+  input:not([type='checkbox']):not([type='radio']):not([type='file']),
+.mq-flow .mq-content button[role='combobox'],
+.mq-flow .mq-content select {
+  min-height: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border-color: #c9cdd8;
+  font-size: 15px;
+  box-shadow: none;
+}
+.mq-flow .mq-content textarea {
+  border-radius: 10px;
+  border-color: #c9cdd8;
+  font-size: 15px;
+  box-shadow: none;
+}
+.mq-flow .mq-content input[readonly] {
+  background: #f4f5f9;
+  color: #5b6275;
+}
+
+/* Validation messages: 12px, #B42318. */
+.mq-flow .mq-content p.text-red-500,
+.mq-flow .mq-content p.text-red-600 {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: #b42318;
+}
+.mq-flow .mq-content label.text-red-500 {
+  color: #b42318;
+}
+.mq-flow .mq-content [aria-invalid='true'] {
+  border-color: #b42318;
+}
+
+/* Reused desktop sections: no shadows, no nested card chrome. */
+.mq-flow .mq-content .shadow-sm,
+.mq-flow .mq-content .shadow {
+  box-shadow: none;
+}
+
+/* Two short fields per row; `.mq-full` children take the whole row. */
+.mq-flow .mq-grid > div > div > .grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.mq-flow .mq-grid-full > div > div > .grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+/* Dropdown lists keep their shadow (the only shadow in the flow). */
+[data-radix-popper-content-wrapper] [role='listbox'] {
+  box-shadow: 0 8px 24px rgba(27, 31, 46, 0.16);
+}

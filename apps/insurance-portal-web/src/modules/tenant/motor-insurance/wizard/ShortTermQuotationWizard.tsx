@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useWatch } from 'react-hook-form';
 import { CarFront, Loader2, ShieldCheck, Truck } from 'lucide-react';
 import { UnderwriteLine } from '@insurance-max/contracts';
@@ -38,6 +38,65 @@ import {
   type ShortTermMode,
 } from '../shortTerm';
 import { useFleetVehicleActions } from './FleetQuotationWizard';
+import { useIsPhone } from '@/modules/tenant/quotations/utils/useIsPhone';
+import { motorInsurancePaths } from '../paths';
+import type { CoverSummary } from './mobile/MobileCoverStep';
+import { MobileMotorQuotation } from './mobile/MobileMotorQuotation';
+import {
+  MOBILE_SHORT_TERM_FLEET_STEPS,
+  MOBILE_SHORT_TERM_SINGLE_STEPS,
+} from './mobile/mobileSteps';
+
+/** Phone flow for either mode, over the mode's own wizard hook. */
+function ShortTermMobile({
+  wizard,
+  mode,
+  presets,
+  showToggle,
+  onModeChange,
+  showAddOns,
+}: {
+  wizard: UnderwriteQuotationWizard;
+  mode: ShortTermMode;
+  presets: ReturnType<typeof useShortTermPresets>;
+  showToggle: boolean;
+  onModeChange?: (mode: ShortTermMode) => void;
+  showAddOns?: boolean;
+}) {
+  const navigate = useNavigate();
+  const summary: CoverSummary = {
+    cover: SHORT_TERM_COVER.name,
+    motorClass: SHORT_TERM_COVER.motorClass,
+    duration: `${SHORT_TERM_COVER.durationDays} days`,
+    expires: dateOnlyPart(presets.validUntil),
+    problem: presets.missing
+      ? `${presets.missing} Ask an administrator to configure the Short-Term cover.`
+      : null,
+  };
+  return (
+    <MobileMotorQuotation
+      wizard={wizard}
+      mode={mode}
+      title={
+        wizard.isEditMode
+          ? 'Edit in-transit quotation'
+          : 'New in-transit quotation'
+      }
+      summary={summary}
+      shortTerm
+      summaryLoading={!presets.ready && !presets.missing}
+      showAddOns={showAddOns}
+      onModeChange={showToggle ? onModeChange : undefined}
+      onExit={() =>
+        navigate(
+          wizard.isEditMode
+            ? motorInsurancePaths.quotations
+            : motorInsurancePaths.quotationCreate(),
+        )
+      }
+    />
+  );
+}
 
 const MOTOR = getUnderwriteLineMeta(UnderwriteLine.MOTOR);
 const FLEET = getUnderwriteLineMeta(UnderwriteLine.FLEET);
@@ -414,13 +473,15 @@ function ShortTermSingle({
   onModeChange,
 }: ModeProps) {
   const { id } = useParams<{ id?: string }>();
+  const isPhone = useIsPhone();
   const wizard = useUnderwriteQuotationWizard({
     line: MOTOR,
     quotationId: id,
-    steps: SINGLE_STEPS,
+    steps: isPhone ? MOBILE_SHORT_TERM_SINGLE_STEPS : SINGLE_STEPS,
     // First saved when leaving the vehicle step (Premium merged into Review).
     deferDraftUntilStepId: 'st-vehicles',
     stepAliases: { 'st-premium': 'st-review' },
+    allowEarlyManualDraft: isPhone,
   });
   const { form } = wizard;
   const presets = useShortTermPresets(wizard, mode, carryRef);
@@ -442,6 +503,19 @@ function ShortTermSingle({
     const risks = form.getValues('risks');
     if (risks.length > 1) wizard.riskFieldArray.replace([risks[0]]);
   }, [form, wizard.riskFieldArray, wizard.riskFieldArray.fields.length]);
+
+  if (isPhone) {
+    return (
+      <ShortTermMobile
+        wizard={wizard}
+        mode={mode}
+        presets={presets}
+        showToggle={showToggle}
+        onModeChange={onModeChange}
+        showAddOns={showAddOns}
+      />
+    );
+  }
 
   return (
     <UnderwriteWizardShell
@@ -533,10 +607,11 @@ function ShortTermFleet({
   onModeChange,
 }: ModeProps) {
   const { id } = useParams<{ id?: string }>();
+  const isPhone = useIsPhone();
   const wizard = useUnderwriteQuotationWizard({
     line: FLEET,
     quotationId: id,
-    steps: FLEET_STEPS,
+    steps: isPhone ? MOBILE_SHORT_TERM_FLEET_STEPS : FLEET_STEPS,
     // First saved when leaving the vehicle step (Premium merged into Review).
     deferDraftUntilStepId: 'st-vehicles',
     stepAliases: { 'st-premium': 'st-review' },
@@ -550,6 +625,18 @@ function ShortTermFleet({
       ? `Edit Quotation ${wizard.existingQuotation.quotation_no}`
       : 'New Short-Term Quotation',
   );
+
+  if (isPhone) {
+    return (
+      <ShortTermMobile
+        wizard={wizard}
+        mode={mode}
+        presets={presets}
+        showToggle={showToggle}
+        onModeChange={onModeChange}
+      />
+    );
+  }
 
   return (
     <UnderwriteWizardShell

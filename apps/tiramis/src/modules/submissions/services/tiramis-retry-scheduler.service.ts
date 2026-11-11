@@ -97,7 +97,14 @@ export class TiramisRetrySchedulerService {
     });
 
     for (const attempt of attempts) {
-      await this.retrySingleAttempt(attempt);
+      try {
+        await this.retrySingleAttempt(attempt);
+      } catch (error: any) {
+        this.logger.error(
+          `TIRAMIS delivery retry failed for attempt ${attempt.id}: ${error?.message || 'Unknown error'}`,
+          error?.stack,
+        );
+      }
     }
   }
 
@@ -156,6 +163,11 @@ export class TiramisRetrySchedulerService {
       return;
     }
 
+    if (this.isResendBlocked(attempt, transaction)) {
+      await this.clearStaleRetry(attempt);
+      return;
+    }
+
     if (!attempt.requestXml) {
       await this.markRetryExhausted({
         attempt,
@@ -177,8 +189,14 @@ export class TiramisRetrySchedulerService {
     await this.sendRetryAttempt(attempt, transaction);
   }
 
-  private async sendRetryAttempt(attempt: any, transaction: any) {
-    if (
+  /**
+   * An attempt that TIRA accepted, that is still awaiting a response, or that
+   * a newer attempt replaced must never be resent automatically. Such rows can
+   * still carry a stale retry flag, so the scheduler clears it instead of
+   * failing on the same attempt every minute.
+   */
+  private isResendBlocked(attempt: any, transaction: any): boolean {
+    return (
       transaction.status === TIRAMIS_TRANSACTION_STATUS.SUCCESS ||
       [
         TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS,
@@ -188,7 +206,20 @@ export class TiramisRetrySchedulerService {
         TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE,
         TIRAMIS_ATTEMPT_STATUS.SUPERSEDED,
       ].includes(attempt.status)
-    ) {
+    );
+  }
+
+  private async clearStaleRetry(attempt: any) {
+    attempt.isRetryable = 0;
+    attempt.nextRetryAt = null;
+    await this.attemptRepository.save(attempt);
+    this.logger.warn(
+      `Skipped automatic retry for requestId ${attempt.requestId}: attempt status ${attempt.status} cannot be resent; cleared its retry schedule`,
+    );
+  }
+
+  private async sendRetryAttempt(attempt: any, transaction: any) {
+    if (this.isResendBlocked(attempt, transaction)) {
       throw new BadRequestException(
         'Cannot resend an accepted or unresolved TIRA submission; synchronize its status first',
       );

@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { UnderwriteLine } from '@insurance-max/contracts';
 import { createEmptyFleetItemRow } from '@/modules/tenant/quotations/schemas';
 import { WizardInput } from '@/modules/tenant/quotations/wizard/components/WizardInput';
@@ -22,6 +22,16 @@ import {
 } from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
 import { FleetPremiumStep } from '@/modules/tenant/underwrite/fleet/FleetPremiumStep';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
+import { useIsPhone } from '@/modules/tenant/quotations/utils/useIsPhone';
+import { motorInsurancePaths } from '../paths';
+import { useCanCreateMotorKind } from './mobile/useCanCreateMotorKind';
+import { useAnnualCoverSummary } from './mobile/MobileCoverStep';
+import { MobileMotorQuotation } from './mobile/MobileMotorQuotation';
+import {
+  FLEET_TO_MOBILE,
+  MOBILE_FLEET_STEPS,
+  MOBILE_TO_FLEET,
+} from './mobile/mobileSteps';
 
 const FLEET = getUnderwriteLineMeta(UnderwriteLine.FLEET);
 
@@ -191,22 +201,83 @@ export function useFleetVehicleActions(wizard: UnderwriteQuotationWizard) {
 
 export function FleetQuotationWizard() {
   const { id } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
+  // Phones get the three-step mobile flow over the same wizard hook.
+  const isPhone = useIsPhone();
+  const canCreate = useCanCreateMotorKind();
   const wizard = useUnderwriteQuotationWizard({
     line: FLEET,
     quotationId: id,
-    steps: FLEET_WIZARD_STEPS,
+    steps: isPhone ? MOBILE_FLEET_STEPS : FLEET_WIZARD_STEPS,
     // First saved when leaving Vehicles (Premium merged into Review).
-    deferDraftUntilStepId: 'vehicles',
+    deferDraftUntilStepId: isPhone ? 'm-vehicles' : 'vehicles',
     allowEarlyManualDraft: true,
     // Drafts saved before Customer, Fleet Details and Product & Cover merged.
-    stepAliases: { fleet: 'customer', cover: 'customer', premium: 'review' },
+    stepAliases: isPhone
+      ? FLEET_TO_MOBILE
+      : {
+          fleet: 'customer',
+          cover: 'customer',
+          premium: 'review',
+          ...MOBILE_TO_FLEET,
+        },
   });
+  const coverSummary = useAnnualCoverSummary(wizard);
   const actions = useFleetVehicleActions(wizard);
   const { form } = wizard;
   usePageTitle(
     wizard.existingQuotation?.quotation_no &&
       `Edit Quotation ${wizard.existingQuotation.quotation_no}`,
   );
+
+  if (isPhone) {
+    return (
+      <MobileMotorQuotation
+        wizard={wizard}
+        mode="fleet"
+        title={id ? 'Edit fleet quotation' : 'New fleet quotation'}
+        summary={coverSummary}
+        coverFields={
+          <ProductCoverStep
+            wizard={wizard}
+            compact
+            gridClassName="grid gap-3"
+            leadingFields={
+              <WizardInput
+                form={form}
+                name="fleet.header.fleet_type"
+                label="Fleet type"
+                required
+                options={FLEET_TYPE_OPTIONS}
+              />
+            }
+            productFollowingFields={
+              <FleetRiskField
+                form={form}
+                riskOptions={wizard.riskOptions}
+                disabled={!form.watch('product_id')}
+              />
+            }
+          />
+        }
+        onModeChange={
+          canCreate('single')
+            ? () =>
+                navigate(motorInsurancePaths.quotationCreate('single'), {
+                  replace: true,
+                })
+            : undefined
+        }
+        onExit={() =>
+          navigate(
+            id
+              ? motorInsurancePaths.quotations
+              : motorInsurancePaths.quotationCreate(),
+          )
+        }
+      />
+    );
+  }
 
   return (
     <UnderwriteWizardShell

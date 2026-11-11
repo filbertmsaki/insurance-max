@@ -14,6 +14,7 @@ import {
   RefreshCw,
   UserCircle2,
   UserPlus,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { hasPermission } from '@/lib/auth/permissions';
@@ -79,6 +80,8 @@ interface Props {
   hideNewCustomerButton?: boolean;
   /** Compact selected-customer rows and actions in the Motor mobile wizard. */
   compactOnMobile?: boolean;
+  /** Phone flow: a compact selected-customer card with a remove button. */
+  mobileCard?: boolean;
 }
 
 const CREATE_CUSTOMER_PERMISSION = 'customers:create';
@@ -212,6 +215,51 @@ function getInitials(name: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('');
+}
+
+/** Selected customer on phones: initials, name, type, phone and remove. */
+function MobileCustomerCard({
+  customer,
+  onRemove,
+}: {
+  customer: CustomerRecord;
+  onRemove: () => void;
+}) {
+  const name = getCustomerDisplayName(customer);
+  return (
+    <div
+      aria-label="Selected customer"
+      className="flex items-center gap-3 rounded-xl border border-[#E6E8EF] bg-white p-3"
+    >
+      <span
+        aria-hidden="true"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ECEEF5] text-sm font-semibold text-[#3B4A8C]"
+      >
+        {getInitials(name) || '?'}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[15px] font-semibold text-[#1B1F2E]">
+          {name}
+        </p>
+        <p className="truncate text-[13px] text-[#5B6275]">
+          {[
+            customer.customer_type === 'CORPORATE' ? 'Corporate' : 'Individual',
+            customer.phone,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      </div>
+      <button
+        type="button"
+        aria-label={`Remove ${name}`}
+        onClick={onRemove}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#5B6275] focus-visible:outline-2 focus-visible:outline-[#3B4A8C]"
+      >
+        <X className="h-5 w-5" aria-hidden="true" />
+      </button>
+    </div>
+  );
 }
 
 function ExistingCustomerCard({
@@ -480,6 +528,7 @@ export function PolicyholderStep({
   hideSectionTitle = false,
   hideNewCustomerButton = false,
   compactOnMobile = false,
+  mobileCard = false,
 }: Props) {
   const [isNewCustomerDialogOpen, setIsNewCustomerDialogOpen] = useState(false);
   // 'create' adds a customer; 'edit' adjusts a selected customer's details
@@ -746,7 +795,15 @@ export function PolicyholderStep({
             </p>
           ))}
 
-        {mode === 'existing' && selectedCustomer && (
+        {mode === 'existing' && selectedCustomer && mobileCard && (
+          <MobileCustomerCard
+            customer={selectedCustomer}
+            onRemove={() =>
+              form.setValue('customer_id', '', { shouldDirty: true })
+            }
+          />
+        )}
+        {mode === 'existing' && selectedCustomer && !mobileCard && (
           <ExistingCustomerCard
             customer={selectedCustomer}
             compactOnMobile

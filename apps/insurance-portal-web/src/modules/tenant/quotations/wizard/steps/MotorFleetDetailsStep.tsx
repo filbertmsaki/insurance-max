@@ -1,6 +1,12 @@
 import { allowsAddons } from '../utils/addonVisibility';
 import { WizardSectionTitle } from '@/modules/tenant/quotations/wizard/components/WizardSectionTitle';
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Copy,
@@ -127,6 +133,19 @@ interface Props {
   onDuplicateVehicle: (index: number) => void;
   onImportVehicles: (rows: FleetCsvRow[]) => void;
   factorContext?: QuotationFactorContext;
+  /**
+   * Phone layout: replaces the vehicle table with this list. Pricing, wording
+   * effects and the vehicle editor dialog are unchanged.
+   */
+  mobileList?: (api: FleetMobileListApi) => ReactNode;
+  /** Replaces the editor's vehicle detail fields (phone grouped cards). */
+  renderVehicleDetails?: (index: number, revision: number) => ReactNode;
+}
+
+export interface FleetMobileListApi {
+  rows: Array<{ key: string; index: number; item: FleetItemValues }>;
+  openNewVehicle: () => void;
+  openVehicle: (index: number) => void;
 }
 
 function resolveFleetRequestedDiscount(
@@ -162,7 +181,8 @@ const HIDDEN_FLEET_FACTOR_CODES = [
   'policy_holder_type',
 ];
 
-function getVehicleIssues(
+// eslint-disable-next-line react-refresh/only-export-components
+export function getVehicleIssues(
   item: QuotationFormSchemaValues['fleet']['items'][number],
 ): string[] {
   const issues: string[] = [];
@@ -273,6 +293,7 @@ function FleetVehicleEditor({
   calculationErrorMessage,
   showVehicleValidationErrors,
   showSumInsured,
+  renderVehicleDetails,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
   riskOptions: InsuranceRisk[];
@@ -281,6 +302,7 @@ function FleetVehicleEditor({
   calculationErrorMessage: string | null;
   showVehicleValidationErrors: boolean;
   showSumInsured: boolean;
+  renderVehicleDetails?: (index: number, revision: number) => ReactNode;
 }) {
   const addonArray = useFieldArray({
     control: form.control,
@@ -436,12 +458,18 @@ function FleetVehicleEditor({
             </Select>
           </div>
         )}
-        <VehicleDetailsFields
-          key={vehicleRevision}
-          form={form}
-          fleetIndex={index}
-          showErrorMessages={showVehicleValidationErrors}
-        />
+        {renderVehicleDetails ? (
+          <div key={vehicleRevision}>
+            {renderVehicleDetails(index, vehicleRevision)}
+          </div>
+        ) : (
+          <VehicleDetailsFields
+            key={vehicleRevision}
+            form={form}
+            fleetIndex={index}
+            showErrorMessages={showVehicleValidationErrors}
+          />
+        )}
       </div>
       <div hidden={coverNoteType === '1'} className="space-y-3">
         <div hidden className="flex items-center justify-between gap-2">
@@ -693,7 +721,8 @@ function getFleetPricingSignature(values: QuotationFormSchemaValues) {
 
 // A fleet quotation starts with one blank vehicle row; until the user touches
 // it the step shows the empty state instead of an unnamed incomplete vehicle.
-function isBlankFleetItem(item: FleetItemValues) {
+// eslint-disable-next-line react-refresh/only-export-components
+export function isBlankFleetItem(item: FleetItemValues) {
   const motor = item.motor_dtl;
   return (
     !motor.registration_number.trim() &&
@@ -1609,6 +1638,8 @@ export function MotorFleetDetailsStep({
   onDuplicateVehicle,
   onImportVehicles,
   factorContext,
+  mobileList,
+  renderVehicleDetails,
 }: Props) {
   const { fields } = fieldArray;
   const { calculateFleetPremiums, calculationErrorMessage } =
@@ -2015,137 +2046,147 @@ export function MotorFleetDetailsStep({
 
   return (
     <>
-      <StepSection
-        title="Vehicles"
-        description={
-          showEmptyState
-            ? undefined
-            : `${tableRows.length} vehicle${tableRows.length === 1 ? '' : 's'} in this fleet`
-        }
-        action={
-          <>
-            <input
-              ref={csvInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(event) => void handleCsvFileSelected(event)}
-            />
-            {/* The empty state offers its own start options. */}
-            {!showEmptyState && (
-              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
-                <Button
-                  type="button"
-                  className="col-span-2 min-h-11 sm:col-span-1"
-                  onClick={openNewVehicleDialog}
-                >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  Add vehicle
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-11"
-                  onClick={() => csvInputRef.current?.click()}
-                >
-                  <Upload className="mr-1.5 h-4 w-4" />
-                  Import CSV
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-11"
-                  onClick={handleDownloadTemplate}
-                  title="Download CSV template"
-                >
-                  <Download className="mr-1.5 h-4 w-4" />
-                  Download template
-                </Button>
-              </div>
-            )}
-          </>
-        }
-        contentClassName="space-y-3"
-      >
-        {importErrors.length > 0 && (
-          <div
-            role="alert"
-            className="rounded-lg border border-red-200 p-3 text-sm text-red-600"
-          >
-            <p>Rows needing correction</p>
-            {importErrors.map((error, index) => (
-              <p key={index}>{error}</p>
-            ))}
-          </div>
-        )}
-        {showEmptyState ? (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-8 text-center sm:px-8">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-primary shadow-sm ring-1 ring-slate-200">
-              <Truck className="h-6 w-6" aria-hidden="true" />
-            </div>
-            <h3 className="mt-3 text-base font-semibold text-slate-900">
-              Add the vehicles in this fleet
-            </h3>
-            <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-              Add vehicles one at a time, or import many at once from a CSV
-              file. Each vehicle is priced as soon as it is saved.
-            </p>
-            <div className="mx-auto mt-5 grid max-w-xl gap-3 sm:grid-cols-2">
-              {(
-                [
-                  {
-                    icon: Plus,
-                    title: 'Add a vehicle',
-                    hint: 'Enter the details yourself',
-                    onClick: openNewVehicleDialog,
-                  },
-                  {
-                    icon: Upload,
-                    title: 'Import from CSV',
-                    hint: 'Upload many vehicles at once',
-                    onClick: () => csvInputRef.current?.click(),
-                  },
-                ] as const
-              ).map(({ icon: Icon, title, hint, onClick }) => (
-                <button
-                  key={title}
-                  type="button"
-                  onClick={onClick}
-                  className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-primary hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-slate-900">
-                      {title}
-                    </span>
-                    <span className="block text-xs text-slate-500">{hint}</span>
-                  </span>
-                </button>
+      {mobileList ? (
+        mobileList({
+          rows: tableRows,
+          openNewVehicle: openNewVehicleDialog,
+          openVehicle: (index) => openEditVehicleDialog(index),
+        })
+      ) : (
+        <StepSection
+          title="Vehicles"
+          description={
+            showEmptyState
+              ? undefined
+              : `${tableRows.length} vehicle${tableRows.length === 1 ? '' : 's'} in this fleet`
+          }
+          action={
+            <>
+              <input
+                ref={csvInputRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(event) => void handleCsvFileSelected(event)}
+              />
+              {/* The empty state offers its own start options. */}
+              {!showEmptyState && (
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+                  <Button
+                    type="button"
+                    className="col-span-2 min-h-11 sm:col-span-1"
+                    onClick={openNewVehicleDialog}
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Add vehicle
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => csvInputRef.current?.click()}
+                  >
+                    <Upload className="mr-1.5 h-4 w-4" />
+                    Import CSV
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={handleDownloadTemplate}
+                    title="Download CSV template"
+                  >
+                    <Download className="mr-1.5 h-4 w-4" />
+                    Download template
+                  </Button>
+                </div>
+              )}
+            </>
+          }
+          contentClassName="space-y-3"
+        >
+          {importErrors.length > 0 && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 p-3 text-sm text-red-600"
+            >
+              <p>Rows needing correction</p>
+              {importErrors.map((error, index) => (
+                <p key={index}>{error}</p>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={handleDownloadTemplate}
-              className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              Download CSV template
-            </button>
-          </div>
-        ) : (
-          <FleetVehicleTable
-            rows={tableRows}
-            currency={currency}
-            canRemove={fields.length > 1}
-            lookupMessages={lookupMessages}
-            onEdit={(index) => openEditVehicleDialog(index)}
-            onDuplicate={onDuplicateVehicle}
-            onRemove={onRemoveVehicle}
-          />
-        )}
-      </StepSection>
+          )}
+          {showEmptyState ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-8 text-center sm:px-8">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-primary shadow-sm ring-1 ring-slate-200">
+                <Truck className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <h3 className="mt-3 text-base font-semibold text-slate-900">
+                Add the vehicles in this fleet
+              </h3>
+              <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+                Add vehicles one at a time, or import many at once from a CSV
+                file. Each vehicle is priced as soon as it is saved.
+              </p>
+              <div className="mx-auto mt-5 grid max-w-xl gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    {
+                      icon: Plus,
+                      title: 'Add a vehicle',
+                      hint: 'Enter the details yourself',
+                      onClick: openNewVehicleDialog,
+                    },
+                    {
+                      icon: Upload,
+                      title: 'Import from CSV',
+                      hint: 'Upload many vehicles at once',
+                      onClick: () => csvInputRef.current?.click(),
+                    },
+                  ] as const
+                ).map(({ icon: Icon, title, hint, onClick }) => (
+                  <button
+                    key={title}
+                    type="button"
+                    onClick={onClick}
+                    className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-primary hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-slate-900">
+                        {title}
+                      </span>
+                      <span className="block text-xs text-slate-500">
+                        {hint}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="mt-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Download CSV template
+              </button>
+            </div>
+          ) : (
+            <FleetVehicleTable
+              rows={tableRows}
+              currency={currency}
+              canRemove={fields.length > 1}
+              lookupMessages={lookupMessages}
+              onEdit={(index) => openEditVehicleDialog(index)}
+              onDuplicate={onDuplicateVehicle}
+              onRemove={onRemoveVehicle}
+            />
+          )}
+        </StepSection>
+      )}
 
       <Dialog
         open={editingVehicle !== null}
@@ -2196,6 +2237,7 @@ export function MotorFleetDetailsStep({
                 }
                 showVehicleValidationErrors={showVehicleValidationErrors}
                 showSumInsured={showSumInsured}
+                renderVehicleDetails={renderVehicleDetails}
               />
             )}
           </div>

@@ -108,7 +108,7 @@ function QuotationTypeChooser() {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden bg-[#F4F5F9] font-[Inter,system-ui,sans-serif] text-[#1B1F2E] md:hidden">
+      <div className="fixed inset-x-0 top-[70px] bottom-0 z-40 flex flex-col overflow-hidden bg-[#F4F5F9] font-[Inter,system-ui,sans-serif] text-[#1B1F2E] md:hidden">
         <header className="flex h-14 shrink-0 items-center border-b border-[#E6E8EF] bg-white px-2">
           <button
             type="button"
