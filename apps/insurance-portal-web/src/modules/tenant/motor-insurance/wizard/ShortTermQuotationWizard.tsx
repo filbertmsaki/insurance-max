@@ -437,10 +437,11 @@ function CoverStep({
         form={form}
         customerOptions={wizard.customerOptions}
         newCustomerInDialog
+        hideSectionTitle
         hideNewCustomerButton
         compactOnMobile
       />
-      <StepSection title="Cover period" first={false}>
+      <StepSection first={false}>
         <div className="grid gap-4 sm:grid-cols-2">
           <WizardInput
             form={form}
@@ -520,8 +521,8 @@ function ShortTermSingle({
   return (
     <UnderwriteWizardShell
       wizard={wizard}
-      title={id ? 'Edit short-term quotation' : 'New short-term quotation'}
-      showHeader={Boolean(id)}
+      showSectionTitles={false}
+      title={id ? 'Edit in-transit quotation' : 'New in-transit quotation'}
       renderStep={(stepId) => {
         switch (stepId) {
           case 'st-cover':
@@ -641,8 +642,8 @@ function ShortTermFleet({
   return (
     <UnderwriteWizardShell
       wizard={wizard}
-      title={id ? 'Edit short-term fleet quotation' : 'New short-term fleet'}
-      showHeader={Boolean(id)}
+      showSectionTitles={false}
+      title={id ? 'Edit in-transit fleet quotation' : 'New in-transit fleet quotation'}
       renderStep={(stepId) => {
         switch (stepId) {
           case 'st-cover':

@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { tiraStateSql } from '../../policies/policy-list-views';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
@@ -21,6 +22,39 @@ export interface QuotationPaginationMeta {
   has_previous_page: boolean;
   has_next_page: boolean;
 }
+
+export type QuotationListView =
+  | 'active'
+  | 'expiring'
+  | 'tira_failed'
+  | 'drafts';
+
+export interface QuotationListSummary {
+  all: number;
+  active: number;
+  expiring: number;
+  tira_failed: number;
+  drafts: number;
+}
+
+/** Days or fewer of cover left for a record to count as expiring soon. */
+export const EXPIRING_SOON_DAYS = 7;
+
+const QUOTATION_VIEW_PARAMS = {
+  viewSuccess: 'SUCCESS',
+  viewTiraFailed: ['FAILED', 'REJECTED'],
+  viewDraft: 'DRAFT',
+  viewExpiringDays: EXPIRING_SOON_DAYS,
+};
+
+const QUOTATION_VIEW_CONDITIONS: Record<QuotationListView, string> = {
+  active:
+    'quotation.tira_status = :viewSuccess AND CAST("coverNote"."cover_note_end_date" AS date) >= CURRENT_DATE',
+  expiring:
+    'quotation.tira_status = :viewSuccess AND CAST("coverNote"."cover_note_end_date" AS date) BETWEEN CURRENT_DATE AND CURRENT_DATE + CAST(:viewExpiringDays AS int)',
+  tira_failed: 'quotation.tira_status IN (:...viewTiraFailed)',
+  drafts: 'quotation.status = :viewDraft',
+};
 
 export interface PaginatedQuotations {
   items: Quotation[];
@@ -262,6 +296,46 @@ export class QuotationsRepository {
   }
 
   /**
+   * Live counts for the register's summary chips. Same scope and filters as
+   * the list (search, type, dates, status), but never the chip itself.
+   */
+  async summarizeForScope(
+    scope: TenantDataScope,
+    query: QuotationListQuery,
+  ): Promise<QuotationListSummary> {
+    const queryBuilder = this.quotationRepository
+      .createQueryBuilder('quotation')
+      .leftJoin('quotation.cover_note', 'coverNote')
+      .leftJoin('quotation.product', 'product')
+      .where('quotation.deleted_at IS NULL');
+    this.dataAccessScopeService.applyQuotationReadScope(
+      queryBuilder,
+      'quotation',
+      scope,
+    );
+    this.applyWhereFilters(queryBuilder, query, false);
+
+    const count = (view: QuotationListView) =>
+      `COUNT(*) FILTER (WHERE ${QUOTATION_VIEW_CONDITIONS[view]})`;
+    const raw = await queryBuilder
+      .select('COUNT(*)', 'all')
+      .addSelect(count('active'), 'active')
+      .addSelect(count('expiring'), 'expiring')
+      .addSelect(count('tira_failed'), 'tira_failed')
+      .addSelect(count('drafts'), 'drafts')
+      .setParameters(QUOTATION_VIEW_PARAMS)
+      .getRawOne<Record<keyof QuotationListSummary, string>>();
+
+    return {
+      all: Number(raw?.all ?? 0),
+      active: Number(raw?.active ?? 0),
+      expiring: Number(raw?.expiring ?? 0),
+      tira_failed: Number(raw?.tira_failed ?? 0),
+      drafts: Number(raw?.drafts ?? 0),
+    };
+  }
+
+  /**
    * Customer name and vehicle identifiers each live on a to-many child table
    * (a quotation can have multiple policyholder/motor-detail rows in theory,
    * even though in practice there's exactly one for the whole quotation/
@@ -281,12 +355,16 @@ export class QuotationsRepository {
     for (const id of quotationIds) {
       extras.set(id, {
         customerName: null,
+        customerPhone: null,
+        customerIdNumber: null,
         vehicleRegistrationNumber: null,
         vehicleChassisNumber: null,
+        stickerNo: null,
+        coverNoteNo: null,
       });
     }
 
-    const [policyHolders, vehicleRows] = await Promise.all([
+    const [policyHolders, vehicleRows, policyRows] = await Promise.all([
       this.quotationRepository.manager
         .getRepository(QuotationPolicyHolder)
         .createQueryBuilder('holder')
@@ -294,6 +372,8 @@ export class QuotationsRepository {
           'holder.id',
           'holder.quotation_id',
           'holder.policy_holder_name',
+          'holder.policy_holder_phone_number',
+          'holder.policy_holder_id_number',
           'holder.sequence_no',
         ])
         .where('holder.quotation_id IN (:...quotationIds)', { quotationIds })
@@ -316,12 +396,37 @@ export class QuotationsRepository {
           registration_number: string | null;
           chassis_number: string | null;
         }>(),
+      // TIRA's sticker / cover note reference is stored on the issued policy.
+      this.quotationRepository.manager
+        .createQueryBuilder()
+        .select('policy.quotation_id', 'quotation_id')
+        .addSelect('policy.sticker_no', 'sticker_no')
+        .addSelect('policy.cover_note_no', 'cover_note_no')
+        .from('policies', 'policy')
+        .where('policy.quotation_id IN (:...quotationIds)', { quotationIds })
+        .andWhere('policy.deleted_at IS NULL')
+        .orderBy('policy.created_at', 'DESC')
+        .getRawMany<{
+          quotation_id: string;
+          sticker_no: string | null;
+          cover_note_no: string | null;
+        }>(),
     ]);
+
+    for (const row of policyRows) {
+      const extra = extras.get(row.quotation_id);
+      if (extra && extra.stickerNo === null && extra.coverNoteNo === null) {
+        extra.stickerNo = row.sticker_no || null;
+        extra.coverNoteNo = row.cover_note_no || null;
+      }
+    }
 
     for (const holder of policyHolders) {
       const extra = extras.get(holder.quotation_id);
       if (extra && extra.customerName === null) {
         extra.customerName = holder.policy_holder_name;
+        extra.customerPhone = holder.policy_holder_phone_number || null;
+        extra.customerIdNumber = holder.policy_holder_id_number || null;
       }
     }
 
@@ -351,6 +456,8 @@ export class QuotationsRepository {
       'quotation.approval_status',
       'quotation.payment_status',
       'quotation.tira_status',
+      'quotation.tira_response_code',
+      'quotation.tira_response_description',
       'quotation.requires_approval',
       'quotation.requires_payment',
       'quotation.is_fleet',
@@ -441,6 +548,53 @@ export class QuotationsRepository {
     page: number,
     limit: number,
   ): void {
+    this.applyWhereFilters(queryBuilder, query);
+    this.applySortAndPage(queryBuilder, query, page, limit);
+  }
+
+  /**
+   * Summary-chip view of the register. "Active" and "expiring" use the cover
+   * dates of quotations TIRA accepted; expiring means 7 days or fewer left.
+   */
+  private applyView(
+    queryBuilder: SelectQueryBuilder<Quotation>,
+    view: QuotationListView | undefined,
+  ): void {
+    const condition = view ? QUOTATION_VIEW_CONDITIONS[view] : undefined;
+    if (condition) {
+      queryBuilder.andWhere(condition, QUOTATION_VIEW_PARAMS);
+    }
+  }
+
+  private applyWhereFilters(
+    queryBuilder: SelectQueryBuilder<Quotation>,
+    query: QuotationListQuery,
+    includeView = true,
+  ): void {
+    if (includeView) {
+      this.applyView(queryBuilder, query.view);
+    }
+
+    // Date issued (created_at), inclusive calendar days, ISO YYYY-MM-DD.
+    if (query.date_from) {
+      queryBuilder.andWhere('quotation.created_at >= CAST(:dateFrom AS date)', {
+        dateFrom: query.date_from,
+      });
+    }
+    if (query.date_to) {
+      queryBuilder.andWhere(
+        "quotation.created_at < CAST(:dateTo AS date) + INTERVAL '1 day'",
+        { dateTo: query.date_to },
+      );
+    }
+
+    if (query.tira_state) {
+      queryBuilder.andWhere(
+        `${tiraStateSql('quotation.tira_status')} = :tiraState`,
+        { tiraState: query.tira_state },
+      );
+    }
+
     if (query.status) {
       queryBuilder.andWhere('quotation.status = :status', {
         status: query.status,
@@ -611,7 +765,14 @@ export class QuotationsRepository {
         }),
       );
     }
+  }
 
+  private applySortAndPage(
+    queryBuilder: SelectQueryBuilder<Quotation>,
+    query: QuotationListQuery,
+    page: number,
+    limit: number,
+  ): void {
     const sortFields: Record<string, string> = {
       quotation_no: 'quotation.quotation_no',
       quotation_status: 'quotation.status',
@@ -619,6 +780,7 @@ export class QuotationsRepository {
       customer_name: 'sortPolicyHolder.policy_holder_name',
       vehicle_registration_number: 'sortMotor.registration_number',
       cover_note_start_date: 'coverNote.cover_note_start_date',
+      cover_note_end_date: 'coverNote.cover_note_end_date',
       product_name: 'product.product_name',
       total_premium_including_tax: 'coverNote.total_premium_including_tax',
       created_at: 'quotation.created_at',

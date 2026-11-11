@@ -1,3 +1,4 @@
+import { TiraStatus } from '../enums/tira-status.enum';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import {
   CoverNoteAddonDto,
@@ -51,6 +52,15 @@ export interface QuotationListItemResponse {
   product_code: string | null;
   product_name: string | null;
   customer_name: string | null;
+  customer_phone: string | null;
+  customer_id_number: string | null;
+  /** TIRA sticker number, when the issued policy has one. */
+  sticker_no: string | null;
+  /** TIRA cover note reference of the issued policy. */
+  cover_note_no: string | null;
+  /** TIRA error code and reason, only while TIRA failed or rejected it. */
+  tira_error_code: string | null;
+  tira_error_reason: string | null;
   vehicle_registration_number: string | null;
   vehicle_chassis_number: string | null;
   cover_note_start_date: string | null;
@@ -64,8 +74,12 @@ export interface QuotationListItemResponse {
 
 export interface QuotationListItemExtra {
   customerName: string | null;
+  customerPhone?: string | null;
+  customerIdNumber?: string | null;
   vehicleRegistrationNumber: string | null;
   vehicleChassisNumber: string | null;
+  stickerNo?: string | null;
+  coverNoteNo?: string | null;
 }
 
 export type QuotationDetailResponse = {
@@ -150,6 +164,11 @@ export class QuotationPayloadMapper {
       product_code: coverNote?.product_code ?? null,
       product_name: quotation.product?.product_name ?? null,
       customer_name: extra?.customerName ?? null,
+      customer_phone: extra?.customerPhone ?? null,
+      customer_id_number: extra?.customerIdNumber ?? null,
+      sticker_no: extra?.stickerNo ?? null,
+      cover_note_no: extra?.coverNoteNo ?? null,
+      ...this.tiraError(quotation),
       vehicle_registration_number: extra?.vehicleRegistrationNumber ?? null,
       vehicle_chassis_number: extra?.vehicleChassisNumber ?? null,
       cover_note_start_date: coverNote
@@ -175,6 +194,18 @@ export class QuotationPayloadMapper {
         : null,
       created_at: quotation.created_at.toISOString(),
       updated_at: quotation.updated_at.toISOString(),
+    };
+  }
+
+  private tiraError(quotation: Quotation) {
+    const failed =
+      quotation.tira_status === TiraStatus.FAILED ||
+      quotation.tira_status === TiraStatus.REJECTED;
+    return {
+      tira_error_code: failed ? (quotation.tira_response_code ?? null) : null,
+      tira_error_reason: failed
+        ? (quotation.tira_response_description ?? null)
+        : null,
     };
   }
 

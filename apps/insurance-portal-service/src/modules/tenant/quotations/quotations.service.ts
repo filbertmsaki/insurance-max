@@ -1633,10 +1633,12 @@ export class QuotationsService {
   async findAllForUser(user: AuthenticatedUser, query: QuotationListQuery) {
     const scope = this.resolveUserScope(user);
 
-    const result = await this.quotationsRepository.findAllForScope(
-      scope,
-      query,
-    );
+    const [result, summary] = await Promise.all([
+      this.quotationsRepository.findAllForScope(scope, query),
+      query.include_summary
+        ? this.quotationsRepository.summarizeForScope(scope, query)
+        : Promise.resolve(undefined),
+    ]);
 
     return {
       items: result.items.map((quotation) =>
@@ -1645,7 +1647,7 @@ export class QuotationsService {
           result.extrasByQuotationId.get(quotation.id),
         ),
       ),
-      meta: result.meta,
+      meta: summary ? { ...result.meta, summary } : result.meta,
     };
   }
 

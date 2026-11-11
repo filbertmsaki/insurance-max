@@ -30,6 +30,7 @@ export function UnderwriteWizardShell({
   wizard,
   title,
   showHeader = true,
+  showSectionTitles,
   renderStep,
   additionalHydrating = false,
   additionalLoadError,
@@ -38,6 +39,11 @@ export function UnderwriteWizardShell({
   wizard: UnderwriteQuotationWizard;
   title: string;
   showHeader?: boolean;
+  /**
+   * Visible section headings (they stay available to screen readers either
+   * way). Defaults to hidden for Fleet, shown for other lines.
+   */
+  showSectionTitles?: boolean;
   renderStep: (stepId: string) => ReactNode;
   /** Gates the form on line-specific edit data loaded outside the shared wizard. */
   additionalHydrating?: boolean;
@@ -211,7 +217,7 @@ export function UnderwriteWizardShell({
   }
 
   return (
-    <WizardSectionTitleContext.Provider value={!isFleet}>
+    <WizardSectionTitleContext.Provider value={showSectionTitles ?? !isFleet}>
       <div ref={containerRef} className="pb-8">
         <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-5">
           {showHeader && (

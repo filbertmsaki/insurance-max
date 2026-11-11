@@ -10,10 +10,14 @@ import { motorInsurancePaths } from '../paths';
 export function MotorInsurancePoliciesPage() {
   return (
     <PolicyRegister
-      eyebrow="Motor Insurance"
       title="Policies"
       description="Single Motor and Fleet policies in one register."
+      breadcrumb={[
+        { label: 'Motor Insurance', href: motorInsurancePaths.root },
+        { label: 'Policies' },
+      ]}
       queryKey={motorInsuranceKeys.policies()}
+      stateKey="motor-policies"
       fetcher={(params, signal) =>
         motorInsuranceApi.getPolicies(
           params as Parameters<typeof motorInsuranceApi.getPolicies>[0],
@@ -21,9 +25,9 @@ export function MotorInsurancePoliciesPage() {
         )
       }
       typeChips={[
-        { value: '', label: 'All' },
-        { value: 'single', label: 'Single' },
-        { value: 'fleet', label: 'Fleet' },
+        { id: 'all', label: 'All' },
+        { id: 'single', label: 'Single' },
+        { id: 'fleet', label: 'Fleet' },
       ]}
       detailHref={motorInsurancePaths.policyDetail}
     />

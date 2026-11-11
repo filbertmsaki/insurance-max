@@ -364,6 +364,14 @@ export interface QuotationListItem {
   product_code: string;
   product_name: string | null;
   customer_name: string | null;
+  customer_phone?: string | null;
+  customer_id_number?: string | null;
+  /** TIRA sticker / cover note reference of the issued policy. */
+  sticker_no?: string | null;
+  cover_note_no?: string | null;
+  /** Set only while TIRA failed or rejected the quotation. */
+  tira_error_code?: string | null;
+  tira_error_reason?: string | null;
   vehicle_registration_number: string | null;
   vehicle_chassis_number: string | null;
   cover_note_start_date: string;
@@ -882,6 +890,14 @@ export interface QuotationListParams {
   product_id?: string;
   sortBy?: string;
   sortOrder?: SortOrder;
+  /** Summary chip: active | expiring | tira_failed | drafts. */
+  view?: string;
+  /** Grouped TIRA state: success | failed | pending | not_submitted. */
+  tira_state?: string;
+  /** Date issued range, ISO YYYY-MM-DD. */
+  date_from?: string;
+  date_to?: string;
+  include_summary?: boolean;
 }
 
 export interface QuotationWizardRiskDiscountRow {

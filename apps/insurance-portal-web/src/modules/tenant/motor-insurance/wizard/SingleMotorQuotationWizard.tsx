@@ -177,8 +177,8 @@ export function SingleMotorQuotationWizard() {
   return (
     <UnderwriteWizardShell
       wizard={wizard}
-      title={id ? 'Edit motor quotation' : 'New motor quotation'}
-      showHeader={Boolean(id)}
+      showSectionTitles={false}
+      title={id ? 'Edit single motor quotation' : 'New single motor quotation'}
       renderStep={(stepId) => {
         switch (stepId) {
           case 'details':

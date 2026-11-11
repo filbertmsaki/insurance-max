@@ -552,6 +552,14 @@ export interface PolicyListParams {
   customer_id?: string;
   sortBy?: string;
   sortOrder?: SortOrder;
+  /** Summary chip: active | expiring | tira_failed. */
+  view?: string;
+  /** success | failed | pending | not_submitted */
+  tira_state?: string;
+  /** Policy period overlaps this range, ISO YYYY-MM-DD. */
+  period_from?: string;
+  period_to?: string;
+  include_summary?: boolean;
 }
 
 export interface PolicyPayload {

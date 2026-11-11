@@ -497,6 +497,13 @@ describe('QuotationsService', () => {
         },
         extrasByQuotationId: new Map(),
       }),
+      summarizeForScope: jest.fn().mockResolvedValue({
+        all: 4,
+        active: 2,
+        expiring: 1,
+        tira_failed: 1,
+        drafts: 1,
+      }),
     } as unknown as QuotationsRepository;
     const dataAccessScopeService = {
       resolve: jest.fn().mockReturnValue({
@@ -763,6 +770,7 @@ describe('QuotationsService', () => {
       productDefinitionService,
       productDefinitionSnapshot,
       quotationInvoiceService,
+      quotationsRepository,
       service,
     };
   }
@@ -1014,6 +1022,30 @@ describe('QuotationsService', () => {
     expect(
       fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
     ).not.toHaveBeenCalled();
+  });
+
+  it('adds summary-chip counts to the list meta only when asked', async () => {
+    const fixture = createServiceFixture();
+    const user = { id: 'user-1', permissions: [] } as never;
+
+    const plain = await fixture.service.findAllForUser(user, {});
+    expect(plain.meta).not.toHaveProperty('summary');
+    expect(
+      fixture.quotationsRepository.summarizeForScope,
+    ).not.toHaveBeenCalled();
+
+    const withSummary = await fixture.service.findAllForUser(user, {
+      include_summary: true,
+      view: 'expiring',
+    });
+    expect(withSummary.meta).toMatchObject({
+      total: 1,
+      summary: { all: 4, active: 2, expiring: 1, tira_failed: 1, drafts: 1 },
+    });
+    expect(fixture.quotationsRepository.summarizeForScope).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ view: 'expiring' }),
+    );
   });
 
   it('exposes a current pricing integration summary on quotation detail responses', async () => {

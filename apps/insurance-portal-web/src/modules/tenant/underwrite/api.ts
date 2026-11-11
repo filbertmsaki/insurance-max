@@ -2,7 +2,9 @@ import type { UnderwriteLineSlug } from '@insurance-max/contracts';
 import { apiClient } from '@/modules/shared/api/client';
 import {
   normalizePaginatedResponse,
+  readListSummary,
   type PaginatedResponse,
+  type PaginatedWithSummary,
 } from '@/modules/shared/api/pagination';
 import type {
   QuotationDetailRecord,
@@ -191,15 +193,18 @@ export const underwriteApi = {
     line: UnderwriteLineSlug,
     params: Omit<QuotationListParams, 'quotation_type' | 'quotation_flow'>,
     signal?: AbortSignal,
-  ): Promise<PaginatedResponse<QuotationListItem>> => {
+  ): Promise<PaginatedWithSummary<QuotationListItem>> => {
     const response = await apiClient.get<QuotationListResponse>(
       `${base(line)}/quotations`,
       { params, signal },
     );
     const body = response.data;
-    return normalizePaginatedResponse<QuotationListItem>(
-      'items' in body ? { data: body.items, meta: body.meta } : body,
-    );
+    return {
+      ...normalizePaginatedResponse<QuotationListItem>(
+        'items' in body ? { data: body.items, meta: body.meta } : body,
+      ),
+      summary: readListSummary(body),
+    };
   },
 
   // Record lookups back the line gate on detail screens, which render their
@@ -215,12 +220,15 @@ export const underwriteApi = {
     line: UnderwriteLineSlug,
     params: PolicyListParams,
     signal?: AbortSignal,
-  ): Promise<PaginatedResponse<PolicyRecord>> => {
+  ): Promise<PaginatedWithSummary<PolicyRecord>> => {
     const response = await apiClient.get(`${base(line)}/policies`, {
       params,
       signal,
     });
-    return normalizePaginatedResponse<PolicyRecord>(response.data);
+    return {
+      ...normalizePaginatedResponse<PolicyRecord>(response.data),
+      summary: readListSummary(response.data),
+    };
   },
 
   getPolicy: (line: UnderwriteLineSlug, id: string) =>

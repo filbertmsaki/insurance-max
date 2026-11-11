@@ -1,3 +1,4 @@
+import { tiraStateOf } from '@/components/list-page/format';
 /**
  * View model shared by the quotation and policy detail headers. Each entity
  * maps its own record into a `RecordSummary`; `RecordSummaryHeader` renders
@@ -178,14 +179,5 @@ export function daysUntil(end?: string | null, now = new Date()) {
 
 /** Maps any TIRA / submission status string onto four display states. */
 export function tiraState(status: string | null | undefined): SummaryTiraState {
-  const value = (status ?? '').toUpperCase();
-  if (['SUCCESS', 'ENDORSED', 'SYNCED', 'ISSUED', 'ACCEPTED'].includes(value))
-    return 'success';
-  if (/FAIL|REJECT|ERROR|EXHAUST/.test(value)) return 'failed';
-  if (
-    /SUBMIT|PROCESS|QUEUE|ACK|RETRY|PENDING/.test(value) &&
-    value !== 'NOT_SUBMITTED'
-  )
-    return 'pending';
-  return 'not_submitted';
+  return tiraStateOf(status);
 }

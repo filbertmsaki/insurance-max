@@ -189,3 +189,23 @@ export function normalizePaginatedResponse<T>(response: {
     },
   };
 }
+
+/** Live summary-chip counts (`meta.summary`) from a list response, if any. */
+export function readListSummary(
+  body: unknown,
+): Record<string, number> | undefined {
+  const meta = (body as { meta?: { summary?: unknown } } | null)?.meta;
+  const summary = meta?.summary;
+  if (!summary || typeof summary !== 'object') return undefined;
+  return Object.fromEntries(
+    Object.entries(summary as Record<string, unknown>).map(([key, value]) => [
+      key,
+      Number(value) || 0,
+    ]),
+  );
+}
+
+/** A normalised page plus its summary counts. */
+export type PaginatedWithSummary<T> = PaginatedResponse<T> & {
+  summary?: Record<string, number>;
+};

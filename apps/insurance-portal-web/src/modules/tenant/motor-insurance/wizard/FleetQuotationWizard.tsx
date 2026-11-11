@@ -282,6 +282,7 @@ export function FleetQuotationWizard() {
   return (
     <UnderwriteWizardShell
       wizard={wizard}
+      showSectionTitles={false}
       title={id ? 'Edit fleet quotation' : 'New fleet quotation'}
       renderStep={(stepId) => {
         switch (stepId) {

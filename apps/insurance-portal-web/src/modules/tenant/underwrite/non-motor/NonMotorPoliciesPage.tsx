@@ -8,10 +8,14 @@ import { underwritePaths } from '../paths';
 function PoliciesList({ line }: { line: UnderwriteLineMeta }) {
   return (
     <PolicyRegister
-      eyebrow={`Underwrite · ${line.label}`}
       title={`${line.label} policies`}
       description={line.description}
+      breadcrumb={[
+        { label: line.label, href: underwritePaths.lineDashboard(line.slug) },
+        { label: 'Policies' },
+      ]}
       queryKey={underwriteKeys.policies(line.slug)}
+      stateKey={`${line.slug}-policies`}
       fetcher={(params, signal) =>
         underwriteApi.getPolicies(line.slug, params, signal)
       }

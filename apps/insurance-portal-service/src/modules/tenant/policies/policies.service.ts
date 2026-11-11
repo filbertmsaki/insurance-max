@@ -12,6 +12,7 @@ import {
   ObjectLiteral,
   QueryFailedError,
   Repository,
+  SelectQueryBuilder,
 } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
@@ -37,6 +38,12 @@ import { QuotationLifecycleService } from '../quotations/services/quotation-life
 import { InsuranceChannelPermissionService } from '../quotations/authorization/insurance-channel-permission';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { User } from '../users/entities/user.entity';
+import {
+  POLICY_VIEW_CONDITIONS,
+  POLICY_VIEW_PARAMS,
+  tiraStateSql,
+  type PolicyListSummary,
+} from './policy-list-views';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { FilterPolicyDto, type PolicyListQuery } from './dto/filter-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
@@ -567,6 +574,68 @@ export class PoliciesService {
     };
   }
 
+  /** Live counts for the register's summary chips (same filters, no chip). */
+  private async summarizePolicies(
+    applyFilters: (
+      queryBuilder: SelectQueryBuilder<Policy>,
+      includeView: boolean,
+    ) => void,
+  ): Promise<PolicyListSummary> {
+    const queryBuilder = this.policyRepository
+      .createQueryBuilder('policy')
+      .leftJoin('policy.customer', 'customer')
+      .where('policy.deleted_at IS NULL');
+    applyFilters(queryBuilder, false);
+    const count = (view: keyof typeof POLICY_VIEW_CONDITIONS) =>
+      `COUNT(*) FILTER (WHERE ${POLICY_VIEW_CONDITIONS[view]})`;
+    const raw = await queryBuilder
+      .select('COUNT(*)', 'all')
+      .addSelect(count('active'), 'active')
+      .addSelect(count('expiring'), 'expiring')
+      .addSelect(count('tira_failed'), 'tira_failed')
+      .setParameters(POLICY_VIEW_PARAMS)
+      .getRawOne<Record<keyof PolicyListSummary, string>>();
+    return {
+      all: Number(raw?.all ?? 0),
+      active: Number(raw?.active ?? 0),
+      expiring: Number(raw?.expiring ?? 0),
+      tira_failed: Number(raw?.tira_failed ?? 0),
+    };
+  }
+
+  /**
+   * Policies have no payment column; the register shows the payment status
+   * of the quotation each policy was issued from.
+   */
+  private async attachPaymentStatus(items: Policy[]): Promise<void> {
+    const quotationIds = [
+      ...new Set(
+        items
+          .map((item) => item.quotation_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const rows = quotationIds.length
+      ? await this.policyRepository.manager
+          .createQueryBuilder()
+          .select('q.id', 'id')
+          .addSelect('q.payment_status', 'payment_status')
+          .from('quotations', 'q')
+          .where('q.id IN (:...quotationIds)', { quotationIds })
+          .getRawMany<{ id: string; payment_status: string | null }>()
+      : [];
+    const byQuotation = new Map(
+      rows.map((row) => [row.id, row.payment_status]),
+    );
+    for (const item of items) {
+      Object.assign(item, {
+        payment_status: item.quotation_id
+          ? (byQuotation.get(item.quotation_id) ?? null)
+          : null,
+      });
+    }
+  }
+
   async findAllForUser(user: AuthenticatedUser, query: PolicyListQuery) {
     const EXPIRING_SOON = 'EXPIRING_SOON';
     const IN_FORCE_STATUSES = ['ACTIVE', 'ENDORSED', 'COVER_NOTE_ISSUED'];
@@ -599,6 +668,115 @@ export class PoliciesService {
       : 'created_at';
     const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
 
+    // Filters shared by the page and the summary-chip counts; the chip
+    // (`view`) itself only narrows the page.
+    const applyFilters = (
+      queryBuilder: SelectQueryBuilder<Policy>,
+      includeView: boolean,
+    ) => {
+      this.dataAccessScopeService.applyPolicyReadScope(
+        queryBuilder,
+        'policy',
+        scope,
+      );
+      if (includeView && query.view) {
+        queryBuilder.andWhere(
+          POLICY_VIEW_CONDITIONS[query.view],
+          POLICY_VIEW_PARAMS,
+        );
+      }
+      if (query.tira_state) {
+        queryBuilder.andWhere(
+          `${tiraStateSql('policy.tira_status')} = :tiraState`,
+          { tiraState: query.tira_state },
+        );
+      }
+
+      if (search?.trim()) {
+        const term = `%${search.trim()}%`;
+
+        queryBuilder.andWhere(
+          `(
+            policy.policy_no ILIKE :term
+            OR policy.cover_note_no ILIKE :term
+            OR policy.external_policy_no ILIKE :term
+            OR policy.sticker_no ILIKE :term
+            OR customer.company_name ILIKE :term
+            OR customer.display_name ILIKE :term
+            OR CONCAT_WS(' ', customer.first_name, customer.middle_name, customer.last_name) ILIKE :term
+            OR EXISTS (
+              SELECT 1 FROM quotations q
+              WHERE q.id = policy.quotation_id AND q.quotation_no ILIKE :term
+            )
+            OR EXISTS (
+              SELECT 1 FROM motor_policy_details mpd
+              JOIN motor_vehicles mv ON mv.id = mpd.motor_vehicle_id
+              WHERE mpd.policy_id = policy.id
+                AND (mv.registration_no ILIKE :term OR mv.chassis_no ILIKE :term)
+            )
+            OR EXISTS (
+              SELECT 1 FROM policy_versions pv
+              WHERE pv.policy_id = policy.id AND pv.is_current = true
+                AND pv.asset_manifest::text ILIKE :term
+            )
+          )`,
+          { term },
+        );
+      }
+
+      if (policy_status === EXPIRING_SOON) {
+        queryBuilder.andWhere(
+          `policy.policy_status IN (:...inForce)
+            AND policy.end_date >= CURRENT_DATE
+            AND policy.end_date < CURRENT_DATE + INTERVAL '30 days'`,
+          { inForce: IN_FORCE_STATUSES },
+        );
+      } else if (policy_status) {
+        queryBuilder.andWhere('policy.policy_status = :policyStatus', {
+          policyStatus: policy_status,
+        });
+      }
+
+      if (period_from) {
+        queryBuilder.andWhere('policy.end_date >= :periodFrom', {
+          periodFrom: period_from,
+        });
+      }
+      if (period_to) {
+        queryBuilder.andWhere('policy.start_date <= :periodTo', {
+          periodTo: period_to,
+        });
+      }
+
+      if (quotation_id) {
+        queryBuilder.andWhere('policy.quotation_id = :quotationId', {
+          quotationId: quotation_id,
+        });
+      }
+      if (customer_id) {
+        queryBuilder.andWhere('policy.customer_id = :customerId', {
+          customerId: customer_id,
+        });
+      }
+
+      if (query.business_line) {
+        queryBuilder.andWhere(`${POLICY_BUSINESS_LINE_SQL} = :businessLine`, {
+          businessLine: query.business_line,
+        });
+      }
+
+      if (query.business_lines) {
+        if (query.business_lines.length === 0) {
+          queryBuilder.andWhere('1 = 0');
+        } else {
+          queryBuilder.andWhere(
+            `${POLICY_BUSINESS_LINE_SQL} IN (:...businessLines)`,
+            { businessLines: query.business_lines },
+          );
+        }
+      }
+    };
+
     const queryBuilder = this.policyRepository
       .createQueryBuilder('policy')
       .leftJoinAndSelect('policy.customer', 'customer')
@@ -607,106 +785,21 @@ export class PoliciesService {
       .where('policy.deleted_at IS NULL')
       .orderBy(`policy.${safeSortBy}`, direction)
       .addOrderBy('policy.id', direction);
-
-    this.dataAccessScopeService.applyPolicyReadScope(
-      queryBuilder,
-      'policy',
-      scope,
-    );
-
-    if (search?.trim()) {
-      const term = `%${search.trim()}%`;
-
-      queryBuilder.andWhere(
-        `(
-          policy.policy_no ILIKE :term
-          OR policy.cover_note_no ILIKE :term
-          OR policy.external_policy_no ILIKE :term
-          OR policy.sticker_no ILIKE :term
-          OR customer.company_name ILIKE :term
-          OR customer.display_name ILIKE :term
-          OR CONCAT_WS(' ', customer.first_name, customer.middle_name, customer.last_name) ILIKE :term
-          OR EXISTS (
-            SELECT 1 FROM quotations q
-            WHERE q.id = policy.quotation_id AND q.quotation_no ILIKE :term
-          )
-          OR EXISTS (
-            SELECT 1 FROM motor_policy_details mpd
-            JOIN motor_vehicles mv ON mv.id = mpd.motor_vehicle_id
-            WHERE mpd.policy_id = policy.id
-              AND (mv.registration_no ILIKE :term OR mv.chassis_no ILIKE :term)
-          )
-          OR EXISTS (
-            SELECT 1 FROM policy_versions pv
-            WHERE pv.policy_id = policy.id AND pv.is_current = true
-              AND pv.asset_manifest::text ILIKE :term
-          )
-        )`,
-        { term },
-      );
-    }
-
-    if (policy_status === EXPIRING_SOON) {
-      queryBuilder.andWhere(
-        `policy.policy_status IN (:...inForce)
-          AND policy.end_date >= CURRENT_DATE
-          AND policy.end_date < CURRENT_DATE + INTERVAL '30 days'`,
-        { inForce: IN_FORCE_STATUSES },
-      );
-    } else if (policy_status) {
-      queryBuilder.andWhere('policy.policy_status = :policyStatus', {
-        policyStatus: policy_status,
-      });
-    }
-
-    if (period_from) {
-      queryBuilder.andWhere('policy.end_date >= :periodFrom', {
-        periodFrom: period_from,
-      });
-    }
-    if (period_to) {
-      queryBuilder.andWhere('policy.start_date <= :periodTo', {
-        periodTo: period_to,
-      });
-    }
-
-    if (quotation_id) {
-      queryBuilder.andWhere('policy.quotation_id = :quotationId', {
-        quotationId: quotation_id,
-      });
-    }
-    if (customer_id) {
-      queryBuilder.andWhere('policy.customer_id = :customerId', {
-        customerId: customer_id,
-      });
-    }
-
-    if (query.business_line) {
-      queryBuilder.andWhere(`${POLICY_BUSINESS_LINE_SQL} = :businessLine`, {
-        businessLine: query.business_line,
-      });
-    }
-
-    if (query.business_lines) {
-      if (query.business_lines.length === 0) {
-        queryBuilder.andWhere('1 = 0');
-      } else {
-        queryBuilder.andWhere(
-          `${POLICY_BUSINESS_LINE_SQL} IN (:...businessLines)`,
-          { businessLines: query.business_lines },
-        );
-      }
-    }
+    applyFilters(queryBuilder, true);
 
     const skip = (page - 1) * limit;
-    const [items, total] = await queryBuilder
-      .skip(skip)
-      .take(limit)
-      .getManyAndCount();
+    const [[items, total], summary] = await Promise.all([
+      queryBuilder.skip(skip).take(limit).getManyAndCount(),
+      query.include_summary
+        ? this.summarizePolicies(applyFilters)
+        : Promise.resolve(undefined),
+    ]);
+    await this.attachPaymentStatus(items);
 
     return {
       data: items,
       meta: {
+        ...(summary ? { summary } : {}),
         totalItems: total,
         itemCount: items.length,
         itemsPerPage: limit,

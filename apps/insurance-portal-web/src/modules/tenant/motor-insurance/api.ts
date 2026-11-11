@@ -2,7 +2,9 @@ import type { UnderwriteLine } from '@insurance-max/contracts';
 import { apiClient } from '@/modules/shared/api/client';
 import {
   normalizePaginatedResponse,
+  readListSummary,
   type PaginatedResponse,
+  type PaginatedWithSummary,
 } from '@/modules/shared/api/pagination';
 import type {
   PolicyListParams,
@@ -37,26 +39,32 @@ export const motorInsuranceApi = {
       type?: MotorInsuranceType;
     },
     signal?: AbortSignal,
-  ): Promise<PaginatedResponse<QuotationListItem>> => {
+  ): Promise<PaginatedWithSummary<QuotationListItem>> => {
     const response = await apiClient.get<QuotationListResponse>(
       `${BASE}/quotations`,
       { params, signal },
     );
     const body = response.data;
-    return normalizePaginatedResponse<QuotationListItem>(
-      'items' in body ? { data: body.items, meta: body.meta } : body,
-    );
+    return {
+      ...normalizePaginatedResponse<QuotationListItem>(
+        'items' in body ? { data: body.items, meta: body.meta } : body,
+      ),
+      summary: readListSummary(body),
+    };
   },
 
   getPolicies: async (
     params: PolicyListParams & { type?: MotorInsuranceType },
     signal?: AbortSignal,
-  ): Promise<PaginatedResponse<MotorInsurancePolicy>> => {
+  ): Promise<PaginatedWithSummary<MotorInsurancePolicy>> => {
     const response = await apiClient.get(`${BASE}/policies`, {
       params,
       signal,
     });
-    return normalizePaginatedResponse<MotorInsurancePolicy>(response.data);
+    return {
+      ...normalizePaginatedResponse<MotorInsurancePolicy>(response.data),
+      summary: readListSummary(response.data),
+    };
   },
 
   resolveQuotationLine: (id: string) =>
