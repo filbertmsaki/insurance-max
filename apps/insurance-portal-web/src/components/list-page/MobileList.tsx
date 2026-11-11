@@ -2,11 +2,11 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { usePullToRefresh } from './usePullToRefresh';
 import { TiraBadge, ToneBadge, TypeBadge } from './cells';
 import { TONE_TEXT } from './tones';
 import { coverHint, formatDate, formatRange, toIsoDate } from './format';
-import { SECONDARY_BUTTON } from './ListStates';
 import type { Attention, MobileRowView } from './types';
 
 const BAR: Record<Exclude<Attention, null>, string> = {
@@ -238,17 +238,18 @@ export function MobileList<T>({
       </div>
 
       {!loading && !message && hasMore ? (
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={onLoadMore}
           disabled={fetching}
-          className={cn(SECONDARY_BUTTON, 'mt-3 w-full')}
+          className="mt-3 w-full"
         >
           {fetching ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           ) : null}
           Load more {noun.many}
-        </button>
+        </Button>
       ) : null}
     </div>
   );

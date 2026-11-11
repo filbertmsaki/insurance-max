@@ -91,7 +91,7 @@ describe('WizardInput required marker', () => {
     render(<Harness select />);
     const trigger = screen.getByRole('combobox', { name: 'Payment method' });
     expect(trigger).toHaveAttribute('aria-required', 'true');
-    expect(screen.getByText('*')).toHaveClass('text-red-500');
+    expect(screen.getByText('*')).toHaveAttribute('aria-hidden', 'true');
   });
 });
 

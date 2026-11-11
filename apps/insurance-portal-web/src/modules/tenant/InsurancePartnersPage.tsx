@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DataTable,
   tableFilters,
@@ -372,12 +373,11 @@ export function InsurancePartnersPage() {
               return (
                 <section key={product.id} className="rounded-lg border p-4">
                   <label className="flex items-center gap-2 font-medium">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={scope.enabled}
                       disabled={selected.status !== 'ACTIVE'}
-                      onChange={(e) =>
-                        updateDraft(product.id, { enabled: e.target.checked })
+                      onCheckedChange={(checked) =>
+                        updateDraft(product.id, { enabled: checked === true })
                       }
                     />
                     {product.product_name}{' '}
@@ -396,12 +396,11 @@ export function InsurancePartnersPage() {
                             key={operation}
                             className="flex items-center gap-2 text-xs"
                           >
-                            <input
-                              type="checkbox"
+                            <Checkbox
                               checked={scope.operations.includes(operation)}
-                              onChange={(e) =>
+                              onCheckedChange={(checked) =>
                                 updateDraft(product.id, {
-                                  operations: e.target.checked
+                                  operations: checked === true
                                     ? [...scope.operations, operation]
                                     : scope.operations.filter(
                                         (item) => item !== operation,
@@ -414,10 +413,11 @@ export function InsurancePartnersPage() {
                         ))}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-medium">
+                        <label htmlFor={`commission-${product.id}`} className="text-xs font-medium">
                           Commission rate
-                        </span>
+                        </label>
                         <Input
+                          id={`commission-${product.id}`}
                           className="w-28"
                           type="number"
                           min="0"
@@ -438,12 +438,11 @@ export function InsurancePartnersPage() {
                       <div>
                         <p className="mb-2 text-xs font-medium">Branches</p>
                         <label className="mr-4 inline-flex items-center gap-2 text-xs">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={scope.branches === null}
-                            onChange={(e) =>
+                            onCheckedChange={(checked) =>
                               updateDraft(product.id, {
-                                branches: e.target.checked ? null : [],
+                                branches: checked === true ? null : [],
                               })
                             }
                           />
@@ -456,14 +455,13 @@ export function InsurancePartnersPage() {
                                 key={branch.id}
                                 className="inline-flex items-center gap-2 text-xs"
                               >
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={
                                     scope.branches?.includes(branch.id) ?? false
                                   }
-                                  onChange={(e) =>
+                                  onCheckedChange={(checked) =>
                                     updateDraft(product.id, {
-                                      branches: e.target.checked
+                                      branches: checked === true
                                         ? [...(scope.branches ?? []), branch.id]
                                         : (scope.branches ?? []).filter(
                                             (id) => id !== branch.id,

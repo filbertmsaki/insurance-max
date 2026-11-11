@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Radio } from '@/components/ui/radio';
 import { Switch } from '@/components/ui/switch';
 import {
   Select,
@@ -811,8 +812,7 @@ export function ProductDetailPage() {
                     {sc.code} — {sc.name}
                   </span>
                   <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="radio"
+                    <Radio
                       name="default_sub_class"
                       disabled={readOnly || !checked}
                       checked={defaultSubClassId === sc.id}

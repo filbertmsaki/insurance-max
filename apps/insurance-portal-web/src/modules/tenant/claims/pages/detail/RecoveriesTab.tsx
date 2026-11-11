@@ -6,6 +6,7 @@ import { ClaimsPermissions } from '@insurance-max/contracts';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -134,9 +135,9 @@ export function RecoveriesTab({ claim }: { claim: ClaimDetail }) {
           <CardContent className="grid gap-3 p-4 md:grid-cols-4">
             <label className="space-y-1 text-sm">
               <span>Recovery type</span>
-              <select className="h-10 w-full rounded-md border px-3" value={type} onChange={(event) => setType(event.target.value as ClaimRecoveryType)}>
+              <NativeSelect value={type} onChange={(event) => setType(event.target.value as ClaimRecoveryType)}>
                 {recoveryTypes.map((item) => <option key={item} value={item}>{item.replaceAll('_', ' ')}</option>)}
-              </select>
+              </NativeSelect>
             </label>
             <label className="space-y-1 text-sm">
               <span>Expected amount</span>

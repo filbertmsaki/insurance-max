@@ -34,6 +34,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -865,13 +867,10 @@ function FleetVehicleTable({
           className="min-h-11 text-base sm:max-w-md sm:text-sm"
         />
         <label className="flex min-h-11 items-center gap-2 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-blue-600"
-            style={{ minHeight: 16 }}
+          <Checkbox
             checked={needsAttention}
-            onChange={(event) => {
-              setNeedsAttention(event.target.checked);
+            onCheckedChange={(checked) => {
+              setNeedsAttention(checked === true);
               setPage(1);
             }}
           />
@@ -995,10 +994,9 @@ function FleetVehicleTable({
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 text-sm">
         <label className="flex items-center gap-2">
           Per page
-          <select
+          <NativeSelect
             aria-label="Vehicles per page"
             value={limit}
-            className="min-h-11 rounded-md border bg-white px-2"
             onChange={(event) => {
               setLimit(Number(event.target.value));
               setPage(1);
@@ -1009,7 +1007,7 @@ function FleetVehicleTable({
                 {size}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         <span role="status">
           {filteredRows.length} vehicles · Page {currentPage} of {totalPages}
@@ -2062,7 +2060,7 @@ export function MotorFleetDetailsStep({
           }
           action={
             <>
-              <input
+              <Input
                 ref={csvInputRef}
                 type="file"
                 accept=".csv,text/csv"

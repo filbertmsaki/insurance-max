@@ -1,22 +1,52 @@
-import * as React from 'react';
+﻿import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
-
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  showCount?: boolean;
+}
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, ...props }, ref) => {
-    return (
+  (
+    {
+      className,
+      showCount = false,
+      value,
+      defaultValue,
+      onChange,
+      maxLength,
+      ...props
+    },
+    ref,
+  ) => {
+    const [uncontrolledLength, setUncontrolledLength] = React.useState(
+      String(defaultValue ?? '').length,
+    );
+    const length =
+      value === undefined ? uncontrolledLength : String(value).length;
+    const control = (
       <textarea
-        className={cn(
-          'flex min-h-[60px] w-full rounded-md border border-slate-300 bg-white text-[13px] text-slate-800 transition-[border-color,box-shadow] focus-visible:border-blue-300 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-blue-600/15 px-3 py-2 placeholder:text-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70 resize-none',
-          className,
-        )}
+        className={cn('ui-control flex resize-y', className)}
         ref={ref}
+        value={value}
+        defaultValue={defaultValue}
+        maxLength={maxLength}
+        onChange={(event) => {
+          setUncontrolledLength(event.target.value.length);
+          onChange?.(event);
+        }}
         {...props}
       />
+    );
+    if (!showCount) return control;
+    return (
+      <div>
+        {control}
+        <div className="mt-1 text-right text-[length:var(--helper-font-size)] text-[var(--color-text-muted)]">
+          {length}
+          {maxLength !== undefined ? ` / ${maxLength}` : ''}
+        </div>
+      </div>
     );
   },
 );
 Textarea.displayName = 'Textarea';
-
 export { Textarea };

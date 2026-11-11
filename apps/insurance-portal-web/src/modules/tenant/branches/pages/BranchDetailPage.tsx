@@ -27,6 +27,8 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -263,13 +265,11 @@ function EditBranchDialog({
                   <FormItem>
                     <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <FormControl>
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={field.value ?? false}
-                          onChange={(event) =>
-                            field.onChange(event.target.checked)
-                          }
-                          className="mt-1 h-4 w-4 rounded border-slate-300"
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
                         />
                       </FormControl>
                       <span>
@@ -719,12 +719,11 @@ function BranchUsersTab({ branchId }: { branchId: string }) {
                   key={item.company_user_id}
                   className="flex items-center gap-2 rounded px-2 py-2 hover:bg-slate-50"
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selectedUsers.includes(item.company_user_id)}
-                    onChange={(event) =>
+                    onCheckedChange={(checked) =>
                       setSelectedUsers((current) =>
-                        event.target.checked
+                        checked === true
                           ? [...current, item.company_user_id]
                           : current.filter((id) => id !== item.company_user_id),
                       )
@@ -770,11 +769,11 @@ function BranchUsersTab({ branchId }: { branchId: string }) {
           </DialogHeader>
           {removeTarget?.is_active_branch && (
             <div className="space-y-2">
-              <p className="text-sm font-medium">Replacement active branch</p>
-              <select
+              <label htmlFor="replacement-active-branch" className="text-sm font-medium">Replacement active branch</label>
+              <NativeSelect
+                id="replacement-active-branch"
                 value={replacementBranchId}
                 onChange={(event) => setReplacementBranchId(event.target.value)}
-                className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
               >
                 <option value="">Select an assigned branch</option>
                 {removalBranches
@@ -784,7 +783,7 @@ function BranchUsersTab({ branchId }: { branchId: string }) {
                       {item.branch.name} ({item.branch.code})
                     </option>
                   ))}
-              </select>
+              </NativeSelect>
               <p className="text-xs text-slate-500">
                 The active assignment cannot be removed without selecting its
                 replacement.
@@ -996,10 +995,9 @@ function BranchSalesPointsTab({ branchId }: { branchId: string }) {
               onChange={(e) => setName(e.target.value)}
             />
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isDefault}
-                onChange={(e) => setIsDefault(e.target.checked)}
+                onCheckedChange={(checked) => setIsDefault(checked === true)}
               />{' '}
               Set as default
             </label>

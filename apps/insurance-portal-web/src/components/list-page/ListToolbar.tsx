@@ -1,12 +1,11 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
-import {
-  Columns3,
-  RefreshCw,
-  Search,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react';
+﻿import { useEffect, useState, type ReactNode } from 'react';
+import { Columns3, RefreshCw, SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SearchInput } from '@/components/ui/search-input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { SegmentedControl } from '@/components/ui/radio';
+import { Button } from '@/components/ui/button';
+import { useId } from 'react';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -28,16 +27,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { formatDate, parseDisplayDate } from './format';
-import { PRIMARY_BUTTON, SECONDARY_BUTTON } from './ListStates';
+import { formatDate } from './format';
 import type { Chip, DateRangeFilterDef, FilterDef, ListColumn } from './types';
 import type { ListStateApi } from './useListState';
 
 const ALL = '__all__';
 const SEARCH_DEBOUNCE_MS = 300;
 
-const ICON_BUTTON =
-  'inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#E6E8EF] bg-white text-[#4A5165] hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C] disabled:opacity-50';
 
 /** Search box that reports its value 300ms after the user stops typing. */
 export function SearchField({
@@ -65,32 +61,17 @@ export function SearchField({
   }, [onChange, text, value]);
 
   return (
-    <div className={cn('relative min-w-0', className)}>
-      <Search
-        className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#5B6275]"
-        aria-hidden
-      />
-      <input
-        type="search"
+    <div className={cn('min-w-0', className)}>
+      <SearchInput
         value={text}
         onChange={(event) => setText(event.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="h-11 w-full rounded-[10px] border border-[#E6E8EF] bg-white pr-9 pl-9 text-[15px] text-[#1B1F2E] placeholder:text-[#5B6275] focus:border-[#3B4A8C] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C]/30 md:h-9 md:text-sm"
+        onClear={() => {
+          setText('');
+          onChange('');
+        }}
       />
-      {text ? (
-        <button
-          type="button"
-          aria-label="Clear search"
-          onClick={() => {
-            setText('');
-            onChange('');
-          }}
-          className="absolute top-1/2 right-1 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-[#5B6275] hover:text-[#1B1F2E] md:h-7 md:w-7"
-        >
-          <X className="h-4 w-4" aria-hidden />
-        </button>
-      ) : null}
     </div>
   );
 }
@@ -106,34 +87,15 @@ export function TypeChips({
   onChange: (value: string) => void;
   label: string;
 }) {
+  const name = useId();
   return (
-    <div
-      role="radiogroup"
+    <SegmentedControl
+      name={name}
       aria-label={label}
-      className="flex shrink-0 gap-1.5 overflow-x-auto"
-    >
-      {chips.map((chip) => {
-        const id = chip.id === 'all' ? '' : chip.id;
-        const selected = value === id;
-        return (
-          <button
-            key={chip.id}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(id)}
-            className={cn(
-              'h-11 shrink-0 rounded-full border px-3.5 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C] focus-visible:ring-offset-1 md:h-9',
-              selected
-                ? 'border-[#3B4A8C] bg-[#E6ECFA] text-[#2A3D80]'
-                : 'border-[#E6E8EF] bg-white text-[#4A5165] hover:bg-[#F7F8FC]',
-            )}
-          >
-            {chip.label}
-          </button>
-        );
-      })}
-    </div>
+      value={value}
+      onChange={onChange}
+      options={chips.map((chip) => ({ value: chip.id === 'all' ? '' : chip.id, label: chip.label }))}
+    />
   );
 }
 
@@ -160,7 +122,7 @@ function SelectFilter({
       <SelectTrigger
         aria-label={label}
         className={cn(
-          'h-11 rounded-[10px] border-[#E6E8EF] bg-white text-sm md:h-9 md:w-auto md:min-w-36',
+          'md:w-auto md:min-w-36',
           className,
         )}
       >
@@ -188,57 +150,12 @@ function DateBox({
   value: string;
   onChange: (iso: string) => void;
 }) {
-  const id = useId();
-  const [text, setText] = useState(value ? formatDate(value) : '');
-  const [synced, setSynced] = useState(value);
-  const [invalid, setInvalid] = useState(false);
-  if (synced !== value) {
-    setSynced(value);
-    setText(value ? formatDate(value) : '');
-    setInvalid(false);
-  }
-  const commit = () => {
-    if (!text.trim()) {
-      setInvalid(false);
-      if (value) onChange('');
-      return;
-    }
-    const iso = parseDisplayDate(text);
-    setInvalid(!iso);
-    if (iso) {
-      setText(formatDate(iso));
-      if (iso !== value) onChange(iso);
-    }
-  };
   return (
-    <span className="flex flex-col">
-      <input
-        id={id}
-        inputMode="numeric"
-        placeholder="DD/MM/YY"
-        aria-label={`${label} (DD/MM/YY)`}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid ? `${id}-error` : undefined}
-        value={text}
-        maxLength={10}
-        onChange={(event) => setText(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') commit();
-        }}
-        className={cn(
-          'h-11 w-full rounded-[10px] border bg-white px-3 text-[15px] tabular-nums text-[#1B1F2E] placeholder:text-[#5B6275] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C]/30 md:h-9 md:w-28 md:text-sm',
-          invalid
-            ? 'border-[#B42318]'
-            : 'border-[#E6E8EF] focus:border-[#3B4A8C]',
-        )}
-      />
-      {invalid ? (
-        <span id={`${id}-error`} className="mt-0.5 text-xs text-[#B42318]">
-          Use DD/MM/YY
-        </span>
-      ) : null}
-    </span>
+    <DatePicker
+      aria-label={`${label} (DD/MM/YY)`}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 
@@ -330,8 +247,10 @@ export function ActiveFilters({
           }
         />
       ))}
-      <button
+      <Button
         type="button"
+        variant="link"
+        size="sm"
         onClick={() => {
           state.setFilters(
             Object.fromEntries(
@@ -340,10 +259,9 @@ export function ActiveFilters({
           );
           state.setSearch('');
         }}
-        className="h-8 rounded px-1.5 text-[13px] font-semibold text-[#3B4A8C] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C]"
       >
         Clear all
-      </button>
+      </Button>
     </div>
   );
 }
@@ -356,16 +274,17 @@ function FilterChip({
   onRemove: () => void;
 }) {
   return (
-    <span className="inline-flex h-8 items-center gap-1 rounded-full bg-[#E6ECFA] pr-1 pl-3 text-[13px] font-medium text-[#2A3D80]">
+    <span className="inline-flex items-center gap-1 rounded-[var(--radius-badge)] bg-[var(--color-primary-50)] pr-1 pl-3 text-[13px] font-medium text-[var(--color-primary-800)]">
       {label}
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         aria-label={`Remove ${label}`}
         onClick={onRemove}
-        className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C]"
       >
         <X className="h-3.5 w-3.5" aria-hidden />
-      </button>
+      </Button>
     </span>
   );
 }
@@ -462,9 +381,10 @@ export function ListToolbar<T>({
           <FilterControls filters={filters} state={state} />
         </div>
         <div className="ml-auto flex items-center gap-1.5">
-          <button
+          <Button
             type="button"
-            className={ICON_BUTTON}
+            variant="outline"
+            size="icon-sm"
             onClick={onRefresh}
             disabled={refreshing}
             aria-label="Refresh"
@@ -474,17 +394,18 @@ export function ListToolbar<T>({
               className={cn('h-4 w-4', refreshing && 'animate-spin')}
               aria-hidden
             />
-          </button>
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button
                 type="button"
-                className={ICON_BUTTON}
+                variant="outline"
+                size="icon-sm"
                 aria-label="Columns and density"
                 title="Columns"
               >
                 <Columns3 className="h-4 w-4" aria-hidden />
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Columns</DropdownMenuLabel>
@@ -555,20 +476,21 @@ export function MobileToolbar({
           placeholder={searchPlaceholder}
           className="flex-1"
         />
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => setOpen(true)}
           aria-label={count ? `Filter (${count} active)` : 'Filter'}
-          className="relative inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] border border-[#E6E8EF] bg-white px-3 text-sm font-semibold text-[#1B1F2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C]"
+          className="relative shrink-0"
         >
           <SlidersHorizontal className="h-4 w-4" aria-hidden />
           Filter
           {count ? (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#3B4A8C] px-1 text-[11px] text-white">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-[var(--radius-badge)] bg-[var(--color-primary-600)] px-1 text-[11px] text-white">
               {count}
             </span>
           ) : null}
-        </button>
+        </Button>
       </div>
       {typeChips?.length ? (
         <TypeChips
@@ -593,10 +515,11 @@ export function MobileToolbar({
             <FilterControls filters={filters} state={state} stacked />
           </div>
           <div className="flex gap-2 pt-1">
-            <button
+            <Button
               type="button"
+              variant="outline"
               disabled={!count}
-              className={cn(SECONDARY_BUTTON, 'flex-1 disabled:opacity-50')}
+              className="flex-1"
               onClick={() =>
                 state.setFilters(
                   Object.fromEntries(
@@ -606,14 +529,14 @@ export function MobileToolbar({
               }
             >
               Clear all
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className={cn(PRIMARY_BUTTON, 'flex-1')}
+              className="flex-1"
               onClick={() => setOpen(false)}
             >
               {resultLabel}
-            </button>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

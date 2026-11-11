@@ -1,10 +1,9 @@
 import { FileSearch, Inbox, Plus, RefreshCw, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button, buttonVariants } from '@/components/ui/button';
 
-const PRIMARY_BUTTON =
-  'inline-flex h-11 items-center justify-center gap-2 rounded-[10px] bg-[#3B4A8C] px-4 text-sm font-semibold text-white hover:bg-[#2A3668] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C] focus-visible:ring-offset-2';
-const SECONDARY_BUTTON =
-  'inline-flex h-11 items-center justify-center gap-2 rounded-[10px] border border-[#E6E8EF] bg-white px-4 text-sm font-semibold text-[#1B1F2E] hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C] focus-visible:ring-offset-2';
+const PRIMARY_BUTTON = buttonVariants({ variant: 'primary' });
+const SECONDARY_BUTTON = buttonVariants({ variant: 'outline' });
 
 export { PRIMARY_BUTTON, SECONDARY_BUTTON };
 
@@ -60,29 +59,25 @@ export function ListMessage({
       <p className="mt-1 max-w-sm text-sm text-[#5B6275]">{body}</p>
       <div className="mt-4 flex flex-wrap justify-center gap-2">
         {variant === 'error' && onRetry ? (
-          <button type="button" className={SECONDARY_BUTTON} onClick={onRetry}>
+          <Button type="button" variant="outline" onClick={onRetry}>
             <RefreshCw className="h-4 w-4" aria-hidden />
             Try again
-          </button>
+          </Button>
         ) : null}
         {variant === 'no-results' && onClearFilters ? (
-          <button
-            type="button"
-            className={SECONDARY_BUTTON}
-            onClick={onClearFilters}
-          >
+          <Button type="button" variant="outline" onClick={onClearFilters}>
             Clear filters
-          </button>
+          </Button>
         ) : null}
         {variant === 'empty' && primaryAction ? (
-          <button
+          <Button
             type="button"
-            className={PRIMARY_BUTTON}
+            variant="primary"
             onClick={primaryAction.onClick}
           >
             <Plus className="h-4 w-4" aria-hidden />
             {primaryAction.label}
-          </button>
+          </Button>
         ) : null}
       </div>
     </div>

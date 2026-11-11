@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { Radio } from '@/components/ui/radio';
 import { cn } from '@/lib/utils';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
 import { formatClaimMoney } from '../../utils';
@@ -47,8 +48,7 @@ export function RiskStep({ wizard }: { wizard: ClaimWizard }) {
                     : 'border-slate-200 hover:border-slate-300',
                 )}
               >
-                <input
-                  type="radio"
+                <Radio
                   name="policy_risk_id"
                   className="mt-1"
                   checked={checked}

@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Card,
   CardContent,
@@ -130,11 +131,9 @@ export function ResetPasswordPage() {
                   )}
                 />
                 <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={showPw}
-                    onChange={(e) => setShowPw(e.target.checked)}
-                    className="rounded"
+                    onCheckedChange={(checked) => setShowPw(checked === true)}
                   />
                   Show passwords
                 </label>

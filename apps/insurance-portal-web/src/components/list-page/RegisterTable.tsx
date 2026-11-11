@@ -9,6 +9,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,15 +64,17 @@ function SortHeader({
       ? ArrowUp
       : ArrowDown;
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={() =>
         onSort(column.sortKey!, active && sortOrder === 'DESC' ? 'ASC' : 'DESC')
       }
       className={cn(
-        '-mx-1 inline-flex items-center gap-1 rounded px-1 py-1 uppercase hover:text-[#1B1F2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C]',
+        '-mx-1 gap-1 uppercase',
         column.align === 'right' && 'flex-row-reverse',
-        active && 'text-[#1B1F2E]',
+        active && 'text-[var(--color-text)]',
       )}
     >
       {column.header}
@@ -79,7 +82,7 @@ function SortHeader({
         className={cn('h-3.5 w-3.5', !active && 'opacity-60')}
         aria-hidden
       />
-    </button>
+    </Button>
   );
 }
 
@@ -102,14 +105,15 @@ function RowMenu<T>({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           aria-label={`More actions for ${label}`}
           onClick={(event) => event.stopPropagation()}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#4A5165] hover:bg-[#EEF0F4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C]"
         >
           <MoreHorizontal className="h-4 w-4" aria-hidden />
-        </button>
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -386,8 +390,6 @@ export function ListPagination({
 }) {
   const from = total === 0 ? 0 : (page - 1) * limit + 1;
   const to = Math.min(total, page * limit);
-  const navButton =
-    'inline-flex h-9 min-w-9 items-center justify-center gap-1 rounded-lg border border-[#E6E8EF] bg-white px-2.5 text-[13px] font-semibold text-[#1B1F2E] hover:bg-[#F7F8FC] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C] disabled:pointer-events-none disabled:opacity-50';
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#EEF0F4] px-3 py-2.5 text-[13px] text-[#5B6275]">
       <div className="flex items-center gap-4">
@@ -402,7 +404,8 @@ export function ListPagination({
           >
             <SelectTrigger
               aria-label="Rows per page"
-              className="h-9 w-[72px] rounded-lg border-[#E6E8EF] bg-white"
+              controlSize="sm"
+              className="w-[72px]"
             >
               <SelectValue />
             </SelectTrigger>
@@ -417,47 +420,46 @@ export function ListPagination({
         </label>
       </div>
       <nav aria-label="Pagination" className="flex items-center gap-1">
-        <button
+        <Button
           type="button"
-          className={navButton}
+          variant="outline"
+          size="sm"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
           <ChevronLeft className="h-4 w-4" aria-hidden />
           Previous
-        </button>
+        </Button>
         {pageWindow(page, totalPages).map((item, index) =>
           item === 'gap' ? (
             <span key={`gap-${index}`} className="px-1" aria-hidden>
               …
             </span>
           ) : (
-            <button
+            <Button
               key={item}
               type="button"
+              variant={item === page ? 'primary' : 'outline'}
+              size="sm"
               aria-label={`Page ${item}`}
               aria-current={item === page ? 'page' : undefined}
               onClick={() => onPageChange(item)}
-              className={cn(
-                navButton,
-                'max-lg:hidden',
-                item === page &&
-                  'border-[#3B4A8C] bg-[#3B4A8C] text-white hover:bg-[#2A3668]',
-              )}
+              className="max-lg:hidden"
             >
               {item}
-            </button>
+            </Button>
           ),
         )}
-        <button
+        <Button
           type="button"
-          className={navButton}
+          variant="outline"
+          size="sm"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >
           Next
           <ChevronRight className="h-4 w-4" aria-hidden />
-        </button>
+        </Button>
       </nav>
     </div>
   );

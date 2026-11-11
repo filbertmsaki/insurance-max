@@ -9,14 +9,17 @@ const SelectValue = SelectPrimitive.Value;
 
 /** Shared with other select-style triggers (e.g. Combobox) so they look identical. */
 export const selectTriggerClassName =
-  'flex h-[38px] w-full cursor-pointer items-center justify-between whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800 transition-[border-color,box-shadow] placeholder:text-slate-500 focus:border-blue-300 focus:outline-none focus:ring-[3px] focus:ring-blue-600/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70 [&>span]:line-clamp-1';
+  'ui-control flex cursor-pointer items-center justify-between whitespace-nowrap [&>span]:line-clamp-1';
 
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & {
+    controlSize?: 'sm' | 'md' | 'lg';
+  }
+>(({ className, children, controlSize = 'md', ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
+    data-control-size={controlSize}
     className={cn(selectTriggerClassName, className)}
     {...props}
   >
@@ -71,7 +74,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-[min(24rem,var(--radix-select-content-available-height))] min-w-[8rem] overflow-hidden rounded-md border border-slate-200 bg-white shadow-md',
+        'relative z-50 max-h-[min(280px,var(--radix-select-content-available-height))] min-w-[8rem] overflow-hidden rounded-[var(--radius-control)] border border-[var(--color-divider)] bg-[var(--color-surface)] shadow-md',
         position === 'popper' &&
           'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
         className,
@@ -115,7 +118,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-slate-100 data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'relative flex w-full cursor-pointer select-none items-center min-h-10 rounded-[var(--radius-control)] py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-[var(--color-primary-50)] data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,
     )}
     {...props}

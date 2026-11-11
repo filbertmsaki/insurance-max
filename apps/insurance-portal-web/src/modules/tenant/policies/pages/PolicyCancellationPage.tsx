@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { createBrowserSafeId } from '@/lib/ids';
 import { StatusBadge } from '@/components/shared/StatusBadge';
@@ -302,9 +303,8 @@ export function PolicyCancellationPage() {
                         >
                           Reason
                         </label>
-                        <select
+                        <NativeSelect
                           id="cancellation-reason-type"
-                          className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
                           value={reasonType}
                           onChange={(event) =>
                             setReasonType(
@@ -317,7 +317,7 @@ export function PolicyCancellationPage() {
                               {item.label}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </div>
                       <div className="space-y-2">
                         <label

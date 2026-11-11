@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -235,10 +236,9 @@ export function SecurityPolicyPage() {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <label className="flex items-center gap-2 text-sm md:col-span-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={requireAll}
-                onChange={(event) => setRequireAll(event.target.checked)}
+                onCheckedChange={(checked) => setRequireAll(checked === true)}
               />
               Require 2FA for every user in the company
             </label>
@@ -283,10 +283,9 @@ export function SecurityPolicyPage() {
               />
             </div>
             <label className="flex items-center gap-2 text-sm md:col-span-2">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={forbidBypass}
-                onChange={(event) => setForbidBypass(event.target.checked)}
+                onCheckedChange={(checked) => setForbidBypass(checked === true)}
               />
               Do not let trusted devices skip the 2FA prompt
             </label>

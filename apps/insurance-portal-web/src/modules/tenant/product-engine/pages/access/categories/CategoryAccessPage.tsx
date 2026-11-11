@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -522,10 +524,11 @@ function UserTab({
     <div className="space-y-4">
       <div className="flex items-end gap-3">
         <div className="space-y-1">
-          <p className="text-xs font-medium text-slate-500">Company User ID</p>
+          <label htmlFor="category-lookup-user" className="text-xs font-medium text-slate-500">Company User ID</label>
           <div className="flex gap-2">
-            <input
-              className="h-9 w-72 rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <Input
+              id="category-lookup-user"
+              className="w-72"
               placeholder="Enter company user ID…"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -642,11 +645,10 @@ function ResolvePanel({
         <div className="px-4 pb-4 space-y-3 border-t border-slate-100">
           <div className="grid grid-cols-2 gap-3 pt-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
+              <label htmlFor="category-resolve-user" className="text-xs font-medium text-slate-600">
                 Company User ID *
               </label>
-              <input
-                className="h-8 w-full rounded border border-slate-300 px-2 text-xs"
+              <Input id="category-resolve-user" required
                 value={form.company_user_id}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, company_user_id: e.target.value }))
@@ -654,11 +656,10 @@ function ResolvePanel({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
+              <label htmlFor="category-resolve-category" className="text-xs font-medium text-slate-600">
                 Category
               </label>
-              <select
-                className="h-8 w-full rounded border border-slate-300 px-2 text-xs bg-white"
+              <NativeSelect id="category-resolve-category"
                 value={form.category_id}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, category_id: e.target.value }))
@@ -670,14 +671,13 @@ function ResolvePanel({
                     {c.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
+              <label htmlFor="category-resolve-branch" className="text-xs font-medium text-slate-600">
                 Branch ID (optional)
               </label>
-              <input
-                className="h-8 w-full rounded border border-slate-300 px-2 text-xs"
+              <Input id="category-resolve-branch"
                 value={form.branch_id}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, branch_id: e.target.value }))
@@ -685,11 +685,10 @@ function ResolvePanel({
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">
+              <label htmlFor="category-resolve-department" className="text-xs font-medium text-slate-600">
                 Department ID (optional)
               </label>
-              <input
-                className="h-8 w-full rounded border border-slate-300 px-2 text-xs"
+              <Input id="category-resolve-department"
                 value={form.department_id}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, department_id: e.target.value }))

@@ -17,6 +17,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
@@ -512,9 +513,8 @@ function RoleFormDialog({
                                 {p.name}
                               </code>
                               {selectedPerms.includes(p.id) && (
-                                <select
+                                <NativeSelect
                                   aria-label={`${p.display_name} data scope`}
-                                  className="h-8 rounded border border-slate-200 bg-white px-2 text-xs"
                                   value={permissionScopes[p.id] ?? ''}
                                   onChange={(event) =>
                                     setPermissionScopes((current) => ({
@@ -532,7 +532,7 @@ function RoleFormDialog({
                                   <option value="DEPARTMENT">Department</option>
                                   <option value="BRANCH">Branch</option>
                                   <option value="COMPANY">Company</option>
-                                </select>
+                                </NativeSelect>
                               )}
                             </div>
                           ))}

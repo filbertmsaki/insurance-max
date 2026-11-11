@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
+import { ControlShowcase } from '@/components/ui/control-showcase';
 import { PortalShell } from '@/modules/portal/components/PortalShell';
 import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage';
 import { PortalBuyCoverPage } from '@/modules/portal/pages/PortalBuyCoverPage';
@@ -554,6 +555,7 @@ export default function App() {
             </Route>
 
             <Route element={<AppShell />}>
+              {import.meta.env.DEV && <Route path="/apps/control-showcase" element={<ControlShowcase />} />}
               <Route path="/apps/forbidden" element={<ForbiddenPage />} />
               <Route path="/apps/dashboard" element={<DashboardPage />} />
               <Route path="/apps/dashboard/:tab" element={<DashboardPage />} />

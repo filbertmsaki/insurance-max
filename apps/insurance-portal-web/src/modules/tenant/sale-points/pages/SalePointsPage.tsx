@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PageHeader } from '@/components/shared/PageHeader';
 import {
   Dialog,
@@ -131,9 +133,9 @@ export function SalePointsPage() {
           <CardTitle className="text-sm">Branch filter</CardTitle>
         </CardHeader>
         <CardContent>
-          <select
+          <NativeSelect
             aria-label="Filter by branch"
-            className="h-10 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm"
+            className="max-w-md"
             value={branchId}
             onChange={(event) => setBranchId(event.target.value)}
           >
@@ -143,7 +145,7 @@ export function SalePointsPage() {
                 {branch.name} ({branch.code})
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </CardContent>
       </Card>
       {branches.isLoading || points.isLoading ? (
@@ -273,8 +275,7 @@ export function SalePointsPage() {
           <div className="space-y-3">
             <label className="block space-y-1 text-sm">
               <span>Branch</span>
-              <select
-                className="h-10 w-full rounded-md border border-slate-300 bg-white px-3"
+              <NativeSelect
                 value={branchId}
                 disabled={!!editing}
                 onChange={(event) => setBranchId(event.target.value)}
@@ -285,7 +286,7 @@ export function SalePointsPage() {
                     {branch.name} ({branch.code})
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <label className="block space-y-1 text-sm">
               <span>Sales point code</span>
@@ -302,10 +303,9 @@ export function SalePointsPage() {
               />
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isDefault}
-                onChange={(event) => setIsDefault(event.target.checked)}
+                onCheckedChange={(checked) => setIsDefault(checked === true)}
               />
               Make this the branch default
             </label>

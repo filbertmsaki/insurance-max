@@ -58,6 +58,10 @@ export function Combobox({
   ref,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const searchTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  React.useEffect(() => () => clearTimeout(searchTimer.current), []);
   const selected = options.find((option) => option.value === value);
 
   return (
@@ -76,7 +80,7 @@ export function Combobox({
           className={cn(
             selectTriggerClassName,
             'text-left',
-            !selected && 'text-slate-500',
+            !selected && 'text-[var(--color-placeholder)]',
             className,
           )}
         >
@@ -90,15 +94,25 @@ export function Combobox({
           the viewport edge, so near the bottom of the screen the list scrolls
           (and the search box stays visible) instead of running off-screen. */}
       <PopoverContent
-        className="flex max-h-[var(--radix-popover-content-available-height)] w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] flex-col p-0"
+        className="flex max-h-[var(--radix-popover-content-available-height)] w-[var(--radix-popover-trigger-width)] max-w-[calc(100vw-1rem)] flex-col rounded-[var(--radius-control)] border-[var(--color-divider)] bg-[var(--color-surface)] p-0"
         collisionPadding={8}
       >
         <Command shouldFilter={!onSearchChange} className="min-h-0">
           <CommandInput
             placeholder={searchPlaceholder}
-            onValueChange={onSearchChange}
+            onValueChange={
+              onSearchChange
+                ? (search) => {
+                    clearTimeout(searchTimer.current);
+                    searchTimer.current = setTimeout(
+                      () => onSearchChange(search),
+                      300,
+                    );
+                  }
+                : undefined
+            }
           />
-          <CommandList className="max-h-[300px] min-h-0">
+          <CommandList className="max-h-[280px] min-h-0">
             <CommandEmpty>
               {loading ? 'Loading options…' : emptyText}
             </CommandEmpty>

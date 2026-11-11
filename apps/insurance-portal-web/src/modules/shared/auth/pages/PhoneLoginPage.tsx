@@ -139,9 +139,10 @@ export function PhoneLoginPage() {
                     numInputs={6}
                     renderSeparator={<span className="w-2" />}
                     renderInput={(props) => (
-                      <input
+                      <Input
                         {...props}
-                        className="!w-10 h-12 text-center border border-slate-200 rounded-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        controlSize="lg"
+                        className="!w-10 text-center font-semibold"
                       />
                     )}
                   />

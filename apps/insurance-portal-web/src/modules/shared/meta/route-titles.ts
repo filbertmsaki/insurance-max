@@ -28,6 +28,7 @@ function withLine(suffix: string) {
 
 // ── Workspace ────────────────────────────────────────────────────────────────
 route('/apps/dashboard', 'Dashboard');
+route('/apps/control-showcase', 'Form Controls');
 route('/apps/dashboard/:tab', 'Dashboard');
 route('/apps/forbidden', 'Access Denied');
 

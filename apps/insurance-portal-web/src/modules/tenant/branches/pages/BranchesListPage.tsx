@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -203,13 +204,11 @@ function CreateBranchDialog({
                   <FormItem>
                     <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <FormControl>
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={field.value ?? false}
-                          onChange={(event) =>
-                            field.onChange(event.target.checked)
-                          }
-                          className="mt-1 h-4 w-4 rounded border-slate-300"
+                          onCheckedChange={(checked) => field.onChange(checked === true)}
+                          onBlur={field.onBlur}
+                          ref={field.ref}
                         />
                       </FormControl>
                       <span>

@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { AppBarConfig } from '@/components/layout/app-bar/AppBarConfig';
-import { PRIMARY_BUTTON } from './ListStates';
 import type { Chip } from './types';
 
 /**
@@ -69,28 +69,29 @@ export function ListHeader({
         <div className="flex shrink-0 items-center gap-2">
           {extras ? <div className="max-md:hidden">{extras}</div> : null}
           {primaryAction ? (
-            <button
+            <Button
               type="button"
               onClick={primaryAction.onClick}
-              className={cn(PRIMARY_BUTTON, 'max-md:hidden')}
+              className="max-md:hidden"
             >
               <Plus className="h-4 w-4" aria-hidden />
               {primaryAction.label}
-            </button>
+            </Button>
           ) : null}
         </div>
       </header>
 
       {primaryAction ? (
-        <button
+        <Button
           type="button"
           onClick={primaryAction.onClick}
-          className="fixed right-4 bottom-5 z-30 flex h-[52px] items-center gap-2 rounded-full bg-[#3B4A8C] px-5 text-[15px] font-semibold text-white shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C] focus-visible:ring-offset-2 md:hidden"
+          size="lg"
+          className="fixed right-4 bottom-5 z-30 shadow-lg md:hidden"
           style={{ marginBottom: 'env(safe-area-inset-bottom)' }}
         >
           <Plus className="h-5 w-5" aria-hidden />
           {primaryAction.label}
-        </button>
+        </Button>
       ) : null}
     </>
   );
@@ -121,17 +122,14 @@ export function SummaryChips({
         const selected = value === id;
         const count = counts?.[chip.id];
         return (
-          <button
+          <Button
             key={chip.id}
             type="button"
+            size="sm"
+            variant={selected ? 'primary' : 'outline'}
             aria-pressed={selected}
             onClick={() => onChange(id)}
-            className={cn(
-              'inline-flex h-11 shrink-0 items-center gap-2 rounded-full border px-4 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B4A8C] focus-visible:ring-offset-1 md:h-9',
-              selected
-                ? 'border-transparent bg-[#3B4A8C] text-white'
-                : 'border-[#E6E8EF] bg-white text-[#1B1F2E] hover:bg-[#F7F8FC]',
-            )}
+            className="shrink-0"
           >
             {chip.label}
             {count !== undefined ? (
@@ -146,7 +144,7 @@ export function SummaryChips({
                 {count}
               </span>
             ) : null}
-          </button>
+          </Button>
         );
       })}
     </div>

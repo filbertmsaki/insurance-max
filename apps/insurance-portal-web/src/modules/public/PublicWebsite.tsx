@@ -36,6 +36,10 @@ import {
 
 import { apiClient } from '@/modules/shared/api/client';
 import { VehicleDataAttribution } from '@/components/shared/VehicleDataAttribution';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { PublicLayout } from './PublicShell';
 import { BUY_INSURANCE_PATH } from './public-routes';
 import { usePageMeta } from './usePageMeta';
@@ -893,7 +897,7 @@ function ContactContent() {
                   label="Full name"
                   error={form.formState.errors.fullName?.message}
                 >
-                  <input
+                  <Input
                     id="fullName"
                     autoComplete="name"
                     {...form.register('fullName')}
@@ -904,7 +908,7 @@ function ContactContent() {
                   label="Email"
                   error={form.formState.errors.email?.message}
                 >
-                  <input
+                  <Input
                     id="email"
                     type="email"
                     autoComplete="email"
@@ -920,7 +924,7 @@ function ContactContent() {
                   label="Phone number (optional)"
                   error={form.formState.errors.phone?.message}
                 >
-                  <input
+                  <Input
                     id="phone"
                     type="tel"
                     autoComplete="tel"
@@ -933,7 +937,7 @@ function ContactContent() {
                   label="Subject"
                   error={form.formState.errors.subject?.message}
                 >
-                  <input id="subject" {...form.register('subject')} />
+                  <Input id="subject" {...form.register('subject')} />
                 </PublicField>
               </div>
 
@@ -942,7 +946,7 @@ function ContactContent() {
                 label="Message"
                 error={form.formState.errors.message?.message}
               >
-                <textarea
+                <Textarea
                   id="message"
                   rows={6}
                   placeholder="How can we help?"
@@ -1606,7 +1610,7 @@ function MotorInsurancePurchasePage() {
                         label="Full name"
                         error={intakeErrors.fullName}
                       >
-                        <input
+                        <Input
                           id="publicMotorFullName"
                           autoComplete="name"
                           value={intake.fullName}
@@ -1620,7 +1624,7 @@ function MotorInsurancePurchasePage() {
                         label="Vehicle registration number"
                         error={intakeErrors.registrationNumber}
                       >
-                        <input
+                        <Input
                           id="publicMotorRegistration"
                           placeholder="e.g. T123ABC"
                           autoCapitalize="characters"
@@ -1641,7 +1645,7 @@ function MotorInsurancePurchasePage() {
                         label="Phone number"
                         error={intakeErrors.phone}
                       >
-                        <input
+                        <Input
                           id="publicMotorPhone"
                           type="tel"
                           placeholder="+255 7XX XXX XXX"
@@ -1683,7 +1687,7 @@ function MotorInsurancePurchasePage() {
                         id="publicMotorCompany"
                         label="Insurance company"
                       >
-                        <select
+                        <NativeSelect
                           id="publicMotorCompany"
                           value={selectedCompany?.id ?? ''}
                           onChange={(event) => {
@@ -1698,10 +1702,10 @@ function MotorInsurancePurchasePage() {
                               {company.name}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </PublicField>
                       <PublicField id="publicMotorProduct" label="Product">
-                        <select
+                        <NativeSelect
                           id="publicMotorProduct"
                           value={selectedProduct?.id ?? ''}
                           onChange={(event) => {
@@ -1715,13 +1719,13 @@ function MotorInsurancePurchasePage() {
                               {product.name}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </PublicField>
                     </div>
 
                     <div className="form-row">
                       <PublicField id="publicMotorRisk" label="Cover">
-                        <select
+                        <NativeSelect
                           id="publicMotorRisk"
                           value={selectedRisk?.id ?? ''}
                           onChange={(event) => {
@@ -1734,13 +1738,13 @@ function MotorInsurancePurchasePage() {
                               {risk.name}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </PublicField>
                       <PublicField
                         id="publicMotorSumInsured"
                         label="Vehicle value (TZS)"
                       >
-                        <input
+                        <Input
                           id="publicMotorSumInsured"
                           inputMode="decimal"
                           value={sumInsured}
@@ -1934,7 +1938,7 @@ function MotorInsurancePurchasePage() {
                         />
                         <label htmlFor="motor-policy-holder-gender">
                           <span>Gender</span>
-                          <select
+                          <NativeSelect
                             id="motor-policy-holder-gender"
                             value={holder.gender ?? ''}
                             onChange={(event) =>
@@ -1950,7 +1954,7 @@ function MotorInsurancePurchasePage() {
                             <option value="">Select gender</option>
                             <option value="M">Male</option>
                             <option value="F">Female</option>
-                          </select>
+                          </NativeSelect>
                         </label>
                         <MotorInput
                           label="Country code"
@@ -2082,10 +2086,9 @@ function MotorInsurancePurchasePage() {
                       </strong>
                     </div>
                     <label className="motor-confirm">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={confirmed}
-                        onChange={(event) => setConfirmed(event.target.checked)}
+                        onCheckedChange={(checked) => setConfirmed(checked === true)}
                       />
                       <span>The information above is correct.</span>
                     </label>
@@ -2128,7 +2131,7 @@ function MotorInput({
   return (
     <label htmlFor={id}>
       <span>{label}</span>
-      <input
+      <Input
         id={id}
         type={type}
         inputMode={inputMode}
@@ -2166,7 +2169,7 @@ function MotorNumberInput({
     return (
       <label htmlFor={id}>
         <span>{label}</span>
-        <select
+        <NativeSelect
           id={id}
           value={String(value)}
           onChange={(event) => onChange(Number(event.target.value))}
@@ -2179,7 +2182,7 @@ function MotorNumberInput({
               {option.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </label>
     );
   }

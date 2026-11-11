@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { NativeSelect as SharedNativeSelect } from '@/components/ui/native-select';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { LocationReferenceSelects } from '@/modules/platform/reference-data/components/LocationReferenceSelects';
@@ -194,13 +195,12 @@ function NativeSelect({
   children: ReactNode;
 }) {
   return (
-    <select
+    <SharedNativeSelect
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="flex h-10 w-full min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
     >
       {children}
-    </select>
+    </SharedNativeSelect>
   );
 }
 

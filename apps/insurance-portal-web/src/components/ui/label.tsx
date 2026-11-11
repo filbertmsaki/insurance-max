@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const labelVariants = cva(
-  'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
+  'text-[length:var(--label-font-size)] font-semibold text-[var(--color-text)] leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
 );
 
 const Label = React.forwardRef<
@@ -22,7 +22,7 @@ const Label = React.forwardRef<
   >
     {children}
     {required && (
-      <span aria-hidden="true" className="ml-0.5 text-red-500">
+      <span aria-hidden="true" className="ml-0.5 text-[var(--color-danger)]">
         *
       </span>
     )}

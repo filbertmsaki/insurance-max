@@ -8,6 +8,7 @@ import {
 } from '@insurance-max/contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Radio } from '@/components/ui/radio';
 import { TableSkeleton } from '@/components/shared/ContentStates';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -145,8 +146,7 @@ function QuotationTypeChooser() {
                       : 'border-[#E6E8EF]',
                   )}
                 >
-                  <input
-                    type="radio"
+                  <Radio
                     name="mobile-quotation-type"
                     value={option.type}
                     checked={isSelected}

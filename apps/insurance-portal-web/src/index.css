@@ -8,7 +8,7 @@
  * inherits the look without per-page edits.
  */
 @theme {
-  --font-sans: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: var(--font-family);
 
   --text-sm: 0.8125rem;
   --text-sm--line-height: 1.25rem;
@@ -24,15 +24,15 @@
   --shadow-lg: 0 5px 18px rgba(30, 32, 37, 0.14);
 
   /* Primary — Velzon indigo #405189 */
-  --color-blue-50: #eceef6;
-  --color-blue-100: #d9dcec;
-  --color-blue-200: #b3b9d9;
+  --color-blue-50: var(--color-primary-50);
+  --color-blue-100: var(--color-primary-100);
+  --color-blue-200: var(--color-primary-200);
   --color-blue-300: #8c97c6;
   --color-blue-400: #6674b3;
-  --color-blue-500: #4a5ca0;
-  --color-blue-600: #405189;
-  --color-blue-700: #364574;
-  --color-blue-800: #2c3960;
+  --color-blue-500: var(--color-primary-500);
+  --color-blue-600: var(--color-primary-600);
+  --color-blue-700: var(--color-primary-700);
+  --color-blue-800: var(--color-primary-800);
   --color-blue-900: #232c4b;
   --color-blue-950: #182038;
 

@@ -164,25 +164,27 @@ export function DataTableActiveFilterChips({
             <span className="truncate">
               <span className="text-blue-600">{filter.label}:</span> {label}
             </span>
-            <button
+            <Button
               type="button"
               aria-label={`Remove ${filter.label} filter`}
-              className="rounded-full p-0.5 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => onFilterChange?.(filter.key, '')}
             >
               <X className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </span>
         );
       })}
       {active.length > 1 && onClearFilters && (
-        <button
+        <Button
           type="button"
-          className="text-xs font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline"
+          variant="link"
+          size="sm"
           onClick={onClearFilters}
         >
           Clear all
-        </button>
+        </Button>
       )}
     </div>
   );

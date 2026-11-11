@@ -151,7 +151,7 @@ export function AsyncCombobox({
           className={cn(
             selectTriggerClassName,
             'text-left',
-            !label && 'text-slate-500',
+            !label && 'text-[var(--color-placeholder)]',
             className,
           )}
         >
@@ -160,7 +160,7 @@ export function AsyncCombobox({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="flex max-h-[var(--radix-popover-content-available-height)] w-[var(--radix-popover-trigger-width)] min-w-64 max-w-[calc(100vw-1rem)] flex-col p-0"
+        className="flex max-h-[var(--radix-popover-content-available-height)] w-[var(--radix-popover-trigger-width)] min-w-64 max-w-[calc(100vw-1rem)] flex-col rounded-[var(--radius-control)] border-[var(--color-divider)] bg-[var(--color-surface)] p-0"
         collisionPadding={8}
       >
         {/* Filtering happens on the server; cmdk must not re-filter. */}
@@ -170,7 +170,7 @@ export function AsyncCombobox({
             value={search}
             onValueChange={setSearch}
           />
-          <CommandList className="max-h-[320px] min-h-0">
+          <CommandList className="max-h-[280px] min-h-0">
             {searchable && query.isFetching && (
               <div
                 role="status"
