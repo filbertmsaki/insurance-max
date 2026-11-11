@@ -13,6 +13,7 @@ import {
 import { formatMoney } from '@/modules/shared/formatting/number-format';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
 import { useFleetPremiumCalculation } from '@/modules/tenant/quotations/wizard/steps/MotorFleetDetailsStep';
+import { useAutoFleetPricing } from '@/modules/tenant/quotations/wizard/hooks/useAutoFleetPricing';
 import { quotationPricingIssues } from '@/modules/tenant/quotations/wizard/utils/quotationReadiness';
 import { quotationTotals } from '@/modules/tenant/quotations/wizard/utils/quotationTotals';
 import { riskKeepsAddons } from '@/modules/tenant/quotations/wizard/utils/addonVisibility';
@@ -42,6 +43,7 @@ export function FleetPremiumStep({
       riskOptions,
       factorContext: wizard.factorContext,
     });
+  useAutoFleetPricing(form, calculateFleetPremiums, wizard.isEditMode && !wizard.isHydrating);
   const items = useWatch({ control: form.control, name: 'fleet.items' }) ?? [];
   const currency = useWatch({ control: form.control, name: 'currency' });
   const values = form.getValues();

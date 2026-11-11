@@ -419,10 +419,10 @@ export function useRiskPremiumCalculation(
       clearTimeout(timeoutRef.current);
     }
     setCommittedEntry({
-      riskId: '',
-      sumInsured: '',
+      riskId: riskId ?? '',
+      sumInsured: String(form.getValues(path(index, 'sum_insured')) ?? ''),
     });
-  }, [riskId]);
+  }, [form, index, riskId]);
 
   useEffect(() => {
     if (AUTO_CALCULATION_DISABLED) return undefined;
