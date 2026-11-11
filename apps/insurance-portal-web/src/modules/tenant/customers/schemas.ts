@@ -167,6 +167,35 @@ export function getCustomerDefaultValues(
   };
 }
 
+/** Required policyholder fields that are empty on a saved customer record.
+ * The form schema is the source of requiredness, including type-specific rules.
+ */
+export function getMissingCustomerFields(customer: CustomerRecord): string[] {
+  const values = getCustomerDefaultValues(customer);
+  // A missing country must not be hidden by the new-customer default.
+  values.country_code = customer.country_code ?? '';
+  const result = customerFormSchema.safeParse(values);
+  if (result.success) return [];
+  const labels: Partial<Record<keyof CustomerFormValues, string>> = {
+    policy_holder_name: 'name',
+    policy_holder_birth_date: values.policy_holder_type === 1 ? 'date of birth' : 'incorporation date',
+    policy_holder_id_number: 'ID number',
+    policy_holder_id_type: 'ID type',
+    gender: 'gender',
+    country_code: 'country',
+    region: 'region',
+    district: 'district',
+    street: 'street',
+    policy_holder_phone_number: 'phone number',
+  };
+  return [...new Set(result.error.issues.flatMap((issue) => {
+    const key = issue.path[0] as keyof CustomerFormValues;
+    const label = labels[key];
+    const value = values[key];
+    return label && (value == null || String(value).trim() === '') ? [label] : [];
+  }))];
+}
+
 function optional(value: string) {
   const trimmed = value.trim();
   return trimmed.length ? trimmed : null;

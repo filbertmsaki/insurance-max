@@ -148,6 +148,8 @@ export interface FleetMobileListApi {
   rows: Array<{ key: string; index: number; item: FleetItemValues }>;
   openNewVehicle: () => void;
   openVehicle: (index: number) => void;
+  duplicateVehicle: (index: number) => void;
+  removeVehicle: (index: number) => void;
 }
 
 function resolveFleetRequestedDiscount(
@@ -2024,6 +2026,15 @@ export function MotorFleetDetailsStep({
     // The schema checks fleet items in a root-level refinement, which Zod
     // skips while another step has invalid fields, so re-check here too.
     const issues = getVehicleIssues(form.getValues(path));
+    const normalizeIdentifier = (value: string) => value.trim().toUpperCase().replace(/[\s-]/g, '');
+    const current = form.getValues(path).motor_dtl;
+    const others = form.getValues('fleet.items').filter((_, index) => index !== editingVehicle.index);
+    for (const [key, label] of [['registration_number', 'Registration number'], ['chassis_number', 'Vehicle chassis number']] as const) {
+      const identifier = normalizeIdentifier(current[key]);
+      if (identifier && others.some((other) => normalizeIdentifier(other.motor_dtl[key]) === identifier)) {
+        issues.push(`${label} is already used by another vehicle in this fleet`);
+      }
+    }
     if (fieldsValid && issues.length === 0) {
       setVehicleErrors([]);
       setEditingVehicle(null);
@@ -2049,6 +2060,13 @@ export function MotorFleetDetailsStep({
           rows: tableRows,
           openNewVehicle: openNewVehicleDialog,
           openVehicle: (index) => openEditVehicleDialog(index),
+          duplicateVehicle: (index) => {
+            onDuplicateVehicle(index);
+            setVehicleErrors([]);
+            setShowVehicleValidationErrors(false);
+            setEditingVehicle({ index: index + 1, isNew: true, snapshot: null });
+          },
+          removeVehicle: onRemoveVehicle,
         })
       ) : (
         <StepSection

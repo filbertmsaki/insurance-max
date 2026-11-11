@@ -1,4 +1,5 @@
-import { ChevronRight, Plus } from 'lucide-react';
+import { ChevronRight, MoreHorizontal, Plus } from 'lucide-react';
+import { useState } from 'react';
 import { FLEET_MINIMUM_VEHICLES } from '@/modules/tenant/quotations/schemas';
 import {
   getVehicleIssues,
@@ -35,6 +36,7 @@ export function MobileFleetVehicles({
   wizard: UnderwriteQuotationWizard;
 }) {
   const { form } = wizard;
+  const [actionIndex, setActionIndex] = useState<number | null>(null);
   const actions = useFleetVehicleActions(wizard);
   const customerId = form.watch('customer_id');
   const customer =
@@ -56,7 +58,7 @@ export function MobileFleetVehicles({
       renderVehicleDetails={(index) => (
         <MobileVehicleForm form={form} fleetIndex={index} customer={customer} />
       )}
-      mobileList={({ rows, openNewVehicle, openVehicle }) => (
+      mobileList={({ rows, openNewVehicle, openVehicle, duplicateVehicle, removeVehicle }) => (
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-[17px] font-bold text-[#1B1F2E]">Vehicles</h2>
@@ -78,11 +80,12 @@ export function MobileFleetVehicles({
                   motor.registration_number || motor.chassis_number || '—';
                 return (
                   <li key={key}>
+                    <div className="flex items-center">
                     <button
                       type="button"
                       onClick={() => openVehicle(index)}
                       aria-label={`Vehicle ${index + 1}: ${name}, ${identifier}, ${complete ? 'complete' : 'details needed'}`}
-                      className="mq-raw flex h-[68px] w-full items-center gap-3 px-4 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#3B4A8C]"
+                      className="mq-raw flex min-h-[68px] min-w-0 flex-1 items-center gap-3 px-4 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#3B4A8C]"
                     >
                       <span
                         aria-hidden="true"
@@ -104,6 +107,13 @@ export function MobileFleetVehicles({
                         className="h-5 w-5 shrink-0 text-[#5B6275]"
                       />
                     </button>
+                    <button type="button" aria-label={`Actions for vehicle ${index + 1}`} className="flex h-11 w-11 items-center justify-center" onClick={() => setActionIndex(actionIndex === index ? null : index)}><MoreHorizontal aria-hidden="true" /></button>
+                    </div>
+                    {actionIndex === index && <div className="flex flex-wrap gap-2 border-t px-3 py-2">
+                      <button type="button" className="min-h-11 px-3" onClick={() => { setActionIndex(null); openVehicle(index); }}>Edit</button>
+                      <button type="button" className="min-h-11 px-3" onClick={() => { setActionIndex(null); duplicateVehicle(index); }}>Duplicate</button>
+                      <button type="button" className="min-h-11 px-3 text-[#B42318]" onClick={() => { setActionIndex(null); removeVehicle(index); }}>Remove</button>
+                    </div>}
                   </li>
                 );
               })}

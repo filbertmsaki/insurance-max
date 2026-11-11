@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  useFormState,
   useWatch,
   type FieldPath,
   type UseFormReturn,
@@ -14,7 +13,6 @@ import {
 } from '@/modules/tenant/quotations/wizard/utils/motorFields';
 import { ownerDefaultsFromPolicyholder } from '@/modules/tenant/quotations/wizard/utils/motorVehicleSelection';
 import {
-  CollapsibleCard,
   MobileCard,
   MobileSegmented,
   MobileSwitch,
@@ -29,11 +27,10 @@ type FleetMotor =
 const MAKE_MODEL_SHORT: MotorKey[] = [
   'make',
   'model',
+  'model_no',
   'manufacture_year',
   'body_type',
   'color',
-  'motor_usage_code',
-  'motor_category_code',
 ];
 const ENGINE_FULL: MotorKey[] = ['engine_no'];
 const ENGINE_SHORT: MotorKey[] = ['cubic_capacity', 'seating_capacity'];
@@ -51,7 +48,7 @@ const GROUPS = {
   identity: ['motor_type_code', 'registration_no', 'chassis_no'],
   makeModel: MAKE_MODEL_SHORT,
   engine: [...ENGINE_FULL, ...ENGINE_SHORT, ...FUEL_FULL, ...WEIGHT_SHORT],
-  owner: [...OWNER_SHORT, ...OWNER_FULL],
+  owner: ['motor_category_code', 'motor_usage_code', ...OWNER_SHORT, ...OWNER_FULL],
 } satisfies Record<string, MotorKey[]>;
 
 const FLEET_KEY = Object.fromEntries(
@@ -135,18 +132,7 @@ export function MobileVehicleForm({
     control: form.control,
     name: ['policyholder_mode', 'policyholder'],
   });
-  const { errors, isSubmitted } = useFormState({
-    control: form.control,
-    name: base as FieldPath<QuotationFormSchemaValues>,
-  });
-  const fieldErrors = (
-    isFleet ? errors.fleet?.items?.[fleetIndex]?.motor_dtl : errors.motor
-  ) as Record<string, unknown> | undefined;
-  const hasError = (keys: MotorKey[]) =>
-    Boolean(
-      fieldErrors &&
-      keys.some((key) => fieldErrors[isFleet ? FLEET_KEY[key] : key]),
-    );
+  const { isSubmitted } = form.formState;
 
   const ownerDefaults = ownerDefaultsFromPolicyholder(
     { policyholder_mode: policyholderMode, policyholder },
@@ -185,26 +171,11 @@ export function MobileVehicleForm({
   }, [ownerIsPolicyholder, defaultsKey]);
 
   const registered = motor.motor_type_code !== '2';
-  const summary = {
-    makeModel: [motor.make, motor.model, motor.manufacture_year, motor.color]
-      .filter(Boolean)
-      .join(' · '),
-    engine: [
-      motor.cubic_capacity && `${motor.cubic_capacity} cc`,
-      motor.fuel_type,
-      motor.seating_capacity && `${motor.seating_capacity} seats`,
-    ]
-      .filter(Boolean)
-      .join(' · '),
-    owner: ownerIsPolicyholder
-      ? `Policyholder${motor.owner_name ? ` · ${motor.owner_name}` : ''}`
-      : motor.owner_name,
-  };
-  const ownerMissing = missingKeys(motor, GROUPS.owner);
+  const ownerMissing = missingKeys(motor, [...OWNER_SHORT, ...OWNER_FULL]);
 
   return (
     <div className="space-y-3">
-      <MobileCard title="Vehicle">
+      <MobileCard title="Identification">
         <div className="space-y-3">
           <MobileSegmented
             label="Motor type"
@@ -231,44 +202,27 @@ export function MobileVehicleForm({
           <Fields
             form={form}
             fleetIndex={fleetIndex}
-            keys={['chassis_no']}
+            keys={['chassis_no', 'engine_no']}
             full
           />
         </div>
       </MobileCard>
 
-      <CollapsibleCard
-        title="Make & model"
-        summary={summary.makeModel}
-        complete={missingKeys(motor, GROUPS.makeModel).length === 0}
-        defaultOpen={missingKeys(motor, GROUPS.makeModel).length > 0}
-        forceOpen={hasError(GROUPS.makeModel)}
-      >
+      <MobileCard title="Make & model">
         <Fields form={form} fleetIndex={fleetIndex} keys={MAKE_MODEL_SHORT} />
-      </CollapsibleCard>
+      </MobileCard>
 
-      <CollapsibleCard
-        title="Engine & capacity"
-        summary={summary.engine}
-        complete={missingKeys(motor, GROUPS.engine).length === 0}
-        forceOpen={hasError(GROUPS.engine)}
-      >
+      <MobileCard title="Specifications">
         <div className="space-y-3">
-          <Fields form={form} fleetIndex={fleetIndex} keys={ENGINE_FULL} full />
           <Fields form={form} fleetIndex={fleetIndex} keys={ENGINE_SHORT} />
           <Fields form={form} fleetIndex={fleetIndex} keys={FUEL_FULL} full />
           <Fields form={form} fleetIndex={fleetIndex} keys={WEIGHT_SHORT} />
         </div>
-      </CollapsibleCard>
+      </MobileCard>
 
-      <CollapsibleCard
-        title="Owner"
-        summary={summary.owner}
-        complete={ownerMissing.length === 0}
-        defaultOpen={!ownerMatches}
-        forceOpen={hasError(GROUPS.owner)}
-      >
+      <MobileCard title="Usage & owner">
         <div className="space-y-3">
+          <Fields form={form} fleetIndex={fleetIndex} keys={['motor_category_code', 'motor_usage_code']} />
           <MobileSwitch
             label="Owner is the policyholder"
             checked={ownerIsPolicyholder}
@@ -286,7 +240,7 @@ export function MobileVehicleForm({
             </>
           )}
         </div>
-      </CollapsibleCard>
+      </MobileCard>
     </div>
   );
 }

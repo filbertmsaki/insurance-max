@@ -4,6 +4,7 @@ import {
   buildCustomerPayload,
   customerFormSchema,
   getCustomerDefaultValues,
+  getMissingCustomerFields,
   normalizePolicyholderFormValues,
 } from './schemas';
 import type { CustomerFormValues, CustomerRecord } from './types';
@@ -36,6 +37,25 @@ function issuePaths(values: CustomerFormValues) {
 }
 
 describe('customerFormSchema', () => {
+  it('reports missing required fields without treating optional fields as missing', () => {
+    const customer = {
+      first_name: 'Asha',
+      date_of_birth: '1990-01-01',
+      customer_type: 'INDIVIDUAL',
+      id_type: 1,
+      gender: 'F',
+      country_code: 'TZA',
+      phone: '+255700000000',
+      district: 'Ilala',
+      street: 'Samora Ave',
+    } as CustomerRecord;
+    expect(getMissingCustomerFields(customer)).toEqual(
+      expect.arrayContaining(['ID number', 'region']),
+    );
+    expect(getMissingCustomerFields(customer)).not.toEqual(
+      expect.arrayContaining(['email', 'postal address', 'fax']),
+    );
+  });
   it('accepts a complete individual policyholder', () => {
     expect(issuePaths(validIndividual())).toEqual([]);
   });

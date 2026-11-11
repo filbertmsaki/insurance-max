@@ -1,5 +1,5 @@
 import { WizardSectionTitle } from '@/modules/tenant/quotations/wizard/components/WizardSectionTitle';
-import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
+import { getCustomerDefaultValues, getMissingCustomerFields } from '@/modules/tenant/customers/schemas';
 import { cn } from '@/lib/utils';
 import {
   AlertTriangle,
@@ -49,7 +49,6 @@ import {
   CUSTOMER_GENDER_OPTIONS,
   CUSTOMER_ID_TYPE_OPTIONS,
   getCustomerDisplayName,
-  getPolicyHolderType,
   POLICY_HOLDER_FIELD_MAX_LENGTH,
   POLICY_HOLDER_TYPE_OPTIONS,
   type CustomerPolicyHolderType,
@@ -107,18 +106,7 @@ function prefillPolicyholderFromSearch(
 /** Policyholder facts TIRA needs that an older customer record may lack. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function missingPolicyholderDetails(customer: CustomerRecord): string[] {
-  const missing: Array<[boolean, string]> = [
-    [!getCustomerDisplayName(customer), 'name'],
-    [!customer.date_of_birth, 'date of birth'],
-    [!customer.id_type || !customer.id_number, 'ID number'],
-    [!customer.phone, 'phone number'],
-    [!customer.country_code, 'country'],
-    [!customer.region, 'region'],
-    [!customer.district, 'district'],
-    [!customer.street, 'street'],
-    [getPolicyHolderType(customer) === 1 && !customer.gender, 'gender'],
-  ];
-  return missing.filter(([isMissing]) => isMissing).map(([, label]) => label);
+  return getMissingCustomerFields(customer);
 }
 
 function PolicyholderDetailsContainer({
