@@ -176,6 +176,8 @@ export interface UnderwriteTableParams {
   search?: string;
   sortBy?: string;
   sortOrder?: 'ASC' | 'DESC';
+  /** Register filters (status, tira_state, view, dates, include_summary…). */
+  [filter: string]: unknown;
 }
 
 export const underwriteApi = {
@@ -258,7 +260,7 @@ export const underwriteApi = {
   ) =>
     apiClient
       .get<
-        PaginatedResponse<UnderwriteRenewalRow>
+        PaginatedWithSummary<UnderwriteRenewalRow>
       >(`${base(line)}/renewals`, { params, signal })
       .then((response) => response.data),
 
@@ -271,7 +273,7 @@ export const underwriteApi = {
   ) =>
     apiClient
       .get<
-        PaginatedResponse<UnderwritePolicyTransactionRow>
+        PaginatedWithSummary<UnderwritePolicyTransactionRow>
       >(`${base(line)}/${kind}`, { params, signal })
       .then((response) => response.data),
 

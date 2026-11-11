@@ -247,6 +247,71 @@ describe('Motor Insurance (New) authorization and data scope (real database)', (
     });
   });
 
+  describe('standard list page: chips, TIRA state and summary counts', () => {
+    it('filters quotations by chip and TIRA state and returns live counts', async () => {
+      await dataSource.query(
+        `UPDATE quotations SET tira_status='FAILED', tira_response_code='E101', tira_response_description='Vehicle already insured' WHERE id=$1`,
+        [q.motorB],
+      );
+      const base = { search: `QT-MI-${suffix}`, limit: 100 };
+
+      const failed = await service.listQuotations(viewer(ALL), {
+        ...base,
+        view: 'tira_failed',
+        include_summary: true,
+      } as any);
+      expect(failed.items.map((item: { id: string }) => item.id)).toEqual([
+        q.motorB,
+      ]);
+      expect(failed.items[0]).toMatchObject({
+        tira_error_code: 'E101',
+        tira_error_reason: 'Vehicle already insured',
+      });
+      // Counts ignore the selected chip but keep search, type and scope.
+      expect((failed.meta as any).summary).toMatchObject({
+        all: 4,
+        tira_failed: 1,
+      });
+
+      const byState = await service.listQuotations(viewer(ALL), {
+        ...base,
+        tira_state: 'failed',
+      } as any);
+      expect(byState.items.map((item: { id: string }) => item.id)).toEqual([
+        q.motorB,
+      ]);
+
+      for (const view of ['active', 'expiring', 'drafts']) {
+        await expect(
+          service.listQuotations(viewer(ALL), {
+            ...base,
+            view,
+            date_from: '2020-01-01',
+            date_to: '2099-12-31',
+          } as any),
+        ).resolves.toBeDefined();
+      }
+    });
+
+    it('filters policies by chip and TIRA state and returns live counts', async () => {
+      for (const view of ['active', 'expiring', 'tira_failed']) {
+        const result = await service.listPolicies(viewer(ALL), {
+          search: `POL-MI-${suffix}`,
+          limit: 100,
+          view,
+          tira_state: 'success',
+          include_summary: true,
+        } as any);
+        expect((result.meta as any).summary).toMatchObject({
+          all: expect.any(Number),
+          active: expect.any(Number),
+          expiring: expect.any(Number),
+          tira_failed: expect.any(Number),
+        });
+      }
+    });
+  });
+
   describe('quotation register', () => {
     it('sorts by customer and registration without a SQL error', async () => {
       for (const sortBy of ['customer_name', 'vehicle_registration_number']) {
@@ -468,6 +533,40 @@ describe('Motor Insurance (New) authorization and data scope (real database)', (
         await expect(
           transactions.listTiraQueue(txUser(), lines as any, 'failed', table),
         ).resolves.toBeDefined();
+      },
+    );
+
+    it.each(['active', 'expiring', 'tira_failed', 'drafts'] as const)(
+      'runs the register filters, %s chip and summary counts',
+      async (view) => {
+        const lines = [UnderwriteLine.MOTOR, UnderwriteLine.FLEET];
+        const table = {
+          page: 1,
+          limit: 10,
+          search: 'X',
+          status: 'COMPLETED',
+          tira_state: 'failed',
+          view,
+          date_from: '2026-01-01',
+          date_to: '2026-12-31',
+          include_summary: true,
+        } as any;
+        const summary = expect.objectContaining({
+          all: expect.any(Number),
+          active: expect.any(Number),
+          expiring: expect.any(Number),
+          tira_failed: expect.any(Number),
+          drafts: expect.any(Number),
+        });
+
+        await expect(
+          transactions.listRenewals(txUser(), lines as any, table),
+        ).resolves.toMatchObject({ data: [], summary });
+        for (const kind of ['endorsement', 'cancellation'] as const) {
+          await expect(
+            transactions.listTransactions(txUser(), lines as any, kind, table),
+          ).resolves.toMatchObject({ data: [], summary });
+        }
       },
     );
   });

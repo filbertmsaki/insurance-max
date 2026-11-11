@@ -1,164 +1,218 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Pencil, Trash2 } from 'lucide-react';
 import {
-  DataTable,
-  tableFilters,
-  useServerTable,
-  type Column,
-} from '@/components/data-table';
-import { PageHeader } from '@/components/shared/PageHeader';
+  DateCell,
+  ListPage,
+  ToneBadge,
+  TwoLineCell,
+  humanizeStatus,
+  statusTone,
+  type FilterDef,
+  type ListColumn,
+  type RowAction,
+} from '@/components/list-page';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { useDeleteMotorVehicle, useMotorCustomers, motorKeys } from '../hooks';
-import { MotorStatusBadge } from '../components/MotorStatusBadge';
+import { formatMoney } from '@/components/shared/detailFormat';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import { useDeleteMotorVehicle, useMotorCustomers, motorKeys } from '../hooks';
 import { motorApi } from '../api';
 import type { MotorVehicleRecord } from '../types';
 
-const FILTER_KEYS = ['status', 'customer_id'] as const;
-type MotorFilterKey = (typeof FILTER_KEYS)[number];
+/*
+ * Motor vehicle register on the standard list page. Vehicles have no cover
+ * period or TIRA status; their key fields (identifiers, owner, verification)
+ * take those places.
+ */
+
 const STATUS_OPTIONS = [
   { label: 'Active', value: 'ACTIVE' },
   { label: 'Inactive', value: 'INACTIVE' },
 ];
 
+function identifier(row: MotorVehicleRecord) {
+  return row.registration_no || row.chassis_no || row.id;
+}
+
+function vehicleName(row: MotorVehicleRecord) {
+  return (
+    [row.make, row.model, row.manufacture_year].filter(Boolean).join(' ') ||
+    'Unknown vehicle'
+  );
+}
+
+function ownerName(row: MotorVehicleRecord) {
+  return row.customer ? getCustomerDisplayName(row.customer) : 'No customer';
+}
+
+const COLUMNS: ListColumn<MotorVehicleRecord>[] = [
+  {
+    key: 'registration_no',
+    header: 'Registration no.',
+    sortKey: 'registration_no',
+    mandatory: true,
+    className: 'min-w-[150px]',
+    cell: (row) => <span className="whitespace-nowrap">{identifier(row)}</span>,
+    secondary: (row) =>
+      row.registration_no && row.chassis_no ? (
+        <span className="font-mono text-xs text-[#5B6275]">
+          {row.chassis_no}
+        </span>
+      ) : null,
+  },
+  {
+    key: 'vehicle',
+    header: 'Vehicle',
+    mandatory: true,
+    className: 'min-w-[170px] max-w-[240px]',
+    cell: (row) => (
+      <TwoLineCell main={vehicleName(row)} secondary={row.body_type} />
+    ),
+  },
+  {
+    key: 'customer',
+    header: 'Owner',
+    className: 'min-w-[160px] max-w-[240px]',
+    cell: (row) => (
+      <TwoLineCell
+        main={ownerName(row)}
+        secondary={row.customer?.customer_no}
+      />
+    ),
+  },
+  {
+    key: 'created_at',
+    header: 'Date added',
+    sortKey: 'created_at',
+    className: 'min-w-[96px]',
+    cell: (row) => <DateCell value={row.created_at} />,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortKey: 'status',
+    className: 'min-w-[110px]',
+    cell: (row) => (
+      <ToneBadge tone={statusTone(row.status)}>
+        {humanizeStatus(row.status)}
+      </ToneBadge>
+    ),
+  },
+  {
+    key: 'verification',
+    header: 'Verification',
+    hideOnTablet: true,
+    className: 'min-w-[120px]',
+    cell: (row) => (
+      <ToneBadge tone={statusTone(row.verification_status)}>
+        {humanizeStatus(row.verification_status)}
+      </ToneBadge>
+    ),
+  },
+  {
+    key: 'vehicle_value',
+    header: 'Value',
+    sortKey: 'vehicle_value',
+    align: 'right',
+    className: 'min-w-[130px]',
+    cell: (row) => (
+      <span className="font-semibold whitespace-nowrap tabular-nums">
+        {formatMoney(Number(row.vehicle_value), row.currency)}
+      </span>
+    ),
+  },
+];
+
 export function MotorVehiclesPage() {
   const navigate = useNavigate();
   const { data: customerOptions = [] } = useMotorCustomers();
-  const { tableProps, state } = useServerTable<
-    MotorVehicleRecord,
-    MotorFilterKey
-  >({
-    queryKey: motorKeys.vehicles(),
-    fetcher: (params, signal) => motorApi.getVehicles(params, signal),
-    filterKeys: FILTER_KEYS,
-    defaultSortBy: 'created_at',
-    defaultLimit: 10,
-  });
-  const customerFilterOptions = customerOptions.map((customer) => ({
-    value: customer.id,
-    label: `${getCustomerDisplayName(customer)} (${customer.customer_no})`,
-  }));
   const deleteMutation = useDeleteMotorVehicle();
   const [deleteItem, setDeleteItem] = useState<MotorVehicleRecord | null>(null);
 
-  const columns: Column<MotorVehicleRecord>[] = [
+  const filters: FilterDef[] = [
     {
-      key: 'registration_no',
-      header: 'Vehicle',
-      sortable: true,
-      cell: (row) => (
-        <div>
-          <p className="font-medium text-slate-900">
-            {row.registration_no ?? row.chassis_no ?? row.engine_no ?? row.id}
-          </p>
-          <p className="text-xs text-slate-400">
-            {row.make ?? 'Unknown'} {row.model ?? ''}
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: 'customer',
-      header: 'Customer',
-      cell: (row) => (
-        <span className="text-sm text-slate-600">
-          {row.customer
-            ? getCustomerDisplayName(row.customer)
-            : row.customer_id}
-        </span>
-      ),
-    },
-    {
-      key: 'vehicle_value',
-      header: 'Value',
-      sortable: true,
-      cell: (row) => (
-        <span className="text-sm text-slate-600">
-          {row.currency} {row.vehicle_value}
-        </span>
-      ),
-    },
-    {
+      kind: 'select',
       key: 'status',
-      header: 'Status',
-      sortable: true,
-      cell: (row) => <MotorStatusBadge status={row.status} />,
+      label: 'Status',
+      allLabel: 'All statuses',
+      options: STATUS_OPTIONS,
     },
     {
-      key: 'created_at',
-      header: 'Created',
-      sortable: true,
-      cell: (row) => (
-        <span className="text-sm text-slate-500">
-          {new Date(row.created_at).toLocaleDateString()}
-        </span>
-      ),
+      kind: 'select',
+      key: 'customer_id',
+      label: 'Owner',
+      allLabel: 'All owners',
+      options: customerOptions.map((customer) => ({
+        value: customer.id,
+        label: `${getCustomerDisplayName(customer)} (${customer.customer_no})`,
+      })),
+    },
+  ];
+
+  const rowActions: RowAction<MotorVehicleRecord>[] = [
+    {
+      label: 'Edit vehicle',
+      icon: Pencil,
+      onSelect: (row) =>
+        navigate(`/apps/underwrite/motor/vehicles/${row.id}/edit`),
     },
     {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      cell: (row) => (
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              navigate(`/apps/underwrite/motor/vehicles/${row.id}`)
-            }
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              navigate(`/apps/underwrite/motor/vehicles/${row.id}/edit`)
-            }
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteItem(row)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
+      label: 'Delete vehicle',
+      icon: Trash2,
+      destructive: true,
+      onSelect: setDeleteItem,
     },
   ];
 
   return (
-    <div>
-      <PageHeader
-        title="Motor Vehicles"
+    <>
+      <ListPage<MotorVehicleRecord>
+        entity="vehicle"
+        noun={{ one: 'vehicle', many: 'vehicles' }}
+        title="Motor vehicles"
         description="Register vehicles for motor underwriting"
-        action={
-          <Button
-            onClick={() => navigate('/apps/underwrite/motor/vehicles/new')}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Vehicle
-          </Button>
-        }
-      />
-
-      <DataTable
-        {...tableProps}
-        columns={columns}
-        searchPlaceholder="Search vehicles..."
-        filters={tableFilters(state.filters, [
-          { key: 'status', label: 'Status', options: STATUS_OPTIONS },
-          {
-            key: 'customer_id',
-            label: 'Customer',
-            options: customerFilterOptions,
+        breadcrumb={[
+          { label: 'Underwrite', href: '/apps/underwrite' },
+          { label: 'Motor vehicles' },
+        ]}
+        primaryAction={{
+          label: 'New vehicle',
+          onClick: () => navigate('/apps/underwrite/motor/vehicles/new'),
+        }}
+        queryKey={motorKeys.vehicles()}
+        stateKey="motor-vehicles"
+        fetchRows={async (query, signal) => {
+          const page = await motorApi.getVehicles(
+            {
+              page: query.page,
+              limit: query.limit,
+              search: query.search,
+              sortBy: query.sortBy,
+              sortOrder: query.sortOrder,
+              ...query.filters,
+            },
+            signal,
+          );
+          return { rows: page.data, total: page.pagination.total };
+        }}
+        filters={filters}
+        columns={COLUMNS}
+        rowActions={rowActions}
+        mobileRow={(row) => ({
+          title: identifier(row),
+          subtitle: `${vehicleName(row)} · ${ownerName(row)}`,
+          amount: formatMoney(Number(row.vehicle_value), row.currency),
+          status: {
+            label: humanizeStatus(row.status),
+            tone: statusTone(row.status),
           },
-        ])}
+          issued: row.created_at,
+          ariaLabel: `Vehicle ${identifier(row)}, ${vehicleName(row)}, ${ownerName(row)}, ${humanizeStatus(row.status)}`,
+        })}
+        rowId={(row) => row.id}
+        getRowHref={(row) => `/apps/underwrite/motor/vehicles/${row.id}`}
+        searchPlaceholder="Search registration, chassis no., make or owner"
+        defaultSort={{ key: 'created_at', order: 'DESC' }}
       />
 
       <ConfirmDialog
@@ -176,6 +230,6 @@ export function MotorVehiclesPage() {
           }
         }}
       />
-    </div>
+    </>
   );
 }

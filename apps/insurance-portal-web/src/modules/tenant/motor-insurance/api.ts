@@ -85,7 +85,7 @@ export const motorInsuranceApi = {
 export const motorInsuranceTransactionsApi = {
   listRenewals: (params: UnderwriteTableParams, signal?: AbortSignal) =>
     apiClient
-      .get<PaginatedResponse<UnderwriteRenewalRow>>(`${BASE}/renewals`, {
+      .get<PaginatedWithSummary<UnderwriteRenewalRow>>(`${BASE}/renewals`, {
         params,
         signal,
       })
@@ -98,7 +98,7 @@ export const motorInsuranceTransactionsApi = {
   ) =>
     apiClient
       .get<
-        PaginatedResponse<UnderwritePolicyTransactionRow>
+        PaginatedWithSummary<UnderwritePolicyTransactionRow>
       >(`${BASE}/${kind}`, { params, signal })
       .then((response) => response.data),
 

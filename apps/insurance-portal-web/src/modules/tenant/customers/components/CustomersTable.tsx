@@ -1,25 +1,18 @@
-import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { QueryKey } from '@tanstack/react-query';
-import { MoreHorizontal, Pencil, Trash2, RotateCcw, Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  DataTable,
-  tableFilters,
-  useServerTable,
-  type Column,
-} from '@/components/data-table';
+  DateCell,
+  ListPage,
+  ToneBadge,
+  TwoLineCell,
+  humanizeStatus,
+  statusTone,
+  type FilterDef,
+  type ListColumn,
+  type RowAction,
+} from '@/components/list-page';
 import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
-import { CustomerStatusBadge } from './CustomerStatusBadge';
 import {
   CUSTOMER_STATUS_OPTIONS,
   CUSTOMER_TYPE_OPTIONS,
@@ -28,10 +21,94 @@ import {
   type CustomerRecord,
 } from '../types';
 
-const FILTER_KEYS = ['customer_type', 'status'] as const;
-type CustomerFilterKey = (typeof FILTER_KEYS)[number];
+/*
+ * Customer register on the standard list page. Customers have no cover or
+ * TIRA status, so their key fields (contact, ID, status) take those places.
+ */
+
+const FILTERS: FilterDef[] = [
+  {
+    kind: 'select',
+    key: 'customer_type',
+    label: 'Type',
+    allLabel: 'All types',
+    options: CUSTOMER_TYPE_OPTIONS,
+  },
+  {
+    kind: 'select',
+    key: 'status',
+    label: 'Status',
+    allLabel: 'All statuses',
+    options: CUSTOMER_STATUS_OPTIONS,
+  },
+];
+
+function typeLabel(row: CustomerRecord) {
+  return row.customer_type === 'CORPORATE' ? 'Corporate' : 'Individual';
+}
+
+const COLUMNS: ListColumn<CustomerRecord>[] = [
+  {
+    key: 'customer_no',
+    header: 'Customer no.',
+    sortKey: 'customer_no',
+    mandatory: true,
+    className: 'min-w-[150px]',
+    cell: (row) => <span className="whitespace-nowrap">{row.customer_no}</span>,
+    secondary: (row) => (
+      <ToneBadge
+        tone={row.customer_type === 'CORPORATE' ? 'info' : 'neutral'}
+        icon={null}
+        className="text-[11px] leading-4"
+      >
+        {typeLabel(row)}
+      </ToneBadge>
+    ),
+  },
+  {
+    key: 'name',
+    header: 'Name',
+    sortKey: 'first_name',
+    mandatory: true,
+    className: 'min-w-[180px] max-w-[260px]',
+    cell: (row) => (
+      <TwoLineCell main={getCustomerDisplayName(row)} secondary={row.email} />
+    ),
+  },
+  {
+    key: 'contact',
+    header: 'Phone / ID',
+    className: 'min-w-[150px]',
+    cell: (row) => (
+      <TwoLineCell main={row.phone || '—'} secondary={row.id_number} />
+    ),
+  },
+  {
+    key: 'created_at',
+    header: 'Date created',
+    sortKey: 'created_at',
+    className: 'min-w-[96px]',
+    cell: (row) => <DateCell value={row.created_at} />,
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    sortKey: 'status',
+    className: 'min-w-[110px]',
+    cell: (row) => (
+      <ToneBadge tone={statusTone(row.status)}>
+        {humanizeStatus(row.status)}
+      </ToneBadge>
+    ),
+  },
+];
 
 interface CustomersTableProps {
+  title: string;
+  description?: string;
+  breadcrumb: Array<{ label: string; href?: string }>;
+  stateKey: string;
+  primaryAction?: { label: string; onClick: () => void };
   /** Base cache key; mutations invalidate it to refresh the list. */
   queryKey: QueryKey;
   /** Fetches one server-side page (search/sort/filters/paging in SQL). */
@@ -39,7 +116,6 @@ interface CustomersTableProps {
     params: CustomerListParams,
     signal: AbortSignal,
   ) => Promise<PaginatedResponse<CustomerRecord>>;
-  toolbarActions?: ReactNode;
   onEdit?: (customer: CustomerRecord) => void;
   onDelete?: (customer: CustomerRecord) => void;
   onRestore?: (customer: CustomerRecord) => void;
@@ -49,9 +125,13 @@ interface CustomersTableProps {
 }
 
 export function CustomersTable({
+  title,
+  description,
+  breadcrumb,
+  stateKey,
+  primaryAction,
   queryKey,
   fetcher,
-  toolbarActions,
   onEdit,
   onDelete,
   onRestore,
@@ -59,131 +139,74 @@ export function CustomersTable({
   canDelete,
   canRestore,
 }: CustomersTableProps) {
-  const { tableProps, state } = useServerTable<
-    CustomerRecord,
-    CustomerFilterKey
-  >({
-    queryKey,
-    fetcher: (params, signal) => fetcher(params as CustomerListParams, signal),
-    filterKeys: FILTER_KEYS,
-    defaultSortBy: 'created_at',
-    defaultLimit: 10,
-  });
-  const navigate = useNavigate();
-
-  const columns: Column<CustomerRecord>[] = [
-    {
-      key: 'customer_no',
-      header: 'Customer',
-      sortable: true,
-      cell: (row) => (
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-slate-900 truncate">
-              {getCustomerDisplayName(row)}
-            </p>
-            <CustomerStatusBadge status={row.status} />
-          </div>
-          <code className="text-xs text-slate-400">{row.customer_no}</code>
-        </div>
-      ),
-    },
-    {
-      key: 'customer_type',
-      header: 'Type',
-      sortable: true,
-      cell: (row) => (
-        <Badge variant="outline" className="text-xs">
-          {row.customer_type.replace(/_/g, ' ')}
-        </Badge>
-      ),
-    },
-    {
-      key: 'phone',
-      defaultVisible: false,
-      header: 'Phone',
-      cell: (row) => (
-        <span className="text-sm text-slate-600">{row.phone}</span>
-      ),
-    },
-    {
-      key: 'email',
-      defaultVisible: false,
-      header: 'Email',
-      cell: (row) => (
-        <span className="text-sm text-slate-600">{row.email ?? ' - '}</span>
-      ),
-    },
-    {
-      key: 'created_at',
-      header: 'Created',
-      sortable: true,
-      cell: (row) => (
-        <span className="text-sm text-slate-500">
-          {new Date(row.created_at).toLocaleDateString()}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      cell: (row) => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem
-              onClick={() =>
-                navigate(sharedUnderwritePaths.customerDetail(row.id))
-              }
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              View Details
-            </DropdownMenuItem>
-            {canEdit && onEdit && (
-              <DropdownMenuItem onClick={() => onEdit(row)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-            )}
-            {canRestore && onRestore && row.status !== 'ACTIVE' && (
-              <DropdownMenuItem onClick={() => onRestore(row)}>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Restore
-              </DropdownMenuItem>
-            )}
-            {canDelete && onDelete && (
-              <>
-                {(canEdit || canRestore) && <DropdownMenuSeparator />}
-                <DropdownMenuItem
-                  onClick={() => onDelete(row)}
-                  className="text-red-600 focus:text-red-600"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ),
-    },
+  const rowActions: RowAction<CustomerRecord>[] = [
+    ...(canEdit && onEdit
+      ? [{ label: 'Edit', icon: Pencil, onSelect: onEdit }]
+      : []),
+    ...(canRestore && onRestore
+      ? [
+          {
+            label: 'Restore',
+            icon: RotateCcw,
+            hidden: (row: CustomerRecord) => row.status === 'ACTIVE',
+            onSelect: onRestore,
+          },
+        ]
+      : []),
+    ...(canDelete && onDelete
+      ? [
+          {
+            label: 'Delete',
+            icon: Trash2,
+            destructive: true,
+            onSelect: onDelete,
+          },
+        ]
+      : []),
   ];
 
   return (
-    <DataTable
-      {...tableProps}
-      columns={columns}
-      searchPlaceholder="Search customers..."
-      filters={tableFilters(state.filters, [
-        { key: 'customer_type', label: 'Type', options: CUSTOMER_TYPE_OPTIONS },
-        { key: 'status', label: 'Status', options: CUSTOMER_STATUS_OPTIONS },
-      ])}
-      toolbarActions={toolbarActions}
+    <ListPage<CustomerRecord>
+      entity="customer"
+      noun={{ one: 'customer', many: 'customers' }}
+      title={title}
+      description={description}
+      breadcrumb={breadcrumb}
+      primaryAction={primaryAction}
+      queryKey={queryKey}
+      stateKey={stateKey}
+      fetchRows={async (query, signal) => {
+        const page = await fetcher(
+          {
+            page: query.page,
+            limit: query.limit,
+            search: query.search,
+            sortBy: query.sortBy,
+            sortOrder: query.sortOrder,
+            ...query.filters,
+          } as CustomerListParams,
+          signal,
+        );
+        return { rows: page.data, total: page.pagination.total };
+      }}
+      filters={FILTERS}
+      columns={COLUMNS}
+      rowActions={rowActions}
+      mobileRow={(row) => ({
+        title: row.customer_no,
+        subtitle: getCustomerDisplayName(row),
+        amount: row.phone || undefined,
+        status: {
+          label: humanizeStatus(row.status),
+          tone: statusTone(row.status),
+        },
+        issued: row.created_at,
+        ariaLabel: `Customer ${row.customer_no}, ${getCustomerDisplayName(row)}, ${typeLabel(row)}, ${humanizeStatus(row.status)}`,
+      })}
+      rowId={(row) => row.id}
+      getRowHref={(row) => sharedUnderwritePaths.customerDetail(row.id)}
+      searchPlaceholder="Search name, customer no., phone, email or ID"
+      defaultSort={{ key: 'created_at', order: 'DESC' }}
     />
   );
 }

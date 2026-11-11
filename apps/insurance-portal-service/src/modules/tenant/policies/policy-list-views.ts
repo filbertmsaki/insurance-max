@@ -32,10 +32,37 @@ export function tiraStateSql(column: string): string {
   const value = `UPPER(COALESCE(CAST(${column} AS text), ''))`;
   return `(CASE
     WHEN ${value} IN ('SUCCESS', 'FINAL_SUCCESS', 'COMPLETED', 'ENDORSED', 'SYNCED', 'ISSUED', 'ACCEPTED', 'IN_SYNC') THEN 'success'
-    WHEN ${value} ~ '(FAIL|REJECT|ERROR|EXHAUST)' THEN 'failed'
+    WHEN ${value} ~ '(FAIL|REJECT|ERROR|EXHAUST|RETRYABLE)' THEN 'failed'
     WHEN ${value} <> 'NOT_SUBMITTED' AND ${value} ~ '(SUBMIT|PROCESS|QUEUE|ACK|RETRY|PENDING|WAITING|SENT|OVERDUE|VALIDATED)' THEN 'pending'
     ELSE 'not_submitted'
   END)`;
+}
+
+/** Same grouping as tiraStateSql(), for values already loaded. */
+export function tiraStateOf(status: string | null | undefined): TiraState {
+  const value = (status ?? '').toUpperCase();
+  if (
+    [
+      'SUCCESS',
+      'FINAL_SUCCESS',
+      'COMPLETED',
+      'ENDORSED',
+      'SYNCED',
+      'ISSUED',
+      'ACCEPTED',
+      'IN_SYNC',
+    ].includes(value)
+  )
+    return 'success';
+  if (/FAIL|REJECT|ERROR|EXHAUST|RETRYABLE/.test(value)) return 'failed';
+  if (
+    value !== 'NOT_SUBMITTED' &&
+    /SUBMIT|PROCESS|QUEUE|ACK|RETRY|PENDING|WAITING|SENT|OVERDUE|VALIDATED/.test(
+      value,
+    )
+  )
+    return 'pending';
+  return 'not_submitted';
 }
 
 export const POLICY_VIEW_PARAMS = {

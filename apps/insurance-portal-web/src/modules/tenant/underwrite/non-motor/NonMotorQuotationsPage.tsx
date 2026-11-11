@@ -45,7 +45,8 @@ function QuotationsList({ line }: { line: UnderwriteLineMeta }) {
         canCreate
           ? {
               label: 'New quotation',
-              onClick: () => navigate(underwritePaths.quotationCreate(line.slug)),
+              onClick: () =>
+                navigate(underwritePaths.quotationCreate(line.slug)),
             }
           : undefined
       }

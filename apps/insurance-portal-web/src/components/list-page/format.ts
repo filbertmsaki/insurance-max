@@ -192,7 +192,7 @@ export function tiraStateOf(status: string | null | undefined): TiraState {
     ].includes(value)
   )
     return 'success';
-  if (/FAIL|REJECT|ERROR|EXHAUST/.test(value)) return 'failed';
+  if (/FAIL|REJECT|ERROR|EXHAUST|RETRYABLE/.test(value)) return 'failed';
   if (
     value !== 'NOT_SUBMITTED' &&
     /SUBMIT|PROCESS|QUEUE|ACK|RETRY|PENDING|WAITING|SENT|OVERDUE|VALIDATED/.test(

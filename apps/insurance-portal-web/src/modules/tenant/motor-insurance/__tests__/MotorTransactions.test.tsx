@@ -9,15 +9,40 @@ import { MotorTransactionsRedirect } from '../components/MotorTransactionsRedire
 import { MotorCancellationCreatePage } from '../pages/MotorPolicyTransactionPages';
 import { buildMotorInsuranceScope } from '../scope';
 
-vi.mock('@/modules/tenant/underwrite/components/TransactionRows', () => ({
-  TransactionRows: ({ kind }: { kind: string }) => (
-    <div data-testid="rows">{kind}</div>
-  ),
-  RenewalRows: () => <div data-testid="rows">renewals</div>,
-  TiraRows: ({ kind }: { kind: string }) => (
-    <div data-testid="rows">tira-{kind}</div>
-  ),
-}));
+vi.mock('@/modules/tenant/underwrite/components/TransactionRows', () => {
+  // The register renders its own page header; the mock shows the title.
+  const Rows = ({
+    label,
+    header,
+  }: {
+    label: string;
+    header: { title: string };
+  }) => (
+    <>
+      <h1>{header.title}</h1>
+      <div data-testid="rows">{label}</div>
+    </>
+  );
+  return {
+    TransactionRows: ({
+      kind,
+      header,
+    }: {
+      kind: string;
+      header: { title: string };
+    }) => <Rows label={kind} header={header} />,
+    RenewalRows: ({ header }: { header: { title: string } }) => (
+      <Rows label="renewals" header={header} />
+    ),
+    TiraRows: ({
+      kind,
+      header,
+    }: {
+      kind: string;
+      header: { title: string };
+    }) => <Rows label={'tira-' + kind} header={header} />,
+  };
+});
 
 vi.mock('@/modules/tenant/underwrite/lazy-pages', () => ({
   PolicyCancellationPage: () => <div data-testid="cancel-whole-policy" />,

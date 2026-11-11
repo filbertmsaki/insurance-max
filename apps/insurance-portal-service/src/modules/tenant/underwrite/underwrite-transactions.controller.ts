@@ -1,3 +1,4 @@
+import { TransactionListQueryDto } from './dto/transaction-list-query.dto';
 import {
   Body,
   Controller,
@@ -79,7 +80,7 @@ export class UnderwriteTransactionsController {
   listRenewals(
     @CurrentUser() user: AuthenticatedUser,
     @CurrentUnderwriteLine() line: UnderwriteLine,
-    @Query() table: TableQueryDto,
+    @Query() table: TransactionListQueryDto,
   ) {
     return this.transactions.listRenewals(user, line, table);
   }
@@ -96,7 +97,7 @@ export class UnderwriteTransactionsController {
   listEndorsements(
     @CurrentUser() user: AuthenticatedUser,
     @CurrentUnderwriteLine() line: UnderwriteLine,
-    @Query() table: TableQueryDto,
+    @Query() table: TransactionListQueryDto,
   ) {
     return this.transactions.listTransactions(user, line, 'endorsement', table);
   }
@@ -109,7 +110,7 @@ export class UnderwriteTransactionsController {
   listCancellations(
     @CurrentUser() user: AuthenticatedUser,
     @CurrentUnderwriteLine() line: UnderwriteLine,
-    @Query() table: TableQueryDto,
+    @Query() table: TransactionListQueryDto,
   ) {
     return this.transactions.listTransactions(
       user,

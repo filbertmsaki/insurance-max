@@ -119,8 +119,9 @@ export function FleetVehiclesPanel({
   const vehicleTitle = (row: FleetVehicleRow) =>
     row.registration_number || row.chassis_number || 'N/A';
   const vehicleSubtitle = (row: FleetVehicleRow) =>
-    [row.make, row.model, row.year_of_manufacture].filter(Boolean).join(' · ') ||
-    row.chassis_number;
+    [row.make, row.model, row.year_of_manufacture]
+      .filter(Boolean)
+      .join(' · ') || row.chassis_number;
   const coverNote = (row: FleetVehicleRow) =>
     row.cover_note_reference_number ?? row.cover_note_number ?? null;
 
@@ -376,7 +377,9 @@ export function FleetVehiclesPanel({
               </div>
               <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-slate-100 pt-3 text-sm">
                 <div>
-                  <dt className="text-xs text-slate-500">Premium (incl. tax)</dt>
+                  <dt className="text-xs text-slate-500">
+                    Premium (incl. tax)
+                  </dt>
                   <dd className="font-semibold tabular-nums text-slate-900">
                     {money(row.premium_including_tax)}
                   </dd>

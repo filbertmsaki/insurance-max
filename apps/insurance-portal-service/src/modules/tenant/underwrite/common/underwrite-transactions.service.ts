@@ -1,3 +1,13 @@
+import {
+  EXPIRING_SOON_DAYS,
+  tiraStateOf,
+  tiraStateSql,
+} from '../../policies/policy-list-views';
+import type {
+  TransactionListQueryDto,
+  TransactionListSummary,
+  TransactionListView,
+} from '../dto/transaction-list-query.dto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -65,6 +75,7 @@ const RENEWAL_TABLE = {
     renewal_no: 'renewal.renewal_no',
     renewal_status: 'renewal.renewal_status',
     renewal_start_date: 'renewal.renewal_start_date',
+    renewal_end_date: 'renewal.renewal_end_date',
     created_at: 'renewal.created_at',
   } as Record<string, string>,
   searchable: ['renewal.renewal_no', 'policy.policy_no'],
@@ -75,6 +86,7 @@ const TRANSACTION_TABLE = {
   sortable: {
     transaction_no: 'transaction.transaction_no',
     effective_date: 'transaction.effective_date',
+    policy_end_date: 'policy.end_date',
     net_premium_difference: 'transaction.net_premium_difference',
     stage: 'transaction.stage',
     submission_status: 'transaction.submission_status',
@@ -87,6 +99,117 @@ const TRANSACTION_TABLE = {
   ],
   tieBreaker: 'transaction.id',
 };
+
+/** Customer display name: the customer record, else the policy snapshot. */
+const CUSTOMER_NAME_SQL = `COALESCE(
+  NULLIF(customer.display_name, ''),
+  NULLIF(customer.company_name, ''),
+  NULLIF(CONCAT_WS(' ', customer.first_name, customer.middle_name, customer.last_name), ''),
+  policy.customer_snapshot ->> 'displayName'
+)`;
+
+const IN_FORCE_TRANSACTION_STAGES = ['COMPLETED', 'APPLIED'];
+const RENEWED_STATUSES = ['RENEWED'];
+const DRAFT_RENEWAL_STATUSES = ['ELIGIBLE', 'OFFER_DRAFT'];
+
+const VIEW_PARAMS = {
+  viewInForceStages: IN_FORCE_TRANSACTION_STAGES,
+  viewRenewed: RENEWED_STATUSES,
+  viewDraftRenewals: DRAFT_RENEWAL_STATUSES,
+  viewExpiringDays: EXPIRING_SOON_DAYS,
+};
+
+/**
+ * Summary-chip conditions. Endorsements and cancellations are "active" once
+ * completed or applied while the policy is still in force; "expiring" when
+ * that policy ends within 7 days. Renewals use the renewed period.
+ */
+const TRANSACTION_VIEW_SQL: Record<TransactionListView, string> = {
+  active:
+    'transaction.stage IN (:...viewInForceStages) AND policy.end_date >= CURRENT_DATE',
+  expiring:
+    'transaction.stage IN (:...viewInForceStages) AND policy.end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + CAST(:viewExpiringDays AS int)',
+  tira_failed: `${tiraStateSql('transaction.submission_status')} = 'failed'`,
+  drafts: "transaction.stage = 'DRAFT'",
+};
+
+const RENEWAL_TIRA_STATUS_SQL =
+  'COALESCE(CAST(renewal_quotation.tira_status AS text), CAST(transaction.submission_status AS text))';
+
+const RENEWAL_VIEW_SQL: Record<TransactionListView, string> = {
+  active:
+    'renewal.renewal_status IN (:...viewRenewed) AND renewal.renewal_end_date >= CURRENT_DATE',
+  expiring:
+    'renewal.renewal_status IN (:...viewRenewed) AND renewal.renewal_end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + CAST(:viewExpiringDays AS int)',
+  tira_failed: `${tiraStateSql(RENEWAL_TIRA_STATUS_SQL)} = 'failed'`,
+  drafts: 'renewal.renewal_status IN (:...viewDraftRenewals)',
+};
+
+/**
+ * Applies the register filters. `view` (the summary chip) is skipped when
+ * counting the chips themselves.
+ */
+function applyRegisterFilters<T extends ObjectLiteral>(
+  query: SelectQueryBuilder<T>,
+  filters: TransactionListQueryDto | undefined,
+  columns: {
+    status: string;
+    tiraStatus: string;
+    createdAt: string;
+    views: Record<TransactionListView, string>;
+  },
+  includeView = true,
+) {
+  if (!filters) return;
+  if (filters.status) {
+    query.andWhere(`${columns.status} = :registerStatus`, {
+      registerStatus: filters.status,
+    });
+  }
+  if (filters.tira_state) {
+    query.andWhere(`${tiraStateSql(columns.tiraStatus)} = :registerTiraState`, {
+      registerTiraState: filters.tira_state,
+    });
+  }
+  if (filters.date_from) {
+    query.andWhere(`${columns.createdAt} >= CAST(:registerFrom AS date)`, {
+      registerFrom: filters.date_from,
+    });
+  }
+  if (filters.date_to) {
+    query.andWhere(
+      `${columns.createdAt} < CAST(:registerTo AS date) + INTERVAL '1 day'`,
+      { registerTo: filters.date_to },
+    );
+  }
+  if (includeView && filters.view) {
+    query.andWhere(columns.views[filters.view], VIEW_PARAMS);
+  }
+}
+
+async function countRegisterViews<T extends ObjectLiteral>(
+  query: SelectQueryBuilder<T>,
+  views: Record<TransactionListView, string>,
+): Promise<TransactionListSummary> {
+  const count = (view: TransactionListView) =>
+    `COUNT(*) FILTER (WHERE ${views[view]})`;
+  const raw = await query
+    .select('COUNT(*)', 'all')
+    .addSelect(count('active'), 'active')
+    .addSelect(count('expiring'), 'expiring')
+    .addSelect(count('tira_failed'), 'tira_failed')
+    .addSelect(count('drafts'), 'drafts')
+    .setParameters(VIEW_PARAMS)
+    .orderBy()
+    .getRawOne<Record<keyof TransactionListSummary, string>>();
+  return {
+    all: Number(raw?.all ?? 0),
+    active: Number(raw?.active ?? 0),
+    expiring: Number(raw?.expiring ?? 0),
+    tira_failed: Number(raw?.tira_failed ?? 0),
+    drafts: Number(raw?.drafts ?? 0),
+  };
+}
 
 /**
  * One line, or several (the Motor Insurance module lists Motor and Fleet
@@ -145,6 +268,21 @@ async function applyTableWindow<T extends ObjectLiteral>(
   return { page, limit, total };
 }
 
+interface RenewalExtraRaw {
+  renewal_id: string;
+  source_policy_no: string;
+  customer_display_name: string | null;
+  customer_phone: string | null;
+  customer_id_number: string | null;
+  business_line: string | null;
+  renewal_tira_status: string | null;
+  renewal_tira_code: string | null;
+  renewal_tira_reason: string | null;
+  renewal_payment_status: string | null;
+  renewal_premium: string | null;
+  renewal_currency: string | null;
+}
+
 type UnderwriteRenewalRow = ReturnType<
   UnderwriteTransactionsService['mapRenewals']
 >[number];
@@ -187,47 +325,95 @@ export class UnderwriteTransactionsService {
   listRenewals(
     user: AuthenticatedUser,
     line: LineFilter,
-    table?: TableQueryDto,
+    table?: TransactionListQueryDto,
   ): Promise<UnderwriteRenewalRow[] | PaginatedResult<UnderwriteRenewalRow>>;
   async listRenewals(
     user: AuthenticatedUser,
     line: LineFilter,
-    table?: TableQueryDto,
+    table?: TransactionListQueryDto,
   ) {
-    const query = this.renewalRepository
-      .createQueryBuilder('renewal')
-      .innerJoinAndSelect('renewal.policy_transaction', 'transaction')
-      .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
-      .addSelect('policy.policy_no', 'source_policy_no')
-      .where('renewal.company_id = :companyId', { companyId: user.companyId! })
-      .andWhere(`${policyBusinessLineSql('policy')} IN (:...lines)`, {
-        lines: linesOf(line),
-      })
-      .orderBy('renewal.created_at', 'DESC');
+    const build = () => {
+      const query = this.renewalRepository
+        .createQueryBuilder('renewal')
+        .innerJoinAndSelect('renewal.policy_transaction', 'transaction')
+        .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+        .leftJoin('customers', 'customer', 'customer.id = policy.customer_id')
+        .leftJoin(
+          'quotations',
+          'renewal_quotation',
+          'renewal_quotation.id = renewal.renewal_quotation_id',
+        )
+        .leftJoin(
+          'quotation_cover_notes',
+          'renewal_cover_note',
+          'renewal_cover_note.quotation_id = renewal.renewal_quotation_id',
+        )
+        .where('renewal.company_id = :companyId', {
+          companyId: user.companyId!,
+        })
+        .andWhere(`${policyBusinessLineSql('policy')} IN (:...lines)`, {
+          lines: linesOf(line),
+        });
+      this.applyPolicyScope(query, user, 'renewals:read');
+      return query;
+    };
+    const columns = {
+      status: 'renewal.renewal_status',
+      tiraStatus: RENEWAL_TIRA_STATUS_SQL,
+      createdAt: 'renewal.created_at',
+      views: RENEWAL_VIEW_SQL,
+    };
 
-    this.applyPolicyScope(query, user, 'renewals:read');
+    const query = build()
+      .addSelect('policy.policy_no', 'source_policy_no')
+      .addSelect(CUSTOMER_NAME_SQL, 'customer_display_name')
+      .addSelect('customer.phone', 'customer_phone')
+      .addSelect('customer.id_number', 'customer_id_number')
+      .addSelect(policyBusinessLineSql('policy'), 'business_line')
+      .addSelect(
+        'CAST(renewal_quotation.tira_status AS text)',
+        'renewal_tira_status',
+      )
+      .addSelect('renewal_quotation.tira_response_code', 'renewal_tira_code')
+      .addSelect(
+        'renewal_quotation.tira_response_description',
+        'renewal_tira_reason',
+      )
+      .addSelect(
+        'CAST(renewal_quotation.payment_status AS text)',
+        'renewal_payment_status',
+      )
+      .addSelect(
+        'renewal_cover_note.total_premium_including_tax',
+        'renewal_premium',
+      )
+      .addSelect('renewal_cover_note.currency_code', 'renewal_currency')
+      .orderBy('renewal.created_at', 'DESC');
+    applyRegisterFilters(query, table, columns);
 
     if (table && isPagedRequest(table)) {
+      const summaryQuery = table.include_summary ? build() : null;
+      if (summaryQuery)
+        applyRegisterFilters(summaryQuery, table, columns, false);
       const { page, limit, total } = await applyTableWindow(
         query,
         table,
         RENEWAL_TABLE,
       );
-      const data = this.mapRenewals(
-        await query.getRawAndEntities<{
-          renewal_id: string;
-          source_policy_no: string;
-        }>(),
-      );
-      return { data, pagination: buildPaginationMeta(page, limit, total) };
+      const [result, summary] = await Promise.all([
+        query.getRawAndEntities<RenewalExtraRaw>(),
+        summaryQuery
+          ? countRegisterViews(summaryQuery, RENEWAL_VIEW_SQL)
+          : Promise.resolve(undefined),
+      ]);
+      return {
+        data: this.mapRenewals(result),
+        pagination: buildPaginationMeta(page, limit, total),
+        ...(summary ? { summary } : {}),
+      };
     }
 
-    return this.mapRenewals(
-      await query.getRawAndEntities<{
-        renewal_id: string;
-        source_policy_no: string;
-      }>(),
-    );
+    return this.mapRenewals(await query.getRawAndEntities<RenewalExtraRaw>());
   }
 
   /** @internal */
@@ -236,15 +422,37 @@ export class UnderwriteTransactionsService {
     raw,
   }: {
     entities: PolicyRenewal[];
-    raw: Array<{ renewal_id: string; source_policy_no: string }>;
+    raw: RenewalExtraRaw[];
   }) {
     // PolicyTransaction has no policy number of its own.
-    const policyNos = new Map(
-      raw.map((row) => [row.renewal_id, row.source_policy_no ?? null]),
-    );
+    const extras = new Map(raw.map((row) => [row.renewal_id, row]));
     return entities.map((renewal) => {
-      const policyNo = policyNos.get(renewal.id) ?? null;
+      const extra = extras.get(renewal.id);
+      const policyNo = extra?.source_policy_no ?? null;
+      // A renewal is priced and sent to TIRA through its renewal quotation.
+      const tiraStatus =
+        extra?.renewal_tira_status ??
+        renewal.policy_transaction?.submission_status ??
+        null;
+      const failed = tiraStateOf(tiraStatus) === 'failed';
       return {
+        business_line: extra?.business_line ?? null,
+        customer_name: extra?.customer_display_name ?? null,
+        customer_phone: extra?.customer_phone ?? null,
+        customer_id_number: extra?.customer_id_number ?? null,
+        tira_status: tiraStatus,
+        tira_error_code: failed ? (extra?.renewal_tira_code ?? null) : null,
+        tira_error_reason: failed ? (extra?.renewal_tira_reason ?? null) : null,
+        payment_status:
+          extra?.renewal_payment_status ??
+          renewal.policy_transaction?.payment_status ??
+          null,
+        renewal_premium:
+          extra?.renewal_premium != null ? String(extra.renewal_premium) : null,
+        currency_code:
+          extra?.renewal_currency ??
+          renewal.policy_transaction?.currency_code ??
+          null,
         kind: 'renewal' as const,
         id: renewal.id,
         renewal_no: renewal.renewal_no,
@@ -271,7 +479,7 @@ export class UnderwriteTransactionsService {
     user: AuthenticatedUser,
     line: LineFilter,
     kind: Exclude<TransactionKind, 'renewal'>,
-    table?: TableQueryDto,
+    table?: TransactionListQueryDto,
   ): Promise<
     UnderwriteTransactionRow[] | PaginatedResult<UnderwriteTransactionRow>
   >;
@@ -279,25 +487,42 @@ export class UnderwriteTransactionsService {
     user: AuthenticatedUser,
     line: LineFilter,
     kind: Exclude<TransactionKind, 'renewal'>,
-    table?: TableQueryDto,
+    table?: TransactionListQueryDto,
   ) {
-    const query = this.scopedTransactionQuery(user, line, kind)
-      .andWhere('transaction.transaction_type = :transactionType', {
-        transactionType: transactionTypeForKind(kind),
-      })
-      .orderBy('transaction.created_at', 'DESC');
+    const build = () =>
+      this.scopedTransactionQuery(user, line, kind).andWhere(
+        'transaction.transaction_type = :transactionType',
+        { transactionType: transactionTypeForKind(kind) },
+      );
+    const columns = {
+      status: 'transaction.stage',
+      tiraStatus: 'transaction.submission_status',
+      createdAt: 'transaction.created_at',
+      views: TRANSACTION_VIEW_SQL,
+    };
+    const query = build().orderBy('transaction.created_at', 'DESC');
+    applyRegisterFilters(query, table, columns);
 
     if (table && isPagedRequest(table)) {
+      const summaryQuery = table.include_summary ? build() : null;
+      if (summaryQuery)
+        applyRegisterFilters(summaryQuery, table, columns, false);
       const { page, limit, total } = await applyTableWindow(
         query,
         table,
         TRANSACTION_TABLE,
       );
-      const data = this.mapTransactionRows(
-        kind,
-        await this.fetchTransactionRows(query),
-      );
-      return { data, pagination: buildPaginationMeta(page, limit, total) };
+      const [rows, summary] = await Promise.all([
+        this.fetchTransactionRows(query),
+        summaryQuery
+          ? countRegisterViews(summaryQuery, TRANSACTION_VIEW_SQL)
+          : Promise.resolve(undefined),
+      ]);
+      return {
+        data: this.mapTransactionRows(kind, rows),
+        pagination: buildPaginationMeta(page, limit, total),
+        ...(summary ? { summary } : {}),
+      };
     }
 
     return this.mapTransactionRows(
@@ -330,7 +555,13 @@ export class UnderwriteTransactionsService {
       updated_at: Date;
       policy_no: string;
       cover_note_no: string | null;
+      business_line: string | null;
+      policy_start_date: string | null;
+      policy_end_date: string | null;
       customer_snapshot: unknown;
+      customer_display_name: string | null;
+      customer_phone: string | null;
+      customer_id_number: string | null;
       endorsement_type_code: string | null;
       endorsement_type_name: string | null;
       regulatory_status_code: string | null;
@@ -347,14 +578,24 @@ export class UnderwriteTransactionsService {
   ) {
     return rows.map(
       ({
-        regulatory_status_code: _statusCode,
-        regulatory_status_description: _statusDescription,
+        regulatory_status_code: statusCode,
+        regulatory_status_description: statusDescription,
+        customer_display_name: displayName,
         ...row
-      }) => ({
-        kind,
-        ...row,
-        customer_name: customerName(row.customer_snapshot),
-      }),
+      }) => {
+        // TIRA's code and reason only while the submission has failed.
+        const failed = tiraStateOf(row.submission_status) === 'failed';
+        return {
+          kind,
+          ...row,
+          customer_name: displayName ?? customerName(row.customer_snapshot),
+          // Period affected: from the effective date to the policy's end.
+          cover_start_date: row.effective_date,
+          cover_end_date: row.policy_end_date,
+          tira_error_code: failed ? (statusCode ?? null) : null,
+          tira_error_reason: failed ? (statusDescription ?? null) : null,
+        };
+      },
     );
   }
 
@@ -742,13 +983,20 @@ export class UnderwriteTransactionsService {
         'transaction.updated_at AS updated_at',
         'policy.policy_no AS policy_no',
         'policy.cover_note_no AS cover_note_no',
+        `${policyBusinessLineSql('policy')} AS business_line`,
+        'policy.start_date AS policy_start_date',
+        'policy.end_date AS policy_end_date',
         'policy.customer_snapshot AS customer_snapshot',
+        `${CUSTOMER_NAME_SQL} AS customer_display_name`,
+        'customer.phone AS customer_phone',
+        'customer.id_number AS customer_id_number',
         'COALESCE(endorsement.endorsement_type_code, endorsement_type.code) AS endorsement_type_code',
         'COALESCE(endorsement.endorsement_type_name, endorsement_type.name) AS endorsement_type_name',
         "transaction.regulatory_response ->> 'statusCode' AS regulatory_status_code",
         "transaction.regulatory_response ->> 'statusDescription' AS regulatory_status_description",
       ])
       .innerJoin(Policy, 'policy', 'policy.id = transaction.source_policy_id')
+      .leftJoin('customers', 'customer', 'customer.id = policy.customer_id')
       .leftJoin(
         PolicyEndorsement,
         'endorsement',
@@ -869,7 +1117,8 @@ function mapTransactionTiraRows(
     status_code: row.regulatory_status_code ?? null,
     status_description: row.regulatory_status_description ?? row.reason,
     customer_snapshot: row.customer_snapshot,
-    customer_name: customerName(row.customer_snapshot),
+    customer_name:
+      row.customer_display_name ?? customerName(row.customer_snapshot),
     updated_at: row.updated_at,
     transaction_type: row.transaction_type,
     source_policy_id: row.source_policy_id,

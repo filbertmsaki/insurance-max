@@ -1,8 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { sharedUnderwritePaths } from '@/modules/tenant/underwrite/paths';
@@ -26,22 +23,22 @@ export function CustomersPage() {
 
   return (
     <div>
-      <PageHeader
+      <CustomersTable
         title="Customers"
         description="Manage your company customer database"
-        action={
-          canCreate ? (
-            <Button
-              onClick={() => navigate(sharedUnderwritePaths.customerCreate)}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Customer
-            </Button>
-          ) : undefined
+        breadcrumb={[
+          { label: 'Motor Insurance', href: '/apps/motor' },
+          { label: 'Customers' },
+        ]}
+        stateKey="customers"
+        primaryAction={
+          canCreate
+            ? {
+                label: 'New customer',
+                onClick: () => navigate(sharedUnderwritePaths.customerCreate),
+              }
+            : undefined
         }
-      />
-
-      <CustomersTable
         queryKey={customersKeys.lists()}
         fetcher={customersApi.getCustomers}
         canEdit={canUpdate}

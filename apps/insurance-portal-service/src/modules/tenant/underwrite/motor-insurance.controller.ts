@@ -1,3 +1,4 @@
+import { TransactionListQueryDto } from './dto/transaction-list-query.dto';
 import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -5,7 +6,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { UnderwriteAction } from '@insurance-max/contracts';
+import { UnderwriteAction, UnderwriteLine } from '@insurance-max/contracts';
 import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import { TableQueryDto } from '@insurance-max/portal-shared/dto/table-query.dto';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -91,11 +92,14 @@ export class MotorInsuranceController {
   @ApiOperation({ summary: 'Motor and Fleet renewals' })
   listRenewals(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() table: TableQueryDto,
+    @Query() table: TransactionListQueryDto,
   ) {
     return this.transactions.listRenewals(
       user,
-      this.queryService.permittedLines(user, UnderwriteAction.RENEWALS_VIEW),
+      narrowToType(
+        this.queryService.permittedLines(user, UnderwriteAction.RENEWALS_VIEW),
+        table.type,
+      ),
       table,
     );
   }
@@ -109,13 +113,16 @@ export class MotorInsuranceController {
   @ApiOperation({ summary: 'Motor and Fleet endorsements' })
   listEndorsements(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() table: TableQueryDto,
+    @Query() table: TransactionListQueryDto,
   ) {
     return this.transactions.listTransactions(
       user,
-      this.queryService.permittedLines(
-        user,
-        UnderwriteAction.ENDORSEMENTS_VIEW,
+      narrowToType(
+        this.queryService.permittedLines(
+          user,
+          UnderwriteAction.ENDORSEMENTS_VIEW,
+        ),
+        table.type,
       ),
       'endorsement',
       table,
@@ -127,13 +134,16 @@ export class MotorInsuranceController {
   @ApiOperation({ summary: 'Motor and Fleet cancellations' })
   listCancellations(
     @CurrentUser() user: AuthenticatedUser,
-    @Query() table: TableQueryDto,
+    @Query() table: TransactionListQueryDto,
   ) {
     return this.transactions.listTransactions(
       user,
-      this.queryService.permittedLines(
-        user,
-        UnderwriteAction.CANCELLATIONS_VIEW,
+      narrowToType(
+        this.queryService.permittedLines(
+          user,
+          UnderwriteAction.CANCELLATIONS_VIEW,
+        ),
+        table.type,
       ),
       'cancellation',
       table,
@@ -189,4 +199,14 @@ function splitType<T extends object>(
     type: type === 'single' || type === 'fleet' ? type : undefined,
     rest: rest as T,
   };
+}
+
+/** The register's Single / Fleet chip narrows the lines the user may see. */
+function narrowToType(
+  lines: UnderwriteLine[],
+  type: 'single' | 'fleet' | undefined,
+): UnderwriteLine[] {
+  if (!type) return lines;
+  const wanted = type === 'fleet' ? UnderwriteLine.FLEET : UnderwriteLine.MOTOR;
+  return lines.filter((line) => line === wanted);
 }

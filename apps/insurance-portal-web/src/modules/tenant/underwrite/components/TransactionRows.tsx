@@ -1,15 +1,25 @@
-import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { RotateCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { Eye, RefreshCcw } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
-  DataTable,
-  useServerTable,
-  type Column,
-} from '@/components/data-table';
-import { formatDate, formatMoney } from '@/components/shared/detailFormat';
+  DateCell,
+  ListPage,
+  TiraBadge,
+  ToneBadge,
+  TwoLineCell,
+  humanizeStatus,
+  paymentStateOf,
+  registerColumns,
+  statusTone,
+  tiraStateOf,
+  type Chip,
+  type FilterDef,
+  type ListColumn,
+  type ListQuery,
+  type RecordKind,
+  type RowAction,
+} from '@/components/list-page';
+import { formatMoney } from '@/components/shared/detailFormat';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import type { TransactionListSource } from '../pages/transaction-list-source';
@@ -19,334 +29,471 @@ import type {
   UnderwriteTiraQueueRow,
 } from '../types';
 
-type TransactionListKind = 'renewals' | 'endorsements' | 'cancellations';
-type TiraListKind = 'failed' | 'pending';
+/*
+ * Renewal, endorsement, cancellation and TIRA registers on the standard list
+ * page, shared by the Motor Insurance and Non-Motor transaction pages.
+ */
 
-function pretty(value: string | null | undefined) {
-  return value ? value.replace(/_/g, ' ') : 'N/A';
+/** Title, breadcrumb and Single / Fleet chips supplied by the page. */
+export interface RegisterHeader {
+  title: string;
+  description?: string;
+  breadcrumb: Array<{ label: string; href?: string }>;
+  stateKey: string;
+  typeChips?: Chip[];
 }
 
-function statusVariant(value: string | null | undefined) {
-  if (!value) return 'outline' as const;
-  if (/(FAILED|REJECTED|CANCELLED|RETRYABLE)/.test(value)) {
-    return 'danger' as const;
-  }
-  if (/(PENDING|PROCESSING|QUEUED|READY|ACKNOWLEDGED|SENT)/.test(value)) {
-    return 'warning' as const;
-  }
-  if (/(APPROVED|ACCEPTED|RENEWED|APPLIED|COMPLETED|SUCCESS)/.test(value)) {
-    return 'success' as const;
-  }
-  return 'secondary' as const;
+const SUMMARY_CHIPS: Chip[] = [
+  { id: 'all', label: 'All' },
+  { id: 'active', label: 'Active' },
+  { id: 'expiring', label: 'Expiring soon' },
+  { id: 'tira_failed', label: 'TIRA failed' },
+  { id: 'drafts', label: 'Drafts' },
+];
+
+const TIRA_FILTER: FilterDef = {
+  kind: 'select',
+  key: 'tira_state',
+  label: 'TIRA status',
+  allLabel: 'Any TIRA status',
+  options: [
+    { value: 'success', label: 'Success' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'not_submitted', label: 'Not submitted' },
+  ],
+};
+
+const DATE_FILTER: FilterDef = {
+  kind: 'date-range',
+  fromKey: 'date_from',
+  toKey: 'date_to',
+  label: 'Date issued',
+};
+
+const statusFilter = (values: string[]): FilterDef => ({
+  kind: 'select',
+  key: 'status',
+  label: 'Status',
+  allLabel: 'All statuses',
+  options: values.map((value) => ({ value, label: humanizeStatus(value) })),
+});
+
+const STAGE_FILTER = statusFilter([
+  'DRAFT',
+  'SUBMISSION_PROCESSING',
+  'COMPLETED',
+  'APPLIED',
+  'REJECTED',
+  'CANCELLED',
+  'EXPIRED',
+]);
+
+const RENEWAL_STATUS_FILTER = statusFilter([
+  'ELIGIBLE',
+  'OFFER_DRAFT',
+  'OFFER_READY',
+  'OFFER_SENT',
+  'CUSTOMER_ACCEPTED',
+  'CUSTOMER_DECLINED',
+  'PAYMENT_PENDING',
+  'SUBMISSION_PROCESSING',
+  'RENEWED',
+  'LAPSED',
+  'CANCELLED',
+]);
+
+function kindOf(line: string | null | undefined): RecordKind | undefined {
+  if (line === 'FLEET') return 'fleet';
+  if (line === 'NON_MOTOR') return 'non_motor';
+  if (line === 'MOTOR') return 'single';
+  return undefined;
 }
 
-function StatusBadge({ value }: { value: string | null | undefined }) {
-  return <Badge variant={statusVariant(value)}>{pretty(value)}</Badge>;
+function registerParams(query: ListQuery) {
+  return {
+    page: query.page,
+    limit: query.limit,
+    search: query.search,
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
+    view: query.view,
+    type: query.type,
+    include_summary: true,
+    ...query.filters,
+  };
 }
 
-export function RenewalRows({ source }: { source: TransactionListSource }) {
-  const navigate = useNavigate();
-  const { tableProps } = useServerTable<UnderwriteRenewalRow>({
-    queryKey: [...source.keyPrefix, 'renewals'],
-    fetcher: (params, signal) => source.listRenewals(params, signal),
-    defaultSortBy: 'created_at',
-    defaultLimit: 10,
-  });
+const money = (
+  value: string | number | null | undefined,
+  currency?: string | null,
+) => formatMoney(Number(value ?? 0), currency || 'TZS');
 
-  const columns: Column<UnderwriteRenewalRow>[] = [
-    {
-      key: 'renewal_no',
-      header: 'Renewal No.',
-      sortable: true,
-      cell: (row) => (
-        <span className="font-medium text-slate-900">{row.renewal_no}</span>
-      ),
-    },
-    {
-      key: 'policy',
-      header: 'Policy',
-      cell: (row) => row.policy_transaction?.policy_no ?? 'N/A',
-    },
-    {
-      key: 'renewal_start_date',
-      header: 'Renewal Period',
-      sortable: true,
-      hideOnMobile: true,
-      cell: (row) =>
-        `${formatDate(row.renewal_start_date)} - ${formatDate(row.renewal_end_date)}`,
-    },
-    {
-      key: 'renewal_status',
-      header: 'Status',
-      sortable: true,
-      cell: (row) => <StatusBadge value={row.renewal_status} />,
-    },
-    {
-      key: 'created_at',
-      header: 'Created',
-      sortable: true,
-      hideOnMobile: true,
-      cell: (row) => formatDate(row.created_at),
-    },
-    {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      cell: (row) =>
-        row.policy_transaction?.source_policy_id ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={`Open renewal ${row.renewal_no}`}
-            onClick={() =>
-              navigate(
-                source.paths.renewal(
-                  row.policy_transaction.source_policy_id,
-                  row.id,
-                ),
-              )
-            }
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-        ) : null,
-    },
-  ];
-
-  return (
-    <DataTable
-      {...tableProps}
-      error={tableProps.error ? 'Unable to load renewals' : undefined}
-      columns={columns}
-      searchPlaceholder="Search renewal or policy no…"
-      emptyMessage={`No ${source.noun} renewals found`}
-    />
-  );
+/** Signed premium change: "+ TSh 5,000.00" / "− TSh 2,000.00". */
+function signedMoney(
+  value: string | null | undefined,
+  currency?: string | null,
+) {
+  const amount = Number(value ?? 0);
+  if (!amount) return money(0, currency);
+  return `${amount > 0 ? '+' : '−'} ${money(Math.abs(amount), currency)}`;
 }
 
 export function TransactionRows({
   source,
   kind,
+  header,
 }: {
   source: TransactionListSource;
-  kind: Exclude<TransactionListKind, 'renewals'>;
+  kind: 'endorsements' | 'cancellations';
+  header: RegisterHeader;
 }) {
-  const navigate = useNavigate();
-  const { tableProps } = useServerTable<UnderwritePolicyTransactionRow>({
-    queryKey: [...source.keyPrefix, kind],
-    fetcher: (params, signal) => source.listTransactions(kind, params, signal),
-    defaultSortBy: 'created_at',
-    defaultLimit: 10,
-  });
-
-  const columns: Column<UnderwritePolicyTransactionRow>[] = [
-    {
-      key: 'transaction_no',
-      header: 'Transaction No.',
-      sortable: true,
-      cell: (row) => (
-        <span className="font-medium text-slate-900">{row.transaction_no}</span>
-      ),
-    },
-    {
-      key: 'policy',
-      header: 'Policy',
-      cell: (row) => row.policy_no,
-    },
-    {
-      key: 'effective_date',
-      header: 'Effective',
-      sortable: true,
-      hideOnMobile: true,
-      cell: (row) => formatDate(row.effective_date),
-    },
-    {
-      key: 'net_premium_difference',
-      header: 'Net Premium',
-      sortable: true,
-      className: 'text-right',
-      cell: (row) => (
-        <span className="tabular-nums">
-          {formatMoney(
-            Number(row.net_premium_difference ?? 0),
-            row.currency_code,
-          )}
-        </span>
-      ),
-    },
-    {
-      key: 'stage',
-      header: 'Stage',
-      sortable: true,
-      cell: (row) => <StatusBadge value={row.stage} />,
-    },
-    {
-      key: 'submission_status',
-      header: 'Submission',
-      sortable: true,
-      hideOnMobile: true,
-      cell: (row) => <StatusBadge value={row.submission_status} />,
-    },
-    {
-      key: 'actions',
-      header: '',
-      className: 'w-12',
-      cell: (row) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={`Open ${row.transaction_no}`}
-          onClick={() =>
-            navigate(
-              kind === 'endorsements'
-                ? source.paths.endorsement(row.source_policy_id, row.id)
-                : source.paths.cancellation(row.source_policy_id, row.id),
-            )
-          }
-        >
-          <Eye className="h-4 w-4" />
-        </Button>
-      ),
-    },
-  ];
+  const endorsement = kind === 'endorsements';
+  const register = useMemo(
+    () =>
+      registerColumns<UnderwritePolicyTransactionRow>({
+        recordHeader: endorsement ? 'Endorsement no.' : 'Cancellation no.',
+        record: (row) => row.transaction_no,
+        kind: (row) => kindOf(row.business_line) ?? 'single',
+        recordSortKey: 'transaction_no',
+        customer: (row) => ({
+          name: row.customer_name || 'No customer',
+          secondary:
+            row.customer_phone || row.customer_id_number || row.policy_no,
+        }),
+        issued: (row) => row.created_at,
+        issuedSortKey: 'created_at',
+        cover: (row) => ({
+          start: row.cover_start_date ?? row.effective_date,
+          end: row.cover_end_date ?? row.policy_end_date,
+        }),
+        coverSortKey: 'effective_date',
+        status: (row) => ({
+          label: humanizeStatus(row.stage),
+          tone: statusTone(row.stage),
+        }),
+        statusSortKey: 'stage',
+        tira: (row) => ({
+          state: tiraStateOf(row.submission_status),
+          errorCode: row.tira_error_code,
+          errorReason: row.tira_error_reason,
+        }),
+        amountHeader: endorsement ? 'Premium change' : 'Refund',
+        amount: (row) => ({
+          text: endorsement
+            ? signedMoney(row.net_premium_difference, row.currency_code)
+            : money(row.return_premium, row.currency_code),
+          payment: paymentStateOf(row.payment_status),
+        }),
+        amountSortKey: endorsement ? 'net_premium_difference' : undefined,
+      }),
+    [endorsement],
+  );
+  const noun = endorsement
+    ? { one: 'endorsement', many: 'endorsements' }
+    : { one: 'cancellation', many: 'cancellations' };
 
   return (
-    <DataTable
-      {...tableProps}
-      error={tableProps.error ? `Unable to load ${kind}` : undefined}
-      columns={columns}
-      searchPlaceholder="Search transaction or policy no…"
-      emptyMessage={`No ${source.noun} ${kind} found`}
+    <ListPage<UnderwritePolicyTransactionRow>
+      entity={endorsement ? 'endorsement' : 'cancellation'}
+      noun={noun}
+      title={header.title}
+      description={header.description}
+      breadcrumb={header.breadcrumb}
+      queryKey={[...source.keyPrefix, kind]}
+      stateKey={header.stateKey}
+      fetchRows={async (query, signal) => {
+        const page = await source.listTransactions(
+          kind,
+          registerParams(query),
+          signal,
+        );
+        return {
+          rows: page.data,
+          total: page.pagination.total,
+          summary: page.summary,
+        };
+      }}
+      summaryChips={SUMMARY_CHIPS}
+      typeChips={header.typeChips}
+      filters={[STAGE_FILTER, TIRA_FILTER, DATE_FILTER]}
+      columns={register.columns}
+      getAttention={register.getAttention}
+      mobileRow={register.mobileRow}
+      rowId={(row) => row.id}
+      getRowHref={(row) =>
+        endorsement
+          ? source.paths.endorsement(row.source_policy_id, row.id)
+          : source.paths.cancellation(row.source_policy_id, row.id)
+      }
+      searchPlaceholder={`Search ${noun.one} no., policy or cover note no.`}
+      defaultSort={{ key: 'created_at', order: 'DESC' }}
     />
   );
 }
 
+export function RenewalRows({
+  source,
+  header,
+}: {
+  source: TransactionListSource;
+  header: RegisterHeader;
+}) {
+  const register = useMemo(
+    () =>
+      registerColumns<UnderwriteRenewalRow>({
+        recordHeader: 'Renewal no.',
+        record: (row) => row.renewal_no,
+        kind: (row) => kindOf(row.business_line) ?? 'single',
+        recordSortKey: 'renewal_no',
+        customer: (row) => ({
+          name: row.customer_name || 'No customer',
+          secondary:
+            row.customer_phone || row.customer_id_number || row.policy_no,
+        }),
+        issued: (row) => row.created_at,
+        issuedSortKey: 'created_at',
+        cover: (row) => ({
+          start: row.renewal_start_date,
+          end: row.renewal_end_date,
+        }),
+        coverSortKey: 'renewal_start_date',
+        status: (row) => ({
+          label: humanizeStatus(row.renewal_status),
+          tone: statusTone(row.renewal_status),
+        }),
+        statusSortKey: 'renewal_status',
+        tira: (row) => ({
+          state: tiraStateOf(row.tira_status),
+          errorCode: row.tira_error_code,
+          errorReason: row.tira_error_reason,
+        }),
+        amountHeader: 'Renewal premium',
+        amount: (row) => ({
+          text:
+            row.renewal_premium != null
+              ? money(row.renewal_premium, row.currency_code)
+              : '—',
+          payment: paymentStateOf(row.payment_status),
+        }),
+      }),
+    [],
+  );
+
+  return (
+    <ListPage<UnderwriteRenewalRow>
+      entity="renewal"
+      noun={{ one: 'renewal', many: 'renewals' }}
+      title={header.title}
+      description={header.description}
+      breadcrumb={header.breadcrumb}
+      queryKey={[...source.keyPrefix, 'renewals']}
+      stateKey={header.stateKey}
+      fetchRows={async (query, signal) => {
+        const page = await source.listRenewals(registerParams(query), signal);
+        return {
+          rows: page.data,
+          total: page.pagination.total,
+          summary: page.summary,
+        };
+      }}
+      summaryChips={SUMMARY_CHIPS}
+      typeChips={header.typeChips}
+      filters={[RENEWAL_STATUS_FILTER, TIRA_FILTER, DATE_FILTER]}
+      columns={register.columns}
+      getAttention={register.getAttention}
+      mobileRow={register.mobileRow}
+      rowId={(row) => row.id}
+      getRowHref={(row) =>
+        row.policy_transaction?.source_policy_id
+          ? source.paths.renewal(
+              row.policy_transaction.source_policy_id,
+              row.id,
+            )
+          : source.paths.policy(row.policy_transaction?.source_policy_id ?? '')
+      }
+      searchPlaceholder="Search renewal or policy no."
+      defaultSort={{ key: 'created_at', order: 'DESC' }}
+    />
+  );
+}
+
+function tiraTarget(
+  source: TransactionListSource,
+  row: UnderwriteTiraQueueRow,
+) {
+  if (row.source_kind === 'quotation') return source.paths.quotation(row.id);
+  return row.source_policy_id ? source.paths.policy(row.source_policy_id) : '';
+}
+
+function tiraKindLabel(row: UnderwriteTiraQueueRow) {
+  return row.source_kind === 'quotation'
+    ? 'Quotation'
+    : humanizeStatus(row.transaction_type);
+}
+
+/**
+ * TIRA MIS worklist (pending or failed). Same page and table style; its key
+ * fields are the submission, its status and when it last changed.
+ */
 export function TiraRows({
   source,
   kind,
+  header,
 }: {
   source: TransactionListSource;
-  kind: TiraListKind;
+  kind: 'failed' | 'pending';
+  header: RegisterHeader;
 }) {
-  const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
-  const { tableProps, query } = useServerTable<UnderwriteTiraQueueRow>({
-    queryKey: [...source.keyPrefix, 'tira', kind],
-    fetcher: (params, signal) => source.getTiraQueue(kind, params, signal),
-    defaultSortBy: 'updated',
-    defaultLimit: 10,
-  });
-  const retry = useMutation({
-    mutationFn: (row: UnderwriteTiraQueueRow) => source.retryTira!(row),
-    onSuccess: () => {
-      toast.success('TIRA submission queued');
-      void query.refetch();
-    },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
-  });
   const canRetry = (row: UnderwriteTiraQueueRow) => {
-    if (kind !== 'failed' || !source.retryTira) {
-      return false;
-    }
-    if (row.source_kind === 'quotation') {
+    if (kind !== 'failed' || !source.retryTira) return false;
+    if (row.source_kind === 'quotation')
       return hasPermission('quotations:retry-tiramis');
-    }
-    if (row.transaction_type === 'ENDORSEMENT') {
+    if (row.transaction_type === 'ENDORSEMENT')
       return (
         hasPermission('endorsements:retry-tiramis') ||
         hasPermission('endorsements:reconcile')
       );
-    }
     return hasPermission('cancellations:submit-tiramis');
   };
 
-  const columns: Column<UnderwriteTiraQueueRow>[] = [
+  const tiraInfo = (row: UnderwriteTiraQueueRow) => {
+    const state = tiraStateOf(row.tira_status);
+    return {
+      state,
+      errorCode: state === 'failed' ? row.status_code : null,
+      errorReason: state === 'failed' ? row.status_description : null,
+    };
+  };
+
+  const columns: ListColumn<UnderwriteTiraQueueRow>[] = [
     {
-      key: 'reference_no',
-      header: 'Reference',
+      key: 'reference',
+      header: 'Reference no.',
+      mandatory: true,
+      className: 'min-w-[170px]',
       cell: (row) => (
-        <div className="space-y-1">
-          <span className="block font-medium text-slate-900">
-            {row.reference_no}
-          </span>
-          <Badge variant="outline">
-            {row.source_kind === 'quotation'
-              ? 'Quotation'
-              : pretty(row.transaction_type)}
-          </Badge>
-        </div>
+        <span className="whitespace-nowrap">{row.reference_no}</span>
+      ),
+      secondary: (row) => (
+        <ToneBadge tone="neutral" icon={null} className="text-[11px] leading-4">
+          {tiraKindLabel(row)}
+        </ToneBadge>
       ),
     },
     {
       key: 'customer',
       header: 'Customer',
-      cell: (row) => row.customer_name ?? 'N/A',
+      className: 'min-w-[160px] max-w-[240px]',
+      cell: (row) => (
+        <TwoLineCell
+          main={row.customer_name || 'No customer'}
+          secondary={row.policy_no}
+        />
+      ),
+    },
+    {
+      key: 'updated',
+      header: 'Last update',
+      sortKey: 'updated',
+      mandatory: true,
+      className: 'min-w-[96px]',
+      cell: (row) => <DateCell value={row.updated_at} />,
     },
     {
       key: 'request',
-      header: 'TIRA Request',
-      hideOnMobile: true,
-      cell: (row) => row.tira_request_id ?? 'N/A',
+      header: 'TIRA request',
+      hideOnTablet: true,
+      className: 'min-w-[140px]',
+      cell: (row) => (
+        <span className="font-mono text-xs text-[#5B6275]">
+          {row.tira_request_id || '—'}
+        </span>
+      ),
     },
     {
       key: 'status',
       header: 'Status',
-      cell: (row) => <StatusBadge value={row.tira_status} />,
+      className: 'min-w-[120px]',
+      cell: (row) => (
+        <ToneBadge tone={statusTone(row.workflow_status)}>
+          {humanizeStatus(row.workflow_status)}
+        </ToneBadge>
+      ),
     },
     {
-      key: 'updated',
-      header: 'Updated',
-      sortable: true,
-      hideOnMobile: true,
-      cell: (row) => formatDate(row.updated_at),
+      key: 'tira',
+      header: 'TIRA',
+      mandatory: true,
+      className: 'min-w-[130px] max-w-[200px]',
+      cell: (row) => <TiraBadge info={tiraInfo(row)} />,
     },
+  ];
+
+  const rowActions: RowAction<UnderwriteTiraQueueRow>[] = [
     {
-      key: 'actions',
-      header: '',
-      className: 'w-24',
-      cell: (row) => {
-        const target =
-          row.source_kind === 'quotation'
-            ? source.paths.quotation(row.id)
-            : row.source_policy_id
-              ? source.paths.policy(row.source_policy_id)
-              : null;
-        return (
-          <div className="flex justify-end gap-1">
-            {canRetry(row) ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`Retry ${row.reference_no}`}
-                disabled={retry.isPending}
-                onClick={() => retry.mutate(row)}
-              >
-                <RefreshCcw className="h-4 w-4" />
-              </Button>
-            ) : null}
-            {target ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label={`View ${row.reference_no}`}
-                onClick={() => navigate(target)}
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-            ) : null}
-          </div>
-        );
+      label: 'Retry TIRA',
+      icon: RotateCw,
+      hidden: (row) => !canRetry(row),
+      onSelect: async (row, { updateRow }) => {
+        try {
+          await source.retryTira!(row);
+          updateRow(`${row.source_kind}:${row.id}`, {
+            tira_status: 'QUEUED',
+            workflow_status: 'QUEUED',
+          });
+          toast.success(`TIRA submission queued for ${row.reference_no}`);
+        } catch (error) {
+          toast.error(getApiErrorMessage(error));
+        }
       },
     },
   ];
 
   return (
-    <DataTable
-      {...tableProps}
-      error={tableProps.error ? `Unable to load TIRA ${kind}` : undefined}
+    <ListPage<UnderwriteTiraQueueRow>
+      entity="tira"
+      noun={{ one: 'submission', many: 'submissions' }}
+      title={header.title}
+      description={header.description}
+      breadcrumb={header.breadcrumb}
+      queryKey={[...source.keyPrefix, 'tira', kind]}
+      stateKey={header.stateKey}
+      fetchRows={async (query, signal) => {
+        const page = await source.getTiraQueue(
+          kind,
+          {
+            page: query.page,
+            limit: query.limit,
+            search: query.search,
+            sortBy: 'updated',
+            sortOrder: query.sortOrder,
+          },
+          signal,
+        );
+        return { rows: page.data, total: page.pagination.total };
+      }}
       columns={columns}
-      searchPlaceholder="Search reference, request or customer…"
-      emptyMessage={`No ${source.noun} TIRA ${kind} items found`}
+      getAttention={(row) =>
+        tiraStateOf(row.tira_status) === 'failed' ? 'danger' : null
+      }
+      mobileRow={(row) => ({
+        title: row.reference_no,
+        subtitle: row.customer_name || 'No customer',
+        status: {
+          label: humanizeStatus(row.workflow_status),
+          tone: statusTone(row.workflow_status),
+        },
+        issued: row.updated_at,
+        tira: tiraInfo(row),
+        ariaLabel: `${tiraKindLabel(row)} ${row.reference_no}, ${row.customer_name || 'No customer'}, ${humanizeStatus(row.workflow_status)}`,
+      })}
+      rowActions={rowActions}
+      rowId={(row) => `${row.source_kind}:${row.id}`}
+      getRowHref={(row) => tiraTarget(source, row)}
+      searchPlaceholder="Search reference, TIRA request or customer"
+      defaultSort={{ key: 'updated', order: 'DESC' }}
     />
   );
 }

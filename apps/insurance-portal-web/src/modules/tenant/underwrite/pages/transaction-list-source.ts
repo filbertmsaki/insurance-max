@@ -1,4 +1,7 @@
-import type { PaginatedResponse } from '@/modules/shared/api/pagination';
+import type {
+  PaginatedResponse,
+  PaginatedWithSummary,
+} from '@/modules/shared/api/pagination';
 import { underwriteApi, type UnderwriteTableParams } from '../api';
 import { underwriteKeys } from '../hooks';
 import type { UnderwriteLineMeta } from '../lines';
@@ -25,12 +28,12 @@ export interface TransactionListSource {
   listRenewals: (
     params: UnderwriteTableParams,
     signal?: AbortSignal,
-  ) => Promise<PaginatedResponse<UnderwriteRenewalRow>>;
+  ) => Promise<PaginatedWithSummary<UnderwriteRenewalRow>>;
   listTransactions: (
     kind: TransactionRowsKind,
     params: UnderwriteTableParams,
     signal?: AbortSignal,
-  ) => Promise<PaginatedResponse<UnderwritePolicyTransactionRow>>;
+  ) => Promise<PaginatedWithSummary<UnderwritePolicyTransactionRow>>;
   getTiraQueue: (
     kind: TiraRowsKind,
     params: UnderwriteTableParams,

@@ -643,7 +643,11 @@ function ShortTermFleet({
     <UnderwriteWizardShell
       wizard={wizard}
       showSectionTitles={false}
-      title={id ? 'Edit in-transit fleet quotation' : 'New in-transit fleet quotation'}
+      title={
+        id
+          ? 'Edit in-transit fleet quotation'
+          : 'New in-transit fleet quotation'
+      }
       renderStep={(stepId) => {
         switch (stepId) {
           case 'st-cover':

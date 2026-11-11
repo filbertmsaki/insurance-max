@@ -199,6 +199,18 @@ export interface UnderwritePolicyTransactionRow {
   policy_no: string;
   cover_note_no: string | null;
   customer_name: string | null;
+  customer_phone?: string | null;
+  customer_id_number?: string | null;
+  /** MOTOR | FLEET | NON_MOTOR, from the source policy. */
+  business_line?: string | null;
+  policy_start_date?: string | null;
+  policy_end_date?: string | null;
+  /** Period affected: the effective date to the policy's end. */
+  cover_start_date?: string | null;
+  cover_end_date?: string | null;
+  /** TIRA's code and reason, only while the submission has failed. */
+  tira_error_code?: string | null;
+  tira_error_reason?: string | null;
   /** Endorsement rows only. */
   endorsement_type_code?: string | null;
   endorsement_type_name?: string | null;
@@ -215,6 +227,18 @@ export interface UnderwriteRenewalRow {
   created_at: string;
   /** The renewed (source) policy's number. */
   policy_no?: string | null;
+  business_line?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  customer_id_number?: string | null;
+  /** The renewal quotation's TIRA status, else the transaction's. */
+  tira_status?: string | null;
+  tira_error_code?: string | null;
+  tira_error_reason?: string | null;
+  payment_status?: string | null;
+  /** Total premium of the renewal quotation, once priced. */
+  renewal_premium?: string | null;
+  currency_code?: string | null;
   policy_transaction: UnderwritePolicyTransactionRow;
 }
 

@@ -1,8 +1,8 @@
-import { PageHeader } from '@/components/shared/PageHeader';
 import {
   RenewalRows,
   TiraRows,
   TransactionRows,
+  type RegisterHeader,
 } from '@/modules/tenant/underwrite/components/TransactionRows';
 import type { TransactionListSource } from '@/modules/tenant/underwrite/pages/transaction-list-source';
 import { motorInsuranceTransactionsApi } from '../api';
@@ -40,32 +40,42 @@ export function MotorTransactionRegisterPage({
 }: {
   kind: MotorTransactionTab;
 }) {
-  return (
-    <div>
-      <PageHeader
-        eyebrow="Motor Insurance"
-        title={TITLES[kind]}
-        description={
-          kind.startsWith('tira-')
-            ? 'Regulatory submissions for Single Motor and Fleet.'
-            : 'Single Motor and Fleet policy ' +
-              TITLES[kind].toLowerCase() +
-              '. Start a new one from the policy.'
-        }
-      />
-      <RegisterBody kind={kind} />
-    </div>
-  );
-}
-
-function RegisterBody({ kind }: { kind: MotorTransactionTab }) {
+  const header: RegisterHeader = {
+    title: TITLES[kind],
+    description: kind.startsWith('tira-')
+      ? 'Regulatory submissions for Single Motor and Fleet.'
+      : 'Single Motor and Fleet policy ' +
+        TITLES[kind].toLowerCase() +
+        '. Start a new one from the policy.',
+    breadcrumb: [
+      { label: 'Motor Insurance', href: motorInsurancePaths.root },
+      { label: TITLES[kind] },
+    ],
+    stateKey: 'motor-' + kind,
+    typeChips: kind.startsWith('tira-') ? undefined : TYPE_CHIPS,
+  };
   switch (kind) {
     case 'endorsements':
     case 'cancellations':
-      return <TransactionRows key={kind} source={SOURCE} kind={kind} />;
+      return (
+        <TransactionRows
+          key={kind}
+          source={SOURCE}
+          kind={kind}
+          header={header}
+        />
+      );
     case 'renewals':
-      return <RenewalRows source={SOURCE} />;
+      return <RenewalRows source={SOURCE} header={header} />;
     case 'tira-pending':
-      return <TiraRows key={kind} source={SOURCE} kind="pending" />;
+      return (
+        <TiraRows key={kind} source={SOURCE} kind="pending" header={header} />
+      );
   }
 }
+
+const TYPE_CHIPS = [
+  { id: 'all', label: 'All' },
+  { id: 'single', label: 'Single' },
+  { id: 'fleet', label: 'Fleet' },
+];
