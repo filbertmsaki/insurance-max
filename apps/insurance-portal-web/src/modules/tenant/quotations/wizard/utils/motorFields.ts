@@ -44,7 +44,6 @@ export const motorFields: ReadonlyArray<{
     key: 'motor_usage_code',
     fleetKey: 'motor_usage',
     label: 'Vehicle usage',
-    optional: true,
     options: [
       { value: '1', label: 'Private' },
       { value: '2', label: 'Commercial' },
@@ -129,10 +128,13 @@ export function motorFieldError(
   motor: Partial<Motor>,
 ): string | null {
   const definition = motorFields.find((field) => field.key === key);
-  const isRegistrationOptional =
-    key === 'registration_no' && motor.motor_type_code === '2';
+  // In-transit vehicles may be trailers, which have no registration yet and
+  // use no fuel.
+  const isOptionalInTransit =
+    (key === 'registration_no' || key === 'fuel_type') &&
+    motor.motor_type_code === '2';
   if (!value?.trim())
-    return definition?.optional || isRegistrationOptional
+    return definition?.optional || isOptionalInTransit
       ? null
       : `Enter ${definition?.label.toLowerCase() ?? key}.`;
   if (
