@@ -24,20 +24,36 @@ describe('full module role permissions', () => {
   it.each(['SHORT_TERM_UNDERWRITER', 'UNDERWRITER'] as const)(
     'grants motor vehicle lookup to %s',
     (role) => {
-      expect(expandSeedRolePermissions(role, [...FULL_MODULE_ROLE_PERMISSIONS[role]])).toContain('motor:read');
+      expect(
+        expandSeedRolePermissions(role, [
+          ...FULL_MODULE_ROLE_PERMISSIONS[role],
+        ]),
+      ).toContain('motor:read');
     },
   );
   it.each(['SHORT_TERM_UNDERWRITER', 'UNDERWRITER'] as const)(
     'grants motor verification submission to %s',
     (role) => {
-      expect(expandSeedRolePermissions(role, [...FULL_MODULE_ROLE_PERMISSIONS[role]])).toContain('verifications:motor:submit');
+      expect(
+        expandSeedRolePermissions(role, [
+          ...FULL_MODULE_ROLE_PERMISSIONS[role],
+        ]),
+      ).toContain('verifications:motor:submit');
     },
   );
   it.each(['SHORT_TERM_UNDERWRITER', 'UNDERWRITER'] as const)(
     'grants TIRAMIS submission, retry and sync to %s',
     (role) => {
-      expect(expandSeedRolePermissions(role, [...FULL_MODULE_ROLE_PERMISSIONS[role]])).toEqual(
-        expect.arrayContaining(['tiramis.submit', 'tiramis.retry', 'tiramis.sync']),
+      expect(
+        expandSeedRolePermissions(role, [
+          ...FULL_MODULE_ROLE_PERMISSIONS[role],
+        ]),
+      ).toEqual(
+        expect.arrayContaining([
+          'tiramis.submit',
+          'tiramis.retry',
+          'tiramis.sync',
+        ]),
       );
     },
   );
