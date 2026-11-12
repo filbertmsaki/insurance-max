@@ -967,7 +967,7 @@ export class TiramisMotorService {
       `${path}.engineCapacity`,
       errors,
     );
-    // Fuel is optional: trailers use none. The XML sends NO_FUEL_USED instead.
+    // Fuel is optional: trailers use none, and FuelUsed is then sent empty.
 
     for (const field of [
       'numberOfAxles',
