@@ -26,6 +26,9 @@ export function AppShell() {
   const isRecordDetail = /\/(quotations|policies)\/(?!new$)[^/]+$/.test(
     location.pathname,
   );
+  const isWizard =
+    /\/(quotations|claims)\/(new|[^/]+\/edit)\/?$/.test(location.pathname) ||
+    /^\/apps\/users\/new\/?$/.test(location.pathname);
   const [scrolled, setScrolled] = useState(false);
   const { user, profile } = useAuthStore();
   const unread = useQuery({
@@ -191,14 +194,16 @@ export function AppShell() {
                 >
                   <Outlet />
                 </div>
-                <footer className="max-md:hidden flex shrink-0 flex-col gap-1 px-3 py-4 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6">
-                  <span>
-                    {new Date().getFullYear()} © {APP_NAME}.
-                  </span>
-                  <span className="hidden sm:inline">
-                    Insurance operations platform
-                  </span>
-                </footer>
+                {!isWizard && (
+                  <footer className="max-md:hidden flex shrink-0 flex-col gap-1 px-3 py-4 text-[13px] text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:px-6">
+                    <span>
+                      {new Date().getFullYear()} © {APP_NAME}.
+                    </span>
+                    <span className="hidden sm:inline">
+                      Insurance operations platform
+                    </span>
+                  </footer>
+                )}
               </main>
               {footer && (
                 // width matched to QuotationWizardPage's content column (the current sole consumer of usePageFooter)

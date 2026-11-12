@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PublicVehicleReferenceController } from './public-vehicle-reference.controller';
 import { ReferenceDataController } from './reference-data.controller';
 import { ReferenceDataService } from './reference-data.service';
 import { ReferenceCountry } from './entities/reference-country.entity';
@@ -22,7 +23,7 @@ import { VehicleReferenceAttribute } from './entities/vehicle-attribute.entity';
       VehicleReferenceAttribute,
     ]),
   ],
-  controllers: [ReferenceDataController],
+  controllers: [ReferenceDataController, PublicVehicleReferenceController],
   providers: [ReferenceDataService],
   exports: [ReferenceDataService],
 })

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useForm, useWatch, type UseFormReturn } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
@@ -16,6 +17,7 @@ import { formatMoney } from '@/components/shared/detailFormat';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { NativeSelect as SharedNativeSelect } from '@/components/ui/native-select';
 import { Label } from '@/components/ui/label';
@@ -51,6 +53,8 @@ import {
   mergeVerifiedMotor,
   motorFields,
 } from '@/modules/tenant/quotations/wizard/utils/motorFields';
+import { VehicleDetailsFields } from '@/modules/tenant/quotations/wizard/components/VehicleDetailsFields';
+import { VehicleReferenceSourceProvider } from '@/modules/platform/reference-data/vehicleReferenceSource';
 import { VehicleLookup } from '@/modules/tenant/quotations/wizard/components/VehicleLookup';
 import type { MotorVerificationRequest } from '@/modules/tenant/verifications/api';
 
@@ -59,25 +63,7 @@ import { portalApi, type PortalProfileRecord } from '../api';
 type PolicyholderFormState = Partial<Record<keyof CustomerFormValues, string>>;
 
 type MotorFormState = QuotationFormSchemaValues['motor'];
-type MotorFieldDefinition = (typeof motorFields)[number];
 type DetailsSectionId = 'policyholder' | 'vehicle';
-
-const CORE_MOTOR_FIELD_KEYS = new Set<keyof MotorFormState>([
-  'motor_category_code',
-  'motor_type_code',
-  'motor_usage_code',
-  'registration_no',
-  'chassis_no',
-  'make',
-  'model',
-]);
-
-const CORE_MOTOR_FIELDS = motorFields.filter((field) =>
-  CORE_MOTOR_FIELD_KEYS.has(field.key),
-);
-const ADVANCED_MOTOR_FIELDS = motorFields.filter(
-  (field) => !CORE_MOTOR_FIELD_KEYS.has(field.key),
-);
 
 function LoadingState({ label }: { label: string }) {
   return (
@@ -150,39 +136,6 @@ function formatPremiumSummary(value?: string | number | null) {
   }
   const amount = Number(value);
   return Number.isFinite(amount) ? formatMoney(amount, 'TZS') : String(value);
-}
-
-function MotorFieldInput({
-  field,
-  motor,
-  onChange,
-}: {
-  field: MotorFieldDefinition;
-  motor: MotorFormState;
-  onChange: (field: keyof MotorFormState, value: string) => void;
-}) {
-  return (
-    <FormField label={field.label} required={!field.optional}>
-      {field.options ? (
-        <NativeSelect
-          value={String(motor[field.key] ?? '')}
-          onChange={(value) => onChange(field.key, value)}
-        >
-          <option value="">Select {field.label.toLowerCase()}</option>
-          {field.options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </NativeSelect>
-      ) : (
-        <Input
-          value={String(motor[field.key] ?? '')}
-          onChange={(event) => onChange(field.key, event.target.value)}
-        />
-      )}
-    </FormField>
-  );
 }
 
 function NativeSelect({
@@ -346,9 +299,13 @@ export function PortalBuyCoverPage() {
     useState<DetailsSectionId | null>('policyholder');
   const [policyholderForm, setPolicyholderForm] =
     useState<PolicyholderFormState>(createInitialPolicyholderFromIntake);
-  const [motor, setMotor] = useState<MotorFormState>(
-    createInitialMotorFromIntake,
-  );
+  // Same vehicle fields and rules as the staff wizards (VehicleDetailsFields).
+  const vehicleForm = useForm<{ motor: MotorFormState }>({
+    defaultValues: { motor: createInitialMotorFromIntake() },
+  });
+  const motor = useWatch({ control: vehicleForm.control, name: 'motor' });
+  const sharedVehicleForm =
+    vehicleForm as unknown as UseFormReturn<QuotationFormSchemaValues>;
 
   const profileQuery = useQuery({
     queryKey: ['portal', 'customer', 'profile'],
@@ -440,16 +397,6 @@ export function PortalBuyCoverPage() {
     () => validateMotor(motorForDraft),
     [motorForDraft],
   );
-  const advancedMotorHasMissingFields = useMemo(
-    () =>
-      ADVANCED_MOTOR_FIELDS.some((field) =>
-        Boolean(
-          motorFieldError(field.key, motorForDraft[field.key], motorForDraft),
-        ),
-      ),
-    [motorForDraft],
-  );
-
   const selectionsReady = Boolean(
     selectedCompany && selectedProduct && selectedRisk,
   );
@@ -478,10 +425,6 @@ export function PortalBuyCoverPage() {
 
   const updatePolicyholderType = (value: CustomerPolicyHolderType) =>
     updatePolicyholder('policy_holder_type', String(value));
-
-  const updateMotor = (field: keyof MotorFormState, value: string) => {
-    setMotor((current) => ({ ...current, [field]: value }));
-  };
 
   const toggleDetailsSection = (sectionId: string) => {
     setOpenDetailsSection((current) =>
@@ -1082,42 +1025,25 @@ export function PortalBuyCoverPage() {
                 initialCategory={motor.motor_category_code}
                 verifyMotor={verifyMotorFromPortal}
                 onFound={(details) => {
-                  setMotor((current) =>
+                  vehicleForm.setValue(
+                    'motor',
                     mergeVerifiedMotor(
-                      current,
+                      vehicleForm.getValues('motor'),
                       details,
                       createInitialMotorDetails(),
                     ),
+                    { shouldDirty: true },
                   );
                 }}
               />
             </div>
-            {CORE_MOTOR_FIELDS.map((field) => (
-              <MotorFieldInput
-                key={field.key}
-                field={field}
-                motor={motor}
-                onChange={updateMotor}
-              />
-            ))}
-            <details
-              className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:col-span-2"
-              open={advancedMotorHasMissingFields}
-            >
-              <summary className="cursor-pointer text-sm font-medium text-slate-700">
-                Additional vehicle details
-              </summary>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {ADVANCED_MOTOR_FIELDS.map((field) => (
-                  <MotorFieldInput
-                    key={field.key}
-                    field={field}
-                    motor={motor}
-                    onChange={updateMotor}
-                  />
-                ))}
-              </div>
-            </details>
+            <div className="sm:col-span-2">
+              <Form {...vehicleForm}>
+                <VehicleReferenceSourceProvider value="public">
+                  <VehicleDetailsFields form={sharedVehicleForm} title={null} />
+                </VehicleReferenceSourceProvider>
+              </Form>
+            </div>
           </div>
         </AccordionStepSection>
       </section>

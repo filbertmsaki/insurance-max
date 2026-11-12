@@ -10,7 +10,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch, type UseFormReturn } from 'react-hook-form';
 import { z } from 'zod';
 import {
   ArrowRight,
@@ -44,7 +44,17 @@ import { PublicLayout } from './PublicShell';
 import { BUY_INSURANCE_PATH } from './public-routes';
 import { usePageMeta } from './usePageMeta';
 import { CUSTOMER_ID_TYPE_OPTIONS } from '@/modules/tenant/customers/types';
-import { motorFields } from '@/modules/tenant/quotations/wizard/utils/motorFields';
+import {
+  motorFieldError,
+  motorFields,
+} from '@/modules/tenant/quotations/wizard/utils/motorFields';
+import { Form } from '@/components/ui/form';
+import {
+  createEmptyMotorDetails,
+  type QuotationFormSchemaValues,
+} from '@/modules/tenant/quotations/schemas';
+import { VehicleDetailsFields } from '@/modules/tenant/quotations/wizard/components/VehicleDetailsFields';
+import { VehicleReferenceSourceProvider } from '@/modules/platform/reference-data/vehicleReferenceSource';
 
 type PublicCatalogueProduct = {
   id: string;
@@ -1026,6 +1036,49 @@ function createDefaultMotorVehicle(
   };
 }
 
+type Motor = QuotationFormSchemaValues['motor'];
+
+const NUMERIC_VEHICLE_KEYS = new Set<string>([
+  'motor_category',
+  'motor_type',
+  'number_of_axles',
+  'axle_distance',
+  'sitting_capacity',
+  'year_of_manufacture',
+  'tare_weight',
+  'gross_weight',
+  'motor_usage',
+  'owner_category',
+]);
+
+/** The public vehicle (TIRA names) in the shared form's shape. */
+function publicVehicleToMotor(vehicle: PublicMotorVehicle): Motor {
+  const values = Object.fromEntries(
+    motorFields.map((field) => {
+      const value = vehicle[field.fleetKey as keyof PublicMotorVehicle];
+      return [
+        field.key,
+        value === null || value === undefined || value === 0
+          ? ''
+          : String(value),
+      ];
+    }),
+  );
+  return { ...createEmptyMotorDetails(), ...values } as Motor;
+}
+
+function motorToPublicVehicle(motor: Motor): PublicMotorVehicle {
+  return Object.fromEntries(
+    motorFields.map((field) => {
+      const value = String(motor[field.key] ?? '').trim();
+      return [
+        field.fleetKey,
+        NUMERIC_VEHICLE_KEYS.has(field.fleetKey) ? Number(value) || 0 : value,
+      ];
+    }),
+  ) as unknown as PublicMotorVehicle;
+}
+
 function createDefaultPolicyHolder(
   intake?: MotorIntakeValues | null,
 ): PublicMotorHolder {
@@ -1057,43 +1110,12 @@ function validateTiraMotorPurchaseDetails(
   holder: PublicMotorHolder,
 ) {
   const missing: string[] = [];
-  const requiredVehicleFields: Array<[keyof PublicMotorVehicle, string]> = [
-    ['chassis_number', 'chassis number'],
-    ['make', 'vehicle make'],
-    ['model', 'vehicle model'],
-    ['body_type', 'body type'],
-    ['color', 'color'],
-    ['engine_number', 'engine number'],
-    ['engine_capacity', 'engine capacity'],
-    ['fuel_used', 'fuel used'],
-    ['owner_name', 'owner name'],
-  ];
-
-  if (vehicle.motor_type === 1 && isBlank(vehicle.registration_number)) {
-    missing.push('vehicle registration number');
-  }
-
-  requiredVehicleFields.forEach(([key, label]) => {
-    const value = vehicle[key];
-    if (typeof value === 'string' && isBlank(value)) missing.push(label);
+  // Same vehicle rules as the staff wizards and the portal.
+  const motor = publicVehicleToMotor(vehicle);
+  motorFields.forEach((field) => {
+    const message = motorFieldError(field.key, motor[field.key], motor);
+    if (message) missing.push(message);
   });
-
-  if (
-    vehicle.chassis_number &&
-    !/^[A-Za-z0-9-]{6,100}$/.test(vehicle.chassis_number.trim())
-  ) {
-    missing.push('valid chassis number');
-  }
-  if (
-    vehicle.engine_number &&
-    !/^[A-Za-z0-9-]{3,100}$/.test(vehicle.engine_number.trim())
-  ) {
-    missing.push('valid engine number');
-  }
-  if (Number(vehicle.engine_capacity) <= 0)
-    missing.push('positive engine capacity');
-  if (vehicle.tare_weight <= 0) missing.push('tare weight greater than zero');
-  if (vehicle.gross_weight <= 0) missing.push('gross weight greater than zero');
   if (
     vehicle.gross_weight > 0 &&
     vehicle.tare_weight > 0 &&
@@ -1156,9 +1178,14 @@ function MotorInsurancePurchasePage() {
   const [companyId, setCompanyId] = useState('');
   const [productId, setProductId] = useState('');
   const [riskId, setRiskId] = useState('');
-  const [vehicle, setVehicle] = useState<PublicMotorVehicle>(
-    createDefaultMotorVehicle(),
-  );
+  // Same vehicle fields and rules as the staff wizards (VehicleDetailsFields).
+  const vehicleForm = useForm<{ motor: Motor }>({
+    defaultValues: { motor: publicVehicleToMotor(createDefaultMotorVehicle()) },
+  });
+  const motor = useWatch({ control: vehicleForm.control, name: 'motor' });
+  const vehicle = useMemo(() => motorToPublicVehicle(motor), [motor]);
+  const sharedVehicleForm =
+    vehicleForm as unknown as UseFormReturn<QuotationFormSchemaValues>;
   const [holder, setHolder] = useState<PublicMotorHolder>(
     createDefaultPolicyHolder(),
   );
@@ -1175,6 +1202,20 @@ function MotorInsurancePurchasePage() {
   const [busy, setBusy] = useState<'verify' | 'quote' | 'submit' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  // Any vehicle change invalidates the quote shown for the old values.
+  const { subscribe: subscribeVehicle } = vehicleForm;
+  useEffect(
+    () =>
+      subscribeVehicle({
+        formState: { values: true },
+        callback: ({ type }) => {
+          if (type !== 'change') return;
+          setQuote(null);
+          setConfirmed(false);
+        },
+      }),
+    [subscribeVehicle],
+  );
   const purchasePanel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1275,7 +1316,7 @@ function MotorInsurancePurchasePage() {
         owner_name:
           response.data.vehicle?.owner_name || parsed.data.fullName.trim(),
       };
-      setVehicle(nextVehicle);
+      vehicleForm.reset({ motor: publicVehicleToMotor(nextVehicle) });
       setHolder(createDefaultPolicyHolder(parsed.data));
       setVerified(true);
     } catch (caught) {
@@ -1368,15 +1409,6 @@ function MotorInsurancePurchasePage() {
   function updateIntake(key: keyof MotorIntakeValues, value: string) {
     setIntake((current) => ({ ...current, [key]: value }));
     setIntakeErrors((current) => ({ ...current, [key]: undefined }));
-  }
-
-  function updateVehicle<K extends keyof PublicMotorVehicle>(
-    key: K,
-    value: PublicMotorVehicle[K],
-  ) {
-    setVehicle((current) => ({ ...current, [key]: value }));
-    setQuote(null);
-    setConfirmed(false);
   }
 
   function updateHolder<K extends keyof PublicMotorHolder>(
@@ -1758,143 +1790,15 @@ function MotorInsurancePurchasePage() {
                     </div>
 
                     <fieldset className="motor-fieldset">
-                      <legend>Motor details</legend>
-                      <div className="motor-subgrid">
-                        <MotorInput
-                          label="Chassis number"
-                          value={vehicle.chassis_number}
-                          onChange={(value) =>
-                            updateVehicle('chassis_number', value)
-                          }
-                        />
-                        <MotorInput
-                          label="Make"
-                          value={vehicle.make}
-                          onChange={(value) => updateVehicle('make', value)}
-                        />
-                        <MotorInput
-                          label="Model"
-                          value={vehicle.model}
-                          onChange={(value) => updateVehicle('model', value)}
-                        />
-                        <MotorInput
-                          label="Model number"
-                          value={vehicle.model_number ?? ''}
-                          onChange={(value) =>
-                            updateVehicle('model_number', value)
-                          }
-                        />
-                        <MotorInput
-                          label="Body type"
-                          value={vehicle.body_type}
-                          onChange={(value) =>
-                            updateVehicle('body_type', value)
-                          }
-                        />
-                        <MotorInput
-                          label="Color"
-                          value={vehicle.color}
-                          onChange={(value) => updateVehicle('color', value)}
-                        />
-                        <MotorInput
-                          label="Engine number"
-                          value={vehicle.engine_number}
-                          onChange={(value) =>
-                            updateVehicle('engine_number', value)
-                          }
-                        />
-                        <MotorInput
-                          label="Engine capacity"
-                          inputMode="numeric"
-                          value={vehicle.engine_capacity}
-                          onChange={(value) =>
-                            updateVehicle('engine_capacity', value)
-                          }
-                        />
-                        <MotorInput
-                          label="Fuel used"
-                          value={vehicle.fuel_used}
-                          onChange={(value) =>
-                            updateVehicle('fuel_used', value)
-                          }
-                        />
-                        <MotorNumberInput
-                          label="Number of axles"
-                          value={vehicle.number_of_axles}
-                          onChange={(value) =>
-                            updateVehicle('number_of_axles', value)
-                          }
-                        />
-                        <MotorNumberInput
-                          label="Axle distance"
-                          value={vehicle.axle_distance}
-                          onChange={(value) =>
-                            updateVehicle('axle_distance', value)
-                          }
-                        />
-                        <MotorNumberInput
-                          label="Seats"
-                          value={vehicle.sitting_capacity}
-                          onChange={(value) =>
-                            updateVehicle('sitting_capacity', value)
-                          }
-                        />
-                        <MotorNumberInput
-                          label="Year"
-                          value={vehicle.year_of_manufacture}
-                          onChange={(value) =>
-                            updateVehicle('year_of_manufacture', value)
-                          }
-                        />
-                        <MotorNumberInput
-                          label="Tare weight"
-                          value={vehicle.tare_weight}
-                          onChange={(value) =>
-                            updateVehicle('tare_weight', value)
-                          }
-                        />
-                        <MotorNumberInput
-                          label="Gross weight"
-                          value={vehicle.gross_weight}
-                          onChange={(value) =>
-                            updateVehicle('gross_weight', value)
-                          }
-                        />
-                        <MotorNumberInput
-                          label="Motor usage"
-                          value={vehicle.motor_usage}
-                          onChange={(value) =>
-                            updateVehicle('motor_usage', value)
-                          }
-                        />
-                      </div>
-                    </fieldset>
-
-                    <fieldset className="motor-fieldset">
-                      <legend>Owner details</legend>
-                      <div className="motor-subgrid">
-                        <MotorInput
-                          label="Owner name"
-                          value={vehicle.owner_name}
-                          onChange={(value) =>
-                            updateVehicle('owner_name', value)
-                          }
-                        />
-                        <MotorNumberInput
-                          label="Owner category"
-                          value={vehicle.owner_category}
-                          onChange={(value) =>
-                            updateVehicle('owner_category', value)
-                          }
-                        />
-                        <MotorInput
-                          label="Owner address"
-                          value={vehicle.owner_address}
-                          onChange={(value) =>
-                            updateVehicle('owner_address', value)
-                          }
-                        />
-                      </div>
+                      <legend>Vehicle details</legend>
+                      <Form {...vehicleForm}>
+                        <VehicleReferenceSourceProvider value="public">
+                          <VehicleDetailsFields
+                            form={sharedVehicleForm}
+                            title={null}
+                          />
+                        </VehicleReferenceSourceProvider>
+                      </Form>
                     </fieldset>
 
                     <fieldset className="motor-fieldset">
@@ -2088,7 +1992,9 @@ function MotorInsurancePurchasePage() {
                     <label className="motor-confirm">
                       <Checkbox
                         checked={confirmed}
-                        onCheckedChange={(checked) => setConfirmed(checked === true)}
+                        onCheckedChange={(checked) =>
+                          setConfirmed(checked === true)
+                        }
                       />
                       <span>The information above is correct.</span>
                     </label>

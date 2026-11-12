@@ -9,28 +9,42 @@ import type {
   ReferenceRegion,
   ReferenceTableParams,
 } from './types';
+import type { VehicleReferenceSource } from './vehicleReferenceSource';
+
+/** Staff API, or the public read-only one for the portal and website. */
+const vehicleBase = (source: VehicleReferenceSource = 'staff') =>
+  source === 'public'
+    ? '/public/reference-data/vehicle'
+    : '/reference-data/vehicle';
 
 export const referenceDataApi = {
-  vehicleMakes: (params?: ReferenceListParams) =>
+  vehicleMakes: (
+    params?: ReferenceListParams,
+    source?: VehicleReferenceSource,
+  ) =>
     apiClient
       .get<
         Array<{ id: string; name: string; is_active: boolean }>
-      >('/reference-data/vehicle/makes', { params })
+      >(`${vehicleBase(source)}/makes`, { params })
       .then((r) => r.data),
-  vehicleModels: (params?: ReferenceListParams & { make_id?: string }) =>
+  vehicleModels: (
+    params?: ReferenceListParams & { make_id?: string },
+    source?: VehicleReferenceSource,
+  ) =>
     apiClient
       .get<
         Array<{ id: string; make_id: string; name: string; is_active: boolean }>
-      >('/reference-data/vehicle/models', { params })
+      >(`${vehicleBase(source)}/models`, { params })
       .then((r) => r.data),
   vehicleAttributes: (
     kind: 'body_type' | 'colour' | 'fuel_type',
     params?: ReferenceListParams,
+    source?: VehicleReferenceSource,
   ) =>
     apiClient
       .get<
         Array<{ id: string; kind: string; name: string; is_active: boolean }>
-      >(`/reference-data/vehicle/attributes/${kind}`, { params })
+      >(`${vehicleBase(source)}/attributes/${kind}`, { params })
       .then((r) => r.data),
   previewModels: (make_id: string, models: string) =>
     apiClient

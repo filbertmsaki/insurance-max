@@ -103,10 +103,15 @@ export function ReferenceDataPage() {
   >('make');
   const [vehicleFormName, setVehicleFormName] = useState('');
   const [vehicleDeleteTarget, setVehicleDeleteTarget] = useState<{
-    id: string; name: string; kind: string;
+    id: string;
+    name: string;
+    kind: string;
   } | null>(null);
   const [vehicleStatusTarget, setVehicleStatusTarget] = useState<{
-    id: string; name: string; is_active: boolean; kind: string;
+    id: string;
+    name: string;
+    is_active: boolean;
+    kind: string;
   } | null>(null);
   const { hasPermission } = useAuthStore();
   const canCreateVehicleRefs = hasPermission('reference-data:create');
@@ -198,43 +203,72 @@ export function ReferenceDataPage() {
     }
   }
 
-  const vehicleListTable = useServerTable<{
-    id: string; name: string; is_active: boolean; make_id?: string;
-  }, ReferenceFilterKey>({
+  const vehicleListTable = useServerTable<
+    {
+      id: string;
+      name: string;
+      is_active: boolean;
+      make_id?: string;
+    },
+    ReferenceFilterKey
+  >({
     queryKey: [...referenceDataKeys.all, 'vehicle-table', vehicleKind],
     enabled: tab === 'vehicle-reference' && vehicleKind !== 'makes',
     defaultSortBy: 'name',
     defaultSortOrder: 'ASC',
     filterKeys: REFERENCE_FILTER_KEYS,
     fetcher: async (params, signal) => {
-      const response = await apiClient.get(`/reference-data/vehicle/attributes/${vehicleKind}`, { params, signal });
+      const response = await apiClient.get(
+        `/reference-data/vehicle/attributes/${vehicleKind}`,
+        { params, signal },
+      );
       return response.data;
     },
   });
-  const makeListTable = useServerTable<{
-    id: string; name: string; is_active: boolean;
-  }, ReferenceFilterKey>({
+  const makeListTable = useServerTable<
+    {
+      id: string;
+      name: string;
+      is_active: boolean;
+    },
+    ReferenceFilterKey
+  >({
     queryKey: [...referenceDataKeys.all, 'vehicle-makes-table'],
     enabled: tab === 'vehicle-reference' && vehicleKind === 'makes',
     defaultSortBy: 'name',
     defaultSortOrder: 'ASC',
     filterKeys: REFERENCE_FILTER_KEYS,
     fetcher: async (params, signal) => {
-      const response = await apiClient.get('/reference-data/vehicle/makes', { params, signal });
+      const response = await apiClient.get('/reference-data/vehicle/makes', {
+        params,
+        signal,
+      });
       return response.data;
     },
   });
-  const modelListTable = useServerTable<{
-    id: string; make_id: string; name: string; is_active: boolean;
-  }, ReferenceFilterKey>({
+  const modelListTable = useServerTable<
+    {
+      id: string;
+      make_id: string;
+      name: string;
+      is_active: boolean;
+    },
+    ReferenceFilterKey
+  >({
     queryKey: [...referenceDataKeys.all, 'vehicle-models-table', vehicleMakeId],
-    enabled: tab === 'vehicle-reference' && vehicleKind === 'makes' && Boolean(vehicleMakeId),
+    enabled:
+      tab === 'vehicle-reference' &&
+      vehicleKind === 'makes' &&
+      Boolean(vehicleMakeId),
     defaultSortBy: 'name',
     defaultSortOrder: 'ASC',
     filterKeys: REFERENCE_FILTER_KEYS,
     extraParams: { make_id: vehicleMakeId || undefined },
     fetcher: async (params, signal) => {
-      const response = await apiClient.get('/reference-data/vehicle/models', { params, signal });
+      const response = await apiClient.get('/reference-data/vehicle/models', {
+        params,
+        signal,
+      });
       return response.data;
     },
   });
@@ -243,13 +277,14 @@ export function ReferenceDataPage() {
     if (tab !== 'vehicle-reference' || vehicleKind !== 'makes') return;
     const loadMakeOptions = async () => {
       try {
-        const response = await apiClient.get<Array<{ id: string; name: string }>>(
-          '/reference-data/vehicle/makes',
-          { params: { limit: 100 } },
-        );
+        const response = await apiClient.get<
+          Array<{ id: string; name: string }>
+        >('/reference-data/vehicle/makes', { params: { limit: 100 } });
         setVehicleMakeOptions(response.data);
       } catch {
-        setVehicleMakeOptions(makeListTable.rows.map(({ id, name }) => ({ id, name })));
+        setVehicleMakeOptions(
+          makeListTable.rows.map(({ id, name }) => ({ id, name })),
+        );
       }
     };
     void loadMakeOptions();
@@ -266,33 +301,47 @@ export function ReferenceDataPage() {
     filterKeys: REFERENCE_FILTER_KEYS,
   });
 
-  async function mutateVehicleStatus(target: NonNullable<typeof vehicleStatusTarget>) {
+  async function mutateVehicleStatus(
+    target: NonNullable<typeof vehicleStatusTarget>,
+  ) {
     try {
-      const path = target.kind === 'makes'
-        ? `/reference-data/vehicle/makes/${target.id}/status`
-        : target.kind === 'models'
-          ? `/reference-data/vehicle/models/${target.id}`
-          : `/reference-data/vehicle/attributes/${target.kind}/${target.id}/status`;
+      const path =
+        target.kind === 'makes'
+          ? `/reference-data/vehicle/makes/${target.id}/status`
+          : target.kind === 'models'
+            ? `/reference-data/vehicle/models/${target.id}`
+            : `/reference-data/vehicle/attributes/${target.kind}/${target.id}/status`;
       await apiClient.patch(path, { is_active: !target.is_active });
       await queryClient.invalidateQueries({ queryKey: referenceDataKeys.all });
       setVehicleStatusTarget(null);
-      toast.success(`Vehicle reference ${target.is_active ? 'deactivated' : 'activated'}.`);
-    } catch (error) { toast.error(getApiErrorMessage(error)); }
+      toast.success(
+        `Vehicle reference ${target.is_active ? 'deactivated' : 'activated'}.`,
+      );
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
   }
 
-  async function deleteVehicleReference(target: NonNullable<typeof vehicleDeleteTarget>) {
+  async function deleteVehicleReference(
+    target: NonNullable<typeof vehicleDeleteTarget>,
+  ) {
     try {
-      const path = target.kind === 'makes'
-        ? `/reference-data/vehicle/makes/${target.id}`
-        : target.kind === 'models'
-          ? `/reference-data/vehicle/models/${target.id}`
-          : `/reference-data/vehicle/attributes/${target.kind}/${target.id}`;
+      const path =
+        target.kind === 'makes'
+          ? `/reference-data/vehicle/makes/${target.id}`
+          : target.kind === 'models'
+            ? `/reference-data/vehicle/models/${target.id}`
+            : `/reference-data/vehicle/attributes/${target.kind}/${target.id}`;
       await apiClient.delete(path);
-      await queryClient.invalidateQueries({ queryKey: [...referenceDataKeys.all, 'vehicle-'] });
+      await queryClient.invalidateQueries({
+        queryKey: [...referenceDataKeys.all, 'vehicle-'],
+      });
       await queryClient.invalidateQueries({ queryKey: referenceDataKeys.all });
       setVehicleDeleteTarget(null);
       toast.success('Vehicle reference deleted.');
-    } catch (error) { toast.error(getApiErrorMessage(error)); }
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
   }
 
   const data = {
@@ -638,18 +687,24 @@ export function ReferenceDataPage() {
             </TabsList>
           </Tabs>
           <div className="flex flex-wrap items-center gap-3">
-            {canCreateVehicleRefs && <Button
-              variant="outline"
-              disabled={vehicleBusy}
-              onClick={() => void loadVehicleDefaults()}
-            >
-              {vehicleBusy ? 'Loading defaults…' : 'Load default data'}
-            </Button>}
-            {canCreateVehicleRefs && <Button disabled={vehicleBusy} onClick={() => openVehicleForm()}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add{' '}
-              {vehicleKind === 'makes' ? 'make' : vehicleKind.replace('_', ' ')}
-            </Button>}
+            {canCreateVehicleRefs && (
+              <Button
+                variant="outline"
+                disabled={vehicleBusy}
+                onClick={() => void loadVehicleDefaults()}
+              >
+                {vehicleBusy ? 'Loading defaults…' : 'Load default data'}
+              </Button>
+            )}
+            {canCreateVehicleRefs && (
+              <Button disabled={vehicleBusy} onClick={() => openVehicleForm()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add{' '}
+                {vehicleKind === 'makes'
+                  ? 'make'
+                  : vehicleKind.replace('_', ' ')}
+              </Button>
+            )}
           </div>
           {vehicleKind === 'makes' && (
             <>
@@ -676,7 +731,11 @@ export function ReferenceDataPage() {
                 />
                 <Button
                   variant="outline"
-                  disabled={!canCreateVehicleRefs || !vehicleMakeId || !bulkModels.trim()}
+                  disabled={
+                    !canCreateVehicleRefs ||
+                    !vehicleMakeId ||
+                    !bulkModels.trim()
+                  }
                   onClick={async () => {
                     const { apiClient } =
                       await import('@/modules/shared/api/client');
@@ -691,7 +750,9 @@ export function ReferenceDataPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  disabled={!canCreateVehicleRefs || !vehicleMakeId || vehicleBusy}
+                  disabled={
+                    !canCreateVehicleRefs || !vehicleMakeId || vehicleBusy
+                  }
                   onClick={() => openVehicleForm(undefined, 'model')}
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -706,70 +767,178 @@ export function ReferenceDataPage() {
                       {modelPreview.existing_models.join(', ') || 'None'} ·
                       Invalid: {modelPreview.invalid.join(', ') || 'None'}
                     </p>
-                    {canCreateVehicleRefs && <Button
-                      disabled={!modelPreview.new_models.length || vehicleBusy}
-                      onClick={async () => {
-                        setVehicleBusy(true);
-                        try {
-                          const { apiClient } =
-                            await import('@/modules/shared/api/client');
-                          const result = await apiClient.post<{
-                            created: string[];
-                            skipped: string[];
-                          }>('/reference-data/vehicle/models/bulk-save', {
-                            make_id: vehicleMakeId,
-                            models: bulkModels,
-                          });
-                          setBulkModels('');
-                          setModelPreview(null);
-                          await queryClient.invalidateQueries({ queryKey: referenceDataKeys.all });
-                          toast.success(
-                            `Added ${result.data.created.length} models. Skipped: ${result.data.skipped.join(', ') || 'none'}`,
-                          );
-                        } finally {
-                          setVehicleBusy(false);
+                    {canCreateVehicleRefs && (
+                      <Button
+                        disabled={
+                          !modelPreview.new_models.length || vehicleBusy
                         }
-                      }}
-                    >
-                      Save valid models
-                    </Button>}
+                        onClick={async () => {
+                          setVehicleBusy(true);
+                          try {
+                            const { apiClient } =
+                              await import('@/modules/shared/api/client');
+                            const result = await apiClient.post<{
+                              created: string[];
+                              skipped: string[];
+                            }>('/reference-data/vehicle/models/bulk-save', {
+                              make_id: vehicleMakeId,
+                              models: bulkModels,
+                            });
+                            setBulkModels('');
+                            setModelPreview(null);
+                            await queryClient.invalidateQueries({
+                              queryKey: referenceDataKeys.all,
+                            });
+                            toast.success(
+                              `Added ${result.data.created.length} models. Skipped: ${result.data.skipped.join(', ') || 'none'}`,
+                            );
+                          } finally {
+                            setVehicleBusy(false);
+                          }
+                        }}
+                      >
+                        Save valid models
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
-              {vehicleMakeId && <DataTable
-                {...modelListTable.tableProps}
-                columns={[
-                  { key: 'name', header: 'Model', sortable: true, cell: (row) => row.name },
-                  { key: 'is_active', header: 'Status', sortable: true, cell: (row) => <StatusBadge active={row.is_active} /> },
-                ]}
-                rowActions={[
-                  { label: 'Edit', icon: Pencil, hidden: !canUpdateVehicleRefs, onClick: (row) => openVehicleForm(row, 'model') },
-                  { label: 'Activate', icon: Power, hidden: (row) => !canUpdateVehicleRefs || row.is_active, onClick: (row) => setVehicleStatusTarget({ ...row, kind: 'models' }) },
-                  { label: 'Deactivate', icon: Power, hidden: (row) => !canUpdateVehicleRefs || !row.is_active, onClick: (row) => setVehicleStatusTarget({ ...row, kind: 'models' }) },
-                  { label: 'Delete', icon: Trash2, hidden: !canDeleteVehicleRefs, destructive: true, separator: true, onClick: (row) => setVehicleDeleteTarget({ ...row, kind: 'models' }) },
-                ]}
-                searchPlaceholder="Search models�"
-                emptyMessage="No models found for this make"
-                filters={tableFilters(modelListTable.state.filters, [{ key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS }])}
-              />}
+              {vehicleMakeId && (
+                <DataTable
+                  {...modelListTable.tableProps}
+                  columns={[
+                    {
+                      key: 'name',
+                      header: 'Model',
+                      sortable: true,
+                      cell: (row) => row.name,
+                    },
+                    {
+                      key: 'is_active',
+                      header: 'Status',
+                      sortable: true,
+                      cell: (row) => <StatusBadge active={row.is_active} />,
+                    },
+                  ]}
+                  rowActions={[
+                    {
+                      label: 'Edit',
+                      icon: Pencil,
+                      hidden: !canUpdateVehicleRefs,
+                      onClick: (row) => openVehicleForm(row, 'model'),
+                    },
+                    {
+                      label: 'Activate',
+                      icon: Power,
+                      hidden: (row) => !canUpdateVehicleRefs || row.is_active,
+                      onClick: (row) =>
+                        setVehicleStatusTarget({ ...row, kind: 'models' }),
+                    },
+                    {
+                      label: 'Deactivate',
+                      icon: Power,
+                      hidden: (row) => !canUpdateVehicleRefs || !row.is_active,
+                      onClick: (row) =>
+                        setVehicleStatusTarget({ ...row, kind: 'models' }),
+                    },
+                    {
+                      label: 'Delete',
+                      icon: Trash2,
+                      hidden: !canDeleteVehicleRefs,
+                      destructive: true,
+                      separator: true,
+                      onClick: (row) =>
+                        setVehicleDeleteTarget({ ...row, kind: 'models' }),
+                    },
+                  ]}
+                  searchPlaceholder="Search models�"
+                  emptyMessage="No models found for this make"
+                  filters={tableFilters(modelListTable.state.filters, [
+                    {
+                      key: 'is_active',
+                      label: 'Status',
+                      options: ACTIVE_OPTIONS,
+                    },
+                  ])}
+                />
+              )}
             </>
           )}
           <DataTable
-            {...(vehicleKind === 'makes' ? makeListTable.tableProps : vehicleListTable.tableProps)}
+            {...(vehicleKind === 'makes'
+              ? makeListTable.tableProps
+              : vehicleListTable.tableProps)}
             columns={[
-              { key: 'name', header: vehicleKind === 'makes' ? 'Make' : 'Name', sortable: true, cell: (row) => row.name },
-              { key: 'is_active', header: 'Status', sortable: true, cell: (row) => <StatusBadge active={row.is_active} /> },
+              {
+                key: 'name',
+                header: vehicleKind === 'makes' ? 'Make' : 'Name',
+                sortable: true,
+                cell: (row) => row.name,
+              },
+              {
+                key: 'is_active',
+                header: 'Status',
+                sortable: true,
+                cell: (row) => <StatusBadge active={row.is_active} />,
+              },
             ]}
             rowActions={[
-              { label: 'Edit', icon: Pencil, hidden: !canUpdateVehicleRefs, onClick: (row) => openVehicleForm(row, vehicleKind === 'makes' ? 'make' : 'attribute') },
-              { label: 'Activate', icon: Power, hidden: (row) => !canUpdateVehicleRefs || row.is_active, onClick: (row) => setVehicleStatusTarget({ ...row, kind: vehicleKind }) },
-              { label: 'Deactivate', icon: Power, hidden: (row) => !canUpdateVehicleRefs || !row.is_active, onClick: (row) => setVehicleStatusTarget({ ...row, kind: vehicleKind }) },
-              { label: 'Delete', icon: Trash2, hidden: !canDeleteVehicleRefs, destructive: true, separator: true, onClick: (row) => setVehicleDeleteTarget({ ...row, kind: vehicleKind }) },
+              {
+                label: 'Edit',
+                icon: Pencil,
+                hidden: !canUpdateVehicleRefs,
+                onClick: (row) =>
+                  openVehicleForm(
+                    row,
+                    vehicleKind === 'makes' ? 'make' : 'attribute',
+                  ),
+              },
+              {
+                label: 'Activate',
+                icon: Power,
+                hidden: (row) => !canUpdateVehicleRefs || row.is_active,
+                onClick: (row) =>
+                  setVehicleStatusTarget({ ...row, kind: vehicleKind }),
+              },
+              {
+                label: 'Deactivate',
+                icon: Power,
+                hidden: (row) => !canUpdateVehicleRefs || !row.is_active,
+                onClick: (row) =>
+                  setVehicleStatusTarget({ ...row, kind: vehicleKind }),
+              },
+              {
+                label: 'Delete',
+                icon: Trash2,
+                hidden: !canDeleteVehicleRefs,
+                destructive: true,
+                separator: true,
+                onClick: (row) =>
+                  setVehicleDeleteTarget({ ...row, kind: vehicleKind }),
+              },
             ]}
             searchPlaceholder="Search records..."
             emptyMessage="No vehicle reference data yet"
-            filters={tableFilters(vehicleKind === 'makes' ? makeListTable.state.filters : vehicleListTable.state.filters, [{ key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS }])}
-            toolbarActions={canCreateVehicleRefs ? <Button disabled={vehicleBusy} onClick={() => openVehicleForm()}><Plus className="mr-2 h-4 w-4" />Add {vehicleKind === 'makes' ? 'make' : vehicleKind.replace('_', ' ')}</Button> : undefined}
+            filters={tableFilters(
+              vehicleKind === 'makes'
+                ? makeListTable.state.filters
+                : vehicleListTable.state.filters,
+              [{ key: 'is_active', label: 'Status', options: ACTIVE_OPTIONS }],
+            )}
+            toolbarActions={
+              canCreateVehicleRefs ? (
+                <Button
+                  disabled={vehicleBusy}
+                  onClick={() => openVehicleForm()}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add{' '}
+                  {vehicleKind === 'makes'
+                    ? 'make'
+                    : vehicleKind.replace('_', ' ')}
+                </Button>
+              ) : undefined
+            }
           />
         </div>
       ) : (
@@ -904,15 +1073,22 @@ export function ReferenceDataPage() {
         title="Delete vehicle reference"
         description={`Delete “${vehicleDeleteTarget?.name ?? ''}”? Records that are already in use cannot be deleted.`}
         confirmLabel="Delete"
-        onConfirm={() => vehicleDeleteTarget && void deleteVehicleReference(vehicleDeleteTarget)}
+        onConfirm={() =>
+          vehicleDeleteTarget &&
+          void deleteVehicleReference(vehicleDeleteTarget)
+        }
       />
       <ConfirmDialog
         open={!!vehicleStatusTarget}
         onOpenChange={(open) => !open && setVehicleStatusTarget(null)}
         title={`${vehicleStatusTarget?.is_active ? 'Deactivate' : 'Activate'} vehicle reference`}
         description={`${vehicleStatusTarget?.is_active ? 'Deactivate' : 'Activate'} “${vehicleStatusTarget?.name ?? ''}”?`}
-        confirmLabel={vehicleStatusTarget?.is_active ? 'Deactivate' : 'Activate'}
-        onConfirm={() => vehicleStatusTarget && void mutateVehicleStatus(vehicleStatusTarget)}
+        confirmLabel={
+          vehicleStatusTarget?.is_active ? 'Deactivate' : 'Activate'
+        }
+        onConfirm={() =>
+          vehicleStatusTarget && void mutateVehicleStatus(vehicleStatusTarget)
+        }
       />
     </div>
   );

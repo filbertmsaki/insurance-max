@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { referenceDataApi } from './api';
+import { useVehicleReferenceSource } from './vehicleReferenceSource';
 import type { ReferenceKind, ReferenceListParams } from './types';
 
 export const referenceDataKeys = {
@@ -21,14 +22,15 @@ export function useVehicleReference(
   params?: ReferenceListParams & { make_id?: string },
   enabled = true,
 ) {
+  const source = useVehicleReferenceSource();
   return useQuery({
-    queryKey: [...referenceDataKeys.all, 'vehicle', kind, params ?? {}],
+    queryKey: [...referenceDataKeys.all, 'vehicle', source, kind, params ?? {}],
     queryFn: () =>
       kind === 'makes'
-        ? referenceDataApi.vehicleMakes(params)
+        ? referenceDataApi.vehicleMakes(params, source)
         : kind === 'models'
-          ? referenceDataApi.vehicleModels(params)
-          : referenceDataApi.vehicleAttributes(kind, params),
+          ? referenceDataApi.vehicleModels(params, source)
+          : referenceDataApi.vehicleAttributes(kind, params, source),
     enabled,
     staleTime: 5 * 60_000,
   });

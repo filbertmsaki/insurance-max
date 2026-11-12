@@ -84,7 +84,9 @@ describe('public catalogue and purchase', () => {
         total_amount_payable: 123900,
       },
     };
-    vi.mocked(apiClient.get).mockResolvedValue({ data: options });
+    vi.mocked(apiClient.get).mockImplementation(async (url) => ({
+      data: url.includes('/reference-data/') ? [] : options,
+    }));
     vi.mocked(apiClient.post).mockImplementation(async (url) => ({
       data: url.endsWith('/verify')
         ? { status: 'NO_ACTIVE_COVER', vehicle }
