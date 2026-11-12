@@ -15,8 +15,13 @@ import {
 } from '@/components/ui/command';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { authApi } from '@/modules/shared/auth/api/auth';
-import { canAccessRoute, isStandardCompanyUser } from '@/lib/auth/permissions';
-import { NAV_NODES, type NavLeaf, type NavGroup } from './nav-config';
+import { canAccessRoute } from '@/lib/auth/permissions';
+import {
+  NAV_NODES,
+  isNavGroupHidden,
+  type NavLeaf,
+  type NavGroup,
+} from './nav-config';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -48,7 +53,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   }
 
   function getVisibleLeaves(group: NavGroup): NavLeaf[] {
-    if (group.hideForStandardUser && isStandardCompanyUser(user)) return [];
+    if (isNavGroupHidden(group, user)) return [];
 
     return group.children.filter(isLeafVisible);
   }

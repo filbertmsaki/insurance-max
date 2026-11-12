@@ -12,6 +12,27 @@ import {
 } from '@insurance-max/contracts';
 
 describe('full module role permissions', () => {
+  it('includes the short-term role permissions in the full underwriter role', () => {
+    const underwriter = expandSeedRolePermissions('UNDERWRITER', [
+      ...FULL_MODULE_ROLE_PERMISSIONS.UNDERWRITER,
+    ]);
+    const shortTerm = expandSeedRolePermissions('SHORT_TERM_UNDERWRITER', [
+      ...FULL_MODULE_ROLE_PERMISSIONS.SHORT_TERM_UNDERWRITER,
+    ]);
+    expect(underwriter).toEqual(expect.arrayContaining(shortTerm));
+  });
+  it.each(['SHORT_TERM_UNDERWRITER', 'UNDERWRITER'] as const)(
+    'grants motor vehicle lookup to %s',
+    (role) => {
+      expect(expandSeedRolePermissions(role, [...FULL_MODULE_ROLE_PERMISSIONS[role]])).toContain('motor:read');
+    },
+  );
+  it.each(['SHORT_TERM_UNDERWRITER', 'UNDERWRITER'] as const)(
+    'grants motor verification submission to %s',
+    (role) => {
+      expect(expandSeedRolePermissions(role, [...FULL_MODULE_ROLE_PERMISSIONS[role]])).toContain('verifications:motor:submit');
+    },
+  );
   it.each(['SHORT_TERM_UNDERWRITER', 'UNDERWRITER'] as const)(
     'grants TIRAMIS submission, retry and sync to %s',
     (role) => {

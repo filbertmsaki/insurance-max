@@ -4,7 +4,7 @@ import { ChevronRight, ShieldCheck, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { APP_NAME } from '@/modules/shared/config';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import { canAccessRoute, isStandardCompanyUser } from '@/lib/auth/permissions';
+import { canAccessRoute } from '@/lib/auth/permissions';
 import {
   Tooltip,
   TooltipContent,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
   NAV_NODES,
+  isNavGroupHidden,
   type NavLeaf,
   type NavGroup,
   type NavNode,
@@ -36,7 +37,7 @@ function useNavFilter() {
   }
 
   function visibleChildren(group: NavGroup): NavLeaf[] {
-    if (group.hideForStandardUser && isStandardCompanyUser(user)) return [];
+    if (isNavGroupHidden(group, user)) return [];
 
     return group.children.filter(isLeafVisible);
   }

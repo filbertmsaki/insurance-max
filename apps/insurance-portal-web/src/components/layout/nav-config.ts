@@ -45,6 +45,8 @@ import {
 import { buildClaimsNavNodes } from '@/modules/tenant/claims/nav';
 import { buildUnderwriteNavNodes } from '@/modules/tenant/underwrite/nav';
 import { buildMotorInsuranceNavNodes } from '@/modules/tenant/motor-insurance/nav';
+import type { AuthUser } from '@/types';
+import { isStandardCompanyUser } from '@/lib/auth/permissions';
 
 export interface NavLeaf {
   kind: 'link';
@@ -69,9 +71,27 @@ export interface NavGroup {
   icon: ComponentType<{ className?: string }>;
   children: NavLeaf[];
   hideForStandardUser?: boolean;
+  hideForRoles?: string[];
 }
 
 export type NavNode = NavLeaf | NavGroup;
+
+export function isNavGroupHidden(
+  group: NavGroup,
+  user: AuthUser | null,
+): boolean {
+  if (group.hideForStandardUser && isStandardCompanyUser(user)) return true;
+  const roles = user?.roles ?? [];
+  const isAdmin = roles.some(
+    (role) =>
+      ['OWNER', 'SUPER_ADMIN', 'ADMINISTRATOR'].includes(role) ||
+      role.endsWith('_ADMIN'),
+  );
+  return (
+    !isAdmin &&
+    (group.hideForRoles?.some((role) => roles.includes(role)) ?? false)
+  );
+}
 
 export const NAV_NODES: NavNode[] = [
   {
@@ -248,6 +268,7 @@ export const NAV_NODES: NavNode[] = [
     section: 'Insurance',
     label: 'Product Engine',
     icon: Package,
+    hideForRoles: ['UNDERWRITER', 'SHORT_TERM_UNDERWRITER'],
     children: [
       {
         kind: 'link',
