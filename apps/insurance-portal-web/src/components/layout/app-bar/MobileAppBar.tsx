@@ -23,6 +23,7 @@ export function MobileAppBar({
   user,
   fallbackTitle,
   unreadCount = 0,
+  canReadNotifications = true,
   drawerOpen,
   onMenu,
   scrolled = false,
@@ -36,6 +37,7 @@ export function MobileAppBar({
   /** Title for pages that set none (from the breadcrumb). */
   fallbackTitle?: string;
   unreadCount?: number;
+  canReadNotifications?: boolean;
   drawerOpen: boolean;
   onMenu: () => void;
   /** Adds a subtle shadow once the page has scrolled. */
@@ -59,7 +61,8 @@ export function MobileAppBar({
   const inner = variant === 'inner';
   const title = config ? config.title : fallbackTitle;
   const showSearch = config?.showSearch ?? !inner;
-  const showNotifications = config?.showNotifications ?? !inner;
+  const showNotifications =
+    canReadNotifications && (config?.showNotifications ?? !inner);
   const showAccount = config?.showAccount ?? !inner;
 
   return (

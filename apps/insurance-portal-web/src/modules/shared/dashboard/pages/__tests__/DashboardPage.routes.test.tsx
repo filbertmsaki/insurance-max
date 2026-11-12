@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -312,6 +312,24 @@ describe('DashboardPage route tabs', () => {
       user: null,
       authorizationContext: null,
     });
+  });
+
+  it('does not request restricted dashboard sections on load or refresh', async () => {
+    useAuthStore.setState((state) => ({
+      user: state.user ? { ...state.user, roles: [], permissions: [] } : null,
+    }));
+    dashboardMocks.getCapabilities.mockResolvedValue(createCapabilities({
+      overview: false, sales: false, policies: false, finance: false,
+      commissions: false, tiramis: false, tasks: false, reinsurance: false,
+    }));
+
+    renderDashboard('/apps/dashboard/sales');
+
+    expect(await screen.findByText('Dashboard access is restricted')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(dashboardMocks.getCapabilities).toHaveBeenCalledTimes(2));
+    expect(dashboardMocks.getOverview).not.toHaveBeenCalled();
+    expect(dashboardMocks.getSection).not.toHaveBeenCalled();
   });
 
   it('loads the sales dashboard section for /dashboard/sales', async () => {

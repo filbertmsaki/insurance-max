@@ -1,7 +1,71 @@
 import {
+  FULL_MODULE_ROLE_PERMISSIONS,
+  expandSeedRolePermissions,
+  unseededFullModulePermissions,
   withCustomerAuditPermission,
   withPricingPermissionAliases,
 } from './001-initial-rbac.seed';
+import {
+  ClaimsPermissions,
+  UNDERWRITE_COVER_PERMISSION_NAMES,
+  UNDERWRITE_PERMISSION_NAMES,
+} from '@insurance-max/contracts';
+
+describe('full module role permissions', () => {
+  it.each(['SHORT_TERM_UNDERWRITER', 'UNDERWRITER'] as const)(
+    'grants TIRAMIS submission, retry and sync to %s',
+    (role) => {
+      expect(expandSeedRolePermissions(role, [...FULL_MODULE_ROLE_PERMISSIONS[role]])).toEqual(
+        expect.arrayContaining(['tiramis.submit', 'tiramis.retry', 'tiramis.sync']),
+      );
+    },
+  );
+  it('grants both short-term covers without expanding to whole-line permissions', () => {
+    const permissions = expandSeedRolePermissions('SHORT_TERM_UNDERWRITER', [
+      ...FULL_MODULE_ROLE_PERMISSIONS.SHORT_TERM_UNDERWRITER,
+    ]);
+    expect(permissions).toEqual(
+      expect.arrayContaining(UNDERWRITE_COVER_PERMISSION_NAMES),
+    );
+    expect(permissions).toEqual(
+      expect.arrayContaining([
+        'quotations:read',
+        'quotations:create',
+        'quotations:approve',
+        'policies:read',
+      ]),
+    );
+    expect(
+      permissions.filter((name) =>
+        /^underwrite\.(motor|fleet|non_motor)\./.test(name),
+      ),
+    ).toEqual([]);
+  });
+  it('references permissions supplied by the seeder', () => {
+    expect(unseededFullModulePermissions()).toEqual([]);
+  });
+  it('includes every claims workflow permission without underwriting grants', () => {
+    expect(FULL_MODULE_ROLE_PERMISSIONS.CLAIMS).toEqual(
+      expect.arrayContaining(Object.values(ClaimsPermissions)),
+    );
+    expect(
+      FULL_MODULE_ROLE_PERMISSIONS.CLAIMS.some((name) =>
+        name.startsWith('underwrite.'),
+      ),
+    ).toBe(false);
+  });
+
+  it('includes every underwriting line gate without claims permissions', () => {
+    expect(FULL_MODULE_ROLE_PERMISSIONS.UNDERWRITER).toEqual(
+      expect.arrayContaining(UNDERWRITE_PERMISSION_NAMES),
+    );
+    expect(
+      FULL_MODULE_ROLE_PERMISSIONS.UNDERWRITER.some((name) =>
+        name.startsWith('claims:'),
+      ),
+    ).toBe(false);
+  });
+});
 
 describe('customer audit permission assignments', () => {
   it.each([

@@ -3500,6 +3500,100 @@ const PER_USER_ONLY_PERMISSION_NAMES = new Set([
   'quotations:direct-approve',
 ]);
 
+// These roles grant the full module workflow, including approval authority.
+export const FULL_MODULE_ROLE_PERMISSIONS = {
+  UNDERWRITER: permissionSeeds
+    .map((permission) => permission.name)
+    .filter((name) =>
+      [
+        'underwrite.',
+        'quotations:',
+        'quotation-approvals:',
+        'quotation-requirements:',
+        'policies:',
+        'policy-transactions:',
+        'renewals:',
+        'endorsements:',
+        'cancellations:',
+        'cover-notes:',
+        'pricing.',
+        'premium-calculation:',
+      ].some((prefix) => name.startsWith(prefix)),
+    )
+    .concat([
+      'insurance-products:read',
+      'insurance-categories:read',
+      'insurance-sub-classes:read',
+      'insurance-risks:read',
+      'product-definitions:read',
+      'product-definitions:use',
+      'customers:read',
+      'customers:create',
+      'customers:update',
+      'insured-assets:read',
+      'insured-assets:create',
+      'insured-assets:update',
+      'documents:register',
+      'documents:upload',
+      'tiramis.submit',
+      'tiramis.validate',
+      'tiramis.tracking.view',
+      'tiramis.retry',
+      'tiramis.sync',
+      'tiramis-submissions:read',
+      'tiramis-submissions:create',
+    ]),
+  CLAIMS: [
+    ...CLAIMS_ADMIN_PERMISSION_NAMES,
+    'policies:read',
+    'customers:read',
+    'documents:upload',
+    'reports:definition-read',
+    'reports:run',
+    'reports:job-read',
+    'reports:download',
+  ],
+  SHORT_TERM_UNDERWRITER: [
+    ...UNDERWRITE_COVER_PERMISSION_DEFINITIONS.map((item) => item.name),
+    'underwrite.dashboard.view',
+    'quotations:read',
+    'quotations:create',
+    'quotations:update',
+    'quotations:delete-draft',
+    'quotations:submit-approval',
+    'quotations:request-payment',
+    'quotations:submit-tiramis',
+    'quotations:approve',
+    'quotations:retry-tiramis',
+    'tiramis.submit',
+    'tiramis.retry',
+    'tiramis.sync',
+    'policies:read',
+    'premium-calculation:calculate',
+    'insurance-products:read',
+    'insurance-categories:read',
+    'insurance-sub-classes:read',
+    'insurance-risks:read',
+    'product-definitions:read',
+    'product-definitions:use',
+    'customers:read',
+    'customers:create',
+    'customers:update',
+    'insured-assets:read',
+    'insured-assets:create',
+    'insured-assets:update',
+    'documents:register',
+    'documents:upload',
+  ],
+} as const;
+
+export function unseededFullModulePermissions(): string[] {
+  const seeded = new Set(permissionSeeds.map((permission) => permission.name));
+  return [
+    ...new Set(Object.values(FULL_MODULE_ROLE_PERMISSIONS).flat()),
+  ].filter((name) => !seeded.has(name));
+}
+
 const FULL_COMPANY_PERMISSION_ROLE_NAMES = new Set([
   'ADMINISTRATOR',
   'INSURANCE_ADMIN',
@@ -3609,6 +3703,28 @@ export function withCustomerAuditPermission(
 }
 
 const roleSeeds: RoleSeed[] = [
+  {
+    name: 'UNDERWRITER',
+    displayName: 'Underwriter - Full Access',
+    description: 'Full underwriting workflow access across all lines',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: [...FULL_MODULE_ROLE_PERMISSIONS.UNDERWRITER],
+  },
+  {
+    name: 'CLAIMS',
+    displayName: 'Claims - Full Access',
+    description:
+      'Full claims workflow access including approvals and configuration',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: [...FULL_MODULE_ROLE_PERMISSIONS.CLAIMS],
+  },
+  {
+    name: 'SHORT_TERM_UNDERWRITER',
+    displayName: 'Short-Term Underwriter',
+    description: 'Underwrites short-term single and fleet covers',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: [...FULL_MODULE_ROLE_PERMISSIONS.SHORT_TERM_UNDERWRITER],
+  },
   {
     name: 'OWNER',
     displayName: 'Platform Owner',
@@ -4387,30 +4503,6 @@ const roleSeeds: RoleSeed[] = [
       'product-distribution:read',
     ],
   },
-  {
-    name: 'UNDERWRITER',
-    displayName: 'Underwriter',
-    description: 'Uses approved product definitions to quote and bind risk',
-    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
-    permissionNames: [
-      'insurance-products:read',
-      'insurance-categories:read',
-      'insurance-sub-classes:read',
-      'insurance-risks:read',
-      'product-definitions:read',
-      'product-definitions:use',
-      'quotations:read',
-      'quotations:create',
-      'quotations:update',
-      'quotations:submit',
-      'customers:read',
-      'customers:create',
-      'customers:update',
-      'insured-assets:read',
-      'insured-assets:create',
-      'insured-assets:update',
-    ],
-  },
 ];
 
 export function withPricingPermissionAliases(
@@ -4498,6 +4590,28 @@ export function withPricingPermissionAliases(
   }
 
   return [...expanded];
+}
+
+export function expandSeedRolePermissions(
+  name: string,
+  permissions: string[],
+): string[] {
+  const moduleOnlyRole = [
+    'UNDERWRITER',
+    'CLAIMS',
+    'SHORT_TERM_UNDERWRITER',
+  ].includes(name);
+  const expanded = withPricingPermissionAliases([
+    ...withCustomerAuditPermission(name, permissions),
+    ...(moduleOnlyRole ? [] : RISK_REQUIRED_FACTOR_PERMISSION_NAMES),
+  ]);
+  return [
+    ...new Set(
+      ['CLAIMS', 'SHORT_TERM_UNDERWRITER'].includes(name)
+        ? expanded
+        : withUnderwritePermissionAliases(expanded),
+    ),
+  ].filter((permission) => !PER_USER_ONLY_PERMISSION_NAMES.has(permission));
 }
 
 export default class InitialRbacSeeder implements Seeder {
@@ -4849,19 +4963,10 @@ export default class InitialRbacSeeder implements Seeder {
             ? [...basePermissionNames, 'users:manage-data-scope']
             : basePermissionNames;
 
-        const permissionNames = [
-          ...new Set(
-            withUnderwritePermissionAliases(
-              withPricingPermissionAliases([
-                ...withCustomerAuditPermission(
-                  definition.name,
-                  sourcePermissionNames,
-                ),
-                ...RISK_REQUIRED_FACTOR_PERMISSION_NAMES,
-              ]),
-            ),
-          ),
-        ].filter((name) => !PER_USER_ONLY_PERMISSION_NAMES.has(name));
+        const permissionNames = expandSeedRolePermissions(
+          definition.name,
+          sourcePermissionNames,
+        );
 
         role.permissions = permissionNames.map((permissionName) => {
           const permission = permissionsByName.get(permissionName);

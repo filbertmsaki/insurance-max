@@ -60,16 +60,24 @@ export function Header({
   mobileTitle,
 }: HeaderProps) {
   const navigate = useNavigate();
-  const { user, profile, refreshToken, logout } = useAuthStore();
+  const { user, profile, refreshToken, logout, hasPermission } = useAuthStore();
   const isFullscreen = useFullscreen();
   const queryClient = useQueryClient();
   const isCompanyScoped = user?.scope === 'company';
+  const canReadNotifications =
+    isCompanyScoped && hasPermission('notifications:read');
 
   const notificationsSummaryQuery = useQuery({
-    queryKey: ['engagement', 'notifications', 'summary'],
+    queryKey: [
+      'engagement',
+      'notifications',
+      'summary',
+      user?.id,
+      user?.companyId,
+    ],
     queryFn: engagementApi.getNotificationUnreadSummary,
     staleTime: 30_000,
-    enabled: isCompanyScoped,
+    enabled: canReadNotifications,
   });
 
   const markNotificationReadMutation = useMutation({
@@ -185,97 +193,99 @@ export function Header({
           )}
         </button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Notifications"
-              className={cn(headerIconClass, 'relative')}
-            >
-              <Bell className="h-[21px] w-[21px]" />
-              {mobileTitle &&
-              (notificationsSummaryQuery.data?.count ?? 0) > 0 ? (
-                <span
-                  aria-hidden
-                  className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-white md:hidden"
-                />
-              ) : null}
-              {(notificationsSummaryQuery.data?.count ?? 0) > 0 ? (
-                <span
-                  className={cn(
-                    mobileTitle && 'max-md:hidden',
-                    'absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white',
-                  )}
-                >
-                  {Math.min(notificationsSummaryQuery.data?.count ?? 0, 99)}
-                </span>
-              ) : null}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="w-80 overflow-hidden p-0"
-            sideOffset={14}
-          >
-            <div className="flex items-center justify-between bg-blue-600 px-4 py-3.5 text-white">
-              <div>
-                <p className="text-[15px] font-semibold">Notifications</p>
-                <p className="text-[11px] text-white/70">
-                  {notificationsSummaryQuery.data?.count ?? 0} unread
-                </p>
-              </div>
+        {canReadNotifications && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                onClick={() => navigate(notificationsPath)}
-                className="rounded bg-white/15 px-2 py-1 text-[11px] font-medium hover:bg-white/25"
+                aria-label="Notifications"
+                className={cn(headerIconClass, 'relative')}
               >
-                View all
+                <Bell className="h-[21px] w-[21px]" />
+                {mobileTitle &&
+                (notificationsSummaryQuery.data?.count ?? 0) > 0 ? (
+                  <span
+                    aria-hidden
+                    className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-red-600 ring-2 ring-white md:hidden"
+                  />
+                ) : null}
+                {(notificationsSummaryQuery.data?.count ?? 0) > 0 ? (
+                  <span
+                    className={cn(
+                      mobileTitle && 'max-md:hidden',
+                      'absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white',
+                    )}
+                  >
+                    {Math.min(notificationsSummaryQuery.data?.count ?? 0, 99)}
+                  </span>
+                ) : null}
               </button>
-            </div>
-            <div className="max-h-80 overflow-y-auto p-1">
-              {(notificationsSummaryQuery.data?.latest ?? []).map((item) => (
-                <DropdownMenuItem
-                  key={item.id}
-                  onClick={() => {
-                    markNotificationReadMutation.mutate(item.id);
-                    const link = safeInternalLink(item.deep_link);
-                    if (link) {
-                      navigate(link);
-                    } else {
-                      navigate(notificationsPath);
-                    }
-                  }}
-                  className="flex items-start gap-3 py-3"
-                >
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                    <Bell className="h-4 w-4" />
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="flex w-full items-center justify-between gap-3">
-                      <span className="truncate text-[13px] font-semibold text-slate-800">
-                        {item.title}
-                      </span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {item.priority}
-                      </Badge>
-                    </span>
-                    <span className="line-clamp-2 text-xs text-slate-500">
-                      {item.message}
-                    </span>
-                    <span className="text-[10px] uppercase tracking-wide text-slate-400">
-                      {formatDateTime(item.created_at)}
-                    </span>
-                  </span>
-                </DropdownMenuItem>
-              ))}
-              {!(notificationsSummaryQuery.data?.latest ?? []).length ? (
-                <div className="px-3 py-8 text-center text-sm text-slate-500">
-                  You&apos;re all caught up.
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-80 overflow-hidden p-0"
+              sideOffset={14}
+            >
+              <div className="flex items-center justify-between bg-blue-600 px-4 py-3.5 text-white">
+                <div>
+                  <p className="text-[15px] font-semibold">Notifications</p>
+                  <p className="text-[11px] text-white/70">
+                    {notificationsSummaryQuery.data?.count ?? 0} unread
+                  </p>
                 </div>
-              ) : null}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <button
+                  type="button"
+                  onClick={() => navigate(notificationsPath)}
+                  className="rounded bg-white/15 px-2 py-1 text-[11px] font-medium hover:bg-white/25"
+                >
+                  View all
+                </button>
+              </div>
+              <div className="max-h-80 overflow-y-auto p-1">
+                {(notificationsSummaryQuery.data?.latest ?? []).map((item) => (
+                  <DropdownMenuItem
+                    key={item.id}
+                    onClick={() => {
+                      markNotificationReadMutation.mutate(item.id);
+                      const link = safeInternalLink(item.deep_link);
+                      if (link) {
+                        navigate(link);
+                      } else {
+                        navigate(notificationsPath);
+                      }
+                    }}
+                    className="flex items-start gap-3 py-3"
+                  >
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                      <Bell className="h-4 w-4" />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="flex w-full items-center justify-between gap-3">
+                        <span className="truncate text-[13px] font-semibold text-slate-800">
+                          {item.title}
+                        </span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {item.priority}
+                        </Badge>
+                      </span>
+                      <span className="line-clamp-2 text-xs text-slate-500">
+                        {item.message}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wide text-slate-400">
+                        {formatDateTime(item.created_at)}
+                      </span>
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+                {!(notificationsSummaryQuery.data?.latest ?? []).length ? (
+                  <div className="px-3 py-8 text-center text-sm text-slate-500">
+                    You&apos;re all caught up.
+                  </div>
+                ) : null}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* User menu — Velzon's shaded profile block */}
         <DropdownMenu>

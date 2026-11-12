@@ -27,9 +27,8 @@ export class RiskRatingRulesController {
   constructor(private readonly service: RiskRatingRulesService) {}
 
   @Get()
-  @Permissions('pricing.manage_rules')
   @ApiOperation({
-    summary: 'List all rating rules (filter by risk_id, rate_type, is_active)',
+    summary: 'List tenant rating rules for authenticated company users',
   })
   async findAll(
     @CurrentUser() user: AuthenticatedUser,

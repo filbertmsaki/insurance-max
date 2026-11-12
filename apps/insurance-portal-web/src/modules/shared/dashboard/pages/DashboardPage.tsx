@@ -234,7 +234,7 @@ function buildTabList(capabilities?: DashboardCapabilitiesResponse) {
   if (sections.reinsurance)
     tabs.push({ id: 'reinsurance', label: 'Reinsurance' });
 
-  return tabs.length ? tabs : [{ id: 'overview' as const, label: 'Overview' }];
+  return tabs;
 }
 
 function BreakdownCard({
@@ -1966,7 +1966,7 @@ export function DashboardPage() {
   const overviewQuery = useQuery({
     queryKey: ['tenant-dashboard', 'overview', filters],
     queryFn: () => dashboardApi.getOverview(filters),
-    enabled: !isPlatformAccount,
+    enabled: !isPlatformAccount && capabilitiesQuery.data?.sections.overview === true,
   });
   const executiveQuery = useQuery({
     queryKey: ['tenant-dashboard', 'executive', filters],
@@ -2010,7 +2010,8 @@ export function DashboardPage() {
         resolvedActiveTab as Exclude<DashboardSectionId, 'overview'>,
         filters,
       ),
-    enabled: !isPlatformAccount && resolvedActiveTab !== 'overview',
+    enabled: !isPlatformAccount && resolvedActiveTab !== 'overview' &&
+      capabilities?.sections[resolvedActiveTab] === true,
   });
 
   const executiveWidgets = executiveQuery.data?.widgets ?? [];
@@ -2044,8 +2045,10 @@ export function DashboardPage() {
     executiveQuery.isFetching;
   const refreshDashboard = () => {
     void capabilitiesQuery.refetch();
-    void overviewQuery.refetch();
-    if (resolvedActiveTab !== 'overview') {
+    if (capabilities?.sections.overview) {
+      void overviewQuery.refetch();
+    }
+    if (resolvedActiveTab !== 'overview' && capabilities?.sections[resolvedActiveTab]) {
       void sectionQuery.refetch();
     }
     if (canViewExecutive) {
@@ -2254,13 +2257,20 @@ export function DashboardPage() {
               </div>
 
               <div className="p-4 sm:p-5">
-                <TabsContent value="overview" className="mt-0">
+                {capabilities && availableTabs.length === 0 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Dashboard access is restricted</AlertTitle>
+                    <AlertDescription>Contact your administrator to request dashboard access.</AlertDescription>
+                  </Alert>
+                )}
+                {capabilities?.sections.overview && <TabsContent value="overview" className="mt-0">
                   <OverviewContent
                     data={overviewQuery.data}
                     isLoading={overviewQuery.isLoading}
                     error={overviewQuery.error}
                   />
-                </TabsContent>
+                </TabsContent>}
 
                 {availableTabs
                   .filter((tab) => tab.id !== 'overview')

@@ -50,7 +50,6 @@ export class ProductDistributionController {
   @Get('channels')
   @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
-  @Permissions('product-distribution:read')
   @ApiOperation({
     summary: 'List distribution channels for the insurer company',
   })

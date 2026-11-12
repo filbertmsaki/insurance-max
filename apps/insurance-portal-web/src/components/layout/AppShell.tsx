@@ -30,12 +30,20 @@ export function AppShell() {
     /\/(quotations|claims)\/(new|[^/]+\/edit)\/?$/.test(location.pathname) ||
     /^\/apps\/users\/new\/?$/.test(location.pathname);
   const [scrolled, setScrolled] = useState(false);
-  const { user, profile } = useAuthStore();
+  const { user, profile, hasPermission } = useAuthStore();
+  const canReadNotifications =
+    user?.scope === 'company' && hasPermission('notifications:read');
   const unread = useQuery({
-    queryKey: ['engagement', 'notifications', 'summary'],
+    queryKey: [
+      'engagement',
+      'notifications',
+      'summary',
+      user?.id,
+      user?.companyId,
+    ],
     queryFn: engagementApi.getNotificationUnreadSummary,
     staleTime: 30_000,
-    enabled: user?.scope === 'company',
+    enabled: canReadNotifications,
   });
   const appBarUser = {
     name:
@@ -156,6 +164,7 @@ export function AppShell() {
                 user={appBarUser}
                 fallbackTitle={titleFor(crumbs)}
                 unreadCount={unread.data?.count ?? 0}
+                canReadNotifications={canReadNotifications}
                 drawerOpen={mobileOpen}
                 onMenu={() => setMobileOpen(true)}
                 scrolled={scrolled}
