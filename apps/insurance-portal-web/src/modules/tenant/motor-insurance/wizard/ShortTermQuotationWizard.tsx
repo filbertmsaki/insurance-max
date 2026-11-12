@@ -34,6 +34,7 @@ import {
 } from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
 import {
   SHORT_TERM_COVER,
+  SHORT_TERM_VEHICLE_DEFAULTS,
   shortTermExpiry,
   type ShortTermMode,
 } from '../shortTerm';
@@ -252,14 +253,12 @@ function useShortTermPresets(
     )
       return;
     vehicleDefaultsApplied.current = true;
-    form.setValue('motor.motor_type_code', '2');
-    form.setValue('motor.motor_category_code', '1');
-    form.setValue('motor.motor_usage_code', '1');
-    form.setValue('motor.fuel_type', 'Petrol');
-    form.setValue('motor.seating_capacity', '5');
-    form.setValue('motor.number_of_axles', '2');
-    form.setValue('motor.tare_weight', '500');
-    form.setValue('motor.gross_weight', '1250');
+    for (const [key, value] of Object.entries(SHORT_TERM_VEHICLE_DEFAULTS)) {
+      form.setValue(
+        `motor.${key as keyof typeof SHORT_TERM_VEHICLE_DEFAULTS}`,
+        value,
+      );
+    }
   }, [companyId, form, isHydrating, mode, wizard.isEditMode]);
 
   const product = productOptions.find(
@@ -567,6 +566,7 @@ function ShortTermSingle({
               <MotorVehicleSection
                 form={form}
                 compactOnMobile
+                vehicleDefaults={SHORT_TERM_VEHICLE_DEFAULTS}
                 customer={
                   wizard.customerOptions.find(
                     (customer) => customer.id === customerId,

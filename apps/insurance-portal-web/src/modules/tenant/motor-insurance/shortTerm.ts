@@ -12,6 +12,22 @@ export { SHORT_TERM_COVER };
 export type ShortTermMode = 'single' | 'fleet';
 
 /**
+ * Vehicle values a new Short-Term vehicle starts with (single-vehicle form
+ * keys). In transit, motor vehicle, private, petrol, 5 seats, 2 axles; the
+ * user can change any of them.
+ */
+export const SHORT_TERM_VEHICLE_DEFAULTS = {
+  motor_type_code: '2',
+  motor_category_code: '1',
+  motor_usage_code: '1',
+  fuel_type: 'Petrol',
+  seating_capacity: '5',
+  number_of_axles: '2',
+  tare_weight: '500',
+  gross_weight: '1250',
+} as const;
+
+/**
  * Expiry = start + 30 calendar days − 1 day, ending 23:59:59 — the same
  * inclusive-end convention the other cover periods use.
  */

@@ -128,12 +128,15 @@ export function MotorVehicleSection({
   customer,
   compactOnMobile = false,
   verifyMotor = verificationsApi.motor,
+  vehicleDefaults,
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
   /** The selected existing customer, used for owner defaults. */
   customer?: CustomerRecord | null;
   compactOnMobile?: boolean;
   verifyMotor?: (data: MotorVerificationRequest) => Promise<VerificationResult>;
+  /** Values a manually entered or cleared vehicle starts with (e.g. Short-Term). */
+  vehicleDefaults?: Partial<QuotationFormSchemaValues['motor']>;
 }) {
   const queryClient = useQueryClient();
   const motor = useWatch({ control: form.control, name: 'motor' });
@@ -302,6 +305,7 @@ export function MotorVehicleSection({
     fill(
       {
         ...createEmptyMotorDetails(),
+        ...vehicleDefaults,
         ...(value
           ? value.length > MAX_REGISTRATION_LENGTH
             ? { chassis_no: value }
@@ -320,7 +324,11 @@ export function MotorVehicleSection({
   }
 
   function changeVehicle() {
-    form.setValue('motor', createEmptyMotorDetails(), { shouldDirty: true });
+    form.setValue(
+      'motor',
+      { ...createEmptyMotorDetails(), ...vehicleDefaults },
+      { shouldDirty: true },
+    );
     form.setValue('motor_mode', 'new');
     appliedOwnerDefaults.current = null;
     setSource(null);

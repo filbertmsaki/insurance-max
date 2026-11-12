@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { useForm } from 'react-hook-form';
+import { useForm, type UseFormReturn } from 'react-hook-form';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnderwriteLine } from '@insurance-max/contracts';
@@ -8,6 +8,7 @@ import { motorApi } from '@/modules/tenant/motor/api';
 import type { MotorVehicleRecord } from '@/modules/tenant/motor/types';
 import type { QuotationFormSchemaValues } from '@/modules/tenant/quotations/schemas';
 import { verificationsApi } from '@/modules/tenant/verifications/api';
+import { SHORT_TERM_VEHICLE_DEFAULTS } from '@/modules/tenant/motor-insurance/shortTerm';
 import { getUnderwriteLineMeta } from '../lines';
 import {
   LEGACY_MOTOR_STEP_MAP,
@@ -108,7 +109,12 @@ const registerVehicle = {
   metadata: null,
 } as unknown as MotorVehicleRecord;
 
-function renderSection(customerId = 'customer-new') {
+let lastForm: UseFormReturn<QuotationFormSchemaValues> | null = null;
+
+function renderSection(
+  customerId = 'customer-new',
+  vehicleDefaults?: Partial<QuotationFormSchemaValues['motor']>,
+) {
   function Harness() {
     const form = useForm<QuotationFormSchemaValues>({
       defaultValues: {
@@ -116,10 +122,11 @@ function renderSection(customerId = 'customer-new') {
         customer_id: customerId,
       },
     });
+    lastForm = form;
     return (
       <Form {...form}>
         <form>
-          <MotorVehicleSection form={form} />
+          <MotorVehicleSection form={form} vehicleDefaults={vehicleDefaults} />
         </form>
       </Form>
     );
@@ -254,6 +261,35 @@ describe('MotorVehicleSection', () => {
       expect(
         screen.getByRole('combobox', { name: 'Model' }),
       ).toBeInTheDocument(),
+    );
+  });
+
+  it('starts a manually entered Short-Term vehicle with the Short-Term defaults', async () => {
+    vi.mocked(motorApi.searchVehicles).mockResolvedValue({
+      data: [],
+      pagination: {
+        page: 1,
+        limit: 20,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    });
+    renderSection('customer-new', SHORT_TERM_VEHICLE_DEFAULTS);
+
+    await search('T123ABC');
+    fireEvent.click(
+      await screen.findByRole('option', {
+        name: /Enter vehicle details manually/,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(lastForm?.getValues('motor')).toMatchObject({
+        ...SHORT_TERM_VEHICLE_DEFAULTS,
+        registration_no: 'T123ABC',
+      }),
     );
   });
 });
