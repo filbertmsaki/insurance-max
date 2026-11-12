@@ -6,7 +6,6 @@ import {
 } from '@/modules/tenant/quotations/wizard/steps/MotorFleetDetailsStep';
 import type { UnderwriteQuotationWizard } from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
 import { useFleetVehicleActions } from '../FleetQuotationWizard';
-import { MobileVehicleForm } from './MobileVehicleForm';
 import { StatusBadge } from './MobileUi';
 
 /** Vehicles that count towards the fleet (the untouched starter row does not). */
@@ -38,9 +37,6 @@ export function MobileFleetVehicles({
 }) {
   const { form } = wizard;
   const actions = useFleetVehicleActions(wizard);
-  const customerId = form.watch('customer_id');
-  const customer =
-    wizard.customerOptions.find((item) => item.id === customerId) ?? null;
 
   return (
     <MotorFleetDetailsStep
@@ -57,9 +53,6 @@ export function MobileFleetVehicles({
       factorContext={wizard.factorContext}
       hideVehicleLookup={hideVehicleLookup}
       shortTermVehicleDefaults={hideVehicleLookup}
-      renderVehicleDetails={(index) => (
-        <MobileVehicleForm form={form} fleetIndex={index} customer={customer} shortTerm={hideVehicleLookup} />
-      )}
       mobileList={({ rows, openNewVehicle, openVehicle, duplicateVehicle, removeVehicle }) => (
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">

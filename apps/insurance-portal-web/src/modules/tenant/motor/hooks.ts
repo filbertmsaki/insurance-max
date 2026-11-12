@@ -8,11 +8,13 @@ import { motorApi } from './api';
 import {
   buildMotorFleetPayload,
   buildMotorPolicyDetailPayload,
-  buildMotorVehiclePayload,
   type MotorFleetFormValues,
   type MotorPolicyDetailFormValues,
-  type MotorVehicleFormValues,
 } from './schemas';
+import {
+  buildVehicleRegisterPayload,
+  type VehicleRegisterFormValues,
+} from './vehicleRegisterForm';
 import type {
   MotorFleetRecord,
   MotorPolicyDetailRecord,
@@ -107,8 +109,8 @@ export function useMotorVehicleInsuranceHistory(id?: string) {
 export function useCreateMotorVehicle() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorVehicleFormValues) =>
-      motorApi.createVehicle(buildMotorVehiclePayload(values)),
+    mutationFn: (values: VehicleRegisterFormValues) =>
+      motorApi.createVehicle(buildVehicleRegisterPayload(values)),
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: motorKeys.vehicles() });
       qc.setQueryData(motorKeys.vehicle(created.id), created);
@@ -121,8 +123,8 @@ export function useCreateMotorVehicle() {
 export function useUpdateMotorVehicle(id?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorVehicleFormValues) =>
-      motorApi.updateVehicle(id!, buildMotorVehiclePayload(values)),
+    mutationFn: (values: VehicleRegisterFormValues) =>
+      motorApi.updateVehicle(id!, buildVehicleRegisterPayload(values)),
     onSuccess: (updated) => {
       qc.invalidateQueries({ queryKey: motorKeys.vehicles() });
       if (id) qc.setQueryData(motorKeys.vehicle(id), updated);

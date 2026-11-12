@@ -16,7 +16,9 @@ import {
   type MobileStepView,
 } from './MobileQuotationShell';
 import { MobileReviewStep } from './MobileReviewStep';
-import { isMotorComplete, MobileVehicleForm } from './MobileVehicleForm';
+import { MotorVehicleSection } from '@/modules/tenant/underwrite/motor/MotorVehicleSection';
+import { missingMotorFieldKeys } from '@/modules/tenant/quotations/wizard/utils/motorVehicleSelection';
+import { SHORT_TERM_VEHICLE_DEFAULTS } from '../../shortTerm';
 
 /**
  * The phone flow for every Motor quotation type: Cover & policyholder →
@@ -59,7 +61,7 @@ export function MobileMotorQuotation({
   const isFleet = mode === 'fleet';
   const fleet = fleetVehicleState(wizard);
   const singleComplete =
-    !isFleet && values.motor ? isMotorComplete(form.getValues('motor')) : false;
+    !isFleet && values.motor ? missingMotorFieldKeys(form.getValues('motor')).length === 0 : false;
   const pricingIssues = quotationPricingIssues(form.getValues());
   const customerId = values.customer_id;
   const customer =
@@ -124,7 +126,14 @@ export function MobileMotorQuotation({
           return isFleet ? (
             <MobileFleetVehicles wizard={wizard} hideVehicleLookup={shortTerm} />
           ) : (
-            <MobileVehicleForm form={form} customer={customer} shortTerm={shortTerm} />
+            <MotorVehicleSection
+              form={form}
+              customer={customer}
+              compactOnMobile
+              vehicleDefaults={
+                shortTerm ? SHORT_TERM_VEHICLE_DEFAULTS : undefined
+              }
+            />
           );
         }
         if (stepId === reviewId) {

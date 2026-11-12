@@ -1,4 +1,4 @@
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,25 +18,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  motorVehicleFormSchema,
-  type MotorVehicleFormValues,
-} from '../schemas';
+import type { QuotationFormSchemaValues } from '@/modules/tenant/quotations/schemas';
+import { VehicleDetailsFields } from '@/modules/tenant/quotations/wizard/components/VehicleDetailsFields';
 import type { MotorCustomerOption } from '../types';
 import {
-  VehicleReferencePicker,
-  type VehicleReferenceKind,
-} from '@/components/shared/VehicleReferencePicker';
-import { useVehicleReference } from '@/modules/platform/reference-data/hooks';
+  emptyVehicleRegisterValues,
+  vehicleRegisterFormSchema,
+  type VehicleRegisterFormValues,
+} from '../vehicleRegisterForm';
 
 interface Props {
   customerOptions: MotorCustomerOption[];
   isPending: boolean;
   submitLabel: string;
-  onSubmit: (values: MotorVehicleFormValues) => void;
-  defaultValues?: Partial<MotorVehicleFormValues>;
+  onSubmit: (values: VehicleRegisterFormValues) => void;
+  defaultValues?: VehicleRegisterFormValues;
 }
 
+/**
+ * Register create/edit form. The vehicle fields are the same flat grid and
+ * rules the quotation wizards use (VehicleDetailsFields); only the owner
+ * customer, value, currency and status are register-specific.
+ */
 export function MotorVehicleForm({
   customerOptions,
   isPending,
@@ -44,67 +47,28 @@ export function MotorVehicleForm({
   onSubmit,
   defaultValues,
 }: Props) {
-  const form = useForm<MotorVehicleFormValues>({
-    resolver: zodResolver(motorVehicleFormSchema),
-    defaultValues: {
-      customer_id: '',
-      motor_type: 1,
-      registration_no: '',
-      chassis_no: '',
-      engine_no: '',
-      make: '',
-      model: '',
-      body_type: '',
-      color: '',
-      manufacture_year: '',
-      usage_type: '',
-      vehicle_category: '',
-      seating_capacity: '',
-      tonnage: '',
-      cubic_capacity: '',
-      fuel_type: '',
-      vehicle_value: '',
-      currency: 'TZS',
-      status: 'ACTIVE',
-      ...defaultValues,
-    },
+  const form = useForm<VehicleRegisterFormValues>({
+    resolver: zodResolver(vehicleRegisterFormSchema),
+    defaultValues: defaultValues ?? emptyVehicleRegisterValues(),
   });
-  const motorType = useWatch({ control: form.control, name: 'motor_type' });
-  const makeValue = useWatch({ control: form.control, name: 'make' });
-  const makeQuery = useVehicleReference(
-    'makes',
-    { search: String(makeValue ?? '') || undefined, is_active: true },
-    Boolean(makeValue),
-  );
-  const selectedMake = makeQuery.data?.find(
-    (item) =>
-      item.name.toLowerCase() ===
-      String(makeValue ?? '')
-        .trim()
-        .toLowerCase(),
-  );
-  const referenceKinds: Record<string, VehicleReferenceKind> = {
-    make: 'makes',
-    model: 'models',
-    body_type: 'body_type',
-    color: 'colour',
-    fuel_type: 'fuel_type',
-  };
+  // The shared fields only read and write `motor.*`, which this form has.
+  const vehicleForm =
+    form as unknown as UseFormReturn<QuotationFormSchemaValues>;
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Vehicle Identity</CardTitle>
+            <CardTitle className="text-base">Owner</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <FormField
               control={form.control}
               name="customer_id"
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
-                  <FormLabel>Customer</FormLabel>
+                <FormItem className="sm:col-span-2 lg:col-span-3">
+                  <FormLabel required>Customer</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
@@ -128,116 +92,36 @@ export function MotorVehicleForm({
                 </FormItem>
               )}
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Vehicle details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <VehicleDetailsFields form={vehicleForm} title={null} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Value & status</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <FormField
               control={form.control}
-              name="motor_type"
+              name="motor.vehicle_value"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel required>Motor Type</FormLabel>
-                  <Select
-                    value={String(field.value ?? '')}
-                    onValueChange={(value) => field.onChange(Number(value))}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="1">Registered</SelectItem>
-                      <SelectItem value="2">In transit</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="registration_no"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel required={motorType !== 2}>
-                    Registration No.
-                  </FormLabel>
+                  <FormLabel>Vehicle value</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value ?? ''} />
+                    <Input type="number" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            {[
-              ['chassis_no', 'Chassis No.'],
-              ['engine_no', 'Engine No.'],
-              ['make', 'Make'],
-              ['model', 'Model'],
-              ['body_type', 'Body Type'],
-              ['color', 'Color'],
-              ['usage_type', 'Usage Type'],
-              ['vehicle_category', 'Vehicle Category'],
-              ['fuel_type', 'Fuel Type'],
-            ].map(([name, label]) => (
-              <FormField
-                key={name}
-                control={form.control}
-                name={name as keyof MotorVehicleFormValues}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel required={name === 'model'}>{label}</FormLabel>
-                    <FormControl>
-                      {referenceKinds[name] ? (
-                        <VehicleReferencePicker
-                          kind={referenceKinds[name]}
-                          value={String(field.value ?? '')}
-                          makeId={selectedMake?.id}
-                          placeholder={`Select ${label.toLowerCase()}`}
-                          searchPlaceholder={`Search ${label.toLowerCase()}`}
-                          disabled={name === 'model' && !selectedMake}
-                          onValueChange={(value) => {
-                            field.onChange(value);
-                            if (name === 'make')
-                              form.setValue('model', '', {
-                                shouldDirty: true,
-                                shouldValidate: true,
-                              });
-                          }}
-                        />
-                      ) : (
-                        <Input {...field} value={field.value ?? ''} />
-                      )}
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ))}
-            {[
-              ['manufacture_year', 'Manufacture Year'],
-              ['seating_capacity', 'Seating Capacity'],
-              ['tonnage', 'Tonnage'],
-              ['cubic_capacity', 'Cubic Capacity'],
-              ['vehicle_value', 'Vehicle Value'],
-            ].map(([name, label]) => (
-              <FormField
-                key={name}
-                control={form.control}
-                name={name as keyof MotorVehicleFormValues}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{label}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        value={field.value ?? ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ))}
             <FormField
               control={form.control}
               name="currency"

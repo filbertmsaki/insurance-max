@@ -13,14 +13,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
@@ -38,6 +30,7 @@ import {
   type QuotationFormSchemaValues,
 } from '@/modules/tenant/quotations/schemas';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
+import { VehicleFormDialog } from '@/modules/tenant/quotations/wizard/components/VehicleFormDialog';
 import { VehicleDetailsFields } from '@/modules/tenant/quotations/wizard/components/VehicleDetailsFields';
 import { VehicleSearchField } from '@/modules/tenant/quotations/wizard/components/VehicleSearchField';
 import { mergeVerifiedMotor } from '@/modules/tenant/quotations/wizard/utils/motorFields';
@@ -660,31 +653,23 @@ export function MotorVehicleSection({
           )}
         </div>
       )}
-      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-        <DialogContent className="max-w-5xl">
-          <DialogHeader>
-            <DialogTitle>
-              {source === 'manual'
-                ? 'Enter vehicle details'
-                : 'Edit vehicle details'}
-            </DialogTitle>
-            <DialogDescription>
-              Registration, chassis and specifications of the insured vehicle.
-            </DialogDescription>
-          </DialogHeader>
-          <VehicleDetailsFields
-            key={revision}
-            form={form}
-            title={null}
-            showErrorMessages={source !== 'manual' || vehicleDetailsSubmitted}
-          />
-          <DialogFooter>
-            <Button type="button" onClick={() => void finishVehicleDetails()}>
-              Done
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VehicleFormDialog
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        title={
+          source === 'manual' ? 'Enter vehicle details' : 'Edit vehicle details'
+        }
+        description="Registration, chassis and specifications of the insured vehicle."
+        primaryLabel="Done"
+        onPrimary={() => void finishVehicleDetails()}
+      >
+        <VehicleDetailsFields
+          key={revision}
+          form={form}
+          title={null}
+          showErrorMessages={source !== 'manual' || vehicleDetailsSubmitted}
+        />
+      </VehicleFormDialog>
     </StepSection>
   );
 }

@@ -6,8 +6,6 @@ import type {
   MotorPolicyDetailRecord,
   MotorQuotationDetailPayload,
   MotorQuotationDetailRecord,
-  MotorVehiclePayload,
-  MotorVehicleRecord,
 } from './types';
 
 const optionalText = z.string().trim().max(255).optional().or(z.literal(''));
@@ -15,52 +13,6 @@ const optionalNumber = z
   .union([z.number(), z.string()])
   .optional()
   .or(z.literal(''));
-
-export const motorVehicleSchema = z.object({
-  customer_id: z.string().min(1, 'Customer is required'),
-  motor_type: z.union([z.literal(1), z.literal(2)]),
-  registration_no: optionalText,
-  chassis_no: optionalText,
-  engine_no: optionalText,
-  make: optionalText,
-  model: optionalText,
-  body_type: optionalText,
-  color: optionalText,
-  manufacture_year: z
-    .union([z.number(), z.string()])
-    .optional()
-    .or(z.literal('')),
-  usage_type: optionalText,
-  vehicle_category: optionalText,
-  seating_capacity: z
-    .union([z.number(), z.string()])
-    .optional()
-    .or(z.literal('')),
-  tonnage: optionalNumber,
-  cubic_capacity: z
-    .union([z.number(), z.string()])
-    .optional()
-    .or(z.literal('')),
-  fuel_type: optionalText,
-  vehicle_value: z.union([z.number(), z.string()]).optional().or(z.literal('')),
-  currency: z.string().trim().max(10).optional().or(z.literal('')),
-  status: z.string().trim().max(20).optional().or(z.literal('')),
-});
-
-export const motorVehicleFormSchema = motorVehicleSchema.superRefine(
-  (values, ctx) => {
-    if (!values.model?.trim()) {
-      ctx.addIssue({ code: 'custom', path: ['model'], message: 'Model is required' });
-    }
-    if (values.motor_type !== 2 && !values.registration_no?.trim()) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['registration_no'],
-        message: 'Registration number is required for registered vehicles',
-      });
-    }
-  },
-);
 
 export const motorFleetSchema = z.object({
   customer_id: z.string().min(1, 'Customer is required'),
@@ -101,7 +53,6 @@ export const motorPolicyDetailSchema = z.object({
   sticker_no: optionalText,
 });
 
-export type MotorVehicleFormValues = z.infer<typeof motorVehicleSchema>;
 export type MotorFleetFormValues = z.infer<typeof motorFleetSchema>;
 export type MotorQuotationDetailFormValues = z.infer<
   typeof motorQuotationDetailSchema
@@ -120,31 +71,6 @@ function normalizeNumber(value: unknown) {
   if (value === '' || value === null || value === undefined) return undefined;
   const num = Number(value);
   return Number.isFinite(num) ? num : undefined;
-}
-
-export function motorVehicleRecordToFormValues(
-  record: Partial<MotorVehicleRecord>,
-): Partial<MotorVehicleFormValues> {
-  return {
-    customer_id: record.customer_id ?? '',
-    registration_no: record.registration_no ?? '',
-    chassis_no: record.chassis_no ?? '',
-    engine_no: record.engine_no ?? '',
-    make: record.make ?? '',
-    model: record.model ?? '',
-    body_type: record.body_type ?? '',
-    color: record.color ?? '',
-    manufacture_year: record.manufacture_year ?? '',
-    usage_type: record.usage_type ?? '',
-    vehicle_category: record.vehicle_category ?? '',
-    seating_capacity: record.seating_capacity ?? '',
-    tonnage: record.tonnage ?? '',
-    cubic_capacity: record.cubic_capacity ?? '',
-    fuel_type: record.fuel_type ?? '',
-    vehicle_value: record.vehicle_value ?? '',
-    currency: record.currency ?? 'TZS',
-    status: record.status ?? 'ACTIVE',
-  };
 }
 
 export function motorFleetRecordToFormValues(
@@ -192,32 +118,6 @@ export function motorPolicyDetailRecordToFormValues(
     usage_type: record.usage_type ?? '',
     certificate_no: record.certificate_no ?? '',
     sticker_no: record.sticker_no ?? '',
-  };
-}
-
-export function buildMotorVehiclePayload(
-  values: MotorVehicleFormValues,
-): MotorVehiclePayload {
-  return {
-    customer_id: values.customer_id,
-    motor_type: normalizeNumber(values.motor_type),
-    registration_no: normalizeText(values.registration_no),
-    chassis_no: normalizeText(values.chassis_no),
-    engine_no: normalizeText(values.engine_no),
-    make: normalizeText(values.make),
-    model: normalizeText(values.model),
-    body_type: normalizeText(values.body_type),
-    color: normalizeText(values.color),
-    manufacture_year: normalizeNumber(values.manufacture_year),
-    usage_type: normalizeText(values.usage_type),
-    vehicle_category: normalizeText(values.vehicle_category),
-    seating_capacity: normalizeNumber(values.seating_capacity),
-    tonnage: normalizeNumber(values.tonnage),
-    cubic_capacity: normalizeNumber(values.cubic_capacity),
-    fuel_type: normalizeText(values.fuel_type),
-    vehicle_value: normalizeNumber(values.vehicle_value) ?? 0,
-    currency: normalizeText(values.currency)?.toUpperCase() ?? 'TZS',
-    status: normalizeText(values.status)?.toUpperCase() ?? 'ACTIVE',
   };
 }
 

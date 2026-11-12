@@ -9,7 +9,7 @@ import {
   useUpdateMotorVehicle,
 } from '../hooks';
 import { MotorVehicleForm } from '../components/MotorVehicleForm';
-import { motorVehicleRecordToFormValues } from '../schemas';
+import { vehicleRecordToRegisterValues } from '../vehicleRegisterForm';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 
 export function MotorVehicleEditPage() {
@@ -67,7 +67,7 @@ export function MotorVehicleEditPage() {
         customerOptions={customerOptions}
         isPending={updateMutation.isPending}
         submitLabel="Save Changes"
-        defaultValues={motorVehicleRecordToFormValues(vehicle)}
+        defaultValues={vehicleRecordToRegisterValues(vehicle)}
         onSubmit={(values) =>
           updateMutation.mutate(values, {
             onSuccess: () =>

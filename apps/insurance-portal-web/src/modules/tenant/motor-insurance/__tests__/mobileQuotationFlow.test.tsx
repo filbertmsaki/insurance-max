@@ -1,17 +1,14 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { appBarStore } from '@/components/layout/app-bar/appBarStore';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { describe, expect, it, vi } from 'vitest';
 import { UnderwriteLine } from '@insurance-max/contracts';
-import { Form } from '@/components/ui/form';
 import type { QuotationFormSchemaValues } from '@/modules/tenant/quotations/schemas';
 import { getUnderwriteLineMeta } from '@/modules/tenant/underwrite/lines';
 import { defaultValuesForLine } from '@/modules/tenant/underwrite/wizard/defaults';
 import type { UnderwriteQuotationWizard } from '@/modules/tenant/underwrite/wizard/useUnderwriteQuotationWizard';
 import { MOTOR_WIZARD_STEPS } from '../wizard/SingleMotorQuotationWizard';
 import { MobileQuotationShell } from '../wizard/mobile/MobileQuotationShell';
-import { MobileVehicleForm } from '../wizard/mobile/MobileVehicleForm';
 import {
   FLEET_TO_MOBILE,
   MOBILE_FLEET_STEPS,
@@ -199,67 +196,3 @@ describe('MobileQuotationShell', () => {
   });
 });
 
-function renderVehicleForm() {
-  function Harness() {
-    const form = useForm<QuotationFormSchemaValues>({
-      defaultValues: defaultValuesForLine(
-        getUnderwriteLineMeta(UnderwriteLine.MOTOR),
-      ),
-    });
-    return (
-      <Form {...form}>
-        <form>
-          <MobileVehicleForm form={form} />
-        </form>
-      </Form>
-    );
-  }
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <Harness />
-    </QueryClientProvider>,
-  );
-}
-
-describe('MobileVehicleForm', () => {
-  it('shows the registration number only for registered vehicles', () => {
-    renderVehicleForm();
-    const motorType = screen.getByRole('radiogroup', { name: 'Motor type' });
-
-    fireEvent.click(
-      within(motorType).getByRole('radio', { name: 'Registered' }),
-    );
-    expect(screen.getByText('Registration number')).toBeInTheDocument();
-    expect(screen.getByText('Chassis number')).toBeInTheDocument();
-
-    fireEvent.click(
-      within(motorType).getByRole('radio', { name: 'Unregistered' }),
-    );
-    expect(screen.queryByText('Registration number')).not.toBeInTheDocument();
-    expect(screen.getByText('Chassis number')).toBeInTheDocument();
-  });
-
-  it('groups details in collapsible cards with a status', () => {
-    renderVehicleForm();
-    const engine = screen.getByRole('button', { name: /Engine & capacity/ });
-    expect(engine).toHaveAttribute('aria-expanded', 'false');
-    expect(within(engine).getByText('Details needed')).toBeInTheDocument();
-    fireEvent.click(engine);
-    expect(engine).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('treats the policyholder as the owner by default', () => {
-    renderVehicleForm();
-    fireEvent.click(screen.getByRole('button', { name: /^Owner/ }));
-    const toggle = screen.getByRole('switch', {
-      name: 'Owner is the policyholder',
-    });
-    expect(toggle).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByText('Owner address')).toBeInTheDocument();
-  });
-});
