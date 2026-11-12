@@ -1931,7 +1931,7 @@ export function MotorFleetDetailsStep({
     form.setValue(`${prefix}.motor_type`, '2');
     form.setValue(`${prefix}.motor_category`, '1');
     form.setValue(`${prefix}.motor_usage`, '1');
-    form.setValue(`${prefix}.fuel_used`, 'PETROL');
+    form.setValue(`${prefix}.fuel_used`, 'Petrol');
     form.setValue(`${prefix}.sitting_capacity`, '5');
     form.setValue(`${prefix}.number_of_axles`, '2');
     form.setValue(`${prefix}.tare_weight`, '500');

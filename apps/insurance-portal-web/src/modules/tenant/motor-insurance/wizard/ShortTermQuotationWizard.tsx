@@ -255,7 +255,7 @@ function useShortTermPresets(
     form.setValue('motor.motor_type_code', '2');
     form.setValue('motor.motor_category_code', '1');
     form.setValue('motor.motor_usage_code', '1');
-    form.setValue('motor.fuel_type', 'PETROL');
+    form.setValue('motor.fuel_type', 'Petrol');
     form.setValue('motor.seating_capacity', '5');
     form.setValue('motor.number_of_axles', '2');
     form.setValue('motor.tare_weight', '500');

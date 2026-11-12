@@ -135,11 +135,7 @@ export function VehicleDetailsFields({
         }}
         required={
           !definition.optional &&
-          !(
-            (definition.key === 'registration_no' ||
-              definition.key === 'fuel_type') &&
-            String(motorType) === '2'
-          )
+          !(definition.key === 'registration_no' && String(motorType) === '2')
         }
         uppercase={!MIXED_CASE_FIELDS.has(definition.key)}
       />

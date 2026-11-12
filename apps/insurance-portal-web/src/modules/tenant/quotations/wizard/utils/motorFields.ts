@@ -84,7 +84,8 @@ export const motorFields: ReadonlyArray<{
     fleetKey: 'engine_capacity',
     label: 'Engine capacity (cc)',
   },
-  { key: 'fuel_type', fleetKey: 'fuel_used', label: 'Fuel' },
+  // Optional: trailers and other vehicles may use no fuel.
+  { key: 'fuel_type', fleetKey: 'fuel_used', label: 'Fuel', optional: true },
   {
     key: 'number_of_axles',
     fleetKey: 'number_of_axles',
@@ -128,13 +129,10 @@ export function motorFieldError(
   motor: Partial<Motor>,
 ): string | null {
   const definition = motorFields.find((field) => field.key === key);
-  // In-transit vehicles may be trailers, which have no registration yet and
-  // use no fuel.
-  const isOptionalInTransit =
-    (key === 'registration_no' || key === 'fuel_type') &&
-    motor.motor_type_code === '2';
+  const isRegistrationOptional =
+    key === 'registration_no' && motor.motor_type_code === '2';
   if (!value?.trim())
-    return definition?.optional || isOptionalInTransit
+    return definition?.optional || isRegistrationOptional
       ? null
       : `Enter ${definition?.label.toLowerCase() ?? key}.`;
   if (
