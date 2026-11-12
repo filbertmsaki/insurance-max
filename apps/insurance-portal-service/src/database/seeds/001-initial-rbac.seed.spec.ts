@@ -5,6 +5,7 @@ import {
   withCustomerAuditPermission,
   withPricingPermissionAliases,
 } from './001-initial-rbac.seed';
+import InitialRbacSeeder from './001-initial-rbac.seed';
 import {
   ClaimsPermissions,
   UNDERWRITE_COVER_PERMISSION_NAMES,
@@ -12,6 +13,85 @@ import {
 } from '@insurance-max/contracts';
 
 describe('full module role permissions', () => {
+  it('requires an explicit password before creating a production seed account', () => {
+    const previous = process.env.APP_ENV;
+    process.env.APP_ENV = 'production';
+    try {
+      const seed = new InitialRbacSeeder();
+      expect(() =>
+        (seed as any).assertProductionSeedPassword({
+          email: 'seed@example.test',
+          passwordConfigured: false,
+        }),
+      ).toThrow();
+      expect(() =>
+        (seed as any).assertProductionSeedPassword({
+          email: 'seed@example.test',
+          passwordConfigured: true,
+        }),
+      ).not.toThrow();
+    } finally {
+      if (previous === undefined) delete process.env.APP_ENV;
+      else process.env.APP_ENV = previous;
+    }
+  });
+  it('updates existing system roles in other companies and preserves custom roles', async () => {
+    const custom = {
+      id: 'custom',
+      name: 'TEST',
+      company_id: 'default',
+      is_system_generated: false,
+      permissions: [],
+    };
+    const other = {
+      id: 'other',
+      name: 'TEST',
+      company_id: 'other-company',
+      is_system_generated: true,
+      permissions: [],
+    };
+    const repo = {
+      find: jest.fn().mockResolvedValue([other]),
+      findOne: jest.fn().mockResolvedValue(custom),
+      create: jest.fn(),
+      save: jest.fn(async (role) => role),
+      manager: { query: jest.fn().mockResolvedValue([]) },
+    };
+    const seed = new InitialRbacSeeder();
+    await (seed as any).syncRoles(
+      repo,
+      [
+        {
+          name: 'TEST',
+          displayName: 'Test',
+          description: '',
+          scopes: ['default_company'],
+          permissionNames: ['test:read'],
+        },
+      ],
+      new Map([['test:read', { id: 'permission', name: 'test:read' }]]),
+      'default',
+      'INSURANCE_COMPANY',
+    );
+    expect(repo.save).toHaveBeenCalledTimes(1);
+    expect(repo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'other',
+        permissions: [expect.objectContaining({ name: 'test:read' })],
+      }),
+    );
+    expect(custom.permissions).toEqual([]);
+    expect(repo.manager.query).toHaveBeenCalledTimes(2);
+  });
+  it.each(['VIEWER', 'USER', 'CLAIMS_OFFICER', 'CUSTOMER_PORTAL'])(
+    'does not add risk configuration writes to %s implicitly',
+    (role) => {
+      const permissions = expandSeedRolePermissions(role, []);
+      expect(permissions).not.toContain('risk-required-factors:create');
+      expect(permissions).not.toContain('risk-required-factors:update');
+      expect(permissions).not.toContain('risk-required-factors:delete');
+    },
+  );
   it('includes the short-term role permissions in the full underwriter role', () => {
     const underwriter = expandSeedRolePermissions('UNDERWRITER', [
       ...FULL_MODULE_ROLE_PERMISSIONS.UNDERWRITER,

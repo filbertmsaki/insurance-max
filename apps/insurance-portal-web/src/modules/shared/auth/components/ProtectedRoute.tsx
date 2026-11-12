@@ -3,23 +3,6 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { canAccessRoute, isStandardCompanyUser } from '@/lib/auth/permissions';
 
-const COMPANY_USER_POLICY_PERMISSIONS = [
-  'dashboard:overview',
-  'dashboard:sales',
-  'dashboard:policies',
-  'dashboard:tasks',
-  'policies:read',
-  'policy-transactions:read',
-  'endorsements:create',
-  'endorsements:update-draft',
-  'endorsements:complete',
-  'endorsements:submit-tiramis',
-  'cancellations:read',
-  'cancellations:create',
-  'cancellations:complete',
-  'cancellations:submit-tiramis',
-];
-
 interface ProtectedRouteProps {
   /** @deprecated use allPermissions */
   requiredPermission?: string;
@@ -86,16 +69,6 @@ export function ProtectedRoute({
   const roles = new Set(authorizationContext?.roles ?? user.roles ?? []);
 
   const scope = authorizationContext?.scope ?? user.scope;
-
-  if (
-    scope === 'company' &&
-    user.userType === 'COMPANY_USER' &&
-    roles.has('USER')
-  ) {
-    COMPANY_USER_POLICY_PERMISSIONS.forEach((permission) =>
-      permissions.add(permission),
-    );
-  }
 
   const mergedAllPermissions = requiredPermission
     ? [...allPermissions, requiredPermission]

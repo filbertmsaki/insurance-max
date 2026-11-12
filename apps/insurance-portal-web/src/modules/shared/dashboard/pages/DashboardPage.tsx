@@ -856,189 +856,221 @@ function OverviewContent({
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="space-y-4">
         <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-4">
-          <div className="lg:col-span-2">
-            <OperationalTargetCard
-              conversionRate={conversionRate}
-              completedQuotations={quotationKpis?.completed_quotations ?? 0}
-              eligibleQuotations={quotationKpis?.eligible_for_conversion ?? 0}
-              activePolicies={policyKpis?.active_policies ?? 0}
+          {quotationKpis && policyKpis && (
+            <div className="lg:col-span-2">
+              <OperationalTargetCard
+                conversionRate={conversionRate}
+                completedQuotations={quotationKpis?.completed_quotations ?? 0}
+                eligibleQuotations={quotationKpis?.eligible_for_conversion ?? 0}
+                activePolicies={policyKpis?.active_policies ?? 0}
+              />
+            </div>
+          )}
+          {customerKpis && (
+            <DashboardCard
+              icon={Users}
+              tone="info"
+              title="Total customers"
+              value={formatCount(
+                customerKpis?.total_customers,
+                numberFormatSettings,
+              )}
+              loading={isLoading}
+              description={`${formatCount(
+                customerKpis?.active_customers,
+                numberFormatSettings,
+              )} active`}
             />
-          </div>
-          <DashboardCard
-            icon={Users}
-            tone="info"
-            title="Total customers"
-            value={formatCount(
-              customerKpis?.total_customers,
-              numberFormatSettings,
-            )}
-            loading={isLoading}
-            description={`${formatCount(
-              customerKpis?.active_customers,
-              numberFormatSettings,
-            )} active`}
-          />
-          <DashboardCard
-            icon={Wallet}
-            tone="success"
-            title="Policy premium"
-            value={formatPrimaryMoney(
-              policyKpis?.total_premium,
-              numberFormatSettings,
-            )}
-            loading={isLoading}
-            description="Issued policy premium"
-          />
-          <DashboardCard
-            icon={BarChart3}
-            tone="warning"
-            title="Quotations"
-            value={formatCount(
-              quotationKpis?.total_quotations,
-              numberFormatSettings,
-            )}
-            loading={isLoading}
-            description={`${formatCount(
-              quotationKpis?.completed_quotations,
-              numberFormatSettings,
-            )} completed | ${formatMetricValue(
-              conversionRate,
-              '%',
-              numberFormatSettings,
-            )} conversion`}
-          />
-          <DashboardCard
-            icon={ShieldCheck}
-            tone="primary"
-            title="Active policies"
-            value={formatCount(
-              policyKpis?.active_policies,
-              numberFormatSettings,
-            )}
-            loading={isLoading}
-            description={`${formatCount(
-              policyKpis?.expiring_within_30_days,
-              numberFormatSettings,
-            )} expiring in 30 days`}
-          />
-          <DashboardCard
-            icon={Wallet}
-            tone="success"
-            title="Collected"
-            value={formatPrimaryMoney(
-              financeKpis?.collected_amount,
-              numberFormatSettings,
-            )}
-            loading={isLoading}
-            description={`${formatCount(
-              financeKpis?.open_invoices,
-              numberFormatSettings,
-            )} open invoices | ${formatCount(
-              financeKpis?.overdue_invoices,
-              numberFormatSettings,
-            )} overdue`}
-          />
-          <DashboardCard
-            icon={AlertCircle}
-            tone="danger"
-            title="Operational queue"
-            value={formatCount(openQueueItems, numberFormatSettings)}
-            loading={isLoading}
-            description={`${formatCount(
-              tiramisKpis?.failed_submissions,
-              numberFormatSettings,
-            )} failed TIRAMIS | ${formatCount(
-              tiramisKpis?.retryable_submissions,
-              numberFormatSettings,
-            )} retryable`}
-          />
+          )}
+          {policyKpis && (
+            <DashboardCard
+              icon={Wallet}
+              tone="success"
+              title="Policy premium"
+              value={formatPrimaryMoney(
+                policyKpis?.total_premium,
+                numberFormatSettings,
+              )}
+              loading={isLoading}
+              description="Issued policy premium"
+            />
+          )}
+          {quotationKpis && (
+            <DashboardCard
+              icon={BarChart3}
+              tone="warning"
+              title="Quotations"
+              value={formatCount(
+                quotationKpis?.total_quotations,
+                numberFormatSettings,
+              )}
+              loading={isLoading}
+              description={`${formatCount(
+                quotationKpis?.completed_quotations,
+                numberFormatSettings,
+              )} completed | ${formatMetricValue(
+                conversionRate,
+                '%',
+                numberFormatSettings,
+              )} conversion`}
+            />
+          )}
+          {policyKpis && (
+            <DashboardCard
+              icon={ShieldCheck}
+              tone="primary"
+              title="Active policies"
+              value={formatCount(
+                policyKpis?.active_policies,
+                numberFormatSettings,
+              )}
+              loading={isLoading}
+              description={`${formatCount(
+                policyKpis?.expiring_within_30_days,
+                numberFormatSettings,
+              )} expiring in 30 days`}
+            />
+          )}
+          {financeKpis && (
+            <DashboardCard
+              icon={Wallet}
+              tone="success"
+              title="Collected"
+              value={formatPrimaryMoney(
+                financeKpis?.collected_amount,
+                numberFormatSettings,
+              )}
+              loading={isLoading}
+              description={`${formatCount(
+                financeKpis?.open_invoices,
+                numberFormatSettings,
+              )} open invoices | ${formatCount(
+                financeKpis?.overdue_invoices,
+                numberFormatSettings,
+              )} overdue`}
+            />
+          )}
+          {data?.capabilities.sections.tasks && (
+            <DashboardCard
+              icon={AlertCircle}
+              tone="danger"
+              title="Operational queue"
+              value={formatCount(openQueueItems, numberFormatSettings)}
+              loading={isLoading}
+              description={
+                tiramisKpis
+                  ? `${formatCount(
+                      tiramisKpis?.failed_submissions,
+                      numberFormatSettings,
+                    )} failed TIRAMIS | ${formatCount(
+                      tiramisKpis?.retryable_submissions,
+                      numberFormatSettings,
+                    )} retryable`
+                  : 'Open work items'
+              }
+            />
+          )}
         </div>
 
-        <TrendCard
-          groupBy={data?.context.period.group_by}
-          title="Revenue and policy analytics"
-          rows={data?.charts.policy_trend ?? []}
-          countLabel="Policy count"
-          amountLabel="Total premium"
-          amountField="total_premium"
-        />
-
-        <div className="grid gap-4 lg:grid-cols-2">
+        {policyKpis && (
           <TrendCard
             groupBy={data?.context.period.group_by}
-            title="Quotation pipeline"
-            rows={data?.charts.quotation_trend ?? []}
-            countLabel="Quotation count"
-            amountLabel="Quoted premium"
-            amountField="quoted_premium"
+            title="Revenue and policy analytics"
+            rows={data?.charts.policy_trend ?? []}
+            countLabel="Policy count"
+            amountLabel="Total premium"
+            amountField="total_premium"
           />
+        )}
+
+        {quotationKpis && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <TrendCard
+              groupBy={data?.context.period.group_by}
+              title="Quotation pipeline"
+              rows={data?.charts.quotation_trend ?? []}
+              countLabel="Quotation count"
+              amountLabel="Quoted premium"
+              amountField="quoted_premium"
+            />
+            <BreakdownCard
+              title="Quotation statuses"
+              items={
+                data?.charts.quotation_statuses.map((item) => ({
+                  label: item.label,
+                  value: item.count,
+                })) ?? []
+              }
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        {policyKpis && (
           <BreakdownCard
-            title="Quotation statuses"
+            title="Policy portfolio"
             items={
-              data?.charts.quotation_statuses.map((item) => ({
+              data?.charts.policy_statuses.map((item) => ({
                 label: item.label,
                 value: item.count,
               })) ?? []
             }
           />
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <BreakdownCard
-          title="Policy portfolio"
-          items={
-            data?.charts.policy_statuses.map((item) => ({
-              label: item.label,
-              value: item.count,
-            })) ?? []
-          }
-        />
-        <BreakdownCard
-          title="TIRAMIS status"
-          items={
-            data?.charts.tiramis_statuses.map((item) => ({
-              label: item.label,
-              value: item.count,
-            })) ?? []
-          }
-        />
-        <ActivityCard
-          title="Work queues"
-          items={queueItems}
-          emptyLabel="No work queues waiting."
-        />
-        <ActivityCard
-          title="Recent alerts"
-          items={alertItems}
-          emptyLabel="No operational alerts."
-        />
-        <BreakdownCard
-          title="Commissions"
-          items={[
-            {
-              label: 'Pending transactions',
-              value: formatCount(
-                commissionKpis?.pending_transactions,
-                numberFormatSettings,
-              ),
-            },
-            {
-              label: 'Paid transactions',
-              value: formatCount(
-                commissionKpis?.paid_transactions,
-                numberFormatSettings,
-              ),
-            },
-            {
-              label: 'Accrued amount',
-              value: formatMoneyRows(
-                commissionKpis?.accrued_amount,
-                numberFormatSettings,
-              ),
-            },
-          ]}
-        />
+        )}
+        {tiramisKpis && (
+          <BreakdownCard
+            title="TIRAMIS status"
+            items={
+              data?.charts.tiramis_statuses.map((item) => ({
+                label: item.label,
+                value: item.count,
+              })) ?? []
+            }
+          />
+        )}
+        {data?.capabilities.sections.tasks && (
+          <>
+            <ActivityCard
+              title="Work queues"
+              items={queueItems}
+              emptyLabel="No work queues waiting."
+            />
+            <ActivityCard
+              title="Recent alerts"
+              items={alertItems}
+              emptyLabel="No operational alerts."
+            />
+          </>
+        )}
+        {commissionKpis && (
+          <BreakdownCard
+            title="Commissions"
+            items={[
+              {
+                label: 'Pending transactions',
+                value: formatCount(
+                  commissionKpis?.pending_transactions,
+                  numberFormatSettings,
+                ),
+              },
+              {
+                label: 'Paid transactions',
+                value: formatCount(
+                  commissionKpis?.paid_transactions,
+                  numberFormatSettings,
+                ),
+              },
+              {
+                label: 'Accrued amount',
+                value: formatMoneyRows(
+                  commissionKpis?.accrued_amount,
+                  numberFormatSettings,
+                ),
+              },
+            ]}
+          />
+        )}
       </div>
     </div>
   );
@@ -1918,14 +1950,26 @@ export function DashboardPage() {
   const numberFormatSettings = useActiveNumberFormatSettings();
   const navigate = useNavigate();
   const { tab: routeTabParam } = useParams<{ tab?: string }>();
-  const { user } = useAuthStore();
+  const { user, authorizationContext, hasPermission } = useAuthStore();
   const greetingName = useGreetingName();
   const isPlatformAccount = user?.scope === 'platform';
   const isNormalCompanyUser = isStandardCompanyUser(user);
   const canViewExecutive =
     !isNormalCompanyUser &&
-    (user?.permissions?.includes('dashboard:overview') ||
-      user?.permissions?.includes('dashboards:executive:read'));
+    (hasPermission('dashboard:overview') ||
+      hasPermission('dashboards:executive:read'));
+  const dashboardIdentity = JSON.stringify({
+    id: user?.id,
+    companyId: user?.companyId,
+    roles: user?.roles,
+    permissions: user?.permissions,
+    authorizationContext,
+    branch: user?.activeBranchId,
+    department: user?.activeDepartmentId,
+    assignedBranches: user?.assignedBranchIds,
+    assignedDepartments: user?.assignedDepartmentIds,
+    dataScope: user?.quotationPolicyDataScope,
+  });
   const [datePreset, setDatePreset] =
     useState<DashboardDatePreset>('this_month');
   const [appliedRange, setAppliedRange] = useState<DashboardDateRange>(() =>
@@ -1959,17 +2003,18 @@ export function DashboardPage() {
   };
 
   const capabilitiesQuery = useQuery({
-    queryKey: ['tenant-dashboard', 'capabilities'],
+    queryKey: ['tenant-dashboard', 'capabilities', dashboardIdentity],
     queryFn: dashboardApi.getCapabilities,
-    enabled: !isPlatformAccount,
+    enabled: user?.scope === 'company',
   });
   const overviewQuery = useQuery({
-    queryKey: ['tenant-dashboard', 'overview', filters],
+    queryKey: ['tenant-dashboard', 'overview', dashboardIdentity, filters],
     queryFn: () => dashboardApi.getOverview(filters),
-    enabled: !isPlatformAccount && capabilitiesQuery.data?.sections.overview === true,
+    enabled:
+      !isPlatformAccount && capabilitiesQuery.data?.sections.overview === true,
   });
   const executiveQuery = useQuery({
-    queryKey: ['tenant-dashboard', 'executive', filters],
+    queryKey: ['tenant-dashboard', 'executive', dashboardIdentity, filters],
     queryFn: analyticsApi.getExecutiveDashboard,
     enabled: !isPlatformAccount && Boolean(canViewExecutive),
   });
@@ -2004,13 +2049,21 @@ export function DashboardPage() {
   }, [availableTabs, routeTabParam, capabilities]);
 
   const sectionQuery = useQuery({
-    queryKey: ['tenant-dashboard', 'section', resolvedActiveTab, filters],
+    queryKey: [
+      'tenant-dashboard',
+      'section',
+      dashboardIdentity,
+      resolvedActiveTab,
+      filters,
+    ],
     queryFn: () =>
       dashboardApi.getSection(
         resolvedActiveTab as Exclude<DashboardSectionId, 'overview'>,
         filters,
       ),
-    enabled: !isPlatformAccount && resolvedActiveTab !== 'overview' &&
+    enabled:
+      !isPlatformAccount &&
+      resolvedActiveTab !== 'overview' &&
       capabilities?.sections[resolvedActiveTab] === true,
   });
 
@@ -2048,7 +2101,10 @@ export function DashboardPage() {
     if (capabilities?.sections.overview) {
       void overviewQuery.refetch();
     }
-    if (resolvedActiveTab !== 'overview' && capabilities?.sections[resolvedActiveTab]) {
+    if (
+      resolvedActiveTab !== 'overview' &&
+      capabilities?.sections[resolvedActiveTab]
+    ) {
       void sectionQuery.refetch();
     }
     if (canViewExecutive) {
@@ -2261,16 +2317,20 @@ export function DashboardPage() {
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Dashboard access is restricted</AlertTitle>
-                    <AlertDescription>Contact your administrator to request dashboard access.</AlertDescription>
+                    <AlertDescription>
+                      Contact your administrator to request dashboard access.
+                    </AlertDescription>
                   </Alert>
                 )}
-                {capabilities?.sections.overview && <TabsContent value="overview" className="mt-0">
-                  <OverviewContent
-                    data={overviewQuery.data}
-                    isLoading={overviewQuery.isLoading}
-                    error={overviewQuery.error}
-                  />
-                </TabsContent>}
+                {capabilities?.sections.overview && (
+                  <TabsContent value="overview" className="mt-0">
+                    <OverviewContent
+                      data={overviewQuery.data}
+                      isLoading={overviewQuery.isLoading}
+                      error={overviewQuery.error}
+                    />
+                  </TabsContent>
+                )}
 
                 {availableTabs
                   .filter((tab) => tab.id !== 'overview')

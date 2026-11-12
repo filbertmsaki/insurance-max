@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import { Repository } from 'typeorm';
 
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
+import { resolveCoverScope } from '../../../shared/authorization/underwrite-cover-scope';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PremiumLedgerEntry } from '../../regulatory-compliance/entities/premium-ledger-entry.entity';
 import { PremiumLedgerEntryStatus } from '../../regulatory-compliance/enums/regulatory.enums';
@@ -45,6 +46,30 @@ export class ExecutiveMetricsSourceService {
     periodStart: string,
     periodEnd: string,
   ): Promise<LiveMetricResult | null> {
+    // Ledger and TIRAMIS aggregates below are company-wide. Do not expose
+    // them to users whose data access is limited to a branch, department or user.
+    if (
+      [
+        'premium.gross_written',
+        'premium.commission',
+        'tiramis.success_rate',
+      ].includes(metricCode)
+    ) {
+      const scope = this.dataAccessScopeService.resolve(user);
+      const covers = resolveCoverScope(
+        new Set(user.permissions ?? []),
+      ).policyCovers;
+      const hasAllLines =
+        !covers ||
+        ['MOTOR', 'FLEET', 'NON_MOTOR'].every((line) => covers.includes(line));
+      if (
+        scope.quotationPolicyDataScope !== 'COMPANY' ||
+        scope.ownRecordsOnly ||
+        !hasAllLines
+      ) {
+        return null;
+      }
+    }
     switch (metricCode) {
       case 'policy.issued_count':
         return this.computeIssuedCount(user, periodStart, periodEnd);

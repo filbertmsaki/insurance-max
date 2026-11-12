@@ -318,18 +318,52 @@ describe('DashboardPage route tabs', () => {
     useAuthStore.setState((state) => ({
       user: state.user ? { ...state.user, roles: [], permissions: [] } : null,
     }));
-    dashboardMocks.getCapabilities.mockResolvedValue(createCapabilities({
-      overview: false, sales: false, policies: false, finance: false,
-      commissions: false, tiramis: false, tasks: false, reinsurance: false,
-    }));
+    dashboardMocks.getCapabilities.mockResolvedValue(
+      createCapabilities({
+        overview: false,
+        sales: false,
+        policies: false,
+        finance: false,
+        commissions: false,
+        tiramis: false,
+        tasks: false,
+        reinsurance: false,
+      }),
+    );
 
     renderDashboard('/apps/dashboard/sales');
 
-    expect(await screen.findByText('Dashboard access is restricted')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Dashboard access is restricted'),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    await waitFor(() => expect(dashboardMocks.getCapabilities).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(dashboardMocks.getCapabilities).toHaveBeenCalledTimes(2),
+    );
     expect(dashboardMocks.getOverview).not.toHaveBeenCalled();
     expect(dashboardMocks.getSection).not.toHaveBeenCalled();
+  });
+
+  it('hides overview metrics for sections the user cannot access', async () => {
+    const capabilities = createCapabilities({
+      finance: false,
+      commissions: false,
+      tiramis: false,
+      tasks: false,
+    });
+    const overview = createOverview(capabilities);
+    overview.kpis.finance = null;
+    overview.kpis.tiramis = null;
+    overview.kpis.commissions = null;
+    dashboardMocks.getCapabilities.mockResolvedValue(capabilities);
+    dashboardMocks.getOverview.mockResolvedValue(overview);
+    dashboardMocks.getExecutiveDashboard.mockResolvedValue({ widgets: [] });
+    renderDashboard('/apps/dashboard');
+    expect(await screen.findByText('Total customers')).toBeInTheDocument();
+    expect(screen.queryByText('Collected')).not.toBeInTheDocument();
+    expect(screen.queryByText('TIRAMIS status')).not.toBeInTheDocument();
+    expect(screen.queryByText('Work queues')).not.toBeInTheDocument();
+    expect(screen.queryByText('Commissions')).not.toBeInTheDocument();
   });
 
   it('loads the sales dashboard section for /dashboard/sales', async () => {

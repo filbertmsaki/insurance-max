@@ -1,11 +1,8 @@
 import { useCallback } from 'react';
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { ClaimsPermissions } from '@insurance-max/contracts';
 import { claimsApi } from './api';
 import type {
   ClaimDetail,
@@ -172,10 +169,14 @@ export function useClaimDocuments(id: string | undefined) {
 }
 
 export function useClaimsDashboard(params: ClaimsDashboardParams) {
+  const { user, authorizationContext, hasPermission } = useAuthStore();
   return useQuery({
-    queryKey: claimsKeys.dashboard(params),
+    queryKey: [...claimsKeys.dashboard(params), { user, authorizationContext }],
     queryFn: () => claimsApi.dashboard(params),
-    placeholderData: keepPreviousData,
+    enabled:
+      user?.scope === 'company' &&
+      (hasPermission(ClaimsPermissions.DASHBOARD) ||
+        hasPermission(ClaimsPermissions.READ)),
     staleTime: 30_000,
   });
 }

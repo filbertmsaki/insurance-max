@@ -157,12 +157,12 @@ export interface OverviewResponse {
   context: DashboardContext;
   capabilities: DashboardCapabilitiesResponse;
   kpis: {
-    quotations: SalesKpis;
-    policies: PoliciesKpis;
-    customers: CustomersKpis;
-    finance: FinanceKpis;
+    quotations: SalesKpis | null;
+    policies: PoliciesKpis | null;
+    customers: CustomersKpis | null;
+    finance: FinanceKpis | null;
     commissions: CommissionsKpis | null;
-    tiramis: TiramisKpis;
+    tiramis: TiramisKpis | null;
   };
   charts: {
     quotation_trend: Array<{

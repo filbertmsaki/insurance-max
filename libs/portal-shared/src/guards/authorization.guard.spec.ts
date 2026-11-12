@@ -36,6 +36,16 @@ const baseUser: AuthenticatedUser = {
 };
 
 describe('AuthorizationGuard', () => {
+  it('does not implicitly grant a USER role a permission it lacks', () => {
+    const guard = new AuthorizationGuard(
+      buildReflector({ permissions: ['dashboard:overview'] }),
+    );
+    expect(() =>
+      guard.canActivate(
+        buildContext({ ...baseUser, roles: ['USER'], permissions: [] }),
+      ),
+    ).toThrow();
+  });
   it('enforces an all-permissions requirement', () => {
     const reflector = buildReflector({
       permissions: ['quotations:create'],

@@ -1,6 +1,13 @@
 import { useLocation, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import type { UnderwriteLineSlug } from '@insurance-max/contracts';
+import {
+  UNDERWRITE_DASHBOARD_VIEW_PERMISSION,
+  UnderwriteAction,
+  underwriteLineEntryPermissions,
+  underwriteLineFromSlug,
+  type UnderwriteLineSlug,
+} from '@insurance-max/contracts';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { underwriteApi } from './api';
 import { getUnderwriteLineMetaBySlug, type UnderwriteLineMeta } from './lines';
 
@@ -39,17 +46,32 @@ export function underwriteSlugFromPath(pathname: string): string | undefined {
 }
 
 export function useUnderwriteOverview() {
+  const { user, authorizationContext, hasPermission } = useAuthStore();
   return useQuery({
-    queryKey: underwriteKeys.overview(),
+    queryKey: [...underwriteKeys.overview(), { user, authorizationContext }],
     queryFn: underwriteApi.getOverview,
+    enabled:
+      user?.scope === 'company' &&
+      hasPermission(UNDERWRITE_DASHBOARD_VIEW_PERMISSION),
     staleTime: 30_000,
   });
 }
 
 export function useUnderwriteLineDashboard(line: UnderwriteLineSlug) {
+  const { user, authorizationContext, hasPermission } = useAuthStore();
+  const resolvedLine = underwriteLineFromSlug(line);
   return useQuery({
-    queryKey: underwriteKeys.lineDashboard(line),
+    queryKey: [
+      ...underwriteKeys.lineDashboard(line),
+      { user, authorizationContext },
+    ],
     queryFn: () => underwriteApi.getLineDashboard(line),
+    enabled:
+      user?.scope === 'company' &&
+      !!resolvedLine &&
+      underwriteLineEntryPermissions(resolvedLine, UnderwriteAction.VIEW).some(
+        hasPermission,
+      ),
     staleTime: 30_000,
   });
 }

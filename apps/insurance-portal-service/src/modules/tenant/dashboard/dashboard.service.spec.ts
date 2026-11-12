@@ -110,6 +110,32 @@ describe('DashboardService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('omits overview metrics and avoids queries for sections without permission', async () => {
+    const sales = jest.spyOn(service as any, 'buildSales').mockResolvedValue({
+      kpis: { total_quotations: 1 },
+      charts: { trend: [], status_breakdown: [] },
+    });
+    const finance = jest.spyOn(service as any, 'buildFinance');
+    const customers = jest.spyOn(service as any, 'buildCustomers');
+    const tasks = jest.spyOn(service as any, 'buildTasks');
+    const result = await service.getOverview(
+      {
+        ...user,
+        roles: ['UNDERWRITER'],
+        permissions: ['dashboard:overview', 'dashboard:sales'],
+      },
+      { from: '2026-08-01', to: '2026-08-03' },
+    );
+    expect(sales).toHaveBeenCalled();
+    expect(finance).not.toHaveBeenCalled();
+    expect(customers).not.toHaveBeenCalled();
+    expect(tasks).not.toHaveBeenCalled();
+    expect(result.kpis.finance).toBeNull();
+    expect(result.kpis.customers).toBeNull();
+    expect(result.kpis.policies).toBeNull();
+    expect(result.work_queues).toEqual([]);
+  });
+
   it('rejects branch filters outside the allowed scope', async () => {
     dataAccessScopeService.assertRequestedBranchAllowed.mockImplementation(
       () => {

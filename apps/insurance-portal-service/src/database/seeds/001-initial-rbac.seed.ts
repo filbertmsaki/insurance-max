@@ -50,6 +50,7 @@ type SeedUserConfig = {
   email: string;
   phone: string;
   password: string;
+  passwordConfigured: boolean;
   userType: 'OWNER' | 'COMPANY_USER';
   officerTitle: string;
 };
@@ -257,6 +258,16 @@ const BASE_GENERAL_USER_PERMISSION_NAMES = [
   'notifications:manage-preferences',
   'communications:read',
   'communications:send',
+];
+
+const BASE_VIEWER_PERMISSION_NAMES = [
+  'documents:read',
+  'documents:download',
+  'document-templates:read',
+  'signatures:read',
+  'work-items:read',
+  'notifications:read',
+  'communications:read',
 ];
 
 const CLAIMS_ADMIN_PERMISSION_NAMES = [
@@ -4407,7 +4418,6 @@ const roleSeeds: RoleSeed[] = [
       'motor:read',
       'motor:create',
       'motor:update',
-      'motor:delete',
       'non-motor:read',
       'policies:read',
       'policy-transactions:read',
@@ -4421,7 +4431,6 @@ const roleSeeds: RoleSeed[] = [
       'cancellations:submit-tiramis',
       'verifications:motor:submit',
       'verifications:cover-note:submit',
-      'pricing.manage_rules',
       'quotations:read',
       'quotations:create',
       'quotations:update',
@@ -4533,7 +4542,7 @@ const roleSeeds: RoleSeed[] = [
     permissionNames: [
       'view_company_data',
       ...DASHBOARD_VIEWER_PERMISSION_NAMES,
-      ...BASE_GENERAL_USER_PERMISSION_NAMES,
+      ...BASE_VIEWER_PERMISSION_NAMES,
     ],
   },
   {
@@ -4565,6 +4574,7 @@ const roleSeeds: RoleSeed[] = [
       'Authors, reviews, publishes and retires product-definition versions; their own drafts publish without a separate review',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      ...RISK_REQUIRED_FACTOR_PERMISSION_NAMES,
       'insurance-products:read',
       'insurance-products:create',
       'insurance-products:update',
@@ -4675,14 +4685,8 @@ export function expandSeedRolePermissions(
   name: string,
   permissions: string[],
 ): string[] {
-  const moduleOnlyRole = [
-    'UNDERWRITER',
-    'CLAIMS',
-    'SHORT_TERM_UNDERWRITER',
-  ].includes(name);
   const expanded = withPricingPermissionAliases([
     ...withCustomerAuditPermission(name, permissions),
-    ...(moduleOnlyRole ? [] : RISK_REQUIRED_FACTOR_PERMISSION_NAMES),
   ]);
   return [
     ...new Set(
@@ -4721,6 +4725,7 @@ export default class InitialRbacSeeder implements Seeder {
         email: environment.INITIAL_OWNER_EMAIL ?? 'asha.mtemi@gmail.com',
         phone: environment.INITIAL_OWNER_PHONE ?? '+255700000001',
         password: environment.INITIAL_OWNER_PASSWORD ?? 'Owner123!',
+        passwordConfigured: Boolean(environment.INITIAL_OWNER_PASSWORD?.trim()),
         userType: 'OWNER',
         officerTitle: 'Owner',
       };
@@ -4735,6 +4740,9 @@ export default class InitialRbacSeeder implements Seeder {
           environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'baraka.mushi@gmail.com',
         phone: environment.INITIAL_COMPANY_ADMIN_PHONE ?? '+255700000002',
         password: environment.INITIAL_COMPANY_ADMIN_PASSWORD ?? 'Admin123!',
+        passwordConfigured: Boolean(
+          environment.INITIAL_COMPANY_ADMIN_PASSWORD?.trim(),
+        ),
         userType: 'COMPANY_USER',
         officerTitle: 'Underwriter',
       };
@@ -4747,6 +4755,9 @@ export default class InitialRbacSeeder implements Seeder {
           'neema.alliance.user@example.test',
         phone: environment.INITIAL_COMPANY_USER_PHONE ?? '+255700000003',
         password: environment.INITIAL_COMPANY_USER_PASSWORD ?? 'User123!',
+        passwordConfigured: Boolean(
+          environment.INITIAL_COMPANY_USER_PASSWORD?.trim(),
+        ),
         userType: 'COMPANY_USER',
         officerTitle: 'Standard User',
       };
@@ -4823,11 +4834,6 @@ export default class InitialRbacSeeder implements Seeder {
         ownerRole,
       );
 
-      await companyUserRepo.update(
-        { user_id: savedOwner.id },
-        { is_default: false },
-      );
-
       const adminUser = await this.findUserByIdentity(
         userRepo,
         adminConfig.email,
@@ -4840,29 +4846,36 @@ export default class InitialRbacSeeder implements Seeder {
         adminConfig,
       );
 
-      await this.ensureUserPermissions(
-        userRepo,
-        savedAdmin,
-        [...TIRAMIS_ADMIN_PERMISSION_NAMES],
-        permissionsByName,
-      );
+      if (!adminUser) {
+        await this.ensureUserPermissions(
+          userRepo,
+          savedAdmin,
+          [...TIRAMIS_ADMIN_PERMISSION_NAMES],
+          permissionsByName,
+        );
 
-      const membership = await this.ensureCompanyMembership(
-        companyUserRepo,
-        defaultCompany.id,
-        savedAdmin.id,
-      );
+        const membership = await this.ensureCompanyMembership(
+          companyUserRepo,
+          defaultCompany.id,
+          savedAdmin.id,
+        );
 
-      await this.ensureMembershipRole(
-        companyUserRoleRepo,
-        membership.id,
-        adminRole.id,
-      );
-      await this.ensureMembershipRole(
-        companyUserRoleRepo,
-        membership.id,
-        portalAdminRole.id,
-      );
+        await this.ensureMembershipRole(
+          companyUserRoleRepo,
+          membership.id,
+          adminRole.id,
+        );
+        await this.ensureMembershipRole(
+          companyUserRoleRepo,
+          membership.id,
+          portalAdminRole.id,
+        );
+        await this.ensureMembershipPermission(
+          manager.getRepository(CompanyUserPermission),
+          membership.id,
+          permissionsByName.get(MOTOR_INSURANCE_PREVIEW_PERMISSION),
+        );
+      }
 
       const standardUser = await this.findUserByIdentity(
         userRepo,
@@ -4876,24 +4889,22 @@ export default class InitialRbacSeeder implements Seeder {
         standardUserConfig,
       );
 
-      const standardMembership = await this.ensureCompanyMembership(
-        companyUserRepo,
-        defaultCompany.id,
-        savedStandardUser.id,
-      );
+      if (!standardUser) {
+        const standardMembership = await this.ensureCompanyMembership(
+          companyUserRepo,
+          defaultCompany.id,
+          savedStandardUser.id,
+        );
 
-      await this.ensureMembershipRole(
-        companyUserRoleRepo,
-        standardMembership.id,
-        standardUserRole.id,
-      );
+        await this.ensureMembershipRole(
+          companyUserRoleRepo,
+          standardMembership.id,
+          standardUserRole.id,
+        );
 
-      // Motor Insurance (New) pilot: per-membership grant (company sessions
-      // read membership permissions, not direct user permissions).
-      for (const companyUserId of [membership.id, standardMembership.id]) {
         await this.ensureMembershipPermission(
           manager.getRepository(CompanyUserPermission),
-          companyUserId,
+          standardMembership.id,
           permissionsByName.get(MOTOR_INSURANCE_PREVIEW_PERMISSION),
         );
       }
@@ -4903,18 +4914,20 @@ export default class InitialRbacSeeder implements Seeder {
         defaultCompany.id,
         defaultBranchSeeds,
       );
-      await this.ensureBranchAssignments(
-        branchRepo,
-        branchUserRepo,
-        defaultCompany.id,
-        savedAdmin.id,
-      );
-      await this.ensureBranchAssignments(
-        branchRepo,
-        branchUserRepo,
-        defaultCompany.id,
-        savedStandardUser.id,
-      );
+      if (!adminUser)
+        await this.ensureBranchAssignments(
+          branchRepo,
+          branchUserRepo,
+          defaultCompany.id,
+          savedAdmin.id,
+        );
+      if (!standardUser)
+        await this.ensureBranchAssignments(
+          branchRepo,
+          branchUserRepo,
+          defaultCompany.id,
+          savedStandardUser.id,
+        );
 
       await queryRunner.commitTransaction();
 
@@ -4990,27 +5003,67 @@ export default class InitialRbacSeeder implements Seeder {
     defaultCompanyType: CompanyType,
   ): Promise<Map<string, Role>> {
     const rolesByScopeAndName = new Map<string, Role>();
+    const tenantRoles = await roleRepo.find({
+      where: { scope: RoleScope.TENANT, is_system_generated: true },
+      relations: { permissions: true },
+    });
 
     for (const definition of definitions) {
-      for (const scope of definition.scopes) {
+      const targets: Array<{
+        scope: SeedScope;
+        companyId: string | null;
+        existing?: Role;
+      }> = definition.scopes.map((scope) => ({
+        scope,
+        companyId: this.resolveScopeCompanyId(scope, defaultCompanyId),
+      }));
+      if (definition.scopes.includes('default_company')) {
+        targets.push(
+          ...tenantRoles
+            .filter(
+              (role) =>
+                role.name === definition.name &&
+                role.company_id &&
+                role.company_id !== defaultCompanyId,
+            )
+            .map((role) => ({
+              scope: 'default_company' as const,
+              companyId: role.company_id,
+              existing: role,
+            })),
+        );
+      }
+      for (const { scope, companyId, existing } of targets) {
         // Other company types' admin roles stay templates only; copying them
         // into the default company would let it grant them.
         if (
           scope === 'default_company' &&
+          companyId === defaultCompanyId &&
           !isRoleAllowedForCompanyType(definition.name, defaultCompanyType)
         ) {
           continue;
         }
 
-        const companyId = this.resolveScopeCompanyId(scope, defaultCompanyId);
+        let role =
+          existing ??
+          (await roleRepo.findOne({
+            where: {
+              name: definition.name,
+              company_id: companyId === null ? IsNull() : companyId,
+            },
+            relations: { permissions: true },
+          }));
 
-        let role = await roleRepo.findOne({
-          where: {
-            name: definition.name,
-            company_id: companyId === null ? IsNull() : companyId,
-          },
-          relations: { permissions: true },
-        });
+        if (role && !role.is_system_generated) {
+          rolesByScopeAndName.set(
+            this.buildScopeKey(role.name, companyId),
+            role,
+          );
+          continue;
+        }
+        const previousPermissionIds = new Set(
+          (role?.permissions ?? []).map((permission) => permission.id),
+        );
 
         if (!role) {
           role = roleRepo.create({
@@ -5059,7 +5112,25 @@ export default class InitialRbacSeeder implements Seeder {
           return permission;
         });
 
+        const permissionChanged =
+          previousPermissionIds.size !== role.permissions.length ||
+          role.permissions.some(
+            (permission) => !previousPermissionIds.has(permission.id),
+          );
+
         role = await roleRepo.save(role);
+        if (permissionChanged) {
+          await roleRepo.manager.query(
+            `UPDATE "company_users" membership SET "authorization_version" = membership."authorization_version" + 1, "updated_at" = now()
+             WHERE EXISTS (SELECT 1 FROM "company_user_roles" assignment WHERE assignment."company_user_id" = membership."id" AND assignment."role_id" = $1)`,
+            [role.id],
+          );
+          await roleRepo.manager.query(
+            `UPDATE "users" app_user SET "authorization_version" = app_user."authorization_version" + 1, "updated_at" = now()
+             WHERE EXISTS (SELECT 1 FROM "role_user" assignment WHERE assignment."users_id" = app_user."id" AND assignment."roles_id" = $1)`,
+            [role.id],
+          );
+        }
         rolesByScopeAndName.set(this.buildScopeKey(role.name, companyId), role);
       }
     }
@@ -5115,6 +5186,7 @@ export default class InitialRbacSeeder implements Seeder {
     let user = existingUser;
 
     if (!user) {
+      this.assertProductionSeedPassword(config);
       user = userRepo.create({
         first_name: config.firstName,
         last_name: config.lastName,
@@ -5128,13 +5200,11 @@ export default class InitialRbacSeeder implements Seeder {
         roles: [ownerRole],
       });
     } else {
-      user.first_name = config.firstName;
-      user.last_name = config.lastName;
-      user.status = 'active';
-      user.user_type = 'OWNER';
-      user.officer_title = config.officerTitle;
-      user.is_email_verified = true;
-      user.roles = this.mergeRole(user.roles, ownerRole);
+      if (user.user_type !== 'OWNER') {
+        throw new Error(
+          'The configured seed owner identity belongs to a non-owner account',
+        );
+      }
     }
 
     return userRepo.save(user);
@@ -5154,6 +5224,7 @@ export default class InitialRbacSeeder implements Seeder {
     let user = existingUser;
 
     if (!user) {
+      this.assertProductionSeedPassword(config);
       user = userRepo.create({
         first_name: config.firstName,
         last_name: config.lastName,
@@ -5166,15 +5237,21 @@ export default class InitialRbacSeeder implements Seeder {
         is_email_verified: true,
       });
     } else {
-      user.first_name = config.firstName;
-      user.last_name = config.lastName;
-      user.status = 'active';
-      user.user_type = 'COMPANY_USER';
-      user.officer_title = config.officerTitle;
-      user.is_email_verified = true;
+      return user;
     }
 
     return userRepo.save(user);
+  }
+
+  private assertProductionSeedPassword(config: SeedUserConfig): void {
+    const isProduction = [process.env.NODE_ENV, process.env.APP_ENV].some(
+      (value) => value?.trim().toLowerCase() === 'production',
+    );
+    if (isProduction && !config.passwordConfigured) {
+      throw new Error(
+        `An explicit initial password is required to create seed user ${config.email} in production`,
+      );
+    }
   }
 
   private async ensureUserPermissions(
@@ -5239,7 +5316,6 @@ export default class InitialRbacSeeder implements Seeder {
     } else {
       company.name = normalizedCompanyName;
       company.identifier_prefix ??= identifierPrefix;
-      company.status = 'active';
       company.company_type ??= CompanyType.INSURANCE_COMPANY;
       company.metadata = {
         ...(company.metadata ?? {}),
@@ -5479,15 +5555,5 @@ export default class InitialRbacSeeder implements Seeder {
 
       await branchUserRepo.save(assignment);
     }
-  }
-
-  private mergeRole(existingRoles: Role[] | undefined, role: Role): Role[] {
-    const roles = existingRoles ?? [];
-
-    if (roles.some((existingRole) => existingRole.id === role.id)) {
-      return roles;
-    }
-
-    return [...roles, role];
   }
 }

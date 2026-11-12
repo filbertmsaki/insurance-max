@@ -60,6 +60,12 @@ export class DashboardCacheService {
           assignedBranchIds: [...(user.assignedBranchIds ?? [])].sort(),
           userId: user.id,
           userType: user.userType,
+          roles: [...(user.roles ?? [])].sort(),
+          authorizationVersion: user.authorizationVersion,
+          assignedDepartmentIds: [...(user.assignedDepartmentIds ?? [])].sort(),
+          activeDepartmentId: user.activeDepartmentId,
+          quotationPolicyDataScope: user.quotationPolicyDataScope,
+          permissionDataScopes: user.permissionDataScopes,
           permissions: [...(user.permissions ?? [])].sort(),
         }),
       )
@@ -83,7 +89,7 @@ export class DashboardCacheService {
       .slice(0, 24);
 
     return [
-      'dashboard',
+      'dashboard-v2',
       section,
       user.companyId,
       scopeFingerprint,

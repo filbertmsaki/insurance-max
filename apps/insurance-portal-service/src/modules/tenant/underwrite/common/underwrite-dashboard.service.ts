@@ -9,6 +9,7 @@ import {
   UNDERWRITE_LINES,
   UnderwriteAction,
   underwritePermission,
+  underwriteLineEntryPermissions,
   UnderwriteLine,
   WorkflowSubmissionStatus,
 } from '@insurance-max/contracts';
@@ -135,15 +136,11 @@ export class UnderwriteDashboardService {
     line: UnderwriteLine,
   ): Promise<UnderwriteLineSummary> {
     const canViewQuotations =
-      userHasPermission(
-        user,
-        underwritePermission(line, UnderwriteAction.VIEW),
-      ) && userHasPermission(user, 'quotations:read');
+      this.canViewCover(user, line, UnderwriteAction.VIEW) &&
+      userHasPermission(user, 'quotations:read');
     const canViewPolicies =
-      userHasPermission(
-        user,
-        underwritePermission(line, UnderwriteAction.POLICIES_VIEW),
-      ) && userHasPermission(user, 'policies:read');
+      this.canViewCover(user, line, UnderwriteAction.POLICIES_VIEW) &&
+      userHasPermission(user, 'policies:read');
     const transactionVisibility = this.transactionVisibility(user, line);
 
     const [quotations, policies, transactions, fleet, byClass] =
@@ -174,7 +171,7 @@ export class UnderwriteDashboardService {
   private async classStats(
     user: AuthenticatedUser,
   ): Promise<UnderwriteClassStats[]> {
-    const scope = this.dataAccessScopeService.resolve(user);
+    const scope = this.dataAccessScopeService.resolve(user, 'policies:read');
     const queryBuilder = this.policyRepository
       .createQueryBuilder('policy')
       .leftJoin('policy.category', 'category')
@@ -217,8 +214,16 @@ export class UnderwriteDashboardService {
       UnderwriteAction.ENDORSEMENTS_VIEW,
       UnderwriteAction.CANCELLATIONS_VIEW,
       UnderwriteAction.TIRA_RETRY,
-    ].some((action) =>
-      userHasPermission(user, underwritePermission(line, action)),
+    ].some((action) => this.canViewCover(user, line, action));
+  }
+
+  private canViewCover(
+    user: AuthenticatedUser,
+    line: UnderwriteLine,
+    action: (typeof UnderwriteAction)[keyof typeof UnderwriteAction],
+  ): boolean {
+    return underwriteLineEntryPermissions(line, action).some((permission) =>
+      userHasPermission(user, permission),
     );
   }
 
@@ -320,7 +325,7 @@ export class UnderwriteDashboardService {
     this.dataAccessScopeService.applyPolicyReadScope(
       queryBuilder,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, 'renewals:read'),
     );
 
     const row = await queryBuilder.getRawOne<Record<string, string>>();
@@ -350,7 +355,12 @@ export class UnderwriteDashboardService {
     this.dataAccessScopeService.applyPolicyReadScope(
       queryBuilder,
       'policy',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(
+        user,
+        transactionType === PolicyTransactionType.ENDORSEMENT
+          ? 'endorsements:create'
+          : 'cancellations:read',
+      ),
     );
 
     const row = await queryBuilder.getRawOne<Record<string, string>>();
@@ -391,7 +401,7 @@ export class UnderwriteDashboardService {
     this.dataAccessScopeService.applyQuotationReadScope(
       queryBuilder,
       'quotation',
-      this.dataAccessScopeService.resolve(user),
+      this.dataAccessScopeService.resolve(user, 'quotations:retry-tiramis'),
     );
 
     const row = await queryBuilder.getRawOne<Record<string, string>>();
@@ -452,7 +462,7 @@ export class UnderwriteDashboardService {
     user: AuthenticatedUser,
     line: UnderwriteLine,
   ): Promise<UnderwriteQuotationStats> {
-    const scope = this.dataAccessScopeService.resolve(user);
+    const scope = this.dataAccessScopeService.resolve(user, 'quotations:read');
     const queryBuilder = this.quotationRepository
       .createQueryBuilder('quotation')
       .select('COUNT(*)', 'total')
@@ -510,7 +520,7 @@ export class UnderwriteDashboardService {
     user: AuthenticatedUser,
     line: UnderwriteLine,
   ): Promise<UnderwritePolicyStats> {
-    const scope = this.dataAccessScopeService.resolve(user);
+    const scope = this.dataAccessScopeService.resolve(user, 'policies:read');
     const queryBuilder = this.policyRepository
       .createQueryBuilder('policy')
       .select('COUNT(*)', 'total')
@@ -562,7 +572,7 @@ export class UnderwriteDashboardService {
   private async fleetStats(
     user: AuthenticatedUser,
   ): Promise<UnderwriteFleetStats> {
-    const scope = this.dataAccessScopeService.resolve(user);
+    const scope = this.dataAccessScopeService.resolve(user, 'policies:read');
     // One row per policy (no joins), so SUM of the per-policy vehicle count
     // is the number of covered vehicles. A vehicle can carry several risks,
     // and removed vehicles keep their CANCELLED risks.

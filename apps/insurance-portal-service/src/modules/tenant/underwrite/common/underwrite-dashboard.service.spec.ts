@@ -1,4 +1,9 @@
-import { UnderwriteAction, UnderwriteLine } from '@insurance-max/contracts';
+import {
+  UnderwriteAction,
+  UnderwriteCover,
+  UnderwriteLine,
+  underwriteCoverPermission,
+} from '@insurance-max/contracts';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { UnderwriteDashboardService } from './underwrite-dashboard.service';
 
@@ -46,6 +51,40 @@ const user: AuthenticatedUser = {
 } as AuthenticatedUser;
 
 describe('UnderwriteDashboardService', () => {
+  it('shows short-term quotation counts using quotation-specific scope', async () => {
+    const query = makeQueryBuilder({ total: '2' });
+    const scopes = {
+      resolve: jest.fn().mockReturnValue({}),
+      applyQuotationReadScope: jest.fn(),
+    };
+    const service = new UnderwriteDashboardService(
+      scopes as never,
+      { createQueryBuilder: jest.fn(() => query) } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    const shortTermUser = {
+      ...user,
+      permissions: [
+        'quotations:read',
+        underwriteCoverPermission(
+          UnderwriteCover.SHORT_TERM_SINGLE,
+          UnderwriteAction.VIEW,
+        ),
+      ],
+    };
+    const summary = await service.getLineSummary(
+      shortTermUser,
+      UnderwriteLine.MOTOR,
+    );
+    expect(summary.quotations?.total).toBe(2);
+    expect(summary.policies).toBeNull();
+    expect(scopes.resolve).toHaveBeenCalledWith(
+      shortTermUser,
+      'quotations:read',
+    );
+  });
   it('counts pending and successful TIRA outcomes using the regulatory status axis', async () => {
     const query = makeQueryBuilder();
     const service = new UnderwriteDashboardService(

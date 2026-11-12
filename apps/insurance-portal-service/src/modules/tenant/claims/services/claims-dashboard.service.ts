@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { ClaimsPermissions } from '@insurance-max/contracts';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
@@ -219,7 +220,10 @@ export class ClaimsDashboardService {
     user: AuthenticatedUser,
     query: ClaimsDashboardQuery,
   ): SelectQueryBuilder<InsuranceClaim> {
-    const scope = this.scopeService.resolve(user);
+    const permission = user.permissions.includes(ClaimsPermissions.READ)
+      ? ClaimsPermissions.READ
+      : ClaimsPermissions.DASHBOARD;
+    const scope = this.scopeService.resolve(user, permission);
     const queryBuilder = this.claimRepository
       .createQueryBuilder('claim')
       .innerJoin('claim.policy', 'policy')

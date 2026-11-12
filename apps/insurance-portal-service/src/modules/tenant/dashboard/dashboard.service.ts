@@ -58,13 +58,6 @@ interface PeriodMoneyRow {
   amount: string;
 }
 
-const COMPANY_USER_DASHBOARD_PERMISSIONS = [
-  DashboardPermissions.OVERVIEW,
-  DashboardPermissions.SALES,
-  DashboardPermissions.POLICIES,
-  DashboardPermissions.TASKS,
-];
-
 @Injectable()
 export class DashboardService {
   private readonly timezone: string;
@@ -124,15 +117,6 @@ export class DashboardService {
   getCapabilities(user: AuthenticatedUser) {
     const scope = this.dataAccessScopeService.resolve(user);
     const permissionSet = new Set(user.permissions ?? []);
-    if (
-      user.scope === 'company' &&
-      user.userType === 'COMPANY_USER' &&
-      user.roles.includes('USER')
-    ) {
-      COMPANY_USER_DASHBOARD_PERMISSIONS.forEach((permission) =>
-        permissionSet.add(permission),
-      );
-    }
     const has = (permission: string) => permissionSet.has(permission);
 
     const sections = {
@@ -187,36 +171,53 @@ export class DashboardService {
       query,
       async () => {
         const { scope, period } = this.resolveContext(user, query);
-        const [sales, policies, customers, finance, tiramis, tasks] =
-          await Promise.all([
-            this.buildSales(scope, user, query, period),
-            this.buildPolicies(scope, query, period),
-            this.buildCustomers(scope, query, period),
-            this.buildFinance(scope, user, query, period),
-            this.buildTiramis(scope, query, period),
-            this.buildTasks(scope, query, period),
-          ]);
+        const capabilities = this.getCapabilities(user);
+        const sections = capabilities.sections;
+        const [
+          sales,
+          policies,
+          customers,
+          finance,
+          commissions,
+          tiramis,
+          tasks,
+        ] = await Promise.all([
+          sections.sales ? this.buildSales(scope, user, query, period) : null,
+          sections.policies ? this.buildPolicies(scope, query, period) : null,
+          this.hasPermission(user, 'customers:read')
+            ? this.buildCustomers(scope, query, period)
+            : null,
+          sections.finance
+            ? this.buildFinance(scope, user, query, period)
+            : null,
+          sections.commissions && !sections.finance
+            ? this.buildCommissions(scope, query, period)
+            : null,
+          sections.tiramis ? this.buildTiramis(scope, query, period) : null,
+          sections.tasks ? this.buildTasks(scope, user, query, period) : null,
+        ]);
 
         return {
           context: this.buildContext(scope, query, period),
-          capabilities: this.getCapabilities(user),
+          capabilities,
           kpis: {
-            quotations: sales.kpis,
-            policies: policies.kpis,
-            customers: customers.kpis,
-            finance: finance.kpis,
-            commissions: finance.commissions?.kpis ?? null,
-            tiramis: tiramis.kpis,
+            quotations: sales?.kpis ?? null,
+            policies: policies?.kpis ?? null,
+            customers: customers?.kpis ?? null,
+            finance: finance?.kpis ?? null,
+            commissions:
+              finance?.commissions?.kpis ?? commissions?.kpis ?? null,
+            tiramis: tiramis?.kpis ?? null,
           },
           charts: {
-            quotation_trend: sales.charts.trend,
-            quotation_statuses: sales.charts.status_breakdown,
-            policy_trend: policies.charts.trend,
-            policy_statuses: policies.charts.status_breakdown,
-            tiramis_statuses: tiramis.charts.status_breakdown,
+            quotation_trend: sales?.charts.trend ?? [],
+            quotation_statuses: sales?.charts.status_breakdown ?? [],
+            policy_trend: policies?.charts.trend ?? [],
+            policy_statuses: policies?.charts.status_breakdown ?? [],
+            tiramis_statuses: tiramis?.charts.status_breakdown ?? [],
           },
-          work_queues: tasks.queues,
-          alerts: tasks.alerts,
+          work_queues: tasks?.queues ?? [],
+          alerts: tasks?.alerts ?? [],
           generated_at: new Date().toISOString(),
         };
       },
@@ -318,7 +319,7 @@ export class DashboardService {
 
         return {
           context: this.buildContext(scope, query, period),
-          ...(await this.buildTasks(scope, query, period)),
+          ...(await this.buildTasks(scope, user, query, period)),
           generated_at: new Date().toISOString(),
         };
       },
@@ -947,6 +948,7 @@ export class DashboardService {
 
   private async buildTasks(
     scope: TenantDataScope,
+    user: AuthenticatedUser,
     query: DashboardQueryDto,
     period: DashboardPeriod,
   ) {
@@ -1013,6 +1015,7 @@ export class DashboardService {
         .getRawOne<{ count: string }>(),
     ]);
 
+    const sections = this.getCapabilities(user).sections;
     const queues = [
       {
         key: 'approvals',
@@ -1044,7 +1047,12 @@ export class DashboardService {
         label: 'Policies expiring in 30 days',
         count: this.toNumber(expiringPolicies?.count),
       },
-    ];
+    ].filter((queue) => {
+      if (queue.key === 'overdue_invoices') return sections.finance;
+      if (queue.key === 'policy_expiry') return sections.policies;
+      if (queue.key === 'tiramis_failed') return sections.tiramis;
+      return sections.sales;
+    });
 
     const alerts = queues
       .filter((queue) => queue.count > 0)

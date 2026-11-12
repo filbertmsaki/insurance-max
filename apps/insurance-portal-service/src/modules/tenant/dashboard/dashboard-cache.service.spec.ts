@@ -103,4 +103,17 @@ describe('DashboardCacheService', () => {
 
     expect(firstKey).not.toBe(secondKey);
   });
+
+  it('changes cache keys when roles or data scope change', async () => {
+    await service.getOrSet('overview', baseUser, {}, async () => ({}));
+    await service.getOrSet(
+      'overview',
+      { ...baseUser, roles: [], quotationPolicyDataScope: 'USER' },
+      {},
+      async () => ({}),
+    );
+    expect(redisService.setJson.mock.calls[0][0]).not.toBe(
+      redisService.setJson.mock.calls[1][0],
+    );
+  });
 });
