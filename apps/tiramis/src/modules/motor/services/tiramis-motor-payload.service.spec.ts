@@ -81,6 +81,15 @@ describe('TiramisMotorPayloadService fleet', () => {
     });
   });
 
+  it('sends NONE as FuelUsed for a vehicle without fuel (e.g. a trailer)', () => {
+    const dto = fleetDto();
+    dto.fleet.items[0].motorDetail.fuelUsed = 'Diesel';
+    dto.fleet.items[1].motorDetail.fuelUsed = '  ';
+    const payload = build(dto);
+    expect(payload.FleetDtl[0].MotorDtl.FuelUsed).toBe('Diesel');
+    expect(payload.FleetDtl[1].MotorDtl.FuelUsed).toBe('NONE');
+  });
+
   it('totals FleetHdr from the vehicle premiums in cover-note currency', () => {
     const dto = fleetDto({
       currencyCode: 'USD',

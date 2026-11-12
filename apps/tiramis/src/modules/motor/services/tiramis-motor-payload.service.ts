@@ -16,6 +16,9 @@ import type {
   CreateMotorFleetItemDto,
 } from '../dto/create-motor-cover-note.dto';
 
+/** Sent as FuelUsed for a vehicle with no fuel (e.g. a trailer). */
+export const NO_FUEL_USED = 'NONE';
+
 @Injectable()
 export class TiramisMotorPayloadService {
   buildMotorCoverNotePayload(params: {
@@ -365,7 +368,7 @@ export class TiramisMotorPayloadService {
       Color: motor.color || '',
       EngineNumber: motor.engineNumber || '',
       EngineCapacity: motor.engineCapacity || '',
-      FuelUsed: motor.fuelUsed || '',
+      FuelUsed: motor.fuelUsed?.trim() || NO_FUEL_USED,
       NumberOfAxles: motor.numberOfAxles || '',
       AxleDistance: motor.axleDistance || '',
       SittingCapacity: motor.sittingCapacity || '',

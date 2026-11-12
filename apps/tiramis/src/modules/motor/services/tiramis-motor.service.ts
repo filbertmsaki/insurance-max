@@ -967,11 +967,7 @@ export class TiramisMotorService {
       `${path}.engineCapacity`,
       errors,
     );
-    this.payloadValidator.requireString(
-      motor.fuelUsed,
-      `${path}.fuelUsed`,
-      errors,
-    );
+    // Fuel is optional: trailers use none. The XML sends NO_FUEL_USED instead.
 
     for (const field of [
       'numberOfAxles',
