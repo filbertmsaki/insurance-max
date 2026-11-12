@@ -3,6 +3,28 @@ import { XMLBuilder } from 'fast-xml-parser';
 
 import { TiramisBuildMessageParams } from '../interfaces/tiramis-xml.interface';
 
+const MISSING_TEXT = /^(null|none|undefined)$/i;
+
+/**
+ * TIRA gets an empty element when a value is missing: never null,
+ * undefined, or the words NULL / NONE / undefined.
+ */
+export function emptyMissingValues(value: unknown): unknown {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string')
+    return MISSING_TEXT.test(value.trim()) ? '' : value;
+  if (Array.isArray(value)) return value.map(emptyMissingValues);
+  if (value instanceof Date) return value;
+  if (typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        emptyMissingValues(item),
+      ]),
+    );
+  return value;
+}
+
 @Injectable()
 export class TiramisXmlBuilderService {
   private readonly builder = new XMLBuilder({
@@ -21,7 +43,7 @@ export class TiramisXmlBuilderService {
 
   buildContentXml(rootName: string, payload: Record<string, any>): string {
     return this.builder.build({
-      [rootName]: payload,
+      [rootName]: emptyMissingValues(payload),
     });
   }
 
@@ -30,14 +52,14 @@ export class TiramisXmlBuilderService {
     payload: Record<string, any>,
   ): string {
     return this.compactBuilder.build({
-      [rootName]: payload,
+      [rootName]: emptyMissingValues(payload),
     });
   }
 
   buildTiraMessage(params: TiramisBuildMessageParams): string {
     return this.builder.build({
       TiraMsg: {
-        [params.rootName]: params.payload,
+        [params.rootName]: emptyMissingValues(params.payload),
         MsgSignature: params.signature || '',
       },
     });
