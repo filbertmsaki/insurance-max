@@ -30,10 +30,8 @@ import {
 } from '../components';
 import type { FinancePaymentReference } from '../types';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
-import {
-  InvoiceTaxBreakdown,
-  invoiceTaxBreakdown,
-} from '../components/InvoiceTaxBreakdown';
+import { InvoiceTaxBreakdown } from '../components/InvoiceTaxBreakdown';
+import { invoiceTaxBreakdown } from '../utils/invoice-tax-breakdown';
 import {
   downloadPdf,
   documentFilename,
@@ -282,7 +280,9 @@ export function FinanceInvoiceDetailPage() {
             onClick={() => issueMutation.mutate()}
             disabled={
               issueMutation.isPending ||
-              (invoice.source_type === 'QUOTATION' &&
+              (['QUOTATION', 'ENDORSEMENT'].includes(
+                invoice.source_type ?? '',
+              ) &&
                 !invoiceTaxBreakdown(invoice))
             }
           >

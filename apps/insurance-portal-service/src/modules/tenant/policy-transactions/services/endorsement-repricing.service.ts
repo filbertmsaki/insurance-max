@@ -17,6 +17,11 @@ import {
 } from '../../pricing/entities/pricing-quote.entity';
 import { PricingEngineService } from '../../pricing/application/pricing-engine.service';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
+import {
+  freezeEndorsementRiskCharges,
+  endorsementFinanceComponents,
+  type EndorsementRiskChargeEvidence,
+} from '../../billing-commission/utils/endorsement-invoice-tax';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import {
   EndorsementPricingService,
@@ -39,6 +44,7 @@ interface EndorsementRiskDiscount {
 }
 
 interface RiskPricingAudit {
+  chargeEvidence: EndorsementRiskChargeEvidence;
   entryIndex: number;
   riskIndex: number;
   quotationRiskId: string | null;
@@ -75,6 +81,7 @@ interface PricingRun {
 }
 
 interface EndorsementPricingAuthoritySnapshot {
+  finance_components: ReturnType<typeof endorsementFinanceComponents>;
   sourcePolicyPremium: string;
   revisedFullTermPremium: string;
   earnedPremiumBeforeChange: string;
@@ -158,14 +165,20 @@ export class EndorsementRepricingService {
       ...sourceRun.pricingResultHashes,
       ...proposedRun.pricingResultHashes,
     ];
-    const unsigned = {
-      ...comparison,
+    const { snapshotHash: comparisonHash, ...comparisonFields } = comparison;
+    void comparisonHash;
+    const movements = {
+      ...comparisonFields,
       calculationMethod: 'LIVE_PRICING_ENGINE_REMAINING_PERIOD',
       pricingResultHashes,
       sourceRiskPricing: sourceRun.risks,
       proposedRiskPricing: proposedRun.risks,
       pricingApprovalRequired:
         sourceRun.approvalRequired || proposedRun.approvalRequired,
+    };
+    const unsigned = {
+      ...movements,
+      finance_components: endorsementFinanceComponents(movements),
     };
     const snapshotHash = this.hashService.hashDefinition(unsigned);
 
@@ -290,9 +303,24 @@ export class EndorsementRepricingService {
           insuranceRiskId,
           policyEndDate,
         });
+        const frozenTaxes = this.asArray(sourcePricing?.['taxes'])
+          .map((t) => this.asObject(t))
+          .filter((t): t is Record<string, unknown> => !!t);
+        if (frozenTaxes.length)
+          input.tax_exemptions = frozenTaxes
+            .filter((t) => t['isTaxExempted'] === 'Y')
+            .map((t) => ({
+              tax_code: String(t['taxCode']),
+              type: String(t['taxExemptionType'] ?? ''),
+              reference: String(t['taxExemptionReference'] ?? ''),
+            }));
         const result = await this.pricingEngineService.calculateSingleRisk(
           transaction.company_id,
           input,
+        );
+        const chargeEvidence = freezeEndorsementRiskCharges(
+          result,
+          transaction.effective_date,
         );
         const taxAndCharges = this.resolveTaxAndCharges(result);
         const sourceDiscounts = this.asArray(sourcePricing?.['discounts'])
@@ -317,28 +345,21 @@ export class EndorsementRepricingService {
               },
             ]
           : [];
-        const sourceTaxes = this.asArray(sourcePricing?.['taxes'])
-          .map((item) => this.asObject(item))
-          .filter((item): item is Record<string, unknown> => !!item);
         const taxes: EndorsementRiskTax[] = (result.charges ?? [])
-          .filter((charge) => ['TAX', 'LEVY'].includes(charge.charge_category))
+          .filter((charge) =>
+            ['TAX', 'LEVY', 'STAMP_DUTY'].includes(charge.charge_category),
+          )
           .map((charge) => {
-            const original = sourceTaxes.find(
-              (tax) => tax['taxCode'] === charge.charge_code,
-            );
-
             return {
               taxCode: charge.charge_code,
-              isTaxExempted: String(original?.['isTaxExempted'] ?? 'N'),
-              taxExemptionType:
-                original?.['taxExemptionType'] != null
-                  ? String(original['taxExemptionType'])
-                  : null,
-              taxExemptionReference:
-                original?.['taxExemptionReference'] != null
-                  ? String(original['taxExemptionReference'])
-                  : null,
-              taxRate: charge.rate !== null ? String(charge.rate) : '0',
+              isTaxExempted: charge.is_exempt === true ? 'Y' : 'N',
+              taxExemptionType: charge.is_exempt
+                ? (charge.exemption_type ?? null)
+                : null,
+              taxExemptionReference: charge.is_exempt
+                ? (charge.exemption_reference ?? null)
+                : null,
+              taxRate: String(charge.rate),
               taxAmount: DecimalUtil.value(charge.computed_amount).toFixed(4),
             };
           });
@@ -361,6 +382,7 @@ export class EndorsementRepricingService {
           sourcePricingQuoteId,
           input,
           result: {
+            chargeEvidence,
             riskId: result.risk_id,
             ruleId: result.rule_id,
             rateBookId: result.rate_book_id,
@@ -374,6 +396,7 @@ export class EndorsementRepricingService {
         });
 
         riskResults.push({
+          chargeEvidence,
           entryIndex,
           riskIndex,
           quotationRiskId,
@@ -552,6 +575,7 @@ export class EndorsementRepricingService {
       switch (charge.charge_category) {
         case 'TAX':
         case 'LEVY':
+        case 'STAMP_DUTY':
           tax = tax.plus(amount);
           break;
         default:

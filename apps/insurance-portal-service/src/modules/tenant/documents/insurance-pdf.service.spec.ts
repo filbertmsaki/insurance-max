@@ -2,7 +2,35 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { InsurancePdfService } from './insurance-pdf.service';
 import { quotationTaxHarness } from '../../../../test/support/quotation-tax-fixture';
+import { endorsementTaxHarness } from '../../../../test/support/endorsement-tax-fixture';
 describe('Quotation and invoice tax documents', () => {
+  it('renders a corrected endorsement invoice PDF using the stored source/revised components', async () => {
+    const f = endorsementTaxHarness(),
+      invoice = await f.create(),
+      service = new InsurancePdfService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        { findOne: async () => invoice } as never,
+      );
+    const render = jest.spyOn(service as any, 'render');
+    const result = await service.invoice(
+      { companyId: f.companyId } as never,
+      invoice.id,
+    );
+    expect(Buffer.from(result.bytes).subarray(0, 4).toString()).toBe('%PDF');
+    const pairs = render.mock.calls[0][2] as any;
+    expect(pairs).toContainEqual(['Net premium', '100.00']);
+    expect(pairs).toContainEqual(['Taxes', '18.00']);
+    expect(pairs).toContainEqual(['Total payable', '118.00']);
+    expect(
+      pairs.some(
+        (p: any) =>
+          p[0].includes('Original reversal') && p[1].startsWith('-18.00'),
+      ),
+    ).toBe(true);
+  });
   it('generates reconciled quotation and invoice PDFs from the same component evidence', async () => {
     const f = quotationTaxHarness();
     for (const [code, category, rate, account, amount] of [

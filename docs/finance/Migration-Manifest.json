@@ -1,10 +1,10 @@
 {
-  "documentId": "IM-FIN-SRS-1.13",
+  "documentId": "IM-FIN-SRS-1.14",
   "date": "2026-11-16",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
-  "baseCommit": "f2ffb0a11be303d9cd498d76cb7bd621afd35a36",
-  "sourceCodeFingerprint": "dcf3f8ce35506cc864b2924ac654410da0ab1dbda1503c903f8320b44f6e88c5",
+  "baseCommit": "b1dee5709f004d5c6a5e6da487ef38aa2e9561e9",
+  "sourceCodeFingerprint": "d5fbbef930253ce3cdc499d49a8b9abd66ae195e2a7c1e3eaf591649f098433b",
   "sourceCodeFiles": [
     {
       "file": "apps/insurance-portal-service/src/database/migrations/1796000000000-FinanceScopeFoundations.ts",
@@ -383,7 +383,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-policy-change.source.ts",
-      "sha256": "7bb390b74cda9175496e3fdd76ff02f66b31f185c877fad988648401d4eb8386",
+      "sha256": "f20b94f36071a644d2c84d7a0d7e531fa9aaa2639fde22b47cdd329445d1ce44",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -393,7 +393,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-policy-change.types.ts",
-      "sha256": "16e9e0972e463647c1ea4a549ac5464e5e0805dbe15ae74b32a5ae0318f9a47f",
+      "sha256": "f2d42b222cdf9371cc887f822a7084f2a4f0876fcfacbaa5fc5d2fb2717dbdea",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -543,7 +543,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-command.service.ts",
-      "sha256": "806aa7032b6bf28a71cec1b76046dfd44cf60769161e85c812264b54542a7368",
+      "sha256": "0cf579f3428e2b7d9002a9ba92d09ed1a84d6d7a94d9df7f89c59760f424a51e",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -553,7 +553,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts",
-      "sha256": "d14846875c76e6c55fe7f79e30abf095350602f3e7cb4f2414e6531b060e528f",
+      "sha256": "da2a3d41b802aec1349d6d04efac3030f5e8ca86cdadbaf2b2a676bd8892289c",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -573,7 +573,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/payment-reference.service.ts",
-      "sha256": "414b7101e824a0dd440aabdba37abda33a8aef9774f8e95d9de8fa80b5f08464",
+      "sha256": "4e555d9df5e7d1d26a5525f5e141b8f51a050296006c279b30e02896398d47e4",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -602,6 +602,16 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/utils/endorsement-invoice-tax.ts",
+      "sha256": "1035330c5ef94e70bbe1872d655ff0502980c7967d0e66e7aef9c932224670ba",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/utils/premium-invoice-tax.ts",
+      "sha256": "6d81e7f05bbd8da850c00bbbd9142cf5030d0339da102a7eb9277c2326c12f76",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/utils/quotation-invoice-tax.ts",
       "sha256": "44c631ac16e65d9a685f1a61a2e90a6cb36835894fb919e3b9b0c6ab4692e392",
       "hashEncoding": "UTF8_LF"
@@ -613,12 +623,12 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/documents/insurance-pdf.service.spec.ts",
-      "sha256": "196a86e417a440b8b71c4c6c23dd6bfd94a63bc0d49ed88a19795a821fcf8217",
+      "sha256": "e1bd81e296043c95efafcced63e7b5a92289ade2dad3e760593888863469aa08",
       "hashEncoding": "UTF8_LF"
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/documents/insurance-pdf.service.ts",
-      "sha256": "ab5a0a0ae37456ae1454d32b6a9db9464823f2002ae787a219d4264ce8a25c12",
+      "sha256": "8fbd8f1583b858a8172b0fefab34bf67f4a5ab0f178683c821796aec5d983a54",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -632,23 +642,48 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/services/endorsement-repricing.service.spec.ts",
+      "sha256": "f9d68291cf5713d4598cdc949e804128dd038c4a68f2ab5556b1b085c37cf3c5",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/services/endorsement-repricing.service.ts",
+      "sha256": "9bb8877246300c496a76b0704c5a6224faaf58735d5866f0d836c4f9e80dc736",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/services/policy-transaction-invoice.service.spec.ts",
+      "sha256": "e8c7c222a7ef2bebed46b9505582804e9ec7a6d358e5c63d346d10c075ae750f",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/services/policy-transaction-invoice.service.ts",
+      "sha256": "9d1b56d8a6fde2573464c455c18b0df05c8d046ace1bc84d2fac6d563cae6280",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/src/modules/tenant/pricing/application/exchange-rate-governance.service.ts",
       "sha256": "b4a7968707d719097632effb2d2a111044644f97c904929b10a3b40b052b187d",
       "hashEncoding": "UTF8_LF"
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/pricing/application/pricing-charge.service.spec.ts",
-      "sha256": "845e645e5b42be81f60982b5516d92d60ad1bf2447a1b50187d1b6903d8d1c60",
+      "sha256": "242da00a126539d6ac4337721d9bd3340146b272c21e6434068b18b9eb65fc36",
       "hashEncoding": "UTF8_LF"
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/pricing/application/pricing-charge.service.ts",
-      "sha256": "59e46f64f7fba12b3511cfb06cbe1a853b71325d0dac35c2af4614b183ad5766",
+      "sha256": "a85cee9e42411a87c4653d7760ca75eae31dcdde3228df74e62e88edd4c5965a",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/pricing/application/pricing-engine.service.ts",
+      "sha256": "6527a86d05103c1aaefdf82e9464fb353a7e6f0c0067255cebf4cd7563cf1175",
       "hashEncoding": "UTF8_LF"
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/pricing/domain/pricing.types.ts",
-      "sha256": "a7ebe49269405ae63a8e05c32b332589d8a341947ffcaa1d0c23e1f7bc468927",
+      "sha256": "fa1046708d8e53199d03484d67a95f1291349f7ae36bb52f3f356ba591c1d8f8",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -693,7 +728,7 @@
     },
     {
       "file": "apps/insurance-portal-service/test/finance/README.md",
-      "sha256": "13a0fcf7957578b6d3dbb92df0415e76731d7ecf12a9b317c988a63bfd28f86d",
+      "sha256": "168e582437a7c5b3b2d75066093766fcc3f11468079f6c89d4a7f2dbe04e9e06",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -714,6 +749,11 @@
     {
       "file": "apps/insurance-portal-service/test/finance/finance-database.finance-integration.ts",
       "sha256": "798f62304b64116a4cefb31db6df3960eaeff88142b648a0b97d7fec32956c49",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/test/finance/finance-endorsement-tax.finance-integration.ts",
+      "sha256": "7f738634772618b1b0d5037250111d7d9328794b8751b00356a2a173823cf83c",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -787,6 +827,16 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/test/support/endorsement-tax-database.ts",
+      "sha256": "d5287b177659632bff9e4b2fa92056e72a24c5db0a6fe5b03071a3fbcb84fc95",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/test/support/endorsement-tax-fixture.ts",
+      "sha256": "bacd331d69de4cb16911ec6acdb0461010f91edd4640be6e88fc0dd9a8e26dd3",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/test/support/finance-candidate-fixture.ts",
       "sha256": "8d7f32eeeed180189a87db72f8f1b5217e4a12018764be267040797da0ca1b6d",
       "hashEncoding": "UTF8_LF"
@@ -848,7 +898,7 @@
     },
     {
       "file": "apps/insurance-portal-service/test/support/quotation-tax-database.ts",
-      "sha256": "0d015d0af8387242ef9a01992b7f3d12120cbfacd66ee6b7fdee93448ec54013",
+      "sha256": "d3e777df542f253b84cb0a079330810e2d15253660ba237c103ebf983a8cd5a9",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -878,12 +928,12 @@
     },
     {
       "file": "apps/insurance-portal-web/src/modules/tenant/finance/components/InvoiceTaxBreakdown.test.tsx",
-      "sha256": "a229a80a628bd863f31eb8a39bfc1a9477ea05991b9eabb589c02447d3aa6346",
+      "sha256": "9a4fbde847fc8fbdfed548c38faf2f174351e4de7b94c994f0762ca97da6ce1e",
       "hashEncoding": "UTF8_LF"
     },
     {
       "file": "apps/insurance-portal-web/src/modules/tenant/finance/components/InvoiceTaxBreakdown.tsx",
-      "sha256": "8a6488cdaf23f5c639d00b3c33b80f4bef22e7b1e1e53bb42e6f2577d0301435",
+      "sha256": "c552235d168e5998ec27bbe010e30aeeb7d1898729fd7a9166a3a748982e10b3",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -913,7 +963,7 @@
     },
     {
       "file": "apps/insurance-portal-web/src/modules/tenant/finance/pages/FinanceInvoiceDetailPage.tsx",
-      "sha256": "7d297a488e406ddf0b3e83170fe7a3faad80f39461db4e674b8b51b810b83104",
+      "sha256": "339be247673a1716f3b139c2ddb7cd0b4812ea05c6e9351d32e43a99e1aa4aa2",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -949,6 +999,11 @@
     {
       "file": "apps/insurance-portal-web/src/modules/tenant/finance/types.ts",
       "sha256": "3779b2826004f0db89c76d3fe50217d0c0a98f95cd17da88b236b67eb83f4f4d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-web/src/modules/tenant/finance/utils/invoice-tax-breakdown.ts",
+      "sha256": "cbf07fa09134bcfc3daa374db2462ed0833d85401b09bd79cb1da74ed55e7a4b",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -1559,6 +1614,20 @@
     "sourceFileCount": 192,
     "newMigrationAppliedToSource": false,
     "newCompanyGrants": 0,
+    "policiesActivated": 0
+  },
+  "endorsementTaxCorrection": {
+    "priorImplementationBaseline": {
+      "sourceCodeFingerprint": "dcf3f8ce35506cc864b2924ac654410da0ab1dbda1503c903f8320b44f6e88c5",
+      "sourceFileCount": 192,
+      "sourceCodeFilesAtCommit": "b1dee5709f004d5c6a5e6da487ef38aa2e9561e9"
+    },
+    "evidence": "Endorsement-Tax-Verification.json",
+    "evidenceSha256": "b676c9a005c92afb3ed434059f0a9c44f0a564bd35a83e9a6c836146e13b864f",
+    "sourceCodeFingerprint": "d5fbbef930253ce3cdc499d49a8b9abd66ae195e2a7c1e3eaf591649f098433b",
+    "sourceFileCount": 203,
+    "newMigrations": 0,
+    "sourceWrites": 0,
     "policiesActivated": 0
   }
 }

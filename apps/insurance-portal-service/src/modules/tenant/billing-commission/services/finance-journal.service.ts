@@ -8,7 +8,10 @@ import { FinanceRefund } from '../entities/finance-refund.entity';
 import { FinanceAccount } from '../entities/finance-account.entity';
 import { FinanceJournalEntry } from '../entities/finance-journal-entry.entity';
 import { FinanceJournalLine } from '../entities/finance-journal-line.entity';
-import { validatedInvoiceTax } from '../utils/quotation-invoice-tax';
+import {
+  validatedPremiumInvoiceTax,
+  hasPremiumInvoiceTax,
+} from '../utils/premium-invoice-tax';
 import { CommissionPayment } from '../entities/commission-payment.entity';
 import { Invoice } from '../entities/invoice.entity';
 import { Receipt } from '../entities/receipt.entity';
@@ -40,8 +43,8 @@ export class FinanceJournalService {
     sourceEventId: string,
     userId: string | null,
   ) {
-    if (invoice.source_type === 'QUOTATION')
-      return this.postQuotationInvoice(
+    if (hasPremiumInvoiceTax(invoice.source_type))
+      return this.postPremiumInvoice(
         manager,
         invoice,
         sourceEventId,
@@ -90,8 +93,8 @@ export class FinanceJournalService {
     userId: string | null,
     reason: string,
   ) {
-    if (invoice.source_type === 'QUOTATION')
-      return this.postQuotationInvoice(
+    if (hasPremiumInvoiceTax(invoice.source_type))
+      return this.postPremiumInvoice(
         manager,
         invoice,
         sourceEventId,
@@ -745,7 +748,7 @@ export class FinanceJournalService {
     return entry;
   }
 
-  private async postQuotationInvoice(
+  private async postPremiumInvoice(
     manager: EntityManager,
     invoice: Invoice,
     eventId: string,
@@ -759,7 +762,10 @@ export class FinanceJournalService {
           where: { id: invoice.id, company_id: invoice.company_id },
           relations: { items: true },
         });
-    const b = validatedInvoiceTax({ ...invoice, items: full?.items ?? [] });
+    const b = validatedPremiumInvoiceTax({
+      ...invoice,
+      items: full?.items ?? [],
+    });
     const vector: JournalLineInput[] = [
       {
         accountCode: '1200',
@@ -772,7 +778,9 @@ export class FinanceJournalService {
         accountCode: '4100',
         accountName: 'Gross Written Premium',
         accountType: 'INCOME',
-        credit: b.net,
+        ...(DecimalUtil.value(b.net).isNegative()
+          ? { debit: DecimalUtil.value(b.net).abs().toFixed(2) }
+          : { credit: b.net }),
         description:
           'Premium excluding separately identified taxes, levies and fees',
       },
@@ -790,7 +798,9 @@ export class FinanceJournalService {
           accountType: ['TAX', 'LEVY', 'STAMP_DUTY'].includes(c.category)
             ? 'LIABILITY'
             : 'INCOME',
-          credit: c.amount,
+          ...(DecimalUtil.value(c.amount).isNegative()
+            ? { debit: DecimalUtil.value(c.amount).abs().toFixed(2) }
+            : { credit: c.amount }),
           description: `${c.code} | ${c.category} | rate ${c.rate} | base ${c.baseAmount} | ${l.sourceId}`,
         });
       }

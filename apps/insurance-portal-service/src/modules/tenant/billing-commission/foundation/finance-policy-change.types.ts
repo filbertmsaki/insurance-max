@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
+import { policyPricingHashMatches } from '../utils/endorsement-invoice-tax';
 import {
   approvalFields as validateFields,
   normalizeBeneficiary,
@@ -178,8 +178,7 @@ export function normalizePolicyChange(value: unknown): PolicyChangeEvidence {
     !p.pricing.snapshot ||
     Array.isArray(p.pricing.snapshot) ||
     typeof p.pricing.snapshot !== 'object' ||
-    new ProductDefinitionHashService().hashDefinition(p.pricing.snapshot) !==
-      p.pricing.hash
+    !policyPricingHashMatches(p.pricing.snapshot, p.pricing.hash)
   )
     fail('The original pricing-engine snapshot and native hash must agree.');
   p.additionalPremium = cashAmount(p.additionalPremium, p.decimalScale);

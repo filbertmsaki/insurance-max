@@ -257,7 +257,14 @@ const schemas = [
         uuid,
       ),
       ...fields(
-        ['intermediary_company_id', 'quotation_id', 'policy_id', 'branch_id'],
+        [
+          'intermediary_company_id',
+          'quotation_id',
+          'policy_id',
+          'branch_id',
+          'endorsement_id',
+          'cancellation_id',
+        ],
         nullableUuid,
       ),
       ...fields(
@@ -409,7 +416,7 @@ async function seed(s: DataSource) {
       identifier as never,
       new ProductDefinitionHashService(),
       // Synthetic posting-vector fixture only; real policy eligibility is tested separately.
-      { requireEligible: async () => undefined } as never,
+      { requireEligible: async () => undefined },
     );
   return {
     ...d,

@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import type { EntityManager } from 'typeorm';
 import { cashObject, cashAmount } from './finance-outgoing.types';
+import { policyPricingHashMatches } from '../utils/endorsement-invoice-tax';
 import {
   controlUuid,
   controlScale,
@@ -33,7 +34,7 @@ export async function readPolicyChangeSource(
     transaction = controlUuid(input.transactionId),
     scale = controlScale(input.decimalScale);
   const [t] = await m.query(
-    'SELECT * FROM policy_transactions WHERE company_id=$1 AND id=$2 FOR SHARE',
+    'SELECT *,effective_date::text AS effective_date FROM policy_transactions WHERE company_id=$1 AND id=$2 FOR SHARE',
     [company, transaction],
   );
   if (
@@ -74,7 +75,7 @@ export async function readPolicyChangeSource(
     hasher.hashDefinition(after.policy_snapshot) !==
       after.policy_snapshot_hash ||
     !t.pricing_snapshot ||
-    hasher.hashDefinition(t.pricing_snapshot) !== t.pricing_snapshot_hash
+    !policyPricingHashMatches(t.pricing_snapshot, t.pricing_snapshot_hash)
   )
     throw new ConflictException(
       'Native policy version or pricing evidence differs from its stored hash.',
@@ -106,14 +107,12 @@ export async function readPolicyChangeSource(
       invoice.currency === t.currency_code &&
       invoice.pricing_result_hash === t.pricing_snapshot_hash
     ) {
-      const n = (v: string) => controlUnits(cashAmount(v, scale));
+      const n = (v: string) => signedUnits(signedChangeAmount(v, scale));
       const tax = components.taxDifference,
         fees = components.feeDifference;
       if (
         typeof tax === 'string' &&
         typeof fees === 'string' &&
-        !tax.startsWith('-') &&
-        !fees.startsWith('-') &&
         n(invoice.total_amount) === n(additional) &&
         n(invoice.tax_amount) === n(tax) &&
         n(invoice.charges_amount) === n(fees) &&

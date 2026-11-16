@@ -67,6 +67,19 @@ export class PricingChargeService {
       0,
       10,
     );
+    const exemptions = new Map<string, { type: string; reference: string }>();
+    for (const exemption of input.tax_exemptions ?? []) {
+      if (
+        !codes.includes(exemption.tax_code) ||
+        exemptions.has(exemption.tax_code) ||
+        !exemption.type?.trim() ||
+        !exemption.reference?.trim()
+      )
+        throw new BadRequestException(
+          'Each exemption requires a selected tax code, type and reference.',
+        );
+      exemptions.set(exemption.tax_code, exemption);
+    }
     const calculation = calculatePercentageTaxes(
       input.tax_inclusive_premium ?? input.net_premium,
       codes.map((code) => {
@@ -76,7 +89,14 @@ export class PricingChargeService {
             `Tax ${code} is unavailable. Select an active tax from the tax catalogue.`,
           );
         assertTaxEffective(tax.calculation_options, date);
-        return { code, rate: tax.tax_rate };
+        const exemption = exemptions.get(code);
+        return {
+          code,
+          rate: tax.tax_rate,
+          exempt: !!exemption,
+          exemptionType: exemption?.type,
+          exemptionReference: exemption?.reference,
+        };
       }),
       input.tax_inclusive_premium === undefined ? 'EXCLUSIVE' : 'INCLUSIVE',
     );
@@ -90,6 +110,9 @@ export class PricingChargeService {
         );
       return {
         // Retained in the snapshot contract; now identifies a catalogue tax.
+        is_exempt: exemptions.has(code),
+        exemption_type: exemptions.get(code)?.type ?? null,
+        exemption_reference: exemptions.get(code)?.reference ?? null,
         applied_rule_id: tax.id,
         charge_code: tax.tax_code,
         charge_name: tax.tax_name,

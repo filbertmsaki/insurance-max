@@ -58,7 +58,10 @@ import { QuotationPaymentProjectionService } from './quotation-payment-projectio
 import { ReceiptBalanceService } from './receipt-balance.service';
 import { ReceiptAllocationStatus } from '../enums/finance-status.enums';
 import { PaymentReferenceService } from './payment-reference.service';
-import { validatedInvoiceTax } from '../utils/quotation-invoice-tax';
+import {
+  validatedPremiumInvoiceTax,
+  hasPremiumInvoiceTax,
+} from '../utils/premium-invoice-tax';
 
 @Injectable()
 export class FinanceCommandService {
@@ -141,8 +144,8 @@ export class FinanceCommandService {
         (total, item) => total.plus(DecimalUtil.value(item.total_amount)),
         DecimalUtil.value(0),
       );
-      if (invoice.source_type === 'QUOTATION')
-        validatedInvoiceTax({ ...invoice, items: items?.items ?? [] });
+      if (hasPremiumInvoiceTax(invoice.source_type))
+        validatedPremiumInvoiceTax({ ...invoice, items: items?.items ?? [] });
 
       if (!lineTotal.equals(DecimalUtil.value(invoice.total_amount))) {
         throw new ConflictException({

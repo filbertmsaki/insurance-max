@@ -3,6 +3,49 @@ import { Repository } from 'typeorm';
 import { Tax } from '../../taxes/entities/tax.entity';
 
 describe('Selected catalogue taxes', () => {
+  it('preserves an explicitly evidenced exemption through the shared calculator', async () => {
+    const { service } = fixture();
+    const result = await service.calculateCharges('company', {
+      basic_premium: 100,
+      net_premium: 100,
+      gross_premium: 100,
+      tax_codes: ['VAT-MAINLAND'],
+      tax_exemptions: [
+        {
+          tax_code: 'VAT-MAINLAND',
+          type: 'SYNTHETIC-EXEMPTION',
+          reference: 'SYNTHETIC-APPROVAL',
+        },
+      ],
+    });
+    expect(result.premium_including_charges).toBe(100);
+    expect(result.charges[0]).toMatchObject({
+      rate: 0.18,
+      computed_amount: 0,
+      is_exempt: true,
+      exemption_reference: 'SYNTHETIC-APPROVAL',
+    });
+  });
+  it('refuses missing, duplicate and unselected exemption evidence', async () => {
+    const { service } = fixture();
+    for (const tax_exemptions of [
+      [{ tax_code: 'VAT-MAINLAND', type: '', reference: '' }],
+      [{ tax_code: 'OTHER', type: 'TYPE', reference: 'REF' }],
+      [
+        { tax_code: 'VAT-MAINLAND', type: 'TYPE', reference: 'REF' },
+        { tax_code: 'VAT-MAINLAND', type: 'TYPE', reference: 'REF' },
+      ],
+    ])
+      await expect(
+        service.calculateCharges('company', {
+          basic_premium: 100,
+          net_premium: 100,
+          gross_premium: 100,
+          tax_codes: ['VAT-MAINLAND'],
+          tax_exemptions,
+        }),
+      ).rejects.toThrow('exemption');
+  });
   const catalogue = [
     { id: 'vat', tax_code: 'VAT-MAINLAND', tax_name: 'VAT', tax_rate: '0.18' },
     {

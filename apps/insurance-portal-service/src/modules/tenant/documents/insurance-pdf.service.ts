@@ -11,7 +11,7 @@ import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { MotorPolicyDetail } from '../motor/entities/motor-policy-detail.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
-import { validatedInvoiceTax } from '../billing-commission/utils/quotation-invoice-tax';
+import { validatedPremiumInvoiceTax } from '../billing-commission/utils/premium-invoice-tax';
 import { DecimalUtil } from '../../shared/finance/decimal.util';
 import {
   MotorScheduleVehicle,
@@ -99,7 +99,7 @@ export class InsurancePdfService {
       relations: { items: true, customer: true },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
-    const b = validatedInvoiceTax(invoice);
+    const b = validatedPremiumInvoiceTax(invoice);
     const pairs: Pair[] = [
       ['Invoice number', invoice.invoice_no],
       ['Status', invoice.status],
@@ -111,9 +111,11 @@ export class InsurancePdfService {
     for (const l of b.lines)
       for (const c of l.charges)
         pairs.push([
-          `${c.code} | ${c.category}`,
+          `${c.code} | ${c.category}${'direction' in l ? ` | ${l.direction === 'SOURCE' ? 'Original reversal' : 'Revised premium'}` : ''}`,
           `${c.amount} | ${DecimalUtil.value(c.rate).mul(100).toFixed(8)}% of ${c.baseAmount}${c.exempt ? ` | EXEMPT: ${c.exemptionType} ${c.exemptionReference}` : ''}`,
         ]);
+    if (b.schema === 'ENDORSEMENT_INVOICE_TAX_V1')
+      pairs.push(['Pricing rounding adjustment included in net', b.rounding]);
     pairs.push(
       ['Taxes', b.tax],
       ['Levies / stamp duty', b.levies],
@@ -128,7 +130,7 @@ export class InsurancePdfService {
         invoice.invoice_no,
         pairs,
         [
-          'Tax components use the original quotation rates, bases and exemption evidence.',
+          'Tax components use the original pricing rates, bases and exemption evidence.',
         ],
         invoice.status === 'DRAFT',
       ),

@@ -1,9 +1,11 @@
 import { UnprocessableEntityException } from '@nestjs/common';
+import { calculatePercentageTaxes } from '../../../shared/finance/tax-calculation';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 
 import { PricingQuoteScope } from '../../pricing/entities/pricing-quote.entity';
 import { EndorsementPricingService } from './endorsement-pricing.service';
 import { EndorsementRepricingService } from './endorsement-repricing.service';
+import { PricingChargeService } from '../../pricing/application/pricing-charge.service';
 
 function hashService() {
   return {
@@ -50,14 +52,31 @@ function riskResult(
   sumInsured: number,
   approval = false,
 ) {
+  const calc = calculatePercentageTaxes(
+    String(finalPayablePremium),
+    [{ code: 'TEST-TAX', rate: '0.1' }],
+    'INCLUSIVE',
+  );
   return {
+    premium_including_tax: finalPayablePremium,
+    discount_amount: 0,
     risk_id: 'risk-1',
     final_payable_premium: finalPayablePremium,
-    premium_excluding_tax: finalPayablePremium * 0.9,
+    premium_excluding_tax: Number(calc.net),
     charges: [
       {
+        applied_rule_id: 'synthetic-tax-rule',
+        charge_code: 'TEST-TAX',
+        charge_name: 'Synthetic tax',
+        charge_type: 'PERCENTAGE',
+        calculation_base: 'NET_PREMIUM',
+        price_basis: 'INCLUSIVE',
+        base_amount: calc.charges[0].baseAmount,
+        rate: 0.1,
+        effective_from: '2026-01-01',
+        effective_to: '2027-01-01',
         charge_category: 'TAX',
-        computed_amount: finalPayablePremium * 0.1,
+        computed_amount: Number(calc.charges[0].amount),
       },
     ],
     discount_approval_required: approval,
@@ -121,6 +140,69 @@ function snapshot(sumInsured = '50000000') {
 }
 
 describe('EndorsementRepricingService', () => {
+  it('reuses configured charge calculation to preserve original exemption evidence', async () => {
+    const charges = new PricingChargeService({
+      findOne: async () => ({
+        id: 'SYNTHETIC-RULE',
+        tax_code: 'TEST-TAX',
+        tax_name: 'Test tax',
+        tax_rate: '0.10',
+      }),
+      find: async () => [
+        {
+          id: 'SYNTHETIC-RULE',
+          tax_code: 'TEST-TAX',
+          tax_name: 'Test tax',
+          tax_rate: '0.10',
+        },
+      ],
+    } as never);
+    const engine = {
+      calculateSingleRisk: jest.fn(async (_company: string, input: any) => {
+        const net = input.sum_insured === 50000000 ? 100 : 200,
+          calc = await charges.calculateCharges('company-1', {
+            basic_premium: net,
+            gross_premium: net,
+            net_premium: net,
+            effective_date: input.effective_date,
+            tax_exemptions: input.tax_exemptions,
+          });
+        return {
+          ...riskResult(net, input.sum_insured),
+          charges: calc.charges,
+          premium_excluding_tax: net,
+          premium_including_tax: calc.premium_including_charges,
+          final_payable_premium: calc.premium_including_charges,
+        };
+      }),
+    };
+    const original = snapshot(),
+      proposed = snapshot('65000000');
+    for (const s of [original, proposed])
+      Object.assign(s.entries[0].pricing.risks[0], {
+        taxes: [
+          {
+            taxCode: 'TEST-TAX',
+            isTaxExempted: 'Y',
+            taxExemptionType: 'SYNTHETIC-EXEMPT',
+            taxExemptionReference: 'SYNTHETIC-APPROVAL',
+          },
+        ],
+      });
+    const result = await createService(engine).reprice(
+      createManager(),
+      transaction(),
+      original,
+      proposed,
+    );
+    expect(result.snapshot.taxDifference).toBe('0.0000');
+    expect(
+      result.snapshot.proposedRiskPricing[0].chargeEvidence.charges[0],
+    ).toMatchObject({ exempt: true, exemptionReference: 'SYNTHETIC-APPROVAL' });
+    expect(result.snapshot.proposedRiskPricing[0].taxes[0].isTaxExempted).toBe(
+      'Y',
+    );
+  });
   it('produces DEBIT when proposed remaining premium is greater than source remaining premium', async () => {
     const engine = {
       calculateSingleRisk: jest
@@ -141,6 +223,11 @@ describe('EndorsementRepricingService', () => {
     expect(result.snapshot.remainingOldPremium).toBe('1000.0000');
     expect(result.snapshot.remainingNewPremium).toBe('1300.0000');
     expect(result.snapshot.premiumDifference).toBe('300.0000');
+    const { snapshotHash, ...unsigned } = result.snapshot;
+    expect(snapshotHash).toBe(JSON.stringify(unsigned));
+    expect(result.snapshot.finance_components.taxEvidenceHash).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
   });
 
   it('produces NONE when source and proposed remaining premiums match', async () => {
