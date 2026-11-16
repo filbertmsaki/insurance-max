@@ -23,6 +23,7 @@ import { FinancePolicyService } from './finance-policy.service';
 import { FinanceLedgerFoundationService } from './finance-ledger-foundation.service';
 import { FinanceOutgoingService } from './finance-outgoing.service';
 import { OUTGOING_SIMULATORS } from './finance-outgoing.types';
+import { FinancePolicyChangeService } from './finance-policy-change.service';
 
 /** Versioned foundations; the company adapter is registered by BillingCommissionModule. Importing this module never grants access, activates a policy or enables posting. */
 @Module({
@@ -39,6 +40,7 @@ import { OUTGOING_SIMULATORS } from './finance-outgoing.types';
     ]),
   ],
   providers: [
+    FinancePolicyChangeService,
     FinanceOutgoingService,
     { provide: OUTGOING_SIMULATORS, useValue: Object.freeze([]) },
     FinanceLedgerFoundationService,
@@ -56,6 +58,7 @@ import { OUTGOING_SIMULATORS } from './finance-outgoing.types';
     FinanceJournalCandidateService,
   ],
   exports: [
+    FinancePolicyChangeService,
     FinanceOutgoingService,
     FinanceLedgerFoundationService,
     FinancePolicyService,

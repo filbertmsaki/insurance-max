@@ -853,7 +853,11 @@ export class FinanceReceivablesService {
                 r.decision !== 'REJECTED_INACTIVE',
             )
             .reduce((n, r) => n + controlUnits(r.amount), 0n);
-          if (reserved + amount.units > controlUnits(original.amount))
+          const refundReserved = await this.refundReservations(m, original.id);
+          if (
+            reserved + refundReserved + amount.units >
+            controlUnits(original.amount)
+          )
             conflict(
               'Partial or pending reversals exceed the original assignment.',
             );
@@ -1130,6 +1134,72 @@ export class FinanceReceivablesService {
         ],
       };
     });
+  }
+  /** Transaction-local B16 reference; the caller must enforce its scoped authority. */
+  async verifiedAssignment(
+    m: EntityManager,
+    p: Actor,
+    s: IntegrationScope,
+    ref: { id: string; hash: string },
+  ) {
+    const [r] = await m.query(
+      "SELECT * FROM finance_receivable_requests WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND id=$4 AND subject_hash=$5 AND kind='ALLOCATE'",
+      [
+        p.tenantId,
+        s.legalEntityId,
+        s.bookId,
+        controlUuid(ref.id),
+        controlHash(ref.hash),
+      ],
+    );
+    if (!r)
+      throw new ForbiddenException(
+        'The exact original receipt assignment is unavailable.',
+      );
+    const receipt = await this.receiptPosition(m, p, s, r.receipt_id),
+      assignment = receipt.requests.find((a) => a.id === r.id);
+    if (!assignment || assignment.decision !== 'REVIEWED_INACTIVE')
+      conflict(
+        'Refunds require an independently reviewed original assignment.',
+      );
+    const billing = await this.billing.verifiedReference(
+      m,
+      p,
+      s,
+      r.memo_id,
+      r.subject.memoHash,
+      false,
+    );
+    const reversed = receipt.requests
+      .filter(
+        (a) => a.original_id === r.id && a.decision !== 'REJECTED_INACTIVE',
+      )
+      .reduce((n, a) => n + controlUnits(a.amount), 0n);
+    return {
+      assignment,
+      receipt: receipt.r,
+      billing,
+      sourceConflicts: receipt.state.sourceConflicts,
+      billingLineageHolds: receipt.state.billingLineageHolds,
+      remainingAfterReversals: controlAmount(controlUnits(r.amount) - reversed),
+      refundReserved: controlAmount(await this.refundReservations(m, r.id)),
+    };
+  }
+  private async refundReservations(
+    m: EntityManager,
+    assignmentId: string,
+  ): Promise<bigint> {
+    const [{ present }] = await m.query(
+      "SELECT to_regprocedure('finance_policy_refund_reserved(uuid)') IS NOT NULL present",
+    );
+    if (!present) return 0n;
+    const [{ reserved }] = await m.query(
+      'SELECT finance_policy_refund_reserved($1::uuid)::numeric(38,12)::text reserved',
+      [assignmentId],
+    );
+    return controlUnitsSigned(
+      reserved.includes('.') ? reserved : reserved + '.000000000000',
+    );
   }
   async readBillingAgeing(
     p: Actor,

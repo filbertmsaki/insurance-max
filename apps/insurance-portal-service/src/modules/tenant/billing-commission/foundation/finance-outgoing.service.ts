@@ -1187,6 +1187,86 @@ export class FinanceOutgoingService {
       },
     );
   }
+  /** Transaction-local B16 read. No cash command or authority is inferred. */
+  async verifiedReference(
+    m: EntityManager,
+    p: Actor,
+    s: IntegrationScope,
+    ref: Ref,
+  ) {
+    const intent = await this.row(
+        m,
+        p,
+        s,
+        'finance_outgoing_intents',
+        ref.id,
+        ref.hash,
+      ),
+      funding = await this.row(
+        m,
+        p,
+        s,
+        'finance_outgoing_evidence',
+        intent.funding_id,
+      ),
+      obligation = await this.row(
+        m,
+        p,
+        s,
+        'finance_outgoing_evidence',
+        intent.obligation_id,
+      );
+    for (const evidence of [funding, obligation]) {
+      const snap = evidence.subject.snapshot;
+      await verifyAcceptedSource(m, p, s, evidence.inbox_id, {
+        eventType: OUTGOING_EVENT,
+        factKind: 'OUTGOING_EVIDENCE',
+        aggregateType: 'OUTGOING_EVIDENCE',
+        aggregateId: snap.id,
+        companyId: snap.sourceCompanyId,
+        revision: snap.sourceRevision,
+        snapshotHash: evidence.subject.rawSnapshotHash,
+      });
+    }
+    const position = await this.position(m, p, s, intent);
+    let bankReconciled = false;
+    for (const event of position.events.filter(
+      (e) => e.action === 'RECONCILE',
+    )) {
+      const bank = await this.row(
+          m,
+          p,
+          s,
+          'finance_outgoing_evidence',
+          event.subject.details.bankId,
+          event.subject.details.bankHash,
+        ),
+        snap = bank.subject.snapshot;
+      const [{ conflict }] = await m.query(
+        "SELECT EXISTS(SELECT 1 FROM finance_outgoing_aliases WHERE evidence_id=$1 AND state='CONFLICT_HELD') conflict",
+        [bank.id],
+      );
+      await verifyAcceptedSource(m, p, s, bank.inbox_id, {
+        eventType: OUTGOING_EVENT,
+        factKind: 'OUTGOING_EVIDENCE',
+        aggregateType: 'OUTGOING_EVIDENCE',
+        aggregateId: snap.id,
+        companyId: snap.sourceCompanyId,
+        revision: snap.sourceRevision,
+        snapshotHash: bank.subject.rawSnapshotHash,
+      });
+      if (!conflict) bankReconciled = true;
+    }
+    return {
+      intent,
+      funding,
+      obligation,
+      position,
+      bankReconciled,
+      accountingState: 'HELD_INACTIVE',
+      financialEffects: 0,
+    };
+  }
   async reconcile(
     actor: Actor,
     scope: IntegrationScope,

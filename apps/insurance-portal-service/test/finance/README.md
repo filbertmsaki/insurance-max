@@ -147,3 +147,26 @@ statement mismatch and staleness, negative source gaps, scope denials, database
 constraints and guarded migration rollback. No legacy application database, bank,
 provider, accounting policy or GL writer is activated. Existing Finance suites
 remain part of the full private PostgreSQL regression run.
+
+# B15/B16 outgoing cash and policy-change controls
+
+The outgoing fixture applies B15 over B14 and injects an isolated in-memory cash
+simulator. The application registers no simulator. The policy-change fixture
+adds B16, synthetic person/amount/currency mandates and signed B11 policy-change
+evidence. Neither fixture bootstraps the application or connects to its database.
+
+`finance-policy-change.finance-integration.ts` checks applied term vectors,
+unknown tax holds, corrections, original receipt/refund capacity, independent
+review, exact B15 bindings, provider recovery after policy changes and separate
+bank-matched principal/fees. Approval never implies actual cash return,
+accounting recognition or legal discharge. Historical source invoices are not
+loaded or edited by this suite.
+
+Use the repository runner with `--test-file
+finance-policy-change.finance-integration.ts --evidence-dir <private-directory>`
+to provision and stop its own private cluster. For all 16 Finance suites on a
+small workstation, run each selected suite separately with at most two runners
+at once; retain each Jest result and stopped-cluster record. Do not substitute
+application credentials or claim a full-history migration rehearsal from these
+synthetic tests. See [the B16 guide](../../../../docs/finance/B16-Policy-Change-Guide.md)
+for remaining source integration and release gates.
