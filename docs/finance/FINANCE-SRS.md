@@ -6,7 +6,7 @@ Insurance Max requires a complete, independent Finance Service that owns financi
 
 The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
-**Document control:** IM-FIN-SRS-1.8; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
+**Document control:** IM-FIN-SRS-1.9; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The nominated additional person now has an inactive company/HQ account and a zero-permission onboarding role; identity verification, credentials, Finance appointment and mandates remain pending. Legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
 
 ## Current implementation at a glance
 
@@ -1791,3 +1791,13 @@ This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 1
 
 
 The code revision used for this isolated rehearsal is f193c3058103c7cf563a5225978751eb20dcd240. No implementation code changed during the rehearsal or local schema application. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.
+
+## Remaining G04 configuration and company-admin review
+
+The [remaining G04 plan](G04-Remaining-Configuration-and-Review-Plan.html) sequences ten dependent review steps, all 13 configuration families, all 70 policies across 33 modules and all 126 decisions. Three populated legacy accounts have held mapping dispositions; the original 11 source-defined codes remain design candidates rather than a live balance export. All selected treatments, dates and successor roles remain unresolved.
+
+Initial read-only inventory left all 352 source tables unchanged. Authorized account onboarding subsequently changed only seven account/organisation/audit tables: one inactive company/HQ account, one inactive membership, one zero-permission onboarding role and assignment, one HQ branch assignment, the company user-number counter and an audit event. All 345 other tables, all Finance tables, existing users/access and four protected paid invoices remained unchanged. No credentials, verification evidence, invitation or Finance mandate was created. The separate preparer/checker appointment remains pending. Company identities and contact data are retained only in the private local review pack.
+
+The configuration service supports inactive versioned review internally. The current Finance web workspace remains read-only; configuration editing endpoints were not found in the reviewed billing-commission controllers. Generic JSON configuration storage for posting rules, dimensions, tax and currency does not establish complete semantic validation or consumer implementation. A narrowly scoped review workflow and per-family validation evidence are prerequisites to deployment.
+
+G04 remains partial. Company policy approval, policy activation, live deployment, cutover and extraction remain separate decisions; this review pack grants none of them.

@@ -1,10 +1,10 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Insurance Max Finance Service SRS</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font:16px/1.6 system-ui,Arial,sans-serif;color:#19343e;background:#f2f5f6}main{max-width:1220px;margin:auto;padding:36px 30px}h1{font-size:34px;line-height:1.18;color:#102f3c;max-width:920px;margin:14px 0 24px}h2{font-size:25px;line-height:1.3;color:#123d4b;margin-top:54px;padding-top:8px}h3{font-size:20px;line-height:1.35;margin-top:32px}p,li{max-width:1080px}table{width:100%;border-collapse:collapse;font-size:14px;background:white;margin:20px 0}th,td{border:1px solid #d7e0e4;vertical-align:top;text-align:left;padding:11px;overflow-wrap:anywhere}th{background:#dfebef;color:#153d4b}th:first-child,td:first-child{min-width:112px}tr:nth-child(even){background:#f8fafb}a{color:#006582}code{font-size:13px;overflow-wrap:anywhere}nav{background:#e2edf0;padding:18px;columns:2;border-radius:8px}nav a{display:block;break-inside:avoid;margin:4px 0}.notice{padding:18px 22px;background:#fff1d4;border-left:5px solid #9b6b1b;margin:24px 0}.meta{color:#536b74}details{background:white;border:1px solid #d5dfe4;padding:15px;margin:12px 0;border-radius:6px}summary{font-weight:650;cursor:pointer}textarea,input,select{font:inherit;padding:9px;border:1px solid #aebfc7;border-radius:3px;max-width:100%}textarea{width:100%;min-height:75px}button{font:inherit;padding:10px 18px;background:#15566a;color:white;border:0;border-radius:5px;cursor:pointer;margin:8px 8px 8px 0}.review-only{color:#7c5317}label{display:block;font-weight:600;margin-top:12px}.scroll{overflow:auto}@media(max-width:650px){main{padding:20px 14px}h1{font-size:28px}nav{columns:1}table{font-size:12px}th,td{padding:7px}}@media print{body{background:white;font-size:10pt}main{padding:0}nav,button,.no-print{display:none}h1{font-size:24pt}h2{font-size:17pt;break-after:avoid}h3{font-size:13pt;break-after:avoid}table{font-size:9pt}tr{break-inside:avoid}thead{display:table-header-group}p,li{orphans:3;widows:3}a{color:inherit;text-decoration:none}details{break-inside:avoid}textarea{border:1px solid #aaa}h2{margin-top:26pt}@page{size:A4;margin:18mm 14mm}}</style></head><body><main><h1>Insurance Max Finance Service Software Requirements Specification</h1><p class="meta">16 November 2026 · Africa/Dar_es_Salaam · Revision 1.8</p><div class="notice">Controlled document-detail viewing passed on an isolated restored copy. Source records, paid invoices, policies and permissions are unchanged. No accounting acceptance or activation is inferred.</div><nav><a href="#section-0">Purpose and review decision</a><a href="#section-1">Current implementation at a glance</a><a href="#section-2">Status definitions and evidence rules</a><a href="#section-3">Business scope and responsibilities</a><a href="#section-4">Target architecture and service boundaries</a><a href="#section-5">Mandatory accounting and security requirements</a><a href="#section-6">Operational and measurement accounting boundaries</a><a href="#section-7">Implementation phases</a><a href="#section-8">Complete implementation steps and present status</a><a href="#section-9">All Finance modules and submodules</a><a href="#section-10">Measurement engine and currency implementation sequence</a><a href="#section-11">Data records and database evolution</a><a href="#section-12">Interfaces APIs and source contracts</a><a href="#section-13">Nonfunctional and operational acceptance</a><a href="#section-14">Verification results and remaining acceptance</a><a href="#section-15">Isolated migration rehearsal outcome</a><a href="#section-16">Local development schema application</a><a href="#section-17">Local draft read setup — G04 partial</a><a href="#section-18">Real sign-in and read-only foundation verification</a><a href="#section-19">Read-only Finance foundation web workspace</a><a href="#section-20">Real company access to the foundation workspace</a><a href="#section-21">Controlled draft document-detail verification</a><a href="#section-22">Company admin review pack</a><a href="#section-23">Controlled migration and cutover plan</a><a href="#section-24">Opening reconciliation and one writer checklist</a><a href="#section-25">Rollback incident and retirement boundaries</a><a href="#section-26">Unresolved decisions and implementation blockers</a><a href="#section-27">Version traceability and review deliverables</a></nav>
-<h2 id="section-0">Purpose and review decision</h2>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Insurance Max Finance Service SRS</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font:16px/1.6 system-ui,Arial,sans-serif;color:#19343e;background:#f2f5f6}main{max-width:1220px;margin:auto;padding:36px 30px}h1{font-size:34px;line-height:1.18;color:#102f3c;max-width:920px;margin:14px 0 24px}h2{font-size:25px;line-height:1.3;color:#123d4b;margin-top:54px;padding-top:8px}h3{font-size:20px;line-height:1.35;margin-top:32px}p,li{max-width:1080px}table{width:100%;border-collapse:collapse;font-size:14px;background:white;margin:20px 0}th,td{border:1px solid #d7e0e4;vertical-align:top;text-align:left;padding:11px;overflow-wrap:anywhere}th{background:#dfebef;color:#153d4b}th:first-child,td:first-child{min-width:112px}tr:nth-child(even){background:#f8fafb}a{color:#006582}code{font-size:13px;overflow-wrap:anywhere}nav{background:#e2edf0;padding:18px;columns:2;border-radius:8px}nav a{display:block;break-inside:avoid;margin:4px 0}.notice{padding:18px 22px;background:#fff1d4;border-left:5px solid #9b6b1b;margin:24px 0}.meta{color:#536b74}details{background:white;border:1px solid #d5dfe4;padding:15px;margin:12px 0;border-radius:6px}summary{font-weight:650;cursor:pointer}textarea,input,select{font:inherit;padding:9px;border:1px solid #aebfc7;border-radius:3px;max-width:100%}textarea{width:100%;min-height:75px}button{font:inherit;padding:10px 18px;background:#15566a;color:white;border:0;border-radius:5px;cursor:pointer;margin:8px 8px 8px 0}.review-only{color:#7c5317}label{display:block;font-weight:600;margin-top:12px}.scroll{overflow:auto}@media(max-width:650px){main{padding:20px 14px}h1{font-size:28px}nav{columns:1}table{font-size:12px}th,td{padding:7px}}@media print{body{background:white;font-size:10pt}main{padding:0}nav,button,.no-print{display:none}h1{font-size:24pt}h2{font-size:17pt;break-after:avoid}h3{font-size:13pt;break-after:avoid}table{font-size:9pt}tr{break-inside:avoid}thead{display:table-header-group}p,li{orphans:3;widows:3}a{color:inherit;text-decoration:none}details{break-inside:avoid}textarea{border:1px solid #aaa}h2{margin-top:26pt}@page{size:A4;margin:18mm 14mm}}main{overflow-wrap:anywhere;min-width:0}.scroll{max-width:100%;overflow:auto}@media print{.scroll{overflow:visible}}</style></head><body><main><p class="meta">16 November 2026 · Revision 1.9</p><h1>Insurance Max Finance Service Software Requirements Specification</h1>
+<h2>Purpose and review decision</h2>
 <p>Insurance Max requires a complete, independent Finance Service that owns financial obligations, accounting documents, journals, settlements, reconciliations and balances. This SRS defines the target behavior, the five implementation phases, the 46 baseline backlog steps and all 33 Finance modules. It also records the current implementation separately from legacy capability, company approval and production deployment.</p>
 <p>The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.</p>
-<p><strong>Document control:</strong> IM-FIN-SRS-1.8; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.</p>
-<h2 id="section-1">Current implementation at a glance</h2>
-<table>
+<p><strong>Document control:</strong> IM-FIN-SRS-1.9; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The nominated additional person now has an inactive company/HQ account and a zero-permission onboarding role; identity verification, credentials, Finance appointment and mandates remain pending. Legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.</p>
+<h2>Current implementation at a glance</h2>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Area</th>
@@ -67,9 +67,9 @@
 <td>Not extracted; foundation currently resides in insurance-portal-service</td>
 <td>B40 to B42 after reconciled migration, compatibility and recovery gates</td>
 </tr>
-</tbody></table>
-<h2 id="section-2">Status definitions and evidence rules</h2>
-<table>
+</tbody></table></div>
+<h2>Status definitions and evidence rules</h2>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Status</th>
@@ -96,12 +96,12 @@
 <td>AWAITING COMPANY ADMIN ACCEPTANCE</td>
 <td>Technical controls or proposals exist, but actual company decisions, configuration or formal acceptance are missing.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>No completion percentage is inferred by counting files, tests or policy templates. A module containing implemented controls is not automatically a fully implemented module. Deferred features must remain inactive until their actual policy and replacement evidence is approved.</p>
-<h2 id="section-3">Business scope and responsibilities</h2>
+<h2>Business scope and responsibilities</h2>
 <p>The platform shall support insurers, brokers, reinsurers and other insurance profiles through configuration. The existing company types include insurance company, reinsurance company, reinsurance broker, broker, agency, bancassurance and service provider. No Alliance-specific account, tax, currency or approval assumption may define the platform behavior.</p>
 <p>Initial product coverage to review includes Motor, Fleet, Short-Term or In-Transit, GIT, Miscellaneous or Accident, Engineering, Fire and Marine as actually configured. Product support in quotation is not permission to post an unapproved financial treatment.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Owner</th>
@@ -144,13 +144,13 @@
 <td>Company admin</td>
 <td>Actual scoped policy and release approval, supported by independent specialist and checker evidence; platform ownership is not company accounting authority.</td>
 </tr>
-</tbody></table>
-<h2 id="section-4">Target architecture and service boundaries</h2>
+</tbody></table></div>
+<h2>Target architecture and service boundaries</h2>
 <p>The final Finance Service shall be an independent NestJS microservice with its own PostgreSQL database, dedicated authenticated APIs, background workers, observability, audit and accounting controls. Today the implemented foundation module and controller are registered inside insurance-portal-service. Logical ownership is implemented incrementally; physical extraction is a later separately approved change.</p>
 <p>The target integration is Source transaction and outbox → versioned signed financial event → Finance inbox and independent source verification → candidate and checker → approved posting rules and currencies → canonical ledger → subledger reconciliation and reports. A measurement run follows a separate input → versioned assumptions → reproducible calculation → independent approved result chain, then submits approved movement deltas to Finance.</p>
 <p>No shared database write or shared EntityManager may be assumed to survive service extraction. B40 must replace those dependencies with transactional outbox/inbox boundaries and reconciled read models. Existing APIs, quotations, policy flows, payments, commissions, claims and reinsurance remain available until an approved replacement passes reconciliation and regression.</p>
-<h2 id="section-5">Mandatory accounting and security requirements</h2>
-<table>
+<h2>Mandatory accounting and security requirements</h2>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -218,9 +218,9 @@
 <td>No company policy activation, live release, database extraction or legacy retirement follows automatically from tests or a Git push.</td>
 <td>Governed release controls implemented; actual approvals absent.</td>
 </tr>
-</tbody></table>
-<h2 id="section-6">Operational and measurement accounting boundaries</h2>
-<table>
+</tbody></table></div>
+<h2>Operational and measurement accounting boundaries</h2>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Component</th>
@@ -265,8 +265,8 @@
 <td>IFRS 9 is separately scoped and does not generically absorb insurance balances.</td>
 <td>No automatic ECL journal on an exposure already governed by the approved insurance model.</td>
 </tr>
-</tbody></table>
-<h2 id="section-7">Implementation phases</h2>
+</tbody></table></div>
+<h2>Implementation phases</h2>
 <h3>PH1 Financial Foundation</h3>
 <p> <strong>Scope:</strong> Multi-tenant architecture, legal entities/books, chart, periods, currencies/rates, journal engine, controls and core reporting.</p>
 <p><strong>Steps:</strong> B03 B04 B05 B06 B07 B08 B09 B10 B11 B12 B43 B44 B45</p>
@@ -298,8 +298,8 @@
 <p><strong>Acceptance:</strong> Cross-phase delivery gates, not a renumbering of the user&#39;s five implementation phases.</p>
 <p><strong>Dependency:</strong> Separate physical extraction remains last after actual financial and operational equivalence. No source deletion or deployment permission from the backlog.</p>
 <p><strong>Current phase position:</strong> PH1 technical foundation is implemented and tested; formal company acceptance is pending. PH2 has inactive B13/B14 slices and corrected shared tax behavior. The remaining PH2 to PH5 and deployment/extraction requirements remain as listed individually. Phase order does not override a prerequisite or grant permission to activate a policy.</p>
-<h2 id="section-8">Complete implementation steps and present status</h2>
-<table>
+<h2>Complete implementation steps and present status</h2>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Step</th>
@@ -584,7 +584,7 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>B27</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <h3>B01 Approve the versioned design and first scope</h3>
 <p><strong>Current state:</strong> BASELINE APPROVED. User approved baseline v0.1. Specific company accounting elections and production releases remain separate.</p>
 <p><strong>Sequence and dependencies:</strong> 1 / Preparation; None.</p>
@@ -907,10 +907,10 @@
 <p><strong>Acceptance:</strong> Independent payroll/control totals, protected access, employer/employee components and cash reconciliation.</p>
 <p><strong>Controls and limits:</strong> No HR source writes to GL directly or cash double counting. Statutory/employment treatment needs applicable approval.</p>
 <p><strong>Traceability:</strong> AC36 AC52 / DEC-14 DEC-18. Reviewer remit: Payroll/HR owner + Finance checker.</p>
-<h2 id="section-9">All Finance modules and submodules</h2>
+<h2>All Finance modules and submodules</h2>
 <p>Each submodule below states the required behavior and the current implementation status. A future requirement uses the target Finance boundary; an existing source-domain function is identified as legacy. All modules remain subject to actual policy applicability, independent acceptance and controlled release.</p>
 <h3>FIN-01 Entity, book and accounting basis</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -943,12 +943,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Extract into an independent NestJS service with its own PostgreSQL, APIs, workers and operating controls after B40 and B41.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B01 B05 B06 B10 B45 B21 B46 B37 B38 B40 B41 B42. <strong>Acceptance criteria:</strong> AC01 AC02 AC41 AC55 AC58 AC60.</p>
 <p><strong>Policies:</strong> AP-01.01 Entity, book and accounting basis.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-scope.service.ts">finance-scope.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-02 Account recognition and mapping governance</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -981,12 +981,12 @@
 <td>AWAITING COMPANY ADMIN ACCEPTANCE</td>
 <td>Approve actual account releases, source mappings, accounting dimensions and deployment scope.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B02 B04 B06 B07 B45 B34. <strong>Acceptance criteria:</strong> AC03 AC05.</p>
 <p><strong>Policies:</strong> AP-02.01 Account recognition and mapping governance.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-chart.types.ts">finance-chart.types.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-03 Financial dimensions and branch allocation</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1019,12 +1019,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Implement governed recurring allocation and interbranch balancing where approved.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B01 B05 B06 B07 B44 B45 B46 B37 B41. <strong>Acceptance criteria:</strong> AC02 AC04.</p>
 <p><strong>Policies:</strong> AP-03.01 Financial dimensions and branch allocation.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-journal-candidate.types.ts">finance-journal-candidate.types.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-04 Balanced immutable journals</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1057,12 +1057,12 @@
 <td>AWAITING COMPANY ADMIN ACCEPTANCE</td>
 <td>Require approved active policies, exact release, open period, current limits and reconciled opening before actual posting.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B01 B02 B05 B06 B07 B08 B09 B10 B11 B43 B44 B45 B21 B23 B24 B33 B35 B40 B41. <strong>Acceptance criteria:</strong> AC01 AC04 AC06 AC07 AC08 AC09 AC32 AC44.</p>
 <p><strong>Policies:</strong> AP-04.01 Balanced immutable journals; AP-04.02 Manual journals, corrections and estimates.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service.ts">finance-ledger-foundation.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-05 Effective-dated event-to-posting rules</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1095,12 +1095,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Implement and reconcile the remaining policy, claims, commission, reinsurance and measurement adapters by approved branch.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B01 B02 B04 B06 B07 B45 B34 B38. <strong>Acceptance criteria:</strong> AC03 AC05 AC55.</p>
 <p><strong>Policies:</strong> AP-05.01 Effective-dated event-to-posting rules.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-configuration.service.ts">finance-configuration.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-06 Recognition dates, periods and locks</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1133,12 +1133,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Implement close tasks, reconciliations, signoffs, locking and reporting dependencies.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B08 B45 B32 B33 B38 B39 B42. <strong>Acceptance criteria:</strong> AC06 AC53 AC54.</p>
 <p><strong>Policies:</strong> AP-06.01 Recognition dates, periods and locks; AP-06.02 Close and reopening authority.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service.ts">finance-ledger-foundation.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-07 Quotation and premium invoice recognition</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1171,12 +1171,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Implement approved insurer or intermediary recognition, tax point and cash mapping without treating billing as duplicate insurance revenue.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B02 B04 B10 B45 B13 B14 B15 B16 B17 B18 B19 B36 B39 B40 B42. <strong>Acceptance criteria:</strong> AC11 AC13 AC40.</p>
 <p><strong>Policies:</strong> AP-07.01 Quotation and premium invoice recognition; AP-07.02 Tax, discount and fee component preservation.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/services/quotation-invoice.service.ts">quotation-invoice.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-08 Cash receipts, provider clearing and advances</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1215,12 +1215,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Complete real producer subscriptions, bank reconciliation and policy-approved discharge before replacing existing cash flows.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B02 B04 B07 B09 B10 B11 B12 B43 B45 B13 B14 B15 B16 B17 B18 B19 B24 B34 B35 B36 B39 B40 B41 B42. <strong>Acceptance criteria:</strong> AC09 AC11 AC12 AC14 AC16 AC40 AC46 AC48 AC49 AC51.</p>
 <p><strong>Policies:</strong> AP-08.01 Cash receipts, provider clearing and advances; AP-08.02 Allocation, refund and payment reversal.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts">finance-receivables.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-09 Receivable scope, ageing and write-off</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1253,12 +1253,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Implement only separately scoped instruments and impairment after the IFRS 17 versus IFRS 9 ownership decision.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B14 B16 B25. <strong>Acceptance criteria:</strong> AC14 AC15.</p>
 <p><strong>Policies:</strong> AP-09.01 Receivable scope, ageing and write-off; AP-09.02 Intermediary receipt and policyholder discharge.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts">finance-receivables.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-10 Endorsement and contract modification</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1291,12 +1291,12 @@
 <td>AWAITING COMPANY ADMIN ACCEPTANCE</td>
 <td>Approve product-specific policy and model classification before affected accounting activation.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B13 B16. <strong>Acceptance criteria:</strong> AC16.</p>
 <p><strong>Policies:</strong> AP-10.01 Endorsement and contract modification; AP-10.02 Cancellation, renewal and reinstatement.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/policies/policies.module.ts">policies.module.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-11 Commission obligation and payment</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1329,12 +1329,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Reconcile cancellation, endorsement and reinsurance commission deltas with controlled recovery.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B15 B17. <strong>Acceptance criteria:</strong> AC12 AC17.</p>
 <p><strong>Policies:</strong> AP-11.01 Commission obligation and payment; AP-11.02 PAA acquisition-cost election and allocation.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts">finance-journal.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-12 Operational reserve versus measured LIC</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1367,12 +1367,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Approve classification and separate recoveries from insurer liabilities and reinsurance assets.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B15 B18 B22 B23 B25. <strong>Acceptance criteria:</strong> AC12 AC18 AC19 AC32.</p>
 <p><strong>Policies:</strong> AP-12.01 Operational reserve versus measured LIC; AP-12.02 Claim payable, payout and return; AP-12.03 Salvage, subrogation and other recoveries.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/claims/claims.service.ts">claims.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-13 Ceded premium accounts and paid reinsurance cash</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1405,12 +1405,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Keep issued, held, cash and recoveries distinct; approve any offsetting and reinsurer-specific profile treatment.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B15 B19 B22 B23 B25. <strong>Acceptance criteria:</strong> AC12 AC20 AC32.</p>
 <p><strong>Policies:</strong> AP-13.01 Ceded premium accounts and paid reinsurance cash; AP-13.02 Reinsurance recoveries and collections; AP-13.03 Commission, net accounts and offsetting.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.module.ts">reinsurance.module.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-14 Co-insurance participant accounting</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1437,12 +1437,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Reconcile each participant, insurer and bank source with explicit ownership and currency.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B20 B46. <strong>Acceptance criteria:</strong> AC21.</p>
 <p><strong>Policies:</strong> AP-14.01 Co-insurance participant accounting.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.module.ts">reinsurance.module.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-15 Client premiums held by an intermediary</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1475,12 +1475,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Implement approved service-recognition and tax rules independently from premium collected for insurers.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B14 B15 B16 B20 B46. <strong>Acceptance criteria:</strong> AC11 AC14 AC22.</p>
 <p><strong>Policies:</strong> AP-15.01 Client premiums held by an intermediary; AP-15.02 Brokerage and agency revenue.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts">finance-receivables.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-16 Supplier obligation and settlement</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1513,12 +1513,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Reconcile statement, open items, cash, withholding and control accounts.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B15 B27. <strong>Acceptance criteria:</strong> AC12 AC23.</p>
 <p><strong>Policies:</strong> AP-16.01 Supplier obligation and settlement.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts">finance-journal.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-17 Expenses, accruals, prepayments and allocations</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1545,12 +1545,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Allocate to approved dimensions and measurement groups without duplicate cost recognition.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B27. <strong>Acceptance criteria:</strong> AC24.</p>
 <p><strong>Policies:</strong> AP-17.01 Expenses, accruals, prepayments and allocations; AP-17.02 Non-insurance provisions and contingencies.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts">finance-journal.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-18 Bank reconciliation and adjustments</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1583,12 +1583,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Certify account balances against actual statements and accepted ledger, including pending settlement.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B12 B14 B15 B28 B33 B36 B39. <strong>Acceptance criteria:</strong> AC11 AC12 AC25 AC48.</p>
 <p><strong>Policies:</strong> AP-18.01 Bank reconciliation and adjustments; AP-18.02 Internal bank and cash transfers.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts">finance-receivables.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-19 Deposits, borrowing and financing</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1615,12 +1615,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Reconcile lender and bank evidence with scoped IFRS 9 measurement and disclosures.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B28. <strong>Acceptance criteria:</strong> AC26.</p>
 <p><strong>Policies:</strong> AP-19.01 Deposits, borrowing and financing; AP-19.02 Equity contributions and distributions.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts">finance-journal.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-20 Functional currency and initial conversion</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1659,12 +1659,12 @@
 <td>AWAITING COMPANY ADMIN ACCEPTANCE</td>
 <td>Require current company-specific legal and regulatory evidence; software currency support does not establish permission.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B02 B04 B07 B08 B43 B45 B23 B24 B34 B35. <strong>Acceptance criteria:</strong> AC07 AC27 AC46.</p>
 <p><strong>Policies:</strong> AP-20.01 Functional currency and initial conversion; AP-20.02 Monetary remeasurement and settlement FX; AP-20.03 Non-monetary and presentation translation; AP-20.04 Exchangeability and permitted transaction currency.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-currency-controls.ts">finance-currency-controls.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-21 VAT, fiscal documents and tax points</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1697,12 +1697,12 @@
 <td>AWAITING COMPANY ADMIN ACCEPTANCE</td>
 <td>Keep the four paid invoices immutable; assess any prospective adjustment separately without inferring a journal from the discrepancy alone.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B06 B07 B45 B13 B26 B36. <strong>Acceptance criteria:</strong> AC05 AC13 AC28 AC50.</p>
 <p><strong>Policies:</strong> AP-21.01 VAT, fiscal documents and tax points; AP-21.02 Withholding, cross-border tax and gross-up; AP-21.03 Current and deferred income taxes.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/shared/finance/tax-calculation.ts">tax-calculation.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-22 Premium levy and other statutory assessments</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1729,12 +1729,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Reconcile regulator-specific schedules to accepted ledger and measurement results without duplicate liabilities.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B06 B07 B45 B13 B26 B36. <strong>Acceptance criteria:</strong> AC05 AC13 AC29 AC50.</p>
 <p><strong>Policies:</strong> AP-22.01 Premium levy and other statutory assessments; AP-22.02 Regulatory and prudential reporting bridges.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/shared/finance/tax-calculation.ts">tax-calculation.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-23 Scope, grouping, recognition and model eligibility</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1773,12 +1773,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>B23 must post approved remaining deltas once and reconcile opening, closing, issued and held populations.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B01 B05 B06 B07 B10 B45 B17 B18 B19 B21 B22 B23 B25 B38 B40 B41. <strong>Acceptance criteria:</strong> AC01 AC05 AC17 AC18 AC20 AC30 AC31 AC32 AC55.</p>
 <p><strong>Policies:</strong> AP-23.01 Scope, grouping, recognition and model eligibility; AP-23.02 PAA remaining coverage and revenue; AP-23.03 LIC, IBNR and directly attributable claims expenses; AP-23.04 Discounting and risk adjustment; AP-23.05 GMM contractual service margin; AP-23.06 VFA for qualifying participating contracts; AP-23.07 Onerous groups and loss components; AP-23.08 Reinsurance held and loss recovery; AP-23.09 Insurance finance, OCI and currency policy; AP-23.10 Measurement run approval, posting and supersession; AP-23.11 Transition, opening measurement and comparatives.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.types.ts">finance-ledger-foundation.types.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-24 Instrument classification and effective interest</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1811,12 +1811,12 @@
 <td>AWAITING COMPANY ADMIN ACCEPTANCE</td>
 <td>Select any permitted settlement treatment with current specialist evidence; no universal policy is activated.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B14 B18 B28 B25. <strong>Acceptance criteria:</strong> AC15 AC19 AC26 AC33.</p>
 <p><strong>Policies:</strong> AP-24.01 Instrument classification and effective interest; AP-24.02 ECL and insurance boundary; AP-24.03 Fair value and disposal; AP-24.04 Electronic payment derecognition.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-policy.service.ts">finance-policy.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-25 Owned asset and intangible capitalisation</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1843,12 +1843,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Govern independent valuation evidence and controlled gain or loss, derecognition and reconciliation.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B29. <strong>Acceptance criteria:</strong> AC34.</p>
 <p><strong>Policies:</strong> AP-25.01 Owned asset and intangible capitalisation; AP-25.02 Depreciation, impairment and disposal.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts">finance-journal.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-26 Lessee initial measurement and exemptions</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1875,12 +1875,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Version term or payment changes and reconcile lease liabilities, cash and disclosures.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B29. <strong>Acceptance criteria:</strong> AC35.</p>
 <p><strong>Policies:</strong> AP-26.01 Lessee initial measurement and exemptions; AP-26.02 Lease subsequent measurement and changes.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts">finance-journal.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-27 Payroll and employee-benefit obligations</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1907,12 +1907,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Use approved beneficiary, privacy, settlement and GL controls.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B30. <strong>Acceptance criteria:</strong> AC36.</p>
 <p><strong>Policies:</strong> AP-27.01 Payroll and employee-benefit obligations.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts">finance-journal.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-28 Intercompany, group perimeter and consolidation</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1939,12 +1939,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Implement approved presentation translation, elimination, consolidation adjustments and group reporting.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B46. <strong>Acceptance criteria:</strong> AC37.</p>
 <p><strong>Policies:</strong> AP-28.01 Intercompany, group perimeter and consolidation.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-scope.service.ts">finance-scope.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-29 Financial statements, cash flows and comparative basis</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -1977,12 +1977,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Approve company reporting basis, mappings, presentation changes and publication authority.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B05 B06 B07 B09 B44 B45 B26 B32 B33 B46 B34 B35 B36 B37 B38 B39 B42 B30. <strong>Acceptance criteria:</strong> AC04 AC38 AC45 AC50 AC52 AC53 AC54.</p>
 <p><strong>Policies:</strong> AP-29.01 Financial statements, cash flows and comparative basis; AP-29.02 Operational premium and performance reporting.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service.ts">finance-ledger-foundation.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-30 Budget and cost-control accounting</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -2009,12 +2009,12 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>Budget approval and management reporting must never manufacture GL entries.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B31. <strong>Acceptance criteria:</strong> AC39.</p>
 <p><strong>Policies:</strong> AP-30.01 Budget and cost-control accounting.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-scope.service.ts">finance-scope.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-31 Approval, audit and segregation</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -2047,12 +2047,12 @@
 <td>AWAITING COMPANY ADMIN ACCEPTANCE</td>
 <td>Appoint actual people and provision narrowly scoped permissions and mandates; no default grants or fabricated signatures.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B01 B02 B03 B04 B05 B06 B09 B10 B11 B12 B44 B45 B13 B16 B17 B18 B19 B21 B32 B33 B46 B36 B37 B38 B39 B40 B41 B42 B30. <strong>Acceptance criteria:</strong> AC01 AC02 AC09 AC10 AC40 AC51 AC52 AC54 AC55 AC57 AC59 AC60.</p>
 <p><strong>Policies:</strong> AP-31.01 Approval, audit and segregation.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-approval.service.ts">finance-approval.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-32 Financial event identity and reliable processing</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -2085,12 +2085,12 @@
 <td>PARTIAL IMPLEMENTATION</td>
 <td>Internal reliability and telemetry controls exist; actual live transport provisioning, dashboards, alert routing, capacity and all source adapters require acceptance.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B01 B02 B03 B04 B05 B08 B09 B10 B11 B12 B44 B45 B13 B15 B16 B17 B18 B19 B21 B23 B32 B33 B46 B34 B35 B36 B37 B38 B39 B40 B41 B42 B30. <strong>Acceptance criteria:</strong> AC01 AC02 AC06 AC08 AC09 AC40 AC41 AC42 AC43 AC47 AC48 AC51 AC52 AC56 AC57 AC58 AC59.</p>
 <p><strong>Policies:</strong> AP-32.01 Financial event identity and reliable processing.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-intake.service.ts">finance-intake.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
 <h3>FIN-33 Opening balances and controlled migration</h3>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Requirement</th>
@@ -2123,13 +2123,13 @@
 <td>PLANNED NOT IMPLEMENTED</td>
 <td>B40 to B42 must remove shared transactions, extract the Finance database and independently recertify before retiring replacements.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p><strong>Steps:</strong> B01 B02 B03 B04 B07 B08 B10 B11 B12 B43 B45 B13 B16 B17 B18 B19 B23 B24 B34 B35 B36 B37 B38 B39 B40 B41 B42. <strong>Acceptance criteria:</strong> AC03 AC08 AC40 AC43 AC44 AC45 AC46 AC47 AC49 AC56 AC57 AC58 AC60.</p>
 <p><strong>Policies:</strong> AP-33.01 Opening balances and controlled migration.</p>
 <p><strong>Existing source evidence:</strong> <a href="../../apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service.ts">finance-ledger-foundation.service.ts</a>. This reference identifies the current control or source boundary; it does not establish that each planned submodule exists.</p>
-<h2 id="section-10">Measurement engine and currency implementation sequence</h2>
+<h2>Measurement engine and currency implementation sequence</h2>
 <p>The following records and calculation stages are required target behavior. They are not implemented engines. Accounting and actuarial reviewers must approve each applicable model branch and independent expected results before its movements may enter Finance.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Sequence</th>
@@ -2234,11 +2234,11 @@
 <td>Demonstrate that no claim liability, insurance contract balance, held reinsurance recovery, credit effect or FX movement is recognized twice.</td>
 <td>Foundation ownership control only; complete adapters planned</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Engine acceptance must include reproducible runs, adverse and boundary cases, input/assumption supersession, rejected stale approvals, independent actuarial/accounting expected vectors, issued versus held separation, scope and currency reconciliation, one-time movement intake and complete opening/activity/closing evidence. Passing journal infrastructure tests does not certify a measurement model.</p>
-<h2 id="section-11">Data records and database evolution</h2>
+<h2>Data records and database evolution</h2>
 <p>The current application has existing invoices, invoice items, receipts, allocations, payment references, legacy journal entries and accounts. Finance adds separate records rather than overwriting those historical objects. Dedicated foundation tables and policy tables preserve tenant/entity/book references and immutable review evidence.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Order</th>
@@ -2306,13 +2306,13 @@
 <td>1797200000000-FinanceLedgerFoundation.ts</td>
 <td>finance_foundation_authorities, finance_foundation_identity_bindings, finance_foundation_documents, finance_foundation_decisions, finance_foundation_periods, finance_foundation_period_events, finance_foundation_journals, finance_foundation_lines, finance_foundation_journal_audits, finance_foundation_deployments</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>The new B43 to B45 migration adds ten empty foundation registries: authorities, identity_bindings, documents, decisions, periods, period_events, journals, lines, journal_audits and deployments. It extends draft book/entity state controls and the explicit policy-release guard; it does not activate existing books or policies. The twelve Finance migrations are now applied to local development. Their reviewed files and hashes, with zero remaining pending migrations, are in <a href="Migration-Manifest.json">Migration Manifest</a>.</p>
 <p>The development ledger now records 88 applied migrations, including TaxCalculationEvidence1796900000000 and all twelve reviewed Finance migrations. The earlier lower-timestamp Finance gaps have been filled without reapplying tax evidence. The checked-in TypeORM executor matches pending status by migration name, and its old-timestamp rejection is commented out. This observation is version-specific: operators must rehearse the actual pinned executor against a restored full-history clone, not assume that a maximum timestamp proves completion.</p>
 <p>Every future balance, obligation, execution request and measurement run needs immutable original IDs, source revisions, lifecycle, currency, dimensions, effective dates, evidence hashes, status and approval history. Complete measurement, bank/AP/asset/lease, close, consolidation and execution schemas are still to be designed and implemented under their backlog steps. They are requirements, not existing tables.</p>
-<h2 id="section-12">Interfaces APIs and source contracts</h2>
+<h2>Interfaces APIs and source contracts</h2>
 <p>The implemented foundation API prefix is /tenant/finance/foundation. Its registered operations are listed below. Reads and actions derive identity from authenticated company/user bindings; body-supplied tenant or person fields do not confer authority. Coarse permissions are finance-foundation:read, prepare, review, accept-journal and release. Current scoped database mandates and policy authorities remain separately required.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Method</th>
@@ -2427,11 +2427,11 @@
 <td>POST</td>
 <td><code>/tenant/finance/foundation/policies/:id/decisions</code></td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>B13 consumes source.quotation.billing-snapshotted.v1 using the signed SOURCE_SNAPSHOT_REFERENCE_V1 envelope and full FINANCE_QUOTATION_BILLING_V1 evidence. B14 consumes source.receivables.evidence-snapshotted.v1 with FINANCE_RECEIVABLE_EVIDENCE_V1 confirmed-receipt and billing-due-date shapes. Actual source associations, producer authority, queue bindings and worker provisioning are not auto-created.</p>
 <p>Future public obligations, outgoing payment/reservation, supplier, claims-accounting, reinsurance-accounting, tax-remit, asset, lease, measurement, financial-close and consolidation APIs remain backlog requirements. Their exact OpenAPI contracts must be versioned and approved before implementation; this SRS does not invent already implemented endpoint paths.</p>
-<h2 id="section-13">Nonfunctional and operational acceptance</h2>
-<table>
+<h2>Nonfunctional and operational acceptance</h2>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Area</th>
@@ -2479,10 +2479,10 @@
 <td>Preserve current quote/policy/payment/commission/claims/reinsurance APIs and customer payable until a reconciled replacement is approved.</td>
 <td>Existing workflow protections retained; future source migrations require actual E2E regression acceptance.</td>
 </tr>
-</tbody></table>
-<h2 id="section-14">Verification results and remaining acceptance</h2>
+</tbody></table></div>
+<h2>Verification results and remaining acceptance</h2>
 <p>The 17 recorded pre-existing diagnostics are resolved. The fixes update test fixture contracts and export an existing public result type. The complete frontend run also identified a missing quotation-approval settings page title, which is now registered and reverified. Three Finance integration cases now derive their synthetic reporting dates from the database UTC clock rather than a fixed 15 November cutoff, preserving the exact 31-day ageing assertion and the production historical-evidence guard. Accounting rules, tax calculations, posting activation and database state remain unchanged.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Verification</th>
@@ -2521,12 +2521,12 @@
 <td>Actual company acceptance</td>
 <td>Not granted; company policy decisions, real environment evidence and controlled cutover approval remain outstanding.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>The exact type-repair changes, build result, test totals and limits are in <a href="Type-Repair-Verification.json">Type Repair Verification</a>. The updated <a href="Acceptance-Test-Manifest.json">Acceptance Test Manifest</a> retains the original Finance case identities and records the broader regression outcome. The migration manifest fingerprints the current source with canonical UTF8 LF encoding.</p>
 <p>The isolated full-history database restore and migration rehearsal passed. Mandatory remaining evidence includes actual company authentication and privileges, complete scope/source/bank/open-item reconciliation, real producer and worker compatibility, approved live financial recovery, security/capacity outcomes, current legal and tax evidence, specialist model certification where applicable and explicit company-admin acceptance. A local successful build and test run is not migration or policy-activation approval. The frontend bundle-size advisory remains; it did not fail the build.</p>
-<h2 id="section-15">Isolated migration rehearsal outcome</h2>
+<h2>Isolated migration rehearsal outcome</h2>
 <p>The controlled rehearsal passed on a private restored copy of the complete local development database. The original source remained read-only and unchanged. <a href="Migration-Rehearsal-Report.html">Migration Rehearsal Report</a> and <a href="Migration-Rehearsal-Verification.json">verification record</a> contain the method, evidence and limits.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Check</th>
@@ -2561,12 +2561,12 @@
 <td>Isolation and cleanup</td>
 <td>No application or worker started; no bank/provider, TIRAMIS or fiscal action. All rehearsal instances stopped and temporary plaintext dumps removed.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Logical comparison retains column order, types, defaults, constraints, indexes, triggers and the other recorded objects. Physical dropped-column slot numbers are excluded, and 39 exact literal varchar-to-text cast pairs produced by logical restore were checked equal directly in PostgreSQL. Raw data, backup files, keys and private invoice identifiers remain outside Git.</p>
 <p>The private restore omits original ownership and ACLs and uses one isolated administrator. It does not certify production privilege recovery, actual company authentication, a financial opening certificate, bank truth, approved RPO/RTO, live source/worker compatibility or company policy decisions. At the time of the isolated rehearsal the source remained unapplied. The twelve migrations have since been applied under separate explicit user authorization to local development; all policies remain inactive. See the local schema application evidence below.</p>
-<h2 id="section-16">Local development schema application</h2>
+<h2>Local development schema application</h2>
 <p>The exact twelve Finance migrations were applied to the local development database in one controlled transaction under explicit user schema-only authorization. <a href="Local-Migration-Application-Report.html">Application report</a> and <a href="Local-Migration-Application-Verification.json">verification record</a> record the checks and limits.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Check</th>
@@ -2601,43 +2601,43 @@
 <td>Financial activation</td>
 <td>No policies, books or financial balances activated, no historical corrections and no live cutover.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>The initial read-only eligibility probe could not take the guard FOR SHARE locks. The guard was retained, the verification was retried with SELECT-only queries in a transaction permitting row locks, that transaction was rolled back, and all records were checked again. The migrations were not rerun.</p>
 <p>The schema-only run did not establish an approved financial opening or provision identities/configuration. The subsequent G04 section records the limited draft read setup; chart and currency configuration, company-admin policy decisions, certified opening/reconciliation, activation and cutover remain pending. The application implementation is unchanged and still matches the recorded successful build and 2,996-test baseline.</p>
-<h2 id="section-17">Local draft read setup — G04 partial</h2>
+<h2>Local draft read setup — G04 partial</h2>
 <p>One confirmed company-admin account now has access to a DRAFT legal entity and DRAFT accounting book in local development. The READ binding, READ authority and READ_DRAFT membership are valid for seven days, ending <strong>23 November 2026 at 12:09 EAT</strong>. Only that company membership received the existing scoped read permission. Its authorization version increased once; sign in again to refresh access. No company role or other account was changed.</p>
 <p>Existing identity, scope and ledger services verified exact-scope reads. PREPARE, REVIEW, ACCEPT, RELEASE, validation/live period creation and other-book/company access were denied. The unconfirmed test member has no Finance access. These were the initial service and persistence checks. Subsequent real browser sign-in and authenticated HTTP verification are recorded in the following section; no external SSO provider was tested.</p>
 <p>The eight changed tables match the explicit metadata/access allowlist; all other 344 tables, every schema, all sequences, the 88-entry migration ledger, all four protected paid invoice headers/items, the tax catalogue and three legacy accounts are unchanged. A fresh encrypted backup was integrity-checked before commit. No financial records were posted, regenerated or corrected.</p>
 <p>G04 remains <strong>partial</strong>. A different real preparer/checker is unassigned. TIRA licence, TIN and BRELA evidence is missing from the company master. Accounting basis, functional-currency assessment, calendar, chart release and presentation context remain null. No policy authority, policy version, approval, activation, accounting period, opening, journal, source map or release was created. All 70 policies and 126 decisions still require scoped review. No regulatory or tax conclusion is made by this setup.</p>
 <p>The Finance schema now contains draft and authority evidence. The earlier empty-schema down-rehearsal does not authorize destructive rollback of the current source. Preserve history and revoke access or use reviewed forward repair. Full B45 company acceptance, configuration and cutover remain pending. See <a href="G04-Draft-Read-Verification.json">G04 draft read verification</a> for sanitized evidence; the company-specific review pack remains private outside Git.</p>
-<h2 id="section-18">Real sign-in and read-only foundation verification</h2>
+<h2>Real sign-in and read-only foundation verification</h2>
 <p>A fresh user-entered browser sign-in to the unchanged application reached the confirmed company membership. The normal authorization-context endpoint returned 200 and the expected company scope. The application used its real session/JWT and permission guards with no authentication or permission substitutes. The temporary verification host ran the unchanged main/AppModule with only native job scheduling disabled, using the real local Redis through a loopback tunnel. This is local verification, not production acceptance or external SSO certification.</p>
 <p>The exact DRAFT scope and empty document list returned 200. Other-book and other-entity reads returned 403. Eight authenticated preparation, review, period, journal-acceptance, release, deployment and policy-decision requests returned 403. Three unauthenticated/malformed-token checks returned 401. No financial action was executed. The legacy invoice page title was observed, but its optional UI check failed on an ambiguous heading selector; complete legacy invoice UI verification is not claimed. No invoice was opened or changed. The temporary session was logged out after verification.</p>
 <p><strong>Read-only applies to the new Finance foundation.</strong> The existing insurer-admin role still has operational invoice, receipt, payment, commission, refund and reconciliation write permissions. Those permissions were preserved. This verification does not certify that the entire account is read-only. At the time of that sign-in verification, the web app lacked a foundation draft-book workspace; the APIs were checked using the signed-in web API client. The subsequent workspace implementation is recorded below. Restricting existing legacy Finance rights still requires a separately approved access change.</p>
 <p>All 70 Finance tables, all four protected paid invoice headers/items, protected business source records, every schema/sequence and the 88-entry migration ledger remained unchanged. Only normal authentication/audit records changed. Policies, periods, journals and deployments remain inactive/empty. G04, independent preparer/checker assignment, legal/configuration review, company policy decisions and later financial acceptance remain outstanding. See <a href="SignIn-Read-Verification.json">sign-in verification</a>.</p>
-<h2 id="section-19">Read-only Finance foundation web workspace</h2>
+<h2>Read-only Finance foundation web workspace</h2>
 <p>The application now provides <strong>Finance &gt; Foundation review</strong> at <strong>/apps/finance/foundation</strong>. A company session must hold the explicit finance-foundation:read permission and a matching current authorization context. This generic workspace supports the confirmed admin’s existing Finance binding without hardcoding a company, person, currency or accounting treatment. No permission or source identity is provisioned by opening the page.</p>
 <p>Users can choose only books returned by the existing authorization API, filter the latest 50 review documents by type and view a selected immutable version, recorded decision, unchanged payload and audit references. Document reads include the exact version fingerprint; returned scope/identity/version mismatches fail closed. The workspace has no preparation, approval, activation, posting or invoice-edit actions. An empty list does not establish zero balances, approved policies, functional currency, certified opening or readiness.</p>
 <p>Queries are keyed by user, company, membership, session, authorization version and Finance tenant/entity/book. They use cancellation, immediate cache disposal and periodic/focus refresh. Switching company/book, losing read permission or receiving an access error removes prior records. Money strings are not converted to floating-point values, and document content is rendered as escaped text.</p>
 <p>The frontend production build and targeted lint passed. All <strong>562 frontend tests across 79 files</strong> passed, including 27 new workspace/adapter cases; the focused run passed 35 tests. Thirteen browser checks with frontend fixtures covered navigation/direct-route permission gates, empty/draft views, exact-version details, text/decimal preservation, filtering, expiry and desktop/mobile layout. Those implementation fixtures contacted no live backend and did not certify a fresh real-user sign-in. Subsequent real company UI access verification is recorded below; formal company acceptance remains separate. The earlier real sign-in/API evidence remains separately pinned. Backend/PostgreSQL tests were not rerun for this frontend-only change.</p>
 <p>Read-only database reconciliation proved all <strong>352 tables</strong>, all <strong>70 Finance tables</strong>, all <strong>four historical paid invoice headers/items</strong>, role/permission/binding data, schemas and sequences unchanged. No migrations, policies, grants, approvals, periods, journals, releases or historical invoice changes were made. Existing legacy operational permissions remain broader and unchanged. G04 and company accounting/cutover acceptance remain partial.</p>
 <p>The migration manifest retains the previous immutable source fingerprint and its Git manifest reference, and separately records the new frontend release fingerprint. Prior build/test/migration evidence has not been relabeled as new execution. See <a href="Read-Only-Workspace-Verification.json">workspace verification</a>.</p>
-<h2 id="section-20">Real company access to the foundation workspace</h2>
+<h2>Real company access to the foundation workspace</h2>
 <p>A fresh user-entered sign-in to the unchanged application opened the new <strong>Finance &gt; Foundation review</strong> workspace in the confirmed company session. The real authorization-context, scoped-book and review-document APIs succeeded against the local development database. No frontend responses were intercepted or replaced, and no authentication/session/JWT/permission provider was mocked or bypassed. The local verification host ran the unchanged main/AppModule with only native background scheduling disabled.</p>
 <p>All <strong>25 live checks passed</strong>: the confirmed identity and READ-only foundation permission, exact authorized DRAFT book, menu navigation, empty-document semantics, two type filters, access/document refresh, absence of mutation controls, GET-only workspace requests, desktop/mobile display, two denied cross-scope reads and eight denied preparation/review/period/journal/release/deployment/policy requests. The latter probes returned 403 and created no accounting effects.</p>
 <p>After logout, reconciliation compared all <strong>352 tables</strong>. All <strong>70 Finance tables</strong>, all <strong>four protected paid invoice headers/items</strong>, role/permission/binding records, schemas, sequences and migration ledger remained unchanged. The only changes were normal audit, session, device, confirmed-user login and membership-access metadata. Protected user security fields and every other user/membership were unchanged. Policies, active books, real review documents, journals and deployments remain absent/inactive.</p>
 <p>The real draft book has no review documents, so live version/detail viewing was not exercised. No sample document, policy or balance was created to make that test possible. Existing fixture tests cover that interface separately. The temporary session was logged out and both verification servers and the loopback tunnel were stopped. Application code, grants and legacy permissions were unchanged.</p>
 <p>This resolves the real-company UI-access verification gap, while <strong>G04 and formal company accounting/B45 acceptance remain partial</strong>. The independent preparer/checker, legal/configuration/policy choices, certified opening and cutover gates remain outstanding. Existing legacy operational Finance write rights are still broader than this read-only workspace. See <a href="Real-Workspace-Access-Verification.json">real workspace verification</a>.</p>
-<h2 id="section-21">Controlled draft document-detail verification</h2>
+<h2>Controlled draft document-detail verification</h2>
 <p>All <strong>23 live checks passed</strong> using the unchanged frontend and real APIs against an <strong>isolated restored copy</strong> of the local development database. The confirmed user signed in normally against the copied account. Authentication/session/permission guards were real; frontend responses were not intercepted or replaced. The copy had its own PostgreSQL and Redis instances with background jobs disabled.</p>
 <p>One explicitly marked <strong>display-test-only, unreviewed VALIDATION fixture</strong> was inserted only into the copy using the existing B45_ACCEPTANCE storage category. Its payload states that it is not B45 acceptance or accounting evidence. It selected no accounting assumptions and conferred no approval or posting authority. An expired/revoked synthetic provenance row supplied the immutable document foreign-key reference; it appointed no real person and granted no active capability. Baraka’s bindings, coarse permissions and read-only mandate were unchanged. The normal business preparation/acceptance workflow was not exercised or certified.</p>
 <p>The real workspace listed and opened the exact stored document, scope, version and fingerprint. Its precision sample remained an exact string, markup remained literal text, the unreviewed state and audit references matched storage, and filters/refresh worked on desktop/mobile. An altered fingerprint and other-entity/book reads returned 403. Five preparation/review/journal/release/policy actions were denied. Document-view UI requests were GET-only.</p>
 <p>Reconciliation proved all <strong>352 source tables</strong>, all <strong>70 source Finance tables</strong>, all <strong>four protected paid invoice headers/items</strong>, roles, permissions, bindings, schemas, sequences and migration ledger unchanged. The source received <strong>zero writes, documents, grants or policies</strong>. In the copy, the controlled fixture and all Finance records remained unchanged through sign-in/read/logout; only normal authentication/audit metadata changed. No policies, review decisions, active books, periods, journals or deployments were added or activated.</p>
 <p>The session, frontend, backend, tunnel, private Redis and private PostgreSQL copy were stopped. The controlled draft and private evidence remain in the retained, stopped copy; it was not deleted, promoted or copied back into the source. Source PostgreSQL/Redis services were not stopped.</p>
 <p>This verifies controlled document-detail viewing; it does <strong>not</strong> certify detail viewing of an actual source business document, company acceptance or accounting-policy approval. The source book still has no documents, and the original governance gates remain unresolved. See <a href="Controlled-Document-Detail-Verification.json">controlled document-detail verification</a>.</p>
-<h2 id="section-22">Company admin review pack</h2>
+<h2>Company admin review pack</h2>
 <p>Use the separate <a href="company-admin/PLATFORM_TEMPLATE-Review.html">Platform template review</a>, <a href="company-admin/INSURER-Review.html">Insurer review</a>, <a href="company-admin/BROKER-Review.html">Broker review</a> and <a href="company-admin/REINSURER-Review.html">Reinsurer review</a>. Each includes all 70 policies and 126 inherited choices with profile-specific applicability prompts, blank actual company scope and explicit unreceived approval records. The platform pack reviews templates only and cannot approve a company book.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Review group</th>
@@ -2668,10 +2668,10 @@
 <td>Release decisions</td>
 <td>Separate schema-only change, inactive configuration provisioning, scoped acceptance, policy activation, book enable/cutover and eventual service extraction authority.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>Foundation release policy pins include AP-01.01, AP-02.01, AP-03.01, AP-04.01, AP-05.01, AP-06.01, AP-06.02, AP-20.01, AP-31.01, AP-32.01 and AP-33.01, plus the actual component policies. Manual components additionally need AP-04.02; foreign-currency components need the applicable exchangeability/lawful-use control AP-20.04. The actual frozen context governs the exact list.</p>
 <p>Offline notes, typed names and exported review files are preparation evidence only. Formal application approval must bind the authenticated company-admin natural person, exact policy or release subject hash, scope, effective interval, supporting evidence and independent checker. Signing this SRS does not silently approve all accounting elections, authorize tax treatment or activate a book.</p>
-<h2 id="section-23">Controlled migration and cutover plan</h2>
+<h2>Controlled migration and cutover plan</h2>
 <p>The following gates are proposed for review, with no execution permission recorded. The detailed machine-readable steps and distinct blank authorizations are in <a href="Controlled-Migration-and-Cutover-Plan.json">Controlled Migration and Cutover Plan</a>. Dates, targets, people and financial tolerances must be completed and approved for the actual scope.</p>
 <h3>G00 Review package and defined scope</h3>
 <p><strong>Responsible remit:</strong> Company admin with Finance owner.</p>
@@ -2786,8 +2786,8 @@
 </ul>
 <p><strong>Exit evidence:</strong> Separate actual extraction and post-extraction financial acceptance; none of these actions are authorized by publishing the SRS or pushing the finance branch.</p>
 <p><strong>Stop or recovery:</strong> Retain existing operational functionality until the approved replacement and reconciliation are demonstrated.</p>
-<h2 id="section-24">Opening reconciliation and one writer checklist</h2>
-<table>
+<h2>Opening reconciliation and one writer checklist</h2>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Population</th>
@@ -2835,14 +2835,14 @@
 <td>A component has one recognition, impairment and FX owner and one approved resulting movement.</td>
 <td>Ownership control exists; certified future models and movement adapters remain requirements.</td>
 </tr>
-</tbody></table>
-<h2 id="section-25">Rollback incident and retirement boundaries</h2>
+</tbody></table></div>
+<h2>Rollback incident and retirement boundaries</h2>
 <p>Before schema commit, use the rehearsed transaction rollback. After an empty schema commit, a reviewed down operation is permitted only where every migration proves its evidence structures unused. Once authorities, drafts, periods, reviews or financial evidence exist, append-only controls may already forbid destructive down even before the first live journal.</p>
 <p>After any live financial effect, freeze all writers and external executions, preserve original records and reconcile source, bank/provider and ledger truth. Do not reset the database, delete journals, edit paid invoices or assume old code can represent new Finance records. A controlled reversal is an authorized new accounting movement with original evidence, not a database undo.</p>
 <p>DISABLE preserves canonical evidence but may unblock the existing legacy posting guard for that book. Keep an independent routing and worker fence in place until reverse continuity is explicitly proven. If target-only effects cannot be represented safely by the old system, use forward repair and separately approved resumption. A provider payout, fiscal document or TIRAMIS action cannot be undone by restoring a database.</p>
 <p>B42 retirement applies only to paths with accepted replacements and post-extraction reconciliation. Historical read access and audit evidence must survive the approved retention and legal-hold rules.</p>
-<h2 id="section-26">Unresolved decisions and implementation blockers</h2>
-<table>
+<h2>Unresolved decisions and implementation blockers</h2>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Item</th>
@@ -2881,11 +2881,11 @@
 <td>All operational replacement and extraction gates</td>
 <td>B15 onwards, full close/statements, B34 to B42 and B46 remain as their individual statuses specify.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>The review may approve an explicitly bounded foundation scope while keeping unrelated advanced features inactive. It may not waive a missing control, unresolved policy or reconciliation needed by the actual component being activated.</p>
-<h2 id="section-27">Version traceability and review deliverables</h2>
+<h2>Version traceability and review deliverables</h2>
 <p>This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 15 acceptance IDs, 33 module IDs FIN-01 to FIN-33, the 70 Step 4 policy IDs and all 126 inherited choice IDs. Original proposed phase and step dependencies remain visible; current status overrides obsolete not-started statements in the earlier design baseline.</p>
-<table>
+<div class="scroll"><table>
 <thead>
 <tr>
 <th>Artifact</th>
@@ -2936,6 +2936,11 @@
 <td><a href="company-admin/PLATFORM_TEMPLATE-Review.html">Company Admin Review</a></td>
 <td>Separate platform and business-profile policy and decision review sheets with blank actual approval fields.</td>
 </tr>
-</tbody></table>
+</tbody></table></div>
 <p>The code revision used for this isolated rehearsal is f193c3058103c7cf563a5225978751eb20dcd240. No implementation code changed during the rehearsal or local schema application. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.</p>
+<h2>Remaining G04 configuration and company-admin review</h2>
+<p>The <a href="G04-Remaining-Configuration-and-Review-Plan.html">remaining G04 plan</a> sequences ten dependent review steps, all 13 configuration families, all 70 policies across 33 modules and all 126 decisions. Three populated legacy accounts have held mapping dispositions; the original 11 source-defined codes remain design candidates rather than a live balance export. All selected treatments, dates and successor roles remain unresolved.</p>
+<p>Initial read-only inventory left all 352 source tables unchanged. Authorized account onboarding subsequently changed only seven account/organisation/audit tables: one inactive company/HQ account, one inactive membership, one zero-permission onboarding role and assignment, one HQ branch assignment, the company user-number counter and an audit event. All 345 other tables, all Finance tables, existing users/access and four protected paid invoices remained unchanged. No credentials, verification evidence, invitation or Finance mandate was created. The separate preparer/checker appointment remains pending. Company identities and contact data are retained only in the private local review pack.</p>
+<p>The configuration service supports inactive versioned review internally. The current Finance web workspace remains read-only; configuration editing endpoints were not found in the reviewed billing-commission controllers. Generic JSON configuration storage for posting rules, dimensions, tax and currency does not establish complete semantic validation or consumer implementation. A narrowly scoped review workflow and per-family validation evidence are prerequisites to deployment.</p>
+<p>G04 remains partial. Company policy approval, policy activation, live deployment, cutover and extraction remain separate decisions; this review pack grants none of them.</p>
 </main></body></html>

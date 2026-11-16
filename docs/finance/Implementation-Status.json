@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.8",
+  "version": "1.9",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -1872,5 +1872,66 @@
     "controlledDocumentDetailEnvironment": "ISOLATED_RESTORED_COPY",
     "sourceDocumentDetailVerified": false,
     "controlledDocumentDetailEvidence": "Controlled-Document-Detail-Verification.json"
+  },
+  "remainingG04Review": {
+    "status": "PARTIAL_REVIEW_PACK_PREPARED",
+    "evidence": "G04-Remaining-Configuration-and-Review-Plan.json",
+    "configurationFamilies": 13,
+    "policies": 70,
+    "decisions": 126,
+    "modules": 33,
+    "additionalIndependentPersonNominated": true,
+    "additionalAccountCreated": true,
+    "independentCheckerAssigned": false,
+    "legalEvidenceComplete": false,
+    "runtimeConfigurationProvisioned": false,
+    "policyApprovals": 0,
+    "policyActivations": 0,
+    "accountStatus": "INACTIVE_PENDING_ONBOARDING",
+    "newAccountPermissionCount": 0,
+    "accountProvisioning": {
+      "accountCreated": true,
+      "accountStatus": "inactive",
+      "membershipStatus": "inactive",
+      "defaultBranch": "HQ",
+      "branchSelection": "HQ selected for initial onboarding, as stated before creation; may be changed through normal company access workflow.",
+      "newRole": "FINANCE_ONBOARDING",
+      "permissionCount": 0,
+      "passwordConfigured": false,
+      "emailVerified": false,
+      "phoneVerified": false,
+      "invitationSent": false,
+      "foundationMandatesGranted": 0,
+      "policyAuthoritiesGranted": 0,
+      "authorizedChangedTables": [
+        "audit_logs",
+        "branch_users",
+        "company_user_number_counters",
+        "company_user_roles",
+        "company_users",
+        "roles",
+        "users"
+      ],
+      "otherSourceTablesUnchanged": 345,
+      "allFinanceTablesUnchanged": true,
+      "historicalPaidInvoicesUnchanged": 4,
+      "existingUsersAndAccessUnchanged": true,
+      "transactionVerifiedBeforeAndAfterCommit": true,
+      "encryptedBackupIntegrityVerified": true,
+      "accessVerification": {
+        "verifiedAt": "2026-11-16T12:34:56.119Z",
+        "accountInactive": true,
+        "membershipInactive": true,
+        "noPassword": true,
+        "emailAndPhoneUnverified": true,
+        "directAndRoleAndGlobalPermissionsZero": true,
+        "unboundFinanceIdentityDenied": true,
+        "postingGuard": "FINANCE_POSTING_HELD",
+        "sourceTablesUnchangedDuringChecks": 352,
+        "protectedPaidInvoicesUnchanged": 4,
+        "noEmailSent": true,
+        "realSignInTested": false
+      }
+    }
   }
 }
