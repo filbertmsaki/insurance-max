@@ -6,13 +6,13 @@ Insurance Max requires a complete, independent Finance Service that owns financi
 
 The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
-**Document control:** IM-FIN-SRS-1.3; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.
+**Document control:** IM-FIN-SRS-1.4; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
 
 ## Current implementation at a glance
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| B02 to B12 foundation controls | Implemented and tested; schemas applied locally, with no actual source grants or active configuration | Company-specific configuration and actual environment acceptance; isolated full-history schema rehearsal passed |
+| B02 to B12 foundation controls | Implemented and tested; schemas applied locally; one draft review scope and expiring READ access, with no posting or policy authority | Company-specific configuration and actual environment acceptance; isolated full-history schema rehearsal passed |
 | B13 quotation memorandum and tax correction | Implemented inactive control slice; existing invoice tax breakdown corrected using shared calculation | Actual recognition, tax and operational Finance activation |
 | B14 receipts and receivables | Inactive ownership, capacity, assignment, ageing and reconciliation controls implemented | Actual source/ bank reconciliation and legal discharge; B15 outgoing cash |
 | B43 currencies and B44 ledger reports | Persistent reviewed currency/rate evidence, canonical journals and reconciled ledger/report APIs implemented | Approved actual scope, certified opening and explicit release |
@@ -1491,14 +1491,26 @@ The exact twelve Finance migrations were applied to the local development databa
 | Applied migration ledger | 76 to 88; all twelve reviewed Finance migrations applied; none pending. |
 | Existing data | All 289 pre-existing application data tables unchanged. Only the existing migration metadata table gained twelve rows; all 290 original table schemas are retained. |
 | Protected paid invoices and accounts | Four invoice headers and their items, the existing tax catalogue and three legacy ledger accounts unchanged. |
-| Finance registries | 62 new empty tables, giving 352 total tables; zero policy versions/activation events, active books, deployments or seeded grants. |
+| Finance registries | At the schema-only commit: 62 new empty tables, giving 352 total tables; zero policy versions/activation events, active books, deployments or seeded grants. The subsequent G04 draft read setup is recorded below. |
 | Backup and transaction | Fresh consistent encrypted backup before application; decryption and archive integrity checked. Existing tables write-fenced while precommit checks ran, with locks released at commit. |
 | Posting eligibility | FINANCE_POSTING_HELD returned for the existing company. A SELECT-only lock-capable verification transaction was rolled back; no invoice or journal write method was called. |
 | Financial activation | No policies, books or financial balances activated, no historical corrections and no live cutover. |
 
 The initial read-only eligibility probe could not take the guard FOR SHARE locks. The guard was retained, the verification was retried with SELECT-only queries in a transaction permitting row locks, that transaction was rolled back, and all records were checked again. The migrations were not rerun.
 
-Schema presence is not an approved financial opening. Actual scope/identity mappings, chart and currency configuration, company-admin policy decisions, certified opening/reconciliation, explicit activation and controlled cutover remain pending. The application implementation is unchanged and still matches the recorded successful build and 2,996-test baseline.
+The schema-only run did not establish an approved financial opening or provision identities/configuration. The subsequent G04 section records the limited draft read setup; chart and currency configuration, company-admin policy decisions, certified opening/reconciliation, activation and cutover remain pending. The application implementation is unchanged and still matches the recorded successful build and 2,996-test baseline.
+
+## Local draft read setup — G04 partial
+
+One confirmed company-admin account now has access to a DRAFT legal entity and DRAFT accounting book in local development. The READ binding, READ authority and READ_DRAFT membership are valid for seven days, ending **23 November 2026 at 12:09 EAT**. Only that company membership received the existing scoped read permission. Its authorization version increased once; sign in again to refresh access. No company role or other account was changed.
+
+Existing identity, scope and ledger services verified exact-scope reads. PREPARE, REVIEW, ACCEPT, RELEASE, validation/live period creation and other-book/company access were denied. The unconfirmed test member has no Finance access. These are internal service and persistence checks; real browser sign-in and HTTP/SSO remain to be tested.
+
+The eight changed tables match the explicit metadata/access allowlist; all other 344 tables, every schema, all sequences, the 88-entry migration ledger, all four protected paid invoice headers/items, the tax catalogue and three legacy accounts are unchanged. A fresh encrypted backup was integrity-checked before commit. No financial records were posted, regenerated or corrected.
+
+G04 remains **partial**. A different real preparer/checker is unassigned. TIRA licence, TIN and BRELA evidence is missing from the company master. Accounting basis, functional-currency assessment, calendar, chart release and presentation context remain null. No policy authority, policy version, approval, activation, accounting period, opening, journal, source map or release was created. All 70 policies and 126 decisions still require scoped review. No regulatory or tax conclusion is made by this setup.
+
+The Finance schema now contains draft and authority evidence. The earlier empty-schema down-rehearsal does not authorize destructive rollback of the current source. Preserve history and revoke access or use reviewed forward repair. Full B45 company acceptance, configuration and cutover remain pending. See [G04 draft read verification](G04-Draft-Read-Verification.json) for sanitized evidence; the company-specific review pack remains private outside Git.
 
 ## Company admin review pack
 
@@ -1698,7 +1710,7 @@ B42 retirement applies only to paths with accepted replacements and post-extract
 | Item | Disposition before affected activation |
 | --- | --- |
 | 70 policies and 126 choices | Review actual applicability, exact treatment, evidence and independent company-admin decision. Do not invent a resolved status. |
-| Company scope and people | Actual IDs, assignments, mandates, activation dates and currencies remain unset. |
+| Company scope and people | One private draft scope and company-admin READ identity are assigned. Independent preparer/checker, legal evidence, accounting mandates, activation dates and functional currency remain unresolved. |
 | Build and full history upgrade | The recorded type diagnostics and local build blockers are resolved, and isolated full-history migration/restore rehearsal passed. Target-environment release, privilege and company acceptance remain outstanding. |
 | Tax and statutory requirements | Rates, exemptions, levy bases, lawful currency use, deadlines and reporting rules require current competent company-specific evidence; no rate or legal conclusion is selected by this SRS. |
 | Model and impairment decisions | PAA/GMM/held eligibility, assumptions, CSM/LIC/LRC, discount/risk/OCI and IFRS 9 scope remain future certified implementation and approval. |
@@ -1714,6 +1726,7 @@ This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 1
 
 | Artifact | Purpose |
 | --- | --- |
+| [G04 Draft Read Verification](G04-Draft-Read-Verification.json) | Local draft access, negative authority checks, unchanged financial records and remaining G04 blockers. |
 | [Implementation Status](Implementation-Status.json) | Machine-readable phase, step, module and submodule status. |
 | [Migration Manifest](Migration-Manifest.json) | Exact code/migration fingerprints, twelve applied Finance migrations and zero pending migrations; authorization is bounded to the completed local schema-only run. |
 | [Acceptance Test Manifest](Acceptance-Test-Manifest.json) | Prior 867 case outcomes, unchanged-source fingerprint and explicit limits of acceptance. |

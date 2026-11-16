@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.3",
+  "version": "1.4",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -104,8 +104,8 @@
       "criteriaAndDecisions": "AC01 AC02 AC04 / DEC-08 DEC-14",
       "reviewer": "Finance architecture + Security",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
-      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
+      "currentDisposition": "One confirmed company-admin draft scope and expiring read access are verified locally. Legal evidence, independently reviewed configuration and policy decisions remain pending.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_DRAFT_READ_SETUP_ONLY"
     },
     {
       "id": "B06",
@@ -244,7 +244,8 @@
       "criteriaAndDecisions": "AC01 AC02 AC03 AC04 AC05 AC06 AC07 AC08 AC09 AC10 AC27 AC38 AC40 AC42 AC52 AC55 AC56 AC59 AC60 / DEC-01 DEC-05 DEC-06 DEC-07 DEC-08 DEC-09 DEC-10 DEC-11 DEC-12 DEC-14 DEC-19",
       "reviewer": "User + Controller + QA + Security/platform reviewers",
       "implementationStatus": "TECHNICAL TESTS PASSED FORMAL ACCEPTANCE PENDING",
-      "currentDisposition": "Persistent acceptance/release framework and 867 tests are evidenced; no actual company production acceptance or activation exists."
+      "currentDisposition": "Persistent acceptance/release framework and 867 tests are evidenced; no actual company production acceptance or activation exists.",
+      "localDraftReadEvidence": "G04-Draft-Read-Verification.json"
     },
     {
       "id": "B13",
@@ -1828,8 +1829,21 @@
     "evidence": "Local-Migration-Application-Verification.json",
     "appliedFinanceMigrations": 12,
     "pendingMigrations": 0,
-    "newEmptyFinanceTables": 62,
     "policiesActivated": 0,
-    "booksActivated": 0
+    "booksActivated": 0,
+    "newEmptyFinanceTablesAtSchemaApplication": 62,
+    "currentNonemptyFinanceRegistries": 5,
+    "currentEmptyNewFinanceTables": 57
+  },
+  "localDraftReadSetup": {
+    "status": "PARTIAL_G04_DRAFT_READ_ONLY_VERIFIED_LOCAL_DEVELOPMENT",
+    "evidence": "G04-Draft-Read-Verification.json",
+    "draftEntities": 1,
+    "draftBooks": 1,
+    "readAuthorities": 1,
+    "nonReadAuthorities": 0,
+    "independentCheckerAssigned": false,
+    "policyApprovals": 0,
+    "policyActivations": 0
   }
 }

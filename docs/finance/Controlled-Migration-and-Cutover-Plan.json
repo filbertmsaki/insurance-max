@@ -1,7 +1,7 @@
 {
-  "version": "1.3",
+  "version": "1.4",
   "date": "2026-11-16",
-  "status": "LOCAL_SCHEMA_APPLIED_GOVERNANCE_AND_CUTOVER_PENDING",
+  "status": "LOCAL_DRAFT_READ_SETUP_G04_PARTIAL_CONFIGURATION_AND_CUTOVER_PENDING",
   "companyScope": {
     "companyId": null,
     "tenantId": null,
@@ -249,9 +249,19 @@
       ],
       "exit": "Exact applicable policies are approved but inactive; actual people, configuration and source ownership are verified.",
       "rollback": "Revoke inappropriate grants and supersede draft versions through auditable controls; do not delete review history.",
-      "status": "NOT_AUTHORIZED",
-      "executionEvidenceHash": null,
-      "executedAt": null
+      "status": "PARTIAL_G04_DRAFT_READ_ONLY_VERIFIED_LOCAL_DEVELOPMENT",
+      "executionEvidenceHash": "da30d102fe9d1caa9653784cdae14d42f38560c69a1103f6f5864907468c3c24",
+      "executedAt": "2026-11-16T09:09:10.264Z",
+      "completedScope": "One confirmed company admin with seven-day READ/READ_DRAFT access to one DRAFT entity and book. Accounting configuration remains unset; no policy authority or non-read capability granted.",
+      "remainingDependencies": [
+        "Different real Finance preparer/checker not assigned",
+        "TIRA licence, TIN and BRELA legal-source evidence missing from company master",
+        "Functional-currency assessment not approved; TZS system base is not sufficient evidence",
+        "Accounting basis, calendar, chart release, taxes, policies, dimensions and source mappings require scoped review",
+        "No policy approval, activation, opening balance, period, journal, release or source-event producer authority granted"
+      ],
+      "policyApprovalRecorded": false,
+      "policyActivationAuthorized": false
     },
     {
       "id": "G05",
@@ -375,5 +385,6 @@
     "companyAccountingPolicyApproval": false,
     "activationAuthorized": false
   },
-  "authorizationSemantics": "Formal company accounting, policy and release decisions remain unreceived. The completed technical local schema change was separately authorized by the explicit user instruction."
+  "authorizationSemantics": "Formal company accounting, policy and release decisions remain unreceived. The completed technical local schema change was separately authorized by the explicit user instruction. A later user confirmation authorized the named company-admin draft read setup only; formal preparer/checker, policies, configuration and release remain separate.",
+  "localDraftReadEvidence": "G04-Draft-Read-Verification.json"
 }
