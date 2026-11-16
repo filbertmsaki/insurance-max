@@ -6,7 +6,7 @@ Insurance Max requires a complete, independent Finance Service that owns financi
 
 The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
-**Document control:** IM-FIN-SRS-1.6; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
+**Document control:** IM-FIN-SRS-1.7; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
 
 ## Current implementation at a glance
 
@@ -17,7 +17,7 @@ The financial foundation and inactive quotation and receivables control slices a
 | B14 receipts and receivables | Inactive ownership, capacity, assignment, ageing and reconciliation controls implemented | Actual source/ bank reconciliation and legal discharge; B15 outgoing cash |
 | B43 currencies and B44 ledger reports | Persistent reviewed currency/rate evidence, canonical journals and reconciled ledger/report APIs implemented | Approved actual scope, certified opening and explicit release |
 | B45 foundation acceptance | Technical framework and automated tests passed; formal company acceptance pending | Company decisions and source/worker/financial acceptance; local real sign-in and foundation HTTP access checks passed |
-| Read-only foundation workspace | Company-scoped book/document review, exact-version detail and access/error states implemented; frontend build, 562 frontend tests and 13 fixture browser checks passed | Fresh actual-company UI acceptance; current read grants and backend gates remain authoritative |
+| Read-only foundation workspace | Company-scoped book/document review, exact-version detail and access/error states implemented; frontend build, 562 frontend tests and 13 fixture browser checks passed | Real company UI access verified locally; formal company acceptance and current read/backend gates remain separate |
 | Policies | 70 proposed policies across 33 modules and 126 inherited decision or acceptance items | 0 actual company approvals or activations in the verified development baseline |
 | B15 and remaining operational Finance | Not started or partial only as individually listed below | Implement approved outgoing cash and remaining domain adapters incrementally |
 | IFRS 17 and IFRS 9 engines | Not implemented as complete independent measurement subsystems | Model scope, data, certified calculations, approvals and one-time Finance movement bridge |
@@ -1531,11 +1531,23 @@ Users can choose only books returned by the existing authorization API, filter t
 
 Queries are keyed by user, company, membership, session, authorization version and Finance tenant/entity/book. They use cancellation, immediate cache disposal and periodic/focus refresh. Switching company/book, losing read permission or receiving an access error removes prior records. Money strings are not converted to floating-point values, and document content is rendered as escaped text.
 
-The frontend production build and targeted lint passed. All **562 frontend tests across 79 files** passed, including 27 new workspace/adapter cases; the focused run passed 35 tests. Thirteen browser checks with frontend fixtures covered navigation/direct-route permission gates, empty/draft views, exact-version details, text/decimal preservation, filtering, expiry and desktop/mobile layout. These fixtures contacted no live backend and do not certify a fresh Baraka sign-in or actual company UI acceptance. The earlier real sign-in/API evidence remains separately pinned. Backend/PostgreSQL tests were not rerun for this frontend-only change.
+The frontend production build and targeted lint passed. All **562 frontend tests across 79 files** passed, including 27 new workspace/adapter cases; the focused run passed 35 tests. Thirteen browser checks with frontend fixtures covered navigation/direct-route permission gates, empty/draft views, exact-version details, text/decimal preservation, filtering, expiry and desktop/mobile layout. Those implementation fixtures contacted no live backend and did not certify a fresh real-user sign-in. Subsequent real company UI access verification is recorded below; formal company acceptance remains separate. The earlier real sign-in/API evidence remains separately pinned. Backend/PostgreSQL tests were not rerun for this frontend-only change.
 
 Read-only database reconciliation proved all **352 tables**, all **70 Finance tables**, all **four historical paid invoice headers/items**, role/permission/binding data, schemas and sequences unchanged. No migrations, policies, grants, approvals, periods, journals, releases or historical invoice changes were made. Existing legacy operational permissions remain broader and unchanged. G04 and company accounting/cutover acceptance remain partial.
 
 The migration manifest retains the previous immutable source fingerprint and its Git manifest reference, and separately records the new frontend release fingerprint. Prior build/test/migration evidence has not been relabeled as new execution. See [workspace verification](Read-Only-Workspace-Verification.json).
+
+## Real company access to the foundation workspace
+
+A fresh user-entered sign-in to the unchanged application opened the new **Finance > Foundation review** workspace in the confirmed company session. The real authorization-context, scoped-book and review-document APIs succeeded against the local development database. No frontend responses were intercepted or replaced, and no authentication/session/JWT/permission provider was mocked or bypassed. The local verification host ran the unchanged main/AppModule with only native background scheduling disabled.
+
+All **25 live checks passed**: the confirmed identity and READ-only foundation permission, exact authorized DRAFT book, menu navigation, empty-document semantics, two type filters, access/document refresh, absence of mutation controls, GET-only workspace requests, desktop/mobile display, two denied cross-scope reads and eight denied preparation/review/period/journal/release/deployment/policy requests. The latter probes returned 403 and created no accounting effects.
+
+After logout, reconciliation compared all **352 tables**. All **70 Finance tables**, all **four protected paid invoice headers/items**, role/permission/binding records, schemas, sequences and migration ledger remained unchanged. The only changes were normal audit, session, device, confirmed-user login and membership-access metadata. Protected user security fields and every other user/membership were unchanged. Policies, active books, real review documents, journals and deployments remain absent/inactive.
+
+The real draft book has no review documents, so live version/detail viewing was not exercised. No sample document, policy or balance was created to make that test possible. Existing fixture tests cover that interface separately. The temporary session was logged out and both verification servers and the loopback tunnel were stopped. Application code, grants and legacy permissions were unchanged.
+
+This resolves the real-company UI-access verification gap, while **G04 and formal company accounting/B45 acceptance remain partial**. The independent preparer/checker, legal/configuration/policy choices, certified opening and cutover gates remain outstanding. Existing legacy operational Finance write rights are still broader than this read-only workspace. See [real workspace verification](Real-Workspace-Access-Verification.json).
 
 ## Company admin review pack
 
@@ -1751,6 +1763,7 @@ This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 1
 
 | Artifact | Purpose |
 | --- | --- |
+| [Real Workspace Access Verification](Real-Workspace-Access-Verification.json) | Real signed-in workspace, 25 checks, post-logout financial/permission protection and remaining gates. |
 | [Read-only Workspace Verification](Read-Only-Workspace-Verification.json) | Frontend implementation, tests/browser fixtures, database preservation and company-acceptance limits. |
 | [Sign-in Read Verification](SignIn-Read-Verification.json) | Real local sign-in, foundation read/denial checks, historical protection and legacy/UI limitations. |
 | [G04 Draft Read Verification](G04-Draft-Read-Verification.json) | Local draft access, negative authority checks, unchanged financial records and remaining G04 blockers. |

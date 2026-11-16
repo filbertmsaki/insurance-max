@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.6",
+  "version": "1.7",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -1851,7 +1851,9 @@
     "legacyAccountEntirelyReadOnly": false,
     "newFoundationUiImplemented": true,
     "readOnlyWorkspaceEvidence": "Read-Only-Workspace-Verification.json",
-    "actualCompanyUiAcceptance": false
+    "actualCompanyUiAcceptance": false,
+    "realCompanyUiVerified": true,
+    "realWorkspaceAccessEvidence": "Real-Workspace-Access-Verification.json"
   },
   "readOnlyWorkspace": {
     "status": "IMPLEMENTED_AND_TESTED_FRONTEND_ONLY",
@@ -1861,6 +1863,10 @@
     "browserChecks": 13,
     "databaseWrites": 0,
     "legacyPermissionsChanged": false,
-    "evidence": "Read-Only-Workspace-Verification.json"
+    "evidence": "Read-Only-Workspace-Verification.json",
+    "realCompanyUiVerified": true,
+    "liveAccessChecksPassed": 25,
+    "liveAccessEvidence": "Real-Workspace-Access-Verification.json",
+    "companyFormalAcceptanceGranted": false
   }
 }
