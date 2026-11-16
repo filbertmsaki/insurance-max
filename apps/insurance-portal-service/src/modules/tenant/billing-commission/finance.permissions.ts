@@ -1,4 +1,10 @@
 export const FinancePermissions = {
+  SETUP_PREPARE: 'finance-setup:prepare',
+  SETUP_REVIEW: 'finance-setup:review',
+  CONFIG_PREPARE: 'finance-config:prepare',
+  CONFIG_REVIEW: 'finance-config:review',
+  POLICY_PREPARE: 'finance-policy:prepare',
+  POLICY_DECIDE: 'finance-policy:decide',
   FOUNDATION_READ: 'finance-foundation:read',
   FOUNDATION_PREPARE: 'finance-foundation:prepare',
   FOUNDATION_REVIEW: 'finance-foundation:review',

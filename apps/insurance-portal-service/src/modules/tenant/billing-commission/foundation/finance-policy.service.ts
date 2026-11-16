@@ -25,7 +25,9 @@ import {
 /** Internal governance commands. No public API, automatic grants or release writer. */
 @Injectable()
 export class FinancePolicyService {
-  constructor(@InjectDataSource() private readonly source: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly source: DataSource | EntityManager,
+  ) {}
 
   async prepare(
     scope: FinancePolicyScope,

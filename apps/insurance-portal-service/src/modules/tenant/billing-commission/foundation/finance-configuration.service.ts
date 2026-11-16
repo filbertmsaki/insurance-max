@@ -42,7 +42,9 @@ import {
 
 @Injectable()
 export class FinanceConfigurationService {
-  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource | EntityManager,
+  ) {}
 
   async createDraft(
     actor: FinanceConfigurationActor,

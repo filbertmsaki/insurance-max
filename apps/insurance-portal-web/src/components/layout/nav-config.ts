@@ -352,6 +352,14 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
+        label: 'Accounting setup',
+        to: '/apps/finance/setup',
+        icon: BookOpen,
+        permission: 'finance-foundation:read',
+        allowedScopes: ['company'],
+      },
+      {
+        kind: 'link',
         label: 'Dashboard',
         to: '/apps/finance/dashboard',
         icon: Radar,

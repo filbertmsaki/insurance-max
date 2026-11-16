@@ -97,6 +97,7 @@ import { PlatformTiramisIntegrationPage } from '@/modules/platform/tiramis-integ
 import { VerificationsPage } from '@/modules/tenant/verifications/pages/VerificationsPage';
 import { FinanceDashboardPage } from '@/modules/tenant/finance/pages/FinanceDashboardPage';
 import { FinanceFoundationPage } from '@/modules/tenant/finance/foundation/FinanceFoundationPage';
+import { FinanceSetupPage } from '@/modules/tenant/finance/setup/FinanceSetupPage';
 import { FinanceInvoicesPage } from '@/modules/tenant/finance/pages/FinanceInvoicesPage';
 import { FinanceInvoiceDetailPage } from '@/modules/tenant/finance/pages/FinanceInvoiceDetailPage';
 import { FinancePaymentsPage } from '@/modules/tenant/finance/pages/FinancePaymentsPage';
@@ -1122,6 +1123,10 @@ export default function App() {
                 <Route
                   path="/apps/finance/foundation"
                   element={<FinanceFoundationPage />}
+                />
+                <Route
+                  path="/apps/finance/setup"
+                  element={<FinanceSetupPage />}
                 />
               </Route>
               <Route

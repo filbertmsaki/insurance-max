@@ -56,12 +56,18 @@ import { ReceiptBalanceService } from './services/receipt-balance.service';
 import { AuditModule } from '../../shared/audit/audit.module';
 import { FinanceFoundationModule } from './foundation/finance-foundation.module';
 import { FinanceFoundationController } from './foundation/finance-foundation.controller';
+import { FinanceSetupController } from './foundation/finance-setup.controller';
+import { FinanceSetupService } from './foundation/finance-setup.service';
+import { FinanceSetupConfigurationService } from './foundation/finance-setup-configuration.service';
+import { FinanceSetupEvidenceService } from './foundation/finance-setup-evidence.service';
+import { InsuranceDocumentsModule } from '../insurance-documents/insurance-documents.module';
 
 @Module({
   imports: [
     SharedModule,
     AuditModule,
     FinanceFoundationModule,
+    InsuranceDocumentsModule,
     WorkItemsModule,
     forwardRef(() => QuotationsModule),
     forwardRef(() => PolicyTransactionsModule),
@@ -93,6 +99,7 @@ import { FinanceFoundationController } from './foundation/finance-foundation.con
     ]),
   ],
   controllers: [
+    FinanceSetupController,
     FinanceFoundationController,
     BillingCommissionController,
     // FinanceOperationsController (legacy /tenant/billing writes without
@@ -102,6 +109,9 @@ import { FinanceFoundationController } from './foundation/finance-foundation.con
     FinanceWebhookController,
   ],
   providers: [
+    FinanceSetupService,
+    FinanceSetupConfigurationService,
+    FinanceSetupEvidenceService,
     BillingCommissionService,
     IdentifierGeneratorService,
     FinanceLifecycleService,

@@ -1,8 +1,8 @@
 {
   "id": "IM-FIN-G04-REVIEW-1.0",
   "preparedDate": "2026-11-16",
-  "status": "PARTIAL_REVIEW_PACK_PREPARED",
-  "runtimeProvisioning": false,
+  "status": "SOFTWARE_IMPLEMENTED_COMPANY_REVIEW_PENDING",
+  "runtimeProvisioning": true,
   "policyApprovalReceived": false,
   "policyActivationAuthorized": false,
   "scope": "Reusable platform plan with separate INSURER/BROKER/REINSURER review packs; initial private company pack is INSURER.",
@@ -259,10 +259,11 @@
       "owner": "Company admin with compliance",
       "action": "Verify insurer licence, TIN, registration, actual products, ownership and source-company mapping. Application VERIFIED is insufficient.",
       "acceptance": "Legal evidence, exact product/profile perimeter, evidence hashes and effective intervals.",
-      "currentState": "DRAFT entity/book exist; legal fields remain missing.",
+      "currentState": "57 actual products inventoried; legal identifiers/documents and effective dates required.",
       "dependsOn": [],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-02",
@@ -270,12 +271,13 @@
       "owner": "Company admin with access administrator",
       "action": "Onboard the nominated independent person, confirm individual identity and separate preparer/checker assignments; record scoped identity bindings and expiring mandates.",
       "acceptance": "New account, verified identity, native role/permission review, negative cross-scope and self-review tests.",
-      "currentState": "Additional company/HQ account and membership active; password sign-in and exact-scope READ verified through 20 HTTP checks. Email/phone remain unverified; formal preparer/checker appointment and non-read mandates remain pending.",
+      "currentState": "Nominated preparer and company-admin reviewer have expiring setup access; formal appointment evidence and review pending.",
       "dependsOn": [
         "G04-01"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-03",
@@ -283,12 +285,13 @@
       "owner": "Finance preparer; company admin reviews specialist evidence",
       "action": "Select basis; document functional currency assessment, presentation currency, permitted transaction currencies, rate sources, rate types and decimal/rounding rules.",
       "acceptance": "Company decision and independently reviewed, exact versioned B43 assessment/rate evidence.",
-      "currentState": "Book basis, functional assessment and presentation context are null. System base currency is not the assessment.",
+      "currentState": "No actual accounting election. Demonstration: IFRS and TZS only on isolated synthetic scope.",
       "dependsOn": [
         "G04-02"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-04",
@@ -296,12 +299,13 @@
       "owner": "Finance preparer; independent checker",
       "action": "Select fiscal calendar, period boundaries, cutoff timezone and adjustment/reopen process. Plan periods without enabling posting.",
       "acceptance": "Approved inactive calendar and close-control proposal; date-boundary and closed-period rejection evidence.",
-      "currentState": "Book calendar is null. Dates and period-opening decisions remain unset.",
+      "currentState": "No actual calendar/effective date selected. Demonstration: 31 December year-end, effective 16 November 2026.",
       "dependsOn": [
         "G04-03"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-05",
@@ -309,12 +313,13 @@
       "owner": "Integration owner; independent Finance reviewer",
       "action": "Draft exact company-to-entity source map and source-read authority; capture all real accounts, including custom and inactive rows, and financial/open-item cutoff evidence.",
       "acceptance": "Current mapping hash, source authority, one disposition per observed account and reproducible inventory hash.",
-      "currentState": "Three real legacy accounts observed; no Finance source map or chart is provisioned.",
+      "currentState": "Three actual legacy accounts inventoried; source maps and population reconciliation pending.",
       "dependsOn": [
         "G04-04"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-06",
@@ -322,12 +327,13 @@
       "owner": "Finance preparer; independent Finance reviewer",
       "action": "Review Step 5/6 candidates, actual role/account bindings, dimensions, controls and report mappings. Hold unresolved legacy mappings; do not renumber historical postings.",
       "acceptance": "Typed FINANCE_CHART_V1, all observed-account dispositions, account classes/normal sides/parents and exact scope/interval tests.",
-      "currentState": "Prior chart is a proposal with 132 posting templates and 28 headings, not a released company chart.",
+      "currentState": "No released company chart or approved mappings; historical account numbers preserved.",
       "dependsOn": [
         "G04-05"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-07",
@@ -335,12 +341,13 @@
       "owner": "Finance preparer; independent Finance reviewer",
       "action": "Prepare the 13 configuration families below in dependency order; exact subject/version/hash and dates, no invented values.",
       "acceptance": "DRAFT → SUBMITTED → REVIEWED_INACTIVE; independent natural-person review; stale-source and overlap checks.",
-      "currentState": "Internal configuration lifecycle exists. No source-company configuration is installed.",
+      "currentState": "No actual configuration review or release; posting rules remain disabled.",
       "dependsOn": [
         "G04-06"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-08",
@@ -348,12 +355,13 @@
       "owner": "Company admin, supported by Finance/tax/actuarial evidence",
       "action": "Review all 70 policies and 126 decisions; choose treatment or evidenced nonapplicability per actual profile. Explicitly defer unsupported features and block dependent transactions.",
       "acceptance": "Exact company/book/product applicability, selected treatment, evidence, dates and scoped decision. Selected options remain null in this pack.",
-      "currentState": "All policy decisions remain pending. User nomination of an account is not a policy decision.",
+      "currentState": "Actual selections/decisions remain pending; no actual policy versions or approvals created.",
       "dependsOn": [
         "G04-07"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-09",
@@ -361,12 +369,13 @@
       "owner": "Independent Finance checker with engineering",
       "action": "Test complete event ownership, precision, replay, reversals, tax breakdown and report reconciliation on an isolated copy. Compare legacy records, openings and open items by currency.",
       "acceptance": "Evidence manifests; source totals supplied explicitly; no unexplained variances, paid-invoice changes or duplicate economic effects.",
-      "currentState": "Technical tests and isolated display fixtures are evidence only for their stated scope, not actual company acceptance.",
+      "currentState": "Technical rehearsal passed on isolated synthetic scope; real company financial acceptance still required.",
       "dependsOn": [
         "G04-08"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     },
     {
       "id": "G04-10",
@@ -374,12 +383,13 @@
       "owner": "Company admin and independent checker",
       "action": "Review immutable configuration/policy evidence and declare which inactive scope is accepted. Record remaining blockers and renewal dates.",
       "acceptance": "Signed scoped review record and no unacknowledged dependencies. Activation, live release/cutover and database extraction require separate gates.",
-      "currentState": "G04 remains PARTIAL; no release is authorized by this plan.",
+      "currentState": "Ten actual drafts, zero submitted/reviewed; company G04 remains incomplete.",
       "dependsOn": [
         "G04-09"
       ],
-      "status": "PENDING",
-      "completed": false
+      "status": "DRAFT_REVIEW_PENDING",
+      "completed": false,
+      "softwareStatus": "IMPLEMENTED_AND_TESTED"
     }
   ],
   "configurationFamilies": [
@@ -2939,5 +2949,6 @@
       "The source draft book has no review documents. Prior isolated document fixture tests remain separate.",
       "Read access does not appoint a checker, approve accounting treatments or activate a book or policy."
     ]
-  }
+  },
+  "currentImplementationEvidence": "G04-Implementation-Verification.json"
 }

@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.10",
+  "version": "1.11",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -1827,13 +1827,16 @@
   "localDevelopmentSchema": {
     "status": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
     "evidence": "Local-Migration-Application-Verification.json",
-    "appliedFinanceMigrations": 12,
+    "appliedFinanceMigrations": 13,
     "pendingMigrations": 0,
     "policiesActivated": 0,
     "booksActivated": 0,
     "newEmptyFinanceTablesAtSchemaApplication": 62,
-    "currentNonemptyFinanceRegistries": 5,
-    "currentEmptyNewFinanceTables": 57
+    "currentNonemptyFinanceRegistries": 8,
+    "currentEmptyNewFinanceTables": 56,
+    "currentMigrationLedger": 89,
+    "currentApplicationTables": 354,
+    "latestSetupEvidence": "G04-Implementation-Verification.json"
   },
   "localDraftReadSetup": {
     "status": "PARTIAL_G04_DRAFT_READ_ONLY_VERIFIED_LOCAL_DEVELOPMENT",
@@ -1876,8 +1879,8 @@
     "controlledDocumentDetailEvidence": "Controlled-Document-Detail-Verification.json"
   },
   "remainingG04Review": {
-    "status": "PARTIAL_REVIEW_PACK_PREPARED",
-    "evidence": "G04-Remaining-Configuration-and-Review-Plan.json",
+    "status": "SOFTWARE_IMPLEMENTED_COMPANY_REVIEW_PENDING",
+    "evidence": "G04-Implementation-Verification.json",
     "configurationFamilies": 13,
     "policies": 70,
     "decisions": 126,
@@ -1890,7 +1893,7 @@
     "policyApprovals": 0,
     "policyActivations": 0,
     "accountStatus": "ACTIVE_FINANCE_READ_ONLY",
-    "newAccountPermissionCount": 1,
+    "newAccountPermissionCount": 4,
     "accountProvisioning": {
       "accountCreated": true,
       "accountStatus": "inactive",
@@ -2093,6 +2096,192 @@
         "The source draft book has no review documents. Prior isolated document fixture tests remain separate.",
         "Read access does not appoint a checker, approve accounting treatments or activate a book or policy."
       ]
-    }
+    },
+    "companyDrafts": 10,
+    "companyStepsReviewed": 0,
+    "setupPreparationAndReviewAuthorities": 2
+  },
+  "g04Implementation": {
+    "documentId": "IM-FIN-G04-IMPLEMENTATION-1.0",
+    "date": "2026-11-16",
+    "status": "SOFTWARE_IMPLEMENTED_AND_VERIFIED_COMPANY_REVIEW_PENDING",
+    "baseCommit": "328e3a6d1ae75b58186bc452e5778c779c73b10e",
+    "software": {
+      "steps": 10,
+      "configurationFamilies": 13,
+      "policies": 70,
+      "decisionChoices": 126,
+      "modules": 33,
+      "workspace": "/apps/finance/setup",
+      "newTables": 2,
+      "newMigration": "FinanceSetupReviews1797400000000",
+      "immutableVersions": true,
+      "independentReview": true,
+      "activationEndpoint": false
+    },
+    "verification": {
+      "backend": {
+        "suites": 271,
+        "tests": 2241,
+        "passed": true
+      },
+      "frontend": {
+        "files": 81,
+        "tests": 575,
+        "passed": true
+      },
+      "postgres": {
+        "suites": 14,
+        "tests": 264,
+        "passed": true,
+        "disposableClusterStopped": true
+      },
+      "isolatedSetup": {
+        "checks": 34,
+        "passed": true,
+        "stepsReviewed": 10,
+        "companyAcceptanceGranted": false
+      },
+      "syntheticLiveWorkspace": {
+        "checks": 6,
+        "passed": true,
+        "realPasswordAuthentication": true,
+        "authenticationOverrides": 0,
+        "humanApproval": false
+      },
+      "localSourceHttp": {
+        "checks": 20,
+        "passed": true,
+        "realPasswordAuthentication": true,
+        "humanSignInObserved": false
+      },
+      "backendBuild": true,
+      "frontendBuild": true
+    },
+    "localDevelopment": {
+      "migrationLedger": 89,
+      "financeMigrations": 13,
+      "tables": 354,
+      "pendingMigrations": 0,
+      "companyDrafts": 10,
+      "companyStepsSubmitted": 0,
+      "companyStepsReviewed": 0,
+      "setupComplete": false,
+      "boundedSetupAuthorities": 2,
+      "newDirectSetupPermissions": 6,
+      "existingLegacyPermissionsUnchanged": true,
+      "financialRecordsChanged": 0,
+      "historicalPaidInvoicesUnchanged": 4,
+      "randomLegalFactsWritten": 0,
+      "actualAccountingSelections": null,
+      "actualSourceMaps": 0,
+      "actualConfigurationReleases": 0,
+      "actualPolicyVersions": 0,
+      "policyAuthorities": 0,
+      "booksActivated": 0,
+      "policyActivations": 0,
+      "postingGuard": "FINANCE_POSTING_HELD"
+    },
+    "demonstration": {
+      "purpose": "ISOLATED_SYNTHETIC_TEST_ONLY",
+      "identifiers": "Clearly labelled DEMO / NOT VALID; never written to actual company master",
+      "accountingBasis": "IFRS",
+      "functionalCurrency": "TZS",
+      "presentationCurrency": "TZS",
+      "financialYearEnd": "12-31",
+      "effectiveDate": "2026-11-16",
+      "sourceDatabaseConnected": false,
+      "actualCompanyAccountingDecision": false
+    },
+    "steps": [
+      {
+        "id": "G04-01",
+        "title": "Legal entity and product scope",
+        "implementation": "Owned legal evidence, real product versions and bounded licence applicability.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "57 actual products inventoried; legal identifiers/documents and effective dates required."
+      },
+      {
+        "id": "G04-02",
+        "title": "People and independent authority",
+        "implementation": "Bounded setup preparation/review access; different natural-person check; company-admin appointment review provisions native policy mandates without activation.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "Nominated preparer and company-admin reviewer have expiring setup access; formal appointment evidence and review pending."
+      },
+      {
+        "id": "G04-03",
+        "title": "Accounting basis and currencies",
+        "implementation": "Assessment, functional/presentation/transaction currencies, decimal scales, sources and rounding.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "No actual accounting election. Demonstration: IFRS and TZS only on isolated synthetic scope."
+      },
+      {
+        "id": "G04-04",
+        "title": "Financial calendar and period governance",
+        "implementation": "Contiguous periods, year-end, effective date, timezone, close and reopen proposal validation.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "No actual calendar/effective date selected. Demonstration: 31 December year-end, effective 16 November 2026."
+      },
+      {
+        "id": "G04-05",
+        "title": "Source ownership and inventory",
+        "implementation": "Native scoped source maps/read mandates and inventory evidence hashes.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "Three actual legacy accounts inventoried; source maps and population reconciliation pending."
+      },
+      {
+        "id": "G04-06",
+        "title": "Chart, account roles and dimensions",
+        "implementation": "Native typed chart, actual-account dispositions, exact reviewed chart/dimension references.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "No released company chart or approved mappings; historical account numbers preserved."
+      },
+      {
+        "id": "G04-07",
+        "title": "Versioned accounting configuration",
+        "implementation": "All 13 native configuration families, exact versions/hashes, maker/checker; shared tax catalogue validation.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "No actual configuration review or release; posting rules remain disabled."
+      },
+      {
+        "id": "G04-08",
+        "title": "Company accounting policy decisions",
+        "implementation": "All 70 policies and 126 decision choices visible; exact policy definition/evidence before decisions; no activation endpoint.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "Actual selections/decisions remain pending; no actual policy versions or approvals created."
+      },
+      {
+        "id": "G04-09",
+        "title": "Inactive acceptance and rehearsal",
+        "implementation": "Owned acceptance evidence, source snapshot checks, financial-effect and activation limits.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "Technical rehearsal passed on isolated synthetic scope; real company financial acceptance still required."
+      },
+      {
+        "id": "G04-10",
+        "title": "Company setup review completion",
+        "implementation": "All preceding latest reviews, evidence/source revalidation, immutable audit chain; inactive completion only.",
+        "softwareStatus": "IMPLEMENTED_AND_TESTED",
+        "companyStatus": "DRAFT_REVIEW_PENDING",
+        "companyState": "Ten actual drafts, zero submitted/reviewed; company G04 remains incomplete."
+      }
+    ],
+    "remaining": [
+      "Supply actual regulatory/tax/registration evidence and valid dates.",
+      "Confirm the nominated people and independently review the formal appointment.",
+      "Make actual accounting, currency, calendar, chart, tax, source and policy elections with supporting evidence.",
+      "Complete independent company review of all ten exact versions; refresh stale/expired evidence and mandates.",
+      "Policy activation, posting, operational migration, B15, cutover and physical service extraction remain separate work/gates."
+    ],
+    "rollback": "Migration down refuses deletion once any setup evidence exists. Forward correction uses new immutable versions. Empty-schema rollback retains permission catalogue entries to avoid revoking access."
   }
 }
