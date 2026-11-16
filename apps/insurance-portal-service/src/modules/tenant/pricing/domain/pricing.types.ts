@@ -92,6 +92,8 @@ export type PricingChargeBase =
   | 'GROSS_PREMIUM';
 
 export interface PricingChargeBreakdown {
+  ledger_account_code?: string | null;
+  price_basis?: 'EXCLUSIVE' | 'INCLUSIVE';
   applied_rule_id: string;
   charge_code: string;
   charge_name: string;
@@ -118,6 +120,8 @@ export interface PricingChargeSummary {
 }
 
 export interface PricingChargeCalculationInput {
+  /** Internal inclusive-price extraction; omitted for the standard net-premium rating path. */
+  tax_inclusive_premium?: number;
   category_id?: string | null;
   product_id?: string | null;
   risk_id?: string | null;

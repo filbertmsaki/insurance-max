@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { EntityManager } from 'typeorm';
 
@@ -8,6 +8,7 @@ import { Invoice } from '../entities/invoice.entity';
 import { ReceiptAllocation } from '../entities/receipt-allocation.entity';
 import { InvoiceStatus, RefundStatus } from '@insurance-max/contracts';
 import { ReceiptAllocationStatus } from '../enums/finance-status.enums';
+import { financialDecimal } from '../foundation/finance-currency-controls';
 
 @Injectable()
 export class InvoiceBalanceService {
@@ -39,13 +40,25 @@ export class InvoiceBalanceService {
       .andWhere('refund.status = :status', { status: RefundStatus.PAID })
       .getRawOne<{ amount: string }>();
 
-    const allocated = DecimalUtil.value(allocationResult?.amount ?? 0);
-    const refunded = DecimalUtil.value(refundResult?.amount ?? 0);
-    const writtenOff = DecimalUtil.value(invoice.written_off_amount ?? 0);
-    const total = DecimalUtil.value(invoice.total_amount);
-    const effectivePaid = allocated.minus(refunded).greaterThan(0)
-      ? allocated.minus(refunded)
-      : DecimalUtil.value(0);
+    const allocated = financialDecimal(allocationResult?.amount as string);
+    const refunded = financialDecimal(refundResult?.amount as string);
+    const writtenOff = financialDecimal(invoice.written_off_amount);
+    const total = financialDecimal(invoice.total_amount);
+    // A genuine customer credit is distinct from an inconsistent cash history.
+    // Never hide an over-refund or invalid aggregate by clamping it to zero.
+    if (
+      [allocated, refunded, writtenOff, total].some(
+        (amount) => !amount.isFinite() || amount.isNegative(),
+      ) ||
+      refunded.greaterThan(allocated) ||
+      writtenOff.greaterThan(total)
+    )
+      throw new ConflictException({
+        code: 'FINANCE_BALANCE_RECONCILIATION_REQUIRED',
+        message:
+          'Invoice amounts contain an invalid aggregate or a paid refund exceeds allocated collections. Reconcile the source records before changing the balance.',
+      });
+    const effectivePaid = allocated.minus(refunded);
     const balance = total.minus(effectivePaid).minus(writtenOff).greaterThan(0)
       ? total.minus(effectivePaid).minus(writtenOff)
       : DecimalUtil.value(0);
@@ -55,7 +68,9 @@ export class InvoiceBalanceService {
     invoice.refunded_amount = refunded.toFixed(4);
     invoice.balance_amount = balance.toFixed(4);
 
-    if (
+    if (invoice.status === InvoiceStatus.VOIDED) {
+      // Recalculation cannot silently reopen a legally voided document.
+    } else if (
       balance.equals(0) &&
       effectivePaid.greaterThanOrEqualTo(total.minus(writtenOff))
     ) {

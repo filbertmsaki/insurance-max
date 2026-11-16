@@ -122,4 +122,60 @@ describe('Selected catalogue taxes', () => {
     ]);
     expect(result.total_charge_amount).toBe(3456.79);
   });
+  it('freezes inclusive calculation basis and effective-dated category/account evidence', async () => {
+    const { service, repository } = fixture();
+    repository.find.mockResolvedValue([
+      {
+        ...catalogue[0],
+        calculation_options: {
+          category: 'LEVY',
+          effective_from: '2026-01-01',
+          effective_to: '2026-12-31',
+          ledger_account_code: '4210',
+        },
+      },
+    ]);
+    const result = await service.calculateCharges('company', {
+      ...premium,
+      tax_codes: ['VAT-MAINLAND'],
+      effective_date: '2026-06-01',
+      tax_inclusive_premium: 118,
+    });
+    expect(result.premium_including_charges).toBe(118);
+    expect(result.charges[0]).toMatchObject({
+      base_amount: 100,
+      computed_amount: 18,
+      charge_category: 'LEVY',
+      price_basis: 'INCLUSIVE',
+      effective_from: '2026-01-01',
+      effective_to: '2026-12-31',
+      ledger_account_code: '4210',
+    });
+  });
+  it('rejects a selected tax outside its configured effective dates', async () => {
+    const { service, repository } = fixture();
+    repository.find.mockResolvedValue([
+      {
+        ...catalogue[0],
+        calculation_options: { effective_from: '2027-01-01' },
+      },
+    ]);
+    await expect(
+      service.calculateCharges('company', {
+        ...premium,
+        tax_codes: ['VAT-MAINLAND'],
+        effective_date: '2026-06-01',
+      }),
+    ).rejects.toThrow('not effective');
+  });
+  it('does not turn an absent configured tax rate into zero', async () => {
+    const { service, repository } = fixture();
+    repository.find.mockResolvedValue([{ ...catalogue[0], tax_rate: null }]);
+    await expect(
+      service.calculateCharges('company', {
+        ...premium,
+        tax_codes: ['VAT-MAINLAND'],
+      }),
+    ).rejects.toThrow('missing tax evidence');
+  });
 });

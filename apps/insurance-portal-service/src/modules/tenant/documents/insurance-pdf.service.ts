@@ -10,6 +10,9 @@ import { Policy } from '../policies/entities/policy.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { MotorPolicyDetail } from '../motor/entities/motor-policy-detail.entity';
+import { Invoice } from '../billing-commission/entities/invoice.entity';
+import { validatedInvoiceTax } from '../billing-commission/utils/quotation-invoice-tax';
+import { DecimalUtil } from '../../shared/finance/decimal.util';
 import {
   MotorScheduleVehicle,
   renderMotorSchedule,
@@ -26,6 +29,7 @@ export class InsurancePdfService {
     private readonly vehicles: Repository<MotorVehicle>,
     @InjectRepository(MotorPolicyDetail)
     private readonly motorDetails: Repository<MotorPolicyDetail>,
+    @InjectRepository(Invoice) private readonly invoices: Repository<Invoice>,
   ) {}
 
   async quotation(
@@ -42,7 +46,7 @@ export class InsurancePdfService {
     const pairs: Pair[] = [
       ['Quotation number', overview.quotation_no],
       ['Issue date', overview.created_at],
-      ['Status', overview.status],
+      ['Status', overview.quotation_status ?? overview.status],
       ['Customer', overview.customer_name],
       ['Product', overview.product_name],
       ['Cover period', `${cover.start_date ?? ''} to ${cover.end_date ?? ''}`],
@@ -51,9 +55,27 @@ export class InsurancePdfService {
       [
         'Total premium',
         cover.total_premium_including_tax ??
+          q.premium_summary?.total_premium_including_tax ??
           overview.total_premium_including_tax,
       ],
     ];
+    const summary = q.premium_summary ?? {};
+    pairs.push(
+      ['Premium excluding tax', summary.total_premium_excluding_tax],
+      ['Tax / levy / fee total', summary.total_tax_amount],
+    );
+    const entries = q.fleet?.vehicles ?? [
+      { risks: q.risks ?? [], addons: q.addons ?? [] },
+    ];
+    for (const entry of entries)
+      for (const item of [...(entry.risks ?? []), ...(entry.addons ?? [])])
+        for (const tax of item.taxes ?? []) {
+          const exempt = tax.is_tax_exempted === 'Y';
+          pairs.push([
+            `${tax.tax_code}${exempt ? ' (exempt)' : tax.tax_rate == null ? ' (rate unresolved)' : ` (${DecimalUtil.value(tax.tax_rate).mul(100).toFixed(8)}%)`}`,
+            `${tax.tax_amount ?? 'UNRESOLVED'}${exempt ? ` | ${tax.tax_exemption_type ?? ''} ${tax.tax_exemption_reference ?? ''}` : ''}`,
+          ]);
+        }
     const bytes = await this.render(
       'INSURANCE QUOTATION',
       name,
@@ -61,9 +83,57 @@ export class InsurancePdfService {
       [
         'This quotation is an offer only and does not itself confirm insurance coverage.',
       ],
-      String(overview.status ?? '').toUpperCase() === 'DRAFT',
+      String(
+        overview.quotation_status ?? overview.status ?? '',
+      ).toUpperCase() === 'DRAFT',
     );
     return { bytes, filename: `${safeFilename(name)}.pdf` };
+  }
+
+  async invoice(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<{ bytes: Uint8Array; filename: string }> {
+    const invoice = await this.invoices.findOne({
+      where: { id, company_id: user.companyId! },
+      relations: { items: true, customer: true },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    const b = validatedInvoiceTax(invoice);
+    const pairs: Pair[] = [
+      ['Invoice number', invoice.invoice_no],
+      ['Status', invoice.status],
+      ['Currency', invoice.currency],
+      ['Premium before discount', b.gross],
+      ['Discount', b.discount],
+      ['Net premium', b.net],
+    ];
+    for (const l of b.lines)
+      for (const c of l.charges)
+        pairs.push([
+          `${c.code} | ${c.category}`,
+          `${c.amount} | ${DecimalUtil.value(c.rate).mul(100).toFixed(8)}% of ${c.baseAmount}${c.exempt ? ` | EXEMPT: ${c.exemptionType} ${c.exemptionReference}` : ''}`,
+        ]);
+    pairs.push(
+      ['Taxes', b.tax],
+      ['Levies / stamp duty', b.levies],
+      ['Fees', b.fees],
+      ['Total payable', b.total],
+      ['Paid', invoice.paid_amount],
+      ['Balance', invoice.balance_amount],
+    );
+    return {
+      bytes: await this.render(
+        'INSURANCE INVOICE',
+        invoice.invoice_no,
+        pairs,
+        [
+          'Tax components use the original quotation rates, bases and exemption evidence.',
+        ],
+        invoice.status === 'DRAFT',
+      ),
+      filename: `${safeFilename(invoice.invoice_no)}.pdf`,
+    };
   }
 
   async schedule(
@@ -326,27 +396,43 @@ export class InsurancePdfService {
     for (const [label, raw] of values) {
       const value = raw == null || raw === '' ? '—' : String(raw);
       if (value === '—') continue;
-      if (y < 80) {
+      const wrap = (text: string, weight = font) => {
+        const lines: string[] = [];
+        let current = '';
+        for (const char of text) {
+          if (
+            weight.widthOfTextAtSize(current + char, 8) >
+            (weight === bold ? 140 : 350)
+          ) {
+            lines.push(current);
+            current = char;
+          } else current += char;
+        }
+        if (current) lines.push(current);
+        return lines;
+      };
+      const labels = wrap(label, bold),
+        texts = wrap(value),
+        rowHeight = Math.max(labels.length, texts.length) * 10 + 10;
+      if (y - rowHeight < 80) {
         page = pdf.addPage([595.28, 841.89]);
         y = height - 48;
       }
       page.drawRectangle({
         x: 38,
-        y: y - 5,
+        y: y + 10 - rowHeight,
         width: 519,
-        height: 20,
+        height: rowHeight,
         borderWidth: 0.4,
         borderColor: grayscale(0.3),
       });
-      page.drawText(label, { x: 44, y, size: 8, font: bold, maxWidth: 145 });
-      page.drawText(value.slice(0, 120), {
-        x: 195,
-        y,
-        size: 8,
-        font,
-        maxWidth: 350,
-      });
-      y -= 20;
+      labels.forEach((text, n) =>
+        page.drawText(text, { x: 44, y: y - n * 10, size: 8, font: bold }),
+      );
+      texts.forEach((text, n) =>
+        page.drawText(text, { x: 195, y: y - n * 10, size: 8, font }),
+      );
+      y -= rowHeight;
     }
     y -= 14;
     line(

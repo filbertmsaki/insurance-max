@@ -1,4 +1,9 @@
 export const FinancePermissions = {
+  FOUNDATION_READ: 'finance-foundation:read',
+  FOUNDATION_PREPARE: 'finance-foundation:prepare',
+  FOUNDATION_REVIEW: 'finance-foundation:review',
+  FOUNDATION_ACCEPT_JOURNAL: 'finance-foundation:accept-journal',
+  FOUNDATION_RELEASE: 'finance-foundation:release',
   DASHBOARD: 'finance:dashboard',
   INVOICES_READ: 'invoices:read',
   INVOICES_CREATE_MANUAL: 'invoices:create-manual',

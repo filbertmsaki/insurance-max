@@ -8,10 +8,12 @@ import { FinanceRefund } from '../entities/finance-refund.entity';
 import { FinanceAccount } from '../entities/finance-account.entity';
 import { FinanceJournalEntry } from '../entities/finance-journal-entry.entity';
 import { FinanceJournalLine } from '../entities/finance-journal-line.entity';
+import { validatedInvoiceTax } from '../utils/quotation-invoice-tax';
 import { CommissionPayment } from '../entities/commission-payment.entity';
 import { Invoice } from '../entities/invoice.entity';
 import { Receipt } from '../entities/receipt.entity';
 import { CommissionTransaction } from '../entities/commission-transaction.entity';
+import { FinancePostingPolicyService } from './finance-posting-policy.service';
 
 interface JournalLineInput {
   accountCode: string;
@@ -29,6 +31,7 @@ export class FinanceJournalService {
   constructor(
     private readonly identifierService: IdentifierGeneratorService,
     private readonly hashService: ProductDefinitionHashService,
+    private readonly postingPolicy: FinancePostingPolicyService = new FinancePostingPolicyService(),
   ) {}
 
   async postInvoice(
@@ -37,6 +40,14 @@ export class FinanceJournalService {
     sourceEventId: string,
     userId: string | null,
   ) {
+    if (invoice.source_type === 'QUOTATION')
+      return this.postQuotationInvoice(
+        manager,
+        invoice,
+        sourceEventId,
+        userId,
+        false,
+      );
     return this.postJournal(
       manager,
       invoice.company_id,
@@ -79,6 +90,15 @@ export class FinanceJournalService {
     userId: string | null,
     reason: string,
   ) {
+    if (invoice.source_type === 'QUOTATION')
+      return this.postQuotationInvoice(
+        manager,
+        invoice,
+        sourceEventId,
+        userId,
+        true,
+        reason,
+      );
     return this.postJournal(
       manager,
       invoice.company_id,
@@ -585,6 +605,26 @@ export class FinanceJournalService {
     },
     userId: string | null,
   ) {
+    for (const line of params.lines) {
+      const debit = DecimalUtil.value(line.debit ?? 0);
+      const credit = DecimalUtil.value(line.credit ?? 0);
+      if (
+        !debit.isFinite() ||
+        !credit.isFinite() ||
+        debit.isNegative() ||
+        credit.isNegative() ||
+        debit.decimalPlaces() > 4 ||
+        credit.decimalPlaces() > 4 ||
+        debit.greaterThanOrEqualTo('10000000000000000') ||
+        credit.greaterThanOrEqualTo('10000000000000000') ||
+        (debit.greaterThan(0) && credit.greaterThan(0))
+      )
+        throw new ConflictException({
+          code: 'INVALID_FINANCE_JOURNAL_AMOUNT',
+          message:
+            'Journal amounts must be finite, nonnegative, one-sided and exactly representable in the existing numeric(20,4) ledger. No posting-time rounding is inferred.',
+        });
+    }
     const existing = await manager.getRepository(FinanceJournalEntry).findOne({
       where: {
         company_id: companyId,
@@ -594,6 +634,26 @@ export class FinanceJournalService {
     });
 
     if (existing) {
+      const fingerprint = params.lines.map((line) => ({
+        accountCode: line.accountCode,
+        debit: DecimalUtil.value(line.debit ?? 0).toFixed(4),
+        credit: DecimalUtil.value(line.credit ?? 0).toFixed(4),
+        customerId: line.customerId ?? null,
+        intermediaryCompanyId: line.intermediaryCompanyId ?? null,
+      }));
+      if (
+        existing.source_id !== params.sourceId ||
+        existing.currency_code !== params.currencyCode ||
+        existing.entry_hash !==
+          this.hashService.hashDefinition(
+            fingerprint as unknown as Record<string, unknown>,
+          )
+      )
+        throw new ConflictException({
+          code: 'FINANCE_JOURNAL_SOURCE_CONFLICT',
+          message:
+            'A journal source-event identity was reused with a different source, currency or accounting vector. Reconciliation is required.',
+        });
       return existing;
     }
 
@@ -606,17 +666,41 @@ export class FinanceJournalService {
       DecimalUtil.value(0),
     );
 
-    if (!totalDebit.equals(totalCredit)) {
+    if (!totalDebit.equals(totalCredit) || !totalDebit.greaterThan(0)) {
       throw new ConflictException({
         code: 'UNBALANCED_FINANCE_JOURNAL',
         message: 'Journal debit and credit totals do not balance.',
       });
     }
 
+    const journalDate = new Date().toISOString().slice(0, 10);
+    await this.postingPolicy.requireEligible(manager, {
+      companyId,
+      sourceType: params.sourceType,
+      currency: params.currencyCode,
+      date: journalDate,
+      accountMappings: params.lines.map((line) => ({
+        code: line.accountCode,
+        type: line.accountType,
+      })),
+    });
     const journalNo = await this.identifierService.generateRequestId(
       companyId,
       manager,
     );
+    // Resolve the entire mapping before saving any journal header or line.
+    const accounts = new Map<string, FinanceAccount>();
+    for (const line of params.lines)
+      accounts.set(
+        line.accountCode,
+        await this.requireAccount(
+          manager,
+          companyId,
+          line.accountCode,
+          line.accountName,
+          line.accountType,
+        ),
+      );
 
     const lineRepository = manager.getRepository(FinanceJournalLine);
     const linesForHash = params.lines.map((line) => ({
@@ -630,7 +714,7 @@ export class FinanceJournalService {
     const entry = await manager.getRepository(FinanceJournalEntry).save({
       company_id: companyId,
       journal_no: journalNo,
-      journal_date: new Date().toISOString().slice(0, 10),
+      journal_date: journalDate,
       source_type: params.sourceType,
       source_id: params.sourceId,
       source_event_id: params.sourceEventId,
@@ -644,13 +728,7 @@ export class FinanceJournalService {
     });
 
     for (const line of params.lines) {
-      const account = await this.requireAccount(
-        manager,
-        companyId,
-        line.accountCode,
-        line.accountName,
-        line.accountType,
-      );
+      const account = accounts.get(line.accountCode)!;
       await lineRepository.save(
         lineRepository.create({
           journal_entry_id: entry.id,
@@ -665,6 +743,91 @@ export class FinanceJournalService {
     }
 
     return entry;
+  }
+
+  private async postQuotationInvoice(
+    manager: EntityManager,
+    invoice: Invoice,
+    eventId: string,
+    userId: string | null,
+    reverse: boolean,
+    reason?: string,
+  ) {
+    const full = invoice.items
+      ? invoice
+      : await manager.getRepository(Invoice).findOne({
+          where: { id: invoice.id, company_id: invoice.company_id },
+          relations: { items: true },
+        });
+    const b = validatedInvoiceTax({ ...invoice, items: full?.items ?? [] });
+    const vector: JournalLineInput[] = [
+      {
+        accountCode: '1200',
+        accountName: 'Premium Receivables',
+        accountType: 'ASSET',
+        customerId: invoice.customer_id,
+        debit: b.total,
+      },
+      {
+        accountCode: '4100',
+        accountName: 'Gross Written Premium',
+        accountType: 'INCOME',
+        credit: b.net,
+        description:
+          'Premium excluding separately identified taxes, levies and fees',
+      },
+    ];
+    for (const l of b.lines)
+      for (const c of l.charges) {
+        if (DecimalUtil.value(c.amount).isZero()) continue;
+        if (!c.ledgerAccountCode)
+          throw new ConflictException(
+            `Posting account for ${c.code} is unresolved. Configure its catalogue mapping before posting.`,
+          );
+        vector.push({
+          accountCode: c.ledgerAccountCode,
+          accountName: c.name,
+          accountType: ['TAX', 'LEVY', 'STAMP_DUTY'].includes(c.category)
+            ? 'LIABILITY'
+            : 'INCOME',
+          credit: c.amount,
+          description: `${c.code} | ${c.category} | rate ${c.rate} | base ${c.baseAmount} | ${l.sourceId}`,
+        });
+      }
+    for (const line of vector) {
+      const account = await manager.getRepository(FinanceAccount).findOne({
+        where: {
+          company_id: invoice.company_id,
+          account_code: line.accountCode,
+        },
+      });
+      if (
+        !account ||
+        !account.is_active ||
+        account.account_type !== line.accountType
+      )
+        throw new ConflictException(
+          `Active ${line.accountType} posting account ${line.accountCode} is required; no account is inferred or created.`,
+        );
+    }
+    const lines = reverse
+      ? vector.map((l) => ({ ...l, debit: l.credit, credit: l.debit }))
+      : vector;
+    return this.postJournal(
+      manager,
+      invoice.company_id,
+      {
+        sourceType: reverse ? 'WRITE_OFF' : 'INVOICE',
+        sourceId: invoice.id,
+        sourceEventId: eventId,
+        description: reverse
+          ? `Invoice ${invoice.invoice_no} reversed: ${reason}`
+          : `Invoice ${invoice.invoice_no} issued`,
+        currencyCode: invoice.currency,
+        lines,
+      },
+      userId,
+    );
   }
 
   private async requireAccount(
@@ -682,17 +845,12 @@ export class FinanceJournalService {
       },
     });
 
-    if (existing) {
+    if (existing?.is_active && existing.account_type === accountType) {
       return existing;
     }
-
-    return repository.save(
-      repository.create({
-        company_id: companyId,
-        account_code: accountCode,
-        account_name: accountName,
-        account_type: accountType,
-      }),
-    );
+    throw new ConflictException({
+      code: 'FINANCE_ACCOUNT_MAPPING_REQUIRED',
+      message: `Active ${accountType} posting account ${accountCode} (${accountName}) is required. Accounts are never created by posting a transaction.`,
+    });
   }
 }

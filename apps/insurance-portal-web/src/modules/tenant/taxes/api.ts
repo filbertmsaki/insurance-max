@@ -1,6 +1,12 @@
 import { apiClient } from '@/modules/shared/api/client';
 import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 export interface TaxRecord {
+  calculation_options?: {
+    category?: string;
+    effective_from?: string | null;
+    effective_to?: string | null;
+    ledger_account_code?: string | null;
+  } | null;
   id: string;
   tax_code: string;
   tax_name: string;
@@ -9,6 +15,12 @@ export interface TaxRecord {
   is_default: boolean;
 }
 export interface TaxInput {
+  calculation_options?: {
+    category?: string;
+    effective_from?: string | null;
+    effective_to?: string | null;
+    ledger_account_code?: string | null;
+  } | null;
   tax_code: string;
   tax_name: string;
   tax_rate: number;

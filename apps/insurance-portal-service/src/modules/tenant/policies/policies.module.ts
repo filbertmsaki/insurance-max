@@ -29,6 +29,7 @@ import { PoliciesService } from './policies.service';
 import { PolicyVersionDiffService } from './services/policy-version-diff.service';
 import { InsurancePdfService } from '../documents/insurance-pdf.service';
 import { InsuranceDocumentsController } from '../documents/insurance-documents.controller';
+import { Invoice } from '../billing-commission/entities/invoice.entity';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { InsuranceDocumentsController } from '../documents/insurance-documents.c
     CategoryAccessModule,
     ProductAccessModule,
     TypeOrmModule.forFeature([
+      Invoice,
       Policy,
       PolicyRisk,
       PolicyPremiumBreakdown,

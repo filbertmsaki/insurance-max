@@ -36,6 +36,19 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { taxesApi, type TaxRecord } from './api';
 
 const schema = z.object({
+  category: z.enum([
+    'TAX',
+    'LEVY',
+    'STAMP_DUTY',
+    'FEE',
+    'POLICY_FEE',
+    'ADMINISTRATION_FEE',
+    'PRODUCT_CHARGE',
+    'RISK_CHARGE',
+  ]),
+  effective_from: z.string(),
+  effective_to: z.string(),
+  ledger_account_code: z.string().max(50),
   tax_code: z
     .string()
     .trim()
@@ -80,6 +93,10 @@ const columns: Column<TaxRecord>[] = [
   },
 ];
 const defaults: Values = {
+  category: 'TAX',
+  effective_from: '',
+  effective_to: '',
+  ledger_account_code: '',
   tax_code: '',
   tax_name: '',
   percentage: 0,
@@ -108,6 +125,12 @@ export function TaxesPage() {
   const save = useMutation({
     mutationFn: (values: Values) => {
       const data = {
+        calculation_options: {
+          category: values.category,
+          effective_from: values.effective_from || null,
+          effective_to: values.effective_to || null,
+          ledger_account_code: values.ledger_account_code || null,
+        },
         tax_code: values.tax_code.toUpperCase(),
         tax_name: values.tax_name,
         tax_rate: Number((values.percentage / 100).toFixed(10)),
@@ -139,6 +162,12 @@ export function TaxesPage() {
     form.reset(
       tax
         ? {
+            category: (tax.calculation_options?.category ??
+              'TAX') as Values['category'],
+            effective_from: tax.calculation_options?.effective_from ?? '',
+            effective_to: tax.calculation_options?.effective_to ?? '',
+            ledger_account_code:
+              tax.calculation_options?.ledger_account_code ?? '',
             tax_code: tax.tax_code,
             tax_name: tax.tax_name,
             percentage: Number((Number(tax.tax_rate) * 100).toFixed(8)),
@@ -258,6 +287,61 @@ export function TaxesPage() {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Component category</FormLabel>
+                    <FormControl>
+                      <select {...field} className="w-full rounded border p-2">
+                        {[
+                          'TAX',
+                          'LEVY',
+                          'STAMP_DUTY',
+                          'FEE',
+                          'POLICY_FEE',
+                          'ADMINISTRATION_FEE',
+                          'PRODUCT_CHARGE',
+                          'RISK_CHARGE',
+                        ].map((v) => (
+                          <option key={v} value={v}>
+                            {v.replaceAll('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {(
+                [
+                  ['effective_from', 'Effective from'],
+                  ['effective_to', 'Effective to'],
+                  ['ledger_account_code', 'Existing posting account code'],
+                ] as const
+              ).map(([name, label]) => (
+                <FormField
+                  key={name}
+                  control={form.control}
+                  name={name}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{label}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type={
+                            name === 'ledger_account_code' ? 'text' : 'date'
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ))}
               <FormField
                 control={form.control}
                 name="is_active"

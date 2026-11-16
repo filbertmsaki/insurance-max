@@ -6,6 +6,7 @@ import { Permissions } from '@insurance-max/portal-shared/decorators/permissions
 import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { InsurancePdfService } from './insurance-pdf.service';
+import { FinancePermissions } from '../billing-commission/finance.permissions';
 
 @ApiTags('insurance-documents')
 @ApiBearerAuth()
@@ -54,6 +55,26 @@ export class InsuranceDocumentsController {
     @Res() res: Response,
   ) {
     return this.send(await this.documents.schedule(user, id), res, true);
+  }
+
+  @Get('invoices/:id/document/preview')
+  @Permissions(FinancePermissions.INVOICES_READ)
+  async invoicePreview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    return this.send(await this.documents.invoice(user, id), res, false);
+  }
+
+  @Get('invoices/:id/document/download')
+  @Permissions(FinancePermissions.INVOICES_READ)
+  async invoiceDownload(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    return this.send(await this.documents.invoice(user, id), res, true);
   }
 
   private send(

@@ -36,6 +36,7 @@ describe('ProviderWebhookService', () => {
       save: jest.fn(async (entity) => entity),
     };
     const manager = {
+      query: jest.fn(async () => []),
       getRepository: jest.fn((entity) => {
         if (entity === FinanceProviderEvent) return eventRepository;
         throw new Error('Unexpected repository');
@@ -101,6 +102,7 @@ describe('ProviderWebhookService', () => {
       makeService({
         existingEvent: {
           status: 'PROCESSED',
+          payload_hash: 'payload-hash',
           payment_transaction_id: 'payment-1',
         },
       });

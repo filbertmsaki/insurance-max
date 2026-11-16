@@ -10483,16 +10483,9 @@ export class QuotationsService {
       );
     }
 
-    const latestInvoice = await this.findLatestInvoice(companyId, quotation.id);
-    if (
-      latestInvoice &&
-      !['VOID', 'VOIDED', 'CANCELLED'].includes(
-        String(latestInvoice.status).toUpperCase(),
-      )
-    ) {
-      return latestInvoice;
-    }
-
+    const invoiceSourceSnapshot =
+      quotation.finalization_snapshot ??
+      (quotation as unknown as Record<string, unknown>);
     return this.quotationInvoiceService.createOrReuseQuotationInvoice(
       this.dataSource.manager,
       {
@@ -10505,7 +10498,7 @@ export class QuotationsService {
         customerId: quotation.customer_id,
         branchId: quotation.branch_id ?? null,
         currencyCode:
-          quotation.cover_note?.currency_code?.trim().toUpperCase() ?? 'TZS',
+          quotation.cover_note?.currency_code?.trim().toUpperCase() ?? '',
         amount: this.numeric(
           quotation.cover_note?.total_premium_including_tax ?? 0,
           4,
@@ -10514,11 +10507,9 @@ export class QuotationsService {
         finalizationHash:
           quotation.finalization_hash ??
           this.productDefinitionHashService.hashDefinition(
-            quotation.finalization_snapshot ?? {},
+            invoiceSourceSnapshot,
           ),
-        sourceSnapshot:
-          quotation.finalization_snapshot ??
-          (quotation as unknown as Record<string, unknown>),
+        sourceSnapshot: invoiceSourceSnapshot,
         createdBy: userId,
         instructions,
       },

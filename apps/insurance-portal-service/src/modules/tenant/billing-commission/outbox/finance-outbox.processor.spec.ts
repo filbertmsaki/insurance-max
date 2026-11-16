@@ -5,6 +5,53 @@ import { FinanceOutboxProcessor } from './finance-outbox.processor';
 import { FinanceOutboxEvent } from '../entities/finance-outbox-event.entity';
 
 describe('FinanceOutboxProcessor', () => {
+  it.each([
+    ['UNKNOWN_CONTRACT', true],
+    ['QUOTATION_PAYMENT_EVENT', false],
+  ])(
+    'never acknowledges unsupported contracts and preserves supported retry classification (%s)',
+    async (eventType, unsupported) => {
+      const event = {
+        id: 'classified-event',
+        status: 'PROCESSING',
+        event_type: eventType,
+        payload: { eventId: 'fixture' },
+        attempt_count: 0,
+        last_error: null,
+      };
+      const repo = {
+        findOneBy: jest.fn().mockResolvedValue(event),
+        save: jest.fn().mockImplementation(async (row) => row),
+      };
+      const source = {
+        transaction: jest
+          .fn()
+          .mockImplementation(async (cb) =>
+            cb({ query: jest.fn().mockResolvedValue([[{ id: event.id }], 1]) }),
+          ),
+        getRepository: jest.fn().mockReturnValue(repo),
+      };
+      const config = {
+        get: jest
+          .fn()
+          .mockImplementation((_key: string, fallback: unknown) => fallback),
+      };
+      const projection = {
+        apply: jest
+          .fn()
+          .mockRejectedValue(new Error('UNSUPPORTED_FINANCE_OUTBOX_CONTRACT')),
+      };
+      const processor = new FinanceOutboxProcessor(
+        source as unknown as DataSource,
+        config as unknown as ConfigService,
+        projection as never,
+      );
+      await processor.processPending();
+      expect(event.status).toBe(unsupported ? 'DEAD_LETTER' : 'FAILED');
+      expect(event.status).not.toBe('PUBLISHED');
+      expect(projection.apply).toHaveBeenCalledTimes(unsupported ? 0 : 1);
+    },
+  );
   it('skips malformed claimed rows before publish', async () => {
     const manager = {
       query: jest.fn(),

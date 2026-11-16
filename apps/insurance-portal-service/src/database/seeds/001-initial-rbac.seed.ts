@@ -429,6 +429,15 @@ const COMPANY_OPERATIONS_PERMISSION_SEEDS: PermissionSeed[] = (
     ['retention:enforce', 'Enforce retention policies'],
     ['legal-holds:read', 'Read legal holds'],
     ['finance-journals:read', 'Read finance journals'],
+    // Catalogue definitions only. No foundation mandates or default role grants.
+    ['finance-foundation:read', 'Read scoped Finance foundation records'],
+    ['finance-foundation:prepare', 'Prepare Finance foundation controls'],
+    ['finance-foundation:review', 'Review Finance foundation controls'],
+    ['finance-foundation:accept-journal', 'Accept governed Finance journals'],
+    [
+      'finance-foundation:release',
+      'Approve explicit Finance foundation releases',
+    ],
     ['commissions:reverse', 'Reverse commissions'],
     ['documents:share-customer', 'Share documents with customers'],
     ['documents:share-intermediary', 'Share documents with intermediaries'],
@@ -3480,7 +3489,11 @@ const RISK_REQUIRED_FACTOR_PERMISSION_NAMES = [
 const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
   .filter((permission) => permission.scopes.includes('default_company'))
   .map((permission) => permission.name)
-  .filter((name) => name !== OWN_RECORDS_PERMISSION_NAME);
+  .filter(
+    (name) =>
+      name !== OWN_RECORDS_PERMISSION_NAME &&
+      !name.startsWith('finance-foundation:'),
+  );
 
 // Granted to individual company memberships only, never through a role.
 const PER_USER_ONLY_PERMISSION_NAMES = new Set([

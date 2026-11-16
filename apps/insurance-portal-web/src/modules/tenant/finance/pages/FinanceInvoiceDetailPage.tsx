@@ -30,6 +30,14 @@ import {
 } from '../components';
 import type { FinancePaymentReference } from '../types';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
+import {
+  InvoiceTaxBreakdown,
+  invoiceTaxBreakdown,
+} from '../components/InvoiceTaxBreakdown';
+import {
+  downloadPdf,
+  documentFilename,
+} from '@/modules/shared/documents/download-pdf';
 
 const paymentMethods = [
   { value: 'CONTROL_NUMBER', label: 'Control number', provider: 'GEPG' },
@@ -252,10 +260,31 @@ export function FinanceInvoiceDetailPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        {invoiceTaxBreakdown(invoice) ? (
+          <Button
+            variant="outline"
+            onClick={() =>
+              downloadPdf(
+                `/tenant/invoices/${invoice.id}/document/download`,
+                documentFilename(invoice.invoice_no),
+              ).catch(() =>
+                toast.error(
+                  'Unable to generate invoice document. Check its tax evidence.',
+                ),
+              )
+            }
+          >
+            Download invoice
+          </Button>
+        ) : null}
         {invoice.status === 'DRAFT' ? (
           <Button
             onClick={() => issueMutation.mutate()}
-            disabled={issueMutation.isPending}
+            disabled={
+              issueMutation.isPending ||
+              (invoice.source_type === 'QUOTATION' &&
+                !invoiceTaxBreakdown(invoice))
+            }
           >
             {issueMutation.isPending ? 'Issuing...' : 'Issue Invoice'}
           </Button>
@@ -280,6 +309,7 @@ export function FinanceInvoiceDetailPage() {
         ) : null}
       </div>
 
+      <InvoiceTaxBreakdown invoice={invoice} />
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Overview</CardTitle>

@@ -1,0 +1,1805 @@
+{
+  "date": "2026-11-16",
+  "version": "1.0",
+  "statusDefinitions": {
+    "C": "IMPLEMENTED AND TESTED IN CODE",
+    "L": "EXISTING LEGACY CAPABILITY",
+    "P": "PARTIAL IMPLEMENTATION",
+    "N": "PLANNED NOT IMPLEMENTED",
+    "A": "AWAITING COMPANY ADMIN ACCEPTANCE"
+  },
+  "phases": [
+    {
+      "id": "phase-PH1",
+      "summary": "PH1 — Financial Foundation",
+      "text": "PH1 — Financial Foundation Required scope: Multi-tenant architecture, legal entities/books, chart, periods, currencies/rates, journal engine, controls and core reporting. Proposed tasks: B03 B04 B05 B06 B07 B08 B09 B10 B11 B12 B43 B44 B45 Acceptance boundary: Future implementation acceptance at B45. B01/B02 are preparation, not completion. Dependency / inactive scope: PAA/claims/operational migration need not be fully implemented to accept an explicitly inactive foundation. No permission to post actual operational transactions without their policy/reconciliation gates."
+    },
+    {
+      "id": "phase-PH2",
+      "summary": "PH2 — Insurance Operational Accounting",
+      "text": "PH2 — Insurance Operational Accounting Required scope: Premium receivables/collections/allocations, commissions, claims, reinsurance, tax/levy, refunds/adjustments. Proposed tasks: B13 B14 B15 B16 B17 B18 B19 B26 Acceptance boundary: Product/profile-specific policy and independent transaction reconciliation gates apply. Dependency / inactive scope: Any operational branch that needs approved measurement/FX/legal scope waits for that prerequisite. Phase labels never permit duplicate recognition."
+    },
+    {
+      "id": "phase-PH3",
+      "summary": "PH3 — Financial Operations",
+      "text": "PH3 — Financial Operations Required scope: Bank reconciliation, AP/expenses, fixed assets, budgets and financial closing. Proposed tasks: B27 B28 B29 B31 B33 Acceptance boundary: Core operational close can be scoped; full close also requires complete applicable reporting and later advanced evidence. Dependency / inactive scope: B30 payroll/benefits only where in approved scope. B33 full close follows B32. This dependency is visible rather than a promise that phase numbers alone make work ready."
+    },
+    {
+      "id": "phase-PH4",
+      "summary": "PH4 — Advanced Insurance Financial Reporting",
+      "text": "PH4 — Advanced Insurance Financial Reporting Required scope: IFRS 17, scoped IFRS 9, full IAS 21 translation, statutory/reporting disclosures and regulatory reconciliation. Proposed tasks: B21 B22 B23 B24 B25 B32 Acceptance boundary: Independent actuarial/accounting/legal certification and full component reconciliation before affected activation. Dependency / inactive scope: PAA/GMM/held eligibility explicit. VFA/future participating scope remains inactive until supported and approved. Regulatory operational records start in B26."
+    },
+    {
+      "id": "phase-PH5",
+      "summary": "PH5 — Platform Expansion",
+      "text": "PH5 — Platform Expansion Required scope: Additional entities/jurisdictions/profiles, intercompany/consolidation and advanced analytics. Proposed tasks: B20 B46 Acceptance boundary: Initial applicable coinsurance treatment may be taken from B20; future client-money/profile activation follows legal applicability. Dependency / inactive scope: The broad target stays in all 33 module coverage. Optional inactive profile or payroll scope must be explicitly reviewed, not silently excluded."
+    },
+    {
+      "id": "phase-DEP",
+      "summary": "DEP — Release and service extraction",
+      "text": "DEP — Release and service extraction Required scope: Actual migration/shadow/opening/cutover/aftercare and eventual independent service with own PostgreSQL/APIs/workers/controls. Proposed tasks: B34 B35 B36 B37 B38 B39 B40 B41 B42 Acceptance boundary: Cross-phase delivery gates, not a renumbering of the user's five implementation phases. Dependency / inactive scope: Separate physical extraction remains last after actual financial and operational equivalence. No source deletion or deployment permission from the backlog."
+    }
+  ],
+  "steps": [
+    {
+      "id": "B01",
+      "title": "Approve the versioned design and first scope",
+      "phase": "1 / Preparation",
+      "prerequisites": "None",
+      "scope": "Review this baseline, exact source manifest, all 33 modules, inherited policy gates, deferral process and the separately bounded B02 change.",
+      "boundary": "Design acceptance does not select pending policies or approve the full backlog for coding, production or extraction.",
+      "acceptance": "Recorded subject/version, decision, authorised scope, independent remits and explicit exclusions. No assumed signatures.",
+      "criteriaAndDecisions": "AC01 AC02 AC55 AC60 / DEC-01 DEC-06 DEC-07 DEC-08 DEC-09 DEC-10 DEC-11 DEC-12 DEC-14",
+      "reviewer": "User/design authority + relevant Finance reviewers",
+      "implementationStatus": "BASELINE APPROVED",
+      "currentDisposition": "User approved baseline v0.1. Specific company accounting elections and production releases remain separate."
+    },
+    {
+      "id": "B02",
+      "title": "Add journal characterization tests",
+      "phase": "2 / Preparation",
+      "prerequisites": "B01",
+      "scope": "Add one FinanceJournalService unit spec with the 12 listed FC cases, local synthetic fixtures and repository doubles. Run only that file and the existing legacy read-only guard spec after import/config preflight.",
+      "boundary": "No runtime source, entity, migration, API registration, package/CI, credential, data or external-service changes. No database/HTTP bootstrap.",
+      "acceptance": "Exact 12 new and 7 existing parameter-expanded case identities/results, independent literal expected vectors, no skip/empty selection and reviewable diff. Mock boundaries remain explicit.",
+      "criteriaAndDecisions": "AC03 AC07 AC08 AC40 AC56 AC59 / DEC-01 DEC-05 DEC-06 DEC-11 DEC-12 DEC-14",
+      "reviewer": "Finance developer + independent QA/accounting reviewer",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B03",
+      "title": "Establish actual isolated integration fixtures",
+      "phase": "3 / PH1",
+      "prerequisites": "B02",
+      "scope": "Review disposable DB harness, actual destinations/versions/roles/egress/bootstrap and proposed module fixtures before real persistence work.",
+      "boundary": "No developer/production database or automatic unrestricted e2e command. Shared test helpers perform migrations/seeds and need scoped resource authority.",
+      "acceptance": "Approved isolation and oracle manifests, disposable DB provenance, cleanup and no unintended external effects. First batch does not include this task.",
+      "criteriaAndDecisions": "AC56 AC59 / DEC-11 DEC-12 DEC-14",
+      "reviewer": "Platform + Security + QA",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Private real PostgreSQL fixtures; actual environment and full application acceptance remain separate."
+    },
+    {
+      "id": "B04",
+      "title": "Pin registered contracts and financial sources",
+      "phase": "4 / PH1",
+      "prerequisites": "B02",
+      "scope": "Inventory supported Nest routes/guards/webhooks and real source writers, custom accounts, precision/history and jobs. Prepare approved read-only source totals where available.",
+      "boundary": "Preserve legacy retired writes, dormant controller, response shapes and shared transactions. Actual data cannot be inferred from entities.",
+      "acceptance": "Registered/retired contract manifest and actual source schema/account/snapshot evidence, or explicit unavailable populations.",
+      "criteriaAndDecisions": "AC03 AC40 AC43 AC46 / DEC-01 DEC-05 DEC-06 DEC-11 DEC-12 DEC-14",
+      "reviewer": "API/DB architecture + business owners",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Contract and source inventory plus governed code references; actual company associations remain pending."
+    },
+    {
+      "id": "B05",
+      "title": "Introduce scoped entity and book foundations",
+      "phase": "5 / PH1",
+      "prerequisites": "B03 B04",
+      "scope": "Add reviewed tenant/legal-entity/book/profile identifiers, memberships and local cross-reference validation in the existing database first.",
+      "boundary": "No default Alliance insurer, implicit TZS book or mass assignment of legacy balances. New structures remain inactive until scoped backfill approval.",
+      "acceptance": "Cross-tenant/entity/book API, worker, FK/reference and export denials on real boundaries. Approved association of each affected source.",
+      "criteriaAndDecisions": "AC01 AC02 AC04 / DEC-08 DEC-14",
+      "reviewer": "Finance architecture + Security",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B06",
+      "title": "Add versioned accounting configuration",
+      "phase": "6 / PH1",
+      "prerequisites": "B05",
+      "scope": "Create effective release lifecycle for policy, posting rule, dimensions, tax/currency references and approvals. Pending branches fail closed.",
+      "boundary": "All 19 DEC and 107 inherited operating/acceptance choices remain open until explicit resolution or inactive deferral. No example becomes a policy.",
+      "acceptance": "Effective-date/gap/overlap/superseded release tests, immutable approved subject and denied unresolved positive branch.",
+      "criteriaAndDecisions": "AC04 AC05 AC10 AC55 / DEC-01 DEC-06 DEC-07 DEC-08 DEC-09 DEC-10 DEC-11 DEC-14",
+      "reviewer": "Technical accounting + configuration checker",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B07",
+      "title": "Implement chart and account-role governance",
+      "phase": "7 / PH1",
+      "prerequisites": "B04 B06",
+      "scope": "Implement reviewed account roles, chart versions, conditional source-ID mapping and independent mapping approval.",
+      "boundary": "132 posting templates and 11 legacy code templates are design inputs. Include custom accounts. Never silently change 2100/4200 meanings.",
+      "acceptance": "Every actual account/component maps once or is held, with approved types, periods/dimensions and complete source totals.",
+      "criteriaAndDecisions": "AC03 AC04 AC05 AC46 / DEC-01 DEC-05 DEC-06 DEC-07 DEC-08 DEC-09 DEC-10 DEC-11 DEC-12 DEC-14",
+      "reviewer": "Controller + source-account owners",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B08",
+      "title": "Implement period fences and exact journal acceptance",
+      "phase": "8 / PH1",
+      "prerequisites": "B03 B06 B07",
+      "scope": "Harden decimal validation/storage, entity/book balance, one-sided lines, acceptance transaction, canonical economic identity and linked correction.",
+      "boundary": "Keep operational documents distinct from recognition. Replace unsafe paths only through reconciled adapters. No pre-storage-only balance assertion.",
+      "acceptance": "Real persisted decimal vectors, concurrent original/period races, failed transaction rereads and independently justified correction results.",
+      "criteriaAndDecisions": "AC06 AC07 AC08 / DEC-05 DEC-11 DEC-12",
+      "reviewer": "Finance platform + technical accounting",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B09",
+      "title": "Make audit and approval inseparable from acceptance",
+      "phase": "9 / PH1",
+      "prerequisites": "B05 B06 B08",
+      "scope": "Add mandatory manager-bound audit, natural-person maker/checker, frozen subject/beneficiary hashes, scoped limits/delegation and expiry.",
+      "boundary": "Platform admin is not a financial checker. Existing best-effort audit cannot certify financial commit. Retain prior audit history.",
+      "acceptance": "Audit failure rolls back local financial effects. Self/delegated/expired/stale-subject approvals are denied across API/job/internal paths.",
+      "criteriaAndDecisions": "AC09 AC10 AC52 / DEC-11 DEC-14",
+      "reviewer": "Finance controls + Security",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B10",
+      "title": "Implement versioned event contracts and fanout",
+      "phase": "10 / PH1",
+      "prerequisites": "B04 B05 B06",
+      "scope": "Add approved schemas, authenticated origin, local reference maps, source/event revisions and authorised destination entity/book fanout.",
+      "boundary": "Business source owns facts. Finance alone owns obligations and effects. No remote writes/FKs into the future Finance database.",
+      "acceptance": "Schema/unknown-version/changed-content and unauthorised fanout negatives; approved mapping and event subject lineage.",
+      "criteriaAndDecisions": "AC01 AC08 AC40 AC41 / DEC-08 DEC-11 DEC-12 DEC-14",
+      "reviewer": "Integration/API architecture",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B11",
+      "title": "Complete transactional outbox and inbox",
+      "phase": "11 / PH1",
+      "prerequisites": "B08 B09 B10",
+      "scope": "Commit effects, owned disposition and inbox checkpoint together. Add durable intake/conflict records, leased delivery, retries, dead letters and reconciliation.",
+      "boundary": "No blanket success for unsupported events. Delivery IDs never create a new economic original. External intake can survive a rejected financial transaction.",
+      "acceptance": "Lost ACK/publish/crash/stale lease/unknown handler and partial retry schedules establish one effect and owned exception.",
+      "criteriaAndDecisions": "AC08 AC42 AC51 / DEC-11 DEC-12 DEC-14",
+      "reviewer": "Integration platform + Finance operations",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B12",
+      "title": "Expose owned exceptions and operational telemetry",
+      "phase": "12 / PH1",
+      "prerequisites": "B09 B11",
+      "scope": "Add scoped exception queues, reason codes, owner/SLA proposals, evidence and controlled replay/incident runbooks.",
+      "boundary": "Availability or an empty queue does not certify financial correctness. Cadences/SLOs/limits remain explicit pending choices.",
+      "acceptance": "Detection, assignment, stale-owner escalation and original-identity recovery evidenced against independent accounting/external outcomes.",
+      "criteriaAndDecisions": "AC42 AC48 AC51 AC57 / DEC-11 DEC-12 DEC-14 DEC-16",
+      "reviewer": "Finance operations + Reliability",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+    },
+    {
+      "id": "B43",
+      "title": "Implement Phase 1 currencies and exchange rates",
+      "phase": "13 / PH1",
+      "prerequisites": "B06 B08 B09",
+      "scope": "Add transaction/functional/presentation currency definitions, approved entity functional-currency decision, effective rates/precision and scoped conversion in foundational journals. Reserve explicit exposure ownership for later Measurement.",
+      "boundary": "Initial TZS default and USD/EUR/GBP/KES/UGX support are user scope. They do not determine functional currency or approve any rate. Positive currency branches need their applicable decisions first.",
+      "acceptance": "Independent exact source/functional vectors, missing/zero/stale rates, stored precision and same-currency negatives for approved foundational scope.",
+      "criteriaAndDecisions": "AC07 AC27 AC46 / DEC-05 DEC-10 DEC-11 DEC-12",
+      "reviewer": "Technical accounting + Treasury",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Currency and rate persistence, exact source and functional amounts and rate evidence implemented; full IAS 21 automation is B24."
+    },
+    {
+      "id": "B44",
+      "title": "Implement Phase 1 core ledger reporting",
+      "phase": "14 / PH1",
+      "prerequisites": "B07 B08 B09 B43",
+      "scope": "Provide scoped account/journal detail, trial balance, period opening/activity/closing and source linkage for foundational accepted journals.",
+      "boundary": "Core reports do not claim full IFRS 17 notes, statutory returns or migrated historical completeness. No source balance invented.",
+      "acceptance": "Independent journal-to-account-to-trial-balance totals and denied cross-scope export. Stored balance alone is insufficient.",
+      "criteriaAndDecisions": "AC04 AC38 AC52 / DEC-10 DEC-11 DEC-14 DEC-19",
+      "reviewer": "Controller + Finance reporting",
+      "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
+      "currentDisposition": "Accepted ledger and opening/activity/closing report APIs implemented; complete financial statements are B32."
+    },
+    {
+      "id": "B45",
+      "title": "Accept Phase 1 Financial Foundation implementation",
+      "phase": "15 / PH1",
+      "prerequisites": "B03 B04 B05 B06 B07 B08 B09 B10 B11 B12 B43 B44",
+      "scope": "Independently accept implemented multi-tenant/entity/book chart/period/currency/journal/control/core-report foundations for a defined inactive or authorised scope.",
+      "boundary": "This is a future implementation milestone. Step 16 document preparation and B02 test success cannot complete it. Applicable choices resolved before positive use; deferred modules stay inactive.",
+      "acceptance": "Real DB/API/concurrency/audit/period/currency/report outcomes, source-contract regression, approved functional scope and reviewer evidence. No production/extraction authority inferred.",
+      "criteriaAndDecisions": "AC01 AC02 AC03 AC04 AC05 AC06 AC07 AC08 AC09 AC10 AC27 AC38 AC40 AC42 AC52 AC55 AC56 AC59 AC60 / DEC-01 DEC-05 DEC-06 DEC-07 DEC-08 DEC-09 DEC-10 DEC-11 DEC-12 DEC-14 DEC-19",
+      "reviewer": "User + Controller + QA + Security/platform reviewers",
+      "implementationStatus": "TECHNICAL TESTS PASSED FORMAL ACCEPTANCE PENDING",
+      "currentDisposition": "Persistent acceptance/release framework and 867 tests are evidenced; no actual company production acceptance or activation exists."
+    },
+    {
+      "id": "B13",
+      "title": "Separate quotation billing and legal recognition",
+      "phase": "16 / PH2",
+      "prerequisites": "B07 B08 B09 B11 B45",
+      "scope": "Adapt quote issue/invoice/payment-reference components and source revisions into memorandum billing plus the approved recognition branch.",
+      "boundary": "Preserve issuance/payment projection behavior. Do not retain full invoice revenue alongside IFRS 17 service revenue.",
+      "acceptance": "Approved billing-versus-GL vectors, tax-inclusive/zero/late source cases and full quote-to-policy regression.",
+      "criteriaAndDecisions": "AC13 AC16 AC40 / DEC-01 DEC-06 DEC-07 DEC-08 DEC-11 DEC-12 DEC-14 DEC-16",
+      "reviewer": "Quotation/policy owner + Controller",
+      "implementationStatus": "IMPLEMENTED INACTIVE CONTROL SLICE",
+      "currentDisposition": "Signed quotation memorandum and shared corrected invoice tax flow implemented; legal recognition remains gated."
+    },
+    {
+      "id": "B14",
+      "title": "Control receipts, allocations and receivables",
+      "phase": "17 / PH2",
+      "prerequisites": "B13",
+      "scope": "Implement verified receipt ownership, original aliases, exact availability, allocation/discharge/ageing and independent reconciliation.",
+      "boundary": "No currency coercion, negative-balance clamp or assumed IFRS 9 scope for every premium. Keep confirmed cash even if accounting is held.",
+      "acceptance": "Concurrent consumption, reversal/partial allocation and source/bank component conservation with approved legal receivable treatment.",
+      "criteriaAndDecisions": "AC11 AC14 AC15 / DEC-01 DEC-02 DEC-05 DEC-11 DEC-15 DEC-16",
+      "reviewer": "Treasury + Receivables + technical accounting",
+      "implementationStatus": "IMPLEMENTED INACTIVE CONTROL SLICE",
+      "currentDisposition": "Confirmed receipt ownership, aliases, exact capacity, assignment, ageing and reconciliation controls implemented as inactive records; real cash execution and legal discharge remain gated."
+    },
+    {
+      "id": "B15",
+      "title": "Control outgoing cash and reservations",
+      "phase": "18 / PH2",
+      "prerequisites": "B09 B11 B14",
+      "scope": "Implement frozen obligation/payee approval, reservation, provider-stable execution key, query-on-unknown and separate discharge acceptance.",
+      "boundary": "Network execution outside the financial transaction. Do not blind retry UNKNOWN or mark confirmed bank cash undone by a DB rollback.",
+      "acceptance": "Provider-call ledger plus concurrent spend, timeout, changed beneficiary, CONFIRMED-but-held accounting and reconciliation tests.",
+      "criteriaAndDecisions": "AC11 AC12 AC48 / DEC-01 DEC-05 DEC-11 DEC-16",
+      "reviewer": "Treasury + independent releaser",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Outgoing cash and reservations have not started. Existing legacy payment functions remain in place."
+    },
+    {
+      "id": "B16",
+      "title": "Migrate endorsements, cancellation and refunds",
+      "phase": "19 / PH2",
+      "prerequisites": "B13 B14 B15",
+      "scope": "Adapt policy-term revisions, entitlement, allocations and actual refund discharge. Link reversals/adjustments to original accepted effects.",
+      "boundary": "Document approval does not prove cash return. Existing source workflows persist until scoped replacement reconciles.",
+      "acceptance": "Before/after source/entitlement/cash vectors, consumed refund/late change/partial correction and business UAT.",
+      "criteriaAndDecisions": "AC14 AC16 AC40 / DEC-01 DEC-02 DEC-05 DEC-08 DEC-11 DEC-12 DEC-14 DEC-16",
+      "reviewer": "Policy + Finance refund checker",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B17",
+      "title": "Migrate commissions and acquisition accounting",
+      "phase": "20 / PH2",
+      "prerequisites": "B13 B15 B16",
+      "scope": "Adapt entitlement/accrual/clawback/payable and approved attributable acquisition-cost treatment and settlement.",
+      "boundary": "No immediate expense plus full asset for the same cost. Preserve distribution APIs and source identities.",
+      "acceptance": "Commission component/party roll-forwards, cancellation/clawback and settlement reconciliation under selected policy.",
+      "criteriaAndDecisions": "AC17 AC40 / DEC-03 DEC-06 DEC-08 DEC-12 DEC-14",
+      "reviewer": "Distribution + Controller",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B18",
+      "title": "Adapt claims obligations, payments and recoveries",
+      "phase": "21 / PH2",
+      "prerequisites": "B08 B09 B11 B15",
+      "scope": "Separate claims case facts, provisional financial liability, payable/disbursement and legal recovery/receipt. Retain source authority and shared transaction until safely replaced.",
+      "boundary": "Provisional case/payable is part of the full LIC target. Settlement is not an extra claim expense. Recovery rights need legal scope.",
+      "acceptance": "Independent paid/case/ultimate/IBNR/current component vectors and source-to-cash tests. Preserve TIRAMIS claims journey.",
+      "criteriaAndDecisions": "AC18 AC19 AC40 / DEC-04 DEC-08 DEC-09 DEC-12 DEC-14 DEC-15",
+      "reviewer": "Claims + Actuarial + Finance",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B19",
+      "title": "Adapt held reinsurance and settlements",
+      "phase": "22 / PH2",
+      "prerequisites": "B11 B15 B18",
+      "scope": "Preserve treaty/cession/account/settlement facts, independent held groups, recovery rights and approved direction by economic components.",
+      "boundary": "Do not treat every non-recovery settlement as outflow. Do not double a treaty operational accrual with full held measurement or net issued/held balances.",
+      "acceptance": "Complete issued/held/party settlement and non-performance vectors, direct transaction dependency removal only after independent reconciliation.",
+      "criteriaAndDecisions": "AC20 AC40 / DEC-08 DEC-09 DEC-10 DEC-12 DEC-14",
+      "reviewer": "Reinsurance + Actuarial + Controller",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B26",
+      "title": "Implement tax, levy and authority records",
+      "phase": "23 / PH2",
+      "prerequisites": "B06 B08 B11 B13 B15 B43",
+      "scope": "Add effective approved applicable tax/withholding/levy rules, unit/rate evidence, liability/credit assessments, return versions and filing acknowledgements.",
+      "boundary": "Three new tax roles remain unassigned pending chart approval. No legal rate/deadline copied from a code default. Filing is independent of cash.",
+      "acceptance": "Current competent legal approval, exact unit/currency vectors, original/amended credit delta and authority-to-ledger-to-cash reconciliation.",
+      "criteriaAndDecisions": "AC28 AC29 AC50 / DEC-06 DEC-07 DEC-11",
+      "reviewer": "Tax/legal/regulatory signatory",
+      "implementationStatus": "PARTIAL EXISTING TAX CAPABILITY",
+      "currentDisposition": "Shared quotation tax correction and metadata are implemented. Full tax/levy liability, filing, fiscal and remittance adapter remains unimplemented."
+    },
+    {
+      "id": "B27",
+      "title": "Implement suppliers, AP, expenses and prepayments",
+      "phase": "24 / PH3",
+      "prerequisites": "B08 B09 B15 B43 B26",
+      "scope": "Implement obligation/document, tax basis, accrual/prepaid release and approved expense/cost driver rules.",
+      "boundary": "A supplier bill/approval is not settlement. Preserve attributable insurance expense allocation and avoid duplicate acquisition cost.",
+      "acceptance": "Independent supplier/gross/tax/cost-group/prepaid vectors and actual obligation/cash reconciliation.",
+      "criteriaAndDecisions": "AC23 AC24 / DEC-03 DEC-06 DEC-11 DEC-14",
+      "reviewer": "AP + Controller",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B28",
+      "title": "Implement bank reconciliation and funding",
+      "phase": "25 / PH3",
+      "prerequisites": "B14 B15 B43 B26",
+      "scope": "Add complete statement ingestion/control totals, matching, independent approval and funding/deposit/interest classification.",
+      "boundary": "A matched subset or POSTED batch label does not prove complete bank reconciliation. Client money stays separate.",
+      "acceptance": "All bank/source populations, suspense/unmatched/duplicates/partial timing and loan/deposit principal/interest reconciled.",
+      "criteriaAndDecisions": "AC25 AC26 / DEC-05 DEC-11 DEC-15",
+      "reviewer": "Treasury reconciler + independent checker",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B29",
+      "title": "Implement owned assets and leases",
+      "phase": "26 / PH3",
+      "prerequisites": "B27",
+      "scope": "Add approved asset acquisition/capitalisation/depreciation/disposal and lease recognition/reassessment/payment accounting.",
+      "boundary": "No capex plus immediate full expense or lease principal plus full rental expense for one item. Election, useful life and discount decisions explicit.",
+      "acceptance": "Independent gross/accumulated/ROU/liability/interest/cash schedules and source reconciliation.",
+      "criteriaAndDecisions": "AC34 AC35 / DEC-05 DEC-17 DEC-18",
+      "reviewer": "Fixed assets + technical accounting",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B31",
+      "title": "Implement the nonposting budget",
+      "phase": "27 / PH3",
+      "prerequisites": "B05 B08 B43 B27",
+      "scope": "Add scoped versioned budgets and budget-versus-approved actual reporting. Keep budget source separate from financial effects.",
+      "boundary": "Budget import/forecast never produces actual GL effects. Consolidation and paired intercompany posting are deferred to B46.",
+      "acceptance": "Independent budget source/actual-period totals and denied budget-to-actual journal paths.",
+      "criteriaAndDecisions": "AC39 / DEC-14",
+      "reviewer": "FP&A + Finance reporting",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B21",
+      "title": "Build independent Measurement data and runs",
+      "phase": "28 / PH4",
+      "prerequisites": "B06 B10 B18 B19",
+      "scope": "Add dedicated source snapshots, group/admission decisions, versioned assumptions/curves, deterministic runs, component results, approval and reproducibility records.",
+      "boundary": "Logically independent initially; no direct journal authority. Reproducibility alone does not certify actuarial correctness.",
+      "acceptance": "Independent admission, complete source grouping, immutable inputs/result hashes and reruns. Unsupported models remain rejected.",
+      "criteriaAndDecisions": "AC01 AC30 AC31 / DEC-03 DEC-08 DEC-09 DEC-10 DEC-14",
+      "reviewer": "Actuarial + independent model reviewer",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B22",
+      "title": "Implement certified model branches incrementally",
+      "phase": "29 / PH4",
+      "prerequisites": "B21",
+      "scope": "Implement only specifically approved PAA/GMM/VFA/held branches, coverage units, fulfilment cash flows, risk adjustment, loss/CSM and finance components as applicable.",
+      "boundary": "No automatic PAA default for all products or unsupported VFA/GMM approximation. No actuarial parameter/law selected by this backlog.",
+      "acceptance": "Competent independent component/model certification, representative product groups, eligibility/boundary/onerous and changed assumption cases.",
+      "criteriaAndDecisions": "AC18 AC20 AC30 AC31 / DEC-03 DEC-04 DEC-08 DEC-09 DEC-10",
+      "reviewer": "Actuarial independent checker",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B23",
+      "title": "Accept measured deltas through Finance",
+      "phase": "30 / PH4",
+      "prerequisites": "B08 B09 B11 B22",
+      "scope": "Accept only approved complete results against exact current Finance predecessor and posted component baseline; atomically post justified incremental effects.",
+      "boundary": "An approved run or retry is not a second full liability. No duplicate case/LIC, insurance revenue, issued/held asset or zero-net offsetting omission.",
+      "acceptance": "Stale predecessor, partial/failed run, zero-net nonzero component, repeated result and full target-versus-existing roll-forward tests.",
+      "criteriaAndDecisions": "AC07 AC08 AC18 AC20 AC32 / DEC-04 DEC-05 DEC-08 DEC-09 DEC-10 DEC-11 DEC-12",
+      "reviewer": "Controller + Actuarial checker",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B24",
+      "title": "Complete IAS 21 translation and measurement integration",
+      "phase": "31 / PH4",
+      "prerequisites": "B06 B08 B14 B15 B23 B43",
+      "scope": "Extend Phase 1 currency/rate foundations with complete settlement/revaluation, presentation translation and measurement exposure-component owner integration.",
+      "boundary": "Measurement-owned contract FX and ordinary monetary FX are mutually exclusive for each component. No universal TZS or latest-rate substitution.",
+      "acceptance": "Independent original/functional/presentation vectors, zero/missing/stale rates, historical/nonmonetary and reversal/translation tests.",
+      "criteriaAndDecisions": "AC07 AC27 AC46 / DEC-05 DEC-10 DEC-11 DEC-12",
+      "reviewer": "Technical accounting + Treasury + Actuarial",
+      "implementationStatus": "FOUNDATIONAL CALCULATIONS ONLY",
+      "currentDisposition": "Currency evidence, carrying calculations and ledger integration exist. Full translation, revaluation and measurement integration are unimplemented."
+    },
+    {
+      "id": "B25",
+      "title": "Implement separately scoped IFRS 9",
+      "phase": "32 / PH4",
+      "prerequisites": "B06 B08 B14 B19 B23",
+      "scope": "Add approved classification/measurement/interest/impairment for legally separate instruments/rights and relevant insurance-finance interactions.",
+      "boundary": "No blanket ECL on IFRS 17 contract balances or double reinsurance non-performance allowance. Applicable elections remain gated.",
+      "acceptance": "Independent instrument/legal-scope/ECL/interest vectors and contract/held boundary reconciliation.",
+      "criteriaAndDecisions": "AC15 AC19 AC20 AC33 / DEC-02 DEC-04 DEC-08 DEC-09 DEC-10 DEC-15",
+      "reviewer": "Credit/investment accounting + Controller",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B32",
+      "title": "Build complete statements and insurance disclosures",
+      "phase": "33 / PH4",
+      "prerequisites": "B17 B23 B24 B25 B26 B27 B28 B29 B44",
+      "scope": "Extend Phase 1 ledgers/trial balances with applicable insurance/held/component roll-forwards, P&L/OCI/equity/cash flow/notes and comparatives.",
+      "boundary": "Only complete accepted components feed reports. IAS 8/10 and presentation choices remain gated. No balancing plug to mask incomplete source. Optional future payroll/client-money/consolidation populations join only if active.",
+      "acceptance": "Independent matching-grain source/subledger/GL/report totals and period/YTD/OCI/comparative test sets, with approved completeness/applicability scope.",
+      "criteriaAndDecisions": "AC38 AC52 AC53 / DEC-10 DEC-11 DEC-14 DEC-19",
+      "reviewer": "Reporting authority + Controller",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B33",
+      "title": "Implement close and operational governance",
+      "phase": "34 / PH3",
+      "prerequisites": "B09 B12 B28 B32",
+      "scope": "Execute dependency-aware close, period lock/reopen, late fact assessment, statement authorisation and approval invalidation with evidence.",
+      "boundary": "Lock, completed task, statement authorisation, external acceptance and cash payment remain separate. No close clearance for missing prerequisites.",
+      "acceptance": "Full Step 13 close task/cadence/control evidence and concurrent/late-source/reopen/reissue scenarios.",
+      "criteriaAndDecisions": "AC06 AC25 AC53 AC54 / DEC-05 DEC-11 DEC-19",
+      "reviewer": "Close controller + Reporting + Operations",
+      "implementationStatus": "FOUNDATION CONTROLS ONLY",
+      "currentDisposition": "Period fences, independent audit and exceptions exist. Complete close task and reporting orchestration remain unimplemented."
+    },
+    {
+      "id": "B20",
+      "title": "Implement coinsurance and client-money profiles",
+      "phase": "35 / PH5",
+      "prerequisites": "B05 B13 B14 B15",
+      "scope": "Add reviewed principal/agent, leader/follower, fiduciary ownership, participation, fee entitlement and client-fund reconciliation.",
+      "boundary": "No own premium revenue or unrestricted cash from money held for another principal. Profile support is conditional on legal applicability.",
+      "acceptance": "Independent ownership/participation/cashbook and separate client-money source reconciliation for every active profile.",
+      "criteriaAndDecisions": "AC21 AC22 / DEC-02 DEC-13 DEC-14",
+      "reviewer": "Business profile owner + Finance/legal",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B46",
+      "title": "Implement paired intercompany and consolidation",
+      "phase": "36 / PH5",
+      "prerequisites": "B05 B08 B24 B32",
+      "scope": "Add reviewed additional legal entities/profiles/jurisdictions and paired entity entries, reciprocal counterparty/currency reconciliation and explicit consolidation eliminations.",
+      "boundary": "No cross-entity journal, netting by default or mandatory expansion before initial one-entity acceptance. Additional regulatory/configuration applicability approved first.",
+      "acceptance": "Independent entity/reciprocal/elimination/FX/comparative vectors and scope isolation for activated expansion.",
+      "criteriaAndDecisions": "AC02 AC21 AC22 AC37 AC38 / DEC-02 DEC-05 DEC-10 DEC-11 DEC-13 DEC-14 DEC-19",
+      "reviewer": "Group accounting + relevant legal/profile reviewers",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+    },
+    {
+      "id": "B34",
+      "title": "Certify actual populations and crosswalks",
+      "phase": "37 / DEP",
+      "prerequisites": "B04 B07 B13 B18 B19 B26",
+      "scope": "Collect authorised actual source exports, used/custom charts, archived history, ownership/dimensions/currencies and independently controlled totals.",
+      "boundary": "Read-only collection separate from target migration. Exact deployed DDL/data required, not entity counts or fictional examples.",
+      "acceptance": "All 36 source populations and relevant 51 entity declarations reconciled to actual evidence, exceptions owned and unresolved mappings held.",
+      "criteriaAndDecisions": "AC03 AC43 AC45 AC46 / DEC-01 DEC-05 DEC-06 DEC-08 DEC-10 DEC-11 DEC-12 DEC-19",
+      "reviewer": "Migration lead + independent Finance/source owners",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B35",
+      "title": "Build shadow opening and replay pipeline",
+      "phase": "38 / DEP",
+      "prerequisites": "B11 B23 B24 B26 B33 B34",
+      "scope": "Implement approved migration mode, complete opening component basis, source position, economic identity, chunk manifest and replay handoff in isolated shadow targets.",
+      "boundary": "Exclusive opening versus replay ownership per population. Max ID/timestamp is not a complete snapshot. Keep actual source writer authoritative.",
+      "acceptance": "Snapshot cut, older-ID late commit, partial chunk retry, duplicate opening and complete target/source vectors reconcile.",
+      "criteriaAndDecisions": "AC43 AC44 AC45 AC46 / DEC-01 DEC-05 DEC-08 DEC-10 DEC-11 DEC-12 DEC-19",
+      "reviewer": "Migration platform + Controller",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B36",
+      "title": "Verify compatibility and cutover reversibility",
+      "phase": "39 / DEP",
+      "prerequisites": "B12 B15 B33 B35",
+      "scope": "Run supported API/UI/event/source regression, controlled one-writer cutover rehearsal and post-accounting/bank/filing rollback or forward recovery.",
+      "boundary": "Do not re-enable retired/dormant APIs or undo confirmed external truth. Preserve shared writes until reconciled replacement proves continuity.",
+      "acceptance": "Step 14 actual 24 gates with verified rollback frontiers and no unknown original externally executed operation left unresolved for affected switch.",
+      "criteriaAndDecisions": "AC40 AC47 AC48 AC49 AC50 / DEC-06 DEC-07 DEC-11 DEC-12 DEC-14 DEC-16",
+      "reviewer": "API/business owners + Treasury + release reviewer",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B37",
+      "title": "Verify capacity, security and restore with financial outcomes",
+      "phase": "40 / DEP",
+      "prerequisites": "B03 B12 B32 B33 B35 B36",
+      "scope": "Execute approved capacity/latency and RPO/RTO exercises, actual privilege/export isolation and restore/resume/reconcile with original identities.",
+      "boundary": "No invented SLO numbers, successful restore without financial completeness, or mocked boundary presented as real.",
+      "acceptance": "Actual resources/load/fault schedules/results against approved targets plus complete source/external/report reconciliation after resumption.",
+      "criteriaAndDecisions": "AC02 AC52 AC56 AC57 AC59 / DEC-11 DEC-12 DEC-14 DEC-16",
+      "reviewer": "Security + Reliability + independent Finance",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B38",
+      "title": "Approve a defined scope for the logical switch",
+      "phase": "41 / DEP",
+      "prerequisites": "B33 B34 B35 B36 B37",
+      "scope": "Review exact build, configuration, resolved applicable policies, owned source populations, actual evidence and business/external reconciliation.",
+      "boundary": "All applicable gates pass with no mandatory invariant waiver. User implementation approval does not itself authorise release, payment or filing.",
+      "acceptance": "Recorded actual scope-specific release authority, one writer, safe halt/recovery and approved support ownership.",
+      "criteriaAndDecisions": "AC47 AC54 AC55 AC60 / DEC-01 DEC-06 DEC-07 DEC-08 DEC-09 DEC-10 DEC-11 DEC-12 DEC-14",
+      "reviewer": "Release authority + Finance/business signatories",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B39",
+      "title": "Switch incrementally and complete aftercare",
+      "phase": "42 / DEP",
+      "prerequisites": "B38",
+      "scope": "Perform approved logical per-scope switch in the existing database, reconcile accepted financial/external facts, monitor exceptions and complete first close.",
+      "boundary": "Other scopes stay on their declared writer. No dual production posting or early legacy deletion. Rehearsal evidence is not actual switch proof.",
+      "acceptance": "Actual post-switch source/bank/GL/report totals, API regression and independent close/aftercare approval.",
+      "criteriaAndDecisions": "AC25 AC40 AC47 AC49 AC54 AC57 / DEC-05 DEC-11 DEC-12 DEC-14 DEC-16",
+      "reviewer": "Finance operations + Treasury + source owners",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B40",
+      "title": "Remove shared transaction dependencies safely",
+      "phase": "43 / DEP",
+      "prerequisites": "B19 B39",
+      "scope": "Replace shared EntityManager cross-domain writes and local relational assumptions with approved transactional events/commands and Finance-owned local references.",
+      "boundary": "Keep a working in-process replacement until actual financial/API/regression/recovery equivalence is proved. No remote call inside shared DB transaction.",
+      "acceptance": "Actual dependency inventory empty for proposed extraction scope; approved ownership/adapters and full financial reconciliation/regression pass.",
+      "criteriaAndDecisions": "AC01 AC40 AC41 AC42 AC58 / DEC-08 DEC-12 DEC-14",
+      "reviewer": "Finance/service architecture + DB/API owners",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B41",
+      "title": "Approve and extract the independent Finance service",
+      "phase": "44 / DEP",
+      "prerequisites": "B36 B37 B39 B40",
+      "scope": "After actual prerequisite gates pass, provision own PostgreSQL/APIs/workers/controls and execute separately approved physical cutover with approved legal/privacy/ops basis.",
+      "boundary": "No extraction permission comes from this design or first coding batch. Retain safe recoverability and one authoritative writer.",
+      "acceptance": "Actual balances, transactions, APIs, integrations, regression, reconciliation, rollback and restore evidence plus explicit extraction authority.",
+      "criteriaAndDecisions": "AC01 AC02 AC47 AC49 AC57 AC58 / DEC-08 DEC-11 DEC-12 DEC-14 DEC-16",
+      "reviewer": "Extraction release authority + Finance + Platform",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B42",
+      "title": "Recertify after extraction and retire replaced paths",
+      "phase": "45 / DEP",
+      "prerequisites": "B41",
+      "scope": "Repeat actual financial/API/integration reconciliation, operational controls and close. Retire only scoped obsolete writers after approved replacement and verified reconciliation.",
+      "boundary": "Retain legally required immutable history, originals/aliases, read access and reversal/settlement continuity. No unreviewed data deletion.",
+      "acceptance": "Post-extraction independent source-to-close evidence, named support ownership and authorised retirement record.",
+      "criteriaAndDecisions": "AC38 AC40 AC49 AC52 AC54 AC58 / DEC-10 DEC-11 DEC-12 DEC-14 DEC-16 DEC-19",
+      "reviewer": "Finance operations + release/records authority",
+      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
+      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+    },
+    {
+      "id": "B30",
+      "title": "Implement payroll and employee benefits",
+      "phase": "46 / PH3 conditional extension",
+      "prerequisites": "B27",
+      "scope": "Integrate approved payroll source, employee-benefit accruals/deductions and Treasury settlement with privacy limits.",
+      "boundary": "No HR source writes to GL directly or cash double counting. Statutory/employment treatment needs applicable approval.",
+      "acceptance": "Independent payroll/control totals, protected access, employer/employee components and cash reconciliation.",
+      "criteriaAndDecisions": "AC36 AC52 / DEC-14 DEC-18",
+      "reviewer": "Payroll/HR owner + Finance checker",
+      "implementationStatus": "PLANNED NOT IMPLEMENTED",
+      "currentDisposition": "Conditional payroll and benefit scope requires explicit company applicability approval."
+    }
+  ],
+  "modules": [
+    {
+      "id": "FIN-01",
+      "title": "Entity, book and accounting basis",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-scope.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-01-01",
+          "name": "Legal entities and books",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Resolve exact tenant, legal entity and book; separate memberships and accounting basis."
+        },
+        {
+          "requirementId": "FR-01-02",
+          "name": "Trusted source and user bindings",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Resolve authenticated company and person through explicit current Finance bindings and mandates."
+        },
+        {
+          "requirementId": "FR-01-03",
+          "name": "Business profile configuration",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "Support insurer, broker, reinsurer and other profiles without company-name defaults; actual applicability and approved setup remain outstanding."
+        },
+        {
+          "requirementId": "FR-01-04",
+          "name": "Independent Finance service",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Extract into an independent NestJS service with its own PostgreSQL, APIs, workers and operating controls after B40 and B41."
+        }
+      ],
+      "policies": [
+        "AP-01.01"
+      ]
+    },
+    {
+      "id": "FIN-02",
+      "title": "Account recognition and mapping governance",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-chart.types.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-02-01",
+          "name": "Versioned chart and account roles",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Validate reviewed chart versions, role vectors, account classes and effective intervals."
+        },
+        {
+          "requirementId": "FR-02-02",
+          "name": "Legacy account crosswalk",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "Retain existing accounts and require evidenced mapping; no automatic conversion or live chart switch."
+        },
+        {
+          "requirementId": "FR-02-03",
+          "name": "Chart supersession",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Keep the separately approved pinned chart when a successor is only reviewed inactive."
+        },
+        {
+          "requirementId": "FR-02-04",
+          "name": "Company chart maintenance",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Approve actual account releases, source mappings, accounting dimensions and deployment scope."
+        }
+      ],
+      "policies": [
+        "AP-02.01"
+      ]
+    },
+    {
+      "id": "FIN-03",
+      "title": "Financial dimensions and branch allocation",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-journal-candidate.types.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-03-01",
+          "name": "Journal dimensions",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Pin required scope and dimensions in exact candidate and ledger vectors."
+        },
+        {
+          "requirementId": "FR-03-02",
+          "name": "Dimension definitions and allocation",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "Reviewed configuration supports validation; full company dimension masters, branch balancing and allocation elections require setup."
+        },
+        {
+          "requirementId": "FR-03-03",
+          "name": "Cross book and entity isolation",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Reject scope substitution and cross-book evidence or exports."
+        },
+        {
+          "requirementId": "FR-03-04",
+          "name": "Management allocation workflow",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement governed recurring allocation and interbranch balancing where approved."
+        }
+      ],
+      "policies": [
+        "AP-03.01"
+      ]
+    },
+    {
+      "id": "FIN-04",
+      "title": "Balanced immutable journals",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-04-01",
+          "name": "Canonical journals and immutable lines",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Persist balanced source and functional vectors, source identity, configuration hashes and audit records."
+        },
+        {
+          "requirementId": "FR-04-02",
+          "name": "Manual journals and candidate review",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Prepare B08 candidates, obtain independent B09 validation and separately authorize ledger acceptance."
+        },
+        {
+          "requirementId": "FR-04-03",
+          "name": "Controlled reversals",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Link original journal and invert original carrying amounts, account roles, dimensions and FX evidence."
+        },
+        {
+          "requirementId": "FR-04-04",
+          "name": "Live company posting",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Require approved active policies, exact release, open period, current limits and reconciled opening before actual posting."
+        }
+      ],
+      "policies": [
+        "AP-04.01",
+        "AP-04.02"
+      ]
+    },
+    {
+      "id": "FIN-05",
+      "title": "Effective-dated event-to-posting rules",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-configuration.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-05-01",
+          "name": "Effective dated configuration",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Maintain immutable reviewed version and content hash with separate maker and reviewer."
+        },
+        {
+          "requirementId": "FR-05-02",
+          "name": "Component ownership and posting rules",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Pin ordinary, cash, memorandum and measurement ownership and permitted debit and credit roles."
+        },
+        {
+          "requirementId": "FR-05-03",
+          "name": "Signed source validation",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Verify event identity and signed snapshot amount, currency, date, company and aggregate."
+        },
+        {
+          "requirementId": "FR-05-04",
+          "name": "All operational posting adapters",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement and reconcile the remaining policy, claims, commission, reinsurance and measurement adapters by approved branch."
+        }
+      ],
+      "policies": [
+        "AP-05.01"
+      ]
+    },
+    {
+      "id": "FIN-06",
+      "title": "Recognition dates, periods and locks",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-06-01",
+          "name": "Open and closed periods",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Fence accounting dates with atomic revisions and audit current approval authority."
+        },
+        {
+          "requirementId": "FR-06-02",
+          "name": "Reopening and close evidence",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "Period fences are implemented; the full task dependency, close certification and year-end workflow remain B33."
+        },
+        {
+          "requirementId": "FR-06-03",
+          "name": "Late events and corrections",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "Reject stale or closed-period posting; approve forward adjustment and prior-period treatment separately."
+        },
+        {
+          "requirementId": "FR-06-04",
+          "name": "Complete financial close",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement close tasks, reconciliations, signoffs, locking and reporting dependencies."
+        }
+      ],
+      "policies": [
+        "AP-06.01",
+        "AP-06.02"
+      ]
+    },
+    {
+      "id": "FIN-07",
+      "title": "Quotation and premium invoice recognition",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/quotation-invoice.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-07-01",
+          "name": "Quotation invoice tax breakdown",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Reuse configured calculation to separate premium, taxes, levies and fees without changing the agreed payable; unresolved tax prevents posting."
+        },
+        {
+          "requirementId": "FR-07-02",
+          "name": "Quotation billing memorandum",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Store signed B13 quotation evidence and immutable inactive memorandum records independently of financial revenue."
+        },
+        {
+          "requirementId": "FR-07-03",
+          "name": "Invoice documents and presentation",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Store and display calculated tax metadata and separate components in existing invoice and quotation flows."
+        },
+        {
+          "requirementId": "FR-07-04",
+          "name": "Complete premium recognition adapter",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement approved insurer or intermediary recognition, tax point and cash mapping without treating billing as duplicate insurance revenue."
+        }
+      ],
+      "policies": [
+        "AP-07.01",
+        "AP-07.02"
+      ]
+    },
+    {
+      "id": "FIN-08",
+      "title": "Cash receipts, provider clearing and advances",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-08-01",
+          "name": "Existing receipt and payment reference flow",
+          "status": "EXISTING LEGACY CAPABILITY",
+          "requirement": "Preserve current invoice balances, payment references, provider callbacks and receipt allocation workflows."
+        },
+        {
+          "requirementId": "FR-08-02",
+          "name": "Confirmed receipt ownership",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "B14 inactive controls preserve original bank reference, aliases, owner book, gross receipt, net bank amount and fee evidence."
+        },
+        {
+          "requirementId": "FR-08-03",
+          "name": "Availability and assignment controls",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Require inherited allocated, reserved and refunded evidence; reject missing values and preserve negative availability as a reconciliation hold."
+        },
+        {
+          "requirementId": "FR-08-04",
+          "name": "Outgoing cash and reservations",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B15 must implement separately approved payment intent, beneficiary, reservation, provider execution and settlement controls."
+        },
+        {
+          "requirementId": "FR-08-05",
+          "name": "Live collections replacement",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Complete real producer subscriptions, bank reconciliation and policy-approved discharge before replacing existing cash flows."
+        }
+      ],
+      "policies": [
+        "AP-08.01",
+        "AP-08.02"
+      ]
+    },
+    {
+      "id": "FIN-09",
+      "title": "Receivable scope, ageing and write-off",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-09-01",
+          "name": "Due date and ageing observations",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Use signed billing evidence, explicit due dates and inactive ageing and reconciliation controls."
+        },
+        {
+          "requirementId": "FR-09-02",
+          "name": "Receivable and discharge election",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Approve contractual receivable scope, intermediary discharge and recognition boundary for the actual arrangements."
+        },
+        {
+          "requirementId": "FR-09-03",
+          "name": "Write offs and recovery",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement authorized write-off, recovery, credit-note and adjustment workflows with exact source links."
+        },
+        {
+          "requirementId": "FR-09-04",
+          "name": "IFRS 9 boundary",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement only separately scoped instruments and impairment after the IFRS 17 versus IFRS 9 ownership decision."
+        }
+      ],
+      "policies": [
+        "AP-09.01",
+        "AP-09.02"
+      ]
+    },
+    {
+      "id": "FIN-10",
+      "title": "Endorsement and contract modification",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/policies/policies.module.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-10-01",
+          "name": "Existing policy lifecycle",
+          "status": "EXISTING LEGACY CAPABILITY",
+          "requirement": "Preserve issuance, endorsement, cancellation and renewal functionality."
+        },
+        {
+          "requirementId": "FR-10-02",
+          "name": "Finance modification adapter",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B16 must identify premium deltas, refunds, tax corrections and recognition consequences from versioned policy events."
+        },
+        {
+          "requirementId": "FR-10-03",
+          "name": "Refund and reinstatement accounting",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Link receipts, reservations, outgoing cash and reversals without editing settled historical invoices."
+        },
+        {
+          "requirementId": "FR-10-04",
+          "name": "Modification versus new contract",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Approve product-specific policy and model classification before affected accounting activation."
+        }
+      ],
+      "policies": [
+        "AP-10.01",
+        "AP-10.02"
+      ]
+    },
+    {
+      "id": "FIN-11",
+      "title": "Commission obligation and payment",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-11-01",
+          "name": "Existing commission operations",
+          "status": "EXISTING LEGACY CAPABILITY",
+          "requirement": "Preserve the current commission accrual and payment functions during migration."
+        },
+        {
+          "requirementId": "FR-11-02",
+          "name": "Commission obligation and settlement",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B17 must move authoritative obligations and outgoing settlement into Finance after B15."
+        },
+        {
+          "requirementId": "FR-11-03",
+          "name": "Acquisition cost treatment",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement approved expense or allocation, recoverability and renewal treatment, coordinated with measurement ownership."
+        },
+        {
+          "requirementId": "FR-11-04",
+          "name": "Clawback and commission reconciliation",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Reconcile cancellation, endorsement and reinsurance commission deltas with controlled recovery."
+        }
+      ],
+      "policies": [
+        "AP-11.01",
+        "AP-11.02"
+      ]
+    },
+    {
+      "id": "FIN-12",
+      "title": "Operational reserve versus measured LIC",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/claims/claims.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-12-01",
+          "name": "Existing claims management",
+          "status": "EXISTING LEGACY CAPABILITY",
+          "requirement": "Preserve existing claims lifecycle and operational reserves."
+        },
+        {
+          "requirementId": "FR-12-02",
+          "name": "Claims obligation and payment adapter",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B18 must create approved Finance obligations, payable and payment movements with recoveries and complete source evidence."
+        },
+        {
+          "requirementId": "FR-12-03",
+          "name": "Provisional reserve to measured LIC bridge",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Map case, IBNR, expense, risk adjustment and discount movements; approved measurement posts only the remaining delta."
+        },
+        {
+          "requirementId": "FR-12-04",
+          "name": "Salvage and subrogation",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Approve classification and separate recoveries from insurer liabilities and reinsurance assets."
+        }
+      ],
+      "policies": [
+        "AP-12.01",
+        "AP-12.02",
+        "AP-12.03"
+      ]
+    },
+    {
+      "id": "FIN-13",
+      "title": "Ceded premium accounts and paid reinsurance cash",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.module.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-13-01",
+          "name": "Existing reinsurance operations",
+          "status": "EXISTING LEGACY CAPABILITY",
+          "requirement": "Preserve treaties, cessions, premium accounts and settlement functionality."
+        },
+        {
+          "requirementId": "FR-13-02",
+          "name": "Finance reinsurance adapter",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B19 must govern ceded or inward premium and claim accounts, commissions, settlement and counterparty reconciliation."
+        },
+        {
+          "requirementId": "FR-13-03",
+          "name": "Reinsurance held measurement",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Measure held contracts independently from issued contracts and approve loss recovery and nonperformance effects."
+        },
+        {
+          "requirementId": "FR-13-04",
+          "name": "Netting and retrocession controls",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Keep issued, held, cash and recoveries distinct; approve any offsetting and reinsurer-specific profile treatment."
+        }
+      ],
+      "policies": [
+        "AP-13.01",
+        "AP-13.02",
+        "AP-13.03"
+      ]
+    },
+    {
+      "id": "FIN-14",
+      "title": "Co-insurance participant accounting",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.module.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-14-01",
+          "name": "Participant and lead accounting",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B20 must define principal versus agent and participant shares by contract."
+        },
+        {
+          "requirementId": "FR-14-02",
+          "name": "Coinsurance settlements",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement controlled gross or net balances, collections and claims remittances."
+        },
+        {
+          "requirementId": "FR-14-03",
+          "name": "Participant reconciliation",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Reconcile each participant, insurer and bank source with explicit ownership and currency."
+        }
+      ],
+      "policies": [
+        "AP-14.01"
+      ]
+    },
+    {
+      "id": "FIN-15",
+      "title": "Client premiums held by an intermediary",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-15-01",
+          "name": "Broker and agency applicability",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Determine actual client-money, commission and contract scope instead of inferring it from a company label."
+        },
+        {
+          "requirementId": "FR-15-02",
+          "name": "Client premium segregation",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B20 must preserve client money, insurer amounts payable and the intermediary own fees separately."
+        },
+        {
+          "requirementId": "FR-15-03",
+          "name": "Insurer remittance and client refunds",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Use approved outgoing cash, discharge, bank and reconciliation controls."
+        },
+        {
+          "requirementId": "FR-15-04",
+          "name": "Brokerage service revenue",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement approved service-recognition and tax rules independently from premium collected for insurers."
+        }
+      ],
+      "policies": [
+        "AP-15.01",
+        "AP-15.02"
+      ]
+    },
+    {
+      "id": "FIN-16",
+      "title": "Supplier obligation and settlement",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-16-01",
+          "name": "Supplier and beneficiary master",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B27 must govern supplier identity, payment details, changes and maker-checker review."
+        },
+        {
+          "requirementId": "FR-16-02",
+          "name": "Accounts payable documents",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement supplier invoices, credits, due dates, matching and independently approved obligations."
+        },
+        {
+          "requirementId": "FR-16-03",
+          "name": "Payment proposal and settlement",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Depend on B15 reservations, execution, withholding and bank confirmation."
+        },
+        {
+          "requirementId": "FR-16-04",
+          "name": "Supplier reconciliation",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Reconcile statement, open items, cash, withholding and control accounts."
+        }
+      ],
+      "policies": [
+        "AP-16.01"
+      ]
+    },
+    {
+      "id": "FIN-17",
+      "title": "Expenses, accruals, prepayments and allocations",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-17-01",
+          "name": "Expense and accrual accounting",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B27 must classify approved expenses, accruals and non-insurance provisions."
+        },
+        {
+          "requirementId": "FR-17-02",
+          "name": "Prepayments and schedules",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement effective-dated amortization, adjustments and reversal schedules."
+        },
+        {
+          "requirementId": "FR-17-03",
+          "name": "Expense allocations",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Allocate to approved dimensions and measurement groups without duplicate cost recognition."
+        }
+      ],
+      "policies": [
+        "AP-17.01",
+        "AP-17.02"
+      ]
+    },
+    {
+      "id": "FIN-18",
+      "title": "Bank reconciliation and adjustments",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-18-01",
+          "name": "Bank evidence in receipt controls",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "B14 records gross, net, fees and bank references; this is not a complete bank reconciliation subsystem."
+        },
+        {
+          "requirementId": "FR-18-02",
+          "name": "Statement import and matching",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B28 must validate file or API imports, prevent duplicate lines and govern matching proposals."
+        },
+        {
+          "requirementId": "FR-18-03",
+          "name": "Reconciling items and adjustments",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Assign exceptions, approve adjustments and preserve statement truth."
+        },
+        {
+          "requirementId": "FR-18-04",
+          "name": "Cash and bank reporting",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Certify account balances against actual statements and accepted ledger, including pending settlement."
+        }
+      ],
+      "policies": [
+        "AP-18.01",
+        "AP-18.02"
+      ]
+    },
+    {
+      "id": "FIN-19",
+      "title": "Deposits, borrowing and financing",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-19-01",
+          "name": "Deposits borrowing and funding",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B28 must track approved facilities, deposits, interest, fees and settlement schedules."
+        },
+        {
+          "requirementId": "FR-19-02",
+          "name": "Capital and equity movements",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Record authorized contributions, distributions and funding classification."
+        },
+        {
+          "requirementId": "FR-19-03",
+          "name": "Financing reconciliation",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Reconcile lender and bank evidence with scoped IFRS 9 measurement and disclosures."
+        }
+      ],
+      "policies": [
+        "AP-19.01",
+        "AP-19.02"
+      ]
+    },
+    {
+      "id": "FIN-20",
+      "title": "Functional currency and initial conversion",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-currency-controls.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-20-01",
+          "name": "Functional and presentation context",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Version currency assessment, source company, configured precision, permitted rates and evidence."
+        },
+        {
+          "requirementId": "FR-20-02",
+          "name": "Reviewed rates and initial conversion",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Persist exact rate scope, pair, date, age and source; preserve source and functional journal vectors."
+        },
+        {
+          "requirementId": "FR-20-03",
+          "name": "Precision and reversals",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Use exact fixed-point allocation and original carrying-vector reversals without defaulting foreign FX to one."
+        },
+        {
+          "requirementId": "FR-20-04",
+          "name": "Settlement revaluation and translation",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "Pure carrying and settlement controls exist; full scheduled settlement FX, monetary revaluation, presentation translation and OCI automation remain B24."
+        },
+        {
+          "requirementId": "FR-20-05",
+          "name": "Lawful currency use",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Require current company-specific legal and regulatory evidence; software currency support does not establish permission."
+        }
+      ],
+      "policies": [
+        "AP-20.01",
+        "AP-20.02",
+        "AP-20.03",
+        "AP-20.04"
+      ]
+    },
+    {
+      "id": "FIN-21",
+      "title": "VAT, fiscal documents and tax points",
+      "evidence": "apps/insurance-portal-service/src/modules/shared/finance/tax-calculation.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-21-01",
+          "name": "Configured tax calculation",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Support inclusive extraction, exclusive additions, exemptions, zero rating, multiple components and deterministic rounding through shared calculation."
+        },
+        {
+          "requirementId": "FR-21-02",
+          "name": "Stored and displayed tax evidence",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Keep line-level breakdown, configured rates and basis with quotation and invoice totals."
+        },
+        {
+          "requirementId": "FR-21-03",
+          "name": "Tax points returns and remit",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B26 must govern jurisdiction-specific points, fiscal documents, returns, remittance and reconciliation."
+        },
+        {
+          "requirementId": "FR-21-04",
+          "name": "Historical tax exception",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Keep the four paid invoices immutable; assess any prospective adjustment separately without inferring a journal from the discrepancy alone."
+        }
+      ],
+      "policies": [
+        "AP-21.01",
+        "AP-21.02",
+        "AP-21.03"
+      ]
+    },
+    {
+      "id": "FIN-22",
+      "title": "Premium levy and other statutory assessments",
+      "evidence": "apps/insurance-portal-service/src/modules/shared/finance/tax-calculation.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-22-01",
+          "name": "Levy and fee components",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "Shared quotation and invoice calculation preserves configured components; complete statutory ledger and reporting remain B26."
+        },
+        {
+          "requirementId": "FR-22-02",
+          "name": "Regulatory assessment and accrual",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Approve liable profile, levy base, effective instrument, classification and remit timing."
+        },
+        {
+          "requirementId": "FR-22-03",
+          "name": "Prudential reporting bridge",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Reconcile regulator-specific schedules to accepted ledger and measurement results without duplicate liabilities."
+        }
+      ],
+      "policies": [
+        "AP-22.01",
+        "AP-22.02"
+      ]
+    },
+    {
+      "id": "FIN-23",
+      "title": "Scope, grouping, recognition and model eligibility",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.types.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-23-01",
+          "name": "Measurement ownership boundary",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "The foundation declares measurement-owned components and holds them for a future approved adapter; only Finance can post."
+        },
+        {
+          "requirementId": "FR-23-02",
+          "name": "Measurement data and run registry",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B21 must introduce independent immutable input snapshots, model scope, assumptions, runs, versioned results and reproducibility."
+        },
+        {
+          "requirementId": "FR-23-03",
+          "name": "PAA GMM and held model branches",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B22 must implement independently certified eligible branches; VFA stays inactive until explicitly supported and approved."
+        },
+        {
+          "requirementId": "FR-23-04",
+          "name": "CSM LIC LRC and onerous groups",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement applicable measured balances and movements with cash flow, discount, risk adjustment and coverage-unit evidence."
+        },
+        {
+          "requirementId": "FR-23-05",
+          "name": "Approved movement bridge and transition",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B23 must post approved remaining deltas once and reconcile opening, closing, issued and held populations."
+        }
+      ],
+      "policies": [
+        "AP-23.01",
+        "AP-23.02",
+        "AP-23.03",
+        "AP-23.04",
+        "AP-23.05",
+        "AP-23.06",
+        "AP-23.07",
+        "AP-23.08",
+        "AP-23.09",
+        "AP-23.10",
+        "AP-23.11"
+      ]
+    },
+    {
+      "id": "FIN-24",
+      "title": "Instrument classification and effective interest",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-policy.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-24-01",
+          "name": "Instrument classification registry",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B25 must document actual instrument scope and exclusions from insurance measurement."
+        },
+        {
+          "requirementId": "FR-24-02",
+          "name": "Effective interest and valuation",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement applicable amortized cost or fair value and independently approved market inputs."
+        },
+        {
+          "requirementId": "FR-24-03",
+          "name": "ECL and credit risk",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement approved impairment methodology and staging only for eligible exposures."
+        },
+        {
+          "requirementId": "FR-24-04",
+          "name": "Electronic settlement boundary",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Select any permitted settlement treatment with current specialist evidence; no universal policy is activated."
+        }
+      ],
+      "policies": [
+        "AP-24.01",
+        "AP-24.02",
+        "AP-24.03",
+        "AP-24.04"
+      ]
+    },
+    {
+      "id": "FIN-25",
+      "title": "Owned asset and intangible capitalisation",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-25-01",
+          "name": "Asset and intangible register",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B29 must record capitalization policy, acquisition, component and asset history."
+        },
+        {
+          "requirementId": "FR-25-02",
+          "name": "Depreciation and amortization",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement approved useful lives, residuals, methods, periods and dimension allocation."
+        },
+        {
+          "requirementId": "FR-25-03",
+          "name": "Impairment revaluation and disposal",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Govern independent valuation evidence and controlled gain or loss, derecognition and reconciliation."
+        }
+      ],
+      "policies": [
+        "AP-25.01",
+        "AP-25.02"
+      ]
+    },
+    {
+      "id": "FIN-26",
+      "title": "Lessee initial measurement and exemptions",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-26-01",
+          "name": "Lease inventory and scope",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B29 must establish lessee terms, exemptions, options and classification."
+        },
+        {
+          "requirementId": "FR-26-02",
+          "name": "ROU and liability measurement",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement approved discount rates, initial vectors and periodic interest and depreciation."
+        },
+        {
+          "requirementId": "FR-26-03",
+          "name": "Remeasurement and modification",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Version term or payment changes and reconcile lease liabilities, cash and disclosures."
+        }
+      ],
+      "policies": [
+        "AP-26.01",
+        "AP-26.02"
+      ]
+    },
+    {
+      "id": "FIN-27",
+      "title": "Payroll and employee-benefit obligations",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/services/finance-journal.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-27-01",
+          "name": "Payroll finance interface",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Conditional B30 must accept approved payroll outputs without replacing payroll ownership by assumption."
+        },
+        {
+          "requirementId": "FR-27-02",
+          "name": "Statutory deductions and benefits",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Configure applicable deductions, contributions, accruals and employee-benefit measurement."
+        },
+        {
+          "requirementId": "FR-27-03",
+          "name": "Payroll cash and reconciliation",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Use approved beneficiary, privacy, settlement and GL controls."
+        }
+      ],
+      "policies": [
+        "AP-27.01"
+      ]
+    },
+    {
+      "id": "FIN-28",
+      "title": "Intercompany, group perimeter and consolidation",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-scope.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-28-01",
+          "name": "Group perimeter and intercompany agreements",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B46 must define legal-entity ownership, counterparty, book and reporting perimeter."
+        },
+        {
+          "requirementId": "FR-28-02",
+          "name": "Paired intercompany movements",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Create reconciled paired postings and settlement evidence; independent books do not imply paired postings already exist."
+        },
+        {
+          "requirementId": "FR-28-03",
+          "name": "Consolidation and eliminations",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Implement approved presentation translation, elimination, consolidation adjustments and group reporting."
+        }
+      ],
+      "policies": [
+        "AP-28.01"
+      ]
+    },
+    {
+      "id": "FIN-29",
+      "title": "Financial statements, cash flows and comparative basis",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-29-01",
+          "name": "Journal account and trial balance APIs",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Report accepted journals and account opening, activity and closing totals in separated validation and live populations."
+        },
+        {
+          "requirementId": "FR-29-02",
+          "name": "Certified opening reconciliation",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Require complete explicit account populations and source certificates; reject arbitrary plugs and partial-population totals."
+        },
+        {
+          "requirementId": "FR-29-03",
+          "name": "Financial statements and disclosures",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B32 must implement complete statements, cash flows, insurance reconciliations, comparatives and notes."
+        },
+        {
+          "requirementId": "FR-29-04",
+          "name": "Reporting taxonomy and releases",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Approve company reporting basis, mappings, presentation changes and publication authority."
+        }
+      ],
+      "policies": [
+        "AP-29.01",
+        "AP-29.02"
+      ]
+    },
+    {
+      "id": "FIN-30",
+      "title": "Budget and cost-control accounting",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-scope.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-30-01",
+          "name": "Budgets and versions",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B31 must define dimension-based budgets, approval and revised versions."
+        },
+        {
+          "requirementId": "FR-30-02",
+          "name": "Commitment and variance views",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Compare approved budget, commitments and actuals with a reconciled financial source."
+        },
+        {
+          "requirementId": "FR-30-03",
+          "name": "Nonposting boundary",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "Budget approval and management reporting must never manufacture GL entries."
+        }
+      ],
+      "policies": [
+        "AP-30.01"
+      ]
+    },
+    {
+      "id": "FIN-31",
+      "title": "Approval, audit and segregation",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-approval.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-31-01",
+          "name": "Maker checker and natural persons",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Enforce independent preparers and reviewers, scoped mandates, bounds, expiration and revocation."
+        },
+        {
+          "requirementId": "FR-31-02",
+          "name": "Policy lifecycle and release governance",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Separate version preparation, validation, company-admin approval, explicit activation and book deployment."
+        },
+        {
+          "requirementId": "FR-31-03",
+          "name": "Immutable audit and review APIs",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Keep pinned subject hashes, decisions, reasons, append-only events and scoped evidence reads."
+        },
+        {
+          "requirementId": "FR-31-04",
+          "name": "Real company governance deployment",
+          "status": "AWAITING COMPANY ADMIN ACCEPTANCE",
+          "requirement": "Appoint actual people and provision narrowly scoped permissions and mandates; no default grants or fabricated signatures."
+        }
+      ],
+      "policies": [
+        "AP-31.01"
+      ]
+    },
+    {
+      "id": "FIN-32",
+      "title": "Financial event identity and reliable processing",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-intake.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-32-01",
+          "name": "Versioned event contracts",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Verify source authority, signature, economic identity, schema version and exact destination mappings."
+        },
+        {
+          "requirementId": "FR-32-02",
+          "name": "Transactional inbox and outbox",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Persist atomic intake, deduplication, scoped leases, acknowledgments and retry evidence."
+        },
+        {
+          "requirementId": "FR-32-03",
+          "name": "Owned exceptions and controlled replay",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Assign and audit exceptions, replay only governed reference delivery and preserve idempotency."
+        },
+        {
+          "requirementId": "FR-32-04",
+          "name": "Production source workers and telemetry",
+          "status": "PARTIAL IMPLEMENTATION",
+          "requirement": "Internal reliability and telemetry controls exist; actual live transport provisioning, dashboards, alert routing, capacity and all source adapters require acceptance."
+        }
+      ],
+      "policies": [
+        "AP-32.01"
+      ]
+    },
+    {
+      "id": "FIN-33",
+      "title": "Opening balances and controlled migration",
+      "evidence": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service.ts",
+      "scopeStatus": "FULL_MODULE_NOT_FORMALLY_ACCEPTED",
+      "submodules": [
+        {
+          "requirementId": "FR-33-01",
+          "name": "Opening evidence and release controls",
+          "status": "IMPLEMENTED AND TESTED IN CODE",
+          "requirement": "Persist complete certified opening, historical-protection hashes, B45 manifest and explicit release records."
+        },
+        {
+          "requirementId": "FR-33-02",
+          "name": "Actual population crosswalk and replay",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B34 and B35 must implement complete real populations, consistent capture, opening versus replay exclusions and source reconciliation."
+        },
+        {
+          "requirementId": "FR-33-03",
+          "name": "Controlled logical cutover and aftercare",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B36 to B39 require actual restore, regression, security, capacity and approved one-writer transition evidence."
+        },
+        {
+          "requirementId": "FR-33-04",
+          "name": "Physical service extraction and retirement",
+          "status": "PLANNED NOT IMPLEMENTED",
+          "requirement": "B40 to B42 must remove shared transactions, extract the Finance database and independently recertify before retiring replacements."
+        }
+      ],
+      "policies": [
+        "AP-33.01"
+      ]
+    }
+  ],
+  "companyPolicyApprovals": 0,
+  "companyPolicyActivations": 0,
+  "b15": "NOT_STARTED",
+  "independentServiceExtracted": false
+}

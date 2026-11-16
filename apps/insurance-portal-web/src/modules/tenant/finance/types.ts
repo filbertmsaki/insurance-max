@@ -28,6 +28,10 @@ export interface FinanceInvoiceItem {
 }
 
 export interface FinanceInvoice {
+  gross_amount?: string;
+  discount_amount?: string;
+  tax_amount?: string;
+  charges_amount?: string;
   id: string;
   invoice_no: string;
   status: string;

@@ -2249,15 +2249,20 @@ describe('QuotationsService', () => {
       payment_status: PaymentStatus.NOT_INITIATED,
       status: QuotationStatus.PENDING_REQUIREMENTS,
     });
-    jest.spyOn(fixture.service as any, 'findLatestInvoice').mockResolvedValue({
-      id: 'invoice-1',
-      invoice_no: 'INV-1',
-      status: 'ISSUED',
-    });
+    fixture.quotationInvoiceService.createOrReuseQuotationInvoice.mockResolvedValue(
+      {
+        id: 'invoice-1',
+        invoice_no: 'INV-1',
+        status: 'ISSUED',
+      },
+    );
     await fixture.service.requestPayment('company-1', fixture.quotation.id, {
       id: 'user-1',
       permissions: ['quotations:request-payment'],
     } as any);
+    expect(
+      fixture.quotationInvoiceService.createOrReuseQuotationInvoice,
+    ).toHaveBeenCalled();
     expect(
       fixture.quotationLifecycleService.markPaymentRequested,
     ).toHaveBeenCalled();

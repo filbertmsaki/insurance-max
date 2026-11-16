@@ -266,13 +266,13 @@ export class QuotationPreviewMapper {
       (sum, risk) => sum + (risk.sum_insured ?? 0),
       0,
     );
-    const totalRiskPremium = risks.reduce(
-      (sum, risk) => sum + (risk.premium_after_discount ?? 0),
-      0,
-    );
-    const totalAddonPremium = addons.reduce(
-      (sum, addon) => sum + (addon.premium_including_tax ?? 0),
-      0,
+    const totalDiscount = roundMoney(
+      risks.reduce(
+        (sum, risk) =>
+          sum +
+          risk.discounts.reduce((n, d) => n + (d.discount_amount ?? 0), 0),
+        0,
+      ),
     );
     const totalTax = [...risks, ...addons].reduce(
       (sum, item) =>
@@ -283,19 +283,11 @@ export class QuotationPreviewMapper {
 
     return {
       total_sum_insured: totalSumInsured,
-      total_premium_before_discount:
-        totalRiskPremium + totalAddonPremium + totalTax,
-      total_discount_amount: risks.reduce(
-        (sum, risk) =>
-          sum +
-          risk.discounts.reduce(
-            (discountSum, discount) =>
-              discountSum + (discount.discount_amount ?? 0),
-            0,
-          ),
-        0,
+      total_premium_before_discount: roundMoney(
+        (totalPremiumExcludingTax ?? 0) + totalDiscount,
       ),
-      total_premium_after_discount: totalRiskPremium + totalAddonPremium,
+      total_discount_amount: totalDiscount,
+      total_premium_after_discount: totalPremiumExcludingTax,
       total_premium_excluding_tax: totalPremiumExcludingTax,
       total_tax_amount: totalTax,
       total_premium_including_tax: totalPremiumIncludingTax,

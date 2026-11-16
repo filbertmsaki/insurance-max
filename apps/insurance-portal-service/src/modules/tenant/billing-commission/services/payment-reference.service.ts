@@ -12,6 +12,7 @@ import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { Invoice } from '../entities/invoice.entity';
 import { PaymentReference } from '../entities/payment-reference.entity';
+import { validatedInvoiceTax } from '../utils/quotation-invoice-tax';
 import {
   CreatePaymentReferenceDto,
   PaymentChannel,
@@ -66,6 +67,13 @@ export class PaymentReferenceService {
 
       if (!invoice) {
         throw new NotFoundException('Invoice not found');
+      }
+      if (invoice.source_type === 'QUOTATION') {
+        const full = await manager.getRepository(Invoice).findOne({
+          where: { id: invoice.id, company_id: user.companyId! },
+          relations: { items: true },
+        });
+        validatedInvoiceTax({ ...invoice, items: full?.items ?? [] });
       }
 
       if (!OPEN_INVOICE_STATUSES.includes(invoice.status as InvoiceStatus)) {

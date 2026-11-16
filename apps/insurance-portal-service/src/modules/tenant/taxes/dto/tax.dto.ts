@@ -1,4 +1,4 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsNumber,
@@ -8,8 +8,25 @@ import {
   Matches,
   Max,
   Min,
+  IsIn,
+  IsDateString,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty, PartialType } from '@nestjs/swagger';
+import {
+  CHARGE_CATEGORIES,
+  type ChargeCategory,
+} from '../../../shared/finance/tax-calculation';
+export class TaxCalculationOptionsDto {
+  @IsOptional() @IsIn(CHARGE_CATEGORIES) category?: ChargeCategory;
+  @IsOptional() @IsDateString({ strict: true }) effective_from?: string | null;
+  @IsOptional() @IsDateString({ strict: true }) effective_to?: string | null;
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  @Matches(/^[A-Za-z0-9_.:-]+$/)
+  ledger_account_code?: string | null;
+}
 
 export class CreateTaxDto {
   @ApiProperty({ example: 'VAT-MAINLAND', maxLength: 50 })
@@ -48,6 +65,11 @@ export class CreateTaxDto {
   @IsOptional()
   @IsBoolean()
   is_default?: boolean;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TaxCalculationOptionsDto)
+  calculation_options?: TaxCalculationOptionsDto | null;
 }
 
 export class UpdateTaxDto extends PartialType(CreateTaxDto, {
