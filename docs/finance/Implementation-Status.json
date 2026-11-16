@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.2",
+  "version": "1.3",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -104,7 +104,8 @@
       "criteriaAndDecisions": "AC01 AC02 AC04 / DEC-08 DEC-14",
       "reviewer": "Finance architecture + Security",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B06",
@@ -117,7 +118,8 @@
       "criteriaAndDecisions": "AC04 AC05 AC10 AC55 / DEC-01 DEC-06 DEC-07 DEC-08 DEC-09 DEC-10 DEC-11 DEC-14",
       "reviewer": "Technical accounting + configuration checker",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B07",
@@ -130,7 +132,8 @@
       "criteriaAndDecisions": "AC03 AC04 AC05 AC46 / DEC-01 DEC-05 DEC-06 DEC-07 DEC-08 DEC-09 DEC-10 DEC-11 DEC-12 DEC-14",
       "reviewer": "Controller + source-account owners",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B08",
@@ -143,7 +146,8 @@
       "criteriaAndDecisions": "AC06 AC07 AC08 / DEC-05 DEC-11 DEC-12",
       "reviewer": "Finance platform + technical accounting",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B09",
@@ -156,7 +160,8 @@
       "criteriaAndDecisions": "AC09 AC10 AC52 / DEC-11 DEC-14",
       "reviewer": "Finance controls + Security",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B10",
@@ -169,7 +174,8 @@
       "criteriaAndDecisions": "AC01 AC08 AC40 AC41 / DEC-08 DEC-11 DEC-12 DEC-14",
       "reviewer": "Integration/API architecture",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B11",
@@ -182,7 +188,8 @@
       "criteriaAndDecisions": "AC08 AC42 AC51 / DEC-11 DEC-12 DEC-14",
       "reviewer": "Integration platform + Finance operations",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B12",
@@ -195,7 +202,8 @@
       "criteriaAndDecisions": "AC42 AC48 AC51 AC57 / DEC-11 DEC-12 DEC-14 DEC-16",
       "reviewer": "Finance operations + Reliability",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent."
+      "currentDisposition": "Inactive or gated foundation controls implemented; actual company deployment and policy approval are absent.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B43",
@@ -208,7 +216,8 @@
       "criteriaAndDecisions": "AC07 AC27 AC46 / DEC-05 DEC-10 DEC-11 DEC-12",
       "reviewer": "Technical accounting + Treasury",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Currency and rate persistence, exact source and functional amounts and rate evidence implemented; full IAS 21 automation is B24."
+      "currentDisposition": "Currency and rate persistence, exact source and functional amounts and rate evidence implemented; full IAS 21 automation is B24.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B44",
@@ -221,7 +230,8 @@
       "criteriaAndDecisions": "AC04 AC38 AC52 / DEC-10 DEC-11 DEC-14 DEC-19",
       "reviewer": "Controller + Finance reporting",
       "implementationStatus": "IMPLEMENTED AND TESTED IN CODE",
-      "currentDisposition": "Accepted ledger and opening/activity/closing report APIs implemented; complete financial statements are B32."
+      "currentDisposition": "Accepted ledger and opening/activity/closing report APIs implemented; complete financial statements are B32.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B45",
@@ -247,7 +257,8 @@
       "criteriaAndDecisions": "AC13 AC16 AC40 / DEC-01 DEC-06 DEC-07 DEC-08 DEC-11 DEC-12 DEC-14 DEC-16",
       "reviewer": "Quotation/policy owner + Controller",
       "implementationStatus": "IMPLEMENTED INACTIVE CONTROL SLICE",
-      "currentDisposition": "Signed quotation memorandum and shared corrected invoice tax flow implemented; legal recognition remains gated."
+      "currentDisposition": "Signed quotation memorandum and shared corrected invoice tax flow implemented; legal recognition remains gated.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B14",
@@ -260,7 +271,8 @@
       "criteriaAndDecisions": "AC11 AC14 AC15 / DEC-01 DEC-02 DEC-05 DEC-11 DEC-15 DEC-16",
       "reviewer": "Treasury + Receivables + technical accounting",
       "implementationStatus": "IMPLEMENTED INACTIVE CONTROL SLICE",
-      "currentDisposition": "Confirmed receipt ownership, aliases, exact capacity, assignment, ageing and reconciliation controls implemented as inactive records; real cash execution and legal discharge remain gated."
+      "currentDisposition": "Confirmed receipt ownership, aliases, exact capacity, assignment, ageing and reconciliation controls implemented as inactive records; real cash execution and legal discharge remain gated.",
+      "localSchemaStatus": "APPLIED_LOCAL_DEVELOPMENT_EMPTY_UNCONFIGURED"
     },
     {
       "id": "B15",
@@ -1810,5 +1822,14 @@
     "evidence": "Migration-Rehearsal-Verification.json",
     "sourceMigrationsApplied": 0,
     "companyPoliciesActivated": 0
+  },
+  "localDevelopmentSchema": {
+    "status": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
+    "evidence": "Local-Migration-Application-Verification.json",
+    "appliedFinanceMigrations": 12,
+    "pendingMigrations": 0,
+    "newEmptyFinanceTables": 62,
+    "policiesActivated": 0,
+    "booksActivated": 0
   }
 }

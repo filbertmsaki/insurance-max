@@ -6,13 +6,13 @@ Insurance Max requires a complete, independent Finance Service that owns financi
 
 The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
-**Document control:** IM-FIN-SRS-1.2; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.
+**Document control:** IM-FIN-SRS-1.3; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.
 
 ## Current implementation at a glance
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| B02 to B12 foundation controls | Implemented and tested in code; migrations and actual source grants not deployed | Company-specific configuration and actual environment acceptance; isolated full-history schema rehearsal passed |
+| B02 to B12 foundation controls | Implemented and tested; schemas applied locally, with no actual source grants or active configuration | Company-specific configuration and actual environment acceptance; isolated full-history schema rehearsal passed |
 | B13 quotation memorandum and tax correction | Implemented inactive control slice; existing invoice tax breakdown corrected using shared calculation | Actual recognition, tax and operational Finance activation |
 | B14 receipts and receivables | Inactive ownership, capacity, assignment, ageing and reconciliation controls implemented | Actual source/ bank reconciliation and legal discharge; B15 outgoing cash |
 | B43 currencies and B44 ledger reports | Persistent reviewed currency/rate evidence, canonical journals and reconciled ledger/report APIs implemented | Approved actual scope, certified opening and explicit release |
@@ -1371,7 +1371,7 @@ Engine acceptance must include reproducible runs, adverse and boundary cases, in
 
 The current application has existing invoices, invoice items, receipts, allocations, payment references, legacy journal entries and accounts. Finance adds separate records rather than overwriting those historical objects. Dedicated foundation tables and policy tables preserve tenant/entity/book references and immutable review evidence.
 
-| Order | Pending migration | Prepared tables |
+| Order | Applied local migration | Prepared tables |
 | --- | --- | --- |
 | 1 | 1796000000000-FinanceScopeFoundations.ts | finance_legal_entities, finance_accounting_books, finance_scope_memberships, finance_legal_entity_source_maps |
 | 2 | 1796100000000-FinanceConfigurationReviews.ts | finance_configuration_authorities, finance_configuration_releases, finance_configuration_events |
@@ -1387,9 +1387,9 @@ The current application has existing invoices, invoice items, receipts, allocati
 | 12 | 1797200000000-FinanceLedgerFoundation.ts | finance_foundation_authorities, finance_foundation_identity_bindings, finance_foundation_documents, finance_foundation_decisions, finance_foundation_periods, finance_foundation_period_events, finance_foundation_journals, finance_foundation_lines, finance_foundation_journal_audits, finance_foundation_deployments |
 
 
-The new B43 to B45 migration adds ten empty foundation registries: authorities, identity_bindings, documents, decisions, periods, period_events, journals, lines, journal_audits and deployments. It extends draft book/entity state controls and the explicit policy-release guard; it does not activate existing books or policies. The 12 pending migration files and hashes are in [Migration Manifest](Migration-Manifest.json).
+The new B43 to B45 migration adds ten empty foundation registries: authorities, identity_bindings, documents, decisions, periods, period_events, journals, lines, journal_audits and deployments. It extends draft book/entity state controls and the explicit policy-release guard; it does not activate existing books or policies. The twelve Finance migrations are now applied to local development. Their reviewed files and hashes, with zero remaining pending migrations, are in [Migration Manifest](Migration-Manifest.json).
 
-The development ledger currently records 76 applied migrations, including TaxCalculationEvidence1796900000000. Pending lower-timestamp Finance migrations are intentional ledger gaps. The checked-in TypeORM executor matches pending status by migration name, and its old-timestamp rejection is commented out. This observation is version-specific: operators must rehearse the actual pinned executor against a restored full-history clone, not assume that a maximum timestamp proves completion.
+The development ledger now records 88 applied migrations, including TaxCalculationEvidence1796900000000 and all twelve reviewed Finance migrations. The earlier lower-timestamp Finance gaps have been filled without reapplying tax evidence. The checked-in TypeORM executor matches pending status by migration name, and its old-timestamp rejection is commented out. This observation is version-specific: operators must rehearse the actual pinned executor against a restored full-history clone, not assume that a maximum timestamp proves completion.
 
 Every future balance, obligation, execution request and measurement run needs immutable original IDs, source revisions, lifecycle, currency, dimensions, effective dates, evidence hashes, status and approval history. Complete measurement, bank/AP/asset/lease, close, consolidation and execution schemas are still to be designed and implemented under their backlog steps. They are requirements, not existing tables.
 
@@ -1457,7 +1457,7 @@ The 17 recorded pre-existing diagnostics are resolved. The fixes update test fix
 | Complete frontend suite | 535 passed across 77 files. |
 | Private PostgreSQL Finance suite | 264 passed across 14 suites; owned test cluster stopped. |
 | Earlier Finance evidence cohort | All 867 prior Finance cases were found passing in the broader backend and database results. These are included in the totals above and must not be counted twice. |
-| Historical protection | Read-only verification confirms four protected paid invoices and three legacy accounts unchanged; no company policy activation or development migration. |
+| Historical protection | Verification confirms four protected paid invoices and three legacy accounts unchanged through the separately authorized local schema application; no company policies were activated. |
 | Actual company acceptance | Not granted; company policy decisions, real environment evidence and controlled cutover approval remain outstanding. |
 
 The exact type-repair changes, build result, test totals and limits are in [Type Repair Verification](Type-Repair-Verification.json). The updated [Acceptance Test Manifest](Acceptance-Test-Manifest.json) retains the original Finance case identities and records the broader regression outcome. The migration manifest fingerprints the current source with canonical UTF8 LF encoding.
@@ -1470,7 +1470,7 @@ The controlled rehearsal passed on a private restored copy of the complete local
 
 | Check | Rehearsal result |
 | --- | --- |
-| Source preservation | All 290 original source tables and four protected paid invoice headers/items unchanged; source migration count remains 76. |
+| Source preservation | All 290 original source tables and four protected paid invoice headers/items unchanged; source migration count remained 76 during that rehearsal. |
 | Isolated upgrade | Exactly 12 approved-manifest migrations committed in one transaction; clone migration ledger advanced from 76 to 88. |
 | Data and configuration | All 289 pre-existing application data tables unchanged; only the clone migration ledger changed. All 62 new Finance tables remained empty, with zero policy/book activation or seeded grants. |
 | Repeat run | Zero additional migrations and no data/schema changes. |
@@ -1480,7 +1480,25 @@ The controlled rehearsal passed on a private restored copy of the complete local
 
 Logical comparison retains column order, types, defaults, constraints, indexes, triggers and the other recorded objects. Physical dropped-column slot numbers are excluded, and 39 exact literal varchar-to-text cast pairs produced by logical restore were checked equal directly in PostgreSQL. Raw data, backup files, keys and private invoice identifiers remain outside Git.
 
-The private restore omits original ownership and ACLs and uses one isolated administrator. It does not certify production privilege recovery, actual company authentication, a financial opening certificate, bank truth, approved RPO/RTO, live source/worker compatibility or company policy decisions. All policies remain inactive and the twelve migrations remain unapplied to the original development database.
+The private restore omits original ownership and ACLs and uses one isolated administrator. It does not certify production privilege recovery, actual company authentication, a financial opening certificate, bank truth, approved RPO/RTO, live source/worker compatibility or company policy decisions. At the time of the isolated rehearsal the source remained unapplied. The twelve migrations have since been applied under separate explicit user authorization to local development; all policies remain inactive. See the local schema application evidence below.
+
+## Local development schema application
+
+The exact twelve Finance migrations were applied to the local development database in one controlled transaction under explicit user schema-only authorization. [Application report](Local-Migration-Application-Report.html) and [verification record](Local-Migration-Application-Verification.json) record the checks and limits.
+
+| Check | Current result |
+| --- | --- |
+| Applied migration ledger | 76 to 88; all twelve reviewed Finance migrations applied; none pending. |
+| Existing data | All 289 pre-existing application data tables unchanged. Only the existing migration metadata table gained twelve rows; all 290 original table schemas are retained. |
+| Protected paid invoices and accounts | Four invoice headers and their items, the existing tax catalogue and three legacy ledger accounts unchanged. |
+| Finance registries | 62 new empty tables, giving 352 total tables; zero policy versions/activation events, active books, deployments or seeded grants. |
+| Backup and transaction | Fresh consistent encrypted backup before application; decryption and archive integrity checked. Existing tables write-fenced while precommit checks ran, with locks released at commit. |
+| Posting eligibility | FINANCE_POSTING_HELD returned for the existing company. A SELECT-only lock-capable verification transaction was rolled back; no invoice or journal write method was called. |
+| Financial activation | No policies, books or financial balances activated, no historical corrections and no live cutover. |
+
+The initial read-only eligibility probe could not take the guard FOR SHARE locks. The guard was retained, the verification was retried with SELECT-only queries in a transaction permitting row locks, that transaction was rolled back, and all records were checked again. The migrations were not rerun.
+
+Schema presence is not an approved financial opening. Actual scope/identity mappings, chart and currency configuration, company-admin policy decisions, certified opening/reconciliation, explicit activation and controlled cutover remain pending. The application implementation is unchanged and still matches the recorded successful build and 2,996-test baseline.
 
 ## Company admin review pack
 
@@ -1520,10 +1538,10 @@ The following gates are proposed for review, with no execution permission record
 
 **Responsible remit:** Technical release owner and independent reviewer.
 
-- Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The current ledger contains 76 entries; 12 Finance migrations are pending.
-- The applied tax-evidence migration 1796900000000 is newer than several pending Finance migrations. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.
-- The current TypeORM CLI discovers all pending files. Run it only against a reviewed immutable artifact whose pending set equals the exact 12-file allowlist; otherwise stop. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.
-- The 17 recorded diagnostics are resolved and full local builds/tests pass. The pinned full-history database restore and schema migration rehearsal also passed on an isolated copy. Obtain independently reviewed target-environment CI and access/release evidence before actual source migration.
+- Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The current local ledger contains 88 entries; the twelve Finance migrations are applied and none remain pending.
+- The tax-evidence migration 1796900000000 was already applied before this Finance run and was retained without reapplication. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.
+- The completed local run used a frozen artifact and an exact twelve-file pending allowlist. No migrations now remain pending. Do not force or fake a rerun; any later migration requires a newly reviewed manifest. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.
+- The 17 recorded diagnostics are resolved and full local builds/tests pass. The pinned full-history database restore and schema migration rehearsal also passed on an isolated copy. Obtain independently reviewed target-environment CI and access/release evidence before any further environment release or financial activation.
 
 **Exit evidence:** Approved immutable artifact, exact pending set, target identity and deployment-only authorization recorded.
 
@@ -1531,7 +1549,7 @@ The following gates are proposed for review, with no execution permission record
 
 ### G02 Backup and isolated restored clone rehearsal
 
-**Current evidence:** The isolated database-only rehearsal passed. See the migration rehearsal verification. Actual source execution, company policy approval and recovery-target acceptance remain separate.
+**Current evidence:** The isolated database-only rehearsal passed, followed by the separately authorized local schema application. Company policy approval, activation, live cutover and recovery-target acceptance remain separate.
 
 **Responsible remit:** Database operator with Finance reviewer.
 
@@ -1545,6 +1563,8 @@ The following gates are proposed for review, with no execution permission record
 **Stop or recovery:** Discard only the owned clone; the source remains unchanged.
 
 ### G03 Apply schema only after separate authorization
+
+**Current evidence:** Completed for local development under explicit user schema-only authorization. The ledger is 88, no migrations are pending and all 62 new Finance tables are empty. No company policy approval or activation was recorded.
 
 **Responsible remit:** Database operator under company-approved change.
 
@@ -1695,11 +1715,11 @@ This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 1
 | Artifact | Purpose |
 | --- | --- |
 | [Implementation Status](Implementation-Status.json) | Machine-readable phase, step, module and submodule status. |
-| [Migration Manifest](Migration-Manifest.json) | Exact source and migration fingerprints and pending allowlist; executionAuthorized is false. |
+| [Migration Manifest](Migration-Manifest.json) | Exact code/migration fingerprints, twelve applied Finance migrations and zero pending migrations; authorization is bounded to the completed local schema-only run. |
 | [Acceptance Test Manifest](Acceptance-Test-Manifest.json) | Prior 867 case outcomes, unchanged-source fingerprint and explicit limits of acceptance. |
 | [Controlled Migration and Cutover Plan](Controlled-Migration-and-Cutover-Plan.json) | Gate actions, responsible remits, exit evidence, recovery and blank scope authorizations. |
 | [Read Only Preflight](Read-Only-Preflight.sql) | Optional operator-reviewed read-only SQL; never applies schema, grants or configuration. |
 | [Company Admin Review](company-admin/PLATFORM_TEMPLATE-Review.html) | Separate platform and business-profile policy and decision review sheets with blank actual approval fields. |
 
 
-The code revision used for this isolated rehearsal is f193c3058103c7cf563a5225978751eb20dcd240. No implementation code changed during the rehearsal. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.
+The code revision used for this isolated rehearsal is f193c3058103c7cf563a5225978751eb20dcd240. No implementation code changed during the rehearsal or local schema application. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.

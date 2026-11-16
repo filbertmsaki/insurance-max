@@ -1,0 +1,235 @@
+{
+  "schema": "FINANCE_LOCAL_SCHEMA_APPLICATION_V1",
+  "date": "2026-11-16",
+  "timeZone": "Africa/Dar_es_Salaam",
+  "runId": "20261116075345910_3262c12c",
+  "status": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
+  "codeCommit": "96d907c4e8f027308e7db58ddc7f5518bdcacf22",
+  "sourceCodeFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
+  "startedAt": "2026-11-16T07:53:45.911Z",
+  "committedAt": "2026-11-16T07:53:54.639Z",
+  "verifiedAt": "2026-11-16T07:56:04.772Z",
+  "target": {
+    "environment": "LOCAL_DEVELOPMENT",
+    "database": "insurance_portal_db",
+    "engine": "PostgreSQL 17.4",
+    "production": false
+  },
+  "authorization": {
+    "source": "Explicit user instruction for exactly twelve local development Finance migrations",
+    "schemaMigrationOnly": true,
+    "accountingPolicyApproval": false,
+    "policyActivation": false,
+    "bookActivation": false,
+    "historyCorrection": false,
+    "liveCutover": false
+  },
+  "application": {
+    "migrationsApplied": 12,
+    "transaction": "One caller-owned transaction; all twelve migrations and precommit reconciliations completed before COMMIT",
+    "writeFence": "SHARE locks on all 290 pre-existing ordinary tables; released by commit",
+    "migrationLedgerBefore": 76,
+    "migrationLedgerAfter": 88,
+    "pendingMigrations": 0,
+    "newEmptyFinanceTables": 62,
+    "totalTablesAfter": 352,
+    "existingTableSchemasRetained": 290,
+    "existingApplicationDataTablesUnchanged": 289,
+    "intentionallyChangedExistingTable": "migrations",
+    "existingTaxEvidenceReapplied": false
+  },
+  "protection": {
+    "paidInvoicesAndItemsUnchanged": 4,
+    "legacyAccountsUnchanged": 3,
+    "existingTaxCatalogueUnchanged": true,
+    "existingBusinessSequencesUnchanged": true,
+    "originalBusinessRowsChanged": 0,
+    "originalRecordsRegenerated": 0,
+    "historicalInvoiceCorrections": 0
+  },
+  "inactiveControls": {
+    "policyVersions": 0,
+    "activePolicyEvents": 0,
+    "activeBooks": 0,
+    "foundationDeployments": 0,
+    "foundationGrants": 0,
+    "policyGrants": 0,
+    "grantsSeeded": 0,
+    "postingGuardCode": "FINANCE_POSTING_HELD",
+    "postingGuardProbedWithoutDml": true
+  },
+  "backup": {
+    "freshEncryptedBackupBeforeApply": true,
+    "consistentExportedSnapshot": true,
+    "algorithm": "AES-256-GCM",
+    "keyProtection": "WINDOWS_DPAPI_CURRENT_USER",
+    "decryptionAndCustomArchiveIntegrityChecked": true,
+    "originalDatabaseObjectOwnersAndAclsIncluded": true,
+    "clusterGlobalRoleDefinitionsIncluded": false,
+    "plaintextTemporaryCopiesRemoved": true,
+    "privateBackupAndKeysPublished": false
+  },
+  "verification": {
+    "beforeCommit": true,
+    "independentAfterCommit": true,
+    "afterLockingEligibilityProbe": true,
+    "noMigrationsRerunDuringVerification": true,
+    "lingeringOperationSessions": 0,
+    "postingProbe": "SELECT-only transaction allowing FOR SHARE locks, always rolled back; no invoice or journal write method called",
+    "initialProbeNote": "The initial read-only eligibility probe could not take the guard required row locks. It was retried without changing the guard; all data was checked again afterward."
+  },
+  "migrations": [
+    {
+      "order": 1,
+      "name": "FinanceScopeFoundations1796000000000",
+      "sha256": "332ace51896701ccba54b7e2de6ce51ff93fef05049ced4eaf9b82c6b43d3dfa",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 2,
+      "name": "FinanceConfigurationReviews1796100000000",
+      "sha256": "e440f75a16429c614b1c64c07c750089c834410a802aed4d34c906d377d786a4",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 3,
+      "name": "FinanceChartSourceAuthorities1796200000000",
+      "sha256": "71fdd6b14bf90f52b214be94a6ac2938461591e1ec2aab65ee4a59348ded63d1",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 4,
+      "name": "FinanceJournalCandidates1796300000000",
+      "sha256": "0c3bce02d215dd9df8d2d279060ae61fafd6590b8609f219f85bd3e2a779133d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 5,
+      "name": "FinanceApprovalGovernance1796400000000",
+      "sha256": "a1edf8e6bf63d2324004c88f5c1a6739beea1ab0746d06cb1af2fe803f1709e0",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 6,
+      "name": "FinanceEventContractPreviews1796500000000",
+      "sha256": "150fe6e4d9dffb95c45843781d19bf11a3572d429fae898a5378a3a5c8b6447a",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 7,
+      "name": "FinanceIntegrationReliability1796600000000",
+      "sha256": "40a1891488cb95758303a928e249f18c8afb58516a1b190e1d83c418c41614fc",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 8,
+      "name": "FinanceOwnedExceptions1796700000000",
+      "sha256": "64c47364deea5cc3ea7bf1cadd9cff32c60319f27c074553b60c5c2abb95f0cc",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 9,
+      "name": "FinanceQuotationMemoranda1796800000000",
+      "sha256": "2856e272a26c8c68597d00d192f64f557c7067e99a690e09c69102c4ef5dbdc6",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 10,
+      "name": "FinanceReceivableControls1797000000000",
+      "sha256": "20e10753c396c556ac0fa86e3c4b8c0405ae40bd9cda0543dbb9f52799710cf2",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 11,
+      "name": "FinancePolicyGovernance1797100000000",
+      "sha256": "15e5c2c3ad099aa95cafee691d6c402d8fc879c638a661aa2ef6e08aede5422d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 12,
+      "name": "FinanceLedgerFoundation1797200000000",
+      "sha256": "78ec1b3b3d2927fe3f571457fc9b4523e4e7a3301de3c7a7b602b4c96e8a6d3d",
+      "hashEncoding": "UTF8_LF"
+    }
+  ],
+  "newEmptyTables": [
+    "finance_accounting_books",
+    "finance_approval_decisions",
+    "finance_approval_events",
+    "finance_approval_mandates",
+    "finance_approval_requests",
+    "finance_billing_authorities",
+    "finance_chart_source_authorities",
+    "finance_configuration_authorities",
+    "finance_configuration_events",
+    "finance_configuration_releases",
+    "finance_confirmed_receipts",
+    "finance_draft_periods",
+    "finance_event_producer_keys",
+    "finance_foundation_authorities",
+    "finance_foundation_decisions",
+    "finance_foundation_deployments",
+    "finance_foundation_documents",
+    "finance_foundation_identity_bindings",
+    "finance_foundation_journal_audits",
+    "finance_foundation_journals",
+    "finance_foundation_lines",
+    "finance_foundation_period_events",
+    "finance_foundation_periods",
+    "finance_integration_audits",
+    "finance_integration_authorities",
+    "finance_integration_channels",
+    "finance_integration_conflicts",
+    "finance_integration_inboxes",
+    "finance_integration_intakes",
+    "finance_journal_candidate_authorities",
+    "finance_journal_candidate_events",
+    "finance_journal_candidate_lines",
+    "finance_journal_candidates",
+    "finance_legal_entities",
+    "finance_legal_entity_source_maps",
+    "finance_operations_audits",
+    "finance_operations_authorities",
+    "finance_owned_exceptions",
+    "finance_policy_authorities",
+    "finance_policy_events",
+    "finance_policy_posting_releases",
+    "finance_policy_versions",
+    "finance_quotation_billing_audits",
+    "finance_quotation_billing_decisions",
+    "finance_quotation_memoranda",
+    "finance_quotation_memorandum_lines",
+    "finance_receipt_sources",
+    "finance_receivable_audits",
+    "finance_receivable_authorities",
+    "finance_receivable_decisions",
+    "finance_receivable_reconciliations",
+    "finance_receivable_requests",
+    "finance_reference_dispositions",
+    "finance_reference_outbox",
+    "finance_reference_receipts",
+    "finance_replay_executions",
+    "finance_replay_requests",
+    "finance_scope_memberships",
+    "finance_source_event_preview_audits",
+    "finance_source_event_preview_deliveries",
+    "finance_source_event_preview_targets",
+    "finance_source_event_previews"
+  ],
+  "implementationCodeChanged": false,
+  "priorBuildAndTestEvidence": {
+    "recordedTypeDiagnostics": 0,
+    "buildPassed": true,
+    "testsPassed": 2996,
+    "codeFingerprintUnchanged": true,
+    "newFullSuiteRunPerformed": false
+  },
+  "remainingGates": [
+    "Actual company/tenant/legal-entity/book mappings, natural-person mandates, approved chart/dimensions/currency configuration and accounting-policy decisions remain unassigned or unapproved. No grants were seeded.",
+    "The empty Finance tables do not certify zero financial balances. Complete source/bank/open-item reconciliation and independently certified opening balances remain required.",
+    "Company-admin policy approval, explicit activation, approved release, book enable and an open live period remain separate actions. Posting remains held.",
+    "No application server or business worker was started, and no provider/bank, TIRAMIS, fiscal, payment or live source-routing operation was performed.",
+    "Backup decryption depends on the current Windows account. Company key recovery, RPO/RTO, retention, operational continuity and production deployment remain separately approved work.",
+    "B15, full IFRS17/IFRS9 engines, full IAS21 automation, logical cutover and physical Finance service extraction have not been started or authorized by this schema-only action."
+  ]
+}

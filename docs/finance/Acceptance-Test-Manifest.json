@@ -4443,5 +4443,7 @@
   },
   "typeRepairEvidence": "Type-Repair-Verification.json",
   "fullHistoryRehearsalScope": "ISOLATED_COPY_ONLY",
-  "fullHistoryRehearsalEvidence": "Migration-Rehearsal-Verification.json"
+  "fullHistoryRehearsalEvidence": "Migration-Rehearsal-Verification.json",
+  "localDevelopmentSchemaApplied": true,
+  "localDevelopmentSchemaEvidence": "Local-Migration-Application-Verification.json"
 }

@@ -1,7 +1,7 @@
 {
-  "version": "1.2",
+  "version": "1.3",
   "date": "2026-11-16",
-  "status": "PREPARED_FOR_REVIEW_NOT_EXECUTED",
+  "status": "LOCAL_SCHEMA_APPLIED_GOVERNANCE_AND_CUTOVER_PENDING",
   "companyScope": {
     "companyId": null,
     "tenantId": null,
@@ -191,10 +191,10 @@
       "name": "Freeze the code and migration manifest",
       "owner": "Technical release owner and independent reviewer",
       "actions": [
-        "Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The current ledger contains 76 entries; 12 Finance migrations are pending.",
-        "The applied tax-evidence migration 1796900000000 is newer than several pending Finance migrations. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.",
-        "The current TypeORM CLI discovers all pending files. Run it only against a reviewed immutable artifact whose pending set equals the exact 12-file allowlist; otherwise stop. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.",
-        "The 17 recorded diagnostics are resolved and full local builds/tests pass. The pinned full-history database restore and schema migration rehearsal also passed on an isolated copy. Obtain independently reviewed target-environment CI and access/release evidence before actual source migration."
+        "Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The local development ledger now contains 88 entries, with the twelve Finance migrations applied and no pending migrations.",
+        "The tax-evidence migration 1796900000000 was already applied before this Finance run and was retained without reapplication. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.",
+        "The completed local run used a frozen artifact and an exact twelve-file pending allowlist. No migrations now remain pending. Do not force or fake a rerun; any later migration requires a newly reviewed manifest. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.",
+        "The 17 recorded diagnostics are resolved and full local builds/tests pass. The pinned full-history database restore and schema migration rehearsal also passed on an isolated copy. Obtain independently reviewed target-environment CI and access/release evidence before any further environment release or financial activation."
       ],
       "exit": "Approved immutable artifact, exact pending set, target identity and deployment-only authorization recorded.",
       "rollback": "Discard the unapproved artifact; no database action.",
@@ -231,9 +231,11 @@
       ],
       "exit": "Schema-only reconciliation passes; new registries are empty and policies remain inactive.",
       "rollback": "Failure inside the transaction rolls back. After commit, down is allowed only where every relevant migration explicitly proves its structures unused; otherwise preserve evidence and use forward repair.",
-      "status": "NOT_AUTHORIZED",
-      "executionEvidenceHash": null,
-      "executedAt": null
+      "status": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_SCHEMA_ONLY",
+      "executionEvidenceHash": "a2c5f7acaf0a6b7b484e573de3debd732db9d64b6e3367da0e21b44f0875e603",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "policyActivationAuthorized": false,
+      "remainingDependencies": "Actual business-profile configuration, company approvals, certified opening and live cutover remain separate."
     },
     {
       "id": "G04",
@@ -364,5 +366,14 @@
     "sourceMigrationAuthorized": false,
     "policyApprovalRecorded": false,
     "policyActivationAuthorized": false
-  }
+  },
+  "localSchemaApplicationEvidence": "Local-Migration-Application-Verification.json",
+  "technicalExecutionAuthorization": {
+    "scope": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+    "runId": "20261116075345910_3262c12c",
+    "status": "EXECUTED",
+    "companyAccountingPolicyApproval": false,
+    "activationAuthorized": false
+  },
+  "authorizationSemantics": "Formal company accounting, policy and release decisions remain unreceived. The completed technical local schema change was separately authorized by the explicit user instruction."
 }

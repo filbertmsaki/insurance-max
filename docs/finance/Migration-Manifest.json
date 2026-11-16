@@ -1,9 +1,9 @@
 {
-  "documentId": "IM-FIN-SRS-1.2",
+  "documentId": "IM-FIN-SRS-1.3",
   "date": "2026-11-16",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
-  "baseCommit": "f193c3058103c7cf563a5225978751eb20dcd240",
+  "baseCommit": "96d907c4e8f027308e7db58ddc7f5518bdcacf22",
   "sourceCodeFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
   "sourceCodeFiles": [
     {
@@ -758,13 +758,36 @@
     }
   ],
   "sourceHashEncoding": "UTF8_LF",
-  "expectedAppliedMigrationCount": 76,
-  "appliedMigrationLedgerHash": "601075dfd38a13d6277f318b073724ca370df54443d92b0bdb828e7784159911",
+  "expectedAppliedMigrationCount": 88,
+  "appliedMigrationLedgerHash": "093ebeefc1bf66455dacf62cd7832205a78d0e60ac2bf543f6ad2cdab26b9b59",
   "alreadyAppliedTaxEvidence": {
     "timestamp": "1796900000000",
     "mustNotReapply": true
   },
-  "pendingMigrations": [
+  "pendingMigrations": [],
+  "executionAuthorized": true,
+  "activationAuthorized": false,
+  "historyCorrectionAuthorized": false,
+  "targetScope": {
+    "environment": "LOCAL_DEVELOPMENT",
+    "database": "insurance_portal_db",
+    "companyId": null,
+    "tenantId": null,
+    "legalEntityId": null,
+    "bookId": null
+  },
+  "privateHistoricalEvidence": "Retained locally outside Git; exact invoice IDs and header/item hashes must be obtained from the approved private evidence store.",
+  "localBuildVerified": true,
+  "recordedTypeDiagnosticsRemaining": 0,
+  "isolatedRehearsal": {
+    "runId": "20261116071330729_8e51243c",
+    "status": "PASSED_ISOLATED_COPY_ONLY",
+    "evidence": "Migration-Rehearsal-Verification.json",
+    "evidenceSha256": "f49a6eb94704f47c0e5ef3a8e6125f13da9db45027d43f3b62f44e4123df8a44",
+    "sourceUnchanged": true,
+    "scope": "ISOLATED_COPY_ONLY"
+  },
+  "reviewedMigrationSet": [
     {
       "order": 1,
       "file": "apps/insurance-portal-service/src/database/migrations/1796000000000-FinanceScopeFoundations.ts",
@@ -778,8 +801,12 @@
         "finance_scope_memberships",
         "finance_legal_entity_source_maps"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 2,
@@ -793,8 +820,12 @@
         "finance_configuration_releases",
         "finance_configuration_events"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 3,
@@ -806,8 +837,12 @@
       "createdTables": [
         "finance_chart_source_authorities"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 4,
@@ -823,8 +858,12 @@
         "finance_journal_candidate_lines",
         "finance_journal_candidate_events"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 5,
@@ -839,8 +878,12 @@
         "finance_approval_decisions",
         "finance_approval_events"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 6,
@@ -856,8 +899,12 @@
         "finance_source_event_preview_deliveries",
         "finance_source_event_preview_audits"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 7,
@@ -877,8 +924,12 @@
         "finance_reference_receipts",
         "finance_integration_audits"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 8,
@@ -894,8 +945,12 @@
         "finance_replay_executions",
         "finance_operations_audits"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 9,
@@ -911,8 +966,12 @@
         "finance_quotation_billing_decisions",
         "finance_quotation_billing_audits"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 10,
@@ -930,8 +989,12 @@
         "finance_receivable_reconciliations",
         "finance_receivable_audits"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 11,
@@ -946,8 +1009,12 @@
         "finance_policy_events",
         "finance_policy_posting_releases"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
     {
       "order": 12,
@@ -968,30 +1035,116 @@
         "finance_foundation_journal_audits",
         "finance_foundation_deployments"
       ],
-      "approvalStatus": "NOT_RECEIVED",
-      "executionStatus": "NOT_APPLIED"
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "priorReviewApprovalStatus": "NOT_RECEIVED",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "schemaExecutionAuthorization": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     }
   ],
-  "executionAuthorized": false,
-  "activationAuthorized": false,
-  "historyCorrectionAuthorized": false,
-  "targetScope": {
-    "environment": null,
-    "database": null,
-    "companyId": null,
-    "tenantId": null,
-    "legalEntityId": null,
-    "bookId": null
+  "appliedFinanceMigrations": [
+    {
+      "name": "FinanceScopeFoundations1796000000000",
+      "timestamp": "1796000000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceConfigurationReviews1796100000000",
+      "timestamp": "1796100000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceChartSourceAuthorities1796200000000",
+      "timestamp": "1796200000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceJournalCandidates1796300000000",
+      "timestamp": "1796300000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceApprovalGovernance1796400000000",
+      "timestamp": "1796400000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceEventContractPreviews1796500000000",
+      "timestamp": "1796500000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceIntegrationReliability1796600000000",
+      "timestamp": "1796600000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceOwnedExceptions1796700000000",
+      "timestamp": "1796700000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceQuotationMemoranda1796800000000",
+      "timestamp": "1796800000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceReceivableControls1797000000000",
+      "timestamp": "1797000000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinancePolicyGovernance1797100000000",
+      "timestamp": "1797100000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    },
+    {
+      "name": "FinanceLedgerFoundation1797200000000",
+      "timestamp": "1797200000000",
+      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+      "executionRunId": "20261116075345910_3262c12c",
+      "executedAt": "2026-11-16T07:53:54.639Z"
+    }
+  ],
+  "executionAuthorization": {
+    "runId": "20261116075345910_3262c12c",
+    "status": "EXECUTED_LOCAL_SCHEMA_ONLY",
+    "source": "EXPLICIT_USER_INSTRUCTION",
+    "scope": "LOCAL_DEVELOPMENT_ONLY",
+    "policyApprovalRecorded": false,
+    "policyActivationAuthorized": false
   },
-  "privateHistoricalEvidence": "Retained locally outside Git; exact invoice IDs and header/item hashes must be obtained from the approved private evidence store.",
-  "localBuildVerified": true,
-  "recordedTypeDiagnosticsRemaining": 0,
-  "isolatedRehearsal": {
-    "runId": "20261116071330729_8e51243c",
-    "status": "PASSED_ISOLATED_COPY_ONLY",
-    "evidence": "Migration-Rehearsal-Verification.json",
-    "evidenceSha256": "f49a6eb94704f47c0e5ef3a8e6125f13da9db45027d43f3b62f44e4123df8a44",
-    "sourceUnchanged": true,
-    "scope": "ISOLATED_COPY_ONLY"
+  "localSchemaApplication": {
+    "status": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
+    "evidence": "Local-Migration-Application-Verification.json",
+    "evidenceSha256": "a2c5f7acaf0a6b7b484e573de3debd732db9d64b6e3367da0e21b44f0875e603",
+    "runId": "20261116075345910_3262c12c",
+    "migrationsApplied": 12,
+    "pendingMigrations": 0,
+    "newEmptyFinanceTables": 62,
+    "policiesActivated": 0
   }
 }
