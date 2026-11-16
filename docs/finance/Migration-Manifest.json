@@ -1,5 +1,5 @@
 {
-  "documentId": "IM-FIN-SRS-1.4",
+  "documentId": "IM-FIN-SRS-1.5",
   "date": "2026-11-16",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
@@ -1153,6 +1153,13 @@
     "evidenceSha256": "da30d102fe9d1caa9653784cdae14d42f38560c69a1103f6f5864907468c3c24",
     "readGrants": 1,
     "nonReadGrants": 0,
+    "policyActivationAuthorized": false
+  },
+  "authenticatedDraftReadVerification": {
+    "evidence": "SignIn-Read-Verification.json",
+    "evidenceSha256": "95d47e144a1fc587eed0d3c75b2c91a3b4fc499755d9298253353e5d30ae0c0e",
+    "status": "PASSED_REAL_SIGNIN_AND_FOUNDATION_READ_ONLY_LOCAL_DEVELOPMENT",
+    "accountingPolicyApproval": false,
     "policyActivationAuthorized": false
   }
 }

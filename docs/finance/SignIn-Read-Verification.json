@@ -1,0 +1,176 @@
+{
+  "schema": "FINANCE_SIGNIN_READ_VERIFICATION_V1",
+  "date": "2026-11-16",
+  "timeZone": "Africa/Dar_es_Salaam",
+  "status": "PASSED_REAL_SIGNIN_AND_FOUNDATION_READ_ONLY_LOCAL_DEVELOPMENT",
+  "scope": "New Finance foundation only; existing operational Finance remains governed by unchanged legacy permissions.",
+  "verifiedAt": "2026-11-16T09:40:12.295Z",
+  "authentication": {
+    "userEnteredCredentialsDirectly": true,
+    "normalLoginResponses": [
+      {
+        "status": 201,
+        "at": "2026-11-16T09:40:03.681Z"
+      }
+    ],
+    "matchingConfirmedUserCompanyAndMembership": true,
+    "currentAuthorizationContextHttpStatus": 200,
+    "authorizationVersionMatchedCurrentMembership": true,
+    "normalSessionAndJwtGuardsUsed": true,
+    "authenticationOverrides": 0,
+    "permissionOverrides": 0,
+    "passwordReset": false,
+    "passwordOrCodeCaptured": false,
+    "tokensPublished": false,
+    "temporarySessionLoggedOut": true
+  },
+  "access": {
+    "foundationPermissions": [
+      "finance-foundation:read"
+    ],
+    "exactDraftScopeReadable": true,
+    "emptyDraftDocumentsReadable": true,
+    "crossScopeDenials": [
+      {
+        "name": "Other legalEntityId denied",
+        "passed": true,
+        "status": 403
+      },
+      {
+        "name": "Other bookId denied",
+        "passed": true,
+        "status": 403
+      }
+    ],
+    "blockedActions": [
+      {
+        "name": "Prepare currency context",
+        "passed": true,
+        "status": 403
+      },
+      {
+        "name": "Review document",
+        "passed": true,
+        "status": 403
+      },
+      {
+        "name": "Open period",
+        "passed": true,
+        "status": 403
+      },
+      {
+        "name": "Accept journal",
+        "passed": true,
+        "status": 403
+      },
+      {
+        "name": "Approve release",
+        "passed": true,
+        "status": 403
+      },
+      {
+        "name": "Deploy release",
+        "passed": true,
+        "status": 403
+      },
+      {
+        "name": "Prepare policy",
+        "passed": true,
+        "status": 403
+      },
+      {
+        "name": "Decide or activate policy",
+        "passed": true,
+        "status": 403
+      }
+    ],
+    "unauthenticatedChecks": [
+      {
+        "name": "Unauthenticated scope list",
+        "status": 401,
+        "passed": true
+      },
+      {
+        "name": "Malformed token rejected",
+        "status": 401,
+        "passed": true
+      },
+      {
+        "name": "Unauthenticated policy write rejected",
+        "status": 401,
+        "passed": true
+      }
+    ],
+    "existingInvoiceHeadingObserved": true,
+    "legacyInvoiceUiFullyVerified": false,
+    "optionalUiCheck": "AMBIGUOUS_HEADING_SELECTOR_AFTER_ALL_FOUNDATION_CHECKS_PASSED",
+    "legacyAccountEntirelyReadOnly": false,
+    "legacyWritePermissionsRemain": [
+      "commissions:update",
+      "commissions:settle",
+      "commissions:delete",
+      "refunds:pay",
+      "reconciliation:create",
+      "refunds:approve",
+      "reconciliation:approve",
+      "commissions:approve",
+      "commissions:pay",
+      "refunds:cancel",
+      "invoices:void",
+      "payments:record-manual",
+      "invoices:issue",
+      "receipts:post",
+      "receipts:allocate",
+      "reconciliation:import",
+      "reconciliation:post",
+      "reconciliation:match",
+      "commissions:create",
+      "receipts:reverse",
+      "commissions:reverse",
+      "refunds:request"
+    ],
+    "legacyPermissionsChanged": false,
+    "newFoundationUiImplemented": false
+  },
+  "protection": {
+    "paidInvoiceHeadersAndItemsUnchanged": 4,
+    "allFinanceTablesUnchanged": 70,
+    "protectedSourceRecordsUnchanged": true,
+    "schemasUnchanged": true,
+    "sequencesUnchanged": true,
+    "migrationLedgerUnchanged": 88,
+    "onlyExpectedAuthenticationAndAuditTablesChanged": [
+      "public.audit_logs",
+      "public.company_users",
+      "public.devices",
+      "public.user_sessions",
+      "public.users"
+    ],
+    "unexpectedChangedTables": 0,
+    "policyApprovals": 0,
+    "policyActivations": 0,
+    "activeBooks": 0,
+    "foundationJournals": 0,
+    "deployments": 0
+  },
+  "verificationHost": {
+    "repositoryMainUnchanged": true,
+    "fullAppModule": true,
+    "nativeSchedulerDisabled": true,
+    "backgroundJobs": 0,
+    "realRedisViaLoopbackOnlyTunnel": true,
+    "localDevelopmentOnly": true,
+    "productionVerification": false
+  },
+  "remainingGaps": [
+    "The confirmed admin account retains legacy operational Finance write permissions. New foundation READ-only access does not make the whole account read-only; any restriction needs a separately approved access change that preserves business continuity.",
+    "The web app has existing operational Finance screens but no new foundation draft-book workspace or navigation/API client integration. The new foundation was verified through real authenticated HTTP calls using the normal web API client.",
+    "G04 remains partial: a different real preparer/checker, company legal-source evidence, independently reviewed functional currency/basis/chart/calendar/taxes and actual policy decisions are unresolved.",
+    "All 70 policy proposals and 126 inherited decisions remain unapproved and inactive. Real source workers, opening balances, B45 financial/company acceptance, cutover and extraction remain outside this sign-in verification."
+  ],
+  "optionalUiVerification": "All foundation checks passed before the optional legacy invoice heading selector matched both a navigation heading and the page title. The original runner failure is retained; complete legacy invoice UI verification is not claimed.",
+  "checkerCorrection": "The first verifier expected only HTTP 200 for login. Nest returns HTTP 201 for this POST; the temporary session was logged out. The corrected verifier accepted successful 2xx responses and reran after a fresh user sign-in. No application authentication code was changed.",
+  "applicationCodeChanged": false,
+  "newFullBuildOr2996TestRerun": false,
+  "sourceCodeFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f"
+}

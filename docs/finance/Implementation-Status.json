@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.4",
+  "version": "1.5",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -1844,6 +1844,11 @@
     "nonReadAuthorities": 0,
     "independentCheckerAssigned": false,
     "policyApprovals": 0,
-    "policyActivations": 0
+    "policyActivations": 0,
+    "authenticatedAccessEvidence": "SignIn-Read-Verification.json",
+    "realSignInVerified": true,
+    "foundationReadOnlyHttpVerified": true,
+    "legacyAccountEntirelyReadOnly": false,
+    "newFoundationUiImplemented": false
   }
 }

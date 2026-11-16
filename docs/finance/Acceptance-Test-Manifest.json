@@ -4449,9 +4449,12 @@
   "localDraftReadSetup": {
     "status": "PARTIAL_G04_DRAFT_READ_ONLY_VERIFIED_LOCAL_DEVELOPMENT",
     "evidence": "G04-Draft-Read-Verification.json",
-    "realHttpLoginTested": false,
+    "realHttpLoginTested": true,
     "formalCompanyAcceptance": false,
     "policiesApproved": 0,
-    "policiesActivated": 0
+    "policiesActivated": 0,
+    "authenticatedAccessEvidence": "SignIn-Read-Verification.json",
+    "legacyAccountEntirelyReadOnly": false,
+    "newFoundationUiImplemented": false
   }
 }

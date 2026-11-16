@@ -6,7 +6,7 @@ Insurance Max requires a complete, independent Finance Service that owns financi
 
 The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
-**Document control:** IM-FIN-SRS-1.4; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
+**Document control:** IM-FIN-SRS-1.5; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
 
 ## Current implementation at a glance
 
@@ -16,7 +16,7 @@ The financial foundation and inactive quotation and receivables control slices a
 | B13 quotation memorandum and tax correction | Implemented inactive control slice; existing invoice tax breakdown corrected using shared calculation | Actual recognition, tax and operational Finance activation |
 | B14 receipts and receivables | Inactive ownership, capacity, assignment, ageing and reconciliation controls implemented | Actual source/ bank reconciliation and legal discharge; B15 outgoing cash |
 | B43 currencies and B44 ledger reports | Persistent reviewed currency/rate evidence, canonical journals and reconciled ledger/report APIs implemented | Approved actual scope, certified opening and explicit release |
-| B45 foundation acceptance | Technical framework and automated tests passed; formal company acceptance pending | Current company-admin decisions, real authentication and source/worker/financial acceptance |
+| B45 foundation acceptance | Technical framework and automated tests passed; formal company acceptance pending | Company decisions and source/worker/financial acceptance; local real sign-in and foundation HTTP access checks passed |
 | Policies | 70 proposed policies across 33 modules and 126 inherited decision or acceptance items | 0 actual company approvals or activations in the verified development baseline |
 | B15 and remaining operational Finance | Not started or partial only as individually listed below | Implement approved outgoing cash and remaining domain adapters incrementally |
 | IFRS 17 and IFRS 9 engines | Not implemented as complete independent measurement subsystems | Model scope, data, certified calculations, approvals and one-time Finance movement bridge |
@@ -1504,13 +1504,23 @@ The schema-only run did not establish an approved financial opening or provision
 
 One confirmed company-admin account now has access to a DRAFT legal entity and DRAFT accounting book in local development. The READ binding, READ authority and READ_DRAFT membership are valid for seven days, ending **23 November 2026 at 12:09 EAT**. Only that company membership received the existing scoped read permission. Its authorization version increased once; sign in again to refresh access. No company role or other account was changed.
 
-Existing identity, scope and ledger services verified exact-scope reads. PREPARE, REVIEW, ACCEPT, RELEASE, validation/live period creation and other-book/company access were denied. The unconfirmed test member has no Finance access. These are internal service and persistence checks; real browser sign-in and HTTP/SSO remain to be tested.
+Existing identity, scope and ledger services verified exact-scope reads. PREPARE, REVIEW, ACCEPT, RELEASE, validation/live period creation and other-book/company access were denied. The unconfirmed test member has no Finance access. These were the initial service and persistence checks. Subsequent real browser sign-in and authenticated HTTP verification are recorded in the following section; no external SSO provider was tested.
 
 The eight changed tables match the explicit metadata/access allowlist; all other 344 tables, every schema, all sequences, the 88-entry migration ledger, all four protected paid invoice headers/items, the tax catalogue and three legacy accounts are unchanged. A fresh encrypted backup was integrity-checked before commit. No financial records were posted, regenerated or corrected.
 
 G04 remains **partial**. A different real preparer/checker is unassigned. TIRA licence, TIN and BRELA evidence is missing from the company master. Accounting basis, functional-currency assessment, calendar, chart release and presentation context remain null. No policy authority, policy version, approval, activation, accounting period, opening, journal, source map or release was created. All 70 policies and 126 decisions still require scoped review. No regulatory or tax conclusion is made by this setup.
 
 The Finance schema now contains draft and authority evidence. The earlier empty-schema down-rehearsal does not authorize destructive rollback of the current source. Preserve history and revoke access or use reviewed forward repair. Full B45 company acceptance, configuration and cutover remain pending. See [G04 draft read verification](G04-Draft-Read-Verification.json) for sanitized evidence; the company-specific review pack remains private outside Git.
+
+## Real sign-in and read-only foundation verification
+
+A fresh user-entered browser sign-in to the unchanged application reached the confirmed company membership. The normal authorization-context endpoint returned 200 and the expected company scope. The application used its real session/JWT and permission guards with no authentication or permission substitutes. The temporary verification host ran the unchanged main/AppModule with only native job scheduling disabled, using the real local Redis through a loopback tunnel. This is local verification, not production acceptance or external SSO certification.
+
+The exact DRAFT scope and empty document list returned 200. Other-book and other-entity reads returned 403. Eight authenticated preparation, review, period, journal-acceptance, release, deployment and policy-decision requests returned 403. Three unauthenticated/malformed-token checks returned 401. No financial action was executed. The legacy invoice page title was observed, but its optional UI check failed on an ambiguous heading selector; complete legacy invoice UI verification is not claimed. No invoice was opened or changed. The temporary session was logged out after verification.
+
+**Read-only applies to the new Finance foundation.** The existing insurer-admin role still has operational invoice, receipt, payment, commission, refund and reconciliation write permissions. Those permissions were preserved. This verification does not certify that the entire account is read-only. The web app also lacks a new foundation draft-book workspace; its foundation APIs were checked using the signed-in web API client. A separately approved access/UI change is needed before claiming an entirely read-only Finance user experience.
+
+All 70 Finance tables, all four protected paid invoice headers/items, protected business source records, every schema/sequence and the 88-entry migration ledger remained unchanged. Only normal authentication/audit records changed. Policies, periods, journals and deployments remain inactive/empty. G04, independent preparer/checker assignment, legal/configuration review, company policy decisions and later financial acceptance remain outstanding. See [sign-in verification](SignIn-Read-Verification.json).
 
 ## Company admin review pack
 
@@ -1726,6 +1736,7 @@ This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 1
 
 | Artifact | Purpose |
 | --- | --- |
+| [Sign-in Read Verification](SignIn-Read-Verification.json) | Real local sign-in, foundation read/denial checks, historical protection and legacy/UI limitations. |
 | [G04 Draft Read Verification](G04-Draft-Read-Verification.json) | Local draft access, negative authority checks, unchanged financial records and remaining G04 blockers. |
 | [Implementation Status](Implementation-Status.json) | Machine-readable phase, step, module and submodule status. |
 | [Migration Manifest](Migration-Manifest.json) | Exact code/migration fingerprints, twelve applied Finance migrations and zero pending migrations; authorization is bounded to the completed local schema-only run. |
