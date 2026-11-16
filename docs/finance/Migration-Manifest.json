@@ -1,10 +1,10 @@
 {
-  "documentId": "IM-FIN-SRS-1.11",
+  "documentId": "IM-FIN-SRS-1.12",
   "date": "2026-11-16",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
-  "baseCommit": "328e3a6d1ae75b58186bc452e5778c779c73b10e",
-  "sourceCodeFingerprint": "5f6d5097f8e4a73f84faa7418d90f68fa0a9a6a51b057562f913042513e92cb2",
+  "baseCommit": "62b4287ff3e900e48b26a916c517c41678240207",
+  "sourceCodeFingerprint": "462992a3628f91f1ea244a6fb1bdf226f01f15cfb8594ad23db663ef7652d6d6",
   "sourceCodeFiles": [
     {
       "file": "apps/insurance-portal-service/src/database/migrations/1796000000000-FinanceScopeFoundations.ts",
@@ -74,6 +74,11 @@
     {
       "file": "apps/insurance-portal-service/src/database/migrations/1797400000000-FinanceSetupReviews.ts",
       "sha256": "c74b17dc21dafdb5059c3fe1b28dba5c9cb22ea5b29e67689a6d6d5a737de072",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/database/migrations/1797500000000-FinanceOutgoingCashControls.ts",
+      "sha256": "d2742c250dc10b2ccbb2554ded1562472e05982a13bee7637ac00fdf415aa3f2",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -278,7 +283,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-foundation.module.ts",
-      "sha256": "e986485e240a50e2381489c3e32dede0fc53c8a8f7b6bf45fdd95538c224bb0c",
+      "sha256": "30c425469f97679fb984cce01f4ed73cadeba90a3cbacc09b2b472ef5e872e10",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -349,6 +354,21 @@
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-operations.types.ts",
       "sha256": "eb40fbc45112a86c1827f7b8ba2851a9ece71c654aa9ee1f6060c29c50a97c2c",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-outgoing.service.ts",
+      "sha256": "9d67344c7cee563b5286158f178af778ac323dee3dfcc9dc0219e136ad472186",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-outgoing.types.spec.ts",
+      "sha256": "54fbe934839e3d844f1c64946af6ea378a4e61bc045102c24ee3050698fc2805",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-outgoing.types.ts",
+      "sha256": "1de0b6e6a6e7074fb09aee27996eca79ae21526ac5c9d977bd5f373f2bbe8d46",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -697,6 +717,11 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/test/finance/finance-outgoing.finance-integration.ts",
+      "sha256": "246ea6dc3dda72c58cd19267a84af947c5e02ac01ae9a2651cb5e65e042db846",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/test/finance/finance-policy-governance.finance-integration.ts",
       "sha256": "583bfed0550c82f80eaad238cf74f44ab8571a87457ace28168dfbc3076e772e",
       "hashEncoding": "UTF8_LF"
@@ -754,6 +779,11 @@
     {
       "file": "apps/insurance-portal-service/test/support/finance-operations-fixture.ts",
       "sha256": "49efb180ecd688f4f3e2dbb3cf53dbc297c80747656a73f2e8b736f667f51691",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/test/support/finance-outgoing-fixture.ts",
+      "sha256": "eaf8eed2e57715d8d2a9049967080d057d8099e28c8161cc6fa28995c643eb73",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -909,8 +939,30 @@
     "timestamp": "1796900000000",
     "mustNotReapply": true
   },
-  "pendingMigrations": [],
-  "executionAuthorized": true,
+  "pendingMigrations": [
+    {
+      "order": 14,
+      "file": "apps/insurance-portal-service/src/database/migrations/1797500000000-FinanceOutgoingCashControls.ts",
+      "name": "FinanceOutgoingCashControls1797500000000",
+      "timestamp": "1797500000000",
+      "sha256": "d2742c250dc10b2ccbb2554ded1562472e05982a13bee7637ac00fdf415aa3f2",
+      "hashEncoding": "UTF8_LF",
+      "createdTables": [
+        "finance_outgoing_authorities",
+        "finance_outgoing_evidence",
+        "finance_outgoing_aliases",
+        "finance_outgoing_intents",
+        "finance_outgoing_events",
+        "finance_outgoing_calls",
+        "finance_outgoing_observations",
+        "finance_outgoing_audits"
+      ],
+      "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
+      "executionAuthorized": false,
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
+    }
+  ],
+  "executionAuthorized": false,
   "activationAuthorized": false,
   "historyCorrectionAuthorized": false,
   "targetScope": {
@@ -1202,6 +1254,27 @@
       "executedAt": "2026-11-16T15:28:32.667Z",
       "schemaExecutionAuthorization": "EXPLICIT_USER_G04_IMPLEMENTATION_LOCAL_DEVELOPMENT",
       "companyAccountingPolicyApproval": "NOT_RECEIVED"
+    },
+    {
+      "order": 14,
+      "file": "apps/insurance-portal-service/src/database/migrations/1797500000000-FinanceOutgoingCashControls.ts",
+      "name": "FinanceOutgoingCashControls1797500000000",
+      "timestamp": "1797500000000",
+      "sha256": "d2742c250dc10b2ccbb2554ded1562472e05982a13bee7637ac00fdf415aa3f2",
+      "hashEncoding": "UTF8_LF",
+      "createdTables": [
+        "finance_outgoing_authorities",
+        "finance_outgoing_evidence",
+        "finance_outgoing_aliases",
+        "finance_outgoing_intents",
+        "finance_outgoing_events",
+        "finance_outgoing_calls",
+        "finance_outgoing_observations",
+        "finance_outgoing_audits"
+      ],
+      "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
+      "executionAuthorized": false,
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     }
   ],
   "appliedFinanceMigrations": [
@@ -1382,5 +1455,21 @@
     "companyDrafts": 10,
     "companyStepsReviewed": 0,
     "policyActivationAuthorized": false
+  },
+  "pendingMigrationExecutionAuthorized": false,
+  "inactiveOutgoingControls": {
+    "priorImplementationBaseline": {
+      "sourceCodeFingerprint": "5f6d5097f8e4a73f84faa7418d90f68fa0a9a6a51b057562f913042513e92cb2",
+      "sourceFileCount": 179,
+      "sourceCodeFilesAtCommit": "62b4287ff3e900e48b26a916c517c41678240207",
+      "purpose": "Frozen G04 implementation baseline; source migration and G04 evidence retain their original scope."
+    },
+    "evidence": "B15-Verification.json",
+    "evidenceSha256": "5c969827ff56c30435075c99b49177a6c4f6484c8b8c8f0306e1ba372dc826c8",
+    "sourceCodeFingerprint": "462992a3628f91f1ea244a6fb1bdf226f01f15cfb8594ad23db663ef7652d6d6",
+    "sourceFileCount": 185,
+    "newMigrationAppliedToSource": false,
+    "newCompanyGrants": 0,
+    "policiesActivated": 0
   }
 }

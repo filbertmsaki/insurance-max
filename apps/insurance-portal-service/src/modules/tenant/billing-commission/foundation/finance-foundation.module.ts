@@ -21,6 +21,8 @@ import { FinanceQuotationBillingService } from './finance-quotation-billing.serv
 import { FinanceReceivablesService } from './finance-receivables.service';
 import { FinancePolicyService } from './finance-policy.service';
 import { FinanceLedgerFoundationService } from './finance-ledger-foundation.service';
+import { FinanceOutgoingService } from './finance-outgoing.service';
+import { OUTGOING_SIMULATORS } from './finance-outgoing.types';
 
 /** Versioned foundations; the company adapter is registered by BillingCommissionModule. Importing this module never grants access, activates a policy or enables posting. */
 @Module({
@@ -37,6 +39,8 @@ import { FinanceLedgerFoundationService } from './finance-ledger-foundation.serv
     ]),
   ],
   providers: [
+    FinanceOutgoingService,
+    { provide: OUTGOING_SIMULATORS, useValue: Object.freeze([]) },
     FinanceLedgerFoundationService,
     FinancePolicyService,
     FinanceReceivablesService,
@@ -52,6 +56,7 @@ import { FinanceLedgerFoundationService } from './finance-ledger-foundation.serv
     FinanceJournalCandidateService,
   ],
   exports: [
+    FinanceOutgoingService,
     FinanceLedgerFoundationService,
     FinancePolicyService,
     FinanceReceivablesService,
