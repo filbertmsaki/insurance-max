@@ -32,6 +32,7 @@ import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
 import { TaxesService } from '../taxes/taxes.service';
+import { FinanceCommandService } from '../billing-commission/services/finance-command.service';
 
 describe('QuotationsService', () => {
   const productDefinitionHashService = new ProductDefinitionHashService();
@@ -705,6 +706,12 @@ describe('QuotationsService', () => {
     const quotationInvoiceService = {
       createOrReuseQuotationInvoice: jest.fn(),
     } as any;
+    const financeCommandService = {
+      voidInvoice: jest.fn(),
+      issue: jest.fn(),
+      recordManualPayment: jest.fn(),
+      postReceipt: jest.fn(),
+    } as unknown as FinanceCommandService;
     const nonMotorRiskService = {
       assertCompleteForFinalize: jest.fn().mockResolvedValue(undefined),
       assertDocumentsCompleteForFinalize: jest
@@ -739,6 +746,7 @@ describe('QuotationsService', () => {
       {
         next: jest.fn().mockResolvedValue('FLT-2026-00001'),
       } as any,
+      financeCommandService,
     );
 
     return {
@@ -1321,7 +1329,7 @@ describe('QuotationsService', () => {
       { permissions: [] },
     );
 
-    expect(result.overview.customer_id).toBeUndefined();
+    expect(result.overview).not.toHaveProperty('customer_id');
     expect(result.overview.quotation_id).toBe(fixture.quotation.id);
     expect(result.policyholders).toHaveLength(1);
     expect(result.policyholders[0].full_name).toBe('John Mushi');

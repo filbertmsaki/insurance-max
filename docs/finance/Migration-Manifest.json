@@ -1,10 +1,10 @@
 {
-  "documentId": "IM-FIN-SRS-1.0",
+  "documentId": "IM-FIN-SRS-1.1",
   "date": "2026-11-16",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
-  "baseCommit": "aebdf293bdbd68bd37470cde6e9bd5ad4fa3ab0d",
-  "sourceCodeFingerprint": "1da48cd8faf98867d2b7906f307d57736cdd1debb3d7a680520b1969f84afb1e",
+  "baseCommit": "6191145da126998c1aaddee2a87066c0545b6ea3",
+  "sourceCodeFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
   "sourceCodeFiles": [
     {
       "file": "apps/insurance-portal-service/src/database/migrations/1796000000000-FinanceScopeFoundations.ts",
@@ -498,7 +498,7 @@
     },
     {
       "file": "apps/insurance-portal-service/test/finance/finance-receivables.finance-integration.ts",
-      "sha256": "1c4e815abea6f199bbdc4cff157b9a737eb790fbf62c1f6a56cb57982c6c5ee8",
+      "sha256": "c657d42a2941d73056535e8f59f1b808ec07526823387eb94401efb93bc27545",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -698,7 +698,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/quotations/quotations.service.spec.ts",
-      "sha256": "58d60f2511b781172692e5f96b76d0bf52ed660690b5f24ce400e5b00427018e",
+      "sha256": "a00ff0d9991a4c9ed6ec8b8135276d439e10a753839db76721d6e6332faf31a2",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -739,6 +739,21 @@
     {
       "file": "apps/insurance-portal-web/src/modules/tenant/taxes/api.ts",
       "sha256": "98dd7a8844741c806dccc55b19971442d3155accf62114312e6fd0326e9ae97d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/quotations/testing/quotation-payload.fixture.ts",
+      "sha256": "603fb7075b3eb74ef4b7d9004a307d588a6ae638dc4a3bb0d8abbdba94f034ec",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/services/endorsement-reconciliation.service.ts",
+      "sha256": "70c40d99096c140e334508947618de200fc47cee0259877b4c8af092e6c89c87",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-web/src/modules/shared/meta/route-titles.ts",
+      "sha256": "95cab52e58ec42fc3adbe384afda0734849dc256ba78d6c90e0287589c4cdb6f",
       "hashEncoding": "UTF8_LF"
     }
   ],
@@ -968,5 +983,7 @@
     "legalEntityId": null,
     "bookId": null
   },
-  "privateHistoricalEvidence": "Retained locally outside Git; exact invoice IDs and header/item hashes must be obtained from the approved private evidence store."
+  "privateHistoricalEvidence": "Retained locally outside Git; exact invoice IDs and header/item hashes must be obtained from the approved private evidence store.",
+  "localBuildVerified": true,
+  "recordedTypeDiagnosticsRemaining": 0
 }

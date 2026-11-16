@@ -6,7 +6,7 @@ Insurance Max requires a complete, independent Finance Service that owns financi
 
 The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
-**Document control:** IM-FIN-SRS-1.0; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.
+**Document control:** IM-FIN-SRS-1.1; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.
 
 ## Current implementation at a glance
 
@@ -1447,20 +1447,22 @@ Future public obligations, outgoing payment/reservation, supplier, claims-accoun
 
 ## Verification results and remaining acceptance
 
+The 17 recorded pre-existing diagnostics are resolved. The fixes update test fixture contracts and export an existing public result type. The complete frontend run also identified a missing quotation-approval settings page title, which is now registered and reverified. Three Finance integration cases now derive their synthetic reporting dates from the database UTC clock rather than a fixed 15 November cutoff, preserving the exact 31-day ageing assertion and the production historical-evidence guard. Accounting rules, tax calculations, posting activation and database state remain unchanged.
+
 | Verification | Result |
 | --- | --- |
-| Unit tests | 603 passed across 39 suites. |
-| Private PostgreSQL integration tests | 264 passed across 14 suites. |
-| Total | 867 passed; all earlier 558 unit and 231 database cases retained. |
-| Type checking | No new scoped diagnostics; 17 pre-existing diagnostics remain. A clean full-project build is not claimed. |
-| Patch verification | The B43 to B45 patch was applied and exactly reconstructed in an owned temporary checkout. |
-| Historical protection | Read-only checks confirm four protected paid invoice headers/items and the three retained legacy accounts remain unchanged. |
-| Actual company acceptance | Not granted; no real policy activation, foundation migration or book deployment performed. |
+| Original source and test type roots plus repaired contracts | 129 roots checked with strict null and declaration checks retained; zero diagnostics. |
+| Full local build | npm run build:all passed for TIRAMIS, insurance-portal-service and insurance-portal-web. |
+| Complete backend unit suite | 2197 passed across 267 suites; 0 failed. |
+| Complete frontend suite | 535 passed across 77 files. |
+| Private PostgreSQL Finance suite | 264 passed across 14 suites; owned test cluster stopped. |
+| Earlier Finance evidence cohort | All 867 prior Finance cases were found passing in the broader backend and database results. These are included in the totals above and must not be counted twice. |
+| Historical protection | Read-only verification confirms four protected paid invoices and three legacy accounts unchanged; no company policy activation or development migration. |
+| Actual company acceptance | Not granted; company policy decisions, real environment evidence and controlled cutover approval remain outstanding. |
 
+The exact type-repair changes, build result, test totals and limits are in [Type Repair Verification](Type-Repair-Verification.json). The updated [Acceptance Test Manifest](Acceptance-Test-Manifest.json) retains the original Finance case identities and records the broader regression outcome. The migration manifest fingerprints the current source with canonical UTF8 LF encoding.
 
-The acceptance manifest records the exact prior test cases and source fingerprint in [Acceptance Test Manifest](Acceptance-Test-Manifest.json). Documentation preparation checks that the tested implementation source files are unchanged; it does not reinterpret those results as a new production or regulatory test.
-
-Mandatory remaining evidence includes the actual full-history upgrade, actual company authentication and permission path, complete scope/source/bank/open-item reconciliation, real producer and worker compatibility, backup and financial restore, security/capacity outcomes, current legal and tax evidence, specialist model certification where applicable and explicit company-admin acceptance. Unchanged frontend tests were not rerun in the B43 to B45 backend acceptance run.
+Mandatory remaining evidence includes the actual full-history restored-clone upgrade, actual company authentication and permission path, complete scope/source/bank/open-item reconciliation, real producer and worker compatibility, backup and financial restore, security/capacity outcomes, current legal and tax evidence, specialist model certification where applicable and explicit company-admin acceptance. A local successful build and test run is not migration or policy-activation approval. The frontend bundle-size advisory remains; it did not fail the build.
 
 ## Company admin review pack
 
@@ -1503,7 +1505,7 @@ The following gates are proposed for review, with no execution permission record
 - Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The current ledger contains 76 entries; 12 Finance migrations are pending.
 - The applied tax-evidence migration 1796900000000 is newer than several pending Finance migrations. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.
 - The current TypeORM CLI discovers all pending files. Run it only against a reviewed immutable artifact whose pending set equals the exact 12-file allowlist; otherwise stop. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.
-- Resolve or explicitly review the 17 pre-existing build/type diagnostics, and obtain the actual environment build/CI results. Scoped no-new-error evidence is not a clean release build.
+- The 17 recorded diagnostics are resolved and the full local build passes. Obtain independently reviewed target-environment build/CI results for the pinned artifact; local build success does not establish a restored-clone migration or company release.
 
 **Exit evidence:** Approved immutable artifact, exact pending set, target identity and deployment-only authorization recorded.
 
@@ -1657,7 +1659,7 @@ B42 retirement applies only to paths with accepted replacements and post-extract
 | --- | --- |
 | 70 policies and 126 choices | Review actual applicability, exact treatment, evidence and independent company-admin decision. Do not invent a resolved status. |
 | Company scope and people | Actual IDs, assignments, mandates, activation dates and currencies remain unset. |
-| Build and full history upgrade | 17 pre-existing diagnostics and unperformed full application restored-clone migration require release disposition and actual evidence. |
+| Build and full history upgrade | The recorded type diagnostics are resolved and the full local build passes. Full-history restored-clone migration and target-environment release evidence remain outstanding. |
 | Tax and statutory requirements | Rates, exemptions, levy bases, lawful currency use, deadlines and reporting rules require current competent company-specific evidence; no rate or legal conclusion is selected by this SRS. |
 | Model and impairment decisions | PAA/GMM/held eligibility, assumptions, CSM/LIC/LRC, discount/risk/OCI and IFRS 9 scope remain future certified implementation and approval. |
 | Historical paid tax exceptions | Keep originals unchanged and use the private exception register. Any correction is a separate authorized plan. |
@@ -1680,4 +1682,4 @@ This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 1
 | [Company Admin Review](company-admin/PLATFORM_TEMPLATE-Review.html) | Separate platform and business-profile policy and decision review sheets with blank actual approval fields. |
 
 
-Repository baseline for the implemented code is aebdf293bdbd68bd37470cde6e9bd5ad4fa3ab0d. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.
+The reviewed Finance baseline before this type repair is 6191145da126998c1aaddee2a87066c0545b6ea3. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.

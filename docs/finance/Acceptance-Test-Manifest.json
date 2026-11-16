@@ -1,7 +1,7 @@
 {
   "date": "2026-11-16",
-  "kind": "PRIOR_VERIFIED_EXECUTION_UNCHANGED_CODE",
-  "sourceFingerprint": "1da48cd8faf98867d2b7906f307d57736cdd1debb3d7a680520b1969f84afb1e",
+  "kind": "REVERIFIED_AFTER_TYPE_REPAIR",
+  "sourceFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
   "unit": {
     "passed": 603,
     "suites": 39,
@@ -69,9 +69,9 @@
   },
   "totalPassed": 867,
   "newTypeErrors": 0,
-  "preExistingTypeErrors": 17,
+  "preExistingTypeErrors": 0,
   "allEarlierCasesRetained": true,
-  "fullApplicationBuildCertified": false,
+  "fullApplicationBuildCertified": true,
   "realCompanyAuthAcceptance": false,
   "actualFullHistoryUpgradeRehearsed": false,
   "realCompanyFormalAcceptance": false,
@@ -4414,5 +4414,32 @@
       "name": "Finance isolated PostgreSQL fixture readiness (B03) FD04 removes its owned database even when the fixture callback fails",
       "status": "passed"
     }
-  ]
+  ],
+  "fullApplicationBuildCertificationScope": "LOCAL_BUILD_ONLY",
+  "priorResolvedTypeErrors": 17,
+  "broaderRegression": {
+    "backend": {
+      "passed": 2197,
+      "failed": 0,
+      "suites": 267,
+      "pending": 0
+    },
+    "frontend": {
+      "passed": 535,
+      "suites": 77,
+      "success": true
+    },
+    "privatePostgres": {
+      "passed": 264,
+      "suites": 14,
+      "success": true,
+      "clusterStopped": true
+    },
+    "earlierFinanceCohort": {
+      "passed": 867,
+      "allCasesRetained": true
+    },
+    "distinctBackendFrontendPostgresTotal": 2996
+  },
+  "typeRepairEvidence": "Type-Repair-Verification.json"
 }

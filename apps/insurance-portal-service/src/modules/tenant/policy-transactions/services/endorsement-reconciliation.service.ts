@@ -16,7 +16,7 @@ import { PolicyTransactionApplyService } from './policy-transaction-apply.servic
 import { PolicyTransactionReturnPremiumService } from './policy-transaction-return-premium.service';
 import { DataSource } from 'typeorm';
 
-interface ReconciliationIssue {
+export interface ReconciliationIssue {
   code: string;
   message: string;
   repairable: boolean;

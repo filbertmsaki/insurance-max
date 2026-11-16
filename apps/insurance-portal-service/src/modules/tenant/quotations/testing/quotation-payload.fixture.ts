@@ -3,7 +3,14 @@ import { CreateQuotationDto } from '../dto/quotation-payload.dto';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
 
-export function createNonMotorQuotationPayload(): CreateQuotationDto {
+type PayloadWithRequiredDetail<
+  K extends keyof CreateQuotationDto['cover_note_dtl'],
+> = CreateQuotationDto & {
+  cover_note_dtl: CreateQuotationDto['cover_note_dtl'] &
+    Required<Pick<CreateQuotationDto['cover_note_dtl'], K>>;
+};
+
+export function createNonMotorQuotationPayload(): PayloadWithRequiredDetail<'risks_covered'> {
   return {
     internal_quotation: {
       insurer_company_id: '0c3e98f1-d5c2-4caf-a23c-b7bc889979d6',
@@ -125,7 +132,7 @@ export function createNonMotorQuotationPayload(): CreateQuotationDto {
   };
 }
 
-export function createMotorSingleQuotationPayload(): CreateQuotationDto {
+export function createMotorSingleQuotationPayload(): PayloadWithRequiredDetail<'risks_covered'> {
   const payload = createNonMotorQuotationPayload();
 
   payload.internal_quotation.quotation_type = QuotationType.MOTOR;
@@ -148,7 +155,7 @@ export function createMotorSingleQuotationPayload(): CreateQuotationDto {
   return payload;
 }
 
-export function createMotorFleetQuotationPayload(): CreateQuotationDto {
+export function createMotorFleetQuotationPayload(): PayloadWithRequiredDetail<'fleet_dtls'> {
   return {
     internal_quotation: {
       insurer_company_id: '0c3e98f1-d5c2-4caf-a23c-b7bc889979d6',

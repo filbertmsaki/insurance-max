@@ -1,5 +1,5 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "date": "2026-11-16",
   "status": "PREPARED_FOR_REVIEW_NOT_EXECUTED",
   "companyScope": {
@@ -194,7 +194,7 @@
         "Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The current ledger contains 76 entries; 12 Finance migrations are pending.",
         "The applied tax-evidence migration 1796900000000 is newer than several pending Finance migrations. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.",
         "The current TypeORM CLI discovers all pending files. Run it only against a reviewed immutable artifact whose pending set equals the exact 12-file allowlist; otherwise stop. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.",
-        "Resolve or explicitly review the 17 pre-existing build/type diagnostics, and obtain the actual environment build/CI results. Scoped no-new-error evidence is not a clean release build."
+        "The 17 recorded diagnostics are resolved and the full local build passes. Obtain independently reviewed target-environment CI/build evidence for the pinned artifact; local success does not certify the full-history clone upgrade or company release."
       ],
       "exit": "Approved immutable artifact, exact pending set, target identity and deployment-only authorization recorded.",
       "rollback": "Discard the unapproved artifact; no database action.",
@@ -354,5 +354,6 @@
   "cutoverTimestamp": null,
   "aftercareWindow": null,
   "livePoliciesActivated": 0,
-  "historicalPaidInvoicesEditable": false
+  "historicalPaidInvoicesEditable": false,
+  "typeRepairVerification": "Type-Repair-Verification.json"
 }

@@ -1,10 +1,20 @@
 import { randomUUID } from 'node:crypto';
+import type { DataSource } from 'typeorm';
 import { withReceivableDatabase } from '../support/finance-receivables-fixture';
 import { withFinanceTestDatabase } from '../support/finance-test-database';
 import { FinanceReceivableControls1797000000000 } from '../../src/database/migrations/1797000000000-FinanceReceivableControls';
 import { financeConfigurationHash as hash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
 import type { TermsEvidence } from '../../src/modules/tenant/billing-commission/foundation/finance-receivables.types';
 const db = withReceivableDatabase;
+
+async function reportDates(source: DataSource) {
+  // Include evidence captured during this test even across a UTC midnight.
+  // Derive both dates together so the expected 31-day ageing stays fixed.
+  const [dates]: { as_of: string; due_date: string }[] = await source.query(
+    "SELECT ((statement_timestamp() AT TIME ZONE 'UTC')::date+1)::text AS as_of,((statement_timestamp() AT TIME ZONE 'UTC')::date-30)::text AS due_date",
+  );
+  return dates;
+}
 describe('B14 inactive receipt ownership, assignment, ageing and reconciliation on owned PostgreSQL', () => {
   it('RC01 creates only empty registries and safely rolls an unused migration back', async () => {
     await withFinanceTestDatabase(
@@ -236,6 +246,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
   it('RC08 prevents two receipts from consuming the same billing capacity', async () => {
     await db(async (f) => {
       const c = await f.ready(),
+        dates = await reportDates(f.source),
         snap = { ...f.receipt(), customerId: c.snap.customerId },
         second = await f.observe(snap);
       const other = { ...c, ...second };
@@ -249,7 +260,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readBillingAgeing(f.checker, f.scope(), {
             ...f.profile(),
             memoId: c.bill.memo.id,
-            asOf: '2026-11-15',
+            asOf: dates.as_of,
           })
         ).available,
       ).toBe('38.000000000000');
@@ -426,11 +437,12 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
   it('RC14 ages from independently reviewed signed due dates and never invents credit terms', async () => {
     await db(async (f) => {
       const c = await f.ready(),
+        dates = await reportDates(f.source),
         view = () =>
           f.receivables.readBillingAgeing(f.checker, f.scope(), {
             ...f.profile(),
             memoId: c.bill.memo.id,
-            asOf: '2026-11-15',
+            asOf: dates.as_of,
           });
       expect((await view()).bucket).toBe('DUE_DATE_EVIDENCE_REQUIRED');
       const terms: TermsEvidence = {
@@ -445,7 +457,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
         customerId: c.snap.customerId,
         currency: 'USD',
         decimalScale: 2,
-        dueDate: '2026-10-15',
+        dueDate: dates.due_date,
       };
       const accepted = await f.postEvidence(terms),
         input = { ...accepted.input(), commandKey: randomUUID() };
@@ -468,7 +480,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       expect((await view()).bucket).toBe('DUE_DATE_EVIDENCE_REQUIRED');
       await f.review(request);
       expect(await view()).toMatchObject({
-        dueDate: '2026-10-15',
+        dueDate: dates.due_date,
         daysPastDue: 31,
         bucket: 'UP_TO_60',
         legalReceivableScope: 'UNASSIGNED_HELD',
@@ -701,6 +713,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
   it('RC22 late billing reductions remain negative held positions and stale prior reconciliations', async () => {
     await db(async (f) => {
       const c = await f.ready(),
+        dates = await reportDates(f.source),
         a = await f.assign(c);
       await f.review(a);
       const pos = await f.receivables.readReceipt(
@@ -747,7 +760,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
         await f.receivables.readBillingAgeing(f.checker, f.scope(), {
           ...f.profile(),
           memoId: memo.id,
-          asOf: '2026-11-15',
+          asOf: dates.as_of,
         }),
       ).toMatchObject({ remaining: '-30.000000000000' });
       expect(
@@ -779,7 +792,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readBillingAgeing(f.checker, f.scope(), {
             ...f.profile(),
             memoId: memo.id,
-            asOf: '2026-11-15',
+            asOf: dates.as_of,
           })
         ).remaining,
       ).toBe('-15.000000000000');

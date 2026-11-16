@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.0",
+  "version": "1.1",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -1801,5 +1801,8 @@
   "companyPolicyApprovals": 0,
   "companyPolicyActivations": 0,
   "b15": "NOT_STARTED",
-  "independentServiceExtracted": false
+  "independentServiceExtracted": false,
+  "typeRepairVerification": "Type-Repair-Verification.json",
+  "remainingRecordedTypeErrors": 0,
+  "localFullBuildPassed": true
 }
