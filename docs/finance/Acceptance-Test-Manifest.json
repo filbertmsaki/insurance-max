@@ -4481,5 +4481,19 @@
     "applicationCodeChanged": false,
     "newBuildOrFullSuiteRerun": false,
     "companyFormalAcceptanceGranted": false
+  },
+  "controlledDocumentDetail": {
+    "status": "PASSED_REAL_UI_API_DETAIL_ON_ISOLATED_RESTORED_COPY",
+    "evidence": "Controlled-Document-Detail-Verification.json",
+    "liveChecksPassed": 23,
+    "realUserSignIn": true,
+    "realBrowserApiAndDatabase": true,
+    "frontendResponsesMocked": false,
+    "storageFixture": true,
+    "isolatedRestoredCopy": true,
+    "sourceWrites": 0,
+    "sourceDocumentDetailVerified": false,
+    "businessPreparationOrApprovalWorkflowCertified": false,
+    "newFullBuildOrSuiteRun": false
   }
 }

@@ -6,7 +6,7 @@ Insurance Max requires a complete, independent Finance Service that owns financi
 
 The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
-**Document control:** IM-FIN-SRS-1.7; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
+**Document control:** IM-FIN-SRS-1.8; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The independent preparer/checker, legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
 
 ## Current implementation at a glance
 
@@ -1549,6 +1549,20 @@ The real draft book has no review documents, so live version/detail viewing was 
 
 This resolves the real-company UI-access verification gap, while **G04 and formal company accounting/B45 acceptance remain partial**. The independent preparer/checker, legal/configuration/policy choices, certified opening and cutover gates remain outstanding. Existing legacy operational Finance write rights are still broader than this read-only workspace. See [real workspace verification](Real-Workspace-Access-Verification.json).
 
+## Controlled draft document-detail verification
+
+All **23 live checks passed** using the unchanged frontend and real APIs against an **isolated restored copy** of the local development database. The confirmed user signed in normally against the copied account. Authentication/session/permission guards were real; frontend responses were not intercepted or replaced. The copy had its own PostgreSQL and Redis instances with background jobs disabled.
+
+One explicitly marked **display-test-only, unreviewed VALIDATION fixture** was inserted only into the copy using the existing B45_ACCEPTANCE storage category. Its payload states that it is not B45 acceptance or accounting evidence. It selected no accounting assumptions and conferred no approval or posting authority. An expired/revoked synthetic provenance row supplied the immutable document foreign-key reference; it appointed no real person and granted no active capability. Baraka’s bindings, coarse permissions and read-only mandate were unchanged. The normal business preparation/acceptance workflow was not exercised or certified.
+
+The real workspace listed and opened the exact stored document, scope, version and fingerprint. Its precision sample remained an exact string, markup remained literal text, the unreviewed state and audit references matched storage, and filters/refresh worked on desktop/mobile. An altered fingerprint and other-entity/book reads returned 403. Five preparation/review/journal/release/policy actions were denied. Document-view UI requests were GET-only.
+
+Reconciliation proved all **352 source tables**, all **70 source Finance tables**, all **four protected paid invoice headers/items**, roles, permissions, bindings, schemas, sequences and migration ledger unchanged. The source received **zero writes, documents, grants or policies**. In the copy, the controlled fixture and all Finance records remained unchanged through sign-in/read/logout; only normal authentication/audit metadata changed. No policies, review decisions, active books, periods, journals or deployments were added or activated.
+
+The session, frontend, backend, tunnel, private Redis and private PostgreSQL copy were stopped. The controlled draft and private evidence remain in the retained, stopped copy; it was not deleted, promoted or copied back into the source. Source PostgreSQL/Redis services were not stopped.
+
+This verifies controlled document-detail viewing; it does **not** certify detail viewing of an actual source business document, company acceptance or accounting-policy approval. The source book still has no documents, and the original governance gates remain unresolved. See [controlled document-detail verification](Controlled-Document-Detail-Verification.json).
+
 ## Company admin review pack
 
 Use the separate [Platform template review](company-admin/PLATFORM_TEMPLATE-Review.html), [Insurer review](company-admin/INSURER-Review.html), [Broker review](company-admin/BROKER-Review.html) and [Reinsurer review](company-admin/REINSURER-Review.html). Each includes all 70 policies and 126 inherited choices with profile-specific applicability prompts, blank actual company scope and explicit unreceived approval records. The platform pack reviews templates only and cannot approve a company book.
@@ -1763,6 +1777,7 @@ This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 1
 
 | Artifact | Purpose |
 | --- | --- |
+| [Controlled Document-Detail Verification](Controlled-Document-Detail-Verification.json) | 23 real UI/API checks with a synthetic draft on an isolated copy; source unchanged and no business acceptance inferred. |
 | [Real Workspace Access Verification](Real-Workspace-Access-Verification.json) | Real signed-in workspace, 25 checks, post-logout financial/permission protection and remaining gates. |
 | [Read-only Workspace Verification](Read-Only-Workspace-Verification.json) | Frontend implementation, tests/browser fixtures, database preservation and company-acceptance limits. |
 | [Sign-in Read Verification](SignIn-Read-Verification.json) | Real local sign-in, foundation read/denial checks, historical protection and legacy/UI limitations. |

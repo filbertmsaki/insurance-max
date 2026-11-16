@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.7",
+  "version": "1.8",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -1867,6 +1867,10 @@
     "realCompanyUiVerified": true,
     "liveAccessChecksPassed": 25,
     "liveAccessEvidence": "Real-Workspace-Access-Verification.json",
-    "companyFormalAcceptanceGranted": false
+    "companyFormalAcceptanceGranted": false,
+    "controlledDocumentDetailVerified": true,
+    "controlledDocumentDetailEnvironment": "ISOLATED_RESTORED_COPY",
+    "sourceDocumentDetailVerified": false,
+    "controlledDocumentDetailEvidence": "Controlled-Document-Detail-Verification.json"
   }
 }

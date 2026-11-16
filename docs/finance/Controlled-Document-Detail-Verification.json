@@ -1,0 +1,227 @@
+{
+  "schema": "FINANCE_CONTROLLED_DOCUMENT_DETAIL_VERIFICATION_V1",
+  "date": "2026-11-16",
+  "timeZone": "Africa/Dar_es_Salaam",
+  "status": "PASSED_REAL_UI_API_DETAIL_ON_ISOLATED_RESTORED_COPY",
+  "codeCommit": "f46fc0ed3922502556b9c093c07e613e100e9f5e",
+  "sourceCodeFingerprint": "5a722e3baa11d15fd6a7eb0702a5609b3f035aafcd9863df1de540efca90ed08",
+  "verifiedAt": "2026-11-16T12:05:45.245Z",
+  "verificationEnvironment": "ISOLATED_RESTORED_COPY_WITH_CONTROLLED_STORAGE_FIXTURE",
+  "sourceDocumentDetailVerified": false,
+  "controlledDocumentDetailVerified": true,
+  "liveChecks": [
+    {
+      "name": "Real sign-in matches the copied confirmed company account",
+      "passed": true
+    },
+    {
+      "name": "Baraka retains only the foundation READ permission",
+      "passed": true
+    },
+    {
+      "name": "Stored controlled draft is listed by the real clone API",
+      "passed": true
+    },
+    {
+      "name": "Live detail read pins the exact stored version",
+      "passed": true,
+      "httpStatus": 200
+    },
+    {
+      "name": "Controlled display-only warning is visible",
+      "passed": true
+    },
+    {
+      "name": "Exact decimal display string is preserved",
+      "passed": true
+    },
+    {
+      "name": "Markup remains escaped literal text",
+      "passed": true
+    },
+    {
+      "name": "No decision has been recorded on the draft",
+      "passed": true
+    },
+    {
+      "name": "Version fingerprint and preparer references match stored fixture",
+      "passed": true
+    },
+    {
+      "name": "No approval activation or posting controls are exposed",
+      "passed": true
+    },
+    {
+      "name": "Detail panel fits the mobile viewport",
+      "passed": true
+    },
+    {
+      "name": "Changing type removes the previous document detail",
+      "passed": true
+    },
+    {
+      "name": "Returning to the controlled draft reopens its immutable detail",
+      "passed": true
+    },
+    {
+      "name": "Refresh reads the same immutable document and contents",
+      "passed": true
+    },
+    {
+      "name": "All document UI Finance requests are GETs",
+      "passed": true
+    },
+    {
+      "name": "Altered version fingerprint is denied",
+      "passed": true,
+      "httpStatus": 403
+    },
+    {
+      "name": "Other legalEntityId cannot read this stored document",
+      "passed": true,
+      "httpStatus": 403
+    },
+    {
+      "name": "Other bookId cannot read this stored document",
+      "passed": true,
+      "httpStatus": 403
+    },
+    {
+      "name": "Prepare document denied for the read-only account",
+      "passed": true,
+      "httpStatus": 403
+    },
+    {
+      "name": "Review draft denied for the read-only account",
+      "passed": true,
+      "httpStatus": 403
+    },
+    {
+      "name": "Accept journal denied for the read-only account",
+      "passed": true,
+      "httpStatus": 403
+    },
+    {
+      "name": "Approve release denied for the read-only account",
+      "passed": true,
+      "httpStatus": 403
+    },
+    {
+      "name": "Activate policy denied for the read-only account",
+      "passed": true,
+      "httpStatus": 403
+    }
+  ],
+  "authentication": {
+    "realUserSignInAgainstCopiedIdentity": true,
+    "normalLoginResponses": [
+      {
+        "status": 201,
+        "at": "2026-11-16T12:05:35.883Z"
+      }
+    ],
+    "confirmedCompanyMembershipMatched": true,
+    "foundationPermissions": [
+      "finance-foundation:read"
+    ],
+    "authenticationAndPermissionOverrides": 0,
+    "frontendResponseInterception": false,
+    "credentialsEnteredByAgent": false,
+    "passwordsOrCodesCaptured": false,
+    "tokensPublished": false,
+    "temporarySessionLoggedOut": true
+  },
+  "controlledDraft": {
+    "count": 1,
+    "storageKind": "B45_ACCEPTANCE",
+    "mode": "VALIDATION",
+    "state": "UNREVIEWED_NO_DECISION",
+    "purpose": "DISPLAY_VERIFICATION_ONLY_NOT_B45_ACCEPTANCE_OR_ACCOUNTING_EVIDENCE",
+    "provisioning": "Explicitly synthetic storage fixture inserted only into the isolated copy; normal business preparation/acceptance workflows were not exercised.",
+    "syntheticMakerNotARealPerson": true,
+    "makerIsNotBaraka": true,
+    "realPreparerOrCheckerAppointed": false,
+    "revokedExpiredSyntheticProvenanceAuthorityRows": 1,
+    "activeNewCapabilities": 0,
+    "iamBindingsOrCoarsePermissionsAdded": 0,
+    "policyApproval": false,
+    "policyActivation": false,
+    "accountingAssumptionsSelected": false,
+    "financialEffects": 0,
+    "sourceDocumentsCreated": 0,
+    "retainedOnlyInStoppedPrivateCopy": true
+  },
+  "coverage": {
+    "storedListAndExactVersionRead": true,
+    "storedScopeAndHashMatched": true,
+    "decimalStringsPreserved": true,
+    "markupEscaped": true,
+    "unreviewedStateVisible": true,
+    "auditReferencesVerified": true,
+    "desktopAndMobileInspected": true,
+    "filtersAndRefreshPassed": true,
+    "documentUiFinanceMethods": [
+      "GET"
+    ],
+    "alteredHashRejected": true,
+    "crossScopeReadsDenied": 2,
+    "writeApprovalActionsDenied": 5
+  },
+  "protection": {
+    "at": "2026-11-16T12:06:52.455Z",
+    "sourceTablesUnchanged": 352,
+    "sourceFinanceTablesUnchanged": 70,
+    "sourcePaidInvoicesAndItemsUnchanged": 4,
+    "sourceRolesPermissionsAndBindingsUnchanged": true,
+    "sourceMigrationsSchemasSequencesUnchanged": true,
+    "sourceWrites": 0,
+    "cloneFinanceTablesUnchangedAfterFixture": 70,
+    "clonePaidInvoicesAndItemsUnchanged": 4,
+    "cloneLegacyRolesAndPermissionsUnchanged": true,
+    "cloneAuthenticationAndAuditChanges": [
+      "public.audit_logs",
+      "public.company_users",
+      "public.devices",
+      "public.user_sessions",
+      "public.users"
+    ],
+    "controlledDraftDocuments": 1,
+    "fixtureUnreviewed": true,
+    "syntheticMakerNotBarakaOrARealChecker": true,
+    "activeNewCapabilities": 0,
+    "controls": {
+      "policies": 0,
+      "policy_authorities": 0,
+      "active_books": 0,
+      "review_decisions": 0,
+      "journals": 0,
+      "periods": 0,
+      "deployments": 0,
+      "active_non_read_authorities": 0
+    }
+  },
+  "cleanup": {
+    "at": "2026-11-16T12:07:49.213Z",
+    "temporarySessionLoggedOut": true,
+    "applicationStopped": true,
+    "frontendStopped": true,
+    "loopbackTunnelStopped": true,
+    "isolatedRedisStopped": true,
+    "isolatedPostgresStopped": true,
+    "ownedPlaintextRedisConfigRemoved": true,
+    "sourcePostgresOrRedisStopped": false,
+    "privateEvidenceAndEncryptedBackupRetained": true
+  },
+  "applicationCodeChanged": false,
+  "newSourceMigrations": 0,
+  "sourcePermissionsChanged": false,
+  "sourcePoliciesActivated": 0,
+  "companyFormalAcceptanceGranted": false,
+  "limitations": [
+    "This was a real browser/API/database check against an isolated restored copy, not a document inserted into the source development database. The source book still has no review documents.",
+    "The existing B45_ACCEPTANCE storage category was used only as a clearly marked, unreviewed display fixture. It is not a valid acceptance manifest, accounting treatment, certified opening or company approval. No business preparation/approval workflow is certified by this fixture.",
+    "A synthetic, expired/revoked provenance reference exists only in the copy to satisfy immutable document foreign keys. It does not appoint a real maker/checker or grant Baraka preparation rights.",
+    "Existing legacy Finance write permissions remain unchanged. Only the foundation workspace is read-only.",
+    "G04, independent preparer/checker assignment, legal/accounting/configuration/policy decisions, opening, B45 company acceptance and cutover remain separate outstanding gates."
+  ]
+}
