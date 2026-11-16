@@ -1,0 +1,123 @@
+{
+  "schema": "FINANCE_READ_ONLY_WEB_WORKSPACE_V1",
+  "date": "2026-11-16",
+  "timeZone": "Africa/Dar_es_Salaam",
+  "status": "IMPLEMENTED_AND_TESTED_FRONTEND_ONLY",
+  "baseCommit": "f4bda9243ef30d216a1555c48a605f1ceac46c1e",
+  "sourceCodeFingerprint": "5a722e3baa11d15fd6a7eb0702a5609b3f035aafcd9863df1de540efca90ed08",
+  "previousVerifiedSourceFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
+  "backendImplementationUnchanged": true,
+  "frontendSourceFilesChanged": 8,
+  "changedCodeFiles": [
+    "apps/insurance-portal-web/src/App.tsx",
+    "apps/insurance-portal-web/src/components/layout/nav-config.ts",
+    "apps/insurance-portal-web/src/modules/shared/meta/route-titles.ts",
+    "apps/insurance-portal-web/src/modules/tenant/finance/foundation/FinanceFoundationPage.tsx",
+    "apps/insurance-portal-web/src/modules/tenant/finance/foundation/__tests__/FinanceFoundationPage.test.tsx",
+    "apps/insurance-portal-web/src/modules/tenant/finance/foundation/__tests__/api.test.ts",
+    "apps/insurance-portal-web/src/modules/tenant/finance/foundation/__tests__/fixtures.ts",
+    "apps/insurance-portal-web/src/modules/tenant/finance/foundation/api.ts"
+  ],
+  "route": "/apps/finance/foundation",
+  "navigation": "Finance > Foundation review",
+  "requiredScope": "company",
+  "requiredPermission": "finance-foundation:read",
+  "features": [
+    "Authorized entity/book selection from the existing scoped API; no inferred company-to-Finance identity.",
+    "Bounded, type-filtered review-document list and exact document/version/hash reads.",
+    "Read-only decision, payload and audit references; decimal strings preserved and content escaped.",
+    "Loading, unassigned/expired access and server-error states without invented balances, approvals or currency defaults.",
+    "Records isolated by user, company, membership, session, authorization version, tenant, entity and book; removed on access failures.",
+    "GET-only client with cancellation, no retained query cache and periodic/focus access refresh.",
+    "Company/read-permission route and menu gates; no prepare, approve, activate, post, invoice-edit or legacy-management actions."
+  ],
+  "verification": {
+    "frontendBuildPassed": true,
+    "targetedLintPassed": true,
+    "focusedTestsPassed": 35,
+    "fullFrontendTestsPassed": 562,
+    "fullFrontendTestFiles": 79,
+    "frontendBrowserChecks": [
+      {
+        "name": "Permission-gated navigation rendered",
+        "passed": true
+      },
+      {
+        "name": "Authorized draft book displayed",
+        "passed": true
+      },
+      {
+        "name": "Detail request pins the version hash",
+        "passed": true
+      },
+      {
+        "name": "Exact decimal strings preserved",
+        "passed": true
+      },
+      {
+        "name": "Document text is escaped",
+        "passed": true
+      },
+      {
+        "name": "No financial mutation controls",
+        "passed": true
+      },
+      {
+        "name": "Mobile page fits the viewport",
+        "passed": true
+      },
+      {
+        "name": "Filter change removes the prior detail",
+        "passed": true
+      },
+      {
+        "name": "Denied scope refresh hides prior book data",
+        "passed": true
+      },
+      {
+        "name": "No assignment is not displayed as a zero-balance book",
+        "passed": true
+      },
+      {
+        "name": "Direct route denied without explicit read permission",
+        "passed": true
+      },
+      {
+        "name": "All Finance requests use GET",
+        "passed": true
+      },
+      {
+        "name": "No JavaScript page errors",
+        "passed": true
+      }
+    ],
+    "desktopAndMobileInspected": true,
+    "browserMode": "FRONTEND_FIXTURES_ONLY_NOT_REAL_AUTHENTICATION",
+    "liveBackendContacted": false,
+    "barakaSignInRepeated": false,
+    "previousRealSignInEvidence": "SignIn-Read-Verification.json",
+    "backendAndPostgresSuitesRerun": false
+  },
+  "dataProtection": {
+    "checkedAt": "2026-11-16T10:00:42.987Z",
+    "allTablesUnchanged": 352,
+    "historicalPaidInvoicesUnchanged": 4,
+    "allFinanceTablesUnchanged": 70,
+    "allRolesPermissionsAndBindingsUnchanged": true,
+    "schemasAndSequencesUnchanged": true,
+    "noDatabaseWrites": true
+  },
+  "policiesApproved": 0,
+  "policiesActivated": 0,
+  "legacyPermissionsChanged": false,
+  "newDatabaseMigrations": 0,
+  "schemasChanged": false,
+  "companyAcceptanceGranted": false,
+  "remainingGates": [
+    "Fresh signed-in company acceptance of this new UI is not recorded. Browser layout/interaction checks used isolated frontend fixtures; prior real sign-in/API evidence remains separately pinned.",
+    "Baraka retains existing legacy operational Finance write permissions. This new workspace is read-only; the whole account is not converted to read-only.",
+    "A different real preparer/checker and actual legal evidence, accounting basis, functional currency, calendar/chart/tax configuration and policies remain unresolved.",
+    "No trial balance, opening balance or readiness is inferred from empty documents. Full governed accounting reports and company cutover remain separate.",
+    "G04 remains partial; no policy authority, approval/activation, accounting period, journal, opening, release or external operation was created."
+  ]
+}

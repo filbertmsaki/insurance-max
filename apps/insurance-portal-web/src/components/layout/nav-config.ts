@@ -344,6 +344,14 @@ export const NAV_NODES: NavNode[] = [
     children: [
       {
         kind: 'link',
+        label: 'Foundation review',
+        to: '/apps/finance/foundation',
+        icon: BookOpen,
+        permission: 'finance-foundation:read',
+        allowedScopes: ['company'],
+      },
+      {
+        kind: 'link',
         label: 'Dashboard',
         to: '/apps/finance/dashboard',
         icon: Radar,

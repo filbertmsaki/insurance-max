@@ -1,5 +1,5 @@
 {
-  "version": "1.5",
+  "version": "1.6",
   "date": "2026-11-16",
   "status": "LOCAL_DRAFT_READ_SETUP_G04_PARTIAL_CONFIGURATION_AND_CUTOVER_PENDING",
   "companyScope": {
@@ -259,7 +259,7 @@
         "Functional-currency assessment not approved; TZS system base is not sufficient evidence",
         "Accounting basis, calendar, chart release, taxes, policies, dimensions and source mappings require scoped review",
         "No policy approval, activation, opening balance, period, journal, release or source-event producer authority granted",
-        "New foundation web workspace is not implemented; existing operational Finance permissions remain unchanged."
+        "Read-only foundation workspace is implemented and tested. Fresh company UI acceptance remains pending; existing legacy Finance permissions are unchanged."
       ],
       "policyApprovalRecorded": false,
       "policyActivationAuthorized": false,
@@ -269,6 +269,13 @@
         "evidenceSha256": "95d47e144a1fc587eed0d3c75b2c91a3b4fc499755d9298253353e5d30ae0c0e",
         "legacyPermissionsChanged": false,
         "newFoundationUiImplemented": false
+      },
+      "readOnlyWorkspace": {
+        "status": "IMPLEMENTED_AND_TESTED_FRONTEND_ONLY",
+        "route": "/apps/finance/foundation",
+        "actualCompanyUiAcceptance": false,
+        "policyApprovalRecorded": false,
+        "legacyPermissionsChanged": false
       }
     },
     {
@@ -395,5 +402,6 @@
   },
   "authorizationSemantics": "Formal company accounting, policy and release decisions remain unreceived. The completed technical local schema change was separately authorized by the explicit user instruction. A later user confirmation authorized the named company-admin draft read setup only; formal preparer/checker, policies, configuration and release remain separate.",
   "localDraftReadEvidence": "G04-Draft-Read-Verification.json",
-  "localAuthenticatedReadEvidence": "SignIn-Read-Verification.json"
+  "localAuthenticatedReadEvidence": "SignIn-Read-Verification.json",
+  "readOnlyWorkspaceEvidence": "Read-Only-Workspace-Verification.json"
 }

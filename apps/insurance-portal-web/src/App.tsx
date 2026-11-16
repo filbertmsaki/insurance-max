@@ -96,6 +96,7 @@ import { TiramisRetryablePage } from '@/modules/tenant/tiramis/pages/TiramisRetr
 import { PlatformTiramisIntegrationPage } from '@/modules/platform/tiramis-integration/pages/PlatformTiramisIntegrationPage';
 import { VerificationsPage } from '@/modules/tenant/verifications/pages/VerificationsPage';
 import { FinanceDashboardPage } from '@/modules/tenant/finance/pages/FinanceDashboardPage';
+import { FinanceFoundationPage } from '@/modules/tenant/finance/foundation/FinanceFoundationPage';
 import { FinanceInvoicesPage } from '@/modules/tenant/finance/pages/FinanceInvoicesPage';
 import { FinanceInvoiceDetailPage } from '@/modules/tenant/finance/pages/FinanceInvoiceDetailPage';
 import { FinancePaymentsPage } from '@/modules/tenant/finance/pages/FinancePaymentsPage';
@@ -1110,6 +1111,19 @@ export default function App() {
                 </Route>
               </Route>
 
+              <Route
+                element={
+                  <ProtectedRoute
+                    allowedScopes={['company']}
+                    allPermissions={['finance-foundation:read']}
+                  />
+                }
+              >
+                <Route
+                  path="/apps/finance/foundation"
+                  element={<FinanceFoundationPage />}
+                />
+              </Route>
               <Route
                 element={
                   <ProtectedRoute requiredPermission="finance:dashboard" />

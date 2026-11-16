@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.5",
+  "version": "1.6",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -1849,6 +1849,18 @@
     "realSignInVerified": true,
     "foundationReadOnlyHttpVerified": true,
     "legacyAccountEntirelyReadOnly": false,
-    "newFoundationUiImplemented": false
+    "newFoundationUiImplemented": true,
+    "readOnlyWorkspaceEvidence": "Read-Only-Workspace-Verification.json",
+    "actualCompanyUiAcceptance": false
+  },
+  "readOnlyWorkspace": {
+    "status": "IMPLEMENTED_AND_TESTED_FRONTEND_ONLY",
+    "route": "/apps/finance/foundation",
+    "permission": "finance-foundation:read",
+    "frontendTestsPassed": 562,
+    "browserChecks": 13,
+    "databaseWrites": 0,
+    "legacyPermissionsChanged": false,
+    "evidence": "Read-Only-Workspace-Verification.json"
   }
 }

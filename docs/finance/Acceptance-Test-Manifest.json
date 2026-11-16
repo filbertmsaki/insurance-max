@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "kind": "REVERIFIED_AFTER_TYPE_REPAIR",
+  "kind": "PRIOR_FOUNDATION_EVIDENCE_PLUS_READ_ONLY_WORKSPACE_FRONTEND_REGRESSION",
   "sourceFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
   "unit": {
     "passed": 603,
@@ -4455,6 +4455,19 @@
     "policiesActivated": 0,
     "authenticatedAccessEvidence": "SignIn-Read-Verification.json",
     "legacyAccountEntirelyReadOnly": false,
-    "newFoundationUiImplemented": false
+    "newFoundationUiImplemented": true,
+    "actualCompanyUiAcceptance": false
+  },
+  "currentSourceFingerprint": "5a722e3baa11d15fd6a7eb0702a5609b3f035aafcd9863df1de540efca90ed08",
+  "readOnlyWorkspace": {
+    "status": "IMPLEMENTED_AND_TESTED_FRONTEND_ONLY",
+    "evidence": "Read-Only-Workspace-Verification.json",
+    "frontendBuildPassed": true,
+    "targetedLintPassed": true,
+    "frontendTestsPassed": 562,
+    "browserChecks": 13,
+    "browserUsesFixtures": true,
+    "realSignInRepeated": false,
+    "previousFoundationAndDatabaseTestsUnchanged": true
   }
 }
