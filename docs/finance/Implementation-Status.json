@@ -1,6 +1,6 @@
 {
   "date": "2026-11-16",
-  "version": "1.1",
+  "version": "1.2",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -558,8 +558,8 @@
       "acceptance": "Actual resources/load/fault schedules/results against approved targets plus complete source/external/report reconciliation after resumption.",
       "criteriaAndDecisions": "AC02 AC52 AC56 AC57 AC59 / DEC-11 DEC-12 DEC-14 DEC-16",
       "reviewer": "Security + Reliability + independent Finance",
-      "implementationStatus": "PLAN PREPARED EXECUTION NOT STARTED",
-      "currentDisposition": "This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement."
+      "implementationStatus": "PARTIAL DATABASE REHEARSAL PASSED",
+      "currentDisposition": "Isolated full-history backup, migration, empty rollback and restore/reapply reconciliation passed. Actual role/security, capacity, approved RPO/RTO, live financial recovery and company acceptance remain pending."
     },
     {
       "id": "B38",
@@ -1804,5 +1804,11 @@
   "independentServiceExtracted": false,
   "typeRepairVerification": "Type-Repair-Verification.json",
   "remainingRecordedTypeErrors": 0,
-  "localFullBuildPassed": true
+  "localFullBuildPassed": true,
+  "isolatedMigrationRehearsal": {
+    "status": "PASSED_ISOLATED_COPY_ONLY",
+    "evidence": "Migration-Rehearsal-Verification.json",
+    "sourceMigrationsApplied": 0,
+    "companyPoliciesActivated": 0
+  }
 }

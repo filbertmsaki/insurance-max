@@ -1,8 +1,8 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Insurance Max Finance Service Software Requirements Specification</title><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font:16px/1.6 system-ui,Arial,sans-serif;color:#19343e;background:#f2f5f6}main{max-width:1220px;margin:auto;padding:36px 30px}h1{font-size:34px;line-height:1.18;color:#102f3c;max-width:920px;margin:14px 0 24px}h2{font-size:25px;line-height:1.3;color:#123d4b;margin-top:54px;padding-top:8px}h3{font-size:20px;line-height:1.35;margin-top:32px}p,li{max-width:1080px}table{width:100%;border-collapse:collapse;font-size:14px;background:white;margin:20px 0}th,td{border:1px solid #d7e0e4;vertical-align:top;text-align:left;padding:11px;overflow-wrap:anywhere}th{background:#dfebef;color:#153d4b}th:first-child,td:first-child{min-width:112px}tr:nth-child(even){background:#f8fafb}a{color:#006582}code{font-size:13px;overflow-wrap:anywhere}nav{background:#e2edf0;padding:18px;columns:2;border-radius:8px}nav a{display:block;break-inside:avoid;margin:4px 0}.notice{padding:18px 22px;background:#fff1d4;border-left:5px solid #9b6b1b;margin:24px 0}.meta{color:#536b74}details{background:white;border:1px solid #d5dfe4;padding:15px;margin:12px 0;border-radius:6px}summary{font-weight:650;cursor:pointer}textarea,input,select{font:inherit;padding:9px;border:1px solid #aebfc7;border-radius:3px;max-width:100%}textarea{width:100%;min-height:75px}button{font:inherit;padding:10px 18px;background:#15566a;color:white;border:0;border-radius:5px;cursor:pointer;margin:8px 8px 8px 0}.review-only{color:#7c5317}label{display:block;font-weight:600;margin-top:12px}.scroll{overflow:auto}@media(max-width:650px){main{padding:20px 14px}h1{font-size:28px}nav{columns:1}table{font-size:12px}th,td{padding:7px}}@media print{body{background:white;font-size:10pt}main{padding:0}nav,button,.no-print{display:none}h1{font-size:24pt}h2{font-size:17pt;break-after:avoid}h3{font-size:13pt;break-after:avoid}table{font-size:9pt}tr{break-inside:avoid}thead{display:table-header-group}p,li{orphans:3;widows:3}a{color:inherit;text-decoration:none}details{break-inside:avoid}textarea{border:1px solid #aaa}h2{margin-top:26pt}@page{size:A4;margin:18mm 14mm}}</style></head><body><main><h1>Insurance Max Finance Service Software Requirements Specification</h1><p class="meta">Insurance Max · 16 November 2026 · Africa/Dar_es_Salaam · Revision 1.1</p><div class="notice">The recorded type errors are fixed and the full local build and tests pass. Company policy approval, migration and cutover remain separately gated.</div><nav aria-label="Document contents"><a href="#section-0">Purpose and review decision</a><a href="#section-1">Current implementation at a glance</a><a href="#section-2">Status definitions and evidence rules</a><a href="#section-3">Business scope and responsibilities</a><a href="#section-4">Target architecture and service boundaries</a><a href="#section-5">Mandatory accounting and security requirements</a><a href="#section-6">Operational and measurement accounting boundaries</a><a href="#section-7">Implementation phases</a><a href="#section-8">Complete implementation steps and present status</a><a href="#section-9">All Finance modules and submodules</a><a href="#section-10">Measurement engine and currency implementation sequence</a><a href="#section-11">Data records and database evolution</a><a href="#section-12">Interfaces APIs and source contracts</a><a href="#section-13">Nonfunctional and operational acceptance</a><a href="#section-14">Verification results and remaining acceptance</a><a href="#section-15">Company admin review pack</a><a href="#section-16">Controlled migration and cutover plan</a><a href="#section-17">Opening reconciliation and one writer checklist</a><a href="#section-18">Rollback incident and retirement boundaries</a><a href="#section-19">Unresolved decisions and implementation blockers</a><a href="#section-20">Version traceability and review deliverables</a></nav>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font:16px/1.6 system-ui,Arial,sans-serif;color:#19343e;background:#f2f5f6}main{max-width:1220px;margin:auto;padding:36px 30px}h1{font-size:34px;line-height:1.18;color:#102f3c;max-width:920px;margin:14px 0 24px}h2{font-size:25px;line-height:1.3;color:#123d4b;margin-top:54px;padding-top:8px}h3{font-size:20px;line-height:1.35;margin-top:32px}p,li{max-width:1080px}table{width:100%;border-collapse:collapse;font-size:14px;background:white;margin:20px 0}th,td{border:1px solid #d7e0e4;vertical-align:top;text-align:left;padding:11px;overflow-wrap:anywhere}th{background:#dfebef;color:#153d4b}th:first-child,td:first-child{min-width:112px}tr:nth-child(even){background:#f8fafb}a{color:#006582}code{font-size:13px;overflow-wrap:anywhere}nav{background:#e2edf0;padding:18px;columns:2;border-radius:8px}nav a{display:block;break-inside:avoid;margin:4px 0}.notice{padding:18px 22px;background:#fff1d4;border-left:5px solid #9b6b1b;margin:24px 0}.meta{color:#536b74}details{background:white;border:1px solid #d5dfe4;padding:15px;margin:12px 0;border-radius:6px}summary{font-weight:650;cursor:pointer}textarea,input,select{font:inherit;padding:9px;border:1px solid #aebfc7;border-radius:3px;max-width:100%}textarea{width:100%;min-height:75px}button{font:inherit;padding:10px 18px;background:#15566a;color:white;border:0;border-radius:5px;cursor:pointer;margin:8px 8px 8px 0}.review-only{color:#7c5317}label{display:block;font-weight:600;margin-top:12px}.scroll{overflow:auto}@media(max-width:650px){main{padding:20px 14px}h1{font-size:28px}nav{columns:1}table{font-size:12px}th,td{padding:7px}}@media print{body{background:white;font-size:10pt}main{padding:0}nav,button,.no-print{display:none}h1{font-size:24pt}h2{font-size:17pt;break-after:avoid}h3{font-size:13pt;break-after:avoid}table{font-size:9pt}tr{break-inside:avoid}thead{display:table-header-group}p,li{orphans:3;widows:3}a{color:inherit;text-decoration:none}details{break-inside:avoid}textarea{border:1px solid #aaa}h2{margin-top:26pt}@page{size:A4;margin:18mm 14mm}}</style><title>Insurance Max Finance Service SRS</title></head><body><main><h1>Insurance Max Finance Service Software Requirements Specification</h1><p class="meta">16 November 2026 · Africa/Dar_es_Salaam · Revision 1.2</p><div class="notice">The isolated schema migration and restore rehearsal passed. No source migration or company policy activation has been performed.</div><nav><a href="#section-0">Purpose and review decision</a><a href="#section-1">Current implementation at a glance</a><a href="#section-2">Status definitions and evidence rules</a><a href="#section-3">Business scope and responsibilities</a><a href="#section-4">Target architecture and service boundaries</a><a href="#section-5">Mandatory accounting and security requirements</a><a href="#section-6">Operational and measurement accounting boundaries</a><a href="#section-7">Implementation phases</a><a href="#section-8">Complete implementation steps and present status</a><a href="#section-9">All Finance modules and submodules</a><a href="#section-10">Measurement engine and currency implementation sequence</a><a href="#section-11">Data records and database evolution</a><a href="#section-12">Interfaces APIs and source contracts</a><a href="#section-13">Nonfunctional and operational acceptance</a><a href="#section-14">Verification results and remaining acceptance</a><a href="#section-15">Isolated migration rehearsal outcome</a><a href="#section-16">Company admin review pack</a><a href="#section-17">Controlled migration and cutover plan</a><a href="#section-18">Opening reconciliation and one writer checklist</a><a href="#section-19">Rollback incident and retirement boundaries</a><a href="#section-20">Unresolved decisions and implementation blockers</a><a href="#section-21">Version traceability and review deliverables</a></nav>
 <h2 id="section-0">Purpose and review decision</h2>
 <p>Insurance Max requires a complete, independent Finance Service that owns financial obligations, accounting documents, journals, settlements, reconciliations and balances. This SRS defines the target behavior, the five implementation phases, the 46 baseline backlog steps and all 33 Finance modules. It also records the current implementation separately from legacy capability, company approval and production deployment.</p>
 <p>The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.</p>
-<p><strong>Document control:</strong> IM-FIN-SRS-1.1; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.</p>
+<p><strong>Document control:</strong> IM-FIN-SRS-1.2; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.</p>
 <h2 id="section-1">Current implementation at a glance</h2>
 <table>
 <thead>
@@ -15,7 +15,7 @@
 <tbody><tr>
 <td>B02 to B12 foundation controls</td>
 <td>Implemented and tested in code; migrations and actual source grants not deployed</td>
-<td>Company-specific configuration, full-history upgrade and actual environment acceptance</td>
+<td>Company-specific configuration and actual environment acceptance; isolated full-history schema rehearsal passed</td>
 </tr>
 <tr>
 <td>B13 quotation memorandum and tax correction</td>
@@ -540,7 +540,7 @@
 <tr>
 <td>B37</td>
 <td>Verify capacity, security and restore with financial outcomes</td>
-<td>PLAN PREPARED EXECUTION NOT STARTED</td>
+<td>PARTIAL DATABASE REHEARSAL PASSED</td>
 <td>B03 B12 B32 B33 B35 B36</td>
 </tr>
 <tr>
@@ -854,7 +854,7 @@
 <p><strong>Controls and limits:</strong> Do not re-enable retired/dormant APIs or undo confirmed external truth. Preserve shared writes until reconciled replacement proves continuity.</p>
 <p><strong>Traceability:</strong> AC40 AC47 AC48 AC49 AC50 / DEC-06 DEC-07 DEC-11 DEC-12 DEC-14 DEC-16. Reviewer remit: API/business owners + Treasury + release reviewer.</p>
 <h3>B37 Verify capacity, security and restore with financial outcomes</h3>
-<p><strong>Current state:</strong> PLAN PREPARED EXECUTION NOT STARTED. This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement.</p>
+<p><strong>Current state:</strong> PARTIAL DATABASE REHEARSAL PASSED. Isolated full-history backup, migration, empty rollback and restore/reapply reconciliation passed. Actual role/security, capacity, approved RPO/RTO, live financial recovery and company acceptance remain pending.</p>
 <p><strong>Sequence and dependencies:</strong> 40 / DEP; B03 B12 B32 B33 B35 B36.</p>
 <p><strong>Required implementation:</strong> Execute approved capacity/latency and RPO/RTO exercises, actual privilege/export isolation and restore/resume/reconcile with original identities.</p>
 <p><strong>Acceptance:</strong> Actual resources/load/fault schedules/results against approved targets plus complete source/external/report reconciliation after resumption.</p>
@@ -2457,7 +2457,7 @@
 <tr>
 <td>Recovery</td>
 <td>Approve RPO/RTO, backup retention, restore procedures and post-restore financial reconciliation.</td>
-<td>Private-cluster cleanup passed; full application restored-clone upgrade and actual financial recovery remain required.</td>
+<td>Isolated full-history upgrade, unused migration rollback and encrypted backup restore/reapply passed. Company recovery targets, ownership/ACL recovery and live operational financial recovery remain to be accepted.</td>
 </tr>
 <tr>
 <td>Audit and retention</td>
@@ -2518,8 +2518,48 @@
 </tr>
 </tbody></table>
 <p>The exact type-repair changes, build result, test totals and limits are in <a href="Type-Repair-Verification.json">Type Repair Verification</a>. The updated <a href="Acceptance-Test-Manifest.json">Acceptance Test Manifest</a> retains the original Finance case identities and records the broader regression outcome. The migration manifest fingerprints the current source with canonical UTF8 LF encoding.</p>
-<p>Mandatory remaining evidence includes the actual full-history restored-clone upgrade, actual company authentication and permission path, complete scope/source/bank/open-item reconciliation, real producer and worker compatibility, backup and financial restore, security/capacity outcomes, current legal and tax evidence, specialist model certification where applicable and explicit company-admin acceptance. A local successful build and test run is not migration or policy-activation approval. The frontend bundle-size advisory remains; it did not fail the build.</p>
-<h2 id="section-15">Company admin review pack</h2>
+<p>The isolated full-history database restore and migration rehearsal passed. Mandatory remaining evidence includes actual company authentication and privileges, complete scope/source/bank/open-item reconciliation, real producer and worker compatibility, approved live financial recovery, security/capacity outcomes, current legal and tax evidence, specialist model certification where applicable and explicit company-admin acceptance. A local successful build and test run is not migration or policy-activation approval. The frontend bundle-size advisory remains; it did not fail the build.</p>
+<h2 id="section-15">Isolated migration rehearsal outcome</h2>
+<p>The controlled rehearsal passed on a private restored copy of the complete local development database. The original source remained read-only and unchanged. <a href="Migration-Rehearsal-Report.html">Migration Rehearsal Report</a> and <a href="Migration-Rehearsal-Verification.json">verification record</a> contain the method, evidence and limits.</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Rehearsal result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Source preservation</td>
+<td>All 290 original source tables and four protected paid invoice headers/items unchanged; source migration count remains 76.</td>
+</tr>
+<tr>
+<td>Isolated upgrade</td>
+<td>Exactly 12 approved-manifest migrations committed in one transaction; clone migration ledger advanced from 76 to 88.</td>
+</tr>
+<tr>
+<td>Data and configuration</td>
+<td>All 289 pre-existing application data tables unchanged; only the clone migration ledger changed. All 62 new Finance tables remained empty, with zero policy/book activation or seeded grants.</td>
+</tr>
+<tr>
+<td>Repeat run</td>
+<td>Zero additional migrations and no data/schema changes.</td>
+</tr>
+<tr>
+<td>Empty rollback</td>
+<td>All 12 migrations reverted only on the unused clone, restoring original schema and 76 migration rows. The migration metadata sequence may retain consumed IDs; business sequences are unchanged.</td>
+</tr>
+<tr>
+<td>Independent recovery</td>
+<td>The encrypted backup restored to a second private database with all original rows and sequences matching. Reapplying the 12 migrations produced the same upgraded result.</td>
+</tr>
+<tr>
+<td>Isolation and cleanup</td>
+<td>No application or worker started; no bank/provider, TIRAMIS or fiscal action. All rehearsal instances stopped and temporary plaintext dumps removed.</td>
+</tr>
+</tbody></table>
+<p>Logical comparison retains column order, types, defaults, constraints, indexes, triggers and the other recorded objects. Physical dropped-column slot numbers are excluded, and 39 exact literal varchar-to-text cast pairs produced by logical restore were checked equal directly in PostgreSQL. Raw data, backup files, keys and private invoice identifiers remain outside Git.</p>
+<p>The private restore omits original ownership and ACLs and uses one isolated administrator. It does not certify production privilege recovery, actual company authentication, a financial opening certificate, bank truth, approved RPO/RTO, live source/worker compatibility or company policy decisions. All policies remain inactive and the twelve migrations remain unapplied to the original development database.</p>
+<h2 id="section-16">Company admin review pack</h2>
 <p>Use the separate <a href="company-admin/PLATFORM_TEMPLATE-Review.html">Platform template review</a>, <a href="company-admin/INSURER-Review.html">Insurer review</a>, <a href="company-admin/BROKER-Review.html">Broker review</a> and <a href="company-admin/REINSURER-Review.html">Reinsurer review</a>. Each includes all 70 policies and 126 inherited choices with profile-specific applicability prompts, blank actual company scope and explicit unreceived approval records. The platform pack reviews templates only and cannot approve a company book.</p>
 <table>
 <thead>
@@ -2555,7 +2595,7 @@
 </tbody></table>
 <p>Foundation release policy pins include AP-01.01, AP-02.01, AP-03.01, AP-04.01, AP-05.01, AP-06.01, AP-06.02, AP-20.01, AP-31.01, AP-32.01 and AP-33.01, plus the actual component policies. Manual components additionally need AP-04.02; foreign-currency components need the applicable exchangeability/lawful-use control AP-20.04. The actual frozen context governs the exact list.</p>
 <p>Offline notes, typed names and exported review files are preparation evidence only. Formal application approval must bind the authenticated company-admin natural person, exact policy or release subject hash, scope, effective interval, supporting evidence and independent checker. Signing this SRS does not silently approve all accounting elections, authorize tax treatment or activate a book.</p>
-<h2 id="section-16">Controlled migration and cutover plan</h2>
+<h2 id="section-17">Controlled migration and cutover plan</h2>
 <p>The following gates are proposed for review, with no execution permission recorded. The detailed machine-readable steps and distinct blank authorizations are in <a href="Controlled-Migration-and-Cutover-Plan.json">Controlled Migration and Cutover Plan</a>. Dates, targets, people and financial tolerances must be completed and approved for the actual scope.</p>
 <h3>G00 Review package and defined scope</h3>
 <p><strong>Responsible remit:</strong> Company admin with Finance owner.</p>
@@ -2572,11 +2612,12 @@
 <li>Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The current ledger contains 76 entries; 12 Finance migrations are pending.</li>
 <li>The applied tax-evidence migration 1796900000000 is newer than several pending Finance migrations. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.</li>
 <li>The current TypeORM CLI discovers all pending files. Run it only against a reviewed immutable artifact whose pending set equals the exact 12-file allowlist; otherwise stop. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.</li>
-<li>The 17 recorded diagnostics are resolved and the full local build passes. Obtain independently reviewed target-environment build/CI results for the pinned artifact; local build success does not establish a restored-clone migration or company release.</li>
+<li>The 17 recorded diagnostics are resolved and full local builds/tests pass. The pinned full-history database restore and schema migration rehearsal also passed on an isolated copy. Obtain independently reviewed target-environment CI and access/release evidence before actual source migration.</li>
 </ul>
 <p><strong>Exit evidence:</strong> Approved immutable artifact, exact pending set, target identity and deployment-only authorization recorded.</p>
 <p><strong>Stop or recovery:</strong> Discard the unapproved artifact; no database action.</p>
 <h3>G02 Backup and isolated restored clone rehearsal</h3>
+<p><strong>Current evidence:</strong> The isolated database-only rehearsal passed. See the migration rehearsal verification. Actual source execution, company policy approval and recovery-target acceptance remain separate.</p>
 <p><strong>Responsible remit:</strong> Database operator with Finance reviewer.</p>
 <ul>
 <li>Create an encrypted backup and separately recoverable access configuration; record integrity hashes, restore location, retention and approved access.</li>
@@ -2668,7 +2709,7 @@
 </ul>
 <p><strong>Exit evidence:</strong> Separate actual extraction and post-extraction financial acceptance; none of these actions are authorized by publishing the SRS or pushing the finance branch.</p>
 <p><strong>Stop or recovery:</strong> Retain existing operational functionality until the approved replacement and reconciliation are demonstrated.</p>
-<h2 id="section-17">Opening reconciliation and one writer checklist</h2>
+<h2 id="section-18">Opening reconciliation and one writer checklist</h2>
 <table>
 <thead>
 <tr>
@@ -2718,12 +2759,12 @@
 <td>Ownership control exists; certified future models and movement adapters remain requirements.</td>
 </tr>
 </tbody></table>
-<h2 id="section-18">Rollback incident and retirement boundaries</h2>
+<h2 id="section-19">Rollback incident and retirement boundaries</h2>
 <p>Before schema commit, use the rehearsed transaction rollback. After an empty schema commit, a reviewed down operation is permitted only where every migration proves its evidence structures unused. Once authorities, drafts, periods, reviews or financial evidence exist, append-only controls may already forbid destructive down even before the first live journal.</p>
 <p>After any live financial effect, freeze all writers and external executions, preserve original records and reconcile source, bank/provider and ledger truth. Do not reset the database, delete journals, edit paid invoices or assume old code can represent new Finance records. A controlled reversal is an authorized new accounting movement with original evidence, not a database undo.</p>
 <p>DISABLE preserves canonical evidence but may unblock the existing legacy posting guard for that book. Keep an independent routing and worker fence in place until reverse continuity is explicitly proven. If target-only effects cannot be represented safely by the old system, use forward repair and separately approved resumption. A provider payout, fiscal document or TIRAMIS action cannot be undone by restoring a database.</p>
 <p>B42 retirement applies only to paths with accepted replacements and post-extraction reconciliation. Historical read access and audit evidence must survive the approved retention and legal-hold rules.</p>
-<h2 id="section-19">Unresolved decisions and implementation blockers</h2>
+<h2 id="section-20">Unresolved decisions and implementation blockers</h2>
 <table>
 <thead>
 <tr>
@@ -2741,7 +2782,7 @@
 </tr>
 <tr>
 <td>Build and full history upgrade</td>
-<td>The recorded type diagnostics are resolved and the full local build passes. Full-history restored-clone migration and target-environment release evidence remain outstanding.</td>
+<td>The recorded type diagnostics and local build blockers are resolved, and isolated full-history migration/restore rehearsal passed. Target-environment release, privilege and company acceptance remain outstanding.</td>
 </tr>
 <tr>
 <td>Tax and statutory requirements</td>
@@ -2765,7 +2806,7 @@
 </tr>
 </tbody></table>
 <p>The review may approve an explicitly bounded foundation scope while keeping unrelated advanced features inactive. It may not waive a missing control, unresolved policy or reconciliation needed by the actual component being activated.</p>
-<h2 id="section-20">Version traceability and review deliverables</h2>
+<h2 id="section-21">Version traceability and review deliverables</h2>
 <p>This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 15 acceptance IDs, 33 module IDs FIN-01 to FIN-33, the 70 Step 4 policy IDs and all 126 inherited choice IDs. Original proposed phase and step dependencies remain visible; current status overrides obsolete not-started statements in the earlier design baseline.</p>
 <table>
 <thead>
@@ -2799,5 +2840,5 @@
 <td>Separate platform and business-profile policy and decision review sheets with blank actual approval fields.</td>
 </tr>
 </tbody></table>
-<p>The reviewed Finance baseline before this type repair is 6191145da126998c1aaddee2a87066c0545b6ea3. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.</p>
+<p>The code revision used for this isolated rehearsal is f193c3058103c7cf563a5225978751eb20dcd240. No implementation code changed during the rehearsal. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.</p>
 </main></body></html>

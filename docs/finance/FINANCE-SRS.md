@@ -6,13 +6,13 @@ Insurance Max requires a complete, independent Finance Service that owns financi
 
 The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
-**Document control:** IM-FIN-SRS-1.1; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.
+**Document control:** IM-FIN-SRS-1.2; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. Company, legal entity, book, accounting basis, release dates and named people are intentionally unassigned pending review.
 
 ## Current implementation at a glance
 
 | Area | Current state | Remaining gate |
 | --- | --- | --- |
-| B02 to B12 foundation controls | Implemented and tested in code; migrations and actual source grants not deployed | Company-specific configuration, full-history upgrade and actual environment acceptance |
+| B02 to B12 foundation controls | Implemented and tested in code; migrations and actual source grants not deployed | Company-specific configuration and actual environment acceptance; isolated full-history schema rehearsal passed |
 | B13 quotation memorandum and tax correction | Implemented inactive control slice; existing invoice tax breakdown corrected using shared calculation | Actual recognition, tax and operational Finance activation |
 | B14 receipts and receivables | Inactive ownership, capacity, assignment, ageing and reconciliation controls implemented | Actual source/ bank reconciliation and legal discharge; B15 outgoing cash |
 | B43 currencies and B44 ledger reports | Persistent reviewed currency/rate evidence, canonical journals and reconciled ledger/report APIs implemented | Approved actual scope, certified opening and explicit release |
@@ -196,7 +196,7 @@ No shared database write or shared EntityManager may be assumed to survive servi
 | B34 | Certify actual populations and crosswalks | PLAN PREPARED EXECUTION NOT STARTED | B04 B07 B13 B18 B19 B26 |
 | B35 | Build shadow opening and replay pipeline | PLAN PREPARED EXECUTION NOT STARTED | B11 B23 B24 B26 B33 B34 |
 | B36 | Verify compatibility and cutover reversibility | PLAN PREPARED EXECUTION NOT STARTED | B12 B15 B33 B35 |
-| B37 | Verify capacity, security and restore with financial outcomes | PLAN PREPARED EXECUTION NOT STARTED | B03 B12 B32 B33 B35 B36 |
+| B37 | Verify capacity, security and restore with financial outcomes | PARTIAL DATABASE REHEARSAL PASSED | B03 B12 B32 B33 B35 B36 |
 | B38 | Approve a defined scope for the logical switch | PLAN PREPARED EXECUTION NOT STARTED | B33 B34 B35 B36 B37 |
 | B39 | Switch incrementally and complete aftercare | PLAN PREPARED EXECUTION NOT STARTED | B38 |
 | B40 | Remove shared transaction dependencies safely | PLAN PREPARED EXECUTION NOT STARTED | B19 B39 |
@@ -752,7 +752,7 @@ No shared database write or shared EntityManager may be assumed to survive servi
 
 ### B37 Verify capacity, security and restore with financial outcomes
 
-**Current state:** PLAN PREPARED EXECUTION NOT STARTED. This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement.
+**Current state:** PARTIAL DATABASE REHEARSAL PASSED. Isolated full-history backup, migration, empty rollback and restore/reapply reconciliation passed. Actual role/security, capacity, approved RPO/RTO, live financial recovery and company acceptance remain pending.
 
 **Sequence and dependencies:** 40 / DEP; B03 B12 B32 B33 B35 B36.
 
@@ -1440,7 +1440,7 @@ Future public obligations, outgoing payment/reservation, supplier, claims-accoun
 | Precision | Exact configured decimals and independent source/functional balancing; reviewed FX evidence and deterministic rounding. | Foundation tested; full translation/revaluation and all advanced measurement branches pending. |
 | Reliability | Atomic source outbox, durable inbox, retries, owned dead letters, bounded leases, idempotent replay and alert ownership. | Internal controls tested; actual transport infrastructure, SLOs and every live producer adapter pending. |
 | Performance | Approve peak load, concurrency, query bounds, queue lag and closing window; prove financial invariants under load. | No throughput or response-time target is assumed. Current bounded reports reject oversized populations instead of truncating totals. |
-| Recovery | Approve RPO/RTO, backup retention, restore procedures and post-restore financial reconciliation. | Private-cluster cleanup passed; full application restored-clone upgrade and actual financial recovery remain required. |
+| Recovery | Approve RPO/RTO, backup retention, restore procedures and post-restore financial reconciliation. | Isolated full-history upgrade, unused migration rollback and encrypted backup restore/reapply passed. Company recovery targets, ownership/ACL recovery and live operational financial recovery remain to be accepted. |
 | Audit and retention | Append-only subjects, decisions, evidence, source hashes and legal holds with company-approved retention and privacy. | Core journal and review immutability tested; actual retention duration and operations policy require approval. |
 | Availability and operations | Define worker ownership, escalation, incident authority, calendars and aftercare before live posting. | Targets, people and cutover dates remain unassigned. |
 | Compatibility | Preserve current quote/policy/payment/commission/claims/reinsurance APIs and customer payable until a reconciled replacement is approved. | Existing workflow protections retained; future source migrations require actual E2E regression acceptance. |
@@ -1462,7 +1462,25 @@ The 17 recorded pre-existing diagnostics are resolved. The fixes update test fix
 
 The exact type-repair changes, build result, test totals and limits are in [Type Repair Verification](Type-Repair-Verification.json). The updated [Acceptance Test Manifest](Acceptance-Test-Manifest.json) retains the original Finance case identities and records the broader regression outcome. The migration manifest fingerprints the current source with canonical UTF8 LF encoding.
 
-Mandatory remaining evidence includes the actual full-history restored-clone upgrade, actual company authentication and permission path, complete scope/source/bank/open-item reconciliation, real producer and worker compatibility, backup and financial restore, security/capacity outcomes, current legal and tax evidence, specialist model certification where applicable and explicit company-admin acceptance. A local successful build and test run is not migration or policy-activation approval. The frontend bundle-size advisory remains; it did not fail the build.
+The isolated full-history database restore and migration rehearsal passed. Mandatory remaining evidence includes actual company authentication and privileges, complete scope/source/bank/open-item reconciliation, real producer and worker compatibility, approved live financial recovery, security/capacity outcomes, current legal and tax evidence, specialist model certification where applicable and explicit company-admin acceptance. A local successful build and test run is not migration or policy-activation approval. The frontend bundle-size advisory remains; it did not fail the build.
+
+## Isolated migration rehearsal outcome
+
+The controlled rehearsal passed on a private restored copy of the complete local development database. The original source remained read-only and unchanged. [Migration Rehearsal Report](Migration-Rehearsal-Report.html) and [verification record](Migration-Rehearsal-Verification.json) contain the method, evidence and limits.
+
+| Check | Rehearsal result |
+| --- | --- |
+| Source preservation | All 290 original source tables and four protected paid invoice headers/items unchanged; source migration count remains 76. |
+| Isolated upgrade | Exactly 12 approved-manifest migrations committed in one transaction; clone migration ledger advanced from 76 to 88. |
+| Data and configuration | All 289 pre-existing application data tables unchanged; only the clone migration ledger changed. All 62 new Finance tables remained empty, with zero policy/book activation or seeded grants. |
+| Repeat run | Zero additional migrations and no data/schema changes. |
+| Empty rollback | All 12 migrations reverted only on the unused clone, restoring original schema and 76 migration rows. The migration metadata sequence may retain consumed IDs; business sequences are unchanged. |
+| Independent recovery | The encrypted backup restored to a second private database with all original rows and sequences matching. Reapplying the 12 migrations produced the same upgraded result. |
+| Isolation and cleanup | No application or worker started; no bank/provider, TIRAMIS or fiscal action. All rehearsal instances stopped and temporary plaintext dumps removed. |
+
+Logical comparison retains column order, types, defaults, constraints, indexes, triggers and the other recorded objects. Physical dropped-column slot numbers are excluded, and 39 exact literal varchar-to-text cast pairs produced by logical restore were checked equal directly in PostgreSQL. Raw data, backup files, keys and private invoice identifiers remain outside Git.
+
+The private restore omits original ownership and ACLs and uses one isolated administrator. It does not certify production privilege recovery, actual company authentication, a financial opening certificate, bank truth, approved RPO/RTO, live source/worker compatibility or company policy decisions. All policies remain inactive and the twelve migrations remain unapplied to the original development database.
 
 ## Company admin review pack
 
@@ -1505,13 +1523,15 @@ The following gates are proposed for review, with no execution permission record
 - Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The current ledger contains 76 entries; 12 Finance migrations are pending.
 - The applied tax-evidence migration 1796900000000 is newer than several pending Finance migrations. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.
 - The current TypeORM CLI discovers all pending files. Run it only against a reviewed immutable artifact whose pending set equals the exact 12-file allowlist; otherwise stop. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.
-- The 17 recorded diagnostics are resolved and the full local build passes. Obtain independently reviewed target-environment build/CI results for the pinned artifact; local build success does not establish a restored-clone migration or company release.
+- The 17 recorded diagnostics are resolved and full local builds/tests pass. The pinned full-history database restore and schema migration rehearsal also passed on an isolated copy. Obtain independently reviewed target-environment CI and access/release evidence before actual source migration.
 
 **Exit evidence:** Approved immutable artifact, exact pending set, target identity and deployment-only authorization recorded.
 
 **Stop or recovery:** Discard the unapproved artifact; no database action.
 
 ### G02 Backup and isolated restored clone rehearsal
+
+**Current evidence:** The isolated database-only rehearsal passed. See the migration rehearsal verification. Actual source execution, company policy approval and recovery-target acceptance remain separate.
 
 **Responsible remit:** Database operator with Finance reviewer.
 
@@ -1659,7 +1679,7 @@ B42 retirement applies only to paths with accepted replacements and post-extract
 | --- | --- |
 | 70 policies and 126 choices | Review actual applicability, exact treatment, evidence and independent company-admin decision. Do not invent a resolved status. |
 | Company scope and people | Actual IDs, assignments, mandates, activation dates and currencies remain unset. |
-| Build and full history upgrade | The recorded type diagnostics are resolved and the full local build passes. Full-history restored-clone migration and target-environment release evidence remain outstanding. |
+| Build and full history upgrade | The recorded type diagnostics and local build blockers are resolved, and isolated full-history migration/restore rehearsal passed. Target-environment release, privilege and company acceptance remain outstanding. |
 | Tax and statutory requirements | Rates, exemptions, levy bases, lawful currency use, deadlines and reporting rules require current competent company-specific evidence; no rate or legal conclusion is selected by this SRS. |
 | Model and impairment decisions | PAA/GMM/held eligibility, assumptions, CSM/LIC/LRC, discount/risk/OCI and IFRS 9 scope remain future certified implementation and approval. |
 | Historical paid tax exceptions | Keep originals unchanged and use the private exception register. Any correction is a separate authorized plan. |
@@ -1682,4 +1702,4 @@ This SRS carries forward the Step 16 baseline backlog IDs B01 to B46, the Step 1
 | [Company Admin Review](company-admin/PLATFORM_TEMPLATE-Review.html) | Separate platform and business-profile policy and decision review sheets with blank actual approval fields. |
 
 
-The reviewed Finance baseline before this type repair is 6191145da126998c1aaddee2a87066c0545b6ea3. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.
+The code revision used for this isolated rehearsal is f193c3058103c7cf563a5225978751eb20dcd240. No implementation code changed during the rehearsal. The immutable source fingerprint in the migration manifest identifies the pre-publication Finance worktree content. The later Git commit identifies this document and the implementation together. Raw development database snapshots, actual invoice identifiers, credentials, backups and private financial hashes are retained outside Git.

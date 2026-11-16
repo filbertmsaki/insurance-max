@@ -1,5 +1,5 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "date": "2026-11-16",
   "status": "PREPARED_FOR_REVIEW_NOT_EXECUTED",
   "companyScope": {
@@ -194,7 +194,7 @@
         "Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The current ledger contains 76 entries; 12 Finance migrations are pending.",
         "The applied tax-evidence migration 1796900000000 is newer than several pending Finance migrations. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.",
         "The current TypeORM CLI discovers all pending files. Run it only against a reviewed immutable artifact whose pending set equals the exact 12-file allowlist; otherwise stop. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.",
-        "The 17 recorded diagnostics are resolved and the full local build passes. Obtain independently reviewed target-environment CI/build evidence for the pinned artifact; local success does not certify the full-history clone upgrade or company release."
+        "The 17 recorded diagnostics are resolved and full local builds/tests pass. The pinned full-history database restore and schema migration rehearsal also passed on an isolated copy. Obtain independently reviewed target-environment CI and access/release evidence before actual source migration."
       ],
       "exit": "Approved immutable artifact, exact pending set, target identity and deployment-only authorization recorded.",
       "rollback": "Discard the unapproved artifact; no database action.",
@@ -214,9 +214,10 @@
       ],
       "exit": "A successful full-history clone upgrade and financial restore prove the approved recovery objectives.",
       "rollback": "Discard only the owned clone; the source remains unchanged.",
-      "status": "NOT_AUTHORIZED",
-      "executionEvidenceHash": null,
-      "executedAt": null
+      "status": "REHEARSED_ISOLATED_COPY_COMPANY_ACCEPTANCE_PENDING",
+      "executionEvidenceHash": "f49a6eb94704f47c0e5ef3a8e6125f13da9db45027d43f3b62f44e4123df8a44",
+      "executedAt": "2026-11-16T07:14:32.607Z",
+      "remainingCompanyAcceptance": "Recovery targets, retention and access/ownership restoration are not formally accepted. No actual source migration or live cutover authorized."
     },
     {
       "id": "G03",
@@ -355,5 +356,13 @@
   "aftercareWindow": null,
   "livePoliciesActivated": 0,
   "historicalPaidInvoicesEditable": false,
-  "typeRepairVerification": "Type-Repair-Verification.json"
+  "typeRepairVerification": "Type-Repair-Verification.json",
+  "rehearsalEvidence": "Migration-Rehearsal-Verification.json",
+  "rehearsalAuthorization": {
+    "scope": "EXPLICIT_USER_REQUEST_PRIVATE_COPY_ONLY",
+    "runId": "20261116071330729_8e51243c",
+    "sourceMigrationAuthorized": false,
+    "policyApprovalRecorded": false,
+    "policyActivationAuthorized": false
+  }
 }

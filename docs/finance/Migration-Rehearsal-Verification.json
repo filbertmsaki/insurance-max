@@ -1,0 +1,288 @@
+{
+  "schema": "FINANCE_ISOLATED_MIGRATION_REHEARSAL_V1",
+  "preparedDate": "2026-11-16",
+  "timeZone": "Africa/Dar_es_Salaam",
+  "runId": "20261116071330729_8e51243c",
+  "status": "PASSED_ISOLATED_COPY_ONLY",
+  "sourceCodeCommit": "f193c3058103c7cf563a5225978751eb20dcd240",
+  "sourceCodeFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
+  "startedAt": "2026-11-16T07:13:30.730Z",
+  "finishedAt": "2026-11-16T07:14:32.607Z",
+  "wholeRehearsalElapsedSeconds": 62,
+  "engine": "PostgreSQL 17.4",
+  "authorization": {
+    "scope": "Explicit user-authorized isolated copy of local development",
+    "sourceDatabaseMigration": false,
+    "policyApproval": false,
+    "policyActivation": false,
+    "liveCutover": false
+  },
+  "source": {
+    "readOnly": true,
+    "originalTablesCompared": 290,
+    "originalTablesUnchanged": 290,
+    "appliedMigrationsBefore": 76,
+    "appliedMigrationsAfter": 76,
+    "protectedPaidInvoicesUnchanged": 4,
+    "legacyAccountsUnchanged": 3,
+    "sourceChanges": 0
+  },
+  "cloneUpgrade": {
+    "transactionMode": "all",
+    "originalTablesRetained": 290,
+    "unchangedOriginalApplicationDataTables": 289,
+    "intentionallyChangedMetadataTable": "migrations",
+    "migrationLedgerBefore": 76,
+    "migrationLedgerAfter": 88,
+    "migrationsApplied": 12,
+    "newEmptyFinanceTables": 62,
+    "policiesActivated": 0,
+    "booksActivated": 0,
+    "grantsSeeded": 0,
+    "existingTaxEvidenceReapplied": false,
+    "repeatRunApplied": 0
+  },
+  "emptyStateRollback": {
+    "passed": true,
+    "revertedMigrations": 12,
+    "originalLedgerRestoredTo": 76,
+    "originalBusinessRowsAndSequencesUnchanged": true,
+    "migrationMetadataSequenceMayRetainConsumedIds": true,
+    "permittedOnlyWhileRegistriesUnused": true
+  },
+  "independentRecovery": {
+    "encryptedBackupRestored": true,
+    "originalRowsSchemaAndAllSequencesMatched": true,
+    "migrationsReapplied": 12,
+    "migratedResultIdentical": true
+  },
+  "logicalSchemaComparison": {
+    "literalCastPairsChecked": 39,
+    "allEqual": true,
+    "omittedPhysicalColumnSlots": true,
+    "allOtherDefinitionsComparedExactly": true,
+    "details": "Physical dropped-column slot numbers are excluded while logical column order is retained. Only the exact no-length varchar-to-text coercion of literal strings/arrays is canonicalized; every changed expression is checked equal in PostgreSQL. Types, defaults, constraints, indexes, triggers and other compared definitions are retained."
+  },
+  "backup": {
+    "encrypted": true,
+    "algorithm": "AES-256-GCM",
+    "keyProtection": "WINDOWS_DPAPI_CURRENT_USER",
+    "currentWindowsAccountRequired": true,
+    "ciphertextBytes": 2249794,
+    "consistentExportedRepeatableReadSnapshot": true,
+    "plaintextDumpCopiesRemoved": true,
+    "privateFolderAccessRestricted": true,
+    "rawDataAndWrappedKeysPublished": false
+  },
+  "isolation": {
+    "privateClusterStopped": true,
+    "allAttemptClustersStopped": true,
+    "sourceAndCloneHostPortRoleAndDataDirectoryVerified": true,
+    "applicationsStarted": 0,
+    "workersStarted": 0,
+    "externalBusinessActions": 0,
+    "replicationAndBackgroundWorkersDisabled": true,
+    "sourceSubscriptions": 0,
+    "sourceForeignTables": 0,
+    "sourceEventTriggers": 0
+  },
+  "migrations": [
+    {
+      "order": 1,
+      "name": "FinanceScopeFoundations1796000000000",
+      "sha256": "332ace51896701ccba54b7e2de6ce51ff93fef05049ced4eaf9b82c6b43d3dfa",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 2,
+      "name": "FinanceConfigurationReviews1796100000000",
+      "sha256": "e440f75a16429c614b1c64c07c750089c834410a802aed4d34c906d377d786a4",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 3,
+      "name": "FinanceChartSourceAuthorities1796200000000",
+      "sha256": "71fdd6b14bf90f52b214be94a6ac2938461591e1ec2aab65ee4a59348ded63d1",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 4,
+      "name": "FinanceJournalCandidates1796300000000",
+      "sha256": "0c3bce02d215dd9df8d2d279060ae61fafd6590b8609f219f85bd3e2a779133d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 5,
+      "name": "FinanceApprovalGovernance1796400000000",
+      "sha256": "a1edf8e6bf63d2324004c88f5c1a6739beea1ab0746d06cb1af2fe803f1709e0",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 6,
+      "name": "FinanceEventContractPreviews1796500000000",
+      "sha256": "150fe6e4d9dffb95c45843781d19bf11a3572d429fae898a5378a3a5c8b6447a",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 7,
+      "name": "FinanceIntegrationReliability1796600000000",
+      "sha256": "40a1891488cb95758303a928e249f18c8afb58516a1b190e1d83c418c41614fc",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 8,
+      "name": "FinanceOwnedExceptions1796700000000",
+      "sha256": "64c47364deea5cc3ea7bf1cadd9cff32c60319f27c074553b60c5c2abb95f0cc",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 9,
+      "name": "FinanceQuotationMemoranda1796800000000",
+      "sha256": "2856e272a26c8c68597d00d192f64f557c7067e99a690e09c69102c4ef5dbdc6",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 10,
+      "name": "FinanceReceivableControls1797000000000",
+      "sha256": "20e10753c396c556ac0fa86e3c4b8c0405ae40bd9cda0543dbb9f52799710cf2",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 11,
+      "name": "FinancePolicyGovernance1797100000000",
+      "sha256": "15e5c2c3ad099aa95cafee691d6c402d8fc879c638a661aa2ef6e08aede5422d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "order": 12,
+      "name": "FinanceLedgerFoundation1797200000000",
+      "sha256": "78ec1b3b3d2927fe3f571457fc9b4523e4e7a3301de3c7a7b602b4c96e8a6d3d",
+      "hashEncoding": "UTF8_LF"
+    }
+  ],
+  "newEmptyTables": [
+    "finance_accounting_books",
+    "finance_approval_decisions",
+    "finance_approval_events",
+    "finance_approval_mandates",
+    "finance_approval_requests",
+    "finance_billing_authorities",
+    "finance_chart_source_authorities",
+    "finance_configuration_authorities",
+    "finance_configuration_events",
+    "finance_configuration_releases",
+    "finance_confirmed_receipts",
+    "finance_draft_periods",
+    "finance_event_producer_keys",
+    "finance_foundation_authorities",
+    "finance_foundation_decisions",
+    "finance_foundation_deployments",
+    "finance_foundation_documents",
+    "finance_foundation_identity_bindings",
+    "finance_foundation_journal_audits",
+    "finance_foundation_journals",
+    "finance_foundation_lines",
+    "finance_foundation_period_events",
+    "finance_foundation_periods",
+    "finance_integration_audits",
+    "finance_integration_authorities",
+    "finance_integration_channels",
+    "finance_integration_conflicts",
+    "finance_integration_inboxes",
+    "finance_integration_intakes",
+    "finance_journal_candidate_authorities",
+    "finance_journal_candidate_events",
+    "finance_journal_candidate_lines",
+    "finance_journal_candidates",
+    "finance_legal_entities",
+    "finance_legal_entity_source_maps",
+    "finance_operations_audits",
+    "finance_operations_authorities",
+    "finance_owned_exceptions",
+    "finance_policy_authorities",
+    "finance_policy_events",
+    "finance_policy_posting_releases",
+    "finance_policy_versions",
+    "finance_quotation_billing_audits",
+    "finance_quotation_billing_decisions",
+    "finance_quotation_memoranda",
+    "finance_quotation_memorandum_lines",
+    "finance_receipt_sources",
+    "finance_receivable_audits",
+    "finance_receivable_authorities",
+    "finance_receivable_decisions",
+    "finance_receivable_reconciliations",
+    "finance_receivable_requests",
+    "finance_reference_dispositions",
+    "finance_reference_outbox",
+    "finance_reference_receipts",
+    "finance_replay_executions",
+    "finance_replay_requests",
+    "finance_scope_memberships",
+    "finance_source_event_preview_audits",
+    "finance_source_event_preview_deliveries",
+    "finance_source_event_preview_targets",
+    "finance_source_event_previews"
+  ],
+  "verificationChecks": [
+    {
+      "name": "Reviewed source and exact twelve-migration fingerprints verified",
+      "passed": true
+    },
+    {
+      "name": "Private PostgreSQL started with background and replication workers disabled",
+      "passed": true
+    },
+    {
+      "name": "Consistent source snapshot captured and backup encrypted",
+      "passed": true
+    },
+    {
+      "name": "First restored clone matches all original tables logical schema sequences and protected invoices",
+      "passed": true
+    },
+    {
+      "name": "All twelve migrations committed only on the restored clone",
+      "passed": true
+    },
+    {
+      "name": "Repeat run correctly applies zero migrations",
+      "passed": true
+    },
+    {
+      "name": "Empty clone-only migration rollback restores original schema ledger and business records",
+      "passed": true
+    },
+    {
+      "name": "Encrypted backup recovery reproduces every original table and sequence",
+      "passed": true
+    },
+    {
+      "name": "Independent restore and migration produce identical reconciled results",
+      "passed": true
+    },
+    {
+      "name": "Development database is unchanged after the entire rehearsal",
+      "passed": true
+    }
+  ],
+  "earlierHarnessStops": {
+    "count": 4,
+    "beforeAnyMigration": true,
+    "summary": "Isolation-address and logical-restore comparison handling were corrected before migration. Early attempts were stopped safely and retained privately; no application migration failure was observed in the completed run."
+  },
+  "priorBuildAndTestEvidence": {
+    "unchangedCode": true,
+    "verification": "Type-Repair-Verification.json",
+    "passedTests": 2996,
+    "newTypeDiagnostics": 0
+  },
+  "remainingGates": [
+    "Actual company-admin policy, configuration and release decisions remain unreceived; all policies stay inactive.",
+    "This backup restore uses the private administrator and intentionally omits original ownership and ACL restoration. Production roles, permissions and access-model recovery remain to be verified separately.",
+    "No application server, source producer, worker, bank/provider, TIRAMIS, fiscal or real authentication flow was started. End-to-end operational cutover is not certified.",
+    "The cloned balances were preserved and reconciled to the source, but no financial opening certificate, bank truth, IFRS17/IFRS9 model, company reporting scope or go-live policy is approved.",
+    "Company-approved RPO/RTO, backup retention, key recovery, operating windows, capacity and aftercare targets remain unset. The measured whole-run duration is not an accepted recovery SLA.",
+    "The twelve migrations remain unapplied to the original development database. Logical switch, live posting, B15 and independent Finance service extraction are not authorized by this rehearsal."
+  ]
+}

@@ -73,7 +73,7 @@
   "allEarlierCasesRetained": true,
   "fullApplicationBuildCertified": true,
   "realCompanyAuthAcceptance": false,
-  "actualFullHistoryUpgradeRehearsed": false,
+  "actualFullHistoryUpgradeRehearsed": true,
   "realCompanyFormalAcceptance": false,
   "realPolicyActivations": 0,
   "privateClusterStopped": true,
@@ -4441,5 +4441,7 @@
     },
     "distinctBackendFrontendPostgresTotal": 2996
   },
-  "typeRepairEvidence": "Type-Repair-Verification.json"
+  "typeRepairEvidence": "Type-Repair-Verification.json",
+  "fullHistoryRehearsalScope": "ISOLATED_COPY_ONLY",
+  "fullHistoryRehearsalEvidence": "Migration-Rehearsal-Verification.json"
 }

@@ -1,9 +1,9 @@
 {
-  "documentId": "IM-FIN-SRS-1.1",
+  "documentId": "IM-FIN-SRS-1.2",
   "date": "2026-11-16",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
-  "baseCommit": "6191145da126998c1aaddee2a87066c0545b6ea3",
+  "baseCommit": "f193c3058103c7cf563a5225978751eb20dcd240",
   "sourceCodeFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
   "sourceCodeFiles": [
     {
@@ -985,5 +985,13 @@
   },
   "privateHistoricalEvidence": "Retained locally outside Git; exact invoice IDs and header/item hashes must be obtained from the approved private evidence store.",
   "localBuildVerified": true,
-  "recordedTypeDiagnosticsRemaining": 0
+  "recordedTypeDiagnosticsRemaining": 0,
+  "isolatedRehearsal": {
+    "runId": "20261116071330729_8e51243c",
+    "status": "PASSED_ISOLATED_COPY_ONLY",
+    "evidence": "Migration-Rehearsal-Verification.json",
+    "evidenceSha256": "f49a6eb94704f47c0e5ef3a8e6125f13da9db45027d43f3b62f44e4123df8a44",
+    "sourceUnchanged": true,
+    "scope": "ISOLATED_COPY_ONLY"
+  }
 }
