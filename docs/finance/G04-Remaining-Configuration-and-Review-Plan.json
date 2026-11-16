@@ -270,7 +270,7 @@
       "owner": "Company admin with access administrator",
       "action": "Onboard the nominated independent person, confirm individual identity and separate preparer/checker assignments; record scoped identity bindings and expiring mandates.",
       "acceptance": "New account, verified identity, native role/permission review, negative cross-scope and self-review tests.",
-      "currentState": "Nominated person now has an inactive company/HQ membership and zero-permission onboarding role. Credentials, verification, Finance identity binding, appointment and mandates remain pending.",
+      "currentState": "Additional company/HQ account and membership active; password sign-in and exact-scope READ verified through 20 HTTP checks. Email/phone remain unverified; formal preparer/checker appointment and non-read mandates remain pending.",
       "dependsOn": [
         "G04-01"
       ],
@@ -556,13 +556,18 @@
     "newPersonNominated": true,
     "newAccountCreated": true,
     "identityVerified": false,
-    "assignmentStatus": "ACCOUNT_CREATED_INACTIVE_IDENTITY_VERIFICATION_AND_FINANCE_APPOINTMENT_PENDING",
+    "assignmentStatus": "READ_ONLY_ACCESS_GRANTED_FORMAL_FINANCE_APPOINTMENT_PENDING",
     "existingLegacyPermissionsChanged": false,
     "proposedPreparer": "Nominated independent Finance person; appointment/remit still to be recorded.",
     "proposedCheckerAndPolicyApprover": "Confirmed company admin; scoped mandates and independent specialist evidence still required.",
     "separation": "Current policy service blocks the maker subject or natural person from VALIDATE/APPROVE/ACTIVATE; it does not require validator and approver to be different from each other. Company approval rules may impose additional separation. One person cannot prepare and independently review the same version.",
     "capabilities": "Account creation, Finance identity binding, READ, PREPARE_CONFIG/REVIEW_CONFIG, policy PREPARE/VALIDATE/APPROVE and ACTIVATE are distinct decisions. No generic USER/admin role assumed. No RELEASE grant just to obtain review access.",
-    "readAccessExpiry": "Existing seven-day READ grant expires 23 November 2026 at 12:09 EAT. Review before expiry; no automatic renewal."
+    "readAccessExpiry": "Original company-admin READ expires 23 November 2026 at 12:09 EAT. Additional reader READ expires 23 November 2026 at 15:45 EAT. No automatic renewal.",
+    "signInConfigured": true,
+    "readAccessGranted": true,
+    "effectivePermissions": [
+      "finance-foundation:read"
+    ]
   },
   "gaps": [
     {
@@ -2775,5 +2780,164 @@
       "noEmailSent": true,
       "realSignInTested": false
     }
+  },
+  "readOnlySignInSetup": {
+    "version": "1.0",
+    "date": "2026-11-16",
+    "status": "PASSWORD_SIGNIN_AND_SCOPED_READ_VERIFIED_LOCAL_DEVELOPMENT",
+    "environment": "Existing local development application; no application processes started or stopped.",
+    "accountStatus": "active",
+    "companyMembershipStatus": "active",
+    "role": "FINANCE_FOUNDATION_READER",
+    "effectivePermissions": [
+      "finance-foundation:read"
+    ],
+    "foundationCapability": "READ",
+    "scopePermission": "READ_DRAFT",
+    "validFrom": "2026-11-16T12:45:08.148Z",
+    "validTo": "2026-11-23T12:45:08.148Z",
+    "validToEAT": "23 November 2026 at 15:45 EAT",
+    "passwordConfigured": true,
+    "passwordHandoff": "Private CurrentUser/SYSTEM local file, outside Git. No password/token in this report.",
+    "passwordChangeForcedByApplication": false,
+    "emailVerified": false,
+    "phoneVerified": false,
+    "emailVerificationFeatureChanged": false,
+    "authenticationOverrides": 0,
+    "permissionOverrides": 0,
+    "realPasswordAuthenticationVerified": true,
+    "humanSignInObserved": false,
+    "formalCheckerAppointmentGranted": false,
+    "nonReadCapabilitiesGranted": 0,
+    "policyAuthoritiesGranted": 0,
+    "policyApprovals": 0,
+    "policyActivations": 0,
+    "booksActivated": 0,
+    "invitationsEmailsOrSmsSent": 0,
+    "temporarySessionLoggedOut": true,
+    "applicationCodeChanged": false,
+    "sourceCodeFilesVerified": 157,
+    "migrationFilesVerified": 12,
+    "sourceSetup": {
+      "authorizedChangedTables": [
+        "users",
+        "company_users",
+        "roles",
+        "company_user_permissions",
+        "finance_foundation_identity_bindings",
+        "finance_foundation_authorities",
+        "finance_scope_memberships",
+        "audit_logs"
+      ],
+      "otherTablesUnchanged": 344,
+      "existingOtherUsersAndAccessUnchanged": true,
+      "protectedPaidInvoicesUnchanged": 4,
+      "financialTransactionsAndBalancesUnchanged": true,
+      "encryptedBackupIntegrityVerified": true
+    },
+    "httpVerification": {
+      "checksPassed": 20,
+      "writeAndApprovalDenials": 8,
+      "crossScopeDenials": 2,
+      "allFinanceTablesUnchangedDuringHttpChecks": true,
+      "authTableChanges": [
+        "public.users",
+        "public.company_users",
+        "public.devices",
+        "public.user_sessions",
+        "public.audit_logs"
+      ],
+      "protectedPaidInvoicesUnchanged": 4,
+      "checks": [
+        {
+          "name": "Real password sign-in succeeded",
+          "passed": true,
+          "httpStatus": 201
+        },
+        {
+          "name": "Authenticated nominated user in the exact company membership",
+          "passed": true
+        },
+        {
+          "name": "Only Finance foundation READ permission is effective",
+          "passed": true
+        },
+        {
+          "name": "Fresh membership authorization version applied",
+          "passed": true
+        },
+        {
+          "name": "One exact draft book is readable",
+          "passed": true
+        },
+        {
+          "name": "Actual source document list is readable and empty",
+          "passed": true
+        },
+        {
+          "name": "Other legalEntityId denied",
+          "passed": true
+        },
+        {
+          "name": "Other bookId denied",
+          "passed": true
+        },
+        {
+          "name": "Prepare currency denied",
+          "passed": true
+        },
+        {
+          "name": "Review document denied",
+          "passed": true
+        },
+        {
+          "name": "Open period denied",
+          "passed": true
+        },
+        {
+          "name": "Accept journal denied",
+          "passed": true
+        },
+        {
+          "name": "Approve release denied",
+          "passed": true
+        },
+        {
+          "name": "Deploy release denied",
+          "passed": true
+        },
+        {
+          "name": "Prepare policy denied",
+          "passed": true
+        },
+        {
+          "name": "Decide or activate policy denied",
+          "passed": true
+        },
+        {
+          "name": "Unauthenticated Finance read denied",
+          "passed": true
+        },
+        {
+          "name": "Unauthenticated application workspace is reachable",
+          "passed": true
+        },
+        {
+          "name": "Temporary verification session logged out",
+          "passed": true
+        },
+        {
+          "name": "Logged-out access token denied",
+          "passed": true
+        }
+      ]
+    },
+    "limitations": [
+      "Password authentication was exercised through the real HTTP API; no human sign-in or live workspace interaction is claimed.",
+      "Email and phone ownership remain unverified; the existing local email-verification setting remains unchanged.",
+      "Read access expires automatically through the scoped mandates; the application does not enforce first-login password replacement.",
+      "The source draft book has no review documents. Prior isolated document fixture tests remain separate.",
+      "Read access does not appoint a checker, approve accounting treatments or activate a book or policy."
+    ]
   }
 }

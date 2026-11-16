@@ -1,0 +1,159 @@
+{
+  "version": "1.0",
+  "date": "2026-11-16",
+  "status": "PASSWORD_SIGNIN_AND_SCOPED_READ_VERIFIED_LOCAL_DEVELOPMENT",
+  "environment": "Existing local development application; no application processes started or stopped.",
+  "accountStatus": "active",
+  "companyMembershipStatus": "active",
+  "role": "FINANCE_FOUNDATION_READER",
+  "effectivePermissions": [
+    "finance-foundation:read"
+  ],
+  "foundationCapability": "READ",
+  "scopePermission": "READ_DRAFT",
+  "validFrom": "2026-11-16T12:45:08.148Z",
+  "validTo": "2026-11-23T12:45:08.148Z",
+  "validToEAT": "23 November 2026 at 15:45 EAT",
+  "passwordConfigured": true,
+  "passwordHandoff": "Private CurrentUser/SYSTEM local file, outside Git. No password/token in this report.",
+  "passwordChangeForcedByApplication": false,
+  "emailVerified": false,
+  "phoneVerified": false,
+  "emailVerificationFeatureChanged": false,
+  "authenticationOverrides": 0,
+  "permissionOverrides": 0,
+  "realPasswordAuthenticationVerified": true,
+  "humanSignInObserved": false,
+  "formalCheckerAppointmentGranted": false,
+  "nonReadCapabilitiesGranted": 0,
+  "policyAuthoritiesGranted": 0,
+  "policyApprovals": 0,
+  "policyActivations": 0,
+  "booksActivated": 0,
+  "invitationsEmailsOrSmsSent": 0,
+  "temporarySessionLoggedOut": true,
+  "applicationCodeChanged": false,
+  "sourceCodeFilesVerified": 157,
+  "migrationFilesVerified": 12,
+  "sourceSetup": {
+    "authorizedChangedTables": [
+      "users",
+      "company_users",
+      "roles",
+      "company_user_permissions",
+      "finance_foundation_identity_bindings",
+      "finance_foundation_authorities",
+      "finance_scope_memberships",
+      "audit_logs"
+    ],
+    "otherTablesUnchanged": 344,
+    "existingOtherUsersAndAccessUnchanged": true,
+    "protectedPaidInvoicesUnchanged": 4,
+    "financialTransactionsAndBalancesUnchanged": true,
+    "encryptedBackupIntegrityVerified": true
+  },
+  "httpVerification": {
+    "checksPassed": 20,
+    "writeAndApprovalDenials": 8,
+    "crossScopeDenials": 2,
+    "allFinanceTablesUnchangedDuringHttpChecks": true,
+    "authTableChanges": [
+      "public.users",
+      "public.company_users",
+      "public.devices",
+      "public.user_sessions",
+      "public.audit_logs"
+    ],
+    "protectedPaidInvoicesUnchanged": 4,
+    "checks": [
+      {
+        "name": "Real password sign-in succeeded",
+        "passed": true,
+        "httpStatus": 201
+      },
+      {
+        "name": "Authenticated nominated user in the exact company membership",
+        "passed": true
+      },
+      {
+        "name": "Only Finance foundation READ permission is effective",
+        "passed": true
+      },
+      {
+        "name": "Fresh membership authorization version applied",
+        "passed": true
+      },
+      {
+        "name": "One exact draft book is readable",
+        "passed": true
+      },
+      {
+        "name": "Actual source document list is readable and empty",
+        "passed": true
+      },
+      {
+        "name": "Other legalEntityId denied",
+        "passed": true
+      },
+      {
+        "name": "Other bookId denied",
+        "passed": true
+      },
+      {
+        "name": "Prepare currency denied",
+        "passed": true
+      },
+      {
+        "name": "Review document denied",
+        "passed": true
+      },
+      {
+        "name": "Open period denied",
+        "passed": true
+      },
+      {
+        "name": "Accept journal denied",
+        "passed": true
+      },
+      {
+        "name": "Approve release denied",
+        "passed": true
+      },
+      {
+        "name": "Deploy release denied",
+        "passed": true
+      },
+      {
+        "name": "Prepare policy denied",
+        "passed": true
+      },
+      {
+        "name": "Decide or activate policy denied",
+        "passed": true
+      },
+      {
+        "name": "Unauthenticated Finance read denied",
+        "passed": true
+      },
+      {
+        "name": "Unauthenticated application workspace is reachable",
+        "passed": true
+      },
+      {
+        "name": "Temporary verification session logged out",
+        "passed": true
+      },
+      {
+        "name": "Logged-out access token denied",
+        "passed": true
+      }
+    ]
+  },
+  "limitations": [
+    "Password authentication was exercised through the real HTTP API; no human sign-in or live workspace interaction is claimed.",
+    "Email and phone ownership remain unverified; the existing local email-verification setting remains unchanged.",
+    "Read access expires automatically through the scoped mandates; the application does not enforce first-login password replacement.",
+    "The source draft book has no review documents. Prior isolated document fixture tests remain separate.",
+    "Read access does not appoint a checker, approve accounting treatments or activate a book or policy."
+  ]
+}
