@@ -41,6 +41,7 @@ describe('claims navigation', () => {
       '/apps/claims/documents',
       '/apps/claims/reports',
       '/apps/claims/configuration',
+      '/apps/claims/fx-rates',
     ]);
   });
 

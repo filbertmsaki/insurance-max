@@ -11,6 +11,7 @@ export const claimsPaths = {
   documents: '/apps/claims/documents',
   reports: '/apps/claims/reports',
   configuration: '/apps/claims/configuration',
+  fxRates: '/apps/claims/fx-rates',
   queue: (queue: QueueSegment) => `/apps/claims/queue/${queue}`,
   detail: (id: string) => `/apps/claims/${id}`,
   edit: (id: string) => `/apps/claims/${id}/edit`,

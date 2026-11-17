@@ -8,12 +8,18 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Not, Repository } from 'typeorm';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { AuditService } from '../../../shared/audit/audit.service';
+import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import { InsuranceClaim } from '../../claims/entities/claim.entity';
+import { ClaimRecovery } from '../../claims/entities/claim-recovery.entity';
+import {
+  ClaimRecoveryStatus,
+  ClaimRecoveryType,
+} from '../../claims/enums/claim.enums';
 import { PolicyCessionParticipant } from '../entities/policy-cession-participant.entity';
 import { PolicyCession } from '../entities/policy-cession.entity';
 import { ReinsuranceClaimRecovery } from '../entities/reinsurance-claim-recovery.entity';
@@ -36,6 +42,24 @@ const NON_PROPORTIONAL_FORMS: TreatyForm[] = [
   TreatyForm.CATASTROPHE_EXCESS_OF_LOSS,
   TreatyForm.STOP_LOSS,
 ];
+
+export function recoveryBalances(
+  recovery: Pick<
+    ReinsuranceClaimRecovery,
+    'expected_recovery' | 'admitted_recovery' | 'received_recovery'
+  >,
+) {
+  return {
+    unadmitted_recovery: MoneyUtil.subtract(
+      recovery.expected_recovery,
+      recovery.admitted_recovery,
+    ),
+    uncollected_recovery: MoneyUtil.subtract(
+      recovery.admitted_recovery,
+      recovery.received_recovery,
+    ),
+  };
+}
 
 @Injectable()
 export class ReinsuranceRecoveryService {
@@ -73,7 +97,7 @@ export class ReinsuranceRecoveryService {
         'Only the cedant insurer can calculate claim recoveries',
       );
     }
-    const claim = await this.claimRepository.findOne({
+    let claim = await this.claimRepository.findOne({
       where: { id: claimId, company_id: user.companyId! },
     });
 
@@ -94,12 +118,37 @@ export class ReinsuranceRecoveryService {
       );
     }
 
-    const baseClaimAmount = Number(
-      claim.approved_amount || claim.estimated_amount || 0,
-    );
     const recoveries: ReinsuranceClaimRecovery[] = [];
 
     await this.dataSource.transaction(async (manager) => {
+      const lockedClaim = await manager
+        .getRepository(InsuranceClaim)
+        .createQueryBuilder('claim')
+        .setLock('pessimistic_write')
+        .where('claim.id = :id AND claim.company_id = :companyId', {
+          id: claimId,
+          companyId: user.companyId,
+        })
+        .getOne();
+      if (!lockedClaim) throw new NotFoundException('Claim not found');
+      claim = lockedClaim;
+      const baseClaimAmount =
+        claim.approved_amount || claim.estimated_amount || '0';
+      const legacyRecovery = await manager
+        .getRepository(ClaimRecovery)
+        .findOne({
+          where: {
+            company_id: claim.company_id,
+            claim_id: claim.id,
+            recovery_type: ClaimRecoveryType.REINSURANCE,
+            status: Not(ClaimRecoveryStatus.CANCELLED),
+          },
+        });
+      if (legacyRecovery) {
+        throw new ConflictException(
+          'A legacy claim reinsurance recovery requires reconciliation before ceded recovery calculation',
+        );
+      }
       for (const cession of cessions) {
         const participants = await manager
           .getRepository(PolicyCessionParticipant)
@@ -129,8 +178,10 @@ export class ReinsuranceRecoveryService {
             continue;
           }
 
-          const expected =
-            (cessionRecoveryAmount * Number(participant.premium_share)) / 100;
+          const expected = DecimalUtil.percentage(
+            cessionRecoveryAmount,
+            participant.premium_share,
+          );
           const recoveryNo = await this.referenceService.next({
             companyId: user.companyId!,
             documentType: 'REINSURANCE_RECOVERY',
@@ -215,7 +266,10 @@ export class ReinsuranceRecoveryService {
         tieBreaker: 'recovery.id',
         statusColumn: 'recovery.status',
       },
-      (row) => row,
+      (row) => ({
+        ...row,
+        ...recoveryBalances(row),
+      }),
     );
   }
 
@@ -229,53 +283,65 @@ export class ReinsuranceRecoveryService {
         'Only the participating reinsurer can admit its recovery share',
       );
     }
-    const recovery = await this.recoveryRepository.findOne({
-      where: { id: recoveryId, participant_company_id: user.companyId! },
-    });
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(ReinsuranceClaimRecovery);
+      const recovery = await repository
+        .createQueryBuilder('recovery')
+        .setLock('pessimistic_write')
+        .where('recovery.id = :id', { id: recoveryId })
+        .andWhere('recovery.participant_company_id = :companyId', {
+          companyId: user.companyId,
+        })
+        .andWhere('recovery.deleted_at IS NULL')
+        .getOne();
 
-    if (!recovery) {
-      throw new NotFoundException('Reinsurance recovery not found');
-    }
+      if (!recovery) {
+        throw new NotFoundException('Reinsurance recovery not found');
+      }
 
-    const admitted = Number(this.money(admittedAmount));
-    if (
-      !Number.isFinite(admitted) ||
-      admitted < 0 ||
-      admitted > Number(recovery.expected_recovery)
-    ) {
-      throw new BadRequestException(
-        'Admitted recovery must be between zero and the expected recovery amount',
+      const admitted = this.money(admittedAmount);
+      if (
+        MoneyUtil.compare(admitted, '0') < 0 ||
+        MoneyUtil.compare(admitted, recovery.expected_recovery) > 0 ||
+        MoneyUtil.compare(admitted, recovery.received_recovery) < 0
+      ) {
+        throw new BadRequestException(
+          'Admitted recovery must be between received and expected amounts',
+        );
+      }
+      recovery.admitted_recovery = admitted;
+      recovery.outstanding_recovery = MoneyUtil.subtract(
+        recovery.admitted_recovery,
+        recovery.received_recovery,
       );
-    }
-    recovery.admitted_recovery = this.money(admitted);
-    recovery.outstanding_recovery = this.money(
-      Math.max(
-        0,
-        Number(recovery.expected_recovery) - Number(recovery.admitted_recovery),
-      ),
-    );
-    recovery.admitted_by = user.id;
-    recovery.admitted_at = new Date();
-    recovery.status =
-      Number(recovery.admitted_recovery) >= Number(recovery.expected_recovery)
-        ? ReinsuranceRecoveryStatus.ADMITTED
-        : ReinsuranceRecoveryStatus.PARTIALLY_RECEIVED;
+      recovery.admitted_by = user.id;
+      recovery.admitted_at = new Date();
+      recovery.status =
+        MoneyUtil.compare(recovery.received_recovery, '0') > 0
+          ? MoneyUtil.compare(recovery.outstanding_recovery, '0') === 0
+            ? ReinsuranceRecoveryStatus.RECEIVED
+            : ReinsuranceRecoveryStatus.PARTIALLY_RECEIVED
+          : ReinsuranceRecoveryStatus.ADMITTED;
 
-    const saved = await this.recoveryRepository.save(recovery);
-    await this.auditService.log({
-      userId: user.id,
-      companyId: user.companyId,
-      action: 'reinsurance.recovery.admit',
-      eventCategory: 'REINSURANCE',
-      resource: 'reinsurance_claim_recoveries',
-      resourceId: saved.id,
-      afterState: {
-        status: saved.status,
-        admitted_recovery: saved.admitted_recovery,
-      },
-      metadata: { cedant_company_id: saved.company_id },
+      const saved = await repository.save(recovery);
+      await this.auditService.log(
+        {
+          userId: user.id,
+          companyId: user.companyId,
+          action: 'reinsurance.recovery.admit',
+          eventCategory: 'REINSURANCE',
+          resource: 'reinsurance_claim_recoveries',
+          resourceId: saved.id,
+          afterState: {
+            status: saved.status,
+            admitted_recovery: saved.admitted_recovery,
+          },
+          metadata: { cedant_company_id: saved.company_id },
+        },
+        manager,
+      );
+      return saved;
     });
-    return saved;
   }
 
   async recordReceipt(
@@ -288,8 +354,8 @@ export class ReinsuranceRecoveryService {
         'Only the cedant insurer can record recovery receipts',
       );
     }
-    const amount = Number(this.money(dto.amount));
-    if (!Number.isFinite(amount) || amount <= 0) {
+    const amount = this.money(dto.amount);
+    if (MoneyUtil.compare(amount, '0') <= 0) {
       throw new BadRequestException('Receipt amount must be greater than zero');
     }
     return this.dataSource.transaction(async (manager) => {
@@ -308,13 +374,16 @@ export class ReinsuranceRecoveryService {
       if (!recovery) {
         throw new NotFoundException('Reinsurance recovery not found');
       }
-      if (Number(recovery.admitted_recovery) <= 0) {
+      if (MoneyUtil.compare(recovery.admitted_recovery, '0') <= 0) {
         throw new ConflictException(
           'The reinsurer must admit a recovery before the cedant can record receipt',
         );
       }
-      const newReceivedTotal = Number(recovery.received_recovery) + amount;
-      if (newReceivedTotal > Number(recovery.admitted_recovery) + 0.000001) {
+      const newReceivedTotal = MoneyUtil.add(
+        recovery.received_recovery,
+        amount,
+      );
+      if (MoneyUtil.compare(newReceivedTotal, recovery.admitted_recovery) > 0) {
         throw new ConflictException(
           'Receipt total cannot exceed the amount admitted by the reinsurer',
         );
@@ -325,7 +394,7 @@ export class ReinsuranceRecoveryService {
           manager.getRepository(ReinsuranceRecoveryReceipt).create({
             company_id: recovery.company_id,
             claim_recovery_id: recovery.id,
-            amount: this.money(amount),
+            amount,
             currency_code: recovery.currency,
             received_at: dto.received_at
               ? new Date(dto.received_at)
@@ -335,12 +404,13 @@ export class ReinsuranceRecoveryService {
             recorded_at: new Date(),
           }),
         );
-      recovery.received_recovery = this.money(newReceivedTotal);
-      recovery.outstanding_recovery = this.money(
-        Math.max(0, Number(recovery.admitted_recovery) - newReceivedTotal),
+      recovery.received_recovery = newReceivedTotal;
+      recovery.outstanding_recovery = MoneyUtil.subtract(
+        recovery.admitted_recovery,
+        newReceivedTotal,
       );
       recovery.status =
-        newReceivedTotal >= Number(recovery.expected_recovery)
+        MoneyUtil.compare(newReceivedTotal, recovery.admitted_recovery) >= 0
           ? ReinsuranceRecoveryStatus.RECEIVED
           : ReinsuranceRecoveryStatus.PARTIALLY_RECEIVED;
       await recoveryRepository.save(recovery);
@@ -393,8 +463,8 @@ export class ReinsuranceRecoveryService {
   private async resolveCessionRecoveryAmount(
     manager: EntityManager,
     cession: PolicyCession,
-    baseClaimAmount: number,
-  ): Promise<number> {
+    baseClaimAmount: string,
+  ): Promise<string> {
     if (!cession.treaty_id) {
       return baseClaimAmount;
     }
@@ -413,14 +483,15 @@ export class ReinsuranceRecoveryService {
           .findOne({ where: { id: cession.treaty_section_id } })
       : null;
 
-    const attachmentPoint = Number(
+    const attachmentPoint = DecimalUtil.value(
       section?.retention_amount ?? treaty.company_retention ?? 0,
     );
-    const layerLimit = Number(
+    const layerLimit = DecimalUtil.value(
       section?.treaty_limit ?? treaty.total_capacity ?? 0,
     );
-
-    return Math.min(layerLimit, Math.max(0, baseClaimAmount - attachmentPoint));
+    const excess = DecimalUtil.value(baseClaimAmount).minus(attachmentPoint);
+    if (excess.isNegative()) return '0.00';
+    return (excess.lessThan(layerLimit) ? excess : layerLimit).toFixed(2);
   }
 
   private money(value: string | number) {

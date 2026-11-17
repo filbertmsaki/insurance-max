@@ -147,6 +147,7 @@ describe('voucher forms', () => {
 describe('payment form', () => {
   it('defaults to the payable amount by EFT to the claimant', () => {
     expect(paymentDefaults(400000, 'c-1')).toMatchObject({
+      parties_notified: 'N',
       paid_amount: '400000.00',
       payment_mode: '3',
       claimant_id: 'c-1',

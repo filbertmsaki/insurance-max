@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { ClaimReserveMovementType } from '@insurance-max/contracts';
 
@@ -6,16 +6,19 @@ import { BusinessReferenceService } from '../../../shared/identifiers/business-r
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import { ClaimReserve } from '../entities/claim-reserve.entity';
 import { ClaimReserveMovement } from '../entities/claim-reserve-movement.entity';
+import { ClaimFxGovernanceService } from './claim-fx-governance.service';
 
 @Injectable()
 export class ClaimReserveMovementService {
-  constructor(private readonly referenceService: BusinessReferenceService) {}
+  constructor(
+    private readonly referenceService: BusinessReferenceService,
+    private readonly fx: ClaimFxGovernanceService,
+  ) {}
 
   /**
    * Records one immutable movement (§14.7). `signedAmount` must already
    * carry the correct sign for `movementType` (positive for
-   * INITIAL/INCREASE/REOPEN, negative for DECREASE/RELEASE) — the DB CHECK
-   * constraint enforces this too.
+   * INITIAL/INCREASE/REOPEN, negative for DECREASE/RELEASE).
    */
   async record(
     manager: EntityManager,
@@ -26,6 +29,25 @@ export class ClaimReserveMovementService {
     sourceEventId: string,
     userId: string | null,
   ): Promise<ClaimReserveMovement> {
+    const sign = MoneyUtil.compare(signedAmount, '0');
+    if (
+      (new Set<ClaimReserveMovementType>([
+        ClaimReserveMovementType.INITIAL,
+        ClaimReserveMovementType.INCREASE,
+        ClaimReserveMovementType.REOPEN,
+      ]).has(movementType) &&
+        sign < 0) ||
+      (new Set<ClaimReserveMovementType>([
+        ClaimReserveMovementType.DECREASE,
+        ClaimReserveMovementType.RELEASE,
+        ClaimReserveMovementType.PAYMENT_REDUCTION,
+      ]).has(movementType) &&
+        sign > 0)
+    ) {
+      throw new BadRequestException(
+        'Reserve movement sign does not match its type',
+      );
+    }
     const existing = await manager.getRepository(ClaimReserveMovement).findOne({
       where: {
         company_id: reserve.company_id,
@@ -44,7 +66,7 @@ export class ClaimReserveMovementService {
       manager,
     });
 
-    return manager.getRepository(ClaimReserveMovement).save({
+    const movement = await manager.getRepository(ClaimReserveMovement).save({
       company_id: reserve.company_id,
       claim_id: reserve.claim_id,
       reserve_id: reserve.id,
@@ -61,5 +83,19 @@ export class ClaimReserveMovementService {
       source_event_id: sourceEventId,
       created_by: userId,
     });
+    const effectiveAt =
+      movementType === ClaimReserveMovementType.RELEASE && reserve.released_at
+        ? reserve.released_at
+        : reserve.effective_at;
+    await this.fx.snapshot(manager, {
+      companyId: reserve.company_id,
+      claimId: reserve.claim_id,
+      eventType: 'RESERVE_MOVEMENT',
+      eventId: movement.id,
+      currency: reserve.currency,
+      eventDate: effectiveAt.toISOString().slice(0, 10),
+      amount: signedAmount,
+    });
+    return movement;
   }
 }

@@ -1,6 +1,10 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 
-import { ClaimDischargeStatus, ClaimStatus } from '../enums/claim.enums';
+import {
+  ClaimDischargeStatus,
+  ClaimPaymentStatus,
+  ClaimStatus,
+} from '../enums/claim.enums';
 import { ClaimPaymentService } from './claim-payment.service';
 
 function harness(params: { claim: any; voucher: any; committed: string }) {
@@ -101,6 +105,21 @@ const voucher = (amount: string, reconciled: string | null = null) => ({
 const user = { id: 'officer', companyId: 'company-1' } as any;
 
 describe('ClaimPaymentService.create', () => {
+  it('rejects a caller notification assertion without delivery evidence', async () => {
+    const { service, saved } = harness({
+      claim: claim(ClaimStatus.DISCHARGE_ACCEPTED),
+      voucher: voucher('1000000'),
+      committed: '0',
+    });
+    await expect(
+      service.create(user, 'claim-1', {
+        paid_amount: '10.00',
+        payment_mode: 3,
+        parties_notified: 'Y',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(saved).toHaveLength(0);
+  });
   it('refuses payments before the claimant accepted a voucher', async () => {
     const { service } = harness({
       claim: claim(ClaimStatus.APPROVED),
@@ -204,5 +223,22 @@ describe('ClaimPaymentService.create', () => {
         claim_resulted_litigation: true,
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('ClaimPaymentService.submitToTiramis', () => {
+  it('blocks historical unverified notification assertions', async () => {
+    const { service } = harness({
+      claim: claim(ClaimStatus.PAID),
+      voucher: voucher('100'),
+      committed: '0',
+    });
+    jest.spyOn(service as any, 'lock').mockResolvedValue({
+      record: { status: ClaimPaymentStatus.PAID, parties_notified: 'Y' },
+      claim: claim(ClaimStatus.PAID),
+    });
+    await expect(service.submitToTiramis(user, 'payment-1')).rejects.toThrow(
+      'verified delivery evidence',
+    );
   });
 });

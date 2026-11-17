@@ -45,6 +45,7 @@ function harness(voucher: Record<string, unknown>) {
       claimantIdNumber: claimant.identification_number,
     })),
   };
+  const fx = { snapshotDraft: jest.fn().mockResolvedValue('1.000000') };
   const service = new ClaimDischargeService(
     dataSource as any,
     access as any,
@@ -55,9 +56,10 @@ function harness(voucher: Record<string, unknown>) {
     payload as any,
     {} as any,
     {} as any,
+    fx as any,
   );
 
-  return { service, stateMachine };
+  return { service, stateMachine, fx };
 }
 
 const draft = () => ({
@@ -66,11 +68,20 @@ const draft = () => ({
   status: ClaimDischargeStatus.DRAFT,
   claim_offer_amount: '800000.00',
   currency_code: 'TZS',
+  discharge_voucher_date: new Date('2026-01-01T00:00:00.000Z'),
   claimant_id: null,
   claimants: [],
 });
 
 describe('ClaimDischargeService.update', () => {
+  it('does not create another valuation for an unchanged offer', async () => {
+    const { service, fx } = harness(draft());
+    await service.update({ id: 'user-1' } as any, 'voucher-1', {
+      claim_offer_amount: '800000.00',
+    });
+    expect(fx.snapshotDraft).not.toHaveBeenCalled();
+  });
+
   it('changes the offer and claimant of a draft voucher', async () => {
     const voucher = draft();
     const { service, stateMachine } = harness(voucher);

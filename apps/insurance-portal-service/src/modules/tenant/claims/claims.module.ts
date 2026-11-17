@@ -15,6 +15,11 @@ import { Policy } from '../policies/entities/policy.entity';
 import { PolicyVersion } from '../policies/entities/policy-version.entity';
 import { WorkItemsModule } from '../work-items/work-items.module';
 import { ClaimsController } from './claims.controller';
+import {
+  ClaimFxController,
+  ClaimFxHistoryController,
+} from './claim-fx.controller';
+import { ClaimFxGovernanceService } from './services/claim-fx-governance.service';
 import { ClaimsService } from './claims.service';
 import { ComplaintsController } from './complaints.controller';
 import { ComplaintsService } from './complaints.service';
@@ -118,8 +123,14 @@ import { ComplaintSlaService } from './services/complaint-sla.service';
     TiramisModule,
     WorkItemsModule,
   ],
-  controllers: [ClaimsController, ComplaintsController],
+  controllers: [
+    ClaimsController,
+    ComplaintsController,
+    ClaimFxController,
+    ClaimFxHistoryController,
+  ],
   providers: [
+    ClaimFxGovernanceService,
     ClaimsService,
     ComplaintsService,
     ClaimSlaService,

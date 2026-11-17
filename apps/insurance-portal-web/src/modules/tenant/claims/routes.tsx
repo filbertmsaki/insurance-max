@@ -10,6 +10,7 @@ import {
   ClaimsDashboardPage,
   ClaimsListPage,
   ClaimsReportsPage,
+  ClaimsFxRatesPage,
   ClaimWizardPage,
   Page,
 } from './lazy-pages';
@@ -68,6 +69,11 @@ export function renderClaimsRoutes() {
         <ClaimDocumentsPage />,
       )}
       {guardedRoute([REPORT_READ], claimsPaths.reports, <ClaimsReportsPage />)}
+      {guardedRoute(
+        ['claims.fx.view'],
+        claimsPaths.fxRates,
+        <ClaimsFxRatesPage />,
+      )}
       {guardedRoute([READ, CREATE], claimsPaths.create, <ClaimWizardPage />)}
       {guardedRoute([READ], claimsPaths.queue(':queue'), <ClaimQueuePage />)}
       {guardedRoute(

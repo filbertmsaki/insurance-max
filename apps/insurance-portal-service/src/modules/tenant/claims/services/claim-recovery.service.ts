@@ -6,7 +6,11 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { FinanceJournalService } from '../../billing-commission/services/finance-journal.service';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
-import { ClaimRecoveryStatus, ClaimStatus } from '../enums/claim.enums';
+import {
+  ClaimRecoveryStatus,
+  ClaimRecoveryType,
+  ClaimStatus,
+} from '../enums/claim.enums';
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimRecovery } from '../entities/claim-recovery.entity';
 import { ClaimEvent } from '../entities/claim-event.entity';
@@ -48,6 +52,11 @@ export class ClaimRecoveryService {
     claimId: string,
     dto: CreateClaimRecoveryDto,
   ) {
+    if (dto.recovery_type === ClaimRecoveryType.REINSURANCE) {
+      throw new ConflictException(
+        'Reinsurance recoveries must be managed by the reinsurance service',
+      );
+    }
     const expectedAmount = MoneyUtil.fromMinor(
       MoneyUtil.toMinor(dto.expected_amount),
     );

@@ -420,7 +420,7 @@ export function paymentDefaults(
     bank_name: '',
     account_name: '',
     account_number: '',
-    parties_notified: 'Y',
+    parties_notified: 'N',
     claim_resulted_litigation: 'N',
     litigation_reason: '',
   };

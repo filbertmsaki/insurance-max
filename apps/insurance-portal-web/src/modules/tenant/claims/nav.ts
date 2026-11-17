@@ -99,5 +99,13 @@ export function buildClaimsNavNodes(): NavNode[] {
       permission: ClaimsPermissions.CONFIGURATION_MANAGE,
       allowedScopes: ['company'],
     },
+    {
+      kind: 'link',
+      label: 'Exchange rates',
+      to: claimsPaths.fxRates,
+      icon: SlidersHorizontal,
+      permission: 'claims.fx.view',
+      allowedScopes: ['company'],
+    },
   ];
 }

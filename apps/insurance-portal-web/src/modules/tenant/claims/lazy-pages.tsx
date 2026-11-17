@@ -46,6 +46,12 @@ export const ClaimsReportsPage = lazy(() =>
   })),
 );
 
+export const ClaimsFxRatesPage = lazy(() =>
+  import('./pages/ClaimsFxRatesPage').then((module) => ({
+    default: module.ClaimsFxRatesPage,
+  })),
+);
+
 export function Page({ children }: { children: ReactNode }) {
   return <Suspense fallback={<TableSkeleton />}>{children}</Suspense>;
 }

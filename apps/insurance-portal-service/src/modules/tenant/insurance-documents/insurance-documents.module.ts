@@ -20,6 +20,9 @@ import {
 import { SignatureRequestsService } from './signature-requests.service';
 import { DocumentAccessEvent } from './entities/document-access-event.entity';
 import { Document } from './entities/document.entity';
+import { InsuranceClaim } from '../claims/entities/claim.entity';
+import { Policy } from '../policies/entities/policy.entity';
+import { ClaimAccessService } from '../claims/services/claim-access.service';
 import { DocumentLink } from './entities/document-link.entity';
 import { DocumentSecurityScan } from './entities/document-security-scan.entity';
 import { DocumentTemplateVersion } from './entities/document-template-version.entity';
@@ -35,6 +38,8 @@ import { SignatureRequest } from './entities/signature-request.entity';
   imports: [
     TypeOrmModule.forFeature([
       Document,
+      InsuranceClaim,
+      Policy,
       DocumentVersion,
       DocumentLink,
       DocumentUploadSession,
@@ -58,6 +63,7 @@ import { SignatureRequest } from './entities/signature-request.entity';
   ],
   providers: [
     DocumentsService,
+    ClaimAccessService,
     DocumentStorageService,
     DocumentMalwareScannerService,
     DocumentRenderService,

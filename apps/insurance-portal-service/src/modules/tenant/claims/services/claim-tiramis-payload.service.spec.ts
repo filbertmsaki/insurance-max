@@ -132,6 +132,26 @@ describe('ClaimTiramisPayloadService', () => {
     expect(payload.claimants[0].claimantCategory).toBe(1);
   });
 
+  it('rejects missing exchange rates and formats large monetary amounts exactly', () => {
+    const intimation = {
+      currency_code: 'USD',
+      exchange_rate: null,
+      claim_estimated_amount: '90071992547409.91',
+      claim_reserve_amount: '1.00',
+    } as any;
+    expect(() => service.intimation(claim, intimation, [])).toThrow(
+      'valid exchange rate',
+    );
+    intimation.exchange_rate = '1234.565000';
+    expect(() => service.intimation(claim, intimation, [])).toThrow(
+      'cannot be represented exactly',
+    );
+    intimation.exchange_rate = '1234.560000';
+    const payload = service.intimation(claim, intimation, []);
+    expect(payload.exchangeRate).toBe('1234.56');
+    expect(payload.claimEstimatedAmount).toBe('90071992547409.91');
+  });
+
   it('uses identity-only claimants for later stages', () => {
     const identity = service.identityClaimant({
       ...claimant,

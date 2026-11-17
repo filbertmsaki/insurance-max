@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { MoneyUtil } from '../../billing-commission/utils/money.util';
 
 import { ClaimAssessment } from '../entities/claim-assessment.entity';
 import { ClaimClaimant } from '../entities/claim-claimant.entity';
@@ -273,10 +274,27 @@ export class ClaimTiramisPayloadService {
   }
 
   private money(value: string | number | null | undefined): string {
-    return Number(value ?? 0).toFixed(2);
+    return MoneyUtil.fromMinor(MoneyUtil.toMinor(value ?? '0'));
   }
 
   private rate(value: string | number | null | undefined): string {
-    return Number(value ?? 1).toFixed(2);
+    const rate = String(value ?? '');
+    if (!/^\d+(\.\d{1,6})?$/.test(rate)) {
+      throw new BadRequestException(
+        'A valid exchange rate is required for TIRAMIS',
+      );
+    }
+    const [whole, fraction = ''] = rate.split('.');
+    const scaled = BigInt(whole) * 1000000n + BigInt(fraction.padEnd(6, '0'));
+    if (scaled <= 0n)
+      throw new BadRequestException(
+        'A positive exchange rate is required for TIRAMIS',
+      );
+    if (scaled % 10000n !== 0n) {
+      throw new BadRequestException(
+        'Exchange rate cannot be represented exactly by the current two-decimal TIRAMIS interface; external precision is not verified',
+      );
+    }
+    return MoneyUtil.fromMinor(scaled / 10000n);
   }
 }

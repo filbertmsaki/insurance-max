@@ -68,6 +68,11 @@ export class ClaimPaymentService {
     claimId: string,
     dto: CreateClaimPaymentDto,
   ) {
+    if (dto.parties_notified === 'Y') {
+      throw new BadRequestException(
+        'A caller assertion cannot establish notification delivery; provider evidence is required',
+      );
+    }
     return this.dataSource.transaction(async (manager) => {
       const claim = await this.access.getForWrite(user, claimId, manager);
 
@@ -145,7 +150,8 @@ export class ClaimPaymentService {
           payment_mode: dto.payment_mode,
           payment_method: dto.payment_method?.trim() ?? null,
           payment_reference: dto.payment_reference?.trim() ?? null,
-          parties_notified: dto.parties_notified ?? 'N',
+          // A caller's assertion is not a provider delivery receipt.
+          parties_notified: 'N',
           net_premium_earned: await this.netPremiumEarned(manager, claim),
           claim_resulted_litigation: dto.claim_resulted_litigation ? 'Y' : 'N',
           litigation_reason: dto.litigation_reason?.trim() ?? null,
@@ -341,6 +347,12 @@ export class ClaimPaymentService {
     if (record.status !== ClaimPaymentStatus.PAID) {
       throw new ConflictException(
         'Only a confirmed (paid) payment is reported to TIRAMIS',
+      );
+    }
+
+    if (record.parties_notified === 'Y') {
+      throw new ConflictException(
+        'Legacy notification assertions require verified delivery evidence before TIRAMIS submission',
       );
     }
 

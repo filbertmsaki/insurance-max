@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ClaimFxHistoryTab } from './detail/ClaimFxHistoryTab';
 import { ActivityTimeline } from '@/components/shared/ActivityTimeline';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
@@ -491,6 +492,9 @@ export function ClaimDetailPage() {
   const remove = useDeleteClaimDraft();
   const [confirm, setConfirm] = useState<'submit' | 'delete' | null>(null);
   const [lifecycle, setLifecycle] = useState<'close' | 'reopen' | null>(null);
+  const canViewFxHistory = useAuthStore((state) =>
+    state.hasPermission('claims.fx.history'),
+  );
   const changeLifecycle = useClaimAction(
     id ?? '',
     ({ kind, reason }: { kind: 'close' | 'reopen'; reason: string }) =>
@@ -686,6 +690,7 @@ export function ClaimDetailPage() {
           <TabsTrigger value="approvals">Approvals</TabsTrigger>
           <TabsTrigger value="tira">TIRA Transactions</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
+          {canViewFxHistory && <TabsTrigger value="fx">FX History</TabsTrigger>}
         </TabsList>
         <TabsContent value="overview">
           <OverviewTab claim={claim} />
@@ -732,6 +737,11 @@ export function ClaimDetailPage() {
         <TabsContent value="activity">
           <ActivityTab claimId={claim.id} />
         </TabsContent>
+        {canViewFxHistory && (
+          <TabsContent value="fx">
+            <ClaimFxHistoryTab claimId={claim.id} />
+          </TabsContent>
+        )}
       </Tabs>
 
       <ConfirmDialog

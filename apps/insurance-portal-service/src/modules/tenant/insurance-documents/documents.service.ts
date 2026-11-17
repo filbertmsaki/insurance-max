@@ -31,6 +31,9 @@ import { DocumentSecurityScan } from './entities/document-security-scan.entity';
 import { DocumentMalwareScannerService } from './document-malware-scanner.service';
 import { DocumentUploadSession } from './entities/document-upload-session.entity';
 import { DocumentVersion } from './entities/document-version.entity';
+import { ClaimAccessService } from '../claims/services/claim-access.service';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
+import { Policy } from '../policies/entities/policy.entity';
 
 export interface RegisterDocumentInput {
   ownerType: string;
@@ -58,6 +61,10 @@ export class DocumentsService {
     private readonly accessEventRepository: Repository<DocumentAccessEvent>,
     private readonly storageService: DocumentStorageService,
     private readonly malwareScanner: DocumentMalwareScannerService,
+    private readonly claimAccess: ClaimAccessService,
+    @InjectRepository(Policy)
+    private readonly policyRepository: Repository<Policy>,
+    private readonly dataAccessScope: DataAccessScopeService,
   ) {}
 
   /** Scans a file and records the result against the version. */
@@ -681,6 +688,79 @@ export class DocumentsService {
       version_id: version.id,
       scan,
     };
+  }
+
+  async downloadForUser(
+    user: AuthenticatedUser,
+    id: string,
+    actor: {
+      actorId: string | null;
+      actorType: string;
+      accessChannel: string;
+      ipAddress?: string | null;
+      userAgent?: string | null;
+    },
+  ) {
+    const document = await this.requireForCompany(user.companyId!, id, true);
+    const claimIds = new Set<string>();
+    const policyIds = new Set<string>();
+    if (document.owner_type === 'CLAIM' && document.owner_id)
+      claimIds.add(document.owner_id);
+    if (document.owner_type === 'POLICY' && document.owner_id)
+      policyIds.add(document.owner_id);
+    for (const link of document.links ?? []) {
+      if (link.linked_record_type === 'CLAIM')
+        claimIds.add(link.linked_record_id);
+      if (link.linked_record_type === 'POLICY')
+        policyIds.add(link.linked_record_id);
+    }
+    if (
+      claimIds.size ||
+      policyIds.size ||
+      document.owner_type === 'CLAIM' ||
+      document.owner_type === 'POLICY'
+    ) {
+      let allowed = false;
+      for (const claimId of user.permissions?.includes('claims:read')
+        ? claimIds
+        : []) {
+        try {
+          await this.claimAccess.getForRead(user, claimId);
+          allowed = true;
+          break;
+        } catch (error) {
+          if (!(error instanceof NotFoundException)) throw error;
+        }
+      }
+      if (
+        !allowed &&
+        policyIds.size &&
+        user.permissions?.includes('policies:read')
+      ) {
+        const query = this.policyRepository
+          .createQueryBuilder('policy')
+          .where('policy.id IN (:...policyIds)', { policyIds: [...policyIds] })
+          .andWhere('policy.deleted_at IS NULL');
+        this.dataAccessScope.applyPolicyReadScope(
+          query,
+          'policy',
+          this.dataAccessScope.resolve(user),
+        );
+        allowed = !!(await query.getOne());
+      }
+      if (!allowed) {
+        await this.recordAccessEvent(
+          document,
+          document.current_version ?? null,
+          actor,
+          'FAILED',
+          'RESOURCE_SCOPE_DENIED',
+        );
+        throw new NotFoundException('Document not found');
+      }
+    }
+
+    return this.download(user.companyId!, id, actor);
   }
 
   async download(

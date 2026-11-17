@@ -114,6 +114,16 @@ function makeHarness(params: {
 
 describe('ClaimRecoveryService', () => {
   describe('create', () => {
+    it('directs new reinsurance recoveries to the authoritative service', async () => {
+      const h = makeHarness({});
+      await expect(
+        h.service.create(user, 'claim-1', {
+          recovery_type: 'REINSURANCE' as any,
+          expected_amount: '100.00',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(h.recoveryRepo.save).not.toHaveBeenCalled();
+    });
     it('creates an EXPECTED recovery through the claim write scope', async () => {
       const h = makeHarness({});
 

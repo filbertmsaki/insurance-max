@@ -29,7 +29,8 @@ describe('ClaimReserveMovementService', () => {
   const referenceService = {
     next: jest.fn().mockResolvedValue('RSM-00001'),
   } as any;
-  const service = new ClaimReserveMovementService(referenceService);
+  const fx = { snapshot: jest.fn().mockResolvedValue({}) } as any;
+  const service = new ClaimReserveMovementService(referenceService, fx);
 
   it('stores a positive amount for an INCREASE movement', async () => {
     const manager = makeManager();
@@ -81,5 +82,19 @@ describe('ClaimReserveMovementService', () => {
 
     expect(movement).toBe(existing);
     expect(manager.__movementRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects a release with a positive movement', async () => {
+    await expect(
+      service.record(
+        makeManager(),
+        makeReserve(),
+        ClaimReserveMovementType.RELEASE,
+        '2.00',
+        'reason',
+        'event',
+        'user',
+      ),
+    ).rejects.toThrow('sign');
   });
 });

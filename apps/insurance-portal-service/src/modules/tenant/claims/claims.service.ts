@@ -18,6 +18,7 @@ import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
 
 import { AuditService } from '../../shared/audit/audit.service';
+import { DecimalUtil } from '../../shared/finance/decimal.util';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { BusinessReferenceService } from '../../shared/identifiers/business-reference.service';
 import { MoneyUtil } from '../billing-commission/utils/money.util';
@@ -73,6 +74,7 @@ import {
 } from './enums/claim.enums';
 import { ClaimAccessService } from './services/claim-access.service';
 import { ClaimCoverageService } from './services/claim-coverage.service';
+import { ClaimFxGovernanceService } from './services/claim-fx-governance.service';
 import { ClaimFinancialProjectionService } from './services/claim-financial-projection.service';
 import { ClaimReserveMovementService } from './services/claim-reserve-movement.service';
 import { ClaimStateMachineService } from './services/claim-state-machine.service';
@@ -130,6 +132,7 @@ export class ClaimsService {
     private readonly stateMachine: ClaimStateMachineService,
     private readonly tiramisPayload: ClaimTiramisPayloadService,
     private readonly claimTiramis: ClaimTiramisService,
+    private readonly fx: ClaimFxGovernanceService,
   ) {}
 
   // ---------------------------------------------------------------------
@@ -428,6 +431,32 @@ export class ClaimsService {
           source_channel: 'INTERNAL',
         }),
       );
+
+      // The legacy TIRAMIS rate field stores six decimal places. Refuse to
+      // round an approved rate silently: the snapshot and outgoing claim must
+      // describe the same conversion.
+      const snapshot = (await this.fx.snapshot(manager, {
+        companyId: claim.company_id,
+        claimId: claim.id,
+        eventType: 'CLAIM_REGISTRATION',
+        eventId: claim.id,
+        currency: claim.currency_code,
+        eventDate: claim.claim_report_date.toISOString().slice(0, 10),
+        amount: claim.estimated_amount,
+      })) as { rate: string };
+      const approvedRate = DecimalUtil.value(snapshot.rate);
+      if (
+        !approvedRate.equals(approvedRate.toDecimalPlaces(6)) ||
+        approvedRate.greaterThanOrEqualTo('1000000000000')
+      ) {
+        throw new ConflictException(
+          'Approved exchange rate cannot be represented exactly in the claim rate field',
+        );
+      }
+      claim.exchange_rate = approvedRate.toFixed(6);
+      await manager
+        .getRepository(InsuranceClaim)
+        .update({ id: claim.id }, { exchange_rate: claim.exchange_rate });
 
       await this.saveClaimants(manager, claim, claimants);
 

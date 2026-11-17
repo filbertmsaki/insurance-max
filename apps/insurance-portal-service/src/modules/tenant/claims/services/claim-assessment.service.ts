@@ -33,6 +33,7 @@ import {
 import { ClaimAccessService } from './claim-access.service';
 import { ClaimApprovalService } from './claim-approval.service';
 import { ClaimIntimationService } from './claim-intimation.service';
+import { ClaimFxGovernanceService } from './claim-fx-governance.service';
 import { ClaimStateMachineService } from './claim-state-machine.service';
 import { ClaimTiramisPayloadService } from './claim-tiramis-payload.service';
 import { ClaimTiramisService } from './claim-tiramis.service';
@@ -68,6 +69,7 @@ export class ClaimAssessmentService {
     private readonly intimations: ClaimIntimationService,
     private readonly tiramisPayload: ClaimTiramisPayloadService,
     private readonly claimTiramis: ClaimTiramisService,
+    private readonly fx: ClaimFxGovernanceService,
   ) {}
 
   async createAssessment(
@@ -137,6 +139,24 @@ export class ClaimAssessmentService {
         }),
       );
 
+      assessment.exchange_rate = await this.fx.snapshotDraft(manager, {
+        companyId: claim.company_id,
+        claimId: claim.id,
+        eventType: 'ASSESSMENT_DRAFT',
+        eventId: assessment.id,
+        currency: assessment.currency_code,
+        eventDate: assessment.assessment_received_date
+          .toISOString()
+          .slice(0, 10),
+        amount: assessment.approved_claim_amount,
+      });
+      await manager
+        .getRepository(ClaimAssessment)
+        .update(
+          { id: assessment.id },
+          { exchange_rate: assessment.exchange_rate },
+        );
+
       if (
         [ClaimStatus.APPROVED, ClaimStatus.DISCHARGE_REJECTED].includes(
           claim.status,
@@ -197,6 +217,15 @@ export class ClaimAssessmentService {
         ...dto,
       } as CreateClaimAssessmentDto;
       await this.validateAmounts(manager, claim, merged);
+      const valuationChanged =
+        (dto.approved_claim_amount !== undefined &&
+          MoneyUtil.compare(
+            dto.approved_claim_amount,
+            record.approved_claim_amount,
+          ) !== 0) ||
+        (dto.assessment_received_date !== undefined &&
+          new Date(dto.assessment_received_date).getTime() !==
+            record.assessment_received_date.getTime());
 
       if (dto.assessment_received_date) {
         record.assessment_received_date = new Date(
@@ -210,6 +239,18 @@ export class ClaimAssessmentService {
         record.service_assignment_id = dto.service_assignment_id ?? null;
       }
       Object.assign(record, this.amountColumns(merged, record));
+
+      if (valuationChanged) {
+        record.exchange_rate = await this.fx.snapshotDraft(manager, {
+          companyId: claim.company_id,
+          claimId: claim.id,
+          eventType: 'ASSESSMENT_DRAFT',
+          eventId: record.id,
+          currency: record.currency_code,
+          eventDate: record.assessment_received_date.toISOString().slice(0, 10),
+          amount: record.approved_claim_amount,
+        });
+      }
 
       const saved = await manager.getRepository(ClaimAssessment).save(record);
       await this.stateMachine.recordEvent(manager, claim, {

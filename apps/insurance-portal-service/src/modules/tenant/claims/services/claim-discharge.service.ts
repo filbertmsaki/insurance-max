@@ -38,6 +38,7 @@ import {
 } from '../enums/claim.enums';
 import { ClaimAccessService } from './claim-access.service';
 import { ClaimApprovalService } from './claim-approval.service';
+import { ClaimFxGovernanceService } from './claim-fx-governance.service';
 import { ClaimStateMachineService } from './claim-state-machine.service';
 import { ClaimTiramisPayloadService } from './claim-tiramis-payload.service';
 import { ClaimTiramisService } from './claim-tiramis.service';
@@ -64,6 +65,7 @@ export class ClaimDischargeService {
     private readonly tiramisPayload: ClaimTiramisPayloadService,
     private readonly claimTiramis: ClaimTiramisService,
     private readonly documentGeneration: DocumentGenerationService,
+    private readonly fx: ClaimFxGovernanceService,
   ) {}
 
   async create(
@@ -167,6 +169,19 @@ export class ClaimDischargeService {
         }),
       );
 
+      voucher.exchange_rate = await this.fx.snapshotDraft(manager, {
+        companyId: claim.company_id,
+        claimId: claim.id,
+        eventType: 'VOUCHER_DRAFT',
+        eventId: voucher.id,
+        currency: voucher.currency_code,
+        eventDate: voucher.discharge_voucher_date.toISOString().slice(0, 10),
+        amount: voucher.claim_offer_amount,
+      });
+      await manager
+        .getRepository(ClaimDischargeVoucher)
+        .update({ id: voucher.id }, { exchange_rate: voucher.exchange_rate });
+
       await manager.getRepository(InsuranceClaim).update(
         { id: claim.id },
         {
@@ -210,6 +225,11 @@ export class ClaimDischargeService {
       }
 
       if (dto.claim_offer_amount !== undefined) {
+        const valuationChanged =
+          MoneyUtil.compare(
+            dto.claim_offer_amount,
+            record.claim_offer_amount,
+          ) !== 0;
         const outstanding = MoneyUtil.subtract(
           claim.approved_amount,
           claim.paid_amount,
@@ -228,6 +248,16 @@ export class ClaimDischargeService {
         }
 
         record.claim_offer_amount = dto.claim_offer_amount;
+        if (valuationChanged)
+          record.exchange_rate = await this.fx.snapshotDraft(manager, {
+            companyId: claim.company_id,
+            claimId: claim.id,
+            eventType: 'VOUCHER_DRAFT',
+            eventId: record.id,
+            currency: record.currency_code,
+            eventDate: record.discharge_voucher_date.toISOString().slice(0, 10),
+            amount: record.claim_offer_amount,
+          });
       }
 
       if (dto.claim_offer_communication_date) {

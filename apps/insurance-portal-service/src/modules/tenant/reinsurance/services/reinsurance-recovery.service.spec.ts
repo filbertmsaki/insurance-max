@@ -4,7 +4,22 @@ import {
   ReinsuranceCessionStatus,
   TreatyForm,
 } from '../enums/reinsurance.enums';
-import { ReinsuranceRecoveryService } from './reinsurance-recovery.service';
+import {
+  ReinsuranceRecoveryService,
+  recoveryBalances,
+} from './reinsurance-recovery.service';
+
+describe('recovery balances', () => {
+  it('separates unadmitted from uncollected amounts without double counting', () => {
+    expect(
+      recoveryBalances({
+        expected_recovery: '100.00',
+        admitted_recovery: '60.00',
+        received_recovery: '20.00',
+      }),
+    ).toEqual({ unadmitted_recovery: '40.00', uncollected_recovery: '40.00' });
+  });
+});
 
 function makeHarness(params: {
   claim: any;
@@ -12,6 +27,7 @@ function makeHarness(params: {
   participantsByCession: Record<string, any[]>;
   treatiesById: Record<string, any>;
   sectionsById: Record<string, any>;
+  legacyRecovery?: any;
 }) {
   const claimRepository = {
     findOne: jest.fn().mockResolvedValue(params.claim),
@@ -36,11 +52,25 @@ function makeHarness(params: {
     }),
     save: jest.fn(async (value: any) => value),
     find: jest.fn().mockResolvedValue([]),
+    createQueryBuilder: jest.fn(() => ({
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: () => recoveryRepository.findOne(),
+    })),
   };
 
   const manager = {
     getRepository: (entity: any) => {
       switch (entity?.name) {
+        case 'InsuranceClaim':
+          return {
+            createQueryBuilder: () => ({
+              setLock: jest.fn().mockReturnThis(),
+              where: jest.fn().mockReturnThis(),
+              getOne: jest.fn().mockResolvedValue(params.claim),
+            }),
+          };
         case 'PolicyCessionParticipant':
           return {
             find: jest
@@ -70,7 +100,12 @@ function makeHarness(params: {
           return {
             findOne: jest.fn().mockResolvedValue(null),
             create: jest.fn().mockImplementation((value: any) => value),
-            save: jest.fn().mockImplementation(async (value: any) => value),
+            save: recoveryRepository.save,
+            createQueryBuilder: recoveryRepository.createQueryBuilder,
+          };
+        case 'ClaimRecovery':
+          return {
+            findOne: jest.fn().mockResolvedValue(params.legacyRecovery ?? null),
           };
         default:
           throw new Error(`Unexpected entity ${entity?.name}`);
@@ -104,6 +139,25 @@ describe('ReinsuranceRecoveryService.calculateRecoveries', () => {
     companyId: 'company-1',
     companyType: CompanyType.INSURANCE_COMPANY,
   } as any;
+
+  it('requires reconciliation of legacy generic reinsurance recoveries', async () => {
+    const { service } = makeHarness({
+      claim: {
+        id: 'claim-1',
+        company_id: 'company-1',
+        policy_id: 'policy-1',
+        approved_amount: '100.00',
+      },
+      cessions: [{ id: 'cession-1' }],
+      participantsByCession: {},
+      treatiesById: {},
+      sectionsById: {},
+      legacyRecovery: { id: 'legacy-1' },
+    });
+    await expect(service.calculateRecoveries(user, 'claim-1')).rejects.toThrow(
+      'legacy claim reinsurance recovery',
+    );
+  });
 
   it('apportions the raw claim amount by premium share for a proportional treaty', async () => {
     const { service } = makeHarness({
@@ -201,6 +255,64 @@ describe('ReinsuranceRecoveryService.calculateRecoveries', () => {
 });
 
 describe('ReinsuranceRecoveryService.admitRecovery', () => {
+  it('preserves exact cents for large admitted amounts', async () => {
+    const { service, recoveryRepository } = makeHarness({
+      claim: null,
+      cessions: [],
+      participantsByCession: {},
+      treatiesById: {},
+      sectionsById: {},
+    });
+    recoveryRepository.findOne.mockResolvedValueOnce({
+      id: 'recovery-1',
+      company_id: 'company-1',
+      participant_company_id: 'reinsurer-1',
+      expected_recovery: '90071992547409.93',
+      admitted_recovery: '0.00',
+      received_recovery: '0.00',
+      currency: 'TZS',
+    });
+    const result = await service.admitRecovery(
+      {
+        id: 'reinsurer-user',
+        companyId: 'reinsurer-1',
+        companyType: CompanyType.REINSURANCE_COMPANY,
+      } as any,
+      'recovery-1',
+      '90071992547409.92',
+    );
+    expect(result.admitted_recovery).toBe('90071992547409.92');
+    expect(result.outstanding_recovery).toBe('90071992547409.92');
+  });
+  it('rejects admission below receipts already recorded', async () => {
+    const { service, recoveryRepository } = makeHarness({
+      claim: null,
+      cessions: [],
+      participantsByCession: {},
+      treatiesById: {},
+      sectionsById: {},
+    });
+    recoveryRepository.findOne.mockResolvedValueOnce({
+      id: 'recovery-1',
+      company_id: 'company-1',
+      participant_company_id: 'reinsurer-1',
+      expected_recovery: '100.00',
+      admitted_recovery: '60.00',
+      received_recovery: '40.00',
+      currency: 'TZS',
+    });
+    await expect(
+      service.admitRecovery(
+        {
+          id: 'user',
+          companyId: 'reinsurer-1',
+          companyType: CompanyType.REINSURANCE_COMPANY,
+        } as any,
+        'recovery-1',
+        '39.99',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
   it('does not allow an insurer to admit a reinsurer recovery', async () => {
     const { service, recoveryRepository } = makeHarness({
       claim: null,

@@ -283,7 +283,7 @@ export class DocumentsController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const file = await this.documentsService.download(user.companyId!, id, {
+    const file = await this.documentsService.downloadForUser(user, id, {
       actorId: user.id,
       actorType: 'USER',
       accessChannel: 'INTERNAL_API',

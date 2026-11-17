@@ -16,6 +16,10 @@ import { TiramisSubmissionTrackingEntity } from '../../src/modules/tiramis/entit
 import { TiramisSubmissionTrackingRepository } from '../../src/modules/tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisBusinessRecordSyncService } from '../../src/modules/tiramis/services/tiramis-business-record-sync.service';
 import { TiramisClientService } from '../../src/modules/tiramis/services/tiramis-client.service';
+import { FinanceJournalService } from '../../src/modules/tenant/billing-commission/services/finance-journal.service';
+import { DocumentStorageService } from '../../src/modules/tenant/insurance-documents/document-storage.service';
+import { ClaimFxGovernanceService } from '../../src/modules/tenant/claims/services/claim-fx-governance.service';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 jest.setTimeout(300_000);
 
@@ -430,6 +434,26 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
       'BRANCH',
     );
 
+    await dataSource.query(
+      `INSERT INTO permission_role (roles_id, permissions_id)
+      SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+      WHERE r.id IN ($1, $2) AND p.name = 'documents:read'
+      ON CONFLICT DO NOTHING`,
+      [officerRole[0].id, copiedRole[0].id],
+    );
+    await dataSource.query(
+      `INSERT INTO permission_role (roles_id, permissions_id)
+      SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+      WHERE r.company_id=$1 AND r.name IN ('CLAIMS_OFFICER','CLAIMS_MANAGER')
+        AND p.name IN ('claims.fx.view','claims.fx.create','claims.fx.submit','claims.fx.approve') ON CONFLICT DO NOTHING`,
+      [companyId],
+    );
+    await dataSource.query(
+      `INSERT INTO permission_role (roles_id, permissions_id)
+      SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
+      WHERE r.id=$1 AND p.name='claims.fx.view' ON CONFLICT DO NOTHING`,
+      [copiedRole[0].id],
+    );
     officerToken = await login('Officer');
     sameBranchToken = await login('Branchmate');
     otherBranchToken = await login('Elsewhere');
@@ -490,6 +514,501 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
     expect((await claimDetail(claimId)).status).toBe('NOTIFICATION_ACCEPTED');
   });
 
+  it('governs an illustrative FX rate and preserves an immutable snapshot', async () => {
+    const fx = app.get(ClaimFxGovernanceService);
+    const maker = {
+      id: randomUUID(),
+      companyId,
+      scope: 'company',
+    } as AuthenticatedUser;
+    const checker = {
+      id: randomUUID(),
+      companyId,
+      scope: 'company',
+    } as AuthenticatedUser;
+    const dto = {
+      transaction_currency: 'USD',
+      functional_currency: 'TZS',
+      rate: '2600',
+      effective_date: '2025-01-01',
+      source_reference: 'TEST FIXTURE',
+      justification: 'Illustrative test',
+    };
+    await dataSource.query(
+      `UPDATE companies SET settings=coalesce(settings, '{}'::jsonb) || '{"functional_currency":"TZS"}'::jsonb WHERE id=$1`,
+      [companyId],
+    );
+    const first = await fx.create(maker, dto);
+    await fx.transition(maker, first.id, 'SUBMIT');
+    await expect(fx.transition(maker, first.id, 'APPROVE')).rejects.toThrow(
+      'separate checker',
+    );
+    const decisions = await Promise.allSettled([
+      fx.transition(checker, first.id, 'APPROVE'),
+      fx.transition(checker, first.id, 'APPROVE'),
+    ]);
+    expect(
+      decisions.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    const eventId = randomUUID();
+    const input = {
+      companyId,
+      claimId,
+      eventType: 'TEST_FIXTURE',
+      eventId,
+      currency: 'USD',
+      eventDate: '2025-01-01',
+      amount: '1000.00',
+    };
+    const snapshot = (await dataSource.transaction((manager) =>
+      fx.snapshot(manager, input),
+    )) as { id: string; converted_amount: string; approved_rate_id: string };
+    expect(snapshot.converted_amount).toBe('2600000.00');
+    expect(snapshot.approved_rate_id).toBe(first.id);
+    const second = await fx.create(maker, {
+      ...dto,
+      rate: '2700',
+      effective_date: '2025-02-01',
+    });
+    await fx.transition(maker, second.id, 'SUBMIT');
+    await fx.transition(checker, second.id, 'APPROVE');
+    const [original] = await dataSource.query(
+      'SELECT * FROM claim_fx_snapshots WHERE id=$1',
+      [snapshot.id],
+    );
+    expect(original.converted_amount).toBe('2600000.00');
+    await expect(
+      dataSource.query(
+        'UPDATE claim_fx_snapshots SET converted_amount=1 WHERE id=$1',
+        [snapshot.id],
+      ),
+    ).rejects.toThrow('immutable');
+    await expect(
+      dataSource.transaction((manager) => fx.snapshot(manager, input)),
+    ).rejects.toThrow('already exists');
+    await expect(
+      fx.details({ ...checker, companyId: randomUUID() }, first.id),
+    ).rejects.toThrow('not found');
+    const correction = (await dataSource.transaction((manager) =>
+      fx.snapshot(manager, {
+        ...input,
+        eventDate: '2025-02-01',
+        correction: true,
+      }),
+    )) as { version: number; converted_amount: string; supersedes_id: string };
+    expect(correction).toMatchObject({
+      version: 2,
+      converted_amount: '2700000.00',
+      supersedes_id: snapshot.id,
+    });
+    const rollbackEvent = randomUUID();
+    await expect(
+      dataSource.transaction(async (manager) => {
+        await fx.snapshot(manager, { ...input, eventId: rollbackEvent });
+        throw new Error('simulate financial event failure');
+      }),
+    ).rejects.toThrow('simulate financial event failure');
+    const rolledBack = await dataSource.query(
+      'SELECT id FROM claim_fx_snapshots WHERE event_id=$1',
+      [rollbackEvent],
+    );
+    expect(rolledBack).toHaveLength(0);
+  });
+
+  it('registers a foreign-currency claim using an approved rate atomically', async () => {
+    const fx = app.get(ClaimFxGovernanceService);
+    const maker = {
+      id: randomUUID(),
+      companyId,
+      scope: 'company',
+    } as AuthenticatedUser;
+    const checker = {
+      id: randomUUID(),
+      companyId,
+      scope: 'company',
+    } as AuthenticatedUser;
+    const rate = await fx.create(maker, {
+      transaction_currency: 'USD',
+      functional_currency: 'TZS',
+      rate: '2600',
+      effective_date: isoDate(new Date(today.getTime() - 86_400_000)),
+      source_reference: 'TEST FIXTURE',
+      justification: 'Registration test',
+    });
+    await fx.transition(maker, rate.id, 'SUBMIT');
+    await fx.transition(checker, rate.id, 'APPROVE');
+    await dataSource.query('UPDATE policies SET currency=$1 WHERE id=$2', [
+      'USD',
+      otherPolicyId,
+    ]);
+    const [managerRole] = await dataSource.query(
+      `SELECT id FROM roles WHERE company_id=$1 AND name='CLAIMS_MANAGER'`,
+      [companyId],
+    );
+    const [limit] = await dataSource.query(
+      `INSERT INTO claim_approval_limits (company_id, approval_type, level, role_id, min_amount, max_amount, currency_code, is_active)
+       VALUES ($1, 'RESERVE', 1, $2, 0, 999999999, 'TZS', true) RETURNING id`,
+      [companyId, managerRole.id],
+    );
+    try {
+      const claim = await call(officerToken, 'post', '', {
+        policy_id: otherPolicyId,
+        loss_date: new Date(today.getTime() - 2 * 86_400_000).toISOString(),
+        claim_report_date: today.toISOString(),
+        loss_nature: 'Collision',
+        loss_type: 'FX fixture loss',
+        loss_location: 'Test location',
+        description: 'FX registration fixture',
+        estimated_amount: '1000.00',
+        claim_form_dully_filled: true,
+        claimants: [claimant],
+      });
+      const [snapshot] = await dataSource.query(
+        `SELECT * FROM claim_fx_snapshots WHERE claim_id=$1 AND event_type='CLAIM_REGISTRATION'`,
+        [claim.id],
+      );
+      expect(snapshot).toMatchObject({
+        approved_rate_id: rate.id,
+        original_amount: '1000.00',
+        converted_amount: '2600000.00',
+        transaction_currency: 'USD',
+        functional_currency: 'TZS',
+      });
+      expect(claim.exchange_rate).toBe('2600.000000');
+      await call(officerToken, 'post', `/${claim.id}/notification/submit`, {});
+      await accept(claim.id, { ClaimReferenceNumber: `TIRA-FX-${suffix}` });
+      const intimation = await call(
+        officerToken,
+        'post',
+        `/${claim.id}/intimations`,
+        {
+          claim_estimated_amount: '1000.00',
+          claim_reserve_amount: '500.00',
+          claim_reserve_method: 'Case estimate',
+          loss_assessment_option: 1,
+          assessor_name: 'Baraka Assessors Ltd',
+          assessor_id_number: '100-200-300',
+          assessor_id_type: 6,
+        },
+      );
+      const [intimationFx] = await dataSource.query(
+        `SELECT * FROM claim_fx_snapshots WHERE claim_id=$1 AND event_type='CLAIM_INTIMATION' AND event_id=$2`,
+        [claim.id, intimation.id],
+      );
+      expect(intimationFx).toMatchObject({
+        approved_rate_id: rate.id,
+        converted_amount: '2600000.00',
+      });
+      const [reserve] = await dataSource.query(
+        'SELECT id FROM claim_reserves WHERE claim_id=$1 ORDER BY created_at DESC LIMIT 1',
+        [claim.id],
+      );
+      await call(managerToken, 'post', `/reserves/${reserve.id}/approve`, {});
+      const [movementFx] = await dataSource.query(
+        `SELECT fx.* FROM claim_fx_snapshots fx JOIN claim_reserve_movements m ON m.id=fx.event_id WHERE m.reserve_id=$1 AND fx.event_type='RESERVE_MOVEMENT'`,
+        [reserve.id],
+      );
+      expect(movementFx).toMatchObject({
+        approved_rate_id: rate.id,
+        original_amount: '500.00',
+        converted_amount: '1300000.00',
+      });
+      const authorityFx = await dataSource.query(
+        `SELECT * FROM claim_fx_snapshots WHERE claim_id=$1 AND event_type IN ('APPROVAL_SUBMITTED','APPROVAL_AUTHORITY_CHECK')`,
+        [claim.id],
+      );
+      expect(authorityFx).toHaveLength(2);
+      expect(
+        authorityFx.every(
+          (row: { approved_rate_id: string; converted_amount: string }) =>
+            row.approved_rate_id === rate.id &&
+            row.converted_amount === '1300000.00',
+        ),
+      ).toBe(true);
+      await call(
+        officerToken,
+        'post',
+        `/intimations/${intimation.id}/submit`,
+        {},
+      );
+      await accept(intimation.id);
+      const assessment = await call(
+        assessorToken,
+        'post',
+        `/${claim.id}/assessments`,
+        {
+          assessment_received_date: today.toISOString(),
+          assessment_report_summary: 'FX assessment',
+          assessment_amount: '500.00',
+          approved_claim_amount: '400.00',
+          assessor_name: 'Baraka Assessors Ltd',
+        },
+      );
+      await call(assessorToken, 'patch', `/assessments/${assessment.id}`, {
+        approved_claim_amount: '450.00',
+      });
+      const assessmentFx = await dataSource.query(
+        `SELECT * FROM claim_fx_snapshots WHERE event_type='ASSESSMENT_DRAFT' AND event_id=$1 ORDER BY version`,
+        [assessment.id],
+      );
+      expect(
+        assessmentFx.map(
+          (row: { converted_amount: string }) => row.converted_amount,
+        ),
+      ).toEqual(['1040000.00', '1170000.00']);
+      expect(assessmentFx[1].supersedes_id).toBe(assessmentFx[0].id);
+      await call(assessorToken, 'post', `/assessments/${assessment.id}/submit`);
+      await call(
+        managerToken,
+        'post',
+        `/assessments/${assessment.id}/approve`,
+        {},
+      );
+      const [reserveAdjustmentFx] = await dataSource.query(
+        `SELECT fx.* FROM claim_fx_snapshots fx JOIN claim_reserve_movements m ON m.id=fx.event_id WHERE m.claim_id=$1 AND m.movement_type='ASSESSMENT_ADJUSTMENT'`,
+        [claim.id],
+      );
+      expect(reserveAdjustmentFx).toMatchObject({
+        original_amount: '-50.00',
+        converted_amount: '-130000.00',
+        approved_rate_id: rate.id,
+      });
+      await accept(assessment.id);
+      const detail = await claimDetail(claim.id);
+      const voucher = await call(
+        officerToken,
+        'post',
+        `/${claim.id}/discharge-vouchers`,
+        {
+          claim_offer_amount: '400.00',
+          claimant_id: detail.claimants[0].id,
+        },
+      );
+      await call(officerToken, 'patch', `/discharge-vouchers/${voucher.id}`, {
+        claim_offer_amount: '350.00',
+      });
+      const voucherFx = await dataSource.query(
+        `SELECT * FROM claim_fx_snapshots WHERE event_type='VOUCHER_DRAFT' AND event_id=$1 ORDER BY version`,
+        [voucher.id],
+      );
+      expect(
+        voucherFx.map(
+          (row: { converted_amount: string }) => row.converted_amount,
+        ),
+      ).toEqual(['1040000.00', '910000.00']);
+      expect(voucherFx[1].supersedes_id).toBe(voucherFx[0].id);
+      await call(
+        officerToken,
+        'post',
+        `/discharge-vouchers/${voucher.id}/submit`,
+      );
+      await call(
+        managerToken,
+        'post',
+        `/discharge-vouchers/${voucher.id}/approve`,
+        {},
+      );
+      await call(
+        officerToken,
+        'post',
+        `/discharge-vouchers/${voucher.id}/respond`,
+        {
+          response: 'ACCEPT',
+          claimant_response_date: new Date().toISOString(),
+        },
+      );
+      await accept(voucher.id);
+      const payment = await call(
+        officerToken,
+        'post',
+        `/${claim.id}/payments`,
+        {
+          paid_amount: '200.00',
+          payment_mode: 3,
+          claimant_id: detail.claimants[0].id,
+          parties_notified: 'N',
+          claim_resulted_litigation: false,
+        },
+      );
+      await call(officerToken, 'post', `/payments/${payment.id}/submit`);
+      await call(managerToken, 'post', `/payments/${payment.id}/approve`, {});
+      const requestPayment = () =>
+        call(
+          financeToken,
+          'post',
+          `/payments/${payment.id}/request-disbursement`,
+          { idempotency_key: `fx-payment-${suffix}` },
+        );
+      const [payout, retried] = await Promise.all([
+        requestPayment(),
+        requestPayment(),
+      ]);
+      expect(retried.id).toBe(payout.id);
+      const journal = jest
+        .spyOn(app.get(FinanceJournalService), 'postClaimDisbursement')
+        .mockRejectedValueOnce(new Error('FX journal failure fixture'));
+      await call(
+        financeConfirmerToken,
+        'post',
+        `/disbursements/${payout.id}/confirm`,
+        { payment_method: 'EFT', provider_reference: 'FX-PAYOUT' },
+        [500],
+      );
+      journal.mockRestore();
+      expect(
+        await dataSource.query(
+          `SELECT id FROM claim_fx_snapshots WHERE event_type='DISBURSEMENT_CONFIRMED' AND event_id=$1`,
+          [payout.id],
+        ),
+      ).toHaveLength(0);
+      await call(
+        financeConfirmerToken,
+        'post',
+        `/disbursements/${payout.id}/confirm`,
+        { payment_method: 'EFT', provider_reference: 'FX-PAYOUT' },
+      );
+      const [payoutFx] = await dataSource.query(
+        `SELECT * FROM claim_fx_snapshots WHERE event_type='DISBURSEMENT_CONFIRMED' AND event_id=$1`,
+        [payout.id],
+      );
+      expect(payoutFx).toMatchObject({
+        approved_rate_id: rate.id,
+        original_amount: '200.00',
+        converted_amount: '520000.00',
+      });
+      await call(financeToken, 'post', `/disbursements/${payout.id}/reverse`, {
+        reason: 'Test returned payment',
+      });
+      const [unchangedFx] = await dataSource.query(
+        'SELECT * FROM claim_fx_snapshots WHERE id=$1',
+        [payoutFx.id],
+      );
+      expect(unchangedFx).toMatchObject({
+        id: payoutFx.id,
+        rate: payoutFx.rate,
+        converted_amount: '520000.00',
+      });
+      const [reverseJournal] = await dataSource.query(
+        `SELECT count(*)::int AS count FROM finance_journal_entries WHERE source_id=$1 AND source_type='CLAIM_DISBURSEMENT_REVERSAL'`,
+        [payout.id],
+      );
+      expect(reverseJournal.count).toBe(1);
+    } finally {
+      await dataSource.query(
+        'UPDATE claim_approval_limits SET is_active=false WHERE id=$1',
+        [limit.id],
+      );
+      await dataSource.query('UPDATE policies SET currency=$1 WHERE id=$2', [
+        'TZS',
+        otherPolicyId,
+      ]);
+    }
+  });
+
+  it('rolls back foreign claim registration when no approved rate exists', async () => {
+    const [before] = await dataSource.query(
+      'SELECT count(*)::int AS count FROM claims WHERE policy_id=$1',
+      [otherPolicyId],
+    );
+    await dataSource.query('UPDATE policies SET currency=$1 WHERE id=$2', [
+      'EUR',
+      otherPolicyId,
+    ]);
+    try {
+      await call(
+        officerToken,
+        'post',
+        '',
+        {
+          policy_id: otherPolicyId,
+          loss_date: new Date(today.getTime() - 3 * 86_400_000).toISOString(),
+          claim_report_date: today.toISOString(),
+          loss_nature: 'Collision',
+          loss_type: 'Unrated FX fixture',
+          loss_location: 'Test location',
+          description: 'Missing rate fixture',
+          estimated_amount: '1000.00',
+          claim_form_dully_filled: true,
+          claimants: [claimant],
+        },
+        [400],
+      );
+      const [after] = await dataSource.query(
+        'SELECT count(*)::int AS count FROM claims WHERE policy_id=$1',
+        [otherPolicyId],
+      );
+      expect(after.count).toBe(before.count);
+    } finally {
+      await dataSource.query('UPDATE policies SET currency=$1 WHERE id=$2', [
+        'TZS',
+        otherPolicyId,
+      ]);
+    }
+  });
+
+  it('enforces HTTP permissions, maker/checker and company isolation for FX rates', async () => {
+    const makerToken = officerToken;
+    const checkerToken = managerToken;
+    const foreignToken = outsiderToken;
+    const base = '/api/v1/tenant/claims-fx/rates';
+    const unauthorized = await request(app.getHttpServer())
+      .post(base)
+      .set('Authorization', `Bearer ${assessorToken}`)
+      .send({
+        transaction_currency: 'GBP',
+        functional_currency: 'TZS',
+        rate: '3000',
+        effective_date: isoDate(today),
+        source_reference: 'TEST',
+        justification: 'TEST',
+      });
+    expect(unauthorized.status).toBe(403);
+    const created = await request(app.getHttpServer())
+      .post(base)
+      .set('Authorization', `Bearer ${makerToken}`)
+      .send({
+        transaction_currency: 'GBP',
+        functional_currency: 'TZS',
+        rate: '3000',
+        effective_date: isoDate(today),
+        source_reference: 'HTTP TEST FIXTURE',
+        justification: 'Authorization test',
+      });
+    expect(created.status).toBe(201);
+    const rateId = (created.body.data ?? created.body).id;
+    expect(
+      (
+        await request(app.getHttpServer())
+          .post(`${base}/${rateId}/submit`)
+          .set('Authorization', `Bearer ${makerToken}`)
+          .send({})
+      ).status,
+    ).toBe(201);
+    expect(
+      (
+        await request(app.getHttpServer())
+          .post(`${base}/${rateId}/approve`)
+          .set('Authorization', `Bearer ${makerToken}`)
+          .send({})
+      ).status,
+    ).toBe(403);
+    expect([403, 404]).toContain(
+      (
+        await request(app.getHttpServer())
+          .get(`${base}/${rateId}`)
+          .set('Authorization', `Bearer ${foreignToken}`)
+      ).status,
+    );
+    expect(
+      (
+        await request(app.getHttpServer())
+          .post(`${base}/${rateId}/approve`)
+          .set('Authorization', `Bearer ${checkerToken}`)
+          .send({})
+      ).status,
+    ).toBe(201);
+  });
+
   it('does not let a late acknowledgement overwrite the final success', async () => {
     const row = await latestTracking(claimId);
     const updated = await tracking.markSubmittedResponse(row.id, {
@@ -524,6 +1043,53 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
     expect(rows.map((row) => row.id)).not.toContain(claimId);
   });
 
+  it('enforces claim and policy scope for document downloads over HTTP', async () => {
+    const file = await app.get(DocumentStorageService).store({
+      buffer: Buffer.from(
+        '%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF',
+      ),
+      companyId,
+      fileName: 'scope.pdf',
+      maximumBytes: 1024 * 1024,
+      prefix: 'documents',
+    });
+    const createDocument = async (ownerType: string, ownerId: string) => {
+      const [doc] = await dataSource.query(
+        `INSERT INTO documents (company_id, owner_type, owner_id, storage_key, checksum, file_name, status) VALUES ($1,$2,$3,$4,$5,'scope.pdf','AVAILABLE') RETURNING id`,
+        [companyId, ownerType, ownerId, file.storageKey, file.checksum],
+      );
+      const [version] = await dataSource.query(
+        `INSERT INTO document_versions (company_id, document_id, version_number, status, storage_provider, storage_key, safe_file_name, detected_mime_type, file_size, sha256_hash, uploaded_at) VALUES ($1,$2,1,'AVAILABLE','local_private',$3,'scope.pdf','application/pdf',$4,$5,now()) RETURNING id`,
+        [companyId, doc.id, file.storageKey, file.size, file.checksum],
+      );
+      await dataSource.query(
+        'UPDATE documents SET current_version_id=$1 WHERE id=$2',
+        [version.id, doc.id],
+      );
+      return doc.id as string;
+    };
+    const claimDoc = await createDocument('CLAIM', claimId);
+    const policyDoc = await createDocument('POLICY', policyId);
+    await dataSource.query(
+      `INSERT INTO document_links (company_id,document_id,link_type,linked_record_type,linked_record_id) VALUES ($1,$2,'CLAIM','CLAIM',$3)`,
+      [companyId, policyDoc, claimId],
+    );
+    const get = (token: string, id: string) =>
+      request(app.getHttpServer())
+        .get(`/api/v1/tenant/documents/${id}/download`)
+        .set('Authorization', `Bearer ${token}`);
+    expect((await get(sameBranchToken, claimDoc)).status).toBe(200);
+    expect((await get(sameBranchToken, policyDoc)).status).toBe(200);
+    expect((await get(otherBranchToken, claimDoc)).status).toBe(404);
+    expect((await get(otherBranchToken, policyDoc)).status).toBe(404);
+    expect([403, 404]).toContain((await get(outsiderToken, claimDoc)).status);
+    const [denied] = await dataSource.query(
+      `SELECT count(*)::int AS count FROM document_access_events WHERE document_id=$1 AND result='FAILED' AND failure_reason='RESOURCE_SCOPE_DENIED'`,
+      [claimDoc],
+    );
+    expect(denied.count).toBeGreaterThan(0);
+  });
+
   let intimationId: string;
 
   it('retries a failed intimation with a new RequestId (§10)', async () => {
@@ -542,6 +1108,15 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
       },
     );
     intimationId = intimation.id;
+    const [fxSnapshot] = await dataSource.query(
+      `SELECT * FROM claim_fx_snapshots WHERE claim_id=$1 AND event_type='CLAIM_INTIMATION' AND event_id=$2`,
+      [claimId, intimationId],
+    );
+    expect(fxSnapshot).toMatchObject({
+      source_type: 'PARITY',
+      original_amount: '1200000.00',
+      converted_amount: '1200000.00',
+    });
 
     await call(officerToken, 'post', `/intimations/${intimationId}/submit`, {});
     const firstRequest = (await latestTracking(intimationId)).tiramisRequestId;
@@ -636,7 +1211,29 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
     expect((await claimDetail(claimId)).status).toBe('DISCHARGE_ACCEPTED');
   });
 
-  async function payAndReport(amount: string) {
+  it('serializes concurrent payments against the approved balance', async () => {
+    const detail = await claimDetail(claimId);
+    const makeRequest = () =>
+      request(app.getHttpServer())
+        .post(`/api/v1/tenant/claims/${claimId}/payments`)
+        .set('Authorization', `Bearer ${officerToken}`)
+        .send({
+          paid_amount: '500000.00',
+          payment_mode: 3,
+          claimant_id: detail.claimants[0].id,
+        });
+    const responses = await Promise.all([makeRequest(), makeRequest()]);
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      201, 400,
+    ]);
+    const accepted = responses.find((response) => response.status === 201)!;
+    const payment = accepted.body?.data ?? accepted.body;
+    await call(officerToken, 'post', `/payments/${payment.id}/cancel`, {
+      reason: 'Concurrency test cleanup',
+    });
+  });
+
+  async function payAndReport(amount: string, verifyRollback = false) {
     const detail = await claimDetail(claimId);
     const payment = await call(officerToken, 'post', `/${claimId}/payments`, {
       paid_amount: amount,
@@ -648,17 +1245,61 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
         account_name: 'Asha Juma',
         account_number: '0150123456789',
       },
-      parties_notified: 'Y',
+      parties_notified: 'N',
       claim_resulted_litigation: false,
     });
     await call(officerToken, 'post', `/payments/${payment.id}/submit`);
     await call(managerToken, 'post', `/payments/${payment.id}/approve`, {});
-    const disbursement = await call(
-      financeToken,
-      'post',
-      `/payments/${payment.id}/request-disbursement`,
-      { idempotency_key: `claim-payment:${payment.id}:1` },
-    );
+    const submitDisbursement = () =>
+      call(
+        financeToken,
+        'post',
+        `/payments/${payment.id}/request-disbursement`,
+        { idempotency_key: `claim-payment:${payment.id}:1` },
+      );
+    const [disbursement, retried] = await Promise.all([
+      submitDisbursement(),
+      submitDisbursement(),
+    ]);
+    expect(retried.id).toBe(disbursement.id);
+    if (verifyRollback) {
+      await dataSource.query(
+        'UPDATE claims SET approved_amount = $1 WHERE id = $2',
+        ['399999.99', claimId],
+      );
+      try {
+        await call(
+          financeConfirmerToken,
+          'post',
+          `/disbursements/${disbursement.id}/confirm`,
+          { payment_method: 'EFT', provider_reference: `FT${suffix}` },
+          [409],
+        );
+      } finally {
+        await dataSource.query(
+          'UPDATE claims SET approved_amount = $1 WHERE id = $2',
+          ['850000.00', claimId],
+        );
+      }
+      const journal = jest
+        .spyOn(app.get(FinanceJournalService), 'postClaimDisbursement')
+        .mockRejectedValueOnce(new Error('Simulated journal failure'));
+      await call(
+        financeConfirmerToken,
+        'post',
+        `/disbursements/${disbursement.id}/confirm`,
+        { payment_method: 'EFT', provider_reference: `FT${suffix}` },
+        [500],
+      );
+      journal.mockRestore();
+      const afterFailure = await claimDetail(claimId);
+      expect(Number(afterFailure.paid_amount)).toBe(0);
+      const rolledBackSnapshots = await dataSource.query(
+        `SELECT id FROM claim_fx_snapshots WHERE event_type='DISBURSEMENT_CONFIRMED' AND event_id=$1`,
+        [disbursement.id],
+      );
+      expect(rolledBackSnapshots).toHaveLength(0);
+    }
     await call(
       financeToken,
       'post',
@@ -678,6 +1319,15 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
         provider_reference: `FT${suffix}`,
       },
     );
+    const [paymentFx] = await dataSource.query(
+      `SELECT * FROM claim_fx_snapshots WHERE event_type='DISBURSEMENT_CONFIRMED' AND event_id=$1`,
+      [disbursement.id],
+    );
+    expect(paymentFx).toMatchObject({
+      original_amount: amount,
+      converted_amount: amount,
+      source_type: 'PARITY',
+    });
 
     // Confirming the disbursement reports the payment to TIRA by itself.
     expect(
@@ -688,15 +1338,96 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
   }
 
   it('reports a partial payment, then settles once the balance is accepted (§13)', async () => {
-    await payAndReport('400000.00');
+    await payAndReport('400000.00', true);
     let claim = await claimDetail(claimId);
     expect(claim.status).toBe('PARTIALLY_PAID');
     expect(Number(claim.paid_amount)).toBe(400000);
 
-    await payAndReport('450000.00');
+    const lastPaymentId = await payAndReport('450000.00');
     claim = await claimDetail(claimId);
     expect(Number(claim.paid_amount)).toBe(850000);
     expect(claim.status).toBe('SETTLED');
+
+    const [disbursement] = await dataSource.query(
+      'SELECT id FROM claim_disbursements WHERE claim_payment_id = $1 AND status = $2',
+      [lastPaymentId, 'PAID'],
+    );
+    await call(
+      financeToken,
+      'post',
+      `/disbursements/${disbursement.id}/reverse`,
+      { reason: 'Returned payment' },
+    );
+    claim = await claimDetail(claimId);
+    expect(Number(claim.paid_amount)).toBe(400000);
+    expect(claim.status).toBe('PARTIALLY_PAID');
+    const [journal] = await dataSource.query(
+      `SELECT count(*)::int AS count FROM finance_journal_entries WHERE source_id = $1 AND source_type = 'CLAIM_DISBURSEMENT_REVERSAL'`,
+      [disbursement.id],
+    );
+    expect(journal.count).toBe(1);
+  });
+
+  it('serializes separate partial disbursements, retries, confirmations and reversals', async () => {
+    const detail = await claimDetail(claimId);
+    const payments: Array<{ id: string }> = [];
+    for (const amount of ['200000.00', '250000.00']) {
+      const payment = await call(officerToken, 'post', `/${claimId}/payments`, {
+        paid_amount: amount,
+        payment_mode: 3,
+        claimant_id: detail.claimants[0].id,
+        parties_notified: 'N',
+        claim_resulted_litigation: false,
+      });
+      await call(officerToken, 'post', `/payments/${payment.id}/submit`);
+      await call(managerToken, 'post', `/payments/${payment.id}/approve`, {});
+      payments.push(payment);
+    }
+    const [first, second] = await Promise.all(
+      payments.map((payment, index) =>
+        call(
+          financeToken,
+          'post',
+          `/payments/${payment.id}/request-disbursement`,
+          { idempotency_key: `phase11-${suffix}-${index}` },
+        ),
+      ),
+    );
+    await call(
+      financeConfirmerToken,
+      'post',
+      `/disbursements/${first.id}/fail`,
+      { reason: 'Simulated provider failure' },
+    );
+    const replacement = await call(
+      financeToken,
+      'post',
+      `/payments/${payments[0].id}/request-disbursement`,
+      { idempotency_key: `phase11-${suffix}-retry` },
+    );
+    const confirm = (id: string) =>
+      call(financeConfirmerToken, 'post', `/disbursements/${id}/confirm`, {
+        payment_method: 'EFT',
+        provider_reference: `phase11-${id}`,
+      });
+    await Promise.all([confirm(replacement.id), confirm(second.id)]);
+    await confirm(second.id);
+    let claim = await claimDetail(claimId);
+    expect(Number(claim.paid_amount)).toBe(850000);
+    const [posted] = await dataSource.query(
+      `SELECT count(*)::int AS count FROM finance_journal_entries WHERE source_id = $1 AND source_type = 'CLAIM_DISBURSEMENT'`,
+      [second.id],
+    );
+    expect(posted.count).toBe(1);
+    const reverse = () =>
+      request(app.getHttpServer())
+        .post(`/api/v1/tenant/claims/disbursements/${second.id}/reverse`)
+        .set('Authorization', `Bearer ${financeToken}`)
+        .send({ reason: 'Returned payment' });
+    const results = await Promise.all([reverse(), reverse()]);
+    expect(results.map((result) => result.status).sort()).toEqual([201, 409]);
+    claim = await claimDetail(claimId);
+    expect(Number(claim.paid_amount)).toBe(600000);
   });
 
   // -------------------------------------------------------- rejection path

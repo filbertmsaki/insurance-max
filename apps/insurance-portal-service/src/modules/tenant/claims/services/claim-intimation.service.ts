@@ -11,6 +11,7 @@ import {
 import { DataSource, EntityManager } from 'typeorm';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
+import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import { WorkItemsService } from '../../work-items/work-items.service';
 import { ClaimsService } from '../claims.service';
@@ -36,12 +37,28 @@ import {
 import { ClaimAccessService } from './claim-access.service';
 import { ClaimApprovalService } from './claim-approval.service';
 import { ClaimFinancialProjectionService } from './claim-financial-projection.service';
+import { ClaimFxGovernanceService } from './claim-fx-governance.service';
 import { ClaimReserveMovementService } from './claim-reserve-movement.service';
 import { ClaimStateMachineService } from './claim-state-machine.service';
 import { ClaimTiramisPayloadService } from './claim-tiramis-payload.service';
 import { ClaimTiramisService } from './claim-tiramis.service';
 
 const RESERVE_SUBJECT = 'RESERVE';
+
+/** Until an approved FX workflow exists, do not allow ungoverned rate changes. */
+export function assertNoUnapprovedRateChange(
+  provided: string | undefined,
+  current: string,
+): void {
+  if (
+    provided !== undefined &&
+    !DecimalUtil.value(provided).equals(DecimalUtil.value(current))
+  ) {
+    throw new ConflictException(
+      'Manual exchange rate changes require an approved FX override workflow',
+    );
+  }
+}
 
 /**
  * Claim intimation (TIRAMIS §10), its reserve ledger and assessor
@@ -63,6 +80,7 @@ export class ClaimIntimationService {
     private readonly tiramisPayload: ClaimTiramisPayloadService,
     private readonly claimTiramis: ClaimTiramisService,
     private readonly workItemsService: WorkItemsService,
+    private readonly fx: ClaimFxGovernanceService,
   ) {}
 
   async createIntimation(
@@ -123,7 +141,7 @@ export class ClaimIntimationService {
             ? new Date(dto.claim_intimation_date)
             : new Date(),
           currency_code: claim.currency_code,
-          exchange_rate: dto.exchange_rate ?? claim.exchange_rate,
+          exchange_rate: claim.exchange_rate,
           claim_estimated_amount:
             dto.claim_estimated_amount ?? claim.estimated_amount,
           claim_reserve_amount: dto.claim_reserve_amount,
@@ -141,11 +159,40 @@ export class ClaimIntimationService {
         }),
       );
 
-      if (dto.exchange_rate) {
-        await manager
-          .getRepository(InsuranceClaim)
-          .update({ id: claim.id }, { exchange_rate: dto.exchange_rate });
+      const snapshot = (await this.fx.snapshot(manager, {
+        companyId: claim.company_id,
+        claimId: claim.id,
+        eventType: 'CLAIM_INTIMATION',
+        eventId: saved.id,
+        currency: claim.currency_code,
+        eventDate: saved.claim_intimation_date.toISOString().slice(0, 10),
+        amount: saved.claim_estimated_amount,
+      })) as { rate: string };
+      const rate = DecimalUtil.value(snapshot.rate);
+      if (
+        !rate.equals(rate.toDecimalPlaces(6)) ||
+        rate.greaterThanOrEqualTo('1000000000000')
+      ) {
+        throw new ConflictException(
+          'Approved exchange rate cannot be represented exactly in the claim rate field',
+        );
       }
+      if (
+        dto.exchange_rate !== undefined &&
+        !DecimalUtil.value(dto.exchange_rate).equals(rate)
+      ) {
+        throw new ConflictException(
+          'The supplied exchange rate does not match the approved rate for this event',
+        );
+      }
+      saved.exchange_rate = rate.toFixed(6);
+      claim.exchange_rate = saved.exchange_rate;
+      await manager
+        .getRepository(ClaimIntimation)
+        .update({ id: saved.id }, { exchange_rate: saved.exchange_rate });
+      await manager
+        .getRepository(InsuranceClaim)
+        .update({ id: claim.id }, { exchange_rate: saved.exchange_rate });
 
       await this.stateMachine.transition(
         manager,
@@ -187,6 +234,7 @@ export class ClaimIntimationService {
         intimationId,
         'Claim intimation',
       );
+      assertNoUnapprovedRateChange(dto.exchange_rate, claim.exchange_rate);
 
       if (
         ![ClaimIntimationStatus.DRAFT, ClaimIntimationStatus.FAILED].includes(

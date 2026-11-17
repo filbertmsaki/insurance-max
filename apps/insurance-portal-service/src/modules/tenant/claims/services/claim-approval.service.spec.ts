@@ -82,14 +82,23 @@ function harness(limits: any[], roleIds: string[]) {
   } as any;
   const stateMachine = { recordEvent: jest.fn() };
   const audit = { logCritical: jest.fn(), log: jest.fn() };
+  const fx = {
+    resolve: jest
+      .fn()
+      .mockRejectedValue(new Error('No approved exchange rate')),
+    snapshot: jest
+      .fn()
+      .mockResolvedValue({ rate: '1.5', converted_amount: '0.02' }),
+  };
   const service = new ClaimApprovalService(
     approvalRepo as any,
     {} as any,
     stateMachine as any,
     audit as any,
+    fx as any,
   );
 
-  return { service, manager, approvals, audit };
+  return { service, manager, approvals, audit, fx };
 }
 
 const claim = {
@@ -211,5 +220,104 @@ describe('ClaimApprovalService', () => {
       expect.objectContaining({ action: 'claim.approval.admin_override' }),
       manager,
     );
+  });
+
+  it('audits an authority override by an administrator who did not submit', async () => {
+    const { service, manager, audit } = harness(matrix, []);
+    await service.submit(manager, subject('1000000.00'), 'maker');
+    const outcome = await service.approve(
+      manager,
+      user('admin', ['INSURANCE_ADMIN']),
+      subject('1000000.00'),
+    );
+    expect(outcome.approval.admin_override).toBe(true);
+    expect(audit.logCritical).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'claim.approval.admin_override' }),
+      manager,
+    );
+  });
+
+  it('records an administrator override when declining their own submission', async () => {
+    const { service, manager, audit } = harness(matrix, []);
+    await service.submit(manager, subject('100.00'), 'admin');
+    const result = await service.decline(
+      manager,
+      user('admin', ['INSURANCE_ADMIN']),
+      subject('100.00'),
+      ClaimApprovalStatus.REJECTED,
+      'Reason',
+    );
+    expect(result.admin_override).toBe(true);
+    expect(audit.logCritical).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ admin_override: true }),
+      }),
+      manager,
+    );
+  });
+
+  it('fails closed for mixed approval currencies', async () => {
+    const { service, manager } = harness(
+      [matrix[0], { ...matrix[1], currency_code: 'USD' }],
+      [],
+    );
+    await expect(
+      service.submit(manager, subject('100.00'), 'maker'),
+    ).rejects.toThrow('one currency');
+  });
+
+  it('rounds foreign-currency conversion using decimal arithmetic', async () => {
+    const bands = [
+      limit(1, MANAGER_ROLE, '0', '0.01'),
+      limit(2, SENIOR_ROLE, '0.02', null),
+    ];
+    const { service, manager, fx } = harness(bands, []);
+    fx.resolve.mockResolvedValue({ rate: '1.5', functionalCurrency: 'TZS' });
+    const foreign = {
+      ...subject('0.01'),
+      currencyCode: 'USD',
+      claim: { ...claim, exchange_rate: '1.500000' },
+    };
+    const rows = await service.submit(manager, foreign, 'maker');
+    expect(rows.map((row) => row.level)).toEqual([1, 2]);
+  });
+
+  it('requires resubmission if a changed rate requires another approval level', async () => {
+    const bands = [
+      limit(1, MANAGER_ROLE, '0', '100.00'),
+      limit(2, SENIOR_ROLE, '100.01', null),
+    ];
+    const { service, manager, fx } = harness(bands, [MANAGER_ROLE]);
+    fx.resolve.mockResolvedValue({ rate: '1.5', functionalCurrency: 'TZS' });
+    fx.snapshot.mockResolvedValue({ rate: '1.5', converted_amount: '75.00' });
+    const foreign = { ...subject('50.00'), currencyCode: 'USD' };
+    await service.submit(manager, foreign, 'maker');
+    fx.resolve.mockResolvedValue({ rate: '3', functionalCurrency: 'TZS' });
+    await expect(
+      service.approve(manager, user('checker'), foreign),
+    ).rejects.toThrow('resubmit');
+  });
+
+  it('rejects a missing or invalid foreign exchange rate', async () => {
+    const { service, manager } = harness(matrix, []);
+    const foreign = {
+      ...subject('1.00'),
+      currencyCode: 'USD',
+      claim: { ...claim, exchange_rate: '0' },
+    };
+    await expect(service.submit(manager, foreign, 'maker')).rejects.toThrow(
+      'No approved exchange rate',
+    );
+  });
+
+  it('does not use a legacy parity rate as foreign-currency approval evidence', async () => {
+    const { service, manager } = harness(matrix, []);
+    await expect(
+      service.submit(
+        manager,
+        { ...subject('1.00'), currencyCode: 'USD' },
+        'maker',
+      ),
+    ).rejects.toThrow('No approved exchange rate');
   });
 });

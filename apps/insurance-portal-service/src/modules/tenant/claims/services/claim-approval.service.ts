@@ -10,6 +10,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import { EntityManager, In, Repository } from 'typeorm';
 
 import { AuditService } from '../../../shared/audit/audit.service';
+import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import { Policy } from '../../policies/entities/policy.entity';
 import { User } from '../../users/entities/user.entity';
@@ -18,6 +19,7 @@ import { ClaimApproval } from '../entities/claim-approval.entity';
 import { ClaimApprovalLimit } from '../entities/claim-approval-limit.entity';
 import { ClaimApprovalStatus, ClaimApprovalType } from '../enums/claim.enums';
 import { ClaimStateMachineService } from './claim-state-machine.service';
+import { ClaimFxGovernanceService } from './claim-fx-governance.service';
 
 export interface ApprovalSubject {
   claim: InsuranceClaim;
@@ -56,6 +58,7 @@ export class ClaimApprovalService {
     private readonly limitRepository: Repository<ClaimApprovalLimit>,
     private readonly stateMachine: ClaimStateMachineService,
     private readonly auditService: AuditService,
+    private readonly fx: ClaimFxGovernanceService,
   ) {}
 
   async submit(
@@ -65,7 +68,8 @@ export class ClaimApprovalService {
   ): Promise<ClaimApproval[]> {
     const repository = manager.getRepository(ClaimApproval);
     const limits = await this.matchingLimits(manager, subject);
-    const amount = this.toBase(subject);
+    const conversion = await this.toBase(manager, subject, limits);
+    const amount = conversion.amount;
     const levels = [
       ...new Set(
         limits
@@ -113,6 +117,17 @@ export class ClaimApprovalService {
 
     const saved = await repository.save(rows);
 
+    if (limits.length && limits[0].currency_code !== subject.currencyCode) {
+      await this.snapshotAuthority(
+        manager,
+        subject,
+        saved[0].id,
+        'APPROVAL_SUBMITTED',
+        amount,
+        conversion.rate!,
+      );
+    }
+
     await this.stateMachine.recordEvent(manager, subject.claim, {
       eventType: 'APPROVAL_REQUESTED',
       summary: `${this.humanize(subject.approvalType)} of ${MoneyUtil.fromMinor(
@@ -152,6 +167,30 @@ export class ClaimApprovalService {
       });
     }
 
+    // A rate or authority matrix change must not leave a higher approval
+    // level missing from an already submitted round.
+    const currentLimits = await this.matchingLimits(manager, subject);
+    const currentAmount = (await this.toBase(manager, subject, currentLimits))
+      .amount;
+    const required = [
+      ...new Set(
+        currentLimits
+          .filter(
+            (limit) => MoneyUtil.compare(limit.min_amount, currentAmount) <= 0,
+          )
+          .map((limit) => limit.level),
+      ),
+    ].sort((a, b) => a - b);
+    const actual = round.map((row) => row.level).sort((a, b) => a - b);
+    if (
+      JSON.stringify(required.length ? required : [1]) !==
+      JSON.stringify(actual)
+    ) {
+      throw new ConflictException(
+        'Approval authority levels changed; resubmit this item',
+      );
+    }
+
     const limit = await this.assertAuthority(manager, user, subject, pending);
 
     pending.status = ClaimApprovalStatus.APPROVED;
@@ -159,7 +198,8 @@ export class ClaimApprovalService {
     pending.acted_at = new Date();
     pending.comments = comments?.trim() || null;
     pending.limit_id = limit?.id ?? null;
-    pending.admin_override = selfApproval && isAdmin;
+    pending.admin_override =
+      !!pending.admin_override || (selfApproval && isAdmin);
 
     await manager.getRepository(ClaimApproval).save(pending);
 
@@ -226,6 +266,9 @@ export class ClaimApprovalService {
 
     await this.assertAuthority(manager, user, subject, pending);
 
+    pending.admin_override =
+      !!pending.admin_override ||
+      (pending.submitted_by === user.id && hasCompanyAdminRole(user));
     pending.status = decision;
     pending.acted_by = user.id;
     pending.acted_at = new Date();
@@ -265,7 +308,11 @@ export class ClaimApprovalService {
         resource: subject.subjectType,
         resourceId: subject.subjectId,
         reason: pending.comments ?? undefined,
-        metadata: { claim_id: subject.claim.id, level: pending.level },
+        metadata: {
+          claim_id: subject.claim.id,
+          level: pending.level,
+          admin_override: pending.admin_override,
+        },
       },
       manager,
     );
@@ -452,7 +499,18 @@ export class ClaimApprovalService {
     }
 
     const roleIds = await this.userRoleIds(manager, user);
-    const amount = this.toBase(subject);
+    const conversion = await this.toBase(manager, subject, limits);
+    const amount = conversion.amount;
+    if (limits[0].currency_code !== subject.currencyCode) {
+      await this.snapshotAuthority(
+        manager,
+        subject,
+        pending.id,
+        'APPROVAL_AUTHORITY_CHECK',
+        amount,
+        conversion.rate!,
+      );
+    }
     const isFinal = !limits.some(
       (limit) =>
         limit.level > pending.level &&
@@ -509,13 +567,67 @@ export class ClaimApprovalService {
   }
 
   /** Limits are configured in their own currency; convert claim amounts. */
-  private toBase(subject: ApprovalSubject): string {
-    const rate = Number(subject.claim.exchange_rate || 1);
-    const amount =
-      Number(subject.amount || 0) *
-      (Number.isFinite(rate) && rate > 0 ? rate : 1);
+  private async toBase(
+    manager: EntityManager,
+    subject: ApprovalSubject,
+    limits: ClaimApprovalLimit[],
+  ): Promise<{ amount: string; rate: string | null }> {
+    const currencies = new Set(limits.map((limit) => limit.currency_code));
+    if (currencies.size > 1) {
+      throw new ConflictException(
+        'Matching approval limits must use one currency',
+      );
+    }
+    const target = limits[0]?.currency_code ?? subject.currencyCode;
+    const amount = MoneyUtil.toMinor(subject.amount);
+    if (target === subject.currencyCode)
+      return { amount: MoneyUtil.fromMinor(amount), rate: null };
+    const resolved = await this.fx.resolve(
+      manager,
+      subject.claim.company_id,
+      subject.currencyCode,
+      new Date().toISOString().slice(0, 10),
+    );
+    if (target !== resolved.functionalCurrency) {
+      throw new ConflictException(
+        'Approval currency must match the configured functional currency',
+      );
+    }
+    return {
+      amount: DecimalUtil.value(subject.amount)
+        .mul(DecimalUtil.value(resolved.rate))
+        .toFixed(2),
+      rate: resolved.rate,
+    };
+  }
 
-    return amount.toFixed(2);
+  private async snapshotAuthority(
+    manager: EntityManager,
+    subject: ApprovalSubject,
+    eventId: string,
+    eventType: string,
+    amount: string,
+    rate: string,
+  ): Promise<void> {
+    const snapshot = (await this.fx.snapshot(manager, {
+      companyId: subject.claim.company_id,
+      claimId: subject.claim.id,
+      eventType,
+      eventId,
+      currency: subject.currencyCode,
+      eventDate: new Date().toISOString().slice(0, 10),
+      amount: subject.amount,
+    })) as { converted_amount: string; rate: string };
+    if (
+      !DecimalUtil.value(snapshot.converted_amount).equals(
+        DecimalUtil.value(amount),
+      ) ||
+      !DecimalUtil.value(snapshot.rate).equals(DecimalUtil.value(rate))
+    ) {
+      throw new ConflictException(
+        'Approved exchange rate changed during the authority calculation; retry the request',
+      );
+    }
   }
 
   private baseCurrency(limits: ClaimApprovalLimit[]) {

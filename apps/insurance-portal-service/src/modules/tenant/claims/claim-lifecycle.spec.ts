@@ -78,6 +78,18 @@ describe('claim lifecycle', () => {
     }
   });
 
+  it('allows a reversed settlement to return to the appropriate payment state', () => {
+    expect(canTransition(ClaimStatus.SETTLED, ClaimStatus.PARTIALLY_PAID)).toBe(
+      true,
+    );
+    expect(
+      canTransition(ClaimStatus.SETTLED, ClaimStatus.PAYMENT_PENDING),
+    ).toBe(true);
+    expect(canTransition(ClaimStatus.PAID, ClaimStatus.PAYMENT_PENDING)).toBe(
+      true,
+    );
+  });
+
   it('supports reassessment and a rejected offer', () => {
     expect(
       canTransition(
