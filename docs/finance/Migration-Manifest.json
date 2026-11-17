@@ -1,10 +1,10 @@
 {
-  "documentId": "IM-FIN-SRS-1.14",
-  "date": "2026-11-16",
+  "documentId": "IM-FIN-SRS-1.15",
+  "date": "2026-11-17",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
-  "baseCommit": "b1dee5709f004d5c6a5e6da487ef38aa2e9561e9",
-  "sourceCodeFingerprint": "d5fbbef930253ce3cdc499d49a8b9abd66ae195e2a7c1e3eaf591649f098433b",
+  "baseCommit": "8988eaa349ff50d39e7bd18e51ba50ee4b564cdb",
+  "sourceCodeFingerprint": "e384f5874c7a8272ee41ee979d250784b89594b4eb0ba17b92458980dbc19ff4",
   "sourceCodeFiles": [
     {
       "file": "apps/insurance-portal-service/src/database/migrations/1796000000000-FinanceScopeFoundations.ts",
@@ -84,6 +84,16 @@
     {
       "file": "apps/insurance-portal-service/src/database/migrations/1797600000000-FinancePolicyChangeControls.ts",
       "sha256": "bcc2699a49c5bdd606ad2bdbc5fe7e7bc8bf0bc6502998a7c106b8108071fd05",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/database/migrations/1797700000000-FinanceCommissionControls.ts",
+      "sha256": "9b40acc762d998f0d12030a2bea6a653e1687072ad279eac4e914c24de02f43a",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/database/migrations/1797800000000-FinanceCommissionControlHardening.ts",
+      "sha256": "a72967505ae9ee9c120725288c9b3e555058222191d42d679af04175f8b56b64",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -242,6 +252,31 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-commission.database.ts",
+      "sha256": "49350d041d9dc97da27cbfd92b6b19524283684d48c2d34199bc8b37999b60c3",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-commission.service.ts",
+      "sha256": "6ec5885f3c0438280409914b8eb2c2800365da9890078bc3f272bc7cf336cf11",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-commission.source.ts",
+      "sha256": "ba7dd20c0f76ee7e3529542dc057d29a654001a8e1888066e1d545d26a96311c",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-commission.spec.ts",
+      "sha256": "65608114b898aea4c476fce9805dcf9e011f88b258ed64b69c1a4cb743b22481",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-commission.types.ts",
+      "sha256": "cb56d0297756cd1e383291c69b42eefeeb95205777f7fdf0ed8ba658477339c5",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-configuration.service.spec.ts",
       "sha256": "c21da1f41fd7bbaf396f6969e2d53a9cc534bfec936efec5a1d0c56d01bd5384",
       "hashEncoding": "UTF8_LF"
@@ -288,7 +323,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-foundation.module.ts",
-      "sha256": "3c118188c3b5378ecd75749e48627e85e260d0bebbb9048bcc5fb67e575898f2",
+      "sha256": "881e9664ee24ea96e24235946fcf7255b69672532083da219130976f29343daf",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -378,7 +413,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-policy-change.service.ts",
-      "sha256": "a210c1ae921fa8d65001448faa0d28809404b85738022cd5fa265450909edc00",
+      "sha256": "6b80978ed319d57946431c1f356a71fb32f853708dde723b6fbbaa8544f9c8d4",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -742,6 +777,11 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/test/finance/finance-commission.finance-integration.ts",
+      "sha256": "085177352b4c488c2be763322c2407dd065f3b892b880ae753734b9b2c7fcd4e",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/test/finance/finance-configuration.finance-integration.ts",
       "sha256": "94c9288ad6b601b76039c71ea810f532e7684c2a943fa30ca943ce1d03773c7c",
       "hashEncoding": "UTF8_LF"
@@ -842,6 +882,11 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/test/support/finance-commission-fixture.ts",
+      "sha256": "2171e4931598e25e5f5978ec241a803d2065d859af04c61f031381b4e5a0e540",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/test/support/finance-event-fixture.ts",
       "sha256": "ba3526e9ba20484fbcb60a3853b73d75a2c5cc78c3190bb52a99a42339c2e0e2",
       "hashEncoding": "UTF8_LF"
@@ -868,7 +913,7 @@
     },
     {
       "file": "apps/insurance-portal-service/test/support/finance-policy-change-fixture.ts",
-      "sha256": "808aff3edd72c4efd38ca4c215ae3c4aee4497bb81760303834185c686b69ccc",
+      "sha256": "a2f1f59cebcf39b3aaa705b1a9db43b848b6e577990e4684d88856cc5148bc36",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -1023,50 +1068,21 @@
     }
   ],
   "sourceHashEncoding": "UTF8_LF",
-  "expectedAppliedMigrationCount": 89,
-  "appliedMigrationLedgerHash": "e868d9c8526e3881cd8d54c40f5990a3b009489678c6e36828d691f5c8ef8a6f",
+  "expectedAppliedMigrationCount": 92,
+  "appliedMigrationLedgerHash": "963468dcd92d4daecfc296819272b3797c46082f476cdb9a54b53c370551eb31",
   "alreadyAppliedTaxEvidence": {
     "timestamp": "1796900000000",
     "mustNotReapply": true
   },
   "pendingMigrations": [
     {
-      "order": 14,
-      "file": "apps/insurance-portal-service/src/database/migrations/1797500000000-FinanceOutgoingCashControls.ts",
-      "name": "FinanceOutgoingCashControls1797500000000",
-      "timestamp": "1797500000000",
-      "sha256": "d2742c250dc10b2ccbb2554ded1562472e05982a13bee7637ac00fdf415aa3f2",
+      "order": 17,
+      "file": "apps/insurance-portal-service/src/database/migrations/1797800000000-FinanceCommissionControlHardening.ts",
+      "name": "FinanceCommissionControlHardening1797800000000",
+      "timestamp": "1797800000000",
+      "sha256": "a72967505ae9ee9c120725288c9b3e555058222191d42d679af04175f8b56b64",
       "hashEncoding": "UTF8_LF",
-      "createdTables": [
-        "finance_outgoing_authorities",
-        "finance_outgoing_evidence",
-        "finance_outgoing_aliases",
-        "finance_outgoing_intents",
-        "finance_outgoing_events",
-        "finance_outgoing_calls",
-        "finance_outgoing_observations",
-        "finance_outgoing_audits"
-      ],
-      "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
-      "executionAuthorized": false,
-      "companyAccountingPolicyApproval": "NOT_RECEIVED"
-    },
-    {
-      "order": 15,
-      "file": "apps/insurance-portal-service/src/database/migrations/1797600000000-FinancePolicyChangeControls.ts",
-      "name": "FinancePolicyChangeControls1797600000000",
-      "timestamp": "1797600000000",
-      "sha256": "bcc2699a49c5bdd606ad2bdbc5fe7e7bc8bf0bc6502998a7c106b8108071fd05",
-      "hashEncoding": "UTF8_LF",
-      "createdTables": [
-        "finance_policy_change_authorities",
-        "finance_policy_changes",
-        "finance_policy_change_aliases",
-        "finance_policy_change_decisions",
-        "finance_policy_refund_requests",
-        "finance_policy_refund_events",
-        "finance_policy_change_audits"
-      ],
+      "createdTables": [],
       "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
       "executionAuthorized": false,
       "companyAccountingPolicyApproval": "NOT_RECEIVED"
@@ -1382,7 +1398,7 @@
         "finance_outgoing_observations",
         "finance_outgoing_audits"
       ],
-      "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
+      "executionStatus": "OBSERVED_APPLIED_NOT_EXECUTED_BY_THIS_TASK",
       "executionAuthorized": false,
       "companyAccountingPolicyApproval": "NOT_RECEIVED"
     },
@@ -1402,103 +1418,44 @@
         "finance_policy_refund_events",
         "finance_policy_change_audits"
       ],
+      "executionStatus": "OBSERVED_APPLIED_NOT_EXECUTED_BY_THIS_TASK",
+      "executionAuthorized": false,
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
+    },
+    {
+      "order": 16,
+      "file": "apps/insurance-portal-service/src/database/migrations/1797700000000-FinanceCommissionControls.ts",
+      "name": "FinanceCommissionControls1797700000000",
+      "timestamp": "1797700000000",
+      "sha256": "9b40acc762d998f0d12030a2bea6a653e1687072ad279eac4e914c24de02f43a",
+      "hashEncoding": "UTF8_LF",
+      "createdTables": [
+        "finance_commission_authorities",
+        "finance_commission_movements",
+        "finance_commission_aliases",
+        "finance_commission_reviews",
+        "finance_commission_settlements",
+        "finance_commission_events",
+        "finance_commission_audits"
+      ],
+      "executionStatus": "OBSERVED_APPLIED_EARLY_DEFINITION_NOT_CERTIFIED",
+      "executionAuthorized": false,
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
+    },
+    {
+      "order": 17,
+      "file": "apps/insurance-portal-service/src/database/migrations/1797800000000-FinanceCommissionControlHardening.ts",
+      "name": "FinanceCommissionControlHardening1797800000000",
+      "timestamp": "1797800000000",
+      "sha256": "a72967505ae9ee9c120725288c9b3e555058222191d42d679af04175f8b56b64",
+      "hashEncoding": "UTF8_LF",
+      "createdTables": [],
       "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
       "executionAuthorized": false,
       "companyAccountingPolicyApproval": "NOT_RECEIVED"
     }
   ],
-  "appliedFinanceMigrations": [
-    {
-      "name": "FinanceScopeFoundations1796000000000",
-      "timestamp": "1796000000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceConfigurationReviews1796100000000",
-      "timestamp": "1796100000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceChartSourceAuthorities1796200000000",
-      "timestamp": "1796200000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceJournalCandidates1796300000000",
-      "timestamp": "1796300000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceApprovalGovernance1796400000000",
-      "timestamp": "1796400000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceEventContractPreviews1796500000000",
-      "timestamp": "1796500000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceIntegrationReliability1796600000000",
-      "timestamp": "1796600000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceOwnedExceptions1796700000000",
-      "timestamp": "1796700000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceQuotationMemoranda1796800000000",
-      "timestamp": "1796800000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceReceivableControls1797000000000",
-      "timestamp": "1797000000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinancePolicyGovernance1797100000000",
-      "timestamp": "1797100000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceLedgerFoundation1797200000000",
-      "timestamp": "1797200000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executionRunId": "20261116075345910_3262c12c",
-      "executedAt": "2026-11-16T07:53:54.639Z"
-    },
-    {
-      "name": "FinanceSetupReviews1797400000000",
-      "timestamp": "1797400000000",
-      "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
-      "executedAt": "2026-11-16T15:28:32.667Z"
-    }
-  ],
+  "appliedFinanceMigrations": 16,
   "executionAuthorization": {
     "runId": "20261116075345910_3262c12c",
     "status": "EXECUTED_LOCAL_SCHEMA_ONLY",
@@ -1628,6 +1585,118 @@
     "sourceFileCount": 203,
     "newMigrations": 0,
     "sourceWrites": 0,
+    "policiesActivated": 0
+  },
+  "priorSchemaApplicationBaseline": {
+    "appliedFinanceMigrations": [
+      {
+        "name": "FinanceScopeFoundations1796000000000",
+        "timestamp": "1796000000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceConfigurationReviews1796100000000",
+        "timestamp": "1796100000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceChartSourceAuthorities1796200000000",
+        "timestamp": "1796200000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceJournalCandidates1796300000000",
+        "timestamp": "1796300000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceApprovalGovernance1796400000000",
+        "timestamp": "1796400000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceEventContractPreviews1796500000000",
+        "timestamp": "1796500000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceIntegrationReliability1796600000000",
+        "timestamp": "1796600000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceOwnedExceptions1796700000000",
+        "timestamp": "1796700000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceQuotationMemoranda1796800000000",
+        "timestamp": "1796800000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceReceivableControls1797000000000",
+        "timestamp": "1797000000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinancePolicyGovernance1797100000000",
+        "timestamp": "1797100000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceLedgerFoundation1797200000000",
+        "timestamp": "1797200000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executionRunId": "20261116075345910_3262c12c",
+        "executedAt": "2026-11-16T07:53:54.639Z"
+      },
+      {
+        "name": "FinanceSetupReviews1797400000000",
+        "timestamp": "1797400000000",
+        "executionStatus": "APPLIED_LOCAL_DEVELOPMENT",
+        "executedAt": "2026-11-16T15:28:32.667Z"
+      }
+    ],
+    "expectedAppliedMigrationCount": 89,
+    "appliedMigrationLedgerHash": "e868d9c8526e3881cd8d54c40f5990a3b009489678c6e36828d691f5c8ef8a6f"
+  },
+  "inactiveCommissionControls": {
+    "priorImplementationBaseline": {
+      "sourceCodeFingerprint": "d5fbbef930253ce3cdc499d49a8b9abd66ae195e2a7c1e3eaf591649f098433b",
+      "sourceFileCount": 203,
+      "sourceCodeFilesAtCommit": "8988eaa349ff50d39e7bd18e51ba50ee4b564cdb"
+    },
+    "evidence": "B17-Verification.json",
+    "evidenceSha256": "556ec0f03255a8e921dbcceb6cddc4f3c86c3a6132de3bdb9ee2856f57e0f840",
+    "sourceCodeFingerprint": "e384f5874c7a8272ee41ee979d250784b89594b4eb0ba17b92458980dbc19ff4",
+    "sourceFileCount": 212,
+    "sourceMigrationCommandsExecuted": 0,
+    "installedDatabaseDefinitionCertified": false,
+    "pendingForwardHardening": "FinanceCommissionControlHardening1797800000000",
+    "newCompanyGrants": 0,
     "policiesActivated": 0
   }
 }

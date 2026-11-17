@@ -1242,6 +1242,33 @@ export class FinancePolicyChangeService {
       },
     );
   }
+  /** Transaction-local B17 reference. An inactive review never authorises a journal. */
+  async verifiedCommissionChange(
+    m: EntityManager,
+    p: Actor,
+    s: IntegrationScope,
+    ref: ChangeRef,
+  ) {
+    const row = await this.row(m, p, s, 'finance_policy_changes', ref);
+    const snap = await this.verifyChange(m, p, s, row);
+    const pos = await this.rootPosition(m, p, s, row);
+    const [decision] = await m.query(
+      "SELECT 1 FROM finance_policy_change_decisions WHERE change_id=$1 AND decision='REVIEWED_INACTIVE'",
+      [row.id],
+    );
+    if (
+      !decision ||
+      pos.pending ||
+      pos.conflicts ||
+      !pos.head ||
+      pos.head.id !== row.id ||
+      changeIssues(snap).length
+    )
+      fail(
+        'A current independently reviewed policy-change commission vector is required.',
+      );
+    return snap;
+  }
   async readChange(actor: Actor, scope: IntegrationScope, ref: ChangeRef) {
     const selected = await this.selected(
       actor,
