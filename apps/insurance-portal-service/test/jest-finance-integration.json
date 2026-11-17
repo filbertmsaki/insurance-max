@@ -1,0 +1,19 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "../../../",
+  "testEnvironment": "node",
+  "testMatch": [
+    "<rootDir>/apps/insurance-portal-service/test/finance/*.finance-integration.ts"
+  ],
+  "testTimeout": 30000,
+  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "moduleNameMapper": {
+    "^@insurance-max/contracts$": "<rootDir>/libs/contracts/src",
+    "^@insurance-max/observability$": "<rootDir>/libs/observability/src",
+    "^@insurance-max/portal-shared$": "<rootDir>/libs/portal-shared/src",
+    "^@insurance-max/portal-shared/(.*)$": "<rootDir>/libs/portal-shared/src/$1",
+    "^@insurance-max/persistence$": "<rootDir>/libs/persistence/src",
+    "^@insurance-max/shared-config$": "<rootDir>/libs/shared-config/src",
+    "^@insurance-max/shared-kernel$": "<rootDir>/libs/shared-kernel/src"
+  }
+}

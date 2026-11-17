@@ -16,7 +16,6 @@ import type { ExchangeRateSnapshot } from '../domain/pricing.types';
 
 const DEFAULT_BASE_CURRENCY = 'TZS';
 const MANUAL_EXCHANGE_RATE_PERMISSION = 'pricing.exchange-rate.manual';
-const APPROVE_EXCHANGE_RATE_PERMISSION = 'pricing.exchange-rate.approve';
 
 @Injectable()
 export class ExchangeRateGovernanceService {
@@ -77,7 +76,13 @@ export class ExchangeRateGovernanceService {
     }
 
     const manualRate = input.exchange_rate;
-    if (manualRate === undefined || manualRate === null || manualRate <= 0) {
+    if (
+      manualRate === undefined ||
+      manualRate === null ||
+      !Number.isFinite(manualRate) ||
+      manualRate <= 0 ||
+      roundExchangeRate(manualRate) <= 0
+    ) {
       throw new BadRequestException(
         `A manual exchange_rate is required when quotation currency ${quotationCurrencyCode} differs from base currency ${baseCurrencyCode}`,
       );
@@ -89,12 +94,6 @@ export class ExchangeRateGovernanceService {
       );
     }
 
-    if (!this.userHasPermission(user, APPROVE_EXCHANGE_RATE_PERMISSION)) {
-      throw new ForbiddenException(
-        'The provided manual exchange rate requires approval by a user with pricing.exchange-rate.approve',
-      );
-    }
-
     return {
       quotation_currency_code: quotationCurrencyCode,
       base_currency_code: baseCurrencyCode,
@@ -103,9 +102,11 @@ export class ExchangeRateGovernanceService {
       exchange_rate_date: exchangeRateDate,
       exchange_rate_precision: PRICING_ROUNDING_POLICY.exchangeRateScale,
       approval_required: true,
-      approval_granted: true,
-      approved_by_user_id: user?.id ?? null,
-      approved_at: new Date().toISOString(),
+      // Entering a rate, even with both permissions, is not an independent
+      // approval. Pricing may preview it; Finance must require reviewed evidence.
+      approval_granted: false,
+      approved_by_user_id: null,
+      approved_at: null,
       conversion_direction: 'QUOTE_TO_BASE_MULTIPLY',
       rounding_method: 'ROUND_HALF_UP',
     };
@@ -135,7 +136,11 @@ export class ExchangeRateGovernanceService {
     }
 
     const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+      Number.isNaN(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== value
+    ) {
       throw new BadRequestException('effective_date must be a valid date');
     }
 

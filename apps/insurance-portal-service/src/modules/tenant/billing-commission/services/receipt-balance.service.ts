@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 
-import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { ReceiptStatus } from '@insurance-max/contracts';
 import { ReceiptAllocation } from '../entities/receipt-allocation.entity';
 import { Receipt } from '../entities/receipt.entity';
 import { ReceiptAllocationStatus } from '../enums/finance-status.enums';
+import { financialDecimal } from '../foundation/finance-currency-controls';
 
 @Injectable()
 export class ReceiptBalanceService {
@@ -27,11 +27,20 @@ export class ReceiptBalanceService {
       })
       .getRawOne<{ amount: string }>();
 
-    const allocated = DecimalUtil.value(allocationResult?.amount ?? 0);
-    const amount = DecimalUtil.value(receipt.amount);
-    const unallocated = amount.minus(allocated).greaterThan(0)
-      ? amount.minus(allocated)
-      : DecimalUtil.value(0);
+    const allocated = financialDecimal(allocationResult?.amount as string);
+    const amount = financialDecimal(receipt.amount);
+    if (
+      [amount, allocated].some(
+        (value) => !value.isFinite() || value.isNegative(),
+      ) ||
+      allocated.greaterThan(amount)
+    )
+      throw new ConflictException({
+        code: 'FINANCE_BALANCE_RECONCILIATION_REQUIRED',
+        message:
+          'Receipt allocations exceed confirmed cash or contain an invalid amount. Reconcile the source records before changing the balance.',
+      });
+    const unallocated = amount.minus(allocated);
 
     receipt.allocated_amount = allocated.toFixed(4);
     receipt.unallocated_amount = unallocated.toFixed(4);

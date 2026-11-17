@@ -9,6 +9,7 @@ import { Tax } from './entities/tax.entity';
 import { CreateTaxDto, UpdateTaxDto } from './dto/tax.dto';
 import { FindTaxesQueryDto } from './dto/find-taxes-query.dto';
 import { paginateQueryBuilder } from '@insurance-max/portal-shared/utils/paginate-query.util';
+import { taxOptions } from '../../shared/finance/tax-calculation';
 
 @Injectable()
 export class TaxesService {
@@ -68,6 +69,7 @@ export class TaxesService {
   }
 
   async create(companyId: string, dto: CreateTaxDto) {
+    if (dto.calculation_options) taxOptions(dto.calculation_options);
     if (dto.is_default && !dto.is_active) {
       throw new ConflictException('The default tax must be active.');
     }
@@ -95,6 +97,7 @@ export class TaxesService {
   }
 
   async update(companyId: string, id: string, dto: UpdateTaxDto) {
+    if (dto.calculation_options) taxOptions(dto.calculation_options);
     const tax = await this.findOne(companyId, id);
     if (dto.tax_code !== undefined && dto.tax_code !== tax.tax_code) {
       // Saved quotations refer to the code. Keep it stable while allowing name,
@@ -133,6 +136,8 @@ export class TaxesService {
         current.tax_rate = dto.tax_rate.toFixed(10);
       if (dto.is_active !== undefined) current.is_active = dto.is_active;
       if (dto.is_default !== undefined) current.is_default = dto.is_default;
+      if (dto.calculation_options !== undefined)
+        current.calculation_options = dto.calculation_options;
 
       return this.save(current, repository);
     });

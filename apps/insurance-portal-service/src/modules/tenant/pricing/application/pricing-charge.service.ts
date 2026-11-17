@@ -1,9 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  roundMoney,
-  applyRate,
-} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
+import { roundMoney } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { In, Repository } from 'typeorm';
 import { Tax } from '../../taxes/entities/tax.entity';
 import type {
@@ -11,6 +8,10 @@ import type {
   PricingChargeCalculationInput,
   PricingChargeSummary,
 } from '../domain/pricing.types';
+import {
+  assertTaxEffective,
+  calculatePercentageTaxes,
+} from '../../../shared/finance/tax-calculation';
 
 @Injectable()
 export class PricingChargeService {
@@ -62,7 +63,44 @@ export class PricingChargeService {
         })
       : [];
     const byCode = new Map(taxes.map((tax) => [tax.tax_code, tax]));
-    const charges: PricingChargeBreakdown[] = codes.map((code) => {
+    const date = (input.effective_date ?? new Date().toISOString()).slice(
+      0,
+      10,
+    );
+    const exemptions = new Map<string, { type: string; reference: string }>();
+    for (const exemption of input.tax_exemptions ?? []) {
+      if (
+        !codes.includes(exemption.tax_code) ||
+        exemptions.has(exemption.tax_code) ||
+        !exemption.type?.trim() ||
+        !exemption.reference?.trim()
+      )
+        throw new BadRequestException(
+          'Each exemption requires a selected tax code, type and reference.',
+        );
+      exemptions.set(exemption.tax_code, exemption);
+    }
+    const calculation = calculatePercentageTaxes(
+      input.tax_inclusive_premium ?? input.net_premium,
+      codes.map((code) => {
+        const tax = byCode.get(code);
+        if (!tax)
+          throw new BadRequestException(
+            `Tax ${code} is unavailable. Select an active tax from the tax catalogue.`,
+          );
+        assertTaxEffective(tax.calculation_options, date);
+        const exemption = exemptions.get(code);
+        return {
+          code,
+          rate: tax.tax_rate,
+          exempt: !!exemption,
+          exemptionType: exemption?.type,
+          exemptionReference: exemption?.reference,
+        };
+      }),
+      input.tax_inclusive_premium === undefined ? 'EXCLUSIVE' : 'INCLUSIVE',
+    );
+    const charges: PricingChargeBreakdown[] = codes.map((code, index) => {
       const tax = byCode.get(code);
       if (!tax)
         throw new BadRequestException(
@@ -72,24 +110,30 @@ export class PricingChargeService {
         );
       return {
         // Retained in the snapshot contract; now identifies a catalogue tax.
+        is_exempt: exemptions.has(code),
+        exemption_type: exemptions.get(code)?.type ?? null,
+        exemption_reference: exemptions.get(code)?.reference ?? null,
         applied_rule_id: tax.id,
         charge_code: tax.tax_code,
         charge_name: tax.tax_name,
-        charge_category: 'TAX',
+        charge_category: assertTaxEffective(tax.calculation_options, date)
+          .category,
         charge_scope: 'COMPANY',
         charge_type: 'PERCENTAGE',
         calculation_base: 'NET_PREMIUM',
-        base_amount: roundMoney(input.net_premium),
+        base_amount: Number(calculation.charges[index].baseAmount),
         rate: Number(tax.tax_rate),
         fixed_amount: null,
         minimum_charge_amount: null,
         maximum_charge_amount: null,
-        computed_amount: roundMoney(
-          applyRate(input.net_premium, Number(tax.tax_rate)),
-        ),
+        computed_amount: Number(calculation.charges[index].amount),
         is_taxable: false,
-        effective_from: '',
-        effective_to: '',
+        effective_from: tax.calculation_options?.effective_from ?? '',
+        effective_to: tax.calculation_options?.effective_to ?? '',
+        ledger_account_code:
+          tax.calculation_options?.ledger_account_code ?? null,
+        price_basis:
+          input.tax_inclusive_premium === undefined ? 'EXCLUSIVE' : 'INCLUSIVE',
       };
     });
     const total = roundMoney(
@@ -100,7 +144,7 @@ export class PricingChargeService {
       total_charge_amount: total,
       taxable_charge_amount: 0,
       non_taxable_charge_amount: total,
-      premium_including_charges: roundMoney(input.net_premium + total),
+      premium_including_charges: Number(calculation.total),
     };
   }
 }

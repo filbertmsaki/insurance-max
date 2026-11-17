@@ -38,6 +38,7 @@ import { FinanceOutboxProcessor } from './outbox/finance-outbox.processor';
 import { FinanceCommandService } from './services/finance-command.service';
 import { FinanceAutoReceiptService } from './services/finance-auto-receipt.service';
 import { FinanceJournalService } from './services/finance-journal.service';
+import { FinancePostingPolicyService } from './services/finance-posting-policy.service';
 import { FinanceOutboxService } from './services/finance-outbox.service';
 import { InvoiceBalanceService } from './services/invoice-balance.service';
 import { CommissionAccrualService } from './services/commission-accrual.service';
@@ -53,11 +54,20 @@ import { QuotationPaymentProjectionService } from './services/quotation-payment-
 import { ReconciliationService } from './services/reconciliation.service';
 import { ReceiptBalanceService } from './services/receipt-balance.service';
 import { AuditModule } from '../../shared/audit/audit.module';
+import { FinanceFoundationModule } from './foundation/finance-foundation.module';
+import { FinanceFoundationController } from './foundation/finance-foundation.controller';
+import { FinanceSetupController } from './foundation/finance-setup.controller';
+import { FinanceSetupService } from './foundation/finance-setup.service';
+import { FinanceSetupConfigurationService } from './foundation/finance-setup-configuration.service';
+import { FinanceSetupEvidenceService } from './foundation/finance-setup-evidence.service';
+import { InsuranceDocumentsModule } from '../insurance-documents/insurance-documents.module';
 
 @Module({
   imports: [
     SharedModule,
     AuditModule,
+    FinanceFoundationModule,
+    InsuranceDocumentsModule,
     WorkItemsModule,
     forwardRef(() => QuotationsModule),
     forwardRef(() => PolicyTransactionsModule),
@@ -89,6 +99,8 @@ import { AuditModule } from '../../shared/audit/audit.module';
     ]),
   ],
   controllers: [
+    FinanceSetupController,
+    FinanceFoundationController,
     BillingCommissionController,
     // FinanceOperationsController (legacy /tenant/billing writes without
     // locks, journals or quotation projection) is intentionally not
@@ -97,6 +109,9 @@ import { AuditModule } from '../../shared/audit/audit.module';
     FinanceWebhookController,
   ],
   providers: [
+    FinanceSetupService,
+    FinanceSetupConfigurationService,
+    FinanceSetupEvidenceService,
     BillingCommissionService,
     IdentifierGeneratorService,
     FinanceLifecycleService,
@@ -108,6 +123,7 @@ import { AuditModule } from '../../shared/audit/audit.module';
     InvoiceBalanceService,
     ReceiptBalanceService,
     FinanceJournalService,
+    FinancePostingPolicyService,
     PaymentPayloadRedactionService,
     PaymentProviderRegistry,
     PaymentReferenceService,

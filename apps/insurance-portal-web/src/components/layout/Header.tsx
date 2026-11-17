@@ -60,7 +60,14 @@ export function Header({
   mobileTitle,
 }: HeaderProps) {
   const navigate = useNavigate();
-  const { user, profile, refreshToken, logout, hasPermission } = useAuthStore();
+  const {
+    user,
+    profile,
+    refreshToken,
+    logout,
+    hasPermission,
+    authorizationContext,
+  } = useAuthStore();
   const isFullscreen = useFullscreen();
   const queryClient = useQueryClient();
   const isCompanyScoped = user?.scope === 'company';
@@ -74,6 +81,10 @@ export function Header({
       'summary',
       user?.id,
       user?.companyId,
+      authorizationContext?.companyId,
+      authorizationContext?.companyMembershipId,
+      authorizationContext?.sessionId,
+      authorizationContext?.authorizationVersion,
     ],
     queryFn: engagementApi.getNotificationUnreadSummary,
     staleTime: 30_000,

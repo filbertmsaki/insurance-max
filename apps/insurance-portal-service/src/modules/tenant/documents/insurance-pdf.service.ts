@@ -12,6 +12,11 @@ import { MotorPolicyDetail } from '../motor/entities/motor-policy-detail.entity'
 import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
 import { QuotationFlow } from '../quotations/enums/quotation-flow.enum';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
+import {
+  hasPremiumInvoiceTax,
+  validatedPremiumInvoiceTax,
+} from '../billing-commission/utils/premium-invoice-tax';
+import { DecimalUtil } from '../../shared/finance/decimal.util';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { PaymentReference } from '../billing-commission/entities/payment-reference.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
@@ -77,6 +82,9 @@ export class InsurancePdfService {
       },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
+    const breakdown = hasPremiumInvoiceTax(invoice.source_type)
+      ? validatedPremiumInvoiceTax(invoice)
+      : null;
     const issuer = invoice.insurer_company ?? invoice.company;
     const [reference, logo] = await Promise.all([
       this.paymentReferences.findOne({
@@ -91,6 +99,35 @@ export class InsurancePdfService {
       logo,
       controlNumber: reference?.control_number ?? null,
     });
+    if (breakdown) {
+      const rows = breakdown.lines.flatMap((line) =>
+        line.charges.map((charge) => [
+          `${charge.code} | ${charge.category}${'direction' in line ? ` | ${line.direction === 'SOURCE' ? 'Original reversal' : 'Revised premium'}` : ''}`,
+          `${DecimalUtil.value(charge.rate).mul(100).toFixed(8)}%`,
+          String(charge.baseAmount),
+          String(charge.amount),
+          charge.exempt
+            ? `${charge.exemptionType} ${charge.exemptionReference}`
+            : '',
+        ]),
+      );
+      doc.sections.push({
+        title: 'Tax evidence',
+        blocks: [
+          {
+            kind: 'table',
+            columns: [
+              { header: 'Charge', width: 2 },
+              { header: 'Rate', width: 1 },
+              { header: 'Base', width: 1 },
+              { header: 'Amount', width: 1 },
+              { header: 'Exemption', width: 2 },
+            ],
+            rows,
+          },
+        ],
+      });
+    }
     return {
       bytes: await renderBrandedDocument(doc),
       filename: documentFileName('Invoice', invoice.invoice_no),

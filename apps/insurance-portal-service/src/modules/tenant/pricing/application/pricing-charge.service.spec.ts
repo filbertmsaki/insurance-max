@@ -3,6 +3,49 @@ import { Repository } from 'typeorm';
 import { Tax } from '../../taxes/entities/tax.entity';
 
 describe('Selected catalogue taxes', () => {
+  it('preserves an explicitly evidenced exemption through the shared calculator', async () => {
+    const { service } = fixture();
+    const result = await service.calculateCharges('company', {
+      basic_premium: 100,
+      net_premium: 100,
+      gross_premium: 100,
+      tax_codes: ['VAT-MAINLAND'],
+      tax_exemptions: [
+        {
+          tax_code: 'VAT-MAINLAND',
+          type: 'SYNTHETIC-EXEMPTION',
+          reference: 'SYNTHETIC-APPROVAL',
+        },
+      ],
+    });
+    expect(result.premium_including_charges).toBe(100);
+    expect(result.charges[0]).toMatchObject({
+      rate: 0.18,
+      computed_amount: 0,
+      is_exempt: true,
+      exemption_reference: 'SYNTHETIC-APPROVAL',
+    });
+  });
+  it('refuses missing, duplicate and unselected exemption evidence', async () => {
+    const { service } = fixture();
+    for (const tax_exemptions of [
+      [{ tax_code: 'VAT-MAINLAND', type: '', reference: '' }],
+      [{ tax_code: 'OTHER', type: 'TYPE', reference: 'REF' }],
+      [
+        { tax_code: 'VAT-MAINLAND', type: 'TYPE', reference: 'REF' },
+        { tax_code: 'VAT-MAINLAND', type: 'TYPE', reference: 'REF' },
+      ],
+    ])
+      await expect(
+        service.calculateCharges('company', {
+          basic_premium: 100,
+          net_premium: 100,
+          gross_premium: 100,
+          tax_codes: ['VAT-MAINLAND'],
+          tax_exemptions,
+        }),
+      ).rejects.toThrow('exemption');
+  });
   const catalogue = [
     { id: 'vat', tax_code: 'VAT-MAINLAND', tax_name: 'VAT', tax_rate: '0.18' },
     {
@@ -121,5 +164,61 @@ describe('Selected catalogue taxes', () => {
       2222.22, 1234.57,
     ]);
     expect(result.total_charge_amount).toBe(3456.79);
+  });
+  it('freezes inclusive calculation basis and effective-dated category/account evidence', async () => {
+    const { service, repository } = fixture();
+    repository.find.mockResolvedValue([
+      {
+        ...catalogue[0],
+        calculation_options: {
+          category: 'LEVY',
+          effective_from: '2026-01-01',
+          effective_to: '2026-12-31',
+          ledger_account_code: '4210',
+        },
+      },
+    ]);
+    const result = await service.calculateCharges('company', {
+      ...premium,
+      tax_codes: ['VAT-MAINLAND'],
+      effective_date: '2026-06-01',
+      tax_inclusive_premium: 118,
+    });
+    expect(result.premium_including_charges).toBe(118);
+    expect(result.charges[0]).toMatchObject({
+      base_amount: 100,
+      computed_amount: 18,
+      charge_category: 'LEVY',
+      price_basis: 'INCLUSIVE',
+      effective_from: '2026-01-01',
+      effective_to: '2026-12-31',
+      ledger_account_code: '4210',
+    });
+  });
+  it('rejects a selected tax outside its configured effective dates', async () => {
+    const { service, repository } = fixture();
+    repository.find.mockResolvedValue([
+      {
+        ...catalogue[0],
+        calculation_options: { effective_from: '2027-01-01' },
+      },
+    ]);
+    await expect(
+      service.calculateCharges('company', {
+        ...premium,
+        tax_codes: ['VAT-MAINLAND'],
+        effective_date: '2026-06-01',
+      }),
+    ).rejects.toThrow('not effective');
+  });
+  it('does not turn an absent configured tax rate into zero', async () => {
+    const { service, repository } = fixture();
+    repository.find.mockResolvedValue([{ ...catalogue[0], tax_rate: null }]);
+    await expect(
+      service.calculateCharges('company', {
+        ...premium,
+        tax_codes: ['VAT-MAINLAND'],
+      }),
+    ).rejects.toThrow('missing tax evidence');
   });
 });

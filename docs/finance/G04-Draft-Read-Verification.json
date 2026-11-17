@@ -1,0 +1,107 @@
+{
+  "schema": "FINANCE_G04_DRAFT_READ_SETUP_V1",
+  "date": "2026-11-16",
+  "timeZone": "Africa/Dar_es_Salaam",
+  "status": "PARTIAL_G04_DRAFT_READ_ONLY_VERIFIED_LOCAL_DEVELOPMENT",
+  "committedAt": "2026-11-16T09:09:10.264Z",
+  "verifiedAt": "2026-11-16T09:09:13.127Z",
+  "sourceCodeFingerprint": "4702c812a9d4bfa08b6a54360605217cd1b4ecb8a1ea15cf977223d82730824f",
+  "authorization": {
+    "confirmedCompanyAdminIdentity": true,
+    "draftReadOnlySetup": true,
+    "accountingPolicyApproval": false,
+    "policyActivation": false,
+    "livePosting": false,
+    "independentCheckerAppointment": false
+  },
+  "setup": {
+    "draftLegalEntities": 1,
+    "draftAccountingBooks": 1,
+    "scopedIdentityBindings": 1,
+    "foundationCapabilities": [
+      "READ"
+    ],
+    "draftScopeMemberships": 1,
+    "draftScopePermission": "READ_DRAFT",
+    "coarsePermission": "finance-foundation:read",
+    "directCompanyMembershipGrants": 1,
+    "sourceUserIdentifier": "Global authenticated users.id; not company membership id",
+    "separateFinanceTenantEntityBookSubjectAndPersonIds": true,
+    "readAccessValidFrom": "2026-11-16T09:09:03.901Z",
+    "readAccessValidTo": "2026-11-23T09:09:03.901Z",
+    "readAccessDays": 7,
+    "membershipAuthorizationVersionIncrement": 1,
+    "signInAgainRequired": true,
+    "companyRolesChanged": 0,
+    "sourceUsersCreated": 0,
+    "testMembersPromoted": 0
+  },
+  "verification": {
+    "exactDraftScopeVisible": true,
+    "existingIdentityResolverPassed": true,
+    "draftReadOnlyResolverPassed": true,
+    "emptyDocumentsReadable": true,
+    "nonReadCapabilitiesDenied": 4,
+    "validationAndLivePeriodCreationDenied": true,
+    "crossCompanyAndBookDenied": true,
+    "unconfirmedMemberDenied": true,
+    "postingGuard": "FINANCE_POSTING_HELD",
+    "realHttpLoginTested": false,
+    "beforeCommitAndIndependentAfterCommit": true,
+    "exactChangedTableAllowlist": [
+      "public.finance_legal_entities",
+      "public.finance_accounting_books",
+      "public.finance_foundation_identity_bindings",
+      "public.finance_foundation_authorities",
+      "public.finance_scope_memberships",
+      "public.permissions",
+      "public.company_user_permissions",
+      "public.company_users"
+    ],
+    "unchangedTables": 344,
+    "totalTables": 352,
+    "schemasAndSequencesUnchanged": true,
+    "migrationLedgerUnchanged": 88,
+    "historicalPaidInvoiceHeadersAndItemsUnchanged": 4,
+    "legacyAccountsUnchanged": 3,
+    "taxCatalogueAndFinancialRecordsUnchanged": true,
+    "allOtherSourceMembershipsAndPermissionsUnchanged": true
+  },
+  "inactiveControls": {
+    "policyVersions": 0,
+    "policyAuthorities": 0,
+    "policyApprovals": 0,
+    "policyActivations": 0,
+    "activeBooks": 0,
+    "accountingPeriods": 0,
+    "foundationJournals": 0,
+    "deployments": 0,
+    "nonReadFoundationCapabilities": 0,
+    "sourceMappings": 0,
+    "accountingBasis": null,
+    "functionalCurrencyAssessment": null,
+    "calendar": null,
+    "chartRelease": null,
+    "presentationContext": null
+  },
+  "backup": {
+    "encrypted": true,
+    "decryptionAndArchiveIntegrityVerified": true,
+    "keyProtection": "WINDOWS_DPAPI_CURRENT_USER"
+  },
+  "remainingGates": [
+    "Different real Finance preparer/checker not assigned",
+    "TIRA licence, TIN and BRELA legal-source evidence missing from company master",
+    "Functional-currency assessment not approved; TZS system base is not sufficient evidence",
+    "Accounting basis, calendar, chart release, taxes, policies, dimensions and source mappings require scoped review",
+    "No policy approval, activation, opening balance, period, journal, release or source-event producer authority granted"
+  ],
+  "limits": [
+    "G04 is partial; read access does not appoint the independent preparer/checker or grant policy approval rights.",
+    "Real browser sign-in, HTTP/SSO, source-worker integration and B45 company acceptance have not been verified in this action.",
+    "All 70 policy proposals and 126 inherited decisions remain pending company-specific review. No tax rate, legal conclusion or accounting treatment was selected.",
+    "The existing chart/accounting code is unchanged; no application server, business worker or external business integration was started.",
+    "New draft/authority records make the Finance schema nonempty. The prior empty-registry down-rehearsal is no longer a safe rollback instruction for this source database. Use auditable revocation or forward repair, never destructive down or history deletion.",
+    "Private identities, scope IDs, backup paths, key metadata and full database fingerprints are retained locally outside Git."
+  ]
+}

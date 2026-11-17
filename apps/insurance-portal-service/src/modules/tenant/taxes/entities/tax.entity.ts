@@ -22,6 +22,11 @@ export class Tax {
   @Column({ default: true }) is_active: boolean;
   @Column({ default: false })
   is_default: boolean;
+
+  @Column({ type: 'jsonb', nullable: true })
+  calculation_options:
+    | import('../../../shared/finance/tax-calculation').TaxCalculationOptions
+    | null;
   @CreateDateColumn({ type: 'timestamptz' }) created_at: Date;
   @UpdateDateColumn({ type: 'timestamptz' }) updated_at: Date;
   @DeleteDateColumn({ type: 'timestamptz', nullable: true })

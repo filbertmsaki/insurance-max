@@ -8,6 +8,12 @@ import { returningRows } from '../../../../database/returning-rows.util';
 import { FinanceOutboxEvent } from '../entities/finance-outbox-event.entity';
 import { QuotationPaymentEventService } from '../services/quotation-payment-event.service';
 
+class UnsupportedFinanceOutboxContractError extends Error {
+  constructor() {
+    super('UNSUPPORTED_FINANCE_OUTBOX_CONTRACT');
+  }
+}
+
 @Injectable()
 export class FinanceOutboxProcessor {
   private readonly logger = new Logger(FinanceOutboxProcessor.name);
@@ -112,10 +118,7 @@ export class FinanceOutboxProcessor {
           );
           break;
         default:
-          this.logger.debug(
-            `Finance outbox event ${event.id} (${event.event_type}) has no explicit publisher and was marked published.`,
-          );
-          break;
+          throw new UnsupportedFinanceOutboxContractError();
       }
 
       event.status = 'PUBLISHED';
@@ -133,7 +136,10 @@ export class FinanceOutboxProcessor {
         30 * 2 ** Math.max(attemptCount - 1, 0),
       );
 
-      event.status = attemptCount >= maxAttempts ? 'DEAD_LETTER' : 'FAILED';
+      const unsupported =
+        error instanceof UnsupportedFinanceOutboxContractError;
+      event.status =
+        unsupported || attemptCount >= maxAttempts ? 'DEAD_LETTER' : 'FAILED';
       event.attempt_count = attemptCount;
       event.next_attempt_at = new Date(Date.now() + delaySeconds * 1000);
       event.last_error =

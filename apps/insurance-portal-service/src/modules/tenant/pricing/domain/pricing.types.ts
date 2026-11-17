@@ -23,6 +23,7 @@ export interface PricingSingleRiskAddonInput {
 }
 
 export interface PricingSingleRiskInput {
+  tax_exemptions?: { tax_code: string; type: string; reference: string }[];
   client_reference?: string;
   risk_id: string;
   sum_insured?: number;
@@ -92,6 +93,11 @@ export type PricingChargeBase =
   | 'GROSS_PREMIUM';
 
 export interface PricingChargeBreakdown {
+  is_exempt?: boolean;
+  exemption_type?: string | null;
+  exemption_reference?: string | null;
+  ledger_account_code?: string | null;
+  price_basis?: 'EXCLUSIVE' | 'INCLUSIVE';
   applied_rule_id: string;
   charge_code: string;
   charge_name: string;
@@ -118,6 +124,9 @@ export interface PricingChargeSummary {
 }
 
 export interface PricingChargeCalculationInput {
+  tax_exemptions?: { tax_code: string; type: string; reference: string }[];
+  /** Internal inclusive-price extraction; omitted for the standard net-premium rating path. */
+  tax_inclusive_premium?: number;
   category_id?: string | null;
   product_id?: string | null;
   risk_id?: string | null;

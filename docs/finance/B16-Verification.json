@@ -1,0 +1,185 @@
+{
+  "documentId": "IM-FIN-B16-INACTIVE-1.0",
+  "date": "2026-11-16",
+  "status": "IMPLEMENTED_AND_VERIFIED_INACTIVE_CONTROL_SLICE",
+  "baseCommit": "f2ffb0a11be303d9cd498d76cb7bd621afd35a36",
+  "scope": {
+    "nativeReadOnlyAdapter": true,
+    "nativePricingReused": true,
+    "newPricingEngine": false,
+    "signedB11Evidence": true,
+    "versionedTerms": true,
+    "originalEffectCorrectionLinks": true,
+    "distinctTaxLevyComponents": true,
+    "unknownTaxHeld": true,
+    "independentReview": true,
+    "sharedAllocationRefundLimits": true,
+    "b15ExecutionBinding": true,
+    "stableKeyRecovery": true,
+    "confirmedPrincipalAndFeesSeparated": true,
+    "legacyRefundStatusWrites": 0,
+    "sourceFinancialWrites": 0,
+    "publicRoutes": 0,
+    "newWorkers": 0,
+    "companyGrants": 0,
+    "accountingEffects": 0,
+    "legalDischargeAccepted": false,
+    "liveSourceProducerImplemented": false,
+    "nativeEndorsementInvoiceTaxWriterCorrected": false
+  },
+  "tests": {
+    "backend": {
+      "suites": 273,
+      "passed": 2260
+    },
+    "postgres": {
+      "suites": 16,
+      "passed": 311,
+      "disposableClustersStopped": 16,
+      "aggregateOfSeparateIsolatedSuiteRuns": true
+    },
+    "b16Postgres": {
+      "passed": 24
+    },
+    "newUnitCases": 6,
+    "backendBuildPassed": true,
+    "lintPassed": true,
+    "typecheckPassed": true,
+    "frontend": "Unchanged; earlier frontend evidence remains historical and was not rerun for B16."
+  },
+  "sourceDevelopment": {
+    "checkedAt": "2026-11-16T17:53:05.738Z",
+    "passed": true,
+    "readOnly": true,
+    "sourceWrites": 0,
+    "sourceSchemaUnchanged": true,
+    "migrationLedger": 89,
+    "applicationTables": 354,
+    "financialTablesUnchanged": 85,
+    "paidHistoricalInvoicesUnchanged": 4,
+    "legacyPermissionsUnchanged": true,
+    "policiesInactive": true,
+    "booksInactive": true,
+    "b15MigrationApplied": false,
+    "b16MigrationApplied": false
+  },
+  "migration": {
+    "name": "FinancePolicyChangeControls1797600000000",
+    "file": "apps/insurance-portal-service/src/database/migrations/1797600000000-FinancePolicyChangeControls.ts",
+    "newTables": 7,
+    "appliedToSource": false,
+    "sourceFinanceMigrationsApplied": 13,
+    "sourceMigrationLedger": 89,
+    "sourceApplicationTables": 354,
+    "pendingFinanceMigrations": 2,
+    "localExecutionAuthorization": false,
+    "companyAccountingApproval": false,
+    "policyActivationAuthorized": false
+  },
+  "cases": [
+    {
+      "name": "PC17 empty migration rolls back without changing B15 controls",
+      "status": "passed"
+    },
+    {
+      "name": "PC18 debit and zero-value endorsements preserve actual component differences",
+      "status": "passed"
+    },
+    {
+      "name": "PC19 rejects out-of-order terms and ordinary changes after cancellation",
+      "status": "passed"
+    },
+    {
+      "name": "PC20 pending reversals reduce refund capacity before their approval",
+      "status": "passed"
+    },
+    {
+      "name": "PC21 direct inserts cannot exceed entitlement or omit a transaction-bound audit",
+      "status": "passed"
+    },
+    {
+      "name": "PC22 original execution can be queried after a late correction; confirmed cash is retained",
+      "status": "passed"
+    },
+    {
+      "name": "PC23 partial executions show the amount actually returned, with fees separate",
+      "status": "passed"
+    },
+    {
+      "name": "PC24 unresolved invoice reconciliation and beneficiary-related review stay blocked",
+      "status": "passed"
+    },
+    {
+      "name": "PC01 keeps source component vectors separate and approval does not return cash",
+      "status": "passed"
+    },
+    {
+      "name": "PC02 unknown tax evidence is held and can be repaired only by a signed source revision",
+      "status": "passed"
+    },
+    {
+      "name": "PC03 source delivery aliases cannot duplicate a return-premium entitlement",
+      "status": "passed"
+    },
+    {
+      "name": "PC04 changed accepted source becomes a durable conflict and blocks refunds",
+      "status": "passed"
+    },
+    {
+      "name": "PC05 enforces maker-checker and tenant/book isolation",
+      "status": "passed"
+    },
+    {
+      "name": "PC06 refund commands are idempotent even after consuming all entitlement",
+      "status": "passed"
+    },
+    {
+      "name": "PC07 concurrent refund requests cannot consume the same entitlement twice",
+      "status": "passed"
+    },
+    {
+      "name": "PC08 refunds and pending allocation reversals share original receipt capacity",
+      "status": "passed"
+    },
+    {
+      "name": "PC09 independent rejection releases entitlement without deleting audit evidence",
+      "status": "passed"
+    },
+    {
+      "name": "PC10 binds signed obligations before allowing any B15 cash reservation",
+      "status": "passed"
+    },
+    {
+      "name": "PC11 records confirmed cash separately and requires bank reconciliation",
+      "status": "passed"
+    },
+    {
+      "name": "PC12 unknown cash retains refund capacity and cannot be cancelled",
+      "status": "passed"
+    },
+    {
+      "name": "PC13 full reversal must invert the original component vector",
+      "status": "passed"
+    },
+    {
+      "name": "PC14 late adjustments preserve consumed refunds and expose negative capacity",
+      "status": "passed"
+    },
+    {
+      "name": "PC15 bound executions cannot exceed the approved refund",
+      "status": "passed"
+    },
+    {
+      "name": "PC16 populated controls refuse down migration and all control rows require audit",
+      "status": "passed"
+    }
+  ],
+  "remaining": [
+    "Correct and certify the native endorsement invoice component writer; current legacy zero-tax invoices remain held by the new adapter. No historical records were changed.",
+    "Publish native pricing-owned component/rule evidence through a reconciled source producer/outbox and actual signed B11 intake. The source currently has no finance_components producer.",
+    "Reconcile actual applied transactions, receipts, prior reservations/refunds and provider outcomes; implement compatibility APIs and one-writer migration.",
+    "Complete actual company G04/G05 evidence, accounting/tax/legal approvals and business UAT. Modification versus new contract, recognition and legal discharge remain inactive.",
+    "Authorize and rehearse pending B15/B16 source schema application separately; no full-history migration rehearsal is claimed by disposable test databases.",
+    "Implement live provider/API/worker integration, operational exception ownership and telemetry, then pass scoped release/cutover gates. B17 and later backlog steps remain as recorded."
+  ]
+}

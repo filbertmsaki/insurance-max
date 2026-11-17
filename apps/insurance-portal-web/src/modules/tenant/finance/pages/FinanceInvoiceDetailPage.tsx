@@ -31,6 +31,8 @@ import {
 import type { FinancePaymentReference } from '../types';
 import { PdfDocumentActions } from '@/modules/shared/documents/PdfDocumentActions';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
+import { InvoiceTaxBreakdown } from '../components/InvoiceTaxBreakdown';
+import { invoiceTaxBreakdown } from '../utils/invoice-tax-breakdown';
 
 const paymentMethods = [
   { value: 'CONTROL_NUMBER', label: 'Control number', provider: 'GEPG' },
@@ -262,7 +264,13 @@ export function FinanceInvoiceDetailPage() {
         {invoice.status === 'DRAFT' ? (
           <Button
             onClick={() => issueMutation.mutate()}
-            disabled={issueMutation.isPending}
+            disabled={
+              issueMutation.isPending ||
+              (['QUOTATION', 'ENDORSEMENT'].includes(
+                invoice.source_type ?? '',
+              ) &&
+                !invoiceTaxBreakdown(invoice))
+            }
           >
             {issueMutation.isPending ? 'Issuing...' : 'Issue Invoice'}
           </Button>
@@ -287,6 +295,7 @@ export function FinanceInvoiceDetailPage() {
         ) : null}
       </div>
 
+      <InvoiceTaxBreakdown invoice={invoice} />
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Overview</CardTitle>

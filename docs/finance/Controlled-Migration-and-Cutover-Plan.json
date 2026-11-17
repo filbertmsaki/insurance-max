@@ -1,0 +1,412 @@
+{
+  "version": "1.8",
+  "date": "2026-11-16",
+  "status": "LOCAL_DRAFT_READ_SETUP_G04_PARTIAL_CONFIGURATION_AND_CUTOVER_PENDING",
+  "companyScope": {
+    "companyId": null,
+    "tenantId": null,
+    "legalEntityId": null,
+    "bookId": null,
+    "companyType": null,
+    "accountingBasis": null,
+    "products": [],
+    "currencies": [],
+    "effectiveFrom": null,
+    "effectiveTo": null
+  },
+  "authorizations": [
+    {
+      "action": "POLICY_TREATMENT_APPROVAL",
+      "status": "NOT_RECEIVED",
+      "scope": {
+        "companyId": null,
+        "tenantId": null,
+        "legalEntityId": null,
+        "bookId": null,
+        "companyType": null,
+        "accountingBasis": null,
+        "products": [],
+        "currencies": [],
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      "evidenceHash": null,
+      "approvedVersionHash": null,
+      "reason": null,
+      "approverSubjectId": null,
+      "approverNaturalPersonId": null,
+      "approvedAt": null
+    },
+    {
+      "action": "SCHEMA_MIGRATION_ONLY",
+      "status": "NOT_RECEIVED",
+      "scope": {
+        "companyId": null,
+        "tenantId": null,
+        "legalEntityId": null,
+        "bookId": null,
+        "companyType": null,
+        "accountingBasis": null,
+        "products": [],
+        "currencies": [],
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      "evidenceHash": null,
+      "approvedVersionHash": null,
+      "reason": null,
+      "approverSubjectId": null,
+      "approverNaturalPersonId": null,
+      "approvedAt": null
+    },
+    {
+      "action": "INACTIVE_CONFIGURATION_PROVISIONING",
+      "status": "NOT_RECEIVED",
+      "scope": {
+        "companyId": null,
+        "tenantId": null,
+        "legalEntityId": null,
+        "bookId": null,
+        "companyType": null,
+        "accountingBasis": null,
+        "products": [],
+        "currencies": [],
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      "evidenceHash": null,
+      "approvedVersionHash": null,
+      "reason": null,
+      "approverSubjectId": null,
+      "approverNaturalPersonId": null,
+      "approvedAt": null
+    },
+    {
+      "action": "SCOPED_ACCEPTANCE",
+      "status": "NOT_RECEIVED",
+      "scope": {
+        "companyId": null,
+        "tenantId": null,
+        "legalEntityId": null,
+        "bookId": null,
+        "companyType": null,
+        "accountingBasis": null,
+        "products": [],
+        "currencies": [],
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      "evidenceHash": null,
+      "approvedVersionHash": null,
+      "reason": null,
+      "approverSubjectId": null,
+      "approverNaturalPersonId": null,
+      "approvedAt": null
+    },
+    {
+      "action": "POLICY_ACTIVATION",
+      "status": "NOT_RECEIVED",
+      "scope": {
+        "companyId": null,
+        "tenantId": null,
+        "legalEntityId": null,
+        "bookId": null,
+        "companyType": null,
+        "accountingBasis": null,
+        "products": [],
+        "currencies": [],
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      "evidenceHash": null,
+      "approvedVersionHash": null,
+      "reason": null,
+      "approverSubjectId": null,
+      "approverNaturalPersonId": null,
+      "approvedAt": null
+    },
+    {
+      "action": "BOOK_ENABLE_AND_LOGICAL_CUTOVER",
+      "status": "NOT_RECEIVED",
+      "scope": {
+        "companyId": null,
+        "tenantId": null,
+        "legalEntityId": null,
+        "bookId": null,
+        "companyType": null,
+        "accountingBasis": null,
+        "products": [],
+        "currencies": [],
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      "evidenceHash": null,
+      "approvedVersionHash": null,
+      "reason": null,
+      "approverSubjectId": null,
+      "approverNaturalPersonId": null,
+      "approvedAt": null
+    },
+    {
+      "action": "PHYSICAL_SERVICE_EXTRACTION",
+      "status": "NOT_RECEIVED",
+      "scope": {
+        "companyId": null,
+        "tenantId": null,
+        "legalEntityId": null,
+        "bookId": null,
+        "companyType": null,
+        "accountingBasis": null,
+        "products": [],
+        "currencies": [],
+        "effectiveFrom": null,
+        "effectiveTo": null
+      },
+      "evidenceHash": null,
+      "approvedVersionHash": null,
+      "reason": null,
+      "approverSubjectId": null,
+      "approverNaturalPersonId": null,
+      "approvedAt": null
+    }
+  ],
+  "gates": [
+    {
+      "id": "G00",
+      "name": "Review package and defined scope",
+      "owner": "Company admin with Finance owner",
+      "actions": [
+        "Fill actual source company, Finance tenant, legal entity, book, profile, accounting basis, products and currencies. Identify the pilot components and the legacy writer for each.",
+        "Appoint a preparer, independent natural-person reviewer, scoped company-admin policy/release approver, technical operator and recovery owner.",
+        "Review all 70 policies and 126 inherited choices for applicability. Keep deferred features inactive and document justified nonapplicability; no silent decision defaults."
+      ],
+      "exit": "Signed scope and evidence references exist; no activation authority is inferred.",
+      "rollback": "No business change has occurred.",
+      "status": "NOT_AUTHORIZED",
+      "executionEvidenceHash": null,
+      "executedAt": null
+    },
+    {
+      "id": "G01",
+      "name": "Freeze the code and migration manifest",
+      "owner": "Technical release owner and independent reviewer",
+      "actions": [
+        "Compare the release code hashes, migration hashes and full executed migration ledger with the approved manifest. The local development ledger now contains 88 entries, with the twelve Finance migrations applied and no pending migrations.",
+        "The tax-evidence migration 1796900000000 was already applied before this Finance run and was retained without reapplication. Match by full migration name and ledger membership, not highest timestamp. Do not reapply or renumber tax evidence.",
+        "The completed local run used a frozen artifact and an exact twelve-file pending allowlist. No migrations now remain pending. Do not force or fake a rerun; any later migration requires a newly reviewed manifest. Never run blanket seed, reset, wipe, schema synchronization or an unreviewed revert.",
+        "The 17 recorded diagnostics are resolved and full local builds/tests pass. The pinned full-history database restore and schema migration rehearsal also passed on an isolated copy. Obtain independently reviewed target-environment CI and access/release evidence before any further environment release or financial activation."
+      ],
+      "exit": "Approved immutable artifact, exact pending set, target identity and deployment-only authorization recorded.",
+      "rollback": "Discard the unapproved artifact; no database action.",
+      "status": "NOT_AUTHORIZED",
+      "executionEvidenceHash": null,
+      "executedAt": null
+    },
+    {
+      "id": "G02",
+      "name": "Backup and isolated restored clone rehearsal",
+      "owner": "Database operator with Finance reviewer",
+      "actions": [
+        "Create an encrypted backup and separately recoverable access configuration; record integrity hashes, restore location, retention and approved access.",
+        "Restore into an isolated clone with provider, email, bank, TIRAMIS and fiscal side effects blocked. Confirm target identity before any restore or DDL.",
+        "Rehearse the exact twelve migrations against the restored full application schema and existing tax-evidence ledger. The disposable foundation tests do not prove this full-history upgrade.",
+        "Record restore duration, RPO, RTO, lock behavior and rollback frontier against company-approved targets. Targets and execution window remain unset until approved."
+      ],
+      "exit": "A successful full-history clone upgrade and financial restore prove the approved recovery objectives.",
+      "rollback": "Discard only the owned clone; the source remains unchanged.",
+      "status": "REHEARSED_ISOLATED_COPY_COMPANY_ACCEPTANCE_PENDING",
+      "executionEvidenceHash": "f49a6eb94704f47c0e5ef3a8e6125f13da9db45027d43f3b62f44e4123df8a44",
+      "executedAt": "2026-11-16T07:14:32.607Z",
+      "remainingCompanyAcceptance": "Recovery targets, retention and access/ownership restoration are not formally accepted. No actual source migration or live cutover authorized."
+    },
+    {
+      "id": "G03",
+      "name": "Apply schema only after separate authorization",
+      "owner": "Database operator under company-approved change",
+      "actions": [
+        "Approve the exact local development target and maintenance window. Capture repeatable-read protected invoice and item hashes, financial table counts, source high-water marks, migration ledger and existing account hashes immediately before change.",
+        "Quiesce conflicting deployment and DDL activity and fence affected workers and writers. Verify backup, restore evidence, lock and statement timeouts and least-privilege operator identity.",
+        "Apply only the approved pending allowlist in its rehearsed order using the reviewed transaction mode. The default current executor transaction mode is all; confirm no migration overrides require a different reviewed plan.",
+        "Verify twelve new ledger entries, expected empty registries, constraints and functions. Confirm every protected invoice header and item remains byte-for-byte unchanged and all existing tax, account and financial records remain unchanged. No permissions, source mappings, policies or live books are seeded by this gate."
+      ],
+      "exit": "Schema-only reconciliation passes; new registries are empty and policies remain inactive.",
+      "rollback": "Failure inside the transaction rolls back. After commit, down is allowed only where every relevant migration explicitly proves its structures unused; otherwise preserve evidence and use forward repair.",
+      "status": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_SCHEMA_ONLY",
+      "executionEvidenceHash": "a2c5f7acaf0a6b7b484e573de3debd732db9d64b6e3367da0e21b44f0875e603",
+      "executedAt": "2026-11-16T07:53:54.639Z",
+      "policyActivationAuthorized": false,
+      "remainingDependencies": "Actual business-profile configuration, company approvals, certified opening and live cutover remain separate."
+    },
+    {
+      "id": "G04",
+      "name": "Provision governed identities and inactive configuration",
+      "owner": "Company admin with independent Finance checker",
+      "actions": [
+        "Provision only approved source-user/company bindings and scoped Finance and policy mandates through reviewed administrative operations. There is no automatic bootstrap grant API. Register only approved coarse permissions; do not run the broad initial seeder.",
+        "Use the existing profile-specific company-admin role with an explicit current company-scoped Finance mandate. Platform ownership, a subsystem-admin role or a matching company label is insufficient.",
+        "Prepare and independently review chart, dimensions, component debit/credit roles, source contracts, calendars, currency assessment, configured precision, allowed rate sources and limits. Approve specific policy versions through the governed lifecycle while leaving them inactive.",
+        "Retain exact context, chart, policy, event and evidence hashes. Missing legal, tax or model evidence remains a held decision. A memorandum cannot be relabeled as premium revenue; a measurement-owned component cannot use a generic journal adapter."
+      ],
+      "exit": "Exact applicable policies are approved but inactive; actual people, configuration and source ownership are verified.",
+      "rollback": "Revoke inappropriate grants and supersede draft versions through auditable controls; do not delete review history.",
+      "status": "PARTIAL_G04_DRAFT_READ_ONLY_VERIFIED_LOCAL_DEVELOPMENT",
+      "executionEvidenceHash": "da30d102fe9d1caa9653784cdae14d42f38560c69a1103f6f5864907468c3c24",
+      "executedAt": "2026-11-16T09:09:10.264Z",
+      "completedScope": "One confirmed company admin with seven-day READ/READ_DRAFT access to one DRAFT entity and book. Accounting configuration remains unset; no policy authority or non-read capability granted.",
+      "remainingDependencies": [
+        "Different real Finance preparer/checker not assigned",
+        "TIRA licence, TIN and BRELA legal-source evidence missing from company master",
+        "Functional-currency assessment not approved; TZS system base is not sufficient evidence",
+        "Accounting basis, calendar, chart release, taxes, policies, dimensions and source mappings require scoped review",
+        "No policy approval, activation, opening balance, period, journal, release or source-event producer authority granted",
+        "Real company sign-in and read-only workspace access are verified locally. Formal accounting/company acceptance remains pending; existing legacy permissions are unchanged."
+      ],
+      "policyApprovalRecorded": false,
+      "policyActivationAuthorized": false,
+      "authenticatedReadVerification": {
+        "status": "PASSED_REAL_SIGNIN_AND_FOUNDATION_READ_ONLY_LOCAL_DEVELOPMENT",
+        "evidence": "SignIn-Read-Verification.json",
+        "evidenceSha256": "95d47e144a1fc587eed0d3c75b2c91a3b4fc499755d9298253353e5d30ae0c0e",
+        "legacyPermissionsChanged": false,
+        "newFoundationUiImplemented": false
+      },
+      "readOnlyWorkspace": {
+        "status": "IMPLEMENTED_AND_TESTED_FRONTEND_ONLY",
+        "route": "/apps/finance/foundation",
+        "actualCompanyUiAcceptance": false,
+        "policyApprovalRecorded": false,
+        "legacyPermissionsChanged": false,
+        "realCompanyUiVerified": true,
+        "realAccessEvidence": "Real-Workspace-Access-Verification.json",
+        "controlledDraftDetailVerifiedOnIsolatedCopy": true
+      }
+    },
+    {
+      "id": "G05",
+      "name": "Run actual scoped validation and compatibility acceptance",
+      "owner": "Independent Finance reviewer with QA and Operations",
+      "actions": [
+        "Use actual controlled source populations and VALIDATION records; do not post LIVE journals or send external payment, TIRAMIS or fiscal requests. Verify the real authentication/session/permission path rather than the synthetic test boundary alone.",
+        "Reconcile quotation, invoice, tax, due date, receipt, allocation, claims and reinsurance evidence for every proposed pilot component. Exclude unsupported branches from live scope; existing domain software does not certify a Finance adapter.",
+        "Test inclusive and exclusive tax, valid exemption and zero rate, unresolved configurations, single vehicle, fleet, short term and non-motor scenarios; preserve source payable and customer document compatibility.",
+        "Exercise duplicate deliveries, alias collisions, retries, owned dead-letter exceptions, revocation, concurrency, period close/reopen, boundary dates, exact FX vectors and controlled reversal.",
+        "Prove signed source totals, accepted ledger, certified opening and closing reports reconcile. No unapproved tolerance may hide a source, liability, tax, currency or historical-protection discrepancy."
+      ],
+      "exit": "Independent evidence passes all nine B45 categories for the exact bounded pilot; actual API, source and worker compatibility is accepted.",
+      "rollback": "Stop validation processing and retain its evidence; existing operational paths stay authoritative.",
+      "status": "NOT_AUTHORIZED",
+      "executionEvidenceHash": null,
+      "executedAt": null
+    },
+    {
+      "id": "G06",
+      "name": "Certify opening balances and the cutover boundary",
+      "owner": "Finance controller with source and migration owners",
+      "actions": [
+        "Choose authoritative opening versus posting replay for every exposure, component, book, currency and interval. They must be mutually exclusive; historical detail may be imported as nonposting evidence only.",
+        "Capture a consistent source snapshot with effective timestamp, transaction high-water marks, pending requests, outbox/inbox positions, reservations and bank/provider truth. Do not use only the largest timestamp or assume an empty journal table means zero cash or liabilities.",
+        "Certify every posting account explicitly, including genuine zeros with evidence; certify open-item detail and source plus functional carrying amounts, historical FX basis, dimensions and expected control totals. No opening plug or invented bank balance.",
+        "Record the four paid invoice tax exceptions in the private reconciliation schedule. Their original invoice headers and items remain untouched. Source tax of TZS 57,600 is a reconciliation observation, not an approved tax rate, payable change or accounting journal. Separate authorization is needed for any correction plan.",
+        "Define handling of late pre-cutover events, in-flight payments, duplicate callbacks and events spanning the boundary. Hold unresolved cases; do not replay balances already included in opening."
+      ],
+      "exit": "Independent complete source-to-opening certificate and reconciliation hashes, protected-history manifest and boundary handoff are approved.",
+      "rollback": "Abandon the proposed opening and retain the source writer until the certified population is complete.",
+      "status": "NOT_AUTHORIZED",
+      "executionEvidenceHash": null,
+      "executedAt": null
+    },
+    {
+      "id": "G07",
+      "name": "Approve the exact foundation release",
+      "owner": "Independent scoped company admin",
+      "actions": [
+        "Prepare and independently review the B45 VALIDATION manifest and its nine evidence categories against the frozen currency context and validation opening.",
+        "Prepare and independently review a separate LIVE opening whose prospective date equals release activeFrom and whose source evidence hash equals the source-reconciliation hash. A LIVE-labelled opening document by itself creates no live journal.",
+        "Prepare the release with context, chart and policy pins; accepted B45 hash; certified LIVE opening; source reconciliation; historical protection; authority reference and bounded activeFrom and activeTo. All applicable context decisions must be resolved.",
+        "The policies required by the exact context must be APPROVED; approval is not activation. Obtain the current independent company-admin RELEASE decision and recheck that no evidence or source population has changed."
+      ],
+      "exit": "A company-approved release exists for the exact book and interval; policies and book are still inactive.",
+      "rollback": "Leave the release unused or replace it through reviewed versions; no live posting has occurred.",
+      "status": "NOT_AUTHORIZED",
+      "executionEvidenceHash": null,
+      "executedAt": null
+    },
+    {
+      "id": "G08",
+      "name": "Perform separately authorized one book cutover",
+      "owner": "Company admin with release operator and Finance controller",
+      "actions": [
+        "At the approved boundary, fence every old writer for the pilot book across APIs, jobs, internal calls and database roles; drain or account for every in-flight operation. Unaffected books remain on their existing routes.",
+        "Verify the database statement date, accounting calendar and cutover timezone. Record UTC timestamp and Africa/Dar_es_Salaam representation; the current date-only release checks must match the approved accounting day.",
+        "Only after explicit company-admin activation authority, activate the exact approved policy versions. Independently issue ENABLE for the exact approved release during its interval; then open the LIVE accounting period with the reviewed fence. These are distinct operations.",
+        "Verify that the canonical ledger is the sole live writer for the book, legacy same-book posting is denied, and no invoice or payment can bypass unresolved tax or policy validation. If the actual source route has no approved replacement, do not switch that scope.",
+        "Keep rate, calendar, chart, policy and signing-key snapshots pinned and monitor held queues before admitting the first actual authorized business movement. No manufactured financial smoke posting or historical invoice regeneration is permitted."
+      ],
+      "exit": "One-writer evidence, explicit policy activations, exact book ENABLE, open period and end-to-end reconciled first business transaction are recorded.",
+      "rollback": "Freeze all financial writers first. A DISABLE can release the legacy service guard; it is not authority to resume the old writer or replay new canonical effects. Follow the applicable rollback frontier.",
+      "status": "NOT_AUTHORIZED",
+      "executionEvidenceHash": null,
+      "executedAt": null
+    },
+    {
+      "id": "G09",
+      "name": "Monitor aftercare and first close",
+      "owner": "Finance controller with Operations",
+      "actions": [
+        "Continuously review scoped accepted-to-source totals, outbox/inbox lag, retries, dead letters, held exceptions, unmatched bank items, unauthorized attempts and policy/rate/period drift. Record actual alert recipients and limits before go-live.",
+        "Require zero unexplained duplicate or unbalanced journals, scope breaches, protected-history changes and unapproved live effects. Close/reconcile every material source or financial exception under company-approved thresholds; none are implied by this plan.",
+        "Complete the first independently reviewed scoped close and end-to-end bank/source/account/report reconciliation before expanding the pilot. Aftercare length, operating windows, capacity targets and incident SLA require named company approval; no duration is auto-selected.",
+        "Stop on any invariant breach, retain evidence and freeze new effects. Preserve immutable journals and original invoices during forward repair or controlled reversal."
+      ],
+      "exit": "Company admin accepts aftercare and the first scoped financial close; expansion requires a separate bounded release.",
+      "rollback": "Use approved stop, reconciliation and financial repair controls; never reset financial tables or overwrite historical paid documents.",
+      "status": "NOT_AUTHORIZED",
+      "executionEvidenceHash": null,
+      "executedAt": null
+    },
+    {
+      "id": "G10",
+      "name": "Deliver later service extraction separately",
+      "owner": "Platform and Finance release authority",
+      "actions": [
+        "Complete the applicable B15 to B33 and B46 workflows and their policy/measurement dependencies before claiming full Finance completion.",
+        "B40 must remove shared TypeORM EntityManager, shared-database writes and synchronous transaction dependencies. Replace them with versioned transactional outbox/inbox contracts and reconciled read models.",
+        "B41 requires separately approved own-database migration, independent NestJS deployment, APIs, workers, controls, recovery and financial equivalence. B42 recertifies and retires only verified replaced paths."
+      ],
+      "exit": "Separate actual extraction and post-extraction financial acceptance; none of these actions are authorized by publishing the SRS or pushing the finance branch.",
+      "rollback": "Retain existing operational functionality until the approved replacement and reconciliation are demonstrated.",
+      "status": "NOT_AUTHORIZED",
+      "executionEvidenceHash": null,
+      "executedAt": null
+    }
+  ],
+  "rto": null,
+  "rpo": null,
+  "cutoverTimestamp": null,
+  "aftercareWindow": null,
+  "livePoliciesActivated": 0,
+  "historicalPaidInvoicesEditable": false,
+  "typeRepairVerification": "Type-Repair-Verification.json",
+  "rehearsalEvidence": "Migration-Rehearsal-Verification.json",
+  "rehearsalAuthorization": {
+    "scope": "EXPLICIT_USER_REQUEST_PRIVATE_COPY_ONLY",
+    "runId": "20261116071330729_8e51243c",
+    "sourceMigrationAuthorized": false,
+    "policyApprovalRecorded": false,
+    "policyActivationAuthorized": false
+  },
+  "localSchemaApplicationEvidence": "Local-Migration-Application-Verification.json",
+  "technicalExecutionAuthorization": {
+    "scope": "EXPLICIT_USER_LOCAL_SCHEMA_ONLY",
+    "runId": "20261116075345910_3262c12c",
+    "status": "EXECUTED",
+    "companyAccountingPolicyApproval": false,
+    "activationAuthorized": false
+  },
+  "authorizationSemantics": "Formal company accounting, policy and release decisions remain unreceived. The completed technical local schema change was separately authorized by the explicit user instruction. A later user confirmation authorized the named company-admin draft read setup only; formal preparer/checker, policies, configuration and release remain separate.",
+  "localDraftReadEvidence": "G04-Draft-Read-Verification.json",
+  "localAuthenticatedReadEvidence": "SignIn-Read-Verification.json",
+  "readOnlyWorkspaceEvidence": "Read-Only-Workspace-Verification.json",
+  "realWorkspaceAccessEvidence": "Real-Workspace-Access-Verification.json",
+  "controlledDocumentDetailEvidence": "Controlled-Document-Detail-Verification.json"
+}

@@ -91,10 +91,12 @@ describe('InvoiceBalanceService', () => {
       }),
     };
 
-    const result = await service.recalculate(manager as never, invoice.id);
-
-    expect(result.paid_amount).toBe('0.0000');
-    expect(result.balance_amount).toBe('0.0000');
-    expect(result.status).toBe(InvoiceStatus.PAID);
+    await expect(
+      service.recalculate(manager as never, invoice.id),
+    ).rejects.toMatchObject({
+      response: { code: 'FINANCE_BALANCE_RECONCILIATION_REQUIRED' },
+    });
+    expect(save).not.toHaveBeenCalled();
+    expect(invoice.balance_revision).toBe(0);
   });
 });

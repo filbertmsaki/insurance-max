@@ -13,6 +13,10 @@ import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { Invoice } from '../entities/invoice.entity';
 import { PaymentReference } from '../entities/payment-reference.entity';
 import {
+  validatedPremiumInvoiceTax,
+  hasPremiumInvoiceTax,
+} from '../utils/premium-invoice-tax';
+import {
   CreatePaymentReferenceDto,
   PaymentChannel,
   PaymentReferenceStatus,
@@ -66,6 +70,13 @@ export class PaymentReferenceService {
 
       if (!invoice) {
         throw new NotFoundException('Invoice not found');
+      }
+      if (hasPremiumInvoiceTax(invoice.source_type)) {
+        const full = await manager.getRepository(Invoice).findOne({
+          where: { id: invoice.id, company_id: user.companyId! },
+          relations: { items: true },
+        });
+        validatedPremiumInvoiceTax({ ...invoice, items: full?.items ?? [] });
       }
 
       if (!OPEN_INVOICE_STATUSES.includes(invoice.status as InvoiceStatus)) {

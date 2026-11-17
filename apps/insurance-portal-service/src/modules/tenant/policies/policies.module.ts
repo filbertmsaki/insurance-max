@@ -40,6 +40,7 @@ import { InsuranceDocumentsController } from '../documents/insurance-documents.c
     CategoryAccessModule,
     ProductAccessModule,
     TypeOrmModule.forFeature([
+      Invoice,
       Policy,
       PolicyRisk,
       PolicyPremiumBreakdown,
