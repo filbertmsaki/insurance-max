@@ -275,7 +275,7 @@ describe('Policy resolution controls; fixtures are not accounting approvals', ()
             'pricing.exchange-rate.manual',
             'pricing.exchange-rate.approve',
           ],
-        } as never,
+        },
       ),
     ).toMatchObject({
       approval_required: true,

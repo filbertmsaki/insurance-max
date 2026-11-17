@@ -43,7 +43,7 @@ export function requiredDecimal(value: unknown, label: string): Decimal {
     );
   let n: Decimal;
   try {
-    n = toDecimal(value as Decimal.Value);
+    n = toDecimal(value);
   } catch {
     throw new BadRequestException(`${label} must be a finite decimal.`);
   }

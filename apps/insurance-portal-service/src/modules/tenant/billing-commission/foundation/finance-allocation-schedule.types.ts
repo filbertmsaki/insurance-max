@@ -70,12 +70,10 @@ export function validateAllocationSchedule(
       Object.keys(d).length !== fields.length ||
       fields.some((key) => !Object.hasOwn(d, key)) ||
       !['companyId', 'dimensionReleaseId', 'sourceAssociationId'].every(
-        (key) =>
-          typeof d[key] === 'string' && FINANCE_UUID.test(d[key] as string),
+        (key) => typeof d[key] === 'string' && FINANCE_UUID.test(d[key]),
       ) ||
       !['dimensionReleaseHash', 'sourceAssociationHash'].every(
-        (key) =>
-          typeof d[key] === 'string' && /^[0-9a-f]{64}$/.test(d[key] as string),
+        (key) => typeof d[key] === 'string' && /^[0-9a-f]{64}$/.test(d[key]),
       )
     )
       throw new BadRequestException(

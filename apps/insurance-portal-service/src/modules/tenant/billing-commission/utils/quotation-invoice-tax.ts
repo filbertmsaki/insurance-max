@@ -360,7 +360,7 @@ export function validatedInvoiceTax(
     evidence = items.filter((i) => i.line_snapshot?.tax_breakdown);
   if (evidence.length !== 1) fail();
   const b = evidence[0].line_snapshot!
-    .tax_breakdown as unknown as QuotationInvoiceTaxBreakdown;
+    .tax_breakdown as QuotationInvoiceTaxBreakdown;
   if (!b || b.schema !== 'QUOTATION_INVOICE_TAX_V1' || !Array.isArray(b.lines))
     fail();
   const { financialHash, ...subject } = b;

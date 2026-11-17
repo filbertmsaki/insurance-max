@@ -253,7 +253,9 @@ export async function withFinanceTestDatabase<T>(
           [database],
         );
         if (remaining.rows.length)
-          throw new Error('Finance test database cleanup did not complete.');
+          failures.push(
+            new Error('Finance test database cleanup did not complete.'),
+          );
       } catch (error) {
         failures.push(error);
       }

@@ -25,7 +25,7 @@ function journalService() {
     } as unknown as IdentifierGeneratorService,
     new ProductDefinitionHashService(),
     // Synthetic posting-vector fixture only; real policy eligibility is tested separately.
-    { requireEligible: async () => undefined } as never,
+    { requireEligible: async () => undefined },
   );
 }
 

@@ -392,8 +392,7 @@ export function normalizeSourceEnvelope(bytes: Buffer): FinanceSourceEnvelope {
     'correlation_id',
   ])
     p[field] = (p[field] as string).toLowerCase();
-  if (p.causation_id !== null)
-    p.causation_id = (p.causation_id as string).toLowerCase();
+  if (p.causation_id !== null) p.causation_id = p.causation_id.toLowerCase();
   const envelope = p as unknown as FinanceSourceEnvelope;
   if (sourceOrderingKey(envelope) !== envelope.ordering_key)
     fail('The source ordering key must identify this exact aggregate.');

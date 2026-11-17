@@ -4,7 +4,7 @@ describe('Quotation premium summary does not add tax into pre-tax totals', () =>
   it('keeps single-vehicle net premium separate from taxes', () => {
     const f = quotationTaxData();
     Object.assign(f.risk, { discounts: [], premium_after_discount: '100.00' });
-    const mapper = Object.create(QuotationPreviewMapper.prototype) as any;
+    const mapper = Object.create(QuotationPreviewMapper.prototype);
     const s = mapper.buildPremiumSummary(f.quotation.cover_note);
     expect(s).toMatchObject({
       total_premium_before_discount: 100,
@@ -15,7 +15,7 @@ describe('Quotation premium summary does not add tax into pre-tax totals', () =>
   });
   it('uses the same pre-tax semantics for fleet summaries', () => {
     const f = quotationTaxData(),
-      mapper = Object.create(QuotationPreviewMapper.prototype) as any;
+      mapper = Object.create(QuotationPreviewMapper.prototype);
     const s = mapper.buildPremiumSummary(f.quotation.cover_note, {
       total_fleet_sum_insured: 1000,
       total_discounts: 5,

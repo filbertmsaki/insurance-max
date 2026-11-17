@@ -83,7 +83,7 @@ export class FinanceSourceKeyChangesService {
       issuerFingerprint = '',
       valid = false;
     try {
-      const sourceKey = createPublicKey(p.sourcePublicKeyPem as string);
+      const sourceKey = createPublicKey(p.sourcePublicKeyPem);
       const adminKey = createPublicKey(
         process.env.FINANCE_SOURCE_KEY_ADMIN_PUBLIC_KEY ?? '',
       );

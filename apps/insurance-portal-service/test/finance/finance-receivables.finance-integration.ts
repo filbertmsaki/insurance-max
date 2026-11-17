@@ -52,7 +52,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
         p = await f.receivables.readReceipt(
           f.checker,
           f.scope(),
-          c.observed.receiptId!,
+          c.observed.receiptId,
         );
       expect(p).toMatchObject({
         received: '118.000000000000',
@@ -101,7 +101,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).available,
       ).toBe('118.000000000000');
@@ -120,7 +120,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       const p = await f.receivables.readReceipt(
         f.checker,
         f.scope(),
-        c.observed.receiptId!,
+        c.observed.receiptId,
       );
       expect(p.received).toBe('118.000000000000');
       expect(p.sourceConflicts).toBe(1);
@@ -163,7 +163,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       let p = await f.receivables.readReceipt(
         f.checker,
         f.scope(),
-        c.observed.receiptId!,
+        c.observed.receiptId,
       );
       expect(p).toMatchObject({
         pending: '50.000000000000',
@@ -190,7 +190,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).available,
       ).toBe('68.000000000000');
@@ -198,7 +198,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       p = await f.receivables.readReceipt(
         f.checker,
         f.scope(),
-        c.observed.receiptId!,
+        c.observed.receiptId,
       );
       expect(p).toMatchObject({
         assigned: '30.000000000000',
@@ -237,7 +237,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).available,
       ).toBe('18.000000000000');
@@ -278,7 +278,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            foreign.observed.receiptId!,
+            foreign.observed.receiptId,
           )
         ).received,
       ).toBe('118.000000000000');
@@ -310,7 +310,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
               await f.receivables.readReceipt(
                 f.checker,
                 f.scope(),
-                c.observed.receiptId!,
+                c.observed.receiptId,
               )
             ).hash,
             statementHash: 'e'.repeat(64),
@@ -331,7 +331,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       const position = await f.receivables.readReceipt(
         f.checker,
         f.scope(),
-        c.observed.receiptId!,
+        c.observed.receiptId,
       );
       await expect(
         f.receivables.reconcile(
@@ -366,7 +366,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).available,
       ).toBe('118.000000000000');
@@ -394,7 +394,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).received,
       ).toBe('118.000000000000');
@@ -493,7 +493,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       const pos = await f.receivables.readReceipt(
           f.checker,
           f.scope(),
-          c.observed.receiptId!,
+          c.observed.receiptId,
         ),
         input = {
           commandKey: randomUUID(),
@@ -515,7 +515,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       const next = await f.receivables.readReceipt(
         f.checker,
         f.scope(),
-        c.observed.receiptId!,
+        c.observed.receiptId,
       );
       expect(next.reconciliations[0].stale).toBe(true);
       expect(
@@ -544,7 +544,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
         pos = await f.receivables.readReceipt(
           f.checker,
           f.scope(),
-          c.observed.receiptId!,
+          c.observed.receiptId,
         );
       const result = await f.receivables.reconcile(
         f.checker,
@@ -566,7 +566,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).received,
       ).toBe('118.000000000000');
@@ -588,7 +588,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).available,
       ).toBe('58.000000000000');
@@ -607,7 +607,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       const p = await f.receivables.readReceipt(
         f.checker,
         f.scope(),
-        c.observed.receiptId!,
+        c.observed.receiptId,
       );
       expect(p).toMatchObject({
         received: '118.000000000000',
@@ -682,7 +682,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).available,
       ).toBe('68.000000000000');
@@ -704,7 +704,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).assigned,
       ).toBe('50.000000000000');
@@ -719,7 +719,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
       const pos = await f.receivables.readReceipt(
         f.checker,
         f.scope(),
-        c.observed.receiptId!,
+        c.observed.receiptId,
       );
       await f.receivables.reconcile(
         f.checker,
@@ -768,7 +768,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).reconciliations[0].stale,
       ).toBe(true);
@@ -805,11 +805,11 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
         f.receivables.readReceipt(
           { ...f.checker, tenantId: randomUUID() },
           f.scope(),
-          c.observed.receiptId!,
+          c.observed.receiptId,
         ),
       ).rejects.toThrow();
       await expect(
-        f.receivables.readReceipt(f.checker, f.scope(1), c.observed.receiptId!),
+        f.receivables.readReceipt(f.checker, f.scope(1), c.observed.receiptId),
       ).rejects.toThrow('unavailable');
       const cross = await f.receivables.observeReceipt(
         f.maker,
@@ -853,7 +853,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
           await f.receivables.readReceipt(
             f.checker,
             f.scope(),
-            c.observed.receiptId!,
+            c.observed.receiptId,
           )
         ).available,
       ).toBe('118.000000000000');
@@ -929,7 +929,7 @@ describe('B14 inactive receipt ownership, assignment, ageing and reconciliation 
         'ALTER TABLE finance_confirmed_receipts ENABLE TRIGGER immutable_rows',
       );
       await expect(
-        f.receivables.readReceipt(f.checker, f.scope(), c.observed.receiptId!),
+        f.receivables.readReceipt(f.checker, f.scope(), c.observed.receiptId),
       ).rejects.toThrow('Stored receipt vector');
     });
   });

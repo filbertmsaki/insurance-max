@@ -254,7 +254,7 @@ export class FinanceLedgerFoundationService {
       subjectId: b.subject_id,
       naturalPersonId: b.natural_person_id,
       identityBindingId: b.id,
-      sourceCompanyId: user.companyId!,
+      sourceCompanyId: user.companyId,
       sourceUserId: user.id,
     };
   }
@@ -708,7 +708,7 @@ export class FinanceLedgerFoundationService {
           foundationFail(
             'This component does not authorize automatic signed snapshot posting.',
           );
-        const mapping = component.sourceMapping!;
+        const mapping = component.sourceMapping;
         const amount = financialSnapshotValue(
             source.snapshot!,
             mapping.amountPath,

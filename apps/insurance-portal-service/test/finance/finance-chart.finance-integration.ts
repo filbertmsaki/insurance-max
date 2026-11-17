@@ -330,7 +330,7 @@ describe('Inactive chart and source-account governance on PostgreSQL (B07)', () 
           .sourceAccounts,
       ).toHaveLength(6);
       expect(
-        (row.payload.proposal as unknown as FinanceChartProposal).roles
+        (row.payload.proposal as FinanceChartProposal).roles
           .filter((r) => r.code.startsWith('NEW-'))
           .every((r) => r.accountCode === null),
       ).toBe(true);

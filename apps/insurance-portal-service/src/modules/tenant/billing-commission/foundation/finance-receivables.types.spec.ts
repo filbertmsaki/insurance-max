@@ -150,8 +150,9 @@ describe('B14 exact inactive cash and receivable contracts', () => {
     ['2026-10-15', 31, 'UP_TO_60'],
     ['2026-08-01', 106, 'OVER_90'],
   ])('ages from evidenced due date %s', (date, days, bucket) => {
-    expect(dueAgeing('2026-11-15', date as string, [30, 60, 90])).toMatchObject(
-      { daysPastDue: days, bucket },
-    );
+    expect(dueAgeing('2026-11-15', date, [30, 60, 90])).toMatchObject({
+      daysPastDue: days,
+      bucket,
+    });
   });
 });

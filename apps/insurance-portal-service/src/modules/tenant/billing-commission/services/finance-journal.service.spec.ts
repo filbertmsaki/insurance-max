@@ -104,7 +104,7 @@ function journalHarness() {
     { generateRequestId } as unknown as IdentifierGeneratorService,
     { hashDefinition } as unknown as ProductDefinitionHashService,
     // Synthetic posting-vector fixture only; real policy eligibility is tested separately.
-    { requireEligible: async () => undefined } as never,
+    { requireEligible: async () => undefined },
   );
 
   return {

@@ -12,7 +12,9 @@ export function assertSourceSnapshotCoverage(
     );
     for (const snapshot of reviewed) {
       if (!Array.isArray(snapshot[kind]))
-        throw new ConflictException('A reviewed book source snapshot is invalid.');
+        throw new ConflictException(
+          'A reviewed book source snapshot is invalid.',
+        );
       for (const row of snapshot[kind]) {
         if (
           !row ||

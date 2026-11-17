@@ -21,7 +21,7 @@ describe('QuotationPayloadValidator', () => {
 
   it('allows transit quotations without registration and permits blank optional motor details', () => {
     const payload = createMotorSingleQuotationPayload();
-    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+    payload.cover_note_dtl.risks_covered[0].discounts_offered = [];
     const motor = payload.cover_note_dtl.motor_dtl!;
     motor.motor_type = 2;
     motor.registration_number = null;
@@ -40,7 +40,7 @@ describe('QuotationPayloadValidator', () => {
 
   it('allows zero axle distance and rejects negative axle distance', () => {
     const payload = createMotorSingleQuotationPayload();
-    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+    payload.cover_note_dtl.risks_covered[0].discounts_offered = [];
     const motor = payload.cover_note_dtl.motor_dtl!;
 
     motor.axle_distance = 0;
@@ -148,7 +148,7 @@ describe('QuotationPayloadValidator', () => {
 
   it('normalizes single motor detail text before validation', () => {
     const payload = createMotorSingleQuotationPayload();
-    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+    payload.cover_note_dtl.risks_covered[0].discounts_offered = [];
 
     payload.cover_note_dtl.motor_dtl!.registration_number = '   t123abc   ';
     payload.cover_note_dtl.motor_dtl!.chassis_number = '  mockchassis123456 ';
@@ -170,7 +170,7 @@ describe('QuotationPayloadValidator', () => {
 
   it('treats whitespace-only required motor text as empty', () => {
     const payload = createMotorSingleQuotationPayload();
-    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+    payload.cover_note_dtl.risks_covered[0].discounts_offered = [];
 
     payload.cover_note_dtl.motor_dtl!.make = '   ';
 

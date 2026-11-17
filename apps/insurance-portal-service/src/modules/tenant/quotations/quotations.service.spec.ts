@@ -2629,8 +2629,8 @@ describe('QuotationsService', () => {
 
   it('normalizes quotation taxes from backend charge rules before submission', async () => {
     const fixture = createServiceFixture();
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged[0].tax_amount = 1;
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax = 100001;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered[0].taxes_charged[0].tax_amount = 1;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered[0].premium_including_tax = 100001;
 
     await fixture.service.submit(
       'company-1',

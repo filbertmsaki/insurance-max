@@ -331,7 +331,7 @@ describe('Owned reference exceptions, controlled replay and redacted telemetry (
       expect(
         (await row(s, 'finance_reference_outbox', item.id)).attempt_count,
       ).toBe(2);
-      let current = await row(s, 'finance_owned_exceptions', ref.id);
+      const current = await row(s, 'finance_owned_exceptions', ref.id);
       const refreshed = await f.ops.refresh(
         f.maker,
         f.bookScope(),

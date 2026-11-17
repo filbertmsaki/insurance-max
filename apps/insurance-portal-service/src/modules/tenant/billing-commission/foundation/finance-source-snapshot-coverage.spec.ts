@@ -18,7 +18,10 @@ describe('company source snapshot coverage', () => {
   it('holds a revision that omits or changes another book’s dimension', () => {
     const other = [{ branches: [east], products: [product] }];
     expect(() =>
-      assertSourceSnapshotCoverage({ branches: [hq], products: [product] }, other),
+      assertSourceSnapshotCoverage(
+        { branches: [hq], products: [product] },
+        other,
+      ),
     ).toThrow('does not cover');
     expect(() =>
       assertSourceSnapshotCoverage(
