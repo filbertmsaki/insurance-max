@@ -16,6 +16,7 @@ import { FleetRegisterService } from '../../src/modules/tenant/underwrite/fleet/
 import { TiramisClientService } from '../../src/modules/tiramis/services/tiramis-client.service';
 import { TiramisIntegrationService } from '../../src/modules/tenant/tiramis-integration/tiramis-integration.service';
 import { motorJourneyPayload } from '../support/motor-journey-payload';
+import { provisionSyntheticJournalAccounts } from '../support/synthetic-journal-accounts';
 
 jest.setTimeout(180_000);
 
@@ -61,6 +62,7 @@ describe('Single Motor and Fleet business acceptance (real database)', () => {
       )
     )[0];
     if (!product) throw new Error('Seeded motor product missing');
+    await provisionSyntheticJournalAccounts(db, product.company_id);
     const branch = (
       await db.query(
         `SELECT b.id, s.sale_point_code FROM branches b JOIN tiramis_sale_points s ON s.branch_id=b.id WHERE b.company_id=$1 AND s.is_default AND s.is_active LIMIT 1`,

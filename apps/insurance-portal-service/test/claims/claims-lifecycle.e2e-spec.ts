@@ -18,6 +18,7 @@ import { TiramisBusinessRecordSyncService } from '../../src/modules/tiramis/serv
 import { TiramisClientService } from '../../src/modules/tiramis/services/tiramis-client.service';
 import { FinanceJournalService } from '../../src/modules/tenant/billing-commission/services/finance-journal.service';
 import { FinancePostingPolicyService } from '../../src/modules/tenant/billing-commission/services/finance-posting-policy.service';
+import { provisionSyntheticJournalAccounts } from '../support/synthetic-journal-accounts';
 import { DocumentStorageService } from '../../src/modules/tenant/insurance-documents/document-storage.service';
 import { ClaimFxGovernanceService } from '../../src/modules/tenant/claims/services/claim-fx-governance.service';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -319,6 +320,7 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
         LIMIT 1`,
     );
     companyId = insurer[0].id;
+    await provisionSyntheticJournalAccounts(dataSource, companyId);
     const branch = await dataSource.query(
       `SELECT id FROM branches WHERE company_id = $1 AND status = 'active' ORDER BY created_at ASC LIMIT 1`,
       [companyId],
