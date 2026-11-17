@@ -17,6 +17,7 @@ import { TiramisSubmissionTrackingRepository } from '../../src/modules/tiramis/r
 import { TiramisBusinessRecordSyncService } from '../../src/modules/tiramis/services/tiramis-business-record-sync.service';
 import { TiramisClientService } from '../../src/modules/tiramis/services/tiramis-client.service';
 import { FinanceJournalService } from '../../src/modules/tenant/billing-commission/services/finance-journal.service';
+import { FinancePostingPolicyService } from '../../src/modules/tenant/billing-commission/services/finance-posting-policy.service';
 import { DocumentStorageService } from '../../src/modules/tenant/insurance-documents/document-storage.service';
 import { ClaimFxGovernanceService } from '../../src/modules/tenant/claims/services/claim-fx-governance.service';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -255,7 +256,12 @@ describe('Claims lifecycle with mock TIRA (real database)', () => {
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      // These claims lifecycle tests exercise journal transactions, not policy activation.
+      // Finance posting authorization has dedicated integration tests.
+      .overrideProvider(FinancePostingPolicyService)
+      .useValue({ requireEligible: jest.fn().mockResolvedValue(undefined) })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api', {

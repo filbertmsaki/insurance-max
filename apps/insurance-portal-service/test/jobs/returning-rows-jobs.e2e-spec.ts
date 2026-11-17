@@ -8,6 +8,7 @@ import { AppModule } from '../../src/app.module';
 import { AnalyticsProjectionJob } from '../../src/modules/shared/analytics/jobs/analytics-projection.job';
 import { ScorecardService } from '../../src/modules/tenant/analytics/services/scorecard.service';
 import { FinanceOutboxProcessor } from '../../src/modules/tenant/billing-commission/outbox/finance-outbox.processor';
+import { QuotationPaymentEventService } from '../../src/modules/tenant/billing-commission/services/quotation-payment-event.service';
 import { PartnerRelationshipExpiryJob } from '../../src/modules/tenant/insurance-partners/jobs/partner-relationship-expiry.job';
 
 jest.setTimeout(180_000);
@@ -43,16 +44,26 @@ describe('Jobs reading UPDATE ... RETURNING (real database)', () => {
   });
 
   describe('finance outbox', () => {
-    async function outboxEvent(status: string, nextAttemptSql: string) {
+    beforeAll(() => {
+      jest
+        .spyOn(app.get(QuotationPaymentEventService), 'apply')
+        .mockResolvedValue(undefined as never);
+    });
+    afterAll(() => jest.restoreAllMocks());
+    async function outboxEvent(
+      status: string,
+      nextAttemptSql: string,
+      eventType = 'QUOTATION_PAYMENT_EVENT',
+    ) {
       const [row] = await dataSource.query(
         `INSERT INTO finance_outbox_events (
            company_id, aggregate_type, aggregate_id, event_type, event_key,
            payload, status, next_attempt_at
          )
-         VALUES ($1, 'E2E', $2, 'E2E_NO_PUBLISHER', $3, '{}'::jsonb, $4,
+         VALUES ($1, 'E2E', $2, $5, $3, '{}'::jsonb, $4,
                  ${nextAttemptSql})
          RETURNING id`,
-        [randomUUID(), randomUUID(), `e2e-${randomUUID()}`, status],
+        [randomUUID(), randomUUID(), `e2e-${randomUUID()}`, status, eventType],
       );
       return row.id as string;
     }
@@ -71,6 +82,11 @@ describe('Jobs reading UPDATE ... RETURNING (real database)', () => {
       await app.get(FinanceOutboxProcessor).processPending();
 
       expect(await statusOf(id)).toBe('PUBLISHED');
+    });
+    it('dead-letters an unsupported event contract', async () => {
+      const id = await outboxEvent('PENDING', 'now()', 'E2E_NO_PUBLISHER');
+      await app.get(FinanceOutboxProcessor).processPending();
+      expect(await statusOf(id)).toBe('DEAD_LETTER');
     });
 
     it('reclaims an event stranded in PROCESSING once its lease has passed', async () => {

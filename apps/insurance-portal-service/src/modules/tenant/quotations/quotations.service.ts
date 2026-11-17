@@ -6134,12 +6134,20 @@ export class QuotationsService {
     user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
   ) {
     const header = this.resolveHeader(payload);
+    const effectiveDate = header.cover_note_start_date;
     return this.exchangeRateGovernanceService.resolveSnapshot(
       companyId,
       {
         quotation_currency_code: header.currency_code,
         exchange_rate: header.exchange_rate,
-        effective_date: header.cover_note_start_date,
+        effective_date:
+          typeof effectiveDate === 'string' &&
+          /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?$/.test(
+            effectiveDate,
+          ) &&
+          !Number.isNaN(Date.parse(effectiveDate))
+            ? effectiveDate.slice(0, 10)
+            : effectiveDate,
       },
       user,
     );

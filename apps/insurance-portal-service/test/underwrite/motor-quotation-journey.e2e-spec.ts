@@ -9,6 +9,7 @@ import { QuotationApprovalPolicyService } from '../../src/modules/tenant/quotati
 import { normalizeApprovalPolicy } from '../../src/modules/tenant/quotations/approval-policy/quotation-approval-policy';
 import { UnderwriteQuotationCommandService } from '../../src/modules/tenant/underwrite/common/underwrite-quotation-command.service';
 import { FinanceCommandService } from '../../src/modules/tenant/billing-commission/services/finance-command.service';
+import { FinancePostingPolicyService } from '../../src/modules/tenant/billing-commission/services/finance-posting-policy.service';
 import { QuotationStatusTransitionAction } from '../../src/modules/tenant/quotations/enums/quotation-status-transition-action.enum';
 import { UnderwriteQueryService } from '../../src/modules/tenant/underwrite/common/underwrite-query.service';
 import { FleetRegisterService } from '../../src/modules/tenant/underwrite/fleet/fleet-register.service';
@@ -43,7 +44,11 @@ describe('Single Motor and Fleet business acceptance (real database)', () => {
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      // Posting-policy activation is tested separately from this synthetic journey.
+      .overrideProvider(FinancePostingPolicyService)
+      .useValue({ requireEligible: jest.fn().mockResolvedValue(undefined) })
+      .compile();
     app = module.createNestApplication();
     await app.init();
     db = app.get(DataSource);
