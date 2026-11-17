@@ -25,6 +25,7 @@ import { FinanceOutgoingService } from './finance-outgoing.service';
 import { OUTGOING_SIMULATORS } from './finance-outgoing.types';
 import { FinancePolicyChangeService } from './finance-policy-change.service';
 import { FinanceCommissionService } from './finance-commission.service';
+import { FinanceClaimsService } from './finance-claims.service';
 
 /** Versioned foundations; the company adapter is registered by BillingCommissionModule. Importing this module never grants access, activates a policy or enables posting. */
 @Module({
@@ -41,6 +42,7 @@ import { FinanceCommissionService } from './finance-commission.service';
     ]),
   ],
   providers: [
+    FinanceClaimsService,
     FinanceCommissionService,
     FinancePolicyChangeService,
     FinanceOutgoingService,
@@ -60,6 +62,7 @@ import { FinanceCommissionService } from './finance-commission.service';
     FinanceJournalCandidateService,
   ],
   exports: [
+    FinanceClaimsService,
     FinanceCommissionService,
     FinancePolicyChangeService,
     FinanceOutgoingService,

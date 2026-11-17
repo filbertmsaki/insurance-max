@@ -1,10 +1,10 @@
 {
-  "documentId": "IM-FIN-SRS-1.16",
+  "documentId": "IM-FIN-SRS-1.17",
   "date": "2026-11-17",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
-  "baseCommit": "8988eaa349ff50d39e7bd18e51ba50ee4b564cdb",
-  "sourceCodeFingerprint": "e384f5874c7a8272ee41ee979d250784b89594b4eb0ba17b92458980dbc19ff4",
+  "baseCommit": "d07b5bade61a68664da8b0b9437ec0a8b8c0b38e",
+  "sourceCodeFingerprint": "c1353e8032161f760c3d3bc9e5c4d0fb8f5d5fb3ad54a13b3e1083d731f6e318",
   "sourceCodeFiles": [
     {
       "file": "apps/insurance-portal-service/src/database/migrations/1796000000000-FinanceScopeFoundations.ts",
@@ -94,6 +94,11 @@
     {
       "file": "apps/insurance-portal-service/src/database/migrations/1797800000000-FinanceCommissionControlHardening.ts",
       "sha256": "a72967505ae9ee9c120725288c9b3e555058222191d42d679af04175f8b56b64",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/database/migrations/1797900000000-FinanceClaimsControls.ts",
+      "sha256": "ef42f092241fe638fbaf725abae223c4da067cde1178cfb3cc3da861a88addf2",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -252,6 +257,26 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-claims.service.ts",
+      "sha256": "55b2b9c9a1a1073fd0bf16d091f07cebba155cb9293211c91fba3ba635ef189d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-claims.source.ts",
+      "sha256": "c8b29071228c12faac6d34c4ba1d794535c1dc2a0e6cd2e3756adaced154b76d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-claims.spec.ts",
+      "sha256": "39cd74c05463b61fa7f2d79d1fdcd87d4ce858481abef851df9c18ab0042bc7a",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-claims.types.ts",
+      "sha256": "c91595ab8175f008a741aaa1a5e56d038f065672de3a2c9a173631aa1ce548a1",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-commission.database.ts",
       "sha256": "49350d041d9dc97da27cbfd92b6b19524283684d48c2d34199bc8b37999b60c3",
       "hashEncoding": "UTF8_LF"
@@ -323,7 +348,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-foundation.module.ts",
-      "sha256": "881e9664ee24ea96e24235946fcf7255b69672532083da219130976f29343daf",
+      "sha256": "9031fbd2a1d6ce24b376fa9c1ad4815319a190ea563d8e9687aa80b93cb5b6b5",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -468,7 +493,7 @@
     },
     {
       "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/foundation/finance-receivables.service.ts",
-      "sha256": "ed54a3dc88d720ca02db8672577eedad4e35b7a857728011027214acca2d66a6",
+      "sha256": "5f71fc94c7dddad2fe3fa5556b42e84e9c888637b1bf01e421cd7d6b3d321729",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -777,6 +802,11 @@
       "hashEncoding": "UTF8_LF"
     },
     {
+      "file": "apps/insurance-portal-service/test/finance/finance-claims.finance-integration.ts",
+      "sha256": "96726038f9bd6ee26b97305fd348573ebbea1beeb3ffc6fdfe7c722d5f01227e",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
       "file": "apps/insurance-portal-service/test/finance/finance-commission.finance-integration.ts",
       "sha256": "085177352b4c488c2be763322c2407dd065f3b892b880ae753734b9b2c7fcd4e",
       "hashEncoding": "UTF8_LF"
@@ -879,6 +909,11 @@
     {
       "file": "apps/insurance-portal-service/test/support/finance-candidate-fixture.ts",
       "sha256": "8d7f32eeeed180189a87db72f8f1b5217e4a12018764be267040797da0ca1b6d",
+      "hashEncoding": "UTF8_LF"
+    },
+    {
+      "file": "apps/insurance-portal-service/test/support/finance-claims-fixture.ts",
+      "sha256": "6e2a5778fbce978d21c9116e8a2200320bff8868b83660a1ff248cf987d44672",
       "hashEncoding": "UTF8_LF"
     },
     {
@@ -1074,7 +1109,30 @@
     "timestamp": "1796900000000",
     "mustNotReapply": true
   },
-  "pendingMigrations": [],
+  "pendingMigrations": [
+    {
+      "order": 18,
+      "file": "apps/insurance-portal-service/src/database/migrations/1797900000000-FinanceClaimsControls.ts",
+      "name": "FinanceClaimsControls1797900000000",
+      "timestamp": "1797900000000",
+      "sha256": "ef42f092241fe638fbaf725abae223c4da067cde1178cfb3cc3da861a88addf2",
+      "hashEncoding": "UTF8_LF",
+      "createdTables": [
+        "finance_claim_authorities",
+        "finance_claim_records",
+        "finance_claim_aliases",
+        "finance_claim_reviews",
+        "finance_claim_settlements",
+        "finance_claim_events",
+        "finance_claim_recovery_receipts",
+        "finance_claim_recovery_decisions",
+        "finance_claim_audits"
+      ],
+      "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
+      "executionAuthorized": false,
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
+    }
+  ],
   "executionAuthorized": false,
   "activationAuthorized": false,
   "historyCorrectionAuthorized": false,
@@ -1441,6 +1499,28 @@
       "executionAuthorized": true,
       "companyAccountingPolicyApproval": "NOT_RECEIVED",
       "applicationEvidence": "B17-Corrective-Migration-Verification.json"
+    },
+    {
+      "order": 18,
+      "file": "apps/insurance-portal-service/src/database/migrations/1797900000000-FinanceClaimsControls.ts",
+      "name": "FinanceClaimsControls1797900000000",
+      "timestamp": "1797900000000",
+      "sha256": "ef42f092241fe638fbaf725abae223c4da067cde1178cfb3cc3da861a88addf2",
+      "hashEncoding": "UTF8_LF",
+      "createdTables": [
+        "finance_claim_authorities",
+        "finance_claim_records",
+        "finance_claim_aliases",
+        "finance_claim_reviews",
+        "finance_claim_settlements",
+        "finance_claim_events",
+        "finance_claim_recovery_receipts",
+        "finance_claim_recovery_decisions",
+        "finance_claim_audits"
+      ],
+      "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
+      "executionAuthorized": false,
+      "companyAccountingPolicyApproval": "NOT_RECEIVED"
     }
   ],
   "appliedFinanceMigrations": 17,
@@ -1697,5 +1777,24 @@
     "historicalPaidInvoicesUnchanged": 4,
     "sourceCodeFingerprint": "e384f5874c7a8272ee41ee979d250784b89594b4eb0ba17b92458980dbc19ff4",
     "sourceFilesUnchanged": 212
-  }
+  },
+  "inactiveClaimsControls": {
+    "priorImplementationBaseline": {
+      "sourceCodeFingerprint": "e384f5874c7a8272ee41ee979d250784b89594b4eb0ba17b92458980dbc19ff4",
+      "sourceFileCount": 212,
+      "sourceCodeFilesAtCommit": "d07b5bade61a68664da8b0b9437ec0a8b8c0b38e"
+    },
+    "evidence": "B18-Verification.json",
+    "evidenceSha256": "d73f4e2877c526bad61ef0dec1c573f80f693fade9b684edf6e9eb66e8eb8cf4",
+    "sourceCodeFingerprint": "c1353e8032161f760c3d3bc9e5c4d0fb8f5d5fb3ad54a13b3e1083d731f6e318",
+    "sourceFileCount": 219,
+    "migrationAppliedToSource": false,
+    "newCompanyGrants": 0,
+    "policiesActivated": 0,
+    "sourcePreservationCertified": false,
+    "sourceDataException": "Four initially protected paid invoices and company setup were observed absent. Cleanup cause/intent is unresolved; development was not restored. The isolated recovery copy reproduced all four invoice hashes."
+  },
+  "currentObservedMigrationLedgerHash": "5e1b879944724919e49d14d5f3a7c10069f67038a3ce1daf8fcb2e3c8659ba0e",
+  "currentObservedLedgerMatchesLastCertified": false,
+  "currentSourceDataAcceptance": "BLOCKED_PENDING_USER_CLARIFICATION"
 }
