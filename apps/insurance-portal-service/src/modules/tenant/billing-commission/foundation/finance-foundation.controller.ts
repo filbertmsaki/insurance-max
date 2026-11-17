@@ -28,6 +28,7 @@ import { ADMIN_ROLE_BY_COMPANY_TYPE } from '../../../platform/companies/access-r
 import { FinanceJournalCandidateService } from './finance-journal-candidate.service';
 import { FinanceApprovalService } from './finance-approval.service';
 import type { JournalCandidateInput } from './finance-journal-candidate.types';
+import type { BranchAllocationPreviewInput } from './finance-branch-allocation';
 import type {
   ApprovalToken,
   BeneficiaryEvidence,
@@ -172,6 +173,42 @@ export class FinanceFoundationController {
       ...q,
       accountCode,
     });
+  }
+  @Get('journals')
+  @Permissions(FinancePermissions.FOUNDATION_READ)
+  async journals(
+    @CurrentUser() u: AuthenticatedUser,
+    @Query()
+    q: FinanceBookSelection & {
+      mode: FoundationMode;
+      from: string;
+      to: string;
+      limit?: string;
+      beforeDate?: string;
+      beforeId?: string;
+    },
+  ) {
+    return this.ledger.searchJournals(await this.actor(u, q), q, {
+      mode: q.mode,
+      from: q.from,
+      to: q.to,
+      limit: q.limit === undefined ? 50 : Number(q.limit),
+      beforeDate: q.beforeDate,
+      beforeId: q.beforeId,
+    });
+  }
+  @Get('journals/export')
+  @Permissions(FinancePermissions.FOUNDATION_READ)
+  async exportJournals(
+    @CurrentUser() u: AuthenticatedUser,
+    @Query()
+    q: FinanceBookSelection & {
+      mode: FoundationMode;
+      from: string;
+      to: string;
+    },
+  ) {
+    return this.ledger.exportJournals(await this.actor(u, q), q, q);
   }
   @Get('journals/:id')
   @Permissions(FinancePermissions.FOUNDATION_READ)
@@ -399,6 +436,32 @@ export class FinanceFoundationController {
       await this.actor(u, b.scope),
       b.scope,
       b.input,
+      b.reason,
+    );
+  }
+  @Post('reviewed-allocation-candidates')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async prepareReviewedAllocation(
+    @CurrentUser() u: AuthenticatedUser,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      template: Omit<JournalCandidateInput, 'lines'>;
+      allocation: BranchAllocationPreviewInput;
+      policy: { id: string; hash: string };
+      dimensions: Record<string, string>;
+      occurrence: { id: string; hash: string };
+      reason: string;
+    },
+  ) {
+    return this.candidateService().prepareReviewedAllocationInactive(
+      await this.actor(u, b.scope),
+      b.scope,
+      b.template,
+      b.allocation,
+      b.policy,
+      b.dimensions,
+      b.occurrence,
       b.reason,
     );
   }

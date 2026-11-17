@@ -20,6 +20,12 @@ require('reflect-metadata');
 const { Client } = require('pg'),
   { DataSource } = require('typeorm'),
   { RequestContextService } = require('@insurance-max/shared-kernel');
+const { readAiclFin01Demonstration } = require(
+  path.join(
+    repo,
+    'apps/insurance-portal-service/src/database/seeds/data/aicl-fin-01-reader.ts',
+  ),
+);
 const base = path.join(repo, 'apps/insurance-portal-service/src/modules'),
   load = (f, k) => require(path.join(base, f))[k];
 const { createAppDataSourceOptions } = require(
@@ -60,6 +66,16 @@ const env = process.env,
   user = env.FINANCE_TEST_PG_USER,
   password = env.FINANCE_TEST_PG_PASSWORD,
   cluster = env.FINANCE_G04_CLUSTER_DIRECTORY;
+const aiclProposal =
+  env.FINANCE_G04_AICL_DEMO === '1' ? readAiclFin01Demonstration() : null;
+let aiclBook = aiclProposal
+  ? aiclProposal.books.find(
+      (book) =>
+        book.code === (env.FINANCE_G04_AICL_BOOK || aiclProposal.books[0].code),
+    )
+  : null;
+if (aiclProposal && !aiclBook)
+  throw Error('Select an exact proposed AICL demo book.');
 if (
   env.FINANCE_TEST_PG_ENABLED !== '1' ||
   env.NODE_ENV !== 'test' ||
@@ -140,39 +156,46 @@ async function originalFinancialState(s, excludeCompany) {
   return result;
 }
 
-async function actorsAndScope(s) {
+async function actorsAndScope(s, shared = null) {
   const entity = (f, k) => load(f, k),
     Company = entity(
       'platform/companies/entities/company.entity.ts',
       'Company',
     );
-  const company = await s.getRepository(Company).save(
-    s.getRepository(Company).create({
-      name:
-        'DEMONSTRATION G04 — NOT A REAL INSURER ' +
-        crypto.randomBytes(3).toString('hex'),
-      slug: 'g04-demo-' + crypto.randomBytes(6).toString('hex'),
-      company_type: 'INSURANCE_COMPANY',
-      status: 'active',
-      verification_status: 'VERIFIED',
-      verification_note:
-        'SYNTHETIC TEST RECORD; not a real company verification',
-      tira_license_number:
-        'DEMO-LICENCE-' + crypto.randomBytes(4).toString('hex'),
-      tira_license_status: 'ACTIVE',
-      license_issued_at: '2026-01-01',
-      license_expires_at: '2026-12-31',
-      tin: 'DEMO-TIN-NOT-VALID',
-      brela_registration_number: 'DEMO-REG-NOT-VALID',
-      default_currency: 'TZS',
-      operating_timezone: 'Africa/Dar_es_Salaam',
-      metadata: {
-        purpose: 'DEMONSTRATION_ONLY',
-        legalIdentifiersNotValid: true,
-      },
-    }),
-  );
-  const tenantId = crypto.randomUUID(),
+  const company =
+    shared?.company ??
+    (await s.getRepository(Company).save(
+      s.getRepository(Company).create({
+        name:
+          'DEMONSTRATION G04 — NOT A REAL INSURER ' +
+          crypto.randomBytes(3).toString('hex'),
+        slug: 'g04-demo-' + crypto.randomBytes(6).toString('hex'),
+        company_type: 'INSURANCE_COMPANY',
+        status: 'active',
+        verification_status: 'VERIFIED',
+        verification_note:
+          'SYNTHETIC TEST RECORD; not a real company verification',
+        tira_license_number:
+          aiclProposal?.entity.demonstrationIdentifiers.licence ??
+          'DEMO-LICENCE-' + crypto.randomBytes(4).toString('hex'),
+        tira_license_status: 'ACTIVE',
+        license_issued_at: '2026-01-01',
+        license_expires_at: '2026-12-31',
+        tin:
+          aiclProposal?.entity.demonstrationIdentifiers.tax ??
+          'DEMO-TIN-NOT-VALID',
+        brela_registration_number:
+          aiclProposal?.entity.demonstrationIdentifiers.registration ??
+          'DEMO-REG-NOT-VALID',
+        default_currency: 'TZS',
+        operating_timezone: 'Africa/Dar_es_Salaam',
+        metadata: {
+          purpose: 'DEMONSTRATION_ONLY',
+          legalIdentifiersNotValid: true,
+        },
+      }),
+    ));
+  const tenantId = shared?.tenantId ?? crypto.randomUUID(),
     LegalEntity = entity(
       'tenant/billing-commission/foundation/entities/finance-legal-entity.entity.ts',
       'FinanceLegalEntity',
@@ -181,21 +204,40 @@ async function actorsAndScope(s) {
       'tenant/billing-commission/foundation/entities/finance-accounting-book.entity.ts',
       'FinanceAccountingBook',
     );
-  const legal = await s.getRepository(LegalEntity).save({
-      tenant_id: tenantId,
-      entity_code: 'DEMO-G04',
-      legal_name: company.name,
-      business_profile: 'INSURER',
-      jurisdiction_code: 'TZ',
-      state: 'DRAFT',
-    }),
-    book = await s.getRepository(Book).save({
-      tenant_id: tenantId,
-      legal_entity_id: legal.id,
-      book_code: 'DEMONSTRATION-G04',
-      state: 'DRAFT',
-    }),
+  const legal =
+      shared?.legal ??
+      (await s.getRepository(LegalEntity).save({
+        tenant_id: tenantId,
+        entity_code: aiclProposal?.entity.code ?? 'DEMO-G04',
+        legal_name: company.name,
+        business_profile: 'INSURER',
+        jurisdiction_code: 'TZ',
+        state: 'DRAFT',
+      })),
+    book = shared
+      ? await s.getRepository(Book).findOneByOrFail({
+          tenant_id: tenantId,
+          legal_entity_id: legal.id,
+          book_code: aiclBook.code,
+        })
+      : await s.getRepository(Book).save({
+          tenant_id: tenantId,
+          legal_entity_id: legal.id,
+          book_code: aiclBook?.code ?? 'DEMONSTRATION-G04',
+          state: 'DRAFT',
+        }),
     scope = { legalEntityId: legal.id, bookId: book.id };
+  if (aiclProposal && !shared) {
+    for (const extra of aiclProposal.books.filter(
+      (candidate) => candidate.code !== aiclBook.code,
+    ))
+      await s.getRepository(Book).save({
+        tenant_id: tenantId,
+        legal_entity_id: legal.id,
+        book_code: extra.code,
+        state: 'DRAFT',
+      });
+  }
   const productTemplate = (
     await s.query(
       'SELECT to_jsonb(p) AS row FROM insurance_products p WHERE p.current_version_id IS NOT NULL ORDER BY id LIMIT 1',
@@ -225,38 +267,45 @@ async function actorsAndScope(s) {
       'tenant/insurance-products/entities/insurance-product-version.entity.ts',
       'InsuranceProductVersion',
     );
-  const category = await s.getRepository(Category).save({
-    ...categoryTemplate,
-    id: crypto.randomUUID(),
-    company_id: company.id,
-    parent_id: null,
-  });
-  const product = await s.getRepository(Product).save({
-    ...productTemplate,
-    id: crypto.randomUUID(),
-    company_id: company.id,
-    category_id: category.id,
-    product_code: 'DEMO_G04_PRODUCT',
-    product_name: 'Demonstration product — no real insurance',
-    policy_numbering_code: productTemplate.policy_numbering_code,
-    current_version_id: null,
-    latest_version_number: 1,
-    is_active: true,
-    lifecycle_status: 'ACTIVE',
-  });
-  const version = await s.getRepository(Version).save({
-    ...versionTemplate,
-    id: crypto.randomUUID(),
-    company_id: company.id,
-    product_id: product.id,
-    version_number: 1,
-    status: 'ACTIVE',
-    effective_from: '2026-01-01',
-    effective_to: '2027-01-01',
-  });
-  await s
-    .getRepository(Product)
-    .update(product.id, { current_version_id: version.id });
+  const category =
+    shared?.category ??
+    (await s.getRepository(Category).save({
+      ...categoryTemplate,
+      id: crypto.randomUUID(),
+      company_id: company.id,
+      parent_id: null,
+    }));
+  const product =
+    shared?.product ??
+    (await s.getRepository(Product).save({
+      ...productTemplate,
+      id: crypto.randomUUID(),
+      company_id: company.id,
+      category_id: category.id,
+      product_code: 'DEMO_G04_PRODUCT',
+      product_name: 'Demonstration product — no real insurance',
+      policy_numbering_code: productTemplate.policy_numbering_code,
+      current_version_id: null,
+      latest_version_number: 1,
+      is_active: true,
+      lifecycle_status: 'ACTIVE',
+    }));
+  const version =
+    shared?.version ??
+    (await s.getRepository(Version).save({
+      ...versionTemplate,
+      id: crypto.randomUUID(),
+      company_id: company.id,
+      product_id: product.id,
+      version_number: 1,
+      status: 'ACTIVE',
+      effective_from: '2026-01-01',
+      effective_to: '2027-01-01',
+    }));
+  if (!shared)
+    await s
+      .getRepository(Product)
+      .update(product.id, { current_version_id: version.id });
   const User = entity('tenant/users/entities/user.entity.ts', 'User'),
     Membership = entity(
       'platform/companies/entities/company-user.entity.ts',
@@ -393,36 +442,39 @@ async function actorsAndScope(s) {
       'tenant/billing-commission/entities/finance-account.entity.ts',
       'FinanceAccount',
     ),
-    accounts = [];
-  for (const [code, type] of [
-    ['DEMO-CASH', 'ASSET'],
-    ['DEMO-PREMIUM', 'INCOME'],
-    ['DEMO-TAX', 'LIABILITY'],
-  ])
-    accounts.push(
-      await s.getRepository(Account).save({
-        company_id: company.id,
-        account_code: code,
-        account_name: 'DEMONSTRATION ' + code,
-        account_type: type,
-        is_active: true,
-        is_control_account: true,
-      }),
-    );
+    accounts = shared?.accounts ?? [];
+  if (!shared)
+    for (const [code, type] of [
+      ['DEMO-CASH', 'ASSET'],
+      ['DEMO-PREMIUM', 'INCOME'],
+      ['DEMO-TAX', 'LIABILITY'],
+    ])
+      accounts.push(
+        await s.getRepository(Account).save({
+          company_id: company.id,
+          account_code: code,
+          account_name: 'DEMONSTRATION ' + code,
+          account_type: type,
+          is_active: true,
+          is_control_account: true,
+        }),
+      );
   const Tax = entity('tenant/taxes/entities/tax.entity.ts', 'Tax'),
-    tax = await s.getRepository(Tax).save({
-      company_id: company.id,
-      tax_code: 'DEMO_ZERO_RATE',
-      tax_name: 'SYNTHETIC ZERO RATE — NOT A TANZANIAN TAX ELECTION',
-      tax_rate: '0',
-      is_active: true,
-      is_default: false,
-      calculation_options: {
-        category: 'TAX',
-        effective_from: '2026-01-01',
-        effective_to: '2026-12-31',
-      },
-    });
+    tax =
+      shared?.tax ??
+      (await s.getRepository(Tax).save({
+        company_id: company.id,
+        tax_code: 'DEMO_ZERO_RATE',
+        tax_name: 'SYNTHETIC ZERO RATE — NOT A TANZANIAN TAX ELECTION',
+        tax_rate: '0',
+        is_active: true,
+        is_default: false,
+        calculation_options: {
+          category: 'TAX',
+          effective_from: '2026-01-01',
+          effective_to: '2026-12-31',
+        },
+      }));
   const Document = entity(
       'tenant/insurance-documents/entities/document.entity.ts',
       'Document',
@@ -482,6 +534,8 @@ async function actorsAndScope(s) {
     alias: people[2],
     accounts,
     product,
+    category,
+    version,
     tax,
     evidence: {
       id: evidenceVersion.id,
@@ -494,10 +548,45 @@ async function actorsAndScope(s) {
   };
 }
 
-async function run(s) {
-  const original = await originalFinancialState(s),
-    f = await actorsAndScope(s);
+async function run(s, prepared = null, preparedMap = null) {
+  const original = await originalFinancialState(s, prepared?.company.id),
+    f = prepared ?? (await actorsAndScope(s));
   fixture = f;
+  if (aiclProposal) {
+    const books = await s.query(
+      'SELECT book_code,state,accounting_basis_code FROM finance_accounting_books WHERE tenant_id=$1 AND legal_entity_id=$2 ORDER BY book_code',
+      [f.tenantId, f.legal.id],
+    );
+    check(
+      'AICL proposal books are unconfigured drafts',
+      books.length === 3 &&
+        books.every(
+          (b) => b.state === 'DRAFT' && b.accounting_basis_code === null,
+        ) &&
+        aiclProposal.books.every((b) =>
+          books.some((actual) => actual.book_code === b.code),
+        ),
+    );
+    report.aiclDemo = {
+      company: 'SYNTHETIC_COMPANY_NOT_ACTUAL_ALLIANCE',
+      products: 'SYNTHETIC_PRODUCT_NOT_ACTUAL_AICL_MAPPING',
+      opening: 'SYNTHETIC_BALANCE_VALIDATION_ONLY_NOT_IMPORTED',
+      chart: 'INACTIVE_AICL_CHART_REPORTING_MAPPINGS_HELD',
+      bookCode: aiclBook.code,
+      otherBooks: 'DRAFT_ONLY_WITHOUT_G04_REVIEW_IN_THIS_COPY',
+      accountingBasisAndFx: 'INACTIVE_DEMONSTRATION_ONLY',
+    };
+    let debit = 0n,
+      credit = 0n;
+    for (const line of aiclProposal.openingProposal.lines) {
+      debit += BigInt(line.debit);
+      credit += BigInt(line.credit);
+    }
+    check(
+      'Synthetic AICL opening proposal balances without a posting',
+      debit === 6500000000n && credit === debit,
+    );
+  }
   if (output && env.FINANCE_G04_KEEP_COPY === '1')
     fs.writeFileSync(
       path.join(path.dirname(output), 'demonstration-credentials.private.json'),
@@ -613,42 +702,54 @@ async function run(s) {
       'Separate synthetic natural persons; the alias is deliberately the maker and cannot review.',
   });
   const assessment = {
-    accountingBasis: 'IFRS',
+    accountingBasis: aiclBook?.basis ?? 'IFRS',
     functionalCurrency: 'TZS',
     functionalCurrencyRationale:
       'Demonstration selection only. No real functional-currency assessment is asserted.',
     presentationCurrencies: ['TZS'],
-    transactionCurrencies: ['TZS', 'USD'],
-    currencyScales: { TZS: 2, USD: 2 },
+    transactionCurrencies: aiclProposal?.currencies.transaction ?? [
+      'TZS',
+      'USD',
+    ],
+    currencyScales: aiclProposal
+      ? Object.fromEntries(
+          aiclProposal.currencies.transaction.map((c) => [
+            c,
+            aiclProposal.currencies.scale,
+          ]),
+        )
+      : { TZS: 2, USD: 2 },
     rateSources: ['SYNTHETIC-NOT-A-MARKET-RATE'],
     maximumRateAgeDays: 0,
     roundingMode: 'REJECT_IMBALANCED',
   };
   const currencyReview = await complete('G04-03', assessment);
   const periods = Array.from({ length: 12 }, (_, i) => ({
-    code: 'DEMO-' + String(i + 1).padStart(2, '0'),
+    code: (aiclProposal ? '2026-' : 'DEMO-') + String(i + 1).padStart(2, '0'),
     from: new Date(Date.UTC(2026, i, 1)).toISOString().slice(0, 10),
     to: new Date(Date.UTC(2026, i + 1, 1)).toISOString().slice(0, 10),
   }));
   await complete('G04-04', {
-    calendarCode: 'DEMONSTRATION-2026',
+    calendarCode: aiclProposal?.calendar.code ?? 'DEMONSTRATION-2026',
     fiscalYearEnd: '12-31',
     timezone: 'Africa/Dar_es_Salaam',
     closeProcedure: 'Synthetic independent close; no live periods opened.',
     reopeningProcedure: 'Synthetic separate company-admin permission required.',
     periods,
   });
-  const map = await config.createSourceMap(
-    f.maker,
-    scope,
-    {
-      version: 1,
-      legalRole: 'DEMONSTRATION_INSURER',
-      effectiveFrom: '2026-01-01',
-      effectiveTo: '2027-01-01',
-    },
-    reason,
-  );
+  const map =
+    preparedMap ??
+    (await config.createSourceMap(
+      f.maker,
+      scope,
+      {
+        version: 1,
+        legalRole: 'DEMONSTRATION_INSURER',
+        effectiveFrom: '2026-01-01',
+        effectiveTo: '2027-01-01',
+      },
+      reason,
+    ));
   await config.claimSourceRead(f.reviewer, scope, map.map.id, map.hash, reason);
   await complete('G04-05', {
     sourceMapIds: [map.map.id],
@@ -690,41 +791,75 @@ async function run(s) {
     configs.push(r);
     return r;
   }
-  const chart = await reviewed('ACCOUNT_ROLES', {
+  const chartProposal = {
     schema: 'FINANCE_CHART_V1',
-    chartCode: 'DEMONSTRATION',
+    chartCode: aiclProposal ? 'AICL-DEMO' : 'DEMONSTRATION',
     supportedProfiles: ['INSURER'],
-    accounts: [
-      {
-        code: '110110',
-        name: 'DEMO cash',
-        type: 'ASSET',
-        normalBalance: 'DR',
-        posting: true,
-        control: true,
-        parentCode: null,
-      },
-      {
-        code: '210110',
-        name: 'DEMO suspense',
-        type: 'LIABILITY',
-        normalBalance: 'CR',
-        posting: true,
-        control: true,
-        parentCode: null,
-      },
-    ],
+    accounts: aiclProposal
+      ? aiclProposal.chartProposal
+          .filter(([, , type]) => type !== 'REPORTING_MAPPING')
+          .map(([code, name, type]) => {
+            const headerTypes = {
+              1000: 'ASSET',
+              2000: 'LIABILITY',
+              3000: 'EQUITY',
+              4000: 'INCOME',
+              5000: 'EXPENSE',
+            };
+            const accountType = type === 'HEADER' ? headerTypes[code] : type;
+            const parent =
+              type === 'HEADER'
+                ? null
+                : {
+                    ASSET: '1000',
+                    LIABILITY: '2000',
+                    EQUITY: '3000',
+                    INCOME: '4000',
+                    EXPENSE: '5000',
+                  }[accountType];
+            return {
+              code,
+              name: 'DEMO ' + name,
+              type: accountType,
+              normalBalance: ['ASSET', 'EXPENSE'].includes(accountType)
+                ? 'DR'
+                : 'CR',
+              posting: type !== 'HEADER',
+              control: type !== 'HEADER',
+              parentCode: parent,
+            };
+          })
+      : [
+          {
+            code: '110110',
+            name: 'DEMO cash',
+            type: 'ASSET',
+            normalBalance: 'DR',
+            posting: true,
+            control: true,
+            parentCode: null,
+          },
+          {
+            code: '210110',
+            name: 'DEMO suspense',
+            type: 'LIABILITY',
+            normalBalance: 'CR',
+            posting: true,
+            control: true,
+            parentCode: null,
+          },
+        ],
     roles: [
       {
         code: 'BANK_OPERATING',
-        accountCode: '110110',
+        accountCode: aiclProposal ? '1100' : '110110',
         accountType: 'ASSET',
         requiredDimensions: ['TENANT', 'LEGAL_ENTITY', 'BOOK'],
         dependencyRefs: ['DEC-01'],
       },
       {
         code: 'UNIDENTIFIED_CASH',
-        accountCode: '210110',
+        accountCode: aiclProposal ? null : '210110',
         accountType: 'LIABILITY',
         requiredDimensions: ['TENANT', 'LEGAL_ENTITY', 'BOOK'],
         dependencyRefs: ['DEC-01'],
@@ -741,7 +876,8 @@ async function run(s) {
       })),
       emptyInventoryReason: null,
     },
-  });
+  };
+  const chart = await reviewed('ACCOUNT_ROLES', chartProposal);
   const dimensions = await reviewed('DIMENSIONS', {
     schema: 'FINANCE_DIMENSIONS_V1',
     activationAuthorized: false,
@@ -1178,6 +1314,156 @@ async function run(s) {
     'Rolled-back negative tests leave the demonstration fully reviewed',
     overview.complete,
   );
+  if (aiclProposal && env.FINANCE_G04_INTEGRATED === '1') {
+    const nextChart = await reviewed('ACCOUNT_ROLES', chartProposal, {
+      key: 'DEMO-2027-ACCOUNT-ROLES',
+      effectiveFrom: '2027-01-01',
+      effectiveTo: '2028-01-01',
+    });
+    const { FinanceLedgerFoundationService } = require(
+      path.join(
+        base,
+        'tenant/billing-commission/foundation/finance-ledger-foundation.service.ts',
+      ),
+    );
+    const ledger = new FinanceLedgerFoundationService(s);
+    for (const [who, capability] of [
+      [f.maker, 'PREPARE'],
+      [f.maker, 'REVIEW'],
+      [f.reviewer, 'REVIEW'],
+    ])
+      await s.query(
+        "INSERT INTO finance_foundation_authorities(tenant_id,legal_entity_id,book_id,subject_id,natural_person_id,capability,company_role,authority_reference,limits,valid_from,valid_to) VALUES($1,$2,$3,$4,$5,$6,'FINANCE_OPERATOR','SYNTHETIC-CUTOVER-TEST','{}',statement_timestamp()-interval '1 minute',statement_timestamp()+interval '2 hours')",
+        [
+          f.tenantId,
+          f.legal.id,
+          f.book.id,
+          who.subjectId,
+          who.naturalPersonId,
+          capability,
+        ],
+      );
+    const context = await ledger.prepareCurrencyContext(
+      f.maker,
+      scope,
+      {
+        schema: 'FINANCE_CURRENCY_CONTEXT_V1',
+        version: 1,
+        sourceCompanyId: f.company.id,
+        basis: aiclBook.basis,
+        functionalCurrency: 'TZS',
+        presentationCurrencies: ['TZS'],
+        currencyScales: { TZS: 2 },
+        effectiveFrom: '2027-01-01',
+        effectiveTo: '2028-01-01',
+        rateSources: ['SYNTHETIC'],
+        maxRateAgeDays: 0,
+        roundingMode: 'REJECT_IMBALANCED',
+        chartReleaseId: nextChart.id,
+        chartReleaseHash: nextChart.release_hash,
+        policyPins: [],
+        unresolvedDecisions: ['SYNTHETIC_DEMONSTRATION_ONLY'],
+        allowedComponents: [
+          {
+            origin: 'DEMO',
+            component: 'REFERENCE',
+            owner: 'FINANCE',
+            policyCode: 'AP-08.01',
+            effect: 'CASH',
+            sourceEventType: null,
+            factKind: null,
+            sourceMapping: null,
+            debitRoles: ['BANK_OPERATING'],
+            creditRoles: ['BANK_OPERATING'],
+          },
+        ],
+        assessmentReference:
+          'SYNTHETIC DEMONSTRATION ONLY; NOT AN ACCOUNTING POLICY',
+        assessmentEvidenceHash: f.evidence.hash,
+      },
+      reason,
+    );
+    await ledger.reviewDocument(
+      f.reviewer,
+      scope,
+      context.id,
+      context.subjectHash,
+      'REVIEWED',
+      f.evidence.hash,
+      reason,
+    );
+    const balances = chartProposal.accounts
+      .filter((a) => a.posting)
+      .map((a) => {
+        const line = aiclProposal.openingProposal.lines.find(
+          (l) => l.account === a.code,
+        );
+        return {
+          accountCode: a.code,
+          signedBalance: line
+            ? (BigInt(line.debit) - BigInt(line.credit)).toString()
+            : '0',
+        };
+      });
+    const opening = await ledger.prepareOpening(
+      f.maker,
+      scope,
+      {
+        contextId: context.id,
+        contextHash: context.subjectHash,
+        mode: 'VALIDATION',
+        date: '2027-01-01',
+        balances,
+        sourceReference:
+          'SYNTHETIC ONLY; NO REAL SOURCE OR OPEN ITEM CERTIFICATION',
+        sourceEvidenceHash: f.evidence.hash,
+        explicitZeroReason: null,
+      },
+      1,
+      reason,
+    );
+    await expectDenied(
+      'Synthetic 2027 opening cannot be self-reviewed',
+      () =>
+        ledger.reviewDocument(
+          f.maker,
+          scope,
+          opening.id,
+          opening.subjectHash,
+          'REVIEWED',
+          f.evidence.hash,
+          reason,
+        ),
+      null,
+    );
+    await ledger.reviewDocument(
+      f.reviewer,
+      scope,
+      opening.id,
+      opening.subjectHash,
+      'REVIEWED',
+      f.evidence.hash,
+      reason,
+    );
+    const trial = await ledger.trialBalance(f.reviewer, scope, {
+      mode: 'VALIDATION',
+      openingId: opening.id,
+      openingHash: opening.subjectHash,
+      from: '2027-01-01',
+      to: '2028-01-01',
+    });
+    const positive = trial.rows.reduce((sum, row) => {
+      const n = BigInt(row.opening.split('.')[0]);
+      return sum + (n > 0n ? n : 0n);
+    }, 0n);
+    check(
+      'Synthetic 2027 opening independently reviewed and balanced for ' +
+        aiclBook.code,
+      positive === 6500000000n && trial.financialEffects === 0,
+    );
+    report.aiclDemo.opening =
+      'SYNTHETIC_2027_VALIDATION_OPENING_REVIEWED_NOT_LIVE_OR_ACTUAL_RECONCILIATION';
+  }
   report.demonstrationComplete = true;
   report.companyAcceptanceGranted = false;
   report.policiesActivated = 0;
@@ -1223,7 +1509,82 @@ async function run(s) {
     logging: false,
   });
   await ds.initialize();
-  await run(ds);
+  if (aiclProposal && env.FINANCE_G04_INTEGRATED === '1') {
+    const fixtures = [];
+    let shared = null;
+    for (const book of aiclProposal.books) {
+      aiclBook = book;
+      const f = await actorsAndScope(ds, shared);
+      if (!shared) shared = f;
+      fixtures.push(f);
+    }
+    check(
+      'Three demo books share one tenant, entity and company',
+      fixtures.length === 3 &&
+        fixtures.every(
+          (f) =>
+            f.tenantId === shared.tenantId &&
+            f.legal.id === shared.legal.id &&
+            f.company.id === shared.company.id,
+        ) &&
+        new Set(fixtures.map((f) => f.book.id)).size === 3,
+    );
+    const maps = [];
+    for (let i = 0; i < fixtures.length; i++) {
+      const f = fixtures[i];
+      const setup = new FinanceSetupService(ds);
+      const audit = new AuditService(
+        ds.getRepository(
+          load('shared/audit/entities/audit-log.entity.ts', 'AuditLog'),
+        ),
+        new RequestContextService(),
+      );
+      const config = new FinanceSetupConfigurationService(ds, setup, audit);
+      maps.push(
+        await config.createSourceMap(
+          f.maker,
+          f.scope,
+          {
+            version: 1,
+            legalRole: 'DEMONSTRATION_INSURER_' + (i + 1),
+            effectiveFrom: '2026-01-01',
+            effectiveTo: '2028-01-01',
+          },
+          'SYNTHETIC DEMONSTRATION ONLY; not a company authority.',
+        ),
+      );
+    }
+    report.bookRuns = [];
+    for (let i = 0; i < fixtures.length; i++) {
+      aiclBook = aiclProposal.books[i];
+      const start = report.checks.length;
+      await run(ds, fixtures[i], maps[i]);
+      report.bookRuns.push({
+        bookCode: aiclBook.code,
+        basis: aiclBook.basis,
+        checks: report.checks.length - start,
+      });
+    }
+    const setup = new FinanceSetupService(ds);
+    for (let i = 0; i < fixtures.length; i++) {
+      const f = fixtures[i],
+        other = fixtures[(i + 1) % fixtures.length];
+      const status = await setup.overview(f.reviewer, f.scope);
+      check(
+        'Integrated book independently retains inactive G04 review: ' +
+          aiclProposal.books[i].code,
+        status.complete && status.completionMeaning === 'DEMONSTRATION_ONLY',
+      );
+      await expectDenied(
+        'Integrated cross-book identity is denied: ' +
+          aiclProposal.books[i].code,
+        () => setup.overview(f.reviewer, other.scope),
+      );
+    }
+    report.aiclDemo.otherBooks = 'G04_REVIEWED_IN_SAME_ISOLATED_DATABASE';
+    report.finishedAt = new Date().toISOString();
+    save();
+  } else await run(ds);
   console.log(
     JSON.stringify({
       passed: true,

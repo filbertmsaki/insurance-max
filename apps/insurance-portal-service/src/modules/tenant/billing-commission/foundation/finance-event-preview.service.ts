@@ -24,6 +24,7 @@ import {
   type FinanceEventContract,
 } from './finance-event.types';
 import { verifyEventRouteSnapshot } from './finance-event-route.snapshot';
+import { verifyReviewedDimensionMaster } from './finance-reviewed-dimension-master';
 
 interface ProducerKey {
   id: string;
@@ -173,6 +174,47 @@ export class FinanceEventPreviewService {
         const resolved = await this.destinations(manager, principal, event),
           targets = resolved.targets,
           contract = resolved.contract;
+        if (event.payload.dimensions) {
+          if (event.payload.dimensions.length !== targets.length)
+            throw new ConflictException(
+              'Signed dimension evidence must cover every routed book.',
+            );
+          for (const target of targets) {
+            const selected = event.payload.dimensions.find(
+              (row) => row.book_id.toLowerCase() === target.bookId,
+            );
+            if (!selected)
+              throw new ConflictException(
+                'Signed dimension evidence must cover every routed book.',
+              );
+            const dimensions: Record<string, string> = {
+              COMPANY: event.source_company_id,
+              DIMENSION_RELEASE: selected.dimension_release_id,
+              DIMENSION_HASH: selected.dimension_release_hash,
+              SOURCE_ASSOCIATION: selected.source_association_id,
+              SOURCE_ASSOCIATION_HASH: selected.source_association_hash,
+            };
+            if (selected.branch_id) dimensions.BRANCH = selected.branch_id;
+            if (selected.product_id) dimensions.PRODUCT = selected.product_id;
+            await verifyReviewedDimensionMaster(
+              manager,
+              [principal.tenantId, target.legalEntityId, target.bookId],
+              {
+                economicOrigin: 'SIGNED_EVENT_DIMENSIONS',
+                accountingDate: event.occurred_at.slice(0, 10),
+                lines: [
+                  {
+                    lineKey: 'SOURCE',
+                    roleCode: 'SOURCE',
+                    debit: '0',
+                    credit: '0',
+                    dimensions,
+                  },
+                ],
+              },
+            );
+          }
+        }
         const hashes = sourceEventHashes(event, contract),
           targetHash = financeConfigurationHash(targets);
         const [seenEvent] = await manager.query(

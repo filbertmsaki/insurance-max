@@ -24,6 +24,8 @@ import {
   type SetupEvidence,
 } from './api';
 import { SetupFields, SetupField } from './SetupFields';
+import { ChartDraftEditor } from './ChartDraftEditor';
+import { AllocationReview } from './AllocationReview';
 
 const readOptions = {
   retry: false,
@@ -652,6 +654,19 @@ function Configurations({
             an inactive draft; independent review and policy decisions remain
             separate.
           </p>
+          {canPrepare && (
+            <ChartDraftEditor
+              overview={overview}
+              loadPredecessor={(previous) =>
+                setupApi.configuration(scope, previous)
+              }
+              submit={(input, chartReason) =>
+                run(() =>
+                  setupApi.createConfiguration(scope, input, chartReason),
+                )
+              }
+            />
+          )}
           {(canPrepare || permissions.includes(POLICY_PREPARE)) && (
             <>
               <label className="block text-sm">
@@ -1045,7 +1060,9 @@ function BookSetup({
   permissions: string[];
 }) {
   const [step, setStep] = useState('G04-01'),
-    [tab, setTab] = useState<'steps' | 'configuration'>('steps'),
+    [tab, setTab] = useState<'steps' | 'configuration' | 'allocations'>(
+      'steps',
+    ),
     [success, setSuccess] = useState(false);
   const client = useQueryClient(),
     key = [
@@ -1141,6 +1158,12 @@ function BookSetup({
           Configurations and policies
         </Button>
         <Button
+          variant={tab === 'allocations' ? 'default' : 'outline'}
+          onClick={() => setTab('allocations')}
+        >
+          Recurring allocations
+        </Button>
+        <Button
           variant="outline"
           disabled={query.isFetching || mutation.isPending}
           onClick={() => void query.refetch()}
@@ -1189,13 +1212,19 @@ function BookSetup({
               run={run}
             />
           </>
-        ) : (
+        ) : tab === 'configuration' ? (
           <Configurations
             scope={scope}
             overview={overview}
             identity={identity}
             permissions={permissions}
             run={run}
+          />
+        ) : (
+          <AllocationReview
+            scope={scope}
+            identity={identity}
+            permissions={permissions}
           />
         )}
       </fieldset>

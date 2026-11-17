@@ -16,6 +16,7 @@ import { FinancePolicyService } from '../../src/modules/tenant/billing-commissio
 import { createCandidateFixture } from './finance-candidate-fixture';
 import { createIntegrationFixture } from './finance-integration-fixture';
 import { withFinanceTestDatabase } from './finance-test-database';
+import { readAiclFin01Demonstration } from '../../src/database/seeds/data/aicl-fin-01-reader';
 export const FOUNDATION_TEST_HASH = 'a'.repeat(64);
 export async function withFoundationDatabase<T>(
   work: (f: Awaited<ReturnType<typeof createFoundationFixture>>) => Promise<T>,
@@ -24,6 +25,10 @@ export async function withFoundationDatabase<T>(
     policies?: boolean;
     functional?: 'TZS' | 'USD';
     unresolved?: string[];
+    aiclBookCode?: string;
+    aiclBasis?: 'IFRS' | 'STATUTORY' | 'OPERATIONAL_BRIDGE';
+    chartEffectiveTo?: string;
+    contextEffectiveTo?: string;
   } = {},
 ) {
   return withFinanceTestDatabase(
@@ -48,6 +53,10 @@ async function createFoundationFixture(
     policies?: boolean;
     functional?: 'TZS' | 'USD';
     unresolved?: string[];
+    aiclBookCode?: string;
+    aiclBasis?: 'IFRS' | 'STATUTORY' | 'OPERATIONAL_BRIDGE';
+    chartEffectiveTo?: string;
+    contextEffectiveTo?: string;
   },
 ) {
   const integration = options.signed
@@ -59,10 +68,11 @@ async function createFoundationFixture(
         },
       })
     : null;
-  const f = await createCandidateFixture(
-      s,
-      integration ? { base: integration } : {},
-    ),
+  const f = await createCandidateFixture(s, {
+      ...(integration ? { base: integration } : {}),
+      aiclBookCode: options.aiclBookCode,
+      chartEffectiveTo: options.chartEffectiveTo,
+    }),
     ledger = new FinanceLedgerFoundationService(s),
     policy = new FinancePolicyService(s);
   const actor = (): FoundationActor => ({
@@ -107,12 +117,12 @@ async function createFoundationFixture(
     schema: 'FINANCE_CURRENCY_CONTEXT_V1',
     version: 1,
     sourceCompanyId: companyId,
-    basis: 'IFRS',
+    basis: options.aiclBasis ?? 'IFRS',
     functionalCurrency: options.functional ?? 'TZS',
     presentationCurrencies: ['TZS', 'USD'],
     currencyScales: { TZS: 2, USD: 3 },
     effectiveFrom: '2026-01-01',
-    effectiveTo: null,
+    effectiveTo: options.contextEffectiveTo ?? null,
     rateSources: ['SYNTHETIC'],
     maxRateAgeDays: 1,
     roundingMode: 'REJECT_IMBALANCED',
@@ -260,7 +270,7 @@ async function createFoundationFixture(
             transactionCurrency: 'USD',
             rate: '2500',
             rateDate: today,
-            validTo: '2027-01-01',
+            validTo: options.contextEffectiveTo ?? '2027-01-01',
             source: 'SYNTHETIC',
             sourceReference: 'NOT A MARKET RATE; test only',
             evidenceHash: FOUNDATION_TEST_HASH,
@@ -290,10 +300,29 @@ async function createFoundationFixture(
     FOUNDATION_TEST_HASH,
     'Synthetic validation period',
   );
-  const balances = [
-    { accountCode: '110110', signedBalance: '0' },
-    { accountCode: '210110', signedBalance: '0' },
-  ];
+  const balances = options.aiclBookCode
+    ? (() => {
+        const proposal = readAiclFin01Demonstration();
+        return proposal.chartProposal
+          .filter(
+            ([, , type]) => type !== 'HEADER' && type !== 'REPORTING_MAPPING',
+          )
+          .map(([accountCode]) => {
+            const line = proposal.openingProposal.lines.find(
+              (value) => value.account === accountCode,
+            );
+            return {
+              accountCode,
+              signedBalance: line
+                ? (BigInt(line.debit) - BigInt(line.credit)).toString()
+                : '0',
+            };
+          });
+      })()
+    : [
+        { accountCode: '110110', signedBalance: '0' },
+        { accountCode: '210110', signedBalance: '0' },
+      ];
   const opening = await ledger.prepareOpening(
     f.maker,
     f.scope,

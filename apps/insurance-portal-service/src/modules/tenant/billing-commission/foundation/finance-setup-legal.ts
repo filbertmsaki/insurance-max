@@ -1,4 +1,5 @@
 import { setupObject } from './finance-setup.types';
+import { isFinanceDate } from './finance-configuration.types';
 
 const clean = (v: unknown) => (typeof v === 'string' ? v : null);
 
@@ -47,3 +48,25 @@ export const isDemonstrationIdentifier = (value: unknown) =>
   /(^|[^A-Z])(DEMO|DEMONSTRATION|SYNTHETIC|TEST|PLACEHOLDER|PENDING)([^A-Z]|$)|NOT[-_ ]VALID/i.test(
     value,
   );
+
+/** Product versions and setup both use exclusive end dates. */
+export function setupProductCoversInterval(
+  product: Record<string, any> | undefined,
+  from: string | null,
+  to: string | null,
+): boolean {
+  return !!(
+    product?.is_active &&
+    product.lifecycle_status === 'ACTIVE' &&
+    product.current_version_id &&
+    ['ACTIVE', 'PUBLISHED'].includes(product.version_status) &&
+    isFinanceDate(from) &&
+    isFinanceDate(to) &&
+    to > from &&
+    (!product.effective_from ||
+      (isFinanceDate(product.effective_from) &&
+        product.effective_from <= from)) &&
+    (!product.effective_to ||
+      (isFinanceDate(product.effective_to) && product.effective_to >= to))
+  );
+}

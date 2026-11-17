@@ -4,6 +4,8 @@ import {
   canonicalFinanceJson,
 } from './finance-configuration.types';
 import { setupObject, setupText, setupUuid } from './finance-setup.types';
+import { validateAllocationRule } from './finance-branch-allocation';
+import { validateAllocationSchedule } from './finance-allocation-schedule.types';
 
 /** Additional contracts for the four historically generic JSON configuration families. */
 export function validateSetupConfiguration(input: FinanceConfigurationInput) {
@@ -21,6 +23,20 @@ export function validateSetupConfiguration(input: FinanceConfigurationInput) {
   if (!setupObject(p)) fail('Explicit typed configuration is required.');
   if (Buffer.byteLength(canonicalFinanceJson(p)) > 200000)
     fail('Configuration exceeds the supported size.');
+  if (
+    input.kind === 'DIMENSIONS' &&
+    p.schema === 'FINANCE_ALLOCATION_RULE_V1'
+  ) {
+    validateAllocationRule(p);
+    return;
+  }
+  if (
+    input.kind === 'DIMENSIONS' &&
+    p.schema === 'FINANCE_ALLOCATION_SCHEDULE_V2'
+  ) {
+    validateAllocationSchedule(p);
+    return;
+  }
   if (p.schema !== `FINANCE_${input.kind}_V1`)
     fail('The configuration family requires its explicit versioned schema.');
   if (p.activationAuthorized !== false)

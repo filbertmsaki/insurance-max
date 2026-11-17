@@ -9,6 +9,41 @@ const get = vi.mocked(apiClient.get),
   post = vi.mocked(apiClient.post);
 beforeEach(() => vi.resetAllMocks());
 describe('Exact setup book and version adapter', () => {
+  it('rejects allocation evidence from another book or with posting enabled', async () => {
+    const preview = {
+      id: uuid(80),
+      subject_hash: 'a'.repeat(64),
+      occurrence_date: '2026-11-15',
+      review_id: null,
+      payload: {
+        ...scope,
+        postingAuthorized: false,
+        amountMinor: '100',
+        currency: 'USD',
+        decimalScale: 2,
+        lines: [],
+      },
+    };
+    get.mockResolvedValueOnce({
+      data: { postingAuthorized: false, previews: [preview] },
+    });
+    await expect(setupApi.allocationPreviews(scope)).resolves.toHaveLength(1);
+    get.mockResolvedValueOnce({
+      data: {
+        postingAuthorized: false,
+        previews: [
+          { ...preview, payload: { ...preview.payload, bookId: uuid(99) } },
+        ],
+      },
+    });
+    await expect(setupApi.allocationPreviews(scope)).rejects.toThrow(
+      'selected book',
+    );
+    get.mockResolvedValueOnce({
+      data: { postingAuthorized: true, previews: [] },
+    });
+    await expect(setupApi.allocationPreviews(scope)).rejects.toThrow();
+  });
   it('uses scoped cancellable reads and rejects a different tenant in the response', async () => {
     const signal = new AbortController().signal;
     get.mockResolvedValueOnce({ data: makeOverview() });

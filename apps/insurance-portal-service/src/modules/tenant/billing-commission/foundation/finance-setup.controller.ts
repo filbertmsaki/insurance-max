@@ -76,6 +76,67 @@ export class FinanceSetupController {
     const scope = this.scope(query);
     return this.setup.overview(await this.actor(user, scope), scope);
   }
+  @Get('independent-identity')
+  @Permissions(FinancePermissions.FOUNDATION_READ)
+  async independentIdentity(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FinanceBookSelection,
+  ) {
+    return this.independentIdentityFor(
+      user,
+      query,
+      FinancePermissions.FOUNDATION_READ,
+    );
+  }
+  @Get('independent-identity-prepare')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async independentPrepareIdentity(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FinanceBookSelection,
+  ) {
+    return this.independentIdentityFor(
+      user,
+      query,
+      FinancePermissions.FOUNDATION_PREPARE,
+    );
+  }
+  @Get('independent-identity-review')
+  @Permissions(FinancePermissions.FOUNDATION_REVIEW)
+  async independentReviewIdentity(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FinanceBookSelection,
+  ) {
+    return this.independentIdentityFor(
+      user,
+      query,
+      FinancePermissions.FOUNDATION_REVIEW,
+    );
+  }
+  private async independentIdentityFor(
+    user: AuthenticatedUser,
+    query: FinanceBookSelection,
+    permission: string,
+  ) {
+    const scope = this.scope(query);
+    const actor = await this.actor(user, scope);
+    return this.setup.withAccess(
+      actor,
+      scope,
+      'READ',
+      permission,
+      async () => ({
+        schema: 'FINANCE_PORTAL_IDENTITY_V1',
+        tenantId: actor.tenantId,
+        companyId: actor.sourceCompanyId,
+        sourceUserId: actor.sourceUserId,
+        subjectId: actor.subjectId,
+        naturalPersonId: actor.naturalPersonId,
+        legalEntityId: scope.legalEntityId,
+        bookId: scope.bookId,
+        postingAuthorized: false,
+      }),
+    );
+  }
   @Get('versions/:id')
   @Permissions(FinancePermissions.FOUNDATION_READ)
   async detail(
@@ -203,6 +264,86 @@ export class FinanceSetupController {
       b.reason,
     );
   }
+  @Post('source-attestations')
+  @Permissions(FinancePermissions.CONFIG_REVIEW)
+  async prepareSourceAttestation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, ['masterId', 'subjectHash', 'reason']);
+    return this.configuration.prepareSourceAttestation(
+      await this.actor(user, b.scope),
+      b.scope,
+      b.masterId,
+      b.subjectHash,
+      b.reason,
+    );
+  }
+  @Get('source-attestations/:id')
+  @Permissions(FinancePermissions.FOUNDATION_READ)
+  async sourceAttestation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: FinanceBookSelection & { subjectHash: string },
+  ) {
+    const scope = this.scope(query);
+    return this.configuration.sourceAttestation(
+      await this.actor(user, scope),
+      scope,
+      id,
+      query.subjectHash,
+    );
+  }
+  @Post('source-attestations/:id/receipt')
+  @Permissions(FinancePermissions.CONFIG_REVIEW)
+  async reconcileSourceAttestation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, [
+      'receiptBodyBase64',
+      'receiptSignature',
+      'reason',
+    ]);
+    return this.configuration.reconcileSourceAttestation(
+      await this.actor(user, b.scope),
+      b.scope,
+      id,
+      b.receiptBodyBase64,
+      b.receiptSignature,
+      b.reason,
+    );
+  }
+  @Post('source-delivery-workers')
+  @Permissions(FinancePermissions.CONFIG_REVIEW)
+  async grantSourceDeliveryWorker(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, ['input', 'reason']);
+    return this.configuration.grantSourceDeliveryWorker(
+      await this.actor(user, b.scope),
+      b.scope,
+      b.input,
+      b.reason,
+    );
+  }
+  @Post('source-delivery-workers/:id/revoke')
+  @Permissions(FinancePermissions.CONFIG_REVIEW)
+  async revokeSourceDeliveryWorker(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, ['reason']);
+    return this.configuration.revokeSourceDeliveryWorker(
+      await this.actor(user, b.scope),
+      b.scope,
+      id,
+      b.reason,
+    );
+  }
   @Post('source-maps')
   @Permissions(FinancePermissions.CONFIG_PREPARE)
   async createSourceMap(
@@ -215,6 +356,63 @@ export class FinanceSetupController {
       b.scope,
       b.input,
       b.reason,
+    );
+  }
+  @Post('allocation-workers')
+  @Permissions(FinancePermissions.CONFIG_REVIEW)
+  async grantAllocationWorker(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, ['input', 'reason']);
+    return this.configuration.grantAllocationWorker(
+      await this.actor(user, b.scope),
+      b.scope,
+      b.input,
+      b.reason,
+    );
+  }
+  @Post('allocation-workers/:id/revoke')
+  @Permissions(FinancePermissions.CONFIG_REVIEW)
+  async revokeAllocationWorker(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, ['reason']);
+    return this.configuration.revokeAllocationWorker(
+      await this.actor(user, b.scope),
+      b.scope,
+      id,
+      b.reason,
+    );
+  }
+  @Post('allocation-previews/:id/review')
+  @Permissions(FinancePermissions.CONFIG_REVIEW)
+  async reviewAllocationPreview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, ['subjectHash', 'reason']);
+    return this.configuration.reviewAllocationPreview(
+      await this.actor(user, b.scope),
+      b.scope,
+      id,
+      b.subjectHash,
+      b.reason,
+    );
+  }
+  @Get('allocation-previews')
+  @Permissions(FinancePermissions.FOUNDATION_READ)
+  async allocationPreviews(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FinanceBookSelection,
+  ) {
+    const scope = this.scope(query);
+    return this.configuration.allocationPreviews(
+      await this.actor(user, scope),
+      scope,
     );
   }
   @Post('source-maps/:id/read-mandate')

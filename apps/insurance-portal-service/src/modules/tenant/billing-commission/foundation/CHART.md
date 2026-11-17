@@ -72,6 +72,11 @@ requires a new release. Both must obtain their own source-read authority.
 
 ## Transaction and migration boundaries
 
+Foundation release preparation and review require the reviewed chart and
+currency context to cover the entire proposed half-open release interval.
+A retained superseded chart also needs an existing approved release covering
+that full interval. These checks do not approve or enable a release.
+
 Existing B06 book serialization and entity/configuration-authority locks are
 retained. Source map, source-read authority and observed account rows use
 shared locks. These locks protect observed rows during the command; they are

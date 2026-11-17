@@ -45,6 +45,62 @@ const documentSchema = summarySchema.extend({
   maker_subject_id: z.string().uuid(),
   maker_natural_person_id: z.string().uuid(),
 });
+const journalSummarySchema = z.object({
+  id: z.string().uuid(),
+  accountingDate: z.iso.date(),
+  transactionDate: z.iso.date(),
+  transactionCurrency: z.string().regex(/^[A-Z]{3}$/),
+  functionalCurrency: z.string().regex(/^[A-Z]{3}$/),
+  kind: z.enum(['ORIGINAL', 'REVERSAL']),
+  reversalOf: z.string().uuid().nullable(),
+  subjectHash: z.string().regex(/^[a-f0-9]{64}$/),
+  financialEffects: z.union([z.literal(0), z.literal(1)]),
+});
+const journalPageSchema = z
+  .object({
+    journals: z.array(journalSummarySchema).max(100),
+    hasMore: z.boolean(),
+    nextCursor: z
+      .object({ beforeDate: z.iso.date(), beforeId: z.string().uuid() })
+      .nullable(),
+    mode: z.enum(['VALIDATION', 'LIVE']),
+  })
+  .refine(
+    (page) => page.hasMore === (page.nextCursor !== null),
+    'Invalid journal cursor.',
+  );
+export type FoundationJournal = z.infer<typeof journalSummarySchema>;
+export type JournalSearch = {
+  mode: 'VALIDATION' | 'LIVE';
+  from: string;
+  to: string;
+  beforeDate?: string;
+  beforeId?: string;
+};
+const readinessSchema = z
+  .object({
+    scope: z.object({
+      tenantId: z.string().uuid(),
+      legalEntityId: z.string().uuid(),
+      bookId: z.string().uuid(),
+    }),
+    contextId: z.string().uuid(),
+    contextHash: z.string().regex(/^[a-f0-9]{64}$/),
+    acceptanceScope: z.literal('FOUNDATION_ONLY'),
+    overallFinanceProductionAccepted: z.literal(false),
+    technicalAcceptance: z.boolean(),
+    productionEligible: z.boolean(),
+    blockers: z.array(z.string()),
+    policyActivation: z.literal(false),
+    financialEffects: z.literal(0),
+  })
+  .refine(
+    (value) =>
+      value.productionEligible
+        ? value.technicalAcceptance && value.blockers.length === 0
+        : value.blockers.length > 0,
+    'Readiness evidence is inconsistent.',
+  );
 export type FoundationScope = z.infer<typeof scopeSchema>;
 export type FoundationDocumentSummary = z.infer<typeof summarySchema>;
 export type FoundationDocument = z.infer<typeof documentSchema>;
@@ -56,6 +112,84 @@ function bookParams(scope: FoundationScope) {
 
 /** Read-only adapter. Company/user identity is supplied by the normal API client. */
 export const foundationReadApi = {
+  async exportJournals(
+    scope: FoundationScope,
+    search: JournalSearch,
+    signal?: AbortSignal,
+  ) {
+    const { data } = await apiClient.get(
+      '/tenant/finance/foundation/journals/export',
+      {
+        params: {
+          ...bookParams(scope),
+          mode: search.mode,
+          from: search.from,
+          to: search.to,
+        },
+        signal,
+      },
+    );
+    const result = z
+      .object({
+        schema: z.literal('FINANCE_JOURNAL_EXPORT_V1'),
+        tenantId: z.string().uuid(),
+        legalEntityId: z.string().uuid(),
+        bookId: z.string().uuid(),
+        mode: z.enum(['VALIDATION', 'LIVE']),
+        from: z.iso.date(),
+        to: z.iso.date(),
+        journals: z
+          .array(
+            journalSummarySchema.extend({
+              payload: z.record(z.string(), z.unknown()),
+            }),
+          )
+          .max(1000),
+        evidenceHash: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .parse(data);
+    if (
+      result.tenantId !== scope.tenantId ||
+      result.legalEntityId !== scope.legalEntityId ||
+      result.bookId !== scope.bookId ||
+      result.mode !== search.mode ||
+      result.from !== search.from ||
+      result.to !== search.to ||
+      result.journals.some(
+        (j) =>
+          j.accountingDate < search.from ||
+          j.accountingDate > search.to ||
+          j.financialEffects !== (search.mode === 'LIVE' ? 1 : 0),
+      )
+    )
+      throw new Error('Journal export does not match the selected scope.');
+    return result;
+  },
+  async journals(
+    scope: FoundationScope,
+    search: JournalSearch,
+    signal?: AbortSignal,
+  ) {
+    const { data } = await apiClient.get(
+      '/tenant/finance/foundation/journals',
+      {
+        params: { ...bookParams(scope), ...search, limit: 50 },
+        signal,
+      },
+    );
+    const page = journalPageSchema.parse(data);
+    if (
+      page.mode !== search.mode ||
+      page.journals.some(
+        (j) =>
+          j.accountingDate < search.from ||
+          j.accountingDate > search.to ||
+          j.financialEffects !== (search.mode === 'LIVE' ? 1 : 0),
+      )
+    )
+      throw new Error('Journal results do not match the requested scope.');
+    return page;
+  },
   async scopes(signal?: AbortSignal): Promise<FoundationScope[]> {
     const { data } = await apiClient.get('/tenant/finance/foundation/scopes', {
       signal,
@@ -101,5 +235,36 @@ export const foundationReadApi = {
       );
     }
     return document;
+  },
+  async readiness(
+    scope: FoundationScope,
+    summary: FoundationDocumentSummary,
+    signal?: AbortSignal,
+  ) {
+    if (summary.kind !== 'CURRENCY_CONTEXT' || summary.state !== 'REVIEWED')
+      throw new Error('Select an independently reviewed currency context.');
+    const { data } = await apiClient.get(
+      '/tenant/finance/foundation/readiness',
+      {
+        params: {
+          ...bookParams(scope),
+          contextId: summary.id,
+          contextHash: summary.subject_hash,
+        },
+        signal,
+      },
+    );
+    const result = readinessSchema.parse(data);
+    if (
+      result.scope.tenantId !== scope.tenantId ||
+      result.scope.legalEntityId !== scope.legalEntityId ||
+      result.scope.bookId !== scope.bookId ||
+      result.contextId !== summary.id ||
+      result.contextHash !== summary.subject_hash
+    )
+      throw new Error(
+        'Readiness does not match the selected book and context.',
+      );
+    return result;
   },
 };

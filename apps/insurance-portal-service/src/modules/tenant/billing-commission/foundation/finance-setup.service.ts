@@ -18,6 +18,10 @@ import {
 } from './finance-configuration.types';
 import { FINANCE_SETUP_CATALOG } from './finance-setup.catalog';
 import { validateSetupConfiguration } from './finance-setup-configuration';
+import {
+  prepareProductMap,
+  productMapMatchesLegalScope,
+} from './finance-setup-product-map';
 import { ADMIN_ROLE_BY_COMPANY_TYPE } from '../../../platform/companies/access-rules';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { financeChartSourceMapHash } from './finance-chart.snapshot';
@@ -25,6 +29,7 @@ import type { FinanceLegalEntitySourceMap } from './entities/finance-legal-entit
 import { readSetupTaxRules, selectSetupTaxRules } from './finance-setup-tax';
 import {
   setupLegalIdentifiers,
+  setupProductCoversInterval,
   isDemonstrationIdentifier,
 } from './finance-setup-legal';
 import {
@@ -406,16 +411,12 @@ export class FinanceSetupService {
         for (const id of a.productIds) {
           const p = inventory.products.find((p: any) => p.id === id);
           need(
-            p?.is_active &&
-              p.lifecycle_status === 'ACTIVE' &&
-              p.current_version_id &&
-              ['ACTIVE', 'PUBLISHED'].includes(p.version_status) &&
-              (!p.effective_from ||
-                (input.effectiveFrom &&
-                  p.effective_from <= input.effectiveFrom)) &&
-              (!p.effective_to ||
-                (input.effectiveFrom && p.effective_to > input.effectiveFrom)),
-            'Every selected product must have a current, applicable active version owned by this company.',
+            setupProductCoversInterval(
+              p,
+              input.effectiveFrom,
+              input.effectiveTo,
+            ),
+            'Every selected product must have a current active version owned by this company covering the full setup interval.',
           );
         }
       for (const purpose of ['LICENCE', 'TIN', 'REGISTRATION'])
@@ -536,6 +537,41 @@ export class FinanceSetupService {
           } as any);
         } catch {
           issues.push(`${r.kind} needs its complete typed setup contract.`);
+        }
+        if (
+          r.kind === 'POSTING_RULES' &&
+          input.purpose === 'COMPANY_SETUP' &&
+          !full.payload?.productMapping
+        ) {
+          issues.push(
+            'A reviewed complete product mapping is required for company setup.',
+          );
+        }
+        if (r.kind === 'POSTING_RULES' && full.payload?.productMapping) {
+          try {
+            await prepareProductMap(
+              m,
+              actor.sourceCompanyId!,
+              full.payload,
+              r.effective_from,
+              r.effective_to,
+              false,
+            );
+            const legalScope = latest.find((step) => step.step === 'G04-01');
+            const selectedProducts =
+              legalScope?.subject?.input?.answers?.productIds;
+            need(
+              productMapMatchesLegalScope(
+                selectedProducts,
+                full.payload.productMapping.entries,
+              ),
+              'In-scope product mappings must match the independently reviewed legal perimeter.',
+            );
+          } catch {
+            issues.push(
+              'Product mapping source or version changed; prepare and review a new configuration.',
+            );
+          }
         }
         if (r.kind === 'TAX_RULES') {
           const taxIds = full.payload.sourceTaxRuleIds;

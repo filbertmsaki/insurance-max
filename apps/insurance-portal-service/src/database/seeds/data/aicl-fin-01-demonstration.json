@@ -1,0 +1,143 @@
+{
+  "purpose": "DEMONSTRATION_ONLY",
+  "status": "PROPOSED_NOT_IMPORTED",
+  "livePosting": false,
+  "notice": "Synthetic identifiers, balances, accounts and approvals are not company or regulatory evidence.",
+  "companyLookup": {
+    "slug": "alliance-insurance-corporation",
+    "expectedName": "ALLIANCE INSURANCE CORPORATION"
+  },
+  "entity": {
+    "code": "AICL-TZ-001",
+    "legalName": "Alliance Insurance Corporation Ltd",
+    "tradingName": "Alliance Insurance",
+    "profile": "INSURER",
+    "jurisdiction": "TZ",
+    "status": "DRAFT",
+    "sourceSystem": "Insurance Max Portal",
+    "demonstrationIdentifiers": {
+      "licence": "DEMO-TIRA-001",
+      "tax": "DEMO-TIN-001",
+      "registration": "DEMO-BRELA-001",
+      "licenceStatus": "ACTIVE",
+      "issuedOn": "2026-01-01",
+      "expiresOn": "2026-12-31",
+      "verified": false
+    }
+  },
+  "books": [
+    {
+      "code": "AICL-IFRS-GL",
+      "name": "AICL IFRS General Ledger",
+      "basis": "IFRS",
+      "status": "DRAFT",
+      "posting": "DISABLED"
+    },
+    {
+      "code": "AICL-STAT-TZ",
+      "name": "AICL Statutory Reporting",
+      "basis": "STATUTORY",
+      "status": "DRAFT",
+      "posting": "DISABLED"
+    },
+    {
+      "code": "AICL-OPS-BRIDGE",
+      "name": "AICL Operational Bridge",
+      "basis": "OPERATIONAL_BRIDGE",
+      "status": "DRAFT",
+      "posting": "DISABLED"
+    }
+  ],
+  "sampleDocuments": [
+    "DEMO-LIC-2026-001",
+    "DEMO-REG-001",
+    "DEMO-TIN-CERT-001",
+    "DEMO-OWN-001",
+    "DEMO-FIN-AUTH-001"
+  ],
+  "samplePeople": [
+    "demo.finance.preparer@aicl.example",
+    "demo.finance.reviewer@aicl.example",
+    "demo.company.admin@aicl.example",
+    "demo.finance.approver@aicl.example",
+    "demo.finance.release@aicl.example"
+  ],
+  "productLabels": [
+    "MOTOR",
+    "FLEET",
+    "SHORT_TERM",
+    "FIRE",
+    "MARINE",
+    "GIT",
+    "ENGINEERING",
+    "MISC",
+    "ACCIDENT"
+  ],
+  "shortTermProduct": {
+    "productCode": "SP014001000000",
+    "riskCode": "SP014001000007",
+    "coverDays": 29,
+    "currency": "TZS",
+    "bookCode": "AICL-IFRS-GL",
+    "productId": null,
+    "versionId": null
+  },
+  "currencies": {
+    "functional": "TZS",
+    "presentation": ["TZS"],
+    "transaction": ["TZS", "USD", "EUR", "GBP", "KES"],
+    "scale": 2,
+    "roundingProposal": "HALF_UP",
+    "rateSourceProposal": "Bank of Tanzania",
+    "maxAgeProposal": "1 business day"
+  },
+  "calendar": {
+    "code": "AICL-CAL-2026",
+    "timezone": "Africa/Dar_es_Salaam",
+    "start": "2026-01-01",
+    "endExclusive": "2027-01-01",
+    "periodsInitiallyAvailableForPosting": false
+  },
+  "chartProposal": [
+    ["1000", "Assets", "HEADER"],
+    ["1100", "Cash and Bank", "ASSET"],
+    ["1200", "Insurance Receivables", "ASSET"],
+    ["1300", "Reinsurance Recoverables", "ASSET"],
+    ["1400", "Investments", "ASSET"],
+    ["1500", "Insurance Contract Assets", "ASSET"],
+    ["2000", "Liabilities", "HEADER"],
+    ["2100", "Insurance Contract Liabilities", "LIABILITY"],
+    ["2200", "Reinsurance Payables", "LIABILITY"],
+    ["2300", "Claims and Other Payables", "LIABILITY"],
+    ["2400", "Tax Liabilities", "LIABILITY"],
+    ["3000", "Equity", "HEADER"],
+    ["3100", "Share Capital", "EQUITY"],
+    ["3200", "Retained Earnings", "EQUITY"],
+    ["4000", "Income", "HEADER"],
+    ["4100", "Insurance Revenue", "INCOME"],
+    ["4200", "Reinsurance Service Result", "REPORTING_MAPPING"],
+    ["4300", "Investment Income", "INCOME"],
+    ["5000", "Expenses", "HEADER"],
+    ["5100", "Insurance Service Expenses", "EXPENSE"],
+    ["5200", "Insurance Acquisition Expenses", "EXPENSE"],
+    ["5300", "Administrative Expenses", "EXPENSE"],
+    ["5400", "Insurance Finance Expenses", "EXPENSE"],
+    ["5500", "Foreign Exchange Gain or Loss", "REPORTING_MAPPING"]
+  ],
+  "openingProposal": {
+    "cutoff": "2025-12-31",
+    "currency": "TZS",
+    "amountsAreSynthetic": true,
+    "lines": [
+      { "account": "1100", "debit": "2000000000", "credit": "0" },
+      { "account": "1200", "debit": "1200000000", "credit": "0" },
+      { "account": "1300", "debit": "800000000", "credit": "0" },
+      { "account": "1400", "debit": "2500000000", "credit": "0" },
+      { "account": "2100", "debit": "0", "credit": "3000000000" },
+      { "account": "2200", "debit": "0", "credit": "500000000" },
+      { "account": "2300", "debit": "0", "credit": "500000000" },
+      { "account": "3100", "debit": "0", "credit": "2000000000" },
+      { "account": "3200", "debit": "0", "credit": "500000000" }
+    ]
+  }
+}

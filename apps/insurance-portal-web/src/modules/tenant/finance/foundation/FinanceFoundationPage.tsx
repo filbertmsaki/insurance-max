@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { JournalSearchPanel } from './JournalSearch';
 import {
   foundationReadApi,
   FOUNDATION_READ,
@@ -93,6 +94,21 @@ function DocumentDetails({
     ],
     queryFn: ({ signal }) => foundationReadApi.document(scope, summary, signal),
   });
+  const readiness = useQuery({
+    ...readOptions,
+    enabled: false,
+    refetchInterval: false,
+    queryKey: [
+      'finance-foundation',
+      ...identity,
+      ...scopeKey(scope),
+      'readiness',
+      summary.id,
+      summary.subject_hash,
+    ],
+    queryFn: ({ signal }) =>
+      foundationReadApi.readiness(scope, summary, signal),
+  });
   if (detail.isError)
     return (
       <ReadError error={detail.error} refresh={() => void detail.refetch()} />
@@ -125,6 +141,48 @@ function DocumentDetails({
           A document decision alone does not activate policies, deploy a book or
           authorize posting.
         </p>
+        {document.kind === 'CURRENCY_CONTEXT' &&
+          document.state === 'REVIEWED' && (
+            <section
+              className="space-y-2 rounded-md border p-3"
+              aria-label="Foundation release controls"
+            >
+              <h3 className="font-semibold">Foundation release controls</h3>
+              <p className="text-sm text-slate-600">
+                This checks the selected foundation context only. It does not
+                certify the complete Finance service or activate posting.
+              </p>
+              <Button
+                variant="outline"
+                disabled={readiness.isFetching}
+                onClick={() => void readiness.refetch()}
+              >
+                Check foundation readiness
+              </Button>
+              {readiness.isError && (
+                <ReadError
+                  error={readiness.error}
+                  refresh={() => void readiness.refetch()}
+                />
+              )}
+              {!readiness.isError && readiness.data && (
+                <div role="status" className="text-sm">
+                  <p>
+                    {readiness.data.productionEligible
+                      ? 'Foundation controls report no blockers for this context.'
+                      : 'Foundation controls have outstanding blockers.'}
+                  </p>
+                  {readiness.data.blockers.length > 0 && (
+                    <ul className="list-disc pl-5">
+                      {readiness.data.blockers.map((blocker, index) => (
+                        <li key={index}>{blocker}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
         <div>
           <h3 className="mb-2 text-sm font-semibold">Recorded contents</h3>
           <pre
@@ -354,6 +412,7 @@ function BookReview({
           identity={identity}
         />
       )}
+      <JournalSearchPanel scope={scope} identity={identity} />
     </div>
   );
 }

@@ -64,6 +64,15 @@ export interface FinanceSourceEnvelope {
     snapshot_id: string;
     snapshot_hash: string;
     source_revision: number;
+    dimensions?: {
+      book_id: string;
+      dimension_release_id: string;
+      dimension_release_hash: string;
+      source_association_id: string;
+      source_association_hash: string;
+      branch_id: string | null;
+      product_id: string | null;
+    }[];
   };
   payload_hash: string;
 }
@@ -322,10 +331,16 @@ export function normalizeSourceEnvelope(bytes: Buffer): FinanceSourceEnvelope {
     p.source_reference.version !== p.aggregate.revision
   )
     fail('Source reference and aggregate revision must agree.');
+  const dimensionsPresent =
+    !!p.payload &&
+    typeof p.payload === 'object' &&
+    !Array.isArray(p.payload) &&
+    Object.hasOwn(p.payload, 'dimensions');
   approvalFields(p.payload, [
     'snapshot_id',
     'snapshot_hash',
     'source_revision',
+    ...(dimensionsPresent ? ['dimensions'] : []),
   ]);
   if (
     !candidateText(p.payload.snapshot_id) ||
@@ -334,6 +349,41 @@ export function normalizeSourceEnvelope(bytes: Buffer): FinanceSourceEnvelope {
     financeConfigurationHash(p.payload) !== p.payload_hash
   )
     fail('Exact source snapshot hash and aggregate revision are required.');
+  if (dimensionsPresent) {
+    if (
+      !Array.isArray(p.payload.dimensions) ||
+      !p.payload.dimensions.length ||
+      p.payload.dimensions.length > 20
+    )
+      fail('Signed dimension evidence must cover a bounded nonempty book set.');
+    const books = new Set<string>();
+    for (const dimension of p.payload.dimensions) {
+      approvalFields(dimension, [
+        'book_id',
+        'dimension_release_id',
+        'dimension_release_hash',
+        'source_association_id',
+        'source_association_hash',
+        'branch_id',
+        'product_id',
+      ]);
+      if (
+        !uuid(dimension.book_id) ||
+        !uuid(dimension.dimension_release_id) ||
+        !hash(dimension.dimension_release_hash) ||
+        !uuid(dimension.source_association_id) ||
+        !hash(dimension.source_association_hash) ||
+        (dimension.branch_id !== null && !uuid(dimension.branch_id)) ||
+        (dimension.product_id !== null && !uuid(dimension.product_id)) ||
+        (dimension.branch_id === null && dimension.product_id === null) ||
+        books.has(dimension.book_id.toLowerCase())
+      )
+        fail(
+          'Signed dimension evidence needs unique books and exact reviewed references.',
+        );
+      books.add(dimension.book_id.toLowerCase());
+    }
+  }
   for (const field of [
     'event_id',
     'delivery_id',

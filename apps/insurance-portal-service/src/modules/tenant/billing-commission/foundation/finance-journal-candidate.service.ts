@@ -2,7 +2,9 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
+  Optional,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
@@ -27,6 +29,15 @@ import {
 import type { FinanceBookSelection } from './finance-scope.service';
 import { retainedChartAuthorized } from './finance-retained-chart';
 import { FinanceApprovalService } from './finance-approval.service';
+import {
+  FINANCE_JOURNAL_DIMENSION_VERIFIER,
+  verifyReviewedDimensionMaster,
+} from './finance-reviewed-dimension-master';
+import {
+  previewBranchAllocation,
+  validateAllocationRule,
+  type BranchAllocationPreviewInput,
+} from './finance-branch-allocation';
 import {
   validateApprovalToken,
   type ApprovalToken,
@@ -89,7 +100,115 @@ export class FinanceJournalCandidateService {
     private readonly approvals: FinanceApprovalService = new FinanceApprovalService(
       source,
     ),
+    @Optional()
+    @Inject(FINANCE_JOURNAL_DIMENSION_VERIFIER)
+    private readonly dimensionVerifier: typeof verifyReviewedDimensionMaster = verifyReviewedDimensionMaster,
   ) {}
+
+  /** Creates only an inactive candidate; branch ownership is not established here. */
+  async prepareAllocationInactive(
+    actor: FinanceConfigurationActor,
+    scope: FinanceBookSelection,
+    template: Omit<JournalCandidateInput, 'lines'>,
+    allocation: BranchAllocationPreviewInput,
+    policy: { id: string; hash: string },
+    dimensions: Record<string, string>,
+    reason: string,
+  ): Promise<InactiveJournalCandidate> {
+    if (
+      !template ||
+      !isFinanceDate(template.accountingDate) ||
+      template.correctionOf !== null ||
+      !Number.isInteger(template.decimalScale) ||
+      template.decimalScale < 0 ||
+      template.decimalScale > 12 ||
+      !dimensions ||
+      typeof dimensions !== 'object' ||
+      Array.isArray(dimensions) ||
+      [
+        'BRANCH',
+        'ALLOCATION_RELEASE',
+        'ALLOCATION_HASH',
+        'ALLOCATION_MINOR',
+      ].some((key) => Object.hasOwn(dimensions, key)) ||
+      !policy ||
+      typeof policy.id !== 'string' ||
+      !FINANCE_UUID.test(policy.id) ||
+      typeof policy.hash !== 'string' ||
+      !/^[0-9a-f]{64}$/.test(policy.hash)
+    )
+      throw new BadRequestException(
+        'An original allocation and common dimensions are required.',
+      );
+    const scale = template.decimalScale;
+    const amount = (minor: string) => {
+      if (!scale) return minor;
+      const padded = minor.padStart(scale + 1, '0');
+      return padded.slice(0, -scale) + '.' + padded.slice(-scale);
+    };
+    const lines = previewBranchAllocation(allocation).map((line, index) => ({
+      lineKey: `ALLOC-${String(index + 1).padStart(4, '0')}`,
+      roleCode: line.role,
+      debit: amount(line.debitMinor),
+      credit: amount(line.creditMinor),
+      dimensions: {
+        ...dimensions,
+        BRANCH: line.branch,
+        ALLOCATION_RELEASE: policy.id.toLowerCase(),
+        ALLOCATION_HASH: policy.hash,
+        ALLOCATION_MINOR: allocation.amountMinor,
+      },
+    }));
+    return this.prepareInactive(
+      actor,
+      scope,
+      {
+        ...template,
+        economicOrigin: 'FIN03_ALLOCATION_PREVIEW',
+        economicSourceId: `${policy.id.toLowerCase()}:${template.accountingDate.slice(0, 7)}`,
+        economicComponent: 'MONTHLY_ALLOCATION',
+        sourceRevision: policy.hash,
+        lines,
+      },
+      reason,
+    );
+  }
+
+  async prepareReviewedAllocationInactive(
+    actor: FinanceConfigurationActor,
+    scope: FinanceBookSelection,
+    template: Omit<JournalCandidateInput, 'lines'>,
+    allocation: BranchAllocationPreviewInput,
+    policy: { id: string; hash: string },
+    dimensions: Record<string, string>,
+    occurrence: { id: string; hash: string },
+    reason: string,
+  ) {
+    if (
+      !occurrence ||
+      !FINANCE_UUID.test(occurrence.id ?? '') ||
+      !/^[0-9a-f]{64}$/.test(occurrence.hash ?? '') ||
+      !dimensions ||
+      Object.hasOwn(dimensions, 'ALLOCATION_OCCURRENCE') ||
+      Object.hasOwn(dimensions, 'ALLOCATION_OCCURRENCE_HASH')
+    )
+      throw new BadRequestException(
+        'An exact independently reviewed allocation occurrence is required.',
+      );
+    return this.prepareAllocationInactive(
+      actor,
+      scope,
+      template,
+      allocation,
+      policy,
+      {
+        ...dimensions,
+        ALLOCATION_OCCURRENCE: occurrence.id.toLowerCase(),
+        ALLOCATION_OCCURRENCE_HASH: occurrence.hash,
+      },
+      reason,
+    );
+  }
 
   async createDraftPeriod(
     actor: FinanceConfigurationActor,
@@ -190,6 +309,7 @@ export class FinanceJournalCandidateService {
     scope: FinanceBookSelection,
     value: JournalCandidateInput,
     reason: string,
+    manager?: EntityManager,
   ): Promise<InactiveJournalCandidate> {
     const p = normalizeJournalCandidate(value);
     return this.command(
@@ -200,7 +320,9 @@ export class FinanceJournalCandidateService {
       async (c) => {
         const period = await this.openPeriod(c, p);
         const chart = await this.chart(c, p);
-        const resolved = this.resolveLines(p, chart);
+        await this.verifyAllocationPolicy(c, p);
+        await this.dimensionVerifier(c.manager, this.scope(c), p);
+        const resolved = this.resolveLines(c, p, chart);
         const economicKey = financeConfigurationHash({
           origin: p.economicOrigin,
           sourceId: p.economicSourceId,
@@ -271,6 +393,7 @@ export class FinanceJournalCandidateService {
         await this.event(c, period, row, 'PREPARED_INACTIVE', hash);
         return row;
       },
+      manager,
     );
   }
 
@@ -281,6 +404,7 @@ export class FinanceJournalCandidateService {
     expectedHash: string,
     reason: string,
     approval?: ApprovalToken,
+    manager?: EntityManager,
   ): Promise<InactiveJournalCandidate> {
     this.uuid(id);
     if (!/^[0-9a-f]{64}$/.test(expectedHash))
@@ -344,6 +468,7 @@ export class FinanceJournalCandidateService {
         );
         return validated;
       },
+      manager,
     );
   }
 
@@ -383,7 +508,12 @@ export class FinanceJournalCandidateService {
     row: InactiveJournalCandidate,
     chart: FinanceChartProposal,
   ) {
-    const expected = this.resolveLines(row.payload, chart);
+    await this.verifyAllocationPolicy(c, row.payload, {
+      subjectId: row.maker_subject_id,
+      naturalPersonId: row.maker_natural_person_id,
+    });
+    await this.dimensionVerifier(c.manager, this.scope(c), row.payload);
+    const expected = this.resolveLines(c, row.payload, chart);
     const stored = await c.manager.query(
       'SELECT line_key AS "lineKey",role_code AS "roleCode",account_code AS "accountCode",debit::text,credit::text,dimensions FROM finance_journal_candidate_lines WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND candidate_id=$4 ORDER BY line_key COLLATE "C"',
       [...this.scope(c), row.id],
@@ -416,7 +546,134 @@ export class FinanceJournalCandidateService {
     )
       throw new ConflictException('Persisted candidate must balance exactly.');
   }
-  private resolveLines(p: JournalCandidateInput, chart: FinanceChartProposal) {
+  private async verifyAllocationPolicy(
+    c: Command,
+    p: JournalCandidateInput,
+    maker: Pick<
+      FinanceConfigurationActor,
+      'subjectId' | 'naturalPersonId'
+    > = c.actor,
+  ) {
+    if (p.economicOrigin !== 'FIN03_ALLOCATION_PREVIEW') return;
+    const first = p.lines[0]?.dimensions;
+    if (
+      !first ||
+      !FINANCE_UUID.test(first.ALLOCATION_RELEASE ?? '') ||
+      !/^[0-9a-f]{64}$/.test(first.ALLOCATION_HASH ?? '') ||
+      !/^[1-9]\d{0,29}$/.test(first.ALLOCATION_MINOR ?? '')
+    )
+      throw new ConflictException(
+        'An exact reviewed allocation rule is required.',
+      );
+    if (
+      p.economicSourceId !==
+        `${first.ALLOCATION_RELEASE.toLowerCase()}:${p.accountingDate.slice(0, 7)}` ||
+      p.economicComponent !== 'MONTHLY_ALLOCATION' ||
+      p.sourceRevision !== first.ALLOCATION_HASH
+    )
+      throw new ConflictException(
+        'An exact allocation rule and monthly occurrence identity are required.',
+      );
+    const [release] = await c.manager.query(
+      `SELECT *, effective_from::text AS start_date, effective_to::text AS end_date FROM finance_configuration_releases WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND id=$4 AND kind='DIMENSIONS' AND state='REVIEWED_INACTIVE' FOR SHARE`,
+      [...this.scope(c), first.ALLOCATION_RELEASE],
+    );
+    const rule = release?.payload;
+    if (
+      !release ||
+      release.release_hash !== first.ALLOCATION_HASH ||
+      release.start_date > p.accountingDate ||
+      (release.end_date && release.end_date <= p.accountingDate) ||
+      rule?.schema !== 'FINANCE_ALLOCATION_RULE_V1' ||
+      rule.activationAuthorized !== false ||
+      rule.frequency !== 'MONTHLY' ||
+      !Number.isInteger(rule.dayOfMonth) ||
+      rule.dayOfMonth < 1 ||
+      rule.dayOfMonth > 28 ||
+      Number(p.accountingDate.slice(8)) !== rule.dayOfMonth
+    )
+      throw new ConflictException(
+        'An effective reviewed monthly allocation rule is required.',
+      );
+    validateAllocationRule(rule);
+    const allocation = {
+      sourceBranch: rule.sourceBranch,
+      expenseRole: rule.expenseRole,
+      interbranchRole: rule.interbranchRole,
+      targets: rule.targets,
+      amountMinor: first.ALLOCATION_MINOR,
+    };
+    const common = { ...first };
+    delete common.BRANCH;
+    const amount = (minor: string) => {
+      if (!p.decimalScale) return minor;
+      const padded = minor.padStart(p.decimalScale + 1, '0');
+      return (
+        padded.slice(0, -p.decimalScale) + '.' + padded.slice(-p.decimalScale)
+      );
+    };
+    const expected = normalizeJournalCandidate({
+      ...p,
+      lines: previewBranchAllocation(allocation).map((line, index) => ({
+        lineKey: `ALLOC-${String(index + 1).padStart(4, '0')}`,
+        roleCode: line.role,
+        debit: amount(line.debitMinor),
+        credit: amount(line.creditMinor),
+        dimensions: { ...common, BRANCH: line.branch },
+      })),
+    });
+    if (canonicalFinanceJson(expected.lines) !== canonicalFinanceJson(p.lines))
+      throw new ConflictException(
+        'Allocation lines differ from the exact reviewed rule.',
+      );
+    if (
+      first.ALLOCATION_OCCURRENCE !== undefined ||
+      first.ALLOCATION_OCCURRENCE_HASH !== undefined
+    ) {
+      if (
+        !FINANCE_UUID.test(first.ALLOCATION_OCCURRENCE ?? '') ||
+        !/^[0-9a-f]{64}$/.test(first.ALLOCATION_OCCURRENCE_HASH ?? '')
+      )
+        throw new ConflictException(
+          'An exact reviewed allocation occurrence is required.',
+        );
+      const [evidence] = await c.manager.query(
+        `SELECT o.*,o.occurrence_date::text AS day,r.occurrence_hash AS reviewed_hash,r.reviewer_subject_id,r.reviewer_natural_person_id FROM finance_allocation_preview_occurrences o JOIN finance_allocation_preview_reviews r ON r.tenant_id=o.tenant_id AND r.legal_entity_id=o.legal_entity_id AND r.book_id=o.book_id AND r.occurrence_id=o.id WHERE o.tenant_id=$1 AND o.legal_entity_id=$2 AND o.book_id=$3 AND o.id=$4 FOR SHARE OF o,r`,
+        [...this.scope(c), first.ALLOCATION_OCCURRENCE],
+      );
+      const d = evidence?.payload?.dimension;
+      if (
+        !evidence ||
+        evidence.subject_hash !== first.ALLOCATION_OCCURRENCE_HASH ||
+        evidence.reviewed_hash !== evidence.subject_hash ||
+        financeConfigurationHash(evidence.payload) !== evidence.subject_hash ||
+        evidence.reviewer_subject_id === maker.subjectId ||
+        evidence.reviewer_natural_person_id === maker.naturalPersonId ||
+        evidence.day !== p.accountingDate ||
+        evidence.rule_release_id !== release.id ||
+        evidence.rule_release_hash !== release.release_hash ||
+        evidence.payload.amountMinor !== allocation.amountMinor ||
+        evidence.payload.currency !== p.currency ||
+        evidence.payload.decimalScale !== p.decimalScale ||
+        financeConfigurationHash(evidence.payload.lines) !==
+          financeConfigurationHash(previewBranchAllocation(allocation)) ||
+        !d ||
+        d.companyId !== first.COMPANY ||
+        d.dimensionReleaseId !== first.DIMENSION_RELEASE ||
+        d.dimensionReleaseHash !== first.DIMENSION_HASH ||
+        d.sourceAssociationId !== first.SOURCE_ASSOCIATION ||
+        d.sourceAssociationHash !== first.SOURCE_ASSOCIATION_HASH
+      )
+        throw new ConflictException(
+          'The reviewed allocation occurrence or independent preparer differs.',
+        );
+    }
+  }
+  private resolveLines(
+    c: Command,
+    p: JournalCandidateInput,
+    chart: FinanceChartProposal,
+  ) {
     const roles = new Map(chart.roles.map((r) => [r.code, r]));
     return p.lines.map((line) => {
       const role = roles.get(line.roleCode);
@@ -426,7 +683,14 @@ export class FinanceJournalCandidateService {
           (d) => !candidateText(line.dimensions[d], 200),
         ) ||
         (line.dimensions.CURRENCY !== undefined &&
-          line.dimensions.CURRENCY !== p.currency)
+          line.dimensions.CURRENCY !== p.currency) ||
+        (line.dimensions.TENANT !== undefined &&
+          line.dimensions.TENANT.toLowerCase() !== c.actor.tenantId) ||
+        (line.dimensions.LEGAL_ENTITY !== undefined &&
+          line.dimensions.LEGAL_ENTITY.toLowerCase() !==
+            c.scope.legalEntityId) ||
+        (line.dimensions.BOOK !== undefined &&
+          line.dimensions.BOOK.toLowerCase() !== c.scope.bookId)
       )
         throw new ConflictException(
           'Every line needs an assigned chart role and compatible explicitly required draft dimensions.',
@@ -527,6 +791,7 @@ export class FinanceJournalCandidateService {
     permission: Permission,
     reason: string,
     work: (c: Command) => Promise<T>,
+    existingManager?: EntityManager,
   ): Promise<T> {
     if (
       !actor ||
@@ -555,7 +820,7 @@ export class FinanceJournalCandidateService {
       bookId: scope.bookId.toLowerCase(),
     });
     try {
-      return await this.source.transaction(async (manager) => {
+      const execute = async (manager: EntityManager) => {
         const params = [actor.tenantId, scope.legalEntityId, scope.bookId];
         const [book] = await manager.query(
           "SELECT id FROM finance_accounting_books WHERE tenant_id=$1 AND legal_entity_id=$2 AND id=$3 AND state IN ('DRAFT','ACTIVE') FOR UPDATE",
@@ -597,7 +862,18 @@ export class FinanceJournalCandidateService {
             'Journal-candidate authority expired before completion.',
           );
         return result;
-      });
+      };
+      if (existingManager) {
+        if (
+          existingManager.connection !== this.source ||
+          !existingManager.queryRunner?.isTransactionActive
+        )
+          throw new ForbiddenException(
+            'An active transaction on this Finance database is required.',
+          );
+        return await execute(existingManager);
+      }
+      return await this.source.transaction(execute);
     } catch (error) {
       if (
         (error as { driverError?: { code?: string } })?.driverError?.code ===

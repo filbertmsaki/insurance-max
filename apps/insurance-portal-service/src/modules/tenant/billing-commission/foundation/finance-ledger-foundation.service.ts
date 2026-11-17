@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Optional,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
@@ -18,6 +23,12 @@ import {
 } from './finance-journal-candidate.types';
 import { verifyAcceptedSource } from './finance-accepted-source';
 import { retainedChartAuthorized } from './finance-retained-chart';
+import {
+  FINANCE_JOURNAL_DIMENSION_VERIFIER,
+  verifyReviewedDimensionMaster,
+} from './finance-reviewed-dimension-master';
+import { normalizeSourceEnvelope } from './finance-event.types';
+import { verifyEventJournalDimensions } from './finance-event-journal-dimensions';
 import { policyDefinition, policyDefinitionHash } from './finance-policy.types';
 import {
   CurrencyContextInput,
@@ -74,7 +85,12 @@ export interface FoundationDocument {
 /** B43-B45 canonical ledger adapter. VALIDATION and LIVE populations never mix. */
 @Injectable()
 export class FinanceLedgerFoundationService {
-  constructor(@InjectDataSource() private readonly source: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly source: DataSource,
+    @Optional()
+    @Inject(FINANCE_JOURNAL_DIMENSION_VERIFIER)
+    private readonly dimensionVerifier: typeof verifyReviewedDimensionMaster = verifyReviewedDimensionMaster,
+  ) {}
 
   async scopes(user: { id: string; companyId?: string | null }) {
     uuid(user?.id);
@@ -580,8 +596,13 @@ export class FinanceLedgerFoundationService {
         foundationFail(
           'An exact independently validated B08/B09 candidate in this book is required.',
         );
-      const p = normalizeJournalCandidate(candidate.payload),
-        chart = await this.chart(c, config, p.accountingDate);
+      const p = normalizeJournalCandidate(candidate.payload);
+      if (p.economicOrigin === 'FIN03_ALLOCATION_PREVIEW')
+        foundationFail(
+          'FIN-03 allocation previews cannot be accepted into a ledger.',
+        );
+      await this.dimensionVerifier(c.manager, c.ids, p);
+      const chart = await this.chart(c, config, p.accountingDate);
       const maximum = c.limits[p.currency];
       if (
         !maximum ||
@@ -733,8 +754,9 @@ export class FinanceLedgerFoundationService {
           source.expected!,
           source.deliveryId ?? null,
         );
-        acceptedSnapshotId = JSON.parse(accepted.raw_body.toString('utf8'))
-          .payload.snapshot_id;
+        const sourceEvent = normalizeSourceEnvelope(accepted.raw_body);
+        verifyEventJournalDimensions(sourceEvent, c.scope.bookId, p);
+        acceptedSnapshotId = sourceEvent.payload.snapshot_id;
         if (
           source.expected!.companyId !== config.sourceCompanyId ||
           p.economicOrigin !== accepted.source_system ||
@@ -1062,6 +1084,154 @@ export class FinanceLedgerFoundationService {
       },
     );
   }
+  async searchJournals(
+    actor: FoundationActor,
+    scope: FinanceBookSelection,
+    input: {
+      mode: FoundationMode;
+      from: string;
+      to: string;
+      limit: number;
+      beforeDate?: string;
+      beforeId?: string;
+    },
+  ) {
+    modeOnly(input.mode);
+    dateOnly(input.from);
+    dateOnly(input.to);
+    if (
+      input.from > input.to ||
+      !Number.isInteger(input.limit) ||
+      input.limit < 1 ||
+      input.limit > 100
+    )
+      foundationFail(
+        'A valid date range and a limit from one to one hundred are required.',
+      );
+    if ((input.beforeDate === undefined) !== (input.beforeId === undefined))
+      foundationFail('Both journal cursor fields are required.');
+    if (input.beforeDate !== undefined) {
+      dateOnly(input.beforeDate);
+      uuid(input.beforeId);
+      if (input.beforeDate < input.from || input.beforeDate > input.to)
+        foundationFail(
+          'Journal cursor must be within the selected date range.',
+        );
+    }
+    return this.command(
+      actor,
+      scope,
+      'READ',
+      'Search scoped immutable journals',
+      async (c) => {
+        const rows = await c.manager.query(
+          `SELECT j.*,j.accounting_date::text accounting_date,j.transaction_date::text transaction_date FROM finance_foundation_journals j WHERE j.tenant_id=$1 AND j.legal_entity_id=$2 AND j.book_id=$3 AND j.mode=$4 AND j.accounting_date BETWEEN $5::date AND $6::date AND ($7::date IS NULL OR (j.accounting_date,j.id)<($7::date,$8::uuid)) ORDER BY j.accounting_date DESC,j.id DESC LIMIT $9`,
+          [
+            ...c.ids,
+            input.mode,
+            input.from,
+            input.to,
+            input.beforeDate ?? null,
+            input.beforeId ?? null,
+            input.limit + 1,
+          ],
+        );
+        const hasMore = rows.length > input.limit;
+        const page = rows.slice(0, input.limit);
+        for (const journal of page) await this.verifyJournal(c, journal);
+        return {
+          journals: page.map((j) => ({
+            id: j.id,
+            accountingDate: j.accounting_date,
+            transactionDate: j.transaction_date,
+            transactionCurrency: j.transaction_currency,
+            functionalCurrency: j.functional_currency,
+            kind: j.kind,
+            reversalOf: j.reversal_of,
+            subjectHash: j.subject_hash,
+            financialEffects: j.financial_effects,
+          })),
+          hasMore,
+          nextCursor: hasMore
+            ? {
+                beforeDate: page[page.length - 1].accounting_date,
+                beforeId: page[page.length - 1].id,
+              }
+            : null,
+          mode: input.mode,
+        };
+      },
+    );
+  }
+
+  async exportJournals(
+    actor: FoundationActor,
+    scope: FinanceBookSelection,
+    input: { mode: FoundationMode; from: string; to: string },
+  ) {
+    modeOnly(input.mode);
+    dateOnly(input.from);
+    dateOnly(input.to);
+    if (input.from > input.to)
+      foundationFail('A valid journal export date range is required.');
+    return this.command(
+      actor,
+      scope,
+      'READ',
+      'Export verified scoped journals',
+      async (c) => {
+        const [size] = await c.manager.query(
+          `SELECT count(*)::integer AS journals,coalesce(sum(jsonb_array_length(payload->'lines')),0)::bigint AS lines FROM (SELECT j.payload FROM finance_foundation_journals j WHERE j.tenant_id=$1 AND j.legal_entity_id=$2 AND j.book_id=$3 AND j.mode=$4 AND j.accounting_date BETWEEN $5::date AND $6::date ORDER BY j.accounting_date,j.id LIMIT 1001) AS selected`,
+          [...c.ids, input.mode, input.from, input.to],
+        );
+        if (size.journals > 1000 || BigInt(size.lines) > 10000n)
+          foundationFail(
+            'Journal export exceeds 1000 journals or 10000 lines; select a smaller date range.',
+          );
+        const journals = await c.manager.query(
+          `SELECT j.*,j.accounting_date::text AS accounting_date,j.transaction_date::text AS transaction_date FROM finance_foundation_journals j WHERE j.tenant_id=$1 AND j.legal_entity_id=$2 AND j.book_id=$3 AND j.mode=$4 AND j.accounting_date BETWEEN $5::date AND $6::date ORDER BY j.accounting_date,j.id LIMIT 1001`,
+          [...c.ids, input.mode, input.from, input.to],
+        );
+        if (journals.length > 1000)
+          foundationFail(
+            'Journal export exceeds 1000 journals; select a smaller date range.',
+          );
+        let lines = 0;
+        for (const journal of journals) {
+          await this.verifyJournal(c, journal);
+          lines += journal.payload.lines.length;
+          if (lines > 10000)
+            foundationFail(
+              'Journal export exceeds 10000 lines; select a smaller date range.',
+            );
+        }
+        const exported = journals.map((journal) => ({
+          id: journal.id,
+          subjectHash: journal.subject_hash,
+          kind: journal.kind,
+          reversalOf: journal.reversal_of,
+          accountingDate: journal.accounting_date,
+          transactionDate: journal.transaction_date,
+          transactionCurrency: journal.transaction_currency,
+          functionalCurrency: journal.functional_currency,
+          financialEffects: journal.financial_effects,
+          payload: journal.payload,
+        }));
+        const manifest = {
+          schema: 'FINANCE_JOURNAL_EXPORT_V1',
+          tenantId: c.actor.tenantId,
+          legalEntityId: c.scope.legalEntityId,
+          bookId: c.scope.bookId,
+          mode: input.mode,
+          from: input.from,
+          to: input.to,
+          journals: exported,
+        };
+        return { ...manifest, evidenceHash: hash(manifest) };
+      },
+    );
+  }
+
   async journal(
     actor: FoundationActor,
     scope: FinanceBookSelection,
@@ -1223,6 +1393,7 @@ export class FinanceLedgerFoundationService {
           'Release scope or historical protection differs from its reviewed B45 evidence.',
         );
       const config = normalizeCurrencyContext(context.payload);
+      await this.releaseCoverage(c, config, input.activeFrom, input.activeTo);
       const opening = await this.reviewed(
         c,
         input.openingId,
@@ -1599,6 +1770,7 @@ export class FinanceLedgerFoundationService {
     c: Command,
     p: CurrencyContextInput,
     date: string,
+    through?: string,
   ): Promise<FinanceChartProposal> {
     const [r] = await c.manager.query(
       "SELECT *,effective_from::text effective_from,effective_to::text effective_to FROM finance_configuration_releases WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND id=$4 AND state IN ('REVIEWED_INACTIVE','SUPERSEDED_INACTIVE') AND kind='ACCOUNT_ROLES' FOR SHARE",
@@ -1613,10 +1785,12 @@ export class FinanceLedgerFoundationService {
           p.chartReleaseId,
           p.chartReleaseHash,
           date,
+          through,
         ))) ||
       r.release_hash !== p.chartReleaseHash ||
       r.effective_from > date ||
       (r.effective_to && r.effective_to <= date) ||
+      (through && r.effective_to && r.effective_to < through) ||
       r.payload.schema !== 'FINANCE_CHART_SNAPSHOT_V1' ||
       r.payload.entityProfile !== c.profile
     )
@@ -1628,6 +1802,21 @@ export class FinanceLedgerFoundationService {
       c.profile,
       r.dependency_refs,
     );
+  }
+  private async releaseCoverage(
+    c: Command,
+    config: CurrencyContextInput,
+    from: string,
+    to: string,
+  ) {
+    if (
+      from < config.effectiveFrom ||
+      (config.effectiveTo && to > config.effectiveTo)
+    )
+      foundationFail(
+        'The currency context must cover the entire release interval.',
+      );
+    await this.chart(c, config, from, to);
   }
   private async revalidate(c: Command, d: FoundationDocument) {
     if (d.kind === 'CURRENCY_CONTEXT') {
@@ -1710,6 +1899,12 @@ export class FinanceLedgerFoundationService {
         );
       if (acceptance.parent_id !== context.id)
         foundationFail('Release and technical acceptance contexts differ.');
+      await this.releaseCoverage(
+        c,
+        normalizeCurrencyContext(context.payload),
+        d.payload.activeFrom,
+        d.payload.activeTo,
+      );
       await this.policies(
         c,
         normalizeCurrencyContext(context.payload),

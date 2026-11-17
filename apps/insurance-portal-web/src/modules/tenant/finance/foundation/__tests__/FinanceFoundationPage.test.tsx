@@ -24,7 +24,12 @@ import {
 
 vi.mock('../api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api')>()),
-  foundationReadApi: { scopes: vi.fn(), documents: vi.fn(), document: vi.fn() },
+  foundationReadApi: {
+    scopes: vi.fn(),
+    documents: vi.fn(),
+    document: vi.fn(),
+    readiness: vi.fn(),
+  },
 }));
 const api = vi.mocked(foundationReadApi);
 let client: QueryClient;
@@ -64,6 +69,51 @@ afterEach(() => {
 });
 
 describe('Read-only foundation workspace', () => {
+  it('checks only the selected reviewed context and hides stale results after denial', async () => {
+    const reviewed = { ...summary, state: 'REVIEWED' as const };
+    api.documents.mockResolvedValue([reviewed]);
+    api.document.mockResolvedValue({ ...document, state: 'REVIEWED' });
+    api.readiness
+      .mockResolvedValueOnce({
+        scope: {
+          tenantId: scope.tenantId,
+          legalEntityId: scope.legalEntityId,
+          bookId: scope.bookId,
+        },
+        contextId: reviewed.id,
+        contextHash: reviewed.subject_hash,
+        acceptanceScope: 'FOUNDATION_ONLY',
+        overallFinanceProductionAccepted: false,
+        technicalAcceptance: false,
+        productionEligible: false,
+        blockers: ['B45_INDEPENDENT_TECHNICAL_ACCEPTANCE_REQUIRED'],
+        policyActivation: false,
+        financialEffects: 0,
+      })
+      .mockRejectedValueOnce({ response: { status: 403 } });
+    mount();
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'View CONTEXT-A' }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Check foundation readiness' }),
+    );
+    expect(
+      await screen.findByText('B45_INDEPENDENT_TECHNICAL_ACCEPTANCE_REQUIRED'),
+    ).toBeVisible();
+    expect(api.readiness).toHaveBeenCalledWith(
+      scope,
+      reviewed,
+      expect.any(AbortSignal),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Check foundation readiness' }),
+    );
+    expect(await screen.findByText(/Read access is unavailable/)).toBeVisible();
+    expect(
+      screen.queryByText('B45_INDEPENDENT_TECHNICAL_ACCEPTANCE_REQUIRED'),
+    ).not.toBeInTheDocument();
+  });
   it('offers the navigation entry only to a company user with the explicit read permission', () => {
     const finance = NAV_NODES.find(
       (n) => n.kind === 'group' && n.label === 'Finance',

@@ -15,6 +15,26 @@ The ten workflows cover legal/product scope, people and independent authority, a
 
 Setup review does not activate a policy, enable a posting rule, open a live period, accept a journal, approve a release or authorize cutover. Financial posting, actual company acceptance and future implementation phases retain their separate controls. Historical paid invoices must not be rewritten to complete setup.
 
+Users with configuration preparation permission can also use **Prepare chart of accounts** in the configuration tab. Enter account hierarchy, normal sides, roles, dimension and decision references, and optionally an exact reviewed predecessor. Choose an authorized source association and hold or propose a role for each observed source account, recording a separate reason for each, or state why the source is unbound. The server revalidates the typed chart, scoped source authority, account population and maker/checker controls. Saving the draft does not activate the chart or certify opening balances.
+
+When superseding a reviewed chart, the editor can load its exact scoped account
+and role definitions. Source associations and dispositions are deliberately not
+copied: select and review the current source inventory for the new version.
+Loading a predecessor never submits, reviews or activates its successor.
+
+In the read-only foundation workspace, an independently reviewed currency
+context can be checked against the foundation readiness endpoint. The displayed
+result covers only the exact book and context; it does not approve a release or
+establish production readiness for all Finance modules.
+
+The editor highlights duplicate codes, invalid or cyclic account hierarchies,
+roles referring to removed or nonposting accounts, duplicate dimension/decision
+references and unresolved tax-role assignments before submission. Proposed
+legacy mappings also require an active source account and matching control
+status; source codes 2100 and 4200 remain held under the existing chart rules.
+These checks provide early feedback; the server remains authoritative and
+rechecks source ownership and current evidence on preparation and review.
+
 ## Configuration contracts
 
 The 13 families reuse `finance-configuration.types.ts` and the existing chart, source-contract, route, reliability, exception, quotation-memo and receivables contracts. Four previously generic families gain setup-specific contracts:
@@ -27,6 +47,19 @@ The 13 families reuse `finance-configuration.types.ts` and the existing chart, s
 | CURRENCY_RULES | FINANCE_CURRENCY_RULES_V1 | Exact reviewed G04-03 assessment reference, currencies/scales/rates/rounding and one FX owner |
 
 Tax configuration reuses both `taxes` and `product_tax_rules` with the shared effective-date validator. It does not introduce another premium/tax calculator. Missing or changed tax evidence is an error, never an implied zero-tax election.
+
+For company setup, the reviewed `POSTING_RULES` payload must also include an
+inactive `productMapping` using `FINANCE_PRODUCT_MAPPING_V1`. Supply one entry
+for every active company product: its exact `productId` and current
+`productVersionId`, `disposition` (`IN_SCOPE` or `EXCLUDED`), review `reason`,
+`riskIds` and `ruleKeys`. Each in-scope entry must list all current active
+risks and reference existing disabled rules; each exclusion has an explicit
+reason and empty risk/rule lists. The configuration effective interval must be
+covered by each in-scope published product version. Creation freezes the source
+inventory hash, and submission, review and G04 completion recheck it. A changed
+product or risk requires a new configuration and review. This is an inactive
+inventory proposal, not a posting adapter, licence decision or approval of
+economic treatment. Do not fill unresolved choices with assumed mappings.
 
 ## Isolated full-flow rehearsal
 
@@ -47,6 +80,12 @@ Required environment:
 | FINANCE_G04_KEEP_COPY | Optional `1` to retain the owned demonstration copy |
 
 Run `node scripts/finance-g04-rehearsal.cjs` after supplying those values privately. The runner does not load `.env`, use `DB_*` fallback, apply source migrations, connect source Redis, start workers or send invitations. By default it drops only the exact database it created. With a retained copy, private synthetic sign-in credentials and storage files are saved beside the private output report; never commit them.
+
+Set `FINANCE_G04_AICL_DEMO=1` and optionally `FINANCE_G04_AICL_BOOK` to use an exact AICL proposal book code and basis with the synthetic identifiers, currencies, calendar and inactive chart. The wrapper below sets `FINANCE_G04_INTEGRATED=1` to review all three books under one synthetic company and entity in one disposable database, with distinct book scopes and authorities. It uses a synthetic product, not actual Alliance records. Each book has an independently reviewed 2027 synthetic validation opening; it is not a live cutover or source/open-item reconciliation. Reporting-only mappings remain held. Rounding and FX decisions remain fixture values, not the proposed business-day rate-age policy. This is not a complete AICL seeder or company acceptance.
+
+For the local Windows development database, `node scripts/finance-aicl-demo-isolated.cjs` provisions an owned temporary PostgreSQL cluster, copies the local database read-only into a private template, runs that AICL mode, stops the cluster and removes the temporary copy. It writes only a sanitized [rehearsal result](AICL-G04-Rehearsal-Result.json) to the repository. It requires local source credentials in the portal `.env` and PostgreSQL binaries; it does not use the source database as a seeding target. The copied data is sensitive and exists temporarily on the local machine.
+
+`finance-aicl-ledger.finance-integration.ts` additionally exercises the proposed chart and synthetic opening amounts, separately for each named book and basis, with synthetic policies, acceptance and a live-mode test journal. Each case owns a separate disposable database; it does not configure all three books together, run their G04 workflows, map real products, certify the historical 2025 opening, or enable the application ledger. Its prospective synthetic live openings and authorities do not constitute company approval.
 
 The 34 acceptance checks cover ten reviewed steps, 13 configuration families, owned evidence delivery/hash validation, cross-scope denial, stale versions, same-person aliases, expired authority, changed source tax rules, quarantined evidence, immutable audit records, dependency invalidation, inactive posting, and unchanged original financial records. Demonstration policy/decision dispositions remain explicitly deferred; they are not real company accounting decisions.
 

@@ -4,7 +4,7 @@
 
 Insurance Max requires a complete, independent Finance Service that owns financial obligations, accounting documents, journals, settlements, reconciliations and balances. This SRS defines the target behavior, the five implementation phases, the 46 baseline backlog steps and all 33 Finance modules. It also records the current implementation separately from legacy capability, company approval and production deployment.
 
-The financial foundation and inactive quotation and receivables control slices are implemented and tested. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
+The financial foundation and inactive quotation, receivables, outgoing-cash and policy-change control slices are implemented with scoped test evidence. The full Finance module, IFRS 17 measurement engine, separately scoped IFRS 9 engine, complete IAS 21 automation and independent-service extraction are not complete. The company-admin review pack and controlled migration plan are prepared; no policy activation, migration execution or historical invoice correction is authorized by this SRS or by a Git push.
 
 **Document control:** IM-FIN-SRS-1.10; prepared 16 November 2026; timezone Africa/Dar_es_Salaam; design lineage IM-FIN-P1-DESIGN v0.1. Business approver: the actual scoped company admin. Technical implementation acceptance remains distinct from company accounting decisions. A private local DRAFT entity/book scope and the confirmed company-admin identity are now assigned for seven-day read access. The nominated additional person now has an active company/HQ account with verified password sign-in and scoped Finance READ only. Email/phone verification and formal Finance preparer/checker appointment remain pending; no non-read mandates are granted. Legal evidence, accounting basis, functional currency, configuration and release dates remain pending review. Private identities and scope IDs are excluded from this public SRS.
 
@@ -19,10 +19,12 @@ The financial foundation and inactive quotation and receivables control slices a
 | B45 foundation acceptance | Technical framework and automated tests passed; formal company acceptance pending | Company decisions and source/worker/financial acceptance; local real sign-in and foundation HTTP access checks passed |
 | Read-only foundation workspace | Company-scoped book/document review, exact-version detail and access/error states implemented; frontend build, 562 frontend tests and 13 fixture browser checks passed | Real company UI access verified locally; formal company acceptance and current read/backend gates remain separate |
 | Policies | 70 proposed policies across 33 modules and 126 inherited decision or acceptance items | 0 actual company approvals or activations in the verified development baseline |
-| B15 and remaining operational Finance | Not started or partial only as individually listed below | Implement approved outgoing cash and remaining domain adapters incrementally |
+| B15 outgoing cash | Inactive preparation, review, reservations, provider-call recovery and bank-evidence controls implemented | Live provider integration, reconciled funding, legal discharge, accounting and release |
+| B16 policy changes and refunds | Inactive policy-change and refund controls implemented; endorsement invoice component correction exists | Source event/outbox integration, reconciliation, live APIs, accounting and release |
+| Remaining operational Finance | Partial or planned as individually listed below | Implement approved remaining domain adapters incrementally |
 | IFRS 17 and IFRS 9 engines | Not implemented as complete independent measurement subsystems | Model scope, data, certified calculations, approvals and one-time Finance movement bridge |
 | Full IAS 21 and complete financial close | Foundational calculations and period controls only | B24 translation/revaluation automation and B32/B33 statements/close |
-| Independent Finance service and own database | Not extracted; foundation currently resides in insurance-portal-service | B40 to B42 after reconciled migration, compatibility and recovery gates |
+| Independent Finance service and own database | Foundation-only standalone process and B05 draft schema migration prepared; operational foundation remains in insurance-portal-service | Authenticated adapters, independent finance workflows and B40 to B42 after reconciled migration, compatibility and recovery gates |
 
 ## Status definitions and evidence rules
 
@@ -175,8 +177,8 @@ No shared database write or shared EntityManager may be assumed to survive servi
 | B45 | Accept Phase 1 Financial Foundation implementation | TECHNICAL TESTS PASSED FORMAL ACCEPTANCE PENDING | B03 B04 B05 B06 B07 B08 B09 B10 B11 B12 B43 B44 |
 | B13 | Separate quotation billing and legal recognition | IMPLEMENTED INACTIVE CONTROL SLICE | B07 B08 B09 B11 B45 |
 | B14 | Control receipts, allocations and receivables | IMPLEMENTED INACTIVE CONTROL SLICE | B13 |
-| B15 | Control outgoing cash and reservations | PLANNED NOT IMPLEMENTED | B09 B11 B14 |
-| B16 | Migrate endorsements, cancellation and refunds | PLANNED NOT IMPLEMENTED | B13 B14 B15 |
+| B15 | Control outgoing cash and reservations | IMPLEMENTED INACTIVE CONTROL SLICE | B09 B11 B14 |
+| B16 | Migrate endorsements, cancellation and refunds | IMPLEMENTED INACTIVE CONTROL SLICE | B13 B14 B15 |
 | B17 | Migrate commissions and acquisition accounting | PLANNED NOT IMPLEMENTED | B13 B15 B16 |
 | B18 | Adapt claims obligations, payments and recoveries | PLANNED NOT IMPLEMENTED | B08 B09 B11 B15 |
 | B19 | Adapt held reinsurance and settlements | PLANNED NOT IMPLEMENTED | B11 B15 B18 |
@@ -445,11 +447,11 @@ No shared database write or shared EntityManager may be assumed to survive servi
 
 ### B15 Control outgoing cash and reservations
 
-**Current state:** PLANNED NOT IMPLEMENTED. Outgoing cash and reservations have not started. Existing legacy payment functions remain in place.
+**Current state:** IMPLEMENTED INACTIVE CONTROL SLICE. Payment preparation, independent review, reservations, durable provider-call recovery, bank evidence reconciliation and separate discharge review exist. Existing legacy payment functions remain authoritative. The [B15 guide](B15-Outgoing-Cash-Guide.md) records isolated tests and the migration as pending in local development; the latest audit did not recheck that database.
 
 **Sequence and dependencies:** 18 / PH2; B09 B11 B14.
 
-**Required implementation:** Implement frozen obligation/payee approval, reservation, provider-stable execution key, query-on-unknown and separate discharge acceptance.
+**Remaining implementation:** Reconcile actual funding and legacy reservations; implement live provider adapters, APIs and workers, bank verification, operational telemetry, tax and withholding, legal discharge and accounting. Obtain company approvals and release acceptance.
 
 **Acceptance:** Provider-call ledger plus concurrent spend, timeout, changed beneficiary, CONFIRMED-but-held accounting and reconciliation tests.
 
@@ -459,11 +461,11 @@ No shared database write or shared EntityManager may be assumed to survive servi
 
 ### B16 Migrate endorsements, cancellation and refunds
 
-**Current state:** PLANNED NOT IMPLEMENTED. Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented.
+**Current state:** IMPLEMENTED INACTIVE CONTROL SLICE. A read-only policy-change source adapter, signed evidence and term review, refund capacity and independent review, and B15 intent binding exist. Endorsement invoice writing preserves separate net, tax, levy and fee components. Existing workflows remain authoritative; these controls do not post journals, discharge liabilities or return money. The [B16 guide](B16-Policy-Change-Guide.md) records isolated tests and B15/B16 migrations as pending in the source development database; the latest audit did not recheck it.
 
 **Sequence and dependencies:** 19 / PH2; B13 B14 B15.
 
-**Required implementation:** Adapt policy-term revisions, entitlement, allocations and actual refund discharge. Link reversals/adjustments to original accepted effects.
+**Remaining implementation:** Integrate a transactional source producer and outbox, reconcile actual policy changes and refund populations, implement live APIs and operational ownership, and complete approved accounting, actual refund discharge, business UAT and release. Modification classification and commission treatment remain separately governed.
 
 **Acceptance:** Before/after source/entitlement/cash vectors, consumed refund/late change/partial correction and business UAT.
 
@@ -809,7 +811,7 @@ No shared database write or shared EntityManager may be assumed to survive servi
 
 ### B41 Approve and extract the independent Finance service
 
-**Current state:** PLAN PREPARED EXECUTION NOT STARTED. This SRS defines the migration and cutover gates; it does not implement the actual population pipeline, logical switch, service extraction or retirement.
+**Current state:** PARTIAL IMPLEMENTATION. A standalone foundation-only process with explicit PostgreSQL configuration, health check and B05 draft schema migration is prepared. It has no Finance command API or portal integration; no data has been migrated and the operational service has not been extracted. See [finance-service README](../../apps/finance-service/README.md).
 
 **Sequence and dependencies:** 44 / DEP; B36 B37 B39 B40.
 
@@ -860,7 +862,7 @@ Each submodule below states the required behavior and the current implementation
 | FR-01-01 | Legal entities and books | IMPLEMENTED AND TESTED IN CODE | Resolve exact tenant, legal entity and book; separate memberships and accounting basis. |
 | FR-01-02 | Trusted source and user bindings | IMPLEMENTED AND TESTED IN CODE | Resolve authenticated company and person through explicit current Finance bindings and mandates. |
 | FR-01-03 | Business profile configuration | PARTIAL IMPLEMENTATION | Support insurer, broker, reinsurer and other profiles without company-name defaults; actual applicability and approved setup remain outstanding. |
-| FR-01-04 | Independent Finance service | PLANNED NOT IMPLEMENTED | Extract into an independent NestJS service with its own PostgreSQL, APIs, workers and operating controls after B40 and B41. |
+| FR-01-04 | Independent Finance service | PARTIAL IMPLEMENTATION | A standalone process and draft scope schema migration exist; authenticated APIs, workers, independent financial workflows and reconciled extraction remain outstanding under B40–B42. |
 
 **Steps:** B01 B05 B06 B10 B45 B21 B46 B37 B38 B40 B41 B42. **Acceptance criteria:** AC01 AC02 AC41 AC55 AC58 AC60.
 
@@ -874,8 +876,8 @@ Each submodule below states the required behavior and the current implementation
 | --- | --- | --- | --- |
 | FR-02-01 | Versioned chart and account roles | IMPLEMENTED AND TESTED IN CODE | Validate reviewed chart versions, role vectors, account classes and effective intervals. |
 | FR-02-02 | Legacy account crosswalk | PARTIAL IMPLEMENTATION | Retain existing accounts and require evidenced mapping; no automatic conversion or live chart switch. |
-| FR-02-03 | Chart supersession | IMPLEMENTED AND TESTED IN CODE | Keep the separately approved pinned chart when a successor is only reviewed inactive. |
-| FR-02-04 | Company chart maintenance | AWAITING COMPANY ADMIN ACCEPTANCE | Approve actual account releases, source mappings, accounting dimensions and deployment scope. |
+| FR-02-03 | Chart supersession | IMPLEMENTED AND TESTED IN CODE | Keep the separately approved pinned chart when a successor is only reviewed inactive; release preparation and revalidation require chart and currency context to cover the complete release interval. |
+| FR-02-04 | Company chart maintenance | PARTIAL IMPLEMENTATION | The Finance setup workspace can prepare typed inactive charts, roles, held/proposed legacy dispositions and exact reviewed predecessors. Actual account releases, source mappings, accounting dimensions and deployment scope still require independent review and company acceptance. |
 
 **Steps:** B02 B04 B06 B07 B45 B34. **Acceptance criteria:** AC03 AC05.
 
@@ -887,12 +889,18 @@ Each submodule below states the required behavior and the current implementation
 
 | Requirement | Submodule | Current status | Required behavior |
 | --- | --- | --- | --- |
-| FR-03-01 | Journal dimensions | IMPLEMENTED AND TESTED IN CODE | Pin required scope and dimensions in exact candidate and ledger vectors. |
+| FR-03-01 | Journal dimensions | PARTIAL IMPLEMENTATION | Candidate validation checks required dimensions and rejects TENANT, LEGAL_ENTITY and BOOK values that contradict journal scope; migration adds database fences for new candidate and ledger lines. Existing rows require audit and constraint validation; company dimension masters remain incomplete. |
 | FR-03-02 | Dimension definitions and allocation | PARTIAL IMPLEMENTATION | Reviewed configuration supports validation; full company dimension masters, branch balancing and allocation elections require setup. |
 | FR-03-03 | Cross book and entity isolation | IMPLEMENTED AND TESTED IN CODE | Reject scope substitution and cross-book evidence or exports. |
-| FR-03-04 | Management allocation workflow | PLANNED NOT IMPLEMENTED | Implement governed recurring allocation and interbranch balancing where approved. |
+| FR-03-04 | Management allocation workflow | PARTIAL IMPLEMENTATION | Reviewed rules and scoped worker scheduling produce auditable inactive balanced previews; authenticated worker management, company-master checks, human review, candidate preparation and bounded prior-month recovery exist. Signed source delivery uses scoped worker authority and verified receiver receipts before advancing revisions. Independent execution remains fenced pending key bootstrap and human identity integration; authenticated browser testing and ledger acceptance remain incomplete. |
 
 **Steps:** B01 B05 B06 B07 B44 B45 B46 B37 B41. **Acceptance criteria:** AC02 AC04.
+
+The FIN-03 scope-fence migration is not evidence that it has been applied to an environment. It installs `NOT VALID` constraints: new and updated rows are checked, but historical rows must be audited and the constraints validated separately. Scope keys remain optional unless required by the reviewed chart. The database fence itself does not validate business dimensions or authorize posting.
+
+Code also includes company-scoped branch/product snapshot selection and deterministic, balanced interbranch allocation previews. An inactive scheduler checks exact reviewed schedule, rule and company-master references, and uses a scoped worker authority to create immutable previews with append-only audits. Authenticated company admins can grant or revoke bounded authority. The scheduler recovers one earliest missing month per run within a 100-year bound. An authorized independent human may review a preview, after which a different authorized preparer can create an inactive candidate pinned to that occurrence. Allocation preview candidates remain ledger-blocked. The scheduler is disabled unless a worker identity is configured, and the migrations grant no authority. Portal UI testing, independent finance-service deployment, and ledger acceptance remain incomplete; FR-03-02 and FR-03-04 are partial.
+
+The authenticated setup configuration workflow can optionally freeze selected active company-owned branches and effective published product versions in a bounded dimension configuration, and rechecks the source observation before submission and independent review. For non-preview journal candidates, a `BRANCH`, `PRODUCT`, or company-master reference requires the same exact reviewed dimension release, reviewed source association and company on every line. Preparation, independent candidate validation and ledger acceptance recheck scope, effective dates, source ownership and current source records. Previously prepared candidates carrying these dimensions without the required evidence will be held on revalidation or acceptance. Allocation previews remain ledger-blocked. Signed event previews can optionally carry signed, hash-pinned branch/product evidence for every routed book and validate it against the reviewed company master; when an accepted inbox event is used for a journal, the company, release references and branch/product values must match every line, and a journal cannot add those dimensions to a reference-only event. Existing reference-only events and journals without these dimensions remain supported. This control does not activate a master or authorize posting.
 
 **Policies:** AP-03.01 Financial dimensions and branch allocation.
 
@@ -906,6 +914,8 @@ Each submodule below states the required behavior and the current implementation
 | FR-04-02 | Manual journals and candidate review | IMPLEMENTED AND TESTED IN CODE | Prepare B08 candidates, obtain independent B09 validation and separately authorize ledger acceptance. |
 | FR-04-03 | Controlled reversals | IMPLEMENTED AND TESTED IN CODE | Link original journal and invert original carrying amounts, account roles, dimensions and FX evidence. |
 | FR-04-04 | Live company posting | AWAITING COMPANY ADMIN ACCEPTANCE | Require approved active policies, exact release, open period, current limits and reconciled opening before actual posting. |
+
+The portal foundation exposes scoped, mode-separated journal search with bounded date filters, keyset pagination and integrity verification before results are returned. Its read-only workspace can export the current page as CSV or export the selected date range as a JSON evidence manifest, bounded to 1,000 journals and 10,000 lines; the server verifies each journal and hashes the scoped manifest in a single repeatable-read transaction. The independent Finance database includes empty journal and ledger structures, and its read-only journal search and export endpoints require a verified portal session, an independent book grant and a matching ledger identity and read authority. The independent journal services use the signed company-source dimension verifier instead of querying portal master tables. They do not yet expose a journal write lifecycle or own the active ledger. Templates, supporting-document workflows, authenticated end-to-end UI testing and company acceptance remain to be assessed and completed; the existing portal implementation and isolated tests do not establish module closure.
 
 **Steps:** B01 B02 B05 B06 B07 B08 B09 B10 B11 B43 B44 B45 B21 B23 B24 B33 B35 B40 B41. **Acceptance criteria:** AC01 AC04 AC06 AC07 AC08 AC09 AC32 AC44.
 
@@ -965,7 +975,7 @@ Each submodule below states the required behavior and the current implementation
 | FR-08-01 | Existing receipt and payment reference flow | EXISTING LEGACY CAPABILITY | Preserve current invoice balances, payment references, provider callbacks and receipt allocation workflows. |
 | FR-08-02 | Confirmed receipt ownership | IMPLEMENTED AND TESTED IN CODE | B14 inactive controls preserve original bank reference, aliases, owner book, gross receipt, net bank amount and fee evidence. |
 | FR-08-03 | Availability and assignment controls | IMPLEMENTED AND TESTED IN CODE | Require inherited allocated, reserved and refunded evidence; reject missing values and preserve negative availability as a reconciliation hold. |
-| FR-08-04 | Outgoing cash and reservations | PLANNED NOT IMPLEMENTED | B15 must implement separately approved payment intent, beneficiary, reservation, provider execution and settlement controls. |
+| FR-08-04 | Outgoing cash and reservations | PARTIAL IMPLEMENTATION | Inactive intent, independent review, reservation, test-only provider recovery and bank-evidence controls exist; live execution, legal discharge and accounting remain gated. |
 | FR-08-05 | Live collections replacement | PLANNED NOT IMPLEMENTED | Complete real producer subscriptions, bank reconciliation and policy-approved discharge before replacing existing cash flows. |
 
 **Steps:** B02 B04 B07 B09 B10 B11 B12 B43 B45 B13 B14 B15 B16 B17 B18 B19 B24 B34 B35 B36 B39 B40 B41 B42. **Acceptance criteria:** AC09 AC11 AC12 AC14 AC16 AC40 AC46 AC48 AC49 AC51.
@@ -994,8 +1004,8 @@ Each submodule below states the required behavior and the current implementation
 | Requirement | Submodule | Current status | Required behavior |
 | --- | --- | --- | --- |
 | FR-10-01 | Existing policy lifecycle | EXISTING LEGACY CAPABILITY | Preserve issuance, endorsement, cancellation and renewal functionality. |
-| FR-10-02 | Finance modification adapter | PLANNED NOT IMPLEMENTED | B16 must identify premium deltas, refunds, tax corrections and recognition consequences from versioned policy events. |
-| FR-10-03 | Refund and reinstatement accounting | PLANNED NOT IMPLEMENTED | Link receipts, reservations, outgoing cash and reversals without editing settled historical invoices. |
+| FR-10-02 | Finance modification adapter | PARTIAL IMPLEMENTATION | B16 reads applied policy changes and reviews signed component and entitlement evidence; source outbox integration and approved recognition remain outstanding. |
+| FR-10-03 | Refund and reinstatement accounting | PARTIAL IMPLEMENTATION | Inactive refund capacity, reversal links and B15 intent binding exist; actual payment, accounting and legal discharge remain outstanding. Historical paid invoices remain preserved. |
 | FR-10-04 | Modification versus new contract | AWAITING COMPANY ADMIN ACCEPTANCE | Approve product-specific policy and model classification before affected accounting activation. |
 
 **Steps:** B13 B16. **Acceptance criteria:** AC16.

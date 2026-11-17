@@ -23,6 +23,9 @@
     "tiramis:api-key:create": "node -r ts-node/register -r tsconfig-paths/register scripts/create-tiramis-api-key.ts",
     "tiramis:api-key:create:production": "node scripts/create-tiramis-api-key.production.js",
     "build:insurance-portal-service": "nest build insurance-portal-service",
+    "build:finance-service": "nest build finance-service",
+    "start:finance-service": "node dist/apps/finance-service/finance-service/src/main.js",
+    "migration:run:finance-service": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/finance-service/src/database/data-source.ts migration:run",
     "build:insurance-portal-web": "npm --prefix apps/insurance-portal-web run build",
     "build:all": "npm run build:tiramis && npm run build:insurance-portal-service && npm run build:insurance-portal-web",
     "lint": "npm run lint:backend",
@@ -76,6 +79,7 @@
     "seed:tiramis:config": "node -r ts-node/register -r tsconfig-paths/register apps/tiramis/src/database/seeders/seed-tiramis-config.ts",
     "seed:tiramis:config:production": "node dist/apps/tiramis/apps/tiramis/src/database/seeders/seed-tiramis-config.js",
     "seed:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/run-seed.ts",
+    "seed:aicl-fin-01-demo": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/run-aicl-fin-01-demo.ts",
     "seed:insurance-vehicle-reference-data": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/run-vehicle-reference-seed.ts",
     "seed:insurance-portal-service:production": "node dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/seeds/run-seed.js",
     "tiramis:sync-webhook-keys": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/scripts/sync-tiramis-webhook-keys.ts"

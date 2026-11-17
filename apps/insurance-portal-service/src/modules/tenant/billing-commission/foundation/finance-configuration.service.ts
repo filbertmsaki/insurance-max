@@ -15,6 +15,8 @@ import { FinanceConfigurationRelease } from './entities/finance-configuration-re
 import { FinanceConfigurationEvent } from './entities/finance-configuration-event.entity';
 import type { FinanceBookSelection } from './finance-scope.service';
 import { validateApprovalProfile } from './finance-approval.types';
+import { validateAllocationRule } from './finance-branch-allocation';
+import { validateAllocationSchedule } from './finance-allocation-schedule.types';
 import { validateEventContract } from './finance-event.types';
 import { validateIntegrationProfile } from './finance-integration.types';
 import { operationsProfile } from './finance-operations.types';
@@ -188,6 +190,19 @@ export class FinanceConfigurationService {
             );
           // Parse a detached snapshot: the caller cannot mutate it during awaits.
           payload = JSON.parse(canonicalFinanceJson(input.payload));
+          if (
+            input.kind === 'DIMENSIONS' &&
+            payload.schema === 'FINANCE_ALLOCATION_RULE_V1'
+          )
+            validateAllocationRule(payload);
+          if (
+            input.kind === 'DIMENSIONS' &&
+            [
+              'FINANCE_ALLOCATION_SCHEDULE_V1',
+              'FINANCE_ALLOCATION_SCHEDULE_V2',
+            ].includes(String(payload.schema))
+          )
+            validateAllocationSchedule(payload);
         }
         const old = input.supersedesId
           ? await manager.getRepository(FinanceConfigurationRelease).findOneBy({
@@ -778,6 +793,23 @@ export class FinanceConfigurationService {
         release.dependency_refs,
         checks,
       );
+      return;
+    }
+    if (
+      release.kind === 'DIMENSIONS' &&
+      release.payload.schema === 'FINANCE_ALLOCATION_RULE_V1'
+    ) {
+      validateAllocationRule(release.payload);
+      return;
+    }
+    if (
+      release.kind === 'DIMENSIONS' &&
+      [
+        'FINANCE_ALLOCATION_SCHEDULE_V1',
+        'FINANCE_ALLOCATION_SCHEDULE_V2',
+      ].includes(String(release.payload.schema))
+    ) {
+      validateAllocationSchedule(release.payload);
       return;
     }
     if (release.kind !== 'SOURCE_ASSOCIATIONS') return;

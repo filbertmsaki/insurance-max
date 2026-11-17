@@ -131,6 +131,8 @@ const overview = z.object({
           account_code: z.string(),
           account_name: z.string(),
           account_type: z.string(),
+          is_active: z.boolean().optional(),
+          is_control_account: z.boolean().optional(),
         })
         .passthrough(),
     ),
@@ -234,6 +236,69 @@ function sameScope(a: SetupOverview['scope'], s: FoundationScope) {
   );
 }
 export const setupApi = {
+  async allocationPreviews(s: FoundationScope, signal?: AbortSignal) {
+    const { data } = await apiClient.get(`${base}/allocation-previews`, {
+      params: scopeParams(s),
+      signal,
+    });
+    const parsed = z
+      .object({
+        postingAuthorized: z.literal(false),
+        previews: z.array(
+          z
+            .object({
+              id: z.string().uuid(),
+              subject_hash: hash,
+              occurrence_date: z.string(),
+              review_id: z.string().uuid().nullable(),
+              payload: z
+                .object({
+                  tenantId: z.string().uuid(),
+                  legalEntityId: z.string().uuid(),
+                  bookId: z.string().uuid(),
+                  postingAuthorized: z.literal(false),
+                  amountMinor: z.string(),
+                  currency: z.string(),
+                  decimalScale: z.number().int(),
+                  lines: z.array(
+                    z.object({
+                      branch: z.string(),
+                      role: z.string(),
+                      debitMinor: z.string(),
+                      creditMinor: z.string(),
+                    }),
+                  ),
+                })
+                .passthrough(),
+            })
+            .passthrough(),
+        ),
+      })
+      .parse(data);
+    if (
+      parsed.previews.some(
+        (p) =>
+          p.payload.tenantId !== s.tenantId ||
+          p.payload.legalEntityId !== s.legalEntityId ||
+          p.payload.bookId !== s.bookId,
+      )
+    )
+      throw new Error('Allocation preview does not match the selected book.');
+    return parsed.previews;
+  },
+  async reviewAllocationPreview(
+    s: FoundationScope,
+    id: string,
+    subjectHash: string,
+    reason: string,
+  ) {
+    return (
+      await apiClient.post(
+        `${base}/allocation-previews/${encodeURIComponent(id)}/review`,
+        { scope: scopeParams(s), subjectHash, reason },
+      )
+    ).data;
+  },
   async evidence(s: FoundationScope, e: SetupEvidence) {
     return apiClient.get<Blob>(`${base}/evidence/${encodeURIComponent(e.id)}`, {
       params: {

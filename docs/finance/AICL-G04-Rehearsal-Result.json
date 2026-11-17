@@ -1,0 +1,527 @@
+{
+  "purpose": "ISOLATED_INTEGRATED_THREE_BOOK_REHEARSAL",
+  "runs": [
+    {
+      "purpose": "ISOLATED_SYNTHETIC_DEMONSTRATION_ONLY",
+      "startedAt": "2026-11-17T08:44:59.306Z",
+      "finishedAt": "2026-11-17T08:46:26.390Z",
+      "passed": true,
+      "checkCount": 121,
+      "checks": [
+        {
+          "name": "Three demo books share one tenant, entity and company",
+          "passed": true
+        },
+        {
+          "name": "AICL proposal books are unconfigured drafts",
+          "passed": true
+        },
+        {
+          "name": "Synthetic AICL opening proposal balances without a posting",
+          "passed": true
+        },
+        {
+          "name": "New demonstration scope starts incomplete",
+          "passed": true
+        },
+        {
+          "name": "G04-01 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-02 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-03 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-04 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-05 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-06 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "All thirteen real configuration contracts independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-07 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-08 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-09 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-10 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "Ten-step demonstration completes without company approval or activation",
+          "passed": true
+        },
+        {
+          "name": "Other book is denied",
+          "passed": true
+        },
+        {
+          "name": "Other company identity is denied",
+          "passed": true
+        },
+        {
+          "name": "Changed exact-version hash is denied",
+          "passed": true
+        },
+        {
+          "name": "Stale draft version is refused",
+          "passed": true
+        },
+        {
+          "name": "Setup declarations cannot replace native company policy approval",
+          "passed": true
+        },
+        {
+          "name": "Maker alias cannot independently review",
+          "passed": true
+        },
+        {
+          "name": "Expired identity is denied",
+          "passed": true
+        },
+        {
+          "name": "Expired preparation authority is denied",
+          "passed": true
+        },
+        {
+          "name": "Changed source tax rule invalidates setup completion",
+          "passed": true
+        },
+        {
+          "name": "Quarantined evidence invalidates prerequisites and final completion",
+          "passed": true
+        },
+        {
+          "name": "A new draft invalidates dependent reviews instead of silently preserving acceptance",
+          "passed": true
+        },
+        {
+          "name": "Immutable setup version cannot be rewritten",
+          "passed": true
+        },
+        {
+          "name": "Immutable setup audit event cannot be deleted",
+          "passed": true
+        },
+        {
+          "name": "Actual financial posting remains held",
+          "passed": true
+        },
+        {
+          "name": "No policy approval, book activation or deployment was created",
+          "passed": true
+        },
+        {
+          "name": "Original invoices, items, receipts, journals and accounts unchanged",
+          "passed": true
+        },
+        {
+          "name": "Owned exact-version evidence bytes can be reviewed",
+          "passed": true
+        },
+        {
+          "name": "Changed evidence bytes are refused",
+          "passed": true
+        },
+        {
+          "name": "An unrelated document version cannot be downloaded",
+          "passed": true
+        },
+        {
+          "name": "Successful evidence access is audited exactly once",
+          "passed": true
+        },
+        {
+          "name": "Rolled-back negative tests leave the demonstration fully reviewed",
+          "passed": true
+        },
+        {
+          "name": "Synthetic 2027 opening cannot be self-reviewed",
+          "passed": true
+        },
+        {
+          "name": "Synthetic 2027 opening independently reviewed and balanced for AICL-IFRS-GL",
+          "passed": true
+        },
+        {
+          "name": "AICL proposal books are unconfigured drafts",
+          "passed": true
+        },
+        {
+          "name": "Synthetic AICL opening proposal balances without a posting",
+          "passed": true
+        },
+        {
+          "name": "New demonstration scope starts incomplete",
+          "passed": true
+        },
+        {
+          "name": "G04-01 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-02 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-03 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-04 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-05 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-06 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "All thirteen real configuration contracts independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-07 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-08 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-09 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-10 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "Ten-step demonstration completes without company approval or activation",
+          "passed": true
+        },
+        {
+          "name": "Other book is denied",
+          "passed": true
+        },
+        {
+          "name": "Other company identity is denied",
+          "passed": true
+        },
+        {
+          "name": "Changed exact-version hash is denied",
+          "passed": true
+        },
+        {
+          "name": "Stale draft version is refused",
+          "passed": true
+        },
+        {
+          "name": "Setup declarations cannot replace native company policy approval",
+          "passed": true
+        },
+        {
+          "name": "Maker alias cannot independently review",
+          "passed": true
+        },
+        {
+          "name": "Expired identity is denied",
+          "passed": true
+        },
+        {
+          "name": "Expired preparation authority is denied",
+          "passed": true
+        },
+        {
+          "name": "Changed source tax rule invalidates setup completion",
+          "passed": true
+        },
+        {
+          "name": "Quarantined evidence invalidates prerequisites and final completion",
+          "passed": true
+        },
+        {
+          "name": "A new draft invalidates dependent reviews instead of silently preserving acceptance",
+          "passed": true
+        },
+        {
+          "name": "Immutable setup version cannot be rewritten",
+          "passed": true
+        },
+        {
+          "name": "Immutable setup audit event cannot be deleted",
+          "passed": true
+        },
+        {
+          "name": "Actual financial posting remains held",
+          "passed": true
+        },
+        {
+          "name": "No policy approval, book activation or deployment was created",
+          "passed": true
+        },
+        {
+          "name": "Original invoices, items, receipts, journals and accounts unchanged",
+          "passed": true
+        },
+        {
+          "name": "Owned exact-version evidence bytes can be reviewed",
+          "passed": true
+        },
+        {
+          "name": "Changed evidence bytes are refused",
+          "passed": true
+        },
+        {
+          "name": "An unrelated document version cannot be downloaded",
+          "passed": true
+        },
+        {
+          "name": "Successful evidence access is audited exactly once",
+          "passed": true
+        },
+        {
+          "name": "Rolled-back negative tests leave the demonstration fully reviewed",
+          "passed": true
+        },
+        {
+          "name": "Synthetic 2027 opening cannot be self-reviewed",
+          "passed": true
+        },
+        {
+          "name": "Synthetic 2027 opening independently reviewed and balanced for AICL-STAT-TZ",
+          "passed": true
+        },
+        {
+          "name": "AICL proposal books are unconfigured drafts",
+          "passed": true
+        },
+        {
+          "name": "Synthetic AICL opening proposal balances without a posting",
+          "passed": true
+        },
+        {
+          "name": "New demonstration scope starts incomplete",
+          "passed": true
+        },
+        {
+          "name": "G04-01 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-02 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-03 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-04 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-05 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-06 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "All thirteen real configuration contracts independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-07 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-08 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-09 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "G04-10 exact version independently reviewed inactive",
+          "passed": true
+        },
+        {
+          "name": "Ten-step demonstration completes without company approval or activation",
+          "passed": true
+        },
+        {
+          "name": "Other book is denied",
+          "passed": true
+        },
+        {
+          "name": "Other company identity is denied",
+          "passed": true
+        },
+        {
+          "name": "Changed exact-version hash is denied",
+          "passed": true
+        },
+        {
+          "name": "Stale draft version is refused",
+          "passed": true
+        },
+        {
+          "name": "Setup declarations cannot replace native company policy approval",
+          "passed": true
+        },
+        {
+          "name": "Maker alias cannot independently review",
+          "passed": true
+        },
+        {
+          "name": "Expired identity is denied",
+          "passed": true
+        },
+        {
+          "name": "Expired preparation authority is denied",
+          "passed": true
+        },
+        {
+          "name": "Changed source tax rule invalidates setup completion",
+          "passed": true
+        },
+        {
+          "name": "Quarantined evidence invalidates prerequisites and final completion",
+          "passed": true
+        },
+        {
+          "name": "A new draft invalidates dependent reviews instead of silently preserving acceptance",
+          "passed": true
+        },
+        {
+          "name": "Immutable setup version cannot be rewritten",
+          "passed": true
+        },
+        {
+          "name": "Immutable setup audit event cannot be deleted",
+          "passed": true
+        },
+        {
+          "name": "Actual financial posting remains held",
+          "passed": true
+        },
+        {
+          "name": "No policy approval, book activation or deployment was created",
+          "passed": true
+        },
+        {
+          "name": "Original invoices, items, receipts, journals and accounts unchanged",
+          "passed": true
+        },
+        {
+          "name": "Owned exact-version evidence bytes can be reviewed",
+          "passed": true
+        },
+        {
+          "name": "Changed evidence bytes are refused",
+          "passed": true
+        },
+        {
+          "name": "An unrelated document version cannot be downloaded",
+          "passed": true
+        },
+        {
+          "name": "Successful evidence access is audited exactly once",
+          "passed": true
+        },
+        {
+          "name": "Rolled-back negative tests leave the demonstration fully reviewed",
+          "passed": true
+        },
+        {
+          "name": "Synthetic 2027 opening cannot be self-reviewed",
+          "passed": true
+        },
+        {
+          "name": "Synthetic 2027 opening independently reviewed and balanced for AICL-OPS-BRIDGE",
+          "passed": true
+        },
+        {
+          "name": "Integrated book independently retains inactive G04 review: AICL-IFRS-GL",
+          "passed": true
+        },
+        {
+          "name": "Integrated cross-book identity is denied: AICL-IFRS-GL",
+          "passed": true
+        },
+        {
+          "name": "Integrated book independently retains inactive G04 review: AICL-STAT-TZ",
+          "passed": true
+        },
+        {
+          "name": "Integrated cross-book identity is denied: AICL-STAT-TZ",
+          "passed": true
+        },
+        {
+          "name": "Integrated book independently retains inactive G04 review: AICL-OPS-BRIDGE",
+          "passed": true
+        },
+        {
+          "name": "Integrated cross-book identity is denied: AICL-OPS-BRIDGE",
+          "passed": true
+        }
+      ],
+      "companyAcceptanceGranted": false,
+      "policiesActivated": 0,
+      "sourceWrites": 0,
+      "limitations": {
+        "company": "SYNTHETIC_COMPANY_NOT_ACTUAL_ALLIANCE",
+        "products": "SYNTHETIC_PRODUCT_NOT_ACTUAL_AICL_MAPPING",
+        "opening": "SYNTHETIC_2027_VALIDATION_OPENING_REVIEWED_NOT_LIVE_OR_ACTUAL_RECONCILIATION",
+        "chart": "INACTIVE_AICL_CHART_REPORTING_MAPPINGS_HELD",
+        "bookCode": "AICL-OPS-BRIDGE",
+        "otherBooks": "G04_REVIEWED_IN_SAME_ISOLATED_DATABASE",
+        "accountingBasisAndFx": "INACTIVE_DEMONSTRATION_ONLY"
+      },
+      "bookRuns": [
+        {
+          "bookCode": "AICL-IFRS-GL",
+          "basis": "IFRS",
+          "checks": 38
+        },
+        {
+          "bookCode": "AICL-STAT-TZ",
+          "basis": "STATUTORY",
+          "checks": 38
+        },
+        {
+          "bookCode": "AICL-OPS-BRIDGE",
+          "basis": "OPERATIONAL_BRIDGE",
+          "checks": 38
+        }
+      ]
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import { FinanceLedgerFoundationService } from '../../src/modules/tenant/billing
 import { FinancePolicyService } from '../../src/modules/tenant/billing-commission/foundation/finance-policy.service';
 import { FinanceJournalCandidateService } from '../../src/modules/tenant/billing-commission/foundation/finance-journal-candidate.service';
 import { FinanceApprovalService } from '../../src/modules/tenant/billing-commission/foundation/finance-approval.service';
+import { retainedChartAuthorized } from '../../src/modules/tenant/billing-commission/foundation/finance-retained-chart';
 import { FOUNDATION_CHECKS } from '../../src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.types';
 const db = withFoundationDatabase;
 describe('B43-B45 integrated ledger and release controls on disposable PostgreSQL', () => {
@@ -69,6 +70,49 @@ describe('B43-B45 integrated ledger and release controls on disposable PostgreSQ
         transaction_date: f.today,
         accounting_date: f.today,
       });
+      const search = {
+        mode: 'VALIDATION' as const,
+        from: f.today,
+        to: f.today,
+        limit: 1,
+      };
+      expect(
+        await f.ledger.searchJournals(f.checker, f.scope, search),
+      ).toMatchObject({
+        journals: [
+          {
+            id: accepted.journalId,
+            subjectHash: accepted.subjectHash,
+            financialEffects: 0,
+          },
+        ],
+        hasMore: false,
+        nextCursor: null,
+      });
+      expect(
+        (
+          await f.ledger.searchJournals(f.checker, f.scope, {
+            ...search,
+            mode: 'LIVE',
+          })
+        ).journals,
+      ).toHaveLength(0);
+      await expect(
+        f.ledger.searchJournals(
+          f.checker,
+          { ...f.scope, bookId: randomUUID() },
+          search,
+        ),
+      ).rejects.toThrow();
+      await expect(
+        f.ledger.searchJournals(f.checker, f.scope, { ...search, limit: 101 }),
+      ).rejects.toThrow();
+      await expect(
+        f.ledger.searchJournals(f.checker, f.scope, {
+          ...search,
+          beforeDate: f.today,
+        }),
+      ).rejects.toThrow();
       const [sums] = await f.source.query(
         'SELECT sum(transaction_debit)::text td,sum(transaction_credit)::text tc,sum(functional_debit)::text fd,sum(functional_credit)::text fc FROM finance_foundation_lines',
       );
@@ -78,6 +122,26 @@ describe('B43-B45 integrated ledger and release controls on disposable PostgreSQ
         fd: '62812.500000000000',
         fc: '62812.500000000000',
       });
+      const another = await f.acceptLedger(
+        await f.prepareLedger({ sourceId: `SEARCH-${randomUUID()}` }),
+      );
+      const firstPage = await f.ledger.searchJournals(
+        f.checker,
+        f.scope,
+        search,
+      );
+      expect(firstPage.hasMore).toBe(true);
+      expect(firstPage.nextCursor).not.toBeNull();
+      const secondPage = await f.ledger.searchJournals(f.checker, f.scope, {
+        ...search,
+        ...firstPage.nextCursor!,
+      });
+      expect(secondPage.hasMore).toBe(false);
+      expect(
+        new Set(
+          [...firstPage.journals, ...secondPage.journals].map((j) => j.id),
+        ),
+      ).toEqual(new Set([accepted.journalId, another.journalId]));
       expect(
         (
           await f.source.query(
@@ -569,6 +633,58 @@ describe('B43-B45 integrated ledger and release controls on disposable PostgreSQ
       },
       { policies: true },
     ));
+  it.each([
+    [
+      'currency context',
+      { contextEffectiveTo: '2026-11-25' },
+      'currency context must cover',
+    ],
+    ['chart', { chartEffectiveTo: '2026-11-25' }, 'Exact reviewed chart'],
+  ])(
+    'holds a release extending beyond its %s interval',
+    (_label, options, message) =>
+      db(
+        async (f) => {
+          await expect(f.prepareLedgerRelease()).rejects.toThrow(message);
+          expect(
+            (
+              await f.source.query(
+                "SELECT count(*)::int n FROM finance_foundation_documents WHERE kind='RELEASE'",
+              )
+            )[0].n,
+          ).toBe(0);
+          expect(
+            (
+              await f.source.query(
+                'SELECT state FROM finance_accounting_books WHERE id=$1',
+                [f.scope.bookId],
+              )
+            )[0].state,
+          ).toBe('DRAFT');
+        },
+        { policies: true, ...options },
+      ),
+  );
+  it('accepts a release ending exactly when the chart and context expire', () =>
+    db(
+      async (f) => {
+        const { r } = await f.prepareLedgerRelease();
+        expect(r.id).toBeTruthy();
+        expect(
+          (
+            await f.source.query(
+              'SELECT state FROM finance_accounting_books WHERE id=$1',
+              [f.scope.bookId],
+            )
+          )[0].state,
+        ).toBe('DRAFT');
+      },
+      {
+        policies: true,
+        contextEffectiveTo: '2026-12-01',
+        chartEffectiveTo: '2026-12-01',
+      },
+    ));
   it('LF20 exercises live-mode posting only after explicit synthetic company-admin approvals and activation', () =>
     db(
       async (f) => {
@@ -997,6 +1113,27 @@ describe('B43-B45 integrated ledger and release controls on disposable PostgreSQ
           'REVIEWED_INACTIVE',
           'Review without changing the live release',
         );
+        const scopeIds = [f.tenantId, f.scope.legalEntityId, f.scope.bookId];
+        expect(
+          await retainedChartAuthorized(
+            f.source.manager,
+            scopeIds,
+            f.chart.id,
+            f.chart.release_hash,
+            f.today,
+            '2026-12-01',
+          ),
+        ).toBe(true);
+        expect(
+          await retainedChartAuthorized(
+            f.source.manager,
+            scopeIds,
+            f.chart.id,
+            f.chart.release_hash,
+            f.today,
+            '2026-12-02',
+          ),
+        ).toBe(false);
         const j = await f.acceptLedger(
           await f.prepareLedger({ sourceId: 'retained-live-chart' }),
           'LIVE',

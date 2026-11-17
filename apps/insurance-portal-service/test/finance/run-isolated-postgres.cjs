@@ -178,6 +178,7 @@ async function main() {
           FINANCE_TEST_PG_PORT: String(port),
           FINANCE_TEST_PG_USER: 'finance_test_admin',
           FINANCE_TEST_PG_PASSWORD: password,
+          FINANCE_TEST_PG_CLUSTER_DIRECTORY: cluster,
         },
       },
     );
