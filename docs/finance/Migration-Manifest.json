@@ -1,5 +1,5 @@
 {
-  "documentId": "IM-FIN-SRS-1.15",
+  "documentId": "IM-FIN-SRS-1.16",
   "date": "2026-11-17",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
@@ -1068,26 +1068,13 @@
     }
   ],
   "sourceHashEncoding": "UTF8_LF",
-  "expectedAppliedMigrationCount": 92,
-  "appliedMigrationLedgerHash": "963468dcd92d4daecfc296819272b3797c46082f476cdb9a54b53c370551eb31",
+  "expectedAppliedMigrationCount": 93,
+  "appliedMigrationLedgerHash": "293466285f15f1682575e47c2daf30c04f6d612a0868f9ba33732e90fa46135c",
   "alreadyAppliedTaxEvidence": {
     "timestamp": "1796900000000",
     "mustNotReapply": true
   },
-  "pendingMigrations": [
-    {
-      "order": 17,
-      "file": "apps/insurance-portal-service/src/database/migrations/1797800000000-FinanceCommissionControlHardening.ts",
-      "name": "FinanceCommissionControlHardening1797800000000",
-      "timestamp": "1797800000000",
-      "sha256": "a72967505ae9ee9c120725288c9b3e555058222191d42d679af04175f8b56b64",
-      "hashEncoding": "UTF8_LF",
-      "createdTables": [],
-      "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
-      "executionAuthorized": false,
-      "companyAccountingPolicyApproval": "NOT_RECEIVED"
-    }
-  ],
+  "pendingMigrations": [],
   "executionAuthorized": false,
   "activationAuthorized": false,
   "historyCorrectionAuthorized": false,
@@ -1450,12 +1437,13 @@
       "sha256": "a72967505ae9ee9c120725288c9b3e555058222191d42d679af04175f8b56b64",
       "hashEncoding": "UTF8_LF",
       "createdTables": [],
-      "executionStatus": "NOT_APPLIED_SOURCE_LOCAL_DEVELOPMENT",
-      "executionAuthorized": false,
-      "companyAccountingPolicyApproval": "NOT_RECEIVED"
+      "executionStatus": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
+      "executionAuthorized": true,
+      "companyAccountingPolicyApproval": "NOT_RECEIVED",
+      "applicationEvidence": "B17-Corrective-Migration-Verification.json"
     }
   ],
-  "appliedFinanceMigrations": 16,
+  "appliedFinanceMigrations": 17,
   "executionAuthorization": {
     "runId": "20261116075345910_3262c12c",
     "status": "EXECUTED_LOCAL_SCHEMA_ONLY",
@@ -1694,9 +1682,20 @@
     "sourceCodeFingerprint": "e384f5874c7a8272ee41ee979d250784b89594b4eb0ba17b92458980dbc19ff4",
     "sourceFileCount": 212,
     "sourceMigrationCommandsExecuted": 0,
-    "installedDatabaseDefinitionCertified": false,
-    "pendingForwardHardening": "FinanceCommissionControlHardening1797800000000",
+    "installedDatabaseDefinitionCertified": true,
+    "pendingForwardHardening": null,
     "newCompanyGrants": 0,
     "policiesActivated": 0
+  },
+  "b17LocalCorrectiveApplication": {
+    "evidence": "B17-Corrective-Migration-Verification.json",
+    "evidenceSha256": "521434b50eba2e155db3bfd0f805ffeb38390b42c255f34133b7609f3b8b55f8",
+    "exactMigrationApplied": "FinanceCommissionControlHardening1797800000000",
+    "explicitUserMigrationApproval": true,
+    "companyAccountingPolicyApproval": false,
+    "policiesActivated": 0,
+    "historicalPaidInvoicesUnchanged": 4,
+    "sourceCodeFingerprint": "e384f5874c7a8272ee41ee979d250784b89594b4eb0ba17b92458980dbc19ff4",
+    "sourceFilesUnchanged": 212
   }
 }
