@@ -1,6 +1,6 @@
 {
-  "date": "2026-11-16",
-  "version": "1.14",
+  "date": "2026-11-18",
+  "version": "1.18",
   "statusDefinitions": {
     "C": "IMPLEMENTED AND TESTED IN CODE",
     "L": "EXISTING LEGACY CAPABILITY",
@@ -311,8 +311,8 @@
       "acceptance": "Commission component/party roll-forwards, cancellation/clawback and settlement reconciliation under selected policy.",
       "criteriaAndDecisions": "AC17 AC40 / DEC-03 DEC-06 DEC-08 DEC-12 DEC-14",
       "reviewer": "Distribution + Controller",
-      "implementationStatus": "PLANNED NOT IMPLEMENTED",
-      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+      "implementationStatus": "IMPLEMENTED INACTIVE CONTROL SLICE",
+      "currentDisposition": "Inactive commission/component and party roll-forwards, independent reviews, B16 adjustments/reversals, B15 settlement bindings and cash reconciliation are tested. The local corrective migration is applied and verified. Acquisition recognition, company approval, live source integration and production cutover remain pending."
     },
     {
       "id": "B18",
@@ -324,8 +324,8 @@
       "acceptance": "Independent paid/case/ultimate/IBNR/current component vectors and source-to-cash tests. Preserve TIRAMIS claims journey.",
       "criteriaAndDecisions": "AC18 AC19 AC40 / DEC-04 DEC-08 DEC-09 DEC-12 DEC-14 DEC-15",
       "reviewer": "Claims + Actuarial + Finance",
-      "implementationStatus": "PLANNED NOT IMPLEMENTED",
-      "currentDisposition": "Existing source-domain functionality is preserved; the new Finance-owned adapter or subsystem is not implemented."
+      "implementationStatus": "IMPLEMENTED INACTIVE CONTROL SLICE; LIVE SOURCE ACCEPTANCE BLOCKED",
+      "currentDisposition": "Case/payable/recovery evidence, native adapters, independent review, shared claim and B14 receipt limits, B15 bindings and cash reconciliation are tested. The B18 migration is pending. Initial historical invoices and Finance setup were observed missing; the separate reset is established, and approved recovery/reconciliation and actual company acceptance remain pending. Measurement/legal recognition and live integration remain inactive."
     },
     {
       "id": "B19",
@@ -1031,19 +1031,19 @@
         {
           "requirementId": "FR-11-02",
           "name": "Commission obligation and settlement",
-          "status": "PLANNED NOT IMPLEMENTED",
+          "status": "PARTIAL: INACTIVE CONTROLS IMPLEMENTED; LIVE ACCOUNTING PENDING",
           "requirement": "B17 must move authoritative obligations and outgoing settlement into Finance after B15."
         },
         {
           "requirementId": "FR-11-03",
           "name": "Acquisition cost treatment",
-          "status": "PLANNED NOT IMPLEMENTED",
+          "status": "PARTIAL: ATTRIBUTION EVIDENCE ONLY; RECOGNITION PENDING",
           "requirement": "Implement approved expense or allocation, recoverability and renewal treatment, coordinated with measurement ownership."
         },
         {
           "requirementId": "FR-11-04",
           "name": "Clawback and commission reconciliation",
-          "status": "PLANNED NOT IMPLEMENTED",
+          "status": "PARTIAL: INACTIVE CONTROLS IMPLEMENTED; LIVE ACCOUNTING PENDING",
           "requirement": "Reconcile cancellation, endorsement and reinsurance commission deltas with controlled recovery."
         }
       ],
@@ -1067,19 +1067,19 @@
         {
           "requirementId": "FR-12-02",
           "name": "Claims obligation and payment adapter",
-          "status": "PLANNED NOT IMPLEMENTED",
+          "status": "PARTIAL: INACTIVE CONTROLS IMPLEMENTED; LIVE SOURCE ACCEPTANCE BLOCKED",
           "requirement": "B18 must create approved Finance obligations, payable and payment movements with recoveries and complete source evidence."
         },
         {
           "requirementId": "FR-12-03",
           "name": "Provisional reserve to measured LIC bridge",
-          "status": "PLANNED NOT IMPLEMENTED",
+          "status": "PARTIAL: COMPONENT EVIDENCE AND HELD COMPARISON; MEASUREMENT POSTING PENDING",
           "requirement": "Map case, IBNR, expense, risk adjustment and discount movements; approved measurement posts only the remaining delta."
         },
         {
           "requirementId": "FR-12-04",
           "name": "Salvage and subrogation",
-          "status": "PLANNED NOT IMPLEMENTED",
+          "status": "PARTIAL: INACTIVE CONTROLS IMPLEMENTED; LIVE SOURCE ACCEPTANCE BLOCKED",
           "requirement": "Approve classification and separate recoveries from insurer liabilities and reinsurance assets."
         }
       ],
@@ -1825,20 +1825,32 @@
     "companyPoliciesActivated": 0
   },
   "localDevelopmentSchema": {
-    "status": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
-    "evidence": "Local-Migration-Application-Verification.json",
-    "appliedFinanceMigrations": 13,
-    "pendingMigrations": 2,
+    "status": "CAUSE_ESTABLISHED_APPROVED_RECOVERY_AND_RECONCILIATION_REQUIRED",
+    "evidence": "B17-Corrective-Migration-Verification.json",
+    "appliedFinanceMigrations": 17,
+    "pendingMigrations": 1,
     "policiesActivated": 0,
     "booksActivated": 0,
     "newEmptyFinanceTablesAtSchemaApplication": 62,
-    "currentNonemptyFinanceRegistries": 8,
-    "currentEmptyNewFinanceTables": 56,
-    "currentMigrationLedger": 89,
-    "currentApplicationTables": 354,
+    "currentMigrationLedger": 93,
+    "currentApplicationTables": 376,
     "latestSetupEvidence": "G04-Implementation-Verification.json",
-    "b15MigrationApplied": false,
-    "b16MigrationApplied": false
+    "b15MigrationApplied": true,
+    "b16MigrationApplied": true,
+    "b17MigrationObservedApplied": true,
+    "b17InstalledDefinitionCertified": true,
+    "b17ForwardHardeningPending": false,
+    "latestSchemaObservationEvidence": "B18-Data-Incident-Verification.json",
+    "sourceMigrationCommandsExecutedThisTask": 0,
+    "companyAccountingApproval": false,
+    "observedEmptyB15B16B17Tables": 22,
+    "b18MigrationApplied": false,
+    "currentLegalEntities": 0,
+    "currentAccountingBooks": 0,
+    "currentSetupVersions": 0,
+    "protectedHistoricalInvoicesPresent": 0,
+    "historicalInvoicePreservationCertified": false,
+    "sourceRestorePerformed": false
   },
   "localDraftReadSetup": {
     "status": "PARTIAL_G04_DRAFT_READ_ONLY_VERIFIED_LOCAL_DEVELOPMENT",
@@ -2791,6 +2803,915 @@
       "Live B16 signed source/outbox integration, actual company scope/accounting/tax approvals, reconciliation, business UAT and release gates remain pending.",
       "Cancellation-charge tax policy, IFRS 17 modification classification and other unresolved policies remain inactive. The shared cancellation invoice behavior was not changed.",
       "Supported charge calculations remain those of the existing catalogue engine (percentage charges on net premium, inclusive/exclusive). Missing or unsupported rule evidence raises validation errors. No tax rate or treatment is invented."
+    ]
+  },
+  "b17": "IMPLEMENTED_INACTIVE_CONTROL_SLICE",
+  "b17Verification": {
+    "documentId": "IM-FIN-B17-INACTIVE-1.0",
+    "date": "2026-11-17",
+    "timeZone": "Africa/Dar_es_Salaam",
+    "baseCommit": "8988eaa349ff50d39e7bd18e51ba50ee4b564cdb",
+    "status": "IMPLEMENTED_AND_VERIFIED_INACTIVE_CONTROL_SLICE",
+    "scope": {
+      "nativeReadOnlyAdapter": true,
+      "nativeCalculationReused": true,
+      "signedB11IntakeRequired": true,
+      "versionedEntitlementChain": true,
+      "separateCommissionTaxWithholdingAndPayable": true,
+      "missingTaxHeld": true,
+      "reviewedB16ClawbackAndReversal": true,
+      "knownUnconsumedPolicyChangesHoldCash": true,
+      "partyAndCurrencyIsolation": true,
+      "independentReview": true,
+      "frozenMakerAuthorityRechecked": true,
+      "legacyPaidAndReservedBaseline": true,
+      "serializedSettlementCapacity": true,
+      "b15CandidateAndExactBinding": true,
+      "unknownCashRetainsCapacity": true,
+      "originalKeyRecovery": true,
+      "principalFeesAndBankMatchingSeparate": true,
+      "acquisitionAttributionProposalsOnly": true,
+      "acquisitionRecognitionImplemented": false,
+      "ifrs17RecognitionImplemented": false,
+      "sourceMigrationCommandsExecuted": 0,
+      "historicalFinancialWrites": 0,
+      "publicRoutes": 0,
+      "newWorkers": 0,
+      "newCompanyGrants": 0,
+      "accountingEffects": 0,
+      "legalDischargeAccepted": false
+    },
+    "tests": {
+      "backend": {
+        "suites": 275,
+        "passed": 2294
+      },
+      "postgres": {
+        "passed": 346,
+        "suites": 18,
+        "ownedClustersStopped": 18,
+        "aggregateOfSeparateIsolatedSuiteRuns": true
+      },
+      "b17Postgres": {
+        "passed": 25
+      },
+      "newUnitCases": 10,
+      "backendBuildPassed": true,
+      "typecheckPassed": true,
+      "changedBackendLintPassed": true,
+      "frontend": "Unchanged; earlier 577-test frontend evidence is historical and was not rerun for B17."
+    },
+    "sourceDevelopment": {
+      "passed": true,
+      "readOnly": true,
+      "sourceWritesByThisVerification": 0,
+      "historicalPaidInvoicesUnchanged": 4,
+      "financialTablesUnchanged": 85,
+      "legacyPermissionAssignmentsUnchanged": true,
+      "roleCatalogueHashMatchesGolden": false,
+      "policiesInactive": true,
+      "booksInactive": true,
+      "commissionAuthorities": 0,
+      "protectedFinancialSchemaAndFunctionStateUnchangedSinceFirstB17Snapshot": true,
+      "sourceSchemaMatchesOlderG04Baseline": false,
+      "observedMigrationLedger": 92,
+      "observedApplicationTables": 376,
+      "b15b16b17ObservedApplied": true,
+      "installedCommissionFunctions": [
+        {
+          "name": "finance_commission_available",
+          "hasPendingSourceGuard": false,
+          "usesUnsafeActionOnSharedTrigger": false
+        },
+        {
+          "name": "finance_commission_eligible",
+          "hasPendingSourceGuard": false,
+          "usesUnsafeActionOnSharedTrigger": false
+        },
+        {
+          "name": "finance_commission_guard",
+          "hasPendingSourceGuard": false,
+          "usesUnsafeActionOnSharedTrigger": true
+        },
+        {
+          "name": "finance_commission_head",
+          "hasPendingSourceGuard": false,
+          "usesUnsafeActionOnSharedTrigger": false
+        },
+        {
+          "name": "finance_commission_immutable",
+          "hasPendingSourceGuard": false,
+          "usesUnsafeActionOnSharedTrigger": false
+        }
+      ],
+      "sourceDefinitionCertified": false,
+      "requiresControlledForwardHardening": true
+    },
+    "database": {
+      "baseMigration": "FinanceCommissionControls1797700000000",
+      "newTables": 7,
+      "baseObservedInstalled": true,
+      "installedDefinitionCertified": false,
+      "hardeningMigration": "FinanceCommissionControlHardening1797800000000",
+      "hardeningAppliedByThisTask": false,
+      "hardeningPending": true,
+      "sourceFinanceMigrationsObservedApplied": 16,
+      "sourceMigrationLedger": 92,
+      "sourceApplicationTables": 376,
+      "sourceExecutionAuthorisedByThisImplementation": false,
+      "companyAccountingApproval": false,
+      "policyActivationAuthorised": false
+    },
+    "cases": [
+      {
+        "name": "CM25 party roll-forward combines separate contracts without netting books or currencies",
+        "status": "passed"
+      },
+      {
+        "name": "CM24 review authority covers the largest commission, tax, withholding or payable component",
+        "status": "passed"
+      },
+      {
+        "name": "CM23 explicit forward hardening replaces an early guard without changing commission evidence",
+        "status": "passed"
+      },
+      {
+        "name": "CM19 known applied policy changes hold cash even before a B17 adjustment arrives",
+        "status": "passed"
+      },
+      {
+        "name": "CM20 a full reversal opposes each accepted original component",
+        "status": "passed"
+      },
+      {
+        "name": "CM21 independent rejection releases an unexecuted reservation and commands stay idempotent",
+        "status": "passed"
+      },
+      {
+        "name": "CM22 a changed maker authority blocks approval of its prepared settlement",
+        "status": "passed"
+      },
+      {
+        "name": "CM01 empty migration is reversible and preserves B16",
+        "status": "passed"
+      },
+      {
+        "name": "CM02 reviewed component and party roll-forward never creates an expense, asset or journal",
+        "status": "passed"
+      },
+      {
+        "name": "CM03 missing tax/withholding remains unresolved and cannot be reviewed or settled",
+        "status": "passed"
+      },
+      {
+        "name": "CM04 same signed delivery and higher workflow alias do not duplicate entitlement",
+        "status": "passed"
+      },
+      {
+        "name": "CM05 changed accepted source is retained as conflict and freezes settlement",
+        "status": "passed"
+      },
+      {
+        "name": "CM06 source identities cannot create the same commission in another book",
+        "status": "passed"
+      },
+      {
+        "name": "CM07 makers, natural-person aliases and revoked authorities cannot review",
+        "status": "passed"
+      },
+      {
+        "name": "CM08 cancellation clawback uses the exact reviewed B16 commission component",
+        "status": "passed"
+      },
+      {
+        "name": "CM09 the same policy-change commission effect cannot be applied twice",
+        "status": "passed"
+      },
+      {
+        "name": "CM10 concurrent requests cannot over-reserve commission payable",
+        "status": "passed"
+      },
+      {
+        "name": "CM11 legacy paid and reserved allocations consume capacity once",
+        "status": "passed"
+      },
+      {
+        "name": "CM12 late clawback exposes overcommitment and blocks new cash without rewriting history",
+        "status": "passed"
+      },
+      {
+        "name": "CM13 reviewed settlement candidate still requires signed B11 intake and exact B15 binding",
+        "status": "passed"
+      },
+      {
+        "name": "CM14 confirmed cash and bank fees reconcile separately and legal discharge stays held",
+        "status": "passed"
+      },
+      {
+        "name": "CM15 timeout then late clawback permits original-key query recovery only",
+        "status": "passed"
+      },
+      {
+        "name": "CM16 attribution proposal cannot activate IFRS17 or create dual expense and asset",
+        "status": "passed"
+      },
+      {
+        "name": "CM17 populated rollback and mutation are rejected",
+        "status": "passed"
+      },
+      {
+        "name": "CM18 direct insert requires audit and cannot bypass the payable capacity guard",
+        "status": "passed"
+      }
+    ],
+    "remaining": [
+      "Company-admin accounting/tax/legal approvals, commission earning/clawback terms and acquisition attribution/allocation/recoverability remain inactive. DEC-03 DEC-06 DEC-08 DEC-12 DEC-14 are unresolved.",
+      "Apply the explicit forward-hardening migration only through an authorised controlled database change. The currently installed early B17 functions are not certified; source schema/role-catalogue drift from the older baseline remains visible.",
+      "Publish and certify native signed source snapshots/outbox routes with commission-tax/withholding evidence. The read-only adapter deliberately holds missing components; it does not default them to zero.",
+      "Reconcile actual commission/payment history, company balances, legacy reservations, legal discharge and provider outcomes, then complete company UAT and one-writer migration.",
+      "Implement live APIs/workers/providers and owned operational exception handling; complete approved ledger posting, clawback recovery, reinsurance commission and cross-party/netting policies.",
+      "Acquisition expense/asset recognition, amortisation, recoverability, renewal allocation and IFRS 17 measurement integration remain unimplemented and inactive. This slice records proposed attribution only."
+    ]
+  },
+  "priorLocalSchemaApplicationBaseline": {
+    "status": "APPLIED_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
+    "evidence": "Local-Migration-Application-Verification.json",
+    "appliedFinanceMigrations": 13,
+    "pendingMigrations": 2,
+    "policiesActivated": 0,
+    "booksActivated": 0,
+    "newEmptyFinanceTablesAtSchemaApplication": 62,
+    "currentNonemptyFinanceRegistries": 8,
+    "currentEmptyNewFinanceTables": 56,
+    "currentMigrationLedger": 89,
+    "currentApplicationTables": 354,
+    "latestSetupEvidence": "G04-Implementation-Verification.json",
+    "b15MigrationApplied": false,
+    "b16MigrationApplied": false
+  },
+  "b17PreCorrectionSchemaObservation": {
+    "status": "OBSERVED_SCHEMA_DIFFERS_FROM_OLDER_BASELINE_B17_GUARDS_NOT_CERTIFIED",
+    "evidence": "Local-Migration-Application-Verification.json",
+    "appliedFinanceMigrations": 16,
+    "pendingMigrations": 1,
+    "policiesActivated": 0,
+    "booksActivated": 0,
+    "newEmptyFinanceTablesAtSchemaApplication": 62,
+    "currentMigrationLedger": 92,
+    "currentApplicationTables": 376,
+    "latestSetupEvidence": "G04-Implementation-Verification.json",
+    "b15MigrationApplied": true,
+    "b16MigrationApplied": true,
+    "b17MigrationObservedApplied": true,
+    "b17InstalledDefinitionCertified": false,
+    "b17ForwardHardeningPending": true,
+    "latestSchemaObservationEvidence": "B17-Verification.json",
+    "sourceMigrationCommandsExecutedThisTask": 0,
+    "companyAccountingApproval": false,
+    "observedEmptyB15B16B17Tables": 22
+  },
+  "b17LocalMigrationVerification": {
+    "documentId": "IM-FIN-B17-LOCAL-CORRECTION-1.0",
+    "date": "2026-11-17",
+    "timeZone": "Africa/Dar_es_Salaam",
+    "codeCommit": "4aaf5b81b61b35de10ff1ffb3da2b15520a99412",
+    "status": "APPLIED_AND_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
+    "authorization": {
+      "scope": "Explicit user approval to apply the B17 corrective migration to local development and verify commission controls",
+      "migrationOnly": true,
+      "companyAccountingPolicyApproval": false,
+      "policyActivationAuthorized": false,
+      "livePaymentsAuthorized": false
+    },
+    "migration": "FinanceCommissionControlHardening1797800000000",
+    "migrationsApplied": 1,
+    "migrationLedger": 93,
+    "applicationTables": 376,
+    "comparedExistingTables": 376,
+    "businessTablesUnchanged": 375,
+    "historicalPaidInvoicesUnchanged": 4,
+    "permissionAssignmentsUnchanged": true,
+    "policiesInactive": true,
+    "booksInactive": true,
+    "commissionAuthoritiesCreated": 0,
+    "sourceBusinessRowsWritten": 0,
+    "installedFunctionCount": 6,
+    "installedFunctionsMatchRehearsedDefinitions": true,
+    "backupEncryptedAndIntegrityVerified": true,
+    "backupProtection": "AES-256-GCM + Windows DPAPI CurrentUser",
+    "dryRunRolledBackBeforeCommit": true,
+    "postingHold": "FINANCE_POSTING_HELD",
+    "sourceSyntheticFixturesCreated": 0,
+    "triggerControls": {
+      "enabledDeferredGuards": 7,
+      "enabledImmutabilityTriggers": 6,
+      "normalTriggerEnforcement": true
+    },
+    "missingReferenceHold": {
+      "missingEntitlementCannotSettle": true,
+      "noSyntheticRowsInserted": true
+    },
+    "controlsVerifiedInIsolatedTests": 72,
+    "notActivated": [
+      "accounting policies",
+      "books",
+      "commission mandates",
+      "live payments",
+      "IFRS 17 acquisition recognition"
+    ],
+    "tests": {
+      "rerunPostgres": {
+        "passed": 72,
+        "suites": 3,
+        "ownedClustersStopped": 3,
+        "results": [
+          {
+            "file": "finance-outgoing.finance-integration.ts",
+            "success": true,
+            "passed": 23,
+            "suites": 1,
+            "clusterStopped": true
+          },
+          {
+            "file": "finance-commission.finance-integration.ts",
+            "success": true,
+            "passed": 25,
+            "suites": 1,
+            "clusterStopped": true
+          },
+          {
+            "file": "finance-policy-change.finance-integration.ts",
+            "success": true,
+            "passed": 24,
+            "suites": 1,
+            "clusterStopped": true
+          }
+        ]
+      },
+      "sourceChecks": [
+        "Exact loopback development database identity",
+        "Encrypted backup, DPAPI decryption integrity and archive table of contents",
+        "Uncommitted migration dry run and exact rollback preservation",
+        "Only the authorised correction added to the migration ledger",
+        "All business table contents, table definitions and unrelated routines preserved",
+        "Installed functions match the reviewed dry-run definitions",
+        "Seven deferred guards and six immutability triggers enabled",
+        "Unknown commission/settlement references cannot settle",
+        "Commission journal remains FINANCE_POSTING_HELD"
+      ],
+      "priorBuildAndFullRegression": "The runtime source is unchanged from 4aaf5b81; all 212 reviewed source hashes were rechecked. Its 2,294 backend / 346 PostgreSQL tests, build, types and lint are earlier implementation evidence and were not rerun in full for this database-only application."
+    },
+    "backup": {
+      "encrypted": true,
+      "algorithm": "AES-256-GCM",
+      "keyProtection": "Windows DPAPI CurrentUser",
+      "ciphertextSha256": "964b946545a5eecc26884c8f272ef12353b3db3f311db4e85cfb96572eb2b85a",
+      "plaintextNotRetained": true,
+      "archiveIntegrityAndTocVerified": true,
+      "fullRestoreRehearsalPerformedThisTask": false,
+      "recoveryFilesRetainedOutsideGit": true
+    },
+    "changedFunctions": [
+      {
+        "name": "finance_commission_eligible",
+        "arguments": "settlement uuid, approval boolean",
+        "definitionSha256": "bac287babed8077a6fd67e27ad0de8721225ddbda179d8dc538077a14a9f6e76"
+      },
+      {
+        "name": "finance_commission_guard",
+        "arguments": "",
+        "definitionSha256": "e90c9fd1c5143f5573e21ee7e2907c61e54ea76dfb916268f71c9682072bab83"
+      },
+      {
+        "name": "finance_commission_source_pending",
+        "arguments": "tenant uuid, root uuid",
+        "definitionSha256": "17f95cf8b960701603147a007963d558ff75a79bdba28578a86b7bc44b3d9917"
+      }
+    ],
+    "installedFunctions": [
+      {
+        "name": "finance_commission_available",
+        "arguments": "tenant uuid, root uuid",
+        "definitionSha256": "43067609d28e4d3cccb3956097225c249e3a85951cf63f78af44f3a9bb62755f"
+      },
+      {
+        "name": "finance_commission_eligible",
+        "arguments": "settlement uuid, approval boolean",
+        "definitionSha256": "bac287babed8077a6fd67e27ad0de8721225ddbda179d8dc538077a14a9f6e76"
+      },
+      {
+        "name": "finance_commission_guard",
+        "arguments": "",
+        "definitionSha256": "e90c9fd1c5143f5573e21ee7e2907c61e54ea76dfb916268f71c9682072bab83"
+      },
+      {
+        "name": "finance_commission_head",
+        "arguments": "tenant uuid, root uuid",
+        "definitionSha256": "bbb6c42899489d3e1d3779d42f7dc158ea8b404154c6ae4be0dbf451b634a31e"
+      },
+      {
+        "name": "finance_commission_immutable",
+        "arguments": "",
+        "definitionSha256": "a3b8fc665d8c58675ff121dadd008a06a810ca9ed0f0c82f6a53971324b93a84"
+      },
+      {
+        "name": "finance_commission_source_pending",
+        "arguments": "tenant uuid, root uuid",
+        "definitionSha256": "17f95cf8b960701603147a007963d558ff75a79bdba28578a86b7bc44b3d9917"
+      }
+    ],
+    "remaining": [
+      "Local schema certification is not company accounting-policy approval or production acceptance.",
+      "Unresolved commission earning, tax, withholding, clawback and acquisition policies remain inactive.",
+      "Acquisition expense/asset recognition, IFRS 17 allocation and measurement, legal discharge and live payout/cutover remain pending.",
+      "Live source/outbox integration, compatibility APIs/workers, company UAT, historical commission reconciliation and incremental one-writer migration remain pending.",
+      "The older role-catalogue hash difference remains a prior baseline observation; every business table, including roles and permission assignments, was unchanged by this correction."
+    ]
+  },
+  "b18": "IMPLEMENTED_INACTIVE_CONTROLS_SOURCE_ACCEPTANCE_BLOCKED",
+  "b18Verification": {
+    "documentId": "IM-FIN-B18-INACTIVE-1.0",
+    "date": "2026-11-17",
+    "timeZone": "Africa/Dar_es_Salaam",
+    "baseCommit": "d07b5bade61a68664da8b0b9437ec0a8b8c0b38e",
+    "status": "SOFTWARE_VERIFIED_INACTIVE_CONTROLS_SOURCE_ACCEPTANCE_BLOCKED",
+    "implementation": {
+      "signedB11ClaimsEvidence": true,
+      "versionedCasePayableRecoveryRecords": true,
+      "sourceFinancialVectorHashBinding": true,
+      "transactionBoundNativeReadAdapters": true,
+      "nativeUtcDates": true,
+      "nativeSchemaColumnValidation": {
+        "passed": true,
+        "tables": [
+          "claims",
+          "claim_reserve_movements",
+          "claim_payments",
+          "claim_disbursements",
+          "claim_discharge_vouchers",
+          "claim_recoveries"
+        ],
+        "declaredNativeColumnsValidated": 66,
+        "source": "Read-only development schema snapshot captured before B18 edits",
+        "sourceMutations": 0
+      },
+      "independentSubjectAndNaturalPersonReview": true,
+      "payeeRelatedReviewExcluded": true,
+      "frozenMakerAuthorityRechecked": true,
+      "admittedOfferAndConsumedAmountAuthorityLimits": true,
+      "sharedClaimAndInstructionCapacity": true,
+      "legacyInstructionConsumptionReconcilesToCaseBaseline": true,
+      "lateReductionNegativeAvailability": true,
+      "exactB15ExecutionBinding": true,
+      "unknownCashRetainsCapacity": true,
+      "originalKeyCashRecovery": true,
+      "separatePrincipalFeesAndBankMatch": true,
+      "sharedB14RecoveryReceiptCapacity": true,
+      "independentLinkedRecoveryReversal": true,
+      "unknownMeasurementComponentsRemainNull": true,
+      "heldFullLicComparisonOnly": true,
+      "reinsuranceRecoveryRequiresB19": true,
+      "legacyClaimsServicesChanged": false,
+      "sourceDmlDdlCommandsExecuted": 0,
+      "sourceFinancialWrites": 0,
+      "legacyClaimStatusWrites": 0,
+      "journalEffects": 0,
+      "legalDischargeAccepted": false,
+      "newCompanyGrants": 0,
+      "newPublicRoutes": 0,
+      "newWorkers": 0,
+      "liveNativeProducerImplemented": false,
+      "actualDevelopmentRestorePerformed": false
+    },
+    "tests": {
+      "backend": {
+        "suites": 276,
+        "passed": 2308
+      },
+      "postgres": {
+        "passed": 376,
+        "suites": 19,
+        "ownedClustersStopped": 19,
+        "aggregateOfSeparateSuiteRuns": true
+      },
+      "b18Postgres": {
+        "passed": 30
+      },
+      "newNativeUnitCases": 14,
+      "backendBuildPassed": true,
+      "typecheckPassed": true,
+      "changedBackendLintPassed": true,
+      "nativeSchemaFollowup": {
+        "passed": true,
+        "unitCases": 14,
+        "declaredNativeColumnsValidated": 66,
+        "buildPassed": true,
+        "typecheckPassed": true,
+        "lintPassed": true,
+        "reason": "Match the actual TIRAMIS status column and freeze native dates and dimensions without a schema change."
+      },
+      "finalLegacyBaselineFollowup": {
+        "passed": true,
+        "postgresCases": 30,
+        "aggregateFinancePostgresCases": 376,
+        "backendBuildPassed": true,
+        "typecheckPassed": true,
+        "lintPassed": true,
+        "fullBackendRun": "Earlier 2308 tests and 276 suites passed; the final baseline-consistency change was verified with the full B18 PostgreSQL suite, build, types and changed-file lint."
+      },
+      "fullBackendVerificationStage": "Before final legacy baseline guard; final change verified by all 30 B18 PostgreSQL cases, build, types and changed-file lint.",
+      "frontend": "Unchanged. Prior frontend evidence remains historical and was not rerun for B18."
+    },
+    "sourceDevelopment": {
+      "readOnly": true,
+      "sourceDmlDdlCommandsExecutedByB18": 0,
+      "status": "BLOCKED_HISTORICAL_INVOICES_ABSENT",
+      "initialProtectedPaidInvoices": 4,
+      "current": {
+        "invoice_count": 0,
+        "paid_invoice_count": 0,
+        "legal_entities": 0,
+        "accounting_books": 0,
+        "setup_versions": 0,
+        "scope_memberships": 0,
+        "policies": 0,
+        "policy_events": 0,
+        "active_books": 0,
+        "claims": 0,
+        "migration_entries": 93,
+        "b18_table": null,
+        "protectedPaidInvoicesPresent": 0
+      },
+      "historicalInvoicePreservationCertified": false,
+      "companySetupAcceptanceCertified": false,
+      "sourceCleanupCauseEstablished": false,
+      "statementLogging": "none at investigation",
+      "userCleanupClarification": "PENDING",
+      "sourceRestorePerformed": false,
+      "b18MigrationApplied": false
+    },
+    "recoveryVerification": {
+      "passed": true,
+      "encryptedBackupDecryptedAndHashVerified": true,
+      "fullArchiveRestoredOnIsolatedCluster": true,
+      "protectedPaidInvoicesRecoveredUnchangedInCopy": 4,
+      "actualDevelopmentDatabaseRestored": false,
+      "actualDevelopmentWrites": 0,
+      "isolatedCopyOnly": true,
+      "backupLedger": 92,
+      "isolatedClusterStopped": true
+    },
+    "migration": {
+      "name": "FinanceClaimsControls1797900000000",
+      "file": "apps/insurance-portal-service/src/database/migrations/1797900000000-FinanceClaimsControls.ts",
+      "newTables": 9,
+      "appliedToSource": false,
+      "sourceExecutionAuthorized": false,
+      "pendingFinanceMigrations": 1,
+      "observedSourceMigrationEntries": 93,
+      "companyAccountingPolicyApproval": false,
+      "policiesActivated": 0
+    },
+    "cases": [
+      {
+        "name": "CL30 new cash is held until legacy instruction consumption reconciles to the case baseline",
+        "status": "passed"
+      },
+      {
+        "name": "CL29 review limits cover actual legacy consumption above a reduced entitlement",
+        "status": "passed"
+      },
+      {
+        "name": "CL27 case review limits cover admitted and offered amounts as well as the case estimate",
+        "status": "passed"
+      },
+      {
+        "name": "CL28 direct recovery allocations cannot bypass shared receipt capacity or mandatory audit",
+        "status": "passed"
+      },
+      {
+        "name": "CL01 empty controls roll back without changing B17",
+        "status": "passed"
+      },
+      {
+        "name": "CL02 case paid, ultimate and signed outstanding remain distinct from unknown measurement",
+        "status": "passed"
+      },
+      {
+        "name": "CL03 delivery aliases and identical higher revisions cannot create another payable",
+        "status": "passed"
+      },
+      {
+        "name": "CL04 changed accepted evidence without its exact previous head is held as conflict",
+        "status": "passed"
+      },
+      {
+        "name": "CL05 legitimate revised entitlement preserves consumed reservations and negative capacity",
+        "status": "passed"
+      },
+      {
+        "name": "CL06 multiple claimant instructions share one admitted and accepted-offer cap",
+        "status": "passed"
+      },
+      {
+        "name": "CL07 concurrent reservations cannot exceed shared claim capacity",
+        "status": "passed"
+      },
+      {
+        "name": "CL08 accepted offer and legacy paid/reserved consume claim headroom once",
+        "status": "passed"
+      },
+      {
+        "name": "CL09 an unreviewed new case revision holds existing payment requests immediately",
+        "status": "passed"
+      },
+      {
+        "name": "CL10 another book or policy cannot take a claim economic identity",
+        "status": "passed"
+      },
+      {
+        "name": "CL11 makers, natural-person aliases and revoked authority cannot approve evidence",
+        "status": "passed"
+      },
+      {
+        "name": "CL12 missing payment tax evidence is unresolved and legacy writer ownership blocks cash",
+        "status": "passed"
+      },
+      {
+        "name": "CL13 signed B15 candidate still requires exact execution binding before cash reservation",
+        "status": "passed"
+      },
+      {
+        "name": "CL14 actual principal and fee reconcile separately without another claim expense",
+        "status": "passed"
+      },
+      {
+        "name": "CL15 timeout and late case reduction retain cash and allow only original-key recovery",
+        "status": "passed"
+      },
+      {
+        "name": "CL16 confirmed cash cannot release its approved settlement capacity",
+        "status": "passed"
+      },
+      {
+        "name": "CL17 legal salvage recovery allocates a confirmed B14 receipt independently",
+        "status": "passed"
+      },
+      {
+        "name": "CL18 unresolved or disputed rights and reinsurance recoveries cannot be accepted",
+        "status": "passed"
+      },
+      {
+        "name": "CL19 a different debtor or currency cannot consume the source receipt",
+        "status": "passed"
+      },
+      {
+        "name": "CL20 recovery receipts and premium allocations share capacity in both directions",
+        "status": "passed"
+      },
+      {
+        "name": "CL21 pending recoveries reserve capacity before review and cannot over-receive",
+        "status": "passed"
+      },
+      {
+        "name": "CL22 a late reduction below allocated receipts exposes negative recovery headroom",
+        "status": "passed"
+      },
+      {
+        "name": "CL23 independent reversal releases allocation without reversing bank cash or native recovery",
+        "status": "passed"
+      },
+      {
+        "name": "CL24 makers cannot review their recovery allocation and retries cannot change amounts",
+        "status": "passed"
+      },
+      {
+        "name": "CL25 populated rollback and audit mutation are forbidden",
+        "status": "passed"
+      },
+      {
+        "name": "CL26 direct inserts cannot exceed shared admitted capacity or omit audit",
+        "status": "passed"
+      }
+    ],
+    "remaining": [
+      "Resolve the observed local-data clearing. Four protected paid invoices captured initially are absent in development; cause and cleanup intent remain unconfirmed. A verified isolated recovery copy contains all four unchanged invoices, but no development restore was performed.",
+      "Review and authorise the pending B18 schema separately; restore or reprovision real company setup and reconcile source data before live acceptance.",
+      "Resolve DEC-04 DEC-08 DEC-09 DEC-12 DEC-14 DEC-15, including case/payable/LIC ownership, expense mapping, tax, recovery rights, cash overlap and legal discharge. Policies remain inactive.",
+      "Implement live source/outbox publication, company-specific one-writer handoff, compatibility APIs, TIRAMIS projections, independent bank/provider integration, operational exception ownership and company UAT. Existing source services remain in place.",
+      "Implement approved measurement/model/assumption records, IFRS 9 recovery treatment, IAS 21, posting rules and scoped release/cutover. Comparison vectors and source facts here do not recognise expense, LIC or recovery assets."
+    ]
+  },
+  "b18SourceDataException": {
+    "readOnly": true,
+    "sourceDmlDdlCommandsExecutedByB18": 0,
+    "status": "BLOCKED_HISTORICAL_INVOICES_ABSENT",
+    "initialProtectedPaidInvoices": 4,
+    "current": {
+      "invoice_count": 0,
+      "paid_invoice_count": 0,
+      "legal_entities": 0,
+      "accounting_books": 0,
+      "setup_versions": 0,
+      "scope_memberships": 0,
+      "policies": 0,
+      "policy_events": 0,
+      "active_books": 0,
+      "claims": 0,
+      "migration_entries": 93,
+      "b18_table": null,
+      "protectedPaidInvoicesPresent": 0
+    },
+    "historicalInvoicePreservationCertified": false,
+    "companySetupAcceptanceCertified": false,
+    "sourceCleanupCauseEstablished": true,
+    "statementLogging": "none at investigation",
+    "userCleanupClarification": "REPORTED_UNINTENTIONAL_FINANCE_DATA_CLEARING",
+    "sourceRestorePerformed": false,
+    "b18MigrationApplied": false,
+    "cause": "FULL_PUBLIC_SCHEMA_RESET_AND_RESEED_IN_SEPARATE_CHAT",
+    "relatedChat": "Pull changes from all branches",
+    "currentObservation": {
+      "observedUtc": "2026-11-18T04:12:54.601Z",
+      "readOnly": true,
+      "tablesCompared": 376,
+      "changedTables": 103,
+      "previouslyPopulatedTablesNowEmpty": 49,
+      "invoiceRows": 0,
+      "entityRows": 0,
+      "bookRows": 0,
+      "setupRows": 0,
+      "scopeMembershipRows": 0,
+      "migrationEntries": 93,
+      "statementLogging": "none",
+      "sourceWrites": 0
+    },
+    "recoveryCandidateVerified": true,
+    "restoreApproved": false,
+    "evidence": "B18-Data-Incident-Verification.json"
+  },
+  "preB18SourceObservation": {
+    "status": "B17_CORRECTIVE_MIGRATION_APPLIED_VERIFIED_LOCAL_ONLY",
+    "evidence": "B17-Corrective-Migration-Verification.json",
+    "appliedFinanceMigrations": 17,
+    "pendingMigrations": 0,
+    "policiesActivated": 0,
+    "booksActivated": 0,
+    "newEmptyFinanceTablesAtSchemaApplication": 62,
+    "currentMigrationLedger": 93,
+    "currentApplicationTables": 376,
+    "latestSetupEvidence": "G04-Implementation-Verification.json",
+    "b15MigrationApplied": true,
+    "b16MigrationApplied": true,
+    "b17MigrationObservedApplied": true,
+    "b17InstalledDefinitionCertified": true,
+    "b17ForwardHardeningPending": false,
+    "latestSchemaObservationEvidence": "B17-Corrective-Migration-Verification.json",
+    "sourceMigrationCommandsExecutedThisTask": 1,
+    "companyAccountingApproval": false,
+    "observedEmptyB15B16B17Tables": 22
+  },
+  "b18DataIncident": {
+    "documentId": "IM-FIN-B18-DATA-INCIDENT-1.0",
+    "date": "2026-11-18",
+    "timeZone": "Africa/Dar_es_Salaam",
+    "baseCommit": "b66a54068fe7078c676dee5697a8a1d3c963ab4d",
+    "status": "CAUSE_ESTABLISHED_RECOVERY_CANDIDATE_VERIFIED_SOURCE_RECOVERY_PENDING",
+    "conclusion": {
+      "cause": "FULL_PUBLIC_SCHEMA_RESET_AND_RESEED_IN_SEPARATE_CHAT",
+      "relatedChat": {
+        "id": "01a1ea5a-2fde-76b1-96b8-ff934ffdbc20",
+        "title": "Pull changes from all branches",
+        "resetRequestRecorded": true,
+        "resetTurnStartedUtc": "2026-11-17T18:47:38.000Z",
+        "resetTurnCompletedUtc": "2026-11-17T18:52:45.000Z"
+      },
+      "mechanism": {
+        "script": "scripts/db-maintenance.js",
+        "wipeFunction": "wipeSchema",
+        "destructiveStatement": "DROP SCHEMA IF EXISTS public CASCADE",
+        "followup": "Schema recreation, migrations and seeding",
+        "scope": "All objects and business data in the configured public schema, including Finance history and setup"
+      },
+      "userReportedIntent": "Finance business-data clearing was not intended",
+      "b18SourceFinancialWrites": 0,
+      "sourceRestorePerformed": false,
+      "b18MigrationApplied": false,
+      "policiesActivated": 0
+    },
+    "timeline": [
+      {
+        "event": "Last intact B18 snapshot",
+        "utc": "2026-11-17T18:44:35.855Z",
+        "tanzania": "17 Nov 2026, 21:44:35"
+      },
+      {
+        "event": "Separate reset turn started",
+        "utc": "2026-11-17T18:47:38.000Z",
+        "tanzania": "17 Nov 2026, 21:47:38"
+      },
+      {
+        "event": "Pre-reset backup created",
+        "utc": "2026-11-17T18:47:51.754Z",
+        "tanzania": "17 Nov 2026, 21:47:51"
+      },
+      {
+        "event": "Separate reset turn completed",
+        "utc": "2026-11-17T18:52:45.000Z",
+        "tanzania": "17 Nov 2026, 21:52:45"
+      },
+      {
+        "event": "First missing-data observation",
+        "utc": "2026-11-17T19:01:04.180Z",
+        "tanzania": "17 Nov 2026, 22:01:04"
+      }
+    ],
+    "preResetBackup": {
+      "file": "insurance_portal_db_development_2026-11-17_214750.sql",
+      "bytes": 9719661,
+      "createdUtc": "2026-11-17T18:47:51.754Z",
+      "sha256": "e15a69fa357baa70e109f92f62b9f87e8cd8415d11afd0924ba2c02175829bad",
+      "originalFileUnchanged": true,
+      "gitIgnored": true,
+      "fullIsolatedRestorePassed": true
+    },
+    "isolatedRecovery": {
+      "fullRestorePassed": true,
+      "applicationTableHashesMatchedInitialSnapshot": 376,
+      "tableHashDifferences": 0,
+      "protectedPaidInvoiceHeadersAndItemsMatched": 4,
+      "migrationEntries": 93,
+      "recoveredCounts": {
+        "invoices": 4,
+        "legal_entities": 1,
+        "books": 1,
+        "setup_versions": 10,
+        "scope_memberships": 2,
+        "policy_versions": 0,
+        "active_books": 0
+      },
+      "isolatedClusterStopped": true,
+      "originalBackupUnchanged": true
+    },
+    "currentDevelopment": {
+      "observedUtc": "2026-11-18T04:12:54.601Z",
+      "readOnly": true,
+      "tablesCompared": 376,
+      "changedTables": 103,
+      "previouslyPopulatedTablesNowEmpty": 49,
+      "invoiceRows": 0,
+      "entityRows": 0,
+      "bookRows": 0,
+      "setupRows": 0,
+      "scopeMembershipRows": 0,
+      "migrationEntries": 93,
+      "statementLogging": "none",
+      "sourceWrites": 0
+    },
+    "serverLogEvidence": {
+      "statementLogging": "none",
+      "retainedEventsInResetWindow": 44,
+      "categories": [
+        "MISSING_RELATION_OR_OBJECT",
+        "CHECKPOINT"
+      ],
+      "limitation": "Retained logs contain missing-object errors in the reset window but do not provide a complete SQL execution audit. The recorded reset turn, matching pre-reset backup and chronology establish the cause."
+    },
+    "controls": {
+      "sourceFinancialWritesThisInvestigation": 0,
+      "developmentRestorePerformed": false,
+      "restoreApproved": false,
+      "migrationExecutionApproved": false,
+      "newGrants": 0,
+      "policiesActivated": 0,
+      "privateBackupUploaded": false,
+      "codeChanged": false
+    },
+    "recoveryPlan": [
+      "Review and explicitly approve recovery of insurance_portal_db from the verified 17 November 21:47:50 pre-reset backup. This replaces the current public schema and can replace post-reset changes; this investigation does not authorise that action.",
+      "Before execution, stop business writes and pause background writers in all chats and services that target this database. Recheck identity, database name and source port, capture a new private full backup of the current state, record its hash and verify it on another isolated copy.",
+      "Recheck the candidate backup hash against this report. Rehearse the exact restore and application startup using a disposable clone and the current finance branch. Match all four protected invoice header/item hashes, the 376-table inventory, the 93-entry migration ledger, original company/user permissions, legal entity/book and ten draft setup rows. Keep B18 unapplied and every accounting policy inactive.",
+      "Produce a reconciliation of any post-reset additions or changes against the verified pre-reset copy. Preserve that current-state backup; do not silently discard or merge newer financial records. Resolve collisions before cutover.",
+      "Only after the approved recovery gate, restore the verified pre-reset backup to development during the controlled write pause. Do not run the reset/seeder workflow, reapply already-present migrations or apply B18 as part of recovery.",
+      "Verify paid invoice and item hashes again, permissions and independent Finance access, draft setup state, ledger/schema, balances and quotation/payment/claims read views. Resume writers only after reconciliation. Retain the current-state backup for rollback and record the approval, commands and verification results."
+    ],
+    "recommendedFutureSafeguards": [
+      {
+        "status": "NOT_IMPLEMENTED",
+        "recommendation": "Reject development schema resets containing Finance records unless the operator explicitly approves the affected database and protected accounting populations."
+      },
+      {
+        "status": "NOT_IMPLEMENTED",
+        "recommendation": "Use separate databases per concurrent development/rehearsal task and record the target identity in maintenance evidence."
+      },
+      {
+        "status": "NOT_IMPLEMENTED",
+        "recommendation": "Use an application database role without schema-drop authority; row immutability alone cannot protect against an owner-level schema drop."
+      },
+      {
+        "status": "NOT_IMPLEMENTED",
+        "recommendation": "Require restore-tested private backups and a maintenance audit for destructive resets; file existence and nonzero size alone are limited backup checks."
+      }
     ]
   }
 }

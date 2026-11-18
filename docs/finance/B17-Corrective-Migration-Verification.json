@@ -1,0 +1,158 @@
+{
+  "documentId": "IM-FIN-B17-LOCAL-CORRECTION-1.0",
+  "date": "2026-11-17",
+  "timeZone": "Africa/Dar_es_Salaam",
+  "codeCommit": "4aaf5b81b61b35de10ff1ffb3da2b15520a99412",
+  "status": "APPLIED_AND_VERIFIED_LOCAL_DEVELOPMENT_ONLY",
+  "authorization": {
+    "scope": "Explicit user approval to apply the B17 corrective migration to local development and verify commission controls",
+    "migrationOnly": true,
+    "companyAccountingPolicyApproval": false,
+    "policyActivationAuthorized": false,
+    "livePaymentsAuthorized": false
+  },
+  "migration": "FinanceCommissionControlHardening1797800000000",
+  "migrationsApplied": 1,
+  "migrationLedger": 93,
+  "applicationTables": 376,
+  "comparedExistingTables": 376,
+  "businessTablesUnchanged": 375,
+  "historicalPaidInvoicesUnchanged": 4,
+  "permissionAssignmentsUnchanged": true,
+  "policiesInactive": true,
+  "booksInactive": true,
+  "commissionAuthoritiesCreated": 0,
+  "sourceBusinessRowsWritten": 0,
+  "installedFunctionCount": 6,
+  "installedFunctionsMatchRehearsedDefinitions": true,
+  "backupEncryptedAndIntegrityVerified": true,
+  "backupProtection": "AES-256-GCM + Windows DPAPI CurrentUser",
+  "dryRunRolledBackBeforeCommit": true,
+  "postingHold": "FINANCE_POSTING_HELD",
+  "sourceSyntheticFixturesCreated": 0,
+  "triggerControls": {
+    "enabledDeferredGuards": 7,
+    "enabledImmutabilityTriggers": 6,
+    "normalTriggerEnforcement": true
+  },
+  "missingReferenceHold": {
+    "missingEntitlementCannotSettle": true,
+    "noSyntheticRowsInserted": true
+  },
+  "controlsVerifiedInIsolatedTests": 72,
+  "notActivated": [
+    "accounting policies",
+    "books",
+    "commission mandates",
+    "live payments",
+    "IFRS 17 acquisition recognition"
+  ],
+  "tests": {
+    "rerunPostgres": {
+      "passed": 72,
+      "suites": 3,
+      "ownedClustersStopped": 3,
+      "results": [
+        {
+          "file": "finance-outgoing.finance-integration.ts",
+          "success": true,
+          "passed": 23,
+          "suites": 1,
+          "clusterStopped": true
+        },
+        {
+          "file": "finance-commission.finance-integration.ts",
+          "success": true,
+          "passed": 25,
+          "suites": 1,
+          "clusterStopped": true
+        },
+        {
+          "file": "finance-policy-change.finance-integration.ts",
+          "success": true,
+          "passed": 24,
+          "suites": 1,
+          "clusterStopped": true
+        }
+      ]
+    },
+    "sourceChecks": [
+      "Exact loopback development database identity",
+      "Encrypted backup, DPAPI decryption integrity and archive table of contents",
+      "Uncommitted migration dry run and exact rollback preservation",
+      "Only the authorised correction added to the migration ledger",
+      "All business table contents, table definitions and unrelated routines preserved",
+      "Installed functions match the reviewed dry-run definitions",
+      "Seven deferred guards and six immutability triggers enabled",
+      "Unknown commission/settlement references cannot settle",
+      "Commission journal remains FINANCE_POSTING_HELD"
+    ],
+    "priorBuildAndFullRegression": "The runtime source is unchanged from 4aaf5b81; all 212 reviewed source hashes were rechecked. Its 2,294 backend / 346 PostgreSQL tests, build, types and lint are earlier implementation evidence and were not rerun in full for this database-only application."
+  },
+  "backup": {
+    "encrypted": true,
+    "algorithm": "AES-256-GCM",
+    "keyProtection": "Windows DPAPI CurrentUser",
+    "ciphertextSha256": "964b946545a5eecc26884c8f272ef12353b3db3f311db4e85cfb96572eb2b85a",
+    "plaintextNotRetained": true,
+    "archiveIntegrityAndTocVerified": true,
+    "fullRestoreRehearsalPerformedThisTask": false,
+    "recoveryFilesRetainedOutsideGit": true
+  },
+  "changedFunctions": [
+    {
+      "name": "finance_commission_eligible",
+      "arguments": "settlement uuid, approval boolean",
+      "definitionSha256": "bac287babed8077a6fd67e27ad0de8721225ddbda179d8dc538077a14a9f6e76"
+    },
+    {
+      "name": "finance_commission_guard",
+      "arguments": "",
+      "definitionSha256": "e90c9fd1c5143f5573e21ee7e2907c61e54ea76dfb916268f71c9682072bab83"
+    },
+    {
+      "name": "finance_commission_source_pending",
+      "arguments": "tenant uuid, root uuid",
+      "definitionSha256": "17f95cf8b960701603147a007963d558ff75a79bdba28578a86b7bc44b3d9917"
+    }
+  ],
+  "installedFunctions": [
+    {
+      "name": "finance_commission_available",
+      "arguments": "tenant uuid, root uuid",
+      "definitionSha256": "43067609d28e4d3cccb3956097225c249e3a85951cf63f78af44f3a9bb62755f"
+    },
+    {
+      "name": "finance_commission_eligible",
+      "arguments": "settlement uuid, approval boolean",
+      "definitionSha256": "bac287babed8077a6fd67e27ad0de8721225ddbda179d8dc538077a14a9f6e76"
+    },
+    {
+      "name": "finance_commission_guard",
+      "arguments": "",
+      "definitionSha256": "e90c9fd1c5143f5573e21ee7e2907c61e54ea76dfb916268f71c9682072bab83"
+    },
+    {
+      "name": "finance_commission_head",
+      "arguments": "tenant uuid, root uuid",
+      "definitionSha256": "bbb6c42899489d3e1d3779d42f7dc158ea8b404154c6ae4be0dbf451b634a31e"
+    },
+    {
+      "name": "finance_commission_immutable",
+      "arguments": "",
+      "definitionSha256": "a3b8fc665d8c58675ff121dadd008a06a810ca9ed0f0c82f6a53971324b93a84"
+    },
+    {
+      "name": "finance_commission_source_pending",
+      "arguments": "tenant uuid, root uuid",
+      "definitionSha256": "17f95cf8b960701603147a007963d558ff75a79bdba28578a86b7bc44b3d9917"
+    }
+  ],
+  "remaining": [
+    "Local schema certification is not company accounting-policy approval or production acceptance.",
+    "Unresolved commission earning, tax, withholding, clawback and acquisition policies remain inactive.",
+    "Acquisition expense/asset recognition, IFRS 17 allocation and measurement, legal discharge and live payout/cutover remain pending.",
+    "Live source/outbox integration, compatibility APIs/workers, company UAT, historical commission reconciliation and incremental one-writer migration remain pending.",
+    "The older role-catalogue hash difference remains a prior baseline observation; every business table, including roles and permission assignments, was unchanged by this correction."
+  ]
+}

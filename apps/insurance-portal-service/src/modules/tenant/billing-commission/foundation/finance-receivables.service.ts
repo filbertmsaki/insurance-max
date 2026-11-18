@@ -558,7 +558,13 @@ export class FinanceReceivablesService {
         controlUnits(r.legacy_allocated) +
         controlUnits(r.legacy_refunded) +
         controlUnits(r.legacy_reserved),
-      available = controlUnits(r.received) - legacy - t.net - t.pending;
+      recoveryReserved = await this.claimRecoveryReservations(m, id),
+      available =
+        controlUnits(r.received) -
+        legacy -
+        t.net -
+        t.pending -
+        recoveryReserved;
     const billingHeads: Row[] = [];
     for (const memoId of [...new Set(requests.map((v) => v.memo_id))]) {
       const b = await this.memoPosition(m, p, s, memoId),
@@ -582,6 +588,9 @@ export class FinanceReceivablesService {
       legacyUnavailable: controlAmount(legacy),
       assigned: controlAmount(t.net),
       pending: controlAmount(t.pending),
+      ...(recoveryReserved > 0n
+        ? { claimRecoveryReserved: controlAmount(recoveryReserved) }
+        : {}),
       available: controlAmount(available),
       sourceConflicts: sources.filter((v) => v.state === 'CONFLICT_HELD')
         .length,
@@ -1134,6 +1143,37 @@ export class FinanceReceivablesService {
         ],
       };
     });
+  }
+  /** Transaction-local B18 cash evidence; the caller enforces its own exact scoped authority. */
+  async verifiedReceipt(
+    m: EntityManager,
+    p: Actor,
+    s: IntegrationScope,
+    ref: { id: string; hash: string },
+  ) {
+    const pos = await this.receiptPosition(m, p, s, controlUuid(ref.id));
+    if (pos.r.subject_hash !== controlHash(ref.hash))
+      conflict('Exact source receipt hash required.');
+    return {
+      receipt: pos.r,
+      available: pos.state.available,
+      sourceConflicts: pos.state.sourceConflicts,
+      billingLineageHolds: pos.state.billingLineageHolds,
+    };
+  }
+  private async claimRecoveryReservations(
+    m: EntityManager,
+    id: string,
+  ): Promise<bigint> {
+    const [{ present }] = await m.query(
+      "SELECT to_regprocedure('finance_claim_receipt_reserved(uuid)') IS NOT NULL present",
+    );
+    if (!present) return 0n;
+    const [{ reserved }] = await m.query(
+      'SELECT finance_claim_receipt_reserved($1)::numeric(38,12)::text reserved',
+      [id],
+    );
+    return controlUnitsSigned(reserved);
   }
   /** Transaction-local B16 reference; the caller must enforce its scoped authority. */
   async verifiedAssignment(

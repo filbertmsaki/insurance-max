@@ -162,7 +162,10 @@ async function fixture(
       'REVIEWED_INACTIVE',
       'Independent synthetic change review',
     );
-  const prepared = async (overrides: Partial<PolicyChangeEvidence> = {}) => {
+  const prepared = async (
+    overrides: Partial<PolicyChangeEvidence> = {},
+    deferObservation = false,
+  ) => {
     const c = await f.ready(),
       assignment = await f.assign(c, '80');
     await f.review(assignment);
@@ -215,7 +218,7 @@ async function fixture(
         invoiceReconciliation: 'MATCHED',
         ...overrides,
       };
-    const change = await observe(snapshot);
+    const change = deferObservation ? null! : await observe(snapshot);
     return { ...c, assignment, snapshot, change };
   };
   const ready = async (overrides: Partial<PolicyChangeEvidence> = {}) => {

@@ -26,6 +26,8 @@ import { OUTGOING_SIMULATORS } from './finance-outgoing.types';
 import { FinancePolicyChangeService } from './finance-policy-change.service';
 import { FinanceAllocationSchedulerService } from './finance-allocation-scheduler.service';
 import { FinanceSourceDeliveryService } from './finance-source-delivery.service';
+import { FinanceCommissionService } from './finance-commission.service';
+import { FinanceClaimsService } from './finance-claims.service';
 
 /** Versioned foundations; the company adapter is registered by BillingCommissionModule. Importing this module never grants access, activates a policy or enables posting. */
 @Module({
@@ -44,6 +46,8 @@ import { FinanceSourceDeliveryService } from './finance-source-delivery.service'
   providers: [
     FinanceSourceDeliveryService,
     FinanceAllocationSchedulerService,
+    FinanceClaimsService,
+    FinanceCommissionService,
     FinancePolicyChangeService,
     FinanceOutgoingService,
     { provide: OUTGOING_SIMULATORS, useValue: Object.freeze([]) },
@@ -64,6 +68,8 @@ import { FinanceSourceDeliveryService } from './finance-source-delivery.service'
   exports: [
     FinanceSourceDeliveryService,
     FinanceAllocationSchedulerService,
+    FinanceClaimsService,
+    FinanceCommissionService,
     FinancePolicyChangeService,
     FinanceOutgoingService,
     FinanceLedgerFoundationService,
