@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { withClaimsDatabase as db } from '../support/finance-claims-fixture';
 import { withCommissionDatabase } from '../support/finance-commission-fixture';
 import { FinanceClaimsControls1797900000000 } from '../../src/database/migrations/1797900000000-FinanceClaimsControls';
-import { sealClaimsSource } from '../../src/modules/tenant/billing-commission/foundation/finance-claims.types';
+import { sealClaimsSource } from '../../src/modules/tenant/finance/payables/claims-controls/finance-claims.types';
 import {
   canonicalFinanceJson,
   financeConfigurationHash as hash,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+} from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 describe('B18 inactive claims obligations, payments and recoveries', () => {
   it('CL30 new cash is held until legacy instruction consumption reconciles to the case baseline', async () =>
     db(async (f) => {

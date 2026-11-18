@@ -13,7 +13,7 @@ import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enu
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { AuditService } from '../../../shared/audit/audit.service';
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import {
   GenerateReinsuranceBordereauDto,
   GenerateReinsurancePremiumAccountDto,

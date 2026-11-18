@@ -3,11 +3,11 @@ import { withOutgoingDatabase } from '../support/finance-outgoing-fixture';
 import { FinanceOutgoingCashControls1797500000000 } from '../../src/database/migrations/1797500000000-FinanceOutgoingCashControls';
 import { withFinanceTestDatabase } from '../support/finance-test-database';
 import { FinanceReceivableControls1797000000000 } from '../../src/database/migrations/1797000000000-FinanceReceivableControls';
-import { FinanceOutgoingService } from '../../src/modules/tenant/billing-commission/foundation/finance-outgoing.service';
+import { FinanceOutgoingService } from '../../src/modules/tenant/finance/payables/outgoing-payments/finance-outgoing.service';
 import {
   canonicalFinanceJson,
   financeConfigurationHash as hash,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+} from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 const db = withOutgoingDatabase;
 async function copyEvent(
   m: any,

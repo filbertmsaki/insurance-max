@@ -5,14 +5,14 @@ import { requireLease } from './finance-integration-fixture';
 import { refreshSourceEnvelope } from './finance-event-fixture';
 import { withFinanceTestDatabase } from './finance-test-database';
 import { FinanceReceivableControls1797000000000 } from '../../src/database/migrations/1797000000000-FinanceReceivableControls';
-import { FinanceReceivablesService } from '../../src/modules/tenant/billing-commission/foundation/finance-receivables.service';
+import { FinanceReceivablesService } from '../../src/modules/tenant/finance/receivables/receivable-controls/finance-receivables.service';
 import {
   RECEIVABLE_EVENT,
   type ReceiptEvidence,
   type TermsEvidence,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-receivables.types';
-import { financeConfigurationHash as hash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import { financeChartSourceMapHash } from '../../src/modules/tenant/billing-commission/foundation/finance-chart.snapshot';
+} from '../../src/modules/tenant/finance/receivables/receivable-controls/finance-receivables.types';
+import { financeConfigurationHash as hash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import { financeChartSourceMapHash } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-chart.snapshot';
 export async function withReceivableDatabase<T>(
   run: (f: Awaited<ReturnType<typeof createReceivableFixture>>) => Promise<T>,
 ) {

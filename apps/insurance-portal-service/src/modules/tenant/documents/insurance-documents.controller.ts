@@ -5,7 +5,7 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { FinancePermissions } from '../billing-commission/finance.permissions';
+import { FinancePermissions } from '../finance/governance/finance-permissions/finance.permissions';
 import { InsurancePdfService } from './insurance-pdf.service';
 
 @ApiTags('insurance-documents')

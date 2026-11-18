@@ -22,9 +22,9 @@ import { QuotationType } from '../enums/quotation-type.enum';
 import { QuotationDisplayStatusResolver } from '../services/quotation-display-status.resolver';
 import { PortalTiraSubmission } from '../../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../../tiramis-integration/entities/portal-tira-submission-event.entity';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
-import { Receipt } from '../../billing-commission/entities/receipt.entity';
-import { PaymentTransaction } from '../../billing-commission/entities/payment-transaction.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../../finance/receivables/receipts/entities/receipt.entity';
+import { PaymentTransaction } from '../../finance/receivables/payment-transactions/entities/payment-transaction.entity';
 import { TiramisSubmissionTrackingEntity } from '../../../tiramis/entities/tiramis-submission-tracking.entity';
 import {
   QuotationPreviewAddon,

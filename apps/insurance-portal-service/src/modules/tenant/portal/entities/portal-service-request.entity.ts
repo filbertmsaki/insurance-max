@@ -13,7 +13,7 @@ import {
 } from 'typeorm';
 
 import { Company } from '../../../platform/companies/entities/company.entity';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { User } from '../../users/entities/user.entity';

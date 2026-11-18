@@ -16,9 +16,9 @@ import { TiramisSalePointEntity } from '../../../tiramis/entities/tiramis-sale-p
 import { Branch } from '../../branches/entities/branch.entity';
 import { InsurancePartnersService } from '../../insurance-partners/insurance-partners.service';
 import { PartnerOperation } from '../../insurance-partners/enums/partner-operation.enum';
-import { CommissionTransaction } from '../../billing-commission/entities/commission-transaction.entity';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
-import { Receipt } from '../../billing-commission/entities/receipt.entity';
+import { CommissionTransaction } from '../../finance/payables/commission-payables/entities/commission-transaction.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../../finance/receivables/receipts/entities/receipt.entity';
 import { Complaint } from '../../claims/entities/complaint.entity';
 import { InsuranceClaim } from '../../claims/entities/claim.entity';
 import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';

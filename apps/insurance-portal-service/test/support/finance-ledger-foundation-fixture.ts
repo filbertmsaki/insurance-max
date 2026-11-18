@@ -5,14 +5,14 @@ import { FinanceLedgerFoundation1797200000000 } from '../../src/database/migrati
 import {
   FinanceLedgerFoundationService,
   FoundationActor,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service';
+} from '../../src/modules/tenant/finance/accounting/general-ledger/finance-ledger-foundation.service';
 import {
   CurrencyContextInput,
   FoundationAcceptInput,
   FOUNDATION_CHECKS,
   currencyContextPolicyHash,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.types';
-import { FinancePolicyService } from '../../src/modules/tenant/billing-commission/foundation/finance-policy.service';
+} from '../../src/modules/tenant/finance/accounting/general-ledger/finance-ledger-foundation.types';
+import { FinancePolicyService } from '../../src/modules/tenant/finance/governance/accounting-policies/finance-policy.service';
 import { createCandidateFixture } from './finance-candidate-fixture';
 import { createIntegrationFixture } from './finance-integration-fixture';
 import { withFinanceTestDatabase } from './finance-test-database';

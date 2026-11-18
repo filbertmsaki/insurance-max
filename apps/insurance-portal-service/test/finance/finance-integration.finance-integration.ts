@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { FinanceOutboxEvent } from '../../src/modules/tenant/billing-commission/entities/finance-outbox-event.entity';
-import { FinanceOutboxProcessor } from '../../src/modules/tenant/billing-commission/outbox/finance-outbox.processor';
-import { FinanceLegalEntity } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity.entity';
-import { FinanceAccountingBook } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-accounting-book.entity';
-import { FinanceReferenceDeliveryService } from '../../src/modules/tenant/billing-commission/foundation/finance-reference-delivery.service';
-import { financeConfigurationHash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import { sourceByteHash } from '../../src/modules/tenant/billing-commission/foundation/finance-event.types';
+import { FinanceOutboxEvent } from '../../src/modules/tenant/finance/integrations/finance-events/entities/finance-outbox-event.entity';
+import { FinanceOutboxProcessor } from '../../src/modules/tenant/finance/integrations/finance-events/finance-outbox.processor';
+import { FinanceLegalEntity } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity.entity';
+import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
+import { FinanceReferenceDeliveryService } from '../../src/modules/tenant/finance/integrations/finance-events/finance-reference-delivery.service';
+import { financeConfigurationHash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import { sourceByteHash } from '../../src/modules/tenant/finance/accounting/accounting-events/finance-event.types';
 import {
   createIntegrationFixture,
   requireLease,

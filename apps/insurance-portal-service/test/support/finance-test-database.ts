@@ -11,18 +11,18 @@ import { FinanceEventContractPreviews1796500000000 } from '../../src/database/mi
 import { FinanceIntegrationReliability1796600000000 } from '../../src/database/migrations/1796600000000-FinanceIntegrationReliability';
 import { FinanceOwnedExceptions1796700000000 } from '../../src/database/migrations/1796700000000-FinanceOwnedExceptions';
 import { FinanceQuotationMemoranda1796800000000 } from '../../src/database/migrations/1796800000000-FinanceQuotationMemoranda';
-import { FinanceChartSourceAuthority } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-chart-source-authority.entity';
-import { FinanceConfigurationAuthority } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-configuration-authority.entity';
-import { FinanceConfigurationRelease } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-configuration-release.entity';
-import { FinanceConfigurationEvent } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-configuration-event.entity';
-import { FinanceLegalEntity } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity.entity';
-import { FinanceAccountingBook } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-accounting-book.entity';
-import { FinanceScopeMembership } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-scope-membership.entity';
-import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity-source-map.entity';
+import { FinanceChartSourceAuthority } from '../../src/modules/tenant/finance/foundation/entities/finance-chart-source-authority.entity';
+import { FinanceConfigurationAuthority } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-authority.entity';
+import { FinanceConfigurationRelease } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-release.entity';
+import { FinanceConfigurationEvent } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-event.entity';
+import { FinanceLegalEntity } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity.entity';
+import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
+import { FinanceScopeMembership } from '../../src/modules/tenant/finance/foundation/entities/finance-scope-membership.entity';
+import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity-source-map.entity';
 
-import { FinanceAccount } from '../../src/modules/tenant/billing-commission/entities/finance-account.entity';
-import { FinanceJournalEntry } from '../../src/modules/tenant/billing-commission/entities/finance-journal-entry.entity';
-import { FinanceJournalLine } from '../../src/modules/tenant/billing-commission/entities/finance-journal-line.entity';
+import { FinanceAccount } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/entities/finance-account.entity';
+import { FinanceJournalEntry } from '../../src/modules/tenant/finance/accounting/journal-entries/entities/finance-journal-entry.entity';
+import { FinanceJournalLine } from '../../src/modules/tenant/finance/accounting/journal-entries/entities/finance-journal-line.entity';
 import {
   assertSafeTestDatabase,
   createTestDatabase,

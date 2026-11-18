@@ -37,25 +37,25 @@ const { createAppDataSourceOptions } = require(
 const { FinanceSetupService } = require(
     path.join(
       base,
-      'tenant/billing-commission/foundation/finance-setup.service.ts',
+      'tenant/finance/foundation/finance-setup/finance-setup.service.ts',
     ),
   ),
   { FinanceSetupConfigurationService } = require(
     path.join(
       base,
-      'tenant/billing-commission/foundation/finance-setup-configuration.service.ts',
+      'tenant/finance/foundation/finance-setup/finance-setup-configuration.service.ts',
     ),
   ),
   { financeConfigurationHash: hash } = require(
     path.join(
       base,
-      'tenant/billing-commission/foundation/finance-configuration.types.ts',
+      'tenant/finance/foundation/finance-configuration/finance-configuration.types.ts',
     ),
   ),
   { FINANCE_SETUP_CATALOG } = require(
     path.join(
       base,
-      'tenant/billing-commission/foundation/finance-setup.catalog.ts',
+      'tenant/finance/foundation/finance-setup/finance-setup.catalog.ts',
     ),
   ),
   { AuditService } = require(path.join(base, 'shared/audit/audit.service.ts'));
@@ -197,11 +197,11 @@ async function actorsAndScope(s, shared = null) {
     ));
   const tenantId = shared?.tenantId ?? crypto.randomUUID(),
     LegalEntity = entity(
-      'tenant/billing-commission/foundation/entities/finance-legal-entity.entity.ts',
+      'tenant/finance/foundation/entities/finance-legal-entity.entity.ts',
       'FinanceLegalEntity',
     ),
     Book = entity(
-      'tenant/billing-commission/foundation/entities/finance-accounting-book.entity.ts',
+      'tenant/finance/foundation/entities/finance-accounting-book.entity.ts',
       'FinanceAccountingBook',
     );
   const legal =
@@ -439,7 +439,7 @@ async function actorsAndScope(s, shared = null) {
     });
   }
   const Account = entity(
-      'tenant/billing-commission/entities/finance-account.entity.ts',
+      'tenant/finance/foundation/chart-of-accounts/entities/finance-account.entity.ts',
       'FinanceAccount',
     ),
     accounts = shared?.accounts ?? [];
@@ -629,7 +629,7 @@ async function run(s, prepared = null, preparedMap = null) {
   const { FinanceSetupEvidenceService } = require(
       path.join(
         base,
-        'tenant/billing-commission/foundation/finance-setup-evidence.service.ts',
+        'tenant/finance/foundation/finance-setup/finance-setup-evidence.service.ts',
       ),
     ),
     { DocumentStorageService } = require(
@@ -1246,7 +1246,7 @@ async function run(s, prepared = null, preparedMap = null) {
   const { FinancePostingPolicyService } = require(
     path.join(
       base,
-      'tenant/billing-commission/services/finance-posting-policy.service.ts',
+      'tenant/finance/accounting/posting-rules/finance-posting-policy.service.ts',
     ),
   );
   let held = false;
@@ -1323,7 +1323,7 @@ async function run(s, prepared = null, preparedMap = null) {
     const { FinanceLedgerFoundationService } = require(
       path.join(
         base,
-        'tenant/billing-commission/foundation/finance-ledger-foundation.service.ts',
+        'tenant/finance/accounting/general-ledger/finance-ledger-foundation.service.ts',
       ),
     );
     const ledger = new FinanceLedgerFoundationService(s);

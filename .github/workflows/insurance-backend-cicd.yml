@@ -27,7 +27,6 @@ on:
 
     paths:
       - "apps/insurance-portal-service/**"
-      - "apps/finance-service/**"
       - "libs/**"
       - "scripts/**"
 
@@ -54,7 +53,6 @@ on:
 
     paths:
       - "apps/insurance-portal-service/**"
-      - "apps/finance-service/**"
       - "libs/**"
       - "scripts/**"
 
@@ -758,14 +756,6 @@ jobs:
       #
       # nest build insurance-portal-service
       # -------------------------------------------------------
-
-      - name: Build independent Finance service
-
-        shell: bash
-
-        run: |
-          set -Eeuo pipefail
-          npm run build:finance-service
 
       - name: Build Insurance Portal backend
 

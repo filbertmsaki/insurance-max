@@ -6,7 +6,7 @@ import { FinanceCommissionControlHardening1797800000000 } from '../../src/databa
 import {
   canonicalFinanceJson,
   financeConfigurationHash as hash,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+} from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 
 describe('B17 inactive commission/acquisition controls on disposable PostgreSQL', () => {
   it('CM25 party roll-forward combines separate contracts without netting books or currencies', async () =>

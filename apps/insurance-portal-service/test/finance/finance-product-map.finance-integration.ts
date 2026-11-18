@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { prepareProductMap } from '../../src/modules/tenant/billing-commission/foundation/finance-setup-product-map';
+import { prepareProductMap } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-setup-product-map';
 import { withFinanceTestDatabase } from '../support/finance-test-database';
 
 it(

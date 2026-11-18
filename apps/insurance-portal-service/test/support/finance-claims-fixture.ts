@@ -3,7 +3,7 @@ import { withCommissionDatabase } from './finance-commission-fixture';
 import { requireLease } from './finance-integration-fixture';
 import { refreshSourceEnvelope } from './finance-event-fixture';
 import { FinanceClaimsControls1797900000000 } from '../../src/database/migrations/1797900000000-FinanceClaimsControls';
-import { FinanceClaimsService } from '../../src/modules/tenant/billing-commission/foundation/finance-claims.service';
+import { FinanceClaimsService } from '../../src/modules/tenant/finance/payables/claims-controls/finance-claims.service';
 import {
   CLAIMS_EVENT,
   sealClaimsSource,
@@ -11,9 +11,9 @@ import {
   type CaseVector,
   type PayableVector,
   type RecoveryVector,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-claims.types';
-import { financeConfigurationHash as hash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import { financeChartSourceMapHash } from '../../src/modules/tenant/billing-commission/foundation/finance-chart.snapshot';
+} from '../../src/modules/tenant/finance/payables/claims-controls/finance-claims.types';
+import { financeConfigurationHash as hash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import { financeChartSourceMapHash } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-chart.snapshot';
 export async function withClaimsDatabase<T>(
   run: (f: Awaited<ReturnType<typeof fixture>>) => Promise<T>,
 ) {

@@ -1,17 +1,17 @@
 import { randomUUID } from 'node:crypto';
-import { FinanceApprovalService } from '../../src/modules/tenant/billing-commission/foundation/finance-approval.service';
+import { FinanceApprovalService } from '../../src/modules/tenant/finance/governance/finance-approvals/finance-approval.service';
 import type {
   ApprovalToken,
   BeneficiaryEvidence,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-approval.types';
+} from '../../src/modules/tenant/finance/governance/finance-approvals/finance-approval.types';
 import { DataSource } from 'typeorm';
-import { FinanceLegalEntity } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity.entity';
-import { FinanceAccountingBook } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-accounting-book.entity';
-import { FinanceConfigurationAuthority } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-configuration-authority.entity';
-import { FinanceConfigurationService } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.service';
-import { FinanceJournalCandidateService } from '../../src/modules/tenant/billing-commission/foundation/finance-journal-candidate.service';
-import { type FinanceConfigurationActor } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import type { JournalCandidateInput } from '../../src/modules/tenant/billing-commission/foundation/finance-journal-candidate.types';
+import { FinanceLegalEntity } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity.entity';
+import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
+import { FinanceConfigurationAuthority } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-authority.entity';
+import { FinanceConfigurationService } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.service';
+import { FinanceJournalCandidateService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.service';
+import { type FinanceConfigurationActor } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import type { JournalCandidateInput } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.types';
 import { readAiclFin01Demonstration } from '../../src/database/seeds/data/aicl-fin-01-reader';
 
 export async function createCandidateFixture(

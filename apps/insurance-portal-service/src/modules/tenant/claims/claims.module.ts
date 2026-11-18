@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-import { BillingCommissionModule } from '../billing-commission/billing-commission.module';
+import { FinanceAccountingModule } from '../finance/accounting/finance-accounting.module';
 import { InsuranceDocumentsModule } from '../insurance-documents/insurance-documents.module';
 import { SharedModule } from '../../shared/shared.module';
 import { TiramisModule } from '../../tiramis/tiramis.module';
@@ -117,7 +117,7 @@ import { ComplaintSlaService } from './services/complaint-sla.service';
       DocumentLink,
       User,
     ]),
-    BillingCommissionModule,
+    FinanceAccountingModule,
     InsuranceDocumentsModule,
     SharedModule,
     TiramisModule,

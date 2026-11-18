@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 
 import { ClaimAssessment } from '../entities/claim-assessment.entity';
 import { ClaimClaimant } from '../entities/claim-claimant.entity';

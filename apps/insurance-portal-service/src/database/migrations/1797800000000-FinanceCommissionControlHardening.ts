@@ -1,5 +1,5 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
-import { installFinanceCommissionFunctions } from '../../modules/tenant/billing-commission/foundation/finance-commission.database';
+import { installFinanceCommissionFunctions } from '../../modules/tenant/finance/payables/commission-controls/finance-commission.database';
 
 /** Explicit forward repair for an already installed early B17 definition.
  * It does not apply itself at startup, activate a policy, grant access or change business rows.

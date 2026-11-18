@@ -8,16 +8,16 @@ import {
 import { withFinanceTestDatabase } from '../support/finance-test-database';
 import { requireLease } from '../support/finance-integration-fixture';
 import { refreshSourceEnvelope } from '../support/finance-event-fixture';
-import { financeConfigurationHash as hash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+import { financeConfigurationHash as hash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 import { FinancePolicyGovernance1797100000000 } from '../../src/database/migrations/1797100000000-FinancePolicyGovernance';
 import { FinanceLedgerFoundation1797200000000 } from '../../src/database/migrations/1797200000000-FinanceLedgerFoundation';
-import { FinanceFoundationController } from '../../src/modules/tenant/billing-commission/foundation/finance-foundation.controller';
-import { FinanceLedgerFoundationService } from '../../src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service';
-import { FinancePolicyService } from '../../src/modules/tenant/billing-commission/foundation/finance-policy.service';
-import { FinanceJournalCandidateService } from '../../src/modules/tenant/billing-commission/foundation/finance-journal-candidate.service';
-import { FinanceApprovalService } from '../../src/modules/tenant/billing-commission/foundation/finance-approval.service';
-import { retainedChartAuthorized } from '../../src/modules/tenant/billing-commission/foundation/finance-retained-chart';
-import { FOUNDATION_CHECKS } from '../../src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.types';
+import { FinanceFoundationController } from '../../src/modules/tenant/finance/foundation/finance-foundation.controller';
+import { FinanceLedgerFoundationService } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-ledger-foundation.service';
+import { FinancePolicyService } from '../../src/modules/tenant/finance/governance/accounting-policies/finance-policy.service';
+import { FinanceJournalCandidateService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.service';
+import { FinanceApprovalService } from '../../src/modules/tenant/finance/governance/finance-approvals/finance-approval.service';
+import { retainedChartAuthorized } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-retained-chart';
+import { FOUNDATION_CHECKS } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-ledger-foundation.types';
 const db = withFoundationDatabase;
 describe('B43-B45 integrated ledger and release controls on disposable PostgreSQL', () => {
   it('LF01 migrates only empty structures and restores an unused migration', () =>
@@ -458,18 +458,26 @@ describe('B43-B45 integrated ledger and release controls on disposable PostgreSQ
     }));
   it('LF14 rolls activity before the reporting window into opening without a balancing plug', () =>
     db(async (f) => {
+      // Relative to the database date: acceptance stamps transactionDate=today,
+      // which may not be later than a candidate's accounting date. Fixed calendar
+      // dates made this test fail once "today" passed the first entry's date.
+      const plusDays = (date: string, days: number) =>
+        new Date(Date.parse(`${date}T00:00:00Z`) + days * 86400000)
+          .toISOString()
+          .slice(0, 10);
+      const windowStart = plusDays(f.today, 1);
       await f.acceptLedger(
-        await f.prepareLedger({ sourceId: 'first', date: '2026-11-17' }),
+        await f.prepareLedger({ sourceId: 'first', date: f.today }),
       );
       await f.acceptLedger(
-        await f.prepareLedger({ sourceId: 'second', date: '2026-11-18' }),
+        await f.prepareLedger({ sourceId: 'second', date: windowStart }),
       );
       const r = await f.ledger.trialBalance(f.checker, f.scope, {
         mode: 'VALIDATION',
         openingId: f.opening.id,
         openingHash: f.opening.subjectHash,
-        from: '2026-11-18',
-        to: '2026-11-19',
+        from: windowStart,
+        to: plusDays(windowStart, 1),
       });
       expect(r.rows.find((x) => x.accountCode === '110110')).toMatchObject({
         opening: '62812.500000000000',

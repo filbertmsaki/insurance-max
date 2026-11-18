@@ -9,7 +9,7 @@ import {
   freezeEndorsementRiskCharges,
   validatedEndorsementInvoiceTax,
   policyPricingHashMatches,
-} from '../../billing-commission/utils/endorsement-invoice-tax';
+} from '../../finance/taxation/tax-calculation/endorsement-invoice-tax';
 const h = new ProductDefinitionHashService();
 describe('Endorsement invoice tax correction', () => {
   it('stores net and calculated tax instead of putting the inclusive payable in gross', async () => {

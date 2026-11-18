@@ -12,10 +12,10 @@ import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
-import { FinanceRefund } from '../../billing-commission/entities/finance-refund.entity';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
-import { ReceiptAllocation } from '../../billing-commission/entities/receipt-allocation.entity';
-import { ReceiptAllocationStatus } from '../../billing-commission/enums/finance-status.enums';
+import { FinanceRefund } from '../../finance/receivables/refunds/entities/finance-refund.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
+import { ReceiptAllocation } from '../../finance/receivables/receipt-allocations/entities/receipt-allocation.entity';
+import { ReceiptAllocationStatus } from '../../finance/common/enums/finance-status.enums';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionEvent } from '../entities/policy-transaction-event.entity';

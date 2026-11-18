@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { EntityManager } from 'typeorm';
-import { QuotationInvoiceService } from '../../src/modules/tenant/billing-commission/services/quotation-invoice.service';
+import { QuotationInvoiceService } from '../../src/modules/tenant/finance/integrations/quotation-finance/quotation-invoice.service';
 import { Quotation } from '../../src/modules/tenant/quotations/entities/quotation.entity';
-import { Invoice } from '../../src/modules/tenant/billing-commission/entities/invoice.entity';
-import { InvoiceItem } from '../../src/modules/tenant/billing-commission/entities/invoice-item.entity';
+import { Invoice } from '../../src/modules/tenant/finance/receivables/invoices/entities/invoice.entity';
+import { InvoiceItem } from '../../src/modules/tenant/finance/receivables/invoices/entities/invoice-item.entity';
 import { Tax } from '../../src/modules/tenant/taxes/entities/tax.entity';
 import { PricingQuote } from '../../src/modules/tenant/pricing/entities/pricing-quote.entity';
 export function quotationTaxData() {

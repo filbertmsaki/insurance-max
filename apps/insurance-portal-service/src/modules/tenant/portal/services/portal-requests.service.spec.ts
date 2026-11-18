@@ -8,7 +8,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
 import { AuditService } from '../../../shared/audit/audit.service';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
 import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalPaymentProof } from '../entities/portal-payment-proof.entity';
 import { PortalRequestAttachment } from '../entities/portal-request-attachment.entity';

@@ -3,7 +3,7 @@ import { withReceivableDatabase } from './finance-receivables-fixture';
 import { requireLease } from './finance-integration-fixture';
 import { refreshSourceEnvelope } from './finance-event-fixture';
 import { FinanceOutgoingCashControls1797500000000 } from '../../src/database/migrations/1797500000000-FinanceOutgoingCashControls';
-import { FinanceOutgoingService } from '../../src/modules/tenant/billing-commission/foundation/finance-outgoing.service';
+import { FinanceOutgoingService } from '../../src/modules/tenant/finance/payables/outgoing-payments/finance-outgoing.service';
 import {
   OUTGOING_EVENT,
   type FundingEvidence,
@@ -13,12 +13,12 @@ import {
   type CashProviderRequest,
   type CashProviderOutcome,
   type CashSimulationAdapter,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-outgoing.types';
+} from '../../src/modules/tenant/finance/payables/outgoing-payments/finance-outgoing.types';
 import {
   financeConfigurationHash as hash,
   type FinanceConfigurationInput,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import { financeChartSourceMapHash } from '../../src/modules/tenant/billing-commission/foundation/finance-chart.snapshot';
+} from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import { financeChartSourceMapHash } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-chart.snapshot';
 
 export class CashTestSimulator implements CashSimulationAdapter {
   readonly purpose = 'ISOLATED_TEST_SIMULATOR_ONLY' as const;

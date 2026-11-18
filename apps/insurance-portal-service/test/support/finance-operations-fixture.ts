@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { createIntegrationFixture } from './finance-integration-fixture';
-import { FinanceOperationsService } from '../../src/modules/tenant/billing-commission/foundation/finance-operations.service';
+import { FinanceOperationsService } from '../../src/modules/tenant/finance/governance/financial-controls/finance-operations.service';
 import {
   OPERATIONS_PERMISSIONS,
   type OperationsActor,
   type OperationsScope,
   type OperationsProfile,
   type OperationsPermission,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-operations.types';
+} from '../../src/modules/tenant/finance/governance/financial-controls/finance-operations.types';
 
 export async function createOperationsFixture(
   source: DataSource,

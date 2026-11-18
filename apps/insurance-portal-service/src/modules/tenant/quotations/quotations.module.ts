@@ -8,11 +8,12 @@ import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { Branch } from '../branches/entities/branch.entity';
-import { BillingCommissionModule } from '../billing-commission/billing-commission.module';
+import { FinanceInsuranceIntegrationModule } from '../finance/integrations/finance-insurance-integration.module';
+import { FinanceReceivablesModule } from '../finance/receivables/finance-receivables.module';
 import { BranchUser } from '../branches/entities/branch-user.entity';
-import { Invoice } from '../billing-commission/entities/invoice.entity';
-import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
-import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { Invoice } from '../finance/receivables/invoices/entities/invoice.entity';
+import { PaymentTransaction } from '../finance/receivables/payment-transactions/entities/payment-transaction.entity';
+import { Receipt } from '../finance/receivables/receipts/entities/receipt.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CustomerVersion } from '../customers/entities/customer-version.entity';
 import { InsuredAsset } from '../customers/entities/insured-asset.entity';
@@ -113,7 +114,8 @@ import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.serv
     CategoryAccessModule,
     ProductAccessModule,
     InsuranceProductsModule,
-    forwardRef(() => BillingCommissionModule),
+    forwardRef(() => FinanceReceivablesModule),
+    forwardRef(() => FinanceInsuranceIntegrationModule),
   ],
   controllers: [QuotationsController, QuotationApprovalPolicyController],
   providers: [

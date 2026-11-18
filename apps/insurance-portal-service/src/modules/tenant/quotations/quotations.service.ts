@@ -143,17 +143,17 @@ import { MotorVehicleVersion } from '../motor/entities/motor-vehicle-version.ent
 import { normalizeMotorIdentifier } from '../motor/utils/motor-identifier.util';
 import { recordVehicleOwnershipTransfer } from '../motor/utils/record-vehicle-ownership-transfer';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
-import { Invoice } from '../billing-commission/entities/invoice.entity';
-import { Receipt } from '../billing-commission/entities/receipt.entity';
-import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
+import { Invoice } from '../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../finance/receivables/receipts/entities/receipt.entity';
+import { PaymentTransaction } from '../finance/receivables/payment-transactions/entities/payment-transaction.entity';
 import type {
   PostReceiptDto,
   RecordPaymentTransactionDto,
-} from '../billing-commission/dto/finance-operations.dto';
+} from '../finance/receivables/billing/dto/finance-operations.dto';
 import { PaymentMethod } from '@insurance-max/contracts';
-import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
-import { QuotationInvoiceService } from '../billing-commission/services/quotation-invoice.service';
-import { FinanceCommandService } from '../billing-commission/services/finance-command.service';
+import { CommissionTransaction } from '../finance/payables/commission-payables/entities/commission-transaction.entity';
+import { QuotationInvoiceService } from '../finance/integrations/quotation-finance/quotation-invoice.service';
+import { FinanceCommandService } from '../finance/receivables/payment-transactions/finance-command.service';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';

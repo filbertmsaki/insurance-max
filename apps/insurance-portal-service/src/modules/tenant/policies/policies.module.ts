@@ -28,10 +28,10 @@ import { PoliciesController } from './policies.controller';
 import { PoliciesService } from './policies.service';
 import { PolicyVersionDiffService } from './services/policy-version-diff.service';
 import { InsurancePdfService } from '../documents/insurance-pdf.service';
-import { Invoice } from '../billing-commission/entities/invoice.entity';
-import { Receipt } from '../billing-commission/entities/receipt.entity';
-import { PaymentReference } from '../billing-commission/entities/payment-reference.entity';
-import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
+import { Invoice } from '../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../finance/receivables/receipts/entities/receipt.entity';
+import { PaymentReference } from '../finance/receivables/payment-transactions/entities/payment-reference.entity';
+import { PaymentTransaction } from '../finance/receivables/payment-transactions/entities/payment-transaction.entity';
 import { InsuranceDocumentsController } from '../documents/insurance-documents.controller';
 
 @Module({

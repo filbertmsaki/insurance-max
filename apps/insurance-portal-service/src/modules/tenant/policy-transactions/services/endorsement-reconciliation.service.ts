@@ -7,7 +7,7 @@ import {
 } from '@insurance-max/contracts';
 
 import { DocumentLink } from '../../insurance-documents/entities/document-link.entity';
-import { FinanceRefund } from '../../billing-commission/entities/finance-refund.entity';
+import { FinanceRefund } from '../../finance/receivables/refunds/entities/finance-refund.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
 import { PolicyEndorsement } from '../entities/policy-endorsement.entity';

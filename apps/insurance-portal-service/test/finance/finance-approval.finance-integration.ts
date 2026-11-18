@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { DataSource } from 'typeorm';
-import { FinanceApprovalService } from '../../src/modules/tenant/billing-commission/foundation/finance-approval.service';
-import { financeConfigurationHash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import type { BeneficiaryEvidence } from '../../src/modules/tenant/billing-commission/foundation/finance-approval.types';
+import { FinanceApprovalService } from '../../src/modules/tenant/finance/governance/finance-approvals/finance-approval.service';
+import { financeConfigurationHash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import type { BeneficiaryEvidence } from '../../src/modules/tenant/finance/governance/finance-approvals/finance-approval.types';
 import { createCandidateFixture } from '../support/finance-candidate-fixture';
 import {
   withFinanceTestDatabase,

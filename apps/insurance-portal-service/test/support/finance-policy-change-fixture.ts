@@ -4,13 +4,13 @@ import { withOutgoingDatabase } from './finance-outgoing-fixture';
 import { requireLease } from './finance-integration-fixture';
 import { refreshSourceEnvelope } from './finance-event-fixture';
 import { FinancePolicyChangeControls1797600000000 } from '../../src/database/migrations/1797600000000-FinancePolicyChangeControls';
-import { FinancePolicyChangeService } from '../../src/modules/tenant/billing-commission/foundation/finance-policy-change.service';
+import { FinancePolicyChangeService } from '../../src/modules/tenant/finance/governance/accounting-policies/finance-policy-change.service';
 import {
   POLICY_CHANGE_EVENT,
   type PolicyChangeEvidence,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-policy-change.types';
-import { financeConfigurationHash as hash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import { financeChartSourceMapHash } from '../../src/modules/tenant/billing-commission/foundation/finance-chart.snapshot';
+} from '../../src/modules/tenant/finance/governance/accounting-policies/finance-policy-change.types';
+import { financeConfigurationHash as hash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import { financeChartSourceMapHash } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-chart.snapshot';
 
 export async function withPolicyChangeDatabase<T>(
   run: (f: Awaited<ReturnType<typeof fixture>>) => Promise<T>,

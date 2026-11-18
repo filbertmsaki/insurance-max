@@ -11,7 +11,7 @@ name: Insurance Max - Tiramis CI/CD
 #
 # Deploy runners:
 #   Server 1 keeps its original tiramis-self-hosted-runner label.
-#   Server 2 is disabled until provisioned. See deploy/tiramis/README.md.
+#   Server 2 is disabled until provisioned.
 #
 # This file merges what used to be two separate workflows
 # (tiramis-ci.yml + tiramis-deploy-production.yml) into one,

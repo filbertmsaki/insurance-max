@@ -1,6 +1,6 @@
 import type { DataSource } from 'typeorm';
-import { FinanceAccount } from '../../src/modules/tenant/billing-commission/entities/finance-account.entity';
-import type { Receipt } from '../../src/modules/tenant/billing-commission/entities/receipt.entity';
+import { FinanceAccount } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/entities/finance-account.entity';
+import type { Receipt } from '../../src/modules/tenant/finance/receivables/receipts/entities/receipt.entity';
 
 // Synthetic transaction-currency fixtures, not entity functional-currency or
 // accounting-policy elections. No production product/company defaults.

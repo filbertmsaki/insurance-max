@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { withFinanceTestDatabase } from '../support/finance-test-database';
 import { withQuotationTaxSchema } from '../support/quotation-tax-database';
-import { Invoice } from '../../src/modules/tenant/billing-commission/entities/invoice.entity';
+import { Invoice } from '../../src/modules/tenant/finance/receivables/invoices/entities/invoice.entity';
 import { Tax } from '../../src/modules/tenant/taxes/entities/tax.entity';
 import { QuotationRiskTax } from '../../src/modules/tenant/quotations/entities/structured/quotation-risk-tax.entity';
-import { validatedInvoiceTax } from '../../src/modules/tenant/billing-commission/utils/quotation-invoice-tax';
+import { validatedInvoiceTax } from '../../src/modules/tenant/finance/taxation/tax-calculation/quotation-invoice-tax';
 import { TaxCalculationEvidence1796900000000 } from '../../src/database/migrations/1796900000000-TaxCalculationEvidence';
 const db = <T>(fn: Parameters<typeof withQuotationTaxSchema<T>>[1]) =>
   withFinanceTestDatabase(({ dataSource }) =>

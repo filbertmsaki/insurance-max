@@ -20,9 +20,9 @@ import {
 } from '@insurance-max/contracts';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 
-import { CommissionTransaction } from '../../billing-commission/entities/commission-transaction.entity';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
-import { Receipt } from '../../billing-commission/entities/receipt.entity';
+import { CommissionTransaction } from '../../finance/payables/commission-payables/entities/commission-transaction.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../../finance/receivables/receipts/entities/receipt.entity';
 import { PricingQuote } from '../../pricing/entities/pricing-quote.entity';
 import { PricingRateBook } from '../../pricing-rate-books/entities/pricing-rate-book.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';

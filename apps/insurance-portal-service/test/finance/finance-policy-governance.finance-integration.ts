@@ -2,19 +2,19 @@ import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { FinancePolicyGovernance1797100000000 } from '../../src/database/migrations/1797100000000-FinancePolicyGovernance';
-import { FinancePolicyService } from '../../src/modules/tenant/billing-commission/foundation/finance-policy.service';
+import { FinancePolicyService } from '../../src/modules/tenant/finance/governance/accounting-policies/finance-policy.service';
 import {
   FinancePolicyDefinition,
   FinancePolicyActor,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-policy.types';
-import { FinanceLegalEntity } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity.entity';
-import { FinanceAccountingBook } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-accounting-book.entity';
-import { FinancePostingPolicyService } from '../../src/modules/tenant/billing-commission/services/finance-posting-policy.service';
-import { ProviderWebhookService } from '../../src/modules/tenant/billing-commission/services/provider-webhook.service';
-import { FinanceProviderEvent } from '../../src/modules/tenant/billing-commission/entities/finance-provider-event.entity';
-import { FinanceAccount } from '../../src/modules/tenant/billing-commission/entities/finance-account.entity';
-import { FinanceJournalEntry } from '../../src/modules/tenant/billing-commission/entities/finance-journal-entry.entity';
-import { FinanceJournalLine } from '../../src/modules/tenant/billing-commission/entities/finance-journal-line.entity';
+} from '../../src/modules/tenant/finance/governance/accounting-policies/finance-policy.types';
+import { FinanceLegalEntity } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity.entity';
+import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
+import { FinancePostingPolicyService } from '../../src/modules/tenant/finance/accounting/posting-rules/finance-posting-policy.service';
+import { ProviderWebhookService } from '../../src/modules/tenant/finance/integrations/payment-providers/provider-webhook.service';
+import { FinanceProviderEvent } from '../../src/modules/tenant/finance/integrations/payment-providers/entities/finance-provider-event.entity';
+import { FinanceAccount } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/entities/finance-account.entity';
+import { FinanceJournalEntry } from '../../src/modules/tenant/finance/accounting/journal-entries/entities/finance-journal-entry.entity';
+import { FinanceJournalLine } from '../../src/modules/tenant/finance/accounting/journal-entries/entities/finance-journal-line.entity';
 import { withFinanceTestDatabase } from '../support/finance-test-database';
 
 const evidence = 'a'.repeat(64);

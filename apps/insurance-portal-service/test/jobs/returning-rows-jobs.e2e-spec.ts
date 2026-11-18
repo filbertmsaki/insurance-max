@@ -7,8 +7,8 @@ import { randomUUID } from 'crypto';
 import { AppModule } from '../../src/app.module';
 import { AnalyticsProjectionJob } from '../../src/modules/shared/analytics/jobs/analytics-projection.job';
 import { ScorecardService } from '../../src/modules/tenant/analytics/services/scorecard.service';
-import { FinanceOutboxProcessor } from '../../src/modules/tenant/billing-commission/outbox/finance-outbox.processor';
-import { QuotationPaymentEventService } from '../../src/modules/tenant/billing-commission/services/quotation-payment-event.service';
+import { FinanceOutboxProcessor } from '../../src/modules/tenant/finance/integrations/finance-events/finance-outbox.processor';
+import { QuotationPaymentEventService } from '../../src/modules/tenant/finance/integrations/quotation-finance/quotation-payment-event.service';
 import { PartnerRelationshipExpiryJob } from '../../src/modules/tenant/insurance-partners/jobs/partner-relationship-expiry.job';
 
 jest.setTimeout(180_000);

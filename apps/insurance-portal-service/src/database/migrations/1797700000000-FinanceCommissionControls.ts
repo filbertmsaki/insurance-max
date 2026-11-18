@@ -1,4 +1,4 @@
-import { installFinanceCommissionFunctions } from '../../modules/tenant/billing-commission/foundation/finance-commission.database';
+import { installFinanceCommissionFunctions } from '../../modules/tenant/finance/payables/commission-controls/finance-commission.database';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 const tables = [
   'finance_commission_authorities',

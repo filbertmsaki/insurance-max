@@ -8,8 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Brackets, DataSource, Repository } from 'typeorm';
 
-import { FinanceJournalService } from '../../billing-commission/services/finance-journal.service';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { FinanceJournalService } from '../../finance/accounting/journal-entries/finance-journal.service';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
 import { AuditService } from '../../../shared/audit/audit.service';
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';

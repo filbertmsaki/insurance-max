@@ -5,13 +5,13 @@ import { requireLease } from './finance-integration-fixture';
 import { refreshSourceEnvelope } from './finance-event-fixture';
 import { FinanceCommissionControls1797700000000 } from '../../src/database/migrations/1797700000000-FinanceCommissionControls';
 import { FinanceCommissionControlHardening1797800000000 } from '../../src/database/migrations/1797800000000-FinanceCommissionControlHardening';
-import { FinanceCommissionService } from '../../src/modules/tenant/billing-commission/foundation/finance-commission.service';
+import { FinanceCommissionService } from '../../src/modules/tenant/finance/payables/commission-controls/finance-commission.service';
 import {
   COMMISSION_EVENT,
   type CommissionEvidence,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-commission.types';
-import { financeConfigurationHash as hash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import { financeChartSourceMapHash } from '../../src/modules/tenant/billing-commission/foundation/finance-chart.snapshot';
+} from '../../src/modules/tenant/finance/payables/commission-controls/finance-commission.types';
+import { financeConfigurationHash as hash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import { financeChartSourceMapHash } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-chart.snapshot';
 export async function withCommissionDatabase<T>(
   run: (f: Awaited<ReturnType<typeof fixture>>) => Promise<T>,
 ) {

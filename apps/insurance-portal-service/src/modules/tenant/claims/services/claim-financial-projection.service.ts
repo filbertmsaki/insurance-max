@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimReserveMovement } from '../entities/claim-reserve-movement.entity';
 import { ClaimPayment } from '../entities/claim-payment.entity';

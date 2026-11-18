@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { FinanceAccountingBook } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-accounting-book.entity';
-import { FinanceFoundationModule } from '../../src/modules/tenant/billing-commission/foundation/finance-foundation.module';
-import { FinanceJournalCandidateService } from '../../src/modules/tenant/billing-commission/foundation/finance-journal-candidate.service';
-import { financeConfigurationHash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import type { JournalCandidateInput } from '../../src/modules/tenant/billing-commission/foundation/finance-journal-candidate.types';
+import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
+import { FinanceFoundationModule } from '../../src/modules/tenant/finance/foundation/finance-foundation.module';
+import { FinanceJournalCandidateService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.service';
+import { financeConfigurationHash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import type { JournalCandidateInput } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.types';
 import {
   withFinanceTestDatabase,
   type FinanceTestDatabase,

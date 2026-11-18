@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { FinanceDimensionScopeFences1797700000000 } from '../../src/database/migrations/1797700000000-FinanceDimensionScopeFences';
 import { withFoundationDatabase } from '../support/finance-ledger-foundation-fixture';
-import { prepareSetupDimensionMaster } from '../../src/modules/tenant/billing-commission/foundation/finance-setup-dimension-master';
+import { prepareSetupDimensionMaster } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-setup-dimension-master';
 
 describe('FIN-03 dimension scope fences', () => {
   it('checks an exact reviewed company master and source association when explicitly pinned to a candidate', async () => {

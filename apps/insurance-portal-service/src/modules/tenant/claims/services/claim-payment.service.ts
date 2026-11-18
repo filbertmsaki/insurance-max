@@ -8,7 +8,7 @@ import { ClaimRegulatoryOperationType } from '@insurance-max/contracts';
 import { DataSource, EntityManager, In } from 'typeorm';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { Policy } from '../../policies/entities/policy.entity';
 import { ClaimsService } from '../claims.service';
 import {

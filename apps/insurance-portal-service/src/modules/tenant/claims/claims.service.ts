@@ -21,7 +21,7 @@ import { AuditService } from '../../shared/audit/audit.service';
 import { DecimalUtil } from '../../shared/finance/decimal.util';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { BusinessReferenceService } from '../../shared/identifiers/business-reference.service';
-import { MoneyUtil } from '../billing-commission/utils/money.util';
+import { MoneyUtil } from '../finance/common/utils/money.util';
 import { CoverNote } from '../cover-notes/entities/cover-note.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CustomerType } from '../customers/enums/customer-type.enum';

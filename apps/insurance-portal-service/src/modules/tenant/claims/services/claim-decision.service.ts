@@ -12,7 +12,7 @@ import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { ClaimDecisionType } from '@insurance-max/contracts';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import {
   ClaimDecisionStatus,
   ClaimSettlementStatus,

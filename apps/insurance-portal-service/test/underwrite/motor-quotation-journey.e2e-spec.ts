@@ -8,8 +8,8 @@ import { QuotationsService } from '../../src/modules/tenant/quotations/quotation
 import { QuotationApprovalPolicyService } from '../../src/modules/tenant/quotations/approval-policy/quotation-approval-policy.service';
 import { normalizeApprovalPolicy } from '../../src/modules/tenant/quotations/approval-policy/quotation-approval-policy';
 import { UnderwriteQuotationCommandService } from '../../src/modules/tenant/underwrite/common/underwrite-quotation-command.service';
-import { FinanceCommandService } from '../../src/modules/tenant/billing-commission/services/finance-command.service';
-import { FinancePostingPolicyService } from '../../src/modules/tenant/billing-commission/services/finance-posting-policy.service';
+import { FinanceCommandService } from '../../src/modules/tenant/finance/receivables/payment-transactions/finance-command.service';
+import { FinancePostingPolicyService } from '../../src/modules/tenant/finance/accounting/posting-rules/finance-posting-policy.service';
 import { QuotationStatusTransitionAction } from '../../src/modules/tenant/quotations/enums/quotation-status-transition-action.enum';
 import { UnderwriteQueryService } from '../../src/modules/tenant/underwrite/common/underwrite-query.service';
 import { FleetRegisterService } from '../../src/modules/tenant/underwrite/fleet/fleet-register.service';

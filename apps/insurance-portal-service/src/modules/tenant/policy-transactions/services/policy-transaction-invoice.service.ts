@@ -9,13 +9,13 @@ import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
-import { InvoiceItem } from '../../billing-commission/entities/invoice-item.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
+import { InvoiceItem } from '../../finance/receivables/invoices/entities/invoice-item.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import {
   buildEndorsementInvoiceTax,
   validatedEndorsementInvoiceTax,
-} from '../../billing-commission/utils/endorsement-invoice-tax';
+} from '../../finance/taxation/tax-calculation/endorsement-invoice-tax';
 
 export interface PolicyTransactionInvoiceInput {
   companyId: string;
