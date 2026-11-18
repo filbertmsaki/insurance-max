@@ -21,7 +21,7 @@ export class FinanceApprovalGovernance1796400000000 implements MigrationInterfac
     await q.query(`CREATE TABLE finance_approval_mandates (
       id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       subject_id uuid NOT NULL, natural_person_id uuid NOT NULL, role_code varchar(80) NOT NULL CHECK (btrim(role_code) <> ''),
-      currency varchar(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'), max_amount numeric(38,12) NOT NULL CHECK (max_amount > 0 AND max_amount < 'Infinity'::numeric),
+      currency varchar(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'), max_amount numeric(38,12) NOT NULL CHECK (max_amount > 0 AND max_amount::text NOT IN ('NaN','Infinity','-Infinity')),
       delegated_from_id uuid, version integer NOT NULL CHECK (version>0), authority_reference varchar(200) NOT NULL CHECK (btrim(authority_reference) <> ''),
       state varchar(12) NOT NULL DEFAULT 'DRAFT' CHECK (state IN ('DRAFT','ENABLED','REVOKED')),
       valid_from timestamptz NOT NULL, valid_to timestamptz, revoked_at timestamptz,
@@ -35,7 +35,7 @@ export class FinanceApprovalGovernance1796400000000 implements MigrationInterfac
       candidate_id uuid NOT NULL UNIQUE, candidate_hash varchar(64) NOT NULL CHECK (candidate_hash ~ '^[0-9a-f]{64}$'),
       profile_id uuid NOT NULL, profile_hash varchar(64) NOT NULL CHECK (profile_hash ~ '^[0-9a-f]{64}$'),
       beneficiary jsonb NOT NULL CHECK (jsonb_typeof(beneficiary)='object'), beneficiary_hash varchar(64) NOT NULL CHECK (beneficiary_hash ~ '^[0-9a-f]{64}$'),
-      amount numeric(38,12) NOT NULL CHECK (amount>0 AND amount < 'Infinity'::numeric), currency varchar(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+      amount numeric(38,12) NOT NULL CHECK (amount>0 AND amount::text NOT IN ('NaN','Infinity','-Infinity')), currency varchar(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
       subject jsonb NOT NULL CHECK (jsonb_typeof(subject)='object'), request_hash varchar(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
       maker_subject_id uuid NOT NULL, maker_natural_person_id uuid NOT NULL, expires_at timestamptz NOT NULL,
       state varchar(24) NOT NULL DEFAULT 'OPEN_INACTIVE' CHECK (state IN ('OPEN_INACTIVE','REJECTED_INACTIVE','CONSUMED_INACTIVE')),

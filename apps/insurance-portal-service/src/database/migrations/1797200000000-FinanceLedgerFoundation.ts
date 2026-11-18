@@ -83,7 +83,7 @@ export class FinanceLedgerFoundation1797200000000 implements MigrationInterface 
       rounding_debit numeric(38,12) NOT NULL,rounding_credit numeric(38,12) NOT NULL,dimensions jsonb NOT NULL,
       PRIMARY KEY(journal_id,line_key),CHECK((transaction_debit>0 AND transaction_credit=0) OR (transaction_credit>0 AND transaction_debit=0)),
       CHECK((functional_debit>0 AND functional_credit=0) OR (functional_credit>0 AND functional_debit=0)),
-      CHECK(transaction_debit<'Infinity'::numeric AND transaction_credit<'Infinity'::numeric AND functional_debit<'Infinity'::numeric AND functional_credit<'Infinity'::numeric AND abs(rounding_debit)<'Infinity'::numeric AND abs(rounding_credit)<'Infinity'::numeric),
+      CHECK(transaction_debit::text NOT IN ('NaN','Infinity','-Infinity') AND transaction_credit::text NOT IN ('NaN','Infinity','-Infinity') AND functional_debit::text NOT IN ('NaN','Infinity','-Infinity') AND functional_credit::text NOT IN ('NaN','Infinity','-Infinity') AND rounding_debit::text NOT IN ('NaN','Infinity','-Infinity') AND rounding_credit::text NOT IN ('NaN','Infinity','-Infinity')),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,journal_id) REFERENCES finance_foundation_journals(tenant_id,legal_entity_id,book_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_journal_audits(
       id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,journal_id uuid NOT NULL UNIQUE,

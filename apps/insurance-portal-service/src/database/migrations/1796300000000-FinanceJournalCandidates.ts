@@ -57,7 +57,7 @@ export class FinanceJournalCandidates1796300000000 implements MigrationInterface
       dimensions jsonb NOT NULL CHECK (jsonb_typeof(dimensions) = 'object'),
       PRIMARY KEY (candidate_id, line_key),
       CHECK ((debit > 0 AND credit = 0) OR (credit > 0 AND debit = 0)),
-      CHECK (debit >= 0 AND debit < 'Infinity'::numeric AND credit >= 0 AND credit < 'Infinity'::numeric),
+      CHECK (debit >= 0 AND debit::text NOT IN ('NaN','Infinity','-Infinity') AND credit >= 0 AND credit::text NOT IN ('NaN','Infinity','-Infinity')),
       FOREIGN KEY (tenant_id, legal_entity_id, book_id, candidate_id) REFERENCES finance_journal_candidates (tenant_id, legal_entity_id, book_id, id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_journal_candidate_events (
