@@ -214,8 +214,9 @@ async function main() {
         bookRuns: report.bookRuns,
       });
     }
+    fs.mkdirSync(path.join(repo, 'dist'), { recursive: true });
     fs.writeFileSync(
-      path.join(repo, 'docs/finance/AICL-G04-Rehearsal-Result.json'),
+      path.join(repo, 'dist/finance-aicl-rehearsal-result.json'),
       JSON.stringify(
         { purpose: 'ISOLATED_INTEGRATED_THREE_BOOK_REHEARSAL', runs: reports },
         null,
