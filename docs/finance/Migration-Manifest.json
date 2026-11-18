@@ -1,9 +1,9 @@
 {
-  "documentId": "IM-FIN-SRS-1.17",
-  "date": "2026-11-17",
+  "documentId": "IM-FIN-SRS-1.18",
+  "date": "2026-11-18",
   "timeZone": "Africa/Dar_es_Salaam",
   "repository": "filbertmsaki/insurance-max",
-  "baseCommit": "d07b5bade61a68664da8b0b9437ec0a8b8c0b38e",
+  "baseCommit": "b66a54068fe7078c676dee5697a8a1d3c963ab4d",
   "sourceCodeFingerprint": "c1353e8032161f760c3d3bc9e5c4d0fb8f5d5fb3ad54a13b3e1083d731f6e318",
   "sourceCodeFiles": [
     {
@@ -1792,9 +1792,23 @@
     "newCompanyGrants": 0,
     "policiesActivated": 0,
     "sourcePreservationCertified": false,
-    "sourceDataException": "Four initially protected paid invoices and company setup were observed absent. Cleanup cause/intent is unresolved; development was not restored. The isolated recovery copy reproduced all four invoice hashes."
+    "sourceDataException": "A full public-schema reset in the separate chat cleared the paid invoices and setup. The exact pre-reset backup was independently restored and matches all 376 original table data hashes. Actual development recovery remains unapproved and unperformed."
   },
   "currentObservedMigrationLedgerHash": "5e1b879944724919e49d14d5f3a7c10069f67038a3ce1daf8fcb2e3c8659ba0e",
   "currentObservedLedgerMatchesLastCertified": false,
-  "currentSourceDataAcceptance": "BLOCKED_PENDING_USER_CLARIFICATION"
+  "currentSourceDataAcceptance": "BLOCKED_PENDING_APPROVED_RECOVERY_AND_RECONCILIATION",
+  "sourceDataInvestigation": {
+    "date": "2026-11-18",
+    "evidence": "B18-Data-Incident-Verification.json",
+    "evidenceSha256": "0c5b37be6aeea4f1a22b958a54f9fe3204f6e47ec997d27b7461c23e40568348",
+    "confirmedCause": "FULL_PUBLIC_SCHEMA_RESET_AND_RESEED_IN_SEPARATE_CHAT",
+    "sourceCodeFingerprintUnchanged": "c1353e8032161f760c3d3bc9e5c4d0fb8f5d5fb3ad54a13b3e1083d731f6e318",
+    "sourceFileCount": 219,
+    "backupRestoredOnlyInIsolation": true,
+    "applicationTableHashesMatched": 376,
+    "paidInvoiceHashesMatched": 4,
+    "sourceRestorePerformed": false,
+    "policiesActivated": 0,
+    "migrationExecutionAuthorized": false
+  }
 }

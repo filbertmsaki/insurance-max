@@ -4,9 +4,9 @@ This increment adds internal Finance controls around existing claims facts. It p
 
 ## Live development data exception
 
-The first read-only B18 snapshot contained four protected paid invoices, one Finance legal entity, one accounting book and ten draft setup versions. Subsequent read-only checks found zero invoices and cleared Finance/company setup and policy transaction populations, while 376 application tables and 93 migration entries remain. B18's development access was read-only and its migration is unapplied. The cause of the clearing is not established; statement logging was disabled. **Historical-invoice preservation and live-source acceptance cannot be certified.**
+The first read-only B18 snapshot contained four protected paid invoices, one Finance legal entity, one accounting book and ten draft setup versions. Subsequent read-only checks found zero invoices and cleared Finance/company setup and policy transaction populations, while 376 application tables and 93 migration entries remain. B18's development access was read-only and its migration is unapplied. The 18 November investigation established a full public-schema reset in the separate chat “Pull changes from all branches” on 17 November, 21:47–21:52 Tanzania time. Statement logging was disabled; the recorded reset, matching backup and chronology establish the cause. **Historical-invoice preservation and live-source acceptance cannot be certified.**
 
-The earlier encrypted backup was restored on a separate owned PostgreSQL cluster. All four protected invoice headers/items match the initial B18 hashes. The isolated cluster is stopped, and its private recovery evidence is retained outside Git. The actual development database has not been restored. Confirmation of whether the cleanup was intentional is pending; no answer or recovery approval is inferred.
+The earlier encrypted backup was restored on a separate owned PostgreSQL cluster. All four protected invoice headers/items match the initial B18 hashes. The isolated cluster is stopped, and its private recovery evidence is retained outside Git. The actual development database has not been restored. The user reports that clearing the Finance business data was unintended. The exact pre-reset backup was also restored in isolation: all 376 initial table data hashes match, including four protected invoices, the 93-entry ledger, ten draft setup versions and two scope memberships. That cluster is stopped. Development recovery remains unapproved. See [the incident report](B18-Data-Incident-Report.html).
 
 ## Existing source capabilities and adapter boundaries
 
@@ -43,7 +43,7 @@ The B14 receipt service discovers the optional recovery-reservation function onl
 
 ## Remaining approval and release work
 
-- Resolve the local-data exception. If cleanup was intentional, agree the replacement baseline and reprovision actual company setup; if unintentional, approve a controlled recovery plan. Preserve a backup of the current state, rehearse any selected restore, reconcile invoice hashes and permissions, and retain policies inactive. No restore is performed automatically.
+- Resolve the local-data exception through the separately approved controlled recovery plan in the incident report. Preserve a backup of the current state, rehearse any selected restore, reconcile invoice hashes and permissions, and retain policies inactive. No restore is performed automatically.
 - Resolve DEC-04, DEC-08, DEC-09, DEC-12, DEC-14 and DEC-15, including reserve/payable/LIC ownership, legal recovery scope, expense classification, tax/withholding, source cash overlap and segregation of duties.
 - Build and certify live claims source/outbox publication, source-to-Finance compatibility APIs and TIRAMIS projections, independent bank/provider evidence, owned exception operations and company UAT. Source references and signed fixtures are not a live integration certification.
 - Reconcile historical claim/payment/disbursement/recovery populations and establish a single cash writer before any handoff. No live legacy writer is disabled here.
