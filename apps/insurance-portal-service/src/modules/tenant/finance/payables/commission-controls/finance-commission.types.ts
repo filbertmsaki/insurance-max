@@ -4,7 +4,11 @@ import {
   normalizeBeneficiary,
   type BeneficiaryEvidence,
 } from '../../governance/finance-approvals/finance-approval.types';
-import { cashObject, cashAmount, cashText } from '../outgoing-payments/finance-outgoing.types';
+import {
+  cashObject,
+  cashAmount,
+  cashText,
+} from '../outgoing-payments/finance-outgoing.types';
 import {
   controlUuid,
   controlHash,
