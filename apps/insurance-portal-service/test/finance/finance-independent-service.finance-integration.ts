@@ -433,10 +433,16 @@ describe('independent inactive allocation service', () => {
             ).resolves.toBeUndefined();
             const journalVerifier = app.get(FINANCE_JOURNAL_DIMENSION_VERIFIER);
             expect(
-              app.get(FinanceJournalCandidateService).dimensionVerifier,
+              Reflect.get(
+                app.get(FinanceJournalCandidateService),
+                'dimensionVerifier',
+              ),
             ).toBe(journalVerifier);
             expect(
-              app.get(FinanceLedgerFoundationService).dimensionVerifier,
+              Reflect.get(
+                app.get(FinanceLedgerFoundationService),
+                'dimensionVerifier',
+              ),
             ).toBe(journalVerifier);
             await expect(
               serviceDb.transaction((m) =>
