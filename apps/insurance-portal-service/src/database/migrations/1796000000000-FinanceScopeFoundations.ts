@@ -1,3 +1,4 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Additive, empty draft structures. No Company mapping, seeds or permissions. */
@@ -5,8 +6,9 @@ export class FinanceScopeFoundations1796000000000 implements MigrationInterface 
   name = 'FinanceScopeFoundations1796000000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(queryRunner);
     await queryRunner.query(`CREATE TABLE "finance_legal_entities" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(), "tenant_id" uuid NOT NULL,
+      "id" uuid NOT NULL DEFAULT public.finance_uuid_v4(), "tenant_id" uuid NOT NULL,
       "entity_code" varchar(50) NOT NULL, "legal_name" varchar(200) NOT NULL,
       "business_profile" varchar(50) NOT NULL, "jurisdiction_code" varchar(50),
       "state" varchar(10) NOT NULL DEFAULT 'DRAFT',
@@ -24,7 +26,7 @@ export class FinanceScopeFoundations1796000000000 implements MigrationInterface 
       'CREATE UNIQUE INDEX "UQ_fin_entity_code" ON "finance_legal_entities" ("tenant_id", "entity_code")',
     );
     await queryRunner.query(`CREATE TABLE "finance_accounting_books" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(), "tenant_id" uuid NOT NULL, "legal_entity_id" uuid NOT NULL,
+      "id" uuid NOT NULL DEFAULT public.finance_uuid_v4(), "tenant_id" uuid NOT NULL, "legal_entity_id" uuid NOT NULL,
       "book_code" varchar(50) NOT NULL, "state" varchar(10) NOT NULL DEFAULT 'DRAFT',
       "accounting_basis_code" varchar(50), "functional_assessment_id" uuid,
       "calendar_id" uuid, "chart_release_id" uuid, "presentation_context_id" uuid,
@@ -42,7 +44,7 @@ export class FinanceScopeFoundations1796000000000 implements MigrationInterface 
       'CREATE UNIQUE INDEX "UQ_fin_book_code" ON "finance_accounting_books" ("tenant_id", "legal_entity_id", "book_code")',
     );
     await queryRunner.query(`CREATE TABLE "finance_scope_memberships" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(), "tenant_id" uuid NOT NULL,
+      "id" uuid NOT NULL DEFAULT public.finance_uuid_v4(), "tenant_id" uuid NOT NULL,
       "legal_entity_id" uuid NOT NULL, "book_id" uuid NOT NULL, "subject_id" uuid NOT NULL,
       "subject_kind" varchar(10) NOT NULL, "state" varchar(12) NOT NULL DEFAULT 'DRAFT',
       "permission" varchar(20) NOT NULL DEFAULT 'READ_DRAFT', "authority_reference" varchar(200) NOT NULL,
@@ -61,7 +63,7 @@ export class FinanceScopeFoundations1796000000000 implements MigrationInterface 
       'CREATE INDEX "IDX_fin_scope_subject" ON "finance_scope_memberships" ("tenant_id", "subject_kind", "subject_id", "legal_entity_id", "book_id")',
     );
     await queryRunner.query(`CREATE TABLE "finance_legal_entity_source_maps" (
-      "id" uuid NOT NULL DEFAULT gen_random_uuid(), "tenant_id" uuid NOT NULL, "legal_entity_id" uuid NOT NULL,
+      "id" uuid NOT NULL DEFAULT public.finance_uuid_v4(), "tenant_id" uuid NOT NULL, "legal_entity_id" uuid NOT NULL,
       "source_system" varchar(50) NOT NULL, "source_company_id" varchar(200) NOT NULL,
       "legal_role" varchar(50) NOT NULL, "business_profile" varchar(50) NOT NULL,
       "mapping_version" integer NOT NULL, "valid_from" date NOT NULL, "valid_to" date,

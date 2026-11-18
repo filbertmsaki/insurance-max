@@ -1,3 +1,4 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 const tables = [
   'finance_policy_change_authorities',
@@ -23,8 +24,9 @@ const changeFk = (c: string) =>
 export class FinancePolicyChangeControls1797600000000 implements MigrationInterface {
   name = 'FinancePolicyChangeControls1797600000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(
-      `CREATE TABLE finance_policy_change_authorities(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),${scope},subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,permission text NOT NULL CHECK(permission IN ('OBSERVE_CHANGE','REVIEW_CHANGE','PREPARE_REFUND','REVIEW_REFUND','RECONCILE_REFUND','READ_CHANGE')),currency varchar(3) NOT NULL CHECK(currency~'^[A-Z]{3}$'),max_amount numeric(30,12) NOT NULL CHECK(max_amount>=0),state text NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),authority_reference text NOT NULL CHECK(btrim(authority_reference)<>''),valid_from timestamptz NOT NULL,valid_to timestamptz NOT NULL,revoked_at timestamptz,CHECK(valid_to>valid_from),${book})`,
+      `CREATE TABLE finance_policy_change_authorities(id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),${scope},subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,permission text NOT NULL CHECK(permission IN ('OBSERVE_CHANGE','REVIEW_CHANGE','PREPARE_REFUND','REVIEW_REFUND','RECONCILE_REFUND','READ_CHANGE')),currency varchar(3) NOT NULL CHECK(currency~'^[A-Z]{3}$'),max_amount numeric(30,12) NOT NULL CHECK(max_amount>=0),state text NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),authority_reference text NOT NULL CHECK(btrim(authority_reference)<>''),valid_from timestamptz NOT NULL,valid_to timestamptz NOT NULL,revoked_at timestamptz,CHECK(valid_to>valid_from),${book})`,
     );
     await q.query(
       `CREATE TABLE finance_policy_changes(id uuid PRIMARY KEY,${scope},source_company_id uuid NOT NULL,source_transaction_id uuid NOT NULL,policy_id uuid NOT NULL,source_revision integer NOT NULL CHECK(source_revision>0),economic_root text NOT NULL,vector_hash text NOT NULL CHECK(vector_hash~'^[a-f0-9]{64}$'),currency varchar(3) NOT NULL CHECK(currency~'^[A-Z]{3}$'),decimal_scale integer NOT NULL CHECK(decimal_scale BETWEEN 0 AND 12),source_version_id uuid NOT NULL,source_version_number integer NOT NULL,target_version_id uuid NOT NULL,target_version_number integer NOT NULL CHECK(target_version_number=source_version_number+1),original_billing_id uuid NOT NULL,previous_id uuid,correction_of_id uuid,entitlement_root_id uuid NOT NULL,entitlement_delta numeric(30,12) NOT NULL,inbox_id uuid NOT NULL,${content},${actor},created_at timestamptz NOT NULL DEFAULT statement_timestamp(),${unique},UNIQUE(tenant_id,source_company_id,source_transaction_id,source_revision),${book},${changeFk('previous_id')},${changeFk('correction_of_id')},${changeFk('entitlement_root_id')},FOREIGN KEY(tenant_id,legal_entity_id,book_id,original_billing_id) REFERENCES finance_quotation_memoranda(tenant_id,legal_entity_id,book_id,id),FOREIGN KEY(tenant_id,legal_entity_id,book_id,inbox_id) REFERENCES finance_integration_inboxes(tenant_id,legal_entity_id,book_id,id))`,
@@ -51,7 +53,7 @@ export class FinancePolicyChangeControls1797600000000 implements MigrationInterf
       "CREATE UNIQUE INDEX UQ_policy_refund_execution ON finance_policy_refund_events(outgoing_intent_id) WHERE action='BIND_EXECUTION'",
     );
     await q.query(
-      `CREATE TABLE finance_policy_change_audits(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),${scope},object_table text NOT NULL CHECK(object_table IN (${tables
+      `CREATE TABLE finance_policy_change_audits(id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),${scope},object_table text NOT NULL CHECK(object_table IN (${tables
         .slice(1, -1)
         .map((t) => "'" + t + "'")
         .join(

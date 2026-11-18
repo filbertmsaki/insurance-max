@@ -1,9 +1,11 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Durable reception and inactive held-reference processing; no financial rules. */
 export class FinanceIntegrationReliability1796600000000 implements MigrationInterface {
   name = 'FinanceIntegrationReliability1796600000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(
       'ALTER TABLE finance_configuration_releases DROP CONSTRAINT "CK_fin_config_kind"',
     );
@@ -14,7 +16,7 @@ export class FinanceIntegrationReliability1796600000000 implements MigrationInte
       'CREATE UNIQUE INDEX "UQ_fin_integration_profile_tenant" ON finance_configuration_releases(tenant_id,id)',
     );
     await q.query(`CREATE TABLE finance_integration_channels (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),ingress_subject_id uuid NOT NULL,tenant_id uuid,producer_id varchar(80),producer_subject_id uuid,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),ingress_subject_id uuid NOT NULL,tenant_id uuid,producer_id varchar(80),producer_subject_id uuid,
       legal_entity_id uuid,book_id uuid,profile_id uuid,profile_hash varchar(64),owner_reference varchar(200) NOT NULL CHECK(btrim(owner_reference)<>''),
       version integer NOT NULL CHECK(version>0),state varchar(12) NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),
       valid_from timestamptz NOT NULL,valid_to timestamptz,revoked_at timestamptz,CHECK(valid_to IS NULL OR valid_to>valid_from),
@@ -23,7 +25,7 @@ export class FinanceIntegrationReliability1796600000000 implements MigrationInte
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,profile_id) REFERENCES finance_configuration_releases(tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_integration_authorities (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid,book_id uuid,subject_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid,book_id uuid,subject_id uuid NOT NULL,
       permission varchar(24) NOT NULL CHECK(permission IN ('PROCESS_INTAKE','PROCESS_INBOX','DELIVER_OUTBOX','RECEIVE_OUTCOME','READ_RECONCILIATION')),
       consumer_id varchar(80),CHECK((permission='RECEIVE_OUTCOME' AND consumer_id IS NOT NULL AND btrim(consumer_id)<>'') OR (permission<>'RECEIVE_OUTCOME' AND consumer_id IS NULL)),
       state varchar(12) NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),authority_reference varchar(200) NOT NULL CHECK(btrim(authority_reference)<>''),
@@ -32,7 +34,7 @@ export class FinanceIntegrationReliability1796600000000 implements MigrationInte
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_integration_intakes (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),channel_id uuid NOT NULL REFERENCES finance_integration_channels(id) ON DELETE RESTRICT,receipt_key uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),channel_id uuid NOT NULL REFERENCES finance_integration_channels(id) ON DELETE RESTRICT,receipt_key uuid NOT NULL,
       tenant_id uuid,channel_snapshot jsonb NOT NULL,channel_hash varchar(64) NOT NULL CHECK(channel_hash~'^[0-9a-f]{64}$'),
       raw_body bytea,raw_hash varchar(64) NOT NULL CHECK(raw_hash~'^[0-9a-f]{64}$'),byte_length bigint NOT NULL CHECK(byte_length>=0),
       signature_input text,signature_hash varchar(64) NOT NULL CHECK(signature_hash~'^[0-9a-f]{64}$'),owner_reference varchar(200) NOT NULL,
@@ -47,12 +49,12 @@ export class FinanceIntegrationReliability1796600000000 implements MigrationInte
       FOREIGN KEY(tenant_id,preview_id) REFERENCES finance_source_event_previews(tenant_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_integration_conflicts (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),intake_id uuid NOT NULL REFERENCES finance_integration_intakes(id) ON DELETE RESTRICT,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),intake_id uuid NOT NULL REFERENCES finance_integration_intakes(id) ON DELETE RESTRICT,
       tenant_id uuid,raw_hash varchar(64) NOT NULL,signature_hash varchar(64) NOT NULL,owner_reference varchar(200) NOT NULL,
       reason_code varchar(64) NOT NULL CHECK(reason_code='RECEIPT_KEY_CONTENT_CONFLICT'),created_at timestamptz NOT NULL DEFAULT statement_timestamp()
     )`);
     await q.query(`CREATE TABLE finance_integration_inboxes (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
       preview_id uuid NOT NULL,semantic_hash varchar(64) NOT NULL CHECK(semantic_hash~'^[0-9a-f]{64}$'),target_hash varchar(64) NOT NULL,
       first_intake_id uuid NOT NULL,profile_id uuid NOT NULL,profile_hash varchar(64) NOT NULL,consumer_id varchar(80) NOT NULL,
       state varchar(24) NOT NULL DEFAULT 'HELD_INACTIVE' CHECK(state='HELD_INACTIVE'),created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
@@ -63,7 +65,7 @@ export class FinanceIntegrationReliability1796600000000 implements MigrationInte
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_reference_dispositions (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,inbox_id uuid NOT NULL UNIQUE,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,inbox_id uuid NOT NULL UNIQUE,
       owner_reference varchar(200) NOT NULL CHECK(btrim(owner_reference)<>''),reason_code varchar(64) NOT NULL CHECK(reason_code='UNRESOLVED_ACCOUNTING_POLICIES'),
       accounting_state varchar(24) NOT NULL CHECK(accounting_state='HELD_INACTIVE'),financial_effects integer NOT NULL CHECK(financial_effects=0),subject_hash varchar(64) NOT NULL,
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,inbox_id) REFERENCES finance_integration_inboxes(tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
@@ -83,12 +85,12 @@ export class FinanceIntegrationReliability1796600000000 implements MigrationInte
       FOREIGN KEY(tenant_id,control_entity_id,control_book_id,profile_id) REFERENCES finance_configuration_releases(tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_reference_receipts (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,consumer_id varchar(80) NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,consumer_id varchar(80) NOT NULL,
       message_id uuid NOT NULL,payload_hash varchar(64) NOT NULL CHECK(payload_hash~'^[0-9a-f]{64}$'),payload jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
       UNIQUE(tenant_id,consumer_id,message_id),FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_integration_audits (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid,legal_entity_id uuid,book_id uuid,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid,legal_entity_id uuid,book_id uuid,
       intake_id uuid REFERENCES finance_integration_intakes(id) ON DELETE RESTRICT,conflict_id uuid REFERENCES finance_integration_conflicts(id) ON DELETE RESTRICT,
       inbox_id uuid REFERENCES finance_integration_inboxes(id) ON DELETE RESTRICT,outbox_id uuid REFERENCES finance_reference_outbox(id) ON DELETE RESTRICT,
       receipt_id uuid REFERENCES finance_reference_receipts(id) ON DELETE RESTRICT,

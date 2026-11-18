@@ -1,11 +1,13 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Inactive validation structures only: no GL posts, policies or grants. */
 export class FinanceJournalCandidates1796300000000 implements MigrationInterface {
   name = 'FinanceJournalCandidates1796300000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(`CREATE TABLE finance_journal_candidate_authorities (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL,
       book_id uuid NOT NULL, subject_id uuid NOT NULL, natural_person_id uuid NOT NULL,
       permission varchar(24) NOT NULL CHECK (permission IN ('MANAGE_DRAFT_PERIOD','PREPARE_CANDIDATE','VALIDATE_CANDIDATE')),
       state varchar(12) NOT NULL DEFAULT 'DRAFT' CHECK (state IN ('DRAFT','ENABLED','REVOKED')),
@@ -19,7 +21,7 @@ export class FinanceJournalCandidates1796300000000 implements MigrationInterface
       'CREATE INDEX "IDX_fin_candidate_actor" ON finance_journal_candidate_authorities (tenant_id, legal_entity_id, book_id, subject_id, natural_person_id, permission)',
     );
     await q.query(`CREATE TABLE finance_draft_periods (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL,
       book_id uuid NOT NULL, period_code varchar(50) NOT NULL CHECK (btrim(period_code) <> '' AND period_code = btrim(period_code)),
       starts_on date NOT NULL, ends_before date NOT NULL CHECK (ends_before > starts_on),
       state varchar(24) NOT NULL DEFAULT 'SEALED_DRAFT' CHECK (state IN ('SEALED_DRAFT','OPEN_FOR_VALIDATION')),
@@ -28,7 +30,7 @@ export class FinanceJournalCandidates1796300000000 implements MigrationInterface
       FOREIGN KEY (tenant_id, legal_entity_id, book_id) REFERENCES finance_accounting_books (tenant_id, legal_entity_id, id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_journal_candidates (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       period_id uuid NOT NULL, period_revision integer NOT NULL CHECK (period_revision > 0), accounting_date date NOT NULL,
       chart_release_id uuid NOT NULL, chart_release_hash varchar(64) NOT NULL CHECK (chart_release_hash ~ '^[0-9a-f]{64}$'),
       currency varchar(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'), decimal_scale integer NOT NULL CHECK (decimal_scale BETWEEN 0 AND 12),
@@ -59,7 +61,7 @@ export class FinanceJournalCandidates1796300000000 implements MigrationInterface
       FOREIGN KEY (tenant_id, legal_entity_id, book_id, candidate_id) REFERENCES finance_journal_candidates (tenant_id, legal_entity_id, book_id, id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_journal_candidate_events (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       period_id uuid NOT NULL, period_revision integer NOT NULL, candidate_id uuid,
       action varchar(24) NOT NULL CHECK (action IN ('PERIOD_CREATED','PERIOD_FENCED','PREPARED_INACTIVE','VALIDATED_INACTIVE')),
       subject_hash varchar(64) NOT NULL CHECK (subject_hash ~ '^[0-9a-f]{64}$'),

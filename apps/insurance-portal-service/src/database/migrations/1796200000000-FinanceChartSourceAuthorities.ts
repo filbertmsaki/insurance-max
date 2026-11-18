@@ -1,14 +1,16 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Metadata observation authority only. No grants, account conversions or seeds. */
 export class FinanceChartSourceAuthorities1796200000000 implements MigrationInterface {
   name = 'FinanceChartSourceAuthorities1796200000000';
   async up(queryRunner: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(queryRunner);
     await queryRunner.query(
       'CREATE UNIQUE INDEX "UQ_fin_chart_source_map_scope" ON finance_legal_entity_source_maps (tenant_id, legal_entity_id, id)',
     );
     await queryRunner.query(`CREATE TABLE finance_chart_source_authorities (
-      id uuid NOT NULL DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL,
+      id uuid NOT NULL DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL,
       book_id uuid NOT NULL, source_map_id uuid NOT NULL, source_map_hash varchar(64) NOT NULL,
       subject_id uuid NOT NULL, natural_person_id uuid NOT NULL, state varchar(12) NOT NULL DEFAULT 'DRAFT',
       authority_reference varchar(200) NOT NULL, valid_from timestamptz NOT NULL, valid_to timestamptz,

@@ -1,11 +1,13 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Worker-owned inactive previews only; this migration grants no authority and enables no posting. */
 export class FinanceRecurringAllocationPreviews1797800000000 implements MigrationInterface {
   name = 'FinanceRecurringAllocationPreviews1797800000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(`CREATE TABLE finance_allocation_worker_authorities (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       worker_subject_id uuid NOT NULL, schedule_release_id uuid NOT NULL, schedule_release_hash varchar(64) NOT NULL CHECK(schedule_release_hash ~ '^[0-9a-f]{64}$'),
       state varchar(10) NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')), authority_reference text NOT NULL CHECK(btrim(authority_reference) <> ''),
       valid_from timestamptz NOT NULL, valid_to timestamptz, revoked_at timestamptz,
@@ -16,7 +18,7 @@ export class FinanceRecurringAllocationPreviews1797800000000 implements Migratio
       `CREATE UNIQUE INDEX "UQ_fin_allocation_worker_grant" ON finance_allocation_worker_authorities(tenant_id,legal_entity_id,book_id,worker_subject_id,schedule_release_id) WHERE state='ENABLED' AND revoked_at IS NULL`,
     );
     await q.query(`CREATE TABLE finance_allocation_preview_occurrences (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       schedule_release_id uuid NOT NULL, schedule_release_hash varchar(64) NOT NULL, rule_release_id uuid NOT NULL, rule_release_hash varchar(64) NOT NULL,
       occurrence_date date NOT NULL, worker_subject_id uuid NOT NULL, authority_id uuid NOT NULL,
       payload jsonb NOT NULL CHECK(jsonb_typeof(payload)='object'), subject_hash varchar(64) NOT NULL CHECK(subject_hash ~ '^[0-9a-f]{64}$'),
@@ -33,7 +35,7 @@ export class FinanceRecurringAllocationPreviews1797800000000 implements Migratio
       `CREATE TRIGGER fin_allocation_occurrence_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON finance_allocation_preview_occurrences FOR EACH STATEMENT EXECUTE FUNCTION fn_fin_allocation_occurrence_immutable()`,
     );
     await q.query(`CREATE TABLE finance_allocation_worker_audits (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       authority_id uuid NOT NULL, worker_subject_id uuid NOT NULL, occurrence_id uuid,
       action varchar(10) NOT NULL CHECK(action IN ('CREATED','HELD')), reason_code varchar(40) NOT NULL,
       occurred_at timestamptz NOT NULL DEFAULT statement_timestamp(),

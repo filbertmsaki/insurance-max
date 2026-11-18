@@ -1,8 +1,10 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class FinanceOwnedExceptions1796700000000 implements MigrationInterface {
   name = 'FinanceOwnedExceptions1796700000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(
       'ALTER TABLE finance_configuration_releases DROP CONSTRAINT "CK_fin_config_kind"',
     );
@@ -10,7 +12,7 @@ export class FinanceOwnedExceptions1796700000000 implements MigrationInterface {
       `ALTER TABLE finance_configuration_releases ADD CONSTRAINT "CK_fin_config_kind" CHECK(kind IN ('POSTING_RULES','ACCOUNT_ROLES','DIMENSIONS','TAX_RULES','CURRENCY_RULES','SOURCE_ASSOCIATIONS','APPROVAL_RULES','EVENT_CONTRACTS','EVENT_ROUTES','INTEGRATION_RULES','EXCEPTION_RULES'))`,
     );
     await q.query(`CREATE TABLE finance_operations_authorities (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,scope_kind varchar(8) NOT NULL CHECK(scope_kind IN ('SOURCE','BOOK')),legal_entity_id uuid,book_id uuid,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,scope_kind varchar(8) NOT NULL CHECK(scope_kind IN ('SOURCE','BOOK')),legal_entity_id uuid,book_id uuid,
       subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,permission varchar(32) NOT NULL CHECK(permission IN ('VIEW_EXCEPTIONS','OWN_EXCEPTION','ASSIGN_EXCEPTION','PREPARE_REPLAY','REVIEW_REPLAY','EXECUTE_REPLAY','ESCALATE_EXCEPTION','VERIFY_HANDOFF','READ_TELEMETRY')),
       state varchar(12) NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),authority_reference varchar(200) NOT NULL CHECK(btrim(authority_reference)<>''),
       valid_from timestamptz NOT NULL,valid_to timestamptz,revoked_at timestamptz,CHECK(valid_to IS NULL OR valid_to>valid_from),
@@ -18,7 +20,7 @@ export class FinanceOwnedExceptions1796700000000 implements MigrationInterface {
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_owned_exceptions (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,scope_kind varchar(8) NOT NULL CHECK(scope_kind IN ('SOURCE','BOOK')),legal_entity_id uuid,book_id uuid,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,scope_kind varchar(8) NOT NULL CHECK(scope_kind IN ('SOURCE','BOOK')),legal_entity_id uuid,book_id uuid,
       intake_id uuid,outbox_id uuid,observation jsonb NOT NULL CHECK(jsonb_typeof(observation)='object'),observation_hash varchar(64) NOT NULL CHECK(observation_hash~'^[0-9a-f]{64}$'),
       control_entity_id uuid NOT NULL,control_book_id uuid NOT NULL,profile_id uuid NOT NULL,profile_hash varchar(64) NOT NULL,
       owner_subject_id uuid,owner_natural_person_id uuid,assigned_at timestamptz,proposed_due_at timestamptz,origin_owner_reference varchar(200) NOT NULL,
@@ -32,7 +34,7 @@ export class FinanceOwnedExceptions1796700000000 implements MigrationInterface {
       FOREIGN KEY(tenant_id,control_entity_id,control_book_id,profile_id) REFERENCES finance_configuration_releases(tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_replay_requests (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,case_id uuid NOT NULL,case_version integer NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,case_id uuid NOT NULL,case_version integer NOT NULL,
       subject jsonb NOT NULL CHECK(jsonb_typeof(subject)='object'),request_hash varchar(64) NOT NULL CHECK(request_hash~'^[0-9a-f]{64}$'),
       maker_subject_id uuid NOT NULL,maker_natural_person_id uuid NOT NULL,reviewer_subject_id uuid,reviewer_natural_person_id uuid,reviewer_grant_id uuid,reviewer_grant_hash varchar(64),
       expires_at timestamptz NOT NULL,state varchar(12) NOT NULL DEFAULT 'PREPARED' CHECK(state IN ('PREPARED','APPROVED','REJECTED','EXECUTED')),
@@ -42,7 +44,7 @@ export class FinanceOwnedExceptions1796700000000 implements MigrationInterface {
       FOREIGN KEY(reviewer_grant_id) REFERENCES finance_operations_authorities(id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_replay_executions (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),request_id uuid NOT NULL UNIQUE REFERENCES finance_replay_requests(id) ON DELETE RESTRICT,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),request_id uuid NOT NULL UNIQUE REFERENCES finance_replay_requests(id) ON DELETE RESTRICT,
       tenant_id uuid NOT NULL,case_id uuid NOT NULL,lane varchar(8) NOT NULL CHECK(lane IN ('INTAKE','OUTBOX')),item_id uuid NOT NULL,
       before_version integer NOT NULL,after_version integer NOT NULL CHECK(after_version=before_version+1),prior_attempt_count integer NOT NULL,
       attempt_ceiling integer NOT NULL CHECK(attempt_ceiling>prior_attempt_count),executor_subject_id uuid NOT NULL,executor_natural_person_id uuid NOT NULL,
@@ -50,7 +52,7 @@ export class FinanceOwnedExceptions1796700000000 implements MigrationInterface {
       FOREIGN KEY(tenant_id,case_id) REFERENCES finance_owned_exceptions(tenant_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_operations_audits (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,case_id uuid NOT NULL,request_id uuid,execution_id uuid,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,case_id uuid NOT NULL,request_id uuid,execution_id uuid,
       action varchar(32) NOT NULL,case_version integer NOT NULL,subject_hash varchar(64) NOT NULL,
       actor_subject_id uuid NOT NULL,actor_natural_person_id uuid NOT NULL,reason text NOT NULL CHECK(btrim(reason)<>''),evidence jsonb NOT NULL,
       created_at timestamptz NOT NULL DEFAULT statement_timestamp(),

@@ -1,9 +1,11 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Additive empty B43-B45 structures. No grants, currencies, policies or financial rows are seeded. */
 export class FinanceLedgerFoundation1797200000000 implements MigrationInterface {
   name = 'FinanceLedgerFoundation1797200000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     for (const [table, constraint] of [
       ['finance_legal_entities', 'CK_fin_entity_state'],
       ['finance_accounting_books', 'CK_fin_book_state'],
@@ -22,19 +24,19 @@ export class FinanceLedgerFoundation1797200000000 implements MigrationInterface 
         IF (entry.value#>>'{}')::numeric<=0 THEN RETURN false; END IF;
       END LOOP;RETURN true;END $$`);
     await q.query(`CREATE TABLE finance_foundation_authorities(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
       subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,capability text NOT NULL CHECK(capability IN ('PREPARE','REVIEW','ACCEPT','READ','RELEASE')),
       company_role text NOT NULL CHECK(company_role IN ('COMPANY_ADMIN','FINANCE_OPERATOR')),authority_reference text NOT NULL CHECK(btrim(authority_reference)<>''),
       limits jsonb NOT NULL CHECK(finance_foundation_limits_valid(limits,capability)),
       valid_from timestamptz NOT NULL,valid_to timestamptz,revoked_at timestamptz,CHECK(valid_to IS NULL OR valid_to>valid_from),CHECK(capability<>'RELEASE' OR company_role='COMPANY_ADMIN'),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id),UNIQUE(tenant_id,legal_entity_id,book_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_identity_bindings(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),source_company_id uuid NOT NULL,source_user_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),source_company_id uuid NOT NULL,source_user_id uuid NOT NULL,
       tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,
       authority_reference text NOT NULL CHECK(btrim(authority_reference)<>''),valid_from timestamptz NOT NULL,valid_to timestamptz,revoked_at timestamptz,
       CHECK(valid_to IS NULL OR valid_to>valid_from),FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_documents(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
       kind text NOT NULL CHECK(kind IN ('CURRENCY_CONTEXT','EXCHANGE_RATE','OPENING','B45_ACCEPTANCE','RELEASE')),mode text NOT NULL CHECK(mode IN ('VALIDATION','LIVE')),
       document_key text NOT NULL CHECK(btrim(document_key)<>''),version integer NOT NULL CHECK(version>0),parent_id uuid,
       payload jsonb NOT NULL CHECK(jsonb_typeof(payload)='object'),subject_hash text NOT NULL CHECK(subject_hash ~ '^[a-f0-9]{64}$'),
@@ -44,25 +46,25 @@ export class FinanceLedgerFoundation1797200000000 implements MigrationInterface 
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,parent_id) REFERENCES finance_foundation_documents(tenant_id,legal_entity_id,book_id,id),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,authority_id) REFERENCES finance_foundation_authorities(tenant_id,legal_entity_id,book_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_decisions(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,document_id uuid NOT NULL UNIQUE,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,document_id uuid NOT NULL UNIQUE,
       state text NOT NULL CHECK(state IN ('REVIEWED','APPROVED','REJECTED')),subject_hash text NOT NULL CHECK(subject_hash ~ '^[a-f0-9]{64}$'),
       actor_subject_id uuid NOT NULL,actor_natural_person_id uuid NOT NULL,authority_id uuid NOT NULL,evidence_hash text NOT NULL CHECK(evidence_hash ~ '^[a-f0-9]{64}$'),
       reason text NOT NULL CHECK(btrim(reason)<>''),decision_hash text NOT NULL CHECK(decision_hash ~ '^[a-f0-9]{64}$'),recorded_at timestamptz NOT NULL DEFAULT statement_timestamp(),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,document_id) REFERENCES finance_foundation_documents(tenant_id,legal_entity_id,book_id,id),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,authority_id) REFERENCES finance_foundation_authorities(tenant_id,legal_entity_id,book_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_periods(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,mode text NOT NULL CHECK(mode IN ('VALIDATION','LIVE')),
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,mode text NOT NULL CHECK(mode IN ('VALIDATION','LIVE')),
       period_code text NOT NULL,starts_on date NOT NULL,ends_before date NOT NULL CHECK(ends_before>starts_on),state text NOT NULL CHECK(state IN ('OPEN','CLOSED')),revision integer NOT NULL CHECK(revision>0),
       UNIQUE(tenant_id,legal_entity_id,book_id,id),UNIQUE(tenant_id,legal_entity_id,book_id,mode,period_code),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_period_events(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,period_id uuid NOT NULL,revision integer NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,period_id uuid NOT NULL,revision integer NOT NULL,
       state text NOT NULL CHECK(state IN ('OPEN','CLOSED')),actor_subject_id uuid NOT NULL,actor_natural_person_id uuid NOT NULL,authority_id uuid NOT NULL,
       reason text NOT NULL CHECK(btrim(reason)<>''),evidence_hash text NOT NULL CHECK(evidence_hash ~ '^[a-f0-9]{64}$'),recorded_at timestamptz NOT NULL DEFAULT statement_timestamp(),
       UNIQUE(period_id,revision),FOREIGN KEY(tenant_id,legal_entity_id,book_id,period_id) REFERENCES finance_foundation_periods(tenant_id,legal_entity_id,book_id,id),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,authority_id) REFERENCES finance_foundation_authorities(tenant_id,legal_entity_id,book_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_journals(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),sequence bigint GENERATED ALWAYS AS IDENTITY,tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),sequence bigint GENERATED ALWAYS AS IDENTITY,tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
       mode text NOT NULL CHECK(mode IN ('VALIDATION','LIVE')),financial_effects integer NOT NULL CHECK((mode='VALIDATION' AND financial_effects=0) OR (mode='LIVE' AND financial_effects=1)),
       candidate_id uuid NOT NULL,candidate_hash text NOT NULL CHECK(candidate_hash ~ '^[a-f0-9]{64}$'),economic_key text NOT NULL CHECK(economic_key ~ '^[a-f0-9]{64}$'),kind text NOT NULL CHECK(kind IN ('ORIGINAL','REVERSAL')),
       reversal_of uuid,period_id uuid NOT NULL,period_revision integer NOT NULL,context_id uuid NOT NULL,context_hash text NOT NULL CHECK(context_hash ~ '^[a-f0-9]{64}$'),
@@ -84,12 +86,12 @@ export class FinanceLedgerFoundation1797200000000 implements MigrationInterface 
       CHECK(transaction_debit<'Infinity'::numeric AND transaction_credit<'Infinity'::numeric AND functional_debit<'Infinity'::numeric AND functional_credit<'Infinity'::numeric AND abs(rounding_debit)<'Infinity'::numeric AND abs(rounding_credit)<'Infinity'::numeric),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,journal_id) REFERENCES finance_foundation_journals(tenant_id,legal_entity_id,book_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_journal_audits(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,journal_id uuid NOT NULL UNIQUE,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,journal_id uuid NOT NULL UNIQUE,
       actor_subject_id uuid NOT NULL,actor_natural_person_id uuid NOT NULL,authority_id uuid NOT NULL,subject_hash text NOT NULL,reason text NOT NULL CHECK(btrim(reason)<>''),recorded_at timestamptz NOT NULL DEFAULT statement_timestamp(),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,journal_id) REFERENCES finance_foundation_journals(tenant_id,legal_entity_id,book_id,id),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,authority_id) REFERENCES finance_foundation_authorities(tenant_id,legal_entity_id,book_id,id))`);
     await q.query(`CREATE TABLE finance_foundation_deployments(
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),sequence bigint GENERATED ALWAYS AS IDENTITY,tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),sequence bigint GENERATED ALWAYS AS IDENTITY,tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
       action text NOT NULL CHECK(action IN ('ENABLE','DISABLE')),release_id uuid NOT NULL,release_hash text NOT NULL,actor_subject_id uuid NOT NULL,actor_natural_person_id uuid NOT NULL,authority_id uuid NOT NULL,
       reason text NOT NULL CHECK(btrim(reason)<>''),recorded_at timestamptz NOT NULL DEFAULT statement_timestamp(),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,release_id) REFERENCES finance_foundation_documents(tenant_id,legal_entity_id,book_id,id),

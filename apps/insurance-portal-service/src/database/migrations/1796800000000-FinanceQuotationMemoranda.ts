@@ -1,9 +1,11 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 const priorKinds =
   "'POSTING_RULES','ACCOUNT_ROLES','DIMENSIONS','TAX_RULES','CURRENCY_RULES','SOURCE_ASSOCIATIONS','APPROVAL_RULES','EVENT_CONTRACTS','EVENT_ROUTES','INTEGRATION_RULES','EXCEPTION_RULES'";
 export class FinanceQuotationMemoranda1796800000000 implements MigrationInterface {
   name = 'FinanceQuotationMemoranda1796800000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(
       'ALTER TABLE finance_configuration_releases DROP CONSTRAINT "CK_fin_config_kind"',
     );
@@ -11,13 +13,13 @@ export class FinanceQuotationMemoranda1796800000000 implements MigrationInterfac
       `ALTER TABLE finance_configuration_releases ADD CONSTRAINT "CK_fin_config_kind" CHECK(kind IN (${priorKinds},'QUOTATION_BILLING_RULES'))`,
     );
     await q.query(`CREATE TABLE finance_billing_authorities (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,
       permission varchar(24) NOT NULL CHECK(permission IN ('PREPARE_BILLING','REVIEW_BILLING','READ_BILLING')),state varchar(12) NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),
       authority_reference varchar(200) NOT NULL CHECK(btrim(authority_reference)<>''),valid_from timestamptz NOT NULL,valid_to timestamptz,revoked_at timestamptz,CHECK(valid_to IS NULL OR valid_to>valid_from),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_quotation_memoranda (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,inbox_id uuid NOT NULL,preview_id uuid NOT NULL,delivery_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,inbox_id uuid NOT NULL,preview_id uuid NOT NULL,delivery_id uuid NOT NULL,
       economic_root varchar(64) NOT NULL,source_system varchar(80) NOT NULL,source_company_id uuid NOT NULL,quotation_id uuid NOT NULL,source_revision integer NOT NULL CHECK(source_revision>0),previous_id uuid,
       profile_id uuid NOT NULL,profile_hash varchar(64) NOT NULL,source_snapshot jsonb NOT NULL,source_snapshot_hash varchar(64) NOT NULL,
       subject jsonb NOT NULL,subject_hash varchar(64) NOT NULL CHECK(subject_hash~'^[0-9a-f]{64}$'),maker_subject_id uuid NOT NULL,maker_natural_person_id uuid NOT NULL,maker_grant_id uuid NOT NULL,maker_grant_hash varchar(64) NOT NULL,
@@ -40,13 +42,13 @@ export class FinanceQuotationMemoranda1796800000000 implements MigrationInterfac
       gross numeric(38,12) NOT NULL CHECK(gross>=0),discount numeric(38,12) NOT NULL CHECK(discount>=0),tax numeric(38,12) CHECK(tax>=0),charges numeric(38,12) NOT NULL CHECK(charges>=0),total numeric(38,12) NOT NULL CHECK(total>=0),PRIMARY KEY(memo_id,line_key)
     )`);
     await q.query(`CREATE TABLE finance_quotation_billing_decisions (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,memo_id uuid NOT NULL UNIQUE,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,memo_id uuid NOT NULL UNIQUE,
       subject_hash varchar(64) NOT NULL,reviewer_subject_id uuid NOT NULL,reviewer_natural_person_id uuid NOT NULL,reviewer_grant_id uuid NOT NULL REFERENCES finance_billing_authorities(id) ON DELETE RESTRICT,
       reviewer_grant_hash varchar(64) NOT NULL,decision varchar(24) NOT NULL CHECK(decision IN ('REVIEWED_INACTIVE','REJECTED_INACTIVE')),created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
       FOREIGN KEY(tenant_id,legal_entity_id,book_id,memo_id) REFERENCES finance_quotation_memoranda(tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_quotation_billing_audits (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,memo_id uuid NOT NULL,decision_id uuid UNIQUE REFERENCES finance_quotation_billing_decisions(id) ON DELETE RESTRICT,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,memo_id uuid NOT NULL,decision_id uuid UNIQUE REFERENCES finance_quotation_billing_decisions(id) ON DELETE RESTRICT,
       action varchar(24) NOT NULL CHECK(action IN ('PREPARED_INACTIVE','REVIEWED_INACTIVE','REJECTED_INACTIVE')),subject_hash varchar(64) NOT NULL,actor_subject_id uuid NOT NULL,actor_natural_person_id uuid NOT NULL,reason text NOT NULL CHECK(btrim(reason)<>''),created_at timestamptz NOT NULL DEFAULT statement_timestamp(),
       UNIQUE(memo_id,action),FOREIGN KEY(tenant_id,legal_entity_id,book_id,memo_id) REFERENCES finance_quotation_memoranda(tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
     )`);

@@ -1,9 +1,11 @@
+import { ensureFinanceUuidV4 } from '../../../insurance-portal-service/src/database/finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Empty source-key and append-only attestation registries; grants no authority. */
 export class FinanceSourceAttestations1798000000000 implements MigrationInterface {
   name = 'FinanceSourceAttestations1798000000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(`CREATE TABLE finance_source_attestation_keys (
       id uuid PRIMARY KEY, tenant_id uuid NOT NULL, source_company_id uuid NOT NULL,
       producer_id text NOT NULL CHECK(btrim(producer_id)<>''), public_key_pem text NOT NULL,
@@ -13,7 +15,7 @@ export class FinanceSourceAttestations1798000000000 implements MigrationInterfac
       CHECK(valid_to > valid_from), UNIQUE(tenant_id,source_company_id,id)
     )`);
     await q.query(`CREATE TABLE finance_source_attestations (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, source_company_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, source_company_id uuid NOT NULL,
       key_id uuid NOT NULL, revision integer NOT NULL CHECK(revision > 0),
       issued_at timestamptz NOT NULL, expires_at timestamptz NOT NULL CHECK(expires_at > issued_at),
       raw_body bytea NOT NULL, raw_hash varchar(64) NOT NULL CHECK(raw_hash ~ '^[0-9a-f]{64}$'),

@@ -1,9 +1,11 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 const priorKinds =
   "'POSTING_RULES','ACCOUNT_ROLES','DIMENSIONS','TAX_RULES','CURRENCY_RULES','SOURCE_ASSOCIATIONS','APPROVAL_RULES','EVENT_CONTRACTS','EVENT_ROUTES','INTEGRATION_RULES','EXCEPTION_RULES','QUOTATION_BILLING_RULES'";
 export class FinanceReceivableControls1797000000000 implements MigrationInterface {
   name = 'FinanceReceivableControls1797000000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(
       'ALTER TABLE finance_configuration_releases DROP CONSTRAINT "CK_fin_config_kind"',
     );
@@ -11,7 +13,7 @@ export class FinanceReceivableControls1797000000000 implements MigrationInterfac
       `ALTER TABLE finance_configuration_releases ADD CONSTRAINT "CK_fin_config_kind" CHECK(kind IN (${priorKinds},'RECEIVABLE_CONTROLS'))`,
     );
     await q.query(`CREATE TABLE finance_receivable_authorities(
-   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,
+   id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,
    permission varchar(32) NOT NULL CHECK(permission IN ('OBSERVE_RECEIPT','PREPARE_ASSIGNMENT','REVIEW_ASSIGNMENT','RECONCILE_RECEIPT','READ_RECEIVABLES')),
    state varchar(12) NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),authority_reference varchar(200) NOT NULL CHECK(btrim(authority_reference)<>''),
    valid_from timestamptz NOT NULL,valid_to timestamptz,revoked_at timestamptz,CHECK(valid_to IS NULL OR valid_to>valid_from),
@@ -69,7 +71,7 @@ export class FinanceReceivableControls1797000000000 implements MigrationInterfac
    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),UNIQUE(tenant_id,legal_entity_id,book_id,command_key),
    FOREIGN KEY(tenant_id,legal_entity_id,book_id,receipt_id) REFERENCES finance_confirmed_receipts(tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT)`);
     await q.query(`CREATE TABLE finance_receivable_audits(
-   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
+   id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
    object_kind varchar(24) NOT NULL CHECK(object_kind IN ('RECEIPT','SOURCE','REQUEST','DECISION','RECONCILIATION')),object_id uuid NOT NULL,action varchar(32) NOT NULL,
    subject_hash varchar(64) NOT NULL,actor_subject_id uuid NOT NULL,actor_natural_person_id uuid NOT NULL,reason text NOT NULL CHECK(btrim(reason)<>''),
    created_at timestamptz NOT NULL DEFAULT statement_timestamp(),UNIQUE(tenant_id,legal_entity_id,book_id,object_kind,object_id,action),

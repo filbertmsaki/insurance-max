@@ -1,11 +1,13 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Inactive setup evidence only. No company configuration, grants or policy decisions are seeded. */
 export class FinanceSetupReviews1797400000000 implements MigrationInterface {
   name = 'FinanceSetupReviews1797400000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(`CREATE TABLE finance_setup_versions (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
       step text NOT NULL CHECK(step IN ('G04-01','G04-02','G04-03','G04-04','G04-05','G04-06','G04-07','G04-08','G04-09','G04-10')),
       version integer NOT NULL CHECK(version>0),maker_subject_id uuid NOT NULL,maker_natural_person_id uuid NOT NULL,
       subject jsonb NOT NULL,canonical_subject text NOT NULL,subject_hash text NOT NULL,
@@ -19,7 +21,7 @@ export class FinanceSetupReviews1797400000000 implements MigrationInterface {
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id),
       UNIQUE(tenant_id,legal_entity_id,book_id,step,version),UNIQUE(tenant_id,legal_entity_id,book_id,id))`);
     await q.query(`CREATE TABLE finance_setup_events (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,legal_entity_id uuid NOT NULL,book_id uuid NOT NULL,
       version_id uuid NOT NULL,sequence integer NOT NULL CHECK(sequence>0),
       action text NOT NULL CHECK(action IN ('CREATE','SUBMIT','REVIEW_INACTIVE','REJECT')),
       from_state text,to_state text NOT NULL CHECK(to_state IN ('DRAFT','SUBMITTED','REVIEWED_INACTIVE','REJECTED')),
@@ -82,7 +84,7 @@ export class FinanceSetupReviews1797400000000 implements MigrationInterface {
     ])
       await q.query(
         `INSERT INTO permissions(id,name,display_name,description,is_system_generated,assignment_scope,assignable_to_company_role,assignable_to_platform_role,is_deprecated)
-      SELECT gen_random_uuid(),$1::varchar,$2::varchar,'Exact scoped authority is also required. This permission does not permit posting, activation or release.',true,'tenant',true,false,false WHERE NOT EXISTS(SELECT 1 FROM permissions WHERE name=$1::varchar)`,
+      SELECT public.finance_uuid_v4(),$1::varchar,$2::varchar,'Exact scoped authority is also required. This permission does not permit posting, activation or release.',true,'tenant',true,false,false WHERE NOT EXISTS(SELECT 1 FROM permissions WHERE name=$1::varchar)`,
         [name, label],
       );
   }

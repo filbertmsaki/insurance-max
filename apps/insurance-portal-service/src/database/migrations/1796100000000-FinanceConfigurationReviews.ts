@@ -1,3 +1,4 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Empty, inactive governance structures. No permissions or policies seeded. */
@@ -5,8 +6,9 @@ export class FinanceConfigurationReviews1796100000000 implements MigrationInterf
   name = 'FinanceConfigurationReviews1796100000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(queryRunner);
     await queryRunner.query(`CREATE TABLE finance_configuration_authorities (
-      id uuid NOT NULL DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL,
+      id uuid NOT NULL DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL,
       legal_entity_id uuid NOT NULL, book_id uuid NOT NULL, subject_id uuid NOT NULL,
       natural_person_id uuid NOT NULL, permission varchar(20) NOT NULL,
       state varchar(12) NOT NULL DEFAULT 'DRAFT', authority_reference varchar(200) NOT NULL,
@@ -24,7 +26,7 @@ export class FinanceConfigurationReviews1796100000000 implements MigrationInterf
       'CREATE INDEX "IDX_fin_config_actor" ON finance_configuration_authorities (tenant_id, legal_entity_id, book_id, subject_id, natural_person_id, permission)',
     );
     await queryRunner.query(`CREATE TABLE finance_configuration_releases (
-      id uuid NOT NULL DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL,
+      id uuid NOT NULL DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL,
       legal_entity_id uuid NOT NULL, book_id uuid NOT NULL, kind varchar(24) NOT NULL,
       configuration_key varchar(100) NOT NULL, version integer NOT NULL,
       effective_from date NOT NULL, effective_to date, payload jsonb NOT NULL,
@@ -54,7 +56,7 @@ export class FinanceConfigurationReviews1796100000000 implements MigrationInterf
       FOREIGN KEY (tenant_id, legal_entity_id, book_id, supersedes_id)
       REFERENCES finance_configuration_releases (tenant_id, legal_entity_id, book_id, id) ON DELETE RESTRICT`);
     await queryRunner.query(`CREATE TABLE finance_configuration_events (
-      id uuid NOT NULL DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL,
+      id uuid NOT NULL DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL,
       legal_entity_id uuid NOT NULL, book_id uuid NOT NULL, release_id uuid NOT NULL,
       action varchar(24) NOT NULL, actor_subject_id uuid NOT NULL,
       actor_natural_person_id uuid NOT NULL, release_hash varchar(64) NOT NULL,

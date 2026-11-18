@@ -1,9 +1,11 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Empty inactive source-event registries. No live routing or credentials. */
 export class FinanceEventContractPreviews1796500000000 implements MigrationInterface {
   name = 'FinanceEventContractPreviews1796500000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(
       'ALTER TABLE finance_configuration_releases DROP CONSTRAINT "CK_fin_config_kind"',
     );
@@ -11,7 +13,7 @@ export class FinanceEventContractPreviews1796500000000 implements MigrationInter
       `ALTER TABLE finance_configuration_releases ADD CONSTRAINT "CK_fin_config_kind" CHECK (kind IN ('POSTING_RULES','ACCOUNT_ROLES','DIMENSIONS','TAX_RULES','CURRENCY_RULES','SOURCE_ASSOCIATIONS','APPROVAL_RULES','EVENT_CONTRACTS','EVENT_ROUTES'))`,
     );
     await q.query(`CREATE TABLE finance_event_producer_keys (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,producer_id varchar(80) NOT NULL,subject_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,producer_id varchar(80) NOT NULL,subject_id uuid NOT NULL,
       source_system varchar(80) NOT NULL,source_company_id varchar(200) NOT NULL,version integer NOT NULL CHECK(version>0),
       public_key_pem text NOT NULL CHECK(btrim(public_key_pem)<>''),key_fingerprint varchar(64) NOT NULL CHECK(key_fingerprint~'^[0-9a-f]{64}$'),
       authority_reference varchar(200) NOT NULL CHECK(btrim(authority_reference)<>''),state varchar(12) NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),
@@ -19,7 +21,7 @@ export class FinanceEventContractPreviews1796500000000 implements MigrationInter
       UNIQUE(tenant_id,id),UNIQUE(tenant_id,producer_id,source_system,source_company_id,id)
     )`);
     await q.query(`CREATE TABLE finance_source_event_previews (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,source_system varchar(80) NOT NULL,source_company_id varchar(200) NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,source_system varchar(80) NOT NULL,source_company_id varchar(200) NOT NULL,
       economic_root varchar(64) NOT NULL CHECK(economic_root~'^[0-9a-f]{64}$'),source_revision integer NOT NULL CHECK(source_revision>0),
       previous_preview_id uuid,semantic_hash varchar(64) NOT NULL CHECK(semantic_hash~'^[0-9a-f]{64}$'),subject jsonb NOT NULL CHECK(jsonb_typeof(subject)='object'),
       target_hash varchar(64) NOT NULL CHECK(target_hash~'^[0-9a-f]{64}$'),target_manifest jsonb NOT NULL CHECK(jsonb_typeof(target_manifest)='array' AND jsonb_array_length(target_manifest) BETWEEN 1 AND 20),
@@ -43,7 +45,7 @@ export class FinanceEventContractPreviews1796500000000 implements MigrationInter
       FOREIGN KEY(tenant_id,legal_entity_id,source_map_id) REFERENCES finance_legal_entity_source_maps(tenant_id,legal_entity_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_source_event_preview_deliveries (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,producer_id varchar(80) NOT NULL,source_system varchar(80) NOT NULL,source_company_id varchar(200) NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,producer_id varchar(80) NOT NULL,source_system varchar(80) NOT NULL,source_company_id varchar(200) NOT NULL,
       delivery_id uuid NOT NULL,event_id uuid NOT NULL,event_hash varchar(64) NOT NULL CHECK(event_hash~'^[0-9a-f]{64}$'),
       raw_hash varchar(64) NOT NULL CHECK(raw_hash~'^[0-9a-f]{64}$'),signature_hash varchar(64) NOT NULL CHECK(signature_hash~'^[0-9a-f]{64}$'),
       raw_body bytea NOT NULL CHECK(octet_length(raw_body) BETWEEN 1 AND 262144),signature_base64 varchar(88) NOT NULL CHECK(signature_base64~'^[A-Za-z0-9+/]{86}==$'),
@@ -57,7 +59,7 @@ export class FinanceEventContractPreviews1796500000000 implements MigrationInter
       'CREATE INDEX "IDX_fin_source_preview_event" ON finance_source_event_preview_deliveries(tenant_id,producer_id,event_id)',
     );
     await q.query(`CREATE TABLE finance_source_event_preview_audits (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),tenant_id uuid NOT NULL,delivery_record_id uuid NOT NULL,preview_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),tenant_id uuid NOT NULL,delivery_record_id uuid NOT NULL,preview_id uuid NOT NULL,
       actor_subject_id uuid NOT NULL,event_hash varchar(64) NOT NULL CHECK(event_hash~'^[0-9a-f]{64}$'),
       action varchar(24) NOT NULL DEFAULT 'VALIDATED_INACTIVE' CHECK(action='VALIDATED_INACTIVE'),occurred_at timestamptz NOT NULL DEFAULT statement_timestamp(),
       UNIQUE(delivery_record_id),FOREIGN KEY(tenant_id,delivery_record_id) REFERENCES finance_source_event_preview_deliveries(tenant_id,id) ON DELETE RESTRICT,

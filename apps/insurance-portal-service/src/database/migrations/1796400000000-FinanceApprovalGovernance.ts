@@ -1,9 +1,11 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Inactive candidate governance only. No mandates, profiles or grants seeded. */
 export class FinanceApprovalGovernance1796400000000 implements MigrationInterface {
   name = 'FinanceApprovalGovernance1796400000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(
       'ALTER TABLE finance_configuration_releases DROP CONSTRAINT "CK_fin_config_kind"',
     );
@@ -17,7 +19,7 @@ export class FinanceApprovalGovernance1796400000000 implements MigrationInterfac
       `ALTER TABLE finance_journal_candidate_authorities ADD CONSTRAINT finance_journal_candidate_authorities_permission_check CHECK (permission IN ('MANAGE_DRAFT_PERIOD','PREPARE_CANDIDATE','VALIDATE_CANDIDATE','READ_CANDIDATE_AUDIT'))`,
     );
     await q.query(`CREATE TABLE finance_approval_mandates (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       subject_id uuid NOT NULL, natural_person_id uuid NOT NULL, role_code varchar(80) NOT NULL CHECK (btrim(role_code) <> ''),
       currency varchar(3) NOT NULL CHECK (currency ~ '^[A-Z]{3}$'), max_amount numeric(38,12) NOT NULL CHECK (max_amount > 0 AND max_amount < 'Infinity'::numeric),
       delegated_from_id uuid, version integer NOT NULL CHECK (version>0), authority_reference varchar(200) NOT NULL CHECK (btrim(authority_reference) <> ''),
@@ -29,7 +31,7 @@ export class FinanceApprovalGovernance1796400000000 implements MigrationInterfac
       FOREIGN KEY (tenant_id,legal_entity_id,book_id,delegated_from_id) REFERENCES finance_approval_mandates (tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_approval_requests (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       candidate_id uuid NOT NULL UNIQUE, candidate_hash varchar(64) NOT NULL CHECK (candidate_hash ~ '^[0-9a-f]{64}$'),
       profile_id uuid NOT NULL, profile_hash varchar(64) NOT NULL CHECK (profile_hash ~ '^[0-9a-f]{64}$'),
       beneficiary jsonb NOT NULL CHECK (jsonb_typeof(beneficiary)='object'), beneficiary_hash varchar(64) NOT NULL CHECK (beneficiary_hash ~ '^[0-9a-f]{64}$'),
@@ -44,7 +46,7 @@ export class FinanceApprovalGovernance1796400000000 implements MigrationInterfac
       FOREIGN KEY (tenant_id,legal_entity_id,book_id,profile_id) REFERENCES finance_configuration_releases (tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_approval_decisions (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       request_id uuid NOT NULL, mandate_id uuid NOT NULL, mandate_hash varchar(64) NOT NULL CHECK (mandate_hash ~ '^[0-9a-f]{64}$'),
       represented_natural_person_id uuid NOT NULL, actor_subject_id uuid NOT NULL, actor_natural_person_id uuid NOT NULL,
       action varchar(24) NOT NULL CHECK (action IN ('APPROVED_INACTIVE','REJECTED_INACTIVE')), decision_hash varchar(64) NOT NULL CHECK (decision_hash ~ '^[0-9a-f]{64}$'),
@@ -54,7 +56,7 @@ export class FinanceApprovalGovernance1796400000000 implements MigrationInterfac
       FOREIGN KEY (tenant_id,legal_entity_id,book_id,mandate_id) REFERENCES finance_approval_mandates (tenant_id,legal_entity_id,book_id,id) ON DELETE RESTRICT
     )`);
     await q.query(`CREATE TABLE finance_approval_events (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       request_id uuid NOT NULL, decision_id uuid, action varchar(24) NOT NULL CHECK (action IN ('REQUESTED_INACTIVE','APPROVED_INACTIVE','REJECTED_INACTIVE','CONSUMED_INACTIVE')),
       request_hash varchar(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'), actor_subject_id uuid NOT NULL, actor_natural_person_id uuid NOT NULL,
       reason text NOT NULL CHECK (btrim(reason) <> ''), occurred_at timestamptz NOT NULL DEFAULT statement_timestamp(),

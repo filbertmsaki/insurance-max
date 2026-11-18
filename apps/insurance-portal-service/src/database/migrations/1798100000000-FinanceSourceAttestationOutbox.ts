@@ -1,11 +1,13 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Signed inactive source evidence only; no outbound delivery or posting. */
 export class FinanceSourceAttestationOutbox1798100000000 implements MigrationInterface {
   name = 'FinanceSourceAttestationOutbox1798100000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(`CREATE TABLE finance_source_attestation_outbox (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       source_company_id uuid NOT NULL, revision integer NOT NULL CHECK(revision > 0), key_id uuid NOT NULL, producer_id text NOT NULL,
       master_release_id uuid NOT NULL, master_release_hash varchar(64) NOT NULL CHECK(master_release_hash ~ '^[0-9a-f]{64}$'),
       actor_subject_id uuid NOT NULL, actor_natural_person_id uuid NOT NULL, authority_id uuid NOT NULL,

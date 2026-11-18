@@ -1,3 +1,4 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 const tables = [
@@ -27,7 +28,8 @@ const intentRef =
 export class FinanceOutgoingCashControls1797500000000 implements MigrationInterface {
   name = 'FinanceOutgoingCashControls1797500000000';
   async up(q: QueryRunner): Promise<void> {
-    await q.query(`CREATE TABLE finance_outgoing_authorities(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),${scope},subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,
+    await ensureFinanceUuidV4(q);
+    await q.query(`CREATE TABLE finance_outgoing_authorities(id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),${scope},subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,
       permission text NOT NULL CHECK(permission IN ('OBSERVE_CASH','PREPARE_PAYMENT','REVIEW_PAYMENT','RESERVE_CASH','EXECUTE_SIMULATION','RECONCILE_CASH','READ_CASH')),
       currency varchar(3) NOT NULL CHECK(currency~'^[A-Z]{3}$'),max_amount numeric(30,12) NOT NULL CHECK(max_amount>=0),
       lease_seconds integer NOT NULL CHECK(lease_seconds BETWEEN 1 AND 3600),state text NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),
@@ -77,7 +79,7 @@ export class FinanceOutgoingCashControls1797500000000 implements MigrationInterf
     await q.query(
       'CREATE INDEX IDX_fin_outgoing_provider_payment ON finance_outgoing_observations(tenant_id,provider_code,provider_account_reference,provider_payment_id) WHERE provider_payment_id IS NOT NULL',
     );
-    await q.query(`CREATE TABLE finance_outgoing_audits(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),${scope},object_table text NOT NULL CHECK(object_table IN (${tables
+    await q.query(`CREATE TABLE finance_outgoing_audits(id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),${scope},object_table text NOT NULL CHECK(object_table IN (${tables
       .slice(1, -1)
       .map((t) => "'" + t + "'")
       .join(',')})),object_id uuid NOT NULL,

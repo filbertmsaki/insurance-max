@@ -1,11 +1,13 @@
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Empty governance registries only. Does not approve, activate or migrate money. */
 export class FinancePolicyGovernance1797100000000 implements MigrationInterface {
   name = 'FinancePolicyGovernance1797100000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(`CREATE TABLE finance_policy_authorities (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       subject_id uuid NOT NULL, natural_person_id uuid NOT NULL, company_role text NOT NULL CHECK(company_role IN ('COMPANY_ADMIN','FINANCE_POLICY_PREPARER','FINANCE_POLICY_VALIDATOR')),
       capability text NOT NULL CHECK(capability IN ('PREPARE','VALIDATE','APPROVE','ACTIVATE')), authority_reference text NOT NULL CHECK(btrim(authority_reference)<>''),
       valid_from timestamptz NOT NULL, valid_to timestamptz, revoked_at timestamptz,
@@ -14,7 +16,7 @@ export class FinancePolicyGovernance1797100000000 implements MigrationInterface 
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id)
     )`);
     await q.query(`CREATE TABLE finance_policy_versions (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       policy_code text NOT NULL CHECK(policy_code ~ '^AP-[0-9]{2}\\.[0-9]{2}$'), version integer NOT NULL CHECK(version>0),
       profile text NOT NULL CHECK(profile IN ('PLATFORM_TEMPLATE','INSURER','BROKER','REINSURER','OTHER')),
       definition jsonb NOT NULL, definition_hash text NOT NULL CHECK(definition_hash ~ '^[0-9a-f]{64}$'),
@@ -24,7 +26,7 @@ export class FinancePolicyGovernance1797100000000 implements MigrationInterface 
       FOREIGN KEY(tenant_id,legal_entity_id,book_id) REFERENCES finance_accounting_books(tenant_id,legal_entity_id,id)
     )`);
     await q.query(`CREATE TABLE finance_policy_events (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       policy_id uuid NOT NULL, sequence integer NOT NULL CHECK(sequence>0), from_state text NOT NULL, to_state text NOT NULL,
       action text NOT NULL, actor_subject_id uuid NOT NULL, actor_natural_person_id uuid NOT NULL,
       authority_id uuid NOT NULL REFERENCES finance_policy_authorities(id), reason text NOT NULL CHECK(btrim(reason)<>''),
@@ -37,7 +39,7 @@ export class FinancePolicyGovernance1797100000000 implements MigrationInterface 
     // A policy approval alone cannot create this release. The deployment/cutover
     // authority adapter is intentionally absent until B43-B45 acceptance.
     await q.query(`CREATE TABLE finance_policy_posting_releases (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
+      id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(), tenant_id uuid NOT NULL, legal_entity_id uuid NOT NULL, book_id uuid NOT NULL,
       policy_id uuid NOT NULL, policy_hash text NOT NULL CHECK(policy_hash ~ '^[0-9a-f]{64}$'),
       source_company_id uuid NOT NULL, source_types text[] NOT NULL CHECK(cardinality(source_types)>0),
       basis text NOT NULL CHECK(basis='OPERATIONAL_BRIDGE'), currency text NOT NULL CHECK(currency ~ '^[A-Z]{3}$'),
