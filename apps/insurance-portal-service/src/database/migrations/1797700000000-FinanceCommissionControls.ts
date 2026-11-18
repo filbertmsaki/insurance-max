@@ -1,5 +1,6 @@
 import { installFinanceCommissionFunctions } from '../../modules/tenant/finance/payables/commission-controls/finance-commission.database';
 import { MigrationInterface, QueryRunner } from 'typeorm';
+import { ensureFinanceUuidV4 } from '../finance-uuid-v4';
 const tables = [
   'finance_commission_authorities',
   'finance_commission_movements',
@@ -24,8 +25,9 @@ const fk = (column: string, table = 'finance_commission_movements') =>
 export class FinanceCommissionControls1797700000000 implements MigrationInterface {
   name = 'FinanceCommissionControls1797700000000';
   async up(q: QueryRunner): Promise<void> {
+    await ensureFinanceUuidV4(q);
     await q.query(
-      `CREATE TABLE finance_commission_authorities(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),${scope},subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,permission text NOT NULL CHECK(permission IN ('OBSERVE_COMMISSION','REVIEW_COMMISSION','PREPARE_SETTLEMENT','REVIEW_SETTLEMENT','RECONCILE_COMMISSION','READ_COMMISSION')),currency varchar(3) NOT NULL CHECK(currency~'^[A-Z]{3}$'),max_amount numeric(30,12) NOT NULL CHECK(max_amount>=0),state text NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),authority_reference text NOT NULL CHECK(btrim(authority_reference)<>''),valid_from timestamptz NOT NULL,valid_to timestamptz NOT NULL,revoked_at timestamptz,CHECK(valid_to>valid_from),${book})`,
+      `CREATE TABLE finance_commission_authorities(id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),${scope},subject_id uuid NOT NULL,natural_person_id uuid NOT NULL,permission text NOT NULL CHECK(permission IN ('OBSERVE_COMMISSION','REVIEW_COMMISSION','PREPARE_SETTLEMENT','REVIEW_SETTLEMENT','RECONCILE_COMMISSION','READ_COMMISSION')),currency varchar(3) NOT NULL CHECK(currency~'^[A-Z]{3}$'),max_amount numeric(30,12) NOT NULL CHECK(max_amount>=0),state text NOT NULL DEFAULT 'DRAFT' CHECK(state IN ('DRAFT','ENABLED','REVOKED')),authority_reference text NOT NULL CHECK(btrim(authority_reference)<>''),valid_from timestamptz NOT NULL,valid_to timestamptz NOT NULL,revoked_at timestamptz,CHECK(valid_to>valid_from),${book})`,
     );
     await q.query(
       `CREATE TABLE finance_commission_movements(id uuid PRIMARY KEY,${scope},source_company_id uuid NOT NULL,source_id uuid NOT NULL,source_revision integer NOT NULL CHECK(source_revision>0),commission_id uuid NOT NULL,party_id uuid NOT NULL,currency varchar(3) NOT NULL CHECK(currency~'^[A-Z]{3}$'),decimal_scale integer NOT NULL CHECK(decimal_scale BETWEEN 0 AND 12),previous_id uuid,inbox_id uuid NOT NULL,vector_hash text NOT NULL CHECK(vector_hash~'^[a-f0-9]{64}$'),${content},${actor},created_at timestamptz NOT NULL DEFAULT statement_timestamp(),${unique},UNIQUE(tenant_id,source_id,source_revision),${book},${fk('previous_id')},${fk('inbox_id', 'finance_integration_inboxes')})`,
@@ -52,7 +54,7 @@ export class FinanceCommissionControls1797700000000 implements MigrationInterfac
       "CREATE UNIQUE INDEX UQ_commission_execution ON finance_commission_events(outgoing_intent_id) WHERE action='BIND_EXECUTION'",
     );
     await q.query(
-      `CREATE TABLE finance_commission_audits(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),${scope},object_table text NOT NULL CHECK(object_table IN (${tables
+      `CREATE TABLE finance_commission_audits(id uuid PRIMARY KEY DEFAULT public.finance_uuid_v4(),${scope},object_table text NOT NULL CHECK(object_table IN (${tables
         .slice(1, -1)
         .map((t) => "'" + t + "'")
         .join(
