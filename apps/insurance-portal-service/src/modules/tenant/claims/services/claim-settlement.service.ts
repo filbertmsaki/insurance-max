@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ClaimRegulatoryOperationType } from '@insurance-max/contracts';
 import { DataSource, In } from 'typeorm';
 
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimPayment } from '../entities/claim-payment.entity';
 import { ClaimRegulatoryOperation } from '../entities/claim-regulatory-operation.entity';

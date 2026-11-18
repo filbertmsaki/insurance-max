@@ -2,15 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { FinanceLegalEntity } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity.entity';
-import { FinanceAccountingBook } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-accounting-book.entity';
-import { FinanceScopeMembership } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-scope-membership.entity';
-import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity-source-map.entity';
-import { FinanceFoundationModule } from '../../src/modules/tenant/billing-commission/foundation/finance-foundation.module';
+import { FinanceLegalEntity } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity.entity';
+import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
+import { FinanceScopeMembership } from '../../src/modules/tenant/finance/foundation/entities/finance-scope-membership.entity';
+import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity-source-map.entity';
+import { FinanceFoundationModule } from '../../src/modules/tenant/finance/foundation/finance-foundation.module';
 import {
   FinanceScopeService,
   type FinancePrincipal,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-scope.service';
+} from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-scope.service';
 import {
   withFinanceTestDatabase,
   type FinanceTestDatabase,

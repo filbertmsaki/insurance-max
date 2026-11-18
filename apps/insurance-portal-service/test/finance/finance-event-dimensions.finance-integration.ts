@@ -4,8 +4,8 @@ import {
   createEventFixture,
   refreshSourceEnvelope,
 } from '../support/finance-event-fixture';
-import { prepareSetupDimensionMaster } from '../../src/modules/tenant/billing-commission/foundation/finance-setup-dimension-master';
-import type { FinanceSourceEnvelope } from '../../src/modules/tenant/billing-commission/foundation/finance-event.types';
+import { prepareSetupDimensionMaster } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-setup-dimension-master';
+import type { FinanceSourceEnvelope } from '../../src/modules/tenant/finance/accounting/accounting-events/finance-event.types';
 
 describe('signed event dimension evidence', () => {
   it('checks every routed book against signed company-owned branch and product evidence', async () => {

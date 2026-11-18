@@ -7,7 +7,7 @@ import {
 } from '@insurance-max/contracts';
 
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
-import { FinanceRefund } from '../../billing-commission/entities/finance-refund.entity';
+import { FinanceRefund } from '../../finance/receivables/refunds/entities/finance-refund.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionEvent } from '../entities/policy-transaction-event.entity';
 

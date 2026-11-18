@@ -5,11 +5,11 @@ import { calculatePercentageTaxes } from '../../src/modules/shared/finance/tax-c
 import {
   freezeEndorsementRiskCharges,
   endorsementFinanceComponents,
-} from '../../src/modules/tenant/billing-commission/utils/endorsement-invoice-tax';
+} from '../../src/modules/tenant/finance/taxation/tax-calculation/endorsement-invoice-tax';
 import type { RiskPremiumResult } from '../../src/modules/tenant/pricing/domain/pricing.types';
 import { PolicyTransactionInvoiceService } from '../../src/modules/tenant/policy-transactions/services/policy-transaction-invoice.service';
-import { Invoice } from '../../src/modules/tenant/billing-commission/entities/invoice.entity';
-import { InvoiceItem } from '../../src/modules/tenant/billing-commission/entities/invoice-item.entity';
+import { Invoice } from '../../src/modules/tenant/finance/receivables/invoices/entities/invoice.entity';
+import { InvoiceItem } from '../../src/modules/tenant/finance/receivables/invoices/entities/invoice-item.entity';
 import Decimal from 'decimal.js';
 const h = new ProductDefinitionHashService();
 export const endorsementTaxRules = () => [

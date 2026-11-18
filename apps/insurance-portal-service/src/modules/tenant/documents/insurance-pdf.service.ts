@@ -11,15 +11,15 @@ import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { MotorPolicyDetail } from '../motor/entities/motor-policy-detail.entity';
 import { NonMotorRiskService } from '../underwrite/non-motor/non-motor-risk.service';
 import { QuotationFlow } from '../quotations/enums/quotation-flow.enum';
-import { Invoice } from '../billing-commission/entities/invoice.entity';
+import { Invoice } from '../finance/receivables/invoices/entities/invoice.entity';
 import {
   hasPremiumInvoiceTax,
   validatedPremiumInvoiceTax,
-} from '../billing-commission/utils/premium-invoice-tax';
+} from '../finance/taxation/tax-calculation/premium-invoice-tax';
 import { DecimalUtil } from '../../shared/finance/decimal.util';
-import { Receipt } from '../billing-commission/entities/receipt.entity';
-import { PaymentReference } from '../billing-commission/entities/payment-reference.entity';
-import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
+import { Receipt } from '../finance/receivables/receipts/entities/receipt.entity';
+import { PaymentReference } from '../finance/receivables/payment-transactions/entities/payment-reference.entity';
+import { PaymentTransaction } from '../finance/receivables/payment-transactions/entities/payment-transaction.entity';
 import {
   documentFileName,
   formatDate as docDate,

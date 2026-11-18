@@ -5,24 +5,24 @@ import {
   type KeyObject,
 } from 'node:crypto';
 import { DataSource } from 'typeorm';
-import { FinanceLegalEntity } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity.entity';
-import { FinanceAccountingBook } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-accounting-book.entity';
-import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity-source-map.entity';
-import { FinanceConfigurationAuthority } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-configuration-authority.entity';
-import { FinanceConfigurationService } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.service';
-import { FinanceEventPreviewService } from '../../src/modules/tenant/billing-commission/foundation/finance-event-preview.service';
-import { financeChartSourceMapHash } from '../../src/modules/tenant/billing-commission/foundation/finance-chart.snapshot';
+import { FinanceLegalEntity } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity.entity';
+import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
+import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity-source-map.entity';
+import { FinanceConfigurationAuthority } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-authority.entity';
+import { FinanceConfigurationService } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.service';
+import { FinanceEventPreviewService } from '../../src/modules/tenant/finance/accounting/accounting-events/finance-event-preview.service';
+import { financeChartSourceMapHash } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-chart.snapshot';
 import {
   financeConfigurationHash,
   type FinanceConfigurationActor,
   type FinanceConfigurationInput,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+} from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 import {
   sourceOrderingKey,
   sourceByteHash,
   type FinanceSourceEnvelope,
   type FinanceProducerPrincipal,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-event.types';
+} from '../../src/modules/tenant/finance/accounting/accounting-events/finance-event.types';
 
 export function syntheticSourceEnvelope(
   tenantId = randomUUID(),

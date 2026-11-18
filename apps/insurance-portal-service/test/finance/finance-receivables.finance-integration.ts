@@ -3,8 +3,8 @@ import type { DataSource } from 'typeorm';
 import { withReceivableDatabase } from '../support/finance-receivables-fixture';
 import { withFinanceTestDatabase } from '../support/finance-test-database';
 import { FinanceReceivableControls1797000000000 } from '../../src/database/migrations/1797000000000-FinanceReceivableControls';
-import { financeConfigurationHash as hash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import type { TermsEvidence } from '../../src/modules/tenant/billing-commission/foundation/finance-receivables.types';
+import { financeConfigurationHash as hash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import type { TermsEvidence } from '../../src/modules/tenant/finance/receivables/receivable-controls/finance-receivables.types';
 const db = withReceivableDatabase;
 
 async function reportDates(source: DataSource) {

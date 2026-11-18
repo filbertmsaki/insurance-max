@@ -90,6 +90,10 @@ export default defineConfig(({ mode }) => {
               return 'feature-finance';
             }
 
+            if (normalizedId.includes('/src/modules/portal/')) {
+              return 'feature-portal';
+            }
+
             if (
               normalizedId.includes('/src/modules/tenant/tiramis/') ||
               normalizedId.includes('/src/modules/tenant/verifications/')

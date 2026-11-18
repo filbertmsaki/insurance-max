@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { withFoundationDatabase } from '../support/finance-ledger-foundation-fixture';
-import { financeConfigurationHash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+import { financeConfigurationHash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 
 describe('FIN-04 journal search', () => {
   it('verifies immutable results, isolates scope and mode, and pages without duplicates', async () => {

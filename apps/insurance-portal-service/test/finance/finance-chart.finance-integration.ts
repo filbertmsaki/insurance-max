@@ -1,23 +1,23 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
-import { FinanceAccount } from '../../src/modules/tenant/billing-commission/entities/finance-account.entity';
-import { FinanceLegalEntity } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity.entity';
-import { FinanceAccountingBook } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-accounting-book.entity';
-import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity-source-map.entity';
-import { FinanceConfigurationAuthority } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-configuration-authority.entity';
-import { FinanceConfigurationRelease } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-configuration-release.entity';
-import { FinanceConfigurationEvent } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-configuration-event.entity';
-import { FinanceChartSourceAuthority } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-chart-source-authority.entity';
-import { FinanceConfigurationService } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.service';
+import { FinanceAccount } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/entities/finance-account.entity';
+import { FinanceLegalEntity } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity.entity';
+import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
+import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity-source-map.entity';
+import { FinanceConfigurationAuthority } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-authority.entity';
+import { FinanceConfigurationRelease } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-release.entity';
+import { FinanceConfigurationEvent } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-event.entity';
+import { FinanceChartSourceAuthority } from '../../src/modules/tenant/finance/foundation/entities/finance-chart-source-authority.entity';
+import { FinanceConfigurationService } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.service';
 import {
   financeChartSourceMapHash,
   PORTAL_FINANCE_ACCOUNT_ADAPTER,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-chart.snapshot';
-import type { FinanceChartProposal } from '../../src/modules/tenant/billing-commission/foundation/finance-chart.types';
+} from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-chart.snapshot';
+import type { FinanceChartProposal } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/finance-chart.types';
 import type {
   FinanceConfigurationActor,
   FinanceConfigurationInput,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+} from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 import {
   withFinanceTestDatabase,
   type FinanceTestDatabase,

@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
 
 import { PortalPaymentProofStatus } from '../enums/portal.enums';
 

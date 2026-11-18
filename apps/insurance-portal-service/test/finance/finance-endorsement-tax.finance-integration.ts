@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { withFinanceTestDatabase } from '../support/finance-test-database';
 import { withEndorsementTaxSchema } from '../support/endorsement-tax-database';
-import { validatedEndorsementInvoiceTax } from '../../src/modules/tenant/billing-commission/utils/endorsement-invoice-tax';
-import { Invoice } from '../../src/modules/tenant/billing-commission/entities/invoice.entity';
-import { FinanceJournalService } from '../../src/modules/tenant/billing-commission/services/finance-journal.service';
+import { validatedEndorsementInvoiceTax } from '../../src/modules/tenant/finance/taxation/tax-calculation/endorsement-invoice-tax';
+import { Invoice } from '../../src/modules/tenant/finance/receivables/invoices/entities/invoice.entity';
+import { FinanceJournalService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal.service';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 const db = <T>(fn: Parameters<typeof withEndorsementTaxSchema<T>>[1]) =>
   withFinanceTestDatabase(({ dataSource }) =>

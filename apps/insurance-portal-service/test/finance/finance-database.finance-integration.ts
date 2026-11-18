@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import type { IdentifierGeneratorService } from '../../src/modules/shared/identifiers/identifier-generator.service';
-import { FinanceAccount } from '../../src/modules/tenant/billing-commission/entities/finance-account.entity';
-import { FinanceJournalEntry } from '../../src/modules/tenant/billing-commission/entities/finance-journal-entry.entity';
-import { FinanceJournalLine } from '../../src/modules/tenant/billing-commission/entities/finance-journal-line.entity';
-import { FinanceJournalService } from '../../src/modules/tenant/billing-commission/services/finance-journal.service';
+import { FinanceAccount } from '../../src/modules/tenant/finance/foundation/chart-of-accounts/entities/finance-account.entity';
+import { FinanceJournalEntry } from '../../src/modules/tenant/finance/accounting/journal-entries/entities/finance-journal-entry.entity';
+import { FinanceJournalLine } from '../../src/modules/tenant/finance/accounting/journal-entries/entities/finance-journal-line.entity';
+import { FinanceJournalService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal.service';
 import {
   readFinanceTestServer,
   withFinanceTestDatabase,

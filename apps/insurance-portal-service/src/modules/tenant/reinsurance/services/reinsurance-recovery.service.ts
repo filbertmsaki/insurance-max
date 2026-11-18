@@ -13,7 +13,7 @@ import { DataSource, EntityManager, Not, Repository } from 'typeorm';
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { AuditService } from '../../../shared/audit/audit.service';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { InsuranceClaim } from '../../claims/entities/claim.entity';
 import { ClaimRecovery } from '../../claims/entities/claim-recovery.entity';
 import {

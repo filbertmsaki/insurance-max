@@ -5,7 +5,7 @@ import { Company } from '../../platform/companies/entities/company.entity';
 import { SharedModule } from '../../shared/shared.module';
 import { TiramisModule } from '../../tiramis/tiramis.module';
 import { InsurancePartnersModule } from '../insurance-partners/insurance-partners.module';
-import { BillingCommissionModule } from '../billing-commission/billing-commission.module';
+import { FinanceAccountingModule } from '../finance/accounting/finance-accounting.module';
 import { InsuranceClaim } from '../claims/entities/claim.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
@@ -71,7 +71,7 @@ import { ReinsuranceSettlementService } from './services/reinsurance-settlement.
     SharedModule,
     WorkItemsModule,
     TiramisModule,
-    BillingCommissionModule,
+    FinanceAccountingModule,
     InsurancePartnersModule,
   ],
   controllers: [ReinsuranceController],

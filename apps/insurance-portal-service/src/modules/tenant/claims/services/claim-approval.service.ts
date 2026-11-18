@@ -11,7 +11,7 @@ import { EntityManager, In, Repository } from 'typeorm';
 
 import { AuditService } from '../../../shared/audit/audit.service';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { Policy } from '../../policies/entities/policy.entity';
 import { User } from '../../users/entities/user.entity';
 import { InsuranceClaim } from '../entities/claim.entity';

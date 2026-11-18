@@ -4,8 +4,8 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
-import { FinanceJournalService } from '../../billing-commission/services/finance-journal.service';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { FinanceJournalService } from '../../finance/accounting/journal-entries/finance-journal.service';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import {
   ClaimRecoveryStatus,
   ClaimRecoveryType,

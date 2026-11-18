@@ -10,8 +10,8 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
-import { FinanceJournalService } from '../../billing-commission/services/finance-journal.service';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { FinanceJournalService } from '../../finance/accounting/journal-entries/finance-journal.service';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import {
   ClaimDisbursementStatus,
   ClaimPaymentStatus,

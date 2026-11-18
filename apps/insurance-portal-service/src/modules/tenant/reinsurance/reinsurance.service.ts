@@ -25,7 +25,7 @@ import { InsurancePartnersService } from '../insurance-partners/insurance-partne
 import { PartnerType } from '../insurance-partners/enums/partner-type.enum';
 import { BusinessReferenceService } from '../../shared/identifiers/business-reference.service';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
-import { MoneyUtil } from '../billing-commission/utils/money.util';
+import { MoneyUtil } from '../finance/common/utils/money.util';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { NotificationsService } from '../work-items/notifications.service';

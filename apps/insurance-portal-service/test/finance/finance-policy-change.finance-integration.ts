@@ -5,7 +5,7 @@ import { FinancePolicyChangeControls1797600000000 } from '../../src/database/mig
 import {
   canonicalFinanceJson,
   financeConfigurationHash as hash,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+} from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 
 describe('B16 inactive policy changes and refunds on disposable PostgreSQL', () => {
   it('PC17 empty migration rolls back without changing B15 controls', async () =>

@@ -16,8 +16,8 @@ import { TiramisSubmissionTrackingEntity } from '../../src/modules/tiramis/entit
 import { TiramisSubmissionTrackingRepository } from '../../src/modules/tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisBusinessRecordSyncService } from '../../src/modules/tiramis/services/tiramis-business-record-sync.service';
 import { TiramisClientService } from '../../src/modules/tiramis/services/tiramis-client.service';
-import { FinanceJournalService } from '../../src/modules/tenant/billing-commission/services/finance-journal.service';
-import { FinancePostingPolicyService } from '../../src/modules/tenant/billing-commission/services/finance-posting-policy.service';
+import { FinanceJournalService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal.service';
+import { FinancePostingPolicyService } from '../../src/modules/tenant/finance/accounting/posting-rules/finance-posting-policy.service';
 import { provisionSyntheticJournalAccounts } from '../support/synthetic-journal-accounts';
 import { DocumentStorageService } from '../../src/modules/tenant/insurance-documents/document-storage.service';
 import { ClaimFxGovernanceService } from '../../src/modules/tenant/claims/services/claim-fx-governance.service';

@@ -12,7 +12,7 @@ import { DataSource, EntityManager } from 'typeorm';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { WorkItemsService } from '../../work-items/work-items.service';
 import { ClaimsService } from '../claims.service';
 import {

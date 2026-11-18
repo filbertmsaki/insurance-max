@@ -7,9 +7,9 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import type { TenantDataScope } from '../../shared/authorization/interfaces/tenant-data-scope.interface';
-import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
-import { Invoice } from '../billing-commission/entities/invoice.entity';
-import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { CommissionTransaction } from '../finance/payables/commission-payables/entities/commission-transaction.entity';
+import { Invoice } from '../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../finance/receivables/receipts/entities/receipt.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';

@@ -15,9 +15,9 @@ import { TiramisSubmissionStatus } from '../../tiramis/enums/tiramis-submission-
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import type { TenantDataScope } from '../../shared/authorization/interfaces/tenant-data-scope.interface';
 import { QuotationPolicyDataScope } from '../../shared/authorization/quotation-policy-data-scope.enum';
-import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
-import { Invoice } from '../billing-commission/entities/invoice.entity';
-import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { CommissionTransaction } from '../finance/payables/commission-payables/entities/commission-transaction.entity';
+import { Invoice } from '../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../finance/receivables/receipts/entities/receipt.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { CustomerStatus } from '../customers/enums/customer-status.enum';
 import { Policy } from '../policies/entities/policy.entity';

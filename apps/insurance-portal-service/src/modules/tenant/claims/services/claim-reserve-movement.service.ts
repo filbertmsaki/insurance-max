@@ -3,7 +3,7 @@ import { EntityManager } from 'typeorm';
 import { ClaimReserveMovementType } from '@insurance-max/contracts';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
-import { MoneyUtil } from '../../billing-commission/utils/money.util';
+import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { ClaimReserve } from '../entities/claim-reserve.entity';
 import { ClaimReserveMovement } from '../entities/claim-reserve-movement.entity';
 import { ClaimFxGovernanceService } from './claim-fx-governance.service';

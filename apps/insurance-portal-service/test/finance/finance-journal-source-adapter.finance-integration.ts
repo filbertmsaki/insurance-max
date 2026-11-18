@@ -1,6 +1,6 @@
 import { withFoundationDatabase } from '../support/finance-ledger-foundation-fixture';
-import { FinanceJournalCandidateService } from '../../src/modules/tenant/billing-commission/foundation/finance-journal-candidate.service';
-import { FinanceLedgerFoundationService } from '../../src/modules/tenant/billing-commission/foundation/finance-ledger-foundation.service';
+import { FinanceJournalCandidateService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.service';
+import { FinanceLedgerFoundationService } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-ledger-foundation.service';
 
 describe('journal source verifier boundary', () => {
   it('holds candidate preparation and ledger acceptance when the configured verifier rejects', async () => {

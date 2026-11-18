@@ -18,8 +18,8 @@ import { Document } from '../../insurance-documents/entities/document.entity';
 import { SignatureEvent } from '../../insurance-documents/entities/signature-event.entity';
 import { SignatureParticipant } from '../../insurance-documents/entities/signature-participant.entity';
 import { SignatureRequest } from '../../insurance-documents/entities/signature-request.entity';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
-import { Receipt } from '../../billing-commission/entities/receipt.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../../finance/receivables/receipts/entities/receipt.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 

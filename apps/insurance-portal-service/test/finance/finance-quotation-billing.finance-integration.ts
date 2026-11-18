@@ -5,7 +5,7 @@ import {
   withFinanceTestDatabase,
   type FinanceTestDatabase,
 } from '../support/finance-test-database';
-import { sourceByteHash } from '../../src/modules/tenant/billing-commission/foundation/finance-event.types';
+import { sourceByteHash } from '../../src/modules/tenant/finance/accounting/accounting-events/finance-event.types';
 const db = <T>(run: (db: FinanceTestDatabase) => Promise<T>) =>
   withFinanceTestDatabase(run, process.env, 'quotation-billing');
 async function counts(s: DataSource) {

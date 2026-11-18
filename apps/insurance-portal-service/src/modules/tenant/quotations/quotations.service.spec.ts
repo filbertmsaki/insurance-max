@@ -32,7 +32,7 @@ import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
 import { TaxesService } from '../taxes/taxes.service';
-import { FinanceCommandService } from '../billing-commission/services/finance-command.service';
+import { FinanceCommandService } from '../finance/receivables/payment-transactions/finance-command.service';
 
 describe('QuotationsService', () => {
   const productDefinitionHashService = new ProductDefinitionHashService();

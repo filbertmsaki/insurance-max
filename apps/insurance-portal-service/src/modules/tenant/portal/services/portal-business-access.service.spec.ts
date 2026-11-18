@@ -8,9 +8,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Branch } from '../../branches/entities/branch.entity';
-import { CommissionTransaction } from '../../billing-commission/entities/commission-transaction.entity';
-import { Invoice } from '../../billing-commission/entities/invoice.entity';
-import { Receipt } from '../../billing-commission/entities/receipt.entity';
+import { CommissionTransaction } from '../../finance/payables/commission-payables/entities/commission-transaction.entity';
+import { Invoice } from '../../finance/receivables/invoices/entities/invoice.entity';
+import { Receipt } from '../../finance/receivables/receipts/entities/receipt.entity';
 import { Complaint } from '../../claims/entities/complaint.entity';
 import { InsuranceClaim } from '../../claims/entities/claim.entity';
 import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';

@@ -5,13 +5,13 @@ import {
   requireLease,
 } from './finance-integration-fixture';
 import { refreshSourceEnvelope } from './finance-event-fixture';
-import { FinanceQuotationBillingService } from '../../src/modules/tenant/billing-commission/foundation/finance-quotation-billing.service';
+import { FinanceQuotationBillingService } from '../../src/modules/tenant/finance/integrations/quotation-finance/finance-quotation-billing.service';
 import {
   BILLING_EVENT,
   BILLING_SCHEMA,
   type QuotationBillingSnapshot,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-quotation-billing.types';
-import { financeConfigurationHash as hash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
+} from '../../src/modules/tenant/finance/integrations/quotation-finance/finance-quotation-billing.types';
+import { financeConfigurationHash as hash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 export function syntheticBillingSnapshot(
   companyId = randomUUID(),
 ): QuotationBillingSnapshot {

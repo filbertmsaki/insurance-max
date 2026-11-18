@@ -21,7 +21,7 @@ import {
   freezeEndorsementRiskCharges,
   endorsementFinanceComponents,
   type EndorsementRiskChargeEvidence,
-} from '../../billing-commission/utils/endorsement-invoice-tax';
+} from '../../finance/taxation/tax-calculation/endorsement-invoice-tax';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import {
   EndorsementPricingService,

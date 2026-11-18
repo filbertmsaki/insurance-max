@@ -5,8 +5,8 @@ import {
   createPublicKey,
 } from 'node:crypto';
 import type { DataSource } from 'typeorm';
-import { sourceByteHash } from '../../src/modules/tenant/billing-commission/foundation/finance-event.types';
-import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/billing-commission/foundation/entities/finance-legal-entity-source-map.entity';
+import { sourceByteHash } from '../../src/modules/tenant/finance/accounting/accounting-events/finance-event.types';
+import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity-source-map.entity';
 import {
   createEventFixture,
   refreshSourceEnvelope,

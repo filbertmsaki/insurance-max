@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { DataSource } from 'typeorm';
 import { createEventFixture } from './finance-event-fixture';
-import { FinanceIntakeService } from '../../src/modules/tenant/billing-commission/foundation/finance-intake.service';
-import { FinanceReferenceDeliveryService } from '../../src/modules/tenant/billing-commission/foundation/finance-reference-delivery.service';
+import { FinanceIntakeService } from '../../src/modules/tenant/finance/accounting/accounting-events/finance-intake.service';
+import { FinanceReferenceDeliveryService } from '../../src/modules/tenant/finance/integrations/finance-events/finance-reference-delivery.service';
 import {
   REFERENCE_OUTCOME_CONTRACT,
   type IntegrationLease,
   type IntegrationWorker,
   type FinanceReferenceTransport,
   type ReferenceAcknowledgement,
-} from '../../src/modules/tenant/billing-commission/foundation/finance-integration.types';
+} from '../../src/modules/tenant/finance/integrations/finance-events/finance-integration.types';
 export function requireLease(
   value: IntegrationLease | { state: string } | null,
 ): IntegrationLease {

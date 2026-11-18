@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { BillingCommissionModule } from './billing-commission/billing-commission.module';
+import { FinanceModule } from './finance/finance.module';
 import { BranchesModule } from './branches/branches.module';
 import { CategoryAccessModule } from './category-access/category-access.module';
 import { ClaimsModule } from './claims/claims.module';
@@ -70,7 +70,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     ReinsuranceModule,
     RegulatoryComplianceModule,
     ReportingModule,
-    BillingCommissionModule,
+    FinanceModule,
     AnalyticsModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,
@@ -113,7 +113,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     ReinsuranceModule,
     RegulatoryComplianceModule,
     ReportingModule,
-    BillingCommissionModule,
+    FinanceModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,
     RiskRatingRulesModule,

@@ -324,7 +324,6 @@ REQUIRED lines), place TIRA certificates as certificates/{live,test}/clientpriva
 and tiramispublic.pfx, then use your normal CI deployment to install and start
 application code. Existing .env and account settings were preserved. Configure
 TLS separately with Certbot if no certificate was supplied.
-See docs/DEPLOYMENT_GUIDE.md for the full walkthrough.
 DONE
 
 # Earlier versions of this script created proxy sites named "bridge". They

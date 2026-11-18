@@ -5,8 +5,8 @@ import {
 } from '../support/finance-ledger-foundation-fixture';
 import { refreshSourceEnvelope } from '../support/finance-event-fixture';
 import { requireLease } from '../support/finance-integration-fixture';
-import { financeConfigurationHash } from '../../src/modules/tenant/billing-commission/foundation/finance-configuration.types';
-import { prepareSetupDimensionMaster } from '../../src/modules/tenant/billing-commission/foundation/finance-setup-dimension-master';
+import { financeConfigurationHash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
+import { prepareSetupDimensionMaster } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-setup-dimension-master';
 
 describe('signed source and journal dimension linkage', () => {
   it.each([true, false])(

@@ -9,21 +9,19 @@ import { FinanceRecurringAllocationPreviews1797800000000 } from '../../src/datab
 import { FinanceAllocationPreviewReviews1797900000000 } from '../../src/database/migrations/1797900000000-FinanceAllocationPreviewReviews';
 import { FinanceSourceAttestationOutbox1798100000000 } from '../../src/database/migrations/1798100000000-FinanceSourceAttestationOutbox';
 import { FinanceSourceDeliveryReceipts1798200000000 } from '../../src/database/migrations/1798200000000-FinanceSourceDeliveryReceipts';
-import { FinanceSourceAttestations1798000000000 } from '../../../finance-service/src/database/1798000000000-FinanceSourceAttestations';
-import { FinanceSourceKeyChanges1798100000000 } from '../../../finance-service/src/database/1798100000000-FinanceSourceKeyChanges';
-import { FinanceSourceAttestationsService } from '../../../finance-service/src/source-attestations.service';
-import { FinanceSourceKeyChangesService } from '../../../finance-service/src/source-key-changes.service';
-import { FinanceSourceDeliveryService } from '../../src/modules/tenant/billing-commission/foundation/finance-source-delivery.service';
-import { NestFactory } from '@nestjs/core';
-import { DataSource } from 'typeorm';
-import { AppModule as IndependentFinanceAppModule } from '../../../finance-service/src/app.module';
-import { sourceByteHash } from '../../src/modules/tenant/billing-commission/foundation/finance-event.types';
-import { FinanceAllocationSchedulerService } from '../../src/modules/tenant/billing-commission/foundation/finance-allocation-scheduler.service';
+import { FinanceSourceAttestationRegistry1798300000000 } from '../../src/database/migrations/1798300000000-FinanceSourceAttestationRegistry';
+import { FinanceSourceKeyChangeRegistry1798400000000 } from '../../src/database/migrations/1798400000000-FinanceSourceKeyChangeRegistry';
+import { FinanceSourceAttestationsService } from '../../src/modules/tenant/finance/integrations/source-evidence/finance-source-attestations.service';
+import { inProcessSourceTransport } from '../../src/modules/tenant/finance/integrations/source-evidence/finance-source-in-process.transport';
+import { FinanceSourceKeyChangesService } from '../../src/modules/tenant/finance/integrations/source-evidence/finance-source-key-changes.service';
+import { FinanceSourceDeliveryService } from '../../src/modules/tenant/finance/integrations/source-evidence/finance-source-delivery.service';
+import { sourceByteHash } from '../../src/modules/tenant/finance/accounting/accounting-events/finance-event.types';
+import { FinanceAllocationSchedulerService } from '../../src/modules/tenant/finance/accounting/allocations/finance-allocation-scheduler.service';
 import { withFoundationDatabase } from '../support/finance-ledger-foundation-fixture';
-import { prepareSetupDimensionMaster } from '../../src/modules/tenant/billing-commission/foundation/finance-setup-dimension-master';
-import { FinanceSetupService } from '../../src/modules/tenant/billing-commission/foundation/finance-setup.service';
-import { FinanceSetupConfigurationService } from '../../src/modules/tenant/billing-commission/foundation/finance-setup-configuration.service';
-import { validateSetupConfiguration } from '../../src/modules/tenant/billing-commission/foundation/finance-setup-configuration';
+import { prepareSetupDimensionMaster } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-setup-dimension-master';
+import { FinanceSetupService } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-setup.service';
+import { FinanceSetupConfigurationService } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-setup-configuration.service';
+import { validateSetupConfiguration } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-setup-configuration';
 
 describe('dedicated recurring allocation worker', () => {
   it('uses reviewed scoped authority, creates one immutable balanced preview, and never posts', async () => {
@@ -34,8 +32,8 @@ describe('dedicated recurring allocation worker', () => {
         await new FinanceAllocationPreviewReviews1797900000000().up(q);
         await new FinanceSourceAttestationOutbox1798100000000().up(q);
         await new FinanceSourceDeliveryReceipts1798200000000().up(q);
-        await new FinanceSourceAttestations1798000000000().up(q);
-        await new FinanceSourceKeyChanges1798100000000().up(q);
+        await new FinanceSourceAttestationRegistry1798300000000().up(q);
+        await new FinanceSourceKeyChangeRegistry1798400000000().up(q);
       } finally {
         await q.release();
       }
@@ -388,8 +386,6 @@ describe('dedicated recurring allocation worker', () => {
         'FINANCE_SOURCE_RECEIPT_PRIVATE_KEY',
         'FINANCE_SOURCE_RECEIPT_PUBLIC_KEY',
         'FINANCE_SOURCE_RECEIPT_PUBLIC_FINGERPRINT',
-        'FINANCE_DATABASE_URL',
-        'FINANCE_SOURCE_DELIVERY_URL',
       ] as const;
       const previous = Object.fromEntries(
         environmentNames.map((name) => [name, process.env[name]]),
@@ -507,41 +503,20 @@ describe('dedicated recurring allocation worker', () => {
           { workerSubjectId: deliveryWorker, validUntil: expiry },
           'synthetic source delivery grant',
         );
-        const dbName = `fin_delivery_${randomUUID().replace(/-/g, '')}`,
-          dbUser = encodeURIComponent(process.env.FINANCE_TEST_PG_USER!),
-          dbPassword = encodeURIComponent(
-            process.env.FINANCE_TEST_PG_PASSWORD!,
+        {
+          // Consolidated runtime: the registry shares the portal database and is
+          // reached in-process. Revision 1 was already accepted above, so its
+          // delivery must reconcile idempotently against the stored bytes.
+          const independentReceiver = receiver;
+          const delivery = new FinanceSourceDeliveryService(
+            f.source,
+            inProcessSourceTransport(receiver),
           );
-        await f.source.query(`CREATE DATABASE "${dbName}"`);
-        process.env.FINANCE_DATABASE_URL = `postgres://${dbUser}:${dbPassword}@127.0.0.1:${process.env.FINANCE_TEST_PG_PORT}/${dbName}`;
-        const financeApp = await NestFactory.create(
-          IndependentFinanceAppModule,
-          { logger: false, rawBody: true },
-        );
-        try {
-          const financeDb = financeApp.get(DataSource);
-          const financeRunner = financeDb.createQueryRunner();
-          try {
-            await new FinanceSourceAttestations1798000000000().up(
-              financeRunner,
-            );
-            await new FinanceSourceKeyChanges1798100000000().up(financeRunner);
-          } finally {
-            await financeRunner.release();
-          }
-          await new FinanceSourceKeyChangesService(financeDb).apply(
-            grantBytes,
-            sign(null, grantBytes, rootKey.privateKey).toString('base64'),
-          );
-          const independentReceiver = new FinanceSourceAttestationsService(
-            financeDb,
-          );
-          await financeApp.listen(0, '127.0.0.1');
-          const address = financeApp.getHttpServer().address();
-          if (!address || typeof address === 'string')
-            throw new Error('Expected private test listener.');
-          process.env.FINANCE_SOURCE_DELIVERY_URL = `http://127.0.0.1:${address.port}`;
-          const delivery = new FinanceSourceDeliveryService(f.source);
+          expect(
+            await new FinanceSourceDeliveryService(f.source).runOnce(
+              deliveryWorker,
+            ),
+          ).toEqual([{ outboxId: proof.id, state: 'HELD' }]);
           expect(await delivery.runOnce(stranger)).toEqual([]);
           expect(await delivery.runOnce(deliveryWorker)).toEqual([
             { outboxId: proof.id, state: 'ACKNOWLEDGED' },
@@ -608,17 +583,10 @@ describe('dedicated recurring allocation worker', () => {
             { outboxId: third.id, state: 'ACKNOWLEDGED' },
           ]);
           expect(
-            await financeDb.query(
+            await f.source.query(
               'SELECT revision FROM finance_source_attestations ORDER BY revision',
             ),
           ).toEqual([{ revision: 1 }, { revision: 2 }, { revision: 3 }]);
-          expect(
-            await financeDb.query(
-              "SELECT to_regclass('finance_source_attestation_outbox') AS portal_outbox",
-            ),
-          ).toEqual([{ portal_outbox: null }]);
-        } finally {
-          await financeApp.close();
         }
         expect(
           (
