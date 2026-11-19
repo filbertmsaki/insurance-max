@@ -1,0 +1,13 @@
+{
+  "cluster": "D:\\To Moved\\insurance-max\\audit-output\\runtime-temp\\insurance-finance-R9w2cd\\cluster",
+  "host": "127.0.0.1",
+  "port": 64918,
+  "started": true,
+  "stopped": true,
+  "testExitCode": 0,
+  "cleanupError": null,
+  "selectedTestFile": "finance-uuid-compat.finance-integration.ts",
+  "testProcessTimeoutMs": 600000,
+  "testProcessErrorCode": null,
+  "postgresVersion": "initdb (PostgreSQL) 17.4"
+}

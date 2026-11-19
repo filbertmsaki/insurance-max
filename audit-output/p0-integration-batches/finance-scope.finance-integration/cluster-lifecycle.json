@@ -1,0 +1,13 @@
+{
+  "cluster": "C:\\Users\\DEVELO~1\\AppData\\Local\\Temp\\insurance-finance-34fMT9\\cluster",
+  "host": "127.0.0.1",
+  "port": 51806,
+  "started": false,
+  "stopped": false,
+  "testExitCode": null,
+  "cleanupError": null,
+  "selectedTestFile": "finance-scope.finance-integration.ts",
+  "testProcessTimeoutMs": 600000,
+  "testProcessErrorCode": null,
+  "postgresVersion": "initdb (PostgreSQL) 17.4"
+}

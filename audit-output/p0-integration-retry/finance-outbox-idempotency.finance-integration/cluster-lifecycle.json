@@ -1,0 +1,13 @@
+{
+  "cluster": "D:\\To Moved\\insurance-max\\audit-output\\runtime-temp\\insurance-finance-k3E9dB\\cluster",
+  "host": "127.0.0.1",
+  "port": 53213,
+  "started": true,
+  "stopped": true,
+  "testExitCode": 0,
+  "cleanupError": null,
+  "selectedTestFile": "finance-outbox-idempotency.finance-integration.ts",
+  "testProcessTimeoutMs": 600000,
+  "testProcessErrorCode": null,
+  "postgresVersion": "initdb (PostgreSQL) 17.4"
+}

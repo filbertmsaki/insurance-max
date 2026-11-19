@@ -21,6 +21,8 @@ lerna-debug.log*
 # Tests
 /coverage
 /.nyc_output
+/audit-output/jest-cache/
+/audit-output/runtime-temp/
 
 # Database backups
 /backups/
