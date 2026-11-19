@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { FinanceAccountingModule } from './accounting/finance-accounting.module';
 import { FinanceIndependentAccessModule } from './accounting/general-ledger/independent-access/finance-independent-access.module';
+import { FinanceFoundationController } from './foundation/finance-foundation.controller';
 import { FinanceFoundationModule } from './foundation/finance-foundation.module';
 import { FinanceSetupModule } from './foundation/finance-setup/finance-setup.module';
 import { FinanceInsuranceIntegrationModule } from './integrations/finance-insurance-integration.module';
@@ -34,6 +35,9 @@ import { FinanceReconciliationModule } from './reconciliation/finance-reconcilia
     FinanceSourceEvidenceModule,
     FinanceIndependentAccessModule,
   ],
+  // Kept here, not in FinanceFoundationModule, which must expose no routes
+  // (CF14/JC16 resolve that module standalone and assert it has no controllers).
+  controllers: [FinanceFoundationController],
   exports: [
     FinanceAccountingModule,
     FinanceReceivablesModule,

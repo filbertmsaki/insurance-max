@@ -24,12 +24,11 @@ import { FinanceLedgerFoundationService } from '../accounting/general-ledger/fin
 import { FinanceOutgoingService } from '../payables/outgoing-payments/finance-outgoing.service';
 import { OUTGOING_SIMULATORS } from '../payables/outgoing-payments/finance-outgoing.types';
 import { FinancePolicyChangeService } from '../governance/accounting-policies/finance-policy-change.service';
-import { FinanceFoundationController } from './finance-foundation.controller';
 import { FinanceAllocationSchedulerService } from '../accounting/allocations/finance-allocation-scheduler.service';
 import { FinanceClaimsService } from '../payables/claims-controls/finance-claims.service';
 import { FinanceCommissionService } from '../payables/commission-controls/finance-commission.service';
 
-/** Versioned foundations and the /tenant/finance/foundation API. Importing this module never grants access, activates a policy or enables posting. */
+/** Versioned foundations; the /tenant/finance/foundation API is registered by FinanceModule so this module exposes no routes. Importing this module never grants access, activates a policy or enables posting. */
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -43,7 +42,6 @@ import { FinanceCommissionService } from '../payables/commission-controls/financ
       FinanceChartSourceAuthority,
     ]),
   ],
-  controllers: [FinanceFoundationController],
   providers: [
     FinanceAllocationSchedulerService,
     FinanceClaimsService,
