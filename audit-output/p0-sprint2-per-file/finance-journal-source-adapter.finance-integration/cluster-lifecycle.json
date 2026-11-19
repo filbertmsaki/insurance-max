@@ -1,0 +1,13 @@
+{
+  "cluster": "C:\\Users\\lenovo\\AppData\\Local\\Temp\\insurance-finance-WNn48t\\cluster",
+  "host": "127.0.0.1",
+  "port": 60199,
+  "started": true,
+  "stopped": true,
+  "testExitCode": 0,
+  "cleanupError": null,
+  "selectedTestFile": "finance-journal-source-adapter.finance-integration.ts",
+  "testProcessTimeoutMs": 600000,
+  "testProcessErrorCode": null,
+  "postgresVersion": "initdb (PostgreSQL) 18.4"
+}

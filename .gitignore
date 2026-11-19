@@ -23,6 +23,7 @@ lerna-debug.log*
 /.nyc_output
 /audit-output/jest-cache/
 /audit-output/runtime-temp/
+/audit-output/test-temp/
 
 # Database backups
 /backups/

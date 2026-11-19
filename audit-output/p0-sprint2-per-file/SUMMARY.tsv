@@ -1,0 +1,38 @@
+﻿finance-aicl-demo.finance-integration.ts	Tests:       3 passed, 3 total	
+finance-aicl-guide.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-aicl-ledger.finance-integration.ts	Tests:       1 failed, 3 passed, 4 total	
+finance-approval.finance-integration.ts	Tests:       19 passed, 19 total	
+finance-chart.finance-integration.ts	Tests:       13 passed, 13 total	
+finance-claims.finance-integration.ts	Tests:       30 passed, 30 total	
+finance-commission.finance-integration.ts	Tests:       25 passed, 25 total	
+finance-configuration.finance-integration.ts	Tests:       1 failed, 14 passed, 15 total	
+finance-consolidated-independent-access.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-database.finance-integration.ts	Tests:       4 passed, 4 total	
+finance-dimension-scope.finance-integration.ts	Tests:       5 passed, 5 total	
+finance-endorsement-tax.finance-integration.ts	Tests:       10 passed, 10 total	
+finance-event-dimensions.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-event-outcomes.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-event.finance-integration.ts	Tests:       22 passed, 22 total	
+finance-integration.finance-integration.ts	Tests:       31 passed, 31 total	
+finance-journal-candidate.finance-integration.ts	Tests:       1 failed, 15 passed, 16 total	
+finance-journal-hardening.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-journal-search.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-journal-source-adapter.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-ledger-foundation.finance-integration.ts	Tests:       36 passed, 36 total	
+finance-numeric-compat.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-operations.finance-integration.ts	Tests:       23 passed, 23 total	
+finance-outbox-fencing.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-outbox-idempotency.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-outgoing.finance-integration.ts	Tests:       23 passed, 23 total	
+finance-policy-change.finance-integration.ts	Tests:       24 passed, 24 total	
+finance-policy-governance.finance-integration.ts	Tests:       16 passed, 16 total	
+finance-product-map.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-provider-lock.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-quotation-billing.finance-integration.ts	Tests:       19 passed, 19 total	
+finance-quotation-tax.finance-integration.ts	Tests:       11 passed, 11 total	
+finance-receivable-aging.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-receivables.finance-integration.ts	Tests:       31 passed, 31 total	
+finance-recurring-allocation.finance-integration.ts	Tests:       1 passed, 1 total	
+finance-scope.finance-integration.ts	Tests:       1 failed, 10 passed, 11 total	
+finance-signed-journal-dimensions.finance-integration.ts	Tests:       2 passed, 2 total	
+finance-uuid-compat.finance-integration.ts	Tests:       2 passed, 2 total	
