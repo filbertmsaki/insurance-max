@@ -206,6 +206,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   FINANCE_OUTBOX_ENABLED: Joi.boolean().default(true),
   FINANCE_OUTBOX_CRON: Joi.string().default('*/1 * * * *'),
   FINANCE_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(100),
+  FINANCE_OUTBOX_LEASE_MINUTES: Joi.number().integer().min(1).default(10),
   FINANCE_OUTBOX_MAX_ATTEMPTS: Joi.number().integer().min(1).default(10),
   CORS_ENABLED: Joi.boolean().default(true),
   CORS_ALLOWED_ORIGINS: Joi.string().default('http://localhost:9092'),

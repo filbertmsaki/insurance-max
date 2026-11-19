@@ -82,7 +82,23 @@ export class FinanceController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FindFinanceRecordsQueryDto,
   ) {
+    this.requireCompanyWideInvoiceRead(user);
     return this.billingCommissionService.findInvoices(user.companyId!, query);
+  }
+
+  @Get('receivables/aging')
+  @Permissions(FinancePermissions.INVOICES_READ)
+  getReceivableAging(@CurrentUser() user: AuthenticatedUser) {
+    const scope = this.dataAccessScope.resolve(
+      user,
+      FinancePermissions.INVOICES_READ,
+    );
+    if (!scope.canViewAllBranches || scope.ownRecordsOnly) {
+      throw new ForbiddenException(
+        'Company-wide receivable aging requires company-wide data access.',
+      );
+    }
+    return this.financeDashboardService.receivableAging(user.companyId!);
   }
 
   @Get('invoices/:id')
@@ -91,7 +107,20 @@ export class FinanceController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    this.requireCompanyWideInvoiceRead(user);
     return this.billingCommissionService.findInvoice(user.companyId!, id);
+  }
+
+  private requireCompanyWideInvoiceRead(user: AuthenticatedUser) {
+    const scope = this.dataAccessScope.resolve(
+      user,
+      FinancePermissions.INVOICES_READ,
+    );
+    if (!scope.canViewAllBranches || scope.ownRecordsOnly) {
+      throw new ForbiddenException(
+        'Invoice reads require company-wide data access until restricted invoice queries are available.',
+      );
+    }
   }
 
   @Get('invoices/:id/payment-references')

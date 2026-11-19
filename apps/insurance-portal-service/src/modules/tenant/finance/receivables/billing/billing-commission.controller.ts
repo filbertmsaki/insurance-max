@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -28,6 +29,7 @@ import { UpdatePaymentTransactionDto } from '../payment-transactions/dto/update-
 import { UpdateReceiptDto } from '../receipts/dto/update-receipt.dto';
 import { BillingCommissionService } from './billing-commission.service';
 import { TenantScoped } from '@insurance-max/portal-shared';
+import { DataAccessScopeService } from '../../../../shared/authorization/data-access-scope.service';
 
 @ApiTags('billing', 'commissions')
 @ApiBearerAuth()
@@ -37,7 +39,17 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 export class BillingCommissionController {
   constructor(
     private readonly billingCommissionService: BillingCommissionService,
+    private readonly dataAccessScope: DataAccessScopeService,
   ) {}
+
+  private requireCompanyWideInvoiceRead(user: AuthenticatedUser) {
+    const scope = this.dataAccessScope.resolve(user, 'billing:read');
+    if (!scope.canViewAllBranches || scope.ownRecordsOnly) {
+      throw new ForbiddenException(
+        'Invoice reads require company-wide data access until restricted invoice queries are available.',
+      );
+    }
+  }
 
   @Post('invoices')
   @Permissions('billing:create')
@@ -60,6 +72,7 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FilterBillingDto,
   ) {
+    this.requireCompanyWideInvoiceRead(user);
     return this.billingCommissionService.findInvoices(user.companyId!, query);
   }
 
@@ -70,6 +83,7 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
+    this.requireCompanyWideInvoiceRead(user);
     return this.billingCommissionService.findInvoice(user.companyId!, id);
   }
 

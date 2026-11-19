@@ -15,6 +15,13 @@ export interface FinanceDashboardSummary {
   journalCount: number;
 }
 
+export interface FinanceReceivableAge {
+  currency: string;
+  bucket: 'NO_DUE_DATE' | 'CURRENT' | '1_30' | '31_60' | '61_90' | 'OVER_90';
+  count: number;
+  amount: string;
+}
+
 type AggregateRow = {
   kind: 'invoice' | 'receipt' | 'refund';
   currency: string;
@@ -26,6 +33,43 @@ type AggregateRow = {
 @Injectable()
 export class FinanceDashboardService {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+
+  /** Current outstanding balances, grouped by due date and currency. */
+  async receivableAging(companyId: string): Promise<FinanceReceivableAge[]> {
+    const rows = await this.dataSource.query(
+      `SELECT currency, bucket, COUNT(*)::text AS record_count,
+              SUM(balance_amount)::text AS amount
+         FROM (
+           SELECT currency, balance_amount,
+             CASE
+               WHEN due_date IS NULL THEN 'NO_DUE_DATE'
+               WHEN due_date >= CURRENT_DATE THEN 'CURRENT'
+               WHEN CURRENT_DATE - due_date <= 30 THEN '1_30'
+               WHEN CURRENT_DATE - due_date <= 60 THEN '31_60'
+               WHEN CURRENT_DATE - due_date <= 90 THEN '61_90'
+               ELSE 'OVER_90'
+             END AS bucket
+           FROM invoices
+           WHERE company_id = $1 AND deleted_at IS NULL AND balance_amount > 0
+             AND status IN ('ISSUED', 'PARTIALLY_PAID', 'PAID', 'OVERPAID')
+         ) outstanding
+        GROUP BY currency, bucket ORDER BY currency, bucket`,
+      [companyId],
+    );
+    return rows.map(
+      (row: {
+        currency: string;
+        bucket: FinanceReceivableAge['bucket'];
+        record_count: string;
+        amount: string;
+      }) => ({
+        currency: row.currency,
+        bucket: row.bucket,
+        count: Number(row.record_count),
+        amount: row.amount,
+      }),
+    );
+  }
 
   async summary(companyId: string): Promise<FinanceDashboardSummary> {
     const rows = (await this.dataSource.query(

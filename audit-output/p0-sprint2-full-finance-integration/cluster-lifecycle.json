@@ -1,0 +1,13 @@
+{
+  "cluster": "C:\\Users\\lenovo\\AppData\\Local\\Temp\\insurance-finance-tMLAQ7\\cluster",
+  "host": "127.0.0.1",
+  "port": 55470,
+  "started": true,
+  "stopped": true,
+  "testExitCode": 1,
+  "cleanupError": null,
+  "selectedTestFile": null,
+  "testProcessTimeoutMs": 600000,
+  "testProcessErrorCode": "ETIMEDOUT",
+  "postgresVersion": "initdb (PostgreSQL) 18.4"
+}

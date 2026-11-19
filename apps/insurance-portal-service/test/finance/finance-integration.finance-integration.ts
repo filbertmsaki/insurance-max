@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { FinanceOutboxEvent } from '../../src/modules/tenant/finance/integrations/finance-events/entities/finance-outbox-event.entity';
 import { FinanceOutboxProcessor } from '../../src/modules/tenant/finance/integrations/finance-events/finance-outbox.processor';
+import { FinanceEventContractRegistry } from '../../src/modules/tenant/finance/integrations/finance-events/finance-event-contracts';
+import { FinanceEventOutcomes1798800000000 } from '../../src/database/migrations/1798800000000-FinanceEventOutcomes';
 import { FinanceLegalEntity } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity.entity';
 import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
 import { FinanceReferenceDeliveryService } from '../../src/modules/tenant/finance/integrations/finance-events/finance-reference-delivery.service';
@@ -788,13 +790,20 @@ describe('Existing outbox compatibility on owned PostgreSQL (B11)', () => {
         try {
           await metadata.initialize();
           await metadata.synchronize();
+          const sprint2 = metadata.createQueryRunner();
+          try {
+            await new FinanceEventOutcomes1798800000000().up(sprint2);
+          } finally {
+            await sprint2.release();
+          }
+          const companyId = randomUUID();
           const row = await metadata.getRepository(FinanceOutboxEvent).save({
-            company_id: randomUUID(),
+            company_id: companyId,
             aggregate_type: 'SYNTHETIC',
             aggregate_id: randomUUID(),
             event_type: eventType,
             event_key: 'synthetic-key',
-            payload: { eventId: 'synthetic-quote-event' },
+            payload: { eventId: 'synthetic-quote-event', companyId },
           });
           const projection = { apply: jest.fn().mockResolvedValue(undefined) },
             config = {
@@ -805,7 +814,9 @@ describe('Existing outbox compatibility on owned PostgreSQL (B11)', () => {
           const processor = new FinanceOutboxProcessor(
             metadata,
             config as unknown as ConfigService,
-            projection as never,
+            new FinanceEventContractRegistry(projection as never, {
+              requireEligible: async () => undefined,
+            } as never),
           );
           await processor.processPending();
           const saved = await metadata

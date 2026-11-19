@@ -18,9 +18,42 @@ export class PaymentTransactionProviderService {
     payloadHash: string,
     payloadRedacted: Record<string, unknown>,
   ): Promise<PaymentTransaction | null> {
+    if (event.providerTransactionId?.trim()) {
+      // Distinct webhook event IDs can refer to the same provider transaction.
+      // Serialize their state transitions within the caller's transaction.
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+        [
+          `provider-transaction:${event.providerCode}:${event.providerTransactionId.trim()}`,
+        ],
+      );
+    }
     const existing = await this.findExistingTransaction(manager, event);
 
     if (existing) {
+      if (event.status === PaymentTransactionStatus.SUCCESSFUL) {
+        const expectedAmount = DecimalUtil.value(
+          existing.provider_amount ?? existing.amount,
+        );
+        const receivedAmount = DecimalUtil.value(event.amount);
+        const expectedCurrency = (
+          existing.provider_currency_code ?? existing.currency
+        )
+          .trim()
+          .toUpperCase();
+        if (
+          !receivedAmount.isFinite() ||
+          receivedAmount.lessThanOrEqualTo(0) ||
+          !receivedAmount.equals(expectedAmount) ||
+          event.currencyCode.trim().toUpperCase() !== expectedCurrency
+        ) {
+          throw new ConflictException({
+            code: 'PAYMENT_PROVIDER_AMOUNT_OR_CURRENCY_MISMATCH',
+            message:
+              'Provider confirmation does not match the recorded payment amount and currency.',
+          });
+        }
+      }
       if (
         !this.canApplyStatusTransition(
           existing.status as PaymentTransactionStatus,

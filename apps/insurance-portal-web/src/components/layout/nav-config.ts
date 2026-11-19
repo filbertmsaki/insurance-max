@@ -446,6 +446,13 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
+        label: 'Event Monitoring',
+        to: '/apps/finance/events',
+        icon: FileText,
+        permission: 'finance-events:read',
+      },
+      {
+        kind: 'link',
         label: 'Reinsurance',
         to: '/apps/reinsurance',
         icon: Landmark,

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   PaymentTransactionStatus,
@@ -57,8 +57,15 @@ export class FinanceAutoReceiptService {
       payment.invoice_id === null
         ? await this.resolveExactInvoice(manager, payment)
         : await manager.getRepository(Invoice).findOne({
-            where: { id: payment.invoice_id },
+            where: { id: payment.invoice_id, company_id: payment.company_id },
           });
+
+    if (payment.invoice_id && !invoice) {
+      throw new ConflictException({
+        code: 'PAYMENT_INVOICE_SCOPE_MISMATCH',
+        message: 'The payment invoice is unavailable in the payment company.',
+      });
+    }
 
     if (invoice && !payment.invoice_id) {
       payment.invoice_id = invoice.id;

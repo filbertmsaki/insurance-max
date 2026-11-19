@@ -591,6 +591,7 @@ async function providerDb<T>(
         s,
         {
           require: () => ({
+            providerCode: 'SYNTHETIC',
             verifySignature: async () => true,
             parseEvent: async () => event,
           }),

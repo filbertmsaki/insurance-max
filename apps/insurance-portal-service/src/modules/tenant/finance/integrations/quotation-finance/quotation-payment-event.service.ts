@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { InvoiceStatus, QuotationFinanceEvent } from '@insurance-max/contracts';
 
 import { Invoice } from '../../receivables/invoices/entities/invoice.entity';
@@ -25,7 +25,11 @@ export class QuotationPaymentEventService {
     private readonly invoiceRepository: Repository<Invoice>,
   ) {}
 
-  async apply(event: QuotationFinanceEvent) {
+  /**
+   * With `manager`, every write joins the caller's transaction so the outbox
+   * can commit the projection and its fenced outcome atomically.
+   */
+  async apply(event: QuotationFinanceEvent, manager?: EntityManager) {
     const context = (requestId: string, reason: string) => ({
       source: 'SYSTEM' as const,
       changedByType: 'SYSTEM' as const,
@@ -39,6 +43,7 @@ export class QuotationPaymentEventService {
         event.companyId,
         event.quotationId,
         context(event.invoiceId, 'Payment failed from finance event'),
+        manager,
       );
     }
 
@@ -50,6 +55,7 @@ export class QuotationPaymentEventService {
           event.refundId ?? event.invoiceId,
           'Payment refunded from finance event',
         ),
+        manager,
       );
     }
 
@@ -57,14 +63,15 @@ export class QuotationPaymentEventService {
       return null;
     }
 
-    const invoice = await this.invoiceRepository.findOne({
+    const invoiceRepository =
+      manager?.getRepository(Invoice) ?? this.invoiceRepository;
+    const invoice = await invoiceRepository.findOne({
       where: { id: event.invoiceId, company_id: event.companyId },
     });
     if (!invoice) {
-      this.logger.warn(
-        `Finance event ${event.eventId} references missing invoice ${event.invoiceId}; skipped`,
-      );
-      return null;
+      // A missing or cross-company invoice cannot be treated as a successful
+      // projection. Let the outbox retry and eventually surface the failure.
+      throw new Error('FINANCE_EVENT_INVOICE_NOT_FOUND');
     }
 
     if (
@@ -85,6 +92,7 @@ export class QuotationPaymentEventService {
           event.companyId,
           event.quotationId,
           context(invoice.id, 'Finance event confirmed invoice is paid'),
+          manager,
         );
       case InvoiceStatus.PARTIALLY_PAID:
         return this.quotationLifecycleService.markPartiallyPaid(
@@ -97,12 +105,14 @@ export class QuotationPaymentEventService {
             ),
             paymentTransactionId: event.receiptId ?? undefined,
           },
+          manager,
         );
       case InvoiceStatus.ISSUED:
         return this.quotationLifecycleService.markPaymentRequested(
           event.companyId,
           event.quotationId,
           context(invoice.id, 'Payment reversed from finance event'),
+          manager,
         );
       default:
         // VOID / DRAFT / CANCELLED invoices carry no payment state to project.

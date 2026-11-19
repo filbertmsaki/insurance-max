@@ -1,0 +1,13 @@
+{
+  "cluster": "D:\\Projects\\Personal\\insurance-max\\audit-output\\test-temp\\insurance-finance-MAwE4w\\cluster",
+  "host": "127.0.0.1",
+  "port": 58750,
+  "started": true,
+  "stopped": true,
+  "testExitCode": 1,
+  "cleanupError": null,
+  "selectedTestFile": "finance-aicl-guide.finance-integration.ts",
+  "testProcessTimeoutMs": 600000,
+  "testProcessErrorCode": null,
+  "postgresVersion": "initdb (PostgreSQL) 18.4"
+}

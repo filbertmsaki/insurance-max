@@ -37,6 +37,14 @@ export class ProviderWebhookService {
     }
 
     const event = await adapter.parseEvent(headers, rawBody);
+    if (
+      typeof event.providerCode !== 'string' ||
+      event.providerCode.trim().toUpperCase() !==
+        adapter.providerCode.trim().toUpperCase()
+    ) {
+      throw new UnauthorizedException('Payment-provider identity mismatch.');
+    }
+    event.providerCode = adapter.providerCode.trim().toUpperCase();
     const payloadRedacted = this.redactionService.redactPaymentPayload(
       event.rawPayload,
     );

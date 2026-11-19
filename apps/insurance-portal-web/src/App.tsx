@@ -115,6 +115,7 @@ import { FinanceCommissionPaymentsPage } from '@/modules/tenant/finance/pages/Fi
 import { FinanceCommissionPaymentDetailPage } from '@/modules/tenant/finance/pages/FinanceCommissionPaymentDetailPage';
 import { FinanceJournalsPage } from '@/modules/tenant/finance/pages/FinanceJournalsPage';
 import { FinanceJournalDetailPage } from '@/modules/tenant/finance/pages/FinanceJournalDetailPage';
+import { FinanceEventMonitoringPage } from '@/modules/tenant/finance/events/FinanceEventMonitoringPage';
 import { ReinsuranceWorkbenchPage } from '@/modules/tenant/reinsurance/pages/ReinsuranceWorkbenchPage';
 import { AnalyticsMetricsPage } from '@/modules/tenant/analytics/pages/AnalyticsMetricsPage';
 import { CommunicationsPage } from '@/modules/tenant/engagement/pages/CommunicationsPage';
@@ -1237,6 +1238,16 @@ export default function App() {
                 <Route
                   path="/apps/finance/journals/:id"
                   element={<FinanceJournalDetailPage />}
+                />
+              </Route>
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="finance-events:read" />
+                }
+              >
+                <Route
+                  path="/apps/finance/events"
+                  element={<FinanceEventMonitoringPage />}
                 />
               </Route>
               <Route

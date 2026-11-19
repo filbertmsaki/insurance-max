@@ -441,6 +441,9 @@ const COMPANY_OPERATIONS_PERMISSION_SEEDS: PermissionSeed[] = (
     ['retention:enforce', 'Enforce retention policies'],
     ['legal-holds:read', 'Read legal holds'],
     ['finance-journals:read', 'Read finance journals'],
+    ['finance-events:read', 'Read Finance event monitoring'],
+    ['finance-events:replay-request', 'Request Finance event replay'],
+    ['finance-events:replay-approve', 'Approve and execute Finance event replay'],
     // Catalogue definitions only. No foundation mandates or default role grants.
     ['finance-setup:prepare', 'Prepare inactive Finance setup'],
     ['finance-setup:review', 'Review inactive Finance setup'],

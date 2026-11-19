@@ -6,6 +6,9 @@ import { FinanceAccountingModule } from '../accounting/finance-accounting.module
 import { FinancePayablesModule } from '../payables/finance-payables.module';
 import { Invoice } from '../receivables/invoices/entities/invoice.entity';
 import { InvoiceItem } from '../receivables/invoices/entities/invoice-item.entity';
+import { FinanceEventContractRegistry } from './finance-events/finance-event-contracts';
+import { FinanceEventOperationsController } from './finance-events/finance-event-operations.controller';
+import { FinanceEventOperationsService } from './finance-events/finance-event-operations.service';
 import { FinanceOutboxProcessor } from './finance-events/finance-outbox.processor';
 import { PolicyTransactionPaymentProjectionService } from './policy-finance/policy-transaction-payment-projection.service';
 import { QuotationInvoiceService } from './quotation-finance/quotation-invoice.service';
@@ -28,7 +31,10 @@ import { QuotationPaymentProjectionService } from './quotation-finance/quotation
     forwardRef(() => PolicyTransactionsModule),
     TypeOrmModule.forFeature([Invoice, InvoiceItem]),
   ],
+  controllers: [FinanceEventOperationsController],
   providers: [
+    FinanceEventContractRegistry,
+    FinanceEventOperationsService,
     QuotationInvoiceService,
     QuotationPaymentEventService,
     QuotationPaymentProjectionService,

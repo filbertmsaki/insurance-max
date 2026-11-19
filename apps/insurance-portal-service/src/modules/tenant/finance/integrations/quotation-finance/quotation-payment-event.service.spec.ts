@@ -49,6 +49,7 @@ describe('QuotationPaymentEventService', () => {
       'co-1',
       'q-1',
       expect.objectContaining({ requestId: 'inv-1' }),
+      undefined,
     );
     expect(lifecycle.markPartiallyPaid).not.toHaveBeenCalled();
   });
@@ -80,6 +81,7 @@ describe('QuotationPaymentEventService', () => {
       'co-1',
       'q-1',
       expect.objectContaining({ paymentTransactionId: 'rcpt-1' }),
+      undefined,
     );
   });
 
@@ -106,10 +108,13 @@ describe('QuotationPaymentEventService', () => {
     expect(lifecycle.markPaymentRequested).not.toHaveBeenCalled();
   });
 
-  it('skips events whose invoice no longer exists', async () => {
+  it('fails events whose invoice is missing so the outbox can retry', async () => {
     invoiceRepository.findOne.mockResolvedValue(null);
 
-    await expect(service.apply(event())).resolves.toBeNull();
+    await expect(service.apply(event())).rejects.toThrow(
+      'FINANCE_EVENT_INVOICE_NOT_FOUND',
+    );
+    expect(lifecycle.markPaymentPaid).not.toHaveBeenCalled();
   });
 
   it('still applies failed and refunded events directly', async () => {
@@ -123,6 +128,7 @@ describe('QuotationPaymentEventService', () => {
       'co-1',
       'q-1',
       expect.objectContaining({ requestId: 'rf-1' }),
+      undefined,
     );
     expect(invoiceRepository.findOne).not.toHaveBeenCalled();
   });

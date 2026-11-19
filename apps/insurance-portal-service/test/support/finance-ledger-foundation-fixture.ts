@@ -17,6 +17,7 @@ import { createCandidateFixture } from './finance-candidate-fixture';
 import { createIntegrationFixture } from './finance-integration-fixture';
 import { withFinanceTestDatabase } from './finance-test-database';
 import { readAiclFin01Demonstration } from '../../src/database/seeds/data/aicl-fin-01-reader';
+import { AICL_UAT_CHART } from './aicl-uat-baseline';
 export const FOUNDATION_TEST_HASH = 'a'.repeat(64);
 export async function withFoundationDatabase<T>(
   work: (f: Awaited<ReturnType<typeof createFoundationFixture>>) => Promise<T>,
@@ -29,6 +30,7 @@ export async function withFoundationDatabase<T>(
     aiclBasis?: 'IFRS' | 'STATUTORY' | 'OPERATIONAL_BRIDGE';
     chartEffectiveTo?: string;
     contextEffectiveTo?: string;
+    guideUat?: boolean;
   } = {},
 ) {
   return withFinanceTestDatabase(
@@ -57,6 +59,7 @@ async function createFoundationFixture(
     aiclBasis?: 'IFRS' | 'STATUTORY' | 'OPERATIONAL_BRIDGE';
     chartEffectiveTo?: string;
     contextEffectiveTo?: string;
+    guideUat?: boolean;
   },
 ) {
   const integration = options.signed
@@ -72,6 +75,7 @@ async function createFoundationFixture(
       ...(integration ? { base: integration } : {}),
       aiclBookCode: options.aiclBookCode,
       chartEffectiveTo: options.chartEffectiveTo,
+      guideUat: options.guideUat,
     }),
     ledger = new FinanceLedgerFoundationService(s),
     policy = new FinancePolicyService(s);
@@ -100,7 +104,9 @@ async function createFoundationFixture(
         who.naturalPersonId,
         capability,
         role,
-        capability === 'ACCEPT' ? { USD: '1000000' } : {},
+        capability === 'ACCEPT'
+          ? { USD: '1000000', ...(options.guideUat ? { TZS: '1000000' } : {}) }
+          : {},
       ],
     );
     return a.id as string;
@@ -300,29 +306,34 @@ async function createFoundationFixture(
     FOUNDATION_TEST_HASH,
     'Synthetic validation period',
   );
-  const balances = options.aiclBookCode
-    ? (() => {
-        const proposal = readAiclFin01Demonstration();
-        return proposal.chartProposal
-          .filter(
-            ([, , type]) => type !== 'HEADER' && type !== 'REPORTING_MAPPING',
-          )
-          .map(([accountCode]) => {
-            const line = proposal.openingProposal.lines.find(
-              (value) => value.account === accountCode,
-            );
-            return {
-              accountCode,
-              signedBalance: line
-                ? (BigInt(line.debit) - BigInt(line.credit)).toString()
-                : '0',
-            };
-          });
-      })()
-    : [
-        { accountCode: '110110', signedBalance: '0' },
-        { accountCode: '210110', signedBalance: '0' },
-      ];
+  const balances = options.guideUat
+    ? AICL_UAT_CHART.map(([accountCode, , , signedBalance]) => ({
+        accountCode,
+        signedBalance,
+      }))
+    : options.aiclBookCode
+      ? (() => {
+          const proposal = readAiclFin01Demonstration();
+          return proposal.chartProposal
+            .filter(
+              ([, , type]) => type !== 'HEADER' && type !== 'REPORTING_MAPPING',
+            )
+            .map(([accountCode]) => {
+              const line = proposal.openingProposal.lines.find(
+                (value) => value.account === accountCode,
+              );
+              return {
+                accountCode,
+                signedBalance: line
+                  ? (BigInt(line.debit) - BigInt(line.credit)).toString()
+                  : '0',
+              };
+            });
+        })()
+      : [
+          { accountCode: '110110', signedBalance: '0' },
+          { accountCode: '210110', signedBalance: '0' },
+        ];
   const opening = await ledger.prepareOpening(
     f.maker,
     f.scope,
@@ -332,10 +343,13 @@ async function createFoundationFixture(
       mode: 'VALIDATION',
       date: '2026-11-01',
       balances,
-      sourceReference: 'Explicit complete synthetic zero opening',
+      sourceReference: options.guideUat
+        ? 'Synthetic guide opening; not company financial records'
+        : 'Explicit complete synthetic zero opening',
       sourceEvidenceHash: FOUNDATION_TEST_HASH,
-      explicitZeroReason:
-        'Owned empty test population; not a company opening balance',
+      explicitZeroReason: options.guideUat
+        ? null
+        : 'Owned empty test population; not a company opening balance',
     },
     1,
     'Synthetic opening preparation',

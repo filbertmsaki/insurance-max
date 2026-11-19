@@ -626,6 +626,7 @@ export class QuotationLifecycleService {
     companyId: string,
     quotationId: string,
     context: QuotationLifecycleContext = {},
+    manager?: EntityManager,
   ) {
     return this.updatePaymentStatus(
       companyId,
@@ -636,6 +637,7 @@ export class QuotationLifecycleService {
       (quotation) => {
         quotation.payment_failure_reason = context.reason ?? null;
       },
+      manager,
     );
   }
 
@@ -657,6 +659,7 @@ export class QuotationLifecycleService {
     companyId: string,
     quotationId: string,
     context: QuotationLifecycleContext = {},
+    manager?: EntityManager,
   ) {
     return this.updatePaymentStatus(
       companyId,
@@ -664,6 +667,8 @@ export class QuotationLifecycleService {
       PaymentStatus.REFUNDED,
       'MARK_PAYMENT_REFUNDED',
       context,
+      undefined,
+      manager,
     );
   }
 

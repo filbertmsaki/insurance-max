@@ -1,4 +1,11 @@
-import { Controller, Headers, Param, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Headers,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { Public } from '@insurance-max/portal-shared';
 import type { Request } from 'express';
 
@@ -17,10 +24,15 @@ export class FinanceWebhookController {
     @Headers() headers: Record<string, string>,
     @Req() request: Request & { rawBody?: Buffer },
   ) {
+    if (!Buffer.isBuffer(request.rawBody)) {
+      throw new BadRequestException(
+        'Raw payment-provider webhook body is required.',
+      );
+    }
     return this.providerWebhookService.process(
       providerCode,
       headers,
-      request.rawBody ?? Buffer.from(JSON.stringify(request.body ?? {})),
+      request.rawBody,
     );
   }
 }

@@ -23,6 +23,7 @@ describe('ProviderWebhookService', () => {
       signatureValid?: boolean;
       existingEvent?: Partial<FinanceProviderEvent> | null;
       transaction?: Record<string, unknown> | null;
+      eventProviderCode?: string;
     } = {},
   ) {
     const eventRecord: Partial<FinanceProviderEvent> = {
@@ -46,8 +47,12 @@ describe('ProviderWebhookService', () => {
       transaction: jest.fn(async (callback) => callback(manager)),
     };
     const adapter = {
+      providerCode: 'PAYCO',
       verifySignature: jest.fn(async () => options.signatureValid ?? true),
-      parseEvent: jest.fn(async () => parsedEvent),
+      parseEvent: jest.fn(async () => ({
+        ...parsedEvent,
+        providerCode: options.eventProviderCode ?? parsedEvent.providerCode,
+      })),
     };
     const registry = {
       require: jest.fn(() => adapter),
@@ -91,6 +96,14 @@ describe('ProviderWebhookService', () => {
   it('rejects invalid provider signatures before opening a transaction', async () => {
     const { dataSource, service } = makeService({ signatureValid: false });
 
+    await expect(service.process('PAYCO', {}, rawBody)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an event identifying a different provider before database changes', async () => {
+    const { dataSource, service } = makeService({ eventProviderCode: 'OTHER' });
     await expect(service.process('PAYCO', {}, rawBody)).rejects.toBeInstanceOf(
       UnauthorizedException,
     );

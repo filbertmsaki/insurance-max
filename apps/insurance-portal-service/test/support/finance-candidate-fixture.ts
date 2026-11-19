@@ -13,6 +13,7 @@ import { FinanceJournalCandidateService } from '../../src/modules/tenant/finance
 import { type FinanceConfigurationActor } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 import type { JournalCandidateInput } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.types';
 import { readAiclFin01Demonstration } from '../../src/database/seeds/data/aicl-fin-01-reader';
+import { AICL_UAT_CHART } from './aicl-uat-baseline';
 
 export async function createCandidateFixture(
   source: DataSource,
@@ -21,6 +22,7 @@ export async function createCandidateFixture(
     ttlSeconds?: number;
     aiclBookCode?: string;
     chartEffectiveTo?: string;
+    guideUat?: boolean;
     base?: {
       tenantId: string;
       entity: FinanceLegalEntity;
@@ -111,55 +113,73 @@ export async function createCandidateFixture(
         schema: 'FINANCE_CHART_V1',
         chartCode: 'TEST',
         supportedProfiles: ['GENERAL_INSURER'],
-        accounts: options.aiclBookCode
-          ? readAiclFin01Demonstration()
-              .chartProposal.filter(
-                ([, , type]) =>
-                  type !== 'HEADER' && type !== 'REPORTING_MAPPING',
-              )
-              .map(([code, name, type]) => ({
-                code,
-                name: 'DEMO ' + name,
-                type,
-                normalBalance: ['ASSET', 'EXPENSE'].includes(type)
-                  ? 'DR'
-                  : 'CR',
-                posting: true,
-                control: false,
-                parentCode: null,
-              }))
-          : [
-              {
-                code: '110110',
-                name: 'Synthetic asset',
-                type: 'ASSET',
-                normalBalance: 'DR',
-                posting: true,
-                control: false,
-                parentCode: null,
-              },
-              {
-                code: '210110',
-                name: 'Synthetic liability',
-                type: 'LIABILITY',
-                normalBalance: 'CR',
-                posting: true,
-                control: false,
-                parentCode: null,
-              },
-            ],
+        accounts: options.guideUat
+          ? AICL_UAT_CHART.map(([code, name, type]) => ({
+              code,
+              name: 'UAT DEMO ' + name,
+              type,
+              normalBalance: ['ASSET', 'EXPENSE'].includes(type) ? 'DR' : 'CR',
+              posting: true,
+              control: false,
+              parentCode: null,
+            }))
+          : options.aiclBookCode
+            ? readAiclFin01Demonstration()
+                .chartProposal.filter(
+                  ([, , type]) =>
+                    type !== 'HEADER' && type !== 'REPORTING_MAPPING',
+                )
+                .map(([code, name, type]) => ({
+                  code,
+                  name: 'DEMO ' + name,
+                  type,
+                  normalBalance: ['ASSET', 'EXPENSE'].includes(type)
+                    ? 'DR'
+                    : 'CR',
+                  posting: true,
+                  control: false,
+                  parentCode: null,
+                }))
+            : [
+                {
+                  code: '110110',
+                  name: 'Synthetic asset',
+                  type: 'ASSET',
+                  normalBalance: 'DR',
+                  posting: true,
+                  control: false,
+                  parentCode: null,
+                },
+                {
+                  code: '210110',
+                  name: 'Synthetic liability',
+                  type: 'LIABILITY',
+                  normalBalance: 'CR',
+                  posting: true,
+                  control: false,
+                  parentCode: null,
+                },
+              ],
         roles: [
           {
             code: 'BANK',
-            accountCode: options.aiclBookCode ? '1100' : '110110',
+            accountCode: options.guideUat
+              ? '1000'
+              : options.aiclBookCode
+                ? '1100'
+                : '110110',
             accountType: 'ASSET',
             requiredDimensions: ['CURRENCY'],
             dependencyRefs: ['DEC-05'],
           },
           {
             code: 'CLEARING',
-            accountCode: options.aiclBookCode ? '2300' : '210110',
-            accountType: 'LIABILITY',
+            accountCode: options.guideUat
+              ? '1100'
+              : options.aiclBookCode
+                ? '2300'
+                : '210110',
+            accountType: options.guideUat ? 'ASSET' : 'LIABILITY',
             requiredDimensions: [],
             dependencyRefs: ['DEC-01'],
           },
@@ -241,7 +261,7 @@ export async function createCandidateFixture(
       subject_id: who.subjectId,
       natural_person_id: who.naturalPersonId,
       role_code: 'SYNTHETIC_CHECKER',
-      currency: 'USD',
+      currency: options.guideUat ? 'TZS' : 'USD',
       max_amount: '99999999999999999999999999.999999999999',
       delegated_from_id: null,
       version: 1,

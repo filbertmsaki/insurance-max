@@ -1,0 +1,13 @@
+{
+  "cluster": "C:\\Users\\lenovo\\AppData\\Local\\Temp\\insurance-finance-VKmysT\\cluster",
+  "host": "127.0.0.1",
+  "port": 59524,
+  "started": true,
+  "stopped": true,
+  "testExitCode": 1,
+  "cleanupError": null,
+  "selectedTestFile": "finance-aicl-ledger.finance-integration.ts",
+  "testProcessTimeoutMs": 600000,
+  "testProcessErrorCode": null,
+  "postgresVersion": "initdb (PostgreSQL) 18.4"
+}

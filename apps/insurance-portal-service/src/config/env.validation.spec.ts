@@ -21,6 +21,17 @@ describe('insurance portal environment validation', () => {
     expect(result.error).toBeUndefined();
   });
 
+  it.each([0, -1, 1.5])(
+    'rejects an invalid finance outbox lease (%s)',
+    (lease) => {
+      const result = insurancePortalEnvValidationSchema.validate({
+        ...valid,
+        FINANCE_OUTBOX_LEASE_MINUTES: lease,
+      });
+      expect(result.error?.message).toContain('FINANCE_OUTBOX_LEASE_MINUTES');
+    },
+  );
+
   it.each([
     ['APP_URL', 'not-a-url'],
     ['APP_FRONTEND_URL', 'not-a-url'],

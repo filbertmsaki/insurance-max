@@ -1,0 +1,21 @@
+/** Synthetic guide data, used only by disposable database tests. */
+export const AICL_UAT_CHART = [
+  ['1000', 'Cash and Bank', 'ASSET', '100000000'],
+  ['1100', 'Premium Receivables', 'ASSET', '40000000'],
+  ['1200', 'Reinsurance Recoverables', 'ASSET', '20000000'],
+  ['1300', 'Investments', 'ASSET', '60000000'],
+  ['2000', 'Claims Payable', 'LIABILITY', '-30000000'],
+  ['2100', 'Commission Payable', 'LIABILITY', '-10000000'],
+  ['2200', 'Tax and Levy Payable', 'LIABILITY', '-5000000'],
+  ['2300', 'Reinsurance Payable', 'LIABILITY', '-15000000'],
+  ['2400', 'Insurance Contract Liabilities', 'LIABILITY', '-40000000'],
+  ['3000', 'Share Capital', 'EQUITY', '-100000000'],
+  ['3100', 'Retained Earnings', 'EQUITY', '-20000000'],
+  ['4000', 'Insurance Revenue', 'INCOME', '0'],
+  ['5000', 'Insurance Service Expenses', 'EXPENSE', '0'],
+  ['5100', 'Commission / Acquisition Expenses', 'EXPENSE', '0'],
+  ['6000', 'Administrative Expenses', 'EXPENSE', '0'],
+  ['7000', 'Investment Income', 'INCOME', '0'],
+  ['7100', 'Foreign Exchange Gains', 'INCOME', '0'],
+  ['7200', 'Foreign Exchange Losses', 'EXPENSE', '0'],
+] as const;
