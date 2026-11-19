@@ -205,55 +205,55 @@ describe('ClaimApprovalService', () => {
     expect(outcome.authority).toBe('Claims Manager - Neema Mushi');
   });
 
-  it('lets a company administrator override and audits it', async () => {
-    const { service, manager, audit } = harness(matrix, []);
+  it('does not let a company administrator approve their own submission', async () => {
+    const { service, manager } = harness(matrix, []);
     await service.submit(manager, subject('1000000.00'), 'admin');
 
-    const outcome = await service.approve(
-      manager,
-      user('admin', ['INSURANCE_ADMIN']),
-      subject('1000000.00'),
-    );
-
-    expect(outcome.approval.admin_override).toBe(true);
-    expect(audit.logCritical).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'claim.approval.admin_override' }),
-      manager,
-    );
-  });
-
-  it('audits an authority override by an administrator who did not submit', async () => {
-    const { service, manager, audit } = harness(matrix, []);
-    await service.submit(manager, subject('1000000.00'), 'maker');
-    const outcome = await service.approve(
-      manager,
-      user('admin', ['INSURANCE_ADMIN']),
-      subject('1000000.00'),
-    );
-    expect(outcome.approval.admin_override).toBe(true);
-    expect(audit.logCritical).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'claim.approval.admin_override' }),
-      manager,
-    );
-  });
-
-  it('records an administrator override when declining their own submission', async () => {
-    const { service, manager, audit } = harness(matrix, []);
-    await service.submit(manager, subject('100.00'), 'admin');
-    const result = await service.decline(
-      manager,
-      user('admin', ['INSURANCE_ADMIN']),
-      subject('100.00'),
-      ClaimApprovalStatus.REJECTED,
-      'Reason',
-    );
-    expect(result.admin_override).toBe(true);
-    expect(audit.logCritical).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: expect.objectContaining({ admin_override: true }),
+    await expect(
+      service.approve(
+        manager,
+        user('admin', ['INSURANCE_ADMIN']),
+        subject('1000000.00'),
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CLAIM_APPROVAL_SEGREGATION_OF_DUTIES',
       }),
-      manager,
-    );
+    });
+  });
+
+  it('requires a configured approval limit even for a company administrator', async () => {
+    const { service, manager } = harness(matrix, []);
+    await service.submit(manager, subject('1000000.00'), 'maker');
+    await expect(
+      service.approve(
+        manager,
+        user('admin', ['INSURANCE_ADMIN']),
+        subject('1000000.00'),
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CLAIM_APPROVAL_LIMIT_EXCEEDED',
+      }),
+    });
+  });
+
+  it('does not let a company administrator decline their own submission', async () => {
+    const { service, manager } = harness(matrix, []);
+    await service.submit(manager, subject('100.00'), 'admin');
+    await expect(
+      service.decline(
+        manager,
+        user('admin', ['INSURANCE_ADMIN']),
+        subject('100.00'),
+        ClaimApprovalStatus.REJECTED,
+        'Reason',
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'CLAIM_APPROVAL_SEGREGATION_OF_DUTIES',
+      }),
+    });
   });
 
   it('fails closed for mixed approval currencies', async () => {

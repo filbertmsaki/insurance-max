@@ -52,17 +52,6 @@ export function FinanceCommissionPaymentDetailPage() {
     },
   });
 
-  const payMutation = useMutation({
-    mutationFn: () =>
-      financeApi.payCommissionPayment(id!, {
-        idempotency_key: createIdempotencyKey('commission-payment-pay'),
-      }),
-    onSuccess: () => {
-      toast.success('Commission payment marked paid');
-      refresh();
-    },
-  });
-
   const reverseMutation = useMutation({
     mutationFn: async () => {
       const reason = window.prompt('Reversal reason');
@@ -122,12 +111,10 @@ export function FinanceCommissionPaymentDetailPage() {
           </Button>
         ) : null}
         {payment.status === 'APPROVED' ? (
-          <Button
-            onClick={() => payMutation.mutate()}
-            disabled={payMutation.isPending}
-          >
-            Mark Paid
-          </Button>
+          <p className="text-sm text-amber-700" role="status">
+            Settlement pending: a verified provider or bank disbursement is
+            required before this commission payment can be marked paid.
+          </p>
         ) : null}
         {!['REVERSED', 'CANCELLED'].includes(payment.status) ? (
           <Button

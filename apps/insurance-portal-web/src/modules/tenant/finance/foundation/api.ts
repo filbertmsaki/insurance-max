@@ -105,6 +105,52 @@ export type FoundationScope = z.infer<typeof scopeSchema>;
 export type FoundationDocumentSummary = z.infer<typeof summarySchema>;
 export type FoundationDocument = z.infer<typeof documentSchema>;
 export type FoundationDocumentKind = FoundationDocumentSummary['kind'];
+const trialBalanceSchema = z.object({
+  scope: z.object({
+    tenantId: z.string().uuid(),
+    legalEntityId: z.string().uuid(),
+    bookId: z.string().uuid(),
+  }),
+  mode: z.enum(['VALIDATION', 'LIVE']),
+  from: z.iso.date(),
+  to: z.iso.date(),
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  openingId: z.string().uuid(),
+  rows: z.array(
+    z.object({
+      accountCode: z.string(),
+      opening: z.string(),
+      debit: z.string(),
+      credit: z.string(),
+      closing: z.string(),
+    }),
+  ),
+  totalDebit: z.string(),
+  totalCredit: z.string(),
+  evidenceHash: z.string().regex(/^[a-f0-9]{64}$/),
+  financialEffects: z.literal(0),
+});
+export type TrialBalance = z.infer<typeof trialBalanceSchema>;
+const accountLedgerSchema = z.object({
+  accountCode: z.string(),
+  opening: z.string(),
+  debit: z.string(),
+  credit: z.string(),
+  closing: z.string(),
+  scope: trialBalanceSchema.shape.scope,
+  mode: z.enum(['VALIDATION', 'LIVE']),
+  from: z.iso.date(),
+  to: z.iso.date(),
+  currency: z.string(),
+  sourceJournals: z.array(
+    z.object({
+      id: z.string().uuid(),
+      date: z.iso.date(),
+      subjectHash: z.string().regex(/^[a-f0-9]{64}$/),
+    }),
+  ),
+  evidenceHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
 
 function bookParams(scope: FoundationScope) {
   return { legalEntityId: scope.legalEntityId, bookId: scope.bookId };
@@ -112,6 +158,82 @@ function bookParams(scope: FoundationScope) {
 
 /** Read-only adapter. Company/user identity is supplied by the normal API client. */
 export const foundationReadApi = {
+  async accountLedger(
+    scope: FoundationScope,
+    input: {
+      opening: FoundationDocumentSummary;
+      from: string;
+      to: string;
+      accountCode: string;
+    },
+    signal?: AbortSignal,
+  ) {
+    const { data } = await apiClient.get(
+      `/tenant/finance/foundation/accounts/${encodeURIComponent(input.accountCode)}`,
+      {
+        params: {
+          ...bookParams(scope),
+          mode: input.opening.mode,
+          openingId: input.opening.id,
+          openingHash: input.opening.subject_hash,
+          from: input.from,
+          to: input.to,
+        },
+        signal,
+      },
+    );
+    const result = accountLedgerSchema.parse(data);
+    if (
+      result.scope.tenantId !== scope.tenantId ||
+      result.scope.legalEntityId !== scope.legalEntityId ||
+      result.scope.bookId !== scope.bookId ||
+      result.mode !== input.opening.mode ||
+      result.from !== input.from ||
+      result.to !== input.to ||
+      result.accountCode !== input.accountCode
+    )
+      throw new Error(
+        'Account activity does not match the selected book and period.',
+      );
+    return result;
+  },
+  async trialBalance(
+    scope: FoundationScope,
+    input: { opening: FoundationDocumentSummary; from: string; to: string },
+    signal?: AbortSignal,
+  ) {
+    if (input.opening.kind !== 'OPENING' || input.opening.state !== 'REVIEWED')
+      throw new Error('Select a reviewed opening certificate.');
+    const { data } = await apiClient.get(
+      '/tenant/finance/foundation/trial-balance',
+      {
+        params: {
+          ...bookParams(scope),
+          mode: input.opening.mode,
+          openingId: input.opening.id,
+          openingHash: input.opening.subject_hash,
+          from: input.from,
+          to: input.to,
+        },
+        signal,
+      },
+    );
+    const result = trialBalanceSchema.parse(data);
+    if (
+      result.scope.tenantId !== scope.tenantId ||
+      result.scope.legalEntityId !== scope.legalEntityId ||
+      result.scope.bookId !== scope.bookId ||
+      result.mode !== input.opening.mode ||
+      result.openingId !== input.opening.id ||
+      result.from !== input.from ||
+      result.to !== input.to ||
+      result.totalDebit !== result.totalCredit
+    )
+      throw new Error(
+        'Trial balance does not reconcile to the selected book, period and certificate.',
+      );
+    return result;
+  },
   async exportJournals(
     scope: FoundationScope,
     search: JournalSearch,

@@ -17,6 +17,19 @@ import type {
   FinanceRefund,
 } from './types';
 
+export interface FinanceDashboardAmount {
+  currency: string;
+  count: number;
+  amount: string;
+}
+
+export interface FinanceDashboardSummary {
+  openInvoices: FinanceDashboardAmount[];
+  receipts: FinanceDashboardAmount[];
+  paidRefunds: FinanceDashboardAmount[];
+  journalCount: number;
+}
+
 async function getPage<T>(
   path: string,
   params?: FinanceListParams,
@@ -67,6 +80,10 @@ export const financeTableApi = {
 };
 
 export const financeApi = {
+  getDashboardSummary: () =>
+    apiClient
+      .get<FinanceDashboardSummary>('/tenant/finance/dashboard/summary')
+      .then((response) => response.data),
   getInvoices: (params?: FinanceListParams) =>
     getPage<FinanceInvoice>('/tenant/finance/invoices', params),
   getInvoice: (id: string) =>

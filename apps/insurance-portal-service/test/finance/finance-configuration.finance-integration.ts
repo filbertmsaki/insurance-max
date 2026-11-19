@@ -10,6 +10,7 @@ import { FinanceConfigurationRelease } from '../../src/modules/tenant/finance/fo
 import { FinanceConfigurationEvent } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-event.entity';
 import { FinanceConfigurationService } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.service';
 import { FinanceFoundationModule } from '../../src/modules/tenant/finance/foundation/finance-foundation.module';
+import { FinanceFoundationController } from '../../src/modules/tenant/finance/foundation/finance-foundation.controller';
 import type {
   FinanceConfigurationActor,
   FinanceConfigurationInput,
@@ -631,7 +632,7 @@ describe('Inactive configuration review controls on PostgreSQL (B06)', () => {
         expect(row.state).toBe('DRAFT');
         expect(
           Reflect.getMetadata('controllers', FinanceFoundationModule) ?? [],
-        ).toEqual([]);
+        ).toEqual([FinanceFoundationController]);
         await expect(
           dataSource.query(
             "UPDATE finance_configuration_releases SET state = 'ACTIVE' WHERE id = $1",

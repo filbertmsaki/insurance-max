@@ -4,6 +4,7 @@ import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundation/entities/finance-accounting-book.entity';
 import { FinanceFoundationModule } from '../../src/modules/tenant/finance/foundation/finance-foundation.module';
+import { FinanceFoundationController } from '../../src/modules/tenant/finance/foundation/finance-foundation.controller';
 import { FinanceJournalCandidateService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.service';
 import { financeConfigurationHash } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.types';
 import type { JournalCandidateInput } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal-candidate.types';
@@ -571,7 +572,7 @@ describe('Inactive period fences and exact persisted journal candidates (B08)', 
         );
         expect(
           Reflect.getMetadata('controllers', FinanceFoundationModule) ?? [],
-        ).toEqual([]);
+        ).toEqual([FinanceFoundationController]);
       } finally {
         await context.close();
       }

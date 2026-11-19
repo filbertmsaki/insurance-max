@@ -29,6 +29,8 @@ vi.mock('../api', async (importOriginal) => ({
     documents: vi.fn(),
     document: vi.fn(),
     readiness: vi.fn(),
+    trialBalance: vi.fn(),
+    accountLedger: vi.fn(),
   },
 }));
 const api = vi.mocked(foundationReadApi);
@@ -69,6 +71,89 @@ afterEach(() => {
 });
 
 describe('Read-only foundation workspace', () => {
+  it('shows certified trial balance only for a reviewed opening and selected period', async () => {
+    const opening = {
+      ...summary,
+      id: uuid(41),
+      kind: 'OPENING' as const,
+      state: 'REVIEWED' as const,
+    };
+    api.documents.mockImplementation(async (_scope, kind) =>
+      kind === 'OPENING' ? [opening] : [],
+    );
+    api.trialBalance.mockResolvedValue({
+      scope: {
+        tenantId: scope.tenantId,
+        legalEntityId: scope.legalEntityId,
+        bookId: scope.bookId,
+      },
+      mode: 'VALIDATION',
+      from: '2026-11-01',
+      to: '2026-12-01',
+      currency: 'TZS',
+      openingId: opening.id,
+      rows: [
+        {
+          accountCode: '1000',
+          opening: '0.00',
+          debit: '12.00',
+          credit: '0.00',
+          closing: '12.00',
+        },
+        {
+          accountCode: '2000',
+          opening: '0.00',
+          debit: '0.00',
+          credit: '12.00',
+          closing: '-12.00',
+        },
+      ],
+      totalDebit: '12.00',
+      totalCredit: '12.00',
+      evidenceHash: 'b'.repeat(64),
+      financialEffects: 0,
+    });
+    mount();
+    await screen.findByRole('option', { name: /CONTEXT-A · VALIDATION · v1/ });
+    fireEvent.change(await screen.findByLabelText('Reviewed opening'), {
+      target: { value: opening.id },
+    });
+    fireEvent.change(screen.getByLabelText('Trial balance from'), {
+      target: { value: '2026-11-01' },
+    });
+    fireEvent.change(screen.getByLabelText('To (exclusive)'), {
+      target: { value: '2026-12-01' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Read trial balance' }));
+    expect(await screen.findByText('Period totals')).toBeVisible();
+    expect(api.trialBalance).toHaveBeenCalledWith(
+      scope,
+      { opening, from: '2026-11-01', to: '2026-12-01' },
+      expect.any(AbortSignal),
+    );
+    api.accountLedger.mockResolvedValue({
+      accountCode: '1000',
+      opening: '0.00',
+      debit: '12.00',
+      credit: '0.00',
+      closing: '12.00',
+      scope: {
+        tenantId: scope.tenantId,
+        legalEntityId: scope.legalEntityId,
+        bookId: scope.bookId,
+      },
+      mode: 'VALIDATION',
+      from: '2026-11-01',
+      to: '2026-12-01',
+      currency: 'TZS',
+      sourceJournals: [
+        { id: uuid(42), date: '2026-11-05', subjectHash: 'c'.repeat(64) },
+      ],
+      evidenceHash: 'b'.repeat(64),
+    });
+    fireEvent.click(screen.getByRole('button', { name: '1000' }));
+    expect(await screen.findByText('Account 1000')).toBeVisible();
+  });
   it('checks only the selected reviewed context and hides stale results after denial', async () => {
     const reviewed = { ...summary, state: 'REVIEWED' as const };
     api.documents.mockResolvedValue([reviewed]);
@@ -222,9 +307,12 @@ describe('Read-only foundation workspace', () => {
     );
   });
   it('hides loaded documents and their detail after an access-denied refresh', async () => {
-    api.documents
-      .mockResolvedValueOnce([summary])
-      .mockRejectedValue({ response: { status: 403 } });
+    let documentReads = 0;
+    api.documents.mockImplementation(async (_scope, kind) => {
+      if (kind === 'OPENING') return [];
+      if (++documentReads === 1) return [summary];
+      throw { response: { status: 403 } };
+    });
     mount();
     fireEvent.click(
       await screen.findByRole('button', { name: 'View CONTEXT-A' }),

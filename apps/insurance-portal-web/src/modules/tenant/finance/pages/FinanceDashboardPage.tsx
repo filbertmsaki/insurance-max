@@ -5,51 +5,46 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { financeApi } from '../api';
-import { MetricCard, formatMoney } from '../components';
+import { MetricCard } from '../components';
+import type { FinanceDashboardAmount } from '../api';
+
+function currencyAmounts(rows: FinanceDashboardAmount[]) {
+  if (!rows.length) return 'No balances';
+  return rows
+    .map((row) => {
+      // Keep PostgreSQL NUMERIC totals as strings all the way to display.
+      const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(row.amount);
+      if (!match) return `${row.currency} unavailable`;
+      const grouped = match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return `${row.currency} ${match[1]}${grouped}${match[3] ? `.${match[3]}` : ''}`;
+    })
+    .join(' · ');
+}
+
+function recordCount(rows: FinanceDashboardAmount[]) {
+  return rows.reduce((total, row) => total + row.count, 0);
+}
 
 export function FinanceDashboardPage() {
-  const invoices = useQuery({
-    queryKey: ['finance', 'dashboard', 'invoices'],
-    queryFn: () => financeApi.getInvoices({ limit: 100 }),
-  });
-  const receipts = useQuery({
-    queryKey: ['finance', 'dashboard', 'receipts'],
-    queryFn: () => financeApi.getReceipts({ limit: 100 }),
-  });
-  const refunds = useQuery({
-    queryKey: ['finance', 'dashboard', 'refunds'],
-    queryFn: () => financeApi.getRefunds({ limit: 100 }),
-  });
-  const journals = useQuery({
-    queryKey: ['finance', 'dashboard', 'journals'],
-    queryFn: () => financeApi.getJournals({ limit: 100 }),
+  const summary = useQuery({
+    queryKey: ['finance', 'dashboard', 'summary'],
+    queryFn: financeApi.getDashboardSummary,
   });
 
-  if (
-    invoices.isLoading ||
-    receipts.isLoading ||
-    refunds.isLoading ||
-    journals.isLoading
-  ) {
+  if (summary.isLoading) {
     return <Skeleton className="h-[420px] w-full" />;
   }
 
-  const invoiceData = invoices.data?.data ?? [];
-  const receiptData = receipts.data?.data ?? [];
-  const refundData = refunds.data?.data ?? [];
-  const journalData = journals.data?.data ?? [];
+  if (summary.isError || !summary.data) {
+    return (
+      <div role="alert" className="space-y-3 rounded-lg border p-6">
+        <p>Finance totals could not be loaded.</p>
+        <Button onClick={() => void summary.refetch()}>Retry</Button>
+      </div>
+    );
+  }
 
-  const totalOutstanding = invoiceData.reduce(
-    (sum, invoice) => sum + Number(invoice.balance_amount ?? 0),
-    0,
-  );
-  const totalCollected = receiptData.reduce(
-    (sum, receipt) => sum + Number(receipt.amount ?? 0),
-    0,
-  );
-  const totalRefunded = refundData
-    .filter((refund) => refund.status === 'PAID')
-    .reduce((sum, refund) => sum + Number(refund.amount ?? 0), 0);
+  const { openInvoices, receipts, paidRefunds, journalCount } = summary.data;
 
   return (
     <div className="space-y-6">
@@ -59,20 +54,20 @@ export function FinanceDashboardPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard title="Open Invoices" value={invoiceData.length} />
+        <MetricCard title="Open Invoices" value={recordCount(openInvoices)} />
         <MetricCard
           title="Outstanding Balance"
-          value={formatMoney(totalOutstanding)}
+          value={currencyAmounts(openInvoices)}
         />
         <MetricCard
           title="Receipts Posted"
-          value={receiptData.length}
-          hint={formatMoney(totalCollected)}
+          value={recordCount(receipts)}
+          hint={currencyAmounts(receipts)}
         />
         <MetricCard
           title="Paid Refunds"
-          value={refundData.filter((item) => item.status === 'PAID').length}
-          hint={formatMoney(totalRefunded)}
+          value={recordCount(paidRefunds)}
+          hint={currencyAmounts(paidRefunds)}
         />
       </div>
 
@@ -105,8 +100,8 @@ export function FinanceDashboardPage() {
               Journal coverage
             </h2>
             <p>
-              {journalData.length} finance journals are currently available for
-              review.
+              {journalCount} operational journal entries are currently available
+              for review. Certified foundation journals are reviewed separately.
             </p>
             <p>
               Invoice paid state and quotation payment readiness should now come

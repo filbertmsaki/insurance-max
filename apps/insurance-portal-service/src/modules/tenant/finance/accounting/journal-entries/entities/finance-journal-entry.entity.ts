@@ -13,6 +13,11 @@ import { FinanceJournalLine } from './finance-journal-line.entity';
 @Index('UQ_finance_journal_number_entity', ['company_id', 'journal_no'], {
   unique: true,
 })
+@Index(
+  'UQ_finance_journal_source_event',
+  ['company_id', 'source_type', 'source_event_id'],
+  { unique: true },
+)
 export class FinanceJournalEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;

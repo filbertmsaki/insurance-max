@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
@@ -11,9 +12,11 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { TenantScoped } from '@insurance-max/portal-shared';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 
 import { FinancePermissions } from './governance/finance-permissions/finance.permissions';
 import { BillingCommissionService } from './receivables/billing/billing-commission.service';
+import { FinanceDashboardService } from './receivables/billing/finance-dashboard.service';
 import {
   ApproveCommissionAccrualDto,
   ApproveCommissionPaymentDto,
@@ -54,7 +57,24 @@ export class FinanceController {
     private readonly financeCommandService: FinanceCommandService,
     private readonly reconciliationService: ReconciliationService,
     private readonly paymentReferenceService: PaymentReferenceService,
+    private readonly financeDashboardService: FinanceDashboardService,
+    private readonly dataAccessScope: DataAccessScopeService,
   ) {}
+
+  @Get('dashboard/summary')
+  @Permissions(FinancePermissions.DASHBOARD)
+  getDashboardSummary(@CurrentUser() user: AuthenticatedUser) {
+    const scope = this.dataAccessScope.resolve(
+      user,
+      FinancePermissions.DASHBOARD,
+    );
+    if (!scope.canViewAllBranches || scope.ownRecordsOnly) {
+      throw new ForbiddenException(
+        'Company-wide Finance dashboard requires company-wide data access.',
+      );
+    }
+    return this.financeDashboardService.summary(user.companyId!);
+  }
 
   @Get('invoices')
   @Permissions(FinancePermissions.INVOICES_READ)

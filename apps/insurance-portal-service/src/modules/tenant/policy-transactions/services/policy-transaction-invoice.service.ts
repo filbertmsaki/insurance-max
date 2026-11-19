@@ -144,7 +144,10 @@ export class PolicyTransactionInvoiceService {
     );
 
     const sourceSnapshot = {
-      ...(breakdown ? { taxBreakdownHash: breakdown.financialHash } : {}),
+      taxBreakdownStatus: breakdown ? 'RESOLVED' : 'UNRESOLVED',
+      ...(breakdown
+        ? { taxBreakdownHash: breakdown.financialHash }
+        : { unresolvedTaxSourceAmount: total.toFixed(2) }),
       transactionId: transaction.id,
       transactionNo: transaction.transaction_no,
       transactionType: transaction.transaction_type,

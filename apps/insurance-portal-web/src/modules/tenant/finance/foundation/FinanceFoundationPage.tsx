@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { JournalSearchPanel } from './JournalSearch';
+import { TrialBalancePanel } from './TrialBalancePanel';
 import {
   foundationReadApi,
   FOUNDATION_READ,
@@ -413,6 +414,7 @@ function BookReview({
         />
       )}
       <JournalSearchPanel scope={scope} identity={identity} />
+      <TrialBalancePanel scope={scope} identity={identity} />
     </div>
   );
 }

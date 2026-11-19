@@ -43,6 +43,13 @@ export class FinanceJournalService {
     sourceEventId: string,
     userId: string | null,
   ) {
+    if (invoice.source_snapshot?.taxBreakdownStatus === 'UNRESOLVED') {
+      throw new ConflictException({
+        code: 'INVOICE_TAX_BREAKDOWN_UNRESOLVED',
+        message:
+          'The source premium is preserved, but tax and levy components need verified evidence before accounting recognition.',
+      });
+    }
     if (hasPremiumInvoiceTax(invoice.source_type))
       return this.postPremiumInvoice(
         manager,
@@ -608,6 +615,15 @@ export class FinanceJournalService {
     },
     userId: string | null,
   ) {
+    // Serialize retries for the same source within the caller's transaction.
+    // The unique database index remains the final protection against a caller
+    // that bypasses this service or races a different application version.
+    if (manager.queryRunner?.isTransactionActive) {
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`${companyId}:${params.sourceType}:${params.sourceEventId}`],
+      );
+    }
     for (const line of params.lines) {
       const debit = DecimalUtil.value(line.debit ?? 0);
       const credit = DecimalUtil.value(line.credit ?? 0);

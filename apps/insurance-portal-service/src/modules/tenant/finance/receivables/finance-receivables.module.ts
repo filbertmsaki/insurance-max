@@ -20,6 +20,7 @@ import { CommissionTransaction } from '../payables/commission-payables/entities/
 import { FinanceReconciliationModule } from '../reconciliation/finance-reconciliation.module';
 import { BillingCommissionController } from './billing/billing-commission.controller';
 import { BillingCommissionService } from './billing/billing-commission.service';
+import { FinanceDashboardService } from './billing/finance-dashboard.service';
 import { FinanceLifecycleService } from './billing/finance-lifecycle.service';
 import { Invoice } from './invoices/entities/invoice.entity';
 import { InvoiceItem } from './invoices/entities/invoice-item.entity';
@@ -80,6 +81,7 @@ import { FinanceRefund } from './refunds/entities/finance-refund.entity';
   ],
   providers: [
     BillingCommissionService,
+    FinanceDashboardService,
     FinanceLifecycleService,
     FinanceCommandService,
     FinanceAutoReceiptService,

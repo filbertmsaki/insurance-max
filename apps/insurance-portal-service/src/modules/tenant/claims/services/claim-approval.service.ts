@@ -5,7 +5,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { EntityManager, In, Repository } from 'typeorm';
 
@@ -46,8 +45,8 @@ export interface ApprovalOutcome {
  * every lower level. With nothing configured a single approval level applies
  * and any holder of the stage's approve permission may act, which preserves
  * the pre-matrix behaviour. Makers cannot approve their own subject and one
- * person cannot approve two levels of the same round; company
- * administrators keep the existing bypass, which is recorded and audited.
+ * person cannot approve two levels of the same round. Every approver must
+ * hold the configured authority; an administrator role alone is not enough.
  */
 @Injectable()
 export class ClaimApprovalService {
@@ -150,7 +149,6 @@ export class ClaimApprovalService {
   ): Promise<ApprovalOutcome> {
     const pending = await this.currentPending(manager, subject);
     const round = await this.roundRows(manager, subject, pending.round);
-    const isAdmin = hasCompanyAdminRole(user);
     const selfApproval =
       pending.submitted_by === user.id ||
       round.some(
@@ -159,7 +157,7 @@ export class ClaimApprovalService {
           row.acted_by === user.id,
       );
 
-    if (selfApproval && !isAdmin) {
+    if (selfApproval) {
       throw new ForbiddenException({
         code: 'CLAIM_APPROVAL_SEGREGATION_OF_DUTIES',
         message:
@@ -198,8 +196,7 @@ export class ClaimApprovalService {
     pending.acted_at = new Date();
     pending.comments = comments?.trim() || null;
     pending.limit_id = limit?.id ?? null;
-    pending.admin_override =
-      !!pending.admin_override || (selfApproval && isAdmin);
+    pending.admin_override = !!pending.admin_override;
 
     await manager.getRepository(ClaimApproval).save(pending);
 
@@ -257,7 +254,7 @@ export class ClaimApprovalService {
   ): Promise<ClaimApproval> {
     const pending = await this.currentPending(manager, subject);
 
-    if (pending.submitted_by === user.id && !hasCompanyAdminRole(user)) {
+    if (pending.submitted_by === user.id) {
       throw new ForbiddenException({
         code: 'CLAIM_APPROVAL_SEGREGATION_OF_DUTIES',
         message: 'You cannot decide on an item you submitted',
@@ -266,9 +263,7 @@ export class ClaimApprovalService {
 
     await this.assertAuthority(manager, user, subject, pending);
 
-    pending.admin_override =
-      !!pending.admin_override ||
-      (pending.submitted_by === user.id && hasCompanyAdminRole(user));
+    pending.admin_override = !!pending.admin_override;
     pending.status = decision;
     pending.acted_by = user.id;
     pending.acted_at = new Date();
@@ -527,11 +522,6 @@ export class ClaimApprovalService {
     );
 
     if (!eligible) {
-      if (hasCompanyAdminRole(user)) {
-        pending.admin_override = true;
-        return null;
-      }
-
       throw new ForbiddenException({
         code: 'CLAIM_APPROVAL_LIMIT_EXCEEDED',
         message: `Your authority does not cover level ${pending.level} approval of ${amount} ${this.baseCurrency(limits)}`,

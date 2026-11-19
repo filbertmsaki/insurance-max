@@ -139,6 +139,28 @@ describe('FinanceJournalService legacy characterization (B02)', () => {
     expect(h.accounts.save).not.toHaveBeenCalled();
   });
 
+  it('holds an invoice with unresolved tax evidence before journal insertion', async () => {
+    await expect(
+      h.service.postInvoice(
+        h.manager,
+        {
+          ...h.invoice,
+          source_snapshot: {
+            taxBreakdownStatus: 'UNRESOLVED',
+            unresolvedTaxSourceAmount: '110.00',
+          },
+        } as Invoice,
+        'unresolved-event',
+        'actor-a',
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'INVOICE_TAX_BREAKDOWN_UNRESOLVED',
+      }),
+    });
+    expect(h.entries.save).not.toHaveBeenCalled();
+  });
+
   it('FC01 records the legacy invoice vector and source metadata', async () => {
     const result = await h.service.postInvoice(
       h.manager,

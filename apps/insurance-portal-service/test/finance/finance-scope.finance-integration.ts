@@ -7,6 +7,7 @@ import { FinanceAccountingBook } from '../../src/modules/tenant/finance/foundati
 import { FinanceScopeMembership } from '../../src/modules/tenant/finance/foundation/entities/finance-scope-membership.entity';
 import { FinanceLegalEntitySourceMap } from '../../src/modules/tenant/finance/foundation/entities/finance-legal-entity-source-map.entity';
 import { FinanceFoundationModule } from '../../src/modules/tenant/finance/foundation/finance-foundation.module';
+import { FinanceFoundationController } from '../../src/modules/tenant/finance/foundation/finance-foundation.controller';
 import {
   FinanceScopeService,
   type FinancePrincipal,
@@ -471,7 +472,7 @@ describe('Finance scope foundations on migrated PostgreSQL (B05 draft slice)', (
         ).resolves.toMatchObject({ mode: 'DRAFT_READ_ONLY' });
         expect(
           Reflect.getMetadata('controllers', FinanceFoundationModule) ?? [],
-        ).toEqual([]);
+        ).toEqual([FinanceFoundationController]);
       } finally {
         await context.close();
       }

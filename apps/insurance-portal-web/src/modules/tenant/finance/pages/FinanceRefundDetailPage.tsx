@@ -43,17 +43,6 @@ export function FinanceRefundDetailPage() {
     },
   });
 
-  const payMutation = useMutation({
-    mutationFn: () =>
-      financeApi.payRefund(id!, {
-        idempotency_key: createIdempotencyKey('refund-pay'),
-      }),
-    onSuccess: () => {
-      toast.success('Refund marked paid');
-      refresh();
-    },
-  });
-
   const cancelMutation = useMutation({
     mutationFn: async () => {
       const reason = window.prompt('Cancellation reason');
@@ -113,12 +102,10 @@ export function FinanceRefundDetailPage() {
           </Button>
         ) : null}
         {refund.status === 'APPROVED' ? (
-          <Button
-            onClick={() => payMutation.mutate()}
-            disabled={payMutation.isPending}
-          >
-            Mark Refund Paid
-          </Button>
+          <p className="text-sm text-amber-700" role="status">
+            Settlement pending: a verified provider or bank disbursement is
+            required before this refund can be marked paid.
+          </p>
         ) : null}
         {['REQUESTED', 'APPROVED'].includes(refund.status) ? (
           <Button

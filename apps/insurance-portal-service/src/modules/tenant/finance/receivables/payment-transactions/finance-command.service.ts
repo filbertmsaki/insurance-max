@@ -3,9 +3,9 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -94,6 +94,20 @@ export class FinanceCommandService {
     @InjectRepository(CommissionPaymentItem)
     private readonly commissionPaymentItemRepository: Repository<CommissionPaymentItem>,
   ) {}
+
+  private requireVerifiedSettlement(kind: 'refund' | 'commission'): void {
+    // The old paid transition used an operator-supplied reference, without a
+    // bank or provider observation. Keep approved records pending until a
+    // certified disbursement integration supplies that evidence.
+    throw new ServiceUnavailableException({
+      code:
+        kind === 'refund'
+          ? 'VERIFIED_REFUND_SETTLEMENT_REQUIRED'
+          : 'VERIFIED_COMMISSION_SETTLEMENT_REQUIRED',
+      message:
+        'A provider or bank settlement observation must be verified before payment can be marked paid.',
+    });
+  }
 
   private async publishInvoiceBalanceProjections(
     manager: EntityManager,
@@ -905,7 +919,7 @@ export class FinanceCommandService {
         throw new ConflictException('Only a requested refund can be approved.');
       }
 
-      if (refund.requested_by === user.id && !hasCompanyAdminRole(user)) {
+      if (refund.requested_by === user.id) {
         throw new ConflictException(
           'The requester cannot approve the same refund.',
         );
@@ -946,6 +960,8 @@ export class FinanceCommandService {
       if (refund.status !== RefundStatus.APPROVED) {
         throw new ConflictException('Only an approved refund can be paid.');
       }
+
+      this.requireVerifiedSettlement('refund');
 
       refund.status = RefundStatus.PAID;
       refund.provider_refund_id = dto.provider_refund_id?.trim() ?? null;
@@ -1086,11 +1102,7 @@ export class FinanceCommandService {
         );
       }
 
-      if (
-        accrual.accrued_by &&
-        accrual.accrued_by === user.id &&
-        !hasCompanyAdminRole(user)
-      ) {
+      if (accrual.accrued_by && accrual.accrued_by === user.id) {
         throw new ConflictException(
           'The user who accrued the commission cannot approve it.',
         );
@@ -1297,7 +1309,7 @@ export class FinanceCommandService {
         );
       }
 
-      if (payment.submitted_by === user.id && !hasCompanyAdminRole(user)) {
+      if (payment.submitted_by === user.id) {
         throw new ConflictException(
           'The creator of the commission payment cannot approve it.',
         );
@@ -1341,6 +1353,8 @@ export class FinanceCommandService {
           'Only an approved commission payment can be paid.',
         );
       }
+
+      this.requireVerifiedSettlement('commission');
 
       for (const item of payment.items ?? []) {
         if (item.status !== 'ACTIVE') {
