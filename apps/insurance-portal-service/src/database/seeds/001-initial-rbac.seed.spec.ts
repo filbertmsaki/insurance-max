@@ -1,4 +1,5 @@
 import {
+  ALL_COMPANY_PERMISSION_NAMES,
   FULL_MODULE_ROLE_PERMISSIONS,
   expandSeedRolePermissions,
   unseededFullModulePermissions,
@@ -11,8 +12,19 @@ import {
   UNDERWRITE_COVER_PERMISSION_NAMES,
   UNDERWRITE_PERMISSION_NAMES,
 } from '@insurance-max/contracts';
+import { FinancePermissions } from '../../modules/tenant/finance/governance/finance-permissions/finance.permissions';
 
 describe('full module role permissions', () => {
+  it.each(['ADMINISTRATOR', 'INSURANCE_ADMIN'])(
+    'grants every Finance permission to %s',
+    (role) => {
+      expect(
+        expandSeedRolePermissions(role, ALL_COMPANY_PERMISSION_NAMES),
+      ).toEqual(
+        expect.arrayContaining([...new Set(Object.values(FinancePermissions))]),
+      );
+    },
+  );
   it('requires an explicit password before creating a production seed account', () => {
     const previous = process.env.APP_ENV;
     process.env.APP_ENV = 'production';

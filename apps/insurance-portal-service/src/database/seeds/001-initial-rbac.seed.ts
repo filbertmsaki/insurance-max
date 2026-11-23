@@ -26,6 +26,7 @@ import { Permission } from '../../modules/platform/permissions/entities/permissi
 import { Role } from '../../modules/platform/roles/entities/role.entity';
 import { User } from '../../modules/tenant/users/entities/user.entity';
 import { ALLIANCE_BRANCHES, ALLIANCE_TENANT } from './data/alliance.seed-data';
+import { FinancePermissions } from '../../modules/tenant/finance/governance/finance-permissions/finance.permissions';
 
 type SeedScope = 'global' | 'default_company';
 
@@ -447,7 +448,7 @@ const COMPANY_OPERATIONS_PERMISSION_SEEDS: PermissionSeed[] = (
       'finance-events:replay-approve',
       'Approve and execute Finance event replay',
     ],
-    // Catalogue definitions only. No foundation mandates or default role grants.
+    // Permission grants do not create foundation mandates.
     ['finance-setup:prepare', 'Prepare inactive Finance setup'],
     ['finance-setup:review', 'Review inactive Finance setup'],
     ['finance-config:prepare', 'Prepare inactive Finance configuration'],
@@ -3511,6 +3512,19 @@ const permissionSeeds: PermissionSeed[] = [
   ...COMPANY_OPERATIONS_PERMISSION_SEEDS,
 ];
 
+// Keep the catalogue aligned with the permissions enforced by Finance.
+const existingPermissionNames = new Set(permissionSeeds.map((p) => p.name));
+for (const name of new Set(Object.values(FinancePermissions))) {
+  if (!existingPermissionNames.has(name)) {
+    permissionSeeds.push({
+      name,
+      displayName: name,
+      description: `Allow ${name} in Finance`,
+      scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    });
+  }
+}
+
 // Narrows a role to creator-only records, so it never belongs on a
 // full-access or administrative role.
 const OWN_RECORDS_PERMISSION_NAME = 'data-scope:own-records';
@@ -3522,19 +3536,10 @@ const RISK_REQUIRED_FACTOR_PERMISSION_NAMES = [
   'risk-required-factors:delete',
 ];
 
-const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
+export const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
   .filter((permission) => permission.scopes.includes('default_company'))
   .map((permission) => permission.name)
-  .filter(
-    (name) =>
-      name !== OWN_RECORDS_PERMISSION_NAME &&
-      ![
-        'finance-foundation:',
-        'finance-setup:',
-        'finance-config:',
-        'finance-policy:',
-      ].some((prefix) => name.startsWith(prefix)),
-  );
+  .filter((name) => name !== OWN_RECORDS_PERMISSION_NAME);
 
 // Granted to individual company memberships only, never through a role.
 const PER_USER_ONLY_PERMISSION_NAMES = new Set([
