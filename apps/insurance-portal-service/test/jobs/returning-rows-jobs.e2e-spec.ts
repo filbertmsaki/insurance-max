@@ -55,15 +55,24 @@ describe('Jobs reading UPDATE ... RETURNING (real database)', () => {
       nextAttemptSql: string,
       eventType = 'QUOTATION_PAYMENT_EVENT',
     ) {
+      const companyId = randomUUID();
+      const eventId = randomUUID();
       const [row] = await dataSource.query(
         `INSERT INTO finance_outbox_events (
            company_id, aggregate_type, aggregate_id, event_type, event_key,
            payload, status, next_attempt_at
          )
-         VALUES ($1, 'E2E', $2, $5, $3, '{}'::jsonb, $4,
+         VALUES ($1, 'E2E', $2, $5, $3, $6::jsonb, $4,
                  ${nextAttemptSql})
          RETURNING id`,
-        [randomUUID(), randomUUID(), `e2e-${randomUUID()}`, status, eventType],
+        [
+          companyId,
+          randomUUID(),
+          `e2e-${eventId}`,
+          status,
+          eventType,
+          JSON.stringify({ eventId, companyId }),
+        ],
       );
       return row.id as string;
     }
