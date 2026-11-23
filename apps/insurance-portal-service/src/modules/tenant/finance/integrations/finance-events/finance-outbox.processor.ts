@@ -207,7 +207,7 @@ export class FinanceOutboxProcessor {
     let attemptCount = 0;
     try {
       await this.dataSource.transaction(async (manager) => {
-        const [event] = (await manager.query(
+        const [event] = await manager.query(
           `SELECT id, company_id, aggregate_type, aggregate_id, event_type,
                   event_key, schema_version, payload, status, attempt_count,
                   claim_generation::text AS claim_generation
@@ -215,13 +215,7 @@ export class FinanceOutboxProcessor {
             WHERE id = $1
             FOR UPDATE`,
           [eventId],
-        )) as Array<
-          OutboxEventRow & {
-            status: string;
-            attempt_count: number;
-            claim_generation: string;
-          }
-        >;
+        );
 
         if (
           !event ||
@@ -288,7 +282,9 @@ export class FinanceOutboxProcessor {
           status: blocked ? 'BLOCKED' : 'PUBLISHED',
           attemptCount: blocked ? attemptCount : undefined,
           failureClass: blocked
-            ? (outcome.accountingOutcome as 'POLICY_BLOCKED' | 'MISSING_JOURNAL')
+            ? (outcome.accountingOutcome as
+                | 'POLICY_BLOCKED'
+                | 'MISSING_JOURNAL')
             : null,
           lastError: blocked ? outcome.detail : null,
         });

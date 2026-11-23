@@ -45,14 +45,19 @@ describe('FinanceEventOperationsController authorization', () => {
     resolve.mockReturnValue(scope);
     expect(() => controller.summary(user)).toThrow(ForbiddenException);
     expect(() =>
-      controller.requestReplay(user, 'event-1', { reason: 'long enough reason' }),
+      controller.requestReplay(user, 'event-1', {
+        reason: 'long enough reason',
+      }),
     ).toThrow(ForbiddenException);
     expect(operations.summary).not.toHaveBeenCalled();
     expect(operations.requestReplay).not.toHaveBeenCalled();
   });
 
   it('scopes every call to the caller company and identity', async () => {
-    resolve.mockReturnValue({ canViewAllBranches: true, ownRecordsOnly: false });
+    resolve.mockReturnValue({
+      canViewAllBranches: true,
+      ownRecordsOnly: false,
+    });
     await controller.list(user, 'DEAD_LETTER', undefined, '2', '10');
     expect(operations.list).toHaveBeenCalledWith('company-1', {
       status: 'DEAD_LETTER',
@@ -75,7 +80,10 @@ describe('FinanceEventOperationsController authorization', () => {
   });
 
   it('rejects a user with no company', () => {
-    resolve.mockReturnValue({ canViewAllBranches: true, ownRecordsOnly: false });
+    resolve.mockReturnValue({
+      canViewAllBranches: true,
+      ownRecordsOnly: false,
+    });
     expect(() => controller.summary({ id: 'u' } as never)).toThrow(
       ForbiddenException,
     );

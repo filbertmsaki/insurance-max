@@ -126,7 +126,10 @@ export class FinanceEventOutcomes1798800000000 implements MigrationInterface {
         RAISE EXCEPTION 'FINANCE_EVENT_HISTORY_IMMUTABLE: % is append-only', TG_TABLE_NAME
           USING ERRCODE = 'check_violation';
       END $$`);
-    for (const table of ['finance_event_attempts', 'finance_event_replay_audit']) {
+    for (const table of [
+      'finance_event_attempts',
+      'finance_event_replay_audit',
+    ]) {
       await queryRunner.query(`CREATE TRIGGER "TRG_${table}_append_only"
         BEFORE UPDATE OR DELETE ON ${table}
         FOR EACH ROW EXECUTE FUNCTION fn_finance_event_append_only()`);
@@ -140,7 +143,10 @@ export class FinanceEventOutcomes1798800000000 implements MigrationInterface {
       for (const [name, label] of [
         ['finance-events:read', 'Read Finance event monitoring'],
         ['finance-events:replay-request', 'Request Finance event replay'],
-        ['finance-events:replay-approve', 'Approve and execute Finance event replay'],
+        [
+          'finance-events:replay-approve',
+          'Approve and execute Finance event replay',
+        ],
       ]) {
         await queryRunner.query(
           `INSERT INTO permissions (id, name, display_name, description, is_system_generated, assignment_scope, assignable_to_company_role, assignable_to_platform_role, is_deprecated)

@@ -816,7 +816,7 @@ describe('Existing outbox compatibility on owned PostgreSQL (B11)', () => {
             config as unknown as ConfigService,
             new FinanceEventContractRegistry(projection as never, {
               requireEligible: async () => undefined,
-            } as never),
+            }),
           );
           await processor.processPending();
           const saved = await metadata

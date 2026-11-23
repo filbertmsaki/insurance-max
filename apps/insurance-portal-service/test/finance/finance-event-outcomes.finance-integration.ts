@@ -54,9 +54,10 @@ const quotationProjection = {
     if (event.workflowRevision !== undefined && event.workflowRevision < 0) {
       return null; // stale revision: the real service skips and returns null
     }
-    await manager.query(`INSERT INTO test_side_effects (event_id) VALUES ($1)`, [
-      event.eventId,
-    ]);
+    await manager.query(
+      `INSERT INTO test_side_effects (event_id) VALUES ($1)`,
+      [event.eventId],
+    );
     return { applied: true };
   },
 };
@@ -102,7 +103,7 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         migrations: [],
         migrationsRun: false,
         synchronize: false,
-      } as typeof ds.options);
+      });
       await producerDs.initialize();
       const produce = (
         companyId: string,
@@ -139,7 +140,10 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         await outcomes.up(runner);
         await outcomes.down(runner);
         expect(
-          await one(ds, `SELECT to_regclass('public.finance_event_outcomes') AS t`),
+          await one(
+            ds,
+            `SELECT to_regclass('public.finance_event_outcomes') AS t`,
+          ),
         ).toEqual({ t: null });
         await outcomes.up(runner);
       } finally {
@@ -154,7 +158,11 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
       ).toEqual({ status: 'PENDING', schema_version: 1, failure_class: null });
 
       // ------------------------------------------------------- fixtures
-      const journal = async (companyId: string, sourceType: string, sourceId: string) =>
+      const journal = async (
+        companyId: string,
+        sourceType: string,
+        sourceId: string,
+      ) =>
         (
           await ds.query(
             `INSERT INTO finance_journal_entries
@@ -162,7 +170,13 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
                 source_event_id, description, currency_code, entry_hash)
              VALUES ($1, $2, CURRENT_DATE, $3, $4, $5, 'UAT synthetic', 'TZS', 'uat')
              RETURNING id`,
-            [companyId, `UAT-${randomUUID().slice(0, 8)}`, sourceType, sourceId, randomUUID()],
+            [
+              companyId,
+              `UAT-${randomUUID().slice(0, 8)}`,
+              sourceType,
+              sourceId,
+              randomUUID(),
+            ],
           )
         )[0].id as string;
       const invoice = async (
@@ -172,14 +186,22 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         amount = '1180000.0000',
       ) => {
         const id = randomUUID();
-        await sql(
-          ds,
-          `INSERT INTO invoices VALUES ($1,$2,$3,$4,$5,'TZS',$6)`,
-          [id, companyId, `UAT-INV-${id.slice(0, 6)}`, status, amount, issued ? new Date() : null],
-        );
+        await sql(ds, `INSERT INTO invoices VALUES ($1,$2,$3,$4,$5,'TZS',$6)`, [
+          id,
+          companyId,
+          `UAT-INV-${id.slice(0, 6)}`,
+          status,
+          amount,
+          issued ? new Date() : null,
+        ]);
         return id;
       };
-      const issuedEvent = (companyId: string, id: string, amount = '1180000.0000', key?: string) =>
+      const issuedEvent = (
+        companyId: string,
+        id: string,
+        amount = '1180000.0000',
+        key?: string,
+      ) =>
         produce(companyId, {
           aggregateType: 'INVOICE',
           aggregateId: id,
@@ -205,14 +227,17 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
       // An eligible gate distinguishes a genuinely missing journal.
       const eligibleRegistry = new FinanceEventContractRegistry(
         quotationProjection as never,
-        { requireEligible: async () => undefined } as never,
+        { requireEligible: async () => undefined },
       );
       const worker = (registry = realRegistry, overrides = {}) =>
         new FinanceOutboxProcessor(ds, config(overrides), registry) as any;
       const ops = new FinanceEventOperationsService(ds, realRegistry);
       const expireLeases = () =>
-        sql(ds, `UPDATE finance_outbox_events SET next_attempt_at = now() - interval '1 second'
-                  WHERE status IN ('PENDING','FAILED','PROCESSING')`);
+        sql(
+          ds,
+          `UPDATE finance_outbox_events SET next_attempt_at = now() - interval '1 second'
+                  WHERE status IN ('PENDING','FAILED','PROCESSING')`,
+        );
       const event = (id: string) =>
         one(
           ds,
@@ -220,11 +245,17 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
           [id],
         );
       const outcomeFor = (id: string) =>
-        one(ds, `SELECT * FROM finance_event_outcomes WHERE outbox_event_id = $1`, [id]);
+        one(
+          ds,
+          `SELECT * FROM finance_event_outcomes WHERE outbox_event_id = $1`,
+          [id],
+        );
 
       // Legacy row is processed under the v1 contract.
       await worker().processPending();
-      expect(await event(legacyQuote[0].id)).toMatchObject({ status: 'PUBLISHED' });
+      expect(await event(legacyQuote[0].id)).toMatchObject({
+        status: 'PUBLISHED',
+      });
 
       // -------------------------------------- 1. invoice issued -> recognized
       const inv1 = await invoice(companyA);
@@ -232,17 +263,26 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
       const inv1Event = await issuedEvent(companyA, inv1);
       // -------------------------------------- 2. commission accrued -> recognized
       const accrual = randomUUID();
-      await sql(ds, `INSERT INTO commission_transactions VALUES ($1,$2,'UAT-CA-1','118000.0000')`, [
-        accrual,
+      await sql(
+        ds,
+        `INSERT INTO commission_transactions VALUES ($1,$2,'UAT-CA-1','118000.0000')`,
+        [accrual, companyA],
+      );
+      const accrualJournal = await journal(
         companyA,
-      ]);
-      const accrualJournal = await journal(companyA, 'COMMISSION_ACCRUAL', accrual);
+        'COMMISSION_ACCRUAL',
+        accrual,
+      );
       const accrualEvent = await produce(companyA, {
         aggregateType: 'COMMISSION_ACCRUAL',
         aggregateId: accrual,
         eventType: 'COMMISSION_ACCRUED',
         eventKey: `commission-accrual:${accrual}:accrued`,
-        payload: { commissionAmount: '118000.0000', currencyCode: 'TZS', workflowRevision: 2 },
+        payload: {
+          commissionAmount: '118000.0000',
+          currencyCode: 'TZS',
+          workflowRevision: 2,
+        },
       });
       // -------------------------------------- 7. out of order: void before issue
       const inv2 = await invoice(companyA, 'VOIDED');
@@ -255,9 +295,11 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         eventKey: `invoice:${inv2}:voided`,
         payload: { invoiceId: inv2, reason: 'UAT void' },
       });
-      await sql(ds, `UPDATE finance_outbox_events SET created_at = now() - interval '1 minute' WHERE id = $1`, [
-        inv2Void.id,
-      ]);
+      await sql(
+        ds,
+        `UPDATE finance_outbox_events SET created_at = now() - interval '1 minute' WHERE id = $1`,
+        [inv2Void.id],
+      );
       const inv2Issue = await issuedEvent(companyA, inv2);
       const draftVoidInvoice = await invoice(companyA, 'VOIDED', false);
       const draftVoid = await produce(companyA, {
@@ -273,14 +315,27 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         aggregateId: inv1,
         eventType: 'QUOTATION_PAYMENT_EVENT',
         eventKey: 'quotation-payment:q-1',
-        payload: { eventId: 'q-1', companyId: companyA, eventType: 'PAYMENT_POSTED', quotationId: randomUUID(), invoiceId: inv1, workflowRevision: 3 },
+        payload: {
+          eventId: 'q-1',
+          companyId: companyA,
+          eventType: 'PAYMENT_POSTED',
+          quotationId: randomUUID(),
+          invoiceId: inv1,
+          workflowRevision: 3,
+        },
       });
       const staleQuote = await produce(companyA, {
         aggregateType: 'INVOICE',
         aggregateId: inv1,
         eventType: 'QUOTATION_PAYMENT_EVENT',
         eventKey: 'quotation-payment:q-stale',
-        payload: { eventId: 'q-stale', companyId: companyA, eventType: 'PAYMENT_POSTED', invoiceId: inv1, workflowRevision: -1 },
+        payload: {
+          eventId: 'q-stale',
+          companyId: companyA,
+          eventType: 'PAYMENT_POSTED',
+          invoiceId: inv1,
+          workflowRevision: -1,
+        },
       });
 
       const journalsBefore = await one(
@@ -289,7 +344,10 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
       );
       await worker().processPending();
 
-      expect(await event(inv1Event.id)).toMatchObject({ status: 'PUBLISHED', failure_class: null });
+      expect(await event(inv1Event.id)).toMatchObject({
+        status: 'PUBLISHED',
+        failure_class: null,
+      });
       expect(await outcomeFor(inv1Event.id)).toMatchObject({
         consumer: 'invoice-recognition-verifier',
         idempotency_key: `invoice:${inv1}:issued`,
@@ -323,21 +381,38 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         accounting_outcome: 'NOT_APPLICABLE',
         source_revision: '3',
       });
-      expect(await outcomeFor(staleQuote.id)).toMatchObject({ business_outcome: 'NO_CHANGE' });
+      expect(await outcomeFor(staleQuote.id)).toMatchObject({
+        business_outcome: 'NO_CHANGE',
+      });
       // Consumers never post: journal count unchanged by processing.
-      expect(await one(ds, `SELECT count(*)::int AS n FROM finance_journal_entries`)).toEqual(journalsBefore);
+      expect(
+        await one(ds, `SELECT count(*)::int AS n FROM finance_journal_entries`),
+      ).toEqual(journalsBefore);
 
       // -------------------------------------- 4. duplicate delivery (different row, same operation)
-      const dup = await issuedEvent(companyA, inv1, '1180000.0000', `invoice:${inv1}:issued:redelivery`);
+      const dup = await issuedEvent(
+        companyA,
+        inv1,
+        '1180000.0000',
+        `invoice:${inv1}:issued:redelivery`,
+      );
       await worker().processPending();
       expect(await event(dup.id)).toMatchObject({ status: 'PUBLISHED' });
-      expect(await one(ds, `SELECT result FROM finance_event_attempts WHERE outbox_event_id = $1`, [dup.id])).toEqual({
+      expect(
+        await one(
+          ds,
+          `SELECT result FROM finance_event_attempts WHERE outbox_event_id = $1`,
+          [dup.id],
+        ),
+      ).toEqual({
         result: 'DUPLICATE_SUPPRESSED',
       });
       expect(
-        await one(ds, `SELECT count(*)::int AS n FROM finance_event_outcomes WHERE idempotency_key = $1`, [
-          `invoice:${inv1}:issued`,
-        ]),
+        await one(
+          ds,
+          `SELECT count(*)::int AS n FROM finance_event_outcomes WHERE idempotency_key = $1`,
+          [`invoice:${inv1}:issued`],
+        ),
       ).toEqual({ n: 1 });
 
       // -------------------------------------- 5. concurrent delivery of one payment event
@@ -348,14 +423,28 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
             aggregateId: inv1,
             eventType: 'QUOTATION_PAYMENT_EVENT',
             eventKey: `quotation-payment:q-conc:copy-${i}`,
-            payload: { eventId: 'q-conc', companyId: companyA, eventType: 'PAYMENT_POSTED', invoiceId: inv1 },
+            payload: {
+              eventId: 'q-conc',
+              companyId: companyA,
+              eventType: 'PAYMENT_POSTED',
+              invoiceId: inv1,
+            },
           }),
         ),
       );
-      const workers = Array.from({ length: 4 }, () => worker(realRegistry, { FINANCE_OUTBOX_BATCH_SIZE: 2 }));
-      for (let round = 0; round < 3; round += 1) await Promise.all(workers.map((w) => w.processPending()));
-      for (const copy of copies) expect((await event(copy.id)).status).toBe('PUBLISHED');
-      expect(await one(ds, `SELECT count(*)::int AS n FROM test_side_effects WHERE event_id = 'q-conc'`)).toEqual({ n: 1 });
+      const workers = Array.from({ length: 4 }, () =>
+        worker(realRegistry, { FINANCE_OUTBOX_BATCH_SIZE: 2 }),
+      );
+      for (let round = 0; round < 3; round += 1)
+        await Promise.all(workers.map((w) => w.processPending()));
+      for (const copy of copies)
+        expect((await event(copy.id)).status).toBe('PUBLISHED');
+      expect(
+        await one(
+          ds,
+          `SELECT count(*)::int AS n FROM test_side_effects WHERE event_id = 'q-conc'`,
+        ),
+      ).toEqual({ n: 1 });
       expect(
         await one(
           ds,
@@ -367,7 +456,9 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
       ).toEqual({ applied: 1, suppressed: 5 });
 
       // -------------------------------------- 6. conflicting payloads
-      await expect(issuedEvent(companyA, inv1, '999.0000')).rejects.toMatchObject({
+      await expect(
+        issuedEvent(companyA, inv1, '999.0000'),
+      ).rejects.toMatchObject({
         response: { code: 'FINANCE_OUTBOX_EVENT_CONFLICT' },
       });
       const inv3 = await invoice(companyA);
@@ -388,7 +479,11 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         aggregateId: foreignInvoice,
         eventType: 'INVOICE_ISSUED',
         eventKey: `invoice:${foreignInvoice}:issued`,
-        payload: { invoiceId: foreignInvoice, amount: '1180000.0000', currencyCode: 'TZS' },
+        payload: {
+          invoiceId: foreignInvoice,
+          amount: '1180000.0000',
+          currencyCode: 'TZS',
+        },
       });
       const foreignQuote = await produce(companyA, {
         aggregateType: 'INVOICE',
@@ -405,21 +500,50 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         eventKey: 'receipt:unsupported',
         payload: {},
       });
-      const futureVersion = await issuedEvent(companyA, inv3, '1180000.0000', `invoice:${inv3}:issued:v2`);
-      await sql(ds, `UPDATE finance_outbox_events SET schema_version = 2 WHERE id = $1`, [futureVersion.id]);
+      const futureVersion = await issuedEvent(
+        companyA,
+        inv3,
+        '1180000.0000',
+        `invoice:${inv3}:issued:v2`,
+      );
+      await sql(
+        ds,
+        `UPDATE finance_outbox_events SET schema_version = 2 WHERE id = $1`,
+        [futureVersion.id],
+      );
       await worker().processPending();
-      expect(await event(crossCompany.id)).toMatchObject({ status: 'DEAD_LETTER', failure_class: 'SCOPE_MISMATCH' });
-      expect(await event(foreignQuote.id)).toMatchObject({ status: 'DEAD_LETTER', failure_class: 'SCOPE_MISMATCH' });
-      expect(await event(unknown.id)).toMatchObject({ status: 'DEAD_LETTER', failure_class: 'UNSUPPORTED' });
-      expect(await event(futureVersion.id)).toMatchObject({ status: 'DEAD_LETTER', failure_class: 'UNSUPPORTED' });
-      expect(await one(ds, `SELECT count(*)::int AS n FROM test_side_effects WHERE event_id = 'foreign'`)).toEqual({ n: 0 });
+      expect(await event(crossCompany.id)).toMatchObject({
+        status: 'DEAD_LETTER',
+        failure_class: 'SCOPE_MISMATCH',
+      });
+      expect(await event(foreignQuote.id)).toMatchObject({
+        status: 'DEAD_LETTER',
+        failure_class: 'SCOPE_MISMATCH',
+      });
+      expect(await event(unknown.id)).toMatchObject({
+        status: 'DEAD_LETTER',
+        failure_class: 'UNSUPPORTED',
+      });
+      expect(await event(futureVersion.id)).toMatchObject({
+        status: 'DEAD_LETTER',
+        failure_class: 'UNSUPPORTED',
+      });
+      expect(
+        await one(
+          ds,
+          `SELECT count(*)::int AS n FROM test_side_effects WHERE event_id = 'foreign'`,
+        ),
+      ).toEqual({ n: 0 });
 
       // -------------------------------------- 11/12. transient retry, rollback, exhaustion
       let failNext = 2;
       const flakyRegistry = new FinanceEventContractRegistry(
         {
           apply: async (e: { eventId: string }, manager: EntityManager) => {
-            await manager.query(`INSERT INTO test_side_effects (event_id) VALUES ($1)`, [e.eventId]);
+            await manager.query(
+              `INSERT INTO test_side_effects (event_id) VALUES ($1)`,
+              [e.eventId],
+            );
             if (failNext-- > 0) throw new Error('DOWNSTREAM_TIMEOUT');
             return { ok: true };
           },
@@ -434,17 +558,33 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         payload: { eventId: 'flaky', companyId: companyA },
       });
       await worker(flakyRegistry).processPending();
-      expect(await event(flaky.id)).toMatchObject({ status: 'FAILED', failure_class: 'TRANSIENT', attempt_count: 1 });
-      const firstRetry = await one(ds, `SELECT next_attempt_at > now() + interval '20 seconds' AS later FROM finance_outbox_events WHERE id = $1`, [flaky.id]);
+      expect(await event(flaky.id)).toMatchObject({
+        status: 'FAILED',
+        failure_class: 'TRANSIENT',
+        attempt_count: 1,
+      });
+      const firstRetry = await one(
+        ds,
+        `SELECT next_attempt_at > now() + interval '20 seconds' AS later FROM finance_outbox_events WHERE id = $1`,
+        [flaky.id],
+      );
       expect(firstRetry).toEqual({ later: true }); // backoff scheduled, not immediate
       await expireLeases();
       await worker(flakyRegistry).processPending();
-      expect(await event(flaky.id)).toMatchObject({ status: 'FAILED', attempt_count: 2 });
+      expect(await event(flaky.id)).toMatchObject({
+        status: 'FAILED',
+        attempt_count: 2,
+      });
       await expireLeases();
       await worker(flakyRegistry).processPending();
       expect(await event(flaky.id)).toMatchObject({ status: 'PUBLISHED' });
       // Failed attempts rolled their side effects back.
-      expect(await one(ds, `SELECT count(*)::int AS n FROM test_side_effects WHERE event_id = 'flaky'`)).toEqual({ n: 1 });
+      expect(
+        await one(
+          ds,
+          `SELECT count(*)::int AS n FROM test_side_effects WHERE event_id = 'flaky'`,
+        ),
+      ).toEqual({ n: 1 });
 
       failNext = 99;
       const doomed = await produce(companyA, {
@@ -455,7 +595,9 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         payload: { eventId: 'doomed', companyId: companyA },
       });
       for (let i = 0; i < 3; i += 1) {
-        await worker(flakyRegistry, { FINANCE_OUTBOX_MAX_ATTEMPTS: 3 }).processPending();
+        await worker(flakyRegistry, {
+          FINANCE_OUTBOX_MAX_ATTEMPTS: 3,
+        }).processPending();
         await expireLeases();
       }
       expect(await event(doomed.id)).toMatchObject({
@@ -464,14 +606,19 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         attempt_count: 3,
       });
       // Dead letters are not reclaimed.
-      await worker(flakyRegistry, { FINANCE_OUTBOX_MAX_ATTEMPTS: 3 }).processPending();
+      await worker(flakyRegistry, {
+        FINANCE_OUTBOX_MAX_ATTEMPTS: 3,
+      }).processPending();
       expect((await event(doomed.id)).attempt_count).toBe(3);
 
       // -------------------------------------- 14. policy-blocked and missing journal
       const inv4 = await invoice(companyA);
       const blockedEvent = await issuedEvent(companyA, inv4);
       await worker(realRegistry).processPending();
-      expect(await event(blockedEvent.id)).toMatchObject({ status: 'BLOCKED', failure_class: 'POLICY_BLOCKED' });
+      expect(await event(blockedEvent.id)).toMatchObject({
+        status: 'BLOCKED',
+        failure_class: 'POLICY_BLOCKED',
+      });
       expect(await outcomeFor(blockedEvent.id)).toMatchObject({
         business_outcome: 'BLOCKED',
         accounting_outcome: 'POLICY_BLOCKED',
@@ -480,57 +627,124 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
       const inv5 = await invoice(companyA);
       const missing = await issuedEvent(companyA, inv5);
       await worker(eligibleRegistry).processPending();
-      expect(await event(missing.id)).toMatchObject({ status: 'BLOCKED', failure_class: 'MISSING_JOURNAL' });
+      expect(await event(missing.id)).toMatchObject({
+        status: 'BLOCKED',
+        failure_class: 'MISSING_JOURNAL',
+      });
       // BLOCKED is not retried automatically and no journal was created.
       await expireLeases();
       await worker(eligibleRegistry).processPending();
       expect((await event(missing.id)).status).toBe('BLOCKED');
-      expect(await one(ds, `SELECT count(*)::int AS n FROM finance_journal_entries WHERE source_id = $1`, [inv5])).toEqual({ n: 0 });
+      expect(
+        await one(
+          ds,
+          `SELECT count(*)::int AS n FROM finance_journal_entries WHERE source_id = $1`,
+          [inv5],
+        ),
+      ).toEqual({ n: 0 });
 
       // -------------------------------------- 15-18. replay workflow
       const maker = randomUUID();
       const checker = randomUUID();
       // Not replayable: a successful outcome.
-      await expect(ops.requestReplay(companyA, maker, inv1Event.id, 'Retry a published event')).rejects.toMatchObject({
+      await expect(
+        ops.requestReplay(
+          companyA,
+          maker,
+          inv1Event.id,
+          'Retry a published event',
+        ),
+      ).rejects.toMatchObject({
         response: { code: 'FINANCE_EVENT_NOT_REPLAYABLE' },
       });
       // Not replayable: unsupported contract.
-      await expect(ops.requestReplay(companyA, maker, unknown.id, 'Retry unsupported contract')).rejects.toMatchObject({
+      await expect(
+        ops.requestReplay(
+          companyA,
+          maker,
+          unknown.id,
+          'Retry unsupported contract',
+        ),
+      ).rejects.toMatchObject({
         response: { code: 'FINANCE_EVENT_NOT_REPLAYABLE' },
       });
       // Cross-company: invisible.
-      await expect(ops.requestReplay(companyB, maker, blockedEvent.id, 'Cross company replay')).rejects.toMatchObject({
+      await expect(
+        ops.requestReplay(
+          companyB,
+          maker,
+          blockedEvent.id,
+          'Cross company replay',
+        ),
+      ).rejects.toMatchObject({
         status: 404,
       });
-      await expect(ops.detail(companyB, blockedEvent.id)).rejects.toMatchObject({ status: 404 });
+      await expect(ops.detail(companyB, blockedEvent.id)).rejects.toMatchObject(
+        { status: 404 },
+      );
 
       // Source journal posted after the hold is resolved; replay the blocked event.
       const inv4Journal = await journal(companyA, 'INVOICE', inv4);
-      const request = await ops.requestReplay(companyA, maker, blockedEvent.id, 'Posting policy activated; verify journal');
-      await expect(ops.requestReplay(companyA, maker, blockedEvent.id, 'Second open request')).rejects.toMatchObject({
+      const request = await ops.requestReplay(
+        companyA,
+        maker,
+        blockedEvent.id,
+        'Posting policy activated; verify journal',
+      );
+      await expect(
+        ops.requestReplay(
+          companyA,
+          maker,
+          blockedEvent.id,
+          'Second open request',
+        ),
+      ).rejects.toMatchObject({
         response: { code: 'FINANCE_EVENT_REPLAY_ALREADY_OPEN' },
       });
       // Execution before approval is refused.
-      await expect(ops.executeReplay(companyA, checker, request.id)).rejects.toMatchObject({
+      await expect(
+        ops.executeReplay(companyA, checker, request.id),
+      ).rejects.toMatchObject({
         response: { code: 'FINANCE_EVENT_REPLAY_STATE' },
       });
       // Self-approval refused by the service ...
-      await expect(ops.decideReplay(companyA, maker, request.id, 'APPROVE')).rejects.toMatchObject({
+      await expect(
+        ops.decideReplay(companyA, maker, request.id, 'APPROVE'),
+      ).rejects.toMatchObject({
         response: { code: 'FINANCE_EVENT_REPLAY_SELF_APPROVAL' },
       });
       // ... and by the database.
       await expect(
-        sql(ds, `UPDATE finance_event_replay_requests SET status = 'APPROVED', decided_by = requested_by, decided_at = now() WHERE id = $1`, [
-          request.id,
-        ]),
+        sql(
+          ds,
+          `UPDATE finance_event_replay_requests SET status = 'APPROVED', decided_by = requested_by, decided_at = now() WHERE id = $1`,
+          [request.id],
+        ),
       ).rejects.toMatchObject({ code: '23514' });
-      await expect(ops.decideReplay(companyB, checker, request.id, 'APPROVE')).rejects.toMatchObject({ status: 404 });
-      await ops.decideReplay(companyA, checker, request.id, 'APPROVE', 'Journal verified');
+      await expect(
+        ops.decideReplay(companyB, checker, request.id, 'APPROVE'),
+      ).rejects.toMatchObject({ status: 404 });
+      await ops.decideReplay(
+        companyA,
+        checker,
+        request.id,
+        'APPROVE',
+        'Journal verified',
+      );
       const executed = await ops.executeReplay(companyA, checker, request.id);
-      expect(executed).toMatchObject({ status: 'EXECUTED', execution_result: 'REQUEUED' });
-      expect(await event(blockedEvent.id)).toMatchObject({ status: 'PENDING', attempt_count: 0 });
+      expect(executed).toMatchObject({
+        status: 'EXECUTED',
+        execution_result: 'REQUEUED',
+      });
+      expect(await event(blockedEvent.id)).toMatchObject({
+        status: 'PENDING',
+        attempt_count: 0,
+      });
       await worker(realRegistry).processPending();
-      expect(await event(blockedEvent.id)).toMatchObject({ status: 'PUBLISHED', failure_class: null });
+      expect(await event(blockedEvent.id)).toMatchObject({
+        status: 'PUBLISHED',
+        failure_class: null,
+      });
       expect(await outcomeFor(blockedEvent.id)).toMatchObject({
         business_outcome: 'APPLIED',
         accounting_outcome: 'RECOGNIZED_BY_SOURCE_COMMAND',
@@ -543,16 +757,40 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
         ),
       ).toEqual([
         { trigger: 'WORKER', result: 'BLOCKED', replay_request_id: null },
-        { trigger: 'REPLAY', result: 'PUBLISHED', replay_request_id: request.id },
+        {
+          trigger: 'REPLAY',
+          result: 'PUBLISHED',
+          replay_request_id: request.id,
+        },
       ]);
       // The event is now final: it cannot be replayed again.
-      await expect(ops.requestReplay(companyA, maker, blockedEvent.id, 'Replay a second time')).rejects.toMatchObject({
+      await expect(
+        ops.requestReplay(
+          companyA,
+          maker,
+          blockedEvent.id,
+          'Replay a second time',
+        ),
+      ).rejects.toMatchObject({
         response: { code: 'FINANCE_EVENT_NOT_REPLAYABLE' },
       });
       // A rejected replay never re-queues.
-      const rejected = await ops.requestReplay(companyA, maker, missing.id, 'Investigate missing journal');
-      await ops.decideReplay(companyA, checker, rejected.id, 'REJECT', 'Source must be corrected first');
-      await expect(ops.executeReplay(companyA, checker, rejected.id)).rejects.toMatchObject({
+      const rejected = await ops.requestReplay(
+        companyA,
+        maker,
+        missing.id,
+        'Investigate missing journal',
+      );
+      await ops.decideReplay(
+        companyA,
+        checker,
+        rejected.id,
+        'REJECT',
+        'Source must be corrected first',
+      );
+      await expect(
+        ops.executeReplay(companyA, checker, rejected.id),
+      ).rejects.toMatchObject({
         response: { code: 'FINANCE_EVENT_REPLAY_STATE' },
       });
       expect((await event(missing.id)).status).toBe('BLOCKED');
@@ -560,42 +798,64 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
       // Duplicate replay of an already-final operation: replaying the
       // conflicting dead letter after correcting the source suppresses nothing
       // it should not, and replaying the duplicate-key row cannot re-apply.
-      await sql(ds, `UPDATE invoices SET total_amount = '1.0000' WHERE id = $1`, [inv3]);
-      const fixConflict = await ops.requestReplay(companyA, maker, conflicting.id, 'Source amount corrected');
+      await sql(
+        ds,
+        `UPDATE invoices SET total_amount = '1.0000' WHERE id = $1`,
+        [inv3],
+      );
+      const fixConflict = await ops.requestReplay(
+        companyA,
+        maker,
+        conflicting.id,
+        'Source amount corrected',
+      );
       await ops.decideReplay(companyA, checker, fixConflict.id, 'APPROVE');
       await ops.executeReplay(companyA, checker, fixConflict.id);
       await worker(realRegistry).processPending();
-      expect(await event(conflicting.id)).toMatchObject({ status: 'PUBLISHED' });
+      expect(await event(conflicting.id)).toMatchObject({
+        status: 'PUBLISHED',
+      });
       // futureVersion carries the same operation key (invoice inv3 issue).
-      await sql(ds, `UPDATE finance_outbox_events SET schema_version = 1 WHERE id = $1`, [futureVersion.id]);
-      const dupReplay = await ops.requestReplay(companyA, maker, futureVersion.id, 'Replay duplicate operation');
+      await sql(
+        ds,
+        `UPDATE finance_outbox_events SET schema_version = 1 WHERE id = $1`,
+        [futureVersion.id],
+      );
+      const dupReplay = await ops.requestReplay(
+        companyA,
+        maker,
+        futureVersion.id,
+        'Replay duplicate operation',
+      );
       await ops.decideReplay(companyA, checker, dupReplay.id, 'APPROVE');
       await ops.executeReplay(companyA, checker, dupReplay.id);
       await worker(realRegistry).processPending();
       expect(
-        await one(ds, `SELECT result FROM finance_event_attempts WHERE outbox_event_id = $1 ORDER BY id DESC LIMIT 1`, [
-          futureVersion.id,
-        ]),
+        await one(
+          ds,
+          `SELECT result FROM finance_event_attempts WHERE outbox_event_id = $1 ORDER BY id DESC LIMIT 1`,
+          [futureVersion.id],
+        ),
       ).toEqual({ result: 'DUPLICATE_SUPPRESSED' });
       expect(
-        await one(ds, `SELECT count(*)::int AS n FROM finance_event_outcomes WHERE idempotency_key = $1`, [
-          `invoice:${inv3}:issued`,
-        ]),
+        await one(
+          ds,
+          `SELECT count(*)::int AS n FROM finance_event_outcomes WHERE idempotency_key = $1`,
+          [`invoice:${inv3}:issued`],
+        ),
       ).toEqual({ n: 1 });
 
       // Immutable history.
-      await expect(sql(ds, `UPDATE finance_event_attempts SET result = 'PUBLISHED'`)).rejects.toThrow(
-        /FINANCE_EVENT_HISTORY_IMMUTABLE/,
-      );
-      await expect(sql(ds, `DELETE FROM finance_event_replay_audit`)).rejects.toThrow(
-        /FINANCE_EVENT_HISTORY_IMMUTABLE/,
-      );
+      await expect(
+        sql(ds, `UPDATE finance_event_attempts SET result = 'PUBLISHED'`),
+      ).rejects.toThrow(/FINANCE_EVENT_HISTORY_IMMUTABLE/);
+      await expect(
+        sql(ds, `DELETE FROM finance_event_replay_audit`),
+      ).rejects.toThrow(/FINANCE_EVENT_HISTORY_IMMUTABLE/);
       const detail = await ops.detail(companyA, blockedEvent.id);
-      expect(detail.replays[0].audit.map((a: { action: string }) => a.action)).toEqual([
-        'REQUESTED',
-        'APPROVED',
-        'EXECUTED',
-      ]);
+      expect(
+        detail.replays[0].audit.map((a: { action: string }) => a.action),
+      ).toEqual(['REQUESTED', 'APPROVED', 'EXECUTED']);
       expect(detail.outcomes[0].accounting_reference).toBe(inv4Journal);
 
       // -------------------------------------- 19. monitoring totals
@@ -612,30 +872,55 @@ describe('Finance event outcomes, idempotency and replay on PostgreSQL', () => {
       );
       const summary = await ops.summary(companyA);
       for (const row of expected) {
-        expect(summary.counts[row.status as keyof typeof summary.counts]).toBe(row.n);
+        expect(summary.counts[row.status as keyof typeof summary.counts]).toBe(
+          row.n,
+        );
       }
-      expect(summary.total).toBe(expected.reduce((s: number, r: { n: number }) => s + r.n, 0));
+      expect(summary.total).toBe(
+        expected.reduce((s: number, r: { n: number }) => s + r.n, 0),
+      );
       expect(summary.counts.BLOCKED).toBe(1);
-      expect(summary.alerts.map((a) => a.level)).toEqual(['critical', 'critical']);
+      expect(summary.alerts.map((a) => a.level)).toEqual([
+        'critical',
+        'critical',
+      ]);
       expect(summary.latency24h.samples).toBe(summary.counts.PUBLISHED);
       const summaryB = await ops.summary(companyB);
       expect(summaryB.total).toBe(1);
       expect(summaryB.counts.PENDING).toBe(1);
 
-      const page1 = await ops.list(companyA, { status: 'DEAD_LETTER', pageSize: 2, page: 1 });
-      const page2 = await ops.list(companyA, { status: 'DEAD_LETTER', pageSize: 2, page: 2 });
+      const page1 = await ops.list(companyA, {
+        status: 'DEAD_LETTER',
+        pageSize: 2,
+        page: 1,
+      });
+      const page2 = await ops.list(companyA, {
+        status: 'DEAD_LETTER',
+        pageSize: 2,
+        page: 2,
+      });
       expect(page1.total).toBe(summary.counts.DEAD_LETTER);
       expect(page1.items).toHaveLength(2);
-      expect(new Set([...page1.items, ...page2.items].map((i: { id: string }) => i.id)).size).toBe(
-        Math.min(4, summary.counts.DEAD_LETTER),
+      expect(
+        new Set(
+          [...page1.items, ...page2.items].map((i: { id: string }) => i.id),
+        ).size,
+      ).toBe(Math.min(4, summary.counts.DEAD_LETTER));
+      const published = await ops.list(companyA, {
+        status: 'PUBLISHED',
+        eventType: 'INVOICE_ISSUED',
+        pageSize: 100,
+      });
+      const traced = published.items.find(
+        (i: { id: string }) => i.id === inv1Event.id,
       );
-      const published = await ops.list(companyA, { status: 'PUBLISHED', eventType: 'INVOICE_ISSUED', pageSize: 100 });
-      const traced = published.items.find((i: { id: string }) => i.id === inv1Event.id);
       expect(traced).toMatchObject({
         accounting_outcome: 'RECOGNIZED_BY_SOURCE_COMMAND',
         accounting_reference: inv1Journal,
       });
-      await expect(ops.list(companyA, { status: 'NOT_A_STATUS' })).rejects.toMatchObject({ status: 400 });
+      await expect(
+        ops.list(companyA, { status: 'NOT_A_STATUS' }),
+      ).rejects.toMatchObject({ status: 400 });
       await producerDs.destroy();
     });
   }, 180_000);

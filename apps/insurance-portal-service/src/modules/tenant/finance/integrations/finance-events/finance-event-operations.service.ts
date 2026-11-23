@@ -183,7 +183,11 @@ export class FinanceEventOperationsService {
   }
 
   async detail(companyId: string, eventId: string) {
-    const event = await this.findEvent(this.dataSource.manager, companyId, eventId);
+    const event = await this.findEvent(
+      this.dataSource.manager,
+      companyId,
+      eventId,
+    );
     const [outcomes, attempts, replays] = await Promise.all([
       this.dataSource.query(
         `SELECT * FROM finance_event_outcomes
@@ -248,7 +252,8 @@ export class FinanceEventOperationsService {
       if (!this.contracts.get(event.event_type)) {
         throw new ConflictException({
           code: 'FINANCE_EVENT_NOT_REPLAYABLE',
-          message: 'This event type has no supported consumer; replay would dead-letter again.',
+          message:
+            'This event type has no supported consumer; replay would dead-letter again.',
         });
       }
       try {
@@ -295,7 +300,8 @@ export class FinanceEventOperationsService {
       if (request.requested_by === userId) {
         throw new ForbiddenException({
           code: 'FINANCE_EVENT_REPLAY_SELF_APPROVAL',
-          message: 'A replay must be decided by someone other than the requester.',
+          message:
+            'A replay must be decided by someone other than the requester.',
         });
       }
       const status = decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
@@ -308,7 +314,9 @@ export class FinanceEventOperationsService {
           [requestId, companyId, status, userId, note?.trim() || null],
         ),
       );
-      await this.audit(manager, updated, status, userId, { note: note ?? null });
+      await this.audit(manager, updated, status, userId, {
+        note: note ?? null,
+      });
       return updated;
     });
   }

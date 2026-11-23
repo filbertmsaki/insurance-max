@@ -118,7 +118,7 @@ const processor = (
     // The recording consumer stands in for the quotation projection.
     new FinanceEventContractRegistry(consumer as never, {
       requireEligible: async () => undefined,
-    } as never),
+    }),
   ) as any;
 
 describe('Finance outbox claim fencing on PostgreSQL', () => {
@@ -319,7 +319,6 @@ describe('Finance outbox claim fencing on PostgreSQL', () => {
         last_error: 'FINANCE_OUTBOX_COMPANY_SCOPE_MISMATCH',
       });
       expect(await sideEffects(ds, foreign.eventId)).toBe(0);
-
     });
   }, 120_000);
 });

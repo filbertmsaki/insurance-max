@@ -149,7 +149,7 @@ describe('FinanceJournalService legacy characterization (B02)', () => {
             taxBreakdownStatus: 'UNRESOLVED',
             unresolvedTaxSourceAmount: '110.00',
           },
-        } as Invoice,
+        },
         'unresolved-event',
         'actor-a',
       ),

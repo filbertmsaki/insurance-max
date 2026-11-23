@@ -88,8 +88,7 @@ export interface FinanceEventContract {
   consume(event: OutboxEventRow, manager: EntityManager): Promise<EventOutcome>;
 }
 
-const UUID =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function requireUuid(value: unknown, field: string): string {
   if (typeof value !== 'string' || !UUID.test(value)) {
@@ -104,7 +103,9 @@ function requireUuid(value: unknown, field: string): string {
 function sameAmount(a: unknown, b: unknown): boolean {
   const x = Number(a);
   const y = Number(b);
-  return Number.isFinite(x) && Number.isFinite(y) && x.toFixed(4) === y.toFixed(4);
+  return (
+    Number.isFinite(x) && Number.isFinite(y) && x.toFixed(4) === y.toFixed(4)
+  );
 }
 
 @Injectable()
@@ -244,7 +245,9 @@ export class FinanceEventContractRegistry {
             'FINANCE_EVENT_SOURCE_NOT_FOUND: commission accrual not found in event company',
           );
         }
-        if (!sameAmount(event.payload.commissionAmount, accrual.commission_amount)) {
+        if (
+          !sameAmount(event.payload.commissionAmount, accrual.commission_amount)
+        ) {
           throw new PermanentEventError(
             'OUTCOME_CONFLICT',
             'FINANCE_EVENT_SOURCE_CONFLICT: event commission amount differs from the accrual',
@@ -306,11 +309,14 @@ export class FinanceEventContractRegistry {
         return {
           sourceType: 'QUOTATION',
           sourceId:
-            typeof payload.quotationId === 'string' && UUID.test(payload.quotationId)
+            typeof payload.quotationId === 'string' &&
+            UUID.test(payload.quotationId)
               ? payload.quotationId
               : event.aggregate_id,
           sourceRevision:
-            payload.workflowRevision == null ? null : String(payload.workflowRevision),
+            payload.workflowRevision == null
+              ? null
+              : String(payload.workflowRevision),
           operation: `QUOTATION_${payload.eventType ?? 'PAYMENT'}`.slice(0, 60),
           // apply() returns null when the event is stale or carries no state.
           businessOutcome: result ? 'APPLIED' : 'NO_CHANGE',
@@ -369,7 +375,11 @@ export class FinanceEventContractRegistry {
       currency: string;
       base: Pick<
         EventOutcome,
-        'sourceType' | 'sourceId' | 'sourceRevision' | 'operation' | 'businessReference'
+        | 'sourceType'
+        | 'sourceId'
+        | 'sourceRevision'
+        | 'operation'
+        | 'businessReference'
       >;
     },
   ): Promise<EventOutcome> {

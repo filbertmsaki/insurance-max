@@ -72,7 +72,7 @@ export class FinanceDashboardService {
   }
 
   async summary(companyId: string): Promise<FinanceDashboardSummary> {
-    const rows = (await this.dataSource.query(
+    const rows = await this.dataSource.query(
       `SELECT 'invoice' AS kind, currency, COUNT(*)::text AS record_count,
               COALESCE(SUM(balance_amount), 0)::text AS amount
          FROM invoices
@@ -94,12 +94,12 @@ export class FinanceDashboardService {
         WHERE company_id = $1 AND status = 'PAID'
         GROUP BY currency_code`,
       [companyId],
-    )) as AggregateRow[];
-    const [journalRow] = (await this.dataSource.query(
+    );
+    const [journalRow] = await this.dataSource.query(
       `SELECT COUNT(*)::text AS record_count
          FROM finance_journal_entries WHERE company_id = $1`,
       [companyId],
-    )) as Array<{ record_count: string }>;
+    );
 
     const group = (kind: AggregateRow['kind']): FinanceDashboardAmount[] =>
       rows
