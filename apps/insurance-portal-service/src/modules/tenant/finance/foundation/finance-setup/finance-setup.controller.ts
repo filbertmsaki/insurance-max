@@ -7,6 +7,8 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Patch,
+  Delete,
   Query,
   Res,
   StreamableFile,
@@ -24,6 +26,7 @@ import type { FinanceBookSelection } from '../finance-configuration/finance-scop
 import { setupObject, setupUuid } from './finance-setup.types';
 import { FinanceSetupEvidenceService } from './finance-setup-evidence.service';
 import { FinancePortalIdentityService } from './finance-portal-identity.service';
+import { FinanceBookManagementService } from './finance-book-management.service';
 
 @Controller('tenant/finance/setup')
 @TenantScoped()
@@ -34,6 +37,7 @@ export class FinanceSetupController {
     private readonly configuration: FinanceSetupConfigurationService,
     private readonly evidence: FinanceSetupEvidenceService,
     private readonly identity: FinancePortalIdentityService,
+    private readonly books: FinanceBookManagementService,
   ) {}
   private scope(value: unknown): FinanceBookSelection {
     return this.identity.scope(value);
@@ -48,6 +52,24 @@ export class FinanceSetupController {
   }
   private actor(user: AuthenticatedUser, scope: FinanceBookSelection) {
     return this.identity.actor(user, scope);
+  }
+  @Post('books')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  createBook(@CurrentUser() user: AuthenticatedUser, @Body() value: unknown) {
+    const b = this.body(value, ['bookCode']);
+    return this.books.create(user, b.scope, b.bookCode);
+  }
+  @Patch('books')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  renameBook(@CurrentUser() user: AuthenticatedUser, @Body() value: unknown) {
+    const b = this.body(value, ['bookCode']);
+    return this.books.rename(user, b.scope, b.bookCode);
+  }
+  @Delete('books')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  removeBook(@CurrentUser() user: AuthenticatedUser, @Body() value: unknown) {
+    const b = this.body(value, []);
+    return this.books.remove(user, b.scope);
   }
   @Get()
   @Permissions(FinancePermissions.FOUNDATION_READ)

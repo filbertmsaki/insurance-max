@@ -185,6 +185,12 @@ export class FinanceSetupService {
       `SELECT p.id,p.product_code,p.product_name,p.business_line,p.supports_fleet,p.is_active,p.lifecycle_status,p.current_version_id,v.status AS version_status,v.effective_from::text,v.effective_to::text FROM insurance_products p LEFT JOIN insurance_product_versions v ON v.id=p.current_version_id AND v.company_id=p.company_id AND v.product_id=p.id WHERE p.company_id=$1 AND p.deleted_at IS NULL ORDER BY p.id FOR SHARE OF p`,
       [actor.sourceCompanyId],
     );
+    // Presentation metadata is kept outside products: G04-01 hashes the
+    // original product snapshot, so adding fields there would stale old reviews.
+    const productCategories = await m.query(
+      `SELECT p.id AS product_id,c.id AS category_id,c.name AS category_name FROM insurance_products p LEFT JOIN insurance_categories c ON c.id=p.category_id AND c.company_id=p.company_id AND c.deleted_at IS NULL WHERE p.company_id=$1 AND p.deleted_at IS NULL ORDER BY p.id`,
+      [actor.sourceCompanyId],
+    );
     const accounts = await m.query(
       `SELECT id,account_code,account_name,account_type,is_active,is_control_account FROM finance_accounts WHERE company_id=$1 ORDER BY id FOR SHARE`,
       [actor.sourceCompanyId],
@@ -218,6 +224,7 @@ export class FinanceSetupService {
       company,
       legalIdentifiers: setupLegalIdentifiers(company, book.jurisdiction_code),
       products,
+      productCategories,
       accounts,
       sourceMaps: sourceMaps.map((map: any) => ({
         ...map,

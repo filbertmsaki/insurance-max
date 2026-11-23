@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import type { SetupOverview } from './api';
+import type { SetupEvidence, SetupOverview } from './api';
+import type { FoundationScope } from '../foundation/api';
+import { ProductScopeSelector } from './ProductScopeSelector';
+import { EvidenceUpload } from './EvidenceUpload';
 
 type Values = Record<string, unknown>;
 type FieldSpec = {
@@ -167,6 +170,79 @@ function Rows({
     </fieldset>
   );
 }
+function MonthlyPeriodGenerator({
+  fiscalYearEnd,
+  hasPeriods,
+  disabled,
+  generate,
+}: {
+  fiscalYearEnd: unknown;
+  hasPeriods: boolean;
+  disabled: boolean;
+  generate: (periods: Values[]) => void;
+}) {
+  const [year, setYear] = useState('');
+  const match =
+    typeof fiscalYearEnd === 'string'
+      ? /^(\d{2})-(\d{2})$/.exec(fiscalYearEnd)
+      : null;
+  const endYear = Number(year);
+  const month = match ? Number(match[1]) : 0;
+  const day = match ? Number(match[2]) : 0;
+  const valid =
+    /^\d{4}$/.test(year) &&
+    endYear >= 1901 &&
+    endYear <= 9998 &&
+    month >= 1 &&
+    month <= 12 &&
+    day === new Date(Date.UTC(endYear, month, 0)).getUTCDate();
+  const date = (value: Date) => value.toISOString().slice(0, 10);
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <p className="text-sm font-semibold">Generate monthly periods</p>
+      <p className="text-sm text-slate-600">
+        Enter the year in which the financial year ends. Monthly generation
+        requires a month-end year-end and will not replace existing periods.
+      </p>
+      <label className="block text-sm font-medium">
+        Financial year ending in
+        <input
+          className={inputClass}
+          type="number"
+          min="1901"
+          max="9998"
+          value={year}
+          disabled={disabled}
+          onChange={(event) => setYear(event.target.value)}
+        />
+      </label>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={disabled || hasPeriods || !valid}
+        onClick={() => {
+          const periods = Array.from({ length: 12 }, (_, index) => {
+            const from = new Date(Date.UTC(endYear - 1, month + index, 1));
+            const to = new Date(Date.UTC(endYear - 1, month + index + 1, 1));
+            return {
+              code: date(from).slice(0, 7),
+              from: date(from),
+              to: date(to),
+            };
+          });
+          generate(periods);
+        }}
+      >
+        Generate 12 monthly periods
+      </Button>
+      {hasPeriods && (
+        <p className="text-sm text-slate-600">
+          Remove existing periods first if you want to generate a new set.
+        </p>
+      )}
+    </div>
+  );
+}
 function DecisionFields({
   kind,
   overview,
@@ -322,12 +398,22 @@ export function SetupFields({
   change,
   overview,
   disabled,
+  evidence,
+  changeWithEvidence,
+  scope,
+  identity,
+  canUploadEvidence,
 }: {
   step: string;
   answers: Values;
   change: (a: Values) => void;
   overview: SetupOverview;
   disabled: boolean;
+  evidence: SetupEvidence[];
+  changeWithEvidence: (a: Values, evidence: SetupEvidence[]) => void;
+  scope: FoundationScope;
+  identity: string[];
+  canUploadEvidence: boolean;
 }) {
   const a = answers,
     set = (key: string, v: unknown) => change({ ...a, [key]: v });
@@ -380,67 +466,104 @@ export function SetupFields({
       </label>
     );
   };
-  const evidenceChoice = (key: string, title: string) => (
-    <label className="block text-sm font-medium">
-      {title}
-      <select
-        className={inputClass}
-        disabled={disabled}
-        value={typeof a[key] === 'string' ? String(a[key]) : ''}
-        onChange={(e) => set(key, e.target.value || null)}
-      >
-        <option value="">Select the exact evidence version…</option>
-        {overview.inventory.documents
-          .filter(
-            (d) => d.status === 'AVAILABLE' && d.version_status === 'AVAILABLE',
-          )
-          .map((d) => (
-            <option key={d.version_id} value={d.sha256_hash}>
-              {d.title ?? 'Document'} / version {d.version_number}
+  const evidenceChoice = (key: string, title: string) => {
+    const documents = overview.inventory.documents.filter(
+      (d) => d.status === 'AVAILABLE' && d.version_status === 'AVAILABLE',
+    );
+    const purpose =
+      key === 'populationEvidenceHash' ? 'POPULATION' : 'RECONCILIATION';
+    const selectedEvidence = [...evidence]
+      .reverse()
+      .find((e) => e.purpose === purpose && e.hash === a[key]);
+    const selectedDocument =
+      documents.find(
+        (d) =>
+          d.version_id === selectedEvidence?.id && d.sha256_hash === a[key],
+      ) ?? documents.find((d) => d.sha256_hash === a[key]);
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium">
+          {title}
+          <select
+            className={inputClass}
+            disabled={disabled || !documents.length}
+            value={selectedDocument?.version_id ?? ''}
+            onChange={(event) => {
+              const doc = documents.find(
+                (d) => d.version_id === event.target.value,
+              );
+              const next = doc
+                ? [
+                    ...evidence.filter(
+                      (e) => e.id !== doc.version_id || e.purpose !== purpose,
+                    ),
+                    {
+                      id: doc.version_id,
+                      documentId: doc.id,
+                      hash: doc.sha256_hash,
+                      purpose,
+                    },
+                  ]
+                : evidence;
+              changeWithEvidence(
+                { ...a, [key]: doc?.sha256_hash ?? null },
+                next,
+              );
+            }}
+          >
+            <option value="">
+              {documents.length
+                ? 'Select an evidence document…'
+                : 'No evidence documents available'}
             </option>
-          ))}
-      </select>
-    </label>
-  );
+            {documents.map((doc) => (
+              <option key={doc.version_id} value={doc.version_id}>
+                {doc.title ?? 'Document'} / version {doc.version_number}
+              </option>
+            ))}
+          </select>
+        </label>
+        {typeof a[key] === 'string' && a[key] && !selectedDocument && (
+          <p className="text-sm text-amber-800">
+            The previously selected evidence is no longer available. Upload or
+            select a current document.
+          </p>
+        )}
+        {!documents.length && (
+          <p className="text-sm text-amber-800">
+            No available supporting documents for this company or book. Upload
+            the reconciliation evidence to make it available here.
+          </p>
+        )}
+        {!disabled && (
+          <EvidenceUpload
+            scope={scope}
+            identity={identity}
+            canUpload={canUploadEvidence}
+          />
+        )}
+      </div>
+    );
+  };
   return (
     <div className="space-y-4">
       {step === 'G04-01' && (
         <>
           {f('jurisdictionCode', 'Legal jurisdiction code')}
           {f('legalScopeReason', 'Legal entity and product perimeter', 'long')}
-          <fieldset className="rounded border p-3">
-            <legend>Products in scope</legend>
-            {overview.inventory.products.map((p) => (
-              <label key={p.id} className="my-2 flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  disabled={disabled}
-                  checked={
-                    Array.isArray(a.productIds) && a.productIds.includes(p.id)
-                  }
-                  onChange={(e) =>
-                    set(
-                      'productIds',
-                      e.target.checked
-                        ? [
-                            ...(Array.isArray(a.productIds)
-                              ? a.productIds
-                              : []),
-                            p.id,
-                          ]
-                        : (Array.isArray(a.productIds)
-                            ? a.productIds
-                            : []
-                          ).filter((x) => x !== p.id),
-                    )
-                  }
-                />
-                <span>
-                  {p.product_code} — {p.product_name} ({p.lifecycle_status})
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <ProductScopeSelector
+            products={overview.inventory.products}
+            categories={overview.inventory.productCategories}
+            selected={
+              Array.isArray(a.productIds)
+                ? a.productIds.filter(
+                    (id): id is string => typeof id === 'string',
+                  )
+                : []
+            }
+            onChange={(ids) => set('productIds', ids)}
+            disabled={disabled}
+          />
         </>
       )}
       {step === 'G04-02' && (
@@ -548,6 +671,12 @@ export function SetupFields({
           {f('timezone', 'Accounting timezone')}
           {f('closeProcedure', 'Period-close procedure', 'long')}
           {f('reopeningProcedure', 'Independent reopening procedure', 'long')}
+          <MonthlyPeriodGenerator
+            fiscalYearEnd={a.fiscalYearEnd}
+            hasPeriods={Array.isArray(a.periods) && a.periods.length > 0}
+            disabled={disabled}
+            generate={(periods) => set('periods', periods)}
+          />
           <Rows
             label="Financial periods"
             value={a.periods}

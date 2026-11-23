@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import type { SetupOverview } from './api';
 import { chartDraftIssue } from './chartDraftValidation';
+import { ChartCsvImport } from './ChartCsvImport';
+import { ChartHierarchyPreview } from './ChartHierarchyPreview';
 
 type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE';
 type Account = {
@@ -392,6 +394,25 @@ export function ChartDraftEditor({
             />
           </label>
         </div>
+        <div className="rounded-md border p-4" aria-label="Draft chart summary">
+          <p className="font-semibold">Draft chart summary</p>
+          <p className="mt-1 text-sm">
+            {accounts.length} accounts ·{' '}
+            {accounts.filter((account) => account.posting).length} posting ·{' '}
+            {accounts.filter((account) => !account.posting).length} headings ·{' '}
+            {accounts.filter((account) => account.control).length} control
+            accounts
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            These figures describe the current proposal; they do not indicate
+            that a chart is active.
+          </p>
+        </div>
+        <ChartCsvImport
+          existing={accounts}
+          onAdd={(rows) => setAccounts((current) => [...current, ...rows])}
+        />
+        <ChartHierarchyPreview accounts={accounts} />
         <fieldset className="space-y-3 rounded border p-3">
           <legend>Accounts</legend>
           {accounts.map((a, i) => (
@@ -420,9 +441,19 @@ export function ChartDraftEditor({
                 <select
                   className={cls}
                   value={a.type}
-                  onChange={(e) =>
-                    updateAccount(i, { type: e.target.value as AccountType })
-                  }
+                  onChange={(e) => {
+                    const type = e.target.value as AccountType | '';
+                    updateAccount(i, {
+                      type,
+                      normalBalance:
+                        a.normalBalance ||
+                        (type === 'ASSET' || type === 'EXPENSE'
+                          ? 'DR'
+                          : type
+                            ? 'CR'
+                            : ''),
+                    });
+                  }}
                 >
                   <option value="">Choose…</option>
                   {types.map((type) => (
@@ -430,22 +461,28 @@ export function ChartDraftEditor({
                   ))}
                 </select>
               </label>
-              <label>
-                Normal balance
-                <select
-                  className={cls}
-                  value={a.normalBalance}
-                  onChange={(e) =>
-                    updateAccount(i, {
-                      normalBalance: e.target.value as 'DR' | 'CR',
-                    })
-                  }
-                >
-                  <option value="">Choose…</option>
-                  <option>DR</option>
-                  <option>CR</option>
-                </select>
-              </label>
+              <div>
+                <label>
+                  Normal balance
+                  <select
+                    className={cls}
+                    aria-describedby={`balance-help-${i}`}
+                    value={a.normalBalance}
+                    onChange={(e) =>
+                      updateAccount(i, {
+                        normalBalance: e.target.value as 'DR' | 'CR',
+                      })
+                    }
+                  >
+                    <option value="">Choose…</option>
+                    <option>DR</option>
+                    <option>CR</option>
+                  </select>
+                </label>
+                <p id={`balance-help-${i}`} className="text-xs text-slate-600">
+                  A common default is suggested; change it for contra accounts.
+                </p>
+              </div>
               <label>
                 Parent account code
                 <input

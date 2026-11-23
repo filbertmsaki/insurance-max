@@ -4,6 +4,26 @@ import { ChartDraftEditor } from '../ChartDraftEditor';
 import { makeOverview, uuid } from './fixtures';
 
 describe('Chart draft editor', () => {
+  it('shows a draft summary and suggests an editable normal balance', () => {
+    render(<ChartDraftEditor overview={makeOverview()} submit={vi.fn()} />);
+    fireEvent.click(screen.getByText('Prepare chart of accounts'));
+    expect(screen.getByLabelText('Draft chart summary')).toHaveTextContent(
+      '0 accounts',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add account' }));
+    fireEvent.change(screen.getByLabelText('Account type'), {
+      target: { value: 'ASSET' },
+    });
+    expect(screen.getByLabelText('Normal balance')).toHaveValue('DR');
+    fireEvent.change(screen.getByLabelText('Normal balance'), {
+      target: { value: 'CR' },
+    });
+    expect(screen.getByLabelText('Normal balance')).toHaveValue('CR');
+    fireEvent.click(screen.getByLabelText('Posting account'));
+    expect(screen.getByLabelText('Draft chart summary')).toHaveTextContent(
+      '1 posting',
+    );
+  });
   it('does not apply a predecessor response after the selected version changes', async () => {
     const overview = makeOverview();
     overview.inventory.configurations = [9, 10].map((n) => ({
@@ -74,43 +94,41 @@ describe('Chart draft editor', () => {
       effective_to: null,
     };
     overview.inventory.configurations = [previous];
-    const load = vi
-      .fn()
-      .mockResolvedValue({
-        payload: {
-          schema: 'FINANCE_CHART_SNAPSHOT_V1',
-          proposal: {
-            schema: 'FINANCE_CHART_V1',
-            chartCode: 'EXISTING',
-            supportedProfiles: ['INSURER'],
-            accounts: [
-              {
-                code: '1100',
-                name: 'Cash',
-                type: 'ASSET',
-                normalBalance: 'DR',
-                posting: true,
-                control: false,
-                parentCode: null,
-              },
-            ],
-            roles: [
-              {
-                code: 'BANK',
-                accountCode: '1100',
-                accountType: 'ASSET',
-                requiredDimensions: ['BOOK'],
-                dependencyRefs: ['DEC-01'],
-              },
-            ],
-            legacy: {
-              mode: 'SCOPED_INVENTORY',
-              sourceMapId: uuid(10),
-              dispositions: [],
+    const load = vi.fn().mockResolvedValue({
+      payload: {
+        schema: 'FINANCE_CHART_SNAPSHOT_V1',
+        proposal: {
+          schema: 'FINANCE_CHART_V1',
+          chartCode: 'EXISTING',
+          supportedProfiles: ['INSURER'],
+          accounts: [
+            {
+              code: '1100',
+              name: 'Cash',
+              type: 'ASSET',
+              normalBalance: 'DR',
+              posting: true,
+              control: false,
+              parentCode: null,
             },
+          ],
+          roles: [
+            {
+              code: 'BANK',
+              accountCode: '1100',
+              accountType: 'ASSET',
+              requiredDimensions: ['BOOK'],
+              dependencyRefs: ['DEC-01'],
+            },
+          ],
+          legacy: {
+            mode: 'SCOPED_INVENTORY',
+            sourceMapId: uuid(10),
+            dispositions: [],
           },
         },
-      });
+      },
+    });
     render(
       <ChartDraftEditor
         overview={overview}

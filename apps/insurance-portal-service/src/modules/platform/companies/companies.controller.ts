@@ -155,7 +155,7 @@ export class CompaniesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateCompanyDto,
   ) {
-    return this.companiesService.updateCompany(user.companyId!, dto);
+    return this.companiesService.updateCompany(user.companyId!, dto, user);
   }
 
   @Get('my/number-format')

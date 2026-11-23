@@ -9,6 +9,22 @@ const get = vi.mocked(apiClient.get),
   post = vi.mocked(apiClient.post);
 beforeEach(() => vi.resetAllMocks());
 describe('Exact setup book and version adapter', () => {
+  it('preserves product category information in the scoped overview', async () => {
+    const data = makeOverview();
+    const category = {
+      product_id: uuid(51),
+      category_id: uuid(52),
+      category_name: 'Motor',
+    };
+    get.mockResolvedValueOnce({
+      data: {
+        ...data,
+        inventory: { ...data.inventory, productCategories: [category] },
+      },
+    });
+    const overview = await setupApi.overview(scope);
+    expect(overview.inventory.productCategories).toEqual([category]);
+  });
   it('rejects allocation evidence from another book or with posting enabled', async () => {
     const preview = {
       id: uuid(80),

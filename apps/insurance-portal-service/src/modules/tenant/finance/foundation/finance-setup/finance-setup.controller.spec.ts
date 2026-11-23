@@ -25,6 +25,7 @@ describe('Finance setup API authority boundaries', () => {
     configuration as any,
     {} as any,
     new FinancePortalIdentityService(setup as any, ledger as any),
+    {} as any,
   );
   beforeEach(() => jest.clearAllMocks());
   it.each(['ACTIVATE', 'DEACTIVATE', 'RELEASE', 'DEPLOY'])(

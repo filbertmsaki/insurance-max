@@ -7,6 +7,7 @@ import { FinanceSetupService } from './finance-setup.service';
 import { FinanceSetupConfigurationService } from './finance-setup-configuration.service';
 import { FinanceSetupEvidenceService } from './finance-setup-evidence.service';
 import { FinancePortalIdentityService } from './finance-portal-identity.service';
+import { FinanceBookManagementService } from './finance-book-management.service';
 
 @Module({
   imports: [AuditModule, InsuranceDocumentsModule, FinanceFoundationModule],
@@ -16,6 +17,7 @@ import { FinancePortalIdentityService } from './finance-portal-identity.service'
     FinanceSetupConfigurationService,
     FinanceSetupEvidenceService,
     FinancePortalIdentityService,
+    FinanceBookManagementService,
   ],
   exports: [FinancePortalIdentityService],
 })

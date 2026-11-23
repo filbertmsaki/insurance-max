@@ -2022,9 +2022,57 @@ export class CompaniesService {
     return company;
   }
 
-  async updateCompany(id: string, dto: UpdateCompanyDto): Promise<Company> {
+  async updateCompany(
+    id: string,
+    dto: UpdateCompanyDto,
+    actor?: AuthenticatedUser,
+  ): Promise<Company> {
+    if (actor) {
+      if (actor.companyId !== id || actor.scope !== 'company') {
+        throw new ForbiddenException('A current company session is required.');
+      }
+      return this.companyRepository.manager.transaction(async (manager) => {
+        const repo = manager.getRepository(Company);
+        const company = await repo.findOne({
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!company) throw new NotFoundException('Company not found');
+        const keys = Object.keys(dto);
+        if (dto.name !== undefined) keys.push('slug');
+        const snapshot = (row: Company) =>
+          Object.fromEntries(
+            keys.map((key) => [
+              key,
+              (row as unknown as Record<string, unknown>)[key] ?? null,
+            ]),
+          );
+        const before = snapshot(company);
+        await this.applyCompanyUpdate(company, dto);
+        const saved = await repo.save(company);
+        await this.auditService.logCritical(
+          {
+            userId: actor.id,
+            companyId: id,
+            companyMembershipId: actor.companyMembershipId ?? null,
+            action: 'company.profile.updated',
+            eventCategory: 'company_settings',
+            resource: 'company',
+            resourceId: id,
+            beforeState: before,
+            afterState: snapshot(saved),
+          },
+          manager,
+        );
+        return saved;
+      });
+    }
     const company = await this.findCompanyById(id);
+    await this.applyCompanyUpdate(company, dto);
+    return this.companyRepository.save(company);
+  }
 
+  private async applyCompanyUpdate(company: Company, dto: UpdateCompanyDto) {
     if (dto.name !== undefined) {
       const normalizedName = dto.name.trim();
       if (!normalizedName) {
@@ -2049,8 +2097,6 @@ export class CompaniesService {
         ...(settings ?? {}),
       };
     }
-
-    return this.companyRepository.save(company);
   }
 
   async getNumberFormatSettings(

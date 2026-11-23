@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   foundationReadApi,
@@ -25,6 +26,8 @@ import {
 } from './api';
 import { SetupFields, SetupField } from './SetupFields';
 import { ChartDraftEditor } from './ChartDraftEditor';
+import { BookManagement } from './BookManagement';
+import { CompanyLegalRecords } from './CompanyLegalRecords';
 import { AllocationReview } from './AllocationReview';
 
 const readOptions = {
@@ -39,6 +42,24 @@ const control =
   'w-full rounded-md border border-slate-300 bg-white p-2 text-sm';
 const label = (s: string) =>
   s.replaceAll('_', ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
+const stepGuidance: Record<string, string> = {
+  'G04-01': 'Check your company, legal records and insurance products.',
+  'G04-02': 'Identify the people responsible for preparation and review.',
+  'G04-03': 'Choose the accounting basis and assess the currencies used.',
+  'G04-04': 'Set the financial calendar and rules for accounting periods.',
+  'G04-05': 'Identify the source systems and records used by Finance.',
+  'G04-06': 'Review the chart of accounts, account roles and dimensions.',
+  'G04-07': 'Prepare and review the required accounting configurations.',
+  'G04-08': 'Record the company’s accounting policy decisions.',
+  'G04-09': 'Review the inactive acceptance and rehearsal evidence.',
+  'G04-10': 'Check outstanding items and complete the setup review.',
+};
+const setupStages = [
+  { title: 'Company and book', steps: ['G04-01', 'G04-02'] },
+  { title: 'Accounting basics', steps: ['G04-03', 'G04-04', 'G04-05'] },
+  { title: 'Accounts and policies', steps: ['G04-06', 'G04-07', 'G04-08'] },
+  { title: 'Review and finish', steps: ['G04-09', 'G04-10'] },
+] as const;
 function ErrorBox({ error }: { error: unknown }) {
   const status = (error as { response?: { status?: number } })?.response
     ?.status;
@@ -299,6 +320,7 @@ function StepEditor({
   identity,
   permissions,
   run,
+  onEditingChange,
 }: {
   scope: FoundationScope;
   overview: SetupOverview;
@@ -306,6 +328,7 @@ function StepEditor({
   identity: string[];
   permissions: string[];
   run: (work: () => Promise<unknown>) => void;
+  onEditingChange: (editing: boolean) => void;
 }) {
   const detail = useQuery({
     ...readOptions,
@@ -358,19 +381,25 @@ function StepEditor({
         ),
     });
     setEditing(true);
+    onEditingChange(true);
   };
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {selected.id} — {selected.title}
-        </CardTitle>
+        <CardTitle>{selected.title}</CardTitle>
+        <p className="text-sm text-slate-600">
+          {stepGuidance[selected.id] ?? 'Review the details for this step.'}
+        </p>
         <div className="flex flex-wrap gap-2">
           <Badge>{selected.latest?.state ?? 'NOT PREPARED'}</Badge>
           {selected.latest && (
-            <span className="break-all text-xs">
-              Version {selected.latest.version} / {selected.latest.subjectHash}
-            </span>
+            <details className="text-xs">
+              <summary>Version details</summary>
+              <span className="break-all">
+                Version {selected.latest.version} /{' '}
+                {selected.latest.subjectHash}
+              </span>
+            </details>
           )}
         </div>
       </CardHeader>
@@ -393,7 +422,7 @@ function StepEditor({
         )}
         {preparer && !editing && (!selected.latest || detail.data) && (
           <Button onClick={start}>
-            Prepare {selected.latest ? 'next' : 'first'} version
+            {selected.latest ? 'Edit this step' : 'Start this step'}
           </Button>
         )}
         {(editing || detail.data) && (
@@ -436,6 +465,16 @@ function StepEditor({
               change={(answers) => setDraft({ ...input, answers })}
               overview={overview}
               disabled={!editing}
+              evidence={input.evidence}
+              changeWithEvidence={(answers, evidence) =>
+                setDraft({ ...input, answers, evidence })
+              }
+              scope={scope}
+              identity={identity}
+              canUploadEvidence={
+                permissions.includes('documents:upload') ||
+                permissions.includes('documents:register')
+              }
             />
             <Evidence
               scope={scope}
@@ -447,12 +486,11 @@ function StepEditor({
             {editing && (
               <>
                 <p className="text-sm text-slate-600">
-                  Saving a draft preserves missing decisions. Submission
-                  requires complete, current evidence and preceding independent
-                  reviews.
+                  Save your progress now. You can submit it for review when the
+                  required information is complete.
                 </p>
                 <label className="block text-sm font-medium">
-                  Preparation reason
+                  Reason for this change
                   <textarea
                     className={control}
                     value={reason}
@@ -466,21 +504,23 @@ function StepEditor({
                       run(async () => {
                         await setupApi.create(scope, input, reason.trim());
                         setEditing(false);
+                        onEditingChange(false);
                         setDraft(null);
                         setReason('');
                       })
                     }
                   >
-                    Save next draft
+                    Save draft
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => {
                       setEditing(false);
+                      onEditingChange(false);
                       setDraft(null);
                     }}
                   >
-                    Cancel editing
+                    Cancel
                   </Button>
                 </div>
               </>
@@ -1054,15 +1094,27 @@ function BookSetup({
   scope,
   identity,
   permissions,
+  editingStep,
+  setEditingStep,
 }: {
   scope: FoundationScope;
   identity: string[];
   permissions: string[];
+  editingStep: boolean;
+  setEditingStep: (editing: boolean) => void;
 }) {
-  const [step, setStep] = useState('G04-01'),
-    [tab, setTab] = useState<'steps' | 'configuration' | 'allocations'>(
-      'steps',
-    ),
+  const progressKey = `finance-setup-step/${identity[0]}/${identity[1]}/${scope.bookId}`;
+  const [step, setStep] = useState(() => {
+      try {
+        const saved = window.localStorage.getItem(progressKey);
+        return saved && /^G04-(0[1-9]|10)$/.test(saved) ? saved : '';
+      } catch {
+        return '';
+      }
+    }),
+    [tab, setTab] = useState<
+      'steps' | 'company' | 'configuration' | 'allocations'
+    >('steps'),
     [success, setSuccess] = useState(false);
   const client = useQueryClient(),
     key = [
@@ -1088,7 +1140,22 @@ function BookSetup({
   if (!query.data)
     return <p role="status">Checking company setup and evidence…</p>;
   const overview = query.data,
-    selected = overview.steps.find((s) => s.id === step) ?? overview.steps[0];
+    selected =
+      overview.steps.find((s) => s.id === step) ??
+      overview.steps.find((s) => !s.complete) ??
+      overview.steps[overview.steps.length - 1];
+  const selectedIndex = overview.steps.findIndex((s) => s.id === selected.id);
+  const goToStep = (id: string) => {
+    if (editingStep || mutation.isPending) return;
+    setStep(id);
+    try {
+      window.localStorage.setItem(progressKey, id);
+    } catch {
+      // Navigation remains available when browser storage is disabled.
+    }
+    setSuccess(false);
+    mutation.reset();
+  };
   const legal = overview.inventory.legalIdentifiers ?? {
     licenceNumber: overview.inventory.company.tira_license_number,
     taxIdentifier: overview.inventory.company.tin,
@@ -1112,122 +1179,327 @@ function BookSetup({
         <AlertTitle>
           {overview.completionMeaning === 'DEMONSTRATION_ONLY'
             ? 'Demonstration evidence only'
-            : 'Inactive company setup review'}
+            : 'Finance setup progress'}
         </AlertTitle>
         <AlertDescription>
-          {overview.steps.filter((s) => s.complete).length} of 10 steps have
-          current independent review. This workspace does not activate policies,
-          post transactions or authorize cutover.
+          {overview.steps.filter((s) => s.complete).length} of{' '}
+          {overview.steps.length} steps reviewed. Completing this setup does not
+          activate the book or policies.
         </AlertDescription>
       </Alert>
-      <Card>
-        <CardHeader>
-          <CardTitle>Company legal records</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <p>Company: {overview.inventory.company.name}</p>
-          <p>Licence: {legal.licenceNumber ?? 'Not supplied'}</p>
-          <p>
-            {overview.inventory.book.jurisdiction_code === 'TZ'
-              ? 'TIN'
-              : 'Tax identifier'}
-            : {legal.taxIdentifier ?? 'Not supplied'}
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          if (!editingStep && !mutation.isPending) setTab(value as typeof tab);
+        }}
+      >
+        <div className="flex flex-wrap items-end gap-3">
+          <TabsList
+            aria-label="Finance setup sections"
+            className="flex min-w-0 flex-1 flex-wrap"
+          >
+            <TabsTrigger
+              value="steps"
+              className="flex-1 whitespace-normal text-center"
+              disabled={editingStep || mutation.isPending}
+            >
+              Setup steps
+            </TabsTrigger>
+            <TabsTrigger
+              value="company"
+              className="flex-1 whitespace-normal text-center"
+              disabled={editingStep || mutation.isPending}
+            >
+              Company legal records
+            </TabsTrigger>
+            <TabsTrigger
+              value="configuration"
+              className="flex-1 whitespace-normal text-center"
+              disabled={editingStep || mutation.isPending}
+            >
+              Configurations and policies
+            </TabsTrigger>
+            <TabsTrigger
+              value="allocations"
+              className="flex-1 whitespace-normal text-center"
+              disabled={editingStep || mutation.isPending}
+            >
+              Recurring allocations
+            </TabsTrigger>
+          </TabsList>
+          <Button
+            variant="outline"
+            disabled={query.isFetching || mutation.isPending || editingStep}
+            onClick={() => void query.refetch()}
+          >
+            Refresh setup evidence
+          </Button>
+        </div>
+        <TabsContent value="company" className="rounded-md border p-4">
+          <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+            <p>Company: {overview.inventory.company.name}</p>
+            <p>Licence: {legal.licenceNumber ?? 'Not supplied'}</p>
+            <p>
+              {overview.inventory.book.jurisdiction_code === 'TZ'
+                ? 'TIN'
+                : 'Tax identifier'}
+              : {legal.taxIdentifier ?? 'Not supplied'}
+            </p>
+            <p>Registration: {legal.registrationNumber ?? 'Not supplied'}</p>
+            <p>
+              {overview.inventory.products.length} configured products;{' '}
+              {overview.inventory.accounts.length} legacy accounts.
+            </p>
+            <p>
+              System currency: {overview.inventory.company.default_currency}. A
+              functional currency assessment is separate.
+            </p>
+          </div>
+          <div className="mt-4">
+            <CompanyLegalRecords
+              company={overview.inventory.company}
+              jurisdiction={overview.inventory.book.jurisdiction_code}
+              canEdit={permissions.includes('update_company_data')}
+              locked={editingStep}
+              onEditingChange={setEditingStep}
+              refresh={() => query.refetch()}
+            />
+          </div>
+        </TabsContent>
+        {success && (
+          <p role="status" className="text-sm text-green-800">
+            The exact inactive record was saved. Review the updated evidence and
+            remaining requirements.
           </p>
-          <p>Registration: {legal.registrationNumber ?? 'Not supplied'}</p>
-          <p>
-            {overview.inventory.products.length} configured products;{' '}
-            {overview.inventory.accounts.length} legacy accounts.
-          </p>
-          <p>
-            System currency: {overview.inventory.company.default_currency}. A
-            functional currency assessment is separate.
-          </p>
-        </CardContent>
-      </Card>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={tab === 'steps' ? 'default' : 'outline'}
-          onClick={() => setTab('steps')}
-        >
-          G04 steps
-        </Button>
-        <Button
-          variant={tab === 'configuration' ? 'default' : 'outline'}
-          onClick={() => setTab('configuration')}
-        >
-          Configurations and policies
-        </Button>
-        <Button
-          variant={tab === 'allocations' ? 'default' : 'outline'}
-          onClick={() => setTab('allocations')}
-        >
-          Recurring allocations
-        </Button>
-        <Button
-          variant="outline"
-          disabled={query.isFetching || mutation.isPending}
-          onClick={() => void query.refetch()}
-        >
-          Refresh setup evidence
-        </Button>
-      </div>
-      {success && (
-        <p role="status" className="text-sm text-green-800">
-          The exact inactive record was saved. Review the updated evidence and
-          remaining requirements.
-        </p>
-      )}
-      {mutation.isError && <ErrorBox error={mutation.error} />}
-      <fieldset disabled={mutation.isPending} className="min-w-0 space-y-5">
-        {tab === 'steps' ? (
-          <>
-            <label className="block text-sm font-medium">
-              Setup step
-              <select
-                className={control}
-                value={step}
-                onChange={(e) => {
-                  setStep(e.target.value);
-                  setSuccess(false);
-                  mutation.reset();
-                }}
+        )}
+        {mutation.isError && <ErrorBox error={mutation.error} />}
+        <fieldset disabled={mutation.isPending} className="min-w-0 space-y-5">
+          <TabsContent value="steps">
+            <>
+              <nav
+                aria-label="Setup progress"
+                className="space-y-3 rounded-md border p-4"
               >
-                {overview.steps.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.id} — {s.title} /{' '}
-                    {s.complete
-                      ? 'Reviewed'
-                      : (s.latest?.state ?? 'Not prepared')}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <StepEditor
-              key={selected.id}
+                <p className="text-sm font-medium">
+                  Choose a stage, then open a task to review or edit it.
+                </p>
+                <progress
+                  className="w-full"
+                  value={overview.steps.filter((s) => s.complete).length}
+                  max={overview.steps.length}
+                  aria-label="Reviewed setup steps"
+                />
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {setupStages.map((stage, index) => {
+                    const tasks = overview.steps.filter((item) =>
+                      (stage.steps as readonly string[]).includes(item.id),
+                    );
+                    const active = (stage.steps as readonly string[]).includes(
+                      selected.id,
+                    );
+                    return (
+                      <button
+                        key={stage.title}
+                        type="button"
+                        disabled={editingStep || mutation.isPending}
+                        aria-current={active ? 'true' : undefined}
+                        onClick={() => {
+                          const next =
+                            tasks.find((item) => !item.complete) ?? tasks[0];
+                          if (next) goToStep(next.id);
+                        }}
+                        className={`rounded-md border p-3 text-left disabled:opacity-50 ${active ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                      >
+                        <span className="block font-semibold">
+                          {index + 1}. {stage.title}
+                        </span>
+                        <span className="text-xs text-slate-600">
+                          {tasks.filter((item) => item.complete).length} of{' '}
+                          {tasks.length} reviewed
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <ol
+                  className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3"
+                  aria-label="Tasks in this stage"
+                >
+                  {overview.steps.map((item, index) => {
+                    const stage = setupStages.find((group) =>
+                      (group.steps as readonly string[]).includes(selected.id),
+                    );
+                    if (
+                      !stage ||
+                      !(stage.steps as readonly string[]).includes(item.id)
+                    )
+                      return null;
+                    return (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          disabled={editingStep || mutation.isPending}
+                          aria-current={
+                            item.id === selected.id ? 'step' : undefined
+                          }
+                          onClick={() => goToStep(item.id)}
+                          className={`flex h-full w-full flex-col items-start gap-1 rounded-md border px-3 py-2 text-left text-sm disabled:opacity-50 ${item.id === selected.id ? 'border-blue-600 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                        >
+                          <span className="font-semibold">
+                            {index + 1}. {item.title}
+                          </span>
+                          <span className="text-xs text-slate-600">
+                            {item.complete
+                              ? 'Reviewed'
+                              : item.latest?.state === 'SUBMITTED'
+                                ? 'Awaiting review'
+                                : item.latest?.state === 'REJECTED'
+                                  ? 'Changes requested'
+                                  : item.latest?.state === 'DRAFT'
+                                    ? 'Draft saved'
+                                    : item.latest?.state === 'REVIEWED_INACTIVE'
+                                      ? 'Needs attention'
+                                      : 'Not started'}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {editingStep && (
+                  <p className="text-sm">
+                    Save or cancel your changes before changing steps.
+                  </p>
+                )}
+              </nav>
+              {selectedIndex === overview.steps.length - 1 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Setup review summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm">
+                      This summary covers inactive setup review. Completing it
+                      does not activate the book or accounting policies.
+                    </p>
+                    {overview.steps.map((item, index) => (
+                      <div key={item.id} className="rounded border p-3">
+                        <button
+                          type="button"
+                          className="text-left font-semibold text-blue-700 underline"
+                          disabled={editingStep || mutation.isPending}
+                          onClick={() => goToStep(item.id)}
+                        >
+                          {index + 1}. {item.title}
+                        </button>
+                        <p className="text-sm">
+                          {item.complete
+                            ? 'Reviewed'
+                            : item.latest?.state === 'SUBMITTED'
+                              ? 'Awaiting review'
+                              : item.latest?.state === 'DRAFT'
+                                ? 'Draft saved'
+                                : 'Not complete'}
+                        </p>
+                        {item.issues.length > 0 && (
+                          <ul className="list-disc pl-5 text-sm">
+                            {item.issues.map((issue, i) => (
+                              <li key={i}>{issue}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+              <StepEditor
+                key={selected.id}
+                scope={scope}
+                overview={overview}
+                selected={selected}
+                identity={identity}
+                permissions={permissions}
+                run={run}
+                onEditingChange={(editing) => {
+                  if (editing) setStep(selected.id);
+                  setEditingStep(editing);
+                }}
+              />
+              {selected.id === 'G04-01' && (
+                <div className="rounded-md border p-4">
+                  <p className="mb-2 text-sm">
+                    Review or update the company’s legal details and documents.
+                  </p>
+                  <Button
+                    variant="outline"
+                    disabled={editingStep || mutation.isPending}
+                    onClick={() => setTab('company')}
+                  >
+                    Open company legal records
+                  </Button>
+                </div>
+              )}
+              {['G04-06', 'G04-08'].includes(selected.id) && (
+                <div className="rounded-md border p-4">
+                  <p className="mb-2 text-sm">
+                    {selected.id === 'G04-06'
+                      ? 'Prepare account roles and chart versions in the existing configuration workspace.'
+                      : 'Prepare and review accounting policies in the existing configuration workspace.'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    disabled={editingStep || mutation.isPending}
+                    onClick={() => setTab('configuration')}
+                  >
+                    {selected.id === 'G04-06'
+                      ? 'Open chart configuration'
+                      : 'Open accounting policies'}
+                  </Button>
+                </div>
+              )}
+              <div className="flex flex-wrap justify-between gap-2">
+                <Button
+                  variant="outline"
+                  disabled={
+                    editingStep || mutation.isPending || selectedIndex <= 0
+                  }
+                  onClick={() => goToStep(overview.steps[selectedIndex - 1].id)}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={
+                    editingStep ||
+                    mutation.isPending ||
+                    selectedIndex >= overview.steps.length - 1
+                  }
+                  onClick={() => goToStep(overview.steps[selectedIndex + 1].id)}
+                >
+                  Continue
+                </Button>
+              </div>
+            </>
+          </TabsContent>
+          <TabsContent value="configuration">
+            <Configurations
               scope={scope}
               overview={overview}
-              selected={selected}
               identity={identity}
               permissions={permissions}
               run={run}
             />
-          </>
-        ) : tab === 'configuration' ? (
-          <Configurations
-            scope={scope}
-            overview={overview}
-            identity={identity}
-            permissions={permissions}
-            run={run}
-          />
-        ) : (
-          <AllocationReview
-            scope={scope}
-            identity={identity}
-            permissions={permissions}
-          />
-        )}
-      </fieldset>
+          </TabsContent>
+          <TabsContent value="allocations">
+            <AllocationReview
+              scope={scope}
+              identity={identity}
+              permissions={permissions}
+            />
+          </TabsContent>
+        </fieldset>
+      </Tabs>
     </div>
   );
 }
@@ -1239,6 +1511,7 @@ function ScopedSetup({
   permissions: string[];
 }) {
   const [book, setBook] = useState('');
+  const [editingStep, setEditingStep] = useState(false);
   const query = useQuery({
     ...readOptions,
     queryKey: ['finance-setup', ...identity, 'scopes'],
@@ -1259,29 +1532,46 @@ function ScopedSetup({
     selected = book ? query.data.find((s) => key(s) === book) : query.data[0];
   return (
     <div className="space-y-5">
-      <label className="block text-sm font-semibold">
-        Accounting book
-        <select
-          className={control}
-          value={selected ? key(selected) : ''}
-          onChange={(e) => setBook(e.target.value)}
-        >
-          <option value="" disabled>
-            Select an authorized book
-          </option>
-          {query.data.map((s) => (
-            <option key={key(s)} value={key(s)}>
-              {s.entity_code} / {s.book_code}
+      <section
+        className="space-y-3 rounded-md border p-4"
+        aria-label="Accounting book management"
+      >
+        <label className="block text-sm font-semibold">
+          Accounting book
+          <select
+            className={control}
+            disabled={editingStep}
+            value={selected ? key(selected) : ''}
+            onChange={(e) => setBook(e.target.value)}
+          >
+            <option value="" disabled>
+              Select an authorized book
             </option>
-          ))}
-        </select>
-      </label>
+            {query.data.map((s) => (
+              <option key={key(s)} value={key(s)}>
+                {s.entity_code} / {s.book_code}
+              </option>
+            ))}
+          </select>
+        </label>
+        {selected &&
+          !editingStep &&
+          permissions.includes('finance-foundation:release') && (
+            <BookManagement
+              key={key(selected)}
+              scope={selected}
+              identity={identity}
+            />
+          )}
+      </section>
       {selected ? (
         <BookSetup
           key={key(selected)}
           scope={selected}
           identity={identity}
           permissions={permissions}
+          editingStep={editingStep}
+          setEditingStep={setEditingStep}
         />
       ) : (
         <p>Book access changed. Select a currently authorized book.</p>
@@ -1317,7 +1607,7 @@ export function FinanceSetupPage() {
     <div className="space-y-6">
       <PageHeader
         title="Finance setup"
-        description="Company evidence, accounting configuration and independent inactive review."
+        description="Set up your accounting book, company details and policies step by step."
       />
       {permitted && context ? (
         <ScopedSetup

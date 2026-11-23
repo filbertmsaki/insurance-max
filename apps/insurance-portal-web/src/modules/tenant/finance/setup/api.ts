@@ -74,6 +74,15 @@ const overview = z.object({
         })
         .passthrough(),
     ),
+    productCategories: z
+      .array(
+        z.object({
+          product_id: z.string().uuid(),
+          category_id: z.string().uuid().nullable(),
+          category_name: z.string().nullable(),
+        }),
+      )
+      .optional(),
     people: z.array(
       z
         .object({
