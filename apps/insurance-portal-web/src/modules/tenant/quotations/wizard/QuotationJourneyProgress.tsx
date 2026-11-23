@@ -35,7 +35,7 @@ function getStatusLabel(status: StepStatus) {
 
 const MARKER_CLASSES: Record<StepStatus, string> = {
   active:
-    'border-sky-500 bg-sky-500 text-white shadow-[0_0_0_4px_rgba(14,165,233,0.15)]',
+    'border-sky-500 bg-sky-500 text-white shadow-[0_0_0_3px_rgba(14,165,233,0.15)]',
   complete: 'border-emerald-500 bg-emerald-500 text-white',
   error: 'border-rose-500 bg-rose-500 text-white',
   upcoming: 'border-slate-300 bg-white text-slate-400',
@@ -90,12 +90,7 @@ export function QuotationJourneyProgress({
         ))}
       </select>
 
-      <ol
-        className="grid overflow-x-auto pb-1"
-        style={{
-          gridTemplateColumns: `repeat(${steps.length}, minmax(2.75rem, 1fr))`,
-        }}
-      >
+      <ol className="hidden items-center gap-2 sm:flex">
         {steps.map((step, index) => {
           const active = step.id === currentStep;
           const complete = isPassed[index];
@@ -109,64 +104,57 @@ export function QuotationJourneyProgress({
                 : 'upcoming';
           const clickable = Boolean(onStepClick && (active || complete));
           const label = step.title ?? step.label ?? step.id;
-          const leftFilled = index > 0 && isPassed[index - 1];
-          const rightFilled = index < steps.length - 1 && isPassed[index];
+          const isLast = index === steps.length - 1;
 
           return (
-            <li key={step.id} className="flex min-w-0 flex-col items-center">
-              <div className="flex w-full items-center">
-                <div
-                  aria-hidden="true"
+            <li
+              key={step.id}
+              className={cn('flex min-w-0 items-center gap-2', !isLast && 'flex-1')}
+            >
+              <button
+                type="button"
+                aria-current={active ? 'step' : undefined}
+                aria-label={`Step ${index + 1}: ${label} — ${getStatusLabel(status)}`}
+                disabled={!clickable}
+                onClick={() => onStepClick?.(step.id)}
+                className={cn(
+                  'group flex shrink-0 items-center gap-2 rounded-full py-0.5 pr-2 transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500',
+                  clickable ? 'cursor-pointer hover:bg-slate-50' : 'cursor-default',
+                )}
+              >
+                <span
                   className={cn(
-                    'h-0.5 flex-1 rounded-full transition-colors duration-300',
-                    index === 0
-                      ? 'invisible'
-                      : leftFilled
-                        ? LINE_FILLED_CLASSES
-                        : LINE_UPCOMING_CLASSES,
-                  )}
-                />
-                <button
-                  type="button"
-                  aria-current={active ? 'step' : undefined}
-                  aria-label={`Step ${index + 1}: ${label} — ${getStatusLabel(status)}`}
-                  disabled={!clickable}
-                  onClick={() => onStepClick?.(step.id)}
-                  className={cn(
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold transition-all duration-300',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2',
-                    clickable ? 'cursor-pointer' : 'cursor-default',
+                    'flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-semibold transition-all duration-300',
                     MARKER_CLASSES[status],
                   )}
                 >
                   {status === 'error' ? (
-                    <CircleAlert className="h-4 w-4" aria-hidden="true" />
+                    <CircleAlert className="h-3.5 w-3.5" aria-hidden="true" />
                   ) : status === 'complete' ? (
-                    <Check className="h-4 w-4" aria-hidden="true" />
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" />
                   ) : (
                     index + 1
                   )}
-                </button>
+                </span>
+                <span
+                  className={cn(
+                    'whitespace-nowrap text-sm transition-colors duration-300',
+                    LABEL_CLASSES[status],
+                  )}
+                >
+                  {label}
+                </span>
+              </button>
+              {!isLast && (
                 <div
                   aria-hidden="true"
                   className={cn(
-                    'h-0.5 flex-1 rounded-full transition-colors duration-300',
-                    index === steps.length - 1
-                      ? 'invisible'
-                      : rightFilled
-                        ? LINE_FILLED_CLASSES
-                        : LINE_UPCOMING_CLASSES,
+                    'h-px min-w-4 flex-1 transition-colors duration-300',
+                    isPassed[index] ? LINE_FILLED_CLASSES : LINE_UPCOMING_CLASSES,
                   )}
                 />
-              </div>
-              <span
-                className={cn(
-                  'mt-2 hidden max-w-32 text-center text-xs leading-snug transition-colors duration-300 sm:block',
-                  LABEL_CLASSES[status],
-                )}
-              >
-                {label}
-              </span>
+              )}
             </li>
           );
         })}

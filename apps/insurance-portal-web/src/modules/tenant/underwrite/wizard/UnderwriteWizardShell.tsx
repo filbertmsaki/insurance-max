@@ -270,7 +270,7 @@ export function UnderwriteWizardShell({
               onStepClick={(next) => void wizard.goToStep(next)}
             />
 
-            <div className="mt-3 border-t border-slate-100 pt-4 sm:mt-4">
+            <div className="mt-3 border-t border-slate-100 pt-4">
               <Form {...wizard.form}>
                 <form
                   className="space-y-6 [&_input]:min-h-11 [&_input]:text-base [&_textarea]:text-base sm:[&_input]:text-sm sm:[&_textarea]:text-sm"

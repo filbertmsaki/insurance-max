@@ -23,28 +23,24 @@ export function QuotationPageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-start gap-3">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-2">
         <Button
           type="button"
-          variant="outline"
-          className="h-11 w-11 shrink-0 rounded-full px-0 sm:h-10 sm:w-10"
+          variant="ghost"
+          className="h-9 w-9 shrink-0 rounded-full px-0 sm:h-8 sm:w-8"
           aria-label={backLabel}
           title={backLabel}
           onClick={onBack}
         >
-          <ArrowLeft className="h-5 w-5" />
+          <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-              {eyebrow}
-            </p>
-            {badge}
-          </div>
-          <h1 className="mt-1 text-xl font-bold leading-tight text-slate-900 [overflow-wrap:anywhere] sm:text-2xl">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <h1 className="text-base font-semibold leading-tight text-slate-900 [overflow-wrap:anywhere]">
             {title}
           </h1>
+          <span className="text-xs text-slate-500">· {eyebrow}</span>
+          {badge}
         </div>
       </div>
       {actions ? (
