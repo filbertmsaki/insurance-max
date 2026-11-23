@@ -1,5 +1,5 @@
 import { Fragment, Suspense, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, CarFront, Check, Timer, Truck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,9 +20,14 @@ import { QuotationPageHeader } from '@/modules/tenant/underwrite/wizard/Quotatio
 import { MotorWizardNavigation } from '../components/MotorWizardNavigation';
 import { canCreateMotorKind } from '../access';
 import { motorInsurancePaths } from '../paths';
-import { MOTOR_QUOTATION_KINDS, type MotorQuotationKind } from '../types';
+import {
+  MOTOR_QUOTATION_CHOICES,
+  MOTOR_QUOTATION_KINDS,
+  type MotorQuotationKind,
+} from '../types';
 
 const ICONS: Record<MotorQuotationKind, typeof CarFront> = {
+  standard: CarFront,
   single: CarFront,
   fleet: Truck,
   'short-term': Timer,
@@ -44,6 +49,18 @@ export function MotorQuotationCreatePage() {
   const [searchParams] = useSearchParams();
   const canCreate = useCanCreate();
   const requested = searchParams.get('type');
+  // Standard Motor Cover opens on Single (Fleet if that is all the user may
+  // create); the wizard's Single / Fleet toggle switches between them.
+  if (requested === 'standard' && canCreate('standard')) {
+    return (
+      <Navigate
+        replace
+        to={motorInsurancePaths.quotationCreate(
+          canCreate('single') ? 'single' : 'fleet',
+        )}
+      />
+    );
+  }
   const selected = MOTOR_QUOTATION_KINDS.find(
     (item) => item.type === requested && canCreate(item.type),
   );
@@ -68,7 +85,11 @@ export function MotorQuotationCreatePage() {
         variant={selected.type === 'fleet' ? 'primary' : 'muted'}
         title="Quotation type"
       >
-        {selected.label}
+        {selected.type === 'single'
+          ? 'Standard Motor Cover · Single'
+          : selected.type === 'fleet'
+            ? 'Standard Motor Cover · Fleet'
+            : selected.label}
       </Badge>
       <Button asChild variant="link" size="sm" className="h-auto px-1 text-xs">
         <Link to={motorInsurancePaths.quotationCreate()}>Change</Link>
@@ -89,7 +110,9 @@ function QuotationTypeChooser() {
   const navigate = useNavigate();
   const canCreate = useCanCreate();
   usePageTitle('New Motor Quotation');
-  const options = MOTOR_QUOTATION_KINDS.filter((item) => canCreate(item.type));
+  const options = MOTOR_QUOTATION_CHOICES.filter((item) =>
+    canCreate(item.type),
+  );
   const [choice, setChoice] = useState<MotorQuotationKind | null>(null);
   const chosen = options.find((option) => option.type === choice);
 
@@ -129,12 +152,7 @@ function QuotationTypeChooser() {
             {options.map((option) => {
               const Icon = option.type === 'short-term' ? Truck : CarFront;
               const isSelected = choice === option.type;
-              const description =
-                option.type === 'fleet'
-                  ? 'Insure two or more vehicles together under one Fleet ID, each with its own cover note.'
-                  : option.type === 'short-term'
-                    ? 'A 30-day transit cover for one vehicle or a fleet, with the cover details filled in for you.'
-                    : option.description;
+              const description = option.description;
               return (
                 <label
                   key={option.type}
@@ -160,20 +178,7 @@ function QuotationTypeChooser() {
                         : 'bg-[#ECEEF5] text-[#3B4A8C]',
                     )}
                   >
-                    {option.type === 'fleet' ? (
-                      <>
-                        <CarFront
-                          className="absolute left-2 top-2 h-6 w-6"
-                          aria-hidden="true"
-                        />
-                        <CarFront
-                          className="absolute bottom-2 right-2 h-6 w-6"
-                          aria-hidden="true"
-                        />
-                      </>
-                    ) : (
-                      <Icon className="h-7 w-7" aria-hidden="true" />
-                    )}
+                    <Icon className="h-7 w-7" aria-hidden="true" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[17px] font-bold leading-5">

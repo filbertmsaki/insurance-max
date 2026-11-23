@@ -46,8 +46,14 @@ export type MotorCreateKind =
 /** Whether the user may create quotations of a kind (UI only; the API enforces). */
 export function canCreateMotorKind(
   hasPermission: (permission: string) => boolean,
-  kind: MotorCreateKind | 'short-term',
+  kind: MotorCreateKind | 'standard' | 'short-term',
 ): boolean {
+  if (kind === 'standard') {
+    return (
+      canCreateMotorKind(hasPermission, 'single') ||
+      canCreateMotorKind(hasPermission, 'fleet')
+    );
+  }
   if (!hasPermission('quotations:create')) return false;
   const cover = (value: UnderwriteCover) =>
     underwriteCoverPermissionsGranting(value, UnderwriteAction.CREATE).some(

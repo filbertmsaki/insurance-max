@@ -22,8 +22,32 @@ export const MOTOR_INSURANCE_TYPES: Array<{
   },
 ];
 
-/** What the Create Quotation chooser offers; short-term is not a line. */
-export type MotorQuotationKind = MotorInsuranceType | 'short-term';
+/**
+ * Create Quotation kinds. `standard` is the chooser card for Single + Fleet;
+ * it opens as `single` or `fleet` and the wizard switches between them.
+ * Short-term is not a line.
+ */
+export type MotorQuotationKind = MotorInsuranceType | 'standard' | 'short-term';
+
+/** The cards on the Create Quotation chooser. */
+export const MOTOR_QUOTATION_CHOICES: Array<{
+  type: Extract<MotorQuotationKind, 'standard' | 'short-term'>;
+  label: string;
+  description: string;
+}> = [
+  {
+    type: 'standard',
+    label: 'Standard Motor Cover',
+    description:
+      'Cover one vehicle, or insure two or more together under one Fleet ID.',
+  },
+  {
+    type: 'short-term',
+    label: 'Short-Term (In-Transit)',
+    description:
+      'A 30-day transit cover for one vehicle or a fleet, with the cover details filled in for you.',
+  },
+];
 
 export const MOTOR_QUOTATION_KINDS: Array<{
   type: MotorQuotationKind;

@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useWatch } from 'react-hook-form';
-import { CarFront, Loader2, ShieldCheck, Truck } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import { UnderwriteCover, UnderwriteLine } from '@insurance-max/contracts';
-import { cn } from '@/lib/utils';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 import type { QuotationFormSchemaValues } from '@/modules/tenant/quotations/schemas';
 import { StepSection } from '@/modules/tenant/quotations/wizard/components/StepSection';
@@ -39,6 +38,7 @@ import {
   type ShortTermMode,
 } from '../shortTerm';
 import { useFleetVehicleActions } from './FleetQuotationWizard';
+import { MotorModeToggle } from './MotorModeToggle';
 import { useIsPhone } from '@/modules/tenant/quotations/utils/useIsPhone';
 import { motorInsurancePaths } from '../paths';
 import type { CoverSummary } from './mobile/MobileCoverStep';
@@ -345,59 +345,6 @@ function useShortTermPresets(
   };
 }
 
-function ModeToggle({
-  mode,
-  onChange,
-}: {
-  mode: ShortTermMode;
-  onChange?: (mode: ShortTermMode) => void;
-}) {
-  const options = [
-    { value: 'single' as const, label: 'Single', icon: CarFront },
-    { value: 'fleet' as const, label: 'Fleet', icon: Truck },
-  ];
-  return (
-    <div className="space-y-1">
-      <div
-        role="radiogroup"
-        aria-label="Short-term cover mode"
-        className="inline-flex w-full rounded-lg border border-slate-200 bg-slate-100 p-1 sm:w-auto"
-      >
-        {options.map(({ value, label, icon: Icon }) => {
-          const active = value === mode;
-          return (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              disabled={!onChange && !active}
-              onClick={() => !active && onChange?.(value)}
-              className={cn(
-                'flex flex-1 items-center justify-center gap-2 rounded-md px-5 py-1.5 text-sm font-medium transition sm:flex-none',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500',
-                active
-                  ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50',
-              )}
-            >
-              <Icon className="h-4 w-4" aria-hidden="true" />
-              {label}
-            </button>
-          );
-        })}
-      </div>
-      <p className="text-xs text-slate-500">
-        {onChange
-          ? mode === 'fleet'
-            ? 'Two or more vehicles, each with its own cover note.'
-            : 'One vehicle under one cover note.'
-          : 'The mode is fixed once the draft is saved.'}
-      </p>
-    </div>
-  );
-}
-
 function CoverSummary({
   presets,
 }: {
@@ -457,7 +404,13 @@ function CoverStep({
   const canSwitch = onModeChange && !wizard.draftId ? onModeChange : undefined;
   return (
     <div className="space-y-4">
-      {showToggle && <ModeToggle mode={mode} onChange={canSwitch} />}
+      {showToggle && (
+        <MotorModeToggle
+          mode={mode}
+          onChange={canSwitch}
+          ariaLabel="Short-term cover mode"
+        />
+      )}
       <PolicyholderStep
         form={form}
         customerOptions={wizard.customerOptions}

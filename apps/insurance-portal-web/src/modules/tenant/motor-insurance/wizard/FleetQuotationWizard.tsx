@@ -28,6 +28,10 @@ import { useCanCreateMotorKind } from './mobile/useCanCreateMotorKind';
 import { useAnnualCoverSummary } from './mobile/MobileCoverStep';
 import { MobileMotorQuotation } from './mobile/MobileMotorQuotation';
 import {
+  StandardMotorModeToggle,
+  useStandardMotorSwitch,
+} from './MotorModeToggle';
+import {
   FLEET_TO_MOBILE,
   MOBILE_FLEET_STEPS,
   MOBILE_TO_FLEET,
@@ -223,6 +227,7 @@ export function FleetQuotationWizard() {
         },
   });
   const coverSummary = useAnnualCoverSummary(wizard);
+  const switchMode = useStandardMotorSwitch(wizard);
   const actions = useFleetVehicleActions(wizard);
   const { form } = wizard;
   usePageTitle(
@@ -261,12 +266,7 @@ export function FleetQuotationWizard() {
           />
         }
         onModeChange={
-          canCreate('single')
-            ? () =>
-                navigate(motorInsurancePaths.quotationCreate('single'), {
-                  replace: true,
-                })
-            : undefined
+          canCreate('single') ? () => switchMode('single') : undefined
         }
         onExit={() =>
           navigate(
@@ -289,6 +289,11 @@ export function FleetQuotationWizard() {
           case 'customer':
             return (
               <div className="space-y-6">
+                <StandardMotorModeToggle
+                  wizard={wizard}
+                  mode="fleet"
+                  onSwitch={switchMode}
+                />
                 {/* Same select / create / edit behaviour as the motor wizard. */}
                 <PolicyholderStep
                   form={form}

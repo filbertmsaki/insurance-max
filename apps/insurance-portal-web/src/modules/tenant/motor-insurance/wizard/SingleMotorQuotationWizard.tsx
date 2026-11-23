@@ -26,6 +26,10 @@ import { useCanCreateMotorKind } from './mobile/useCanCreateMotorKind';
 import { useAnnualCoverSummary } from './mobile/MobileCoverStep';
 import { MobileMotorQuotation } from './mobile/MobileMotorQuotation';
 import {
+  StandardMotorModeToggle,
+  useStandardMotorSwitch,
+} from './MotorModeToggle';
+import {
   MOBILE_SINGLE_STEPS,
   MOBILE_TO_SINGLE,
   SINGLE_TO_MOBILE,
@@ -115,6 +119,7 @@ export function SingleMotorQuotationWizard() {
     allowEarlyManualDraft: isPhone,
   });
   const coverSummary = useAnnualCoverSummary(wizard);
+  const switchMode = useStandardMotorSwitch(wizard);
   const { form } = wizard;
   usePageTitle(
     wizard.existingQuotation?.quotation_no &&
@@ -156,12 +161,7 @@ export function SingleMotorQuotationWizard() {
         showAddOns={showAddOns}
         coverFields={<ProductCoverStep wizard={wizard} compact first />}
         onModeChange={
-          canCreate('fleet')
-            ? () =>
-                navigate(motorInsurancePaths.quotationCreate('fleet'), {
-                  replace: true,
-                })
-            : undefined
+          canCreate('fleet') ? () => switchMode('fleet') : undefined
         }
         onExit={() =>
           navigate(
@@ -184,6 +184,11 @@ export function SingleMotorQuotationWizard() {
           case 'details':
             return (
               <div className="space-y-3">
+                <StandardMotorModeToggle
+                  wizard={wizard}
+                  mode="single"
+                  onSwitch={switchMode}
+                />
                 <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-2 md:gap-6">
                   <div id={SECTION_ANCHORS.customer} className="min-w-0">
                     <PolicyholderStep

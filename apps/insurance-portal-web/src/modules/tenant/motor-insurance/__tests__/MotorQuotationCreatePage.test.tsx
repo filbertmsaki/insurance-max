@@ -68,43 +68,49 @@ const BOTH = [
 describe('MotorQuotationCreatePage', () => {
   beforeEach(() => setPermissions(BOTH));
 
-  it('asks for the quotation type first', () => {
+  it('offers Standard Motor Cover and Short-Term', () => {
     renderAt('/apps/motor/quotations/new');
 
+    const group = within(
+      screen.getByRole('radiogroup', { name: 'Quotation type' }),
+    );
+    expect(group.getAllByRole('radio')).toHaveLength(2);
     expect(
-      within(
-        screen.getByRole('radiogroup', { name: 'Quotation type' }),
-      ).getByRole('radio', { name: /Single Motor/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(
-        screen.getByRole('radiogroup', { name: 'Quotation type' }),
-      ).getByRole('radio', { name: /Fleet/ }),
+      group.getByRole('radio', { name: /Standard Motor Cover/ }),
     ).toBeInTheDocument();
     expect(screen.queryByTestId('single-wizard')).not.toBeInTheDocument();
   });
 
-  it('opens the fleet wizard after choosing Fleet', async () => {
+  it('opens Standard Motor Cover on the single wizard', async () => {
     renderAt('/apps/motor/quotations/new');
 
     fireEvent.click(
       within(
         screen.getByRole('radiogroup', { name: 'Quotation type' }),
-      ).getByRole('radio', { name: /Fleet/ }),
+      ).getByRole('radio', { name: /Standard Motor Cover/ }),
     );
+
+    expect(await screen.findByTestId('single-wizard')).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('?type=single');
+  });
+
+  it('opens Standard Motor Cover on fleet when only Fleet is allowed', async () => {
+    setPermissions(['quotations:create', 'underwrite.fleet.create']);
+    renderAt('/apps/motor/quotations/new?type=standard');
 
     expect(await screen.findByTestId('fleet-wizard')).toBeInTheDocument();
     expect(screen.getByTestId('location')).toHaveTextContent('?type=fleet');
   });
 
-  it('offers Short-Term as a third type and opens its wizard', async () => {
+  it('still opens the fleet wizard from a ?type=fleet link', async () => {
+    renderAt('/apps/motor/quotations/new?type=fleet');
+
+    expect(await screen.findByTestId('fleet-wizard')).toBeInTheDocument();
+  });
+
+  it('opens the Short-Term wizard', async () => {
     renderAt('/apps/motor/quotations/new');
 
-    expect(
-      within(
-        screen.getByRole('radiogroup', { name: 'Quotation type' }),
-      ).getAllByRole('radio'),
-    ).toHaveLength(3);
     fireEvent.click(
       within(
         screen.getByRole('radiogroup', { name: 'Quotation type' }),
@@ -126,12 +132,12 @@ describe('MotorQuotationCreatePage', () => {
     );
     const button = screen.getByRole('button', { name: 'Select an option' });
     expect(button).toBeDisabled();
-    fireEvent.click(group.getByRole('radio', { name: /Fleet Motor/ }));
-    expect(group.getByRole('radio', { name: /Fleet Motor/ })).toBeChecked();
-    expect(button).toHaveTextContent('Continue with Fleet Motor');
+    fireEvent.click(group.getByRole('radio', { name: /Standard Motor Cover/ }));
+    expect(group.getByRole('radio', { name: /Standard Motor Cover/ })).toBeChecked();
+    expect(button).toHaveTextContent('Continue with Standard Motor Cover');
     fireEvent.click(button);
-    expect(await screen.findByTestId('fleet-wizard')).toBeInTheDocument();
-    expect(screen.getByTestId('location')).toHaveTextContent('?type=fleet');
+    expect(await screen.findByTestId('single-wizard')).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('?type=single');
   });
 
   it('offers Short-Term single only without Fleet permission', async () => {
@@ -152,18 +158,11 @@ describe('MotorQuotationCreatePage', () => {
   });
 
   it('only offers the types the user may create', () => {
-    setPermissions(['quotations:create', 'underwrite.motor.create']);
+    setPermissions(['quotations:create']);
     renderAt('/apps/motor/quotations/new');
 
     expect(
-      within(
-        screen.getByRole('radiogroup', { name: 'Quotation type' }),
-      ).getByRole('radio', { name: /Single Motor/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(
-        screen.getByRole('radiogroup', { name: 'Quotation type' }),
-      ).queryByRole('radio', { name: /Fleet/ }),
+      screen.queryByRole('radio', { name: /Standard Motor Cover/ }),
     ).toBeNull();
   });
 
@@ -175,7 +174,7 @@ describe('MotorQuotationCreatePage', () => {
     expect(
       within(
         screen.getByRole('radiogroup', { name: 'Quotation type' }),
-      ).getByRole('radio', { name: /Single Motor/ }),
+      ).getByRole('radio', { name: /Standard Motor Cover/ }),
     ).toBeInTheDocument();
   });
 });
