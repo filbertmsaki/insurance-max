@@ -7,6 +7,8 @@ import { Receipt } from './entities/receipt.entity';
 import { ReceiptAllocationStatus } from '../../common/enums/finance-status.enums';
 import { financialDecimal } from '../../foundation/currencies/finance-currency-controls';
 
+import { DecimalUtil } from '../../../../shared/finance/decimal.util';
+
 @Injectable()
 export class ReceiptBalanceService {
   async recalculate(manager: EntityManager, receiptId: string) {
@@ -42,8 +44,8 @@ export class ReceiptBalanceService {
       });
     const unallocated = amount.minus(allocated);
 
-    receipt.allocated_amount = allocated.toFixed(4);
-    receipt.unallocated_amount = unallocated.toFixed(4);
+    receipt.allocated_amount = DecimalUtil.exactMoney(allocated);
+    receipt.unallocated_amount = DecimalUtil.exactMoney(unallocated);
 
     if (
       receipt.status !== ReceiptStatus.REVERSED &&

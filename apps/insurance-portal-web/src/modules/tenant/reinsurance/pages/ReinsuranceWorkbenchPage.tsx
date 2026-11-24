@@ -160,6 +160,9 @@ export function ReinsuranceWorkbenchPage() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const [view, setView] = useState<View>('treaties');
   const [offerShares, setOfferShares] = useState<Record<string, string>>({});
+  const [settlementNumbers, setSettlementNumbers] = useState<
+    Record<string, string>
+  >({});
   const [recoveryAmounts, setRecoveryAmounts] = useState<
     Record<string, string>
   >({});
@@ -183,7 +186,12 @@ export function ReinsuranceWorkbenchPage() {
     }) =>
       action === 'admit'
         ? reinsuranceApi.admitRecovery(id, amount)
-        : reinsuranceApi.recordRecoveryReceipt(id, amount),
+        : reinsuranceApi.recordRecoveryReceipt(
+            id,
+            amount,
+            undefined,
+            settlementNumbers[id],
+          ),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: ['reinsurance', 'recoveries'],
@@ -602,22 +610,35 @@ export function ReinsuranceWorkbenchPage() {
               {hasPermission('reinsurance:recovery-create') &&
               Number(record.admitted_recovery ?? 0) >
                 Number(record.received_recovery ?? 0) ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={
-                    recoveryMutation.isPending || !recoveryAmounts[record.id]
-                  }
-                  onClick={() =>
-                    recoveryMutation.mutate({
-                      id: record.id,
-                      amount: Number(recoveryAmounts[record.id]),
-                      action: 'receipt',
-                    })
-                  }
-                >
-                  Record receipt
-                </Button>
+                <>
+                  <Input
+                    aria-label="Posted incoming settlement number"
+                    placeholder="Settlement number"
+                    value={settlementNumbers[record.id] ?? ''}
+                    onChange={(e) =>
+                      setSettlementNumbers((current) => ({
+                        ...current,
+                        [record.id]: e.target.value,
+                      }))
+                    }
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={
+                      recoveryMutation.isPending || !recoveryAmounts[record.id]
+                    }
+                    onClick={() =>
+                      recoveryMutation.mutate({
+                        id: record.id,
+                        amount: Number(recoveryAmounts[record.id]),
+                        action: 'receipt',
+                      })
+                    }
+                  >
+                    Record receipt
+                  </Button>
+                </>
               ) : null}
             </div>
           )}

@@ -25,7 +25,7 @@ export class CommissionPaymentItem {
   @Column({ type: 'uuid' })
   commission_transaction_id: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   amount: string;
 
   @Column({ type: 'varchar', length: 30, default: 'ACTIVE' })

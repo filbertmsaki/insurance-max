@@ -21,7 +21,7 @@ function journalService() {
   // public posting method and hash implementation execute normally.
   return new FinanceJournalService(
     {
-      generateRequestId: async () => `TEST-${randomUUID()}`,
+      generateJournalNumber: async () => `TEST-${randomUUID()}`,
     } as unknown as IdentifierGeneratorService,
     new ProductDefinitionHashService(),
     // Synthetic posting-vector fixture only; real policy eligibility is tested separately.

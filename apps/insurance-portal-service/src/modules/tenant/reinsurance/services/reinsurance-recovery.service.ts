@@ -13,6 +13,7 @@ import { DataSource, EntityManager, Not, Repository } from 'typeorm';
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { AuditService } from '../../../shared/audit/audit.service';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
+import { recoveryCash } from '../../finance/accounting/general-ledger/finance-gl-recovery-cash';
 import { MoneyUtil } from '../../finance/common/utils/money.util';
 import { InsuranceClaim } from '../../claims/entities/claim.entity';
 import { ClaimRecovery } from '../../claims/entities/claim-recovery.entity';
@@ -379,6 +380,23 @@ export class ReinsuranceRecoveryService {
           'The reinsurer must admit a recovery before the cedant can record receipt',
         );
       }
+      const cash = await recoveryCash(
+        manager,
+        recovery,
+        amount,
+        dto.settlement_no,
+        dto.reference,
+        dto.received_at,
+      );
+      if (cash?.receiptId) {
+        const receipt = await manager
+          .getRepository(ReinsuranceRecoveryReceipt)
+          .findOneByOrFail({
+            id: cash.receiptId,
+            company_id: recovery.company_id,
+          });
+        return { receipt, recovery, journalId: cash.journalId };
+      }
       const newReceivedTotal = MoneyUtil.add(
         recovery.received_recovery,
         amount,
@@ -396,13 +414,18 @@ export class ReinsuranceRecoveryService {
             claim_recovery_id: recovery.id,
             amount,
             currency_code: recovery.currency,
-            received_at: dto.received_at
-              ? new Date(dto.received_at)
-              : new Date(),
+            received_at:
+              cash?.settledAt ??
+              (dto.received_at ? new Date(dto.received_at) : new Date()),
             reference: dto.reference?.trim() || null,
             recorded_by: user.id,
             recorded_at: new Date(),
           }),
+        );
+      if (cash)
+        await manager.query(
+          'INSERT INTO finance_gl_recovery_cash(receipt_id,recovery_id,settlement_id,journal_id,amount) VALUES($1,$2,$3,$4,$5)',
+          [receipt.id, recovery.id, cash.settlementId, cash.journalId, amount],
         );
       recovery.received_recovery = newReceivedTotal;
       recovery.outstanding_recovery = MoneyUtil.subtract(
@@ -433,7 +456,11 @@ export class ReinsuranceRecoveryService {
         },
         manager,
       );
-      return { receipt, recovery };
+      return {
+        receipt,
+        recovery,
+        ...(cash ? { journalId: cash.journalId } : {}),
+      };
     });
   }
 

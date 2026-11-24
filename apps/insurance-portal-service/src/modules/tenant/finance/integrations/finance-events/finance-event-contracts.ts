@@ -399,6 +399,28 @@ export class FinanceEventContractRegistry {
       };
     }
 
+    const [schema] = await manager.query(
+      "SELECT to_regclass('public.finance_operating_postings') IS NOT NULL deployed",
+    );
+    if (schema?.deployed) {
+      const [canonical] = await manager.query(
+        `SELECT p.candidate_id,j.id FROM finance_operating_postings p LEFT JOIN finance_foundation_journals j ON j.candidate_id=p.candidate_id AND j.mode='LIVE'
+        WHERE p.company_id=$1 AND p.source_type=$2 AND p.source_id=$3`,
+        [params.companyId, params.journalSourceType, params.base.sourceId],
+      );
+      if (canonical)
+        return {
+          ...params.base,
+          businessOutcome: canonical.id ? 'APPLIED' : 'BLOCKED',
+          accountingOutcome: canonical.id
+            ? 'RECOGNIZED_BY_SOURCE_COMMAND'
+            : 'POLICY_BLOCKED',
+          accountingReference: canonical.id ?? null,
+          detail: canonical.id
+            ? null
+            : 'The accounting request awaits independent journal approval.',
+        };
+    }
     let policyHold: string | null = null;
     await manager.query('SAVEPOINT finance_event_policy_probe');
     try {

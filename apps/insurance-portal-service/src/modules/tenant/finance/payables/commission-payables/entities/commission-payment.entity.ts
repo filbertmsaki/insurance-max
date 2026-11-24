@@ -46,19 +46,39 @@ export class CommissionPayment {
   @Column({ type: 'varchar', length: 50 })
   payment_method: string;
 
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    default: () => 'NULL',
+    update: false,
+  })
+  settlement_account_code: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+    default: () => 'NULL',
+  })
+  payment_term_code: string | null;
+
+  @Column({ type: 'date', nullable: true, default: () => 'NULL' })
+  due_date: string | null;
+
   @Column({ type: 'varchar', length: 180, nullable: true })
   idempotency_key: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   payment_reference: string | null;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   total_amount: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   allocated_amount: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   unallocated_amount: string;
 
   @Column({ type: 'varchar', length: 10, default: 'TZS' })

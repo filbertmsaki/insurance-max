@@ -27,6 +27,7 @@ export class CommissionAccrualService {
     workflowRevision: number,
     sourceEventId: string,
     invoiceId: string | null,
+    actorId: string | null = null,
   ) {
     const quotation = await manager.getRepository(Quotation).findOne({
       where: { id: quotationId },
@@ -130,7 +131,7 @@ export class CommissionAccrualService {
       manager,
       accrual,
       sourceEventId,
-      null,
+      actorId,
     );
 
     await this.outboxService.add(manager, {

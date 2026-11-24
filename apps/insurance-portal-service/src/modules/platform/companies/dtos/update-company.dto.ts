@@ -84,6 +84,10 @@ export class UpdateCompanyDto {
   @IsOptional()
   @IsObject()
   settings?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  finance_profile_tz?: Record<string, string | null>;
 }
 
 export class UpdateCompanyStatusDto {

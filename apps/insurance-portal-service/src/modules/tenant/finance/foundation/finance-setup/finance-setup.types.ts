@@ -145,7 +145,10 @@ export function setupAnswerIssues(input: FinanceSetupInput): string[] {
     case 'G04-01':
       need(setupText(a.jurisdictionCode, 8), 'Specify the legal jurisdiction.');
       need(
-        strings(a.productIds) && a.productIds.every(setupUuid),
+        (strings(a.productIds) && a.productIds.every(setupUuid)) ||
+          (a.noOwnProducts === true &&
+            Array.isArray(a.productIds) &&
+            a.productIds.length === 0),
         'Select the actual products in scope.',
       );
       need(
@@ -170,6 +173,11 @@ export function setupAnswerIssues(input: FinanceSetupInput): string[] {
       );
       break;
     case 'G04-03': {
+      if (input.purpose === 'COMPANY_SETUP')
+        need(
+          ['PRIMARY', 'SECONDARY'].includes(String(a.bookRole)),
+          'Choose primary or secondary accounting book.',
+        );
       need(
         ['IFRS', 'STATUTORY', 'OPERATIONAL_BRIDGE'].includes(
           String(a.accountingBasis),
@@ -255,6 +263,8 @@ export function setupAnswerIssues(input: FinanceSetupInput): string[] {
         if (
           !setupObject(p) ||
           !setupText(p.code, 40) ||
+          (p.kind !== undefined &&
+            !['REGULAR', 'ADJUSTMENT'].includes(String(p.kind))) ||
           codes.has(p.code) ||
           !isFinanceDate(p.from) ||
           !isFinanceDate(p.to) ||

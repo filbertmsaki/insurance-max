@@ -24,6 +24,15 @@ import { PaymentTransaction } from '../../payment-transactions/entities/payment-
   where: 'deleted_at IS NULL',
 })
 export class Receipt {
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  post_command_key: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  post_command_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  finance_dimensions: Record<string, string> | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -54,10 +63,19 @@ export class Receipt {
   @Column({ type: 'varchar', length: 50 })
   payment_method: string;
 
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    default: () => 'NULL',
+    update: false,
+  })
+  settlement_account_code: string | null;
+
   @Column({ type: 'varchar', length: 180, nullable: true })
   payer_name: string | null;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   amount: string;
 
   @Column({ type: 'varchar', length: 10, default: 'TZS' })
@@ -72,10 +90,10 @@ export class Receipt {
   @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
   base_currency_amount: string | null;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   allocated_amount: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   unallocated_amount: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })

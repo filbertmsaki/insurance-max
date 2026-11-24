@@ -94,6 +94,7 @@ export const financeApi = {
     id: string,
     data: {
       expected_state_version: number;
+      finance_dimensions?: Record<string, string>;
       idempotency_key: string;
       due_date?: string;
       notes?: string;
@@ -179,6 +180,7 @@ export const financeApi = {
       .get<FinanceReceipt>(`/tenant/finance/receipts/${id}`)
       .then((r) => r.data),
   postReceipt: (data: {
+    finance_dimensions?: Record<string, string>;
     payment_transaction_id: string;
     invoice_id?: string;
     allocation_amount?: number;

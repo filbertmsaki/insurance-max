@@ -33,6 +33,11 @@ export class CreateInvoiceItemDto {
 }
 
 export class CreateInvoiceDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  payment_term_code?: string;
+
   @IsUUID()
   insurer_company_id: string;
 

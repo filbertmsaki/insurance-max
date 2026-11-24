@@ -19,6 +19,17 @@ export class DecimalUtil {
     }
   }
 
+  static exactMoney(
+    value: string | number | Decimal | null | undefined,
+  ): string {
+    const amount = this.value(value);
+    if (!amount.isFinite() || amount.decimalPlaces() > 12)
+      throw new BadRequestException(
+        'Enter an exact monetary amount with up to 12 decimal places.',
+      );
+    return amount.toFixed(Math.max(4, amount.decimalPlaces()));
+  }
+
   static money(value: string | number | Decimal | null | undefined): string {
     return this.value(value).toFixed(2);
   }

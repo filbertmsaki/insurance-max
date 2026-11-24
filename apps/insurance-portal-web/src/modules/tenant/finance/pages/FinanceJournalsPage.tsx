@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { financeTableApi } from '../api';
 import type { FinanceJournalEntry } from '../types';
+import { GeneralLedgerWorkspace } from '../journals/GeneralLedgerWorkspace';
 import { FinanceStatusBadge } from '../components';
 
 export function FinanceJournalsPage() {
@@ -64,6 +65,8 @@ export function FinanceJournalsPage() {
         title="Journals"
         description="Balanced finance journals are immutable; corrections use reversing entries."
       />
+      <GeneralLedgerWorkspace />
+      <h2 className="font-semibold">Legacy journals</h2>
       <DataTable
         {...tableProps}
         columns={columns}

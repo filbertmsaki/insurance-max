@@ -96,6 +96,7 @@ export class FinanceApprovalService {
     profileHash: string,
     beneficiary: BeneficiaryEvidence,
     reason: string,
+    manager?: EntityManager,
   ): Promise<ApprovalToken> {
     this.reference(candidateId, candidateHash);
     this.reference(profileId, profileHash);
@@ -176,6 +177,7 @@ export class FinanceApprovalService {
         c.checks.push(() => this.fresh(c, request));
         return { requestId: request.id, requestHash: hash, beneficiaryHash };
       },
+      manager,
     );
   }
 
@@ -186,6 +188,7 @@ export class FinanceApprovalService {
     mandateId: string,
     decision: 'APPROVED_INACTIVE' | 'REJECTED_INACTIVE',
     reason: string,
+    manager?: EntityManager,
   ) {
     const token = validateApprovalToken(tokenValue);
     this.uuid(mandateId);
@@ -264,6 +267,7 @@ export class FinanceApprovalService {
           action: decision,
         };
       },
+      manager,
     );
   }
 
@@ -678,12 +682,13 @@ export class FinanceApprovalService {
     access: 'PREPARE_CANDIDATE' | { mandateId: string },
     reason: string,
     work: (c: Context) => Promise<T>,
+    existingManager?: EntityManager,
   ): Promise<T> {
     ({ actor, scope } = this.identities(actor, scope));
     if (!candidateText(reason, 2000))
       throw new BadRequestException('A recorded approval reason is required.');
     try {
-      return await this.source.transaction(async (manager) => {
+      const execute = async (manager: EntityManager) => {
         const params = [actor.tenantId, scope.legalEntityId, scope.bookId];
         const [book] = await manager.query(
           "SELECT id FROM finance_accounting_books WHERE tenant_id=$1 AND legal_entity_id=$2 AND id=$3 AND state IN ('DRAFT','ACTIVE') FOR UPDATE",
@@ -726,7 +731,18 @@ export class FinanceApprovalService {
             'Approval authority expired before completion.',
           );
         return result;
-      });
+      };
+      if (existingManager) {
+        if (
+          existingManager.connection !== this.source ||
+          !existingManager.queryRunner?.isTransactionActive
+        )
+          throw new ConflictException(
+            'An active approval transaction is required.',
+          );
+        return await execute(existingManager);
+      }
+      return await this.source.transaction(execute);
     } catch (error) {
       if (
         (error as { driverError?: { code?: string } })?.driverError?.code ===

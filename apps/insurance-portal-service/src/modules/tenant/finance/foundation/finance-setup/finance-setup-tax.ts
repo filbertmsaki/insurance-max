@@ -24,6 +24,18 @@ export function selectSetupTaxRules(
   from: string,
   to: string | null,
 ) {
+  if (source === 'NO_SOURCE_TAX_RULES') {
+    if (
+      ids.length ||
+      rows.some((r) =>
+        r.source === 'LEGACY_TAXES' ? r.is_active : r.status === 'ACTIVE',
+      )
+    )
+      throw new ConflictException(
+        'The source tax assessment requires two catalogues with no active company tax rules.',
+      );
+    return [];
+  }
   const selected = rows.filter(
     (r) => r.source === source && ids.includes(r.id),
   );

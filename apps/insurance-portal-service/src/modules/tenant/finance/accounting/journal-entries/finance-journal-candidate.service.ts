@@ -215,6 +215,7 @@ export class FinanceJournalCandidateService {
     scope: FinanceBookSelection,
     input: { code: string; startsOn: string; endsBefore: string },
     reason: string,
+    manager?: EntityManager,
   ): Promise<Period> {
     const p = { ...input };
     if (
@@ -254,6 +255,7 @@ export class FinanceJournalCandidateService {
         );
         return row;
       },
+      manager,
     );
   }
 
@@ -264,6 +266,7 @@ export class FinanceJournalCandidateService {
     expectedRevision: number,
     state: Period['state'],
     reason: string,
+    manager?: EntityManager,
   ): Promise<Period> {
     this.uuid(id);
     if (
@@ -301,6 +304,7 @@ export class FinanceJournalCandidateService {
         );
         return updated;
       },
+      manager,
     );
   }
 

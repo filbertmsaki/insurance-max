@@ -42,6 +42,15 @@ export class ClaimDisbursement {
   @Column({ type: 'varchar', length: 40, nullable: true })
   payment_method: string | null;
 
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    default: () => 'NULL',
+    update: false,
+  })
+  settlement_account_code: string | null;
+
   @Column({ type: 'numeric', precision: 18, scale: 2 })
   amount: string;
 

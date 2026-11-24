@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, Optional } from '@nestjs/common';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { EntityManager } from 'typeorm';
 
@@ -18,6 +18,8 @@ import { Receipt } from '../../receivables/receipts/entities/receipt.entity';
 import { CommissionTransaction } from '../../payables/commission-payables/entities/commission-transaction.entity';
 import { FinancePostingPolicyService } from '../posting-rules/finance-posting-policy.service';
 
+import { FinanceOperatingPostingService } from '../general-ledger/finance-operating-posting.service';
+
 interface JournalLineInput {
   accountCode: string;
   accountName: string;
@@ -35,6 +37,7 @@ export class FinanceJournalService {
     private readonly identifierService: IdentifierGeneratorService,
     private readonly hashService: ProductDefinitionHashService,
     private readonly postingPolicy: FinancePostingPolicyService = new FinancePostingPolicyService(),
+    @Optional() private readonly operating?: FinanceOperatingPostingService,
   ) {}
 
   async postInvoice(
@@ -67,6 +70,8 @@ export class FinanceJournalService {
         sourceEventId,
         description: `Invoice ${invoice.invoice_no} issued`,
         currencyCode: invoice.currency,
+        dimensions: invoice.finance_dimensions,
+        branchId: invoice.branch_id,
         lines: [
           {
             accountCode: '1200',
@@ -118,6 +123,8 @@ export class FinanceJournalService {
         sourceEventId,
         description: `Invoice ${invoice.invoice_no} reversed: ${reason}`,
         currencyCode: invoice.currency,
+        dimensions: invoice.finance_dimensions,
+        branchId: invoice.branch_id,
         lines: [
           {
             accountCode: '4100',
@@ -159,9 +166,11 @@ export class FinanceJournalService {
         sourceEventId,
         description: `Receipt ${receipt.receipt_no} posted`,
         currencyCode: receipt.currency,
+        dimensions: receipt.finance_dimensions,
+        branchId: receipt.branch_id,
         lines: [
           {
-            accountCode: '1100',
+            accountCode: receipt.settlement_account_code ?? '1100',
             accountName: 'Bank/Cash',
             accountType: 'ASSET',
             debit: receipt.amount,
@@ -195,6 +204,8 @@ export class FinanceJournalService {
         sourceEventId,
         description: `Receipt ${receipt.receipt_no} reversed: ${reason}`,
         currencyCode: receipt.currency,
+        dimensions: receipt.finance_dimensions,
+        branchId: receipt.branch_id,
         lines: [
           {
             accountCode: '1200',
@@ -204,7 +215,7 @@ export class FinanceJournalService {
             debit: receipt.amount,
           },
           {
-            accountCode: '1100',
+            accountCode: receipt.settlement_account_code ?? '1100',
             accountName: 'Bank/Cash',
             accountType: 'ASSET',
             credit: receipt.amount,
@@ -229,7 +240,11 @@ export class FinanceJournalService {
         sourceId: accrual.id,
         sourceEventId,
         description: `Commission accrual ${accrual.accrual_no ?? accrual.id}`,
-        currencyCode: accrual.invoice?.currency ?? 'TZS',
+        currencyCode: String(
+          accrual.commission_snapshot?.currencyCode ??
+            accrual.invoice?.currency ??
+            'TZS',
+        ),
         lines: [
           {
             accountCode: '5100',
@@ -271,12 +286,12 @@ export class FinanceJournalService {
             accountName: refund.invoice_id
               ? 'Premium Receivables'
               : 'Customer Overpayments',
-            accountType: 'ASSET',
+            accountType: refund.invoice_id ? 'ASSET' : 'LIABILITY',
             customerId: refund.customer_id,
             debit: refund.amount,
           },
           {
-            accountCode: '1100',
+            accountCode: refund.settlement_account_code ?? '1100',
             accountName: 'Bank/Cash',
             accountType: 'ASSET',
             credit: refund.amount,
@@ -302,6 +317,7 @@ export class FinanceJournalService {
       customerId: string | null;
       amount: string;
       currencyCode: string;
+      settlementAccountCode?: string | null;
     },
     sourceEventId: string,
     userId: string | null,
@@ -324,7 +340,7 @@ export class FinanceJournalService {
             debit: params.amount,
           },
           {
-            accountCode: '1100',
+            accountCode: params.settlementAccountCode ?? '1100',
             accountName: 'Bank/Cash',
             accountType: 'ASSET',
             credit: params.amount,
@@ -345,6 +361,7 @@ export class FinanceJournalService {
       customerId: string | null;
       amount: string;
       currencyCode: string;
+      settlementAccountCode?: string | null;
       reason: string;
     },
     sourceEventId: string,
@@ -361,7 +378,7 @@ export class FinanceJournalService {
         currencyCode: params.currencyCode,
         lines: [
           {
-            accountCode: '1100',
+            accountCode: params.settlementAccountCode ?? '1100',
             accountName: 'Bank/Cash',
             accountType: 'ASSET',
             debit: params.amount,
@@ -444,6 +461,7 @@ export class FinanceJournalService {
       settlementType: string;
       amount: string;
       currencyCode: string;
+      settlementAccountCode?: string | null;
     },
     sourceEventId: string,
     userId: string | null,
@@ -462,7 +480,7 @@ export class FinanceJournalService {
         lines: isInflow
           ? [
               {
-                accountCode: '1100',
+                accountCode: params.settlementAccountCode ?? '1100',
                 accountName: 'Bank/Cash',
                 accountType: 'ASSET',
                 debit: params.amount,
@@ -484,7 +502,7 @@ export class FinanceJournalService {
                 debit: params.amount,
               },
               {
-                accountCode: '1100',
+                accountCode: params.settlementAccountCode ?? '1100',
                 accountName: 'Bank/Cash',
                 accountType: 'ASSET',
                 credit: params.amount,
@@ -519,7 +537,7 @@ export class FinanceJournalService {
             debit: payment.allocated_amount || payment.total_amount,
           },
           {
-            accountCode: '1100',
+            accountCode: payment.settlement_account_code ?? '1100',
             accountName: 'Bank/Cash',
             accountType: 'ASSET',
             credit: payment.allocated_amount || payment.total_amount,
@@ -545,7 +563,11 @@ export class FinanceJournalService {
         sourceId: accrual.id,
         sourceEventId,
         description: `Commission accrual ${accrual.accrual_no ?? accrual.id} reversed: ${reason}`,
-        currencyCode: accrual.invoice?.currency ?? 'TZS',
+        currencyCode: String(
+          accrual.commission_snapshot?.currencyCode ??
+            accrual.invoice?.currency ??
+            'TZS',
+        ),
         lines: [
           {
             accountCode: '2200',
@@ -584,7 +606,7 @@ export class FinanceJournalService {
         currencyCode: payment.currency,
         lines: [
           {
-            accountCode: '1100',
+            accountCode: payment.settlement_account_code ?? '1100',
             accountName: 'Bank/Cash',
             accountType: 'ASSET',
             debit: payment.allocated_amount || payment.total_amount,
@@ -612,6 +634,8 @@ export class FinanceJournalService {
       description: string;
       currencyCode: string;
       lines: JournalLineInput[];
+      dimensions?: Record<string, string> | null;
+      branchId?: string | null;
     },
     userId: string | null,
   ) {
@@ -624,6 +648,13 @@ export class FinanceJournalService {
         [`${companyId}:${params.sourceType}:${params.sourceEventId}`],
       );
     }
+    const request = await this.operating?.prepare(
+      manager,
+      companyId,
+      userId,
+      params,
+    );
+    if (request) return request;
     for (const line of params.lines) {
       const debit = DecimalUtil.value(line.debit ?? 0);
       const credit = DecimalUtil.value(line.credit ?? 0);
@@ -655,6 +686,9 @@ export class FinanceJournalService {
     if (existing) {
       const fingerprint = params.lines.map((line) => ({
         accountCode: line.accountCode,
+        ...(params.dimensions && Object.keys(params.dimensions).length
+          ? { dimensions: params.dimensions }
+          : {}),
         debit: DecimalUtil.value(line.debit ?? 0).toFixed(4),
         credit: DecimalUtil.value(line.credit ?? 0).toFixed(4),
         customerId: line.customerId ?? null,
@@ -692,18 +726,23 @@ export class FinanceJournalService {
       });
     }
 
-    const journalDate = new Date().toISOString().slice(0, 10);
-    await this.postingPolicy.requireEligible(manager, {
+    const journalDate =
+      (await this.postingPolicy.requireEligible(manager, {
+        companyId,
+        sourceType: params.sourceType,
+        currency: params.currencyCode,
+        accountMappings: params.lines.map((line) => ({
+          code: line.accountCode,
+          type: line.accountType,
+        })),
+      })) ?? new Date().toISOString().slice(0, 10);
+    const dimensions = await this.operating?.legacyDimensions(
+      manager,
       companyId,
-      sourceType: params.sourceType,
-      currency: params.currencyCode,
-      date: journalDate,
-      accountMappings: params.lines.map((line) => ({
-        code: line.accountCode,
-        type: line.accountType,
-      })),
-    });
-    const journalNo = await this.identifierService.generateRequestId(
+      params,
+      journalDate,
+    );
+    const journalNo = await this.identifierService.generateJournalNumber(
       companyId,
       manager,
     );
@@ -724,6 +763,9 @@ export class FinanceJournalService {
     const lineRepository = manager.getRepository(FinanceJournalLine);
     const linesForHash = params.lines.map((line) => ({
       accountCode: line.accountCode,
+      ...(params.dimensions && Object.keys(params.dimensions).length
+        ? { dimensions: params.dimensions }
+        : {}),
       debit: DecimalUtil.value(line.debit ?? 0).toFixed(4),
       credit: DecimalUtil.value(line.credit ?? 0).toFixed(4),
       customerId: line.customerId ?? null,
@@ -751,6 +793,7 @@ export class FinanceJournalService {
       await lineRepository.save(
         lineRepository.create({
           journal_entry_id: entry.id,
+          ...(dimensions ? { dimensions } : {}),
           account_id: account.id,
           customer_id: line.customerId ?? null,
           intermediary_company_id: line.intermediaryCompanyId ?? null,
@@ -820,22 +863,6 @@ export class FinanceJournalService {
           description: `${c.code} | ${c.category} | rate ${c.rate} | base ${c.baseAmount} | ${l.sourceId}`,
         });
       }
-    for (const line of vector) {
-      const account = await manager.getRepository(FinanceAccount).findOne({
-        where: {
-          company_id: invoice.company_id,
-          account_code: line.accountCode,
-        },
-      });
-      if (
-        !account ||
-        !account.is_active ||
-        account.account_type !== line.accountType
-      )
-        throw new ConflictException(
-          `Active ${line.accountType} posting account ${line.accountCode} is required; no account is inferred or created.`,
-        );
-    }
     const lines = reverse
       ? vector.map((l) => ({ ...l, debit: l.credit, credit: l.debit }))
       : vector;
@@ -850,6 +877,8 @@ export class FinanceJournalService {
           ? `Invoice ${invoice.invoice_no} reversed: ${reason}`
           : `Invoice ${invoice.invoice_no} issued`,
         currencyCode: invoice.currency,
+        dimensions: invoice.finance_dimensions,
+        branchId: invoice.branch_id,
         lines,
       },
       userId,

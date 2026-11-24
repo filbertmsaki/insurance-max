@@ -406,7 +406,7 @@ async function seed(s: DataSource) {
   let seq = 0;
   const identifier = {
     generateInvoiceNumber: async () => `SYNTHETIC-I${++seq}`,
-    generateRequestId: async () => `SYNTHETIC-J${++seq}`,
+    generateJournalNumber: async () => `SYNTHETIC-J${++seq}`,
   };
   const service = new QuotationInvoiceService(
       new ProductDefinitionHashService(),

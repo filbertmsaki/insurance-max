@@ -41,6 +41,26 @@ const overview = z.object({
     naturalPersonId: z.string().uuid(),
   }),
   inventory: z.object({
+    reportingEntity: z
+      .object({
+        id: z.string().uuid(),
+        entity_code: z.string(),
+        legal_name: z.string(),
+      })
+      .optional(),
+    departments: z
+      .array(
+        z.object({ id: z.string().uuid(), code: z.string(), name: z.string() }),
+      )
+      .optional(),
+    tanzaniaSource: z
+      .object({
+        profile: z.record(z.string(), z.string().nullable()).nullable(),
+        address: z.record(z.string(), z.unknown()).nullable(),
+        mainlandVrn: z.string().nullable(),
+      })
+      .nullable()
+      .optional(),
     legalIdentifiers: z
       .object({
         regulator: z.string().nullable(),
@@ -200,6 +220,38 @@ const overview = z.object({
   }),
   configurationKinds: z.array(z.string()).length(13),
   complete: z.boolean(),
+  operating: z
+    .object({
+      issues: z.record(z.string(), z.array(z.string())).optional(),
+      deployment: z
+        .object({
+          action: z.enum(['ENABLE', 'DISABLE']),
+          releaseId: z.string().uuid(),
+        })
+        .nullable()
+        .optional(),
+      activation: z
+        .object({
+          id: z.string().uuid(),
+          bookRole: z.enum(['PRIMARY', 'SECONDARY']),
+          setupId: z.string().uuid(),
+          releaseId: z.string().uuid(),
+          startsOn: z.string(),
+          endsBefore: z.string(),
+          current: z.boolean(),
+        })
+        .nullable(),
+      approvedReleases: z.array(
+        z.object({
+          id: z.string().uuid(),
+          hash,
+          version: z.number(),
+          startsOn: z.string(),
+          endsBefore: z.string(),
+        }),
+      ),
+    })
+    .optional(),
   completionMeaning: z.enum([
     'INACTIVE_SETUP_REVIEW_ONLY',
     'DEMONSTRATION_ONLY',
@@ -245,6 +297,33 @@ function sameScope(a: SetupOverview['scope'], s: FoundationScope) {
   );
 }
 export const setupApi = {
+  alignLegalName(scope: FoundationScope, expectedName: string) {
+    return apiClient.patch(base + '/legal-name', {
+      scope: scopeParams(scope),
+      expectedName,
+    });
+  },
+  activateBook(
+    scope: FoundationScope,
+    setup: SetupSummary,
+    release: { id: string; hash: string },
+    reason: string,
+  ) {
+    return apiClient.post(base + '/operating/activate', {
+      scope: scopeParams(scope),
+      setupId: setup.id,
+      setupHash: setup.subjectHash,
+      releaseId: release.id,
+      releaseHash: release.hash,
+      reason,
+    });
+  },
+  withdrawBook(scope: FoundationScope, id: string, reason: string) {
+    return apiClient.post(base + '/operating/' + id + '/withdraw', {
+      scope: scopeParams(scope),
+      reason,
+    });
+  },
   async allocationPreviews(s: FoundationScope, signal?: AbortSignal) {
     const { data } = await apiClient.get(`${base}/allocation-previews`, {
       params: scopeParams(s),

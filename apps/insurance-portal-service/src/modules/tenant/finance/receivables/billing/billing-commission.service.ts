@@ -15,10 +15,8 @@ import {
   paginateQueryBuilder,
   type ListQueryOptions,
 } from '@insurance-max/portal-shared/utils/paginate-query.util';
-import {
-  normalizeMoneyForStorage,
-  normalizeRateForStorage,
-} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
+import { normalizeRateForStorage } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
+import { IdentifierGeneratorService } from '../../../../shared/identifiers/identifier-generator.service';
 import { Company } from '../../../../platform/companies/entities/company.entity';
 import { Customer } from '../../../customers/entities/customer.entity';
 import { Policy } from '../../../policies/entities/policy.entity';
@@ -54,10 +52,14 @@ import {
 
 type NumericLike = number | string | null | undefined;
 
+import { DecimalUtil } from '../../../../shared/finance/decimal.util';
+import { withPostingStatus } from '../../accounting/general-ledger/finance-document-posting-status';
+
 @Injectable()
 export class BillingCommissionService {
   constructor(
     private readonly dataSource: DataSource,
+    private readonly identifiers: IdentifierGeneratorService,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(InvoiceItem)
@@ -96,12 +98,7 @@ export class BillingCommissionService {
   }
 
   private normalizeMoney(value: NumericLike): string {
-    const num =
-      value === null || value === undefined || value === '' ? 0 : Number(value);
-    if (!Number.isFinite(num)) {
-      throw new BadRequestException('Invalid numeric value');
-    }
-    return normalizeMoneyForStorage(num);
+    return DecimalUtil.exactMoney(value);
   }
 
   private normalizeRate(value: NumericLike): string {
@@ -181,25 +178,6 @@ export class BillingCommissionService {
         hasPreviousPage,
       },
     };
-  }
-
-  private async nextSequence(
-    repository: Repository<any>,
-    companyId: string,
-    column: string,
-    prefix: string,
-  ): Promise<string> {
-    const last = await repository
-      .createQueryBuilder('entity')
-      .where(`entity.company_id = :companyId`, { companyId })
-      .andWhere(`entity.${column} LIKE :prefix`, { prefix: `${prefix}%` })
-      .orderBy(`entity.${column}`, 'DESC')
-      .limit(1)
-      .getOne();
-
-    const current = last ? String(last[column] ?? '') : '';
-    const next = current ? Number(current.substring(prefix.length)) + 1 : 1;
-    return `${prefix}${String(next).padStart(5, '0')}`;
   }
 
   private async ensureInvoice(companyId: string, id: string): Promise<Invoice> {
@@ -515,16 +493,16 @@ export class BillingCommissionService {
     return this.dataSource
       .transaction(async (manager) => {
         const invoiceRepo = manager.getRepository(Invoice);
-        const invoiceNo = await this.nextSequence(
-          invoiceRepo as any,
+        const invoiceNo = await this.identifiers.generateInvoiceNumber(
           companyId,
-          'invoice_no',
-          `INV-${new Date().getFullYear()}-`,
+          manager,
         );
         const items = dto.items ?? [];
-        const itemTotal = items.reduce(
-          (sum, item) => sum + Number(item.total_amount ?? 0),
-          0,
+        const itemTotal = DecimalUtil.exactMoney(
+          items.reduce(
+            (sum, item) => sum.plus(DecimalUtil.value(item.total_amount)),
+            DecimalUtil.value(0),
+          ),
         );
         const totalAmount = dto.total_amount ?? itemTotal;
         const invoice = invoiceRepo.create({
@@ -549,6 +527,7 @@ export class BillingCommissionService {
           balance_amount: this.normalizeMoney(totalAmount),
           status: InvoiceLifecycleStatus.DRAFT,
           due_date: this.normalizeDateOnly(dto.due_date),
+          payment_term_code: dto.payment_term_code ?? null,
           created_by: userId,
           updated_by: userId,
         });
@@ -620,7 +599,11 @@ export class BillingCommissionService {
   }
 
   async findInvoice(companyId: string, id: string): Promise<Invoice> {
-    return this.ensureInvoice(companyId, id);
+    return withPostingStatus(
+      this.dataSource.manager,
+      'INVOICE',
+      await this.ensureInvoice(companyId, id),
+    );
   }
 
   async updateInvoice(
@@ -729,11 +712,9 @@ export class BillingCommissionService {
       : null;
     return this.dataSource.transaction(async (manager) => {
       const receiptRepo = manager.getRepository(Receipt);
-      const receiptNo = await this.nextSequence(
-        receiptRepo as any,
+      const receiptNo = await this.identifiers.generateReceiptNumber(
         companyId,
-        'receipt_no',
-        `RCT-${new Date().getFullYear()}-`,
+        manager,
       );
       const receipt = receiptRepo.create({
         company_id: companyId,
@@ -798,7 +779,11 @@ export class BillingCommissionService {
   }
 
   async findReceipt(companyId: string, id: string): Promise<Receipt> {
-    return this.ensureReceipt(companyId, id);
+    return withPostingStatus(
+      this.dataSource.manager,
+      'RECEIPT',
+      await this.ensureReceipt(companyId, id),
+    );
   }
 
   async updateReceipt(

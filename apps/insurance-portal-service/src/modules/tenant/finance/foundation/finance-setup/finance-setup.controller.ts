@@ -53,11 +53,38 @@ export class FinanceSetupController {
   private actor(user: AuthenticatedUser, scope: FinanceBookSelection) {
     return this.identity.actor(user, scope);
   }
+  @Get('onboarding/members')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  onboardingMembers(@CurrentUser() user: AuthenticatedUser) {
+    return this.books.onboardingMembers(user);
+  }
+
+  @Post('onboarding')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  onboard(@CurrentUser() user: AuthenticatedUser, @Body() input: unknown) {
+    return this.books.bootstrap(user, input);
+  }
+
   @Post('books')
   @Permissions(FinancePermissions.FOUNDATION_RELEASE)
   createBook(@CurrentUser() user: AuthenticatedUser, @Body() value: unknown) {
-    const b = this.body(value, ['bookCode']);
+    const b = this.body(value, ['bookCode', 'appointment']);
+    if (b.appointment)
+      return this.books.bootstrap(
+        user,
+        { ...b.appointment, bookCode: b.bookCode },
+        b.scope,
+      );
     return this.books.create(user, b.scope, b.bookCode);
+  }
+  @Patch('legal-name')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  alignLegalName(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, ['expectedName']);
+    return this.books.alignLegalName(user, b.scope, b.expectedName);
   }
   @Patch('books')
   @Permissions(FinancePermissions.FOUNDATION_RELEASE)
@@ -79,6 +106,36 @@ export class FinanceSetupController {
   ) {
     const scope = this.scope(query);
     return this.setup.overview(await this.actor(user, scope), scope);
+  }
+  @Post('operating/activate')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  async activateBook(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, [
+      'setupId',
+      'setupHash',
+      'releaseId',
+      'releaseHash',
+      'reason',
+    ]);
+    return this.setup.activateBook(await this.actor(user, b.scope), b.scope, b);
+  }
+  @Post('operating/:id/withdraw')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  async withdrawBook(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() value: unknown,
+  ) {
+    const b = this.body(value, ['reason']);
+    return this.setup.withdrawBook(
+      await this.actor(user, b.scope),
+      b.scope,
+      id,
+      b.reason,
+    );
   }
   @Get('independent-identity')
   @Permissions(FinancePermissions.FOUNDATION_READ)

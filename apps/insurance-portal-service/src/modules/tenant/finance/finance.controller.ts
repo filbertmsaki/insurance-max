@@ -16,6 +16,7 @@ import { DataAccessScopeService } from '../../shared/authorization/data-access-s
 
 import { FinancePermissions } from './governance/finance-permissions/finance.permissions';
 import { BillingCommissionService } from './receivables/billing/billing-commission.service';
+import { CreateInvoiceDto } from './receivables/invoices/dto/create-invoice.dto';
 import { FinanceDashboardService } from './receivables/billing/finance-dashboard.service';
 import {
   ApproveCommissionAccrualDto,
@@ -99,6 +100,31 @@ export class FinanceController {
       );
     }
     return this.financeDashboardService.receivableAging(user.companyId!);
+  }
+
+  @Get('document-dimensions/invoice')
+  @Permissions(FinancePermissions.INVOICES_ISSUE)
+  invoiceDimensions(@CurrentUser() user: AuthenticatedUser) {
+    return this.financeCommandService.documentDimensions(user.companyId!);
+  }
+
+  @Get('document-dimensions/receipt')
+  @Permissions(FinancePermissions.RECEIPTS_POST)
+  receiptDimensions(@CurrentUser() user: AuthenticatedUser) {
+    return this.financeCommandService.documentDimensions(user.companyId!);
+  }
+
+  @Post('invoices')
+  @Permissions(FinancePermissions.INVOICES_CREATE_MANUAL)
+  createInvoice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateInvoiceDto,
+  ) {
+    return this.billingCommissionService.createInvoice(
+      user.companyId!,
+      dto,
+      user.id,
+    );
   }
 
   @Get('invoices/:id')

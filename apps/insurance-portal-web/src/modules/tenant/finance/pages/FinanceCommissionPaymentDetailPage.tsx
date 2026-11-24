@@ -1,3 +1,4 @@
+import { BankSettlementReceipt } from '../journals/BankSettlementReceipt';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -111,10 +112,11 @@ export function FinanceCommissionPaymentDetailPage() {
           </Button>
         ) : null}
         {payment.status === 'APPROVED' ? (
-          <p className="text-sm text-amber-700" role="status">
-            Settlement pending: a verified provider or bank disbursement is
-            required before this commission payment can be marked paid.
-          </p>
+          <BankSettlementReceipt
+            kind="commission-payments"
+            id={payment.id}
+            refresh={refresh}
+          />
         ) : null}
         {!['REVERSED', 'CANCELLED'].includes(payment.status) ? (
           <Button
@@ -145,6 +147,15 @@ export function FinanceCommissionPaymentDetailPage() {
             label="Total amount"
             value={formatMoney(payment.total_amount, payment.currency)}
           />
+          {payment.payment_term_code && (
+            <DetailRow
+              label="Payment terms"
+              value={payment.payment_term_code}
+            />
+          )}
+          {payment.due_date && (
+            <DetailRow label="Payment due" value={payment.due_date} />
+          )}
           <DetailRow
             label="Allocated"
             value={formatMoney(payment.allocated_amount, payment.currency)}

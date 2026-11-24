@@ -137,6 +137,18 @@ export function FinanceReceiptDetailPage() {
             label="Status"
             value={<FinanceStatusBadge status={receipt.status} />}
           />
+          {receipt.accounting_status && (
+            <DetailRow
+              label="Journal status"
+              value={
+                receipt.accounting_status === 'POSTED'
+                  ? 'Posted'
+                  : receipt.accounting_status === 'REJECTED'
+                    ? 'Rejected'
+                    : 'Awaiting independent approval'
+              }
+            />
+          )}
           <DetailRow label="Payer" value={receipt.payer_name ?? ' - '} />
           <DetailRow
             label="Payment method"

@@ -1,3 +1,4 @@
+import { FirstFinanceBook } from './FirstFinanceBook';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/modules/shared/api/client';
@@ -12,7 +13,6 @@ export function BookManagement({
   identity: string[];
 }) {
   const [code, setCode] = useState(scope.book_code);
-  const [newCode, setNewCode] = useState('');
   const [action, setAction] = useState<'create' | 'rename' | 'archive' | null>(
     null,
   );
@@ -26,14 +26,9 @@ export function BookManagement({
       action,
       bookCode,
     }: {
-      action: 'create' | 'rename' | 'delete';
+      action: 'rename' | 'delete';
       bookCode?: string;
     }) => {
-      if (action === 'create')
-        return apiClient.post('/tenant/finance/setup/books', {
-          scope: selection,
-          bookCode,
-        });
       if (action === 'rename')
         return apiClient.patch('/tenant/finance/setup/books', {
           scope: selection,
@@ -44,7 +39,6 @@ export function BookManagement({
       });
     },
     onSuccess: async () => {
-      setNewCode('');
       setAction(null);
       await client.invalidateQueries({
         queryKey: ['finance-setup', ...identity, 'scopes'],
@@ -94,36 +88,24 @@ export function BookManagement({
         )}
       </div>
       {action === 'create' && (
-        <div className="space-y-3 rounded-md border p-4">
-          <p className="text-sm">
-            Create a separate draft book for {scope.entity_code}.
-          </p>
-          <label className="block text-sm">
-            Code for the new book
-            <input
-              className="mt-1 block w-full max-w-sm rounded border px-3 py-2"
-              maxLength={50}
-              value={newCode}
-              onChange={(e) => setNewCode(e.target.value)}
-            />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              disabled={!newCode.trim() || change.isPending}
-              onClick={() =>
-                change.mutate({ action: 'create', bookCode: newCode.trim() })
-              }
-            >
-              Create draft book
-            </Button>
-            <Button
-              variant="outline"
-              disabled={change.isPending}
-              onClick={() => setAction(null)}
-            >
-              Cancel
-            </Button>
-          </div>
+        <div>
+          <FirstFinanceBook
+            identity={identity}
+            scope={scope}
+            created={() => {
+              setAction(null);
+              void client.invalidateQueries({
+                queryKey: ['finance-setup', ...identity, 'scopes'],
+              });
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setAction(null)}
+          >
+            Cancel
+          </Button>
         </div>
       )}
       {action === 'rename' && (

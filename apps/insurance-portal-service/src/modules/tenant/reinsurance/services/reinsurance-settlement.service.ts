@@ -197,25 +197,13 @@ export class ReinsuranceSettlementService {
     const sourceEventId = `reinsurance-settlement:${settlement.id}`;
 
     return this.dataSource.transaction(async (manager) => {
-      await this.financeJournalService.postReinsuranceSettlement(
-        manager,
-        {
-          companyId: settlement.company_id,
-          settlementId: settlement.id,
-          settlementNo: settlement.settlement_no,
-          counterpartyCompanyId: settlement.counterparty_company_id,
-          settlementType: settlement.settlement_type,
-          amount: settlement.net_amount,
-          currencyCode: settlement.currency,
-        },
-        sourceEventId,
-        user.id,
-      );
-
       const repository = manager.getRepository(ReinsuranceSettlement);
       const updated = await repository.findOneOrFail({
-        where: { id: settlement.id },
+        where: { id: settlement.id, company_id: settlement.company_id },
+        lock: { mode: 'pessimistic_write' },
       });
+      if (updated.status !== ReinsuranceSettlementStatus.APPROVED)
+        throw new ConflictException('Only an approved settlement can be paid');
 
       updated.status = ReinsuranceSettlementStatus.PAID;
       updated.paid_amount = updated.net_amount;
@@ -225,6 +213,27 @@ export class ReinsuranceSettlementService {
       updated.finance_event_id = sourceEventId;
 
       const saved = await repository.save(updated);
+      const booked = await repository.findOneOrFail({
+        where: { id: saved.id, company_id: saved.company_id },
+        select: { id: true, settlement_account_code: true },
+      });
+      saved.settlement_account_code = booked.settlement_account_code;
+      await this.financeJournalService.postReinsuranceSettlement(
+        manager,
+        {
+          companyId: saved.company_id,
+          settlementId: saved.id,
+          settlementNo: saved.settlement_no,
+          counterpartyCompanyId: saved.counterparty_company_id,
+          settlementType: saved.settlement_type,
+          amount: saved.net_amount,
+          currencyCode: saved.currency,
+          settlementAccountCode: saved.settlement_account_code,
+        },
+        sourceEventId,
+        user.id,
+      );
+
       await this.auditTransition(user, saved, 'reinsurance.settlement.pay');
       return saved;
     });

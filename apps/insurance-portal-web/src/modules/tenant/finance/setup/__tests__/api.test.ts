@@ -9,6 +9,30 @@ const get = vi.mocked(apiClient.get),
   post = vi.mocked(apiClient.post);
 beforeEach(() => vi.resetAllMocks());
 describe('Exact setup book and version adapter', () => {
+  it('activates only the selected book and exact setup and release versions', async () => {
+    const final = {
+      id: uuid(54),
+      step: 'G04-10',
+      version: 1,
+      subjectHash: 'a'.repeat(64),
+      state: 'REVIEWED_INACTIVE' as const,
+      makerSubjectId: uuid(51),
+      makerNaturalPersonId: uuid(52),
+    };
+    const release = { id: uuid(55), hash: 'b'.repeat(64) };
+    await setupApi.activateBook(scope, final, release, 'Approved cutover');
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/setup/operating/activate',
+      {
+        scope: { bookId: scope.bookId, legalEntityId: scope.legalEntityId },
+        setupId: final.id,
+        setupHash: final.subjectHash,
+        releaseId: release.id,
+        releaseHash: release.hash,
+        reason: 'Approved cutover',
+      },
+    );
+  });
   it('preserves product category information in the scoped overview', async () => {
     const data = makeOverview();
     const category = {

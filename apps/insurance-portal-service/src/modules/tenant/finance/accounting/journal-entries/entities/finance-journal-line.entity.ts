@@ -26,6 +26,9 @@ export class FinanceJournalLine {
   @Column({ type: 'uuid', nullable: true })
   intermediary_company_id: string | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  dimensions: Record<string, string> | null;
+
   @Column({ type: 'text', nullable: true })
   description: string | null;
 

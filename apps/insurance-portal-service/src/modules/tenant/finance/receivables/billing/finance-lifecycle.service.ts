@@ -723,12 +723,10 @@ export class FinanceLifecycleService {
       userId: string;
     },
   ) {
-    const reversalNo = await this.referenceService.next({
-      companyId: params.companyId,
-      documentType: 'FINANCIAL_REVERSAL',
-      prefix: `REV-${new Date().getFullYear()}-`,
+    const reversalNo = await this.referenceService.nextFinanceReversal(
+      params.companyId,
       manager,
-    });
+    );
 
     return manager.getRepository(FinancialReversal).save(
       manager.getRepository(FinancialReversal).create({

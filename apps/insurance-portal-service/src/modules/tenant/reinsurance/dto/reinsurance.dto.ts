@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsDateString,
+  IsDefined,
   IsEnum,
   IsInt,
   IsIn,
@@ -341,7 +342,13 @@ export class AdmitRecoveryDto {
 }
 
 export class RecordRecoveryReceiptDto {
+  @IsDefined()
   amount: string | number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  settlement_no?: string;
 
   @IsOptional()
   @IsDateString()

@@ -62,16 +62,16 @@ export class CommissionTransaction {
   @Column({ type: 'varchar', length: 30 })
   calculation_base: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   gross_premium: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   net_premium: string;
 
   @Column({ type: 'numeric', precision: 18, scale: 10, default: 0 })
   commission_rate: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   commission_amount: string;
 
   @Column({ type: 'varchar', length: 20, default: 'PENDING' })
@@ -101,10 +101,10 @@ export class CommissionTransaction {
   @Column({ type: 'timestamptz', nullable: true })
   approved_at: Date | null;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   paid_amount: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   balance_amount: string;
 
   @Column({ type: 'uuid', nullable: true })

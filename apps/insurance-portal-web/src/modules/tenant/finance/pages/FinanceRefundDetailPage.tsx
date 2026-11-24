@@ -1,3 +1,4 @@
+import { BankSettlementReceipt } from '../journals/BankSettlementReceipt';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -102,10 +103,11 @@ export function FinanceRefundDetailPage() {
           </Button>
         ) : null}
         {refund.status === 'APPROVED' ? (
-          <p className="text-sm text-amber-700" role="status">
-            Settlement pending: a verified provider or bank disbursement is
-            required before this refund can be marked paid.
-          </p>
+          <BankSettlementReceipt
+            kind="refunds"
+            id={refund.id}
+            refresh={refresh}
+          />
         ) : null}
         {['REQUESTED', 'APPROVED'].includes(refund.status) ? (
           <Button

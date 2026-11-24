@@ -89,13 +89,14 @@ export interface FinanceTestDatabase {
 
 /**
  * Owns exactly one fresh database. The default synchronizes the three legacy
- * journal entities. Scope-foundation mode instead runs only its explicit new
- * migration. Neither mode runs full application migrations or seeders.
+ * journal entities. Feature modes run their selected migrations. Empty mode
+ * leaves schema installation to the caller.
  */
 export async function withFinanceTestDatabase<T>(
   work: (fixture: FinanceTestDatabase) => Promise<T>,
   env: NodeJS.ProcessEnv = process.env,
   schema:
+    | 'empty'
     | 'legacy-journal'
     | 'scope-foundations'
     | 'configuration-reviews'
@@ -106,6 +107,17 @@ export async function withFinanceTestDatabase<T>(
     | 'chart-governance' = 'legacy-journal',
 ): Promise<T> {
   const server = readFinanceTestServer(env);
+  const connectionTimeout = Number(
+    env.FINANCE_TEST_PG_CONNECT_TIMEOUT_MS ?? 5000,
+  );
+  if (
+    !Number.isSafeInteger(connectionTimeout) ||
+    connectionTimeout < 1000 ||
+    connectionTimeout > 120000
+  )
+    throw new Error(
+      'Finance test connection timeout must be from 1000 to 120000 milliseconds.',
+    );
   const database = templateDatabaseName(newTestRunId());
   assertSafeTestDatabase({
     NODE_ENV: 'test',
@@ -119,7 +131,7 @@ export async function withFinanceTestDatabase<T>(
     ...server,
     database: 'postgres',
     ssl: false,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: connectionTimeout,
     application_name: 'insurance-finance-test-provisioner',
   });
   let created = false;
@@ -168,7 +180,7 @@ export async function withFinanceTestDatabase<T>(
             ]
           : [FinanceAccount, FinanceJournalEntry, FinanceJournalLine],
       migrations:
-        schema !== 'legacy-journal'
+        schema !== 'legacy-journal' && schema !== 'empty'
           ? [
               FinanceScopeFoundations1796000000000,
               ...(schema === 'configuration-reviews' ||
@@ -216,7 +228,7 @@ export async function withFinanceTestDatabase<T>(
       logging: false,
       installExtensions: false,
       uuidExtension: 'pgcrypto',
-      connectTimeoutMS: 5000,
+      connectTimeoutMS: connectionTimeout,
       extra: { max: 4, application_name: 'insurance-finance-integration-test' },
     });
     await dataSource.initialize();

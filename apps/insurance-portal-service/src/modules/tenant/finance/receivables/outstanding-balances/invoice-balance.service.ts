@@ -63,10 +63,10 @@ export class InvoiceBalanceService {
       ? total.minus(effectivePaid).minus(writtenOff)
       : DecimalUtil.value(0);
 
-    invoice.allocated_amount = allocated.toFixed(4);
-    invoice.paid_amount = effectivePaid.toFixed(4);
-    invoice.refunded_amount = refunded.toFixed(4);
-    invoice.balance_amount = balance.toFixed(4);
+    invoice.allocated_amount = DecimalUtil.exactMoney(allocated);
+    invoice.paid_amount = DecimalUtil.exactMoney(effectivePaid);
+    invoice.refunded_amount = DecimalUtil.exactMoney(refunded);
+    invoice.balance_amount = DecimalUtil.exactMoney(balance);
 
     if (invoice.status === InvoiceStatus.VOIDED) {
       // Recalculation cannot silently reopen a legally voided document.

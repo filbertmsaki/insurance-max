@@ -46,6 +46,16 @@ export class ApiExceptionFilter implements ExceptionFilter {
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
+    if (
+      exception instanceof Error &&
+      'code' in exception &&
+      exception.code === 'P0101'
+    ) {
+      exception = new HttpException(
+        { code: 'FINANCE_SETUP_REQUIRED', message: exception.message },
+        HttpStatus.CONFLICT,
+      );
+    }
     const http = host.switchToHttp();
 
     const request = http.getRequest<Request & RequestWithContext>();

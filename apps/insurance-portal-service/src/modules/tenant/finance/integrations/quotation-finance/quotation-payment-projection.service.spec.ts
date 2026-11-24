@@ -1,4 +1,4 @@
-﻿import { InvoiceSourceType, InvoiceStatus } from '@insurance-max/contracts';
+import { InvoiceSourceType, InvoiceStatus } from '@insurance-max/contracts';
 import { QuotationPaymentProjectionService } from './quotation-payment-projection.service';
 
 describe('quotation finance projection transaction', () => {
@@ -38,7 +38,12 @@ describe('quotation finance projection transaction', () => {
         lifecycle as any,
         commission as any,
       );
-      await service.publishInvoiceBalance(manager as any, 'invoice', 'source');
+      await service.publishInvoiceBalance(
+        manager as any,
+        'invoice',
+        'source',
+        'receipt-preparer',
+      );
       expect(outbox.add).toHaveBeenCalledWith(manager, expect.any(Object));
       expect(lifecycle[method]).toHaveBeenCalledWith(
         'company',
@@ -53,6 +58,7 @@ describe('quotation finance projection transaction', () => {
           1,
           expect.any(String),
           'invoice',
+          'receipt-preparer',
         );
     },
   );

@@ -45,6 +45,7 @@ import { Branch } from '../../tenant/branches/entities/branch.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { DepartmentUser } from '../../tenant/departments/entities/department-user.entity';
 import { AuditService } from '../../shared/audit/audit.service';
+import { parseTanzaniaProfilePatch } from './tanzania-finance-profile';
 import { AuthorizationVersionService } from '../../shared/authorization/authorization-version.service';
 import { QuotationPolicyDataScope } from '../../shared/authorization/quotation-policy-data-scope.enum';
 import { CompanyConfigsService } from '../company-configs/company-configs.service';
@@ -2086,7 +2087,13 @@ export class CompaniesService {
       );
     }
 
-    const { name, settings, ...rest } = dto;
+    const { name, settings, finance_profile_tz, ...rest } = dto;
+    if (finance_profile_tz !== undefined) {
+      company.finance_profile_tz = {
+        ...company.finance_profile_tz,
+        ...parseTanzaniaProfilePatch(finance_profile_tz),
+      };
+    }
     void name;
     Object.assign(company, rest);
     // Merge settings instead of replacing them, so a form that edits some

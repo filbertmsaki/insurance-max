@@ -11,7 +11,10 @@ import {
   IDENTIFIER_SEQUENCE_LENGTHS,
   IdentifierType,
 } from '@insurance-max/portal-shared/constants/identifier.constants';
-import { PolicyTransactionType } from '@insurance-max/contracts';
+import {
+  FINANCE_DOCUMENT_TYPES,
+  PolicyTransactionType,
+} from '@insurance-max/contracts';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { toAlphanumericReference } from './business-reference.service';
 
@@ -323,14 +326,50 @@ export class IdentifierGeneratorService {
     );
   }
 
+  async generateJournalNumber(companyId: string, manager?: EntityManager) {
+    return this.generateFinanceIdentifier(
+      companyId,
+      IdentifierType.TIRAMIS_REQUEST,
+      'JRN',
+      6,
+      manager,
+      'JOURNAL',
+    );
+  }
+
+  async generateReconciliationNumber(
+    companyId: string,
+    manager?: EntityManager,
+  ) {
+    return this.generateFinanceIdentifier(
+      companyId,
+      IdentifierType.TIRAMIS_REQUEST,
+      'REC',
+      6,
+      manager,
+      'RECONCILIATION',
+    );
+  }
+
   private async generateFinanceIdentifier(
     companyId: string,
     identifierType: IdentifierType,
     readableConstant: string,
     sequenceLength: number,
     manager?: EntityManager,
+    documentType: string = identifierType,
   ): Promise<string> {
     const company = await this.resolveCompany(companyId, manager);
+    if (
+      company.finance_primary_setup_id &&
+      FINANCE_DOCUMENT_TYPES.some((type) => type === documentType)
+    ) {
+      const [result] = await (manager ?? this.dataSource.manager).query(
+        'SELECT finance_fin01_number($1,$2) AS reference',
+        [company.finance_primary_setup_id, documentType],
+      );
+      return result.reference;
+    }
     const prefix = await this.ensureCompanyIdentifierPrefix(company, manager);
     const today = this.formatDate(new Date(), IDENTIFIER_DATE_FORMATS.finance);
 

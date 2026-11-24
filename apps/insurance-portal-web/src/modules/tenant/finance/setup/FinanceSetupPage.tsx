@@ -27,7 +27,11 @@ import {
 import { SetupFields, SetupField } from './SetupFields';
 import { ChartDraftEditor } from './ChartDraftEditor';
 import { BookManagement } from './BookManagement';
+import { FirstFinanceBook } from './FirstFinanceBook';
+import { OperatingPostings } from './OperatingPostings';
 import { CompanyLegalRecords } from './CompanyLegalRecords';
+import { OperatingBook } from './OperatingBook';
+import { LedgerSetupDocuments } from './LedgerSetupDocuments';
 import { AllocationReview } from './AllocationReview';
 
 const readOptions = {
@@ -265,6 +269,17 @@ function Evidence({
                 'LICENCE',
                 'TIN',
                 'REGISTRATION',
+                'BPRA_REGISTRATION',
+                'MAINLAND_VAT',
+                'ZANZIBAR_VAT',
+                'ZTN',
+                'ASSOCIATION',
+                'LICENCE_APPLICABILITY',
+                'TIRA_MAINTENANCE',
+                'TIRA_ACCREDITATION',
+                'HOME_LICENCE',
+                'HOME_GOOD_STANDING',
+                'TAX_APPLICABILITY',
                 'APPOINTMENT',
                 'ACCOUNTING_ASSESSMENT',
                 'CALENDAR',
@@ -1113,7 +1128,7 @@ function BookSetup({
       }
     }),
     [tab, setTab] = useState<
-      'steps' | 'company' | 'configuration' | 'allocations'
+      'steps' | 'company' | 'configuration' | 'allocations' | 'operating'
     >('steps'),
     [success, setSuccess] = useState(false);
   const client = useQueryClient(),
@@ -1161,6 +1176,13 @@ function BookSetup({
     taxIdentifier: overview.inventory.company.tin,
     registrationNumber: overview.inventory.company.brela_registration_number,
   };
+  const tz = overview.inventory.tanzaniaSource?.profile;
+  const registration =
+    tz?.registry === 'BPRA'
+      ? tz.bpraNumber
+      : tz?.registry === 'OTHER'
+        ? tz.otherRegistrationNo
+        : legal.registrationNumber;
   const run = (work: () => Promise<unknown>) => {
     if (!mutation.isPending) {
       setSuccess(false);
@@ -1206,6 +1228,12 @@ function BookSetup({
               Setup steps
             </TabsTrigger>
             <TabsTrigger
+              value="operating"
+              disabled={editingStep || mutation.isPending}
+            >
+              FIN-01 readiness
+            </TabsTrigger>
+            <TabsTrigger
               value="company"
               className="flex-1 whitespace-normal text-center"
               disabled={editingStep || mutation.isPending}
@@ -1236,16 +1264,57 @@ function BookSetup({
           </Button>
         </div>
         <TabsContent value="company" className="rounded-md border p-4">
+          {overview.inventory.reportingEntity &&
+            overview.inventory.reportingEntity.legal_name
+              .trim()
+              .toUpperCase() !==
+              overview.inventory.company.name.trim().toUpperCase() && (
+              <div className="space-y-2">
+                <p>
+                  Finance legal entity{' '}
+                  {overview.inventory.reportingEntity.entity_code} is recorded
+                  as {overview.inventory.reportingEntity.legal_name}.
+                </p>
+                {permissions.includes('finance-foundation:release') && (
+                  <Button
+                    variant="outline"
+                    disabled={editingStep || mutation.isPending}
+                    onClick={() =>
+                      run(() =>
+                        setupApi.alignLegalName(
+                          scope,
+                          overview.inventory.company.name,
+                        ),
+                      )
+                    }
+                  >
+                    Use registered company name for this entity
+                  </Button>
+                )}
+              </div>
+            )}
           <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
             <p>Company: {overview.inventory.company.name}</p>
-            <p>Licence: {legal.licenceNumber ?? 'Not supplied'}</p>
+            {tz?.licensing !== 'OUTSIDE_REGULATED_ACTIVITY' && (
+              <p>Licence: {legal.licenceNumber ?? 'Not supplied'}</p>
+            )}
+            {!(
+              tz?.licensing === 'FOREIGN_ACCREDITATION' &&
+              tz.localTaxRegistration === 'ASSESSED_NO_LOCAL_REGISTRATION'
+            ) && (
+              <p>
+                {overview.inventory.book.jurisdiction_code === 'TZ'
+                  ? 'TIN'
+                  : 'Tax identifier'}
+                : {legal.taxIdentifier ?? 'Not supplied'}
+              </p>
+            )}
             <p>
-              {overview.inventory.book.jurisdiction_code === 'TZ'
-                ? 'TIN'
-                : 'Tax identifier'}
-              : {legal.taxIdentifier ?? 'Not supplied'}
+              Registration: {registration ?? 'Not supplied'}
+              {tz?.registry === 'BRELA_AND_BPRA' &&
+                tz.bpraNumber &&
+                ' / BPRA ' + tz.bpraNumber}
             </p>
-            <p>Registration: {legal.registrationNumber ?? 'Not supplied'}</p>
             <p>
               {overview.inventory.products.length} configured products;{' '}
               {overview.inventory.accounts.length} legacy accounts.
@@ -1258,6 +1327,7 @@ function BookSetup({
           <div className="mt-4">
             <CompanyLegalRecords
               company={overview.inventory.company}
+              source={overview.inventory.tanzaniaSource}
               jurisdiction={overview.inventory.book.jurisdiction_code}
               canEdit={permissions.includes('update_company_data')}
               locked={editingStep}
@@ -1266,10 +1336,31 @@ function BookSetup({
             />
           </div>
         </TabsContent>
+        <TabsContent value="operating">
+          <OperatingBook
+            overview={overview}
+            scope={scope}
+            canRelease={permissions.includes('finance-foundation:release')}
+            busy={mutation.isPending}
+            run={run}
+            openStep={(id) => {
+              goToStep(id);
+              setTab('steps');
+            }}
+          />
+          <LedgerSetupDocuments
+            key={scope.bookId}
+            scope={scope}
+            overview={overview}
+            permissions={permissions}
+            busy={mutation.isPending}
+            run={run}
+          />
+        </TabsContent>
         {success && (
           <p role="status" className="text-sm text-green-800">
-            The exact inactive record was saved. Review the updated evidence and
-            remaining requirements.
+            Changes saved. The current review and activation status are shown
+            for this book.
           </p>
         )}
         {mutation.isError && <ErrorBox error={mutation.error} />}
@@ -1520,6 +1611,15 @@ function ScopedSetup({
   if (query.isError) return <ErrorBox error={query.error} />;
   if (!query.data)
     return <p role="status">Checking authorized Finance books…</p>;
+  if (!query.data.length && permissions.includes('finance-foundation:release'))
+    return (
+      <FirstFinanceBook
+        identity={identity}
+        created={() => {
+          void query.refetch();
+        }}
+      />
+    );
   if (!query.data.length)
     return (
       <p>
@@ -1564,6 +1664,16 @@ function ScopedSetup({
             />
           )}
       </section>
+      {selected &&
+        (permissions.includes('finance-foundation:accept-journal') ||
+          permissions.includes('finance-foundation:prepare')) && (
+          <OperatingPostings
+            scope={selected}
+            canApprove={permissions.includes(
+              'finance-foundation:accept-journal',
+            )}
+          />
+        )}
       {selected ? (
         <BookSetup
           key={key(selected)}

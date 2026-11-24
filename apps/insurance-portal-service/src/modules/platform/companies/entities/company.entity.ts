@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import type { TanzaniaFinanceProfile } from '@insurance-max/contracts';
 import { Role } from '../../roles/entities/role.entity';
 import { CompanyUser } from './company-user.entity';
 
@@ -134,6 +135,12 @@ export class Company {
 
   @Column({ type: 'jsonb', nullable: true })
   regulatory_metadata!: Record<string, unknown> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  finance_profile_tz!: TanzaniaFinanceProfile | null;
+
+  @Column({ type: 'uuid', nullable: true, update: false, insert: false })
+  finance_primary_setup_id!: string | null;
 
   @Column({
     type: 'varchar',

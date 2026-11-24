@@ -68,6 +68,15 @@ export class ReinsuranceSettlement {
   @Column({ type: 'varchar', length: 50, nullable: true })
   payment_method: string | null;
 
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    default: () => 'NULL',
+    update: false,
+  })
+  settlement_account_code: string | null;
+
   @Column({ type: 'varchar', length: 150, nullable: true })
   payment_reference: string | null;
 

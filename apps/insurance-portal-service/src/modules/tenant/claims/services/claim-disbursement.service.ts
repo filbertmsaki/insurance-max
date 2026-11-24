@@ -254,7 +254,13 @@ export class ClaimDisbursementService {
       disbursement.provider_reference = providerReference;
       disbursement.confirmed_by = user.id;
       disbursement.confirmed_at = new Date();
-      await manager.getRepository(ClaimDisbursement).save(disbursement);
+      const payouts = manager.getRepository(ClaimDisbursement);
+      await payouts.save(disbursement);
+      const booked = await payouts.findOneOrFail({
+        where: { id: disbursement.id, company_id: claim.company_id },
+        select: { id: true, settlement_account_code: true },
+      });
+      disbursement.settlement_account_code = booked.settlement_account_code;
 
       // Operational valuation evidence; the existing journal remains in its
       // transaction currency and no FX accounting policy is implied here.
@@ -339,6 +345,7 @@ export class ClaimDisbursementService {
           companyId: claim.company_id,
           disbursementId: disbursement.id,
           disbursementNo: disbursement.disbursement_no,
+          settlementAccountCode: disbursement.settlement_account_code,
           customerId: claim.customer_id,
           amount: disbursement.amount,
           currencyCode: disbursement.currency_code,
@@ -457,6 +464,7 @@ export class ClaimDisbursementService {
           companyId: claim.company_id,
           disbursementId: disbursement.id,
           disbursementNo: disbursement.disbursement_no,
+          settlementAccountCode: disbursement.settlement_account_code,
           customerId: claim.customer_id,
           amount: disbursement.amount,
           currencyCode: disbursement.currency_code,

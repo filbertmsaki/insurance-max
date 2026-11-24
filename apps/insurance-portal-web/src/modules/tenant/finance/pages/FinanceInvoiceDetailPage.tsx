@@ -51,7 +51,10 @@ function referenceLabel(reference: FinancePaymentReference) {
   return reference.control_number ? 'Control number' : 'Reference';
 }
 
+import { DocumentDimensions } from '../components/DocumentDimensions';
+
 export function FinanceInvoiceDetailPage() {
+  const [dimensions, setDimensions] = useState<Record<string, string>>({});
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -89,6 +92,7 @@ export function FinanceInvoiceDetailPage() {
     mutationFn: () =>
       financeApi.issueInvoice(id!, {
         expected_state_version: invoiceQuery.data?.state_version ?? 1,
+        finance_dimensions: dimensions,
         idempotency_key: createIdempotencyKey('invoice-issue'),
       }),
     onSuccess: () => {
@@ -254,6 +258,24 @@ export function FinanceInvoiceDetailPage() {
         </Card>
       </div>
 
+      {invoice.status === 'DRAFT' && (
+        <DocumentDimensions
+          kind="invoice"
+          documentId={invoice.id}
+          values={dimensions}
+          onChange={setDimensions}
+        />
+      )}
+      {invoice.accounting_status && (
+        <p>
+          Journal status ·{' '}
+          {invoice.accounting_status === 'POSTED'
+            ? 'Posted'
+            : invoice.accounting_status === 'REJECTED'
+              ? 'Rejected'
+              : 'Awaiting independent approval'}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <PdfDocumentActions
           base={`/tenant/finance/invoices/${invoice.id}/document`}
@@ -314,6 +336,12 @@ export function FinanceInvoiceDetailPage() {
           />
           <DetailRow label="Source" value={invoice.source_type ?? 'MANUAL'} />
           <DetailRow label="Due date" value={invoice.due_date ?? ' - '} />
+          {invoice.payment_term_code && (
+            <DetailRow
+              label="Payment terms"
+              value={invoice.payment_term_code}
+            />
+          )}
           <DetailRow label="Issued at" value={formatDate(invoice.issued_at)} />
           <DetailRow label="Voided at" value={formatDate(invoice.voided_at)} />
           <DetailRow

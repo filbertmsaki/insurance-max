@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import {
+  FINANCE_DOCUMENT_TYPES,
+  FINANCE_METHOD_CODES,
+} from '@insurance-max/contracts';
 import { Button } from '@/components/ui/button';
 import type { SetupEvidence, SetupOverview } from './api';
 import type { FoundationScope } from '../foundation/api';
@@ -551,6 +555,30 @@ export function SetupFields({
         <>
           {f('jurisdictionCode', 'Legal jurisdiction code')}
           {f('legalScopeReason', 'Legal entity and product perimeter', 'long')}
+          {overview.inventory.tanzaniaSource &&
+            (overview.inventory.tanzaniaSource?.profile?.licensing ===
+              'FOREIGN_ACCREDITATION' ||
+              !['INSURANCE_COMPANY', 'REINSURANCE_COMPANY'].includes(
+                String(overview.inventory.company.company_type),
+              )) && (
+              <SetupField
+                spec={{
+                  key: 'noOwnProducts',
+                  label:
+                    'This company distributes or services products owned by others',
+                  type: 'boolean',
+                }}
+                disabled={disabled}
+                value={a.noOwnProducts}
+                change={(v) =>
+                  change({
+                    ...a,
+                    noOwnProducts: v,
+                    ...(v === true ? { productIds: [] } : {}),
+                  })
+                }
+              />
+            )}
           <ProductScopeSelector
             products={overview.inventory.products}
             categories={overview.inventory.productCategories}
@@ -562,7 +590,7 @@ export function SetupFields({
                 : []
             }
             onChange={(ids) => set('productIds', ids)}
-            disabled={disabled}
+            disabled={disabled || a.noOwnProducts === true}
           />
         </>
       )}
@@ -596,6 +624,12 @@ export function SetupFields({
       )}
       {step === 'G04-03' && (
         <>
+          {f(
+            'bookRole',
+            'Accounting book purpose',
+            undefined,
+            options(['PRIMARY', 'SECONDARY']),
+          )}
           {f(
             'accountingBasis',
             'Accounting basis',
@@ -683,6 +717,11 @@ export function SetupFields({
             disabled={disabled}
             fields={[
               { key: 'code', label: 'Period name' },
+              {
+                key: 'kind',
+                label: 'Period type (defaults to regular)',
+                options: options(['REGULAR', 'ADJUSTMENT']),
+              },
               { key: 'from', label: 'Starts on', type: 'date' },
               { key: 'to', label: 'Ends before', type: 'date' },
             ]}
@@ -738,6 +777,45 @@ export function SetupFields({
       )}
       {step === 'G04-06' && (
         <>
+          <fieldset>
+            <legend>Departments used by this book</legend>
+            {(overview.inventory.departments ?? []).map((d) => {
+              const ids = Array.isArray(a.departmentIds) ? a.departmentIds : [];
+              return (
+                <label key={d.id} className="block text-sm">
+                  <input
+                    type="checkbox"
+                    checked={ids.includes(d.id)}
+                    disabled={disabled}
+                    onChange={(e) =>
+                      set(
+                        'departmentIds',
+                        e.target.checked
+                          ? [...ids, d.id]
+                          : ids.filter((id) => id !== d.id),
+                      )
+                    }
+                  />{' '}
+                  {d.code} · {d.name}
+                </label>
+              );
+            })}
+          </fieldset>
+          <Rows
+            label="Cost centres used by this book"
+            value={a.costCentres}
+            disabled={disabled}
+            change={(v) => set('costCentres', v)}
+            fields={[
+              { key: 'code', label: 'Cost centre code' },
+              { key: 'name', label: 'Cost centre name' },
+            ]}
+          />
+          {f(
+            'businessDimensionsReviewed',
+            'Department and cost centre selections reviewed',
+            'boolean',
+          )}
           {config(
             'ACCOUNT_ROLES',
             'chartReleaseId',
@@ -755,6 +833,113 @@ export function SetupFields({
       )}
       {step === 'G04-07' && (
         <>
+          <Rows
+            label="Financial document numbers"
+            value={a.numbering}
+            disabled={disabled}
+            change={(v) => set('numbering', v)}
+            fields={[
+              {
+                key: 'documentType',
+                label: 'Document type',
+                options: options([...FINANCE_DOCUMENT_TYPES]),
+              },
+              { key: 'prefix', label: 'Document prefix' },
+              {
+                key: 'reset',
+                label: 'Sequence reset',
+                options: options(['YEAR', 'MONTH', 'LIFETIME']),
+              },
+              { key: 'width', label: 'Minimum digits', type: 'number' },
+            ]}
+          />
+          <Rows
+            label="Customer and supplier payment terms"
+            value={a.paymentTerms}
+            disabled={disabled}
+            change={(v) => set('paymentTerms', v)}
+            fields={[
+              { key: 'code', label: 'Term code' },
+              { key: 'label', label: 'Term name' },
+              {
+                key: 'party',
+                label: 'Party type',
+                options: options(['CUSTOMER', 'SUPPLIER']),
+              },
+              {
+                key: 'days',
+                label: 'Calendar days to payment',
+                type: 'number',
+              },
+              {
+                key: 'isDefault',
+                label: 'Default for this party type',
+                type: 'boolean',
+              },
+            ]}
+          />
+          <Rows
+            label="Party-specific terms"
+            value={a.termAssignments}
+            disabled={disabled}
+            change={(v) => set('termAssignments', v)}
+            fields={[
+              {
+                key: 'party',
+                label: 'Party type',
+                options: options(['CUSTOMER', 'SUPPLIER']),
+              },
+              { key: 'partyId', label: 'Customer or supplier ID' },
+              { key: 'termCode', label: 'Approved term code' },
+            ]}
+          />
+          <Rows
+            label="Payment methods"
+            value={a.paymentMethods}
+            disabled={disabled}
+            change={(v) => set('paymentMethods', v)}
+            fields={[
+              {
+                key: 'method',
+                label: 'Method',
+                options: options([...FINANCE_METHOD_CODES]),
+              },
+              {
+                key: 'direction',
+                label: 'Direction',
+                options: options(['INCOMING', 'OUTGOING', 'BOTH']),
+              },
+              { key: 'accountCode', label: 'Settlement account code' },
+              {
+                key: 'referenceRequired',
+                label: 'Require a payment reference',
+                type: 'boolean',
+              },
+            ]}
+          />
+          <Rows
+            label="Financial approval limits"
+            value={a.approvalLimits}
+            disabled={disabled}
+            change={(v) => set('approvalLimits', v)}
+            fields={[
+              {
+                key: 'action',
+                label: 'Financial action',
+                options: options([
+                  'REFUND',
+                  'COMMISSION_PAYMENT',
+                  'COMMISSION_ACCRUAL',
+                  'RECONCILIATION',
+                  'CLAIM_PAYMENT',
+                  'REINSURANCE_SETTLEMENT',
+                ]),
+              },
+              { key: 'role', label: 'Company role name' },
+              { key: 'currency', label: 'Approval currency' },
+              { key: 'maximum', label: 'Maximum amount per approval' },
+            ]}
+          />
           {overview.configurationKinds.map((kind) => {
             const choices = overview.inventory.configurations.filter(
               (r) => r.kind === kind && r.state === 'REVIEWED_INACTIVE',

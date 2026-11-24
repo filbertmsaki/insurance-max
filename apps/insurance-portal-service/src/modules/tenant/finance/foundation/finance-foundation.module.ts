@@ -20,6 +20,9 @@ import { FinanceOperationsService } from '../governance/financial-controls/finan
 import { FinanceQuotationBillingService } from '../integrations/quotation-finance/finance-quotation-billing.service';
 import { FinanceReceivablesService } from '../receivables/receivable-controls/finance-receivables.service';
 import { FinancePolicyService } from '../governance/accounting-policies/finance-policy.service';
+import { FinanceGlVoucherService } from '../accounting/general-ledger/finance-gl-voucher.service';
+import { FinanceGlWorkflowsService } from '../accounting/general-ledger/finance-gl-workflows.service';
+import { FinanceOperatingPostingService } from '../accounting/general-ledger/finance-operating-posting.service';
 import { FinanceLedgerFoundationService } from '../accounting/general-ledger/finance-ledger-foundation.service';
 import { FinanceOutgoingService } from '../payables/outgoing-payments/finance-outgoing.service';
 import { OUTGOING_SIMULATORS } from '../payables/outgoing-payments/finance-outgoing.types';
@@ -50,6 +53,9 @@ import { FinanceCommissionService } from '../payables/commission-controls/financ
     FinanceOutgoingService,
     { provide: OUTGOING_SIMULATORS, useValue: Object.freeze([]) },
     FinanceLedgerFoundationService,
+    FinanceOperatingPostingService,
+    FinanceGlVoucherService,
+    FinanceGlWorkflowsService,
     FinancePolicyService,
     FinanceReceivablesService,
     FinanceQuotationBillingService,
@@ -70,6 +76,9 @@ import { FinanceCommissionService } from '../payables/commission-controls/financ
     FinancePolicyChangeService,
     FinanceOutgoingService,
     FinanceLedgerFoundationService,
+    FinanceOperatingPostingService,
+    FinanceGlVoucherService,
+    FinanceGlWorkflowsService,
     FinancePolicyService,
     FinanceReceivablesService,
     FinanceQuotationBillingService,

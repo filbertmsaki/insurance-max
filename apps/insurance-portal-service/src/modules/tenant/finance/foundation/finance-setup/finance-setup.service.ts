@@ -8,7 +8,10 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { DataSource, EntityManager } from 'typeorm';
 import { FinancePermissions } from '../../governance/finance-permissions/finance.permissions';
-import { FoundationActor } from '../../accounting/general-ledger/finance-ledger-foundation.service';
+import {
+  FinanceLedgerFoundationService,
+  FoundationActor,
+} from '../../accounting/general-ledger/finance-ledger-foundation.service';
 import { FinanceBookSelection } from '../finance-configuration/finance-scope.service';
 import {
   canonicalFinanceJson,
@@ -18,6 +21,13 @@ import {
 } from '../finance-configuration/finance-configuration.types';
 import { FINANCE_SETUP_CATALOG } from './finance-setup.catalog';
 import { validateSetupConfiguration } from './finance-setup-configuration';
+import { operatingSettingsIssues } from './finance-operating-settings';
+import {
+  operatingInventory,
+  releaseBook,
+  withdrawBook,
+} from './finance-operating-book';
+import { tanzaniaProfileIssues } from './tanzania-profile-review';
 import {
   prepareProductMap,
   productMapMatchesLegalScope,
@@ -46,7 +56,7 @@ import {
   setupUuid,
 } from './finance-setup.types';
 
-type Access = 'READ' | 'PREPARE_CONFIG' | 'REVIEW_CONFIG';
+type Access = 'READ' | 'PREPARE_CONFIG' | 'REVIEW_CONFIG' | 'RELEASE';
 type Row = {
   id: string;
   step: string;
@@ -61,11 +71,12 @@ type Row = {
 };
 const json = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
-/** Company setup review has no activation, journal, settlement or deployment command. */
+/** Review and book activation use separate scoped authorities and evidence. */
 @Injectable()
 export class FinanceSetupService {
   constructor(
     @InjectDataSource() private readonly source: DataSource | EntityManager,
+    private readonly ledger?: FinanceLedgerFoundationService,
   ) {}
 
   async withAccess<T>(
@@ -129,11 +140,15 @@ export class FinanceSetupService {
         throw new ForbiddenException(
           'Current company membership, setup permission and exact book identity are required.',
         );
+      if (access === 'RELEASE' && !(await this.isCompanyAdmin(m, actor)))
+        throw new ForbiddenException(
+          'A current company administrator must release or withdraw the book.',
+        );
       const authorities =
-        access === 'READ'
+        access === 'READ' || access === 'RELEASE'
           ? await m.query(
-              `SELECT id FROM finance_foundation_authorities WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND subject_id=$4 AND natural_person_id=$5 AND capability='READ' AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp()) FOR SHARE`,
-              ids,
+              `SELECT id FROM finance_foundation_authorities WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND subject_id=$4 AND natural_person_id=$5 AND capability=$6 AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp()) FOR SHARE`,
+              [...ids, access],
             )
           : await m.query(
               `SELECT id FROM finance_configuration_authorities WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND subject_id=$4 AND natural_person_id=$5 AND permission=$6 AND state='ENABLED' AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp()) FOR SHARE`,
@@ -145,7 +160,7 @@ export class FinanceSetupService {
         );
       const result = await work(m, authorities[0].id);
       const table =
-        access === 'READ'
+        access === 'READ' || access === 'RELEASE'
           ? 'finance_foundation_authorities'
           : 'finance_configuration_authorities';
       const current = await m.query(
@@ -171,12 +186,14 @@ export class FinanceSetupService {
     actor: FoundationActor,
     scope: FinanceBookSelection,
   ) {
-    const [company] = await m.query(
-      `SELECT id,name,company_type,status,verification_status,tira_license_number,tira_license_status,license_issued_at::text,license_expires_at::text,tin,brela_registration_number,operating_timezone,default_currency,regulatory_metadata->'finance_legal_evidence' AS finance_legal_evidence FROM companies WHERE id=$1`,
+    const [companyRow] = await m.query(
+      `SELECT id,name,company_type,status,verification_status,tira_license_number,tira_license_status,license_issued_at::text,license_expires_at::text,tin,brela_registration_number,operating_timezone,default_currency,regulatory_metadata->'finance_legal_evidence' AS finance_legal_evidence,
+       finance_profile_tz AS profile, address, settings#>>'{payment_details,vrn}' AS "mainlandVrn" FROM companies WHERE id=$1 AND deleted_at IS NULL`,
       [actor.sourceCompanyId],
     );
-    if (!company)
+    if (!companyRow)
       throw new ForbiddenException('Source company is unavailable.');
+    const { profile, address, mainlandVrn, ...company } = companyRow;
     await m.query(
       'SELECT id FROM insurance_product_versions WHERE company_id=$1 FOR SHARE',
       [actor.sourceCompanyId],
@@ -193,6 +210,10 @@ export class FinanceSetupService {
     );
     const accounts = await m.query(
       `SELECT id,account_code,account_name,account_type,is_active,is_control_account FROM finance_accounts WHERE company_id=$1 ORDER BY id FOR SHARE`,
+      [actor.sourceCompanyId],
+    );
+    const departments = await m.query(
+      "SELECT id,name,code FROM departments WHERE company_id::text=$1 AND deleted_at IS NULL AND status='active' ORDER BY code FOR SHARE",
       [actor.sourceCompanyId],
     );
     const sourceMaps = await m.query(
@@ -220,12 +241,22 @@ export class FinanceSetupService {
       `SELECT b.id,b.book_code,b.state,l.business_profile,l.jurisdiction_code FROM finance_accounting_books b JOIN finance_legal_entities l ON l.tenant_id=b.tenant_id AND l.id=b.legal_entity_id WHERE b.tenant_id=$1 AND b.legal_entity_id=$2 AND b.id=$3`,
       this.ids(actor, scope),
     );
+    const [reportingEntity] = await m.query(
+      'SELECT id,entity_code,legal_name FROM finance_legal_entities WHERE tenant_id=$1 AND id=$2',
+      this.ids(actor, scope).slice(0, 2),
+    );
     return json({
       company,
+      reportingEntity,
+      tanzaniaSource:
+        book.jurisdiction_code === 'TZ'
+          ? { profile, address, mainlandVrn }
+          : null,
       legalIdentifiers: setupLegalIdentifiers(company, book.jurisdiction_code),
       products,
       productCategories,
       accounts,
+      departments,
       sourceMaps: sourceMaps.map((map: any) => ({
         ...map,
         hash: financeChartSourceMapHash({
@@ -249,7 +280,13 @@ export class FinanceSetupService {
   ) {
     switch (input.step) {
       case 'G04-01':
-        return { company: inventory.company, products: inventory.products };
+        return {
+          company: inventory.company,
+          products: inventory.products,
+          ...(input.purpose === 'COMPANY_SETUP' && inventory.tanzaniaSource
+            ? { tanzaniaSource: inventory.tanzaniaSource }
+            : {}),
+        };
       case 'G04-02':
         return { people: inventory.people };
       case 'G04-05':
@@ -261,6 +298,15 @@ export class FinanceSetupService {
         return {
           accounts: inventory.accounts,
           sourceMaps: inventory.sourceMaps,
+          ...(input.purpose === 'COMPANY_SETUP'
+            ? {
+                departments: inventory.departments.filter(
+                  (d: any) =>
+                    Array.isArray(input.answers.departmentIds) &&
+                    input.answers.departmentIds.includes(d.id),
+                ),
+              }
+            : {}),
         };
       case 'G04-07':
         return {
@@ -362,53 +408,90 @@ export class FinanceSetupService {
         );
       }
     if (input.step === 'G04-01') {
-      const c = setupLegalIdentifiers(
-        inventory.company,
-        inventory.book.jurisdiction_code,
-      );
-      for (const [key, label] of [
-        ['licenceNumber', 'Licence number'],
-        ['taxIdentifier', 'Tax identifier'],
-        ['registrationNumber', 'Company registration number'],
-      ] as const)
+      const localProfile =
+        input.purpose === 'COMPANY_SETUP' &&
+        inventory.book.jurisdiction_code === 'TZ';
+      if (localProfile) {
         need(
-          setupText(c[key], 100),
-          `${label} is missing from the company master.`,
+          inventory.reportingEntity?.legal_name?.trim().toUpperCase() ===
+            inventory.company.name.trim().toUpperCase(),
+          'The finance legal entity must match the registered company name.',
         );
-      need(
-        setupText(c.regulator, 100),
-        'Provide the actual jurisdiction regulator.',
-      );
-      need(
-        setupText(c.licenceStatus, 30) &&
-          ['ACTIVE', 'VALID', 'LICENSED', 'LICENCED'].includes(
-            c.licenceStatus.toUpperCase(),
-          ),
-        'Current licence status evidence is required.',
-      );
-      need(
-        isFinanceDate(c.issuedOn) &&
-          isFinanceDate(c.expiresOn) &&
-          input.effectiveFrom &&
-          c.issuedOn <= input.effectiveFrom &&
-          c.expiresOn >= input.effectiveFrom,
-        'Licence dates must cover the setup effective date.',
-      );
-      need(
-        input.effectiveTo &&
-          isFinanceDate(c.expiresOn) &&
-          c.expiresOn >=
-            new Date(Date.parse(input.effectiveTo + 'T00:00:00Z') - 86400000)
-              .toISOString()
-              .slice(0, 10),
-        'Use a bounded setup interval covered by the licence evidence.',
-      );
-      if (input.purpose === 'COMPANY_SETUP')
+        if (inventory.tanzaniaSource)
+          issues.push(
+            ...tanzaniaProfileIssues(
+              inventory.company,
+              inventory.tanzaniaSource,
+              input,
+            ),
+          );
+        else issues.push('The Tanzania company master is unavailable.');
+      } else {
+        const c = setupLegalIdentifiers(
+          inventory.company,
+          inventory.book.jurisdiction_code,
+        );
+        for (const [key, label] of [
+          ['licenceNumber', 'Licence number'],
+          ['taxIdentifier', 'Tax identifier'],
+          ['registrationNumber', 'Company registration number'],
+        ] as const)
+          need(
+            setupText(c[key], 100),
+            `${label} is missing from the company master.`,
+          );
         need(
-          ![c.licenceNumber, c.taxIdentifier, c.registrationNumber].some(
-            isDemonstrationIdentifier,
-          ),
-          'Demonstration identifiers cannot complete actual company setup.',
+          setupText(c.regulator, 100),
+          'Provide the actual jurisdiction regulator.',
+        );
+        need(
+          setupText(c.licenceStatus, 30) &&
+            ['ACTIVE', 'VALID', 'LICENSED', 'LICENCED'].includes(
+              c.licenceStatus.toUpperCase(),
+            ),
+          'Current licence status evidence is required.',
+        );
+        need(
+          isFinanceDate(c.issuedOn) &&
+            isFinanceDate(c.expiresOn) &&
+            input.effectiveFrom &&
+            c.issuedOn <= input.effectiveFrom &&
+            c.expiresOn >= input.effectiveFrom,
+          'Licence dates must cover the setup effective date.',
+        );
+        need(
+          input.effectiveTo &&
+            isFinanceDate(c.expiresOn) &&
+            c.expiresOn >=
+              new Date(Date.parse(input.effectiveTo + 'T00:00:00Z') - 86400000)
+                .toISOString()
+                .slice(0, 10),
+          'Use a bounded setup interval covered by the licence evidence.',
+        );
+        if (input.purpose === 'COMPANY_SETUP')
+          need(
+            ![c.licenceNumber, c.taxIdentifier, c.registrationNumber].some(
+              isDemonstrationIdentifier,
+            ),
+            'Demonstration identifiers cannot complete actual company setup.',
+          );
+        for (const purpose of ['LICENCE', 'TIN', 'REGISTRATION'])
+          need(
+            input.evidence.some((e) => e.purpose === purpose),
+            `Attach ${purpose.toLowerCase()} evidence.`,
+          );
+      }
+      if (a.noOwnProducts === true)
+        need(
+          localProfile &&
+            (inventory.tanzaniaSource?.profile?.licensing ===
+              'FOREIGN_ACCREDITATION' ||
+              !['INSURANCE_COMPANY', 'REINSURANCE_COMPANY'].includes(
+                inventory.company.company_type,
+              )) &&
+            Array.isArray(a.productIds) &&
+            a.productIds.length === 0,
+          'An insurer or reinsurer must select its licensed products.',
         );
       need(
         a.jurisdictionCode === inventory.book.jurisdiction_code,
@@ -426,11 +509,6 @@ export class FinanceSetupService {
             'Every selected product must have a current active version owned by this company covering the full setup interval.',
           );
         }
-      for (const purpose of ['LICENCE', 'TIN', 'REGISTRATION'])
-        need(
-          input.evidence.some((e) => e.purpose === purpose),
-          `Attach ${purpose.toLowerCase()} evidence.`,
-        );
     }
     if (input.step === 'G04-02') {
       const preparer = inventory.people.find(
@@ -480,6 +558,36 @@ export class FinanceSetupService {
           'Source maps must match this company, profile and full effective interval.',
         );
       }
+    if (input.step === 'G04-06' && input.purpose === 'COMPANY_SETUP') {
+      const departments = a.departmentIds ?? [],
+        centres = a.costCentres ?? [];
+      need(
+        a.businessDimensionsReviewed === true,
+        'Review the company departments and cost centres used in this book.',
+      );
+      need(
+        Array.isArray(departments) &&
+          departments.length <= 1000 &&
+          new Set(departments).size === departments.length &&
+          departments.every((d) =>
+            inventory.departments.some((row: any) => row.id === d),
+          ),
+        'Select active departments owned by this company.',
+      );
+      need(
+        Array.isArray(centres) &&
+          centres.length <= 1000 &&
+          centres.every(
+            (c) =>
+              setupObject(c) &&
+              setupText(c.code, 50) &&
+              /^[A-Z0-9_]+$/.test(c.code) &&
+              setupText(c.name, 120),
+          ) &&
+          new Set(centres.map((c) => c.code)).size === centres.length,
+        'Use unique cost-centre codes and descriptive names.',
+      );
+    }
     if (input.step === 'G04-06')
       for (const [kind, id, hash] of [
         ['ACCOUNT_ROLES', a.chartReleaseId, a.chartReleaseHash],
@@ -507,6 +615,66 @@ export class FinanceSetupService {
           );
         }
       }
+    if (input.step === 'G04-07' && input.purpose === 'COMPANY_SETUP') {
+      const basis = latest.find((r) => r.step === 'G04-03')?.subject.input
+        .answers;
+      const chart = latest.find((r) => r.step === 'G04-06')?.subject.input
+        .answers;
+      const [release] = chart?.chartReleaseId
+        ? await m.query(
+            "SELECT payload FROM finance_configuration_releases WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND id=$4 AND kind='ACCOUNT_ROLES' AND release_hash=$5",
+            [
+              ...this.ids(actor, scope),
+              chart.chartReleaseId,
+              chart.chartReleaseHash,
+            ],
+          )
+        : [];
+      const postingAccounts: string[] = (
+        release?.payload?.proposal?.accounts ?? []
+      )
+        .filter((r: any) => r.posting && r.type === 'ASSET')
+        .map((r: any) => r.code);
+      issues.push(
+        ...operatingSettingsIssues(
+          a,
+          basis?.transactionCurrencies ?? [],
+          postingAccounts,
+        ),
+      );
+      const roles = await m.query(
+        "SELECT name FROM roles WHERE company_id::text=$1 OR (company_id IS NULL AND scope='tenant_template')",
+        [actor.sourceCompanyId],
+      );
+      if (
+        Array.isArray(a.approvalLimits) &&
+        a.approvalLimits.some(
+          (r) => !roles.some((v: any) => v.name === r?.role),
+        )
+      )
+        issues.push(
+          'Select existing company or tenant-template approval roles.',
+        );
+      for (const assignment of Array.isArray(a.termAssignments)
+        ? a.termAssignments
+        : []) {
+        if (!setupUuid(assignment?.partyId)) continue;
+        const matches =
+          assignment.party === 'CUSTOMER'
+            ? await m.query(
+                'SELECT id FROM customers WHERE company_id=$1 AND id=$2 AND deleted_at IS NULL',
+                [actor.sourceCompanyId, assignment.partyId],
+              )
+            : await m.query(
+                "SELECT id FROM companies WHERE id=$1 AND status='active' AND deleted_at IS NULL",
+                [assignment.partyId],
+              );
+        if (!matches.length)
+          issues.push(
+            'A party-specific term references an unavailable customer or supplier.',
+          );
+      }
+    }
     if (input.step === 'G04-07' && Array.isArray(a.configurationPins)) {
       const selected = a.configurationPins.map((p: any) =>
         setupObject(p)
@@ -518,6 +686,15 @@ export class FinanceSetupService {
             )
           : undefined,
       );
+      if (input.purpose === 'COMPANY_SETUP') {
+        const chart = latest.find((r) => r.step === 'G04-06')?.subject.input
+          .answers;
+        need(
+          selected.some((r: any) => r?.id === chart?.chartReleaseId) &&
+            selected.some((r: any) => r?.id === chart?.dimensionReleaseId),
+          'Use the same chart and dimensions in both reviewed steps.',
+        );
+      }
       need(
         selected.every(Boolean) &&
           new Set(selected.map((r: any) => r?.kind)).size ===
@@ -582,6 +759,20 @@ export class FinanceSetupService {
         }
         if (r.kind === 'TAX_RULES') {
           const taxIds = full.payload.sourceTaxRuleIds;
+          const noSourceRules =
+            full.payload.sourceTaxCatalogue === 'NO_SOURCE_TAX_RULES';
+          if (noSourceRules) {
+            const legal = latest.find((v) => v.step === 'G04-01');
+            const profile = inventory.tanzaniaSource?.profile;
+            need(
+              legal?.subject.input.answers.noOwnProducts === true &&
+                profile &&
+                profile.mainlandVat !== 'REGISTERED' &&
+                profile.zanzibarVat !== 'REGISTERED' &&
+                input.evidence.some((e) => e.purpose === 'TAX_APPLICABILITY'),
+              'An empty source tax catalogue requires a reviewed company without own products, no registered VAT and supporting tax applicability evidence.',
+            );
+          }
           try {
             const rows = selectSetupTaxRules(
               inventory.taxRules,
@@ -591,7 +782,7 @@ export class FinanceSetupService {
               input.effectiveTo,
             );
             need(
-              rows.length > 0 &&
+              (noSourceRules || rows.length > 0) &&
                 financeConfigurationHash(rows) === full.payload.sourceRuleHash,
               'Source tax rules changed or are not fully evidenced by the reviewed configuration.',
             );
@@ -772,6 +963,11 @@ export class FinanceSetupService {
             naturalPersonId: actor.naturalPersonId,
           },
           inventory,
+          operating: await operatingInventory(
+            m,
+            this.ids(actor, scope),
+            actor.sourceCompanyId!,
+          ),
           steps,
           catalog: FINANCE_SETUP_CATALOG,
           configurationKinds: CONFIGURATION_KINDS,
@@ -783,6 +979,106 @@ export class FinanceSetupService {
           activationAuthorized: false,
         };
       },
+    );
+  }
+
+  async activateBook(
+    actor: FoundationActor,
+    scope: FinanceBookSelection,
+    request: Record<string, unknown>,
+  ) {
+    if (
+      !setupUuid(request.setupId) ||
+      !setupHash(request.setupHash) ||
+      !setupUuid(request.releaseId) ||
+      !setupHash(request.releaseHash) ||
+      !setupText(request.reason, 2000)
+    )
+      throw new BadRequestException(
+        'Select the exact reviewed setup and ledger release and record the activation reason.',
+      );
+    return this.withAccess(
+      actor,
+      scope,
+      'RELEASE',
+      FinancePermissions.FOUNDATION_RELEASE,
+      async (m, authority) => {
+        const rows = await this.latest(m, actor, scope);
+        const final = rows.find((r) => r.step === 'G04-10');
+        if (
+          rows.length !== FINANCE_SETUP_STEPS.length ||
+          !final ||
+          final.id !== request.setupId ||
+          final.subject_hash !== request.setupHash ||
+          rows.some(
+            (r) =>
+              r.state !== 'REVIEWED_INACTIVE' ||
+              r.subject.input.purpose !== 'COMPANY_SETUP',
+          )
+        )
+          throw new ConflictException(
+            'All ten current company setup reviews must be complete.',
+          );
+        if (
+          final.maker_natural_person_id === actor.naturalPersonId ||
+          final.maker_subject_id === actor.subjectId
+        )
+          throw new ForbiddenException(
+            'An independent release officer must activate the reviewed setup.',
+          );
+        const inventory = await this.inventory(m, actor, scope);
+        const issues = await this.issues(
+          m,
+          actor,
+          scope,
+          setupInput(final.subject.input),
+          inventory,
+        );
+        for (const row of rows)
+          await this.exact(m, actor, scope, row.id, row.subject_hash);
+        if (issues.length) throw new ConflictException(issues);
+        if (!this.ledger)
+          throw new ConflictException(
+            'Ledger release verification is unavailable.',
+          );
+        await this.ledger.verifyOperatingRelease(
+          m,
+          actor,
+          scope,
+          authority,
+          inventory.book.business_profile,
+          request.releaseId as string,
+          request.releaseHash as string,
+          request.reason as string,
+        );
+        return releaseBook(
+          m,
+          actor,
+          this.ids(actor, scope),
+          authority,
+          rows,
+          request,
+        );
+      },
+    );
+  }
+
+  async withdrawBook(
+    actor: FoundationActor,
+    scope: FinanceBookSelection,
+    id: string,
+    reason: unknown,
+  ) {
+    if (!setupUuid(id) || !setupText(reason, 2000))
+      throw new BadRequestException(
+        'Select the activation and supply a withdrawal reason.',
+      );
+    return this.withAccess(
+      actor,
+      scope,
+      'RELEASE',
+      FinancePermissions.FOUNDATION_RELEASE,
+      (m) => withdrawBook(m, actor, this.ids(actor, scope), id, reason),
     );
   }
 

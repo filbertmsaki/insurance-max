@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -19,7 +20,10 @@ import {
 } from '../components';
 import { usePageTitle } from '@/modules/shared/meta/page-title';
 
+import { DocumentDimensions } from '../components/DocumentDimensions';
+
 export function FinancePaymentDetailPage() {
+  const [dimensions, setDimensions] = useState<Record<string, string>>({});
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -52,6 +56,9 @@ export function FinancePaymentDetailPage() {
 
       return financeApi.postReceipt({
         payment_transaction_id: payment.id,
+        finance_dimensions: Object.keys(dimensions).length
+          ? dimensions
+          : undefined,
         invoice_id: payment.invoice_id ?? undefined,
         allocation_amount: Number(payment.amount),
         idempotency_key: createIdempotencyKey('receipt-post'),
@@ -112,6 +119,14 @@ export function FinancePaymentDetailPage() {
         />
       )}
 
+      {payment.status === 'SUCCESSFUL' && !payment.receipt_id && (
+        <DocumentDimensions
+          kind="receipt"
+          documentId={payment.id}
+          values={dimensions}
+          onChange={setDimensions}
+        />
+      )}
       <div className="flex flex-wrap gap-2">
         {payment.status === 'SUCCESSFUL' && !payment.receipt_id ? (
           <Button

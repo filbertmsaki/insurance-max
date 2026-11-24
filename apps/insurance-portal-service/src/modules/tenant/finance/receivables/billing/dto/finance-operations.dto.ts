@@ -7,7 +7,9 @@ import {
   IsInt,
   IsNotEmpty,
   IsNumber,
+  ValidateBy,
   IsOptional,
+  IsObject,
   IsString,
   IsUUID,
   Matches,
@@ -19,7 +21,39 @@ import { Transform, Type } from 'class-transformer';
 
 import { PaymentMethod } from '@insurance-max/contracts';
 
+function ExactPositiveMoney() {
+  return ValidateBy({
+    name: 'exactPositiveMoney',
+    validator: {
+      validate(value: unknown) {
+        if (
+          typeof value !== 'string' &&
+          (typeof value !== 'number' ||
+            !Number.isFinite(value) ||
+            Math.abs(value) > Number.MAX_SAFE_INTEGER)
+        )
+          return false;
+        const decimal = String(value);
+        return (
+          /^(0|[1-9]\d{0,15})(\.\d{1,12})?$/.test(decimal) &&
+          /[1-9]/.test(decimal)
+        );
+      },
+      defaultMessage: () =>
+        'Enter a positive decimal amount with up to 12 fractional digits.',
+    },
+  });
+}
+
 export class IssueInvoiceDto {
+  @IsOptional()
+  @IsObject()
+  finance_dimensions?: Record<string, string>;
+
+  @IsOptional()
+  @Matches(/^[A-Z0-9_]{1,30}$/)
+  payment_term_code?: string;
+
   @IsInt()
   @Min(1)
   expected_state_version: number;
@@ -77,10 +111,8 @@ export class RecordPaymentTransactionDto {
   @MaxLength(180)
   payment_reference: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
+  @ExactPositiveMoney()
+  amount: number | string;
 
   @Transform(({ value }) => String(value).trim().toUpperCase())
   @Matches(/^[A-Z]{3}$/)
@@ -113,6 +145,10 @@ export class RecordPaymentTransactionDto {
 }
 
 export class PostReceiptDto {
+  @IsOptional()
+  @IsObject()
+  finance_dimensions?: Record<string, string>;
+
   @IsUUID()
   payment_transaction_id: string;
 
@@ -121,10 +157,8 @@ export class PostReceiptDto {
   invoice_id?: string;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01)
-  allocation_amount?: number;
+  @ExactPositiveMoney()
+  allocation_amount?: number | string;
 
   @IsString()
   @IsNotEmpty()
@@ -136,10 +170,8 @@ export class AllocateReceiptDto {
   @IsUUID()
   invoice_id: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
+  @ExactPositiveMoney()
+  amount: number | string;
 
   @IsString()
   @IsNotEmpty()
@@ -177,10 +209,8 @@ export class RequestRefundDto {
   @IsUUID()
   invoice_id?: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
+  @ExactPositiveMoney()
+  amount: number | string;
 
   @IsString()
   @IsNotEmpty()
@@ -206,6 +236,10 @@ export class ApproveRefundDto {
 }
 
 export class PayRefundDto {
+  @IsOptional()
+  @IsObject()
+  settlement_observation?: import('../../../accounting/general-ledger/finance-bank-observation').BankObservation;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(180)
@@ -358,10 +392,8 @@ export class CommissionPaymentAllocationDto {
   @IsUUID()
   commission_transaction_id: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
+  @ExactPositiveMoney()
+  amount: number | string;
 }
 
 export class ApproveCommissionAccrualDto {
@@ -389,6 +421,14 @@ export class ReverseCommissionAccrualDto {
 }
 
 export class CreateCommissionPaymentCommandDto {
+  @IsOptional()
+  @IsUUID()
+  branch_id?: string;
+
+  @IsOptional()
+  @Matches(/^[A-Z0-9_]{1,30}$/)
+  payment_term_code?: string;
+
   @IsUUID()
   intermediary_company_id: string;
 
@@ -400,10 +440,8 @@ export class CreateCommissionPaymentCommandDto {
   @MaxLength(180)
   payment_reference: string;
 
-  @Type(() => Number)
-  @IsNumber()
-  @Min(0.01)
-  amount: number;
+  @ExactPositiveMoney()
+  amount: number | string;
 
   @Transform(({ value }) => String(value).trim().toUpperCase())
   @Matches(/^[A-Z]{3}$/)
@@ -433,6 +471,10 @@ export class ApproveCommissionPaymentDto {
 }
 
 export class PayCommissionPaymentDto {
+  @IsOptional()
+  @IsObject()
+  settlement_observation?: import('../../../accounting/general-ledger/finance-bank-observation').BankObservation;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(180)

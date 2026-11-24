@@ -56,16 +56,30 @@ async function main() {
   const argument = process.argv.indexOf('--evidence-dir');
   if (argument >= 0 && !process.argv[argument + 1])
     throw new Error('--evidence-dir requires a directory.');
-  const selection = process.argv.indexOf('--test-file');
-  const selected = selection >= 0 ? process.argv[selection + 1] : null;
+  const selected = process.argv.flatMap((arg, index) =>
+    arg === '--test-file' ? [process.argv[index + 1]] : [],
+  );
   if (
-    selection >= 0 &&
-    (!selected ||
-      !/^finance-[a-z-]+\.finance-integration\.ts$/.test(selected) ||
-      !fs.existsSync(path.join(__dirname, selected)))
+    selected.some(
+      (file) =>
+        !file ||
+        !/^finance-[a-z-]+\.finance-integration\.ts$/.test(file) ||
+        !fs.existsSync(path.join(__dirname, file)),
+    )
   )
     throw new Error(
       '--test-file requires an existing dedicated Finance integration filename.',
+    );
+  const timeFlag = process.argv.indexOf('--timeout-ms');
+  const testTimeout =
+    timeFlag < 0 ? 600000 : Number(process.argv[timeFlag + 1]);
+  if (
+    !Number.isSafeInteger(testTimeout) ||
+    testTimeout < 1000 ||
+    testTimeout > 2147483647
+  )
+    throw new Error(
+      '--timeout-ms requires a positive process timeout of at least one second.',
     );
   const ownedRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'insurance-finance-'),
@@ -88,8 +102,9 @@ async function main() {
     stopped: false,
     testExitCode: null,
     cleanupError: null,
-    selectedTestFile: selected,
-    testProcessTimeoutMs: 600000,
+    selectedTestFile: selected.length === 1 ? selected[0] : null,
+    selectedTestFiles: selected,
+    testProcessTimeoutMs: testTimeout,
     testProcessErrorCode: null,
   };
   function pg(name, args) {
@@ -152,8 +167,11 @@ async function main() {
         '--config',
         path.join(__dirname, '../jest-finance-integration.json'),
         '--runInBand',
-        ...(selected
-          ? ['--runTestsByPath', path.join(__dirname, selected)]
+        ...(selected.length
+          ? [
+              '--runTestsByPath',
+              ...selected.map((file) => path.join(__dirname, file)),
+            ]
           : []),
         '--passWithNoTests=false',
         '--coverage=false',
@@ -168,7 +186,7 @@ async function main() {
         encoding: 'utf8',
         windowsHide: true,
         // B12 adds owned-exception databases to the B11 compatibility coverage.
-        timeout: 600000,
+        timeout: testTimeout,
         env: {
           ...process.env,
           NODE_ENV: 'test',

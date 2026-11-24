@@ -28,6 +28,7 @@ export interface FinanceInvoiceItem {
 }
 
 export interface FinanceInvoice {
+  accounting_status?: 'POSTED' | 'AWAITING_APPROVAL' | 'REJECTED';
   gross_amount?: string;
   discount_amount?: string;
   tax_amount?: string;
@@ -52,6 +53,7 @@ export interface FinanceInvoice {
   balance_revision?: number;
   state_version?: number;
   due_date?: string | null;
+  payment_term_code?: string | null;
   issued_at?: string | null;
   voided_at?: string | null;
   void_reason?: string | null;
@@ -121,6 +123,7 @@ export interface FinancePaymentReference {
 }
 
 export interface FinanceReceipt {
+  accounting_status?: 'POSTED' | 'AWAITING_APPROVAL' | 'REJECTED';
   id: string;
   receipt_no: string;
   status: string;
@@ -233,6 +236,8 @@ export interface FinanceCommissionPaymentItem {
 }
 
 export interface FinanceCommissionPayment {
+  payment_term_code?: string | null;
+  due_date?: string | null;
   id: string;
   payment_no: string;
   status: string;

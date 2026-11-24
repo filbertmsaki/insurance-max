@@ -68,11 +68,17 @@ export const reinsuranceApi = {
         admitted_amount: amount,
       })
       .then((r) => r.data),
-  recordRecoveryReceipt: (id: string, amount: number, reference?: string) =>
+  recordRecoveryReceipt: (
+    id: string,
+    amount: number,
+    reference?: string,
+    settlementNo?: string,
+  ) =>
     apiClient
       .post(`/tenant/reinsurance/recoveries/${id}/receipts`, {
         amount,
         reference: reference || undefined,
+        settlement_no: settlementNo?.trim() || undefined,
       })
       .then((r) => r.data),
   submitTreaty: (id: string) =>

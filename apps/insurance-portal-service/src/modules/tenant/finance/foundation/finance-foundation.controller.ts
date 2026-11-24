@@ -14,7 +14,7 @@ import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-use
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { FinanceBookSelection } from './finance-configuration/finance-scope.service';
+import type { FinanceBookSelection } from './finance-configuration/finance-scope.service';
 import { FinanceLedgerFoundationService } from '../accounting/general-ledger/finance-ledger-foundation.service';
 import {
   CurrencyContextInput,
@@ -27,6 +27,14 @@ import { FinancePermissions } from '../governance/finance-permissions/finance.pe
 import { ADMIN_ROLE_BY_COMPANY_TYPE } from '../../../platform/companies/access-rules';
 import { FinanceJournalCandidateService } from '../accounting/journal-entries/finance-journal-candidate.service';
 import { FinanceApprovalService } from '../governance/finance-approvals/finance-approval.service';
+import { FinanceGlVoucherService } from '../accounting/general-ledger/finance-gl-voucher.service';
+import { FinanceGlWorkflowsService } from '../accounting/general-ledger/finance-gl-workflows.service';
+import { FinanceOperatingPostingService } from '../accounting/general-ledger/finance-operating-posting.service';
+import type {
+  VoucherInput,
+  Evidence,
+} from '../accounting/general-ledger/finance-gl-program';
+import type { ProgramInput } from '../accounting/general-ledger/finance-gl-workflows.service';
 import type { JournalCandidateInput } from '../accounting/journal-entries/finance-journal-candidate.types';
 import type { BranchAllocationPreviewInput } from '../accounting/allocations/finance-branch-allocation';
 import type {
@@ -47,6 +55,9 @@ export class FinanceFoundationController {
     private readonly policies: FinancePolicyService,
     @Optional() private readonly candidates?: FinanceJournalCandidateService,
     @Optional() private readonly approvals?: FinanceApprovalService,
+    @Optional() private readonly operating?: FinanceOperatingPostingService,
+    @Optional() private readonly gl?: FinanceGlWorkflowsService,
+    @Optional() private readonly vouchers?: FinanceGlVoucherService,
   ) {}
   private candidateService() {
     if (!this.candidates)
@@ -363,6 +374,258 @@ export class FinanceFoundationController {
       b.reason,
     );
   }
+  @Get('gl')
+  @Permissions(FinancePermissions.FOUNDATION_READ)
+  async glWorkspace(
+    @CurrentUser() u: AuthenticatedUser,
+    @Query() s: FinanceBookSelection,
+  ) {
+    return this.gl!.overview(await this.actor(u, s), s);
+  }
+  @Post('gl/invoices/:id/write-offs')
+  @Permissions(
+    FinancePermissions.INVOICES_WRITE_OFF,
+    FinancePermissions.FOUNDATION_PREPARE,
+  )
+  async invoiceWriteOff(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      input: Parameters<FinanceGlWorkflowsService['writeOff']>[3];
+    },
+  ) {
+    return this.gl!.writeOff(
+      await this.actor(u, b.scope),
+      b.scope,
+      id,
+      b.input,
+    );
+  }
+  @Post('gl/write-offs/:id/reverse')
+  @Permissions(
+    FinancePermissions.INVOICES_WRITE_OFF,
+    FinancePermissions.FOUNDATION_PREPARE,
+  )
+  async reverseInvoiceWriteOff(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() b: { scope: FinanceBookSelection; reason: string },
+  ) {
+    return this.gl!.reverseWriteOff(
+      await this.actor(u, b.scope),
+      b.scope,
+      id,
+      b.reason,
+    );
+  }
+  @Post('gl/deployments')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  async deployGl(
+    @CurrentUser() u: AuthenticatedUser,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      input: Parameters<FinanceGlWorkflowsService['deploy']>[2];
+      reason: string;
+    },
+  ) {
+    return this.gl!.deploy(
+      await this.actor(u, b.scope, true),
+      b.scope,
+      b.input,
+      b.reason,
+    );
+  }
+  @Post('gl/drafts')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async saveVoucherDraft(
+    @CurrentUser() u: AuthenticatedUser,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      input: VoucherInput;
+      id?: string;
+      revision?: number;
+    },
+  ) {
+    return this.vouchers!.saveDraft(
+      await this.actor(u, b.scope),
+      b.scope,
+      b.input,
+      b.id,
+      b.revision,
+    );
+  }
+  @Post('gl/vouchers')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async voucher(
+    @CurrentUser() u: AuthenticatedUser,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      input: VoucherInput;
+      draft?: { id: string; revision: number };
+    },
+  ) {
+    return this.vouchers!.manual(
+      await this.actor(u, b.scope),
+      b.scope,
+      b.input,
+      b.draft,
+    );
+  }
+  @Post('gl/journals/:id/reverse')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async reverseVoucher(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      input: {
+        reference: string;
+        date: string;
+        description: string;
+        evidence: Evidence;
+      };
+    },
+  ) {
+    return this.vouchers!.reverse(
+      await this.actor(u, b.scope),
+      b.scope,
+      id,
+      b.input,
+    );
+  }
+  @Post('gl/programs')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async glProgram(
+    @CurrentUser() u: AuthenticatedUser,
+    @Body()
+    b: { scope: FinanceBookSelection; input: ProgramInput; reason: string },
+  ) {
+    return this.gl!.save(
+      await this.actor(u, b.scope),
+      b.scope,
+      b.input,
+      b.reason,
+    );
+  }
+  @Post('gl/programs/:id/decisions')
+  @Permissions(FinancePermissions.FOUNDATION_REVIEW)
+  async glDecision(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      subjectHash: string;
+      action: 'APPROVE' | 'PAUSE';
+      reason: string;
+    },
+  ) {
+    return this.gl!.decide(
+      await this.actor(u, b.scope),
+      b.scope,
+      id,
+      b.action,
+      b.subjectHash,
+      b.reason,
+    );
+  }
+  @Post('gl/programs/:id/occurrences')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async glRun(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      input: {
+        subjectHash: string;
+        stage: string;
+        date: string;
+        reference?: string;
+      };
+      reason: string;
+    },
+  ) {
+    return this.gl!.run(
+      await this.actor(u, b.scope),
+      b.scope,
+      id,
+      b.input,
+      b.reason,
+    );
+  }
+  @Get('operating-postings')
+  @Permissions(FinancePermissions.FOUNDATION_READ)
+  async operatingPostings(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() scope: FinanceBookSelection,
+  ) {
+    return this.operating!.pending(await this.actor(user, scope), scope);
+  }
+
+  @Post('operating-postings/:id/renew')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async renewOperating(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      subjectHash: string;
+      reason: string;
+      evidence?: Evidence;
+    },
+  ) {
+    return this.operating!.renew(
+      await this.actor(user, b.scope),
+      b.scope,
+      id,
+      b.subjectHash,
+      b.reason,
+      b.evidence,
+    );
+  }
+
+  @Post('operating-postings/:id/reject')
+  @Permissions(FinancePermissions.FOUNDATION_ACCEPT_JOURNAL)
+  async rejectOperatingPosting(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    b: { scope: FinanceBookSelection; subjectHash: string; reason: string },
+  ) {
+    return this.operating!.approve(
+      await this.actor(u, b.scope),
+      b.scope,
+      id,
+      b.subjectHash,
+      b.reason,
+      true,
+    );
+  }
+  @Post('operating-postings/:id/approve')
+  @Permissions(FinancePermissions.FOUNDATION_ACCEPT_JOURNAL)
+  async approveOperatingPosting(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body()
+    body: { scope: FinanceBookSelection; subjectHash: string; reason: string },
+  ) {
+    return this.operating!.approve(
+      await this.actor(user, body.scope),
+      body.scope,
+      id,
+      body.subjectHash,
+      body.reason,
+    );
+  }
+
   @Post('journal-acceptances')
   @Permissions(FinancePermissions.FOUNDATION_ACCEPT_JOURNAL)
   async accept(

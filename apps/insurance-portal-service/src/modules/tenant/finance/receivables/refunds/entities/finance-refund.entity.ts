@@ -53,7 +53,16 @@ export class FinanceRefund {
   @Column({ type: 'varchar', length: 40 })
   payment_method: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4 })
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    default: () => 'NULL',
+    update: false,
+  })
+  settlement_account_code: string | null;
+
+  @Column({ type: 'numeric' })
   amount: string;
 
   @Column({ type: 'varchar', length: 3 })

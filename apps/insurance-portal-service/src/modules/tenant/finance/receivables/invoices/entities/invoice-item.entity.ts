@@ -31,10 +31,10 @@ export class InvoiceItem {
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   quantity: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   unit_amount: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   total_amount: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })

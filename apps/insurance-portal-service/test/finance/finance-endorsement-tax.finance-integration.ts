@@ -180,7 +180,7 @@ describe('Endorsement tax correction on disposable PostgreSQL', () => {
     db(async (f) => {
       const i = await f.create(),
         journal = new FinanceJournalService(
-          { generateRequestId: async () => 'NEVER' } as never,
+          { generateJournalNumber: async () => 'NEVER' } as never,
           new ProductDefinitionHashService(),
         );
       await expect(

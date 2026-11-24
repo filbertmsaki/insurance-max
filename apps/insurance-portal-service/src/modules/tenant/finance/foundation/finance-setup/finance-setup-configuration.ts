@@ -137,15 +137,19 @@ export function validateSetupConfiguration(input: FinanceConfigurationInput) {
     }
   }
   if (input.kind === 'TAX_RULES') {
+    const noSourceRules = p.sourceTaxCatalogue === 'NO_SOURCE_TAX_RULES';
     if (
-      !['LEGACY_TAXES', 'PRODUCT_TAX_RULES'].includes(
+      !['LEGACY_TAXES', 'PRODUCT_TAX_RULES', 'NO_SOURCE_TAX_RULES'].includes(
         String(p.sourceTaxCatalogue),
       ) ||
       p.calculationOwner !== 'EXISTING_SOURCE_TAX_ENGINE' ||
       p.missingBreakdownTreatment !== 'BLOCK_POSTING' ||
       p.preserveCustomerPayable !== true ||
       !Array.isArray(p.sourceTaxRuleIds) ||
-      !p.sourceTaxRuleIds.length ||
+      (noSourceRules
+        ? p.sourceTaxRuleIds.length !== 0 ||
+          !setupText(p.applicabilityReason, 2000)
+        : !p.sourceTaxRuleIds.length) ||
       p.sourceTaxRuleIds.some((v: unknown) => !setupUuid(v)) ||
       new Set(p.sourceTaxRuleIds).size !== p.sourceTaxRuleIds.length
     )

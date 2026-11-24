@@ -110,7 +110,7 @@ export class ReconciliationService {
     dto: CreateReconciliationBatchDto,
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const batchNo = await this.identifierService.generateRequestId(
+      const batchNo = await this.identifierService.generateReconciliationNumber(
         user.companyId!,
         manager,
       );

@@ -3,7 +3,6 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
@@ -63,6 +62,10 @@ import {
   hasPremiumInvoiceTax,
 } from '../../taxation/tax-calculation/premium-invoice-tax';
 
+import { withPostingStatus } from '../../accounting/general-ledger/finance-document-posting-status';
+import { verifyBankSettlement } from '../../accounting/general-ledger/finance-bank-observation';
+import { documentDimensionFields } from '../../foundation/finance-setup/finance-operating-dimensions';
+
 @Injectable()
 export class FinanceCommandService {
   constructor(
@@ -95,29 +98,21 @@ export class FinanceCommandService {
     private readonly commissionPaymentItemRepository: Repository<CommissionPaymentItem>,
   ) {}
 
-  private requireVerifiedSettlement(kind: 'refund' | 'commission'): void {
-    // The old paid transition used an operator-supplied reference, without a
-    // bank or provider observation. Keep approved records pending until a
-    // certified disbursement integration supplies that evidence.
-    throw new ServiceUnavailableException({
-      code:
-        kind === 'refund'
-          ? 'VERIFIED_REFUND_SETTLEMENT_REQUIRED'
-          : 'VERIFIED_COMMISSION_SETTLEMENT_REQUIRED',
-      message:
-        'A provider or bank settlement observation must be verified before payment can be marked paid.',
-    });
+  documentDimensions(companyId: string) {
+    return documentDimensionFields(this.dataSource.manager, companyId);
   }
 
   private async publishInvoiceBalanceProjections(
     manager: EntityManager,
     invoiceId: string,
     sourceEventId: string,
+    actorId: string | null,
   ) {
     await this.quotationPaymentProjectionService.publishInvoiceBalance(
       manager,
       invoiceId,
       sourceEventId,
+      actorId,
     );
 
     await this.policyTransactionPaymentProjectionService.publishInvoiceBalance(
@@ -139,6 +134,14 @@ export class FinanceCommandService {
         invoiceId,
       );
 
+      const issueHash = this.hashService.hashDefinition({ ...dto });
+      if (invoice.issue_command_key === dto.idempotency_key) {
+        if (invoice.issue_command_hash !== issueHash)
+          throw new ConflictException(
+            'Invoice issue key was reused with a different request.',
+          );
+        return withPostingStatus(manager, 'INVOICE', invoice);
+      }
       if (invoice.state_version !== dto.expected_state_version) {
         throw new ConflictException({
           code: 'INVOICE_VERSION_CONFLICT',
@@ -168,7 +171,16 @@ export class FinanceCommandService {
         });
       }
 
+      invoice.issue_command_key = dto.idempotency_key;
+      invoice.issue_command_hash = issueHash;
+      if (dto.finance_dimensions)
+        invoice.finance_dimensions = {
+          ...invoice.finance_dimensions,
+          ...dto.finance_dimensions,
+        };
       invoice.status = InvoiceStatus.ISSUED;
+      invoice.payment_term_code =
+        dto.payment_term_code ?? invoice.payment_term_code;
       invoice.due_date = dto.due_date ?? invoice.due_date;
       invoice.notes = dto.notes ?? invoice.notes;
       invoice.issued_by = user.id;
@@ -177,7 +189,13 @@ export class FinanceCommandService {
       invoice.balance_hash = this.invoiceBalanceService.calculateHash(invoice);
       invoice.updated_by = user.id;
 
-      const saved = await manager.getRepository(Invoice).save(invoice);
+      await manager.getRepository(Invoice).save(invoice);
+      // Read the reviewed term and calculated due date applied by the book.
+      const saved = await this.getInvoiceForUpdate(
+        manager,
+        invoice.company_id,
+        invoice.id,
+      );
 
       await this.journalService.postInvoice(
         manager,
@@ -203,7 +221,7 @@ export class FinanceCommandService {
         },
       });
 
-      return saved;
+      return withPostingStatus(manager, 'INVOICE', saved);
     });
   }
 
@@ -220,6 +238,10 @@ export class FinanceCommandService {
         invoiceId,
       );
 
+      if (DecimalUtil.value(invoice.written_off_amount).greaterThan(0))
+        throw new ConflictException(
+          'Reverse posted write-offs before voiding the invoice.',
+        );
       if (DecimalUtil.value(invoice.allocated_amount).greaterThan(0)) {
         throw new ConflictException(
           'An invoice with allocated payment cannot be voided.',
@@ -284,6 +306,17 @@ export class FinanceCommandService {
       );
 
       const providerCode = dto.provider_code.trim().toUpperCase();
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+        [
+          [
+            'manual-payment',
+            user.companyId,
+            providerCode,
+            dto.idempotency_key,
+          ].join('/'),
+        ],
+      );
       const existing = await manager.getRepository(PaymentTransaction).findOne({
         where: {
           company_id: user.companyId!,
@@ -353,7 +386,7 @@ export class FinanceCommandService {
         internal_reference: transactionNo,
         payment_method: dto.payment_method,
         status: PaymentTransactionStatus.SUCCESSFUL,
-        amount: DecimalUtil.value(dto.amount).toFixed(4),
+        amount: DecimalUtil.exactMoney(dto.amount),
         currency: dto.currency_code.trim().toUpperCase(),
         provider_amount: null,
         provider_currency_code: null,
@@ -459,8 +492,16 @@ export class FinanceCommandService {
         },
       });
 
+      const postHash = this.hashService.hashDefinition({ ...dto });
       if (existing) {
-        return existing;
+        if (
+          existing.post_command_key === dto.idempotency_key &&
+          existing.post_command_hash !== postHash
+        )
+          throw new ConflictException(
+            'Receipt key was reused with a different request.',
+          );
+        return withPostingStatus(manager, 'RECEIPT', existing);
       }
 
       const receiptNumber = await this.identifierService.generateReceiptNumber(
@@ -483,17 +524,39 @@ export class FinanceCommandService {
         postedAt: new Date().toISOString(),
       };
 
+      const invoiceId = payment.invoice_id ?? dto.invoice_id ?? null;
+      if (
+        payment.invoice_id &&
+        dto.invoice_id &&
+        payment.invoice_id !== dto.invoice_id
+      )
+        throw new ConflictException(
+          'The receipt invoice must match the payment transaction.',
+        );
+      const sourceInvoice = invoiceId
+        ? await manager.getRepository(Invoice).findOne({
+            where: { id: invoiceId, company_id: user.companyId! },
+            select: {
+              customer_id: true,
+              finance_dimensions: true,
+              branch_id: true,
+            },
+          })
+        : null;
+      if (invoiceId && !sourceInvoice)
+        throw new BadRequestException(
+          'The receipt invoice must belong to this company.',
+        );
+      if (
+        payment.customer_id &&
+        sourceInvoice &&
+        sourceInvoice.customer_id !== payment.customer_id
+      )
+        throw new ConflictException(
+          'The receipt customer must match the invoice customer.',
+        );
       const resolvedCustomerId =
-        payment.customer_id ??
-        (payment.invoice_id
-          ? ((
-              await manager.getRepository(Invoice).findOne({
-                where: { id: payment.invoice_id },
-                select: { customer_id: true },
-              })
-            )?.customer_id ?? null)
-          : null);
-
+        payment.customer_id ?? sourceInvoice?.customer_id;
       if (!resolvedCustomerId) {
         throw new BadRequestException(
           'A customer-linked payment transaction is required to post a receipt.',
@@ -505,6 +568,13 @@ export class FinanceCommandService {
           company_id: user.companyId!,
           customer_id: resolvedCustomerId,
           receipt_no: receiptNumber,
+          post_command_key: dto.idempotency_key,
+          post_command_hash: postHash,
+          finance_dimensions: {
+            ...sourceInvoice?.finance_dimensions,
+            ...dto.finance_dimensions,
+          },
+          branch_id: sourceInvoice?.branch_id ?? null,
           payment_transaction_id: payment.id,
           payer_customer_id: payment.customer_id,
           invoice_id: payment.invoice_id ?? dto.invoice_id ?? null,
@@ -531,9 +601,12 @@ export class FinanceCommandService {
       payment.updated_by = user.id;
       await manager.getRepository(PaymentTransaction).save(payment);
 
+      const postedReceipt = await manager
+        .getRepository(Receipt)
+        .findOneByOrFail({ id: receipt.id, company_id: receipt.company_id });
       await this.journalService.postReceipt(
         manager,
-        receipt,
+        postedReceipt,
         dto.idempotency_key,
         user.id,
       );
@@ -547,9 +620,13 @@ export class FinanceCommandService {
         });
       }
 
-      return manager.getRepository(Receipt).findOneOrFail({
-        where: { id: receipt.id },
-      });
+      return withPostingStatus(
+        manager,
+        'RECEIPT',
+        await manager.getRepository(Receipt).findOneOrFail({
+          where: { id: receipt.id },
+        }),
+      );
     });
   }
 
@@ -614,7 +691,7 @@ export class FinanceCommandService {
     const allocationUnsigned = {
       receiptId: receipt.id,
       invoiceId: invoice.id,
-      amount: params.amount.toFixed(4),
+      amount: DecimalUtil.exactMoney(params.amount),
       currencyCode: invoice.currency,
       idempotencyKey: params.idempotencyKey,
     };
@@ -672,7 +749,7 @@ export class FinanceCommandService {
         company_id: user.companyId!,
         receipt_id: receipt.id,
         invoice_id: invoice.id,
-        amount: params.amount.toFixed(4),
+        amount: DecimalUtil.exactMoney(params.amount),
         currency: invoice.currency,
         status: ReceiptAllocationStatus.ACTIVE,
         allocation_hash: allocationHash,
@@ -690,6 +767,7 @@ export class FinanceCommandService {
       manager,
       savedInvoice.id,
       allocation.id,
+      user.id,
     );
 
     return allocation;
@@ -733,6 +811,7 @@ export class FinanceCommandService {
         manager,
         allocation.invoice_id,
         allocation.id,
+        user.id,
       );
 
       return allocation;
@@ -815,6 +894,7 @@ export class FinanceCommandService {
           manager,
           invoiceId,
           receipt.id,
+          user.id,
         );
       }
 
@@ -866,7 +946,7 @@ export class FinanceCommandService {
         refundNo,
         receiptId: receipt.id,
         invoiceId: dto.invoice_id ?? null,
-        amount: requested.toFixed(4),
+        amount: DecimalUtil.exactMoney(requested),
         currencyCode: receipt.currency,
         reason: dto.reason.trim(),
       };
@@ -880,7 +960,7 @@ export class FinanceCommandService {
         payment_transaction_id: receipt.payment_transaction_id,
         status: RefundStatus.REQUESTED,
         payment_method: receipt.payment_method,
-        amount: requested.toFixed(4),
+        amount: DecimalUtil.exactMoney(requested),
         currency_code: receipt.currency,
         reason: dto.reason.trim(),
         requested_by: user.id,
@@ -961,16 +1041,41 @@ export class FinanceCommandService {
         throw new ConflictException('Only an approved refund can be paid.');
       }
 
-      this.requireVerifiedSettlement('refund');
+      const settlement = await verifyBankSettlement(
+        manager,
+        {
+          kind: 'REFUND',
+          id: refund.id,
+          reference: refund.refund_no,
+          companyId: refund.company_id,
+          beneficiaryId: refund.customer_id,
+          account: refund.settlement_account_code,
+          currency: refund.currency_code,
+          amount: refund.amount,
+        },
+        dto.settlement_observation,
+      );
+      if (
+        (refund.approved_at && settlement.paidAt < refund.approved_at) ||
+        (dto.provider_refund_id &&
+          dto.provider_refund_id !== settlement.reference)
+      )
+        throw new ConflictException(
+          'The observed settlement must follow the approved refund and match its bank reference.',
+        );
 
       refund.status = RefundStatus.PAID;
-      refund.provider_refund_id = dto.provider_refund_id?.trim() ?? null;
+      refund.provider_refund_id = settlement.reference;
       refund.paid_by = user.id;
-      refund.paid_at = new Date();
+      refund.paid_at = settlement.paidAt;
       refund.failure_message = dto.notes?.trim() ?? null;
 
-      const saved = await manager.getRepository(FinanceRefund).save(refund);
-
+      const refunds = manager.getRepository(FinanceRefund);
+      await refunds.save(refund);
+      const saved = await refunds.findOneByOrFail({
+        id: refund.id,
+        company_id: refund.company_id,
+      });
       await this.journalService.postRefund(
         manager,
         saved,
@@ -984,6 +1089,7 @@ export class FinanceCommandService {
           manager,
           saved.invoice_id,
           saved.id,
+          user.id,
         );
 
         const invoice = await manager.getRepository(Invoice).findOne({
@@ -1125,7 +1231,7 @@ export class FinanceCommandService {
       const accrual = await manager
         .getRepository(CommissionTransaction)
         .createQueryBuilder('accrual')
-        .setLock('pessimistic_write')
+        .setLock('pessimistic_write', undefined, ['accrual'])
         .leftJoinAndSelect('accrual.invoice', 'invoice')
         .where('accrual.id = :accrualId', { accrualId })
         .andWhere('accrual.company_id = :companyId', {
@@ -1245,12 +1351,14 @@ export class FinanceCommandService {
         manager.getRepository(CommissionPayment).create({
           company_id: user.companyId!,
           intermediary_company_id: dto.intermediary_company_id,
+          branch_id: dto.branch_id ?? user.activeBranchId ?? null,
           payment_no: paymentNo,
+          payment_term_code: dto.payment_term_code ?? null,
           payment_method: dto.payment_method,
           payment_reference: dto.payment_reference.trim(),
           idempotency_key: dto.idempotency_key,
-          total_amount: paymentAmount.toFixed(4),
-          allocated_amount: totalAllocations.toFixed(4),
+          total_amount: DecimalUtil.exactMoney(paymentAmount),
+          allocated_amount: DecimalUtil.exactMoney(totalAllocations),
           unallocated_amount: '0.0000',
           currency: dto.currency_code.trim().toUpperCase(),
           status: CommissionPaymentStatus.DRAFT,
@@ -1263,7 +1371,7 @@ export class FinanceCommandService {
         manager.getRepository(CommissionPaymentItem).create({
           commission_payment_id: payment.id,
           commission_transaction_id: allocation.commission_transaction_id,
-          amount: DecimalUtil.value(allocation.amount).toFixed(4),
+          amount: DecimalUtil.exactMoney(allocation.amount),
           status: 'ACTIVE',
           allocated_by: user.id,
           allocated_at: new Date(),
@@ -1332,7 +1440,7 @@ export class FinanceCommandService {
       const payment = await manager
         .getRepository(CommissionPayment)
         .createQueryBuilder('payment')
-        .setLock('pessimistic_write')
+        .setLock('pessimistic_write', undefined, ['payment'])
         .leftJoinAndSelect('payment.items', 'items')
         .where('payment.id = :paymentId', { paymentId })
         .andWhere('payment.company_id = :companyId', {
@@ -1354,7 +1462,24 @@ export class FinanceCommandService {
         );
       }
 
-      this.requireVerifiedSettlement('commission');
+      const settlement = await verifyBankSettlement(
+        manager,
+        {
+          kind: 'COMMISSION_PAYMENT',
+          id: payment.id,
+          reference: payment.payment_no,
+          companyId: payment.company_id,
+          beneficiaryId: payment.intermediary_company_id,
+          account: payment.settlement_account_code,
+          currency: payment.currency,
+          amount: payment.allocated_amount,
+        },
+        dto.settlement_observation,
+      );
+      if (payment.approved_at && settlement.paidAt < payment.approved_at)
+        throw new ConflictException(
+          'The bank settlement predates the approved commission payment.',
+        );
 
       for (const item of payment.items ?? []) {
         if (item.status !== 'ACTIVE') {
@@ -1387,12 +1512,14 @@ export class FinanceCommandService {
           );
         }
 
-        accrual.paid_amount = DecimalUtil.value(accrual.paid_amount)
-          .plus(item.amount)
-          .toFixed(4);
-        accrual.balance_amount = DecimalUtil.value(accrual.commission_amount)
-          .minus(accrual.paid_amount)
-          .toFixed(4);
+        accrual.paid_amount = DecimalUtil.exactMoney(
+          DecimalUtil.value(accrual.paid_amount).plus(item.amount),
+        );
+        accrual.balance_amount = DecimalUtil.exactMoney(
+          DecimalUtil.value(accrual.commission_amount).minus(
+            accrual.paid_amount,
+          ),
+        );
         accrual.status = DecimalUtil.value(
           accrual.balance_amount,
         ).lessThanOrEqualTo(0)
@@ -1405,13 +1532,15 @@ export class FinanceCommandService {
 
       payment.status = CommissionPaymentStatus.PAID;
       payment.paid_by = user.id;
-      payment.paid_at = new Date();
+      payment.paid_at = settlement.paidAt;
       payment.rejection_reason = dto.notes?.trim() ?? payment.rejection_reason;
 
-      const saved = await manager
-        .getRepository(CommissionPayment)
-        .save(payment);
-
+      const payments = manager.getRepository(CommissionPayment);
+      await payments.save(payment);
+      const saved = await payments.findOneOrFail({
+        where: { id: payment.id, company_id: payment.company_id },
+        relations: { items: true },
+      });
       await this.journalService.postCommissionPayment(
         manager,
         saved,
@@ -1432,7 +1561,7 @@ export class FinanceCommandService {
       const payment = await manager
         .getRepository(CommissionPayment)
         .createQueryBuilder('payment')
-        .setLock('pessimistic_write')
+        .setLock('pessimistic_write', undefined, ['payment'])
         .leftJoinAndSelect('payment.items', 'items')
         .where('payment.id = :paymentId', { paymentId })
         .andWhere('payment.company_id = :companyId', {
@@ -1475,12 +1604,14 @@ export class FinanceCommandService {
           throw new NotFoundException('Commission accrual was not found.');
         }
 
-        accrual.paid_amount = DecimalUtil.value(accrual.paid_amount)
-          .minus(item.amount)
-          .toFixed(4);
-        accrual.balance_amount = DecimalUtil.value(accrual.commission_amount)
-          .minus(accrual.paid_amount)
-          .toFixed(4);
+        accrual.paid_amount = DecimalUtil.exactMoney(
+          DecimalUtil.value(accrual.paid_amount).minus(item.amount),
+        );
+        accrual.balance_amount = DecimalUtil.exactMoney(
+          DecimalUtil.value(accrual.commission_amount).minus(
+            accrual.paid_amount,
+          ),
+        );
         accrual.status = DecimalUtil.value(
           accrual.paid_amount,
         ).lessThanOrEqualTo(0)

@@ -29,7 +29,7 @@ export class ReceiptAllocation {
   @Column({ type: 'uuid' })
   invoice_id: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2 })
+  @Column({ type: 'numeric' })
   amount: string;
 
   @Column({ type: 'varchar', length: 10 })

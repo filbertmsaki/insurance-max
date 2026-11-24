@@ -13,7 +13,7 @@ import { FinanceJournalService } from './finance-journal.service';
 // B02 characterizes current legacy behavior. These fixtures do not approve
 // recognition, tax, functional currency or account-mapping policies. Repository
 // doubles cannot establish database atomicity, concurrent uniqueness or bank cash.
-function journalHarness() {
+function journalHarness(bookDate?: string) {
   const invoice = Object.freeze({
     id: 'invoice-a',
     company_id: 'company-a',
@@ -94,17 +94,17 @@ function journalHarness() {
     throw new Error('Unexpected journal repository');
   });
   const manager = { getRepository } as unknown as EntityManager;
-  const generateRequestId = jest.fn(
+  const generateJournalNumber = jest.fn(
     async (_companyId: string, _manager: EntityManager) => 'JRN-FIXTURE',
   );
   const hashDefinition = jest.fn(
     (_definition: Record<string, unknown>) => 'fixture-hash',
   );
   const service = new FinanceJournalService(
-    { generateRequestId } as unknown as IdentifierGeneratorService,
+    { generateJournalNumber } as unknown as IdentifierGeneratorService,
     { hashDefinition } as unknown as ProductDefinitionHashService,
     // Synthetic posting-vector fixture only; real policy eligibility is tested separately.
-    { requireEligible: async () => undefined },
+    { requireEligible: async () => bookDate },
   );
 
   return {
@@ -116,7 +116,7 @@ function journalHarness() {
     lines,
     accounts,
     getRepository,
-    generateRequestId,
+    generateJournalNumber,
     hashDefinition,
   };
 }
@@ -159,6 +159,15 @@ describe('FinanceJournalService legacy characterization (B02)', () => {
       }),
     });
     expect(h.entries.save).not.toHaveBeenCalled();
+  });
+
+  it('uses the date validated for the company book across local midnight', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-24T22:30:00Z'));
+    h = journalHarness('2026-11-25');
+    await h.service.postInvoice(h.manager, h.invoice, 'local-date', 'actor-a');
+    expect(h.entries.save).toHaveBeenCalledWith(
+      expect.objectContaining({ journal_date: '2026-11-25' }),
+    );
   });
 
   it('FC01 records the legacy invoice vector and source metadata', async () => {
@@ -373,7 +382,7 @@ describe('FinanceJournalService legacy characterization (B02)', () => {
         source_event_id: 'same-event',
       },
     });
-    expect(h.generateRequestId).not.toHaveBeenCalled();
+    expect(h.generateJournalNumber).not.toHaveBeenCalled();
     expect(h.hashDefinition).toHaveBeenCalledTimes(1);
     expect(h.entries.save).not.toHaveBeenCalled();
     expect(h.lines.create).not.toHaveBeenCalled();
@@ -414,7 +423,7 @@ describe('FinanceJournalService legacy characterization (B02)', () => {
     expect(
       h.entries.save.mock.calls.map(([entry]) => entry.company_id),
     ).toEqual(['company-a', 'company-b']);
-    expect(h.generateRequestId.mock.calls).toEqual([
+    expect(h.generateJournalNumber.mock.calls).toEqual([
       ['company-a', h.manager],
       ['company-b', h.manager],
     ]);
@@ -489,7 +498,7 @@ describe('FinanceJournalService legacy characterization (B02)', () => {
     await expect(result).rejects.toMatchObject({
       response: { code: 'UNBALANCED_FINANCE_JOURNAL' },
     });
-    expect(h.generateRequestId).not.toHaveBeenCalled();
+    expect(h.generateJournalNumber).not.toHaveBeenCalled();
     expect(h.hashDefinition).not.toHaveBeenCalled();
     expect(h.entries.save).not.toHaveBeenCalled();
     expect(h.lines.create).not.toHaveBeenCalled();
@@ -601,7 +610,7 @@ describe('FinanceJournalService legacy characterization (B02)', () => {
 
   it('FC12 propagates identifier failure without hashing or entry and line saves', async () => {
     const failure = new Error('fixture identifier unavailable');
-    h.generateRequestId.mockRejectedValueOnce(failure);
+    h.generateJournalNumber.mockRejectedValueOnce(failure);
 
     await expect(
       h.service.postReceipt(
@@ -611,8 +620,11 @@ describe('FinanceJournalService legacy characterization (B02)', () => {
         'actor-a',
       ),
     ).rejects.toBe(failure);
-    expect(h.generateRequestId).toHaveBeenCalledTimes(1);
-    expect(h.generateRequestId).toHaveBeenCalledWith('company-a', h.manager);
+    expect(h.generateJournalNumber).toHaveBeenCalledTimes(1);
+    expect(h.generateJournalNumber).toHaveBeenCalledWith(
+      'company-a',
+      h.manager,
+    );
     expect(h.hashDefinition).not.toHaveBeenCalled();
     expect(h.entries.save).not.toHaveBeenCalled();
     expect(h.lines.create).not.toHaveBeenCalled();

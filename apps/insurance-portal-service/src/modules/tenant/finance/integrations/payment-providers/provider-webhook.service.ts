@@ -89,6 +89,8 @@ export class ProviderWebhookService {
         });
 
       try {
+        eventRecord.status = 'RECEIVED';
+        await eventRepository.save(eventRecord);
         const transaction =
           await this.paymentTransactionProviderService.applyProviderEvent(
             manager,

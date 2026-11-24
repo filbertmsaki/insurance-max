@@ -78,7 +78,7 @@ export interface FoundationRateInput {
   evidenceHash: string;
 }
 export interface SourceProof {
-  kind: 'MANUAL' | 'ACCEPTED_INBOX';
+  kind: 'MANUAL' | 'ACCEPTED_INBOX' | 'OPERATING_DOCUMENT' | 'BOOK_VOUCHER';
   reference: string;
   evidenceHash: string;
   inboxId?: string;
@@ -328,7 +328,12 @@ export function normalizeSourceProof(value: SourceProof): SourceProof {
   if (!p || typeof p !== 'object' || Array.isArray(p))
     foundationFail('An explicit source-proof object is required.');
   if (
-    !['MANUAL', 'ACCEPTED_INBOX'].includes(p.kind) ||
+    ![
+      'MANUAL',
+      'ACCEPTED_INBOX',
+      'OPERATING_DOCUMENT',
+      'BOOK_VOUCHER',
+    ].includes(p.kind) ||
     !candidateText(p.reference, 2000)
   )
     foundationFail(

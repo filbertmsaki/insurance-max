@@ -7,17 +7,18 @@ import { FinanceOutboxService } from '../integrations/finance-events/finance-out
 import { FinanceJournalEntry } from './journal-entries/entities/finance-journal-entry.entity';
 import { FinanceJournalLine } from './journal-entries/entities/finance-journal-line.entity';
 import { FinanceJournalService } from './journal-entries/finance-journal.service';
+import { FinanceFoundationModule } from '../foundation/finance-foundation.module';
 import { FinancePostingPolicyService } from './posting-rules/finance-posting-policy.service';
 import { FinancialReversal } from './reversals/entities/financial-reversal.entity';
 
 /**
- * Lowest operational Finance layer: balanced journal posting under the posting
- * policy, and the transactional outbox writer for accounting events. Callers pass
- * their EntityManager, so postings join the caller's transaction and locks.
- * Depends on no other Finance or insurance module.
+ * Posts journals under the book's approved policy and writes accounting events
+ * to the transactional outbox. The Finance foundation supplies the ledger and
+ * approval services. Callers pass their transaction's EntityManager.
  */
 @Module({
   imports: [
+    FinanceFoundationModule,
     TypeOrmModule.forFeature([
       FinanceAccount,
       FinanceJournalEntry,

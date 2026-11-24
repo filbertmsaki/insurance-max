@@ -23,6 +23,7 @@ export class QuotationPaymentProjectionService {
     manager: EntityManager,
     invoiceId: string,
     sourceEventId: string,
+    actorId: string | null = null,
   ) {
     const invoice = await manager.getRepository(Invoice).findOneOrFail({
       where: { id: invoiceId },
@@ -95,6 +96,7 @@ export class QuotationPaymentProjectionService {
         invoice.source_revision,
         payload.eventId,
         invoice.id,
+        actorId,
       );
     } else if (invoice.status === InvoiceStatus.PARTIALLY_PAID) {
       await this.quotationLifecycleService.markPartiallyPaid(

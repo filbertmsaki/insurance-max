@@ -57,6 +57,15 @@ import {
   uuid,
 } from './finance-ledger-foundation.types';
 
+import {
+  activePostingBook,
+  glDeployment,
+  ownedEvidence,
+} from './finance-book-request';
+import { applyWriteOff } from './finance-gl-write-off';
+import { verifyGlPosting } from './finance-gl-posting-check';
+import { nativeLedgerEvents } from './finance-native-sources';
+
 export interface FoundationActor extends FinanceConfigurationActor {
   identityBindingId?: string;
   sourceCompanyId?: string;
@@ -230,19 +239,20 @@ export class FinanceLedgerFoundationService {
   async resolveIdentity(
     user: { id: string; companyId?: string | null },
     scope: FinanceBookSelection,
+    manager: Pick<EntityManager, 'query'> = this.source,
   ): Promise<FoundationActor> {
     uuid(user?.id);
     uuid(user?.companyId);
     uuid(scope?.bookId);
     uuid(scope?.legalEntityId);
-    const [{ deployed }] = await this.source.query(
+    const [{ deployed }] = await manager.query(
       "SELECT to_regclass('public.finance_foundation_identity_bindings') IS NOT NULL deployed",
     );
     if (!deployed)
       foundationFail(
         'Finance foundation identity bindings are not deployed. No legacy company/admin identity is inferred.',
       );
-    const rows = await this.source.query(
+    const rows = await manager.query(
       `SELECT * FROM finance_foundation_identity_bindings WHERE source_company_id=$1 AND source_user_id=$2 AND legal_entity_id=$3 AND book_id=$4 AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp())`,
       [user.companyId, user.id, scope.legalEntityId, scope.bookId],
     );
@@ -564,6 +574,7 @@ export class FinanceLedgerFoundationService {
     scope: FinanceBookSelection,
     input: FoundationAcceptInput,
     reason: string,
+    manager?: EntityManager,
   ) {
     input = JSON.parse(canonicalFinanceJson(input));
     uuid(input.candidateId);
@@ -579,450 +590,589 @@ export class FinanceLedgerFoundationService {
         'Rate identity and hash must both be supplied or both be absent.',
       );
     const source = normalizeSourceProof(input.source);
-    return this.command(actor, scope, 'ACCEPT', reason, async (c) => {
-      const context = await this.reviewed(
-          c,
-          input.contextId,
-          input.contextHash,
-          'CURRENCY_CONTEXT',
-        ),
-        config = normalizeCurrencyContext(context.payload);
-      const [candidate] = await c.manager.query(
-        'SELECT *,accounting_date::text accounting_date FROM finance_journal_candidates WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND id=$4 FOR SHARE',
-        [...c.ids, input.candidateId],
-      );
-      if (
-        !candidate ||
-        candidate.subject_hash !== input.candidateHash ||
-        candidate.state !== 'VALIDATED_INACTIVE'
-      )
-        foundationFail(
-          'An exact independently validated B08/B09 candidate in this book is required.',
-        );
-      const p = normalizeJournalCandidate(candidate.payload);
-      if (p.economicOrigin === 'FIN03_ALLOCATION_PREVIEW')
-        foundationFail(
-          'FIN-03 allocation previews cannot be accepted into a ledger.',
-        );
-      await this.dimensionVerifier(c.manager, c.ids, p);
-      const chart = await this.chart(c, config, p.accountingDate);
-      const maximum = c.limits[p.currency];
-      if (
-        !maximum ||
-        p.lines.reduce((total, line) => total + units(line.debit), 0n) >
-          units(maximum)
-      )
-        foundationFail(
-          'The current acceptance mandate does not authorize this transaction currency and amount.',
-        );
-      if (
-        p.chartReleaseId !== config.chartReleaseId ||
-        p.chartReleaseHash !== config.chartReleaseHash ||
-        input.transactionDate > p.accountingDate ||
-        input.transactionDate < config.effectiveFrom ||
-        (config.effectiveTo && p.accountingDate >= config.effectiveTo)
-      )
-        foundationFail(
-          'Candidate chart, transaction date or effective currency context does not match.',
-        );
-      const sourceLines = await c.manager.query(
-        'SELECT * FROM finance_journal_candidate_lines WHERE candidate_id=$1 ORDER BY line_key',
-        [candidate.id],
-      );
-      const resolved = p.lines.map((l) => ({
-        ...l,
-        accountCode: chart.roles.find((r) => r.code === l.roleCode)
-          ?.accountCode,
-      }));
-      if (
-        hash({
-          tenantId: c.actor.tenantId,
-          ...c.scope,
-          payload: p,
-          lines: resolved,
-        }) !== candidate.subject_hash ||
-        sourceLines.length !== resolved.length ||
-        resolved.some((l) => {
-          const x = sourceLines.find((x) => x.line_key === l.lineKey);
-          return (
-            !x ||
-            x.account_code !== l.accountCode ||
-            x.role_code !== l.roleCode ||
-            x.debit !== l.debit ||
-            x.credit !== l.credit ||
-            hash(x.dimensions) !== hash(l.dimensions)
-          );
-        })
-      )
-        foundationFail(
-          'Candidate payload, resolved account vector or stored evidence differs.',
-        );
-      const [approval] = await c.manager.query(
-        "SELECT id FROM finance_approval_requests WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND candidate_id=$4 AND candidate_hash=$5 AND state='CONSUMED_INACTIVE'",
-        [...c.ids, candidate.id, candidate.subject_hash],
-      );
-      if (
-        !approval ||
-        candidate.maker_natural_person_id === c.actor.naturalPersonId ||
-        candidate.maker_subject_id === c.actor.subjectId
-      )
-        throw new ForbiddenException(
-          'A consumed B09 validation approval and independent current ledger acceptance are required.',
-        );
-      const component = config.allowedComponents.find(
-        (a) =>
-          a.origin === p.economicOrigin && a.component === p.economicComponent,
-      );
-      if (
-        !component ||
-        component.owner !== 'FINANCE' ||
-        !['CASH', 'ORDINARY'].includes(component.effect)
-      )
-        foundationFail(
-          'Billing memoranda cannot post journals. IFRS17-owned components require their separately approved measurement adapter.',
-        );
-      if (
-        p.lines.some(
-          (l) =>
-            (units(l.debit) > 0n &&
-              !(
-                candidate.kind === 'REVERSAL'
-                  ? component.creditRoles
-                  : component.debitRoles
-              ).includes(l.roleCode)) ||
-            (units(l.credit) > 0n &&
-              !(
-                candidate.kind === 'REVERSAL'
-                  ? component.debitRoles
-                  : component.creditRoles
-              ).includes(l.roleCode)),
-        )
-      )
-        foundationFail(
-          'Candidate account roles or debit/credit sides differ from the independently approved component posting rule.',
-        );
-      let acceptedSnapshotId: string | undefined;
-      if (source.kind === 'MANUAL' && component.sourceEventType !== null)
-        foundationFail(
-          'This automatic component requires its signed accepted inbox fact, not a manual substitute.',
-        );
-      if (source.kind === 'ACCEPTED_INBOX') {
-        if (!component.sourceMapping)
-          foundationFail(
-            'This component does not authorize automatic signed snapshot posting.',
-          );
-        const mapping = component.sourceMapping;
-        const amount = financialSnapshotValue(
-            source.snapshot!,
-            mapping.amountPath,
+    return this.command(
+      actor,
+      scope,
+      'ACCEPT',
+      reason,
+      async (c) => {
+        const context = await this.reviewed(
+            c,
+            input.contextId,
+            input.contextHash,
+            'CURRENCY_CONTEXT',
           ),
-          currency = financialSnapshotValue(
-            source.snapshot!,
-            mapping.currencyPath,
-          ),
-          date = financialSnapshotValue(source.snapshot!, mapping.datePath),
-          company = financialSnapshotValue(
-            source.snapshot!,
-            mapping.companyPath,
-          ),
-          aggregate = financialSnapshotValue(
-            source.snapshot!,
-            mapping.aggregatePath,
-          );
-        dateOnly(date);
+          config = normalizeCurrencyContext(context.payload);
+        const [candidate] = await c.manager.query(
+          'SELECT *,accounting_date::text accounting_date FROM finance_journal_candidates WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND id=$4 FOR SHARE',
+          [...c.ids, input.candidateId],
+        );
         if (
-          typeof amount !== 'string' ||
-          units(amount) !==
-            p.lines.reduce((total, line) => total + units(line.debit), 0n) ||
-          currency !== p.currency ||
-          date !== input.transactionDate ||
-          company !== source.expected!.companyId ||
-          aggregate !== source.expected!.aggregateId
+          !candidate ||
+          candidate.subject_hash !== input.candidateHash ||
+          candidate.state !== 'VALIDATED_INACTIVE'
         )
           foundationFail(
-            'Candidate amounts, currency, transaction date or ownership differ from the signed financial snapshot.',
+            'An exact independently validated B08/B09 candidate in this book is required.',
+          );
+        const p = normalizeJournalCandidate(candidate.payload);
+        if (p.economicOrigin === 'FIN03_ALLOCATION_PREVIEW')
+          foundationFail(
+            'FIN-03 allocation previews cannot be accepted into a ledger.',
+          );
+        await this.dimensionVerifier(c.manager, c.ids, p);
+        const chart = await this.chart(c, config, p.accountingDate);
+        const maximum = c.limits[p.currency];
+        if (
+          !maximum ||
+          p.lines.reduce((total, line) => total + units(line.debit), 0n) >
+            units(maximum)
+        )
+          foundationFail(
+            'The current acceptance mandate does not authorize this transaction currency and amount.',
           );
         if (
-          source.expected!.eventType !== component.sourceEventType ||
-          source.expected!.factKind !== component.factKind
+          p.chartReleaseId !== config.chartReleaseId ||
+          p.chartReleaseHash !== config.chartReleaseHash ||
+          input.transactionDate > p.accountingDate ||
+          input.transactionDate < config.effectiveFrom ||
+          (config.effectiveTo && p.accountingDate >= config.effectiveTo)
         )
           foundationFail(
-            'Signed event type and fact kind differ from the reviewed component mapping.',
+            'Candidate chart, transaction date or effective currency context does not match.',
           );
-        const accepted = await verifyAcceptedSource(
-          c.manager,
-          c.actor,
-          c.scope,
-          source.inboxId!,
-          source.expected!,
-          source.deliveryId ?? null,
+        const sourceLines = await c.manager.query(
+          'SELECT * FROM finance_journal_candidate_lines WHERE candidate_id=$1 ORDER BY line_key',
+          [candidate.id],
         );
-        const sourceEvent = normalizeSourceEnvelope(accepted.raw_body);
-        verifyEventJournalDimensions(sourceEvent, c.scope.bookId, p);
-        acceptedSnapshotId = sourceEvent.payload.snapshot_id;
+        const resolved = p.lines.map((l) => ({
+          ...l,
+          accountCode: chart.roles.find((r) => r.code === l.roleCode)
+            ?.accountCode,
+        }));
         if (
-          source.expected!.companyId !== config.sourceCompanyId ||
-          p.economicOrigin !== accepted.source_system ||
-          p.economicSourceId !== source.expected!.aggregateId ||
-          p.sourceRevision !== String(source.expected!.revision)
-        )
-          foundationFail(
-            'Signed source company, economic origin, aggregate or revision is not bound to this candidate.',
-          );
-      }
-      const requestHash = hash({ ...input, source });
-      const [existing] = await c.manager.query(
-        'SELECT * FROM finance_foundation_journals WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode=$4 AND candidate_id=$5',
-        [...c.ids, input.mode, candidate.id],
-      );
-      if (existing) {
-        if (existing.payload.requestHash !== requestHash)
-          foundationFail(
-            'A candidate was retried with a different context, source proof, currency evidence or date.',
-          );
-        return {
-          journalId: existing.id,
-          subjectHash: existing.subject_hash,
-          reused: true,
-          mode: input.mode,
-          financialEffects: existing.financial_effects,
-        };
-      }
-      if (input.mode === 'LIVE') {
-        await this.live(c, context, p.accountingDate);
-        const [{ legacy }] = await c.manager.query(
-          "SELECT to_regclass('public.finance_journal_entries') IS NOT NULL legacy",
-        );
-        if (legacy) {
-          const sourceIds = [
-            p.economicSourceId,
-            source.expected?.aggregateId,
-            acceptedSnapshotId,
-          ];
-          for (const sourceId of sourceIds.filter(
-            (id): id is string =>
-              typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id),
-          )) {
-            const [old] = await c.manager.query(
-              'SELECT id FROM finance_journal_entries WHERE company_id=$1 AND source_id=$2 LIMIT 1',
-              [config.sourceCompanyId, sourceId],
+          hash({
+            tenantId: c.actor.tenantId,
+            ...c.scope,
+            payload: p,
+            lines: resolved,
+          }) !== candidate.subject_hash ||
+          sourceLines.length !== resolved.length ||
+          resolved.some((l) => {
+            const x = sourceLines.find((x) => x.line_key === l.lineKey);
+            return (
+              !x ||
+              x.account_code !== l.accountCode ||
+              x.role_code !== l.roleCode ||
+              x.debit !== l.debit ||
+              x.credit !== l.credit ||
+              hash(x.dimensions) !== hash(l.dimensions)
             );
-            if (old)
-              foundationFail(
-                'A legacy journal already owns this source. Reconcile and authorize a controlled replacement before canonical posting.',
-              );
-          }
-        }
-      }
-      const [period] = await c.manager.query(
-        "SELECT *,starts_on::text starts_on,ends_before::text ends_before FROM finance_foundation_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode=$4 AND state='OPEN' AND starts_on<=$5::date AND ends_before>$5::date FOR SHARE",
-        [...c.ids, input.mode, p.accountingDate],
-      );
-      if (!period)
-        foundationFail(
-          'No open ledger period covers the approved candidate accounting date.',
-        );
-      const [cutoff] = await c.manager.query(
-        "SELECT d.payload->>'date' cutoff FROM finance_foundation_documents d JOIN finance_foundation_decisions e ON e.document_id=d.id WHERE d.tenant_id=$1 AND d.legal_entity_id=$2 AND d.book_id=$3 AND d.kind='OPENING' AND d.mode=$4 AND e.state='REVIEWED' ORDER BY d.payload->>'date' DESC LIMIT 1",
-        [...c.ids, input.mode],
-      );
-      if (cutoff && p.accountingDate < cutoff.cutoff)
-        foundationFail(
-          'A certified opening has frozen this historical population. Use a separately approved adjustment in an open period.',
-        );
-      let rate = '1',
-        rateEvidence: FoundationDocument | null = null;
-      const functionalScale = config.currencyScales[config.functionalCurrency];
-      if (
-        !Object.hasOwn(config.currencyScales, p.currency) ||
-        p.decimalScale !== config.currencyScales[p.currency]
-      )
-        foundationFail(
-          'Source currency precision differs from the explicit context.',
-        );
-      if (p.currency !== config.functionalCurrency) {
-        if (!input.rateId || !input.rateHash)
-          foundationFail(
-            'Foreign-currency journals need exact reviewed rate evidence; FX=1 is never inferred.',
-          );
-        rateEvidence = await this.reviewed(
-          c,
-          input.rateId,
-          input.rateHash,
-          'EXCHANGE_RATE',
-        );
-        const r = rateEvidence.payload;
-        if (
-          rateEvidence.parent_id !== context.id ||
-          r.contextHash !== context.subject_hash ||
-          r.transactionCurrency !== p.currency ||
-          r.functionalCurrency !== config.functionalCurrency ||
-          (candidate.kind !== 'REVERSAL' &&
-            (r.rateDate > input.transactionDate ||
-              r.validTo <= input.transactionDate ||
-              (Date.parse(input.transactionDate) - Date.parse(r.rateDate)) /
-                86400000 >
-                config.maxRateAgeDays))
+          })
         )
           foundationFail(
-            'Rate scope, pair, effective date or maximum age does not match this transaction.',
+            'Candidate payload, resolved account vector or stored evidence differs.',
           );
-        rate = r.rate;
-      } else if (input.rateId !== null)
-        foundationFail(
-          'Same-currency journals require exact parity, not a foreign-rate snapshot.',
-        );
-      let vector = convertLedgerLines(
-          p.lines,
-          rate,
-          functionalScale,
-          config.roundingMode,
-        ),
-        reversalOf: string | null = null;
-      if (candidate.kind === 'REVERSAL') {
-        const [original] = await c.manager.query(
-          'SELECT * FROM finance_foundation_journals WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode=$4 AND candidate_id=$5 AND candidate_hash=$6',
-          [...c.ids, input.mode, p.correctionOf!.id, p.correctionOf!.hash],
+        const [approval] = await c.manager.query(
+          "SELECT id FROM finance_approval_requests WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND candidate_id=$4 AND candidate_hash=$5 AND state='CONSUMED_INACTIVE'",
+          [...c.ids, candidate.id, candidate.subject_hash],
         );
         if (
-          !original ||
-          original.functional_currency !== config.functionalCurrency ||
-          original.transaction_currency !== p.currency ||
-          original.economic_key !== candidate.economic_key
+          !approval ||
+          candidate.maker_natural_person_id === c.actor.naturalPersonId ||
+          candidate.maker_subject_id === c.actor.subjectId
+        )
+          throw new ForbiddenException(
+            'A consumed B09 validation approval and independent current ledger acceptance are required.',
+          );
+        const component = config.allowedComponents.find(
+          (a) =>
+            a.origin === p.economicOrigin &&
+            a.component === p.economicComponent,
+        );
+        if (
+          !component ||
+          component.owner !== 'FINANCE' ||
+          !['CASH', 'ORDINARY'].includes(component.effect)
         )
           foundationFail(
-            'Reversal requires its exact accepted original, currency basis and economic identity.',
+            'Billing memoranda cannot post journals. IFRS17-owned components require their separately approved measurement adapter.',
           );
         if (
-          input.rateId !== original.rate_id ||
-          input.rateHash !== original.rate_hash
+          p.lines.some(
+            (l) =>
+              (units(l.debit) > 0n &&
+                !(
+                  candidate.kind === 'REVERSAL'
+                    ? component.creditRoles
+                    : component.debitRoles
+                ).includes(l.roleCode)) ||
+              (units(l.credit) > 0n &&
+                !(
+                  candidate.kind === 'REVERSAL'
+                    ? component.debitRoles
+                    : component.creditRoles
+                ).includes(l.roleCode)),
+          )
         )
           foundationFail(
-            'A reversal must retain the original FX evidence; a new spot rate would create a second FX effect.',
+            'Candidate account roles or debit/credit sides differ from the independently approved component posting rule.',
           );
-        const old = await c.manager.query(
-          'SELECT * FROM finance_foundation_lines WHERE journal_id=$1 ORDER BY line_key',
-          [original.id],
-        );
-        vector = vector.map((l) => {
-          const x = old.find((x) => x.line_key === l.lineKey),
-            current = resolved.find((x) => x.lineKey === l.lineKey)!;
+        if (p.economicOrigin === 'FIN02_GL' || source.kind === 'BOOK_VOUCHER') {
           if (
-            !x ||
-            l.transactionDebit !== x.transaction_credit ||
-            l.transactionCredit !== x.transaction_debit ||
-            current.accountCode !== x.account_code ||
-            current.roleCode !== x.role_code ||
-            hash(current.dimensions) !== hash(x.dimensions)
+            p.economicOrigin !== 'FIN02_GL' ||
+            source.kind !== 'BOOK_VOUCHER' ||
+            component.sourceEventType !== null
           )
             foundationFail(
-              'Reversal lines differ from the original account, dimension or transaction vector.',
+              'Use the independently reviewed book voucher for this component.',
+            );
+          const [v] = await c.manager.query(
+            "SELECT * FROM finance_operating_postings WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND candidate_id=$4 AND company_id=$5 AND source_type IN ('GL_VOUCHER','GL_REVERSAL') FOR SHARE",
+            [...c.ids, candidate.id, config.sourceCompanyId],
+          );
+          if (
+            input.mode !== 'LIVE' ||
+            !v ||
+            v.context_id !== context.id ||
+            v.context_hash !== context.subject_hash ||
+            v.source_id !== p.economicSourceId ||
+            v.snapshot.reference !== source.reference ||
+            v.snapshot_hash !== source.evidenceHash ||
+            hash(v.snapshot) !== source.evidenceHash ||
+            v.snapshot.transactionDate !== input.transactionDate ||
+            v.snapshot.component !== p.economicComponent ||
+            v.snapshot.currency !== p.currency ||
+            v.snapshot.candidateHash !== candidate.subject_hash
+          )
+            foundationFail(
+              'Voucher, accounting date, source proof and approved candidate must match.',
+            );
+          const [previous] = await c.manager.query(
+            "SELECT id FROM finance_foundation_journals WHERE candidate_id=$1 AND mode='LIVE'",
+            [candidate.id],
+          );
+          if (!previous) await verifyGlPosting(c.manager, v);
+        }
+        let nativeType: string | undefined;
+        if (source.kind === 'OPERATING_DOCUMENT') {
+          const [document] = await c.manager.query(
+            'SELECT * FROM finance_operating_postings WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND candidate_id=$4 AND company_id=$5 FOR SHARE',
+            [...c.ids, candidate.id, config.sourceCompanyId],
+          );
+          nativeType = document?.source_type;
+          if (nativeType) {
+            const b = await activePostingBook(
+              c.manager,
+              config.sourceCompanyId,
+            );
+            const d = b && (await glDeployment(c.manager, b));
+            const requiresFin02 = !['INVOICE', 'RECEIPT'].includes(nativeType);
+            if (
+              !b ||
+              b.book_id !== c.ids[2] ||
+              ((requiresFin02 || d) &&
+                (d?.action !== 'ENABLE' || d.release_id !== b.release_id))
+            )
+              foundationFail(
+                'Resume the approved FIN-02 release before native journal posting.',
+              );
+            if (document.snapshot.evidence)
+              await ownedEvidence(c.manager, b, document.snapshot.evidence);
+          }
+          const mapping = component.sourceMapping;
+          if (
+            input.mode !== 'LIVE' ||
+            !document ||
+            document.context_id !== context.id ||
+            document.context_hash !== context.subject_hash ||
+            document.source_id !== source.reference ||
+            document.source_id !== p.economicSourceId ||
+            document.snapshot_hash !== source.evidenceHash ||
+            hash(document.snapshot) !== source.evidenceHash ||
+            p.economicOrigin !== 'INSURANCE_PORTAL_FINANCE' ||
+            document.snapshot.eventType !== component.sourceEventType ||
+            (candidate.kind === 'REVERSAL'
+              ? document.snapshot.originalSourceType
+              : document.source_type) !== component.factKind ||
+            !mapping ||
+            financialSnapshotValue(document.snapshot, mapping.companyPath) !==
+              config.sourceCompanyId ||
+            financialSnapshotValue(document.snapshot, mapping.aggregatePath) !==
+              p.economicSourceId ||
+            financialSnapshotValue(document.snapshot, mapping.currencyPath) !==
+              p.currency ||
+            financialSnapshotValue(document.snapshot, mapping.datePath) !==
+              input.transactionDate ||
+            units(
+              String(
+                financialSnapshotValue(document.snapshot, mapping.amountPath),
+              ),
+            ) !== p.lines.reduce((sum, line) => sum + units(line.debit), 0n)
+          )
+            foundationFail(
+              'The operating document differs from its approved event, source, amount, currency or date.',
+            );
+        }
+        if (
+          component.origin === 'INSURANCE_PORTAL_FINANCE' &&
+          nativeLedgerEvents.has(component.sourceEventType ?? '') &&
+          source.kind !== 'OPERATING_DOCUMENT'
+        )
+          foundationFail(
+            'Use the accounting request recorded by the originating financial document.',
+          );
+        let acceptedSnapshotId: string | undefined;
+        if (source.kind === 'MANUAL' && component.sourceEventType !== null)
+          foundationFail(
+            'This automatic component requires its signed accepted inbox fact, not a manual substitute.',
+          );
+        if (source.kind === 'ACCEPTED_INBOX') {
+          if (!component.sourceMapping)
+            foundationFail(
+              'This component does not authorize automatic signed snapshot posting.',
+            );
+          const mapping = component.sourceMapping;
+          const amount = financialSnapshotValue(
+              source.snapshot!,
+              mapping.amountPath,
+            ),
+            currency = financialSnapshotValue(
+              source.snapshot!,
+              mapping.currencyPath,
+            ),
+            date = financialSnapshotValue(source.snapshot!, mapping.datePath),
+            company = financialSnapshotValue(
+              source.snapshot!,
+              mapping.companyPath,
+            ),
+            aggregate = financialSnapshotValue(
+              source.snapshot!,
+              mapping.aggregatePath,
+            );
+          dateOnly(date);
+          if (
+            typeof amount !== 'string' ||
+            units(amount) !==
+              p.lines.reduce((total, line) => total + units(line.debit), 0n) ||
+            currency !== p.currency ||
+            date !== input.transactionDate ||
+            company !== source.expected!.companyId ||
+            aggregate !== source.expected!.aggregateId
+          )
+            foundationFail(
+              'Candidate amounts, currency, transaction date or ownership differ from the signed financial snapshot.',
+            );
+          if (
+            source.expected!.eventType !== component.sourceEventType ||
+            source.expected!.factKind !== component.factKind
+          )
+            foundationFail(
+              'Signed event type and fact kind differ from the reviewed component mapping.',
+            );
+          const accepted = await verifyAcceptedSource(
+            c.manager,
+            c.actor,
+            c.scope,
+            source.inboxId!,
+            source.expected!,
+            source.deliveryId ?? null,
+          );
+          const sourceEvent = normalizeSourceEnvelope(accepted.raw_body);
+          verifyEventJournalDimensions(sourceEvent, c.scope.bookId, p);
+          acceptedSnapshotId = sourceEvent.payload.snapshot_id;
+          if (
+            source.expected!.companyId !== config.sourceCompanyId ||
+            p.economicOrigin !== accepted.source_system ||
+            p.economicSourceId !== source.expected!.aggregateId ||
+            p.sourceRevision !== String(source.expected!.revision)
+          )
+            foundationFail(
+              'Signed source company, economic origin, aggregate or revision is not bound to this candidate.',
+            );
+        }
+        const requestHash = hash({ ...input, source });
+        const [existing] = await c.manager.query(
+          'SELECT * FROM finance_foundation_journals WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode=$4 AND candidate_id=$5',
+          [...c.ids, input.mode, candidate.id],
+        );
+        if (existing) {
+          if (existing.payload.requestHash !== requestHash)
+            foundationFail(
+              'A candidate was retried with a different context, source proof, currency evidence or date.',
             );
           return {
-            ...l,
-            functionalDebit: x.functional_credit,
-            functionalCredit: x.functional_debit,
-            roundingDebit: x.rounding_credit,
-            roundingCredit: x.rounding_debit,
+            journalId: existing.id,
+            subjectHash: existing.subject_hash,
+            reused: true,
+            mode: input.mode,
+            financialEffects: existing.financial_effects,
           };
-        });
-        reversalOf = original.id;
-      }
-      const payload = {
-        schema: 'FINANCE_ACCEPTED_LEDGER_V1',
-        rateBasis: rateEvidence ? 'REVIEWED_SNAPSHOT' : 'EXACT_PARITY',
-        requestHash,
-        source,
-        context: config,
-        contextHash: context.subject_hash,
-        candidateHash: candidate.subject_hash,
-        transactionDate: input.transactionDate,
-        accountingDate: p.accountingDate,
-        rate: rateEvidence
-          ? {
-              id: rateEvidence.id,
-              hash: rateEvidence.subject_hash,
-              payload: rateEvidence.payload,
+        }
+        if (input.mode === 'LIVE') {
+          if (source.kind === 'MANUAL') {
+            const [schema] = await c.manager.query(
+              "SELECT to_regclass('public.finance_gl_deployments') IS NOT NULL installed",
+            );
+            if (schema.installed) {
+              const [deployed] = await c.manager.query(
+                'SELECT action FROM finance_gl_deployments WHERE book_id=$1 ORDER BY sequence DESC LIMIT 1',
+                [scope.bookId],
+              );
+              if (deployed)
+                foundationFail(
+                  'Use the general journal voucher workflow for manual entries in this FIN-02 book.',
+                );
             }
-          : null,
-        reversalOf,
-        lines: vector.map((l) => ({
-          ...l,
-          accountCode: resolved.find((x) => x.lineKey === l.lineKey)!
-            .accountCode,
-          roleCode: resolved.find((x) => x.lineKey === l.lineKey)!.roleCode,
-          dimensions: resolved.find((x) => x.lineKey === l.lineKey)!.dimensions,
-        })),
-      };
-      const subjectHash = hash({
-        tenantId: c.actor.tenantId,
-        ...c.scope,
-        mode: input.mode,
-        payload,
-      });
-      const [journal] = await c.manager.query(
-        `INSERT INTO finance_foundation_journals(tenant_id,legal_entity_id,book_id,mode,financial_effects,candidate_id,candidate_hash,economic_key,kind,reversal_of,period_id,period_revision,context_id,context_hash,rate_id,rate_hash,transaction_date,accounting_date,transaction_currency,functional_currency,payload,subject_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING id`,
-        [
-          ...c.ids,
-          input.mode,
-          input.mode === 'LIVE' ? 1 : 0,
-          candidate.id,
-          candidate.subject_hash,
-          candidate.economic_key,
-          candidate.kind,
+          }
+          await this.live(c, context, p.accountingDate);
+          const [{ legacy }] = await c.manager.query(
+            "SELECT to_regclass('public.finance_journal_entries') IS NOT NULL legacy",
+          );
+          if (legacy) {
+            const sourceIds = [
+              p.economicSourceId,
+              source.expected?.aggregateId,
+              acceptedSnapshotId,
+            ];
+            for (const sourceId of sourceIds.filter(
+              (id): id is string =>
+                typeof id === 'string' && /^[a-f0-9-]{36}$/i.test(id),
+            )) {
+              const [old] = await c.manager.query(
+                'SELECT id FROM finance_journal_entries WHERE company_id=$1 AND source_id=$2 LIMIT 1',
+                [config.sourceCompanyId, sourceId],
+              );
+              if (old)
+                foundationFail(
+                  'A legacy journal already owns this source. Reconcile and authorize a controlled replacement before canonical posting.',
+                );
+            }
+          }
+        }
+        const [period] = await c.manager.query(
+          "SELECT *,starts_on::text starts_on,ends_before::text ends_before FROM finance_foundation_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode=$4 AND state='OPEN' AND starts_on<=$5::date AND ends_before>$5::date FOR SHARE",
+          [...c.ids, input.mode, p.accountingDate],
+        );
+        if (!period)
+          foundationFail(
+            'No open ledger period covers the approved candidate accounting date.',
+          );
+        const [cutoff] = await c.manager.query(
+          "SELECT d.payload->>'date' cutoff FROM finance_foundation_documents d JOIN finance_foundation_decisions e ON e.document_id=d.id WHERE d.tenant_id=$1 AND d.legal_entity_id=$2 AND d.book_id=$3 AND d.kind='OPENING' AND d.mode=$4 AND e.state='REVIEWED' ORDER BY d.payload->>'date' DESC LIMIT 1",
+          [...c.ids, input.mode],
+        );
+        if (cutoff && p.accountingDate < cutoff.cutoff)
+          foundationFail(
+            'A certified opening has frozen this historical population. Use a separately approved adjustment in an open period.',
+          );
+        let rate = '1',
+          rateEvidence: FoundationDocument | null = null;
+        const functionalScale =
+          config.currencyScales[config.functionalCurrency];
+        if (
+          !Object.hasOwn(config.currencyScales, p.currency) ||
+          p.decimalScale !== config.currencyScales[p.currency]
+        )
+          foundationFail(
+            'Source currency precision differs from the explicit context.',
+          );
+        if (p.currency !== config.functionalCurrency) {
+          if (!input.rateId || !input.rateHash)
+            foundationFail(
+              'Foreign-currency journals need exact reviewed rate evidence; FX=1 is never inferred.',
+            );
+          rateEvidence = await this.reviewed(
+            c,
+            input.rateId,
+            input.rateHash,
+            'EXCHANGE_RATE',
+          );
+          const r = rateEvidence.payload;
+          if (
+            rateEvidence.parent_id !== context.id ||
+            r.contextHash !== context.subject_hash ||
+            r.transactionCurrency !== p.currency ||
+            r.functionalCurrency !== config.functionalCurrency ||
+            (candidate.kind !== 'REVERSAL' &&
+              (r.rateDate > input.transactionDate ||
+                r.validTo <= input.transactionDate ||
+                (Date.parse(input.transactionDate) - Date.parse(r.rateDate)) /
+                  86400000 >
+                  config.maxRateAgeDays))
+          )
+            foundationFail(
+              'Rate scope, pair, effective date or maximum age does not match this transaction.',
+            );
+          rate = r.rate;
+        } else if (input.rateId !== null)
+          foundationFail(
+            'Same-currency journals require exact parity, not a foreign-rate snapshot.',
+          );
+        let vector = convertLedgerLines(
+            p.lines,
+            rate,
+            functionalScale,
+            config.roundingMode,
+          ),
+          reversalOf: string | null = null;
+        if (candidate.kind === 'REVERSAL') {
+          const [original] = await c.manager.query(
+            'SELECT * FROM finance_foundation_journals WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode=$4 AND candidate_id=$5 AND candidate_hash=$6',
+            [...c.ids, input.mode, p.correctionOf!.id, p.correctionOf!.hash],
+          );
+          if (
+            !original ||
+            original.functional_currency !== config.functionalCurrency ||
+            original.transaction_currency !== p.currency ||
+            original.economic_key !== candidate.economic_key
+          )
+            foundationFail(
+              'Reversal requires its exact accepted original, currency basis and economic identity.',
+            );
+          if (
+            input.rateId !== original.rate_id ||
+            input.rateHash !== original.rate_hash
+          )
+            foundationFail(
+              'A reversal must retain the original FX evidence; a new spot rate would create a second FX effect.',
+            );
+          const old = await c.manager.query(
+            'SELECT * FROM finance_foundation_lines WHERE journal_id=$1 ORDER BY line_key',
+            [original.id],
+          );
+          vector = vector.map((l) => {
+            const x = old.find((x) => x.line_key === l.lineKey),
+              current = resolved.find((x) => x.lineKey === l.lineKey)!;
+            if (
+              !x ||
+              l.transactionDebit !== x.transaction_credit ||
+              l.transactionCredit !== x.transaction_debit ||
+              current.accountCode !== x.account_code ||
+              current.roleCode !== x.role_code ||
+              hash(current.dimensions) !== hash(x.dimensions)
+            )
+              foundationFail(
+                'Reversal lines differ from the original account, dimension or transaction vector.',
+              );
+            return {
+              ...l,
+              functionalDebit: x.functional_credit,
+              functionalCredit: x.functional_debit,
+              roundingDebit: x.rounding_credit,
+              roundingCredit: x.rounding_debit,
+            };
+          });
+          reversalOf = original.id;
+        }
+        const payload = {
+          schema: 'FINANCE_ACCEPTED_LEDGER_V1',
+          rateBasis: rateEvidence ? 'REVIEWED_SNAPSHOT' : 'EXACT_PARITY',
+          requestHash,
+          source,
+          context: config,
+          contextHash: context.subject_hash,
+          candidateHash: candidate.subject_hash,
+          transactionDate: input.transactionDate,
+          accountingDate: p.accountingDate,
+          rate: rateEvidence
+            ? {
+                id: rateEvidence.id,
+                hash: rateEvidence.subject_hash,
+                payload: rateEvidence.payload,
+              }
+            : null,
           reversalOf,
-          period.id,
-          period.revision,
-          context.id,
-          context.subject_hash,
-          input.rateId,
-          input.rateHash,
-          input.transactionDate,
-          p.accountingDate,
-          p.currency,
-          config.functionalCurrency,
+          lines: vector.map((l) => ({
+            ...l,
+            accountCode: resolved.find((x) => x.lineKey === l.lineKey)!
+              .accountCode,
+            roleCode: resolved.find((x) => x.lineKey === l.lineKey)!.roleCode,
+            dimensions: resolved.find((x) => x.lineKey === l.lineKey)!
+              .dimensions,
+          })),
+        };
+        const subjectHash = hash({
+          tenantId: c.actor.tenantId,
+          ...c.scope,
+          mode: input.mode,
           payload,
-          subjectHash,
-        ],
-      );
-      for (const l of payload.lines)
+        });
+        const [journal] = await c.manager.query(
+          `INSERT INTO finance_foundation_journals(tenant_id,legal_entity_id,book_id,mode,financial_effects,candidate_id,candidate_hash,economic_key,kind,reversal_of,period_id,period_revision,context_id,context_hash,rate_id,rate_hash,transaction_date,accounting_date,transaction_currency,functional_currency,payload,subject_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING id`,
+          [
+            ...c.ids,
+            input.mode,
+            input.mode === 'LIVE' ? 1 : 0,
+            candidate.id,
+            candidate.subject_hash,
+            candidate.economic_key,
+            candidate.kind,
+            reversalOf,
+            period.id,
+            period.revision,
+            context.id,
+            context.subject_hash,
+            input.rateId,
+            input.rateHash,
+            input.transactionDate,
+            p.accountingDate,
+            p.currency,
+            config.functionalCurrency,
+            payload,
+            subjectHash,
+          ],
+        );
+        if (
+          nativeType === 'INVOICE_WRITE_OFF' ||
+          nativeType === 'INVOICE_WRITE_OFF_REVERSAL'
+        )
+          await applyWriteOff(
+            c.manager,
+            config.sourceCompanyId,
+            p.economicSourceId,
+            nativeType === 'INVOICE_WRITE_OFF_REVERSAL',
+          );
+        for (const l of payload.lines)
+          await c.manager.query(
+            `INSERT INTO finance_foundation_lines(tenant_id,legal_entity_id,book_id,journal_id,line_key,account_code,role_code,transaction_debit,transaction_credit,functional_debit,functional_credit,rounding_debit,rounding_credit,dimensions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+            [
+              ...c.ids,
+              journal.id,
+              l.lineKey,
+              l.accountCode,
+              l.roleCode,
+              l.transactionDebit,
+              l.transactionCredit,
+              l.functionalDebit,
+              l.functionalCredit,
+              l.roundingDebit,
+              l.roundingCredit,
+              l.dimensions,
+            ],
+          );
         await c.manager.query(
-          `INSERT INTO finance_foundation_lines(tenant_id,legal_entity_id,book_id,journal_id,line_key,account_code,role_code,transaction_debit,transaction_credit,functional_debit,functional_credit,rounding_debit,rounding_credit,dimensions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+          `INSERT INTO finance_foundation_journal_audits(tenant_id,legal_entity_id,book_id,journal_id,actor_subject_id,actor_natural_person_id,authority_id,subject_hash,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
           [
             ...c.ids,
             journal.id,
-            l.lineKey,
-            l.accountCode,
-            l.roleCode,
-            l.transactionDebit,
-            l.transactionCredit,
-            l.functionalDebit,
-            l.functionalCredit,
-            l.roundingDebit,
-            l.roundingCredit,
-            l.dimensions,
+            c.actor.subjectId,
+            c.actor.naturalPersonId,
+            c.authorityId,
+            subjectHash,
+            c.reason,
           ],
         );
-      await c.manager.query(
-        `INSERT INTO finance_foundation_journal_audits(tenant_id,legal_entity_id,book_id,journal_id,actor_subject_id,actor_natural_person_id,authority_id,subject_hash,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [
-          ...c.ids,
-          journal.id,
-          c.actor.subjectId,
-          c.actor.naturalPersonId,
-          c.authorityId,
+        return {
+          journalId: journal.id,
           subjectHash,
-          c.reason,
-        ],
-      );
-      return {
-        journalId: journal.id,
-        subjectHash,
-        reused: false,
-        mode: input.mode,
-        financialEffects: input.mode === 'LIVE' ? 1 : 0,
-      };
-    });
+          reused: false,
+          mode: input.mode,
+          financialEffects: input.mode === 'LIVE' ? 1 : 0,
+        };
+      },
+      manager,
+    );
   }
 
   async trialBalance(
@@ -1035,6 +1185,7 @@ export class FinanceLedgerFoundationService {
       from: string;
       to: string;
     },
+    manager?: EntityManager,
   ) {
     modeOnly(input.mode);
     uuid(input.openingId);
@@ -1047,6 +1198,7 @@ export class FinanceLedgerFoundationService {
       'READ',
       'Read scoped certified ledger totals',
       (c) => this.report(c, input),
+      manager,
     );
   }
   async accountLedger(
@@ -1441,6 +1593,31 @@ export class FinanceLedgerFoundationService {
       );
     });
   }
+  /** Recheck the approved release inside the already-authorized FIN-01 activation transaction. */
+  async verifyOperatingRelease(
+    manager: EntityManager,
+    actor: FoundationActor,
+    scope: FinanceBookSelection,
+    authorityId: string,
+    profile: string,
+    id: string,
+    expectedHash: string,
+    reason: string,
+  ) {
+    const command: Command = {
+      manager,
+      actor,
+      scope,
+      ids: [actor.tenantId, scope.legalEntityId, scope.bookId],
+      authorityId,
+      profile,
+      limits: {},
+      reason,
+    };
+    const release = await this.reviewed(command, id, expectedHash, 'RELEASE');
+    await this.revalidate(command, release);
+  }
+
   async deployment(
     actor: FoundationActor,
     scope: FinanceBookSelection,
@@ -1594,85 +1771,104 @@ export class FinanceLedgerFoundationService {
     );
   }
 
+  withWorkflowAuthority<T>(
+    actor: FoundationActor,
+    scope: FinanceBookSelection,
+    capability: 'READ' | 'PREPARE' | 'REVIEW' | 'RELEASE',
+    reason: string,
+    work: (command: Command) => Promise<T>,
+    manager?: EntityManager,
+  ) {
+    return this.command(actor, scope, capability, reason, work, manager);
+  }
+
   private async command<T>(
     actor: FoundationActor,
     scope: FinanceBookSelection,
     capability: FoundationCapability,
     reason: string,
     work: (c: Command) => Promise<T>,
+    existingManager?: EntityManager,
   ): Promise<T> {
     const normalized = foundationIdentity(actor, scope);
     actor = { ...actor, ...normalized.actor };
     scope = normalized.scope;
     if (!candidateText(reason, 2000))
       foundationFail('A bounded recorded reason is required.');
+    const execute = async (manager: EntityManager) => {
+      const [{ deployed }] = await manager.query(
+        "SELECT to_regclass('public.finance_foundation_authorities') IS NOT NULL deployed",
+      );
+      if (!deployed)
+        foundationFail(
+          'B43-B45 storage and trusted authorities are not deployed.',
+        );
+      const ids = [actor.tenantId, scope.legalEntityId, scope.bookId];
+      const [book] = await manager.query(
+        `SELECT b.id,l.business_profile FROM finance_accounting_books b JOIN finance_legal_entities l ON l.tenant_id=b.tenant_id AND l.id=b.legal_entity_id WHERE b.tenant_id=$1 AND b.legal_entity_id=$2 AND b.id=$3 AND b.state<>'DISABLED' AND l.state<>'DISABLED' FOR ${capability === 'READ' ? 'SHARE' : 'UPDATE'} OF b`,
+        ids,
+      );
+      if (!book)
+        throw new ForbiddenException('Requested Finance scope is unavailable.');
+      const authorities = await manager.query(
+        `SELECT id,limits FROM finance_foundation_authorities WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND subject_id=$4 AND natural_person_id=$5 AND capability=$6 AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp()) FOR SHARE`,
+        [...ids, actor.subjectId, actor.naturalPersonId, capability],
+      );
+      if (authorities.length !== 1)
+        throw new ForbiddenException(
+          'A unique current Finance scope mandate is required for ' +
+            capability +
+            '.',
+        );
+      if (actor.identityBindingId) {
+        const [binding] = await manager.query(
+          'SELECT id FROM finance_foundation_identity_bindings WHERE id=$1 AND tenant_id=$2 AND legal_entity_id=$3 AND book_id=$4 AND subject_id=$5 AND natural_person_id=$6 AND source_company_id=$7 AND source_user_id=$8 AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp()) FOR SHARE',
+          [
+            actor.identityBindingId,
+            ...ids,
+            actor.subjectId,
+            actor.naturalPersonId,
+            actor.sourceCompanyId,
+            actor.sourceUserId,
+          ],
+        );
+        if (!binding)
+          throw new ForbiddenException(
+            'Trusted identity binding expired or was revoked.',
+          );
+      }
+      const c = {
+          manager,
+          actor,
+          scope,
+          ids,
+          authorityId: authorities[0].id,
+          limits: authorities[0].limits,
+          profile: book.business_profile,
+          reason,
+        },
+        result = await work(c);
+      const [current] = await manager.query(
+        'SELECT id FROM finance_foundation_authorities WHERE id=$1 AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp())',
+        [c.authorityId],
+      );
+      if (!current)
+        throw new ForbiddenException(
+          'Finance authority expired before transaction completion.',
+        );
+      return result;
+    };
+    if (existingManager) {
+      if (
+        existingManager.connection !== this.source ||
+        !existingManager.queryRunner?.isTransactionActive
+      )
+        foundationFail('An active ledger transaction is required.');
+      return execute(existingManager);
+    }
     return this.source.transaction(
       capability === 'READ' ? 'REPEATABLE READ' : 'READ COMMITTED',
-      async (manager) => {
-        const [{ deployed }] = await manager.query(
-          "SELECT to_regclass('public.finance_foundation_authorities') IS NOT NULL deployed",
-        );
-        if (!deployed)
-          foundationFail(
-            'B43-B45 storage and trusted authorities are not deployed.',
-          );
-        const ids = [actor.tenantId, scope.legalEntityId, scope.bookId];
-        const [book] = await manager.query(
-          `SELECT b.id,l.business_profile FROM finance_accounting_books b JOIN finance_legal_entities l ON l.tenant_id=b.tenant_id AND l.id=b.legal_entity_id WHERE b.tenant_id=$1 AND b.legal_entity_id=$2 AND b.id=$3 AND b.state<>'DISABLED' AND l.state<>'DISABLED' FOR ${capability === 'READ' ? 'SHARE' : 'UPDATE'} OF b`,
-          ids,
-        );
-        if (!book)
-          throw new ForbiddenException(
-            'Requested Finance scope is unavailable.',
-          );
-        const authorities = await manager.query(
-          `SELECT id,limits FROM finance_foundation_authorities WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND subject_id=$4 AND natural_person_id=$5 AND capability=$6 AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp()) FOR SHARE`,
-          [...ids, actor.subjectId, actor.naturalPersonId, capability],
-        );
-        if (authorities.length !== 1)
-          throw new ForbiddenException(
-            'A unique current Finance scope mandate is required for ' +
-              capability +
-              '.',
-          );
-        if (actor.identityBindingId) {
-          const [binding] = await manager.query(
-            'SELECT id FROM finance_foundation_identity_bindings WHERE id=$1 AND tenant_id=$2 AND legal_entity_id=$3 AND book_id=$4 AND subject_id=$5 AND natural_person_id=$6 AND source_company_id=$7 AND source_user_id=$8 AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp()) FOR SHARE',
-            [
-              actor.identityBindingId,
-              ...ids,
-              actor.subjectId,
-              actor.naturalPersonId,
-              actor.sourceCompanyId,
-              actor.sourceUserId,
-            ],
-          );
-          if (!binding)
-            throw new ForbiddenException(
-              'Trusted identity binding expired or was revoked.',
-            );
-        }
-        const c = {
-            manager,
-            actor,
-            scope,
-            ids,
-            authorityId: authorities[0].id,
-            limits: authorities[0].limits,
-            profile: book.business_profile,
-            reason,
-          },
-          result = await work(c);
-        const [current] = await manager.query(
-          'SELECT id FROM finance_foundation_authorities WHERE id=$1 AND revoked_at IS NULL AND valid_from<=statement_timestamp() AND (valid_to IS NULL OR valid_to>statement_timestamp())',
-          [c.authorityId],
-        );
-        if (!current)
-          throw new ForbiddenException(
-            'Finance authority expired before transaction completion.',
-          );
-        return result;
-      },
+      execute,
     );
   }
   private async document(
@@ -2142,6 +2338,7 @@ export class FinanceLedgerFoundationService {
       from: string;
       to: string;
     },
+    manager?: EntityManager,
   ) {
     modeOnly(input.mode);
     dateOnly(input.from);

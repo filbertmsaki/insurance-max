@@ -59,7 +59,7 @@ export class PaymentTransaction {
   @Column({ type: 'varchar', length: 40, nullable: true })
   payment_method: string | null;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   amount: string;
 
   @Column({ type: 'varchar', length: 10, default: 'TZS' })

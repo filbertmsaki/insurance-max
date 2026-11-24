@@ -36,6 +36,8 @@ export class BusinessReferenceService {
     manager?: EntityManager;
   }): Promise<string> {
     const manager = params.manager ?? this.dataSource.manager;
+    if (params.documentType === 'FINANCIAL_REVERSAL')
+      return this.nextFinanceReversal(params.companyId, manager);
     const periodKey = params.periodKey ?? String(new Date().getFullYear());
 
     const formats: Array<{ prefix: string; sequence_length: number }> =
@@ -59,6 +61,17 @@ export class BusinessReferenceService {
     return toAlphanumericReference(
       `${prefix}${String(sequence).padStart(length, '0')}`,
     );
+  }
+
+  async nextFinanceReversal(
+    companyId: string,
+    manager: EntityManager,
+  ): Promise<string> {
+    const [row] = await manager.query(
+      "SELECT finance_fin01_number((finance_fin01_primary($1)).id,'FINANCIAL_REVERSAL') AS reference",
+      [companyId],
+    );
+    return row.reference;
   }
 
   /** Raw auto-increment value for a company, document type and period. */

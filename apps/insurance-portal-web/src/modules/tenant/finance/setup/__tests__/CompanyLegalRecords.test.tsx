@@ -15,7 +15,11 @@ const company = {
   brela_registration_number: 'BR-1',
   default_currency: 'TZS',
 };
-function mount(canEdit = true, jurisdiction = 'TZ') {
+function mount(
+  canEdit = true,
+  jurisdiction = 'TZ',
+  source?: Parameters<typeof CompanyLegalRecords>[0]['source'],
+) {
   const refresh = vi.fn().mockResolvedValue(undefined);
   render(
     <QueryClientProvider
@@ -25,6 +29,7 @@ function mount(canEdit = true, jurisdiction = 'TZ') {
     >
       <CompanyLegalRecords
         company={company}
+        source={source}
         jurisdiction={jurisdiction}
         canEdit={canEdit}
         locked={false}
@@ -40,6 +45,32 @@ beforeEach(() => {
   patch.mockResolvedValue({});
 });
 describe('Company legal records', () => {
+  it('shows Zanzibar tax fields conditionally and patches only the changed registration', async () => {
+    mount(true, 'TZ', {
+      profile: {
+        territory: 'ZANZIBAR',
+        registry: 'BPRA',
+        zanzibarVat: 'NOT_REGISTERED',
+      },
+      address: null,
+      mainlandVrn: null,
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit company details' }),
+    );
+    expect(
+      screen.queryByLabelText('Mainland VAT registration'),
+    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('BPRA registration number'), {
+      target: { value: 'BZ-456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith('/companies/my', {
+        finance_profile_tz: { bpraNumber: 'BZ-456' },
+      }),
+    );
+  });
   it('updates only the current company and allows clearing an identifier', async () => {
     const { refresh } = mount();
     fireEvent.click(

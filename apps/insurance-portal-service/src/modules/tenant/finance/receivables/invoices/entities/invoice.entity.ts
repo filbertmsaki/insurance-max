@@ -30,6 +30,15 @@ import { InvoiceItem } from './invoice-item.entity';
   where: 'deleted_at IS NULL',
 })
 export class Invoice {
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  issue_command_key: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  issue_command_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  finance_dimensions: Record<string, string> | null;
+
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -84,34 +93,34 @@ export class Invoice {
   @Column({ type: 'varchar', length: 10, default: 'TZS' })
   currency: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   gross_amount: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   discount_amount: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   tax_amount: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   charges_amount: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   total_amount: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   paid_amount: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   allocated_amount: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   refunded_amount: string;
 
-  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   written_off_amount: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', default: 0 })
   balance_amount: string;
 
   @Column({ type: 'varchar', length: 20, default: 'DRAFT' })
@@ -138,8 +147,16 @@ export class Invoice {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ type: 'date', nullable: true, default: () => 'NULL' })
   due_date: string | null;
+
+  @Column({
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+    default: () => 'NULL',
+  })
+  payment_term_code: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;

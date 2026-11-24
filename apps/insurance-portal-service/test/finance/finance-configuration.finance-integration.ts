@@ -1,3 +1,6 @@
+// Loading the parent module metadata also loads the auth module. This slice never runs a second-factor provider.
+jest.mock('otplib', () => ({}));
+
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -9,6 +12,7 @@ import { FinanceConfigurationAuthority } from '../../src/modules/tenant/finance/
 import { FinanceConfigurationRelease } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-release.entity';
 import { FinanceConfigurationEvent } from '../../src/modules/tenant/finance/foundation/entities/finance-configuration-event.entity';
 import { FinanceConfigurationService } from '../../src/modules/tenant/finance/foundation/finance-configuration/finance-configuration.service';
+import { FinanceModule } from '../../src/modules/tenant/finance/finance.module';
 import { FinanceFoundationModule } from '../../src/modules/tenant/finance/foundation/finance-foundation.module';
 import { FinanceFoundationController } from '../../src/modules/tenant/finance/foundation/finance-foundation.controller';
 import type {
@@ -632,7 +636,10 @@ describe('Inactive configuration review controls on PostgreSQL (B06)', () => {
         expect(row.state).toBe('DRAFT');
         expect(
           Reflect.getMetadata('controllers', FinanceFoundationModule) ?? [],
-        ).toEqual([FinanceFoundationController]);
+        ).toEqual([]);
+        expect(Reflect.getMetadata('controllers', FinanceModule)).toContain(
+          FinanceFoundationController,
+        );
         await expect(
           dataSource.query(
             "UPDATE finance_configuration_releases SET state = 'ACTIVE' WHERE id = $1",

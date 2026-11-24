@@ -11,12 +11,101 @@ import { ADMIN_ROLE_BY_COMPANY_TYPE } from '../../../../platform/companies/acces
 import { AuditService } from '../../../../shared/audit/audit.service';
 import type { FinanceBookSelection } from '../finance-configuration/finance-scope.service';
 
+import {
+  createAppointedBook,
+  onboardingMembers,
+} from './finance-book-onboarding';
+
 @Injectable()
 export class FinanceBookManagementService {
   constructor(
     @InjectDataSource() private readonly db: DataSource,
     private readonly audit: AuditService,
   ) {}
+
+  onboardingMembers(user: AuthenticatedUser) {
+    return this.db.transaction((m) => onboardingMembers(m, user));
+  }
+
+  bootstrap(
+    user: AuthenticatedUser,
+    input: unknown,
+    scope?: FinanceBookSelection,
+  ) {
+    return this.db.transaction(async (m) => {
+      const source = scope ? await this.authority(m, user, scope) : null;
+      const book = await createAppointedBook(
+        m,
+        user,
+        input,
+        source
+          ? {
+              tenantId: source.tenant_id,
+              legalEntityId: source.legal_entity_id,
+            }
+          : undefined,
+      );
+      await this.audit.logCritical(
+        {
+          action: scope ? 'FINANCE_BOOK_CREATE' : 'FINANCE_PRIMARY_BOOK_CREATE',
+          userId: user.id,
+          companyId: user.companyId,
+          resource: 'finance_accounting_book',
+          resourceId: book.bookId,
+          afterState: { book, input },
+        },
+        m,
+      );
+      return book;
+    });
+  }
+
+  async alignLegalName(
+    user: AuthenticatedUser,
+    scope: FinanceBookSelection,
+    expectedName: unknown,
+  ) {
+    return this.db.transaction(async (m) => {
+      const a = await this.authority(m, user, scope);
+      const [company] = await m.query(
+        'SELECT name FROM companies WHERE id=$1 AND deleted_at IS NULL FOR SHARE',
+        [user.companyId],
+      );
+      const [entity] = await m.query(
+        'SELECT id,legal_name FROM finance_legal_entities WHERE tenant_id=$1 AND id=$2 FOR UPDATE',
+        [a.tenant_id, a.legal_entity_id],
+      );
+      if (!entity || !company || company.name !== expectedName)
+        throw new ConflictException(
+          'Refresh the registered company name before applying it.',
+        );
+      const other = await m.query(
+        'SELECT id FROM finance_legal_entity_source_maps WHERE tenant_id=$1 AND legal_entity_id=$2 AND source_company_id<>$3 AND state<>$4 LIMIT 1',
+        [a.tenant_id, a.legal_entity_id, user.companyId, 'DISABLED'],
+      );
+      if (other.length)
+        throw new ConflictException(
+          'Review the shared legal entity and its company mappings before changing its name.',
+        );
+      await m.query(
+        'UPDATE finance_legal_entities SET legal_name=$3,updated_at=now() WHERE tenant_id=$1 AND id=$2',
+        [a.tenant_id, a.legal_entity_id, company.name],
+      );
+      await this.audit.logCritical(
+        {
+          action: 'FINANCE_LEGAL_NAME_ALIGN',
+          userId: user.id,
+          companyId: user.companyId,
+          resource: 'finance_legal_entity',
+          resourceId: entity.id,
+          beforeState: { legal_name: entity.legal_name },
+          afterState: { legal_name: company.name },
+        },
+        m,
+      );
+      return { legalName: company.name };
+    });
+  }
 
   private async authority(
     m: EntityManager,
