@@ -23,6 +23,8 @@ import { FinanceSetupConfigurationService } from '../../src/modules/tenant/finan
 import { FinanceBookManagementService } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-book-management.service';
 import { FinancePortalIdentityService } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-portal-identity.service';
 import { FinanceFoundationController } from '../../src/modules/tenant/finance/foundation/finance-foundation.controller';
+import { TradePayablesController } from '../../src/modules/tenant/finance/payables/trade-payables/trade-payables.controller';
+import { TradePayablesService } from '../../src/modules/tenant/finance/payables/trade-payables/trade-payables.service';
 import { ReceiptBalanceService } from '../../src/modules/tenant/finance/receivables/receipts/receipt-balance.service';
 import { QuotationPaymentProjectionService } from '../../src/modules/tenant/finance/integrations/quotation-finance/quotation-payment-projection.service';
 import { PolicyTransactionRefundProjectionService } from '../../src/modules/tenant/policy-transactions/services/policy-transaction-refund-projection.service';
@@ -125,6 +127,7 @@ async function startFinancePortal(db: DataSource) {
       CompaniesController,
       FinanceSetupController,
       FinanceFoundationController,
+      TradePayablesController,
       FinanceController,
     ],
     providers: [
@@ -152,6 +155,7 @@ async function startFinancePortal(db: DataSource) {
       BillingCommissionService,
       FinanceOperatingPostingService,
       FinanceGlVoucherService,
+      TradePayablesService,
       FinanceGlWorkflowsService,
       FinanceLedgerFoundationService,
       FinanceJournalCandidateService,

@@ -630,7 +630,25 @@ export class FinanceOperatingPostingService {
         throw new ForbiddenException(
           'Only the original preparer can renew this accounting request.',
         );
-      if (r.state === 'REJECTED_INACTIVE' && !r.source_type.startsWith('GL_')) {
+      const [ap] =
+        r.state === 'REJECTED_INACTIVE' && r.source_type.startsWith('GL_')
+          ? await m.query(
+              "SELECT 1 FROM finance_operating_postings WHERE candidate_id=$1 AND snapshot ? 'apDocumentId'",
+              [id],
+            )
+          : [];
+      if (ap) {
+        const [document] = await m.query(
+          "SELECT id FROM finance_ap_records WHERE candidate_id=$1 AND book_id=$2 AND state='APPROVED'",
+          [id, scope.bookId],
+        );
+        if (!document)
+          throw new ConflictException('This AP document was withdrawn.');
+      }
+      if (
+        r.state === 'REJECTED_INACTIVE' &&
+        (!r.source_type.startsWith('GL_') || ap)
+      ) {
         const book = await activePostingBook(m, actor.sourceCompanyId!);
         if (!book || book.book_id !== scope.bookId)
           throw new ConflictException('Select the originating active book.');
@@ -722,6 +740,15 @@ export class FinanceOperatingPostingService {
         requestHash: p.request_hash,
         beneficiaryHash: p.beneficiary_hash,
       };
+      if (
+        !reject &&
+        p.snapshot.apDocumentId &&
+        (p.snapshot.apParty === 'E:' + actor.sourceUserId ||
+          p.snapshot.apEmployeePerson === actor.naturalPersonId)
+      )
+        throw new ForbiddenException(
+          'An employee cannot approve their own expense or disbursement.',
+        );
       if (p.state === 'PREPARED_INACTIVE') {
         const [already] = await m.query(
           'SELECT id,action FROM finance_approval_decisions WHERE request_id=$1 AND actor_natural_person_id=$2',

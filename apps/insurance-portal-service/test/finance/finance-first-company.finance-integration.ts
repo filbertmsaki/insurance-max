@@ -10,6 +10,7 @@ import { ReinsuranceRecoveryService } from '../../src/modules/tenant/reinsurance
 import { FinanceJournalService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal.service';
 import { FinanceGlWorkflowsService } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-workflows.service';
 import { exerciseGeneralLedger } from '../support/finance-general-ledger-workflow';
+import { exerciseTradePayables } from '../support/finance-trade-payables-workflow';
 import { exerciseInsurerPremium } from '../support/finance-insurer-premium-workflow';
 import { randomUUID } from 'node:crypto';
 import { FINANCE_DOCUMENT_TYPES } from '@insurance-max/contracts';
@@ -53,7 +54,7 @@ describe('FIN-01 first company through first live journals', () => {
             businessProfile: profile,
             preparerUserId: maker,
             approvalRole: 'FINANCE_REVIEWER',
-            limits: { TZS: '10000000', USD: '100000' },
+            limits: { TZS: '25000000', USD: '100000' },
             validUntil: until,
             authorityReference: 'Board appointment 4',
             additionalCheckerUserIds: [deputy],
@@ -298,6 +299,8 @@ describe('FIN-01 first company through first live journals', () => {
             ['511003', 'Claim Recoveries', 'EXPENSE'],
             ['113003', 'Reinsurance receivables', 'ASSET'],
             ['112009', 'Deposits in transit', 'ASSET'],
+            ['121002', 'Computer Equipment', 'ASSET'],
+            ['211001', 'Trade Payables', 'LIABILITY'],
             ...(insurer
               ? [
                   ['221001', 'Insurance contract liabilities', 'LIABILITY'],
@@ -317,6 +320,8 @@ describe('FIN-01 first company through first live journals', () => {
             'CLAIM_RECOVERY',
             'CEDED_RECEIVABLE',
             'TRANSIT',
+            'COMPUTERS',
+            'TRADE_AP',
             ...(insurer ? ['LRC', 'INSURANCE_REVENUE'] : []),
           ];
           const chart = await config('ACCOUNT_ROLES', {
@@ -346,6 +351,10 @@ describe('FIN-01 first company through first live journals', () => {
               emptyInventoryReason: 'New company with no legacy accounts.',
             },
           });
+          const [itDepartment] = await db.query(
+            "INSERT INTO departments(company_id,code,name) VALUES($1,'IT','Information Technology') RETURNING id",
+            [company],
+          );
           const dim = await config('DIMENSIONS', {
             schema: 'FINANCE_DIMENSIONS_V1',
             companyMaster: {
@@ -369,7 +378,7 @@ describe('FIN-01 first company through first live journals', () => {
             dimensionReleaseHash: dim.hash,
             mappingReview: reason,
             businessDimensionsReviewed: true,
-            departmentIds: [],
+            departmentIds: [itDepartment.id],
             costCentres: [{ code: 'HQ', name: 'Head office' }],
           });
           const components = [
@@ -607,7 +616,7 @@ describe('FIN-01 first company through first live journals', () => {
                 party,
                 code: party,
                 label: party,
-                days: 15,
+                days: party === 'SUPPLIER' ? 30 : 15,
                 isDefault: true,
               })),
               paymentMethods: [
@@ -616,6 +625,12 @@ describe('FIN-01 first company through first live journals', () => {
                   direction: 'BOTH',
                   accountCode: '1100',
                   referenceRequired: false,
+                },
+                {
+                  method: 'BANK_TRANSFER',
+                  direction: 'OUTGOING',
+                  accountCode: '112001',
+                  referenceRequired: true,
                 },
               ],
               approvalLimits: [
@@ -864,7 +879,11 @@ describe('FIN-01 first company through first live journals', () => {
                   ? '150000'
                   : insurer && accountCode === '113900'
                     ? '-150000'
-                    : '0',
+                    : insurer && accountCode === '121002'
+                      ? '6000'
+                      : insurer && accountCode === '211001'
+                        ? '-6000'
+                        : '0',
             })),
             sourceReference: reason,
             sourceEvidenceHash: evidenceHash,
@@ -1211,6 +1230,21 @@ describe('FIN-01 first company through first live journals', () => {
             receiptId: receipts[0].id,
             openingId: opening.id,
             openingHash: opening.subjectHash,
+          });
+          await exerciseTradePayables({
+            openingOnly: insurer,
+            call,
+            post,
+            maker,
+            checker,
+            deputy,
+            company,
+            scope,
+            today,
+            document,
+            db,
+            branch: branches[0].id,
+            department: itDepartment.id,
           });
           if (insurer)
             await exerciseInsurerPremium({

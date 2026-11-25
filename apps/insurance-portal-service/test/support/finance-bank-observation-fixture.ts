@@ -25,18 +25,33 @@ export function fixtureBank(db: DataSource, companyId: string, bookId: string) {
       if (old === undefined) delete process.env.FINANCE_BANK_OBSERVATION_KEYS;
       else process.env.FINANCE_BANK_OBSERVATION_KEYS = old;
     },
-    async observe(kind: 'REFUND' | 'COMMISSION_PAYMENT', id: string) {
+    async observe(
+      kind:
+        | 'REFUND'
+        | 'COMMISSION_PAYMENT'
+        | 'AP_PAYMENT'
+        | 'AP_SUPPLIER_REFUND'
+        | 'AP_IMPREST_RETURN'
+        | 'AP_REVERSAL',
+      id: string,
+      settledAt?: Date,
+    ) {
       const [s] = await db.query(
         kind === 'REFUND'
           ? 'SELECT refund_no reference, customer_id AS "beneficiaryId",settlement_account_code account,currency_code currency,amount FROM finance_refunds WHERE company_id=$1 AND id=$2'
-          : 'SELECT payment_no reference,intermediary_company_id AS "beneficiaryId",settlement_account_code account,currency,allocated_amount amount FROM commission_payments WHERE company_id=$1 AND id=$2',
+          : kind === 'COMMISSION_PAYMENT'
+            ? 'SELECT payment_no reference,intermediary_company_id AS "beneficiaryId",settlement_account_code account,currency,allocated_amount amount FROM commission_payments WHERE company_id=$1 AND id=$2'
+            : `SELECT 'PV-'||to_char(doc_date,'YYYY')||'-'||lpad(sequence::text,8,'0') reference,
+            coalesce(data->>'bankId',substr(party,3)) AS "beneficiaryId",data->>'bankAccount' account,currency,
+            coalesce(data->'details'->>'bankAmount',data->'details'->>'cashReturned',amount::text) amount FROM finance_ap_records WHERE book_id IN (SELECT book_id FROM finance_operating_setups WHERE company_id=$1) AND id=$2`,
         [companyId, id],
       );
+      const [clock] = await db.query('SELECT clock_timestamp() AS observed');
       const o = {
         issuer,
         keyId,
         reference: 'UAT-BANK-' + id,
-        settledAt: new Date().toISOString(),
+        settledAt: (settledAt ?? new Date(clock.observed)).toISOString(),
       };
       return {
         ...o,

@@ -19,7 +19,13 @@ export interface BankObservation {
   signature: string;
 }
 interface Source {
-  kind: 'REFUND' | 'COMMISSION_PAYMENT';
+  kind:
+    | 'REFUND'
+    | 'COMMISSION_PAYMENT'
+    | 'AP_PAYMENT'
+    | 'AP_SUPPLIER_REFUND'
+    | 'AP_IMPREST_RETURN'
+    | 'AP_REVERSAL';
   companyId: string;
   id: string;
   reference: string;
@@ -58,7 +64,7 @@ export function settlementAttestation(
     beneficiaryId: s.beneficiaryId,
     settlementAccount: s.account,
     currency: s.currency,
-    amount: candidateAmount(s.amount, 4).stored,
+    amount: candidateAmount(s.amount, s.kind.startsWith('AP_') ? 12 : 4).stored,
   };
 }
 export async function verifyBankSettlement(
@@ -71,7 +77,9 @@ export async function verifyBankSettlement(
       code:
         s.kind === 'REFUND'
           ? 'VERIFIED_REFUND_SETTLEMENT_REQUIRED'
-          : 'VERIFIED_COMMISSION_SETTLEMENT_REQUIRED',
+          : s.kind === 'COMMISSION_PAYMENT'
+            ? 'VERIFIED_COMMISSION_SETTLEMENT_REQUIRED'
+            : 'VERIFIED_AP_SETTLEMENT_REQUIRED',
       message:
         'Provide a verified bank or provider observation for this settled payment.',
     });

@@ -102,7 +102,7 @@ export function DocumentField({
   value,
   change,
 }: {
-  w: Workspace;
+  w: Pick<Workspace, 'documents'>;
   label?: string;
   value?: Evidence;
   change: (e: Evidence | undefined) => void;

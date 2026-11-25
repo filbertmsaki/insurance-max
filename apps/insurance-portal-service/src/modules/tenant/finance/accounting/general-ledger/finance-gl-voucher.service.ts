@@ -273,7 +273,7 @@ export class FinanceGlVoucherService {
       if (kind !== 'MANUAL' || !FINANCE_UUID.test(v.replacementOf))
         invalid('Select a reversed manual voucher for replacement.');
       const [rev] = await m.query(
-        "SELECT j.id FROM finance_foundation_journals j JOIN finance_foundation_journals r ON r.reversal_of=j.id AND r.mode='LIVE' JOIN finance_operating_postings p ON p.candidate_id=j.candidate_id WHERE j.id=$1 AND j.book_id=$2 AND p.snapshot->>'component'='MANUAL'",
+        "SELECT j.id FROM finance_foundation_journals j JOIN finance_foundation_journals r ON r.reversal_of=j.id AND r.mode='LIVE' JOIN finance_operating_postings p ON p.candidate_id=j.candidate_id WHERE j.id=$1 AND j.book_id=$2 AND p.snapshot->>'component'='MANUAL' AND NOT (p.snapshot ? 'apDocumentId')",
         [v.replacementOf, b.book_id],
       );
       if (!rev)
@@ -353,6 +353,7 @@ export class FinanceGlVoucherService {
       evidence: Evidence;
       adjustmentPeriodId?: string;
     },
+    ap?: { manager: EntityManager; originalApId: string },
   ) {
     return this.ledger.withWorkflowAuthority(
       a,
@@ -371,6 +372,13 @@ export class FinanceGlVoucherService {
             'Select a posted original voucher in this book.',
           );
         const orig = await originalPosting(m, b, 'GL_VOUCHER', row.source_id);
+        if (
+          orig.snapshot.apDocumentId &&
+          orig.snapshot.apDocumentId !== ap?.originalApId
+        )
+          throw new ConflictException(
+            'Prepare the reversal in Accounts Payable so the supplier balance and journal change together.',
+          );
         if (
           !isFinanceDate(v.date) ||
           v.date < orig.original_date ||
@@ -441,6 +449,7 @@ export class FinanceGlVoucherService {
           journal: inverseJournal(orig),
         });
       },
+      ap?.manager,
     );
   }
 }

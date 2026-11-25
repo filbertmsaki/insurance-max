@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import { json } from 'express';
 import helmet from 'helmet';
 
 import { buildUrl, readLoggerEnv } from '@insurance-max/shared-config';
@@ -33,6 +34,11 @@ async function bootstrap() {
   const globalPrefix = configService.get<string>('app.globalPrefix') || 'api';
   const version = configService.get<string>('app.version') || 'v1';
   const versionLabel = version.replace(/^v/i, '') || '1';
+  // A reconciled opening file can contain thousands of supplier invoices.
+  app.use(
+    `/${globalPrefix}/v${versionLabel}/tenant/finance/payables/opening-imports`,
+    json({ limit: '2mb' }),
+  );
   const appBaseUrl = configService.getOrThrow<string>('app.appUrl');
   const corsEnabled = configService.get<boolean>('cors.enabled') ?? true;
   const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? false;

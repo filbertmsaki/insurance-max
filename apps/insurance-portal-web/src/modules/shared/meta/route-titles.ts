@@ -211,6 +211,8 @@ route(`${PE}/calculator`, 'Premium Calculator');
 route('/apps/finance/dashboard', 'Finance Dashboard');
 route('/apps/finance/foundation', 'Finance Foundation');
 route('/apps/finance/setup', 'Finance Setup');
+route('/apps/finance/payables', 'Accounts Payable and Expenses');
+route('/apps/finance/my-expenses', 'My Expenses and Imprests');
 route('/apps/finance/events', 'Finance Events');
 for (const [segment, plural, singular] of [
   ['invoices', 'Invoices', 'Invoice'],

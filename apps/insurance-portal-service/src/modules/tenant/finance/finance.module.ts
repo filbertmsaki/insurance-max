@@ -8,6 +8,8 @@ import { FinanceInsuranceIntegrationModule } from './integrations/finance-insura
 import { FinancePaymentProvidersModule } from './integrations/payment-providers/finance-payment-providers.module';
 import { FinanceSourceEvidenceModule } from './integrations/source-evidence/finance-source-evidence.module';
 import { FinancePayablesModule } from './payables/finance-payables.module';
+import { TradePayablesController } from './payables/trade-payables/trade-payables.controller';
+import { TradePayablesService } from './payables/trade-payables/trade-payables.service';
 import { FinanceReceivablesModule } from './receivables/finance-receivables.module';
 import { FinanceReconciliationModule } from './reconciliation/finance-reconciliation.module';
 
@@ -37,7 +39,8 @@ import { FinanceReconciliationModule } from './reconciliation/finance-reconcilia
   ],
   // Kept here, not in FinanceFoundationModule, which must expose no routes
   // (CF14/JC16 resolve that module standalone and assert it has no controllers).
-  controllers: [FinanceFoundationController],
+  controllers: [FinanceFoundationController, TradePayablesController],
+  providers: [TradePayablesService],
   exports: [
     FinanceAccountingModule,
     FinanceReceivablesModule,

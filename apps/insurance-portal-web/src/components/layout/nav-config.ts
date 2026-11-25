@@ -367,6 +367,21 @@ export const NAV_NODES: NavNode[] = [
     children: [
       {
         kind: 'link',
+        label: 'Accounts payable and expenses',
+        to: '/apps/finance/payables',
+        icon: Receipt,
+        permission: 'finance-foundation:read',
+        allowedScopes: ['company'],
+      },
+      {
+        kind: 'link',
+        label: 'My expenses and imprests',
+        to: '/apps/finance/my-expenses',
+        icon: FileText,
+        allowedScopes: ['company'],
+      },
+      {
+        kind: 'link',
         label: 'Foundation review',
         to: '/apps/finance/foundation',
         icon: BookOpen,

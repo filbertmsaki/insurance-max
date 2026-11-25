@@ -112,6 +112,7 @@ import { FinanceReconciliationDetailPage } from '@/modules/tenant/finance/pages/
 import { FinanceCommissionAccrualsPage } from '@/modules/tenant/finance/pages/FinanceCommissionAccrualsPage';
 import { FinanceCommissionAccrualDetailPage } from '@/modules/tenant/finance/pages/FinanceCommissionAccrualDetailPage';
 import { FinanceCommissionPaymentsPage } from '@/modules/tenant/finance/pages/FinanceCommissionPaymentsPage';
+import { AccountsPayablePage } from '@/modules/tenant/finance/payables/AccountsPayablePage';
 import { FinanceCommissionPaymentDetailPage } from '@/modules/tenant/finance/pages/FinanceCommissionPaymentDetailPage';
 import { FinanceJournalsPage } from '@/modules/tenant/finance/pages/FinanceJournalsPage';
 import { FinanceJournalDetailPage } from '@/modules/tenant/finance/pages/FinanceJournalDetailPage';
@@ -1204,6 +1205,20 @@ export default function App() {
                   element={<FinanceReconciliationDetailPage />}
                 />
               </Route>
+              <Route
+                element={
+                  <ProtectedRoute requiredPermission="finance-foundation:read" />
+                }
+              >
+                <Route
+                  path="/apps/finance/payables"
+                  element={<AccountsPayablePage />}
+                />
+              </Route>
+              <Route
+                path="/apps/finance/my-expenses"
+                element={<AccountsPayablePage employee />}
+              />
               <Route
                 element={
                   <ProtectedRoute requiredPermission="commissions:read" />

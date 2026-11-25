@@ -14,7 +14,11 @@ export const CHART_CSV_HEADER =
   'code,name,type,normalBalance,posting,control,parentCode';
 
 /** Read a bounded CSV without interpreting spreadsheet values as formulas. */
-function csvRows(content: string): string[][] {
+export function csvRows(
+  content: string,
+  limit = 2000,
+  noun = 'accounts',
+): string[][] {
   const text = content.replace(/^\uFEFF/, '');
   const rows: string[][] = [];
   let row: string[] = [],
@@ -30,8 +34,14 @@ function csvRows(content: string): string[][] {
     addCell();
     if (row.some((value) => value.trim())) rows.push(row);
     row = [];
-    if (rows.length > 2001)
-      throw new Error('The file may contain at most 2,000 accounts.');
+    if (rows.length > limit + 1)
+      throw new Error(
+        'The file may contain at most ' +
+          limit.toLocaleString('en-US') +
+          ' ' +
+          noun +
+          '.',
+      );
   };
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
