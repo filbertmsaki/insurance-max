@@ -644,16 +644,18 @@ describe('B43-B45 integrated ledger and release controls on disposable PostgreSQ
   it.each([
     [
       'currency context',
-      { contextEffectiveTo: '2026-11-25' },
+      { contextEffectiveTo: '2026-12-01' },
       'currency context must cover',
     ],
-    ['chart', { chartEffectiveTo: '2026-11-25' }, 'Exact reviewed chart'],
+    ['chart', { chartEffectiveTo: '2026-12-01' }, 'Exact reviewed chart'],
   ])(
     'holds a release extending beyond its %s interval',
     (_label, options, message) =>
       db(
         async (f) => {
-          await expect(f.prepareLedgerRelease()).rejects.toThrow(message);
+          await expect(f.prepareLedgerRelease('2026-12-02')).rejects.toThrow(
+            message,
+          );
           expect(
             (
               await f.source.query(

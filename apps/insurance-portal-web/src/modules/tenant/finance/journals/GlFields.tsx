@@ -15,12 +15,14 @@ export function Field({
   change,
   options,
   type = 'text',
+  suggestions,
 }: {
   label: string;
   value: string;
   change: (v: string) => void;
   options?: Option[];
   type?: string;
+  suggestions?: Option[];
 }) {
   const id = useId(),
     cls = 'rounded border bg-background p-2 text-sm';
@@ -45,10 +47,20 @@ export function Field({
         <input
           id={id}
           className={cls}
+          list={suggestions ? id + '-options' : undefined}
           type={type}
           value={value}
           onChange={(e) => change(e.target.value)}
         />
+      )}
+      {suggestions && (
+        <datalist id={id + '-options'}>
+          {suggestions.map((o) => (
+            <option value={o.value} key={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </datalist>
       )}
     </label>
   );

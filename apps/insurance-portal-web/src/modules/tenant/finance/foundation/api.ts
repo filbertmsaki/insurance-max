@@ -142,6 +142,21 @@ const accountLedgerSchema = z.object({
   from: z.iso.date(),
   to: z.iso.date(),
   currency: z.string(),
+  lines: z.array(
+    z.object({
+      journalId: z.string().uuid(),
+      journalNo: z.string(),
+      date: z.iso.date(),
+      lineKey: z.string(),
+      reference: z.string(),
+      branch: z.string().nullable(),
+      debit: z.string(),
+      credit: z.string(),
+      runningBalance: z.string(),
+    }),
+  ),
+  nextOffset: z.number().int().nonnegative().nullable(),
+  lineCount: z.number().int().nonnegative(),
   sourceJournals: z.array(
     z.object({
       id: z.string().uuid(),
@@ -165,6 +180,8 @@ export const foundationReadApi = {
       from: string;
       to: string;
       accountCode: string;
+      offset: number;
+      expectedEvidenceHash: string;
     },
     signal?: AbortSignal,
   ) {
@@ -178,6 +195,9 @@ export const foundationReadApi = {
           openingHash: input.opening.subject_hash,
           from: input.from,
           to: input.to,
+          limit: 50,
+          offset: input.offset,
+          expectedEvidenceHash: input.expectedEvidenceHash,
         },
         signal,
       },
@@ -214,6 +234,7 @@ export const foundationReadApi = {
           openingHash: input.opening.subject_hash,
           from: input.from,
           to: input.to,
+          includeJournals: false,
         },
         signal,
       },

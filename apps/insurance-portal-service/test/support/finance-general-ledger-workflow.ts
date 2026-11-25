@@ -6,6 +6,7 @@ import type { FinanceJournalService } from '../../src/modules/tenant/finance/acc
 import { randomUUID } from 'node:crypto';
 
 export async function exerciseGeneralLedger(f: {
+  runDue: () => Promise<void>;
   post: (
     user: string,
     path: string,
@@ -152,9 +153,23 @@ export async function exerciseGeneralLedger(f: {
     description: 'Correct the supplier invoice',
     evidence: document,
   };
-  const rev = await post(maker, path + '/journals/' + journal + '/reverse', {
-    input: reversal,
+  const failed = await post(maker, path + '/journals/' + journal + '/reverse', {
+    input: { ...reversal, reference: 'COR-REJECTED' },
   });
+  await post(
+    checker,
+    'foundation/operating-postings/' + failed.id + '/reject',
+    { subjectHash: failed.hash },
+  );
+  const [rev, duplicateRev] = await Promise.all(
+    [1, 2].map(() =>
+      post(maker, path + '/journals/' + journal + '/reverse', {
+        input: reversal,
+      }),
+    ),
+  );
+  expect(rev.id).toBe(duplicateRev.id);
+  expect(rev.id).not.toBe(failed.id);
   await approve(rev);
   expect(
     (
@@ -163,6 +178,14 @@ export async function exerciseGeneralLedger(f: {
       })
     ).id,
   ).toBe(rev.id);
+  const badReplacement = await post(maker, path + '/vouchers', {
+    input: { ...input, reference: 'JV-REJECTED', replacementOf: journal },
+  });
+  await post(
+    checker,
+    'foundation/operating-postings/' + badReplacement.id + '/reject',
+    { subjectHash: badReplacement.hash },
+  );
   await approve(
     await post(maker, path + '/vouchers', {
       input: { ...input, reference: 'JV-REPLACEMENT', replacementOf: journal },
@@ -219,7 +242,51 @@ export async function exerciseGeneralLedger(f: {
     firstDue: today,
     count: 1,
   });
-  await run(recurring, 'GENERATE');
+  const occurrence = (
+    p: any,
+    stage: string,
+    extra: Record<string, unknown> = {},
+    status?: number,
+  ) =>
+    post(
+      maker,
+      path + '/programs/' + p.id + '/occurrences',
+      { input: { subjectHash: p.subject_hash, date: today, stage, ...extra } },
+      status,
+    );
+  const reject = (r: any) =>
+    post(checker, 'foundation/operating-postings/' + r.id + '/reject', {
+      subjectHash: r.hash,
+    });
+  const reverse = async (journal: string, reference: string) =>
+    approve(
+      await post(maker, path + '/journals/' + journal + '/reverse', {
+        input: { ...reversal, reference },
+      }),
+    );
+  const rejectedMonth = await occurrence(recurring, 'GENERATE');
+  await reject(rejectedMonth);
+  await f.runDue();
+  const [scheduled] = await f.db.query(
+    "SELECT count(*)::int n FROM finance_operating_postings WHERE book_id=$1 AND snapshot->>'programCode'='MONTH'",
+    [f.scope.bookId],
+  );
+  expect(scheduled.n).toBe(1);
+  const monthly = await occurrence(recurring, 'GENERATE', {
+    retryOf: rejectedMonth.id,
+    evidence: document,
+  });
+  await reverse(await approve(monthly), 'MONTH-REVERSE');
+  const correctedMonth = {
+    retryOf: monthly.id,
+    evidence: document,
+    postingDate: today,
+  };
+  const [m1, m2] = await Promise.all(
+    [1, 2].map(() => occurrence(recurring, 'GENERATE', correctedMonth)),
+  );
+  expect(m1.id).toBe(m2.id);
+  await approve(m1);
   await post(checker, path + '/programs/' + recurring.id + '/decisions', {
     action: 'PAUSE',
     subjectHash: recurring.subject_hash,
@@ -243,7 +310,34 @@ export async function exerciseGeneralLedger(f: {
     releaseRole: 'CRDB',
   });
   await run(accrual, 'INITIAL');
-  await run(accrual, 'SETTLE');
+  const installment = { reference: 'RENT-A', amount: '39.99' };
+  const first = await occurrence(accrual, 'SETTLE', installment);
+  await occurrence(
+    accrual,
+    'SETTLE',
+    { reference: 'TOO-LARGE', amount: '61.00' },
+    409,
+  );
+  await reverse(await approve(first), 'RENT-A-REVERSE');
+  const corrected = await occurrence(accrual, 'SETTLE', {
+    ...installment,
+    amount: '49.99',
+    retryOf: first.id,
+    evidence: document,
+  });
+  await approve(corrected);
+  await approve(
+    await occurrence(accrual, 'SETTLE', {
+      reference: 'RENT-B',
+      amount: '50.00',
+    }),
+  );
+  await occurrence(
+    accrual,
+    'SETTLE',
+    { reference: 'EXTRA', amount: '0.01' },
+    409,
+  );
   const prepaid = await program('PREPAY', 'PREPAYMENT', {
     amount: '61.39',
     debitRole: 'PREPAID',
@@ -253,7 +347,14 @@ export async function exerciseGeneralLedger(f: {
     count: 1,
   });
   await run(prepaid, 'INITIAL');
-  await run(prepaid, 'AMORTIZE');
+  const installmentRelease = await occurrence(prepaid, 'AMORTIZE');
+  await reverse(await approve(installmentRelease), 'PREPAID-REVERSE');
+  await approve(
+    await occurrence(prepaid, 'AMORTIZE', {
+      retryOf: installmentRelease.id,
+      evidence: document,
+    }),
+  );
   const transfer = await program('TRANSFER', 'INTERBRANCH', {
     amount: '45.11',
     debitRole: 'CRDB',
@@ -313,6 +414,35 @@ export async function exerciseGeneralLedger(f: {
     openingFunctional: '0',
   });
   await run(fx, 'REVALUE');
+  const withdrawal = await post(maker, path + '/vouchers', {
+    input: {
+      ...input,
+      currency: 'USD',
+      reference: 'FX-OVERDRAW',
+      lines: [
+        { role: 'FEES', debit: '20', credit: '0', dimensions: dims },
+        { role: 'CRDB', debit: '0', credit: '20', dimensions: dims },
+      ],
+    },
+  });
+  await approve(withdrawal);
+  await rate(3, '2800');
+  const [oldFx] = await f.db.query(
+    "SELECT p.candidate_id,j.id FROM finance_operating_postings p JOIN finance_foundation_journals j ON j.candidate_id=p.candidate_id AND j.mode='LIVE' WHERE p.book_id=$1 AND p.snapshot->>'programCode'='FX-CLOSE'",
+    [f.scope.bookId],
+  );
+  await reverse(oldFx.id, 'FX-REPLACE');
+  const overdraft = await occurrence(fx, 'REVALUE', {
+    retryOf: oldFx.candidate_id,
+    evidence: document,
+  });
+  await approve(overdraft);
+  const [fxProof] = await f.db.query(
+    'SELECT snapshot FROM finance_operating_postings WHERE candidate_id=$1',
+    [overdraft.id],
+  );
+  expect(fxProof.snapshot.foreign).toBe('-10');
+  expect(Number(fxProof.snapshot.closing)).toBe(-28000);
   const receipt = await call(maker, 'receipts/' + f.receiptId + '/reverse', {
     idempotency_key: randomUUID(),
     reason: 'Returned customer receipt',

@@ -4,6 +4,7 @@ import {
   Injectable,
   Optional,
 } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
@@ -64,12 +65,29 @@ import {
 } from './finance-book-request';
 import { applyWriteOff } from './finance-gl-write-off';
 import { verifyGlPosting } from './finance-gl-posting-check';
+import { verifyMemoLinks } from './finance-ifrs-premiums';
 import { nativeLedgerEvents } from './finance-native-sources';
 
 export interface FoundationActor extends FinanceConfigurationActor {
   identityBindingId?: string;
   sourceCompanyId?: string;
   sourceUserId?: string;
+}
+interface ReportAccount {
+  code: string;
+  offset: number;
+  limit: number;
+}
+interface AccountActivityLine {
+  journalId: string;
+  journalNo: string;
+  date: string;
+  lineKey: string;
+  reference: string;
+  branch: string | null;
+  debit: string;
+  credit: string;
+  runningBalance: string;
 }
 interface Command {
   manager: EntityManager;
@@ -690,10 +708,19 @@ export class FinanceLedgerFoundationService {
             a.origin === p.economicOrigin &&
             a.component === p.economicComponent,
         );
+        const measured =
+          config.basis === 'IFRS' &&
+          component?.owner === 'IFRS17_ENGINE' &&
+          component.effect === 'INSURANCE_MEASUREMENT' &&
+          component.origin === 'IFRS17_ENGINE' &&
+          component.sourceEventType === 'IFRS17_MEASUREMENT_APPROVED' &&
+          component.factKind === 'IFRS17_MEASUREMENT' &&
+          source.kind === 'OPERATING_DOCUMENT';
         if (
           !component ||
-          component.owner !== 'FINANCE' ||
-          !['CASH', 'ORDINARY'].includes(component.effect)
+          (!measured &&
+            (component.owner !== 'FINANCE' ||
+              !['CASH', 'ORDINARY'].includes(component.effect)))
         )
           foundationFail(
             'Billing memoranda cannot post journals. IFRS17-owned components require their separately approved measurement adapter.',
@@ -736,7 +763,9 @@ export class FinanceLedgerFoundationService {
             !v ||
             v.context_id !== context.id ||
             v.context_hash !== context.subject_hash ||
-            v.source_id !== p.economicSourceId ||
+            (v.source_type === 'GL_REVERSAL'
+              ? v.snapshot.sourceId
+              : v.source_id) !== p.economicSourceId ||
             v.snapshot.reference !== source.reference ||
             v.snapshot_hash !== source.evidenceHash ||
             hash(v.snapshot) !== source.evidenceHash ||
@@ -780,6 +809,25 @@ export class FinanceLedgerFoundationService {
             if (document.snapshot.evidence)
               await ownedEvidence(c.manager, b, document.snapshot.evidence);
           }
+          if (measured || nativeType === 'IFRS17_MEASUREMENT') {
+            if (!measured || nativeType !== 'IFRS17_MEASUREMENT')
+              foundationFail('Use the signed insurance measurement adapter.');
+            const [v] = await c.manager.query(
+              'SELECT payload,subject_hash FROM finance_gl_insurance_measurements WHERE id=$1 AND book_id=$2 AND company_id=$3',
+              [document.source_id, c.scope.bookId, config.sourceCompanyId],
+            );
+            if (
+              !v ||
+              hash(v.payload) !== v.subject_hash ||
+              v.subject_hash !== document.snapshot.measurementHash ||
+              v.payload.component !== p.economicComponent ||
+              v.payload.contextHash !== context.subject_hash
+            )
+              foundationFail(
+                'The measurement does not match its signed source and book.',
+              );
+            await verifyMemoLinks(c.manager, c.scope.bookId, v.payload);
+          }
           const mapping = component.sourceMapping;
           if (
             input.mode !== 'LIVE' ||
@@ -790,7 +838,8 @@ export class FinanceLedgerFoundationService {
             document.source_id !== p.economicSourceId ||
             document.snapshot_hash !== source.evidenceHash ||
             hash(document.snapshot) !== source.evidenceHash ||
-            p.economicOrigin !== 'INSURANCE_PORTAL_FINANCE' ||
+            p.economicOrigin !==
+              (measured ? 'IFRS17_ENGINE' : 'INSURANCE_PORTAL_FINANCE') ||
             document.snapshot.eventType !== component.sourceEventType ||
             (candidate.kind === 'REVERSAL'
               ? document.snapshot.originalSourceType
@@ -1184,6 +1233,8 @@ export class FinanceLedgerFoundationService {
       openingHash: string;
       from: string;
       to: string;
+      includeJournals?: boolean;
+      reconciliationAccount?: string;
     },
     manager?: EntityManager,
   ) {
@@ -1197,7 +1248,11 @@ export class FinanceLedgerFoundationService {
       scope,
       'READ',
       'Read scoped certified ledger totals',
-      (c) => this.report(c, input),
+      (c) =>
+        this.report(c, input, {
+          includeJournals: input.includeJournals !== false,
+          reconciliationAccount: input.reconciliationAccount,
+        }),
       manager,
     );
   }
@@ -1211,8 +1266,22 @@ export class FinanceLedgerFoundationService {
       from: string;
       to: string;
       accountCode: string;
+      offset?: number;
+      limit?: number;
+      expectedEvidenceHash?: string;
     },
+    manager?: EntityManager,
   ) {
+    const offset = input.offset ?? 0,
+      limit = input.limit ?? 50;
+    if (
+      !Number.isSafeInteger(offset) ||
+      offset < 0 ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    )
+      foundationFail('Choose a valid account page with up to 100 lines.');
     if (!candidateCode(input.accountCode))
       foundationFail('An explicit account code is required.');
     return this.command(
@@ -1221,11 +1290,27 @@ export class FinanceLedgerFoundationService {
       'READ',
       'Read scoped account activity',
       async (c) => {
-        const report = await this.report(c, input),
+        const report = await this.report(c, input, {
+            includeJournals: input.limit === undefined,
+            account: { code: input.accountCode, offset, limit },
+          }),
           row = report.rows.find((r) => r.accountCode === input.accountCode);
         if (!row) foundationFail('Account is outside the certified chart.');
+        if (
+          input.expectedEvidenceHash &&
+          input.expectedEvidenceHash !== report.evidenceHash
+        )
+          foundationFail(
+            'The ledger changed. Refresh the trial balance before continuing.',
+          );
         return {
           ...row,
+          lines: report.activity,
+          nextOffset:
+            offset + report.activity.length < report.accountLineCount
+              ? offset + report.activity.length
+              : null,
+          lineCount: report.accountLineCount,
           scope: report.scope,
           mode: report.mode,
           from: report.from,
@@ -1237,6 +1322,7 @@ export class FinanceLedgerFoundationService {
           evidenceHash: report.evidenceHash,
         };
       },
+      manager,
     );
   }
   async searchJournals(
@@ -2293,7 +2379,7 @@ export class FinanceLedgerFoundationService {
     await this.chart(c, cfg, date);
     await this.policies(c, cfg, 'ACTIVE');
   }
-  private async verifyJournal(c: Command, j: any) {
+  private async verifyJournal(c: Command, j: any, storedLines?: any[]) {
     if (
       hash({
         tenantId: c.actor.tenantId,
@@ -2303,14 +2389,17 @@ export class FinanceLedgerFoundationService {
       }) !== j.subject_hash
     )
       foundationFail('Accepted journal payload hash differs.');
-    const lines = await c.manager.query(
-      'SELECT * FROM finance_foundation_lines WHERE journal_id=$1 ORDER BY line_key',
-      [j.id],
-    );
+    const lines: any[] =
+      storedLines ??
+      (await c.manager.query(
+        'SELECT * FROM finance_foundation_lines WHERE journal_id=$1 ORDER BY line_key',
+        [j.id],
+      ));
+    const byKey = new Map(lines.map((line) => [line.line_key, line]));
     if (
       lines.length !== j.payload.lines.length ||
       j.payload.lines.some((l: any) => {
-        const x = lines.find((x) => x.line_key === l.lineKey);
+        const x = byKey.get(l.lineKey);
         return (
           !x ||
           x.account_code !== l.accountCode ||
@@ -2338,7 +2427,11 @@ export class FinanceLedgerFoundationService {
       from: string;
       to: string;
     },
-    manager?: EntityManager,
+    options: {
+      includeJournals?: boolean;
+      reconciliationAccount?: string;
+      account?: ReportAccount;
+    } = {},
   ) {
     modeOnly(input.mode);
     dateOnly(input.from);
@@ -2384,14 +2477,21 @@ export class FinanceLedgerFoundationService {
         { opening: signedUnits(b.signedBalance), debit: 0n, credit: 0n },
       ]),
     );
-    const journals = await c.manager.query(
-      'SELECT j.*,j.accounting_date::text accounting_date FROM finance_foundation_journals j WHERE j.tenant_id=$1 AND j.legal_entity_id=$2 AND j.book_id=$3 AND j.mode=$4 AND j.accounting_date>=$5::date AND j.accounting_date<$6::date ORDER BY j.accounting_date,j.sequence LIMIT 10001',
-      [...c.ids, input.mode, opening.payload.date, input.to],
+    // Stream the same canonical JSON bytes as the original evidence format so
+    // previously certified reports and reconciliation signatures still verify.
+    const evidence = createHash('sha256').update(
+      '{"input":' + canonicalFinanceJson(reportRequest) + ',"journals":[',
     );
-    if (journals.length > 10000)
-      foundationFail(
-        'This report exceeds the bounded complete-population limit. Request a narrower window; no partial totals are returned.',
-      );
+    const population = createHash('sha256').update(
+      '{"opening":' +
+        canonicalFinanceJson(opening.subject_hash) +
+        ',"relevant":[',
+    );
+    let journalCount = 0,
+      relevantCount = 0,
+      accountLineCount = 0;
+    let running = rows.get(options.account?.code ?? '')?.opening ?? 0n;
+    const activity: AccountActivityLine[] = [];
     const sources = [] as {
       id: string;
       subjectHash: string;
@@ -2400,34 +2500,104 @@ export class FinanceLedgerFoundationService {
       source: unknown;
       lines: any[];
     }[];
-    for (const j of journals) {
-      await this.verifyJournal(c, j);
-      if (j.functional_currency !== opening.payload.functionalCurrency)
-        foundationFail(
-          'Functional currency changed; an approved transition opening is required.',
-        );
-      for (const l of j.payload.lines) {
-        const r = rows.get(l.accountCode);
-        if (!r)
+    const [schema] = options.account
+      ? await c.manager.query(
+          "SELECT to_regclass('finance_operating_postings') IS NOT NULL AS operating",
+        )
+      : [{}];
+    let afterDate = opening.payload.date as string,
+      afterSequence = '0';
+    for (;;) {
+      const journals = await c.manager.query(
+        `SELECT j.*,j.accounting_date::text accounting_date ${schema.operating ? ",p.snapshot->>'reference' AS source_reference" : ''} FROM finance_foundation_journals j
+        ${schema.operating ? "LEFT JOIN finance_operating_postings p ON p.candidate_id=j.candidate_id AND p.snapshot_hash=(j.payload#>>'{source,evidenceHash}')" : ''}
+        WHERE j.tenant_id=$1 AND j.legal_entity_id=$2 AND j.book_id=$3 AND j.mode=$4 AND j.accounting_date<$5::date
+        AND (j.accounting_date,j.sequence)>($6::date,$7::bigint) ORDER BY j.accounting_date,j.sequence LIMIT 256`,
+        [...c.ids, input.mode, input.to, afterDate, afterSequence],
+      );
+      if (!journals.length) break;
+      const batch = await c.manager.query(
+        'SELECT * FROM finance_foundation_lines WHERE journal_id=ANY($1::uuid[]) ORDER BY journal_id,line_key',
+        [journals.map((j) => j.id)],
+      );
+      const linesByJournal = new Map<string, any[]>();
+      for (const line of batch) {
+        const group = linesByJournal.get(line.journal_id) ?? [];
+        group.push(line);
+        linesByJournal.set(line.journal_id, group);
+      }
+      for (const j of journals) {
+        await this.verifyJournal(c, j, linesByJournal.get(j.id) ?? []);
+        if (j.functional_currency !== opening.payload.functionalCurrency)
           foundationFail(
-            'Journal account is absent from the certified opening chart.',
+            'Functional currency changed; an approved transition opening is required.',
           );
-        const dr = units(l.functionalDebit),
-          cr = units(l.functionalCredit);
-        if (j.accounting_date < input.from) r.opening += dr - cr;
-        else {
-          r.debit += dr;
-          r.credit += cr;
+        for (const l of j.payload.lines) {
+          const r = rows.get(l.accountCode);
+          if (!r)
+            foundationFail(
+              'Journal account is absent from the certified opening chart.',
+            );
+          const dr = units(l.functionalDebit),
+            cr = units(l.functionalCredit);
+          if (options.account && options.account.code === l.accountCode) {
+            running += dr - cr;
+            if (j.accounting_date >= input.from) {
+              if (
+                accountLineCount >= options.account.offset &&
+                activity.length < options.account.limit
+              )
+                activity.push({
+                  journalId: j.id,
+                  journalNo: j.journal_no ?? String(j.sequence),
+                  date: j.accounting_date,
+                  lineKey: l.lineKey,
+                  reference: j.source_reference ?? j.payload.source.reference,
+                  branch: l.dimensions.BRANCH ?? null,
+                  debit: l.functionalDebit,
+                  credit: l.functionalCredit,
+                  runningBalance: stored(running),
+                });
+              accountLineCount++;
+            }
+          }
+          if (j.accounting_date < input.from) r.opening += dr - cr;
+          else {
+            r.debit += dr;
+            r.credit += cr;
+          }
+        }
+        const source = {
+          id: j.id,
+          subjectHash: j.subject_hash,
+          date: j.accounting_date,
+          transactionCurrency: j.transaction_currency,
+          source: j.payload.source,
+          lines: j.payload.lines,
+        };
+        if (journalCount++) evidence.update(',');
+        evidence.update(canonicalFinanceJson(source));
+        // Retain the old response for previously supported populations; new clients page the lines.
+        if (
+          options.includeJournals &&
+          sources.length < 10000 &&
+          (!options.account ||
+            source.lines.some((l) => l.accountCode === options.account!.code))
+        )
+          sources.push(source);
+        if (
+          options.reconciliationAccount &&
+          source.lines.some(
+            (l) => l.accountCode === options.reconciliationAccount,
+          )
+        ) {
+          if (relevantCount++) population.update(',');
+          population.update(canonicalFinanceJson([j.id, j.subject_hash]));
         }
       }
-      sources.push({
-        id: j.id,
-        subjectHash: j.subject_hash,
-        date: j.accounting_date,
-        transactionCurrency: j.transaction_currency,
-        source: j.payload.source,
-        lines: j.payload.lines,
-      });
+      afterDate = journals[journals.length - 1].accounting_date;
+      afterSequence = journals[journals.length - 1].sequence;
+      if (journals.length < 256) break;
     }
     const reportRows = [...rows]
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
@@ -2459,12 +2629,20 @@ export class FinanceLedgerFoundationService {
       totalDebit: stored(sum('debit')),
       totalCredit: stored(sum('credit')),
       journals: sources,
-      evidenceHash: hash({
-        scope: c.ids,
-        input: reportRequest,
-        openingHash: opening.subject_hash,
-        journals: sources,
-      }),
+      journalCount,
+      journalsComplete: sources.length === journalCount,
+      accountLineCount,
+      activity,
+      populationHash: population.update(']}').digest('hex'),
+      evidenceHash: evidence
+        .update(
+          '],"openingHash":' +
+            canonicalFinanceJson(opening.subject_hash) +
+            ',"scope":' +
+            canonicalFinanceJson(c.ids) +
+            '}',
+        )
+        .digest('hex'),
       financialEffects: 0,
     };
   }

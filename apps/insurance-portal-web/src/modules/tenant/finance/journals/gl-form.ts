@@ -78,12 +78,16 @@ export type Workspace = {
       currency: string;
       transactionDate: string;
       component?: string;
+      programCode?: string;
+      stage?: string;
+      occurrence?: string;
       replacementOf?: string;
       originalJournalId?: string;
     };
   }[];
   drafts: { id: string; revision: number; input: Voucher }[];
   programs: Program[];
+  insuranceMeasurements?: boolean;
   registers: { code: string; currency: string; remaining: string }[];
   reconciliations: {
     id: string;

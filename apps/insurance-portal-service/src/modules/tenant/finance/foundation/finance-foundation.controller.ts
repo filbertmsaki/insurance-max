@@ -34,6 +34,7 @@ import type {
   VoucherInput,
   Evidence,
 } from '../accounting/general-ledger/finance-gl-program';
+import type { MeasurementDelivery } from '../accounting/general-ledger/finance-ifrs-premiums';
 import type { ProgramInput } from '../accounting/general-ledger/finance-gl-workflows.service';
 import type { JournalCandidateInput } from '../accounting/journal-entries/finance-journal-candidate.types';
 import type { BranchAllocationPreviewInput } from '../accounting/allocations/finance-branch-allocation';
@@ -162,9 +163,13 @@ export class FinanceFoundationController {
       openingHash: string;
       from: string;
       to: string;
+      includeJournals?: string;
     },
   ) {
-    return this.ledger.trialBalance(await this.actor(u, q), q, q);
+    return this.ledger.trialBalance(await this.actor(u, q), q, {
+      ...q,
+      includeJournals: q.includeJournals !== 'false',
+    });
   }
   @Get('accounts/:code')
   @Permissions(FinancePermissions.FOUNDATION_READ)
@@ -178,10 +183,15 @@ export class FinanceFoundationController {
       openingHash: string;
       from: string;
       to: string;
+      offset?: string;
+      limit?: string;
+      expectedEvidenceHash?: string;
     },
   ) {
     return this.ledger.accountLedger(await this.actor(u, q), q, {
       ...q,
+      offset: q.offset === undefined ? undefined : Number(q.offset),
+      limit: q.limit === undefined ? undefined : Number(q.limit),
       accountCode,
     });
   }
@@ -499,6 +509,32 @@ export class FinanceFoundationController {
       b.input,
     );
   }
+  @Get('gl/premium-memos')
+  @Permissions(FinancePermissions.FOUNDATION_READ)
+  async premiumMemos(
+    @CurrentUser() u: AuthenticatedUser,
+    @Query() q: FinanceBookSelection & { invoice?: string },
+  ) {
+    return this.gl!.premiumMemos(await this.actor(u, q), q, q.invoice);
+  }
+  @Post('gl/measurements')
+  @Permissions(FinancePermissions.FOUNDATION_PREPARE)
+  async measurement(
+    @CurrentUser() u: AuthenticatedUser,
+    @Body()
+    b: {
+      scope: FinanceBookSelection;
+      input: MeasurementDelivery;
+      reason: string;
+    },
+  ) {
+    return this.gl!.measure(
+      await this.actor(u, b.scope),
+      b.scope,
+      b.input,
+      b.reason,
+    );
+  }
   @Post('gl/programs')
   @Permissions(FinancePermissions.FOUNDATION_PREPARE)
   async glProgram(
@@ -548,6 +584,12 @@ export class FinanceFoundationController {
         stage: string;
         date: string;
         reference?: string;
+        amount?: string;
+        postingDate?: string;
+        retryOf?: string;
+        correctionTemplate?: { id: string; hash: string };
+        releaseDimensions?: Record<string, string>;
+        evidence?: Evidence;
       };
       reason: string;
     },

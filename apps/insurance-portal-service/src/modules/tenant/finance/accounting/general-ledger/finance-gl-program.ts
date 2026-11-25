@@ -195,7 +195,7 @@ export function validateProgram(
       invalid(
         'Identify the finance-owned monetary account, branch and gain/loss roles.',
       );
-    moneyMinor(d.openingForeign ?? '0', scale);
+    moneyMinor((d.openingForeign ?? '0').replace(/^-/, ''), scale);
   }
   if (kind === 'RECONCILIATION') {
     if (

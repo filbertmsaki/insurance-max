@@ -53,6 +53,7 @@ import { installFinanceBaseline } from './finance-baseline';
 
 export async function withNewCompany(
   work: (f: Awaited<ReturnType<typeof financeSession>>) => Promise<void>,
+  insurer = false,
 ) {
   await withFinanceTestDatabase(
     async ({ dataSource: empty }) => {
@@ -92,7 +93,7 @@ export async function withNewCompany(
       });
       await db.initialize();
       try {
-        const session = await financeSession(db);
+        const session = await financeSession(db, insurer);
         try {
           await work(session);
         } finally {
@@ -252,10 +253,10 @@ async function grantFixturePermissions(
   );
 }
 
-async function financeSession(db: DataSource) {
+async function financeSession(db: DataSource, insurer = false) {
   const portal = await startFinancePortal(db);
   try {
-    return await provisionCompany(db, portal);
+    return await provisionCompany(db, portal, insurer);
   } catch (error) {
     await portal.app.close();
     throw error;
@@ -265,7 +266,10 @@ async function financeSession(db: DataSource) {
 async function provisionCompany(
   db: DataSource,
   { app, signIn, request }: Awaited<ReturnType<typeof startFinancePortal>>,
+  insurer: boolean,
 ) {
+  const companyType = insurer ? 'INSURANCE_COMPANY' : 'BROKER';
+  const adminRoleName = insurer ? 'INSURANCE_ADMIN' : 'BROKER_ADMIN';
   const [calendar] = await db.query(
     "SELECT (statement_timestamp() AT TIME ZONE 'Africa/Dar_es_Salaam')::date::text today,((statement_timestamp() AT TIME ZONE 'Africa/Dar_es_Salaam')::date+30)::text until",
   );
@@ -285,7 +289,8 @@ async function provisionCompany(
     roles: ['OWNER'],
   });
   const [adminRole] = await db.query(
-    "INSERT INTO roles(name,display_name,scope,is_administrative) VALUES('BROKER_ADMIN','Broker administrator','tenant_template',true) ON CONFLICT(name) WHERE company_id IS NULL DO UPDATE SET scope=EXCLUDED.scope,is_administrative=true RETURNING id",
+    "INSERT INTO roles(name,display_name,scope,is_administrative) VALUES($1,'Company administrator','tenant_template',true) ON CONFLICT(name) WHERE company_id IS NULL DO UPDATE SET scope=EXCLUDED.scope,is_administrative=true RETURNING id",
+    [adminRoleName],
   );
   const permissions = Object.values(FinancePermissions);
   await grantFixturePermissions(db, adminRole.id, [
@@ -300,7 +305,7 @@ async function provisionCompany(
   };
   const created = await request(ownerToken, 'POST', '/companies', {
     company_name: 'Finance Workflow Ltd',
-    company_type: 'BROKER',
+    company_type: companyType,
     admin_first_name: 'Jane',
     admin_last_name: 'Reviewer',
     admin_email: 'reviewer@example.invalid',
@@ -339,26 +344,26 @@ async function provisionCompany(
       permissions: grants.map((p) => p.name),
       id,
       companyId: company,
-      companyType: 'BROKER',
+      companyType,
       scope: 'company',
       userType: 'COMPANY_USER',
       roles: [role],
     });
   };
-  tokens.set(checker, await companySession(checker, 'BROKER_ADMIN'));
+  tokens.set(checker, await companySession(checker, adminRoleName));
   const profile = {
     registry: 'BRELA',
     legalForm: 'Limited company',
     registrationStanding: 'ACTIVE',
     incorporationCountry: 'TZ',
     incorporationDate: '2020-01-01',
-    activities: 'Insurance brokerage',
+    activities: insurer ? 'General insurance' : 'Insurance brokerage',
     registeredOffice: 'COMPANY_ADDRESS',
     principalOffice: 'SAME_AS_REGISTERED',
     territory: 'MAINLAND',
     mainlandVat: 'NOT_REGISTERED',
     licensing: 'REGULATED',
-    licensedClasses: 'General brokerage',
+    licensedClasses: insurer ? 'General insurance' : 'General brokerage',
     licensedTerritory: 'MAINLAND',
     licenceCycle: 'ANNUAL_MAINTENANCE',
     maintenanceThrough: until,

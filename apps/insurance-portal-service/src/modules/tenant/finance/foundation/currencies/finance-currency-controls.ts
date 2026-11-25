@@ -191,10 +191,7 @@ export function monetaryRevaluation(input: {
     fail('Explicit monetary-position ownership is required.');
   const old = financialDecimal(input.previousFunctional),
     closing = financialDecimal(input.closingFunctional);
-  if (old.isNegative() || closing.isNegative())
-    fail(
-      'Monetary carrying amounts must be nonnegative with an explicit position.',
-    );
+  // Amounts follow the account's normal side. A negative asset is an overdraft.
   const movement =
     input.position === 'ASSET' ? closing.minus(old) : old.minus(closing);
   return {

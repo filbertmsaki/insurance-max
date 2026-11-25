@@ -8,6 +8,7 @@ import type { operatingDimensions } from '../../foundation/finance-setup/finance
 
 export type ActivePostingBook = Parameters<typeof operatingDimensions>[1] & {
   release_id: string;
+  company_type: string;
   book_role: 'PRIMARY' | 'SECONDARY';
   timezone: string;
   controls: Parameters<typeof operatingDimensions>[1]['controls'] & {
@@ -24,13 +25,24 @@ export async function activePostingBook(
   selectedBook?: string,
 ): Promise<ActivePostingBook | undefined> {
   const [book] = await m.query(
-    `SELECT a.*,ctx.id context_id,ctx.subject_hash context_hash,ctx.payload AS context
-      FROM ${selectedBook ? '(SELECT s.* FROM finance_operating_setups s WHERE s.company_id=$1 AND s.book_id=$2 AND s.withdrawn_at IS NULL AND finance_fin01_current(s.id))' : 'finance_fin01_primary($1)'} a JOIN finance_accounting_books b ON b.id=a.book_id
+    `SELECT a.*,co.company_type,ctx.id context_id,ctx.subject_hash context_hash,ctx.payload AS context
+      FROM ${selectedBook ? '(SELECT s.* FROM finance_operating_setups s WHERE s.company_id=$1 AND s.book_id=$2 AND s.withdrawn_at IS NULL AND finance_fin01_current(s.id))' : 'finance_fin01_primary($1)'} a JOIN finance_accounting_books b ON b.id=a.book_id JOIN companies co ON co.id=a.company_id
       JOIN LATERAL(SELECT action,release_id FROM finance_foundation_deployments WHERE book_id=b.id ORDER BY sequence DESC LIMIT 1)x ON x.action='ENABLE' AND x.release_id=a.release_id
       JOIN finance_foundation_documents rel ON rel.id=a.release_id JOIN finance_foundation_documents ctx ON ctx.id=rel.parent_id FOR ${lock} OF b`,
     selectedBook ? [company, selectedBook] : [company],
   );
   return book;
+}
+export function usesInsuranceMeasurement(book: ActivePostingBook) {
+  return (
+    book.context.basis === 'IFRS' &&
+    (['INSURANCE_COMPANY', 'REINSURANCE_COMPANY'].includes(book.company_type) ||
+      book.context.allowedComponents.some(
+        (c) =>
+          c.origin === 'IFRS17_ENGINE' &&
+          c.sourceEventType === 'IFRS17_MEASUREMENT_APPROVED',
+      ))
+  );
 }
 export async function glDeployment(m: EntityManager, book: ActivePostingBook) {
   const [schema] = await m.query(
@@ -44,6 +56,7 @@ export async function glDeployment(m: EntityManager, book: ActivePostingBook) {
   return d;
 }
 export interface PostingRequest {
+  supersedes?: string;
   type: string;
   id: string;
   event: string;

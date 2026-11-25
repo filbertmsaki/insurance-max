@@ -131,7 +131,7 @@ describe('Read-only foundation workspace', () => {
       { opening, from: '2026-11-01', to: '2026-12-01' },
       expect.any(AbortSignal),
     );
-    api.accountLedger.mockResolvedValue({
+    const page: Awaited<ReturnType<typeof foundationReadApi.accountLedger>> = {
       accountCode: '1000',
       opening: '0.00',
       debit: '12.00',
@@ -146,13 +146,51 @@ describe('Read-only foundation workspace', () => {
       from: '2026-11-01',
       to: '2026-12-01',
       currency: 'TZS',
+      lines: [
+        {
+          journalId: uuid(42),
+          journalNo: 'JV-42',
+          lineKey: 'L1',
+          date: '2026-11-05',
+          reference: 'INV-42',
+          branch: null,
+          debit: '12.00',
+          credit: '0.00',
+          runningBalance: '12.00',
+        },
+      ],
+      lineCount: 51,
+      nextOffset: 50,
       sourceJournals: [
         { id: uuid(42), date: '2026-11-05', subjectHash: 'c'.repeat(64) },
       ],
       evidenceHash: 'b'.repeat(64),
+    };
+    api.accountLedger.mockResolvedValueOnce(page).mockResolvedValue({
+      ...page,
+      nextOffset: null,
+      lines: [
+        { ...page.lines[0], reference: 'INV-51', runningBalance: '27.00' },
+      ],
     });
     fireEvent.click(screen.getByRole('button', { name: '1000' }));
     expect(await screen.findByText('Account 1000')).toBeVisible();
+    expect(screen.getByText('INV-42')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Next lines' }));
+    expect(await screen.findByText('INV-51')).toBeVisible();
+    expect(screen.getByText('27.00')).toBeVisible();
+    expect(api.accountLedger).toHaveBeenLastCalledWith(
+      scope,
+      expect.objectContaining({
+        accountCode: '1000',
+        offset: 50,
+        expectedEvidenceHash: page.evidenceHash,
+      }),
+      expect.any(AbortSignal),
+    );
+    expect(screen.getByRole('button', { name: 'Next lines' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Read trial balance' }));
+    await waitFor(() => expect(api.trialBalance).toHaveBeenCalledTimes(2));
   });
   it('checks only the selected reviewed context and hides stale results after denial', async () => {
     const reviewed = { ...summary, state: 'REVIEWED' as const };

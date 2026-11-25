@@ -29,6 +29,7 @@ export function TrialBalancePanel({
     to: string;
   } | null>(null);
   const [accountCode, setAccountCode] = useState('');
+  const [offset, setOffset] = useState(0);
   const openings = useQuery({
     queryKey: [
       'finance-foundation',
@@ -90,11 +91,18 @@ export function TrialBalancePanel({
       request?.from,
       request?.to,
       accountCode,
+      offset,
+      visible?.evidenceHash,
     ],
     queryFn: ({ signal }) =>
       foundationReadApi.accountLedger(
         scope,
-        { ...request!, accountCode },
+        {
+          ...request!,
+          accountCode,
+          offset,
+          expectedEvidenceHash: visible!.evidenceHash,
+        },
         signal,
       ),
     enabled: Boolean(
@@ -104,10 +112,6 @@ export function TrialBalancePanel({
     staleTime: 0,
     gcTime: 0,
   });
-  const periodJournals =
-    account.data?.sourceJournals.filter(
-      (journal) => journal.date >= from && journal.date < to,
-    ) ?? [];
   return (
     <Card>
       <CardHeader>
@@ -182,7 +186,9 @@ export function TrialBalancePanel({
           }
           onClick={() => {
             setAccountCode('');
-            setRequest({ opening: selected!, from, to });
+            setOffset(0);
+            if (current) void report.refetch();
+            else setRequest({ opening: selected!, from, to });
           }}
         >
           Read trial balance
@@ -227,7 +233,10 @@ export function TrialBalancePanel({
                       <td className="p-2">
                         <Button
                           variant="link"
-                          onClick={() => setAccountCode(row.accountCode)}
+                          onClick={() => {
+                            setOffset(0);
+                            setAccountCode(row.accountCode);
+                          }}
                         >
                           {row.accountCode}
                         </Button>
@@ -256,7 +265,7 @@ export function TrialBalancePanel({
               <Alert variant="destructive">
                 <AlertTitle>Account activity unavailable</AlertTitle>
                 <AlertDescription>
-                  The account evidence could not be verified.
+                  Read the trial balance again to refresh the account evidence.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -270,17 +279,74 @@ export function TrialBalancePanel({
               <div className="rounded-md border p-4">
                 <h3 className="font-semibold">Account {accountCode}</h3>
                 <p className="text-sm">
-                  {periodJournals.length} period source journals · closing{' '}
+                  {account.data.lineCount} transaction lines · closing{' '}
                   {account.data.closing} {account.data.currency}
                 </p>
-                <ul className="mt-2 space-y-1 text-sm">
-                  {periodJournals.map((journal) => (
-                    <li key={journal.id}>
-                      {journal.date} · {journal.id} · evidence{' '}
-                      {journal.subjectHash.slice(0, 12)}…
-                    </li>
-                  ))}
-                </ul>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <caption className="sr-only">
+                      Account transaction lines
+                    </caption>
+                    <thead>
+                      <tr>
+                        {[
+                          'Date',
+                          'Journal',
+                          'Source reference',
+                          'Branch',
+                          'Debit',
+                          'Credit',
+                          'Running balance',
+                        ].map((h) => (
+                          <th scope="col" className="p-2" key={h}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {account.data.lines.map((line) => (
+                        <tr
+                          key={line.journalId + '/' + line.lineKey}
+                          className="border-t"
+                        >
+                          {[
+                            line.date,
+                            <details>
+                              <summary>{line.journalNo}</summary>
+                              {line.journalId}
+                            </details>,
+                            line.reference,
+                            line.branch ?? '—',
+                            line.debit,
+                            line.credit,
+                            line.runningBalance,
+                          ].map((v, i) => (
+                            <td className="p-2" key={i}>
+                              {v}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!offset}
+                    onClick={() => setOffset(Math.max(0, offset - 50))}
+                  >
+                    Previous lines
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={account.data.nextOffset === null}
+                    onClick={() => setOffset(account.data!.nextOffset!)}
+                  >
+                    Next lines
+                  </Button>
+                </div>
               </div>
             ) : null}
           </>

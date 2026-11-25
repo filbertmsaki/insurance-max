@@ -314,6 +314,7 @@ export class FinanceJournalCandidateService {
     value: JournalCandidateInput,
     reason: string,
     manager?: EntityManager,
+    supersedes?: string,
   ): Promise<InactiveJournalCandidate> {
     const p = normalizeJournalCandidate(value);
     return this.command(
@@ -340,8 +341,13 @@ export class FinanceJournalCandidateService {
           lines: resolved,
         });
         const [existing]: InactiveJournalCandidate[] = await c.manager.query(
-          'SELECT *,accounting_date::text AS accounting_date FROM finance_journal_candidates WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND economic_key=$4 AND kind=$5',
-          [...this.scope(c), economicKey, kind],
+          `SELECT *,accounting_date::text AS accounting_date FROM finance_journal_candidates WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND economic_key=$4 AND kind=$5 ${supersedes ? 'AND supersedes_id=$6' : ''} ORDER BY created_at,id LIMIT 1`,
+          [
+            ...this.scope(c),
+            economicKey,
+            kind,
+            ...(supersedes ? [supersedes] : []),
+          ],
         );
         if (existing) {
           if (
@@ -358,8 +364,8 @@ export class FinanceJournalCandidateService {
         if (p.correctionOf) await this.reversal(c, p, economicKey);
         const [row]: InactiveJournalCandidate[] = await c.manager.query(
           `INSERT INTO finance_journal_candidates
-        (tenant_id,legal_entity_id,book_id,period_id,period_revision,accounting_date,chart_release_id,chart_release_hash,currency,decimal_scale,economic_key,kind,correction_of_id,correction_of_hash,payload,subject_hash,maker_subject_id,maker_natural_person_id)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18) RETURNING *,accounting_date::text AS accounting_date`,
+        (tenant_id,legal_entity_id,book_id,period_id,period_revision,accounting_date,chart_release_id,chart_release_hash,currency,decimal_scale,economic_key,kind,correction_of_id,correction_of_hash,payload,subject_hash,maker_subject_id,maker_natural_person_id${supersedes ? ',supersedes_id' : ''})
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18${supersedes ? ',$19' : ''}) RETURNING *,accounting_date::text AS accounting_date`,
           [
             ...this.scope(c),
             p.periodId,
@@ -377,6 +383,7 @@ export class FinanceJournalCandidateService {
             hash,
             c.actor.subjectId,
             c.actor.naturalPersonId,
+            ...(supersedes ? [supersedes] : []),
           ],
         );
         for (const line of resolved)

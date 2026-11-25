@@ -21,6 +21,7 @@ import type { FinanceBookSelection } from '../../foundation/finance-configuratio
 import { operatingDimensions } from '../../foundation/finance-setup/finance-operating-dimensions';
 import {
   activePostingBook,
+  usesInsuranceMeasurement,
   ownedEvidence,
   glDeployment,
   inverseJournal,
@@ -29,6 +30,7 @@ import {
   type PostingRequest,
 } from './finance-book-request';
 import { readNativeMovement, reversalSources } from './finance-native-sources';
+import { recordPremiumMemo } from './finance-ifrs-premiums';
 import type { Evidence } from './finance-gl-program';
 import type { ChartRoleProposal } from '../../foundation/chart-of-accounts/finance-chart.types';
 
@@ -40,6 +42,7 @@ export interface OperatingLine {
   customerId?: string | null;
   intermediaryCompanyId?: string | null;
 }
+
 export interface OperatingSource {
   sourceType: string;
   sourceId: string;
@@ -67,7 +70,7 @@ export class FinanceOperatingPostingService {
     source: OperatingSource,
   ) {
     const [schema] = await m.query(
-      "SELECT to_regclass('public.finance_operating_postings') IS NOT NULL AS present",
+      "SELECT to_regclass('public.finance_operating_postings') IS NOT NULL AS present,to_regclass('public.finance_gl_premium_memos') IS NOT NULL AS premiums",
     );
     if (!schema.present) return null;
     const book = await activePostingBook(m, company);
@@ -95,6 +98,24 @@ export class FinanceOperatingPostingService {
         id: existing.journal_id ?? existing.candidate_id,
         accountingStatus: existing.journal_id ? 'POSTED' : 'AWAITING_APPROVAL',
       };
+    }
+    if (
+      schema.premiums &&
+      ['WRITE_OFF', 'INVOICE'].includes(source.sourceType)
+    ) {
+      const [owner] = await m.query(
+        'SELECT book_id FROM finance_gl_premium_memos WHERE company_id=$1 AND invoice_id=$2 LIMIT 1',
+        [company, source.sourceId],
+      );
+      if (
+        owner &&
+        (!book ||
+          book.book_id !== owner.book_id ||
+          book.context.basis !== 'IFRS')
+      )
+        throw new ConflictException(
+          'Restore the originating IFRS book for this premium invoice.',
+        );
     }
     if (!book) {
       const [owned] = await m.query(
@@ -159,6 +180,32 @@ export class FinanceOperatingPostingService {
       book.timezone,
       source,
     );
+    if (
+      kind === 'INVOICE' &&
+      doc.invoice_type === 'PREMIUM' &&
+      usesInsuranceMeasurement(book)
+    ) {
+      if (deployment?.action !== 'ENABLE')
+        throw new ConflictException(
+          'Enable the IFRS book before recording its premium memorandum.',
+        );
+      return this.ledger.withWorkflowAuthority(
+        actor,
+        scope,
+        'PREPARE',
+        source.description,
+        () =>
+          recordPremiumMemo(
+            m,
+            book,
+            source,
+            doc.date,
+            reversal,
+            actor.subjectId,
+          ),
+        m,
+      );
+    }
     if (reversal) {
       const orig = await originalPosting(m, book, kind, source.sourceId);
       if (
@@ -184,10 +231,27 @@ export class FinanceOperatingPostingService {
       });
     }
     const config = book.context;
+    const premiumCash =
+      kind === 'RECEIPT' &&
+      doc.invoice_type === 'PREMIUM' &&
+      usesInsuranceMeasurement(book);
+    const postingEvent = premiumCash ? 'PREMIUM_RECEIPT_POSTED' : event;
+    let premiumMemoId: string | undefined;
+    if (premiumCash) {
+      const [memo] = await m.query(
+        `SELECT i.id FROM finance_gl_premium_memos i WHERE i.book_id=$1 AND i.invoice_id=$2 AND i.event_type='ISSUED' AND NOT EXISTS (SELECT 1 FROM finance_gl_premium_memos v WHERE v.book_id=i.book_id AND v.invoice_id=i.invoice_id AND v.event_type='VOIDED')`,
+        [book.book_id, doc.billing_invoice_id],
+      );
+      if (!memo)
+        throw new ConflictException(
+          'Reconcile the premium invoice to its billing memorandum before posting the collection.',
+        );
+      premiumMemoId = memo.id;
+    }
     const matches = config.allowedComponents.filter(
       (x) =>
         x.origin === 'INSURANCE_PORTAL_FINANCE' &&
-        x.sourceEventType === event &&
+        x.sourceEventType === postingEvent &&
         x.factKind === kind &&
         x.owner === 'FINANCE' &&
         x.effect === effect,
@@ -243,7 +307,10 @@ export class FinanceOperatingPostingService {
       companyId: company,
       sourceId: id,
       aggregateId: source.sourceId,
-      eventType: event,
+      eventType: postingEvent,
+      ...(premiumMemoId
+        ? { premiumMemoId, invoiceId: doc.billing_invoice_id }
+        : {}),
       reference: doc.reference,
       amount: doc.amount,
       currency: doc.currency,
@@ -291,7 +358,11 @@ export class FinanceOperatingPostingService {
       if (!dr.units && !cr.units) continue;
       const allowed = dr.units ? component.debitRoles : component.creditRoles;
       const eligible = roles.filter(
-        (r) => allowed.includes(r.code) && r.accountType === line.accountType,
+        (r) =>
+          allowed.includes(r.code) &&
+          (premiumCash && cr.units > 0n
+            ? ['ASSET', 'LIABILITY'].includes(r.accountType)
+            : r.accountType === line.accountType),
       );
       const cashLine =
         kind === 'RECEIPT'
@@ -315,11 +386,13 @@ export class FinanceOperatingPostingService {
           : eligible;
       const exact = eligible.filter((r) => r.accountCode === code);
       const choices =
-        exact.length ||
-        cashLine ||
-        (kind === 'INVOICE' && line.accountType === 'LIABILITY')
-          ? exact
-          : candidates;
+        premiumCash && cr.units > 0n
+          ? candidates
+          : exact.length ||
+              cashLine ||
+              (kind === 'INVOICE' && line.accountType === 'LIABILITY')
+            ? exact
+            : candidates;
       if (choices.length !== 1)
         throw new ConflictException(
           'Select an unambiguous approved posting role for ' +
@@ -402,6 +475,7 @@ export class FinanceOperatingPostingService {
       },
       request.description,
       m,
+      request.supersedes,
     );
     const [profile] = await m.query(
       "SELECT r.id,r.release_hash FROM jsonb_array_elements($1::jsonb) pin JOIN finance_configuration_releases r ON r.id::text=pin->>'id' AND r.release_hash=pin->>'hash' WHERE r.kind='APPROVAL_RULES'",

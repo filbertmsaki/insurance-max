@@ -30,10 +30,10 @@ async function inventory(client) {
     const {
       rows: [schema],
     } = await client.query(
-      "SELECT to_regclass('public.finance_operating_setups') IS NOT NULL fin01,to_regclass('public.finance_gl_deployments') IS NOT NULL fin02",
+      "SELECT to_regclass('public.finance_operating_setups') IS NOT NULL fin01,to_regclass('public.finance_gl_deployments') IS NOT NULL fin02,to_regclass('public.finance_gl_premium_memos') IS NOT NULL gl_completion",
     );
     const { rows: companies } = await client.query(
-      'SELECT id,name FROM companies ORDER BY name,id',
+      'SELECT id,name,company_type FROM companies ORDER BY name,id',
     );
     for (const c of companies) {
       c.required = [];
@@ -48,7 +48,7 @@ async function inventory(client) {
         rows: [b],
       } = await client.query(
         `SELECT a.book_id,a.release_id,a.starts_on::text,a.ends_before::text,(statement_timestamp() AT TIME ZONE a.timezone)::date::text today,
-        ctx.payload->'allowedComponents' components,ld.action ledger_action,ld.release_id ledger_release,
+        ctx.payload->'allowedComponents' components,ctx.payload->>'basis' basis,ld.action ledger_action,ld.release_id ledger_release,
         coalesce(jsonb_array_length(dim.payload#>'{companyMaster,branchIds}'),0) branch_count,coalesce(jsonb_array_length(a.controls->'costCentres'),0) centre_count
         FROM finance_operating_setups a LEFT JOIN finance_foundation_documents rel ON rel.id=a.release_id LEFT JOIN finance_foundation_documents ctx ON ctx.id=rel.parent_id
         LEFT JOIN finance_configuration_releases dim ON dim.id::text=a.controls->>'dimensionReleaseId' AND dim.release_hash=a.controls->>'dimensionReleaseHash'
@@ -81,6 +81,55 @@ async function inventory(client) {
               ['CASH', 'ORDINARY'].includes(r.effect),
           ),
       );
+      if (!schema.gl_completion)
+        c.required.push('Apply the FIN-02 ledger completion migration.');
+      if (
+        b.basis === 'IFRS' &&
+        (['INSURANCE_COMPANY', 'REINSURANCE_COMPANY'].includes(
+          c.company_type,
+        ) ||
+          rules.some(
+            (r) =>
+              r.origin === 'IFRS17_ENGINE' &&
+              r.sourceEventType === 'IFRS17_MEASUREMENT_APPROVED',
+          ))
+      ) {
+        if (
+          rules.filter(
+            (r) =>
+              r.origin === 'INSURANCE_PORTAL_FINANCE' &&
+              r.owner === 'FINANCE' &&
+              r.effect === 'CASH' &&
+              r.sourceEventType === 'PREMIUM_RECEIPT_POSTED' &&
+              r.factKind === 'RECEIPT',
+          ).length !== 1
+        )
+          c.required.push('Approve the premium cash collection mapping.');
+        if (
+          rules.filter(
+            (r) =>
+              r.origin === 'INSURANCE_PORTAL_FINANCE' &&
+              r.owner === 'FINANCE' &&
+              r.effect === 'BILLING_MEMORANDUM' &&
+              r.factKind === 'INVOICE' &&
+              r.sourceEventType === 'INVOICE_ISSUED',
+          ).length !== 1
+        )
+          c.required.push('Approve a premium billing memorandum rule.');
+        if (
+          !rules.some(
+            (r) =>
+              r.origin === 'IFRS17_ENGINE' &&
+              r.owner === 'IFRS17_ENGINE' &&
+              r.effect === 'INSURANCE_MEASUREMENT' &&
+              r.factKind === 'IFRS17_MEASUREMENT' &&
+              r.sourceEventType === 'IFRS17_MEASUREMENT_APPROVED',
+          )
+        )
+          c.required.push(
+            'Approve the insurance measurement policy and roles.',
+          );
+      }
       c.missingNativeRules = Object.entries(native)
         .filter(
           ([kind, [event, effect]]) =>

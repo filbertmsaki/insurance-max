@@ -64,15 +64,15 @@ export async function voucherLines(
   kind: string,
   v: Pick<VoucherInput, 'date' | 'currency' | 'lines'>,
   chart: FinanceChartProposal,
-) {
-  const rule = b.context.allowedComponents.find(
+  rule = b.context.allowedComponents.find(
     (c) =>
       c.origin === 'FIN02_GL' &&
       c.component === kind &&
       c.owner === 'FINANCE' &&
       c.sourceEventType === null &&
       ['CASH', 'ORDINARY'].includes(c.effect),
-  );
+  ),
+) {
   if (!rule)
     throw new ConflictException(
       'Review and activate a FIN02_GL accounting component for ' + kind + '.',
@@ -268,6 +268,7 @@ export class FinanceGlVoucherService {
         );
       return { id: old.id, hash: old.hash, reused: true };
     }
+    let supersedesCandidateId: string | undefined;
     if (v.replacementOf) {
       if (kind !== 'MANUAL' || !FINANCE_UUID.test(v.replacementOf))
         invalid('Select a reversed manual voucher for replacement.');
@@ -279,6 +280,17 @@ export class FinanceGlVoucherService {
         throw new ConflictException(
           'Post the linked reversal before submitting a replacement.',
         );
+      const [prior] = await m.query(
+        `SELECT p.candidate_id,r.state FROM finance_operating_postings p JOIN finance_journal_candidates c ON c.id=p.candidate_id
+        JOIN LATERAL(SELECT state FROM finance_approval_requests WHERE candidate_id=c.id ORDER BY expires_at DESC,id DESC LIMIT 1) r ON true
+        WHERE p.book_id=$1 AND p.snapshot->>'replacementOf'=$2 ORDER BY c.created_at DESC,c.id DESC LIMIT 1`,
+        [b.book_id, v.replacementOf],
+      );
+      if (prior && prior.state !== 'REJECTED_INACTIVE')
+        throw new ConflictException(
+          'This original already has a pending or posted replacement.',
+        );
+      supersedesCandidateId = prior?.candidate_id;
     }
     if (!Array.isArray(v.lines)) invalid('Enter the voucher lines.');
     const chart = await bookChart(m, b);
@@ -302,6 +314,7 @@ export class FinanceGlVoucherService {
       description: v.description,
       snapshot: {
         ...origin,
+        ...(supersedesCandidateId ? { supersedesCandidateId } : {}),
         requestHash,
         sourceId: id,
         companyId: b.company_id,
@@ -362,15 +375,22 @@ export class FinanceGlVoucherService {
             'Enter a distinct correction reference and an open posting date on or after the original.',
           );
         const fingerprint = hash({ id, v });
-        const [existing] = await m.query(
-          "SELECT candidate_id,snapshot FROM finance_operating_postings WHERE book_id=$1 AND source_id=$2 AND source_type='GL_REVERSAL'",
-          [b.book_id, row.source_id],
+        const attempts = await m.query(
+          `SELECT p.candidate_id,p.snapshot,r.state,c.subject_hash hash FROM finance_operating_postings p JOIN finance_journal_candidates c ON c.id=p.candidate_id
+          JOIN LATERAL(SELECT state FROM finance_approval_requests WHERE candidate_id=c.id ORDER BY expires_at DESC,id DESC LIMIT 1) r ON true
+          WHERE p.book_id=$1 AND p.snapshot->>'originalJournalId'=$2 AND p.source_type='GL_REVERSAL' ORDER BY c.created_at DESC,c.id DESC`,
+          [b.book_id, id],
         );
-        if (existing) {
-          if (existing.snapshot.requestHash !== fingerprint)
-            throw new ConflictException('This journal already has a reversal.');
-          return { id: existing.candidate_id, reused: true };
-        }
+        const replay = attempts.find(
+          (x) => x.snapshot.requestHash === fingerprint,
+        );
+        if (replay)
+          return { id: replay.candidate_id, hash: replay.hash, reused: true };
+        const previous = attempts[0];
+        if (previous && previous.state !== 'REJECTED_INACTIVE')
+          throw new ConflictException(
+            'This journal already has a pending or posted reversal.',
+          );
         const [duplicate] = await m.query(
           "SELECT 1 FROM finance_operating_postings WHERE book_id=$1 AND source_type IN ('GL_VOUCHER','GL_REVERSAL') AND upper(btrim(snapshot->>'reference'))=upper($2)",
           [b.book_id, v.reference],
@@ -392,11 +412,16 @@ export class FinanceGlVoucherService {
         }
         return this.posting.submit(m, a, b, {
           type: 'GL_REVERSAL',
-          id: row.source_id,
-          event: 'reverse:' + id,
+          id: previous ? randomUUID() : row.source_id,
+          supersedes: previous?.candidate_id,
+          event:
+            'reverse:' + id + (previous ? '/' + previous.candidate_id : ''),
           description: v.description,
           snapshot: {
             ...orig.snapshot,
+            ...(previous
+              ? { supersedesCandidateId: previous.candidate_id }
+              : {}),
             requestHash: fingerprint,
             eventType: 'REVERSAL',
             reference: v.reference,

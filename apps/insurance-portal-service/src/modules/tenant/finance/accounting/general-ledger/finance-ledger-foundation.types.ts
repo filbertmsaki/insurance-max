@@ -291,7 +291,7 @@ export function normalizeCurrencyContext(
       [a.debitRoles, a.creditRoles].some(
         (roles) =>
           !Array.isArray(roles) ||
-          !roles.length ||
+          (!roles.length && a.effect !== 'BILLING_MEMORANDUM') ||
           roles.some((r) => !candidateCode(r)) ||
           new Set(roles).size !== roles.length,
       ),

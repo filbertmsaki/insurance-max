@@ -219,22 +219,38 @@ export async function releaseBook(
     canonicalFinanceJson([...a].sort()) === canonicalFinanceJson([...b].sort());
   for (const component of context.payload
     .allowedComponents as CurrencyContextInput['allowedComponents']) {
+    const measurement =
+      component.owner === 'IFRS17_ENGINE' &&
+      component.sourceEventType === 'IFRS17_MEASUREMENT_APPROVED' &&
+      component.effect === 'INSURANCE_MEASUREMENT';
+    const memo =
+      component.owner === 'FINANCE' &&
+      component.sourceEventType === 'INVOICE_ISSUED' &&
+      component.effect === 'BILLING_MEMORANDUM';
     if (
-      component.owner !== 'FINANCE' ||
-      !['CASH', 'ORDINARY'].includes(component.effect)
+      !measurement &&
+      !memo &&
+      (component.owner !== 'FINANCE' ||
+        !['CASH', 'ORDINARY'].includes(component.effect))
     )
       continue;
     if (
       !rules.some(
         (r: any) =>
-          r.financialPosting &&
+          (memo
+            ? r.layer === 'BILLING_MEMORANDUM' && !r.financialPosting
+            : r.financialPosting) &&
+          (!measurement ||
+            (r.layer === 'IFRS17_MEASUREMENT' &&
+              r.measurementSource === 'IFRS17_ENGINE')) &&
           !r.unresolvedDecisions.length &&
           (component.sourceEventType === null ||
             r.sourceEvent === component.sourceEventType) &&
           r.economicEffectKey === component.component &&
           r.policyReferences.includes(component.policyCode) &&
-          rolesMatch(r.debitRoles, component.debitRoles) &&
-          rolesMatch(r.creditRoles, component.creditRoles),
+          (memo ||
+            (rolesMatch(r.debitRoles, component.debitRoles) &&
+              rolesMatch(r.creditRoles, component.creditRoles))),
       )
     )
       throw new ConflictException(

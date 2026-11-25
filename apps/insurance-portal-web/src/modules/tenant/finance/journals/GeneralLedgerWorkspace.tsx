@@ -14,6 +14,7 @@ import {
   type Voucher,
   type Workspace,
 } from './gl-form';
+import { PremiumMeasurements } from './PremiumMeasurements';
 import { GlProgramForm } from './GlProgramForm';
 
 export function GeneralLedgerWorkspace() {
@@ -180,6 +181,7 @@ function BookWorkspace({
           'Vouchers',
           'Approvals',
           'Programs',
+          ...(data.insuranceMeasurements ? ['Insurance measurement'] : []),
           'Corrections',
           'Ledger activity',
           'Book rollout',
@@ -246,8 +248,12 @@ function BookWorkspace({
             <Field
               label="Replacement for reversed journal (optional)"
               value={v.replacementOf ?? ''}
-              options={posted
-                .filter((j) => reversed.has(j.journalId!))
+              suggestions={posted
+                .filter(
+                  (j) =>
+                    reversed.has(j.journalId!) &&
+                    j.snapshot.component === 'MANUAL',
+                )
                 .map((j) => ({
                   value: j.journalId!,
                   label: j.journalNo ?? j.snapshot.reference,
@@ -292,13 +298,21 @@ function BookWorkspace({
           send={send}
         />
       )}
+      {tab === 'Insurance measurement' && (
+        <PremiumMeasurements
+          scope={selection}
+          identity={identity}
+          canPrepare={canPrepare}
+          refresh={() => w.refetch()}
+        />
+      )}
       {tab === 'Corrections' && (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
             label="Original posted journal"
             value={correction}
             change={J}
-            options={posted
+            suggestions={posted
               .filter((j) => !reversed.has(j.journalId!))
               .map((j) => ({
                 value: j.journalId!,
@@ -356,7 +370,15 @@ function BookWorkspace({
               {data.journals.map((j) => (
                 <tr key={j.id}>
                   <td>{j.snapshot.transactionDate}</td>
-                  <td>{j.snapshot.reference}</td>
+                  <td>
+                    {j.snapshot.reference}
+                    {j.snapshot.programCode && (
+                      <details>
+                        <summary>Occurrence ID</summary>
+                        {j.id}
+                      </details>
+                    )}
+                  </td>
                   <td>{j.journalNo ?? 'Pending'}</td>
                   <td>
                     {j.state}

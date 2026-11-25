@@ -16,7 +16,7 @@ const specs = {
   RECEIPT: [
     'RECEIPT_POSTED',
     'CASH',
-    "SELECT r.receipt_no reference,r.amount::text,r.currency,r.customer_id,r.received_at at_time,r.settlement_account_code,coalesce(r.branch_id,i.branch_id) branch_id,coalesce(r.finance_dimensions,i.finance_dimensions) finance_dimensions FROM receipts r LEFT JOIN invoices i ON i.id=r.invoice_id AND i.company_id=r.company_id WHERE r.company_id=$1 AND r.id=$2 AND r.status='POSTED' FOR SHARE OF r",
+    "SELECT r.receipt_no reference,r.amount::text,r.currency,r.customer_id,i.invoice_type,i.id AS billing_invoice_id,r.received_at at_time,r.settlement_account_code,coalesce(r.branch_id,i.branch_id) branch_id,coalesce(r.finance_dimensions,i.finance_dimensions) finance_dimensions FROM receipts r LEFT JOIN invoices i ON i.id=r.invoice_id AND i.company_id=r.company_id WHERE r.company_id=$1 AND r.id=$2 AND r.status='POSTED' FOR SHARE OF r",
   ],
   REFUND: [
     'REFUND_PAID',
@@ -53,7 +53,7 @@ const specs = {
 export const reversalSources: Record<string, [keyof typeof specs, string]> = {
   WRITE_OFF: [
     'INVOICE',
-    "SELECT voided_at at_time FROM invoices WHERE company_id=$1 AND id=$2 AND status='VOIDED' FOR SHARE",
+    "SELECT voided_at at_time,invoice_type FROM invoices WHERE company_id=$1 AND id=$2 AND status='VOIDED' FOR SHARE",
   ],
   INVOICE_WRITE_OFF_REVERSAL: [
     'INVOICE_WRITE_OFF',
@@ -80,9 +80,10 @@ export const reversalSources: Record<string, [keyof typeof specs, string]> = {
 export const nativeComponents = Object.entries(specs).map(
   ([kind, [event, effect]]) => ({ kind, event, effect }),
 );
-export const nativeLedgerEvents = new Set<string>(
-  Object.values(specs).map((x) => x[0]),
-);
+export const nativeLedgerEvents = new Set<string>([
+  ...Object.values(specs).map((x) => x[0]),
+  'PREMIUM_RECEIPT_POSTED',
+]);
 
 export async function readNativeMovement(
   m: EntityManager,

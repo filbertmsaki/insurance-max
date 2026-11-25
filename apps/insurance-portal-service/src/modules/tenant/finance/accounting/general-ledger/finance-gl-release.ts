@@ -4,6 +4,7 @@ import type { FoundationActor } from './finance-ledger-foundation.service';
 import {
   type ActivePostingBook,
   glDeployment,
+  usesInsuranceMeasurement,
   ownedEvidence,
 } from './finance-book-request';
 import { nativeComponents } from './finance-native-sources';
@@ -49,6 +50,47 @@ export async function glReadiness(m: EntityManager, b: ActivePostingBook) {
         ),
     )
     .map((c) => c.kind);
+  if (usesInsuranceMeasurement(b)) {
+    if (
+      components.filter(
+        (c) =>
+          c.origin === 'INSURANCE_PORTAL_FINANCE' &&
+          c.owner === 'FINANCE' &&
+          c.effect === 'CASH' &&
+          c.sourceEventType === 'PREMIUM_RECEIPT_POSTED' &&
+          c.factKind === 'RECEIPT',
+      ).length !== 1
+    )
+      blockers.push(
+        'Approve the premium cash collection mapping for this book.',
+      );
+    if (
+      components.filter(
+        (c) =>
+          c.origin === 'INSURANCE_PORTAL_FINANCE' &&
+          c.factKind === 'INVOICE' &&
+          c.sourceEventType === 'INVOICE_ISSUED' &&
+          c.owner === 'FINANCE' &&
+          c.effect === 'BILLING_MEMORANDUM',
+      ).length !== 1
+    )
+      blockers.push(
+        'Approve a premium billing memorandum rule for this IFRS book.',
+      );
+    if (
+      !components.some(
+        (c) =>
+          c.origin === 'IFRS17_ENGINE' &&
+          c.owner === 'IFRS17_ENGINE' &&
+          c.effect === 'INSURANCE_MEASUREMENT' &&
+          c.sourceEventType === 'IFRS17_MEASUREMENT_APPROVED' &&
+          c.factKind === 'IFRS17_MEASUREMENT',
+      )
+    )
+      blockers.push(
+        'Approve the accounting policy and roles for insurance measurement movements.',
+      );
+  }
   const [dimensions] = await m.query(
     'SELECT payload FROM finance_configuration_releases WHERE id=$1 AND release_hash=$2',
     [b.controls.dimensionReleaseId, b.controls.dimensionReleaseHash],

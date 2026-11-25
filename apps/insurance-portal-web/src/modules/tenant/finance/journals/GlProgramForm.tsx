@@ -7,6 +7,7 @@ import {
   strings,
   today,
   type Definition,
+  type Evidence,
   type Line,
   type Program,
   type Workspace,
@@ -55,7 +56,13 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
     [reason, R] = useState(''),
     [stage, A] = useState(''),
     [date, T] = useState(today),
-    [reference, F] = useState('');
+    [reference, F] = useState(''),
+    [amount, setAmount] = useState(''),
+    [retry, setRetry] = useState(''),
+    [postingDate, setPostingDate] = useState(''),
+    [evidence, setEvidence] = useState<Evidence>(),
+    [template, setTemplate] = useState(''),
+    [releaseDims, setReleaseDims] = useState<Record<string, string>>({});
   const p = w.programs.find((p) => p.id === selected);
   const set = (key: string, value: unknown) =>
     D((prev) => ({ ...prev, [key]: value }));
@@ -80,6 +87,12 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
     D(p ? { ...p.definition } : initial());
     A(p ? (stages[p.kind][0] ?? '') : '');
     F('');
+    setAmount('');
+    setRetry('');
+    setPostingDate('');
+    setEvidence(undefined);
+    setTemplate('');
+    setReleaseDims({});
   };
   const roles = roleChoices(w),
     branches = w.dimensions.find((x) => x.code === 'BRANCH')?.options ?? [];
@@ -419,18 +432,90 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
             value={stage}
             change={A}
           />
-          <Field label="Posting date" type="date" value={date} change={T} />
+          <Field label="Occurrence date" type="date" value={date} change={T} />
+          {stage === 'SETTLE' && (
+            <Field
+              label="Settlement amount (optional)"
+              value={amount}
+              change={setAmount}
+            />
+          )}
+          <Field
+            label="Correct a rejected or reversed occurrence (candidate ID)"
+            value={retry}
+            change={setRetry}
+            suggestions={w.journals
+              .filter(
+                (j) =>
+                  j.type === 'GL_VOUCHER' &&
+                  j.snapshot.programCode === p.code &&
+                  j.snapshot.stage === stage &&
+                  (j.state === 'REJECTED_INACTIVE' ||
+                    w.journals.some(
+                      (r) =>
+                        r.type === 'GL_REVERSAL' &&
+                        r.journalId &&
+                        r.snapshot.originalJournalId === j.journalId,
+                    )),
+              )
+              .map((j) => ({
+                value: j.id,
+                label:
+                  j.snapshot.reference + ' · ' + j.snapshot.transactionDate,
+              }))}
+          />
+          {retry && (
+            <>
+              <Field
+                label="Correction posting date"
+                type="date"
+                value={postingDate}
+                change={setPostingDate}
+              />
+              <DocumentField w={w} value={evidence} change={setEvidence} />
+            </>
+          )}
+          {retry && stage === 'GENERATE' && (
+            <Field
+              label="Replacement approved template (optional)"
+              value={template}
+              change={setTemplate}
+              options={w.programs
+                .filter((x) => x.kind === 'TEMPLATE' && x.state === 'APPROVED')
+                .map((x) => ({
+                  value: x.id,
+                  label: x.code + ' v' + x.revision,
+                }))}
+            />
+          )}
+          {retry && stage === 'AMORTIZE' && (
+            <Field
+              label="Corrected expense cost centre (optional)"
+              value={releaseDims.COST_CENTRE ?? ''}
+              change={(v) => setReleaseDims(v ? { COST_CENTRE: v } : {})}
+              options={
+                w.dimensions.find((x) => x.code === 'COST_CENTRE')?.options
+              }
+            />
+          )}
           <Field
             label={
               stage === 'USE'
                 ? 'Voucher reference'
-                : 'Reference override (optional)'
+                : stage === 'SETTLE'
+                  ? 'Settlement reference'
+                  : 'Reference override (optional)'
             }
             value={reference}
             change={F}
           />
           <Button
-            disabled={busy || !reason.trim()}
+            disabled={
+              busy ||
+              !reason.trim() ||
+              (!!retry && !evidence) ||
+              (stage === 'SETTLE' && !!amount && !reference)
+            }
             onClick={() =>
               send('gl/programs/' + p.id + '/occurrences', {
                 reason,
@@ -439,6 +524,28 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
                   date,
                   subjectHash: p.subject_hash,
                   ...(reference ? { reference } : {}),
+                  ...(stage === 'SETTLE' && amount ? { amount } : {}),
+                  ...(retry
+                    ? {
+                        retryOf: retry,
+                        evidence,
+                        postingDate: postingDate || date,
+                      }
+                    : {}),
+                  ...(retry && stage === 'GENERATE' && template
+                    ? {
+                        correctionTemplate: {
+                          id: template,
+                          hash: w.programs.find((x) => x.id === template)!
+                            .subject_hash,
+                        },
+                      }
+                    : {}),
+                  ...(retry &&
+                  stage === 'AMORTIZE' &&
+                  Object.keys(releaseDims).length
+                    ? { releaseDimensions: releaseDims }
+                    : {}),
                 },
               })
             }

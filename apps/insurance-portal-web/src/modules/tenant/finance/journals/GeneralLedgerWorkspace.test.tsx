@@ -17,7 +17,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   useAuthStore.setState({ user: null, authorizationContext: null });
 });
-const setup = (prepare: boolean) => {
+const setup = (prepare: boolean, insurer = false) => {
   useAuthStore.setState({
     user,
     authorizationContext: {
@@ -28,51 +28,67 @@ const setup = (prepare: boolean) => {
       ],
     },
   });
-  const get = vi.spyOn(apiClient, 'get').mockResolvedValue({
-    data: {
-      functionalCurrency: 'TZS',
-      currencies: { TZS: 2 },
-      accounts: [
-        { code: '611004', name: 'Internet Expense', posting: true },
-        { code: '112001', name: 'CRDB Bank', posting: true },
-      ],
-      roles: [
-        { code: 'NET', accountCode: '611004' },
-        { code: 'BANK', accountCode: '112001' },
-      ],
-      components: [],
-      dimensions: [
-        {
-          code: 'BRANCH',
-          label: 'Branch',
-          options: [{ value: uuid(80), label: 'Dar es Salaam' }],
-        },
-        {
-          code: 'COST_CENTRE',
-          label: 'Cost centre',
-          options: [{ value: 'HQ', label: 'Head office' }],
-        },
-      ],
-      documents: [
-        {
-          id: uuid(81),
-          documentId: uuid(82),
-          hash: 'a'.repeat(64),
-          title: 'Internet invoice',
-        },
-      ],
-      programs: [],
-      drafts: [],
-      journals: [],
-      registers: [],
-      reconciliations: [],
-      readiness: {
-        blockers: [],
-        missingNative: ['REFUND'],
-        counts: { posted: 0, unposted: 0 },
+  const workspace = {
+    insuranceMeasurements: insurer,
+    functionalCurrency: 'TZS',
+    currencies: { TZS: 2 },
+    accounts: [
+      { code: '611004', name: 'Internet Expense', posting: true },
+      { code: '112001', name: 'CRDB Bank', posting: true },
+    ],
+    roles: [
+      { code: 'NET', accountCode: '611004' },
+      { code: 'BANK', accountCode: '112001' },
+    ],
+    components: [],
+    dimensions: [
+      {
+        code: 'BRANCH',
+        label: 'Branch',
+        options: [{ value: uuid(80), label: 'Dar es Salaam' }],
       },
+      {
+        code: 'COST_CENTRE',
+        label: 'Cost centre',
+        options: [{ value: 'HQ', label: 'Head office' }],
+      },
+    ],
+    documents: [
+      {
+        id: uuid(81),
+        documentId: uuid(82),
+        hash: 'a'.repeat(64),
+        title: 'Internet invoice',
+      },
+    ],
+    programs: [],
+    drafts: [],
+    journals: [],
+    registers: [],
+    reconciliations: [],
+    readiness: {
+      blockers: [],
+      missingNative: ['REFUND'],
+      counts: { posted: 0, unposted: 0 },
     },
-  });
+  };
+  const get = vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({
+    data: url.endsWith('/premium-memos')
+      ? [
+          {
+            id: uuid(85),
+            invoiceId: uuid(86),
+            hash: 'b'.repeat(64),
+            event: 'ISSUED',
+            date: '2026-11-05',
+            reference: 'PREM-42',
+            amount: '100.00',
+            currency: 'TZS',
+            movements: 0,
+          },
+        ]
+      : workspace,
+  }));
   vi.spyOn(foundationReadApi, 'scopes').mockResolvedValue([scope]);
   const post = vi
     .spyOn(apiClient, 'post')
@@ -141,6 +157,50 @@ it('submits the expense and bank lines with their scoped branch, cost centre and
       }),
     ),
   );
+});
+it('finds a premium memorandum and submits the signed measurement in the selected insurer book', async () => {
+  const { get, post } = setup(true, true);
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Insurance measurement' }),
+  );
+  expect(await screen.findByText('PREM-42')).toBeVisible();
+  fireEvent.change(screen.getByLabelText('Invoice number or ID'), {
+    target: { value: 'PREM-42' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Find memoranda' }));
+  const selection = {
+    bookId: scope.bookId,
+    legalEntityId: scope.legalEntityId,
+  };
+  await waitFor(() =>
+    expect(get).toHaveBeenCalledWith(
+      '/tenant/finance/foundation/gl/premium-memos',
+      {
+        params: { ...selection, invoice: 'PREM-42' },
+        signal: expect.any(AbortSignal),
+      },
+    ),
+  );
+  const input = {
+    payload: { movementId: uuid(87) },
+    signature: 'signed-result',
+  };
+  fireEvent.change(screen.getByLabelText('Signed measurement result (JSON)'), {
+    target: { value: JSON.stringify(input) },
+  });
+  fireEvent.change(screen.getByLabelText('Measurement submission reason'), {
+    target: { value: 'Reviewed closing run' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Submit measurement' }));
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/foundation/gl/measurements',
+      { scope: selection, reason: 'Reviewed closing run', input },
+    ),
+  );
+  expect(
+    await screen.findByText('Measurement submitted for independent approval.'),
+  ).toBeVisible();
 });
 it('shows the book readiness inventory to readers and restricts rollout actions', async () => {
   setup(false);

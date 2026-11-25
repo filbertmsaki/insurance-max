@@ -16,6 +16,7 @@ import type { FinanceBookSelection } from '../../foundation/finance-configuratio
 import {
   financeConfigurationHash as hash,
   isFinanceDate,
+  FINANCE_UUID,
 } from '../../foundation/finance-configuration/finance-configuration.types';
 import {
   candidateCode,
@@ -34,6 +35,12 @@ import {
 } from './finance-gl-voucher.service';
 import { requestWriteOff, type WriteOff } from './finance-gl-write-off';
 import { FinanceOperatingPostingService } from './finance-operating-posting.service';
+import {
+  verifyMeasurement,
+  verifyMemoLinks,
+  type MeasurementDelivery,
+} from './finance-ifrs-premiums';
+import { glDeployment } from './finance-book-request';
 import { glReadiness, recordGlDeployment } from './finance-gl-release';
 import { certifiedOpening, nextDate, revalue } from './finance-gl-balances';
 import {
@@ -42,6 +49,7 @@ import {
   invalid,
   programLines,
   validateProgram,
+  type Evidence,
   type ProgramDefinition,
   type ProgramKind,
   type VoucherLine,
@@ -101,6 +109,8 @@ async function reconciliation(
       openingHash: o.subject_hash,
       from: o.payload.date,
       to: nextDate(d.end),
+      includeJournals: false,
+      reconciliationAccount: d.account,
     },
     m,
   );
@@ -111,16 +121,13 @@ async function reconciliation(
     difference = DecimalUtil.value(ledgerBalance)
       .minus(d.statementBalance!)
       .toFixed(b.context.currencyScales[d.currency]);
-  const relevant = report.journals
-    .filter((j) => j.lines.some((l) => l.accountCode === d.account))
-    .map((j) => [j.id, j.subjectHash]);
   return {
     opening: o.id,
     ledgerBalance,
     statementBalance: d.statementBalance,
     difference,
     openItems: d.exceptions!.filter((e) => !e.resolved).length,
-    populationHash: hash({ opening: o.subject_hash, relevant }),
+    populationHash: report.populationHash,
   };
 }
 @Injectable()
@@ -263,6 +270,13 @@ export class FinanceGlWorkflowsService {
           ),
           currencies: b.context.currencyScales,
           functionalCurrency: b.context.functionalCurrency,
+          insuranceMeasurements:
+            b.context.basis === 'IFRS' &&
+            b.context.allowedComponents.some(
+              (c) =>
+                c.owner === 'IFRS17_ENGINE' &&
+                c.effect === 'INSURANCE_MEASUREMENT',
+            ),
           dimensions: await documentDimensionFields(m, b.company_id, b.book_id),
           documents,
           programs,
@@ -574,6 +588,154 @@ export class FinanceGlWorkflowsService {
     );
   }
 
+  premiumMemos(a: FoundationActor, s: FinanceBookSelection, invoice?: string) {
+    return this.ledger.withWorkflowAuthority(
+      a,
+      s,
+      'READ',
+      'Read premium billing memoranda',
+      async ({ manager: m }) => {
+        const b = await workflowBook(m, a, s, true);
+        return m.query(
+          `SELECT m.id,m.invoice_id AS "invoiceId",m.event_type AS event,m.accounting_date::text AS date,m.subject_hash AS hash,m.payload->>'reference' AS reference,m.payload->>'amount' AS amount,m.payload->>'currency' AS currency,
+        (SELECT count(*)::int FROM finance_gl_measurement_memos link WHERE link.memo_id=m.id) AS movements
+        FROM finance_gl_premium_memos m WHERE m.book_id=$1 AND ($2::text IS NULL OR m.invoice_id::text=$2 OR m.payload->>'reference'=$2)
+        ORDER BY m.created_at DESC,m.id DESC LIMIT 100`,
+          [b.book_id, invoice || null],
+        );
+      },
+    );
+  }
+  measure(
+    a: FoundationActor,
+    s: FinanceBookSelection,
+    delivery: MeasurementDelivery,
+    reason: string,
+  ) {
+    return this.ledger.withWorkflowAuthority(
+      a,
+      s,
+      'PREPARE',
+      reason,
+      async ({ manager: m }) => {
+        const b = await workflowBook(m, a, s),
+          deployment = await glDeployment(m, b);
+        if (
+          deployment?.action !== 'ENABLE' ||
+          deployment.release_id !== b.release_id
+        )
+          throw new ConflictException(
+            'Enable this book for measurement posting.',
+          );
+        const p = delivery?.payload;
+        if (!p || !FINANCE_UUID.test(p.movementId))
+          invalid('Select a signed insurance measurement movement.');
+        const digest = hash(p);
+        const [old] = await m.query(
+          `SELECT v.subject_hash,v.signature,op.candidate_id id,c.subject_hash hash,j.id AS "journalId",a.state AS approval FROM finance_gl_insurance_measurements v
+        LEFT JOIN finance_operating_postings op ON op.book_id=v.book_id AND op.source_type='IFRS17_MEASUREMENT' AND op.source_id=v.id
+        LEFT JOIN finance_journal_candidates c ON c.id=op.candidate_id LEFT JOIN LATERAL(SELECT state FROM finance_approval_requests WHERE candidate_id=c.id ORDER BY expires_at DESC,id DESC LIMIT 1)a ON true
+        LEFT JOIN finance_foundation_journals j ON j.candidate_id=c.id AND j.mode='LIVE' WHERE v.id=$1 AND v.book_id=$2`,
+          [p.movementId, b.book_id],
+        );
+        if (old) {
+          if (
+            old.subject_hash !== digest ||
+            old.signature !== delivery.signature
+          )
+            throw new ConflictException(
+              'The movement identifier already has different measurement evidence.',
+            );
+          return {
+            id: old.id ?? p.movementId,
+            hash: old.hash ?? digest,
+            journalId: old.journalId,
+            state: old.journalId
+              ? 'POSTED'
+              : old.approval === 'REJECTED_INACTIVE'
+                ? 'REJECTED'
+                : old.id
+                  ? 'SUBMITTED'
+                  : 'NO_MOVEMENT',
+            reused: true,
+          };
+        }
+        const [{ now }] = await m.query('SELECT statement_timestamp() AS now');
+        const rule = verifyMeasurement(b, delivery, new Date(now));
+        await verifyMemoLinks(m, b.book_id, p);
+        const [open] = await m.query(
+          "SELECT id FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND state='OPEN' AND starts_on<=$2 AND ends_before>$2 AND $2::date<=(statement_timestamp() AT TIME ZONE $3)::date",
+          [b.book_id, p.date, b.timezone],
+        );
+        if (!open)
+          throw new ConflictException(
+            'Select an open reporting date for the measurement.',
+          );
+        const [saved] = await m.query(
+          `INSERT INTO finance_gl_insurance_measurements(id,book_id,company_id,run_reference,group_reference,component,currency,payload,subject_hash,signature)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING RETURNING id`,
+          [
+            p.movementId,
+            b.book_id,
+            b.company_id,
+            p.run,
+            p.group,
+            p.component,
+            p.currency,
+            p,
+            digest,
+            delivery.signature,
+          ],
+        );
+        if (!saved)
+          throw new ConflictException(
+            'This measurement movement or run component is already recorded.',
+          );
+        await m.query(
+          'INSERT INTO finance_gl_measurement_memos(measurement_id,memo_id) SELECT $1,unnest($2::uuid[])',
+          [p.movementId, p.memoranda.map((x) => x.id)],
+        );
+        if (!p.lines.length)
+          return { id: p.movementId, hash: digest, state: 'NO_MOVEMENT' };
+        const v = await voucherLines(
+          m,
+          b,
+          p.component,
+          { date: p.date, currency: p.currency, lines: p.lines },
+          await bookChart(m, b),
+          rule,
+        );
+        const request = await this.posting.submit(m, a, b, {
+          id: p.movementId,
+          type: 'IFRS17_MEASUREMENT',
+          event: p.movementId,
+          description: reason,
+          snapshot: {
+            sourceId: p.movementId,
+            companyId: b.company_id,
+            reference: p.run,
+            eventType: rule.sourceEventType,
+            component: p.component,
+            description: reason,
+            group: p.group,
+            measurementHash: digest,
+            currency: p.currency,
+            transactionDate: p.date,
+            amount: v.amount,
+          },
+          journal: {
+            economicOrigin: rule.origin,
+            economicComponent: rule.component,
+            economicSourceId: p.movementId,
+            sourceRevision: '1',
+            correctionOf: null,
+            lines: v.lines,
+          },
+        });
+        return { ...request, state: 'SUBMITTED' };
+      },
+    );
+  }
   run(
     a: FoundationActor,
     s: FinanceBookSelection,
@@ -583,6 +745,12 @@ export class FinanceGlWorkflowsService {
       date: string;
       stage: string;
       reference?: string;
+      amount?: string;
+      retryOf?: string;
+      correctionTemplate?: { id: string; hash: string };
+      releaseDimensions?: Record<string, string>;
+      evidence?: Evidence;
+      postingDate?: string;
     },
     reason: string,
   ) {
@@ -616,6 +784,33 @@ export class FinanceGlWorkflowsService {
             'A later approved revision covers this date.',
           );
         const stage = args.stage;
+        const postingDate = args.postingDate ?? date;
+        if (
+          !isFinanceDate(postingDate) ||
+          postingDate < date ||
+          postingDate > today ||
+          (postingDate !== date && !args.retryOf)
+        )
+          invalid('Choose an open correction date on or after the occurrence.');
+        if (
+          args.amount !== undefined &&
+          (stage !== 'SETTLE' || !candidateText(args.reference, 70))
+        )
+          invalid('Enter a settlement reference for the instalment amount.');
+        if (args.retryOf) await ownedEvidence(m, b, args.evidence);
+        if (
+          (args.correctionTemplate &&
+            (!args.retryOf || stage !== 'GENERATE')) ||
+          (args.releaseDimensions &&
+            (!args.retryOf ||
+              stage !== 'AMORTIZE' ||
+              Object.keys(args.releaseDimensions).some(
+                (key) => key !== 'COST_CENTRE',
+              )))
+        )
+          invalid(
+            'Only the matching schedule correction can override the reviewed template or expense dimensions.',
+          );
         let index = 0,
           occurrence = stage,
           kind: string = p.kind,
@@ -659,13 +854,18 @@ export class FinanceGlWorkflowsService {
             invalid('This date is outside the monthly schedule.');
           occurrence = date.slice(0, 7);
         }
+        if (stage === 'SETTLE' && args.reference) {
+          if (!candidateText(args.reference, 70))
+            invalid('Enter a settlement reference of up to 70 characters.');
+          occurrence = 'SETTLE/' + args.reference.trim().toUpperCase();
+        }
         if (stage === 'INITIAL' && date !== d.start)
           invalid('Use the approved initial recognition date.');
         if (['AMORTIZE', 'SETTLE', 'REVERSE'].includes(stage)) {
           const [initial] = await m.query(
             `SELECT j.id,p.source_id FROM finance_operating_postings p JOIN finance_foundation_journals j ON j.candidate_id=p.candidate_id AND j.mode='LIVE'
           WHERE p.book_id=$1 AND p.source_type='GL_VOUCHER' AND p.snapshot->>'programCode'=$2 AND p.snapshot->>'occurrence'='INITIAL' AND j.accounting_date<=$3
-          AND NOT EXISTS(SELECT 1 FROM finance_operating_postings r WHERE r.source_type='GL_REVERSAL' AND r.source_id=p.source_id AND r.book_id=p.book_id)`,
+          AND NOT EXISTS(SELECT 1 FROM finance_operating_postings r JOIN LATERAL(SELECT state FROM finance_approval_requests WHERE candidate_id=r.candidate_id ORDER BY expires_at DESC,id DESC LIMIT 1) a ON true WHERE r.source_type='GL_REVERSAL' AND r.snapshot->>'originalJournalId'=j.id::text AND r.book_id=p.book_id AND a.state<>'REJECTED_INACTIVE')`,
             [b.book_id, p.code, date],
           );
           if (!initial)
@@ -691,28 +891,84 @@ export class FinanceGlWorkflowsService {
         }
         if (stage === 'REVALUE') occurrence = 'REVALUE/' + date;
         const attempts = await m.query(
-          `SELECT p.candidate_id id,c.subject_hash hash,r.state, EXISTS(SELECT 1 FROM finance_foundation_journals j JOIN finance_foundation_journals x ON x.reversal_of=j.id AND x.mode='LIVE' WHERE j.candidate_id=p.candidate_id AND j.mode='LIVE') AS reversed FROM finance_operating_postings p JOIN finance_journal_candidates c ON c.id=p.candidate_id
+          `SELECT p.candidate_id id,c.subject_hash hash,p.snapshot,r.state, (SELECT x.accounting_date::text FROM finance_foundation_journals j JOIN finance_foundation_journals x ON x.reversal_of=j.id AND x.mode='LIVE' WHERE j.candidate_id=p.candidate_id AND j.mode='LIVE') AS reversed FROM finance_operating_postings p JOIN finance_journal_candidates c ON c.id=p.candidate_id
         JOIN LATERAL(SELECT state FROM finance_approval_requests WHERE candidate_id=p.candidate_id ORDER BY expires_at DESC,id DESC LIMIT 1)r ON true
         WHERE p.book_id=$1 AND p.snapshot->>'programCode'=$2 AND p.snapshot->>'occurrence'=$3 AND p.source_type='GL_VOUCHER' ORDER BY c.created_at DESC,c.id`,
           [b.book_id, p.code, occurrence],
         );
         const previous = attempts[0];
+        const runHash = hash(args);
+        const replay = attempts.find(
+          (attempt) => attempt.snapshot.runHash === runHash,
+        );
+        if (replay) return { id: replay.id, hash: replay.hash, reused: true };
         if (
           previous &&
-          previous.state !== 'REJECTED_INACTIVE' &&
-          !(stage === 'REVALUE' && previous.reversed)
+          !previous.snapshot.runHash &&
+          !args.retryOf &&
+          args.amount === undefined &&
+          previous.snapshot.transactionDate === date
         )
           return { id: previous.id, hash: previous.hash, reused: true };
+        if (previous) {
+          if (
+            args.retryOf !== previous.id ||
+            (previous.state !== 'REJECTED_INACTIVE' && !previous.reversed)
+          )
+            throw new ConflictException(
+              'Choose the latest rejected or reversed occurrence to submit a correction.',
+            );
+          if (previous.reversed && postingDate < previous.reversed)
+            invalid('The corrected journal date must follow its reversal.');
+          origin.supersedesCandidateId = previous.id;
+        } else if (args.retryOf)
+          invalid(
+            'The selected correction does not belong to this occurrence.',
+          );
         const retrySuffix = previous ? '/R' + attempts.length : '',
           event = 'program:' + p.code + ':' + occurrence + retrySuffix;
-        if (previous) origin.rejectedCandidateId = previous.id;
+        origin.runHash = runHash;
+        let terms = d;
+        if (stage === 'SETTLE') {
+          const [reserved] = await m.query(
+            `SELECT coalesce(sum((p.snapshot->>'amount')::numeric),0)::text total FROM finance_operating_postings p
+             JOIN LATERAL(SELECT state FROM finance_approval_requests WHERE candidate_id=p.candidate_id ORDER BY expires_at DESC,id DESC LIMIT 1) a ON true
+             LEFT JOIN finance_foundation_journals j ON j.candidate_id=p.candidate_id AND j.mode='LIVE'
+             WHERE p.book_id=$1 AND p.source_type='GL_VOUCHER' AND p.snapshot->>'programCode'=$2 AND p.snapshot->>'stage'='SETTLE'
+             AND a.state<>'REJECTED_INACTIVE' AND NOT EXISTS(SELECT 1 FROM finance_foundation_journals x WHERE x.reversal_of=j.id AND x.mode='LIVE')`,
+            [b.book_id, p.code],
+          );
+          const amount =
+            args.amount ??
+            previous?.snapshot.amount ??
+            DecimalUtil.value(d.amount)
+              .minus(reserved.total)
+              .toFixed(b.context.currencyScales[currency]);
+          if (
+            moneyMinor(amount, b.context.currencyScales[currency]) <= 0n ||
+            DecimalUtil.value(amount).plus(reserved.total).gt(d.amount!)
+          )
+            throw new ConflictException(
+              'The settlement exceeds the available accrued balance or is zero.',
+            );
+          terms = { ...d, amount };
+        }
         if (stage === 'GENERATE') {
           const t = await approved(
             m,
             b.book_id,
-            d.templateId!,
-            d.templateHash!,
+            args.correctionTemplate?.id ?? d.templateId!,
+            args.correctionTemplate?.hash ?? d.templateHash!,
           );
+          if (
+            t.kind !== 'TEMPLATE' ||
+            t.definition.currency !== currency ||
+            t.definition.start > postingDate ||
+            t.definition.end < postingDate
+          )
+            invalid(
+              'Choose an approved template effective for the corrected journal date and currency.',
+            );
           lines = t.definition.lines!;
           origin.templateId = t.id;
           origin.templateHash = t.subject_hash;
@@ -748,12 +1004,19 @@ export class FinanceGlWorkflowsService {
         } else if (stage !== 'USE')
           lines = programLines(
             p.kind,
-            d,
+            terms,
             stage,
             index,
             b.context.currencyScales[currency],
           );
-        if (stage === 'AMORTIZE') kind = 'PREPAYMENT_RELEASE';
+        if (stage === 'AMORTIZE') {
+          kind = 'PREPAYMENT_RELEASE';
+          if (args.releaseDimensions)
+            lines[0] = {
+              ...lines[0],
+              dimensions: { ...lines[0].dimensions, ...args.releaseDimensions },
+            };
+        }
         if (stage === 'SETTLE') kind = 'ACCRUAL_SETTLEMENT';
         return this.vouchers.issue(
           m,
@@ -762,11 +1025,12 @@ export class FinanceGlWorkflowsService {
           kind,
           {
             reference:
-              args.reference ?? p.code + '/' + occurrence + retrySuffix,
+              (args.reference?.trim() ?? p.code + '/' + occurrence) +
+              retrySuffix,
             description: d.description,
             currency,
-            date,
-            evidence: d.evidence,
+            date: postingDate,
+            evidence: args.evidence ?? d.evidence,
             lines,
           },
           event,
@@ -801,7 +1065,7 @@ export class FinanceGlWorkflowsService {
         )
           throw new ForbiddenException('Schedule preparer authority changed.');
         const pending = await this.db.query(
-          "SELECT snapshot->>'occurrence' occurrence FROM finance_operating_postings WHERE book_id=$1 AND source_type='GL_VOUCHER' AND snapshot->>'programCode'=$2 AND NOT EXISTS(SELECT 1 FROM finance_approval_requests ar WHERE ar.candidate_id=finance_operating_postings.candidate_id AND ar.state='REJECTED_INACTIVE')",
+          "SELECT snapshot->>'occurrence' occurrence FROM finance_operating_postings WHERE book_id=$1 AND source_type='GL_VOUCHER' AND snapshot->>'programCode'=$2",
           [p.book_id, p.code],
         );
         const done = new Set(pending.map((x) => x.occurrence));

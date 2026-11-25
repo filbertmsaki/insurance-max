@@ -77,12 +77,18 @@ export async function revalue(
   const open = o.payload.balances.find(
     (a: { accountCode: string }) => a.accountCode === role.accountCode,
   );
-  candidateAmount(d.openingFunctional ?? '0', scale);
+  candidateAmount((d.openingFunctional ?? '0').replace(/^-/, ''), scale);
   const openFx = DecimalUtil.value(d.openingForeign),
     openFunctional = DecimalUtil.value(d.openingFunctional);
   if (
     !open ||
-    openFunctional.gt(DecimalUtil.value(open.signedBalance).abs()) ||
+    openFunctional.abs().gt(DecimalUtil.value(open.signedBalance).abs()) ||
+    (!openFunctional.isZero() &&
+      openFunctional.isNegative() !==
+        DecimalUtil.value(open.signedBalance)
+          .mul(role.accountType === 'ASSET' ? 1 : -1)
+          .isNegative()) ||
+    openFx.isNegative() !== openFunctional.isNegative() ||
     openFx.isZero() !== openFunctional.isZero()
   )
     throw new ConflictException(
@@ -102,11 +108,12 @@ export async function revalue(
       );
   } else {
     const [assigned] = await m.query(
-      'SELECT coalesce(sum(carrying_amount),0)::text total FROM finance_gl_fx_openings WHERE opening_id=$1 AND account_code=$2',
+      'SELECT coalesce(sum(abs(carrying_amount)),0)::text total FROM finance_gl_fx_openings WHERE opening_id=$1 AND account_code=$2',
       [o.id, role.accountCode],
     );
     if (
       openFunctional
+        .abs()
         .plus(assigned.total)
         .gt(DecimalUtil.value(open.signedBalance).abs())
     )

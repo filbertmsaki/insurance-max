@@ -452,7 +452,7 @@ async function createFoundationFixture(
     );
     return a;
   };
-  const release = async () => {
+  const release = async (activeTo = '2026-12-01') => {
     const a = await acceptance(),
       liveOpening = await ledger.prepareOpening(
         f.maker,
@@ -489,7 +489,7 @@ async function createFoundationFixture(
         acceptanceId: a.id,
         acceptanceHash: a.subjectHash,
         activeFrom: today,
-        activeTo: '2026-12-01',
+        activeTo,
         sourceReconciliationHash: FOUNDATION_TEST_HASH,
         openingId: liveOpening.id,
         openingHash: liveOpening.subjectHash,
