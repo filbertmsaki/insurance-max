@@ -85,28 +85,49 @@ describe('Company setup input and completion boundaries', () => {
     expect(issues).toContain('Provide the functional currency assessment.');
     expect(issues).toContain('Specify precision for every selected currency.');
   });
-  it.each(
+  const jan = { code: 'P1', from: '2026-01-01', to: '2026-02-01' };
+  const feb = { code: 'P2', from: '2026-02-01', to: '2026-03-01' };
+  const calendarIssues = (periods: (typeof jan & { kind?: string })[]) =>
+    setupAnswerIssues({
+      ...draft(),
+      step: 'G04-04',
+      effectiveFrom: jan.from,
+      evidence: [evidence()],
+      answers: {
+        calendarCode: 'CAL',
+        fiscalYearEnd: '02-28',
+        timezone: 'Africa/Dar_es_Salaam',
+        closeProcedure: 'Approve closing the period',
+        reopeningProcedure: 'Approve reopening the period',
+        periods,
+      },
+    });
+  it.each([
     [
-      [
-        { code: 'P1', from: '2026-01-01', to: '2026-02-01' },
-        { code: 'P2', from: '2026-01-31', to: '2026-03-01' },
-      ],
-      [
-        { code: 'P1', from: '2026-01-01', to: '2026-02-01' },
-        { code: 'P2', from: '2026-02-02', to: '2026-03-01' },
-      ],
-      [
-        { code: 'P1', from: '2026-01-01', to: '2026-02-01' },
-        { code: 'P1', from: '2026-02-01', to: '2026-03-01' },
-      ],
-    ].map((periods) => [periods]),
-  )('rejects overlapping, gapped or duplicate financial periods', (periods) =>
-    expect(
-      setupAnswerIssues({ ...draft(), step: 'G04-04', answers: { periods } }),
-    ).toContain(
-      'Calendar periods require unique codes and contiguous, nonoverlapping exclusive-end intervals.',
-    ),
+      [jan, { ...feb, from: '2026-01-31' }],
+      'Use unique period codes and valid exclusive end dates. Regular periods must be ordered and cannot overlap.',
+    ],
+    [
+      [jan, { ...feb, from: '2026-02-02' }],
+      'Calendar periods must cover a contiguous interval without gaps.',
+    ],
+    [
+      [jan, { ...feb, code: jan.code }],
+      'Use unique period codes and valid exclusive end dates. Regular periods must be ordered and cannot overlap.',
+    ],
+  ] as [(typeof jan)[], string][])(
+    'rejects invalid regular periods',
+    (periods, message) => expect(calendarIssues(periods)).toContain(message),
   );
+  it('accepts a separately named adjustment period overlapping the regular calendar', () => {
+    expect(
+      calendarIssues([
+        jan,
+        feb,
+        { ...jan, code: 'ADJ', kind: 'ADJUSTMENT', from: '2026-01-31' },
+      ]),
+    ).toEqual([]);
+  });
   it('does not accept activation as setup completion', () =>
     expect(
       setupAnswerIssues({

@@ -106,9 +106,44 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
       description: string;
       amount: string;
       resolved: boolean;
+      treatment?: string;
+      evidence?: Evidence;
     }[];
+  const held = (w.scheduleHolds ?? []).find(
+    (h) =>
+      h.programId === p?.id &&
+      h.date === date &&
+      ['GENERATE', 'AMORTIZE'].includes(stage),
+  );
+  const positions = (d.openingPositions ?? []) as {
+    branch: string;
+    currency: string;
+    foreign: string;
+    carrying: string;
+  }[];
   return (
     <section className="space-y-4">
+      {(w.scheduleHolds ?? []).map((h) => (
+        <div key={h.programId + h.date}>
+          <strong>
+            {h.code} · {h.date}
+          </strong>{' '}
+          {h.reason}{' '}
+          {canPrepare && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                load(w.programs.find((x) => x.id === h.programId));
+                T(h.date);
+                A(h.kind === 'PREPAYMENT' ? 'AMORTIZE' : 'GENERATE');
+                setPostingDate(today());
+              }}
+            >
+              Recover missed occurrence
+            </Button>
+          )}
+        </div>
+      ))}
       <Field
         label="Program register"
         value={selected}
@@ -240,8 +275,84 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
             {field('monetaryRole', 'Monetary account', roles)}
             {field('gainRole', 'FX gain account', roles)}
             {field('lossRole', 'FX loss account', roles)}
-            {field('openingForeign', 'Certified foreign opening amount')}
-            {field('openingFunctional', 'Certified functional opening amount')}
+            {!positions.length && (
+              <>
+                {field('openingForeign', 'Certified foreign opening amount')}
+                {field(
+                  'openingFunctional',
+                  'Certified functional opening amount',
+                )}
+              </>
+            )}
+            {positions.map((row, index) => (
+              <fieldset key={index} className="grid gap-2">
+                <legend>Opening position {index + 1}</legend>
+                {(['branch', 'currency', 'foreign', 'carrying'] as const).map(
+                  (key) => (
+                    <Field
+                      key={key}
+                      label={
+                        {
+                          branch: 'Branch',
+                          currency: 'Currency',
+                          foreign: 'Signed foreign amount',
+                          carrying: 'Signed carrying amount',
+                        }[key]
+                      }
+                      value={row[key]}
+                      options={
+                        key === 'branch'
+                          ? branches
+                          : key === 'currency'
+                            ? strings(Object.keys(w.currencies))
+                            : undefined
+                      }
+                      change={(value) =>
+                        set(
+                          'openingPositions',
+                          positions.map((r, i) =>
+                            i === index ? { ...r, [key]: value } : r,
+                          ),
+                        )
+                      }
+                    />
+                  ),
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    set(
+                      'openingPositions',
+                      positions.length === 1
+                        ? undefined
+                        : positions.filter((_, i) => i !== index),
+                    )
+                  }
+                >
+                  Remove opening position
+                </Button>
+              </fieldset>
+            ))}
+            <Button
+              variant="outline"
+              onClick={() =>
+                set('openingPositions', [
+                  ...positions,
+                  {
+                    branch: positions.length ? '' : (d.dimensions.BRANCH ?? ''),
+                    currency: d.currency,
+                    foreign: positions.length
+                      ? ''
+                      : String(d.openingForeign ?? ''),
+                    carrying: positions.length
+                      ? ''
+                      : String(d.openingFunctional ?? ''),
+                  },
+                ])
+              }
+            >
+              Add branch and currency opening position
+            </Button>
           </>
         )}
         {kind === 'RECONCILIATION' && (
@@ -352,6 +463,44 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
                   }
                 />
               ))}
+              <Field
+                label="Statement adjustment"
+                value={item.treatment ?? 'NOTE'}
+                options={[
+                  { value: 'NOTE', label: 'Note only' },
+                  {
+                    value: 'ADD_TO_STATEMENT',
+                    label: 'Add to statement balance',
+                  },
+                  {
+                    value: 'SUBTRACT_FROM_STATEMENT',
+                    label: 'Subtract from statement balance',
+                  },
+                ]}
+                change={(value) =>
+                  set(
+                    'exceptions',
+                    exceptions.map((row, j) =>
+                      i === j ? { ...row, treatment: value } : row,
+                    ),
+                  )
+                }
+              />
+              {item.treatment && item.treatment !== 'NOTE' && (
+                <DocumentField
+                  label="Timing item evidence"
+                  w={w}
+                  value={item.evidence}
+                  change={(value) =>
+                    set(
+                      'exceptions',
+                      exceptions.map((row, j) =>
+                        i === j ? { ...row, evidence: value } : row,
+                      ),
+                    )
+                  }
+                />
+              )}
               <label>
                 <input
                   type="checkbox"
@@ -387,6 +536,22 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
           </Button>
         </div>
       )}
+      {p?.state === 'DRAFT' &&
+        p.kind === 'RECONCILIATION' &&
+        p.definition.reconciliation && (
+          <p>
+            Saved reconciliation for review · Ledger{' '}
+            {p.definition.reconciliation.ledgerBalance} · Statement{' '}
+            {p.definition.reconciliation.statementBalance} · Original difference{' '}
+            {p.definition.reconciliation.rawDifference ??
+              p.definition.reconciliation.difference}{' '}
+            · Adjusted statement{' '}
+            {p.definition.reconciliation.adjustedStatementBalance ??
+              p.definition.reconciliation.statementBalance}{' '}
+            · Unexplained difference {p.definition.reconciliation.difference} ·
+            Open items {p.definition.reconciliation.openItems}
+          </p>
+        )}
       <Field label="Action reason" value={reason} change={R} />
       <div className="flex flex-wrap gap-2">
         {canPrepare && (
@@ -464,10 +629,14 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
                   j.snapshot.reference + ' · ' + j.snapshot.transactionDate,
               }))}
           />
-          {retry && (
+          {(retry || held) && (
             <>
               <Field
-                label="Correction posting date"
+                label={
+                  held && !retry
+                    ? 'Recovery posting date'
+                    : 'Correction posting date'
+                }
                 type="date"
                 value={postingDate}
                 change={setPostingDate}
@@ -513,7 +682,7 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
             disabled={
               busy ||
               !reason.trim() ||
-              (!!retry && !evidence) ||
+              ((!!retry || !!held) && !evidence) ||
               (stage === 'SETTLE' && !!amount && !reference)
             }
             onClick={() =>
@@ -524,6 +693,9 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
                   date,
                   subjectHash: p.subject_hash,
                   ...(reference ? { reference } : {}),
+                  ...(held && !retry
+                    ? { postingDate: postingDate || date, evidence }
+                    : {}),
                   ...(stage === 'SETTLE' && amount ? { amount } : {}),
                   ...(retry
                     ? {
@@ -563,8 +735,10 @@ export function GlProgramForm({ w, canPrepare, canReview, busy, send }: Props) {
         <p key={r.id}>
           {w.programs.find((p) => p.id === r.id)?.code} ·{' '}
           {r.current ? 'Signed off' : 'Ledger changed since sign-off'} · Ledger
-          balance {r.ledgerBalance} · Difference {r.difference} · Open items{' '}
-          {r.openItems}
+          balance {r.ledgerBalance} · Statement {r.statementBalance} · Original
+          difference {r.rawDifference ?? r.difference} · Timing adjustment{' '}
+          {r.timingAdjustment} · Adjusted statement {r.adjustedStatementBalance}{' '}
+          · Unexplained difference {r.difference} · Open items {r.openItems}
         </p>
       ))}
     </section>

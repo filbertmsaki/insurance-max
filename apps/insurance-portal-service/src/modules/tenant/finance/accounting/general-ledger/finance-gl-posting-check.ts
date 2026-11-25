@@ -45,7 +45,12 @@ export async function verifyGlPosting(
       `SELECT 1 FROM finance_gl_programs t WHERE t.book_id=$1 AND t.id=$2 AND t.subject_hash=$3 AND t.kind='TEMPLATE'
       AND t.definition->>'start'<=$4 AND t.definition->>'end'>=$4 AND EXISTS(SELECT 1 FROM finance_gl_decisions d WHERE d.program_id=t.id AND d.action='APPROVE')
       AND NOT EXISTS(SELECT 1 FROM finance_gl_decisions d WHERE d.program_id=t.id AND d.action='PAUSE')`,
-      [b.book_id, s.templateId, s.templateHash, s.transactionDate],
+      [
+        b.book_id,
+        s.templateId,
+        s.templateHash,
+        s.catchUpDate ?? s.transactionDate,
+      ],
     );
     if (!t)
       throw new ConflictException(

@@ -18,6 +18,10 @@ type Request = {
     description?: string;
     bankReference?: string;
     programCode?: string;
+    adjustmentPeriodId?: string;
+    adjustmentPeriodCode?: string;
+    catchUpDate?: string;
+    recoveryReason?: string;
     rateId?: string;
     originalJournalId?: string;
     evidence?: { id: string; documentId: string; hash: string };
@@ -155,6 +159,19 @@ export function OperatingPostings({
               {item.snapshot.description && <p>{item.snapshot.description}</p>}
               {item.snapshot.programCode && (
                 <p>Program {item.snapshot.programCode}</p>
+              )}
+              {item.snapshot.adjustmentPeriodId && (
+                <p>
+                  Adjustment period{' '}
+                  {item.snapshot.adjustmentPeriodCode ??
+                    item.snapshot.adjustmentPeriodId}
+                </p>
+              )}
+              {item.snapshot.catchUpDate && (
+                <p>
+                  Missed instalment due {item.snapshot.catchUpDate} ·{' '}
+                  {item.snapshot.recoveryReason}
+                </p>
               )}
               {item.snapshot.originalJournalId && (
                 <p>Original journal {item.snapshot.originalJournalId}</p>

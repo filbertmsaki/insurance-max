@@ -15,6 +15,7 @@ export function Field({
   change,
   options,
   type = 'text',
+  emptyOptionLabel = 'Select',
   suggestions,
 }: {
   label: string;
@@ -22,6 +23,7 @@ export function Field({
   change: (v: string) => void;
   options?: Option[];
   type?: string;
+  emptyOptionLabel?: string;
   suggestions?: Option[];
 }) {
   const id = useId(),
@@ -36,7 +38,7 @@ export function Field({
           value={value}
           onChange={(e) => change(e.target.value)}
         >
-          <option value="">Select</option>
+          <option value="">{emptyOptionLabel}</option>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -95,17 +97,19 @@ export function Dimensions({
   );
 }
 export function DocumentField({
+  label = 'Supporting document version',
   w,
   value,
   change,
 }: {
   w: Workspace;
+  label?: string;
   value?: Evidence;
   change: (e: Evidence | undefined) => void;
 }) {
   return (
     <Field
-      label="Supporting document version"
+      label={label}
       value={value?.id ?? ''}
       options={w.documents.map((d) => ({
         value: d.id,

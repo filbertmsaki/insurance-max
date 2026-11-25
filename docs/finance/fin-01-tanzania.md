@@ -16,7 +16,7 @@ P0 items determine whether the company can begin ordinary financial activity. P1
 | FIN-01.04 Currency management | P0 | Implemented | Approved transaction and reporting currencies have explicit precision. Source invoice, receipt, allocation and payment amounts retain their entered precision and postings check the currency rules. |
 | FIN-01.05 Exchange rates | P0 | Implemented | Foreign-currency journals require a dated, independently reviewed rate in the matching currency context. |
 | FIN-01.06 Financial year | P0 | Implemented | The reviewed year end and timezone define the financial calendar and bound the current release. |
-| FIN-01.07 Accounting periods | P0 | Implemented | Activation installs the reviewed regular and adjustment periods. Issuance and collection use open regular periods. Closing or fencing a period retains its history. |
+| FIN-01.07 Accounting periods | P0 | Implemented | Activation installs regular periods and separately fenced adjustment periods. An evidenced manual journal or reversal can select an open adjustment period after the regular period closes. Invoices and receipts use open regular periods. |
 | FIN-01.08 Chart of accounts | P0 | Implemented | The release pins the reviewed chart. Native invoice and receipt lines resolve to its debit and credit roles. |
 | FIN-01.09 Financial dimensions | P1 | Implemented | Source documents accept approved business dimensions, including departments and cost centres. Company, branch and product values use the reviewed source masters. Journal lines retain the values used. |
 | FIN-01.10 Document numbering | P1 | Implemented | Reviewed sequences cover nine document types, including financial reversals. Allocation is atomic and checks earlier issued references. |

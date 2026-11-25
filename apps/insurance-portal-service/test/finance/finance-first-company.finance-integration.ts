@@ -1,3 +1,4 @@
+import { FinanceLedgerPeriodAndBalances1799200000000 } from '../../src/database/migrations/1799200000000-FinanceLedgerPeriodAndBalances';
 import { FinanceLedgerCompletion1799100000000 } from '../../src/database/migrations/1799100000000-FinanceLedgerCompletion';
 import { FinanceGeneralLedgerWorkflows1799000000000 } from '../../src/database/migrations/1799000000000-FinanceGeneralLedgerWorkflows';
 import {
@@ -38,6 +39,12 @@ describe('FIN-01 first company through first live journals', () => {
           until,
           document,
         }) => {
+          const monthStart = today.slice(0, 7) + '-01';
+          const since = !insurer
+            ? today
+            : new Date(Date.parse(monthStart + 'T00:00:00Z') - 86400000)
+                .toISOString()
+                .slice(0, 7) + '-01';
           const reason = 'Company finance workflow acceptance',
             evidenceHash = document.hash;
           expect(await call(checker, 'foundation/scopes')).toEqual([]);
@@ -104,7 +111,7 @@ describe('FIN-01 first company through first live journals', () => {
               step: code,
               version: 1,
               purpose: 'COMPANY_SETUP',
-              effectiveFrom: today,
+              effectiveFrom: since,
               effectiveTo: until,
               answers,
               dependencies: pins,
@@ -139,7 +146,7 @@ describe('FIN-01 first company through first live journals', () => {
               kind,
               key: kind,
               version: 1,
-              effectiveFrom: today,
+              effectiveFrom: since,
               effectiveTo: until,
               dependencyRefs: Array.from(
                 { length: 15 },
@@ -172,7 +179,7 @@ describe('FIN-01 first company through first live journals', () => {
             );
             const [v] = await db.query(
               "INSERT INTO insurance_product_versions(company_id,product_id,version_number,status,product_name,business_line,effective_from,effective_to,definition_hash) VALUES($1,$2,1,'PUBLISHED','Property','GENERAL',$3,$4,$5) RETURNING id",
-              [company, prod.id, today, until, evidenceHash],
+              [company, prod.id, since, until, evidenceHash],
             );
             await db.query(
               'UPDATE insurance_products SET current_version_id=$1 WHERE id=$2',
@@ -240,7 +247,19 @@ describe('FIN-01 first company through first live journals', () => {
             closeProcedure: reason,
             reopeningProcedure: reason,
             periods: [
+              ...(since < monthStart
+                ? [{ code: 'PREVIOUS', from: since, to: monthStart }]
+                : []),
+              ...(since < monthStart && monthStart < today
+                ? [{ code: 'CURRENT', from: monthStart, to: today }]
+                : []),
               { code: 'FIRST', from: today, to: tomorrow },
+              {
+                code: 'YEAR-END-ADJ',
+                kind: 'ADJUSTMENT',
+                from: today,
+                to: tomorrow,
+              },
               { code: 'NEXT', from: tomorrow, to: until },
             ],
           });
@@ -248,7 +267,7 @@ describe('FIN-01 first company through first live journals', () => {
             input: {
               version: 1,
               legalRole: profile,
-              effectiveFrom: today,
+              effectiveFrom: since,
               effectiveTo: until,
             },
           });
@@ -259,7 +278,7 @@ describe('FIN-01 first company through first live journals', () => {
           );
           await step('G04-05', {
             sourceMapIds: [map.map.id],
-            cutoffDate: today,
+            cutoffDate: since,
             populationEvidenceHash: evidenceHash,
             reconciliationProcedure: reason,
           });
@@ -278,6 +297,7 @@ describe('FIN-01 first company through first live journals', () => {
             ['113900', 'Branch Clearing', 'ASSET'],
             ['511003', 'Claim Recoveries', 'EXPENSE'],
             ['113003', 'Reinsurance receivables', 'ASSET'],
+            ['112009', 'Deposits in transit', 'ASSET'],
             ...(insurer
               ? [
                   ['221001', 'Insurance contract liabilities', 'LIABILITY'],
@@ -296,6 +316,7 @@ describe('FIN-01 first company through first live journals', () => {
             'CLEARING',
             'CLAIM_RECOVERY',
             'CEDED_RECEIVABLE',
+            'TRANSIT',
             ...(insurer ? ['LRC', 'INSURANCE_REVENUE'] : []),
           ];
           const chart = await config('ACCOUNT_ROLES', {
@@ -621,7 +642,7 @@ describe('FIN-01 first company through first live journals', () => {
             functionalCurrency: 'TZS',
             presentationCurrencies: ['TZS'],
             currencyScales: { TZS: 2, USD: 2 },
-            effectiveFrom: today,
+            effectiveFrom: since,
             effectiveTo: until,
             rateSources: ['BANK'],
             maxRateAgeDays: 1,
@@ -740,7 +761,7 @@ describe('FIN-01 first company through first live journals', () => {
                   : policyCode === 'AP-07.01'
                     ? 'OPERATIONAL'
                     : 'CONTROL',
-              effectiveFrom: today,
+              effectiveFrom: since,
               effectiveTo: until,
               configuration: {
                 currencyContextHash: currencyContextPolicyHash(ctx),
@@ -835,20 +856,27 @@ describe('FIN-01 first company through first live journals', () => {
             };
           const openingInput = {
             ...contextPin,
-            date: today,
+            date: since,
             balances: accounts.map(([accountCode]) => ({
               accountCode,
-              signedBalance: '0',
+              signedBalance:
+                insurer && accountCode === '1200'
+                  ? '150000'
+                  : insurer && accountCode === '113900'
+                    ? '-150000'
+                    : '0',
             })),
             sourceReference: reason,
             sourceEvidenceHash: evidenceHash,
-            explicitZeroReason: 'New company with no historic balances.',
+            explicitZeroReason: insurer
+              ? null
+              : 'New company with no historic balances.',
           };
           await post(checker, 'foundation/periods', {
             input: {
               code: 'VALIDATION',
               mode: 'VALIDATION',
-              from: today,
+              from: since,
               to: until,
             },
             evidenceHash,
@@ -861,7 +889,7 @@ describe('FIN-01 first company through first live journals', () => {
             ...contextPin,
             openingId: val.id,
             openingHash: val.subjectHash,
-            from: today,
+            from: since,
             to: until,
             checks: FOUNDATION_CHECKS.map((code) => ({
               code,
@@ -872,6 +900,22 @@ describe('FIN-01 first company through first live journals', () => {
             historicalProtectionHash: evidenceHash,
             scopeReference: reason,
           });
+          // Date the insurer's cutover at the start of the prior month. Move the
+          // book clock back to the session date before exercising the scheduler.
+          const queryDatabase = db.query.bind(db);
+          const cutoverClock = insurer
+            ? jest
+                .spyOn(db, 'query')
+                .mockImplementation((sql, parameters, runner) =>
+                  sql === 'SELECT statement_timestamp()::date::text today'
+                    ? queryDatabase(
+                        'SELECT $1::date::text today',
+                        [since],
+                        runner,
+                      )
+                    : queryDatabase(sql, parameters, runner),
+                )
+            : undefined;
           const opening = await ledgerDoc('openings', {
             ...openingInput,
             mode: 'LIVE',
@@ -882,7 +926,7 @@ describe('FIN-01 first company through first live journals', () => {
               ...contextPin,
               acceptanceId: accept.id,
               acceptanceHash: accept.subjectHash,
-              activeFrom: today,
+              activeFrom: since,
               activeTo: until,
               sourceReconciliationHash: evidenceHash,
               openingId: opening.id,
@@ -891,6 +935,7 @@ describe('FIN-01 first company through first live journals', () => {
               authorityReference: reason,
             },
           });
+          cutoverClock?.mockRestore();
           await post(
             checker,
             'foundation/releases/' + release.id + '/approval',
@@ -1139,6 +1184,9 @@ describe('FIN-01 first company through first live journals', () => {
             ).rejects.toThrow('matching effective source record');
           }
           await exerciseGeneralLedger({
+            since,
+            monthStart,
+            netOpening: insurer ? 150000 : 0,
             runDue: () => app.get(FinanceGlWorkflowsService).runDue(),
             post,
             call,
@@ -1201,6 +1249,11 @@ describe('FIN-01 first company through first live journals', () => {
               deployment: 'ENABLE',
               accounting: { overlaps: 0 },
             });
+            await expect(
+              new FinanceLedgerPeriodAndBalances1799200000000().down(reader),
+            ).rejects.toThrow(
+              'Preserve adjustment, schedule and balance history',
+            );
             await expect(
               new FinanceLedgerCompletion1799100000000().down(reader),
             ).rejects.toThrow('Preserve FIN-02 corrections');

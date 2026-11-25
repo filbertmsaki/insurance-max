@@ -296,6 +296,7 @@ export class FinanceGlVoucherService {
     const chart = await bookChart(m, b);
     if (
       v.evidence ||
+      v.adjustmentPeriodId ||
       kind !== 'MANUAL' ||
       v.replacementOf ||
       v.lines?.some(
@@ -314,6 +315,9 @@ export class FinanceGlVoucherService {
       description: v.description,
       snapshot: {
         ...origin,
+        ...(v.adjustmentPeriodId
+          ? { adjustmentPeriodId: v.adjustmentPeriodId }
+          : {}),
         ...(supersedesCandidateId ? { supersedesCandidateId } : {}),
         requestHash,
         sourceId: id,
@@ -347,6 +351,7 @@ export class FinanceGlVoucherService {
       date: string;
       description: string;
       evidence: Evidence;
+      adjustmentPeriodId?: string;
     },
   ) {
     return this.ledger.withWorkflowAuthority(
@@ -419,6 +424,8 @@ export class FinanceGlVoucherService {
           description: v.description,
           snapshot: {
             ...orig.snapshot,
+            adjustmentPeriodId: v.adjustmentPeriodId ?? null,
+            adjustmentPeriodCode: null,
             ...(previous
               ? { supersedesCandidateId: previous.candidate_id }
               : {}),

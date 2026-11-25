@@ -1,8 +1,11 @@
+import { signedUnits } from './finance-ledger-foundation.types';
 import { ConflictException } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { DecimalUtil } from '../../../../shared/finance/decimal.util';
 import { financeConfigurationHash as hash } from '../../foundation/finance-configuration/finance-configuration.types';
 import { monetaryRevaluation } from '../../foundation/currencies/finance-currency-controls';
+import { documentDimensionFields } from '../../foundation/finance-setup/finance-operating-dimensions';
+import { FINANCE_UUID } from '../../foundation/finance-configuration/finance-configuration.types';
 import type { ActivePostingBook } from './finance-book-request';
 import type { FinanceChartProposal } from '../../foundation/chart-of-accounts/finance-chart.types';
 import { candidateAmount } from '../journal-entries/finance-journal-candidate.types';
@@ -29,6 +32,176 @@ export function nextDate(date: string) {
     .toISOString()
     .slice(0, 10);
 }
+function monetaryRole(
+  b: ActivePostingBook,
+  d: ProgramDefinition,
+  chart: FinanceChartProposal,
+) {
+  const role = chart.roles.find((r) => r.code === d.monetaryRole);
+  if (
+    !role?.accountCode ||
+    !['ASSET', 'LIABILITY'].includes(role.accountType) ||
+    d.owner !== 'FINANCE_IAS21' ||
+    d.currency === b.context.functionalCurrency ||
+    chart.roles.find((r) => r.code === d.gainRole)?.accountType !== 'INCOME' ||
+    chart.roles.find((r) => r.code === d.lossRole)?.accountType !== 'EXPENSE'
+  )
+    throw new ConflictException(
+      'Choose a finance-owned foreign monetary asset or liability and approved FX income and expense accounts.',
+    );
+  return role;
+}
+export async function certifyFxPositions(
+  m: EntityManager,
+  b: ActivePostingBook,
+  d: ProgramDefinition,
+  chart: FinanceChartProposal,
+  programId?: string,
+) {
+  const positions = d.openingPositions;
+  if (!Array.isArray(positions) || !positions.length || positions.length > 500)
+    throw new ConflictException(
+      'Provide the complete branch and currency opening for this account.',
+    );
+  const role = monetaryRole(b, d, chart);
+  const opening = await certifiedOpening(m, b.book_id, d.start);
+  if (programId && opening.id !== d.openingCertificateId)
+    throw new ConflictException(
+      'Review the allocation against the current opening certificate.',
+    );
+  const account = opening.payload.balances.find(
+    (x: { accountCode: string }) => x.accountCode === role.accountCode,
+  );
+  if (!account)
+    throw new ConflictException('Select an account in the certified opening.');
+  const branches =
+    (await documentDimensionFields(m, b.company_id, b.book_id)).find(
+      (f) => f.code === 'BRANCH',
+    )?.options ?? [];
+  const keys = new Set<string>();
+  const functional = b.context.functionalCurrency;
+  let total = 0n;
+  const rows = positions
+    .map((position) => {
+      if (
+        !position ||
+        !FINANCE_UUID.test(position.branch) ||
+        !branches.some((x) => x.value === position.branch) ||
+        !Object.hasOwn(b.context.currencyScales, position.currency)
+      )
+        throw new ConflictException(
+          'Select a reviewed branch and currency on each opening line.',
+        );
+      const signed = (value: string, currency: string) => {
+        if (typeof value !== 'string')
+          throw new ConflictException(
+            'Enter signed foreign and carrying amounts for each opening.',
+          );
+        candidateAmount(
+          value.replace(/^-/u, ''),
+          b.context.currencyScales[currency],
+        );
+        return DecimalUtil.value(value);
+      };
+      const foreign = signed(position.foreign, position.currency),
+        carrying = signed(position.carrying, functional);
+      if (
+        foreign.cmp(0) !== carrying.cmp(0) ||
+        (position.currency === functional && !foreign.eq(carrying))
+      )
+        throw new ConflictException(
+          'Opening amounts must have matching signs and agree in the functional currency.',
+        );
+      const key = hash([
+        b.book_id,
+        role.accountCode,
+        position.branch,
+        position.currency,
+      ]);
+      if (keys.has(key))
+        throw new ConflictException(
+          'Enter one opening per branch and currency.',
+        );
+      keys.add(key);
+      total += signedUnits(position.carrying);
+      return {
+        key,
+        branch: position.branch,
+        currency: position.currency,
+        foreign: foreign.toFixed(),
+        carrying: carrying.toFixed(),
+      };
+    })
+    .sort((a, b) => a.key.localeCompare(b.key));
+  if (
+    total !==
+    signedUnits(account.signedBalance) *
+      (role.accountType === 'ASSET' ? 1n : -1n)
+  )
+    throw new ConflictException(
+      'Signed carrying amounts must sum to the certified account opening.',
+    );
+  const selected = rows.find(
+    (x) => x.branch === d.dimensions.BRANCH && x.currency === d.currency,
+  );
+  if (!selected)
+    throw new ConflictException(
+      'Include the program position in the opening allocation.',
+    );
+  const digest = hash(rows);
+  const [sealed] = await m.query(
+    'SELECT subject_hash FROM finance_gl_fx_opening_sets WHERE opening_id=$1 AND account_code=$2',
+    [opening.id, role.accountCode],
+  );
+  if (sealed && sealed.subject_hash !== digest)
+    throw new ConflictException(
+      'This certificate already has a different approved opening allocation.',
+    );
+  const existing = await m.query(
+    'SELECT position_key,foreign_amount,carrying_amount FROM finance_gl_fx_openings WHERE opening_id=$1 AND account_code=$2',
+    [opening.id, role.accountCode],
+  );
+  for (const row of existing) {
+    const match = rows.find((x) => x.key === row.position_key);
+    if (
+      !match ||
+      !DecimalUtil.value(match.foreign).eq(row.foreign_amount) ||
+      !DecimalUtil.value(match.carrying).eq(row.carrying_amount)
+    )
+      throw new ConflictException(
+        'The allocation must preserve every existing certified position.',
+      );
+  }
+  if (programId && !sealed) {
+    await m.query(
+      'INSERT INTO finance_gl_fx_opening_sets(opening_id,book_id,account_code,payload,subject_hash,program_id) VALUES($1,$2,$3,$4::jsonb,$5,$6)',
+      [
+        opening.id,
+        b.book_id,
+        role.accountCode,
+        JSON.stringify(rows),
+        digest,
+        programId,
+      ],
+    );
+    await m.query(
+      `INSERT INTO finance_gl_fx_openings(opening_id,book_id,account_code,position_key,foreign_amount,carrying_amount,evidence)
+      SELECT $1,$2,$3,x.key,x."foreign"::numeric,x.carrying::numeric,$5::jsonb FROM jsonb_to_recordset($4::jsonb) AS x(key text,"foreign" text,carrying text) ON CONFLICT(opening_id,position_key) DO NOTHING`,
+      [
+        opening.id,
+        b.book_id,
+        role.accountCode,
+        JSON.stringify(rows),
+        d.evidence,
+      ],
+    );
+  }
+  return {
+    openingCertificateId: opening.id,
+    openingForeign: selected.foreign,
+    openingFunctional: selected.carrying,
+  };
+}
 export async function revalue(
   m: EntityManager,
   b: ActivePostingBook,
@@ -36,20 +209,9 @@ export async function revalue(
   date: string,
   chart: FinanceChartProposal,
 ) {
-  const role = chart.roles.find((r) => r.code === d.monetaryRole);
+  const role = monetaryRole(b, d, chart);
   const fx = b.context,
     scale = fx.currencyScales[fx.functionalCurrency];
-  if (
-    !role?.accountCode ||
-    !['ASSET', 'LIABILITY'].includes(role.accountType) ||
-    d.owner !== 'FINANCE_IAS21' ||
-    d.currency === fx.functionalCurrency ||
-    chart.roles.find((r) => r.code === d.gainRole)?.accountType !== 'INCOME' ||
-    chart.roles.find((r) => r.code === d.lossRole)?.accountType !== 'EXPENSE'
-  )
-    throw new ConflictException(
-      'Choose a finance-owned foreign monetary asset or liability and approved FX income and expense accounts.',
-    );
   const positionKey = hash([
     b.book_id,
     role.accountCode,
@@ -57,7 +219,7 @@ export async function revalue(
     d.currency,
   ]);
   const [period] = await m.query(
-    "SELECT ends_before::text FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND state='OPEN' AND ends_before=$2::date+1",
+    "SELECT ends_before::text FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND state='OPEN' AND period_kind='REGULAR' AND ends_before=$2::date+1",
     [b.book_id, date],
   );
   if (!period)
@@ -80,24 +242,29 @@ export async function revalue(
   candidateAmount((d.openingFunctional ?? '0').replace(/^-/, ''), scale);
   const openFx = DecimalUtil.value(d.openingForeign),
     openFunctional = DecimalUtil.value(d.openingFunctional);
+  if (d.openingCertificateId && d.openingCertificateId !== o.id)
+    throw new ConflictException(
+      'Review the opening positions for the new certificate.',
+    );
+  const [prior] = await m.query(
+    'SELECT * FROM finance_gl_fx_openings WHERE opening_id=$1 AND position_key=$2',
+    [o.id, positionKey],
+  );
   if (
     !open ||
-    openFunctional.abs().gt(DecimalUtil.value(open.signedBalance).abs()) ||
-    (!openFunctional.isZero() &&
-      openFunctional.isNegative() !==
-        DecimalUtil.value(open.signedBalance)
-          .mul(role.accountType === 'ASSET' ? 1 : -1)
-          .isNegative()) ||
+    (!prior &&
+      (openFunctional.abs().gt(DecimalUtil.value(open.signedBalance).abs()) ||
+        (!openFunctional.isZero() &&
+          openFunctional.isNegative() !==
+            DecimalUtil.value(open.signedBalance)
+              .mul(role.accountType === 'ASSET' ? 1 : -1)
+              .isNegative()))) ||
     openFx.isNegative() !== openFunctional.isNegative() ||
     openFx.isZero() !== openFunctional.isZero()
   )
     throw new ConflictException(
       'Reconcile the foreign opening position to the certified opening.',
     );
-  const [prior] = await m.query(
-    'SELECT * FROM finance_gl_fx_openings WHERE opening_id=$1 AND position_key=$2',
-    [o.id, positionKey],
-  );
   if (prior) {
     if (
       !openFx.eq(prior.foreign_amount) ||
@@ -107,6 +274,14 @@ export async function revalue(
         'This exposure already has a different certified foreign opening.',
       );
   } else {
+    const [sealed] = await m.query(
+      'SELECT 1 FROM finance_gl_fx_opening_sets WHERE opening_id=$1 AND account_code=$2',
+      [o.id, role.accountCode],
+    );
+    if (sealed)
+      throw new ConflictException(
+        'This position is outside the approved opening allocation.',
+      );
     const [assigned] = await m.query(
       'SELECT coalesce(sum(abs(carrying_amount)),0)::text total FROM finance_gl_fx_openings WHERE opening_id=$1 AND account_code=$2',
       [o.id, role.accountCode],
@@ -159,7 +334,7 @@ export async function revalue(
   }
   const close = foreign.mul(r.payload.rate).toFixed(scale);
   const { gain, loss } = monetaryRevaluation({
-    owner: d.owner,
+    owner: 'FINANCE_IAS21',
     previousFunctional: carrying.toString(),
     closingFunctional: close,
     position: role.accountType === 'ASSET' ? 'ASSET' : 'LIABILITY',

@@ -29,6 +29,7 @@ export interface VoucherInput {
   lines: VoucherLine[];
   evidence?: Evidence;
   replacementOf?: string;
+  adjustmentPeriodId?: string;
 }
 export type ProgramKind =
   | 'TEMPLATE'
@@ -79,12 +80,21 @@ export interface ProgramDefinition {
   owner?: 'FINANCE_IAS21';
   openingForeign?: string;
   openingFunctional?: string;
+  openingCertificateId?: string;
+  openingPositions?: {
+    branch: string;
+    currency: string;
+    foreign: string;
+    carrying: string;
+  }[];
   account?: string;
   statementBalance?: string;
   exceptions?: {
     reference: string;
     description: string;
     amount: string;
+    evidence?: Evidence;
+    treatment?: 'NOTE' | 'ADD_TO_STATEMENT' | 'SUBTRACT_FROM_STATEMENT';
     resolved: boolean;
   }[];
 }
@@ -103,6 +113,7 @@ export function moneyMinor(amount: string, scale: number) {
   return candidateAmount(amount, scale).units / 10n ** BigInt(12 - scale);
 }
 export function fromMinor(n: bigint, scale: number) {
+  if (n < 0n) return '-' + fromMinor(-n, scale);
   const s = n.toString().padStart(scale + 1, '0');
   return scale ? s.slice(0, -scale) + '.' + s.slice(-scale) : s;
 }
@@ -195,7 +206,11 @@ export function validateProgram(
       invalid(
         'Identify the finance-owned monetary account, branch and gain/loss roles.',
       );
-    moneyMinor((d.openingForeign ?? '0').replace(/^-/, ''), scale);
+    if (d.openingPositions === undefined) {
+      if (typeof (d.openingForeign ?? '0') !== 'string')
+        invalid('Enter a signed foreign opening amount.');
+      moneyMinor((d.openingForeign ?? '0').replace(/^-/, ''), scale);
+    }
   }
   if (kind === 'RECONCILIATION') {
     if (
@@ -211,10 +226,22 @@ export function validateProgram(
         !e ||
         !candidateText(e.reference) ||
         !candidateText(e.description, 1000) ||
-        typeof e.resolved !== 'boolean'
+        typeof e.resolved !== 'boolean' ||
+        (e.treatment !== undefined &&
+          !['NOTE', 'ADD_TO_STATEMENT', 'SUBTRACT_FROM_STATEMENT'].includes(
+            e.treatment,
+          ))
       )
         invalid('Identify each reconciling item and its resolution.');
-      moneyMinor(e.amount, scale);
+      const units = moneyMinor(e.amount, scale);
+      if (
+        e.treatment &&
+        e.treatment !== 'NOTE' &&
+        (units === 0n || !validEvidence(e.evidence))
+      )
+        invalid(
+          'Provide a positive amount and the supporting document version for each timing difference.',
+        );
     }
     if (
       new Set(d.exceptions.map((e) => e.reference)).size !== d.exceptions.length

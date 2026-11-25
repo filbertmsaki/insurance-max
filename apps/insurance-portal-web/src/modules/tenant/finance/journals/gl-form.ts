@@ -14,8 +14,19 @@ export type Voucher = {
   lines: Line[];
   evidence?: Evidence;
   replacementOf?: string;
+  adjustmentPeriodId?: string;
+};
+type ReconciliationTotals = {
+  ledgerBalance: string;
+  statementBalance: string;
+  rawDifference?: string;
+  timingAdjustment?: string;
+  adjustedStatementBalance?: string;
+  difference: string;
+  openItems: number;
 };
 export type Definition = {
+  reconciliation?: ReconciliationTotals;
   start: string;
   end: string;
   description: string;
@@ -88,14 +99,22 @@ export type Workspace = {
   drafts: { id: string; revision: number; input: Voucher }[];
   programs: Program[];
   insuranceMeasurements?: boolean;
-  registers: { code: string; currency: string; remaining: string }[];
-  reconciliations: {
+  adjustmentPeriods?: {
     id: string;
-    current: boolean;
-    ledgerBalance: string;
-    difference: string;
-    openItems: number;
+    code: string;
+    start: string;
+    finish: string;
+    ready: boolean | null;
   }[];
+  scheduleHolds?: {
+    programId: string;
+    code: string;
+    kind: string;
+    date: string;
+    reason: string;
+  }[];
+  registers: { code: string; currency: string; remaining: string }[];
+  reconciliations: (ReconciliationTotals & { id: string; current: boolean })[];
 };
 export const today = () => new Date().toLocaleDateString('sv-SE');
 export const emptyLine = (): Line => ({

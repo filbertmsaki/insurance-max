@@ -15,7 +15,10 @@ import {
 } from '../journal-entries/finance-journal-candidate.types';
 import { FinanceJournalCandidateService } from '../journal-entries/finance-journal-candidate.service';
 import { FinanceApprovalService } from '../../governance/finance-approvals/finance-approval.service';
-import { financeConfigurationHash as hash } from '../../foundation/finance-configuration/finance-configuration.types';
+import {
+  financeConfigurationHash as hash,
+  FINANCE_UUID,
+} from '../../foundation/finance-configuration/finance-configuration.types';
 import { financialSnapshotValue } from './finance-ledger-foundation.types';
 import type { FinanceBookSelection } from '../../foundation/finance-configuration/finance-scope.service';
 import { operatingDimensions } from '../../foundation/finance-setup/finance-operating-dimensions';
@@ -451,13 +454,29 @@ export class FinanceOperatingPostingService {
       config = book.context;
     const date = request.snapshot.transactionDate,
       currency = request.snapshot.currency;
+    const adjustment = request.snapshot.adjustmentPeriodId ?? null;
+    if (
+      adjustment !== null &&
+      (typeof adjustment !== 'string' ||
+        !FINANCE_UUID.test(adjustment) ||
+        !(
+          request.type === 'GL_REVERSAL' ||
+          (request.type === 'GL_VOUCHER' &&
+            request.snapshot.component === 'MANUAL')
+        ))
+    )
+      throw new ConflictException(
+        'Select an adjustment period for a manual journal or reversal.',
+      );
     const [period] = await m.query(
-      "SELECT id,revision FROM finance_draft_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND state='OPEN_FOR_VALIDATION' AND starts_on<=$4 AND ends_before>$4 FOR SHARE",
-      [...ids, date],
+      `SELECT d.id,d.revision,p.period_code FROM finance_draft_periods d JOIN finance_foundation_periods p ON p.book_id=d.book_id AND p.mode='LIVE' AND p.state='OPEN' AND p.starts_on<=$4 AND p.ends_before>$4
+       WHERE d.tenant_id=$1 AND d.legal_entity_id=$2 AND d.book_id=$3 AND d.state='OPEN_FOR_VALIDATION' AND d.starts_on<=$4 AND d.ends_before>$4 AND (to_jsonb(d)->>'adjustment_period_id') IS NOT DISTINCT FROM $5::text
+       AND (($5::text IS NULL AND p.period_kind='REGULAR') OR (p.period_kind='ADJUSTMENT' AND p.id::text=$5)) FOR SHARE OF p,d`,
+      [...ids, date, adjustment],
     );
     if (!period)
       throw new ConflictException(
-        'Open the journal validation period for this accounting date.',
+        'Open the ledger and journal validation period for this accounting date.',
       );
     const candidate = await this.candidates.prepareInactive(
       actor,
@@ -502,6 +521,7 @@ export class FinanceOperatingPostingService {
     );
     const snapshot = {
       ...request.snapshot,
+      ...(adjustment ? { adjustmentPeriodCode: period.period_code } : {}),
       candidateHash: candidate.subject_hash,
     };
     await m.query(

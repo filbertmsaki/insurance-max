@@ -1,6 +1,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  HttpException,
   Injectable,
   Logger,
 } from '@nestjs/common';
@@ -40,11 +41,19 @@ import {
   verifyMemoLinks,
   type MeasurementDelivery,
 } from './finance-ifrs-premiums';
+import { signedUnits } from './finance-ledger-foundation.types';
+import { prepareAdjustmentValidation } from '../../foundation/finance-setup/finance-operating-book';
 import { glDeployment } from './finance-book-request';
 import { glReadiness, recordGlDeployment } from './finance-gl-release';
-import { certifiedOpening, nextDate, revalue } from './finance-gl-balances';
+import {
+  certifiedOpening,
+  certifyFxPositions,
+  nextDate,
+  revalue,
+} from './finance-gl-balances';
 import {
   dueDate,
+  fromMinor,
   moneyMinor,
   invalid,
   programLines,
@@ -72,6 +81,7 @@ interface Program {
   maker_person_id: string;
   state: string;
 }
+const nextRevisionStart = `(SELECT min(q.definition->>'start') FROM finance_gl_programs q JOIN finance_gl_decisions approved ON approved.program_id=q.id AND approved.action='APPROVE' WHERE q.book_id=p.book_id AND q.code=p.code AND q.revision>p.revision)`;
 const versions =
   "SELECT p.*,CASE WHEN EXISTS(SELECT 1 FROM finance_gl_decisions e WHERE e.program_id=p.id AND e.action='PAUSE') THEN 'PAUSED' WHEN EXISTS(SELECT 1 FROM finance_gl_decisions e WHERE e.program_id=p.id AND e.action='APPROVE') THEN 'APPROVED' ELSE 'DRAFT' END state FROM finance_gl_programs p";
 async function approved(
@@ -89,6 +99,15 @@ async function approved(
       'An independently approved, unpaused version is required.',
     );
   return p;
+}
+async function verifyTimingEvidence(
+  m: EntityManager,
+  b: ActivePostingBook,
+  d: ProgramDefinition,
+) {
+  for (const item of d.exceptions ?? [])
+    if (item.treatment && item.treatment !== 'NOTE')
+      await ownedEvidence(m, b, item.evidence);
 }
 async function reconciliation(
   m: EntityManager,
@@ -117,15 +136,27 @@ async function reconciliation(
   const row = report.rows.find((r) => r.accountCode === d.account);
   if (!row)
     invalid('Choose an account included in the certified trial balance.');
-  const ledgerBalance = row.closing,
-    difference = DecimalUtil.value(ledgerBalance)
-      .minus(d.statementBalance!)
-      .toFixed(b.context.currencyScales[d.currency]);
+  const scale = b.context.currencyScales[d.currency];
+  const ledgerBalance = row.closing;
+  const factor = 10n ** BigInt(12 - scale);
+  const statement = signedUnits(d.statementBalance!) / factor;
+  const rawDifference = signedUnits(ledgerBalance) / factor - statement;
+  let timing = 0n;
+  for (const item of d.exceptions!) {
+    if (!item.resolved) continue;
+    if (item.treatment === 'ADD_TO_STATEMENT')
+      timing += moneyMinor(item.amount, scale);
+    if (item.treatment === 'SUBTRACT_FROM_STATEMENT')
+      timing -= moneyMinor(item.amount, scale);
+  }
   return {
     opening: o.id,
     ledgerBalance,
     statementBalance: d.statementBalance,
-    difference,
+    rawDifference: fromMinor(rawDifference, scale),
+    timingAdjustment: fromMinor(timing, scale),
+    adjustedStatementBalance: fromMinor(statement + timing, scale),
+    difference: fromMinor(rawDifference - timing, scale),
     openItems: d.exceptions!.filter((e) => !e.resolved).length,
     populationHash: report.populationHash,
   };
@@ -208,6 +239,29 @@ export class FinanceGlWorkflowsService {
         recordGlDeployment(m, a, await workflowBook(m, a, s), input, reason),
     );
   }
+  prepareAdjustment(
+    a: FoundationActor,
+    s: FinanceBookSelection,
+    id: string,
+    reason: string,
+  ) {
+    return this.ledger.withWorkflowAuthority(
+      a,
+      s,
+      'RELEASE',
+      reason,
+      async ({ manager: m }) => {
+        const b = await workflowBook(m, a, s);
+        return prepareAdjustmentValidation(
+          m,
+          a,
+          [b.tenant_id, b.legal_entity_id, b.book_id],
+          id,
+          reason,
+        );
+      },
+    );
+  }
   overview(a: FoundationActor, s: FinanceBookSelection) {
     return this.ledger.withWorkflowAuthority(
       a,
@@ -263,6 +317,10 @@ export class FinanceGlWorkflowsService {
         return {
           readiness: await glReadiness(m, b),
           drafts,
+          adjustmentPeriods: await m.query(
+            `SELECT p.id,p.period_code AS code,p.starts_on::text AS start,p.ends_before::text AS finish,d.state='OPEN_FOR_VALIDATION' AS ready FROM finance_foundation_periods p LEFT JOIN finance_draft_periods d ON d.adjustment_period_id=p.id WHERE p.book_id=$1 AND p.mode='LIVE' AND p.period_kind='ADJUSTMENT' AND p.state='OPEN' ORDER BY p.starts_on,p.period_code`,
+            [b.book_id],
+          ),
           accounts: chart.accounts,
           roles: chart.roles,
           components: b.context.allowedComponents.filter(
@@ -282,6 +340,10 @@ export class FinanceGlWorkflowsService {
           programs,
           journals,
           registers,
+          scheduleHolds: await m.query(
+            `SELECT h.program_id AS "programId",p.code,p.kind,h.due_date::text AS date,h.reason FROM finance_gl_schedule_holds h JOIN finance_gl_programs p ON p.id=h.program_id WHERE p.book_id=$1 AND NOT EXISTS(SELECT 1 FROM finance_gl_decisions paused WHERE paused.program_id=p.id AND paused.action='PAUSE') AND h.due_date < coalesce(${nextRevisionStart}::date,'infinity'::date) AND NOT EXISTS(SELECT 1 FROM finance_operating_postings op WHERE op.book_id=p.book_id AND op.source_type='GL_VOUCHER' AND op.snapshot->>'programCode'=p.code AND op.snapshot->>'occurrence'=to_char(h.due_date,'YYYY-MM')) ORDER BY h.due_date,p.code`,
+            [b.book_id],
+          ),
           reconciliations,
         };
       },
@@ -306,6 +368,7 @@ export class FinanceGlWorkflowsService {
           d = input.definition;
         validateProgram(kind, d, b.context.currencyScales[d?.currency]);
         await ownedEvidence(m, b, d.evidence);
+        if (kind === 'RECONCILIATION') await verifyTimingEvidence(m, b, d);
         const [last]: Program[] = await m.query(
           versions +
             ' WHERE p.book_id=$1 AND p.code=$2 ORDER BY revision DESC LIMIT 1',
@@ -451,6 +514,8 @@ export class FinanceGlWorkflowsService {
           )
             invalid('The template must cover the schedule and currency.');
         }
+        if (kind === 'REVALUATION' && d.openingPositions !== undefined)
+          Object.assign(definition, await certifyFxPositions(m, b, d, chart));
         if (kind === 'RECONCILIATION') {
           if (!chart.accounts.some((x) => x.posting && x.code === d.account))
             invalid('Choose a posting account for reconciliation.');
@@ -564,7 +629,16 @@ export class FinanceGlWorkflowsService {
               'Only the latest draft can be approved.',
             );
           await ownedEvidence(m, b, p.definition.evidence);
+          if (p.kind === 'REVALUATION' && p.definition.openingPositions)
+            await certifyFxPositions(
+              m,
+              b,
+              p.definition,
+              await bookChart(m, b),
+              p.id,
+            );
           if (p.kind === 'RECONCILIATION') {
+            await verifyTimingEvidence(m, b, p.definition);
             const r = await reconciliation(m, this.ledger, a, b, p.definition);
             if (
               r.populationHash !== p.definition.reconciliation.populationHash ||
@@ -664,7 +738,7 @@ export class FinanceGlWorkflowsService {
         const rule = verifyMeasurement(b, delivery, new Date(now));
         await verifyMemoLinks(m, b.book_id, p);
         const [open] = await m.query(
-          "SELECT id FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND state='OPEN' AND starts_on<=$2 AND ends_before>$2 AND $2::date<=(statement_timestamp() AT TIME ZONE $3)::date",
+          "SELECT id FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND state='OPEN' AND period_kind='REGULAR' AND starts_on<=$2 AND ends_before>$2 AND $2::date<=(statement_timestamp() AT TIME ZONE $3)::date",
           [b.book_id, p.date, b.timezone],
         );
         if (!open)
@@ -785,11 +859,15 @@ export class FinanceGlWorkflowsService {
           );
         const stage = args.stage;
         const postingDate = args.postingDate ?? date;
+        const catchUp =
+          !args.retryOf &&
+          postingDate !== date &&
+          ['GENERATE', 'AMORTIZE'].includes(stage);
         if (
           !isFinanceDate(postingDate) ||
           postingDate < date ||
           postingDate > today ||
-          (postingDate !== date && !args.retryOf)
+          (postingDate !== date && !args.retryOf && !catchUp)
         )
           invalid('Choose an open correction date on or after the occurrence.');
         if (
@@ -797,7 +875,7 @@ export class FinanceGlWorkflowsService {
           (stage !== 'SETTLE' || !candidateText(args.reference, 70))
         )
           invalid('Enter a settlement reference for the instalment amount.');
-        if (args.retryOf) await ownedEvidence(m, b, args.evidence);
+        if (args.retryOf || catchUp) await ownedEvidence(m, b, args.evidence);
         if (
           (args.correctionTemplate &&
             (!args.retryOf || stage !== 'GENERATE')) ||
@@ -927,6 +1005,19 @@ export class FinanceGlWorkflowsService {
           );
         const retrySuffix = previous ? '/R' + attempts.length : '',
           event = 'program:' + p.code + ':' + occurrence + retrySuffix;
+        if (catchUp) {
+          const [hold] = await m.query(
+            'SELECT reason FROM finance_gl_schedule_holds WHERE program_id=$1 AND due_date=$2',
+            [p.id, date],
+          );
+          if (!hold)
+            throw new ConflictException(
+              'Select a missed occurrence recorded in the schedule register.',
+            );
+          origin.catchUpDate = date;
+          origin.holdReason = hold.reason;
+          origin.recoveryReason = reason;
+        }
         origin.runHash = runHash;
         let terms = d;
         if (stage === 'SETTLE') {
@@ -963,8 +1054,8 @@ export class FinanceGlWorkflowsService {
           if (
             t.kind !== 'TEMPLATE' ||
             t.definition.currency !== currency ||
-            t.definition.start > postingDate ||
-            t.definition.end < postingDate
+            t.definition.start > (catchUp ? date : postingDate) ||
+            t.definition.end < (catchUp ? date : postingDate)
           )
             invalid(
               'Choose an approved template effective for the corrected journal date and currency.',
@@ -1043,11 +1134,11 @@ export class FinanceGlWorkflowsService {
   @Cron('0 10 * * * *', { timeZone: 'UTC' })
   async runDue() {
     const [schema] = await this.db.query(
-      "SELECT to_regclass('finance_gl_programs') IS NOT NULL present",
+      "SELECT to_regclass('finance_gl_schedule_holds') IS NOT NULL present",
     );
     if (!schema.present) return;
     const plans = await this.db
-      .query(`SELECT p.*,(statement_timestamp() AT TIME ZONE a.timezone)::date::text today FROM finance_gl_programs p
+      .query(`SELECT p.*,${nextRevisionStart} AS superseded_on,(statement_timestamp() AT TIME ZONE a.timezone)::date::text today FROM finance_gl_programs p
       JOIN finance_operating_setups a ON a.book_id=p.book_id AND a.withdrawn_at IS NULL
       JOIN finance_gl_decisions d ON d.program_id=p.id AND d.action='APPROVE' WHERE p.kind IN ('RECURRING','PREPAYMENT')
       AND NOT EXISTS(SELECT 1 FROM finance_gl_decisions x WHERE x.program_id=p.id AND x.action='PAUSE') ORDER BY p.book_id,p.code,p.revision DESC`);
@@ -1071,20 +1162,34 @@ export class FinanceGlWorkflowsService {
         const done = new Set(pending.map((x) => x.occurrence));
         for (let i = 0; i < d.count!; i++) {
           const date = dueDate(d.firstDue!, i);
-          if (date > p.today) break;
+          if (date > p.today || (p.superseded_on && date >= p.superseded_on))
+            break;
           if (done.has(date.slice(0, 7))) continue;
-          await this.run(
-            actor,
-            scope,
-            p.id,
-            {
-              subjectHash: p.subject_hash,
-              date,
-              stage: p.kind === 'RECURRING' ? 'GENERATE' : 'AMORTIZE',
-            },
-            'Prepare the due occurrence of independently approved schedule ' +
-              p.code,
-          );
+          try {
+            await this.run(
+              actor,
+              scope,
+              p.id,
+              {
+                subjectHash: p.subject_hash,
+                date,
+                stage: p.kind === 'RECURRING' ? 'GENERATE' : 'AMORTIZE',
+              },
+              'Prepare the due occurrence of independently approved schedule ' +
+                p.code,
+            );
+          } catch (error) {
+            const detail =
+              error instanceof Error ? error.message : String(error);
+            if (error instanceof HttpException && error.getStatus() < 500)
+              await this.db.query(
+                'INSERT INTO finance_gl_schedule_holds(program_id,due_date,reason) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',
+                [p.id, date, detail.slice(0, 2000)],
+              );
+            this.logger.warn(
+              `Scheduled journal ${p.code} held for ${date}: ${detail}`,
+            );
+          }
         }
       } catch (e) {
         this.logger.warn(

@@ -17,7 +17,11 @@ afterEach(() => {
   vi.restoreAllMocks();
   useAuthStore.setState({ user: null, authorizationContext: null });
 });
-const setup = (prepare: boolean, insurer = false) => {
+const setup = (
+  prepare: boolean,
+  insurer = false,
+  register: Record<string, unknown> = {},
+) => {
   useAuthStore.setState({
     user,
     authorizationContext: {
@@ -61,6 +65,15 @@ const setup = (prepare: boolean, insurer = false) => {
         title: 'Internet invoice',
       },
     ],
+    adjustmentPeriods: [
+      {
+        id: uuid(89),
+        code: 'YEAR-END',
+        start: '2020-01-01',
+        finish: '2099-01-01',
+        ready: true,
+      },
+    ],
     programs: [],
     drafts: [],
     journals: [],
@@ -71,6 +84,7 @@ const setup = (prepare: boolean, insurer = false) => {
       missingNative: ['REFUND'],
       counts: { posted: 0, unposted: 0 },
     },
+    ...register,
   };
   const get = vi.spyOn(apiClient, 'get').mockImplementation(async (url) => ({
     data: url.endsWith('/premium-memos')
@@ -115,6 +129,7 @@ it('submits the expense and bank lines with their scoped branch, cost centre and
   const fill = (el: HTMLElement, value: string) =>
     fireEvent.change(el, { target: { value } });
   fill(screen.getByLabelText('External reference'), 'JV-2026-000001');
+  fill(screen.getByLabelText('Adjustment period (optional)'), uuid(89));
   fill(screen.getByLabelText('Description'), 'Paid office internet');
   fill(screen.getByLabelText('Supporting document version'), uuid(81));
   const groups = screen.getAllByRole('group');
@@ -133,6 +148,7 @@ it('submits the expense and bank lines with their scoped branch, cost centre and
         scope: { bookId: scope.bookId, legalEntityId: scope.legalEntityId },
         input: expect.objectContaining({
           reference: 'JV-2026-000001',
+          adjustmentPeriodId: uuid(89),
           currency: 'TZS',
           evidence: {
             id: uuid(81),
@@ -158,6 +174,158 @@ it('submits the expense and bank lines with their scoped branch, cost centre and
     ),
   );
 });
+it('recovers a never-created instalment using the original due date, signed evidence and selected open posting date', async () => {
+  const date = '2026-10-01',
+    id = uuid(87),
+    hash = 'b'.repeat(64);
+  const { post } = setup(true, false, {
+    programs: [
+      {
+        id,
+        code: 'MONTHLY',
+        kind: 'RECURRING',
+        state: 'APPROVED',
+        revision: 1,
+        subject_hash: hash,
+        definition: {
+          start: date,
+          end: '2027-01-01',
+          description: 'Office utilities',
+          currency: 'TZS',
+          dimensions: {},
+        },
+      },
+    ],
+    scheduleHolds: [
+      {
+        programId: id,
+        code: 'MONTHLY',
+        kind: 'RECURRING',
+        date,
+        reason: 'The regular period is closed.',
+      },
+    ],
+  });
+  fireEvent.click(await screen.findByRole('button', { name: 'Programs' }));
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Recover missed occurrence' }),
+  );
+  const fill = (label: string, value: string) =>
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  fill('Recovery posting date', '2026-11-01');
+  fill('Action reason', 'Book missed office utilities');
+  const documents = screen.getAllByLabelText('Supporting document version');
+  fireEvent.change(documents[documents.length - 1], {
+    target: { value: uuid(81) },
+  });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Submit occurrence for approval' }),
+  );
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/foundation/gl/programs/' + id + '/occurrences',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          date,
+          postingDate: '2026-11-01',
+          stage: 'GENERATE',
+          subjectHash: hash,
+          evidence: expect.objectContaining({ id: uuid(81) }),
+        }),
+      }),
+    ),
+  );
+});
+
+it('records the direction and supporting document of a resolved statement timing item', async () => {
+  const { post } = setup(true);
+  fireEvent.click(await screen.findByRole('button', { name: 'Programs' }));
+  const fill = (label: string, value: string) =>
+    fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  fill('Program type', 'RECONCILIATION');
+  fireEvent.click(screen.getByRole('button', { name: 'Add reconciling item' }));
+  fill('Exception reference', 'Deposit 42');
+  fill('Exception description', 'Deposit in transit');
+  fill('Exception amount', '10');
+  fill('Signed statement balance', '90');
+  fill('Statement adjustment', 'ADD_TO_STATEMENT');
+  fill('Timing item evidence', uuid(81));
+  fireEvent.click(screen.getByLabelText('Resolved'));
+  fill('Action reason', 'Match statement to bank evidence');
+  fireEvent.click(screen.getByRole('button', { name: 'Save for review' }));
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/foundation/gl/programs',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          definition: expect.objectContaining({
+            statementBalance: '90',
+            exceptions: [
+              expect.objectContaining({
+                amount: '10',
+                treatment: 'ADD_TO_STATEMENT',
+                resolved: true,
+                evidence: expect.objectContaining({ id: uuid(81) }),
+              }),
+            ],
+          }),
+        }),
+      }),
+    ),
+  );
+});
+
+it('submits opposite-signed branch positions for one controlled FX opening', async () => {
+  const branches = [
+    { value: uuid(80), label: 'Head office' },
+    { value: uuid(88), label: 'Coast' },
+  ];
+  const { post } = setup(true, false, {
+    currencies: { TZS: 2, USD: 2 },
+    dimensions: [{ code: 'BRANCH', label: 'Branch', options: branches }],
+  });
+  fireEvent.click(await screen.findByRole('button', { name: 'Programs' }));
+  const fill = (field: HTMLElement, value: string) =>
+    fireEvent.change(field, { target: { value } });
+  fill(screen.getByLabelText('Program type'), 'REVALUATION');
+  fill(screen.getByLabelText('Currency'), 'USD');
+  const positions = branches.map((branch, i) => ({
+    branch: branch.value,
+    currency: 'USD',
+    foreign: i ? '-40' : '100',
+    carrying: i ? '-100000' : '250000',
+  }));
+  for (const [i, row] of positions.entries()) {
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Add branch and currency opening position',
+      }),
+    );
+    const q = within(
+      screen.getByRole('group', { name: 'Opening position ' + (i + 1) }),
+    );
+    fill(q.getByLabelText('Branch'), row.branch);
+    fill(q.getByLabelText('Currency'), row.currency);
+    fill(q.getByLabelText('Signed foreign amount'), row.foreign);
+    fill(q.getByLabelText('Signed carrying amount'), row.carrying);
+  }
+  fill(
+    screen.getByLabelText('Action reason'),
+    'Certify branch opening balances',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save for review' }));
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/foundation/gl/programs',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          definition: expect.objectContaining({ openingPositions: positions }),
+        }),
+      }),
+    ),
+  );
+});
+
 it('finds a premium memorandum and submits the signed measurement in the selected insurer book', async () => {
   const { get, post } = setup(true, true);
   fireEvent.click(

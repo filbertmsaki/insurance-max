@@ -10,6 +10,7 @@ import { Dimensions, DocumentField, Field, Lines } from './GlFields';
 import {
   emptyVoucher,
   strings,
+  today,
   type Evidence,
   type Voucher,
   type Workspace,
@@ -106,6 +107,8 @@ function BookWorkspace({
   const [invoice, I] = useState(''),
     [amount, M] = useState(''),
     [dims, B] = useState<Record<string, string>>({});
+  const [reversalPeriod, setReversalPeriod] = useState('');
+  const [reversalDate, setReversalDate] = useState(today);
   const [exclusions, X] = useState<Record<string, string>>({});
   const [correction, J] = useState(''),
     [reference, R] = useState(''),
@@ -166,6 +169,17 @@ function BookWorkspace({
     canReview = perms.includes('finance-foundation:review'),
     v = value ?? emptyVoucher(data.functionalCurrency);
   const set = (fields: Partial<Voucher>) => V({ ...v, ...fields });
+  const selectedPeriod =
+    tab === 'Corrections' ? reversalPeriod : v.adjustmentPeriodId;
+  const postingDate = tab === 'Corrections' ? reversalDate : v.date;
+  const periodOptions = (data.adjustmentPeriods ?? [])
+    .filter((p) => p.ready && p.start <= postingDate && postingDate < p.finish)
+    .map((p) => ({ value: p.id, label: p.code }));
+  if (selectedPeriod && !periodOptions.some((p) => p.value === selectedPeriod))
+    periodOptions.push({
+      value: selectedPeriod,
+      label: 'Previously selected period (unavailable)',
+    });
   const posted = data.journals.filter(
       (j) => j.journalId && j.type === 'GL_VOUCHER',
     ),
@@ -202,6 +216,24 @@ function BookWorkspace({
           </Button>
         ))}
       </nav>
+      {tab === 'Book rollout' &&
+        perms.includes('finance-foundation:release') &&
+        data.adjustmentPeriods
+          ?.filter((p) => p.ready === null)
+          .map((p) => (
+            <Button
+              key={p.id}
+              onClick={() =>
+                send('gl/adjustment-periods/' + p.id + '/prepare', {
+                  reason:
+                    'Enable journal validation for approved adjustment period ' +
+                    p.code,
+                })
+              }
+            >
+              Prepare adjustment period {p.code}
+            </Button>
+          ))}
       {tab === 'Vouchers' && canPrepare && (
         <div className="space-y-3">
           <Field
@@ -227,8 +259,17 @@ function BookWorkspace({
               label="Posting date"
               type="date"
               value={v.date}
-              change={(date) => set({ date })}
+              change={(date) => set({ date, adjustmentPeriodId: undefined })}
             />
+            {periodOptions.length > 0 && (
+              <Field
+                label="Adjustment period (optional)"
+                value={v.adjustmentPeriodId ?? ''}
+                options={periodOptions}
+                emptyOptionLabel="Regular period"
+                change={(id) => set({ adjustmentPeriodId: id || undefined })}
+              />
+            )}
             <Field
               label="Currency"
               options={strings(Object.keys(data.currencies))}
@@ -319,13 +360,25 @@ function BookWorkspace({
                 label: j.journalNo + ' · ' + j.snapshot.reference,
               }))}
           />
+          {periodOptions.length > 0 && (
+            <Field
+              label="Reversal adjustment period (optional)"
+              value={reversalPeriod}
+              options={periodOptions}
+              emptyOptionLabel="Regular period"
+              change={setReversalPeriod}
+            />
+          )}
           <Field label="Correction reference" value={reference} change={R} />
           <Field label="Correction reason" value={reason} change={Y} />
           <Field
             label="Correction date"
             type="date"
-            value={v.date}
-            change={(date) => set({ date })}
+            value={reversalDate}
+            change={(date) => {
+              setReversalDate(date);
+              setReversalPeriod('');
+            }}
           />
           <DocumentField w={data} value={evidence} change={E} />
           {canPrepare && (
@@ -342,7 +395,10 @@ function BookWorkspace({
                   input: {
                     reference,
                     description: reason,
-                    date: v.date,
+                    date: reversalDate,
+                    ...(reversalPeriod
+                      ? { adjustmentPeriodId: reversalPeriod }
+                      : {}),
                     evidence,
                   },
                 })

@@ -258,7 +258,7 @@ export function setupAnswerIssues(input: FinanceSetupInput): string[] {
         'Supply the actual calendar periods.',
       );
       const codes = new Set<string>();
-      let previousEnd = '';
+      let regularEnd = '';
       for (const p of periods) {
         if (
           !setupObject(p) ||
@@ -269,23 +269,29 @@ export function setupAnswerIssues(input: FinanceSetupInput): string[] {
           !isFinanceDate(p.from) ||
           !isFinanceDate(p.to) ||
           p.to <= p.from ||
-          (previousEnd && p.from !== previousEnd)
+          (p.kind !== 'ADJUSTMENT' && regularEnd && p.from < regularEnd)
         ) {
           issues.push(
-            'Calendar periods require unique codes and contiguous, nonoverlapping exclusive-end intervals.',
+            'Use unique period codes and valid exclusive end dates. Regular periods must be ordered and cannot overlap.',
           );
           break;
         }
         codes.add(p.code);
-        previousEnd = p.to;
+        if (p.kind !== 'ADJUSTMENT') regularEnd = p.to;
       }
-      if (
-        periods.length &&
-        setupObject(periods[0]) &&
-        setupObject(periods.at(-1))
-      ) {
-        const first = periods[0],
-          last = periods.at(-1);
+      if (periods.length && codes.size === periods.length) {
+        const sorted = [...periods].sort((left, right) =>
+          left.from.localeCompare(right.from),
+        );
+        const first = sorted[0];
+        let last = first;
+        for (const period of sorted.slice(1)) {
+          need(
+            period.from <= last.to,
+            'Calendar periods must cover a contiguous interval without gaps.',
+          );
+          if (period.to > last.to) last = period;
+        }
         need(
           isFinanceDate(input.effectiveFrom) &&
             isFinanceDate(first.from) &&

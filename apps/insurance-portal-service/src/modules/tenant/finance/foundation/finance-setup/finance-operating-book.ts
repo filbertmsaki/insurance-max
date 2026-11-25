@@ -42,7 +42,7 @@ export async function operatingInventory(
       `SELECT finance_fin01_blocker(a.id) AS blocker,
         EXISTS(SELECT 1 FROM finance_foundation_periods p WHERE p.book_id=a.book_id AND p.mode='LIVE' AND p.period_kind='REGULAR' AND p.state='OPEN'
           AND (statement_timestamp() AT TIME ZONE a.timezone)::date >=p.starts_on AND (statement_timestamp() AT TIME ZONE a.timezone)::date<p.ends_before) AS open,
-        EXISTS(SELECT 1 FROM finance_draft_periods p WHERE p.book_id=a.book_id AND p.state='OPEN_FOR_VALIDATION' AND
+        EXISTS(SELECT 1 FROM finance_draft_periods p WHERE p.book_id=a.book_id AND p.state='OPEN_FOR_VALIDATION' AND to_jsonb(p)->>'adjustment_period_id' IS NULL AND
           (statement_timestamp() AT TIME ZONE a.timezone)::date>=p.starts_on AND (statement_timestamp() AT TIME ZONE a.timezone)::date<p.ends_before) AS candidate_open
       FROM finance_operating_setups a WHERE a.id=$1`,
       [activation.id],
@@ -97,6 +97,48 @@ export function contextMatchesSetup(
   );
 }
 
+export async function prepareAdjustmentValidation(
+  m: EntityManager,
+  actor: FoundationActor,
+  ids: string[],
+  periodId: string,
+  reason: string,
+) {
+  const [period] = await m.query(
+    `SELECT p.starts_on::text,p.ends_before::text,d.id AS validation FROM finance_foundation_periods p LEFT JOIN finance_draft_periods d ON d.adjustment_period_id=p.id
+    WHERE p.tenant_id=$1 AND p.legal_entity_id=$2 AND p.book_id=$3 AND p.id=$4 AND p.mode='LIVE' AND p.period_kind='ADJUSTMENT' FOR UPDATE OF p`,
+    [...ids, periodId],
+  );
+  if (!period)
+    throw new ConflictException(
+      'Select a reviewed adjustment period in this book.',
+    );
+  if (period.validation) return { id: period.validation };
+  const candidates = new FinanceJournalCandidateService(m.connection),
+    scope = { legalEntityId: ids[1], bookId: ids[2] };
+  const draft = await candidates.createDraftPeriod(
+    actor,
+    scope,
+    {
+      code: 'ADJ.' + periodId.toUpperCase(),
+      startsOn: period.starts_on,
+      endsBefore: period.ends_before,
+      adjustmentPeriodId: periodId,
+    },
+    reason,
+    m,
+  );
+  return candidates.fenceDraftPeriod(
+    actor,
+    scope,
+    draft.id,
+    draft.revision,
+    'OPEN_FOR_VALIDATION',
+    reason,
+    m,
+  );
+}
+
 async function installCalendar(
   m: EntityManager,
   ids: string[],
@@ -109,7 +151,7 @@ async function installCalendar(
   for (const p of calendar.periods) {
     const kind = p.kind ?? 'REGULAR';
     const [existing] = await m.query(
-      `SELECT starts_on::text AS start,ends_before::text AS finish,period_kind
+      `SELECT id,starts_on::text AS start,ends_before::text AS finish,period_kind
       FROM finance_foundation_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode='LIVE' AND period_code=$4 FOR SHARE`,
       [...ids, p.code],
     );
@@ -121,6 +163,14 @@ async function installCalendar(
       )
         throw new ConflictException(
           'An existing ledger period differs from the reviewed calendar.',
+        );
+      if (kind === 'ADJUSTMENT')
+        await prepareAdjustmentValidation(
+          m,
+          actor,
+          ids,
+          existing.id,
+          String(reason),
         );
       continue;
     }
@@ -142,6 +192,14 @@ async function installCalendar(
         hash,
       ],
     );
+    if (kind === 'ADJUSTMENT')
+      await prepareAdjustmentValidation(
+        m,
+        actor,
+        ids,
+        created.id,
+        String(reason),
+      );
   }
 }
 
@@ -262,7 +320,7 @@ export async function releaseBook(
   const start = [
     release.payload.activeFrom,
     ...rows.map((r) => r.subject.input.effectiveFrom),
-    calendar.periods[0].from,
+    calendar.periods.map((p: { from: string }) => p.from).sort()[0],
   ]
     .filter(Boolean)
     .sort()
@@ -270,7 +328,10 @@ export async function releaseBook(
   const end = [
     release.payload.activeTo,
     ...rows.map((r) => r.subject.input.effectiveTo),
-    calendar.periods.at(-1).to,
+    calendar.periods
+      .map((p: { to: string }) => p.to)
+      .sort()
+      .at(-1),
   ]
     .filter(Boolean)
     .sort()[0];
@@ -361,7 +422,7 @@ export async function releaseBook(
       (p: { kind?: string }) => (p.kind ?? 'REGULAR') === 'REGULAR',
     )) {
       const [existing] = await m.query(
-        'SELECT id,starts_on::text,ends_before::text,state FROM finance_draft_periods WHERE book_id=$1 AND starts_on<$3::date AND ends_before>$2::date',
+        "SELECT id,starts_on::text,ends_before::text,state FROM finance_draft_periods d WHERE book_id=$1 AND starts_on<$3::date AND ends_before>$2::date AND to_jsonb(d)->>'adjustment_period_id' IS NULL",
         [ids[2], p.from, p.to],
       );
       if (existing) {

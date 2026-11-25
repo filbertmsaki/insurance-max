@@ -468,6 +468,20 @@ export class FinanceFoundationController {
       b.revision,
     );
   }
+  @Post('gl/adjustment-periods/:id/prepare')
+  @Permissions(FinancePermissions.FOUNDATION_RELEASE)
+  async prepareAdjustment(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() b: { scope: FinanceBookSelection; reason: string },
+  ) {
+    return this.gl!.prepareAdjustment(
+      await this.actor(u, b.scope),
+      b.scope,
+      id,
+      b.reason,
+    );
+  }
   @Post('gl/vouchers')
   @Permissions(FinancePermissions.FOUNDATION_PREPARE)
   async voucher(
@@ -499,6 +513,7 @@ export class FinanceFoundationController {
         date: string;
         description: string;
         evidence: Evidence;
+        adjustmentPeriodId?: string;
       };
     },
   ) {

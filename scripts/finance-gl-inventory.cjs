@@ -30,7 +30,7 @@ async function inventory(client) {
     const {
       rows: [schema],
     } = await client.query(
-      "SELECT to_regclass('public.finance_operating_setups') IS NOT NULL fin01,to_regclass('public.finance_gl_deployments') IS NOT NULL fin02,to_regclass('public.finance_gl_premium_memos') IS NOT NULL gl_completion",
+      "SELECT to_regclass('public.finance_operating_setups') IS NOT NULL fin01,to_regclass('public.finance_gl_deployments') IS NOT NULL fin02,to_regclass('public.finance_gl_premium_memos') IS NOT NULL gl_completion,to_regclass('public.finance_gl_schedule_holds') IS NOT NULL AND to_regclass('public.finance_gl_fx_opening_sets') IS NOT NULL gl_period_balances",
     );
     const { rows: companies } = await client.query(
       'SELECT id,name,company_type FROM companies ORDER BY name,id',
@@ -81,6 +81,10 @@ async function inventory(client) {
               ['CASH', 'ORDINARY'].includes(r.effect),
           ),
       );
+      if (!schema.gl_period_balances)
+        c.required.push(
+          'Apply the FIN-02 adjustment period, missed schedule and balance migration.',
+        );
       if (!schema.gl_completion)
         c.required.push('Apply the FIN-02 ledger completion migration.');
       if (

@@ -213,7 +213,12 @@ export class FinanceJournalCandidateService {
   async createDraftPeriod(
     actor: FinanceConfigurationActor,
     scope: FinanceBookSelection,
-    input: { code: string; startsOn: string; endsBefore: string },
+    input: {
+      code: string;
+      startsOn: string;
+      endsBefore: string;
+      adjustmentPeriodId?: string;
+    },
     reason: string,
     manager?: EntityManager,
   ): Promise<Period> {
@@ -234,17 +239,36 @@ export class FinanceJournalCandidateService {
       'MANAGE_DRAFT_PERIOD',
       reason,
       async (c) => {
-        const [overlap] = await c.manager.query(
-          'SELECT id FROM finance_draft_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND starts_on < $5::date AND ends_before > $4::date',
-          [...this.scope(c), p.startsOn, p.endsBefore],
-        );
+        if (p.adjustmentPeriodId) {
+          this.uuid(p.adjustmentPeriodId);
+          const [approved] = await c.manager.query(
+            "SELECT id FROM finance_foundation_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND id=$4 AND mode='LIVE' AND period_kind='ADJUSTMENT' AND starts_on=$5 AND ends_before=$6",
+            [...this.scope(c), p.adjustmentPeriodId, p.startsOn, p.endsBefore],
+          );
+          if (!approved)
+            throw new ConflictException(
+              'Select the adjustment period from the approved book calendar.',
+            );
+        }
+        const [overlap] = p.adjustmentPeriodId
+          ? []
+          : await c.manager.query(
+              "SELECT id FROM finance_draft_periods p WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND starts_on < $5::date AND ends_before > $4::date AND to_jsonb(p)->>'adjustment_period_id' IS NULL",
+              [...this.scope(c), p.startsOn, p.endsBefore],
+            );
         if (overlap)
           throw new ConflictException(
             'Draft periods cannot overlap in a book.',
           );
         const [row]: Period[] = await c.manager.query(
-          'INSERT INTO finance_draft_periods (tenant_id,legal_entity_id,book_id,period_code,starts_on,ends_before) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *,starts_on::text AS starts_on,ends_before::text AS ends_before',
-          [...this.scope(c), p.code, p.startsOn, p.endsBefore],
+          `INSERT INTO finance_draft_periods (tenant_id,legal_entity_id,book_id,period_code,starts_on,ends_before${p.adjustmentPeriodId ? ',adjustment_period_id' : ''}) VALUES ($1,$2,$3,$4,$5,$6${p.adjustmentPeriodId ? ',$7' : ''}) RETURNING *,starts_on::text AS starts_on,ends_before::text AS ends_before`,
+          [
+            ...this.scope(c),
+            p.code,
+            p.startsOn,
+            p.endsBefore,
+            ...(p.adjustmentPeriodId ? [p.adjustmentPeriodId] : []),
+          ],
         );
         await this.event(
           c,

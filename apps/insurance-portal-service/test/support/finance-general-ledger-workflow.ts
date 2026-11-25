@@ -6,6 +6,9 @@ import type { FinanceJournalService } from '../../src/modules/tenant/finance/acc
 import { randomUUID } from 'node:crypto';
 
 export async function exerciseGeneralLedger(f: {
+  since: string;
+  monthStart: string;
+  netOpening: number;
   runDue: () => Promise<void>;
   post: (
     user: string,
@@ -218,7 +221,11 @@ export async function exerciseGeneralLedger(f: {
       action: 'APPROVE',
       subjectHash: p.subject_hash,
     });
-    return p;
+    const [saved] = await f.db.query(
+      'SELECT id,subject_hash,code,kind,definition FROM finance_gl_programs WHERE id=$1 AND book_id=$2',
+      [p.id, f.scope.bookId],
+    );
+    return saved;
   };
   const run = async (p: any, stage: string, ref?: string) => {
     const url = path + '/programs/' + p.id + '/occurrences',
@@ -590,7 +597,74 @@ export async function exerciseGeneralLedger(f: {
     statementBalance: '12.50',
     exceptions: [],
   });
+  const deposit = {
+    reference: 'BANK-TRANSIT-10',
+    description: 'Deposit in transit',
+    amount: '10',
+    treatment: 'ADD_TO_STATEMENT',
+    resolved: true,
+    evidence: document,
+  };
+  const withdrawalTiming = {
+    ...deposit,
+    reference: 'UNCLEARED-2',
+    description: 'Outstanding cheque',
+    amount: '2',
+    treatment: 'SUBTRACT_FROM_STATEMENT',
+  };
+  const balancedCheck = await program('TIMING', 'RECONCILIATION', {
+    end: today,
+    account: '213001',
+    statementBalance: '4.50',
+    exceptions: [deposit, withdrawalTiming],
+  });
+  const badItem = async (
+    code: string,
+    items: (typeof deposit)[],
+    status?: number,
+  ) =>
+    post(
+      maker,
+      path + '/programs',
+      {
+        input: {
+          code,
+          kind: 'RECONCILIATION',
+          definition: { ...balancedCheck.definition, exceptions: items },
+        },
+      },
+      status,
+    );
+  await badItem(
+    'TIMING-BAD-DOC',
+    [{ ...deposit, evidence: { ...document, id: randomUUID() } }],
+    409,
+  );
+  for (const [suffix, items] of [
+    ['OPEN', [{ ...deposit, resolved: false }, withdrawalTiming]],
+    [
+      'WRONG',
+      [{ ...deposit, treatment: 'SUBTRACT_FROM_STATEMENT' }, withdrawalTiming],
+    ],
+  ] as const) {
+    const draft = await badItem('TIMING-' + suffix, [...items]);
+    await post(
+      checker,
+      path + '/programs/' + draft.id + '/decisions',
+      { action: 'APPROVE', subjectHash: draft.subject_hash },
+      409,
+    );
+  }
   const state = await call(checker, path + '?' + query);
+  expect(
+    state.reconciliations.find((r: any) => r.id === balancedCheck.id),
+  ).toMatchObject({
+    current: true,
+    rawDifference: '8.00',
+    timingAdjustment: '8.00',
+    adjustedStatementBalance: '12.50',
+    difference: '0.00',
+  });
   expect(
     state.reconciliations.find((r: any) => r.id === check.id).current,
   ).toBe(true);
@@ -630,6 +704,258 @@ export async function exerciseGeneralLedger(f: {
   expect(
     refreshed.reconciliations.find((r: any) => r.id === check.id),
   ).toMatchObject({ current: false, difference: '-1.00' });
+  expect(
+    refreshed.reconciliations.find((r: any) => r.id === balancedCheck.id),
+  ).toMatchObject({ current: false, difference: '-1.00' });
+  await approve(
+    await post(maker, path + '/vouchers', {
+      input: {
+        ...input,
+        reference: 'DEPOSIT-100',
+        lines: [
+          { role: 'TRANSIT', debit: '100', credit: '0', dimensions: dims },
+          { role: 'CASH', debit: '0', credit: '100', dimensions: dims },
+        ],
+      },
+    }),
+  );
+  const countJournals = async () =>
+    (
+      await f.db.query(
+        "SELECT count(*)::int n FROM finance_foundation_journals WHERE book_id=$1 AND mode='LIVE'",
+        [f.scope.bookId],
+      )
+    )[0].n;
+  const beforeSignOff = await countJournals();
+  const depositCheck = await program('BANK-STATEMENT-90', 'RECONCILIATION', {
+    end: today,
+    account: '112009',
+    statementBalance: '90',
+    exceptions: [deposit],
+  });
+  expect(depositCheck.definition.reconciliation).toMatchObject({
+    rawDifference: '10.00',
+    timingAdjustment: '10.00',
+    adjustedStatementBalance: '100.00',
+    difference: '0.00',
+  });
+  expect(await countJournals()).toBe(beforeSignOff);
+  const secondCarrying = f.netOpening - 250000;
+  const openingPositions = [
+    {
+      branch: branches[0].id,
+      currency: 'USD',
+      foreign: '100',
+      carrying: '250000',
+    },
+    {
+      branch: branches[1].id,
+      currency: 'USD',
+      foreign: String(secondCarrying / 2500),
+      carrying: String(secondCarrying),
+    },
+  ];
+  const fxTerms = {
+    ...fx.definition,
+    monetaryRole: 'AR',
+    openingPositions,
+    dimensions: { ...dims, BRANCH: branches[1].id },
+  };
+  const badSplit = async (positions: typeof openingPositions) =>
+    post(
+      maker,
+      path + '/programs',
+      {
+        input: {
+          kind: 'REVALUATION',
+          code: 'FX-BAD-SPLIT',
+          definition: { ...fxTerms, openingPositions: positions },
+        },
+      },
+      409,
+    );
+  await badSplit([openingPositions[0]]);
+  await badSplit([...openingPositions, openingPositions[0]]);
+  const grouped = await program('FX-SPLIT', 'REVALUATION', fxTerms);
+  expect(grouped.definition).toMatchObject({
+    openingCertificateId: f.openingId,
+    openingFunctional: String(secondCarrying),
+  });
+  const splitJournal = await run(grouped, 'REVALUE');
+  const [splitProof] = await f.db.query(
+    'SELECT p.snapshot FROM finance_operating_postings p JOIN finance_foundation_journals j ON j.candidate_id=p.candidate_id WHERE j.id=$1',
+    [splitJournal],
+  );
+  expect(Number(splitProof.snapshot.closing)).toBe(
+    (secondCarrying / 2500) * 2800,
+  );
+  const [positions] = await f.db.query(
+    'SELECT count(*)::int count,sum(carrying_amount)::text net FROM finance_gl_fx_openings WHERE opening_id=$1 AND account_code=$2',
+    [f.openingId, '1200'],
+  );
+  expect(positions.count).toBe(2);
+  expect(Number(positions.net)).toBe(f.netOpening);
+
+  const fence = (p: any, state: string) =>
+    post(checker, 'foundation/periods/' + p.id + '/fences', {
+      state,
+      revision: p.revision,
+      evidenceHash: document.hash,
+    });
+  const [current] = await f.db.query(
+    "SELECT id,revision FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND period_code='FIRST'",
+    [f.scope.bookId],
+  );
+  const adjustmentPeriod = state.adjustmentPeriods.find(
+    (p: any) => p.code === 'YEAR-END-ADJ',
+  );
+  expect(adjustmentPeriod.ready).toBe(true);
+  const closed = await fence(current, 'CLOSED');
+  const adjustedInput = {
+    ...input,
+    reference: 'YEAR-END-ADJ-JV',
+    adjustmentPeriodId: adjustmentPeriod.id,
+  };
+  await post(
+    maker,
+    path + '/vouchers',
+    { input: { ...input, reference: 'REGULAR-CLOSED' } },
+    409,
+  );
+  await post(
+    maker,
+    path + '/vouchers',
+    { input: { ...adjustedInput, evidence: undefined } },
+    400,
+  );
+  const adjustedVoucher = await post(maker, path + '/vouchers', {
+    input: adjustedInput,
+  });
+  const adjustmentJournal = await approve(adjustedVoucher);
+  const reversed = await post(
+    maker,
+    path + '/journals/' + adjustmentJournal + '/reverse',
+    {
+      input: {
+        ...reversal,
+        reference: 'YEAR-END-REV',
+        adjustmentPeriodId: adjustmentPeriod.id,
+      },
+    },
+  );
+  const reversedJournal = await approve(reversed);
+  expect(
+    await f.db.query(
+      'SELECT period_id FROM finance_foundation_journals WHERE id=ANY($1::uuid[])',
+      [[adjustmentJournal, reversedJournal]],
+    ),
+  ).toEqual([
+    { period_id: adjustmentPeriod.id },
+    { period_id: adjustmentPeriod.id },
+  ]);
+  await fence(closed, 'OPEN');
+  const pendingAdjustment = await post(maker, path + '/vouchers', {
+    input: { ...adjustedInput, reference: 'FENCED-ADJUSTMENT' },
+  });
+  const decisionPath =
+    'foundation/operating-postings/' + pendingAdjustment.id + '/approve';
+  const vote = { subjectHash: pendingAdjustment.hash };
+  expect((await post(deputy, decisionPath, vote)).remainingApprovals).toBe(1);
+  const [openAdjustment] = await f.db.query(
+    'SELECT id,revision FROM finance_foundation_periods WHERE id=$1',
+    [adjustmentPeriod.id],
+  );
+  const fenced = await fence(openAdjustment, 'CLOSED');
+  await post(checker, decisionPath, vote, 409);
+  expect(
+    await f.db.query(
+      "SELECT id FROM finance_foundation_journals WHERE candidate_id=$1 AND mode='LIVE'",
+      [pendingAdjustment.id],
+    ),
+  ).toHaveLength(0);
+  await fence(fenced, 'OPEN');
+  expect((await post(checker, decisionPath, vote)).journalId).toBeTruthy();
+
+  if (f.since < f.monthStart) {
+    const longTemplate = await program('MONTHLY-TEMPLATE', 'TEMPLATE', {
+      start: f.since,
+      lines: input.lines,
+    });
+    const plans = [
+      await program('MISSED-RECURRING', 'RECURRING', {
+        start: f.since,
+        firstDue: f.since,
+        count: 2,
+        templateId: longTemplate.id,
+        templateHash: longTemplate.subject_hash,
+      }),
+      await program('MISSED-PREPAID', 'PREPAYMENT', {
+        start: f.since,
+        firstDue: f.since,
+        count: 2,
+        amount: '20',
+        debitRole: 'PREPAID',
+        creditRole: 'CRDB',
+        releaseRole: 'INTERNET',
+      }),
+    ];
+    await approve(await occurrence(plans[1], 'INITIAL', { date: f.since }));
+    const [previousPeriod] = await f.db.query(
+      "SELECT id,revision FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND period_code='PREVIOUS'",
+      [f.scope.bookId],
+    );
+    await fence(previousPeriod, 'CLOSED');
+    await f.runDue();
+    await f.runDue();
+    let schedule = await call(checker, path + '?' + query);
+    for (const plan of plans) {
+      const stage = plan.kind === 'RECURRING' ? 'GENERATE' : 'AMORTIZE';
+      expect(
+        schedule.scheduleHolds
+          .filter((h: any) => h.programId === plan.id)
+          .map((h: any) => h.date),
+      ).toEqual([f.since]);
+      const next = schedule.journals.filter(
+        (j: any) =>
+          j.snapshot.programCode === plan.code && j.snapshot.stage === stage,
+      );
+      expect(next).toHaveLength(1);
+      expect(next[0].snapshot.transactionDate).toBe(f.monthStart);
+      await approve(next[0]);
+      await occurrence(plan, stage, { date: f.since, postingDate: today }, 400);
+      const recovery = {
+        date: f.since,
+        postingDate: today,
+        evidence: document,
+      };
+      const [one, two] = await Promise.all([
+        occurrence(plan, stage, recovery),
+        occurrence(plan, stage, recovery),
+      ]);
+      expect(one.id).toBe(two.id);
+      await approve(one);
+      expect((await occurrence(plan, stage, recovery)).id).toBe(one.id);
+    }
+    schedule = await call(checker, path + '?' + query);
+    expect(
+      schedule.scheduleHolds.filter((h: any) =>
+        plans.some((p) => p.id === h.programId),
+      ),
+    ).toHaveLength(0);
+    for (const p of plans)
+      expect(
+        schedule.journals.filter(
+          (j: any) =>
+            j.snapshot.programCode === p.code &&
+            j.snapshot.catchUpDate === f.since,
+        ),
+      ).toHaveLength(1);
+    expect(
+      Number(
+        schedule.registers.find((r: any) => r.code === plans[1].code).remaining,
+      ),
+    ).toBe(0);
+  }
   const activation = state.readiness.deployment;
   const paused = await post(checker, path + '/deployments', {
     input: {

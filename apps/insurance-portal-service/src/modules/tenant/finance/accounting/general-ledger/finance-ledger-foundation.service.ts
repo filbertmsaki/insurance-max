@@ -999,10 +999,22 @@ export class FinanceLedgerFoundationService {
             }
           }
         }
-        const [period] = await c.manager.query(
-          "SELECT *,starts_on::text starts_on,ends_before::text ends_before FROM finance_foundation_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode=$4 AND state='OPEN' AND starts_on<=$5::date AND ends_before>$5::date FOR SHARE",
-          [...c.ids, input.mode, p.accountingDate],
+        const [period, otherPeriod] = await c.manager.query(
+          `SELECT lp.*,lp.starts_on::text starts_on,lp.ends_before::text ends_before FROM finance_foundation_periods lp JOIN finance_draft_periods dp ON dp.id=$6 AND dp.book_id=lp.book_id WHERE lp.tenant_id=$1 AND lp.legal_entity_id=$2 AND lp.book_id=$3 AND lp.mode=$4 AND lp.state='OPEN' AND lp.starts_on<=$5::date AND lp.ends_before>$5::date AND
+          ((to_jsonb(dp)->>'adjustment_period_id')=lp.id::text OR ((to_jsonb(dp)->>'adjustment_period_id') IS NULL AND (coalesce(to_jsonb(lp)->>'period_kind','REGULAR')='REGULAR' OR $7='ADJUSTMENT')))
+          ORDER BY CASE WHEN coalesce(to_jsonb(lp)->>'period_kind','REGULAR')='REGULAR' THEN 0 ELSE 1 END,lp.period_code LIMIT 2 FOR SHARE OF lp,dp`,
+          [
+            ...c.ids,
+            input.mode,
+            p.accountingDate,
+            p.periodId,
+            p.economicOrigin,
+          ],
         );
+        if (otherPeriod && period.period_kind === 'ADJUSTMENT')
+          foundationFail(
+            'Select the intended adjustment period in the journal.',
+          );
         if (!period)
           foundationFail(
             'No open ledger period covers the approved candidate accounting date.',
@@ -1834,7 +1846,7 @@ export class FinanceLedgerFoundationService {
           );
           await this.live(c, context, today);
           const [period] = await c.manager.query(
-            "SELECT id FROM finance_foundation_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode='LIVE' AND state='OPEN' AND starts_on<=$4::date AND ends_before>$4::date",
+            "SELECT id FROM finance_foundation_periods WHERE tenant_id=$1 AND legal_entity_id=$2 AND book_id=$3 AND mode='LIVE' AND state='OPEN' AND coalesce(to_jsonb(finance_foundation_periods)->>'period_kind','REGULAR')='REGULAR' AND starts_on<=$4::date AND ends_before>$4::date",
             [...c.ids, today],
           );
           if (!period) blockers.push('CURRENT_OPEN_LIVE_PERIOD_REQUIRED');
