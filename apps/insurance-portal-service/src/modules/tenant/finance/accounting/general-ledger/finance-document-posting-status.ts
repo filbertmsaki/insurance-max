@@ -7,6 +7,23 @@ export async function withPostingStatus<
     "SELECT to_regclass('public.finance_operating_postings') IS NOT NULL AS deployed,to_regclass('public.finance_gl_premium_memos') IS NOT NULL AS premiums",
   );
   if (!schema?.deployed) return document;
+  if (
+    type === 'INVOICE' &&
+    'source_type' in document &&
+    document.source_type === 'AR_OPENING'
+  ) {
+    const [opening] = await manager.query(
+      'SELECT import_id,reference,invoice_date::text,cutoff::text,void_id FROM finance_ar_opening_items WHERE invoice_id=$1 AND company_id=$2',
+      [document.id, document.company_id],
+    );
+    if (opening)
+      return Object.assign(document, {
+        accounting_status: opening.void_id
+          ? 'VOIDED_OPENING'
+          : 'CERTIFIED_OPENING',
+        opening_invoice: opening,
+      });
+  }
   const [row] = await manager.query(
     `SELECT p.candidate_id,j.id AS journal_id,(SELECT r.state='REJECTED_INACTIVE' FROM finance_approval_requests r WHERE r.candidate_id=p.candidate_id ORDER BY r.expires_at DESC,r.id DESC LIMIT 1) AS rejected
     FROM finance_operating_postings p LEFT JOIN finance_foundation_journals j ON j.candidate_id=p.candidate_id AND j.mode='LIVE'

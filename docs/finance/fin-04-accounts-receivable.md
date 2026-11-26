@@ -14,9 +14,15 @@ Open **Finance → Accounts receivable** and select the company’s active prima
 
 1. Activate the FIN-01 primary book, the FIN-02 live posting release and the required posting periods. Give preparers and independent reviewers scoped finance access and appropriate approval mandates.
 2. In **New document**, prepare a **Receivables accounting policy** for each billing currency. Select account roles from the reviewed chart, enter the five loss percentages and choose reminder days. An empty reminder schedule disables delivery. Insurer books also select their premium cash control. Obtain independent approval.
-3. Approve the effective debtor categories, credit limits, terms and payer mandates. The policy defaults to requiring an approved profile for sales on credit. Finance can approve continued FIN-01 terms for unprofiled customers during migration. A zero limit permits immediate-payment billing. Insurance coverage and premium collection continue through the existing policy workflows.
+3. Approve the effective debtor categories, credit limits, terms and payer mandates. Approve the currency policy before the first invoice on credit. Immediate-payment invoices can proceed under FIN-01. The policy defaults to requiring an approved profile for sales on credit. Finance can approve continued FIN-01 terms for unprofiled customers during migration. A zero limit permits immediate-payment billing. Insurance coverage and premium collection continue through the existing policy workflows.
 4. Review the existing refund reservations and current balance exceptions. Finance can cancel outstanding refund requests, reconcile historical source records and certify opening currency allocations where needed. The migration rebuilds unapplied cash after historical paid refunds and preserves native transaction history.
 5. For outgoing funds, configure the book’s existing bank observation verifier for the approved settlement account. The signed observation identifies the actual payee, document, amount, currency and bank reference.
+
+## Bring forward unpaid external invoices
+
+In **New document**, select **Import opening customer invoices**, the billing currency and the certified opening date. Use the CSV template with a customer code, external invoice reference, original invoice date, due date and unpaid amount on each row. The currency policy must be effective at cutover. In a multi-currency book, first certify the currency split of any nonzero AR control opening.
+
+The invoice total plus the declared remainder must reconcile to the outstanding difference for that currency. For a large migration, submit successive batches of up to 5,000 invoices, enter the balance left for later batches and use zero for the final batch. Cumulative imports are limited to the certified opening. Independent approval registers collectible invoices and preserves their external references and due dates. They appear in the opening column of customer statements, the appropriate aging buckets and the ordinary receipts and collections workflows. The existing GL opening supplies the accounting balance. To replace an unused batch, submit **Correct an unused opening import** for review, then import the corrected file. The history retains both decisions.
 
 ## Daily use
 

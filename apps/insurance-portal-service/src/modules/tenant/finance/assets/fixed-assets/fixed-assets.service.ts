@@ -20,6 +20,7 @@ import type { FinanceBookSelection } from '../../foundation/finance-configuratio
 import { prepareAsset } from './fixed-asset-operations';
 import {
   assetRegister,
+  classValuations,
   assetReport,
   nextDepreciation,
 } from './fixed-asset-reports';
@@ -87,6 +88,7 @@ export class FixedAssetsService {
         scale: b.context.currencyScales[b.context.functionalCurrency],
         documents,
         assets,
+        valuations: await classValuations(m, b.book_id, today),
         staff,
         evidence,
         sources,
@@ -245,6 +247,14 @@ export class FixedAssetsService {
           key,
           { kind: 'REVALUE', ...v },
           async () => {
+            const period = await m.query(
+              "SELECT id FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND period_kind='REGULAR' AND state='OPEN' AND starts_on<=$2 AND ends_before>$2 FOR SHARE",
+              [b.book_id, day(v.date)],
+            );
+            if (!period.length)
+              conflict(
+                'Open the valuation period before starting a class run.',
+              );
             const assets = (
               await assetRegister(m, b.book_id, day(v.date))
             ).filter(

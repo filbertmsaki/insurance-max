@@ -179,7 +179,7 @@ function Workspace({
           ...(prepare ? ['New document'] : []),
           'Review and history',
           'Depreciation',
-          ...(prepare ? ['Class revaluation'] : []),
+          'Class revaluation',
           'Reports',
           'GL approvals',
         ].map((t) => (
@@ -273,6 +273,8 @@ function Workspace({
                       'Due',
                       'Opening',
                       'Interest',
+                      'Interest accrued',
+                      'Through',
                       'Payment',
                       'Closing',
                       'Status',
@@ -281,13 +283,17 @@ function Workspace({
                       p.date,
                       fmt(p.opening),
                       fmt(p.interest),
+                      fmt(p.accrued ? p.interest : (p.accruedInterest ?? '0')),
+                      p.accruedThrough ?? (p.accrued ? p.date : ''),
                       fmt(p.payment),
                       fmt(p.closing),
                       i < asset.lease!.index
                         ? 'Settled'
                         : p.accrued
                           ? 'Interest accrued'
-                          : 'Scheduled',
+                          : p.accruedThrough
+                            ? 'Partly accrued'
+                            : 'Scheduled',
                     ])}
                   />
                 </>
@@ -388,8 +394,13 @@ function Workspace({
           busy={mutation.isPending}
         />
       )}
-      {tab === 'Class revaluation' && prepare && (
-        <ClassRevaluation w={w} save={save} busy={mutation.isPending} />
+      {tab === 'Class revaluation' && (
+        <>
+          <ValuationProgress valuations={w.valuations} />
+          {prepare && (
+            <ClassRevaluation w={w} save={save} busy={mutation.isPending} />
+          )}
+        </>
       )}
       {tab === 'Reports' && <Reports w={w} scope={s} identity={identity} />}
       {tab === 'GL approvals' && (
@@ -548,6 +559,35 @@ function Review({
     </div>
   );
 }
+function ValuationProgress({
+  valuations = [],
+}: {
+  valuations?: Register['valuations'];
+}) {
+  return (
+    <>
+      <h2 className="font-semibold">Class valuation completion</h2>
+      <Table
+        head={[
+          'Reference',
+          'Class',
+          'Effective date',
+          'State',
+          'Posted / total',
+          'Outstanding assets',
+        ]}
+        rows={valuations.map((v) => [
+          v.reference,
+          v.category,
+          v.effective_date,
+          v.state,
+          v.posted + ' / ' + v.total,
+          v.outstanding.join(', '),
+        ])}
+      />
+    </>
+  );
+}
 function Depreciation({
   w,
   prepare,
@@ -594,8 +634,8 @@ function Depreciation({
         annual >= 0 &&
         Number.isFinite(annual) && (
           <p>
-            Annual depreciation {w.currency} {format(annual, w.scale)} ·
-            Monthly depreciation {w.currency} {format(annual / 12, w.scale)}
+            Annual depreciation {w.currency} {format(annual, w.scale)} · Monthly
+            depreciation {w.currency} {format(annual / 12, w.scale)}
           </p>
         )}
       <h2 className="font-semibold">Next charges</h2>
@@ -734,6 +774,7 @@ function Reports({
             ]}
           />
           <Table head={columns} rows={rows} />
+          <ValuationProgress valuations={r.valuations} />
           <h2 className="font-semibold">Period movements</h2>
           <Table
             head={[

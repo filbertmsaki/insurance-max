@@ -64,6 +64,17 @@ export class CustomerAccountsController {
   ) {
     return this.ar.submit(await this.actor(u, b.scope), b.scope, b.input);
   }
+  @Post('opening-imports')
+  @Permissions(P.FOUNDATION_PREPARE)
+  async importOpening(
+    @CurrentUser() u: AuthenticatedUser,
+    @Body() b: Scoped & { input: ArInput },
+  ) {
+    return this.ar.submit(await this.actor(u, b.scope), b.scope, {
+      ...b.input,
+      kind: 'OPENING_IMPORT',
+    });
+  }
   @Post('collections')
   @Permissions(P.FOUNDATION_PREPARE)
   async collect(

@@ -4,6 +4,8 @@ import {
   exemptLease,
   commenceLease,
   serviceLease,
+  restoreLeaseLife,
+  setUsefulLifeEnd,
 } from './fixed-asset-leases';
 import type { EntityManager } from 'typeorm';
 import {
@@ -112,14 +114,23 @@ export async function prepareAsset(
     )
       conflict('Choose an existing asset still on the register.');
     a = prev.plan.asset;
+    await restoreLeaseLife(m, b.book_id, [a], v.date);
   }
   const chart = await bookChart(m, b);
   for (const [key, role] of Object.entries(a.policy.roles)) {
     const account = chart.roles.find((r) => r.code === role)?.accountCode;
-    if (account !== a.policy.accounts[key as keyof Roles])
-      conflict(
-        'The asset account mapping has changed. Restore the pinned account or complete a reviewed reclassification.',
+    if (account === a.policy.accounts[key as keyof Roles]) continue;
+    if (k === 'RECLASSIFY') {
+      const alias = chart.roles.find(
+        (x) => x.accountCode === a.policy.accounts[key as keyof Roles],
       );
+      if (alias) a.policy.roles[key as keyof Roles] = alias.code;
+      else delete a.policy.roles[key as keyof Roles];
+      continue;
+    }
+    conflict(
+      'The asset account mapping has changed. Restore the pinned account or complete a reviewed reclassification.',
+    );
   }
   plan.asset = a;
   const lines = plan.lines,
@@ -225,7 +236,90 @@ export async function prepareAsset(
       await serviceLease(m, b, a, v, plan, scale);
     } else {
       catchUp(a, v.date, scale, plan);
-      if (k === 'TRANSFER') {
+      if (k === 'CAPITAL_ADDITION') {
+        const cost = money(v.amount, true);
+        str(v.note, 'description of improvement', 1000);
+        if (
+          a.policy.method !== 'NONE' &&
+          (!a.end || a.end <= v.date) &&
+          !v.life
+        )
+          invalid(
+            'Approve a remaining useful life for an improvement to a fully depreciated asset.',
+          );
+        const source = await funding(
+          m,
+          b,
+          v,
+          plan,
+          [r.asset, r.clearing],
+          cost,
+          'debit',
+        );
+        if (source.role !== r.asset || hash(source.dimensions) !== hash(dim)) {
+          entry(lines, r.asset, cost, 0, dim);
+          entry(lines, source.role, 0, cost, source.dimensions);
+          if (source.dimensions.BRANCH !== dim.BRANCH) {
+            entry(lines, r.branchDueFrom, cost, 0, source.dimensions);
+            entry(lines, r.branchDueTo, 0, cost, dim);
+          }
+        }
+        a.cost = money(a.cost).plus(cost).toFixed();
+        a.shadow = money(a.shadow).plus(cost).toFixed();
+        if (v.life && a.policy.method !== 'NONE') {
+          if (a.lease)
+            invalid(
+              'Revise the lease useful life through its approved estimate.',
+            );
+          a.policy.life = months(v.life);
+          setUsefulLifeEnd(a, shiftMonth(v.date, a.policy.life));
+          a.through = a.through === v.date ? v.date : shiftDay(v.date, -1);
+        }
+        plan.amount = cost.toFixed();
+      } else if (k === 'RECLASSIFY') {
+        str(v.note, 'reason for reclassification', 1000);
+        const dest = await master(m, b, 'CATEGORY', v.category, v.date);
+        const next = dest.policy!;
+        if (next.model !== a.policy.model)
+          conflict(
+            'Use a category with the same measurement model for an account reclassification.',
+          );
+        if (
+          (a.policy.method !== 'NONE' &&
+            (!next.roles.accumulated || !next.roles.depreciation)) ||
+          (a.lease && (!next.roles.liability || !next.roles.interest))
+        )
+          invalid(
+            'The destination needs compatible depreciation and lease accounts.',
+          );
+        for (const [key, role] of Object.entries(next.roles))
+          if (
+            chart.roles.find((x) => x.code === role)?.accountCode !==
+            next.accounts[key as keyof Roles]
+          )
+            conflict('Approve the current destination account mapping first.');
+        if (
+          code(v.category) === a.category &&
+          hash(a.policy.accounts) === hash(next.accounts) &&
+          hash(r) === hash(next.roles)
+        )
+          conflict('Select a different category or approved account mapping.');
+        for (const [role, n, debit] of [
+          ['asset', a.cost, true],
+          ['accumulated', a.accumulated, false],
+          ['impairment', a.impairment, false],
+          ['surplus', a.surplus, false],
+          ['liability', a.lease?.liability ?? '0', false],
+        ] as const) {
+          if (a.policy.accounts[role] === next.accounts[role]) continue;
+          entry(lines, r[role], debit ? 0 : n, debit ? n : 0, dim);
+          entry(lines, next.roles[role], debit ? n : 0, debit ? 0 : n, dim);
+        }
+        a.category = code(v.category);
+        a.group = dest.group!;
+        a.policy = { ...a.policy, roles: next.roles, accounts: next.accounts };
+        plan.amount = a.cost;
+      } else if (k === 'TRANSFER') {
         const loc = await master(m, b, 'LOCATION', v.location, v.date),
           newDim = await dimensions(m, b, v, loc);
         if (a.location === code(v.location) && hash(newDim) === hash(dim))
@@ -268,7 +362,7 @@ export async function prepareAsset(
         const residual = money(v.residual ?? a.residual);
         a.policy = { ...a.policy, ...terms };
         a.residual = residual.toFixed();
-        a.end = terms.life ? shiftMonth(v.date, terms.life) : null;
+        setUsefulLifeEnd(a, terms.life ? shiftMonth(v.date, terms.life) : null);
         a.through = a.through === v.date ? v.date : shiftDay(v.date, -1);
       } else if (k === 'REVALUE') {
         const approved = await master(m, b, 'CATEGORY', a.category, v.date);

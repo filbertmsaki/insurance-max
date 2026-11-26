@@ -5,17 +5,31 @@ import { certifiedOpening } from '../../accounting/general-ledger/finance-gl-bal
 import { invalid } from '../../accounting/general-ledger/finance-gl-program';
 import { day, net, type Asset, type Roles } from './fixed-asset.types';
 import { depreciation, monthEnd, shiftDay } from './fixed-asset-measurement';
+import { restoreLeaseLife } from './fixed-asset-leases';
+
+export function classValuations(
+  m: EntityManager,
+  book: string,
+  cutoff: string,
+) {
+  return m.query(
+    'SELECT v.*,v.effective_date::text FROM finance_fa_class_status($1,$2) v ORDER BY v.effective_date DESC,v.reference',
+    [book, cutoff],
+  );
+}
 export async function assetRegister(
   m: EntityManager,
   book: string,
   to: string,
 ): Promise<Asset[]> {
-  return (
+  const assets = (
     await m.query(
       `SELECT latest.asset FROM (SELECT DISTINCT ON (code) code,plan->'asset' asset FROM finance_fa_documents WHERE book_id=$1 AND state='POSTED' AND effective_date<=$2 AND kind NOT IN ('CATEGORY','GROUP','LOCATION') ORDER BY code,effective_date DESC,sequence DESC) latest WHERE jsonb_typeof(asset)='object' ORDER BY code`,
       [book, to],
     )
   ).map((r: { asset: Asset }) => r.asset);
+  await restoreLeaseLife(m, book, assets, to);
+  return assets;
 }
 export function nextDepreciation(a: Asset, scale: number) {
   if (
@@ -129,6 +143,7 @@ export async function assetReport(
     impairment: sum(closing, (a) => a.impairment),
     leaseLiability: sum(closing, (a) => a.lease?.liability ?? 0),
     assets: closing,
+    valuations: await classValuations(m, b.book_id, to),
     activity,
     reconciliation,
   };

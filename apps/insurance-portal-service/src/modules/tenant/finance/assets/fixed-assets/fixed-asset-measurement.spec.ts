@@ -1,4 +1,4 @@
-import { serviceLease } from './fixed-asset-leases';
+import { commenceLease, serviceLease } from './fixed-asset-leases';
 import type { EntityManager } from 'typeorm';
 import type { ActivePostingBook } from '../../accounting/general-ledger/finance-book-request';
 import type { Input, Plan } from './fixed-asset.types';
@@ -114,6 +114,98 @@ describe('Fixed asset book measurement', () => {
         ).toBe(row.closing);
       expect(new Decimal(schedule[0].opening).lt(45000)).toBe(rate !== '0');
     }
+  });
+  it('accrues from a mid-month start to closing day, then only the unpaid interest through the due date', async () => {
+    const a = asset('0', '2026-01-15');
+    Object.assign(a.policy.roles, { liability: 'LEASE', interest: 'INTEREST' });
+    a.policy.life = 6;
+    const plan = (): Plan => ({ asset: a, amount: '0', lines: [] });
+    const m = {} as EntityManager,
+      b = {} as ActivePostingBook;
+    await commenceLease(
+      m,
+      b,
+      a,
+      {
+        date: '2026-01-15',
+        annualRate: '12',
+        payments: Array(24).fill('10000'),
+      } as Input,
+      plan(),
+      2,
+    );
+    const first = a.lease!.schedule[0];
+    expect(a.end).toBe('2026-07-15');
+    const run = async (date: string) => {
+      const p = plan();
+      await serviceLease(
+        m,
+        b,
+        a,
+        { kind: 'LEASE_INTEREST', date } as Input,
+        p,
+        2,
+      );
+      return new Decimal(
+        p.lines.find((l) => l.role === 'INTEREST')?.debit ?? 0,
+      );
+    };
+    const left = await run('2026-01-31');
+    expect(left.gt(0) && left.lt(first.interest)).toBe(true);
+    await expect(run('2026-01-31')).rejects.toThrow(/already accrued/);
+    const right = await run('2026-02-15');
+    expect(left.plus(right).toFixed()).toBe(first.interest);
+    a.through = '2026-02-14';
+    await serviceLease(
+      m,
+      b,
+      a,
+      {
+        kind: 'LEASE_REMEASURE',
+        date: '2026-02-15',
+        annualRate: '12',
+        payments: Array(24).fill('9900'),
+      } as Input,
+      plan(),
+      2,
+    );
+    expect(a.end).toBe('2026-07-15');
+  });
+  it('preserves a shorter approved life on legacy lease snapshots after a rent-only amendment', async () => {
+    const a = asset('0', '2026-01-01');
+    Object.assign(a.policy.roles, { liability: 'LEASE', interest: 'INTEREST' });
+    a.policy.life = 6;
+    const m = {} as EntityManager,
+      b = {} as ActivePostingBook,
+      plan = (): Plan => ({ asset: a, lines: [], amount: '0' });
+    await commenceLease(
+      m,
+      b,
+      a,
+      {
+        date: '2026-01-01',
+        annualRate: '0',
+        payments: Array(24).fill('10000'),
+      } as Input,
+      plan(),
+      2,
+    );
+    delete a.lease!.usefulLifeEnd;
+    delete a.lease!.ownershipTransfer;
+    await serviceLease(
+      m,
+      b,
+      a,
+      {
+        kind: 'LEASE_REMEASURE',
+        date: '2026-01-15',
+        annualRate: '0',
+        payments: Array(24).fill('9900'),
+      } as Input,
+      plan(),
+      2,
+    );
+    expect(a.end).toBe('2026-07-01');
   });
   it('remeasures mid-period and keeps partially paid rent due without charging it twice', async () => {
     const a = asset('120000', '2024-01-01'),

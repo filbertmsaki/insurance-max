@@ -26,31 +26,112 @@ import {
 function accrueThrough(a: Asset, date: string, plan: Plan, scale: number) {
   const lease = a.lease!;
   let earned = new Decimal(0);
+  let progressed = false;
   for (let i = lease.index; i < lease.schedule.length; i++) {
     const row = lease.schedule[i];
     if (row.accrued) continue;
-    if (row.date <= date) {
-      earned = earned.plus(row.interest);
-      row.accrued = true;
-      continue;
-    }
     const start = row.start ?? (i ? lease.schedule[i - 1].date : lease.anchor);
-    if (date > start) {
-      const elapsed = new Decimal(Date.parse(date) - Date.parse(start))
-        .div(Date.parse(row.date) - Date.parse(start))
-        .mul(row.periods ?? 1);
-      const interest = new Decimal(row.opening)
-        .mul(
-          new Decimal(lease.annualRate).div(1200).plus(1).pow(elapsed).minus(1),
-        )
-        .toDecimalPlaces(scale);
-      earned = earned.plus(Decimal.min(interest, row.interest));
-    }
-    break;
+    const through = date < row.date ? date : row.date;
+    if (through <= (row.accruedThrough ?? start)) break;
+    const full = through === row.date;
+    const elapsed = new Decimal(Date.parse(through) - Date.parse(start))
+      .div(Date.parse(row.date) - Date.parse(start))
+      .mul(row.periods ?? 1);
+    const target = full
+      ? new Decimal(row.interest)
+      : Decimal.min(
+          row.interest,
+          new Decimal(row.opening)
+            .mul(
+              new Decimal(lease.annualRate)
+                .div(1200)
+                .plus(1)
+                .pow(elapsed)
+                .minus(1),
+            )
+            .toDecimalPlaces(scale),
+        );
+    // Calculate cumulative interest at book precision so the final instalment absorbs rounding.
+    earned = earned.plus(target.minus(row.accruedInterest ?? 0));
+    row.accruedThrough = through;
+    row.accruedInterest = target.toFixed();
+    row.accrued = full;
+    progressed = true;
+    if (!full) break;
   }
   entry(plan.lines, a.policy.roles.interest, earned, 0, a.dimensions);
   entry(plan.lines, a.policy.roles.liability, 0, earned, a.dimensions);
   lease.liability = new Decimal(lease.liability).plus(earned).toFixed();
+  return progressed;
+}
+
+export function setUsefulLifeEnd(a: Asset, end: string | null) {
+  a.end = end;
+  if (!a.lease) return;
+  if (!end) invalid('Right-of-use assets require a remaining useful life.');
+  a.lease.usefulLifeEnd = end;
+  if (!a.lease.ownershipTransfer) {
+    const rentals = a.lease.schedule;
+    a.end =
+      end < rentals[rentals.length - 1].date
+        ? end
+        : rentals[rentals.length - 1].date;
+  }
+}
+
+// Older register snapshots kept only the shorter of the category life and the rental term.
+export async function restoreLeaseLife(
+  m: EntityManager,
+  bookId: string,
+  assets: Asset[],
+  asOf: string,
+) {
+  const legacy = new Map(
+    assets
+      .filter((a) => a.lease && !a.lease.usefulLifeEnd)
+      .map((a) => [a.code, a]),
+  );
+  if (!legacy.size) return;
+  const decisions: {
+    code: string;
+    kind: string;
+    effective: string;
+    in_service: string;
+    explicit_life: string | null;
+    policy_life: number;
+  }[] = await m.query(
+    `SELECT d.code,d.kind,d.effective_date::text AS effective,d.plan->'asset'->>'inService' AS in_service,d.input->>'life' AS explicit_life,
+      coalesce((SELECT (c.plan->'master'->'policy'->>'life')::int FROM finance_fa_documents c
+        WHERE d.kind='LEASE_START' AND c.book_id=d.book_id AND c.kind='CATEGORY' AND c.code=d.plan->'asset'->>'category'
+        AND c.state='POSTED' AND c.effective_date<=d.effective_date AND c.sequence<d.sequence
+        ORDER BY c.effective_date DESC,c.sequence DESC LIMIT 1),(d.plan->'asset'->'policy'->>'life')::int) AS policy_life
+      FROM finance_fa_documents d WHERE d.book_id=$1 AND d.code=ANY($2::text[]) AND d.state='POSTED' AND d.effective_date<=$3
+      AND (d.kind IN ('LEASE_START','OPENING') OR (d.kind IN ('ESTIMATE','LEASE_REMEASURE') AND d.input->>'life' IS NOT NULL))
+      AND NOT EXISTS(SELECT 1 FROM finance_fa_documents r WHERE r.reversal_of=d.id AND r.state='POSTED' AND r.effective_date<=$3) ORDER BY d.sequence`,
+    [bookId, [...legacy.keys()], asOf],
+  );
+  for (const d of decisions) {
+    const a = legacy.get(d.code)!;
+    const lease = a.lease!;
+    let ceiling: string;
+    if (d.kind === 'LEASE_START' || d.kind === 'OPENING') {
+      lease.ownershipTransfer = d.kind === 'LEASE_START' && !!d.explicit_life;
+      ceiling = shiftMonth(
+        d.in_service,
+        lease.ownershipTransfer
+          ? months(Number(d.explicit_life))
+          : d.policy_life,
+      );
+    } else {
+      ceiling = shiftMonth(d.effective, months(Number(d.explicit_life)));
+      if (d.kind === 'LEASE_REMEASURE') lease.ownershipTransfer = true;
+    }
+    setUsefulLifeEnd(a, ceiling);
+  }
+  if ([...legacy.values()].some((a) => !a.lease?.usefulLifeEnd))
+    conflict(
+      'Verify the approved useful life in the opening or commencement document.',
+    );
 }
 
 export async function closeLease(
@@ -134,13 +215,8 @@ export async function commenceLease(
     invalid('Check the initial right-of-use cost.');
   a.sourceCost = a.cost;
   // An explicitly evidenced ownership transfer/purchase option can support a useful life beyond the lease term.
-  const usefulLifeEnd = shiftMonth(v.date, a.policy.life);
-  a.policy.life = v.life
-    ? months(v.life)
-    : Math.min(a.policy.life, schedule.length);
+  if (v.life) a.policy.life = months(v.life);
   startUse(a, v.date, money(v.residual ?? '0'));
-  if (!v.life)
-    a.end = [usefulLifeEnd, schedule[schedule.length - 1].date].sort()[0];
   a.lease = {
     schedule,
     index: 0,
@@ -149,7 +225,9 @@ export async function commenceLease(
     liability: pv.toFixed(),
     annualRate: v.annualRate ?? '0',
     anchor: v.date,
+    ownershipTransfer: !!v.life,
   };
+  setUsefulLifeEnd(a, a.end);
   entry(lines, r.asset, a.cost, 0, dim);
   entry(lines, r.liability, 0, pv, dim);
   plan.amount = a.cost;
@@ -221,9 +299,15 @@ export async function serviceLease(
       new Decimal(a.shadow).plus(delta),
       0,
     ).toFixed();
-    a.end = v.life
+    const finalRental = l.schedule[l.schedule.length - 1].date;
+    const owned = l.ownershipTransfer ?? (!!a.end && a.end > finalRental);
+    const lifeEnd = v.life
       ? shiftMonth(v.date, months(v.life))
-      : schedule[schedule.length - 1].date;
+      : (l.usefulLifeEnd ??
+        (a.end && a.end !== finalRental
+          ? a.end
+          : shiftMonth(a.inService!, a.policy.life)));
+    const ownershipTransfer = v.life ? true : owned;
     a.through = a.through === v.date ? v.date : shiftDay(v.date, -1);
     a.lease = {
       schedule: [...arrears, ...schedule],
@@ -233,19 +317,19 @@ export async function serviceLease(
       liability: balance.toFixed(),
       annualRate: v.annualRate ?? '0',
       anchor: v.date,
+      ownershipTransfer,
     };
+    setUsefulLifeEnd(a, lifeEnd);
     plan.amount = balance.toFixed();
   } else {
-    if (!due || v.date < due.date)
-      conflict('Choose the next due lease instalment.');
     if (k === 'LEASE_INTEREST') {
-      if (due.accrued)
-        conflict('Interest is already recorded for this instalment.');
-      entry(lines, r.interest, due.interest, 0, dim);
-      entry(lines, r.liability, 0, due.interest, dim);
-      l.liability = new Decimal(l.liability).plus(due.interest).toFixed();
-      due.accrued = true;
+      if (!accrueThrough(a, v.date, plan, scale))
+        conflict(
+          'Interest is already accrued through this date or the lease has ended.',
+        );
     } else {
+      if (!due || v.date < due.date)
+        conflict('Choose the next due lease instalment.');
       if (!due.accrued)
         conflict('Accrue the instalment interest before payment.');
       const n = money(v.amount, true),

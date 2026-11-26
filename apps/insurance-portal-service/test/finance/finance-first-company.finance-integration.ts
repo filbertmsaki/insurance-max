@@ -334,6 +334,7 @@ describe('FIN-01 first company through first live journals', () => {
                   ['222010', 'Lease liability', 'LIABILITY'],
                   ['611012', 'Lease interest', 'EXPENSE'],
                   ['211010', 'Asset purchase offset', 'LIABILITY'],
+                  ['121011', 'Improved equipment', 'ASSET'],
                 ]
               : []),
             ...(insurer
@@ -371,6 +372,7 @@ describe('FIN-01 first company through first live journals', () => {
                   'FA_LEASE',
                   'FA_INTEREST',
                   'FA_OFFSET',
+                  'FA_IMPROVED',
                 ]
               : []),
             ...(insurer ? ['LRC', 'INSURANCE_REVENUE'] : []),
@@ -1092,6 +1094,43 @@ describe('FIN-01 first company through first live journals', () => {
               ])
             )[0].status,
           ).toBe('DRAFT');
+          const creditHeld = await call(
+            maker,
+            'invoices/' + invoice + '/issue',
+            issue,
+            409,
+          );
+          expect(JSON.stringify(creditHeld)).toMatch(
+            /approve an effective receivables policy/i,
+          );
+          const initialArPolicy = await post(maker, 'customer-accounts', {
+            input: {
+              kind: 'POLICY',
+              reference: 'Credit cutover policy',
+              date: since,
+              currency: 'TZS',
+              requestKey: 'first-credit-policy',
+              evidence: document,
+              requireProfile: false,
+              roles: {
+                ar: 'AR',
+                income: 'FEES',
+                advance: 'ACCRUED',
+                tax: 'TRADE_AP',
+                bank: 'CRDB',
+                allowance: 'PREPAID',
+                expense: 'INTERNET',
+                premiumCash: 'LRC',
+              },
+              lossRates: ['2', '5', '10', '25', '50'],
+              reminderDays: [],
+            },
+          });
+          await post(
+            checker,
+            'customer-accounts/' + initialArPolicy.id + '/approve',
+            { reason: 'Approved credit migration rules' },
+          );
           const [issued, issuedAgain] = await Promise.all([
             call(maker, 'invoices/' + invoice + '/issue', issue),
             call(maker, 'invoices/' + invoice + '/issue', issue),

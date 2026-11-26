@@ -36,6 +36,11 @@ const roleTypes: Record<string, string[]> = {
   allowance: ['ASSET', 'CONTRA_ASSET'],
   premiumCash: ['LIABILITY', 'ASSET'],
 };
+import {
+  prepareCustomerOpening,
+  openingForCorrection,
+} from './customer-opening-items';
+
 export async function prepareAr(
   m: EntityManager,
   b: ActivePostingBook,
@@ -71,7 +76,12 @@ export async function prepareAr(
       ? v.amount.replace(/^-/, '')
       : (v.amount ?? '0'),
   );
-  const requiredCustomer = !['POLICY', 'CATEGORY'].includes(k);
+  const requiredCustomer = ![
+    'POLICY',
+    'CATEGORY',
+    'OPENING_IMPORT',
+    'OPENING_VOID',
+  ].includes(k);
   const customer = requiredCustomer ? uuid(v.customerId, 'customer') : null;
   if (
     customer &&
@@ -125,7 +135,19 @@ export async function prepareAr(
     relatedId = r.id;
     return r;
   };
-  if (k === 'CATEGORY') {
+  if (k === 'OPENING_IMPORT') {
+    const checked = await prepareCustomerOpening(m, b, v);
+    data.openingItems = checked.items;
+    data.remainingAfterImport = checked.remaining;
+    data.certificateId = checked.certificateId;
+    data.controlAccount = checked.account;
+    amount = checked.total;
+  } else if (k === 'OPENING_VOID') {
+    const original = await openingForCorrection(m, b, v);
+    relatedId = original.id;
+    data.relatedId = original.id;
+    amount = original.amount;
+  } else if (k === 'CATEGORY') {
     data.enabled = v.enabled !== false;
   } else if (k === 'POLICY') {
     for (const key of Object.keys(roleTypes).filter(

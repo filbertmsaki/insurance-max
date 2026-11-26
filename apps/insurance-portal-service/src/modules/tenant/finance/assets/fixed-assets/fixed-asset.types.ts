@@ -17,6 +17,8 @@ export const kinds = [
   'ACQUIRE',
   'OPENING',
   'CAPITALIZE',
+  'CAPITAL_ADDITION',
+  'RECLASSIFY',
   'ASSIGN',
   'TRANSFER',
   'MAINTENANCE_PLAN',
@@ -76,6 +78,8 @@ export interface Instalment {
   payment: string;
   closing: string;
   accrued?: boolean;
+  accruedInterest?: string;
+  accruedThrough?: string;
   paid?: string;
 }
 export interface Lease {
@@ -86,6 +90,8 @@ export interface Lease {
   liability: string;
   annualRate: string;
   anchor: string;
+  usefulLifeEnd?: string;
+  ownershipTransfer?: boolean;
 }
 export interface Asset {
   code: string;

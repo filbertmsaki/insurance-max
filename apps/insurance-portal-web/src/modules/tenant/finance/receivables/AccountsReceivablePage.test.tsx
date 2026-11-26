@@ -68,6 +68,44 @@ it('shows paid and outstanding amounts to a reader and opens the originating inv
   expect(screen.getByText('10000000')).toBeTruthy();
   expect(screen.queryByText('New document')).toBeNull();
 });
+it('imports the external reference, dates and exact decimal amount from CSV for review', async () => {
+  mount(['finance-foundation:read', 'finance-foundation:prepare']);
+  const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });
+  fireEvent.click(await screen.findByRole('button', { name: 'New document' }));
+  fireEvent.change(screen.getByLabelText('Document type'), {
+    target: { value: 'OPENING_IMPORT' },
+  });
+  const file = new File([], 'opening.csv', { type: 'text/csv' });
+  Object.defineProperty(file, 'text', {
+    value: async () =>
+      'customerCode,reference,invoiceDate,dueDate,amount\nC01,"OLD,01",2026-01-01,2026-02-01,70.25',
+  });
+  fireEvent.change(screen.getByLabelText('Opening invoice CSV'), {
+    target: { files: [file] },
+  });
+  await screen.findByText('1 invoice ready for review');
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Submit for independent review' }),
+  );
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/customer-accounts/opening-imports',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          openingItems: [
+            {
+              customerCode: 'C01',
+              reference: 'OLD,01',
+              invoiceDate: '2026-01-01',
+              dueDate: '2026-02-01',
+              amount: '70.25',
+            },
+          ],
+        }),
+      }),
+    ),
+  );
+});
 it('submits a category to independent review in the selected book', async () => {
   mount(['finance-foundation:read', 'finance-foundation:prepare']);
   const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });

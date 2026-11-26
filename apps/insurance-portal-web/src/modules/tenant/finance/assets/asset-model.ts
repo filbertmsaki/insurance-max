@@ -6,6 +6,8 @@ export const operations = {
   ACQUIRE: 'Register acquisition',
   OPENING: 'Register opening balance',
   CAPITALIZE: 'Capitalize asset',
+  CAPITAL_ADDITION: 'Capitalize an improvement',
+  RECLASSIFY: 'Reclassify asset accounts',
   ASSIGN: 'Assign custodian',
   TRANSFER: 'Transfer asset',
   MAINTENANCE_PLAN: 'Plan maintenance',
@@ -31,9 +33,15 @@ export type Kind = keyof typeof operations;
 export const requirements: Record<string, { title: string; type: string[] }> = {
   asset: { title: 'Asset cost', type: ['ASSET'] },
   clearing: { title: 'Asset clearing', type: ['ASSET'] },
-  accumulated: { title: 'Accumulated depreciation', type: ['ASSET'] },
+  accumulated: {
+    title: 'Accumulated depreciation',
+    type: ['ASSET', 'CONTRA_ASSET'],
+  },
   depreciation: { title: 'Depreciation expense', type: ['EXPENSE'] },
-  impairment: { title: 'Accumulated impairment', type: ['ASSET'] },
+  impairment: {
+    title: 'Accumulated impairment',
+    type: ['ASSET', 'CONTRA_ASSET'],
+  },
   loss: { title: 'Asset loss', type: ['EXPENSE'] },
   gain: { title: 'Asset gain', type: ['INCOME'] },
   surplus: { title: 'Revaluation surplus', type: ['EQUITY'] },
@@ -78,6 +86,8 @@ export interface Asset {
       payment: string;
       closing: string;
       accrued?: boolean;
+      accruedInterest?: string;
+      accruedThrough?: string;
       paid?: string;
     }[];
   } | null;
@@ -113,6 +123,15 @@ export interface FaDocument {
   };
 }
 export interface Register {
+  valuations?: {
+    reference: string;
+    category: string;
+    effective_date: string;
+    state: string;
+    total: number;
+    posted: number;
+    outstanding: string[];
+  }[];
   today: string;
   currency: string;
   scale: number;
@@ -140,6 +159,7 @@ export interface Register {
   depreciation: { code: string; date: string; amount: string }[];
 }
 export interface Report {
+  valuations?: Register['valuations'];
   currency: string;
   cost: string;
   depreciation: string;

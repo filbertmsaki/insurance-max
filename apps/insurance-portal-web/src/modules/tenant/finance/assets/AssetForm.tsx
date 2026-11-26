@@ -56,6 +56,7 @@ export function AssetForm({
     newAsset = selected('ACQUIRE', 'OPENING', 'LEASE_START', 'LEASE_EXEMPT'),
     sourceRequired =
       kind === 'ACQUIRE' ||
+      kind === 'CAPITAL_ADDITION' ||
       kind === 'LEASE_PAYMENT' ||
       kind === 'LEASE_EXPENSE';
   const current = w.assets.find((a) => a.code === fields.code);
@@ -165,7 +166,7 @@ export function AssetForm({
           )}
         {kind === 'CATEGORY' &&
           field('group', 'Asset group', masterChoices(w, 'GROUP', fields.date))}
-        {newAsset &&
+        {(newAsset || kind === 'RECLASSIFY') &&
           field(
             'category',
             'Asset category',
@@ -205,6 +206,15 @@ export function AssetForm({
             'Verification outcome',
             options(['FOUND', 'DAMAGED', 'MISSING']),
           )}
+        {kind === 'CAPITAL_ADDITION' &&
+          field(
+            'life',
+            'Revised remaining life in months (if approved)',
+            undefined,
+            'number',
+          )}
+        {selected('CAPITAL_ADDITION', 'RECLASSIFY') &&
+          field('note', 'Reason and supporting details')}
         {kind === 'MAINTENANCE_PLAN' &&
           field('due', 'Maintenance due', undefined, 'date')}
         {selected(
@@ -218,6 +228,7 @@ export function AssetForm({
         ) && field('note', 'Findings or reason')}
         {selected(
           'ACQUIRE',
+          'CAPITAL_ADDITION',
           'OPENING',
           'MAINTENANCE_COMPLETE',
           'REVALUE',
@@ -233,6 +244,7 @@ export function AssetForm({
             (
               {
                 ACQUIRE: 'Acquisition cost',
+                CAPITAL_ADDITION: 'Improvement cost',
                 OPENING: 'Opening cost',
                 REVALUE: 'Fair value',
                 IMPAIR: 'Recoverable amount',

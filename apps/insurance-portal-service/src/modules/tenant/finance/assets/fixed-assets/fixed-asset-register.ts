@@ -176,7 +176,13 @@ export async function funding(
  AND NOT EXISTS(SELECT 1 FROM finance_operating_postings p WHERE p.candidate_id=j.candidate_id AND p.snapshot ? 'assetDocumentId') FOR UPDATE OF j`,
     [b.book_id, journal, line, b.context.functionalCurrency, v.date],
   );
-  if (!row || !allowed.includes(row.role_code))
+  const roles = (await bookChart(m, b)).roles.filter(
+    (role) =>
+      allowed.includes(role.code) && role.accountCode === row?.account_code,
+  );
+  const sourceRole =
+    roles.find((role) => role.code === row?.role_code) ?? roles[0];
+  if (!row || !sourceRole)
     conflict(
       'Select a posted source line on an eligible account in this book.',
     );
@@ -197,7 +203,7 @@ export async function funding(
     if (row.dimensions[f.code]) dims[f.code] = row.dimensions[f.code];
   }
   plan.source = { journal, line, amount: amount.toFixed() };
-  return { role: row.role_code as string, dimensions: dims };
+  return { role: sourceRole.code, dimensions: dims };
 }
 export async function newAsset(
   m: EntityManager,
@@ -312,6 +318,8 @@ export async function opening(
       accrued: false,
       paid: '0',
       annualRate: v.annualRate ?? '0',
+      usefulLifeEnd: shiftMonth(inService, a.policy.life),
+      ownershipTransfer: false,
       liability: schedule[0].opening,
     };
   }

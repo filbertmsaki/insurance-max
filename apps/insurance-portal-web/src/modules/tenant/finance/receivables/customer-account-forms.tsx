@@ -10,6 +10,7 @@ import {
   type Payload,
   type Send,
 } from './customer-account-model';
+import { CustomerOpeningImport } from './CustomerOpeningImport';
 const accounts: Record<string, string> = {
   ar: 'Receivable control',
   income: 'Billing income',
@@ -20,6 +21,7 @@ const accounts: Record<string, string> = {
   allowance: 'Loss allowance',
   premiumCash: 'Insurer premium cash control',
 };
+
 export function DocumentForm({
   w,
   send,
@@ -32,6 +34,9 @@ export function DocumentForm({
   const [kind, setKind] = useState('CATEGORY'),
     [v, set] = useState<Record<string, string>>({}),
     [key, setKey] = useState(() => crypto.randomUUID());
+  const [openingItems, setOpeningItems] = useState<Record<string, string>[]>(
+    [],
+  );
   const [external, setExternal] = useState([
     { date: w.today, reference: '', amount: '' },
   ]);
@@ -106,6 +111,10 @@ export function DocumentForm({
         dims.filter((d) => v[d.code]).map((d) => [d.code, v[d.code]]),
       ),
     };
+    if (kind === 'OPENING_IMPORT') {
+      input.openingItems = openingItems;
+      input.remainingAfterImport = v.remainingAfterImport || '0';
+    }
     if (kind === 'POLICY')
       Object.assign(input, {
         requireProfile: v.creditPolicy !== 'Use FIN-01 terms during migration',
@@ -123,7 +132,8 @@ export function DocumentForm({
         opening: v.opening,
         statementLines: external.filter((l) => l.reference || l.amount),
       });
-    await send('', { input });
+    await send(kind === 'OPENING_IMPORT' ? '/opening-imports' : '', { input });
+    setOpeningItems([]);
     set({});
     setKey(crypto.randomUUID());
   };
@@ -145,6 +155,7 @@ export function DocumentForm({
           }))}
           change={(x) => {
             setKind(x);
+            setOpeningItems([]);
             set({});
             setKey(crypto.randomUUID());
           }}
@@ -152,8 +163,47 @@ export function DocumentForm({
         {field('reference', 'Source reference or category name')}
         {field('date', 'Effective date', undefined, 'date', w.today)}
         {field('currency', 'Currency', options(w.currencies), 'text', currency)}
-        {!['CATEGORY', 'POLICY'].includes(kind) &&
-          field('customerId', 'Customer', choices(w.customers))}
+        {!['CATEGORY', 'POLICY', 'OPENING_IMPORT', 'OPENING_VOID'].includes(
+          kind,
+        ) && field('customerId', 'Customer', choices(w.customers))}
+        {kind === 'OPENING_IMPORT' && (
+          <CustomerOpeningImport
+            currency={currency}
+            items={openingItems}
+            change={(items) => {
+              setOpeningItems(items);
+              setKey(crypto.randomUUID());
+            }}
+          />
+        )}
+        {kind === 'OPENING_IMPORT' &&
+          field(
+            'remainingAfterImport',
+            'Balance left for later opening batches',
+            undefined,
+            'text',
+            '0',
+          )}
+        {kind === 'OPENING_VOID' &&
+          field(
+            'relatedId',
+            'Import to correct',
+            choices(
+              w.documents.filter(
+                (d) =>
+                  d.kind === 'OPENING_IMPORT' &&
+                  d.state === 'POSTED' &&
+                  d.currency === currency &&
+                  !w.documents.some(
+                    (v) =>
+                      v.kind === 'OPENING_VOID' &&
+                      v.state === 'POSTED' &&
+                      v.data.relatedId === d.id,
+                  ),
+              ),
+              'reference',
+            ),
+          )}
         {kind === 'PROFILE' && (
           <>
             {field(
@@ -229,6 +279,8 @@ export function DocumentForm({
           'POLICY',
           'PAYER_MANDATE',
           'REVERSAL',
+          'OPENING_IMPORT',
+          'OPENING_VOID',
           'IMPAIRMENT',
         ].includes(kind) &&
           field(
@@ -339,7 +391,11 @@ export function DocumentForm({
           </Button>
         </fieldset>
       )}
-      <Button disabled={busy}>Submit for independent review</Button>
+      <Button
+        disabled={busy || (kind === 'OPENING_IMPORT' && !openingItems.length)}
+      >
+        Submit for independent review
+      </Button>
     </form>
   );
 }

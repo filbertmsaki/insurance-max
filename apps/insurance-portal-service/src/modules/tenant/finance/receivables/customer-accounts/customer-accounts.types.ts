@@ -24,6 +24,8 @@ export const kinds = [
   'IMPAIRMENT',
   'WRITE_OFF',
   'RECONCILIATION',
+  'OPENING_IMPORT',
+  'OPENING_VOID',
   'REVERSAL',
 ] as const;
 export type Kind = (typeof kinds)[number];
@@ -52,6 +54,14 @@ export interface ArInput {
   lossRates?: string[];
   from?: string;
   opening?: string;
+  remainingAfterImport?: string;
+  openingItems?: {
+    customerCode: string;
+    reference: string;
+    invoiceDate: string;
+    dueDate: string;
+    amount: string;
+  }[];
   statementLines?: { date: string; reference: string; amount: string }[];
 }
 export interface ArDocument {
@@ -79,6 +89,8 @@ export interface ArDocument {
     lines: VoucherLine[];
     memo?: boolean;
     policyId?: string;
+    controlAccount?: string;
+    certificateId?: string;
     target?: string;
     originalId?: string;
     bankAccount?: string;

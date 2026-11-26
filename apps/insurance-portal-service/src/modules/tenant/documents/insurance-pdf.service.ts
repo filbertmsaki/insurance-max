@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataScopePermissions } from '@insurance-max/contracts';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -82,6 +86,10 @@ export class InsurancePdfService {
       },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
+    if (invoice.source_type === 'AR_OPENING')
+      throw new ConflictException(
+        'Use the original external invoice referenced by the opening import.',
+      );
     const breakdown = hasPremiumInvoiceTax(invoice.source_type)
       ? validatedPremiumInvoiceTax(invoice)
       : null;

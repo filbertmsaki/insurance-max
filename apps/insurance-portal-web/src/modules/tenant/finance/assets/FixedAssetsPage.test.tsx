@@ -41,6 +41,17 @@ function mount(prepare: boolean) {
       sources: [],
       staff: [],
       depreciation: [],
+      valuations: [
+        {
+          reference: 'Annual PCs',
+          category: 'PC',
+          effective_date: '2026-11-26',
+          state: 'PARTIAL',
+          total: 2,
+          posted: 1,
+          outstanding: ['AST-000002'],
+        },
+      ],
       assets: [
         {
           code: 'AST-000001',
@@ -74,15 +85,24 @@ it('shows the carrying amount and the monthly laptop example for a reader', asyn
   expect(await screen.findByText('Lenovo Laptop')).toBeDefined();
   expect(screen.getByText('1,175,000')).toBeDefined();
   expect(screen.queryByRole('button', { name: 'New document' })).toBeNull();
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Depreciation' }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Depreciation' }));
   expect(screen.getByText(/Annual depreciation/).textContent).toContain(
     '300,000',
   );
   expect(screen.getByText(/Annual depreciation/).textContent).toContain(
     '25,000',
   );
+});
+it('shows the outstanding class valuation members to a read-only reviewer', async () => {
+  mount(false);
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Class revaluation' }),
+  );
+  expect(screen.getByText('PARTIAL')).toBeInTheDocument();
+  expect(screen.getByText('AST-000002')).toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: 'Prepare class valuation' }),
+  ).toBeNull();
 });
 it('submits a scoped group with linked evidence for independent review', async () => {
   mount(true);

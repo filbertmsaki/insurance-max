@@ -1,3 +1,10 @@
+export const openingColumns = [
+  'customerCode',
+  'reference',
+  'invoiceDate',
+  'dueDate',
+  'amount',
+];
 export const names: Record<string, string> = {
   CATEGORY: 'Customer category',
   PROFILE: 'Customer financial profile and credit limit',
@@ -12,6 +19,8 @@ export const names: Record<string, string> = {
   ADVANCE_RELEASE: 'Release an advance for refund',
   IMPAIRMENT: 'Assess impairment',
   WRITE_OFF: 'Write off an invoice',
+  OPENING_IMPORT: 'Import opening customer invoices',
+  OPENING_VOID: 'Correct an unused opening import',
   RECONCILIATION: 'Reconcile an external statement',
   REVERSAL: 'Reverse a customer document',
 };
@@ -33,7 +42,7 @@ export interface ArRow {
   candidate_id?: string;
   review_reason?: string;
   memorandum_hash?: string;
-  data: Payload & { lines: Info[] };
+  data: Payload & { lines: Info[]; openingItems?: Info[] };
 }
 export interface ArReport {
   totals: Info[];

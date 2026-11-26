@@ -30,6 +30,11 @@ import {
   controlReport,
   matchStatement,
 } from './customer-account-reports';
+import {
+  applyCustomerOpening,
+  prepareCustomerOpening,
+  openingForCorrection,
+} from './customer-opening-items';
 import { applyAr, checkFunds } from './customer-account-posting';
 import {
   collectionEvent,
@@ -87,7 +92,7 @@ export class CustomerAccountsService {
         [b.book_id, b.timezone],
       );
       const invoices = await m.query(
-        "SELECT id,customer_id,invoice_no label,invoice_type,source_type,policy_id,endorsement_id,currency,status,due_date::text,total_amount,paid_amount,balance_amount FROM invoices WHERE company_id=$1 AND deleted_at IS NULL AND status IN ('ISSUED','PAID','PARTIALLY_PAID','OVERPAID') ORDER BY invoice_no DESC",
+        "SELECT i.id,i.customer_id,coalesce(o.reference||' / '||i.invoice_no,i.invoice_no) label,i.invoice_type,i.source_type,i.policy_id,i.endorsement_id,i.currency,i.status,i.due_date::text,i.total_amount,i.paid_amount,i.balance_amount FROM invoices i LEFT JOIN finance_ar_opening_items o ON o.invoice_id=i.id WHERE i.company_id=$1 AND i.deleted_at IS NULL AND i.status IN ('ISSUED','PAID','PARTIALLY_PAID','OVERPAID') ORDER BY i.invoice_no DESC",
         [b.company_id],
       );
       const receipts = await m.query(
@@ -219,6 +224,19 @@ export class CustomerAccountsService {
   }
   private async current(m: EntityManager, b: ActivePostingBook, r: ArDocument) {
     if (r.data.evidence) await ownedEvidence(m, b, r.data.evidence);
+    if (r.kind === 'OPENING_IMPORT') {
+      const checked = await prepareCustomerOpening(m, b, r.data);
+      if (
+        hash(checked.items) !== hash(r.data.openingItems) ||
+        checked.certificateId !== r.data.certificateId ||
+        checked.account !== r.data.controlAccount ||
+        !DecimalUtil.value(checked.total).eq(r.amount)
+      )
+        conflict(
+          'The certified opening or the customer records changed. Prepare the import again.',
+        );
+    }
+    if (r.kind === 'OPENING_VOID') await openingForCorrection(m, b, r.data);
     if (r.kind === 'RECONCILIATION') {
       const report = await accountReport(
         m,
@@ -365,6 +383,16 @@ export class CustomerAccountsService {
             'UPDATE finance_ar_documents SET state=$1,reviewer_id=$2,reviewer_person=$3,review_reason=$4,reviewed_at=now() WHERE id=$5',
             [next, a.sourceUserId, a.naturalPersonId, reason, id],
           );
+          if (
+            decision === 'approve' &&
+            (r.kind === 'OPENING_IMPORT' || r.kind === 'OPENING_VOID')
+          ) {
+            if (!a.sourceUserId)
+              throw new ForbiddenException(
+                'A bound reviewer identity is required for an opening import.',
+              );
+            await applyCustomerOpening(m, b, r, a.sourceUserId);
+          }
         }
         return document(m, b.book_id, id);
       },

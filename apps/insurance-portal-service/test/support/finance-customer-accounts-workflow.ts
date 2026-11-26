@@ -45,7 +45,14 @@ export async function exerciseCustomerAccounts(f: {
     ...x,
   });
   const submit = (input: Record<string, any>, status?: number) =>
-    post(maker, 'customer-accounts', { input }, status);
+    post(
+      maker,
+      input.kind === 'OPENING_IMPORT'
+        ? 'customer-accounts/opening-imports'
+        : 'customer-accounts',
+      { input },
+      status,
+    );
   const decide = (r: any, actor = checker, status?: number) =>
     post(
       actor,
@@ -133,7 +140,12 @@ export async function exerciseCustomerAccounts(f: {
       },
       status,
     );
-  const receipt = async (c: string, n: number, i?: string) => {
+  const receipt = async (
+    c: string,
+    n: number,
+    i?: string,
+    currency = 'TZS',
+  ) => {
     const tx = await call(maker, 'payment-transactions/manual', {
       customer_id: c,
       invoice_id: i,
@@ -141,7 +153,7 @@ export async function exerciseCustomerAccounts(f: {
       payer_name: 'Fleet customer',
       payment_reference: randomUUID(),
       payment_method: 'CASH',
-      currency_code: 'TZS',
+      currency_code: currency,
       amount: n,
       idempotency_key: randomUUID(),
     });
@@ -435,6 +447,169 @@ export async function exerciseCustomerAccounts(f: {
   await receipt(payer, 1000, due.id);
   await post(maker, 'customer-accounts/reminders');
   expect(await alerts()).toHaveLength(1);
+  if (f.insurer) {
+    const premium = await call(maker, 'invoices', {
+      insurer_company_id: company,
+      customer_id: customer,
+      invoice_type: 'PREMIUM',
+      currency: 'TZS',
+      items: [
+        {
+          item_type: 'PREMIUM',
+          item_name: 'Advance-reversal test',
+          quantity: 1,
+          unit_amount: 100000,
+          total_amount: 100000,
+        },
+      ],
+    });
+    expect((await issue(premium)).accounting_status).toBe(
+      'MEMORANDUM_RECORDED',
+    );
+    const premiumCash = await receipt(customer, 25000);
+    await ledger(premiumCash.journal_candidate_id);
+    const deposit = await finish('ADVANCE', {
+      customerId: customer,
+      receiptId: premiumCash.id,
+      amount: '25000',
+    });
+    const baseline = (await report()).control;
+    const use = await finish('ADVANCE_APPLICATION', {
+      customerId: customer,
+      invoiceId: premium.id,
+      relatedId: deposit.id,
+      amount: '25000',
+    });
+    expect(Number((await report()).control.difference)).toBe(
+      Number(baseline.difference),
+    );
+    await finish('REVERSAL', { customerId: customer, relatedId: use.id });
+    const restored = (await report()).control;
+    expect(Number(restored.difference)).toBe(Number(baseline.difference));
+    expect(Number(restored.advance_liability)).toBe(
+      Number(baseline.advance_liability),
+    );
+    const [opening] = await db.query(
+      "SELECT payload->>'date' AS cutoff FROM finance_foundation_documents WHERE id=(SELECT opening_id FROM finance_gl_fx_opening_sets WHERE account_code='1200' AND book_id=$1 LIMIT 1)",
+      [scope.bookId],
+    );
+    const cutoff = opening.cutoff;
+    await decide(
+      await submit(
+        make('POLICY', {
+          date: cutoff,
+          currency: 'USD',
+          roles: setup.data.roles,
+          lossRates: setup.data.lossRates,
+          reminderDays: [],
+          requireProfile: true,
+        }),
+      ),
+    );
+    const usd = (to = cutoff) =>
+      call(
+        checker,
+        'customer-accounts/reports?' +
+          q +
+          '&currency=USD&customer=' +
+          payer +
+          '&from=' +
+          cutoff +
+          '&to=' +
+          to,
+      );
+    const before = await usd();
+    const outstanding = Number(before.control.difference).toFixed(2);
+    expect(Number(outstanding)).toBe(60);
+    const older = new Date(Date.parse(cutoff + 'T12:00:00Z') - 100 * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    const item = {
+      customerCode: 'AR-' + payer.slice(0, 8),
+      reference: 'EXTERNAL-001',
+      invoiceDate: older,
+      dueDate: older,
+      amount: outstanding,
+    };
+    const batch = () =>
+      make('OPENING_IMPORT', {
+        date: cutoff,
+        currency: 'USD',
+        openingItems: [item],
+      });
+    await submit(
+      { ...batch(), openingItems: [{ ...item, amount: '59' }] },
+      409,
+    );
+    const original = await submit(batch());
+    await decide(original, maker, 403);
+    expect((await decide(original)).state).toBe('POSTED');
+    expect((await decide(original)).state).toBe('POSTED');
+    const imported = await usd();
+    expect(Number(imported.totals[0].opening)).toBe(60);
+    expect(Number(imported.agingTotals.over_90)).toBe(60);
+    expect(Number(imported.control.difference)).toBe(0);
+    const clear = await submit(
+      make('OPENING_VOID', {
+        currency: 'USD',
+        date: cutoff,
+        relatedId: original.id,
+      }),
+    );
+    await decide(clear);
+    expect(Number((await usd()).control.difference)).toBe(60);
+    const firstPart = await submit({
+      ...batch(),
+      openingItems: [{ ...item, reference: 'EXTERNAL-FIRST', amount: '20' }],
+      remainingAfterImport: '40',
+    });
+    await decide(firstPart);
+    expect(Number((await usd()).control.difference)).toBe(40);
+    const replacement = await submit({
+      ...batch(),
+      openingItems: [{ ...item, amount: '40' }],
+    });
+    await decide(replacement);
+    expect(Number((await usd()).control.difference)).toBe(0);
+    const ids = await db.query(
+      'SELECT o.invoice_id,i.due_date::text due FROM finance_ar_opening_items o JOIN invoices i ON i.id=o.invoice_id WHERE o.import_id=$1',
+      [replacement.id],
+    );
+    expect(ids).toHaveLength(1);
+    expect(ids[0].due).toBe(older);
+    const openingInvoice = await call(checker, 'invoices/' + ids[0].invoice_id);
+    expect(openingInvoice.accounting_status).toBe('CERTIFIED_OPENING');
+    expect(openingInvoice.opening_invoice.reference).toBe(item.reference);
+    const beforeCollection = await usd(today);
+    const collectionReceipt = await receipt(
+      payer,
+      10,
+      ids[0].invoice_id,
+      'USD',
+    );
+    await ledger(collectionReceipt.journal_candidate_id);
+    expect(Number((await native(ids[0].invoice_id)).balance_amount)).toBe(30);
+    const collected = await usd(today);
+    expect(Number(collected.control.difference)).toBe(
+      Number(beforeCollection.control.difference),
+    );
+    expect(Number(collected.agingTotals.over_90)).toBe(50);
+    expect(Number((await usd()).agingTotals.over_90)).toBe(60);
+    await submit(
+      make('OPENING_VOID', {
+        currency: 'USD',
+        date: cutoff,
+        relatedId: replacement.id,
+      }),
+      409,
+    );
+    expect(
+      await db.query(
+        'SELECT candidate_id FROM finance_operating_postings WHERE source_id=$1',
+        [ids[0].invoice_id],
+      ),
+    ).toHaveLength(0);
+  }
   if (!f.insurer) {
     const asOf = new Date(Date.parse(today + 'T12:00:00Z') + 91 * 86400000)
       .toISOString()

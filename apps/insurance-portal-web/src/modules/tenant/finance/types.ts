@@ -28,7 +28,18 @@ export interface FinanceInvoiceItem {
 }
 
 export interface FinanceInvoice {
-  accounting_status?: 'POSTED' | 'AWAITING_APPROVAL' | 'REJECTED';
+  accounting_status?:
+    | 'POSTED'
+    | 'AWAITING_APPROVAL'
+    | 'REJECTED'
+    | 'CERTIFIED_OPENING'
+    | 'VOIDED_OPENING';
+  opening_invoice?: {
+    reference: string;
+    invoice_date: string;
+    cutoff: string;
+    import_id: string;
+  };
   gross_amount?: string;
   discount_amount?: string;
   tax_amount?: string;

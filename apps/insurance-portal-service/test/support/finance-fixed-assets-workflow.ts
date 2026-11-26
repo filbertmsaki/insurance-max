@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DataSource } from 'typeorm';
+import { restoreLeaseLife } from '../../src/modules/tenant/finance/assets/fixed-assets/fixed-asset-leases';
 import type { Evidence } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-program';
 import {
   monthEnd,
@@ -214,6 +215,123 @@ export async function exerciseFixedAssets(f: {
   );
   const cap = await finish('CAPITALIZE', 'AST-000001', { residual: '0' });
   expect(Number(cap.plan.asset.cost)).toBe(1200000);
+  const payables = async (
+    kind: string,
+    reference: string,
+    details: Record<string, unknown>,
+    supplierId?: string,
+  ) => {
+    const bill = await post(maker, 'payables', {
+      input: {
+        kind,
+        reference,
+        details,
+        supplierId,
+        date: start,
+        currency: 'TZS',
+        dimensions: dim,
+        evidence,
+        requestKey: randomUUID(),
+      },
+    });
+    return post(checker, 'payables/' + bill.id + '/review', {
+      decision: 'APPROVE',
+      reason: 'Verified upgrade purchase evidence',
+    });
+  };
+  await payables('SETTINGS', 'AP', {
+    payableRole: 'TRADE_AP',
+    employeePayableRole: 'TRADE_AP',
+    advanceRole: 'PREPAID',
+    imprestRole: 'CLEARING',
+    vatRole: 'AR',
+    withholdingRole: 'ACCRUED',
+    discountRole: 'FEES',
+    bankRole: 'CASH',
+    taxRules: [
+      {
+        supplierClass: 'STANDARD',
+        transactionClass: 'EQUIPMENT',
+        vatBps: 0,
+        withholdingBps: 0,
+      },
+    ],
+  });
+  const vendors = await payables('CATEGORY', 'IT-UPGRADES', {
+    name: 'Equipment upgrades',
+  });
+  const supplier = await payables('SUPPLIER', 'SUP-UPGRADE', {
+    name: 'IT supplier',
+    categoryId: vendors.id,
+    tin: 'TEST-UPGRADE',
+    address: 'Dar es Salaam',
+    email: 'upgrades@example.invalid',
+    taxClass: 'STANDARD',
+  });
+  const upgradeInvoice = await payables(
+    'BILL',
+    'UPGRADE-001',
+    {
+      description: 'Laptop memory upgrade',
+      lines: [
+        {
+          item: 'MEMORY',
+          description: 'Installed memory',
+          quantity: '1',
+          unitPrice: '300000',
+          role: 'FA_CLEAR',
+          transactionClass: 'EQUIPMENT',
+        },
+      ],
+    },
+    supplier.id,
+  );
+  const postedBill = await post(
+    maker,
+    'payables/' + upgradeInvoice.id + '/post',
+    {},
+  );
+  const upgradeSource = await ledger(postedBill.candidate_id);
+  const [upgradeLine] = await db.query(
+    'SELECT line_key FROM finance_foundation_lines WHERE journal_id=$1 AND role_code=$2 AND functional_debit>0',
+    [upgradeSource, 'FA_CLEAR'],
+  );
+  const improvement = await finish('CAPITAL_ADDITION', 'AST-000001', {
+    sourceJournal: upgradeSource,
+    sourceLine: upgradeLine.line_key,
+    amount: '300000',
+    note: 'Memory upgrade',
+  });
+  expect(Number(improvement.plan.asset.cost)).toBe(1500000);
+  await post(
+    maker,
+    root,
+    {
+      input: input('CAPITAL_ADDITION', 'AST-000001', {
+        sourceJournal: upgradeSource,
+        sourceLine: upgradeLine.line_key,
+        amount: '1',
+        note: 'Same source',
+      }),
+    },
+    409,
+  );
+  await finish('CATEGORY', 'IMPROVED', {
+    name: 'Improved computers',
+    group: 'IT',
+    method: 'STRAIGHT_LINE',
+    life: 48,
+    model: 'REVALUATION',
+    roles: { ...roles, asset: 'FA_IMPROVED' },
+  });
+  const swap = await finish('RECLASSIFY', 'AST-000001', {
+    category: 'IMPROVED',
+    note: 'Transfer carrying accounts',
+  });
+  expect(swap.plan.asset.category).toBe('IMPROVED');
+  expect(swap.plan.asset.cost).toBe(improvement.plan.asset.cost);
+  await finish('REVERSE', 'AST-000001', { original: swap.id });
+  await finish('REVERSE', 'AST-000001', { original: improvement.id });
   await finish('ASSIGN', 'AST-000001', { custodian: maker });
   await finish('VERIFY', 'AST-000001', {
     result: 'FOUND',
@@ -300,10 +418,39 @@ export async function exerciseFixedAssets(f: {
       },
     });
     expect(valuations).toHaveLength(2);
-    for (const v of valuations)
-      await post(checker, root + '/' + v.id + '/approve', {
+    const period = (
+      await db.query(
+        "SELECT id,revision FROM finance_foundation_periods WHERE book_id=$1 AND period_code='PREVIOUS' AND mode='LIVE'",
+        [scope.bookId],
+      )
+    )[0];
+    const close = (revision: number, state: string, status?: number) =>
+      post(
+        checker,
+        'foundation/periods/' + period.id + '/fences',
+        { revision, state, evidenceHash: evidence.hash },
+        status,
+      );
+    for (const [index, v] of valuations.entries()) {
+      const approved = await post(checker, root + '/' + v.id + '/approve', {
         reason: 'Verified class valuation',
       });
+      if (approved.state !== 'POSTED') {
+        const queued = await post(maker, root + '/' + v.id + '/post', {});
+        await ledger(queued.candidate_id);
+      }
+      if (index === 0) {
+        expect(
+          (await call(checker, root + '?' + q)).valuations[0],
+        ).toMatchObject({ state: 'PARTIAL', posted: 1, total: 2 });
+        await close(period.revision, 'CLOSED', 409);
+      }
+    }
+    expect((await call(checker, root + '?' + q)).valuations[0].state).toBe(
+      'COMPLETE',
+    );
+    const closed = await close(period.revision, 'CLOSED');
+    await close(closed.revision, 'OPEN');
     const run = {
       date: monthEnd(start),
       reference: 'Monthly laptop depreciation',
@@ -347,9 +494,26 @@ export async function exerciseFixedAssets(f: {
       payment: '10000',
       annualRate: '12',
     });
+    const legacy = structuredClone(lease.plan.asset);
+    delete legacy.lease.usefulLifeEnd;
+    delete legacy.lease.ownershipTransfer;
+    legacy.policy.life = 2;
+    await restoreLeaseLife(db.manager, scope.bookId, [legacy], start);
+    expect(legacy.lease.usefulLifeEnd).toBe(shiftMonth(start, 48));
+    expect(legacy.end).toBe(lease.plan.asset.end);
     const first = lease.plan.asset.lease.schedule[0],
       due = first.date;
+    const part = await finish('LEASE_INTEREST', 'ROU-1', {
+      date: monthEnd(start),
+    });
+    expect(
+      Number(part.plan.asset.lease.schedule[0].accruedInterest),
+    ).toBeLessThan(Number(first.interest));
     const accrued = await finish('LEASE_INTEREST', 'ROU-1', { date: due });
+    expect(
+      Number(accrued.plan.asset.lease.liability) -
+        Number(lease.plan.asset.lease.liability),
+    ).toBeCloseTo(Number(first.interest), 2);
     expect(accrued.plan.asset.lease.accrued).toBe(true);
     const cash = await journal(due, 'FA_CLEAR', 'FA_OFFSET', '10000');
     const payment = await finish('LEASE_PAYMENT', 'ROU-1', {

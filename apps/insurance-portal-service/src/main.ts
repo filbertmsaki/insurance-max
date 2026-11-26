@@ -39,6 +39,10 @@ async function bootstrap() {
     `/${globalPrefix}/v${versionLabel}/tenant/finance/payables/opening-imports`,
     json({ limit: '2mb' }),
   );
+  app.use(
+    `/${globalPrefix}/v${versionLabel}/tenant/finance/customer-accounts/opening-imports`,
+    json({ limit: '4mb' }),
+  );
   const appBaseUrl = configService.getOrThrow<string>('app.appUrl');
   const corsEnabled = configService.get<boolean>('cors.enabled') ?? true;
   const swaggerEnabled = configService.get<boolean>('SWAGGER_ENABLED') ?? false;

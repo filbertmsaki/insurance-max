@@ -9,12 +9,14 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { foundationReadApi, type FoundationScope } from '../foundation/api';
 import { Field } from '../journals/GlFields';
 import { OperatingPostings } from '../setup/OperatingPostings';
+import { downloadCsv } from '../payables/ap-export';
 import { ApEvidenceUpload } from '../payables/ApEvidenceUpload';
 import { CashForm, DocumentForm } from './customer-account-forms';
 import {
   choices,
   options,
   names,
+  openingColumns,
   type Register,
   type Info,
   type Payload,
@@ -215,6 +217,23 @@ function Workspace({
       {msg && <p role="status">{msg}</p>}
       {tab === 'Customer balances' && (
         <>
+          {w.currencies
+            .filter(
+              (ccy) =>
+                !w.documents.some(
+                  (d) =>
+                    d.kind === 'POLICY' &&
+                    d.currency === ccy &&
+                    d.state === 'APPROVED' &&
+                    d.effective_date <= w.today,
+                ),
+            )
+            .map((ccy) => (
+              <p key={ccy}>
+                Approve a receivables policy before issuing invoices on credit
+                in {ccy}.
+              </p>
+            ))}
           <div className="flex gap-4">
             <Link to="/apps/finance/invoices">
               Customer invoices and premium billing
@@ -334,6 +353,7 @@ function Workspace({
                         'requestKey',
                         'reference',
                         'lines',
+                        'openingItems',
                       ].includes(k),
                   )
                   .map(([k, v]) => (
@@ -353,6 +373,39 @@ function Workspace({
                     </div>
                   ))}
               </dl>
+              {doc.data.openingItems && (
+                <section className="space-y-2">
+                  <h3>Opening invoices ({doc.data.openingItems.length})</h3>
+                  <Table
+                    head={[
+                      'Customer code',
+                      'External reference',
+                      'Invoice date',
+                      'Due date',
+                      'Outstanding',
+                    ]}
+                    rows={doc.data.openingItems
+                      .slice(0, 25)
+                      .map((row) => openingColumns.map((key) => row[key]))}
+                  />
+                  {doc.data.openingItems.length > 25 && (
+                    <p>Showing the first 25 invoices.</p>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      downloadCsv('opening-' + doc.sequence, [
+                        openingColumns,
+                        ...doc.data.openingItems!.map((row) =>
+                          openingColumns.map((key) => row[key]),
+                        ),
+                      ])
+                    }
+                  >
+                    Download reviewed invoice list
+                  </Button>
+                </section>
+              )}
               {doc.data.lines?.length > 0 && (
                 <Table
                   head={['Account role', 'Debit', 'Credit']}

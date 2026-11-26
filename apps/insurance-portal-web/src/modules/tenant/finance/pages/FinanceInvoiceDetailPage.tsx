@@ -266,7 +266,17 @@ export function FinanceInvoiceDetailPage() {
           onChange={setDimensions}
         />
       )}
-      {invoice.accounting_status && (
+      {invoice.opening_invoice && (
+        <p>
+          Opening invoice {invoice.opening_invoice.reference} dated{' '}
+          {invoice.opening_invoice.invoice_date}.{' '}
+          {invoice.accounting_status === 'VOIDED_OPENING'
+            ? 'Corrected opening'
+            : 'Certified opening'}{' '}
+          as of {invoice.opening_invoice.cutoff}
+        </p>
+      )}
+      {!invoice.opening_invoice && invoice.accounting_status && (
         <p>
           Journal status ·{' '}
           {invoice.accounting_status === 'POSTED'
@@ -277,12 +287,14 @@ export function FinanceInvoiceDetailPage() {
         </p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <PdfDocumentActions
-          base={`/tenant/finance/invoices/${invoice.id}/document`}
-          number={invoice.invoice_no}
-          noun="tax invoice"
-          filePrefix="Invoice"
-        />
+        {invoice.source_type !== 'AR_OPENING' && (
+          <PdfDocumentActions
+            base={`/tenant/finance/invoices/${invoice.id}/document`}
+            number={invoice.invoice_no}
+            noun="tax invoice"
+            filePrefix="Invoice"
+          />
+        )}
         {invoice.status === 'DRAFT' ? (
           <Button
             onClick={() => issueMutation.mutate()}
@@ -297,7 +309,8 @@ export function FinanceInvoiceDetailPage() {
             {issueMutation.isPending ? 'Issuing...' : 'Issue Invoice'}
           </Button>
         ) : null}
-        {['DRAFT', 'ISSUED'].includes(invoice.status) ? (
+        {invoice.source_type !== 'AR_OPENING' &&
+        ['DRAFT', 'ISSUED'].includes(invoice.status) ? (
           <Button
             variant="outline"
             onClick={() => voidMutation.mutate()}
