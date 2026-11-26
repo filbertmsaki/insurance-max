@@ -1,12 +1,17 @@
 import {
   commenceLease,
   restoreLeaseLife,
+  takeLeaseOwnership,
   serviceLease,
 } from './fixed-asset-leases';
 import type { EntityManager } from 'typeorm';
 import type { ActivePostingBook } from '../../accounting/general-ledger/finance-book-request';
 import { net, type Input, type Plan } from './fixed-asset.types';
-import { leaseReview, nextDepreciation } from './fixed-asset-reports';
+import {
+  assetEstimateReview,
+  leaseReview,
+  nextDepreciation,
+} from './fixed-asset-reports';
 import Decimal from 'decimal.js';
 import type { Asset } from './fixed-asset.types';
 import {
@@ -342,6 +347,11 @@ describe('Fixed asset book measurement', () => {
     expect(leaseReview([historical])[0].reasons[0]).toMatch(
       /after depreciation ended/,
     );
+    const owned = { ...historical, lease: null };
+    expect(assetEstimateReview([owned])[0].reasons[0]).toMatch(
+      /after depreciation ended/,
+    );
+    expect(leaseReview([owned])).toEqual([]);
     const loss = await revise({ expiryRecoverableAmount: '0' });
     expect(net(loss.a).toFixed()).toBe('0');
     expect(loss.p.lines).toEqual(
@@ -364,6 +374,40 @@ describe('Fixed asset book measurement', () => {
         [],
       );
     expect(net(extended.a).toFixed()).toBe('0');
+  });
+  it('requires the contractual election before a settled legacy lease becomes owned', async () => {
+    const a = asset('120000', '2026-01-01');
+    Object.assign(a.policy.roles, { liability: 'LEASE', interest: 'INTEREST' });
+    await commenceLease(
+      {} as EntityManager,
+      {} as ActivePostingBook,
+      a,
+      { date: '2026-01-01', payments: ['120000'], life: 12 } as Input,
+      { asset: a, amount: '0', lines: [] },
+      2,
+    );
+    const l = a.lease!;
+    l.liability = '0';
+    l.schedule[0].paid = l.schedule[0].payment;
+    l.schedule[0].accrued = true;
+    l.index = l.schedule.length;
+    const handover = {
+      date: '2026-02-01',
+      note: 'Signed title transfer',
+    } as Input;
+    expect(() =>
+      takeLeaseOwnership(a, { ...handover, ownershipBasis: 'TITLE_TRANSFER' }),
+    ).toThrow(/change in lease terms/);
+    l.ownershipBasis = 'UNCONFIRMED';
+    expect(() => takeLeaseOwnership(a, handover)).toThrow(
+      /Confirm the ownership/,
+    );
+    takeLeaseOwnership(a, { ...handover, ownershipBasis: 'TITLE_TRANSFER' });
+    expect(a).toMatchObject({
+      lease: null,
+      ownership: { date: handover.date, basis: 'TITLE_TRANSFER' },
+      end: '2027-01-01',
+    });
   });
   it('remeasures mid-period and keeps partially paid rent due without charging it twice', async () => {
     const a = asset('120000', '2024-01-01'),

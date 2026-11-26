@@ -3,12 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Field, DocumentField } from '../journals/GlFields';
 import type { Evidence } from '../journals/gl-form';
 import {
+  type Asset,
   type Register,
   type Save,
   masterChoices,
   carrying,
   format,
 } from './asset-model';
+
+type Estimate = { amount?: string; life?: string; residual?: string };
 
 export function ClassRevaluation({
   w,
@@ -24,7 +27,7 @@ export function ClassRevaluation({
     [runId, setRunId] = useState(''),
     [assetCode, setAssetCode] = useState(''),
     [ref, R] = useState(''),
-    [price, P] = useState<Record<string, string>>({}),
+    [price, P] = useState<Record<string, Estimate>>({}),
     [evidence, E] = useState<Evidence>(),
     [key, K] = useState(() => crypto.randomUUID());
   const runs = (w.valuations ?? []).filter(
@@ -45,11 +48,23 @@ export function ClassRevaluation({
   const items = [...latest.values()]
     .map((d) => d.plan.asset)
     .filter(
-      (a) =>
-        a?.category === (run?.category ?? category) &&
+      (a): a is Asset =>
+        !!a &&
+        a.category === (run?.category ?? category) &&
         a.status === 'ACTIVE' &&
         (!run || a.code === assetCode),
     );
+  const estimate = (code: string) => {
+    const v = price[code] ?? {};
+    return {
+      code,
+      amount: v.amount,
+      ...(v.life && { life: Number(v.life) }),
+      ...(v.residual && { residual: v.residual }),
+    };
+  };
+  const changeEstimate = (code: string, field: keyof Estimate, value: string) =>
+    P((p) => ({ ...p, [code]: { ...p[code], [field]: value } }));
   const submit = async () => {
     try {
       if (run) {
@@ -61,8 +76,7 @@ export function ClassRevaluation({
             reference: run.reference,
             requestKey: key,
             evidence,
-            code: assetCode,
-            amount: price[assetCode],
+            ...estimate(assetCode),
           },
         });
         setRunId('');
@@ -75,10 +89,7 @@ export function ClassRevaluation({
             reference: ref,
             requestKey: key,
             evidence,
-            values: items.map((a) => ({
-              code: a!.code,
-              amount: price[a!.code],
-            })),
+            values: items.map((a) => estimate(a.code)),
           },
         });
       P({});
@@ -150,18 +161,34 @@ export function ClassRevaluation({
         </div>
       )}
       {items.map((a) => (
-        <Field
-          key={a!.code}
-          label={
-            a!.code +
-            ' · ' +
-            a!.name +
-            ' · current carrying amount ' +
-            format(carrying(a!), w.scale)
-          }
-          value={price[a!.code] ?? ''}
-          change={(v) => P((p) => ({ ...p, [a!.code]: v }))}
-        />
+        <div key={a.code} className="grid gap-3 md:grid-cols-3">
+          <Field
+            label={
+              a.code +
+              ' · ' +
+              a.name +
+              ' · current carrying amount ' +
+              format(carrying(a), w.scale)
+            }
+            value={price[a.code]?.amount ?? ''}
+            change={(v) => changeEstimate(a.code, 'amount', v)}
+          />
+          {a.policy.method !== 'NONE' && (
+            <>
+              <Field
+                label={a.code + ' · Revised remaining life (months)'}
+                type="number"
+                value={price[a.code]?.life ?? ''}
+                change={(v) => changeEstimate(a.code, 'life', v)}
+              />
+              <Field
+                label={a.code + ' · Revised residual value'}
+                value={price[a.code]?.residual ?? ''}
+                change={(v) => changeEstimate(a.code, 'residual', v)}
+              />
+            </>
+          )}
+        </div>
       ))}
       <DocumentField
         w={{ documents: w.evidence }}
@@ -174,7 +201,7 @@ export function ClassRevaluation({
           (!run && (!ref.trim() || !!runId)) ||
           !evidence ||
           !items.length ||
-          items.some((a) => !price[a!.code]?.trim())
+          items.some((a) => !price[a.code]?.amount?.trim())
         }
         onClick={() => void submit()}
       >

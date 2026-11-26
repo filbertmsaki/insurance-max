@@ -96,7 +96,10 @@ it('shows the five aging buckets for the selected currency and reporting date', 
       totals: [],
       lines: [],
       control: { status: 'MATCHED' },
-      balanceExceptions: [],
+      to: '2026-11-26',
+      balanceExceptions: [
+        { invoice_no: 'INV-012', native: '29', reconstructed: '30' },
+      ],
     },
   });
   fireEvent.click(reports);
@@ -107,6 +110,12 @@ it('shows the five aging buckets for the selected currency and reporting date', 
   expect(chart.getAllByRole('listitem')).toHaveLength(5);
   expect(chart.getByText('40,000,000')).toBeTruthy();
   expect(chart.getByText('Over 90 days')).toBeTruthy();
+  expect(
+    screen.getByRole('heading', {
+      name: 'Balance exceptions as of 2026-11-26',
+    }),
+  ).toBeInTheDocument();
+  expect(screen.getByText('INV-012')).toBeInTheDocument();
 });
 it('imports the external reference, dates and exact decimal amount from CSV for review', async () => {
   mount(['finance-foundation:read', 'finance-foundation:prepare']);

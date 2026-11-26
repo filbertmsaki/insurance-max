@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import {
   closeLease,
+  takeLeaseOwnership,
   confirmLeaseBasis,
   exemptLease,
   commenceLease,
@@ -19,6 +20,7 @@ import { invalid } from '../../accounting/general-ledger/finance-gl-program';
 import { financeConfigurationHash as hash } from '../../foundation/finance-configuration/finance-configuration.types';
 import {
   depreciation,
+  clearFundingBranches,
   hasExpiredLeaseBalance,
   entry,
   impair,
@@ -53,10 +55,26 @@ import {
   uuid,
   value,
   type Asset,
+  type Dimensions,
   type Input,
   type Plan,
   type Roles,
 } from './fixed-asset.types';
+
+function capitalizeFunding(
+  a: Asset,
+  amount: Decimal.Value,
+  sourceRole: string,
+  source: Dimensions,
+  lines: Plan['lines'],
+) {
+  const r = a.policy.roles,
+    destination = a.dimensions;
+  if (sourceRole === r.asset && hash(source) === hash(destination)) return;
+  entry(lines, r.asset, amount, 0, destination);
+  entry(lines, sourceRole, 0, amount, source);
+  clearFundingBranches(a, source, amount, lines);
+}
 
 export async function prepareAsset(
   m: EntityManager,
@@ -123,7 +141,7 @@ export async function prepareAsset(
   for (const [key, role] of Object.entries(a.policy.roles)) {
     const account = chart.roles.find((r) => r.code === role)?.accountCode;
     if (account === a.policy.accounts[key as keyof Roles]) continue;
-    if (k === 'RECLASSIFY') {
+    if (k === 'RECLASSIFY' || (k === 'LEASE_TAKE_OWNERSHIP' && v.category)) {
       const alias = chart.roles.find(
         (x) => x.accountCode === a.policy.accounts[key as keyof Roles],
       );
@@ -163,10 +181,7 @@ export async function prepareAsset(
   } else if (k === 'CAPITALIZE') {
     if (a.status !== 'ACQUIRED')
       conflict('Only an acquired asset can be capitalized.');
-    if (a.sourceRole !== r.asset || hash(dim) !== hash(a.sourceDimensions)) {
-      entry(lines, r.asset, a.sourceCost, 0, dim);
-      entry(lines, a.sourceRole, 0, a.sourceCost, a.sourceDimensions);
-    }
+    capitalizeFunding(a, a.sourceCost, a.sourceRole, a.sourceDimensions, lines);
     a.cost = a.sourceCost;
     plan.amount = a.cost;
     startUse(a, v.date, money(v.residual ?? '0'));
@@ -250,6 +265,7 @@ export async function prepareAsset(
       await serviceLease(m, b, a, v, plan, scale);
     } else {
       if (a.lease && k === 'ESTIMATE') confirmLeaseBasis(a, v.ownershipBasis);
+      if (k === 'LEASE_TAKE_OWNERSHIP') takeLeaseOwnership(a, v);
       catchUp(a, v.date, scale, plan);
       if (k === 'CAPITAL_ADDITION') {
         const cost = money(v.amount, true);
@@ -271,14 +287,7 @@ export async function prepareAsset(
           cost,
           'debit',
         );
-        if (source.role !== r.asset || hash(source.dimensions) !== hash(dim)) {
-          entry(lines, r.asset, cost, 0, dim);
-          entry(lines, source.role, 0, cost, source.dimensions);
-          if (source.dimensions.BRANCH !== dim.BRANCH) {
-            entry(lines, r.branchDueFrom, cost, 0, source.dimensions);
-            entry(lines, r.branchDueTo, 0, cost, dim);
-          }
-        }
+        capitalizeFunding(a, cost, source.role, source.dimensions, lines);
         a.cost = money(a.cost).plus(cost).toFixed();
         a.shadow = money(a.shadow).plus(cost).toFixed();
         if (v.life && a.policy.method !== 'NONE') {
@@ -291,7 +300,9 @@ export async function prepareAsset(
           a.through = a.through === v.date ? v.date : shiftDay(v.date, -1);
         }
         plan.amount = cost.toFixed();
-      } else if (k === 'RECLASSIFY') {
+      } else if (k === 'LEASE_TAKE_OWNERSHIP' && !v.category) {
+        plan.amount = a.cost;
+      } else if (k === 'RECLASSIFY' || k === 'LEASE_TAKE_OWNERSHIP') {
         str(v.note, 'reason for reclassification', 1000);
         const dest = await master(m, b, 'CATEGORY', v.category, v.date);
         const next = dest.policy!;
@@ -314,6 +325,7 @@ export async function prepareAsset(
           )
             conflict('Approve the current destination account mapping first.');
         if (
+          k === 'RECLASSIFY' &&
           code(v.category) === a.category &&
           hash(a.policy.accounts) === hash(next.accounts) &&
           hash(r) === hash(next.roles)
@@ -393,7 +405,30 @@ export async function prepareAsset(
             a.policy.accounts[key] = approved.policy.accounts[key];
           }
         a.policy.model = 'REVALUATION';
-        revalue(a, money(v.amount), lines);
+        const fairValue = money(v.amount);
+        if (v.residual !== undefined) {
+          const residual = money(v.residual);
+          if (residual.gt(fairValue))
+            invalid('The reviewed residual value exceeds the fair value.');
+          a.residual = residual.toFixed();
+        }
+        if (v.life !== undefined) {
+          if (a.policy.method === 'NONE')
+            invalid('This asset does not depreciate.');
+          a.policy.life = months(v.life);
+          setUsefulLifeEnd(a, shiftMonth(v.date, a.policy.life));
+          a.through = a.through === v.date ? v.date : shiftDay(v.date, -1);
+        }
+        const nextCharge = a.through === v.date ? shiftDay(v.date, 1) : v.date;
+        if (
+          a.policy.method !== 'NONE' &&
+          fairValue.gt(a.residual) &&
+          (!a.end || nextCharge >= a.end)
+        )
+          conflict(
+            'Approve a remaining useful life or residual value for this revaluation.',
+          );
+        revalue(a, fairValue, lines);
       } else if (k === 'IMPAIR' || k === 'RESTORE')
         impair(a, money(v.amount), k === 'RESTORE', lines);
       else if (k === 'LEASE_END') await closeLease(m, b, a, v, plan, scale);
@@ -412,6 +447,7 @@ export async function prepareAsset(
             'credit',
           );
           entry(lines, r.clearing, proceeds, 0, src.dimensions);
+          clearFundingBranches(a, src.dimensions, proceeds.neg(), lines);
         }
         terminal(a, proceeds, k === 'WRITE_OFF', lines);
       }

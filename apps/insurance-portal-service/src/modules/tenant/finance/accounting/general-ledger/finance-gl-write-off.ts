@@ -117,6 +117,7 @@ export async function applyWriteOff(
   company: string,
   id: string,
   reverse: boolean,
+  accountingDate: string,
 ) {
   const [w] = await m.query(
     'SELECT * FROM finance_gl_writeoffs WHERE company_id=$1 AND id=$2',
@@ -157,6 +158,9 @@ export async function applyWriteOff(
     throw new ConflictException(
       'The current invoice balance no longer supports this write-off.',
     );
+  await m.query("SELECT set_config('finance.ar_effective_date',$1,true)", [
+    accountingDate,
+  ]);
   await m.query(
     'UPDATE invoices SET written_off_amount=written_off_amount+$3::numeric,state_version=state_version+1 WHERE company_id=$1 AND id=$2',
     [company, w.invoice_id, reverse ? '-' + w.amount : w.amount],

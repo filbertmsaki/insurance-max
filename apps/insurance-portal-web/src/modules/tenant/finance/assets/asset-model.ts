@@ -24,6 +24,7 @@ export const operations = {
   LEASE_EXEMPT: 'Register exempt lease',
   LEASE_EXPENSE: 'Record exempt lease expense',
   LEASE_END: 'Terminate lease',
+  LEASE_TAKE_OWNERSHIP: 'Take ownership of leased asset',
   LEASE_INTEREST: 'Accrue lease interest',
   LEASE_PAYMENT: 'Apply lease payment',
   LEASE_REMEASURE: 'Remeasure lease',
@@ -80,6 +81,7 @@ export interface Asset {
   maintenance: { due: string; note: string } | null;
   verified: { date: string; result: string; note: string } | null;
   exemption?: { basis: string; end: string; expense: string };
+  ownership?: { date: string; basis: 'TITLE_TRANSFER' | 'PURCHASE_OPTION' };
   lease: {
     ownershipBasis?: keyof typeof ownershipLabels;
     usefulLifeEnd?: string;
@@ -132,6 +134,7 @@ export interface FaDocument {
 }
 export interface Register {
   leaseReview?: { code: string; reasons: string[] }[];
+  ownedAssetReview?: { code: string; reasons: string[] }[];
   valuations?: {
     run_id?: string;
     missing?: string[];

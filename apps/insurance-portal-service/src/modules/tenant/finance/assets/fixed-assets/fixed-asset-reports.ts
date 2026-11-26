@@ -13,7 +13,7 @@ import {
 } from './fixed-asset.types';
 import {
   depreciation,
-  hasExpiredLeaseBalance,
+  hasExpiredDepreciableBalance,
   monthEnd,
   shiftDay,
 } from './fixed-asset-measurement';
@@ -44,14 +44,18 @@ export async function assetRegister(
   return assets;
 }
 export function leaseReview(assets: Asset[]) {
+  return assetEstimateReview(assets.filter((a) => a.lease));
+}
+
+export function assetEstimateReview(assets: Asset[]) {
   return assets.flatMap((a) => {
-    if (!a.lease || a.status !== 'ACTIVE') return [];
+    if (a.status !== 'ACTIVE') return [];
     const reasons: string[] = [];
     if (needsLeaseBasis(a.lease))
       reasons.push(
         'Confirm the ownership or purchase-option terms from the lease agreement.',
       );
-    if (hasExpiredLeaseBalance(a))
+    if (hasExpiredDepreciableBalance(a))
       reasons.push(
         'Carrying amount exceeds residual value after depreciation ended. Review remaining life or impairment.',
       );

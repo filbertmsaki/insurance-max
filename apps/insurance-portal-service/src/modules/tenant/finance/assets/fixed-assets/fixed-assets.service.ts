@@ -22,6 +22,7 @@ import {
   assetRegister,
   classValuations,
   assetReport,
+  assetEstimateReview,
   leaseReview,
   nextDepreciation,
 } from './fixed-asset-reports';
@@ -91,6 +92,7 @@ export class FixedAssetsService {
         documents,
         assets,
         leaseReview: leaseReview(assets),
+        ownedAssetReview: assetEstimateReview(assets.filter((x) => !x.lease)),
         valuations: await classValuations(m, b.book_id, today),
         staff,
         evidence,
@@ -266,7 +268,9 @@ export class FixedAssetsService {
     s: FinanceBookSelection,
     v: Pick<Input, 'date' | 'reference' | 'requestKey' | 'evidence'> & {
       category: string;
-      values: { code: string; amount: string }[];
+      values: (Pick<Input, 'code' | 'life' | 'residual'> & {
+        amount: string;
+      })[];
     },
   ) {
     return this.run(
@@ -304,12 +308,11 @@ export class FixedAssetsService {
               conflict(
                 'Provide a valuation for every active asset in this category.',
               );
-            const prices = new Map(
-              v.values.map((x) => [code(x.code), x.amount]),
-            );
+            const prices = new Map(v.values.map((x) => [code(x.code), x]));
             const out: Doc[] = [];
             for (const x of assets) {
-              if (!prices.has(x.code))
+              const valuation = prices.get(x.code);
+              if (!valuation)
                 conflict(
                   'The valuation population changed. Review the class again.',
                 );
@@ -324,7 +327,13 @@ export class FixedAssetsService {
                     evidence: v.evidence,
                     reference: v.reference,
                     code: x.code,
-                    amount: prices.get(x.code),
+                    amount: valuation.amount,
+                    ...(valuation.life !== undefined && {
+                      life: valuation.life,
+                    }),
+                    ...(valuation.residual !== undefined && {
+                      residual: valuation.residual,
+                    }),
                     requestKey: key + '/' + x.code,
                   },
                   true,

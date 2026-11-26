@@ -71,6 +71,21 @@ export function entry(
     invalid('Journal amounts must be nonnegative.');
   lines.push({ role, debit: dr.toFixed(), credit: cr.toFixed(), dimensions });
 }
+// A positive amount is funded by the source branch. Proceeds flow in the opposite direction.
+export function clearFundingBranches(
+  a: Asset,
+  source: Dimensions,
+  amount: Decimal.Value,
+  lines: VoucherLine[],
+) {
+  if (source.BRANCH === a.dimensions.BRANCH) return;
+  const n = new Decimal(amount);
+  const lender = n.isNegative() ? a.dimensions : source;
+  const borrower = n.isNegative() ? source : a.dimensions;
+  entry(lines, a.policy.roles.branchDueFrom, n.abs(), 0, lender);
+  entry(lines, a.policy.roles.branchDueTo, 0, n.abs(), borrower);
+}
+
 function charge(
   a: Asset,
   base: Decimal,
@@ -100,8 +115,12 @@ function charge(
   );
 }
 export function hasExpiredLeaseBalance(a: Asset) {
+  return !!a.lease && hasExpiredDepreciableBalance(a);
+}
+
+export function hasExpiredDepreciableBalance(a: Asset) {
   return (
-    !!a.lease &&
+    a.policy.method !== 'NONE' &&
     a.status === 'ACTIVE' &&
     !!a.end &&
     !!a.through &&

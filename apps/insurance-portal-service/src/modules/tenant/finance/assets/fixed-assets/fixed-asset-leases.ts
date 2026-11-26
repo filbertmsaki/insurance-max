@@ -5,6 +5,7 @@ import type { ActivePostingBook } from '../../accounting/general-ledger/finance-
 import { invalid } from '../../accounting/general-ledger/finance-gl-program';
 import {
   entry,
+  clearFundingBranches,
   impair,
   hasExpiredLeaseBalance,
   terminal,
@@ -166,6 +167,31 @@ export async function restoreLeaseLife(
     );
 }
 
+export function takeLeaseOwnership(a: Asset, v: Input) {
+  const l = a.lease;
+  if (
+    !l ||
+    l.index !== l.schedule.length ||
+    !new Decimal(l.liability).isZero() ||
+    v.date < l.schedule[l.schedule.length - 1].date
+  )
+    conflict('Settle every lease instalment before recording ownership.');
+  str(v.note, 'title transfer or purchase option evidence', 1000);
+  if (
+    v.ownershipBasis !== undefined &&
+    !needsLeaseBasis(l) &&
+    v.ownershipBasis !== leaseBasis(undefined, l)
+  )
+    conflict('Approve the change in lease terms before taking ownership.');
+  confirmLeaseBasis(a, v.ownershipBasis);
+  const basis = leaseBasis(undefined, l);
+  if (basis === 'LEASE_TERM')
+    conflict('The approved lease terms do not provide for ownership.');
+  setUsefulLifeEnd(a, l.usefulLifeEnd ?? a.end);
+  a.ownership = { date: v.date, basis };
+  a.lease = null;
+}
+
 export async function closeLease(
   m: EntityManager,
   b: ActivePostingBook,
@@ -176,6 +202,15 @@ export async function closeLease(
 ) {
   const l = a.lease;
   if (!l) conflict('Choose a lease to terminate.');
+  if (
+    l.index === l.schedule.length &&
+    new Decimal(l.liability).isZero() &&
+    (needsLeaseBasis(l) || leaseBasis(undefined, l) !== 'LEASE_TERM') &&
+    v.returnedToLessor !== true
+  )
+    conflict(
+      'Record the transfer of ownership or confirm that the asset was returned to the lessor.',
+    );
   str(v.note, 'lease termination agreement', 1000);
   const roles = a.policy.roles,
     dim = a.dimensions;
@@ -186,6 +221,7 @@ export async function closeLease(
   if (fee.gt(0)) {
     const src = await funding(m, b, v, p, [roles.clearing], fee, 'debit');
     entry(p.lines, roles.clearing, 0, fee, src.dimensions);
+    clearFundingBranches(a, src.dimensions, fee, p.lines);
   }
   l.liability = '0';
   terminal(a, waived.minus(fee), false, p.lines);
@@ -241,6 +277,7 @@ export async function commenceLease(
       Decimal.max(0, adj),
       source.dimensions,
     );
+    clearFundingBranches(a, source.dimensions, adj, lines);
   }
   a.cost = pv.plus(adj).toFixed();
   if (new Decimal(a.cost).lte(0))
@@ -399,6 +436,7 @@ export async function serviceLease(
       ) {
         entry(lines, r.liability, n, 0, dim);
         entry(lines, source.role, 0, n, source.dimensions);
+        clearFundingBranches(a, source.dimensions, n, lines);
       }
       l.liability = new Decimal(l.liability).minus(n).toFixed();
       due.paid = new Decimal(l.paid).plus(n).toFixed();

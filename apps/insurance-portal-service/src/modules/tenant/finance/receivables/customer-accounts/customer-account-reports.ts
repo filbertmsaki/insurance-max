@@ -50,10 +50,14 @@ export async function accountReport(
     args.slice(0, 5),
   );
   const balances = await m.query(
-    `SELECT i.id,i.invoice_no,i.balance_amount::text native,coalesce(sum(a.invoice_delta),0)::text reconstructed
-    FROM invoices i LEFT JOIN finance_ar_activity($1,$2) a ON a.invoice_id=i.id WHERE i.company_id=$1 AND i.currency=$3 AND i.deleted_at IS NULL AND i.status IN ('ISSUED','PARTIALLY_PAID','PAID','OVERPAID') AND ($4::uuid IS NULL OR i.customer_id=$4)
-    GROUP BY i.id HAVING i.balance_amount<>greatest(coalesce(sum(a.invoice_delta),0),0)`,
-    args.slice(0, 4),
+    base +
+      `, reconstructed AS (SELECT invoice_id,sum(invoice_delta) balance FROM activity WHERE invoice_id IS NOT NULL GROUP BY invoice_id)
+    SELECT i.id,i.invoice_no,coalesce(n.balance,0)::text native,coalesce(r.balance,0)::text reconstructed
+    FROM invoices i LEFT JOIN reconstructed r ON r.invoice_id=i.id
+    LEFT JOIN LATERAL (SELECT sum(delta) balance FROM finance_ar_native_balance_changes h WHERE h.invoice_id=i.id AND h.effective_on<=$5) n ON true
+    WHERE i.company_id=$1 AND i.currency=$3 AND ($4::uuid IS NULL OR i.customer_id=$4)
+      AND coalesce(n.balance,0)<>coalesce(r.balance,0) ORDER BY i.invoice_no,i.id`,
+    args.slice(0, 5),
   );
   const agingTotals = Object.fromEntries(
     [

@@ -57,6 +57,7 @@ export interface ArRow {
   data: Payload & { lines: Info[]; openingItems?: Info[] };
 }
 export interface ArReport {
+  to?: string;
   totals: Info[];
   aging: Info[];
   agingTotals: Info;

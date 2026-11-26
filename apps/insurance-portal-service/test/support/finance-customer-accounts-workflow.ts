@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DataSource } from 'typeorm';
+import { FinanceReceivableBalanceHistory1799900000000 } from '../../src/database/migrations/1799900000000-FinanceReceivableBalanceHistory';
 import { fixtureBank } from './finance-bank-observation-fixture';
 import type { Evidence } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-program';
 
@@ -9,6 +10,39 @@ type Http = (
   body?: Record<string, any>,
   status?: number,
 ) => Promise<any>;
+async function verifyBalanceHistoryUpgrade(
+  db: DataSource,
+  invoice: string,
+  cutoff: string,
+  today: string,
+) {
+  const q = db.createQueryRunner();
+  await q.connect();
+  await q.startTransaction();
+  try {
+    // Recreate the preceding schema on this disposable company's posted invoices.
+    const migration = new FinanceReceivableBalanceHistory1799900000000();
+    await q.query('TRUNCATE finance_ar_native_balance_changes');
+    await migration.down(q);
+    await q.query(
+      'UPDATE invoices SET balance_amount=balance_amount-1 WHERE id=$1',
+      [invoice],
+    );
+    await migration.up(q);
+    const [balances] = await q.query(
+      'SELECT sum(delta) FILTER (WHERE effective_on<=$2)::float8 earlier,sum(delta) FILTER (WHERE effective_on<=$3)::float8 present FROM finance_ar_native_balance_changes WHERE invoice_id=$1',
+      [invoice, cutoff, today],
+    );
+    expect(balances).toEqual({ earlier: 40, present: 29 });
+    await expect(migration.down(q)).rejects.toThrow(
+      /dated native invoice balance history/,
+    );
+  } finally {
+    await q.rollbackTransaction();
+    await q.release();
+  }
+}
+
 export async function exerciseCustomerAccounts(f: {
   call: Http;
   post: Http;
@@ -245,6 +279,9 @@ export async function exerciseCustomerAccounts(f: {
     tax: '0',
   });
   expect(Number((await native(a.id)).balance_amount)).toBe(0);
+  const creditReport = await report();
+  expect(Number(creditReport.agingTotals.available_credit)).toBe(1000000);
+  expect(creditReport.balanceExceptions).toEqual([]);
   const b = await bill(2000000);
   await ledger((await issue(b)).journal_candidate_id);
   const application = await finish('CREDIT_APPLICATION', {
@@ -418,6 +455,39 @@ export async function exerciseCustomerAccounts(f: {
   ]);
   const due = await bill(1000, payer);
   await issue(due);
+  if (f.insurer) {
+    const previousMonthEnd = new Date(
+      Date.parse(today.slice(0, 7) + '-01') - 86400000,
+    )
+      .toISOString()
+      .slice(0, 10);
+    const customerReport = (to: string) =>
+      call(
+        checker,
+        'customer-accounts/reports?' +
+          q +
+          '&currency=TZS&customer=' +
+          payer +
+          '&from=' +
+          previousMonthEnd +
+          '&to=' +
+          to,
+      );
+    await db.query(
+      'UPDATE invoices SET balance_amount=balance_amount-1 WHERE id=$1',
+      [due.id],
+    );
+    expect((await customerReport(previousMonthEnd)).balanceExceptions).toEqual(
+      [],
+    );
+    expect((await customerReport(today)).balanceExceptions).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: due.id })]),
+    );
+    await db.query(
+      'UPDATE invoices SET balance_amount=balance_amount+1 WHERE id=$1',
+      [due.id],
+    );
+  }
   // Zero credit permits immediate collection. An explicit extension remains subject to the cap.
   await issue(await bill(1000, payer), 409, 'NET30');
   const collection = (kind: string) =>
@@ -430,6 +500,56 @@ export async function exerciseCustomerAccounts(f: {
         requestKey: randomUUID(),
       },
     });
+  const follow = {
+    input: {
+      invoiceId: due.id,
+      kind: 'FOLLOW_UP',
+      ownerId: maker,
+      followUp: today,
+      note: 'Confirm collection date',
+      requestKey: randomUUID(),
+    },
+  };
+  const followPath = 'customer-accounts/collections';
+  const [firstFollow, replay] = await Promise.all([
+    post(maker, followPath, follow),
+    post(maker, followPath, follow),
+  ]);
+  expect(replay).toEqual(firstFollow);
+  const tomorrow = new Date(Date.parse(today) + 86400000)
+    .toISOString()
+    .slice(0, 10);
+  await post(
+    maker,
+    followPath,
+    { input: { ...follow.input, followUp: tomorrow } },
+    409,
+  );
+  const [savedFollow] = await db.query(
+    'SELECT count(*)::int n FROM finance_ar_collection_events WHERE book_id=$1 AND request_key=$2',
+    [scope.bookId, follow.input.requestKey],
+  );
+  expect(savedFollow.n).toBe(1);
+  const promise = {
+    ...follow.input,
+    kind: 'PROMISE',
+    promiseAmount: '100.00',
+    requestKey: randomUUID(),
+  };
+  const promised = await post(maker, followPath, { input: promise });
+  expect(
+    (
+      await post(maker, followPath, {
+        input: { ...promise, promiseAmount: '100' },
+      })
+    ).id,
+  ).toBe(promised.id);
+  await post(
+    maker,
+    followPath,
+    { input: { ...promise, promiseAmount: '99' } },
+    409,
+  );
   await collection('DISPUTE');
   await post(maker, 'customer-accounts/reminders');
   const alerts = () =>
@@ -621,6 +741,48 @@ export async function exerciseCustomerAccounts(f: {
     );
     expect(Number(collected.agingTotals.over_90)).toBe(50);
     expect(Number((await usd()).agingTotals.over_90)).toBe(60);
+    const statement = make('RECONCILIATION', {
+      customerId: payer,
+      currency: 'USD',
+      date: cutoff,
+      from: cutoff,
+      opening: '60',
+      amount: '60',
+      statementLines: [],
+    });
+    const pendingStatement = await submit(statement);
+    const adjustNative = (date: string, delta: number) =>
+      db.transaction(async (m) => {
+        await m.query(
+          "SELECT set_config('finance.ar_effective_date',$1,true)",
+          [date],
+        );
+        await m.query(
+          'UPDATE invoices SET balance_amount=balance_amount+$2 WHERE id=$1',
+          [ids[0].invoice_id, delta],
+        );
+      });
+    // A later difference on the very same invoice must not block the earlier statement.
+    await adjustNative(today, -1);
+    expect((await usd()).balanceExceptions).toEqual([]);
+    const [exception] = (await usd(today)).balanceExceptions;
+    expect(exception.id).toBe(ids[0].invoice_id);
+    expect([Number(exception.native), Number(exception.reconstructed)]).toEqual(
+      [29, 30],
+    );
+    expect((await decide(pendingStatement)).state).toBe('APPROVED');
+    await adjustNative(today, 1);
+    expect((await usd(today)).balanceExceptions).toEqual([]);
+    await adjustNative(cutoff, -1);
+    const [historical] = (await usd()).balanceExceptions;
+    expect([
+      Number(historical.native),
+      Number(historical.reconstructed),
+    ]).toEqual([39, 40]);
+    await submit({ ...statement, requestKey: randomUUID() }, 409);
+    await adjustNative(cutoff, 1);
+    expect((await usd()).balanceExceptions).toEqual([]);
+    await verifyBalanceHistoryUpgrade(db, ids[0].invoice_id, cutoff, today);
     await submit(
       make('OPENING_VOID', {
         currency: 'USD',

@@ -887,7 +887,7 @@ function Reports({
           )}
           {r.balanceExceptions.length > 0 && (
             <>
-              <h2>Current balance exceptions</h2>
+              <h2>Balance exceptions as of {r.to ?? to}</h2>
               <Table
                 head={['Invoice', 'Native', 'Reconstructed']}
                 rows={r.balanceExceptions.map((i: Info) => [

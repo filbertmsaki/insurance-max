@@ -48,10 +48,14 @@ export function AssetForm({
         k === 'code' &&
         (kind === 'ESTIMATE' ||
           kind === 'DEPRECIATE' ||
-          kind === 'LEASE_REMEASURE')
+          kind === 'LEASE_REMEASURE' ||
+          kind === 'LEASE_TAKE_OWNERSHIP' ||
+          kind === 'LEASE_END')
       ) {
         delete next.ownershipBasis;
         delete next.expiryRecoverableAmount;
+        delete next.returnedToLessor;
+        delete next.category;
       }
       return next;
     });
@@ -91,6 +95,8 @@ export function AssetForm({
     if (fields.payments?.trim())
       input.payments = fields.payments.split(/[\s,]+/).filter(Boolean);
     if (kind === 'CATEGORY') input.roles = roles;
+    if (kind === 'LEASE_END' && fields.returnedToLessor)
+      input.returnedToLessor = fields.returnedToLessor === 'YES';
     if (kind === 'LEASE_REMEASURE')
       input.rescheduleArrears = fields.rescheduleArrears === 'YES';
     if (newAsset || kind === 'TRANSFER')
@@ -151,8 +157,9 @@ export function AssetForm({
               w.assets
                 .filter(
                   (a) =>
-                    !['DISPOSED', 'WRITTEN_OFF'].includes(a.status) ||
-                    kind === 'REVERSE',
+                    kind === 'REVERSE' ||
+                    (!['DISPOSED', 'WRITTEN_OFF'].includes(a.status) &&
+                      (kind !== 'LEASE_TAKE_OWNERSHIP' || !!a.lease)),
                 )
                 .map((a) => ({ value: a.code, label: a.code + ' · ' + a.name }))
                 .concat(
@@ -180,10 +187,12 @@ export function AssetForm({
           )}
         {kind === 'CATEGORY' &&
           field('group', 'Asset group', masterChoices(w, 'GROUP', fields.date))}
-        {(newAsset || kind === 'RECLASSIFY') &&
+        {(newAsset || selected('RECLASSIFY', 'LEASE_TAKE_OWNERSHIP')) &&
           field(
             'category',
-            'Asset category',
+            kind === 'LEASE_TAKE_OWNERSHIP'
+              ? 'Owned asset category (if reclassifying accounts)'
+              : 'Asset category',
             masterChoices(w, 'CATEGORY', fields.date),
           )}
         {(newAsset || kind === 'TRANSFER') &&
@@ -211,7 +220,7 @@ export function AssetForm({
           (kind === 'OPENING' && !!fields.payments?.trim()) ||
           (current?.lease && kind === 'ESTIMATE') ||
           (current?.lease?.ownershipBasis === 'UNCONFIRMED' &&
-            kind === 'DEPRECIATE')) && (
+            selected('DEPRECIATE', 'LEASE_TAKE_OWNERSHIP'))) && (
           <Field
             label="Lease ownership or purchase option"
             value={
@@ -224,7 +233,11 @@ export function AssetForm({
             }
             change={(v) => change('ownershipBasis', v)}
             options={Object.entries(ownershipLabels)
-              .filter(([k]) => k !== 'UNCONFIRMED')
+              .filter(
+                ([k]) =>
+                  k !== 'UNCONFIRMED' &&
+                  (kind !== 'LEASE_TAKE_OWNERSHIP' || k !== 'LEASE_TERM'),
+              )
               .map(([value, label]) => ({ value, label }))}
           />
         )}
@@ -247,14 +260,26 @@ export function AssetForm({
             'Verification outcome',
             options(['FOUND', 'DAMAGED', 'MISSING']),
           )}
-        {kind === 'CAPITAL_ADDITION' &&
-          !current?.lease &&
+        {((kind === 'CAPITAL_ADDITION' && !current?.lease) ||
+          (kind === 'REVALUE' && current?.policy.method !== 'NONE')) &&
           field(
             'life',
             'Revised remaining life in months (if approved)',
             undefined,
             'number',
           )}
+        {kind === 'LEASE_TAKE_OWNERSHIP' &&
+          field(
+            'note',
+            'Evidence of title transfer or purchase option exercise',
+          )}
+        {kind === 'LEASE_END' &&
+          current?.lease &&
+          current.lease.index === current.lease.schedule.length &&
+          current.lease.ownershipBasis !== 'LEASE_TERM' &&
+          field('returnedToLessor', 'Was the asset returned to the lessor?', [
+            { value: 'YES', label: 'Yes, return documented' },
+          ])}
         {selected('CAPITAL_ADDITION', 'RECLASSIFY') &&
           field('note', 'Reason and supporting details')}
         {kind === 'MAINTENANCE_PLAN' &&
@@ -302,8 +327,13 @@ export function AssetForm({
               w.currency +
               ')',
           )}
-        {selected('OPENING', 'CAPITALIZE', 'ESTIMATE', 'LEASE_START') &&
-          field('residual', 'Residual value')}
+        {selected(
+          'OPENING',
+          'CAPITALIZE',
+          'ESTIMATE',
+          'LEASE_START',
+          'REVALUE',
+        ) && field('residual', 'Residual value')}
         {kind === 'OPENING' && (
           <>
             {field('inService', 'Available for use since', undefined, 'date')}

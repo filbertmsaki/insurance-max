@@ -48,6 +48,8 @@ function mount(prepare: boolean) {
               category: 'PC',
               status: 'ACTIVE',
               name: 'Late laptop',
+              policy: { method: 'STRAIGHT_LINE', life: 1, rate: '0' },
+              end: '2026-11-01',
               cost: '100000',
               accumulated: '0',
               impairment: '0',
@@ -75,6 +77,13 @@ function mount(prepare: boolean) {
         {
           code: 'AST-000001',
           name: 'Lenovo Laptop',
+          policy: { method: 'STRAIGHT_LINE', life: 12, rate: '0' },
+          lease: {
+            ownershipBasis: 'TITLE_TRANSFER',
+            liability: '0',
+            schedule: [],
+            index: 0,
+          },
           category: 'PC',
           group: 'IT',
           serial: '',
@@ -138,6 +147,12 @@ it('prepares only the uncovered asset for independent class valuation review', a
   fireEvent.change(screen.getByLabelText(/Late laptop/), {
     target: { value: '110000' },
   });
+  fireEvent.change(screen.getByLabelText(/Revised remaining life/), {
+    target: { value: '5' },
+  });
+  fireEvent.change(screen.getByLabelText(/Revised residual value/), {
+    target: { value: '0' },
+  });
   fireEvent.change(screen.getByLabelText('Supporting document version'), {
     target: { value: evidence.id },
   });
@@ -154,7 +169,48 @@ it('prepares only the uncovered asset for independent class valuation review', a
           valuationRunId: uuid(92),
           reference: 'Annual PCs',
           amount: '110000',
+          life: 5,
+          residual: '0',
           date: '2026-11-26',
+        }),
+      }),
+    ),
+  );
+});
+it('submits a settled lease handover with the title evidence', async () => {
+  mount(true);
+  const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });
+  fireEvent.click(await screen.findByRole('button', { name: 'New document' }));
+  fireEvent.change(screen.getByLabelText('Operation'), {
+    target: { value: 'LEASE_TAKE_OWNERSHIP' },
+  });
+  fireEvent.change(screen.getByLabelText('Asset', { exact: true }), {
+    target: { value: 'AST-000001' },
+  });
+  fireEvent.change(screen.getByLabelText('Source reference'), {
+    target: { value: 'Signed title' },
+  });
+  fireEvent.change(
+    screen.getByLabelText(
+      'Evidence of title transfer or purchase option exercise',
+    ),
+    { target: { value: 'Title lodged with Finance' } },
+  );
+  fireEvent.change(screen.getByLabelText('Supporting document version'), {
+    target: { value: evidence.id },
+  });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Submit for independent review' }),
+  );
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/fixed-assets',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          code: 'AST-000001',
+          kind: 'LEASE_TAKE_OWNERSHIP',
+          note: 'Title lodged with Finance',
+          evidence: expect.objectContaining({ id: evidence.id }),
         }),
       }),
     ),

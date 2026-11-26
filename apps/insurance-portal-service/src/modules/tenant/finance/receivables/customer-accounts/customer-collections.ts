@@ -44,19 +44,23 @@ export async function collectionEvent(
     'SELECT balance_amount,currency FROM invoices WHERE company_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE',
     [b.company_id, invoice],
   );
-  const [old] = await m.query(
-    'SELECT * FROM finance_ar_collection_events WHERE book_id=$1 AND request_key=$2',
-    [b.book_id, key],
+  const [existing] = await m.query(
+    'SELECT e.*, e.follow_up IS NOT DISTINCT FROM $3::date AS same_date FROM finance_ar_collection_events e WHERE book_id=$1 AND request_key=$2',
+    [b.book_id, key, v.followUp || null],
   );
-  if (old) {
+  if (existing) {
+    const { same_date, ...old } = existing;
     if (
       old.invoice_id !== invoice ||
       old.kind !== v.kind ||
       old.owner_id !== owner ||
       old.note !== note ||
       old.actor_id !== user ||
-      String(old.follow_up ?? '') !== (v.followUp ?? '') ||
-      !DecimalUtil.value(old.promise_amount ?? 0).eq(v.promiseAmount ?? 0)
+      !same_date ||
+      (v.kind === 'PROMISE' &&
+        (typeof v.promiseAmount !== 'string' ||
+          !/^\d+(\.\d{1,4})?$/.test(v.promiseAmount) ||
+          !DecimalUtil.value(old.promise_amount).eq(v.promiseAmount)))
     )
       conflict('The collection request key already has different details.');
     return old;

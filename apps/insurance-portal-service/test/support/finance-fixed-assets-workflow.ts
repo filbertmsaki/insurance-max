@@ -100,6 +100,7 @@ export async function exerciseFixedAssets(f: {
     debit: string,
     credit: string,
     amount: string,
+    dimensions = dim,
   ) => {
     const c = await post(maker, 'foundation/gl/vouchers', {
       input: {
@@ -109,8 +110,8 @@ export async function exerciseFixedAssets(f: {
         description: 'Verified fixed asset source',
         evidence,
         lines: [
-          { role: debit, debit: amount, credit: '0', dimensions: dim },
-          { role: credit, debit: '0', credit: amount, dimensions: dim },
+          { role: debit, debit: amount, credit: '0', dimensions },
+          { role: credit, debit: '0', credit: amount, dimensions },
         ],
       },
     });
@@ -700,7 +701,276 @@ export async function exerciseFixedAssets(f: {
       note: 'Lease terminated by agreement',
     });
     expect(terminated.plan.asset.lease.liability).toBe('0');
-    const proceeds = await journal(due, 'FA_OFFSET', 'FA_CLEAR', '300000');
+    const branchFunding = await journal(
+      f.today,
+      'FA_CLEAR',
+      'FA_OFFSET',
+      '120000',
+    );
+    await finish('ACQUIRE', 'BRANCH-CAP', {
+      ...base,
+      date: f.today,
+      location: 'COAST',
+      dimensions: { ...dim, BRANCH: f.otherBranch },
+      amount: '120000',
+      sourceJournal: branchFunding,
+      sourceLine: 'L1',
+    });
+    const cross = await finish('CAPITALIZE', 'BRANCH-CAP', {
+      date: f.today,
+      residual: '0',
+    });
+    const branchBalances = async (id: string) =>
+      db.query(
+        "SELECT dimensions->>'BRANCH' branch,sum(functional_debit-functional_credit)::float8 net FROM finance_foundation_lines WHERE journal_id=$1 GROUP BY 1 ORDER BY 1",
+        [id],
+      );
+    const balanced = [f.branch, f.otherBranch]
+      .sort()
+      .map((branch) => ({ branch, net: 0 }));
+    const coast = { ...dim, BRANCH: f.otherBranch };
+    expect(await branchBalances(cross.journal_id)).toEqual(balanced);
+    expect(cross.plan.lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: roles.branchDueFrom,
+          debit: '120000',
+          dimensions: dim,
+        }),
+        expect.objectContaining({
+          role: roles.branchDueTo,
+          credit: '120000',
+          dimensions: { ...dim, BRANCH: f.otherBranch },
+        }),
+      ]),
+    );
+    const undoCross = await finish('REVERSE', 'BRANCH-CAP', {
+      date: f.today,
+      original: cross.id,
+    });
+    expect(await branchBalances(undoCross.journal_id)).toEqual(
+      await branchBalances(cross.journal_id),
+    );
+    await finish('CAPITALIZE', 'BRANCH-CAP', { date: f.today, residual: '0' });
+
+    for (const [adjustment, sourceLine] of [
+      ['1000', 'L1'],
+      ['-1000', 'L2'],
+    ] as const) {
+      const code = 'LEASE-BRANCH-' + sourceLine;
+      const funds = await journal(
+        start,
+        sourceLine === 'L1' ? 'FA_CLEAR' : 'FA_OFFSET',
+        sourceLine === 'L1' ? 'FA_OFFSET' : 'FA_CLEAR',
+        '1000',
+        coast,
+      );
+      const opened = await finish('LEASE_START', code, {
+        ...base,
+        category: 'OPEN-PC',
+        payments: ['10000'],
+        initialAdjustment: adjustment,
+        sourceJournal: funds,
+        sourceLine,
+      });
+      expect(await branchBalances(opened.journal_id)).toEqual(balanced);
+      const fee = await journal(start, 'FA_CLEAR', 'FA_OFFSET', '500', coast);
+      const ended = await finish('LEASE_END', code, {
+        date: start,
+        note: 'Signed early return',
+        amount: '500',
+        sourceJournal: fee,
+        sourceLine: 'L1',
+      });
+      expect(await branchBalances(ended.journal_id)).toEqual(balanced);
+    }
+    await finish('CATEGORY', 'ONE-MONTH', {
+      name: 'Short-lived equipment',
+      group: 'IT',
+      method: 'STRAIGHT_LINE',
+      life: 1,
+      model: 'REVALUATION',
+      roles,
+    });
+    const valuationFund = await journal(
+      start,
+      'FA_CLEAR',
+      'FA_OFFSET',
+      '120000',
+    );
+    await finish('ACQUIRE', 'REVAL-EXPIRED', {
+      ...base,
+      category: 'ONE-MONTH',
+      amount: '120000',
+      sourceJournal: valuationFund,
+      sourceLine: 'L1',
+    });
+    await finish('CAPITALIZE', 'REVAL-EXPIRED', { residual: '0' });
+    await finish('DEPRECIATE', 'REVAL-EXPIRED', { date: lastCharge });
+    const fairValue = { date: expiredOn, amount: '25000' };
+    await post(
+      maker,
+      root,
+      {
+        input: input('REVALUE', 'REVAL-EXPIRED', {
+          ...fairValue,
+          residual: '0',
+        }),
+      },
+      409,
+    );
+    const residualOnly = await finish('REVALUE', 'REVAL-EXPIRED', {
+      ...fairValue,
+      residual: '25000',
+    });
+    expect(residualOnly.plan.asset.residual).toBe('25000');
+    await finish('REVERSE', 'REVAL-EXPIRED', {
+      date: expiredOn,
+      original: residualOnly.id,
+    });
+    const priceRun = {
+      date: expiredOn,
+      category: 'ONE-MONTH',
+      reference: 'Updated equipment valuation',
+      evidence,
+      requestKey: randomUUID(),
+      values: [
+        { code: 'REVAL-EXPIRED', amount: '25000', life: 5, residual: '0' },
+      ],
+    };
+    const [valuation] = await post(maker, root + '/revaluation-run', {
+      input: priceRun,
+    });
+    expect(
+      (await post(maker, root + '/revaluation-run', { input: priceRun }))[0].id,
+    ).toBe(valuation.id);
+    await post(checker, root + '/' + valuation.id + '/approve', {
+      reason: 'Reviewed remaining life and valuation',
+    });
+    await ledger(
+      (await post(maker, root + '/' + valuation.id + '/post', {})).candidate_id,
+    );
+    const preview = async (code: string) =>
+      (await call(checker, root + '?' + q)).depreciation.find(
+        (x: { code: string }) => x.code === code,
+      );
+    expect(await preview('REVAL-EXPIRED')).toMatchObject({ amount: '5000' });
+    const charged = await finish('DEPRECIATE', 'REVAL-EXPIRED', {
+      date: f.today,
+    });
+    expect(Number(charged.plan.asset.accumulated)).toBeGreaterThan(0);
+    expect(charged.plan.asset.end).toBe(shiftMonth(expiredOn, 5));
+
+    await finish('CATEGORY', 'OWNED-COST', {
+      name: 'Owned equipment',
+      group: 'IT',
+      method: 'STRAIGHT_LINE',
+      life: 48,
+      model: 'COST',
+      roles: { ...roles, asset: 'FA_IMPROVED' },
+    });
+    for (const basis of ['TITLE_TRANSFER', 'PURCHASE_OPTION'] as const) {
+      const code = 'RETAIN-' + basis,
+        agreement = { date: due, note: 'Registered title and signed handover' };
+      const commenced = await finish('LEASE_START', code, {
+        ...base,
+        category: 'OPEN-PC',
+        leaseMonths: 1,
+        payment: '120000',
+        annualRate: '0',
+        life: 12,
+        ownershipBasis: basis,
+      });
+      await post(
+        maker,
+        root,
+        { input: input('LEASE_TAKE_OWNERSHIP', code, agreement) },
+        409,
+      );
+      await finish('DEPRECIATE', code, { date: lastCharge });
+      await finish('LEASE_INTEREST', code, { date: due });
+      const leaseFunds = await journal(
+        due,
+        'FA_CLEAR',
+        'FA_OFFSET',
+        '120000',
+        coast,
+      );
+      const paid = await finish('LEASE_PAYMENT', code, {
+        date: due,
+        amount: '120000',
+        sourceJournal: leaseFunds,
+        sourceLine: 'L1',
+      });
+      expect(Number(paid.plan.asset.lease.liability)).toBe(0);
+      expect(await branchBalances(paid.journal_id)).toEqual(balanced);
+      await post(
+        maker,
+        root,
+        { input: input('LEASE_END', code, agreement) },
+        409,
+      );
+      const acquired = await finish('LEASE_TAKE_OWNERSHIP', code, {
+        ...agreement,
+        ...(basis === 'PURCHASE_OPTION' && { category: 'OWNED-COST' }),
+      });
+      const owned = acquired.plan.asset;
+      expect(owned).toMatchObject({
+        status: 'ACTIVE',
+        lease: null,
+        ownership: { date: due, basis },
+        end: commenced.plan.asset.end,
+        inService: start,
+      });
+      expect(
+        Number(owned.cost) -
+          Number(owned.accumulated) -
+          Number(owned.impairment),
+      ).toBe(110000);
+      expect(
+        acquired.plan.lines.some(
+          (l: { role: string }) =>
+            l.role === 'FA_LOSS' || l.role === 'FA_LEASE',
+        ),
+      ).toBe(false);
+      if (basis === 'TITLE_TRANSFER') expect(acquired.journal_id).toBeNull();
+      else {
+        expect(owned.category).toBe('OWNED-COST');
+        expect(acquired.plan.lines).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ role: 'FA_IMPROVED', debit: '120000' }),
+            expect.objectContaining({ role: 'FA_COST', credit: '120000' }),
+          ]),
+        );
+      }
+      expect(await preview(code)).toMatchObject({ amount: '10000' });
+      const undone = await finish('REVERSE', code, {
+        date: due,
+        original: acquired.id,
+      });
+      expect(undone.plan.asset.lease).toEqual(paid.plan.asset.lease);
+      if (basis === 'PURCHASE_OPTION') {
+        const returned = await finish('LEASE_END', code, {
+          date: due,
+          note: 'Option waived; signed return to lessor',
+          returnedToLessor: true,
+        });
+        expect(returned.plan.asset.status).toBe('DISPOSED');
+      } else {
+        await finish('LEASE_TAKE_OWNERSHIP', code, agreement);
+        const ownedCharge = await finish('DEPRECIATE', code, { date: f.today });
+        expect(Number(ownedCharge.plan.asset.accumulated)).toBeGreaterThan(
+          Number(owned.accumulated),
+        );
+      }
+    }
+    const proceeds = await journal(
+      due,
+      'FA_OFFSET',
+      'FA_CLEAR',
+      '300000',
+      coast,
+    );
     const disposed = await finish('DISPOSE', 'AST-000002', {
       date: shiftMonth(start, 1),
       amount: '300000',
@@ -709,6 +979,7 @@ export async function exerciseFixedAssets(f: {
       note: 'Approved sale',
     });
     expect(disposed.plan.asset.status).toBe('DISPOSED');
+    expect(await branchBalances(disposed.journal_id)).toEqual(balanced);
   }
   const report = await call(
     checker,

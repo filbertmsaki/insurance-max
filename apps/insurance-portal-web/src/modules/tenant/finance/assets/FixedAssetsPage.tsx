@@ -199,19 +199,27 @@ function Workspace({
       {notice && <p role="status">{notice}</p>}
       {tab === 'Asset register' && (
         <>
-          {!!w.leaseReview?.length && (
-            <section aria-label="Leases requiring review">
-              <h2 className="font-semibold">Leases requiring review</h2>
-              <Table
-                head={['Asset', 'Finance review']}
-                rows={w.leaseReview.map((x) => [
-                  <button className="underline" onClick={() => C(x.code)}>
-                    {x.code}
-                  </button>,
-                  x.reasons.join(' '),
-                ])}
-              />
-            </section>
+          {[
+            { title: 'Leases requiring review', rows: w.leaseReview },
+            {
+              title: 'Owned assets requiring an estimate review',
+              rows: w.ownedAssetReview,
+            },
+          ].map(({ title, rows }) =>
+            rows?.length ? (
+              <section key={title} aria-label={title}>
+                <h2 className="font-semibold">{title}</h2>
+                <Table
+                  head={['Asset', 'Finance review']}
+                  rows={rows.map((x) => [
+                    <button className="underline" onClick={() => C(x.code)}>
+                      {x.code}
+                    </button>,
+                    x.reasons.join(' '),
+                  ])}
+                />
+              </section>
+            ) : null,
           )}
           <Field label="Find an asset" value={search} change={S} />
           <Table
@@ -275,6 +283,13 @@ function Workspace({
                   {asset.exemption.basis.replace('_', ' ')} lease through{' '}
                   {asset.exemption.end} ? Recorded rent {w.currency}{' '}
                   {fmt(asset.exemption.expense)}
+                </p>
+              )}
+              {asset.ownership && (
+                <p>
+                  Ownership recorded {asset.ownership.date} ·{' '}
+                  {ownershipLabels[asset.ownership.basis]} · Depreciation ends{' '}
+                  {asset.end ?? '—'}
                 </p>
               )}
               {asset.lease && (

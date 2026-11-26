@@ -1199,7 +1199,9 @@ export class FinanceLedgerFoundationService {
               candidate: string,
               journal: string,
             ): Promise<void>;
-          }>(assetDocument ? 'FIN05_POSTING' : 'FIN04_POSTING', { strict: false });
+          }>(assetDocument ? 'FIN05_POSTING' : 'FIN04_POSTING', {
+            strict: false,
+          });
           if (!receiver)
             foundationFail(
               'The source accounting posting handler is unavailable.',
@@ -1221,6 +1223,7 @@ export class FinanceLedgerFoundationService {
             config.sourceCompanyId,
             p.economicSourceId,
             nativeType === 'INVOICE_WRITE_OFF_REVERSAL',
+            p.accountingDate,
           );
         for (const l of payload.lines)
           await c.manager.query(

@@ -35,6 +35,7 @@ export const kinds = [
   'LEASE_EXEMPT',
   'LEASE_EXPENSE',
   'LEASE_END',
+  'LEASE_TAKE_OWNERSHIP',
   'LEASE_INTEREST',
   'LEASE_PAYMENT',
   'LEASE_REMEASURE',
@@ -161,6 +162,7 @@ export interface Asset {
   sourceDimensions: Dimensions;
   sourceCost: string;
   lease: Lease | null;
+  ownership?: { date: string; basis: 'TITLE_TRANSFER' | 'PURCHASE_OPTION' };
   exemption?: {
     basis: 'SHORT_TERM' | 'LOW_VALUE';
     end: string;
@@ -206,6 +208,7 @@ export interface Input {
   leaseMonths?: number;
   firstDue?: string;
   rescheduleArrears?: boolean;
+  returnedToLessor?: boolean;
   ownershipBasis?: LeaseOwnershipBasis;
   expiryRecoverableAmount?: string;
   valuationRunId?: string;
