@@ -12,8 +12,10 @@ import { OperatingPostings } from '../setup/OperatingPostings';
 import { downloadCsv } from '../payables/ap-export';
 import { ApEvidenceUpload } from '../payables/ApEvidenceUpload';
 import { CashForm, DocumentForm } from './customer-account-forms';
+import { ReceivableAgingChart } from './ReceivableAgingChart';
 import {
   choices,
+  collectionPercent,
   options,
   names,
   openingColumns,
@@ -249,7 +251,9 @@ function Workspace({
               'Currency',
               'Billed',
               'Paid',
+              'Collected %',
               'Outstanding',
+              'Outstanding %',
               'Status',
             ]}
             rows={w.invoices.map((i) => [
@@ -260,7 +264,9 @@ function Workspace({
               i.currency,
               i.total_amount,
               i.paid_amount,
+              collectionPercent(i.paid_amount, i.total_amount),
               i.balance_amount,
+              collectionPercent(i.balance_amount, i.total_amount),
               label(i.status),
             ])}
           />
@@ -791,6 +797,13 @@ function Reports({
       {r && (
         <>
           <h2>Receivable aging · {currency}</h2>
+          {r.agingTotals && (
+            <ReceivableAgingChart
+              totals={r.agingTotals}
+              currency={currency}
+              date={to}
+            />
+          )}
           <Table
             head={[
               'Customer',

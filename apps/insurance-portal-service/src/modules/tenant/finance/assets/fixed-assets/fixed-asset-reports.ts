@@ -3,8 +3,20 @@ import type { EntityManager } from 'typeorm';
 import { type ActivePostingBook } from '../../accounting/general-ledger/finance-book-request';
 import { certifiedOpening } from '../../accounting/general-ledger/finance-gl-balances';
 import { invalid } from '../../accounting/general-ledger/finance-gl-program';
-import { day, net, type Asset, type Roles } from './fixed-asset.types';
-import { depreciation, monthEnd, shiftDay } from './fixed-asset-measurement';
+import {
+  ambiguousLeaseSchedule,
+  needsLeaseBasis,
+  day,
+  net,
+  type Asset,
+  type Roles,
+} from './fixed-asset.types';
+import {
+  depreciation,
+  hasExpiredLeaseBalance,
+  monthEnd,
+  shiftDay,
+} from './fixed-asset-measurement';
 import { restoreLeaseLife } from './fixed-asset-leases';
 
 export function classValuations(
@@ -13,7 +25,7 @@ export function classValuations(
   cutoff: string,
 ) {
   return m.query(
-    'SELECT v.*,v.effective_date::text FROM finance_fa_class_status($1,$2) v ORDER BY v.effective_date DESC,v.reference',
+    'SELECT v.*,v.effective_date::text FROM finance_fa_valuation_coverage($1,$2) v ORDER BY v.effective_date DESC,v.reference,v.run_id',
     [book, cutoff],
   );
 }
@@ -31,9 +43,25 @@ export async function assetRegister(
   await restoreLeaseLife(m, book, assets, to);
   return assets;
 }
+export function leaseReview(assets: Asset[]) {
+  return assets.flatMap((a) => {
+    if (!a.lease || a.status !== 'ACTIVE') return [];
+    const reasons: string[] = [];
+    if (needsLeaseBasis(a.lease))
+      reasons.push(
+        'Confirm the ownership or purchase-option terms from the lease agreement.',
+      );
+    if (hasExpiredLeaseBalance(a))
+      reasons.push(
+        'Carrying amount exceeds residual value after depreciation ended. Review remaining life or impairment.',
+      );
+    return reasons.length ? [{ code: a.code, reasons }] : [];
+  });
+}
 export function nextDepreciation(a: Asset, scale: number) {
   if (
     a.status !== 'ACTIVE' ||
+    ambiguousLeaseSchedule(a) ||
     !a.through ||
     !a.end ||
     a.policy.method === 'NONE' ||

@@ -21,34 +21,66 @@ export function ClassRevaluation({
 }) {
   const [date, D] = useState(w.today),
     [category, C] = useState(''),
+    [runId, setRunId] = useState(''),
+    [assetCode, setAssetCode] = useState(''),
     [ref, R] = useState(''),
     [price, P] = useState<Record<string, string>>({}),
     [evidence, E] = useState<Evidence>(),
     [key, K] = useState(() => crypto.randomUUID());
+  const runs = (w.valuations ?? []).filter(
+    (v) => v.run_id && v.missing?.length,
+  );
+  const run = runs.find((v) => v.run_id === runId);
+  const valuationDate = run?.effective_date ?? date;
   const latest = new Map<string, Register['documents'][number]>();
   for (const d of w.documents)
     if (
       d.state === 'POSTED' &&
       !d.plan.master &&
-      d.effective_date <= date &&
-      !latest.has(d.code)
+      d.effective_date <= valuationDate &&
+      (!latest.has(d.code) ||
+        latest.get(d.code)!.effective_date < d.effective_date)
     )
       latest.set(d.code, d);
   const items = [...latest.values()]
     .map((d) => d.plan.asset)
-    .filter((a) => a?.category === category && a.status === 'ACTIVE');
+    .filter(
+      (a) =>
+        a?.category === (run?.category ?? category) &&
+        a.status === 'ACTIVE' &&
+        (!run || a.code === assetCode),
+    );
   const submit = async () => {
     try {
-      await save('/revaluation-run', {
-        input: {
-          date,
-          category,
-          reference: ref,
-          requestKey: key,
-          evidence,
-          values: items.map((a) => ({ code: a!.code, amount: price[a!.code] })),
-        },
-      });
+      if (run) {
+        await save('', {
+          input: {
+            kind: 'REVALUE',
+            valuationRunId: run.run_id,
+            date: run.effective_date,
+            reference: run.reference,
+            requestKey: key,
+            evidence,
+            code: assetCode,
+            amount: price[assetCode],
+          },
+        });
+        setRunId('');
+        setAssetCode('');
+      } else
+        await save('/revaluation-run', {
+          input: {
+            date,
+            category,
+            reference: ref,
+            requestKey: key,
+            evidence,
+            values: items.map((a) => ({
+              code: a!.code,
+              amount: price[a!.code],
+            })),
+          },
+        });
       P({});
       R('');
       K(crypto.randomUUID());
@@ -59,27 +91,64 @@ export function ClassRevaluation({
   return (
     <div className="space-y-3">
       <h2 className="font-semibold">Class revaluation</h2>
-      <div className="grid gap-3 md:grid-cols-3">
+      {(runs.length > 0 || !!runId) && (
         <Field
-          label="Valuation date"
-          type="date"
-          value={date}
-          change={(v) => {
-            D(v);
+          label="Valuation to prepare"
+          emptyOptionLabel="New class valuation"
+          value={runId}
+          options={[
+            ...(runId && !run
+              ? [
+                  {
+                    value: runId,
+                    label: 'Coverage updated. Choose a valuation.',
+                  },
+                ]
+              : []),
+            ...runs.map((v) => ({
+              value: v.run_id!,
+              label:
+                v.reference + ' · ' + v.category + ' · ' + v.effective_date,
+            })),
+          ]}
+          change={(id) => {
+            setRunId(id);
+            setAssetCode('');
             P({});
+            K(crypto.randomUUID());
           }}
         />
+      )}
+      {run ? (
         <Field
-          label="Valuation category"
-          value={category}
-          change={(v) => {
-            C(v);
-            P({});
-          }}
-          options={masterChoices(w, 'CATEGORY', date)}
+          label="Uncovered asset"
+          value={assetCode}
+          change={setAssetCode}
+          options={run.missing!.map((code) => ({ value: code, label: code }))}
         />
-        <Field label="Valuation reference" value={ref} change={R} />
-      </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field
+            label="Valuation date"
+            type="date"
+            value={date}
+            change={(v) => {
+              D(v);
+              P({});
+            }}
+          />
+          <Field
+            label="Valuation category"
+            value={category}
+            change={(v) => {
+              C(v);
+              P({});
+            }}
+            options={masterChoices(w, 'CATEGORY', date)}
+          />
+          <Field label="Valuation reference" value={ref} change={R} />
+        </div>
+      )}
       {items.map((a) => (
         <Field
           key={a!.code}
@@ -102,14 +171,14 @@ export function ClassRevaluation({
       <Button
         disabled={
           busy ||
-          !ref.trim() ||
+          (!run && (!ref.trim() || !!runId)) ||
           !evidence ||
           !items.length ||
           items.some((a) => !price[a!.code]?.trim())
         }
         onClick={() => void submit()}
       >
-        Prepare class valuation
+        {run ? 'Prepare supplemental valuation' : 'Prepare class valuation'}
       </Button>
     </div>
   );

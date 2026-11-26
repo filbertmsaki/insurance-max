@@ -156,14 +156,14 @@ export async function exerciseFixedAssets(f: {
       category: 'OPEN-PC',
       location: 'HQ',
       dimensions: dim,
-      amount: '1000',
-      accumulated: '200',
+      amount: '800',
+      accumulated: '160',
       inService: start,
     });
     expect(opening.journal_id).toBeNull();
     expect(
       Number(opening.plan.asset.cost) - Number(opening.plan.asset.accumulated),
-    ).toBe(800);
+    ).toBe(640);
     await post(
       maker,
       root,
@@ -173,7 +173,7 @@ export async function exerciseFixedAssets(f: {
           category: 'OPEN-PC',
           location: 'HQ',
           dimensions: dim,
-          amount: '1',
+          amount: '201',
           inService: start,
         }),
       },
@@ -431,6 +431,10 @@ export async function exerciseFixedAssets(f: {
         { revision, state, evidenceHash: evidence.hash },
         status,
       );
+    const coverage = async () =>
+      (await call(checker, root + '?' + q)).valuations.find(
+        (v: { request_key: string }) => v.request_key === incomplete.requestKey,
+      );
     for (const [index, v] of valuations.entries()) {
       const approved = await post(checker, root + '/' + v.id + '/approve', {
         reason: 'Verified class valuation',
@@ -440,17 +444,128 @@ export async function exerciseFixedAssets(f: {
         await ledger(queued.candidate_id);
       }
       if (index === 0) {
-        expect(
-          (await call(checker, root + '?' + q)).valuations[0],
-        ).toMatchObject({ state: 'PARTIAL', posted: 1, total: 2 });
+        expect(await coverage()).toMatchObject({
+          state: 'PARTIAL',
+          posted: 1,
+          total: 2,
+        });
         await close(period.revision, 'CLOSED', 409);
       }
     }
-    expect((await call(checker, root + '?' + q)).valuations[0].state).toBe(
-      'COMPLETE',
+    expect(await coverage()).toMatchObject({
+      state: 'COMPLETE',
+      posted: 2,
+      total: 2,
+      missing: [],
+    });
+    const lateFunding = await journal(start, 'FA_CLEAR', 'FA_OFFSET', '100000');
+    await finish('ACQUIRE', 'AST-LATE', {
+      ...base,
+      amount: '100000',
+      sourceJournal: lateFunding,
+      sourceLine: 'L1',
+    });
+    await finish('CAPITALIZE', 'AST-LATE', { residual: '0' });
+    const partial = await coverage();
+    expect(partial).toMatchObject({
+      state: 'PARTIAL',
+      posted: 2,
+      total: 3,
+      outstanding: ['AST-LATE'],
+      missing: ['AST-LATE'],
+    });
+    await close(period.revision, 'CLOSED', 409);
+    const supplement = {
+      valuationRunId: partial.run_id,
+      reference: partial.reference,
+      amount: '110000',
+    };
+    await post(
+      maker,
+      root,
+      { input: input('REVALUE', 'AST-000002', supplement) },
+      409,
     );
+    const supplemental = await finish('REVALUE', 'AST-LATE', supplement);
+    expect(supplemental.journal_id).toBeTruthy();
+    await post(
+      maker,
+      root,
+      { input: input('REVALUE', 'AST-LATE', supplement) },
+      409,
+    );
+    expect(await coverage()).toMatchObject({
+      state: 'COMPLETE',
+      posted: 3,
+      total: 3,
+      missing: [],
+    });
+    await finish('REVERSE', 'AST-LATE', { original: supplemental.id });
+    expect(await coverage()).toMatchObject({
+      state: 'PARTIAL',
+      posted: 2,
+      total: 3,
+      missing: ['AST-LATE'],
+    });
+    await close(period.revision, 'CLOSED', 409);
+    await finish('REVALUE', 'AST-LATE', { ...supplement, amount: '105000' });
+    const retired = await finish('WRITE_OFF', 'AST-LATE', {
+      note: 'Verified retirement on the valuation date',
+    });
+    expect(await coverage()).toMatchObject({
+      state: 'COMPLETE',
+      posted: 2,
+      total: 2,
+    });
+    await finish('REVERSE', 'AST-LATE', { original: retired.id });
+    expect(await coverage()).toMatchObject({
+      state: 'COMPLETE',
+      posted: 3,
+      total: 3,
+    });
+    const later = shiftDay(start, 1);
+    const laterFunding = await journal(later, 'FA_CLEAR', 'FA_OFFSET', '10000');
+    await finish('ACQUIRE', 'AST-AFTER', {
+      ...base,
+      date: later,
+      amount: '10000',
+      sourceJournal: laterFunding,
+      sourceLine: 'L1',
+    });
+    await finish('CAPITALIZE', 'AST-AFTER', { date: later, residual: '0' });
+    expect(await coverage()).toMatchObject({
+      state: 'COMPLETE',
+      posted: 3,
+      total: 3,
+    });
     const closed = await close(period.revision, 'CLOSED');
-    await close(closed.revision, 'OPEN');
+    const unopened = await post(maker, root, {
+      input: input('OPENING', 'BACKDATED-OPEN', {
+        ...base,
+        amount: '200',
+        accumulated: '40',
+        inService: start,
+      }),
+    });
+    const approvalPath = root + '/' + unopened.id + '/approve';
+    const approval = { reason: 'Matched the remaining certified opening.' };
+    await post(checker, approvalPath, approval, 409);
+    expect(await coverage()).toMatchObject({ state: 'COMPLETE', total: 3 });
+    const reopened = await close(closed.revision, 'OPEN');
+    expect((await post(checker, approvalPath, approval)).state).toBe('POSTED');
+    expect(await coverage()).toMatchObject({
+      state: 'PARTIAL',
+      total: 4,
+      missing: ['BACKDATED-OPEN'],
+    });
+    await finish('REVALUE', 'BACKDATED-OPEN', { ...supplement, amount: '160' });
+    expect(await coverage()).toMatchObject({
+      state: 'COMPLETE',
+      posted: 4,
+      total: 4,
+    });
+    const verified = await close(reopened.revision, 'CLOSED');
+    await close(verified.revision, 'OPEN');
     const run = {
       date: monthEnd(start),
       reference: 'Monthly laptop depreciation',
@@ -487,9 +602,41 @@ export async function exerciseFixedAssets(f: {
       { input: input('DEPRECIATE', 'AST-000002', { date: run.date }) },
       409,
     );
+    const shortLease = await finish('LEASE_START', 'ROU-SHORT', {
+      ...base,
+      category: 'OPEN-PC',
+      life: 1,
+      payments: ['0', '10000', '10000'],
+      annualRate: '0',
+    });
+    expect(shortLease.plan.asset.lease.ownershipBasis).toBe('LEASE_TERM');
+    const expiredOn = shiftMonth(start, 1);
+    const lastCharge = shiftDay(expiredOn, -1);
+    if (monthEnd(start) < lastCharge)
+      await finish('DEPRECIATE', 'ROU-SHORT', { date: monthEnd(start) });
+    await finish('DEPRECIATE', 'ROU-SHORT', { date: lastCharge });
+    const rise = {
+      date: expiredOn,
+      firstDue: shiftMonth(expiredOn, 1),
+      payments: ['11000', '11000'],
+      annualRate: '0',
+    };
+    await post(
+      maker,
+      root,
+      { input: input('LEASE_REMEASURE', 'ROU-SHORT', rise) },
+      409,
+    );
+    const assessed = await finish('LEASE_REMEASURE', 'ROU-SHORT', {
+      ...rise,
+      expiryRecoverableAmount: '0',
+    });
+    expect(Number(assessed.plan.asset.impairment)).toBe(2000);
+    expect(Number(assessed.plan.asset.lease.liability)).toBe(22000);
     const lease = await finish('LEASE_START', 'ROU-1', {
       ...base,
       name: 'Office lease',
+      category: 'OPEN-PC',
       leaseMonths: 2,
       payment: '10000',
       annualRate: '12',
@@ -497,6 +644,7 @@ export async function exerciseFixedAssets(f: {
     const legacy = structuredClone(lease.plan.asset);
     delete legacy.lease.usefulLifeEnd;
     delete legacy.lease.ownershipTransfer;
+    delete legacy.lease.ownershipBasis;
     legacy.policy.life = 2;
     await restoreLeaseLife(db.manager, scope.bookId, [legacy], start);
     expect(legacy.lease.usefulLifeEnd).toBe(shiftMonth(start, 48));
@@ -529,15 +677,24 @@ export async function exerciseFixedAssets(f: {
       payment: '6000',
       annualRate: '12',
     });
+    // Revising the economic life does not grant title when the amended rental term is shorter.
     const modification = [shiftDay(due, 3), f.today].sort()[0];
     const amended = await finish('LEASE_REMEASURE', 'ROU-1', {
       date: modification,
       leaseMonths: 2,
       payment: '5500',
+      life: 6,
       annualRate: '9',
       firstDue: shiftMonth(due, 1),
     });
     expect(amended.plan.asset.lease.schedule[0].start).toBe(modification);
+    expect(amended.plan.asset.lease.ownershipBasis).toBe('LEASE_TERM');
+    expect(amended.plan.asset.lease.usefulLifeEnd).toBe(
+      shiftMonth(modification, 6),
+    );
+    expect(amended.plan.asset.end).toBe(
+      amended.plan.asset.lease.schedule.at(-1).date,
+    );
     const terminated = await finish('LEASE_END', 'ROU-1', {
       date: modification,
       note: 'Lease terminated by agreement',

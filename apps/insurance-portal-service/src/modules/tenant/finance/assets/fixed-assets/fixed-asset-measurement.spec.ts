@@ -1,7 +1,12 @@
-import { commenceLease, serviceLease } from './fixed-asset-leases';
+import {
+  commenceLease,
+  restoreLeaseLife,
+  serviceLease,
+} from './fixed-asset-leases';
 import type { EntityManager } from 'typeorm';
 import type { ActivePostingBook } from '../../accounting/general-ledger/finance-book-request';
-import type { Input, Plan } from './fixed-asset.types';
+import { net, type Input, type Plan } from './fixed-asset.types';
+import { leaseReview, nextDepreciation } from './fixed-asset-reports';
 import Decimal from 'decimal.js';
 import type { Asset } from './fixed-asset.types';
 import {
@@ -192,6 +197,7 @@ describe('Fixed asset book measurement', () => {
     );
     delete a.lease!.usefulLifeEnd;
     delete a.lease!.ownershipTransfer;
+    delete a.lease!.ownershipBasis;
     await serviceLease(
       m,
       b,
@@ -206,6 +212,158 @@ describe('Fixed asset book measurement', () => {
       2,
     );
     expect(a.end).toBe('2026-07-01');
+  });
+  it.each([
+    [undefined, '2026-04-01'],
+    ['TITLE_TRANSFER', '2026-07-01'],
+    ['PURCHASE_OPTION', '2026-07-01'],
+  ] as const)(
+    'sets the shortened rent schedule independently of economic life (%s)',
+    async (ownershipBasis, end) => {
+      const a = asset('0', '2026-01-01');
+      Object.assign(a.policy.roles, {
+        liability: 'LEASE',
+        interest: 'INTEREST',
+      });
+      const m = {} as EntityManager,
+        b = {} as ActivePostingBook,
+        plan = (): Plan => ({ asset: a, amount: '0', lines: [] });
+      await commenceLease(
+        m,
+        b,
+        a,
+        {
+          date: '2026-01-01',
+          payments: Array(12).fill('10000'),
+          life: 6,
+          ownershipBasis,
+        } as Input,
+        plan(),
+        2,
+      );
+      expect(a.lease!.ownershipBasis).toBe(ownershipBasis ?? 'LEASE_TERM');
+      await serviceLease(
+        m,
+        b,
+        a,
+        {
+          kind: 'LEASE_REMEASURE',
+          date: '2026-02-01',
+          payments: ['10000', '10000'],
+        } as Input,
+        plan(),
+        2,
+      );
+      expect(a.lease!.usefulLifeEnd).toBe('2026-07-01');
+      expect(a.end).toBe(end);
+      if (ownershipBasis === 'TITLE_TRANSFER') {
+        delete a.lease!.ownershipBasis;
+        await restoreLeaseLife(m, 'book', [a], '2026-02-01');
+        expect(a.lease!.ownershipBasis).toBe('UNCONFIRMED');
+        expect(nextDepreciation(a, 2)).toBeNull();
+        expect(leaseReview([a])[0].reasons[0]).toMatch(/ownership/);
+        expect(() => depreciation(a, '2026-02-28', 2, [])).toThrow(
+          /ownership basis/,
+        );
+        const v = {
+          kind: 'LEASE_REMEASURE',
+          date: '2026-02-02',
+          payments: ['10000', '10000'],
+          firstDue: '2026-03-01',
+        } as Input;
+        await expect(serviceLease(m, b, a, v, plan(), 2)).rejects.toThrow(
+          /ownership/,
+        );
+        await serviceLease(
+          m,
+          b,
+          a,
+          { ...v, ownershipBasis: 'LEASE_TERM' },
+          plan(),
+          2,
+        );
+        expect(a.end).toBe('2026-04-01');
+      }
+    },
+  );
+  it('requires an approved life or recoverability decision for an increase after depreciation ends', async () => {
+    const initial = asset('0', '2026-01-01');
+    Object.assign(initial.policy.roles, {
+      liability: 'LEASE',
+      interest: 'INTEREST',
+    });
+    const m = {} as EntityManager,
+      b = {} as ActivePostingBook;
+    await commenceLease(
+      m,
+      b,
+      initial,
+      {
+        date: '2026-01-01',
+        life: 6,
+        payments: [...Array(6).fill('0'), ...Array(18).fill('10000')],
+      } as Input,
+      { asset: initial, amount: '0', lines: [] },
+      2,
+    );
+    for (let month = 0; month < 6; month++)
+      depreciation(initial, monthEnd(shiftMonth('2026-01-01', month)), 2, []);
+    expect(net(initial).toFixed()).toBe('0');
+    const revise = async (extra: Partial<Input>) => {
+      const a = structuredClone(initial),
+        p: Plan = { asset: a, amount: '0', lines: [] };
+      await serviceLease(
+        m,
+        b,
+        a,
+        {
+          kind: 'LEASE_REMEASURE',
+          date: '2026-07-01',
+          firstDue: '2026-08-01',
+          payments: Array(18).fill('11000'),
+          ...extra,
+        } as Input,
+        p,
+        2,
+      );
+      expect(
+        p.lines
+          .reduce((n, l) => n.plus(l.debit).minus(l.credit), new Decimal(0))
+          .isZero(),
+      ).toBe(true);
+      return { a, p };
+    };
+    await expect(revise({})).rejects.toThrow(/remaining useful life/);
+    await expect(revise({ expiryRecoverableAmount: '1' })).rejects.toThrow(
+      /residual/,
+    );
+    const historical = structuredClone(initial);
+    historical.cost = new Decimal(historical.cost).plus(18000).toFixed();
+    expect(leaseReview([historical])[0].reasons[0]).toMatch(
+      /after depreciation ended/,
+    );
+    const loss = await revise({ expiryRecoverableAmount: '0' });
+    expect(net(loss.a).toFixed()).toBe('0');
+    expect(loss.p.lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'LOSS', debit: '18000' }),
+        expect.objectContaining({ role: 'IMP', credit: '18000' }),
+      ]),
+    );
+    const extended = await revise({ life: 6 });
+    expect(net(extended.a).toFixed()).toBe('18000');
+    expect(nextDepreciation(extended.a, 2)).toMatchObject({
+      date: '2026-07-31',
+      amount: '3000',
+    });
+    for (let month = 0; month < 6; month++)
+      depreciation(
+        extended.a,
+        monthEnd(shiftMonth('2026-07-01', month)),
+        2,
+        [],
+      );
+    expect(net(extended.a).toFixed()).toBe('0');
   });
   it('remeasures mid-period and keeps partially paid rent due without charging it twice', async () => {
     const a = asset('120000', '2024-01-01'),

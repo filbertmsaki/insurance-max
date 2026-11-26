@@ -24,6 +24,8 @@ import {
   str,
   uuid,
   value,
+  leaseBasis,
+  months,
   type Asset,
   type Doc,
   type Input,
@@ -267,6 +269,8 @@ export async function opening(
   const inService = day(v.inService);
   if (inService > v.date)
     invalid('In-service date cannot follow the opening date.');
+  if ((v.payments || v.leaseMonths) && v.life !== undefined)
+    a.policy.life = months(v.life);
   a.acquired = inService;
   a.cost = value(v.amount, scale, true).toFixed();
   a.sourceCost = a.cost;
@@ -310,7 +314,9 @@ export async function opening(
     const schedule = scheduleFrom(v, scale);
     if (!a.end)
       invalid('Choose a depreciable class for an opening right-of-use asset.');
-    a.end = [a.end, schedule[schedule.length - 1].date].sort()[0];
+    const basis = leaseBasis(v.ownershipBasis);
+    if (basis === 'LEASE_TERM')
+      a.end = [a.end, schedule[schedule.length - 1].date].sort()[0];
     a.lease = {
       schedule,
       anchor: v.date,
@@ -319,7 +325,8 @@ export async function opening(
       paid: '0',
       annualRate: v.annualRate ?? '0',
       usefulLifeEnd: shiftMonth(inService, a.policy.life),
-      ownershipTransfer: false,
+      ownershipBasis: basis,
+      ownershipTransfer: basis !== 'LEASE_TERM',
       liability: schedule[0].opening,
     };
   }

@@ -17,6 +17,7 @@ import {
   carrying,
   format,
   operations,
+  ownershipLabels,
   type Register,
   type Report,
   type Save,
@@ -198,6 +199,20 @@ function Workspace({
       {notice && <p role="status">{notice}</p>}
       {tab === 'Asset register' && (
         <>
+          {!!w.leaseReview?.length && (
+            <section aria-label="Leases requiring review">
+              <h2 className="font-semibold">Leases requiring review</h2>
+              <Table
+                head={['Asset', 'Finance review']}
+                rows={w.leaseReview.map((x) => [
+                  <button className="underline" onClick={() => C(x.code)}>
+                    {x.code}
+                  </button>,
+                  x.reasons.join(' '),
+                ])}
+              />
+            </section>
+          )}
           <Field label="Find an asset" value={search} change={S} />
           <Table
             head={[
@@ -264,6 +279,24 @@ function Workspace({
               )}
               {asset.lease && (
                 <>
+                  <p>
+                    Depreciation basis ·{' '}
+                    {
+                      ownershipLabels[
+                        asset.lease.ownershipBasis ?? 'UNCONFIRMED'
+                      ]
+                    }
+                  </p>
+                  <p>
+                    Economic useful life ends {asset.lease.usefulLifeEnd ?? '—'}{' '}
+                    · Depreciation ends {asset.end ?? '—'}
+                  </p>
+                  {asset.lease.ownershipBasis === 'UNCONFIRMED' && (
+                    <p>
+                      Confirm the agreement when posting depreciation or
+                      revising the depreciation estimate.
+                    </p>
+                  )}
                   <h3>
                     Lease schedule · {w.currency} {fmt(asset.lease.liability)}{' '}
                     outstanding

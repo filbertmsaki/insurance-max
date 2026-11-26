@@ -19,6 +19,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { financeApi } from '../api';
+import { collectionPercent } from '../receivables/customer-account-model';
 import {
   DetailRow,
   FinanceStatusBadge,
@@ -246,6 +247,10 @@ export function FinanceInvoiceDetailPage() {
             <p className="text-xl font-semibold">
               {formatMoney(invoice.paid_amount, currency)}
             </p>
+            <p className="text-xs text-slate-500">
+              {collectionPercent(invoice.paid_amount, invoice.total_amount)}{' '}
+              collected
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -253,6 +258,10 @@ export function FinanceInvoiceDetailPage() {
             <p className="text-xs text-slate-500">Balance</p>
             <p className="text-xl font-semibold">
               {formatMoney(invoice.balance_amount, currency)}
+            </p>
+            <p className="text-xs text-slate-500">
+              {collectionPercent(invoice.balance_amount, invoice.total_amount)}{' '}
+              outstanding
             </p>
           </CardContent>
         </Card>

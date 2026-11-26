@@ -8,6 +8,7 @@ import {
   requirements,
   options,
   masterChoices,
+  ownershipLabels,
   type Register,
   type Save,
   type Kind,
@@ -40,7 +41,20 @@ export function AssetForm({
     [source, S] = useState(''),
     [key, K] = useState(() => crypto.randomUUID()),
     [error, err] = useState('');
-  const change = (k: string, v: string) => setFields((f) => ({ ...f, [k]: v }));
+  const change = (k: string, v: string) =>
+    setFields((f) => {
+      const next = { ...f, [k]: v };
+      if (
+        k === 'code' &&
+        (kind === 'ESTIMATE' ||
+          kind === 'DEPRECIATE' ||
+          kind === 'LEASE_REMEASURE')
+      ) {
+        delete next.ownershipBasis;
+        delete next.expiryRecoverableAmount;
+      }
+      return next;
+    });
   const field = (k: string, label: string, opts?: Option[], type = 'text') => (
     <Field
       key={k}
@@ -192,6 +206,33 @@ export function AssetForm({
               field('rate', 'Annual depreciation rate (%)')}
           </>
         )}
+        {(kind === 'LEASE_START' ||
+          kind === 'LEASE_REMEASURE' ||
+          (kind === 'OPENING' && !!fields.payments?.trim()) ||
+          (current?.lease && kind === 'ESTIMATE') ||
+          (current?.lease?.ownershipBasis === 'UNCONFIRMED' &&
+            kind === 'DEPRECIATE')) && (
+          <Field
+            label="Lease ownership or purchase option"
+            value={
+              fields.ownershipBasis ??
+              (newAsset
+                ? 'LEASE_TERM'
+                : current?.lease?.ownershipBasis === 'UNCONFIRMED'
+                  ? ''
+                  : (current?.lease?.ownershipBasis ?? ''))
+            }
+            change={(v) => change('ownershipBasis', v)}
+            options={Object.entries(ownershipLabels)
+              .filter(([k]) => k !== 'UNCONFIRMED')
+              .map(([value, label]) => ({ value, label }))}
+          />
+        )}
+        {kind === 'LEASE_REMEASURE' &&
+          field(
+            'expiryRecoverableAmount',
+            'Assessed recoverable amount if useful life has ended',
+          )}
         {kind === 'CATEGORY' &&
           field('model', 'Valuation model', options(['COST', 'REVALUATION']))}
         {kind === 'ASSIGN' &&
@@ -207,6 +248,7 @@ export function AssetForm({
             options(['FOUND', 'DAMAGED', 'MISSING']),
           )}
         {kind === 'CAPITAL_ADDITION' &&
+          !current?.lease &&
           field(
             'life',
             'Revised remaining life in months (if approved)',
@@ -271,6 +313,13 @@ export function AssetForm({
             {field('openingLoss', 'Impairment previously charged to profit')}
             {field('unimpairedValue', 'Unimpaired carrying amount')}
             {field('payments', 'Remaining lease payments, if leased')}
+            {fields.payments?.trim() &&
+              field(
+                'life',
+                'Original economic useful life in months (if different from category)',
+                undefined,
+                'number',
+              )}
             {field(
               'firstDue',
               'First remaining rental date',

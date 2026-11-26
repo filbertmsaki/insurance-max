@@ -1,3 +1,15 @@
+import Decimal from 'decimal.js';
+
+export function collectionPercent(amount: string, billed: string) {
+  if (!billed || !amount || !new Decimal(billed).gt(0)) return '—';
+  return (
+    new Decimal(amount)
+      .div(billed)
+      .times(100)
+      .toFixed(2, Decimal.ROUND_HALF_UP) + '%'
+  );
+}
+
 export const openingColumns = [
   'customerCode',
   'reference',

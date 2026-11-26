@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import {
   closeLease,
+  confirmLeaseBasis,
   exemptLease,
   commenceLease,
   serviceLease,
@@ -18,6 +19,7 @@ import { invalid } from '../../accounting/general-ledger/finance-gl-program';
 import { financeConfigurationHash as hash } from '../../foundation/finance-configuration/finance-configuration.types';
 import {
   depreciation,
+  hasExpiredLeaseBalance,
   entry,
   impair,
   monthEnd,
@@ -46,6 +48,7 @@ import {
   isMaster,
   kinds,
   months,
+  needsLeaseBasis,
   str,
   uuid,
   value,
@@ -153,6 +156,10 @@ export async function prepareAsset(
     plan.amount = a.sourceCost;
   } else if (k === 'OPENING') {
     await opening(m, b, v, a, plan, scale);
+    if (hasExpiredLeaseBalance(a))
+      conflict(
+        'Reconcile the opening ROU balance and its remaining useful life before import.',
+      );
   } else if (k === 'CAPITALIZE') {
     if (a.status !== 'ACQUIRED')
       conflict('Only an acquired asset can be capitalized.');
@@ -217,6 +224,13 @@ export async function prepareAsset(
     if (a.status !== 'ACTIVE')
       conflict('Capitalize this asset before posting lifecycle transactions.');
     if (k === 'DEPRECIATE') {
+      if (v.ownershipBasis !== undefined) {
+        if (!needsLeaseBasis(a.lease))
+          conflict(
+            'Use a reviewed estimate to change the recorded ownership basis.',
+          );
+        confirmLeaseBasis(a, v.ownershipBasis);
+      }
       if (
         a.policy.method === 'NONE' ||
         !a.end ||
@@ -235,6 +249,7 @@ export async function prepareAsset(
     ) {
       await serviceLease(m, b, a, v, plan, scale);
     } else {
+      if (a.lease && k === 'ESTIMATE') confirmLeaseBasis(a, v.ownershipBasis);
       catchUp(a, v.date, scale, plan);
       if (k === 'CAPITAL_ADDITION') {
         const cost = money(v.amount, true);
@@ -364,6 +379,10 @@ export async function prepareAsset(
         a.residual = residual.toFixed();
         setUsefulLifeEnd(a, terms.life ? shiftMonth(v.date, terms.life) : null);
         a.through = a.through === v.date ? v.date : shiftDay(v.date, -1);
+        if (hasExpiredLeaseBalance(a))
+          conflict(
+            'The contractual lease term has ended. Review the recoverable amount or record the amended lease terms.',
+          );
       } else if (k === 'REVALUE') {
         const approved = await master(m, b, 'CATEGORY', a.category, v.date);
         if (approved.policy?.model !== 'REVALUATION')

@@ -5,6 +5,8 @@ import type { ActivePostingBook } from '../../accounting/general-ledger/finance-
 import { invalid } from '../../accounting/general-ledger/finance-gl-program';
 import {
   entry,
+  impair,
+  hasExpiredLeaseBalance,
   terminal,
   catchUp,
   scheduleFrom,
@@ -14,6 +16,8 @@ import {
 import { funding, startUse } from './fixed-asset-register';
 import {
   conflict,
+  leaseBasis,
+  needsLeaseBasis,
   months,
   net,
   str,
@@ -70,13 +74,25 @@ export function setUsefulLifeEnd(a: Asset, end: string | null) {
   if (!a.lease) return;
   if (!end) invalid('Right-of-use assets require a remaining useful life.');
   a.lease.usefulLifeEnd = end;
-  if (!a.lease.ownershipTransfer) {
+  if (leaseBasis(undefined, a.lease) === 'LEASE_TERM') {
     const rentals = a.lease.schedule;
     a.end =
       end < rentals[rentals.length - 1].date
         ? end
         : rentals[rentals.length - 1].date;
   }
+}
+
+export function confirmLeaseBasis(a: Asset, input: Input['ownershipBasis']) {
+  if (!a.lease)
+    invalid('Select a right-of-use asset for the ownership decision.');
+  const ambiguous = needsLeaseBasis(a.lease);
+  const basis = leaseBasis(input, a.lease);
+  a.lease.ownershipBasis = basis;
+  a.lease.ownershipTransfer = basis !== 'LEASE_TERM';
+  // An old inferred election needs a real decision before pricing unposted depreciation.
+  if (ambiguous && a.lease.usefulLifeEnd)
+    setUsefulLifeEnd(a, a.lease.usefulLifeEnd);
 }
 
 // Older register snapshots kept only the shorter of the category life and the rental term.
@@ -86,6 +102,12 @@ export async function restoreLeaseLife(
   assets: Asset[],
   asOf: string,
 ) {
+  for (const a of assets) {
+    if (a.lease?.usefulLifeEnd && !a.lease.ownershipBasis)
+      a.lease.ownershipBasis = a.lease.ownershipTransfer
+        ? 'UNCONFIRMED'
+        : 'LEASE_TERM';
+  }
   const legacy = new Map(
     assets
       .filter((a) => a.lease && !a.lease.usefulLifeEnd)
@@ -98,9 +120,10 @@ export async function restoreLeaseLife(
     effective: string;
     in_service: string;
     explicit_life: string | null;
+    basis: Input['ownershipBasis'] | null;
     policy_life: number;
   }[] = await m.query(
-    `SELECT d.code,d.kind,d.effective_date::text AS effective,d.plan->'asset'->>'inService' AS in_service,d.input->>'life' AS explicit_life,
+    `SELECT d.code,d.kind,d.effective_date::text AS effective,d.plan->'asset'->>'inService' AS in_service,d.input->>'life' AS explicit_life,d.input->>'ownershipBasis' AS basis,
       coalesce((SELECT (c.plan->'master'->'policy'->>'life')::int FROM finance_fa_documents c
         WHERE d.kind='LEASE_START' AND c.book_id=d.book_id AND c.kind='CATEGORY' AND c.code=d.plan->'asset'->>'category'
         AND c.state='POSTED' AND c.effective_date<=d.effective_date AND c.sequence<d.sequence
@@ -115,18 +138,27 @@ export async function restoreLeaseLife(
     const lease = a.lease!;
     let ceiling: string;
     if (d.kind === 'LEASE_START' || d.kind === 'OPENING') {
-      lease.ownershipTransfer = d.kind === 'LEASE_START' && !!d.explicit_life;
+      const hasLife =
+        !!d.explicit_life && (d.kind === 'LEASE_START' || !!d.basis);
+      lease.ownershipBasis =
+        d.basis ?? (hasLife ? 'UNCONFIRMED' : 'LEASE_TERM');
       ceiling = shiftMonth(
         d.in_service,
-        lease.ownershipTransfer
-          ? months(Number(d.explicit_life))
-          : d.policy_life,
+        hasLife ? months(Number(d.explicit_life)) : d.policy_life,
       );
     } else {
       ceiling = shiftMonth(d.effective, months(Number(d.explicit_life)));
-      if (d.kind === 'LEASE_REMEASURE') lease.ownershipTransfer = true;
+      if (d.basis) lease.ownershipBasis = d.basis;
+      else if (d.kind === 'LEASE_REMEASURE')
+        lease.ownershipBasis = 'UNCONFIRMED';
     }
-    setUsefulLifeEnd(a, ceiling);
+    if (lease.ownershipBasis === 'UNCONFIRMED') {
+      lease.usefulLifeEnd = ceiling;
+      if (!a.end || a.end > ceiling) a.end = ceiling;
+    } else {
+      lease.ownershipTransfer = lease.ownershipBasis !== 'LEASE_TERM';
+      setUsefulLifeEnd(a, ceiling);
+    }
   }
   if ([...legacy.values()].some((a) => !a.lease?.usefulLifeEnd))
     conflict(
@@ -214,8 +246,8 @@ export async function commenceLease(
   if (new Decimal(a.cost).lte(0))
     invalid('Check the initial right-of-use cost.');
   a.sourceCost = a.cost;
-  // An explicitly evidenced ownership transfer/purchase option can support a useful life beyond the lease term.
-  if (v.life) a.policy.life = months(v.life);
+  const basis = leaseBasis(v.ownershipBasis);
+  if (v.life !== undefined) a.policy.life = months(v.life);
   startUse(a, v.date, money(v.residual ?? '0'));
   a.lease = {
     schedule,
@@ -225,7 +257,8 @@ export async function commenceLease(
     liability: pv.toFixed(),
     annualRate: v.annualRate ?? '0',
     anchor: v.date,
-    ownershipTransfer: !!v.life,
+    ownershipBasis: basis,
+    ownershipTransfer: basis !== 'LEASE_TERM',
   };
   setUsefulLifeEnd(a, a.end);
   entry(lines, r.asset, a.cost, 0, dim);
@@ -253,6 +286,8 @@ export async function serviceLease(
       ? l.schedule.find((p, i) => i >= l.index && !p.accrued)
       : l.schedule[l.index];
   if (k === 'LEASE_REMEASURE') {
+    const basis = leaseBasis(v.ownershipBasis, l);
+    if (needsLeaseBasis(l)) confirmLeaseBasis(a, basis);
     accrueThrough(a, v.date, plan, scale);
     if (
       v.rescheduleArrears !== undefined &&
@@ -300,14 +335,13 @@ export async function serviceLease(
       0,
     ).toFixed();
     const finalRental = l.schedule[l.schedule.length - 1].date;
-    const owned = l.ownershipTransfer ?? (!!a.end && a.end > finalRental);
-    const lifeEnd = v.life
-      ? shiftMonth(v.date, months(v.life))
-      : (l.usefulLifeEnd ??
-        (a.end && a.end !== finalRental
-          ? a.end
-          : shiftMonth(a.inService!, a.policy.life)));
-    const ownershipTransfer = v.life ? true : owned;
+    const lifeEnd =
+      v.life !== undefined
+        ? shiftMonth(v.date, months(v.life))
+        : (l.usefulLifeEnd ??
+          (a.end && a.end !== finalRental
+            ? a.end
+            : shiftMonth(a.inService!, a.policy.life)));
     a.through = a.through === v.date ? v.date : shiftDay(v.date, -1);
     a.lease = {
       schedule: [...arrears, ...schedule],
@@ -317,9 +351,23 @@ export async function serviceLease(
       liability: balance.toFixed(),
       annualRate: v.annualRate ?? '0',
       anchor: v.date,
-      ownershipTransfer,
+      ownershipBasis: basis,
+      ownershipTransfer: basis !== 'LEASE_TERM',
     };
     setUsefulLifeEnd(a, lifeEnd);
+    const expired = hasExpiredLeaseBalance(a);
+    if (expired && v.expiryRecoverableAmount === undefined)
+      conflict(
+        'Approve a remaining useful life or an evidenced recoverable amount for the balance after depreciation ends.',
+      );
+    if (v.expiryRecoverableAmount !== undefined) {
+      const recoverable = money(v.expiryRecoverableAmount);
+      if (!expired || recoverable.gt(a.residual))
+        invalid(
+          'An expiry assessment must leave at most the approved residual value. Review the remaining useful life for continuing use.',
+        );
+      impair(a, recoverable, false, lines);
+    }
     plan.amount = balance.toFixed();
   } else {
     if (k === 'LEASE_INTEREST') {

@@ -489,6 +489,32 @@ export async function exerciseCustomerAccounts(f: {
     expect(Number(restored.advance_liability)).toBe(
       Number(baseline.advance_liability),
     );
+    const thirdParty = await receipt(payer, 25000, premium.id);
+    await ledger(thirdParty.journal_candidate_id);
+    const thirdReport = await report();
+    expect(Number((await native(premium.id)).balance_amount)).toBe(75000);
+    for (const field of ['ledger', 'control_expected', 'difference'])
+      expect(Number(thirdReport.control[field])).toBe(Number(restored[field]));
+    const [allocation] = await db.query(
+      "SELECT id FROM receipt_allocations WHERE receipt_id=$1 AND invoice_id=$2 AND status='ACTIVE'",
+      [thirdParty.id, premium.id],
+    );
+    const internal = await db.query(
+      "SELECT customer_id,kind,net::numeric::float8 net FROM finance_ar_activity($1,'Africa/Dar_es_Salaam') WHERE source=$2 AND kind IN ('PAYER_TRANSFER','ALLOCATION') ORDER BY kind",
+      [company, allocation.id],
+    );
+    expect(internal).toEqual([
+      { customer_id: customer, kind: 'ALLOCATION', net: -25000 },
+      { customer_id: payer, kind: 'PAYER_TRANSFER', net: 25000 },
+    ]);
+    await call(maker, 'allocations/' + allocation.id + '/reverse', {
+      reason: 'Incorrect third-party allocation',
+      idempotency_key: randomUUID(),
+    });
+    expect(Number((await native(premium.id)).balance_amount)).toBe(100000);
+    expect(Number((await report()).control.difference)).toBe(
+      Number(restored.difference),
+    );
     const [opening] = await db.query(
       "SELECT payload->>'date' AS cutoff FROM finance_foundation_documents WHERE id=(SELECT opening_id FROM finance_gl_fx_opening_sets WHERE account_code='1200' AND book_id=$1 LIMIT 1)",
       [scope.bookId],

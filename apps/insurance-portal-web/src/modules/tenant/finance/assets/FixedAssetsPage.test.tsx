@@ -37,13 +37,32 @@ function mount(prepare: boolean) {
       roles: [],
       dimensions: [],
       evidence: [evidence],
-      documents: [],
+      documents: [
+        {
+          state: 'POSTED',
+          effective_date: '2026-11-26',
+          code: 'AST-000002',
+          plan: {
+            asset: {
+              code: 'AST-000002',
+              category: 'PC',
+              status: 'ACTIVE',
+              name: 'Late laptop',
+              cost: '100000',
+              accumulated: '0',
+              impairment: '0',
+            },
+          },
+        },
+      ],
       sources: [],
       staff: [],
       depreciation: [],
       valuations: [
         {
           reference: 'Annual PCs',
+          run_id: uuid(92),
+          missing: ['AST-000002'],
           category: 'PC',
           effective_date: '2026-11-26',
           state: 'PARTIAL',
@@ -103,6 +122,43 @@ it('shows the outstanding class valuation members to a read-only reviewer', asyn
   expect(
     screen.queryByRole('button', { name: 'Prepare class valuation' }),
   ).toBeNull();
+});
+it('prepares only the uncovered asset for independent class valuation review', async () => {
+  mount(true);
+  const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: {} });
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'Class revaluation' }),
+  );
+  fireEvent.change(screen.getByLabelText('Valuation to prepare'), {
+    target: { value: uuid(92) },
+  });
+  fireEvent.change(screen.getByLabelText('Uncovered asset'), {
+    target: { value: 'AST-000002' },
+  });
+  fireEvent.change(screen.getByLabelText(/Late laptop/), {
+    target: { value: '110000' },
+  });
+  fireEvent.change(screen.getByLabelText('Supporting document version'), {
+    target: { value: evidence.id },
+  });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Prepare supplemental valuation' }),
+  );
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      '/tenant/finance/fixed-assets',
+      expect.objectContaining({
+        input: expect.objectContaining({
+          kind: 'REVALUE',
+          code: 'AST-000002',
+          valuationRunId: uuid(92),
+          reference: 'Annual PCs',
+          amount: '110000',
+          date: '2026-11-26',
+        }),
+      }),
+    ),
+  );
 });
 it('submits a scoped group with linked evidence for independent review', async () => {
   mount(true);

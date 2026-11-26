@@ -22,6 +22,7 @@ import {
   assetRegister,
   classValuations,
   assetReport,
+  leaseReview,
   nextDepreciation,
 } from './fixed-asset-reports';
 import { record, sourceLines } from './fixed-asset-register';
@@ -31,6 +32,7 @@ import {
   day,
   isMaster,
   str,
+  uuid,
   type Doc,
   type Input,
 } from './fixed-asset.types';
@@ -88,6 +90,7 @@ export class FixedAssetsService {
         scale: b.context.currencyScales[b.context.functionalCurrency],
         documents,
         assets,
+        leaseReview: leaseReview(assets),
         valuations: await classValuations(m, b.book_id, today),
         staff,
         evidence,
@@ -150,6 +153,13 @@ export class FixedAssetsService {
       return old;
     }
     const v = { ...input, code: code(input.code) };
+    if (v.valuationRunId !== undefined) {
+      if (classRun || v.kind !== 'REVALUE')
+        conflict(
+          'Only an individual supplemental valuation can link to a class run.',
+        );
+      v.valuationRunId = uuid(v.valuationRunId).toLowerCase();
+    }
     if (!isMaster(v.kind)) {
       const [open] = await m.query(
         "SELECT id FROM finance_fa_documents WHERE book_id=$1 AND code=$2 AND state IN ('PENDING','APPROVED') AND kind NOT IN ('GROUP','LOCATION','CATEGORY')",
@@ -166,13 +176,39 @@ export class FixedAssetsService {
     }
     const { plan, prior } = await prepareAsset(m, b, v);
     if (v.kind === 'REVALUE' && !classRun) {
-      const same = (await assetRegister(m, b.book_id, v.date)).filter(
-        (x) => x.category === plan.asset!.category && x.status === 'ACTIVE',
+      const [period] = await m.query(
+        "SELECT id FROM finance_foundation_periods WHERE book_id=$1 AND mode='LIVE' AND period_kind='REGULAR' AND state='OPEN' AND starts_on<=$2 AND ends_before>$2 FOR SHARE",
+        [b.book_id, v.date],
       );
-      if (same.length > 1)
-        conflict(
-          'Use the class revaluation run to include all active assets in this category.',
+      if (!period)
+        conflict('Open the valuation period before preparing a valuation.');
+      if (v.valuationRunId !== undefined) {
+        const [run] = await m.query(
+          `SELECT 1 FROM finance_fa_valuation_coverage($1,greatest($2::date,(now() AT TIME ZONE $3)::date)) v
+           WHERE v.run_id::text=$4 AND v.effective_date=$2 AND v.category=$5 AND v.reference=$6 AND $7=ANY(v.missing)`,
+          [
+            b.book_id,
+            v.date,
+            b.timezone,
+            v.valuationRunId,
+            plan.asset!.category,
+            v.reference,
+            v.code,
+          ],
         );
+        if (!run)
+          conflict(
+            'Select an uncovered asset in the specified class valuation.',
+          );
+      } else {
+        const same = (await assetRegister(m, b.book_id, v.date)).filter(
+          (x) => x.category === plan.asset!.category && x.status === 'ACTIVE',
+        );
+        if (same.length > 1)
+          conflict(
+            'Use the class revaluation run to include all active assets in this category.',
+          );
+      }
     }
     const [r] = await m.query(
       `INSERT INTO finance_fa_documents(book_id,company_id,kind,code,reference,effective_date,currency,request_key,request_hash,input,plan,prior_id,reversal_of,maker_id,maker_person)
@@ -345,6 +381,11 @@ export class FixedAssetsService {
   }
   private async current(m: EntityManager, b: ActivePostingBook, r: Doc) {
     const prepared = await prepareAsset(m, b, r.input);
+    // Older pending plans have no separate ownership field. Compare their original
+    // accounting and schedule exactly, including the previously approved end date.
+    const lease = prepared.plan.asset?.lease;
+    if (lease && r.plan.asset?.lease && !r.plan.asset.lease.ownershipBasis)
+      delete lease.ownershipBasis;
     if (prepared.prior !== r.prior_id || hash(prepared.plan) !== hash(r.plan))
       conflict('The source or asset has changed. Prepare a new document.');
   }

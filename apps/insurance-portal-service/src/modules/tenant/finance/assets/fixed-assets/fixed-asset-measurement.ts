@@ -5,6 +5,7 @@ import {
 } from '../../accounting/general-ledger/finance-gl-program';
 import {
   conflict,
+  ambiguousLeaseSchedule,
   day,
   money,
   months,
@@ -98,6 +99,17 @@ function charge(
     ),
   );
 }
+export function hasExpiredLeaseBalance(a: Asset) {
+  return (
+    !!a.lease &&
+    a.status === 'ACTIVE' &&
+    !!a.end &&
+    !!a.through &&
+    shiftDay(a.through, 1) >= a.end &&
+    net(a).gt(a.residual)
+  );
+}
+
 export function depreciation(
   a: Asset,
   through: string,
@@ -108,6 +120,10 @@ export function depreciation(
   const start = shiftDay(a.through, 1),
     until = shiftDay(through, 1) < a.end ? shiftDay(through, 1) : a.end;
   if (start >= until) return new Decimal(0);
+  if (ambiguousLeaseSchedule(a))
+    conflict(
+      'Confirm the lease ownership basis in a reviewed estimate before depreciating beyond the contractual schedule.',
+    );
   const n = charge(a, net(a), start, until, scale),
     shadow = charge(a, new Decimal(a.shadow), start, until, scale);
   a.through = shiftDay(until, -1);

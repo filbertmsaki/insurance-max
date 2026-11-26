@@ -51,6 +51,12 @@ export const requirements: Record<string, { title: string; type: string[] }> = {
   liability: { title: 'Lease liability', type: ['LIABILITY'] },
   interest: { title: 'Lease interest', type: ['EXPENSE'] },
 };
+export const ownershipLabels = {
+  LEASE_TERM: 'Contractual lease term',
+  TITLE_TRANSFER: 'Ownership transfers under the agreement',
+  PURCHASE_OPTION: 'Purchase option reasonably certain to be exercised',
+  UNCONFIRMED: 'Review the original agreement and confirm the basis',
+} as const;
 export interface Asset {
   code: string;
   name: string;
@@ -75,6 +81,8 @@ export interface Asset {
   verified: { date: string; result: string; note: string } | null;
   exemption?: { basis: string; end: string; expense: string };
   lease: {
+    ownershipBasis?: keyof typeof ownershipLabels;
+    usefulLifeEnd?: string;
     index: number;
     liability: string;
     paid: string;
@@ -123,7 +131,10 @@ export interface FaDocument {
   };
 }
 export interface Register {
+  leaseReview?: { code: string; reasons: string[] }[];
   valuations?: {
+    run_id?: string;
+    missing?: string[];
     reference: string;
     category: string;
     effective_date: string;

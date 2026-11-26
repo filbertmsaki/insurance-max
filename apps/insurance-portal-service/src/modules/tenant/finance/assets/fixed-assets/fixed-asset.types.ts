@@ -82,6 +82,12 @@ export interface Instalment {
   accruedThrough?: string;
   paid?: string;
 }
+export const leaseOwnershipBases = [
+  'LEASE_TERM',
+  'TITLE_TRANSFER',
+  'PURCHASE_OPTION',
+] as const;
+export type LeaseOwnershipBasis = (typeof leaseOwnershipBases)[number];
 export interface Lease {
   schedule: Instalment[];
   index: number;
@@ -91,7 +97,42 @@ export interface Lease {
   annualRate: string;
   anchor: string;
   usefulLifeEnd?: string;
+  ownershipBasis?: LeaseOwnershipBasis | 'UNCONFIRMED';
   ownershipTransfer?: boolean;
+}
+export function leaseBasis(
+  input: unknown,
+  previous?: Lease | null,
+): LeaseOwnershipBasis {
+  if (input === undefined) {
+    const existing =
+      previous?.ownershipBasis ??
+      (previous?.ownershipTransfer ? 'UNCONFIRMED' : 'LEASE_TERM');
+    if (existing === 'UNCONFIRMED')
+      conflict(
+        'Confirm the ownership or purchase-option decision against the lease agreement.',
+      );
+    return existing;
+  }
+  const basis = leaseOwnershipBases.find((option) => option === input);
+  if (!basis)
+    invalid('Choose the contractual ownership or purchase-option basis.');
+  return basis;
+}
+export function needsLeaseBasis(lease?: Lease | null) {
+  return (
+    lease?.ownershipBasis === 'UNCONFIRMED' ||
+    (!lease?.ownershipBasis && lease?.ownershipTransfer === true)
+  );
+}
+export function ambiguousLeaseSchedule(a: Asset) {
+  const l = a.lease;
+  return (
+    !!l &&
+    needsLeaseBasis(l) &&
+    !!a.end &&
+    a.end > l.schedule[l.schedule.length - 1].date
+  );
 }
 export interface Asset {
   code: string;
@@ -165,6 +206,9 @@ export interface Input {
   leaseMonths?: number;
   firstDue?: string;
   rescheduleArrears?: boolean;
+  ownershipBasis?: LeaseOwnershipBasis;
+  expiryRecoverableAmount?: string;
+  valuationRunId?: string;
   payment?: string;
   annualRate?: string;
   exemption?: 'SHORT_TERM' | 'LOW_VALUE';

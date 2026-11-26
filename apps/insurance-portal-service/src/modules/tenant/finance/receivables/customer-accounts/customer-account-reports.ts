@@ -181,7 +181,18 @@ export async function controlReport(
     WHERE j.book_id=$1 AND j.mode='LIVE' AND j.transaction_currency=$4 AND j.accounting_date BETWEEN $6 AND $5),
     activity AS (SELECT a.* FROM finance_ar_activity($2,$8) a WHERE a.day<=$5 AND a.currency=$4),
     balances AS (SELECT coalesce(sum(net),0) amt FROM activity),
-    memoranda AS (SELECT coalesce(sum(a.net),0) - coalesce((SELECT sum(d.amount) FROM finance_ar_documents d JOIN finance_gl_premium_memos pm ON pm.book_id=d.book_id AND pm.invoice_id=d.invoice_id AND pm.event_type='ISSUED' WHERE d.book_id=$1 AND d.kind='ADVANCE_APPLICATION' AND d.state='POSTED' AND d.currency=$4 AND d.effective_date<=$5 AND NOT EXISTS (SELECT 1 FROM finance_ar_documents reversal WHERE reversal.related_id=d.id AND reversal.kind='REVERSAL' AND reversal.state='POSTED' AND reversal.effective_date<=$5)),0) amt FROM activity a WHERE EXISTS(SELECT 1 FROM finance_gl_premium_memos pm WHERE pm.book_id=$1 AND pm.event_type='ISSUED' AND pm.invoice_id=coalesce(a.invoice_id,(SELECT r.invoice_id FROM receipts r WHERE r.id=a.source)))),
+    premium_applications AS (
+      SELECT coalesce(sum(d.amount),0) amt FROM finance_ar_documents d
+      JOIN finance_gl_premium_memos pm ON pm.book_id=d.book_id AND pm.invoice_id=d.invoice_id AND pm.event_type='ISSUED'
+      WHERE d.book_id=$1 AND d.kind='ADVANCE_APPLICATION' AND d.state='POSTED' AND d.currency=$4 AND d.effective_date<=$5
+        AND NOT EXISTS (SELECT 1 FROM finance_ar_documents r WHERE r.related_id=d.id AND r.kind='REVERSAL'
+          AND r.state='POSTED' AND r.effective_date<=$5)),
+    memoranda AS (
+      SELECT coalesce(sum(a.net),0) - (SELECT amt FROM premium_applications) amt FROM activity a
+      -- Both sides of a payer-to-debtor allocation are internal to the company control.
+      WHERE a.kind NOT IN ('ALLOCATION','ALLOCATION_REVERSAL','PAYER_TRANSFER','TRANSFER_REVERSAL')
+        AND EXISTS (SELECT 1 FROM finance_gl_premium_memos pm WHERE pm.book_id=$1 AND pm.event_type='ISSUED'
+          AND pm.invoice_id=coalesce(a.invoice_id,(SELECT r.invoice_id FROM receipts r WHERE r.id=a.source)))),
     advances AS (SELECT coalesce(sum(amount),0) amt FROM finance_ar_advance_movements WHERE book_id=$1 AND state='POSTED' AND currency=$4 AND effective_date<=$5)
     SELECT ledger.amt::text ledger,balances.amt::text customer_net,memoranda.amt::text premium_memorandum,advances.amt::text advance_liability,
      (balances.amt-memoranda.amt+advances.amt)::text control_expected,(ledger.amt-balances.amt+memoranda.amt-advances.amt)::text difference

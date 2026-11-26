@@ -1,5 +1,11 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -66,7 +72,41 @@ it('shows paid and outstanding amounts to a reader and opens the originating inv
   );
   expect(screen.getByText('5000000')).toBeTruthy();
   expect(screen.getByText('10000000')).toBeTruthy();
+  expect(screen.getByText('66.67%')).toBeTruthy();
+  expect(screen.getByText('33.33%')).toBeTruthy();
   expect(screen.queryByText('New document')).toBeNull();
+});
+it('shows the five aging buckets for the selected currency and reporting date', async () => {
+  mount(['finance-foundation:read']);
+  const reports = await screen.findByRole('button', {
+    name: 'Statements and aging',
+  });
+  vi.mocked(apiClient.get).mockResolvedValue({
+    data: {
+      aging: [],
+      agingTotals: {
+        current: '40000000',
+        days_1_30: '15000000',
+        days_31_60: '8000000',
+        days_61_90: '2000000',
+        over_90: '1000000',
+        undated: '0',
+        outstanding: '66000000',
+      },
+      totals: [],
+      lines: [],
+      control: { status: 'MATCHED' },
+      balanceExceptions: [],
+    },
+  });
+  fireEvent.click(reports);
+  const chart = within(
+    await screen.findByRole('figure', { name: 'Receivable aging chart' }),
+  );
+  expect(chart.getByText('Outstanding by age · TZS · 2026-11-26')).toBeTruthy();
+  expect(chart.getAllByRole('listitem')).toHaveLength(5);
+  expect(chart.getByText('40,000,000')).toBeTruthy();
+  expect(chart.getByText('Over 90 days')).toBeTruthy();
 });
 it('imports the external reference, dates and exact decimal amount from CSV for review', async () => {
   mount(['finance-foundation:read', 'finance-foundation:prepare']);
