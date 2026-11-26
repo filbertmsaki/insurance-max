@@ -1,0 +1,397 @@
+import { AssetSourceField } from './AssetSourceField';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Field, DocumentField } from '../journals/GlFields';
+import type { Evidence, Option } from '../journals/gl-form';
+import {
+  operations,
+  requirements,
+  options,
+  masterChoices,
+  type Register,
+  type Save,
+  type Kind,
+} from './asset-model';
+
+export function AssetForm({
+  w,
+  save,
+  busy,
+  initial = 'ACQUIRE',
+  scope,
+  identity,
+}: {
+  w: Register;
+  save: Save;
+  busy: boolean;
+  initial?: Kind;
+  scope: { bookId: string; legalEntityId: string };
+  identity: string;
+}) {
+  const [kind, setKind] = useState<Kind>(initial),
+    [fields, setFields] = useState<Record<string, string>>({
+      date: w.today,
+      method: 'STRAIGHT_LINE',
+      model: 'COST',
+    }),
+    [roles, setRoles] = useState<Record<string, string>>({}),
+    [dimensions, setDims] = useState<Record<string, string>>({});
+  const [evidence, E] = useState<Evidence>(),
+    [source, S] = useState(''),
+    [key, K] = useState(() => crypto.randomUUID()),
+    [error, err] = useState('');
+  const change = (k: string, v: string) => setFields((f) => ({ ...f, [k]: v }));
+  const field = (k: string, label: string, opts?: Option[], type = 'text') => (
+    <Field
+      key={k}
+      label={label}
+      value={fields[k] ?? ''}
+      change={(v) => change(k, v)}
+      options={opts}
+      type={type}
+    />
+  );
+  const selected = (...keys: Kind[]) => keys.includes(kind),
+    setup = selected('GROUP', 'CATEGORY', 'LOCATION'),
+    newAsset = selected('ACQUIRE', 'OPENING', 'LEASE_START', 'LEASE_EXEMPT'),
+    sourceRequired =
+      kind === 'ACQUIRE' ||
+      kind === 'LEASE_PAYMENT' ||
+      kind === 'LEASE_EXPENSE';
+  const current = w.assets.find((a) => a.code === fields.code);
+  const submit = async () => {
+    err('');
+    if (!evidence || !fields.code || !fields.reference?.trim()) {
+      err('Enter the code, reference and supporting document.');
+      return;
+    }
+    const input: Record<string, unknown> = {
+      ...Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== '')),
+      kind,
+      requestKey: key,
+      evidence,
+    };
+    for (const n of ['life', 'leaseMonths'])
+      if (fields[n]) input[n] = Number(fields[n]);
+    if (fields.payments?.trim())
+      input.payments = fields.payments.split(/[\s,]+/).filter(Boolean);
+    if (kind === 'CATEGORY') input.roles = roles;
+    if (kind === 'LEASE_REMEASURE')
+      input.rescheduleArrears = fields.rescheduleArrears === 'YES';
+    if (newAsset || kind === 'TRANSFER')
+      input.dimensions = Object.fromEntries(
+        Object.entries(dimensions).filter(([, v]) => v),
+      );
+    if (source) {
+      [input.sourceJournal, input.sourceLine] = source.split('|');
+    }
+    if (sourceRequired && !source) {
+      err('Select the posted funding journal line.');
+      return;
+    }
+    try {
+      await save('', { input });
+      setFields({ date: fields.date, method: 'STRAIGHT_LINE', model: 'COST' });
+      setRoles({});
+      setDims({});
+      S('');
+      E(undefined);
+      K(crypto.randomUUID());
+    } catch {
+      /* The workspace shows the server decision. */
+    }
+  };
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      <Field
+        label="Operation"
+        value={kind}
+        change={(v) => {
+          setKind(v as Kind);
+          setFields({ date: w.today, method: 'STRAIGHT_LINE', model: 'COST' });
+          setRoles({});
+          setDims({});
+          S('');
+          K(crypto.randomUUID());
+          err('');
+        }}
+        options={Object.entries(operations).map(([value, label]) => ({
+          value,
+          label,
+        }))}
+      />
+      <div className="grid gap-4 md:grid-cols-3">
+        {field('date', 'Effective date', undefined, 'date')}
+        {setup || newAsset
+          ? field('code', setup ? 'Setup code' : 'New asset code')
+          : field(
+              'code',
+              'Asset',
+              w.assets
+                .filter(
+                  (a) =>
+                    !['DISPOSED', 'WRITTEN_OFF'].includes(a.status) ||
+                    kind === 'REVERSE',
+                )
+                .map((a) => ({ value: a.code, label: a.code + ' · ' + a.name }))
+                .concat(
+                  kind === 'REVERSE'
+                    ? w.documents
+                        .filter(
+                          (d) =>
+                            d.state === 'POSTED' &&
+                            d.plan.asset === null &&
+                            !d.plan.master &&
+                            !w.assets.some((a) => a.code === d.code),
+                        )
+                        .slice(0, 1)
+                        .map((d) => ({ value: d.code, label: d.code }))
+                    : [],
+                ),
+            )}
+        {field('reference', 'Source reference')}
+        {(setup || newAsset) && field('name', 'Name')}
+        {kind === 'LOCATION' &&
+          field(
+            'branch',
+            'Branch',
+            w.dimensions.find((d) => d.code === 'BRANCH')?.options ?? [],
+          )}
+        {kind === 'CATEGORY' &&
+          field('group', 'Asset group', masterChoices(w, 'GROUP', fields.date))}
+        {newAsset &&
+          field(
+            'category',
+            'Asset category',
+            masterChoices(w, 'CATEGORY', fields.date),
+          )}
+        {(newAsset || kind === 'TRANSFER') &&
+          field(
+            'location',
+            'Location',
+            masterChoices(w, 'LOCATION', fields.date),
+          )}
+        {newAsset && field('serial', 'Serial number')}
+        {selected('CATEGORY', 'ESTIMATE') && (
+          <>
+            {field(
+              'method',
+              'Depreciation method',
+              options(['STRAIGHT_LINE', 'DECLINING', 'NONE']),
+            )}
+            {fields.method !== 'NONE' &&
+              field('life', 'Useful life in months', undefined, 'number')}
+            {fields.method === 'DECLINING' &&
+              field('rate', 'Annual depreciation rate (%)')}
+          </>
+        )}
+        {kind === 'CATEGORY' &&
+          field('model', 'Valuation model', options(['COST', 'REVALUATION']))}
+        {kind === 'ASSIGN' &&
+          field(
+            'custodian',
+            'Custodian',
+            w.staff.map((x) => ({ value: x.id, label: x.label })),
+          )}
+        {kind === 'VERIFY' &&
+          field(
+            'result',
+            'Verification outcome',
+            options(['FOUND', 'DAMAGED', 'MISSING']),
+          )}
+        {kind === 'MAINTENANCE_PLAN' &&
+          field('due', 'Maintenance due', undefined, 'date')}
+        {selected(
+          'MAINTENANCE_PLAN',
+          'MAINTENANCE_COMPLETE',
+          'VERIFY',
+          'DISPOSE',
+          'WRITE_OFF',
+          'LEASE_END',
+          'LEASE_EXEMPT',
+        ) && field('note', 'Findings or reason')}
+        {selected(
+          'ACQUIRE',
+          'OPENING',
+          'MAINTENANCE_COMPLETE',
+          'REVALUE',
+          'IMPAIR',
+          'RESTORE',
+          'DISPOSE',
+          'LEASE_PAYMENT',
+          'LEASE_END',
+          'LEASE_EXPENSE',
+        ) &&
+          field(
+            'amount',
+            (
+              {
+                ACQUIRE: 'Acquisition cost',
+                OPENING: 'Opening cost',
+                REVALUE: 'Fair value',
+                IMPAIR: 'Recoverable amount',
+                RESTORE: 'Recoverable amount',
+                DISPOSE: 'Disposal proceeds',
+                MAINTENANCE_COMPLETE: 'Posted maintenance cost',
+                LEASE_PAYMENT: 'Payment amount',
+                LEASE_END: 'Settlement fee',
+                LEASE_EXPENSE: 'Posted rental expense',
+              } as Record<string, string>
+            )[kind] +
+              ' (' +
+              w.currency +
+              ')',
+          )}
+        {selected('OPENING', 'CAPITALIZE', 'ESTIMATE', 'LEASE_START') &&
+          field('residual', 'Residual value')}
+        {kind === 'OPENING' && (
+          <>
+            {field('inService', 'Available for use since', undefined, 'date')}
+            {field('accumulated', 'Opening accumulated depreciation')}
+            {field('openingImpairment', 'Opening accumulated impairment')}
+            {field('openingReserve', 'Opening revaluation surplus')}
+            {field('openingLoss', 'Impairment previously charged to profit')}
+            {field('unimpairedValue', 'Unimpaired carrying amount')}
+            {field('payments', 'Remaining lease payments, if leased')}
+            {field(
+              'firstDue',
+              'First remaining rental date',
+              undefined,
+              'date',
+            )}
+            {field('annualRate', 'Opening lease discount rate (%)')}
+          </>
+        )}
+        {kind === 'LEASE_EXEMPT' && (
+          <>
+            {field(
+              'exemption',
+              'Approved exemption',
+              options(['SHORT_TERM', 'LOW_VALUE']),
+            )}
+            {field('leaseMonths', 'Lease term in months', undefined, 'number')}
+          </>
+        )}
+        {selected('LEASE_START', 'LEASE_REMEASURE') && (
+          <>
+            {field('leaseMonths', 'Lease term in months', undefined, 'number')}
+            {field(
+              'firstDue',
+              'First revised or contractual rental date',
+              undefined,
+              'date',
+            )}
+            {field('payment', 'Regular monthly payment')}
+            {field('payments', 'Variable monthly payments, in order')}
+            {field('annualRate', 'Annual nominal discount rate (%)')}
+            {field(
+              'life',
+              'Approved remaining ROU life in months',
+              undefined,
+              'number',
+            )}
+            {kind === 'LEASE_REMEASURE' &&
+              field(
+                'rescheduleArrears',
+                'Include unpaid rent in revised payments',
+                options(['NO', 'YES']),
+              )}
+            {kind === 'LEASE_START' &&
+              field('initialAdjustment', 'Net initial cost adjustment')}
+          </>
+        )}
+        {(sourceRequired ||
+          selected(
+            'MAINTENANCE_COMPLETE',
+            'DISPOSE',
+            'LEASE_START',
+            'LEASE_END',
+          )) && (
+          <AssetSourceField
+            scope={scope}
+            identity={identity}
+            today={w.today}
+            date={fields.date}
+            initial={w.sources}
+            value={source}
+            change={S}
+            side={
+              kind === 'DISPOSE' ||
+              (kind === 'LEASE_START' && Number(fields.initialAdjustment) < 0)
+                ? 'credit'
+                : 'debit'
+            }
+          />
+        )}
+        {kind === 'REVERSE' &&
+          field(
+            'original',
+            'Original posted transaction',
+            w.documents
+              .filter(
+                (d) =>
+                  d.code === fields.code &&
+                  d.state === 'POSTED' &&
+                  !d.plan.master &&
+                  d.kind !== 'REVERSE',
+              )
+              .map((d) => ({
+                value: d.id,
+                label: 'FA-' + d.sequence + ' · ' + operations[d.kind],
+              })),
+          )}
+        {(newAsset || kind === 'TRANSFER') &&
+          w.dimensions
+            .filter((d) => d.code !== 'BRANCH')
+            .map((d) => (
+              <Field
+                key={d.code}
+                label={d.label}
+                options={d.options}
+                value={dimensions[d.code] ?? ''}
+                change={(v) => setDims((x) => ({ ...x, [d.code]: v }))}
+              />
+            ))}
+      </div>
+      {kind === 'CATEGORY' && (
+        <fieldset className="grid gap-3 md:grid-cols-3">
+          <legend className="font-medium">Posting accounts</legend>
+          {Object.entries(requirements).map(([k, r]) => (
+            <Field
+              key={k}
+              label={r.title}
+              value={roles[k] ?? ''}
+              change={(v) => setRoles((x) => ({ ...x, [k]: v }))}
+              options={w.roles
+                .filter((x) => r.type.includes(x.accountType))
+                .map((x) => ({
+                  value: x.code,
+                  label: x.accountCode + ' · ' + x.code,
+                }))}
+            />
+          ))}
+        </fieldset>
+      )}
+      {kind === 'LEASE_PAYMENT' && current?.lease && (
+        <p>
+          Remaining lease liability {w.currency} {current.lease.liability}
+        </p>
+      )}
+      <DocumentField
+        w={{ documents: w.evidence }}
+        value={evidence}
+        change={E}
+      />
+      {error && <p role="alert">{error}</p>}
+      <Button type="submit" disabled={busy}>
+        Submit for independent review
+      </Button>
+    </form>
+  );
+}

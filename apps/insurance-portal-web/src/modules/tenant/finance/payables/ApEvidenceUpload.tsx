@@ -7,8 +7,10 @@ import { getApiErrorMessage } from '@/lib/api-error';
 export function ApEvidenceUpload({
   companyId,
   refresh,
+  documentType = 'ACCOUNTS_PAYABLE_EVIDENCE',
 }: {
   companyId: string;
+  documentType?: string;
   refresh: () => Promise<unknown>;
 }) {
   const [file, setFile] = useState<File>(),
@@ -17,7 +19,7 @@ export function ApEvidenceUpload({
     mutationFn: async (document: File) => {
       const session = await engagementApi.createUploadSession({
         title: document.name.slice(0, 180),
-        document_type: 'ACCOUNTS_PAYABLE_EVIDENCE',
+        document_type: documentType,
         classification: 'INTERNAL',
         resource_type: 'COMPANY',
         resource_id: companyId,
@@ -35,7 +37,9 @@ export function ApEvidenceUpload({
   return (
     <div className="flex flex-wrap items-end gap-3">
       <label>
-        Attach a new receipt or supporting document{' '}
+        {documentType === 'FIXED_ASSET_EVIDENCE'
+          ? 'Attach asset evidence'
+          : 'Attach a new receipt or supporting document'}{' '}
         <input
           type="file"
           key={version}

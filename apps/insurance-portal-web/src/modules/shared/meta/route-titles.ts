@@ -211,6 +211,7 @@ route(`${PE}/calculator`, 'Premium Calculator');
 route('/apps/finance/dashboard', 'Finance Dashboard');
 route('/apps/finance/foundation', 'Finance Foundation');
 route('/apps/finance/setup', 'Finance Setup');
+route('/apps/finance/fixed-assets', 'Fixed Assets');
 route('/apps/finance/receivables', 'Accounts Receivable');
 route('/apps/finance/payables', 'Accounts Payable and Expenses');
 route('/apps/finance/my-expenses', 'My Expenses and Imprests');

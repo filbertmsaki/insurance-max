@@ -367,6 +367,14 @@ export const NAV_NODES: NavNode[] = [
     children: [
       {
         kind: 'link',
+        label: 'Fixed assets',
+        to: '/apps/finance/fixed-assets',
+        icon: Receipt,
+        permission: 'finance-foundation:read',
+        allowedScopes: ['company'],
+      },
+      {
+        kind: 'link',
         label: 'Accounts receivable',
         to: '/apps/finance/receivables',
         icon: Receipt,

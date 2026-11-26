@@ -24,6 +24,8 @@ import { FinanceBookManagementService } from '../../src/modules/tenant/finance/f
 import { FinancePortalIdentityService } from '../../src/modules/tenant/finance/foundation/finance-setup/finance-portal-identity.service';
 import { FinanceFoundationController } from '../../src/modules/tenant/finance/foundation/finance-foundation.controller';
 import { TradePayablesController } from '../../src/modules/tenant/finance/payables/trade-payables/trade-payables.controller';
+import { FixedAssetsController } from '../../src/modules/tenant/finance/assets/fixed-assets/fixed-assets.controller';
+import { FixedAssetsService } from '../../src/modules/tenant/finance/assets/fixed-assets/fixed-assets.service';
 import { CustomerAccountsController } from '../../src/modules/tenant/finance/receivables/customer-accounts/customer-accounts.controller';
 import { CustomerAccountsService } from '../../src/modules/tenant/finance/receivables/customer-accounts/customer-accounts.service';
 import { TradePayablesService } from '../../src/modules/tenant/finance/payables/trade-payables/trade-payables.service';
@@ -131,6 +133,7 @@ async function startFinancePortal(db: DataSource) {
       FinanceFoundationController,
       TradePayablesController,
       CustomerAccountsController,
+      FixedAssetsController,
       FinanceController,
     ],
     providers: [
@@ -160,6 +163,8 @@ async function startFinancePortal(db: DataSource) {
       FinanceGlVoucherService,
       TradePayablesService,
       CustomerAccountsService,
+      FixedAssetsService,
+      { provide: 'FIN05_POSTING', useExisting: FixedAssetsService },
       { provide: 'FIN04_POSTING', useExisting: CustomerAccountsService },
       FinanceGlWorkflowsService,
       FinanceLedgerFoundationService,

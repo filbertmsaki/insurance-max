@@ -748,6 +748,7 @@ export class FinanceLedgerFoundationService {
             'Candidate account roles or debit/credit sides differ from the independently approved component posting rule.',
           );
         let customerDocument: string | undefined;
+        let assetDocument: string | undefined;
         if (p.economicOrigin === 'FIN02_GL' || source.kind === 'BOOK_VOUCHER') {
           if (
             p.economicOrigin !== 'FIN02_GL' ||
@@ -786,6 +787,7 @@ export class FinanceLedgerFoundationService {
           );
           if (!previous) await verifyGlPosting(c.manager, v);
           customerDocument = v.snapshot.arDocumentId;
+          assetDocument = v.snapshot.assetDocumentId;
         }
         let nativeType: string | undefined;
         if (source.kind === 'OPERATING_DOCUMENT') {
@@ -1188,7 +1190,7 @@ export class FinanceLedgerFoundationService {
             subjectHash,
           ],
         );
-        if (customerDocument && input.mode === 'LIVE') {
+        if ((assetDocument || customerDocument) && input.mode === 'LIVE') {
           const receiver = this.modules?.get<{
             posted(
               m: EntityManager,
@@ -1197,15 +1199,15 @@ export class FinanceLedgerFoundationService {
               candidate: string,
               journal: string,
             ): Promise<void>;
-          }>('FIN04_POSTING', { strict: false });
+          }>(assetDocument ? 'FIN05_POSTING' : 'FIN04_POSTING', { strict: false });
           if (!receiver)
             foundationFail(
-              'The customer accounting posting handler is unavailable.',
+              'The source accounting posting handler is unavailable.',
             );
           await receiver.posted(
             c.manager,
             c.ids[2],
-            customerDocument,
+            (assetDocument ?? customerDocument)!,
             candidate.id,
             journal.id,
           );

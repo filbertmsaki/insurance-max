@@ -10,6 +10,7 @@ import { ReinsuranceRecoveryService } from '../../src/modules/tenant/reinsurance
 import { FinanceJournalService } from '../../src/modules/tenant/finance/accounting/journal-entries/finance-journal.service';
 import { FinanceGlWorkflowsService } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-gl-workflows.service';
 import { exerciseGeneralLedger } from '../support/finance-general-ledger-workflow';
+import { exerciseFixedAssets } from '../support/finance-fixed-assets-workflow';
 import { exerciseCustomerAccounts } from '../support/finance-customer-accounts-workflow';
 import { exerciseTradePayables } from '../support/finance-trade-payables-workflow';
 import { exerciseInsurerPremium } from '../support/finance-insurer-premium-workflow';
@@ -22,9 +23,26 @@ import {
 } from '../../src/modules/tenant/finance/accounting/general-ledger/finance-ledger-foundation.types';
 
 describe('FIN-01 first company through first live journals', () => {
-  it.each(['BROKER', 'INSURER'])(
-    '%s prepares and independently approves the primary book, issues the first invoice, records its receipt and posts each exactly once',
-    async (profile) => {
+  const cases = ['BROKER', 'INSURER'].flatMap((profile) => [
+    {
+      profile,
+      assetsOnly: false,
+      scenario:
+        profile +
+        ' prepares and independently approves the primary book, issues the first invoice, records its receipt and posts each exactly once',
+    },
+    {
+      profile,
+      assetsOnly: true,
+      scenario:
+        'FIN-05 ' +
+        profile +
+        ' operates the asset register and posts balanced lifecycle journals exactly once',
+    },
+  ]);
+  it.each(cases)(
+    '$scenario',
+    async ({ profile, assetsOnly }) => {
       const insurer = profile === 'INSURER',
         basis = insurer ? 'IFRS' : 'STATUTORY';
       await withNewCompany(
@@ -302,6 +320,22 @@ describe('FIN-01 first company through first live journals', () => {
             ['112009', 'Deposits in transit', 'ASSET'],
             ['121002', 'Computer Equipment', 'ASSET'],
             ['211001', 'Trade Payables', 'LIABILITY'],
+            ...(assetsOnly
+              ? [
+                  ['121010', 'Asset cost', 'ASSET'],
+                  ['119010', 'Asset clearing', 'ASSET'],
+                  ['129010', 'Accumulated depreciation', 'ASSET'],
+                  ['611010', 'Depreciation expense', 'EXPENSE'],
+                  ['129011', 'Accumulated impairment', 'ASSET'],
+                  ['611011', 'Asset loss', 'EXPENSE'],
+                  ['412010', 'Asset gain', 'INCOME'],
+                  ['313001', 'Asset revaluation surplus', 'EQUITY'],
+                  ['312001', 'Retained earnings', 'EQUITY'],
+                  ['222010', 'Lease liability', 'LIABILITY'],
+                  ['611012', 'Lease interest', 'EXPENSE'],
+                  ['211010', 'Asset purchase offset', 'LIABILITY'],
+                ]
+              : []),
             ...(insurer
               ? [
                   ['221001', 'Insurance contract liabilities', 'LIABILITY'],
@@ -323,6 +357,22 @@ describe('FIN-01 first company through first live journals', () => {
             'TRANSIT',
             'COMPUTERS',
             'TRADE_AP',
+            ...(assetsOnly
+              ? [
+                  'FA_COST',
+                  'FA_CLEAR',
+                  'FA_ACC',
+                  'FA_EXP',
+                  'FA_IMPAIR',
+                  'FA_LOSS',
+                  'FA_GAIN',
+                  'FA_SURPLUS',
+                  'FA_RETAINED',
+                  'FA_LEASE',
+                  'FA_INTEREST',
+                  'FA_OFFSET',
+                ]
+              : []),
             ...(insurer ? ['LRC', 'INSURANCE_REVENUE'] : []),
           ];
           const chart = await config('ACCOUNT_ROLES', {
@@ -333,7 +383,11 @@ describe('FIN-01 first company through first live journals', () => {
               code,
               name,
               type,
-              normalBalance: ['ASSET', 'EXPENSE'].includes(type) ? 'DR' : 'CR',
+              normalBalance: ['129010', '129011'].includes(code)
+                ? 'CR'
+                : ['ASSET', 'EXPENSE'].includes(type)
+                  ? 'DR'
+                  : 'CR',
               posting: true,
               control: false,
               parentCode: null,
@@ -885,15 +939,21 @@ describe('FIN-01 first company through first live journals', () => {
             balances: accounts.map(([accountCode]) => ({
               accountCode,
               signedBalance:
-                insurer && accountCode === '1200'
-                  ? '150000'
-                  : insurer && accountCode === '113900'
-                    ? '-150000'
-                    : insurer && accountCode === '121002'
-                      ? '6000'
-                      : insurer && accountCode === '211001'
-                        ? '-6000'
-                        : '0',
+                insurer && accountCode === '121010'
+                  ? '1000'
+                  : insurer && accountCode === '129010'
+                    ? '-200'
+                    : insurer && accountCode === '211010'
+                      ? '-800'
+                      : insurer && accountCode === '1200'
+                        ? '150000'
+                        : insurer && accountCode === '113900'
+                          ? '-150000'
+                          : insurer && accountCode === '121002'
+                            ? '6000'
+                            : insurer && accountCode === '211001'
+                              ? '-6000'
+                              : '0',
             })),
             sourceReference: reason,
             sourceEvidenceHash: evidenceHash,
@@ -1212,6 +1272,43 @@ describe('FIN-01 first company through first live journals', () => {
               }),
             ).rejects.toThrow('matching effective source record');
           }
+          if (assetsOnly) {
+            const readiness = (await call(checker, 'foundation/gl?' + query))
+              .readiness;
+            expect(readiness.blockers).toEqual([]);
+            await post(checker, 'foundation/gl/deployments', {
+              input: {
+                action: 'ENABLE',
+                releaseId: readiness.releaseId,
+                previousSequence: null,
+                evidence: document,
+                excludedSources: Object.fromEntries(
+                  readiness.missingNative.map((k: string) => [
+                    k,
+                    'Outside this acceptance company?s approved products.',
+                  ]),
+                ),
+              },
+            });
+            await exerciseFixedAssets({
+              call,
+              post,
+              maker,
+              checker,
+              deputy,
+              scope,
+              company,
+              today,
+              since,
+              document,
+              db,
+              branch: branches[0].id,
+              otherBranch: branches[1].id,
+              department: itDepartment.id,
+              insurer,
+            });
+            return;
+          }
           await exerciseGeneralLedger({
             since,
             monthStart,
@@ -1327,6 +1424,6 @@ describe('FIN-01 first company through first live journals', () => {
         insurer,
       );
     },
-    480000,
+    720000,
   );
 });

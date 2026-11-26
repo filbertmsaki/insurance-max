@@ -273,7 +273,7 @@ export class FinanceGlVoucherService {
       if (kind !== 'MANUAL' || !FINANCE_UUID.test(v.replacementOf))
         invalid('Select a reversed manual voucher for replacement.');
       const [rev] = await m.query(
-        "SELECT j.id FROM finance_foundation_journals j JOIN finance_foundation_journals r ON r.reversal_of=j.id AND r.mode='LIVE' JOIN finance_operating_postings p ON p.candidate_id=j.candidate_id WHERE j.id=$1 AND j.book_id=$2 AND p.snapshot->>'component'='MANUAL' AND NOT (p.snapshot ?| array['apDocumentId','arDocumentId'])",
+        "SELECT j.id FROM finance_foundation_journals j JOIN finance_foundation_journals r ON r.reversal_of=j.id AND r.mode='LIVE' JOIN finance_operating_postings p ON p.candidate_id=j.candidate_id WHERE j.id=$1 AND j.book_id=$2 AND p.snapshot->>'component'='MANUAL' AND NOT (p.snapshot ?| array['apDocumentId','arDocumentId','assetDocumentId'])",
         [v.replacementOf, b.book_id],
       );
       if (!rev)
@@ -357,6 +357,8 @@ export class FinanceGlVoucherService {
       manager: EntityManager;
       originalApId?: string;
       originalArId?: string;
+      originalAssetId?: string;
+      assetDocumentId?: string;
       arDocumentId?: string;
     },
   ) {
@@ -377,6 +379,8 @@ export class FinanceGlVoucherService {
             'Select a posted original voucher in this book.',
           );
         const orig = await originalPosting(m, b, 'GL_VOUCHER', row.source_id);
+        if (orig.snapshot.assetDocumentId && orig.snapshot.assetDocumentId !== ap?.originalAssetId)
+          throw new ConflictException('Reverse the originating document in Fixed Assets.');
         if (
           orig.snapshot.arDocumentId &&
           orig.snapshot.arDocumentId !== ap?.originalArId
@@ -444,6 +448,7 @@ export class FinanceGlVoucherService {
           description: v.description,
           snapshot: {
             ...orig.snapshot,
+            ...(ap?.assetDocumentId ? { assetDocumentId: ap.assetDocumentId } : {}),
             ...(ap?.arDocumentId ? { arDocumentId: ap.arDocumentId } : {}),
             adjustmentPeriodId: v.adjustmentPeriodId ?? null,
             adjustmentPeriodCode: null,

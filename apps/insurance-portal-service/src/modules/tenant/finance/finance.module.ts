@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { FixedAssetsController } from './assets/fixed-assets/fixed-assets.controller';
+import { FixedAssetsService } from './assets/fixed-assets/fixed-assets.service';
 import { FinanceAccountingModule } from './accounting/finance-accounting.module';
 import { FinanceIndependentAccessModule } from './accounting/general-ledger/independent-access/finance-independent-access.module';
 import { FinanceFoundationController } from './foundation/finance-foundation.controller';
@@ -46,11 +48,14 @@ import { FinanceReconciliationModule } from './reconciliation/finance-reconcilia
     FinanceFoundationController,
     TradePayablesController,
     CustomerAccountsController,
+    FixedAssetsController,
   ],
   providers: [
     TradePayablesService,
     CustomerAccountsService,
     CustomerReminderWorker,
+    FixedAssetsService,
+    { provide: 'FIN05_POSTING', useExisting: FixedAssetsService },
     { provide: 'FIN04_POSTING', useExisting: CustomerAccountsService },
   ],
   exports: [
